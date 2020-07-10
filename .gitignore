@@ -1,0 +1,8 @@
+bin
+temp
+cmd/test
+/plugins/
+/vendor/
+
+testfile
+.neofs-cli.yml
