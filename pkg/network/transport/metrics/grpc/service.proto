@@ -1,0 +1,10 @@
+syntax = "proto3";
+package metrics;
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/network/transport/grpc/metrics";
+
+service Metrics {
+    rpc ResetSpaceCounter(ResetSpaceRequest) returns (ResetSpaceResponse);
+}
+
+message ResetSpaceRequest {}
+message ResetSpaceResponse {}

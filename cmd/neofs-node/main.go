@@ -12,14 +12,14 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/service"
 	state2 "github.com/nspcc-dev/neofs-api-go/state"
 	crypto "github.com/nspcc-dev/neofs-crypto"
-	"github.com/nspcc-dev/neofs-node/lib/fix"
-	"github.com/nspcc-dev/neofs-node/lib/fix/config"
-	"github.com/nspcc-dev/neofs-node/lib/fix/web"
-	"github.com/nspcc-dev/neofs-node/lib/fix/worker"
-	"github.com/nspcc-dev/neofs-node/lib/muxer"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/modules/fix"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/modules/fix/config"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/modules/fix/worker"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/modules/node"
 	"github.com/nspcc-dev/neofs-node/misc"
-	"github.com/nspcc-dev/neofs-node/modules/node"
-	"github.com/nspcc-dev/neofs-node/services/public/state"
+	"github.com/nspcc-dev/neofs-node/pkg/network/muxer"
+	statesrv "github.com/nspcc-dev/neofs-node/pkg/network/transport/state/grpc"
+	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/dig"
@@ -30,9 +30,9 @@ import (
 type params struct {
 	dig.In
 
-	Debug  web.Profiler   `optional:"true"`
-	Metric web.Metrics    `optional:"true"`
-	Worker worker.Workers `optional:"true"`
+	Debug  profiler.Profiler `optional:"true"`
+	Metric profiler.Metrics  `optional:"true"`
+	Worker worker.Workers    `optional:"true"`
 	Muxer  muxer.Mux
 	Logger *zap.Logger
 }
@@ -105,7 +105,7 @@ func runHealthCheck() {
 		grpc.WithInsecure())
 	check(err)
 
-	req := new(state.HealthRequest)
+	req := new(statesrv.HealthRequest)
 	req.SetTTL(service.NonForwardingTTL)
 	if err := service.SignRequestData(key, req); err != nil {
 		check(err)

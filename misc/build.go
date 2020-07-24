@@ -1,12 +1,21 @@
 package misc
 
 const (
-	// NodeName is an application name.
+	// NodeName is a neofs node application name.
 	NodeName = "neofs-node"
 
-	// Prefix is an application prefix.
+	// Prefix is a neofs node application prefix.
 	Prefix = "neofs"
 
+	// InnerRingName is an inner ring application name.
+	InnerRingName = "neofs-ir"
+
+	// InnerRingPrefix is an inner ring application prefix.
+	InnerRingPrefix = "neofs_ir"
+)
+
+// These variables are changed in compile time.
+var (
 	// Build is an application build time.
 	Build = "now"
 

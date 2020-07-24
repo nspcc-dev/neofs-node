@@ -11,16 +11,15 @@ BIN = bin
 DIRS= $(BIN)
 
 # List of binaries to build. May be automated.
-CMDS = neofs-node
+CMDS = neofs-node neofs-ir
 CMS = $(addprefix $(BIN)/, $(CMDS))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
 .PHONY: help dep clean fmt
 
-# To build a specific binary, use it's name prfixed with bin/ as a target
-# For example `make bin/neofs-node` will buils only Storage node binary
-# Just `make` will
-# Build all possible binaries
+# To build a specific binary, use it's name prefix with bin/ as a target
+# For example `make bin/neofs-node` will build only storage node binary
+# Just `make` will build all possible binaries
 all: $(DIRS) $(BINS)
 
 $(BINS): $(DIRS) dep
@@ -41,7 +40,7 @@ dep:
 	@go mod tidy -v && echo OK || (echo fail && exit 2)
 	@printf "⇒ Download requirements: "
 	@go mod download && echo OK || (echo fail && exit 2)
-	@printf "⇒ Store vendor localy: "
+	@printf "⇒ Store vendor locally: "
 	@go mod vendor && echo OK || (echo fail && exit 2)
 
 # Regenerate proto files:
@@ -60,17 +59,26 @@ protoc:
 			--gofast_out=plugins=grpc,paths=source_relative:. $$f; \
 	done
 
-# Build NeoFS Sorage Node docker image
+# Build NeoFS Storage Node docker image
 image-storage:
-	@echo "⇒ Build NeoFS Sorage Node docker image "
+	@echo "⇒ Build NeoFS Storage Node docker image "
 	@docker build \
 		--build-arg REPO=$(REPO) \
 		--build-arg VERSION=$(VERSION) \
 		-f Dockerfile \
 		-t $(HUB_IMAGE)-storage:$(HUB_TAG) .
 
+# Build NeoFS Storage Node docker image
+image-ir:
+	@echo "⇒ Build NeoFS Inner Ring docker image "
+	@docker build \
+		--build-arg REPO=$(REPO) \
+		--build-arg VERSION=$(VERSION) \
+		-f Dockerfile.ir \
+		-t $(HUB_IMAGE)-ir:$(HUB_TAG) .
+
 # Build all Docker images
-images: image-storage
+images: image-storage image-ir
 
 # Reformat code
 fmt:

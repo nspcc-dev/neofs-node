@@ -4,8 +4,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
-	"github.com/nspcc-dev/neofs-node/lib/core"
-	"github.com/nspcc-dev/neofs-node/modules/morph"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/modules/morph"
 	"github.com/spf13/viper"
 )
 
@@ -63,23 +62,6 @@ func setDefaults(v *viper.Viper) {
 			//      or add into default Dockerfile `NEOFS_NODE_RPC_OWNERS_0=`
 			"031a6c6fbbdf02ca351745fa86b9ba5a9452d785ac4f7fc2b7548ca2a46c4fcf4a",
 		})
-	}
-
-	// Storage section
-	{
-		storageTypes := []string{
-			core.BlobStore.String(),
-			core.MetaStore.String(),
-			core.SpaceMetricsStore.String(),
-		}
-
-		for i := range storageTypes {
-			v.SetDefault("storage."+storageTypes[i]+".bucket", "boltdb")
-			v.SetDefault("storage."+storageTypes[i]+".path", "./temp/storage/"+storageTypes[i])
-			v.SetDefault("storage."+storageTypes[i]+".perm", 0777)
-			// v.SetDefault("storage."+storageTypes[i]+".no_grow_sync", false)
-			// v.SetDefault("storage."+storageTypes[i]+".lock_timeout", "30s")
-		}
 	}
 
 	// Object section
@@ -270,20 +252,6 @@ func setDefaults(v *viper.Viper) {
 			// List method name
 			v.SetDefault(
 				morph.ContainerContractListOptPath(),
-				"List",
-			)
-		}
-
-		{ // Reputation
-			// Put method name
-			v.SetDefault(
-				morph.ReputationContractPutOptPath(),
-				"Put",
-			)
-
-			// List method name
-			v.SetDefault(
-				morph.ReputationContractListOptPath(),
 				"List",
 			)
 		}

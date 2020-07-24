@@ -1,14 +1,13 @@
-FROM golang:1.14-alpine as builder
+FROM golang:1.14-alpine as basebuilder
+RUN apk add --update make bash
 
+FROM basebuilder as builder
 ARG BUILD=now
 ARG VERSION=dev
 ARG REPO=repository
-
 WORKDIR /src
-
 COPY . /src
 
-RUN apk add --update make bash
 RUN make bin/neofs-node
 
 # Executable image

@@ -4,8 +4,6 @@ go 1.14
 
 require (
 	bou.ke/monkey v1.0.2
-	github.com/cenk/backoff v2.2.1+incompatible // indirect
-	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
 	github.com/fasthttp/router v1.0.2
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
@@ -17,15 +15,13 @@ require (
 	github.com/multiformats/go-multiaddr-net v0.1.2 // v0.1.1 => v0.1.2
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/nspcc-dev/hrw v1.0.9
-	github.com/nspcc-dev/neo-go v0.90.0-pre.0.20200708064050-cf1e5243b90b
-	github.com/nspcc-dev/neofs-api-go v1.2.0
+	github.com/nspcc-dev/neo-go v0.90.0
+	github.com/nspcc-dev/neofs-api-go v1.3.0
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/netmap v1.7.0
 	github.com/panjf2000/ants/v2 v2.3.0
-	github.com/peterbourgon/g2s v0.0.0-20170223122336-d4e7ad98afea // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
-	github.com/rubyist/circuitbreaker v2.2.1+incompatible
 	github.com/soheilhy/cmux v0.1.4
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
