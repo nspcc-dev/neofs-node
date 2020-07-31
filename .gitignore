@@ -7,3 +7,5 @@ cmd/test
 
 testfile
 .neofs-cli.yml
+
+.cache
