@@ -1,4 +1,98 @@
-# Contributing
+# Contribution guide
+
+First, thank you for contributing! We love and encourage pull requests from
+everyone. Please follow the guidelines:
+
+- Check the open [issues](https://github.com/nspcc-dev/neofs-node/issues) and
+  [pull requests](https://github.com/nspcc-dev/neofs-node/pulls) for existing
+  discussions.
+
+- Open an issue first, to discuss a new feature or enhancement.
+
+- Write tests, and make sure the test suite passes locally and on CI.
+
+- Open a pull request, and reference the relevant issue(s).
+
+- Make sure your commits are logically separated and have good comments
+  explaining the details of your change.
+
+- After receiving feedback, amend your commits or add new ones as
+  appropriate.
+
+- **Have fun!**
+
+## Development Workflow
+
+Start by forking the `neofs-node` repository, make changes in a branch and then
+send a pull request. We encourage pull requests to discuss code changes. Here
+are the steps in details:
+
+### Setup your GitHub Repository
+Fork [NeoFS node upstream](https://github.com/nspcc-dev/neofs-node/fork) source
+repository to your own personal repository. Copy the URL of your fork (you will
+need it for the `git clone` command below).
+
+```sh
+$ git clone https://github.com/nspcc-dev/neofs-node
+```
+
+### Set up git remote as ``upstream``
+```sh
+$ cd neofs-node
+$ git remote add upstream https://github.com/nspcc-dev/neofs-node
+$ git fetch upstream
+$ git merge upstream/master
+...
+```
+
+### Create your feature branch
+Before making code changes, make sure you create a separate branch for these
+changes. Maybe you will find it convenient to name branch in
+`<type>/<Issue>-<changes_topic>` format.
+
+```
+$ git checkout -b feature/123-something_awesome
+```
+
+### Test your changes
+After your code changes, make sure
+
+- To add test cases for the new code.
+- To run `make lint`
+- To squash your commits into a single commit or a series of logically separated
+  commits run `git rebase -i`. It's okay to force update your pull request.
+- To run `make test` and `make all` completes.
+
+### Commit changes
+After verification, commit your changes. This is a [great
+post](https://chris.beams.io/posts/git-commit/) on how to write useful commit
+messages. Try following this template:
+
+```
+[#Issue] <component> Summary
+
+Description
+
+<Macros>
+
+<Sign-Off>
+```
+
+```
+$ git commit -am '[#123] Add some feature'
+```
+
+### Push to the branch
+Push your locally committed changes to the remote origin (your fork)
+```
+$ git push origin feature/123-something_awesome
+```
+
+### Create a Pull Request
+Pull requests can be created via GitHub. Refer to [this
+document](https://help.github.com/articles/creating-a-pull-request/) for
+detailed steps on how to create a pull request. After a Pull Request gets peer
+reviewed and approved, it will be merged.
 
 ## DCO Sign off
 
