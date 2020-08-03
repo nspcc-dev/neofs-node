@@ -66,24 +66,14 @@ protoc:
 	rm -rf vendor
 
 # Build NeoFS Storage Node docker image
-image-storage:
-	@echo "⇒ Build NeoFS Storage Node docker image "
+image-%:
+	@echo "⇒ Build NeoFS $* docker image "
 	@docker build \
 		--build-arg REPO=$(REPO) \
 		--build-arg VERSION=$(VERSION) \
 		--rm \
-		-f Dockerfile \
-		-t $(HUB_IMAGE)-storage:$(HUB_TAG) .
-
-# Build NeoFS Storage Node docker image
-image-ir:
-	@echo "⇒ Build NeoFS Inner Ring docker image "
-	@docker build \
-		--build-arg REPO=$(REPO) \
-		--build-arg VERSION=$(VERSION) \
-		--rm \
-		-f Dockerfile.ir \
-		-t $(HUB_IMAGE)-ir:$(HUB_TAG) .
+		-f Dockerfile.$* \
+		-t $(HUB_IMAGE)-$*:$(HUB_TAG) .
 
 # Build all Docker images
 images: image-storage image-ir
