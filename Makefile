@@ -2,7 +2,9 @@
 SHELL = bash
 
 REPO ?= $(shell go list -m)
-VERSION ?= "$(shell git describe --tags --dirty --always)"
+VERSION ?= $(shell git describe --tags --dirty --always)
+BUILD ?= $(shell date -u --iso=seconds)
+DEBUG ?= false
 
 HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
@@ -10,8 +12,8 @@ HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 BIN = bin
 DIRS= $(BIN)
 
-# List of binaries to build. May be automated.
-CMDS = neofs-node neofs-ir
+# List of binaries to build.
+CMDS = $(notdir $(basename $(wildcard cmd/*)))
 CMS = $(addprefix $(BIN)/, $(CMDS))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
@@ -27,7 +29,9 @@ $(BINS): $(DIRS) dep
 	CGO_ENABLED=0 \
 	GO111MODULE=on \
 	go build -v -trimpath \
-	-ldflags "-X ${REPO}/misc.Version=$(VERSION) -X ${REPO}/misc.Build=${BUILD}" \
+	-ldflags "-X $(REPO)/misc.Version=$(VERSION) \
+	-X $(REPO)/misc.Build=$(BUILD) \
+	-X $(REPO)/misc.Debug=$(DEBUG)" \
 	-o $@ ./cmd/$(notdir $@)
 
 $(DIRS):
@@ -76,7 +80,7 @@ image-%:
 		-t $(HUB_IMAGE)-$*:$(HUB_TAG) .
 
 # Build all Docker images
-images: image-storage image-ir
+images: image-storage image-ir image-cli
 
 # Run all code formaters
 fmts: fmt imports

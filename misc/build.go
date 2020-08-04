@@ -23,5 +23,6 @@ var (
 	Version = "dev"
 
 	// Debug is an application debug mode flag.
-	Debug = "true"
+	Debug = "false"
 )
+
