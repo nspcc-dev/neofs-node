@@ -1,0 +1,21 @@
+FROM golang:1.14-alpine as basebuilder
+RUN apk add --update make bash
+
+FROM basebuilder as builder
+ARG BUILD=now
+ARG VERSION=dev
+ARG REPO=repository
+WORKDIR /src
+COPY . /src
+
+RUN make bin/neofs-cli
+
+# Executable image
+FROM scratch AS neofs-cli
+
+WORKDIR /
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /src/bin/neofs-cli /bin/neofs-cli
+
+CMD ["neofs-cli"]
