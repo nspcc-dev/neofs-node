@@ -9,6 +9,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
@@ -158,7 +159,22 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	// todo: create container processor
+	// container processor
+	containerProcessor, err := container.New(&container.Params{
+		Log:               log,
+		PoolSize:          cfg.GetInt("workers.container"),
+		ContainerContract: contracts.container,
+		MorphClient:       server.morphClient,
+		ActiveState:       server,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = bindMorphProcessor(containerProcessor, server)
+	if err != nil {
+		return nil, err
+	}
 
 	// create balance processor
 	balanceProcessor, err := balance.New(&balance.Params{
@@ -253,6 +269,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	neofsContractStr := cfg.GetString("contracts.neofs")
 	balanceContractStr := cfg.GetString("contracts.balance")
 	nativeGasContractStr := cfg.GetString("contracts.gas")
+	containerContractStr := cfg.GetString("contracts.container")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
@@ -272,6 +289,11 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.gas, err = util.Uint160DecodeStringLE(nativeGasContractStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't read native gas script-hash")
+	}
+
+	result.container, err = util.Uint160DecodeStringLE(containerContractStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir: can't read container script-hash")
 	}
 
 	return result, nil
