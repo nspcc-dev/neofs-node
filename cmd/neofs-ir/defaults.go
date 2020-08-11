@@ -63,6 +63,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.netmap", "")
 	cfg.SetDefault("contracts.neofs", "")
 	cfg.SetDefault("contracts.balance", "")
+	cfg.SetDefault("contracts.container", "")
 	// gas native contract in LE
 	cfg.SetDefault("contracts.gas", "668e0c1f9d7b70a99dd9e06eadd4c784d641afbc")
 
@@ -71,4 +72,5 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("workers.netmap", "10")
 	cfg.SetDefault("workers.balance", "10")
 	cfg.SetDefault("workers.neofs", "10")
+	cfg.SetDefault("workers.container", "10")
 }
