@@ -2,6 +2,7 @@ package grace
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,8 +19,12 @@ func NewGracefulContext(l *zap.Logger) context.Context {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		sig := <-ch
-		l.Info("received signal",
-			zap.String("signal", sig.String()))
+		if l != nil {
+			l.Info("received signal",
+				zap.String("signal", sig.String()))
+		} else {
+			fmt.Printf("received signal %s\n", sig)
+		}
 		cancel()
 	}()
 
