@@ -16,9 +16,10 @@ require (
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.90.0
-	github.com/nspcc-dev/neofs-api-go v1.3.0
+	github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200820112910-89e79ebe72b0
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/netmap v1.7.0
+	github.com/nspcc-dev/tzhash v1.4.0 // indirect
 	github.com/panjf2000/ants/v2 v2.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
@@ -26,7 +27,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/valyala/fasthttp v1.9.0
 	go.etcd.io/bbolt v1.3.4
 	go.uber.org/atomic v1.5.1
@@ -41,4 +42,4 @@ require (
 )
 
 // Used for debug reasons
-// replace github.com/nspcc-dev/neofs-api-go => ../neofs-api-go
+replace github.com/nspcc-dev/neofs-api-go => ../neofs-api-go
