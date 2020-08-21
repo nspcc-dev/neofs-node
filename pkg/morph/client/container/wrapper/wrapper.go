@@ -1,7 +1,6 @@
 package wrapper
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/container/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 )
 
@@ -12,10 +11,8 @@ import (
 type Client = container.Client
 
 // CID represents the container identifier.
-//
-// CID is a type alias of
-// github.com/nspcc-dev/neofs-node/pkg/core/container/storage.CID.
-type CID = storage.CID
+// FIXME: correct the definition.
+type CID struct{}
 
 // Wrapper is a wrapper over container contract
 // client which implements container storage and
