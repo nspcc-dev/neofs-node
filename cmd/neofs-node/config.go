@@ -5,7 +5,10 @@ import (
 	"crypto/ecdsa"
 	"sync"
 
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"google.golang.org/grpc"
 )
 
 type cfg struct {
@@ -16,6 +19,14 @@ type cfg struct {
 	grpcAddr string
 
 	key *ecdsa.PrivateKey
+
+	grpcSrv *grpc.Server
+
+	morphEndpoint string
+
+	morphClient *client.Client
+
+	cfgAccounting *cfgAccounting
 }
 
 func defaultCfg() *cfg {
@@ -23,9 +34,14 @@ func defaultCfg() *cfg {
 	fatalOnErr(err)
 
 	return &cfg{
-		ctx:      context.Background(),
-		wg:       new(sync.WaitGroup),
-		grpcAddr: "127.0.0.1:50501",
-		key:      key,
+		ctx:           context.Background(),
+		wg:            new(sync.WaitGroup),
+		grpcAddr:      "127.0.0.1:50501",
+		key:           key,
+		morphEndpoint: "http://morph_chain.localtest.nspcc.ru:30333/",
+		cfgAccounting: &cfgAccounting{
+			scriptHash: "1aeefe1d0dfade49740fff779c02cd4a0538ffb1",
+			fee:        util.Fixed8(1),
+		},
 	}
 }
