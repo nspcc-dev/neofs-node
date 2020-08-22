@@ -15,9 +15,11 @@ func fatalOnErr(err error) {
 func main() {
 	c := defaultCfg()
 
-	fatalOnErr(serveGRPC(c))
+	c.ctx = grace.NewGracefulContext(nil)
 
-	ctx := grace.NewGracefulContext(nil)
+	serveGRPC(c)
 
-	<-ctx.Done()
+	<-c.ctx.Done()
+
+	c.wg.Wait()
 }
