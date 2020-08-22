@@ -6,18 +6,15 @@ import (
 	"net"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
-	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container"
 	container "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object"
 	object "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	containerTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	objectTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	sessionTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
-	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
@@ -98,25 +95,13 @@ func serveGRPC(c *cfg) {
 	lis, err := net.Listen("tcp", c.grpcAddr)
 	fatalOnErr(err)
 
-	srv := grpc.NewServer()
+	c.grpcSrv = grpc.NewServer()
 
-	metaHdr := new(session.ResponseMetaHeader)
-	xHdr := new(session.XHeader)
-	xHdr.SetKey("test X-Header key")
-	xHdr.SetValue("test X-Header value")
-	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
+	initAccountingService(c)
 
-	accountingGRPC.RegisterAccountingServiceServer(srv,
-		accountingTransportGRPC.New(
-			accountingService.NewSignService(
-				c.key,
-				accountingService.NewExecutionService(new(accountingSvcExec), metaHdr),
-			),
-		),
-	)
-	container.RegisterContainerServiceServer(srv, containerTransport.New(new(containerSvc)))
-	sessionGRPC.RegisterSessionServiceServer(srv, sessionTransport.New(new(sessionSvc)))
-	object.RegisterObjectServiceServer(srv, objectTransport.New(new(objectSvc)))
+	container.RegisterContainerServiceServer(c.grpcSrv, containerTransport.New(new(containerSvc)))
+	sessionGRPC.RegisterSessionServiceServer(c.grpcSrv, sessionTransport.New(new(sessionSvc)))
+	object.RegisterObjectServiceServer(c.grpcSrv, objectTransport.New(new(objectSvc)))
 
 	go func() {
 		c.wg.Add(1)
@@ -124,7 +109,7 @@ func serveGRPC(c *cfg) {
 			c.wg.Done()
 		}()
 
-		if err := srv.Serve(lis); err != nil {
+		if err := c.grpcSrv.Serve(lis); err != nil {
 			fmt.Println("gRPC server error", err)
 		}
 	}()
@@ -139,6 +124,6 @@ func serveGRPC(c *cfg) {
 
 		<-c.ctx.Done()
 
-		srv.GracefulStop()
+		c.grpcSrv.GracefulStop()
 	}()
 }
