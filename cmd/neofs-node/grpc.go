@@ -11,8 +11,8 @@ import (
 	container "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object"
 	object "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session"
-	session "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	containerTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	objectTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type accountingSvc struct{}
+type accountingSvcExec struct{}
 
 type sessionSvc struct{}
 
@@ -34,11 +34,11 @@ func unimplementedErr(srv, call string) error {
 	return errors.Errorf("unimplemented API service call %s.%s", srv, call)
 }
 
-func (s *accountingSvc) Balance(context.Context, *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
-	return new(accounting.BalanceResponse), nil
+func (s *accountingSvcExec) Balance(context.Context, *accounting.BalanceRequestBody) (*accounting.BalanceResponseBody, error) {
+	return new(accounting.BalanceResponseBody), nil
 }
 
-func (s *sessionSvc) Create(context.Context, *sessionGRPC.CreateRequest) (*sessionGRPC.CreateResponse, error) {
+func (s *sessionSvc) Create(context.Context, *session.CreateRequest) (*session.CreateResponse, error) {
 	return nil, unimplementedErr("Session", "Create")
 }
 
@@ -100,11 +100,22 @@ func serveGRPC(c *cfg) {
 
 	srv := grpc.NewServer()
 
+	metaHdr := new(session.ResponseMetaHeader)
+	xHdr := new(session.XHeader)
+	xHdr.SetKey("test X-Header key")
+	xHdr.SetValue("test X-Header value")
+	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
+
 	accountingGRPC.RegisterAccountingServiceServer(srv,
-		accountingTransportGRPC.New(accountingService.NewSignService(c.key, new(accountingSvc))),
+		accountingTransportGRPC.New(
+			accountingService.NewSignService(
+				c.key,
+				accountingService.NewExecutionService(new(accountingSvcExec), metaHdr),
+			),
+		),
 	)
 	container.RegisterContainerServiceServer(srv, containerTransport.New(new(containerSvc)))
-	session.RegisterSessionServiceServer(srv, sessionTransport.New(new(sessionSvc)))
+	sessionGRPC.RegisterSessionServiceServer(srv, sessionTransport.New(new(sessionSvc)))
 	object.RegisterObjectServiceServer(srv, objectTransport.New(new(objectSvc)))
 
 	go func() {
