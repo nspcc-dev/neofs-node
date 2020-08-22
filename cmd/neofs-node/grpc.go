@@ -13,10 +13,11 @@ import (
 	object "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session"
 	session "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	accountingTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
+	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	containerTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	objectTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	sessionTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
+	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
@@ -34,7 +35,7 @@ func unimplementedErr(srv, call string) error {
 }
 
 func (s *accountingSvc) Balance(context.Context, *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
-	return nil, unimplementedErr("Accounting", "Balance")
+	return new(accounting.BalanceResponse), nil
 }
 
 func (s *sessionSvc) Create(context.Context, *sessionGRPC.CreateRequest) (*sessionGRPC.CreateResponse, error) {
@@ -99,7 +100,9 @@ func serveGRPC(c *cfg) {
 
 	srv := grpc.NewServer()
 
-	accountingGRPC.RegisterAccountingServiceServer(srv, accountingTransport.New(new(accountingSvc)))
+	accountingGRPC.RegisterAccountingServiceServer(srv,
+		accountingTransportGRPC.New(accountingService.NewSignService(c.key, new(accountingSvc))),
+	)
 	container.RegisterContainerServiceServer(srv, containerTransport.New(new(containerSvc)))
 	session.RegisterSessionServiceServer(srv, sessionTransport.New(new(sessionSvc)))
 	object.RegisterObjectServiceServer(srv, objectTransport.New(new(objectSvc)))
