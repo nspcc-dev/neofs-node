@@ -5,9 +5,7 @@ import (
 	"log"
 
 	object "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	session "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	objectGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
-	sessionGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 )
 
@@ -36,8 +34,8 @@ func init_(c *cfg) {
 
 	initAccountingService(c)
 	initContainerService(c)
+	initSessionService(c)
 
-	session.RegisterSessionServiceServer(c.cfgGRPC.server, sessionGRPC.New(new(sessionSvc)))
 	object.RegisterObjectServiceServer(c.cfgGRPC.server, objectGRPC.New(new(objectSvc)))
 }
 
