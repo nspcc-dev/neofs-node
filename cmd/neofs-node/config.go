@@ -24,6 +24,8 @@ type cfg struct {
 	cfgMorph cfgMorph
 
 	cfgAccounting cfgAccounting
+
+	cfgContainer cfgContainer
 }
 
 type cfgGRPC struct {
@@ -46,6 +48,12 @@ type cfgAccounting struct {
 	fee util.Fixed8
 }
 
+type cfgContainer struct {
+	scriptHash string
+
+	fee util.Fixed8
+}
+
 func defaultCfg() *cfg {
 	key, err := crypto.LoadPrivateKey("Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
 	fatalOnErr(err)
@@ -62,6 +70,10 @@ func defaultCfg() *cfg {
 		},
 		cfgAccounting: cfgAccounting{
 			scriptHash: "1aeefe1d0dfade49740fff779c02cd4a0538ffb1",
+			fee:        util.Fixed8(1),
+		},
+		cfgContainer: cfgContainer{
+			scriptHash: "9d2ca84d7fb88213c4baced5a6ed4dc402309039",
 			fee:        util.Fixed8(1),
 		},
 	}
