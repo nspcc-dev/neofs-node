@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"google.golang.org/grpc"
 )
 
@@ -26,6 +27,8 @@ type cfg struct {
 	cfgAccounting cfgAccounting
 
 	cfgContainer cfgContainer
+
+	privateTokenStore *tokenStorage.TokenStore
 }
 
 type cfgGRPC struct {

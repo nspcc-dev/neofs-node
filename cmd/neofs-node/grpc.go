@@ -7,12 +7,9 @@ import (
 
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
-
-type sessionSvc struct{}
 
 type containerSvc struct{}
 
@@ -20,10 +17,6 @@ type objectSvc struct{}
 
 func unimplementedErr(srv, call string) error {
 	return errors.Errorf("unimplemented API service call %s.%s", srv, call)
-}
-
-func (s *sessionSvc) Create(context.Context, *session.CreateRequest) (*session.CreateResponse, error) {
-	return nil, unimplementedErr("Session", "Create")
 }
 
 func (s *containerSvc) Put(context.Context, *containerGRPC.PutRequest) (*containerGRPC.PutResponse, error) {
