@@ -5,39 +5,29 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	"github.com/pkg/errors"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 )
 
 type signService struct {
-	key *ecdsa.PrivateKey
-
-	svc accounting.Service
+	unarySigService *util.UnarySignService
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc accounting.Service) accounting.Service {
 	return &signService{
-		key: key,
-		svc: svc,
+		unarySigService: util.NewUnarySignService(
+			key,
+			func(ctx context.Context, req interface{}) (interface{}, error) {
+				return svc.Balance(ctx, req.(*accounting.BalanceRequest))
+			},
+		),
 	}
 }
 
 func (s *signService) Balance(ctx context.Context, req *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
-	// verify request signatures
-	if err := signature.VerifyServiceMessage(req); err != nil {
-		return nil, errors.Wrap(err, "could not verify request")
-	}
-
-	// process request
-	resp, err := s.svc.Balance(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	// sign the response
-	if err := signature.SignServiceMessage(s.key, resp); err != nil {
-		return nil, errors.Wrap(err, "could not sign response")
-	}
-
-	return resp, nil
+	return resp.(*accounting.BalanceResponse), nil
 }
