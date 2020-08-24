@@ -94,6 +94,10 @@ func ArrayFromStackParameter(param sc.Parameter) ([]sc.Parameter, error) {
 	}
 
 	if param.Type != sc.ArrayType {
+		if param.Type == sc.AnyType && param.Value == nil {
+			return nil, nil
+		}
+
 		return nil, errors.Errorf("chain/client: %s is not an array type", param.Type)
 	}
 
