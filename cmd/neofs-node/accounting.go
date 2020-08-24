@@ -11,21 +11,15 @@ import (
 	accounting "github.com/nspcc-dev/neofs-node/pkg/services/accounting/morph"
 )
 
-type cfgAccounting struct {
-	scriptHash string
-
-	fee util.Fixed8
-}
-
 func initAccountingService(c *cfg) {
-	if c.morphClient == nil {
+	if c.cfgMorph.client == nil {
 		initMorphComponents(c)
 	}
 
 	u160, err := util.Uint160DecodeStringLE(c.cfgAccounting.scriptHash)
 	fatalOnErr(err)
 
-	staticClient, err := client.NewStatic(c.morphClient, u160, c.cfgAccounting.fee)
+	staticClient, err := client.NewStatic(c.cfgMorph.client, u160, c.cfgAccounting.fee)
 	fatalOnErr(err)
 
 	balanceClient, err := balance.New(staticClient)
@@ -37,7 +31,7 @@ func initAccountingService(c *cfg) {
 	xHdr.SetValue("test X-Header value")
 	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
 
-	accountingGRPC.RegisterAccountingServiceServer(c.grpcSrv,
+	accountingGRPC.RegisterAccountingServiceServer(c.cfgGRPC.server,
 		accountingTransportGRPC.New(
 			accountingService.NewSignService(
 				c.key,
