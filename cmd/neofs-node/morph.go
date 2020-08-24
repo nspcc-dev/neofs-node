@@ -7,7 +7,7 @@ import (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	c.morphClient, err = client.New(c.key, c.morphEndpoint)
+	c.cfgMorph.client, err = client.New(c.key, c.cfgMorph.endpoint)
 
 	fatalOnErr(err)
 }

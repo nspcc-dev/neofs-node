@@ -5,21 +5,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container"
-	container "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object"
-	object "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	containerTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
-	objectTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
-	sessionTransport "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
-
-type accountingSvcExec struct{}
 
 type sessionSvc struct{}
 
@@ -29,10 +20,6 @@ type objectSvc struct{}
 
 func unimplementedErr(srv, call string) error {
 	return errors.Errorf("unimplemented API service call %s.%s", srv, call)
-}
-
-func (s *accountingSvcExec) Balance(context.Context, *accounting.BalanceRequestBody) (*accounting.BalanceResponseBody, error) {
-	return new(accounting.BalanceResponseBody), nil
 }
 
 func (s *sessionSvc) Create(context.Context, *session.CreateRequest) (*session.CreateResponse, error) {
@@ -91,39 +78,24 @@ func (s *objectSvc) GetRangeHash(context.Context, *objectGRPC.GetRangeHashReques
 	return nil, unimplementedErr("Object", "GetRangeHash")
 }
 
-func serveGRPC(c *cfg) {
-	lis, err := net.Listen("tcp", c.grpcAddr)
+func initGRPC(c *cfg) {
+	var err error
+
+	c.cfgGRPC.listener, err = net.Listen("tcp", c.cfgGRPC.endpoint)
 	fatalOnErr(err)
 
-	c.grpcSrv = grpc.NewServer()
+	c.cfgGRPC.server = grpc.NewServer()
+}
 
-	initAccountingService(c)
-
-	container.RegisterContainerServiceServer(c.grpcSrv, containerTransport.New(new(containerSvc)))
-	sessionGRPC.RegisterSessionServiceServer(c.grpcSrv, sessionTransport.New(new(sessionSvc)))
-	object.RegisterObjectServiceServer(c.grpcSrv, objectTransport.New(new(objectSvc)))
-
+func serveGRPC(c *cfg) {
 	go func() {
 		c.wg.Add(1)
 		defer func() {
 			c.wg.Done()
 		}()
 
-		if err := c.grpcSrv.Serve(lis); err != nil {
+		if err := c.cfgGRPC.server.Serve(c.cfgGRPC.listener); err != nil {
 			fmt.Println("gRPC server error", err)
 		}
-	}()
-
-	go func() {
-		c.wg.Add(1)
-		defer func() {
-			fmt.Println("gRPC server stopped gracefully")
-			fmt.Println("net listener stopped", lis.Addr())
-			c.wg.Done()
-		}()
-
-		<-c.ctx.Done()
-
-		c.grpcSrv.GracefulStop()
 	}()
 }

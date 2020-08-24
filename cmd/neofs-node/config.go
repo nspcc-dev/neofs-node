@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"net"
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -16,17 +17,33 @@ type cfg struct {
 
 	wg *sync.WaitGroup
 
-	grpcAddr string
-
 	key *ecdsa.PrivateKey
 
-	grpcSrv *grpc.Server
+	cfgGRPC cfgGRPC
 
-	morphEndpoint string
+	cfgMorph cfgMorph
 
-	morphClient *client.Client
+	cfgAccounting cfgAccounting
+}
 
-	cfgAccounting *cfgAccounting
+type cfgGRPC struct {
+	endpoint string
+
+	listener net.Listener
+
+	server *grpc.Server
+}
+
+type cfgMorph struct {
+	endpoint string
+
+	client *client.Client
+}
+
+type cfgAccounting struct {
+	scriptHash string
+
+	fee util.Fixed8
 }
 
 func defaultCfg() *cfg {
@@ -34,12 +51,16 @@ func defaultCfg() *cfg {
 	fatalOnErr(err)
 
 	return &cfg{
-		ctx:           context.Background(),
-		wg:            new(sync.WaitGroup),
-		grpcAddr:      "127.0.0.1:50501",
-		key:           key,
-		morphEndpoint: "http://morph_chain.localtest.nspcc.ru:30333/",
-		cfgAccounting: &cfgAccounting{
+		ctx: context.Background(),
+		wg:  new(sync.WaitGroup),
+		key: key,
+		cfgGRPC: cfgGRPC{
+			endpoint: "127.0.0.1:50501",
+		},
+		cfgMorph: cfgMorph{
+			endpoint: "http://morph_chain.localtest.nspcc.ru:30333/",
+		},
+		cfgAccounting: cfgAccounting{
 			scriptHash: "1aeefe1d0dfade49740fff779c02cd4a0538ffb1",
 			fee:        util.Fixed8(1),
 		},
