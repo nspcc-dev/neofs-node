@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	object "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	objectGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 )
 
@@ -35,8 +33,7 @@ func init_(c *cfg) {
 	initAccountingService(c)
 	initContainerService(c)
 	initSessionService(c)
-
-	object.RegisterObjectServiceServer(c.cfgGRPC.server, objectGRPC.New(new(objectSvc)))
+	initObjectService(c)
 }
 
 func bootUp(c *cfg) {
