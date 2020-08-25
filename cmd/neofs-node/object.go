@@ -16,12 +16,41 @@ type simpleSearchBodyStreamer struct {
 	count int
 }
 
+type simpleGetBodyStreamer struct {
+	count int
+}
+
 type objectExecutor struct {
 	count int
 }
 
+func (s *simpleGetBodyStreamer) Recv() (*object.GetResponseBody, error) {
+	body := new(object.GetResponseBody)
+
+	id := new(refs.ObjectID)
+	id.SetValue([]byte{1, 2, 3})
+
+	if s.count == 0 {
+		in := new(object.GetObjectPartInit)
+		in.SetObjectID(id)
+
+		body.SetObjectPart(in)
+	} else if s.count == 1 {
+		c := new(object.GetObjectPartChunk)
+		c.SetChunk([]byte{8, 8, 0, 0, 5, 5, 5, 3, 5, 3, 5})
+
+		body.SetObjectPart(c)
+	} else {
+		return nil, io.EOF
+	}
+
+	s.count++
+
+	return body, nil
+}
+
 func (*objectExecutor) Get(context.Context, *object.GetRequestBody) (objectService.GetObjectBodyStreamer, error) {
-	panic("implement me")
+	return new(simpleGetBodyStreamer), nil
 }
 
 func (*objectExecutor) Put(context.Context) (object.PutObjectStreamer, error) {
