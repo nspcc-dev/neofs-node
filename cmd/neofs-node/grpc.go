@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container"
-	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
@@ -43,31 +45,57 @@ func (s *containerSvc) GetExtendedACL(context.Context, *containerGRPC.GetExtende
 	return nil, unimplementedErr("Container", "GetExtendedACL")
 }
 
-func (s *objectSvc) Get(context.Context, *objectGRPC.GetRequest) (objectGRPC.GetObjectStreamer, error) {
+func (s *objectSvc) Get(context.Context, *object.GetRequest) (object.GetObjectStreamer, error) {
 	return nil, unimplementedErr("Object", "Get")
 }
 
-func (s *objectSvc) Put(context.Context) (objectGRPC.PutObjectStreamer, error) {
+func (s *objectSvc) Put(context.Context) (object.PutObjectStreamer, error) {
 	return nil, unimplementedErr("Object", "Put")
 }
 
-func (s *objectSvc) Head(context.Context, *objectGRPC.HeadRequest) (*objectGRPC.HeadResponse, error) {
+func (s *objectSvc) Head(context.Context, *object.HeadRequest) (*object.HeadResponse, error) {
 	return nil, unimplementedErr("Object", "Put")
 }
 
-func (s *objectSvc) Search(context.Context, *objectGRPC.SearchRequest) (objectGRPC.SearchObjectStreamer, error) {
-	return nil, unimplementedErr("Object", "Search")
+type simpleSearchStreamer struct {
+	count int
 }
 
-func (s *objectSvc) Delete(context.Context, *objectGRPC.DeleteRequest) (*objectGRPC.DeleteResponse, error) {
+func (s *simpleSearchStreamer) Recv() (*object.SearchResponse, error) {
+	resp := new(object.SearchResponse)
+
+	body := new(object.SearchResponseBody)
+	resp.SetBody(body)
+
+	id := new(refs.ObjectID)
+	body.SetIDList([]*refs.ObjectID{id})
+
+	if s.count == 0 {
+		id.SetValue([]byte{1})
+	} else if s.count == 1 {
+		id.SetValue([]byte{2})
+	} else {
+		return nil, io.EOF
+	}
+
+	s.count++
+
+	return resp, nil
+}
+
+func (s *objectSvc) Search(context.Context, *object.SearchRequest) (object.SearchObjectStreamer, error) {
+	return new(simpleSearchStreamer), nil
+}
+
+func (s *objectSvc) Delete(context.Context, *object.DeleteRequest) (*object.DeleteResponse, error) {
 	return nil, unimplementedErr("Object", "Delete")
 }
 
-func (s *objectSvc) GetRange(context.Context, *objectGRPC.GetRangeRequest) (objectGRPC.GetRangeObjectStreamer, error) {
+func (s *objectSvc) GetRange(context.Context, *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
 	return nil, unimplementedErr("Object", "GetRange")
 }
 
-func (s *objectSvc) GetRangeHash(context.Context, *objectGRPC.GetRangeHashRequest) (*objectGRPC.GetRangeHashResponse, error) {
+func (s *objectSvc) GetRangeHash(context.Context, *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	return nil, unimplementedErr("Object", "GetRangeHash")
 }
 
