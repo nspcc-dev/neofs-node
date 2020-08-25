@@ -13,12 +13,13 @@ import (
 type signService struct {
 	key *ecdsa.PrivateKey
 
-	searchSigService *util.UnarySignService
-	getSigService    *util.UnarySignService
-	putService       object.Service
-	rangeSigService  *util.UnarySignService
-	headSigService   *util.UnarySignService
-	delSigService    *util.UnarySignService
+	searchSigService    *util.UnarySignService
+	getSigService       *util.UnarySignService
+	putService          object.Service
+	rangeSigService     *util.UnarySignService
+	headSigService      *util.UnarySignService
+	delSigService       *util.UnarySignService
+	rangeHashSigService *util.UnarySignService
 }
 
 type searchStreamSigner struct {
@@ -77,6 +78,12 @@ func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 			key,
 			func(ctx context.Context, req interface{}) (interface{}, error) {
 				return svc.Delete(ctx, req.(*object.DeleteRequest))
+			},
+		),
+		rangeHashSigService: util.NewUnarySignService(
+			key,
+			func(ctx context.Context, req interface{}) (interface{}, error) {
+				return svc.GetRangeHash(ctx, req.(*object.GetRangeHashRequest))
 			},
 		),
 	}
@@ -208,6 +215,11 @@ func (s *signService) GetRange(ctx context.Context, req *object.GetRangeRequest)
 	}, nil
 }
 
-func (s *signService) GetRangeHash(context.Context, *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	panic("implement me")
+func (s *signService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
+	resp, err := s.rangeHashSigService.HandleUnaryRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*object.GetRangeHashResponse), nil
 }
