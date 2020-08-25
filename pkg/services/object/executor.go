@@ -59,6 +59,12 @@ type putStreamer struct {
 	metaHdr *session.ResponseMetaHeader
 }
 
+type rangeStreamer struct {
+	bodyStreamer GetRangeObjectBodyStreamer
+
+	metaHdr *session.ResponseMetaHeader
+}
+
 // NewExecutionService wraps ServiceExecutor and returns Object Service interface.
 //
 // Passed meta header is attached to all responses.
@@ -156,8 +162,29 @@ func (*executorSvc) Delete(context.Context, *object.DeleteRequest) (*object.Dele
 	panic("implement me")
 }
 
-func (*executorSvc) GetRange(context.Context, *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	panic("implement me")
+func (s *rangeStreamer) Recv() (*object.GetRangeResponse, error) {
+	body, err := s.bodyStreamer.Recv()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not receive response body")
+	}
+
+	resp := new(object.GetRangeResponse)
+	resp.SetBody(body)
+	resp.SetMetaHeader(s.metaHdr)
+
+	return resp, nil
+}
+
+func (s *executorSvc) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
+	bodyStream, err := s.exec.GetRange(ctx, req.GetBody())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute GetRange request")
+	}
+
+	return &rangeStreamer{
+		bodyStreamer: bodyStream,
+		metaHdr:      s.metaHeader,
+	}, nil
 }
 
 func (*executorSvc) GetRangeHash(context.Context, *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
