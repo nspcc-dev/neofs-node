@@ -17,6 +17,7 @@ type signService struct {
 	getSigService    *util.UnarySignService
 	putService       object.Service
 	rangeSigService  *util.UnarySignService
+	headSigService   *util.UnarySignService
 }
 
 type searchStreamSigner struct {
@@ -63,6 +64,12 @@ func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 			nil, // private key is not needed because service returns stream
 			func(ctx context.Context, req interface{}) (interface{}, error) {
 				return svc.GetRange(ctx, req.(*object.GetRangeRequest))
+			},
+		),
+		headSigService: util.NewUnarySignService(
+			key,
+			func(ctx context.Context, req interface{}) (interface{}, error) {
+				return svc.Head(ctx, req.(*object.HeadRequest))
 			},
 		),
 	}
@@ -126,8 +133,13 @@ func (s *signService) Put(ctx context.Context) (object.PutObjectStreamer, error)
 	}, nil
 }
 
-func (s *signService) Head(context.Context, *object.HeadRequest) (*object.HeadResponse, error) {
-	panic("implement me")
+func (s *signService) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
+	resp, err := s.headSigService.HandleUnaryRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*object.HeadResponse), nil
 }
 
 func (s *searchStreamSigner) Recv() (*object.SearchResponse, error) {
