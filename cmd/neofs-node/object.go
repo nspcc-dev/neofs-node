@@ -23,6 +23,10 @@ type simpleGetBodyStreamer struct {
 
 type simplePutBodyStreamer struct{}
 
+type simpleRangeBodyStreamer struct {
+	count int
+}
+
 type objectExecutor struct{}
 
 func (s *simpleGetBodyStreamer) Recv() (*object.GetResponseBody, error) {
@@ -86,8 +90,24 @@ func (*objectExecutor) Delete(context.Context, *object.DeleteRequestBody) (*obje
 	panic("implement me")
 }
 
-func (*objectExecutor) GetRange(context.Context, *object.GetRangeRequestBody) (objectService.GetRangeObjectBodyStreamer, error) {
-	panic("implement me")
+func (s *simpleRangeBodyStreamer) Recv() (*object.GetRangeResponseBody, error) {
+	body := new(object.GetRangeResponseBody)
+
+	if s.count == 0 {
+		body.SetChunk([]byte{1, 2, 2, 1})
+	} else if s.count == 1 {
+		body.SetChunk([]byte{4, 2, 4, 2})
+	} else {
+		return nil, io.EOF
+	}
+
+	s.count++
+
+	return body, nil
+}
+
+func (*objectExecutor) GetRange(_ context.Context, body *object.GetRangeRequestBody) (objectService.GetRangeObjectBodyStreamer, error) {
+	return new(simpleRangeBodyStreamer), nil
 }
 
 func (*objectExecutor) GetRangeHash(context.Context, *object.GetRangeHashRequestBody) (*object.GetRangeHashResponseBody, error) {
