@@ -120,8 +120,13 @@ func (*objectExecutor) GetRange(_ context.Context, body *object.GetRangeRequestB
 	return new(simpleRangeBodyStreamer), nil
 }
 
-func (*objectExecutor) GetRangeHash(context.Context, *object.GetRangeHashRequestBody) (*object.GetRangeHashResponseBody, error) {
-	panic("implement me")
+func (*objectExecutor) GetRangeHash(_ context.Context, body *object.GetRangeHashRequestBody) (*object.GetRangeHashResponseBody, error) {
+	fmt.Println(body.GetRanges()[0])
+
+	res := new(object.GetRangeHashResponseBody)
+	res.SetHashList([][]byte{{1, 2, 3}, {4, 5, 6}})
+
+	return res, nil
 }
 
 func (s *simpleSearchBodyStreamer) Recv() (*object.SearchResponseBody, error) {
