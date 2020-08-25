@@ -15,6 +15,7 @@ type signService struct {
 
 	searchSigService *util.UnarySignService
 	getSigService    *util.UnarySignService
+	putService       object.Service
 }
 
 type searchStreamSigner struct {
@@ -27,6 +28,12 @@ type getStreamSigner struct {
 	key *ecdsa.PrivateKey
 
 	stream object.GetObjectStreamer
+}
+
+type putStreamSigner struct {
+	key *ecdsa.PrivateKey
+
+	stream object.PutObjectStreamer
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
@@ -44,6 +51,7 @@ func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 				return svc.Get(ctx, req.(*object.GetRequest))
 			},
 		),
+		putService: svc,
 	}
 }
 
@@ -72,8 +80,37 @@ func (s *signService) Get(ctx context.Context, req *object.GetRequest) (object.G
 	}, nil
 }
 
-func (s *signService) Put(context.Context) (object.PutObjectStreamer, error) {
-	panic("implement me")
+func (s *putStreamSigner) Send(req *object.PutRequest) error {
+	if err := signature.VerifyServiceMessage(req); err != nil {
+		return errors.Wrap(err, "could not verify request")
+	}
+
+	return s.stream.Send(req)
+}
+
+func (s *putStreamSigner) CloseAndRecv() (*object.PutResponse, error) {
+	r, err := s.stream.CloseAndRecv()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not receive response")
+	}
+
+	if err := signature.SignServiceMessage(s.key, r); err != nil {
+		return nil, errors.Wrap(err, "could not sign response")
+	}
+
+	return r, nil
+}
+
+func (s *signService) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+	stream, err := s.putService.Put(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create Put object streamer")
+	}
+
+	return &putStreamSigner{
+		key:    s.key,
+		stream: stream,
+	}, nil
 }
 
 func (s *signService) Head(context.Context, *object.HeadRequest) (*object.HeadResponse, error) {
