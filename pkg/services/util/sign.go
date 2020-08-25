@@ -23,7 +23,26 @@ func NewUnarySignService(key *ecdsa.PrivateKey, handler UnaryHandler) *UnarySign
 	}
 }
 
+func (s *UnarySignService) HandleServerStreamRequest(ctx context.Context, req interface{}) (interface{}, error) {
+	return s.verifyAndProc(ctx, req)
+}
+
 func (s *UnarySignService) HandleUnaryRequest(ctx context.Context, req interface{}) (interface{}, error) {
+	// verify and process request
+	resp, err := s.verifyAndProc(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// sign the response
+	if err := signature.SignServiceMessage(s.key, resp); err != nil {
+		return nil, errors.Wrap(err, "could not sign response")
+	}
+
+	return resp, nil
+}
+
+func (s *UnarySignService) verifyAndProc(ctx context.Context, req interface{}) (interface{}, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
 		return nil, errors.Wrap(err, "could not verify request")
@@ -33,11 +52,6 @@ func (s *UnarySignService) HandleUnaryRequest(ctx context.Context, req interface
 	resp, err := s.unaryHandler(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not handle request")
-	}
-
-	// sign the response
-	if err := signature.SignServiceMessage(s.key, resp); err != nil {
-		return nil, errors.Wrap(err, "could not sign response")
 	}
 
 	return resp, nil
