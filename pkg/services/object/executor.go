@@ -205,6 +205,15 @@ func (s *executorSvc) GetRange(ctx context.Context, req *object.GetRangeRequest)
 	}, nil
 }
 
-func (*executorSvc) GetRangeHash(context.Context, *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	panic("implement me")
+func (s *executorSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
+	respBody, err := s.exec.GetRangeHash(ctx, req.GetBody())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute GetRangeHash request")
+	}
+
+	resp := new(object.GetRangeHashResponse)
+	resp.SetBody(respBody)
+	resp.SetMetaHeader(s.metaHeader)
+
+	return resp, nil
 }
