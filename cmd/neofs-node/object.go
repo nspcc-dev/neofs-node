@@ -96,8 +96,8 @@ func (s *objectExecutor) Search(ctx context.Context, body *object.SearchRequestB
 	return new(simpleSearchBodyStreamer), nil
 }
 
-func (*objectExecutor) Delete(context.Context, *object.DeleteRequestBody) (*object.DeleteResponseBody, error) {
-	panic("implement me")
+func (*objectExecutor) Delete(_ context.Context, body *object.DeleteRequestBody) (*object.DeleteResponseBody, error) {
+	return new(object.DeleteResponseBody), nil
 }
 
 func (s *simpleRangeBodyStreamer) Recv() (*object.GetRangeResponseBody, error) {
