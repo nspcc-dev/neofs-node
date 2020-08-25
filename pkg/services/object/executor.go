@@ -129,8 +129,17 @@ func (s *executorSvc) Put(ctx context.Context) (object.PutObjectStreamer, error)
 	}, nil
 }
 
-func (*executorSvc) Head(context.Context, *object.HeadRequest) (*object.HeadResponse, error) {
-	panic("implement me")
+func (s *executorSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
+	respBody, err := s.exec.Head(ctx, req.GetBody())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute Head request")
+	}
+
+	resp := new(object.HeadResponse)
+	resp.SetBody(respBody)
+	resp.SetMetaHeader(s.metaHeader)
+
+	return resp, nil
 }
 
 func (s *searchStreamer) Recv() (*object.SearchResponse, error) {
