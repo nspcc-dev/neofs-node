@@ -14,12 +14,19 @@ type signService struct {
 	key *ecdsa.PrivateKey
 
 	searchSigService *util.UnarySignService
+	getSigService    *util.UnarySignService
 }
 
 type searchStreamSigner struct {
 	key *ecdsa.PrivateKey
 
 	stream object.SearchObjectStreamer
+}
+
+type getStreamSigner struct {
+	key *ecdsa.PrivateKey
+
+	stream object.GetObjectStreamer
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
@@ -31,11 +38,38 @@ func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 				return svc.Search(ctx, req.(*object.SearchRequest))
 			},
 		),
+		getSigService: util.NewUnarySignService(
+			nil, // private key is not needed because service returns stream
+			func(ctx context.Context, req interface{}) (interface{}, error) {
+				return svc.Get(ctx, req.(*object.GetRequest))
+			},
+		),
 	}
 }
 
-func (s *signService) Get(context.Context, *object.GetRequest) (object.GetObjectStreamer, error) {
-	panic("implement me")
+func (s *getStreamSigner) Recv() (*object.GetResponse, error) {
+	r, err := s.stream.Recv()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not receive response")
+	}
+
+	if err := signature.SignServiceMessage(s.key, r); err != nil {
+		return nil, errors.Wrap(err, "could not sign response")
+	}
+
+	return r, nil
+}
+
+func (s *signService) Get(ctx context.Context, req *object.GetRequest) (object.GetObjectStreamer, error) {
+	resp, err := s.getSigService.HandleServerStreamRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &getStreamSigner{
+		key:    s.key,
+		stream: resp.(object.GetObjectStreamer),
+	}, nil
 }
 
 func (s *signService) Put(context.Context) (object.PutObjectStreamer, error) {
