@@ -16,6 +16,7 @@ type signService struct {
 	searchSigService *util.UnarySignService
 	getSigService    *util.UnarySignService
 	putService       object.Service
+	rangeSigService  *util.UnarySignService
 }
 
 type searchStreamSigner struct {
@@ -36,6 +37,12 @@ type putStreamSigner struct {
 	stream object.PutObjectStreamer
 }
 
+type getRangeStreamSigner struct {
+	key *ecdsa.PrivateKey
+
+	stream object.GetRangeObjectStreamer
+}
+
 func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 	return &signService{
 		key: key,
@@ -52,6 +59,12 @@ func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 			},
 		),
 		putService: svc,
+		rangeSigService: util.NewUnarySignService(
+			nil, // private key is not needed because service returns stream
+			func(ctx context.Context, req interface{}) (interface{}, error) {
+				return svc.GetRange(ctx, req.(*object.GetRangeRequest))
+			},
+		),
 	}
 }
 
@@ -146,8 +159,29 @@ func (s *signService) Delete(context.Context, *object.DeleteRequest) (*object.De
 	panic("implement me")
 }
 
-func (s *signService) GetRange(context.Context, *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	panic("implement me")
+func (s *getRangeStreamSigner) Recv() (*object.GetRangeResponse, error) {
+	r, err := s.stream.Recv()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not receive response")
+	}
+
+	if err := signature.SignServiceMessage(s.key, r); err != nil {
+		return nil, errors.Wrap(err, "could not sign response")
+	}
+
+	return r, nil
+}
+
+func (s *signService) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
+	resp, err := s.rangeSigService.HandleServerStreamRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &getRangeStreamSigner{
+		key:    s.key,
+		stream: resp.(object.GetRangeObjectStreamer),
+	}, nil
 }
 
 func (s *signService) GetRangeHash(context.Context, *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
