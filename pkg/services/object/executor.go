@@ -47,6 +47,12 @@ type searchStreamer struct {
 	metaHdr *session.ResponseMetaHeader
 }
 
+type getStreamer struct {
+	bodyStreamer GetObjectBodyStreamer
+
+	metaHdr *session.ResponseMetaHeader
+}
+
 // NewExecutionService wraps ServiceExecutor and returns Object Service interface.
 //
 // Passed meta header is attached to all responses.
@@ -57,8 +63,29 @@ func NewExecutionService(exec ServiceExecutor, metaHdr *session.ResponseMetaHead
 	}
 }
 
-func (s *executorSvc) Get(context.Context, *object.GetRequest) (object.GetObjectStreamer, error) {
-	panic("implement me")
+func (s *getStreamer) Recv() (*object.GetResponse, error) {
+	body, err := s.bodyStreamer.Recv()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not receive response body")
+	}
+
+	resp := new(object.GetResponse)
+	resp.SetBody(body)
+	resp.SetMetaHeader(s.metaHdr)
+
+	return resp, nil
+}
+
+func (s *executorSvc) Get(ctx context.Context, req *object.GetRequest) (object.GetObjectStreamer, error) {
+	bodyStream, err := s.exec.Get(ctx, req.GetBody())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute Balance request")
+	}
+
+	return &getStreamer{
+		bodyStreamer: bodyStream,
+		metaHdr:      s.metaHeader,
+	}, nil
 }
 
 func (*executorSvc) Put(context.Context) (object.PutObjectStreamer, error) {
