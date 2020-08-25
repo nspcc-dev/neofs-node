@@ -78,8 +78,18 @@ func (*objectExecutor) Put(context.Context) (objectService.PutObjectBodyStreamer
 	return new(simplePutBodyStreamer), nil
 }
 
-func (*objectExecutor) Head(context.Context, *object.HeadRequestBody) (*object.HeadResponseBody, error) {
-	panic("implement me")
+func (*objectExecutor) Head(_ context.Context, body *object.HeadRequestBody) (*object.HeadResponseBody, error) {
+	res := new(object.HeadResponseBody)
+
+	hdrPart := new(object.GetHeaderPartShort)
+	shHdr := new(object.ShortHeader)
+	hdrPart.SetShortHeader(shHdr)
+
+	shHdr.SetPayloadLength(100)
+
+	res.SetHeaderPart(hdrPart)
+
+	return res, nil
 }
 
 func (s *objectExecutor) Search(ctx context.Context, body *object.SearchRequestBody) (objectService.SearchObjectBodyStreamer, error) {
