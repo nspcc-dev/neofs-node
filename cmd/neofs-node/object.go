@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -20,9 +21,9 @@ type simpleGetBodyStreamer struct {
 	count int
 }
 
-type objectExecutor struct {
-	count int
-}
+type simplePutBodyStreamer struct{}
+
+type objectExecutor struct{}
 
 func (s *simpleGetBodyStreamer) Recv() (*object.GetResponseBody, error) {
 	body := new(object.GetResponseBody)
@@ -53,8 +54,24 @@ func (*objectExecutor) Get(context.Context, *object.GetRequestBody) (objectServi
 	return new(simpleGetBodyStreamer), nil
 }
 
-func (*objectExecutor) Put(context.Context) (object.PutObjectStreamer, error) {
-	panic("implement me")
+func (s *simplePutBodyStreamer) Send(body *object.PutRequestBody) error {
+	fmt.Printf("object part received %T\n", body.GetObjectPart())
+	return nil
+}
+
+func (s *simplePutBodyStreamer) CloseAndRecv() (*object.PutResponseBody, error) {
+	body := new(object.PutResponseBody)
+	oid := new(refs.ObjectID)
+
+	body.SetObjectID(oid)
+
+	oid.SetValue([]byte{6, 7, 8})
+
+	return body, nil
+}
+
+func (*objectExecutor) Put(context.Context) (objectService.PutObjectBodyStreamer, error) {
+	return new(simplePutBodyStreamer), nil
 }
 
 func (*objectExecutor) Head(context.Context, *object.HeadRequestBody) (*object.HeadResponseBody, error) {
