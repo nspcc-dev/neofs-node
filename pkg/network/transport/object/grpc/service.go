@@ -57,22 +57,22 @@ func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 
 	for {
 		req, err := gStream.Recv()
-		if err == nil {
-			if err := stream.Send(object.PutRequestFromGRPCMessage(req)); err != nil {
-				return err
-			}
-		}
+		if err != nil {
+			if errors.Is(errors.Cause(err), io.EOF) {
+				resp, err := stream.CloseAndRecv()
+				if err != nil {
+					return err
+				}
 
-		if errors.Is(errors.Cause(err), io.EOF) {
-			resp, err := stream.CloseAndRecv()
-			if err != nil {
-				return err
+				return gStream.SendAndClose(object.PutResponseToGRPCMessage(resp))
 			}
 
-			return gStream.SendAndClose(object.PutResponseToGRPCMessage(resp))
+			return err
 		}
 
-		return err
+		if err := stream.Send(object.PutRequestFromGRPCMessage(req)); err != nil {
+			return err
+		}
 	}
 }
 
