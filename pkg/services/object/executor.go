@@ -27,7 +27,7 @@ type GetRangeObjectBodyStreamer interface {
 
 type ServiceExecutor interface {
 	Get(context.Context, *object.GetRequestBody) (GetObjectBodyStreamer, error)
-	Put(context.Context) (object.PutObjectStreamer, error)
+	Put(context.Context) (PutObjectBodyStreamer, error)
 	Head(context.Context, *object.HeadRequestBody) (*object.HeadResponseBody, error)
 	Search(context.Context, *object.SearchRequestBody) (SearchObjectBodyStreamer, error)
 	Delete(context.Context, *object.DeleteRequestBody) (*object.DeleteResponseBody, error)
@@ -49,6 +49,12 @@ type searchStreamer struct {
 
 type getStreamer struct {
 	bodyStreamer GetObjectBodyStreamer
+
+	metaHdr *session.ResponseMetaHeader
+}
+
+type putStreamer struct {
+	bodyStreamer PutObjectBodyStreamer
 
 	metaHdr *session.ResponseMetaHeader
 }
@@ -79,7 +85,7 @@ func (s *getStreamer) Recv() (*object.GetResponse, error) {
 func (s *executorSvc) Get(ctx context.Context, req *object.GetRequest) (object.GetObjectStreamer, error) {
 	bodyStream, err := s.exec.Get(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Balance request")
+		return nil, errors.Wrap(err, "could not execute Get request")
 	}
 
 	return &getStreamer{
@@ -88,8 +94,33 @@ func (s *executorSvc) Get(ctx context.Context, req *object.GetRequest) (object.G
 	}, nil
 }
 
-func (*executorSvc) Put(context.Context) (object.PutObjectStreamer, error) {
-	panic("implement me")
+func (s *putStreamer) Send(req *object.PutRequest) error {
+	return s.bodyStreamer.Send(req.GetBody())
+}
+
+func (s *putStreamer) CloseAndRecv() (*object.PutResponse, error) {
+	body, err := s.bodyStreamer.CloseAndRecv()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not receive response body")
+	}
+
+	resp := new(object.PutResponse)
+	resp.SetBody(body)
+	resp.SetMetaHeader(s.metaHdr)
+
+	return resp, nil
+}
+
+func (s *executorSvc) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+	bodyStream, err := s.exec.Put(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute Put request")
+	}
+
+	return &putStreamer{
+		bodyStreamer: bodyStream,
+		metaHdr:      s.metaHeader,
+	}, nil
 }
 
 func (*executorSvc) Head(context.Context, *object.HeadRequest) (*object.HeadResponse, error) {
@@ -112,7 +143,7 @@ func (s *searchStreamer) Recv() (*object.SearchResponse, error) {
 func (s *executorSvc) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
 	bodyStream, err := s.exec.Search(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Balance request")
+		return nil, errors.Wrap(err, "could not execute Search request")
 	}
 
 	return &searchStreamer{
