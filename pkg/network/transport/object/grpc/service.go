@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	"github.com/pkg/errors"
 )
 
 // Server wraps NeoFS API Object service and
@@ -33,7 +34,7 @@ func (s *Server) Get(req *objectGRPC.GetRequest, gStream objectGRPC.ObjectServic
 	for {
 		r, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(errors.Cause(err), io.EOF) {
 				return nil
 			}
 
@@ -62,7 +63,7 @@ func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 			}
 		}
 
-		if err == io.EOF {
+		if errors.Is(errors.Cause(err), io.EOF) {
 			resp, err := stream.CloseAndRecv()
 			if err != nil {
 				return err
@@ -109,7 +110,7 @@ func (s *Server) Search(req *objectGRPC.SearchRequest, gStream objectGRPC.Object
 	for {
 		r, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(errors.Cause(err), io.EOF) {
 				return nil
 			}
 
@@ -134,7 +135,7 @@ func (s *Server) GetRange(req *objectGRPC.GetRangeRequest, gStream objectGRPC.Ob
 	for {
 		r, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(errors.Cause(err), io.EOF) {
 				return nil
 			}
 
