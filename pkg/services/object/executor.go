@@ -167,8 +167,17 @@ func (s *executorSvc) Search(ctx context.Context, req *object.SearchRequest) (ob
 	}, nil
 }
 
-func (*executorSvc) Delete(context.Context, *object.DeleteRequest) (*object.DeleteResponse, error) {
-	panic("implement me")
+func (s *executorSvc) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
+	respBody, err := s.exec.Delete(ctx, req.GetBody())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute Delete request")
+	}
+
+	resp := new(object.DeleteResponse)
+	resp.SetBody(respBody)
+	resp.SetMetaHeader(s.metaHeader)
+
+	return resp, nil
 }
 
 func (s *rangeStreamer) Recv() (*object.GetRangeResponse, error) {

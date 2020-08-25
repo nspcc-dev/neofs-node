@@ -18,6 +18,7 @@ type signService struct {
 	putService       object.Service
 	rangeSigService  *util.UnarySignService
 	headSigService   *util.UnarySignService
+	delSigService    *util.UnarySignService
 }
 
 type searchStreamSigner struct {
@@ -70,6 +71,12 @@ func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 			key,
 			func(ctx context.Context, req interface{}) (interface{}, error) {
 				return svc.Head(ctx, req.(*object.HeadRequest))
+			},
+		),
+		delSigService: util.NewUnarySignService(
+			key,
+			func(ctx context.Context, req interface{}) (interface{}, error) {
+				return svc.Delete(ctx, req.(*object.DeleteRequest))
 			},
 		),
 	}
@@ -167,8 +174,13 @@ func (s *signService) Search(ctx context.Context, req *object.SearchRequest) (ob
 	}, nil
 }
 
-func (s *signService) Delete(context.Context, *object.DeleteRequest) (*object.DeleteResponse, error) {
-	panic("implement me")
+func (s *signService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
+	resp, err := s.delSigService.HandleUnaryRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*object.DeleteResponse), nil
 }
 
 func (s *getRangeStreamSigner) Recv() (*object.GetRangeResponse, error) {
