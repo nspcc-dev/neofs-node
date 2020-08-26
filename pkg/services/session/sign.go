@@ -9,19 +9,19 @@ import (
 )
 
 type signService struct {
-	unarySigService *util.UnarySignService
+	sigSvc *util.SignService
 
 	svc session.Service
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc session.Service) session.Service {
 	return &signService{
-		unarySigService: util.NewUnarySignService(key),
+		sigSvc: util.NewUnarySignService(key),
 	}
 }
 
 func (s *signService) Create(ctx context.Context, req *session.CreateRequest) (*session.CreateResponse, error) {
-	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (interface{}, error) {
 			return s.svc.Create(ctx, req.(*session.CreateRequest))
 		},
