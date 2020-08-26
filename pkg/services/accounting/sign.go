@@ -9,20 +9,20 @@ import (
 )
 
 type signService struct {
-	unarySigService *util.UnarySignService
+	sigSvc *util.SignService
 
 	svc accounting.Service
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc accounting.Service) accounting.Service {
 	return &signService{
-		unarySigService: util.NewUnarySignService(key),
-		svc:             svc,
+		sigSvc: util.NewUnarySignService(key),
+		svc:    svc,
 	}
 }
 
 func (s *signService) Balance(ctx context.Context, req *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
-	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (interface{}, error) {
 			return s.svc.Balance(ctx, req.(*accounting.BalanceRequest))
 		},
