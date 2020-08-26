@@ -10,7 +10,7 @@ import (
 
 type UnaryHandler func(context.Context, interface{}) (interface{}, error)
 
-type UnarySignService struct {
+type SignService struct {
 	key *ecdsa.PrivateKey
 }
 
@@ -24,8 +24,8 @@ type MessageStreamer struct {
 	recv MessageReader
 }
 
-func NewUnarySignService(key *ecdsa.PrivateKey) *UnarySignService {
-	return &UnarySignService{
+func NewUnarySignService(key *ecdsa.PrivateKey) *SignService {
+	return &SignService{
 		key: key,
 	}
 }
@@ -43,7 +43,7 @@ func (s *MessageStreamer) Recv() (interface{}, error) {
 	return m, nil
 }
 
-func (s *UnarySignService) HandleServerStreamRequest(ctx context.Context, req interface{}, handler ServerStreamHandler) (*MessageStreamer, error) {
+func (s *SignService) HandleServerStreamRequest(ctx context.Context, req interface{}, handler ServerStreamHandler) (*MessageStreamer, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
 		return nil, errors.Wrap(err, "could not verify request")
@@ -60,7 +60,7 @@ func (s *UnarySignService) HandleServerStreamRequest(ctx context.Context, req in
 	}, nil
 }
 
-func (s *UnarySignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler) (interface{}, error) {
+func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler) (interface{}, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
 		return nil, errors.Wrap(err, "could not verify request")
