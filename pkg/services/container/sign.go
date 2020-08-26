@@ -9,57 +9,24 @@ import (
 )
 
 type signService struct {
-	putSigService     *util.UnarySignService
-	getSigService     *util.UnarySignService
-	delSigService     *util.UnarySignService
-	listSigService    *util.UnarySignService
-	setEACLSigService *util.UnarySignService
-	getEACLSigService *util.UnarySignService
+	unarySigService *util.UnarySignService
+
+	svc container.Service
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc container.Service) container.Service {
 	return &signService{
-		putSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Put(ctx, req.(*container.PutRequest))
-			},
-		),
-		getSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Get(ctx, req.(*container.GetRequest))
-			},
-		),
-		delSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Delete(ctx, req.(*container.DeleteRequest))
-			},
-		),
-		listSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.List(ctx, req.(*container.ListRequest))
-			},
-		),
-		setEACLSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.SetExtendedACL(ctx, req.(*container.SetExtendedACLRequest))
-			},
-		),
-		getEACLSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.GetExtendedACL(ctx, req.(*container.GetExtendedACLRequest))
-			},
-		),
+		unarySigService: util.NewUnarySignService(key),
+		svc:             svc,
 	}
 }
 
 func (s *signService) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
-	resp, err := s.putSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Put(ctx, req.(*container.PutRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +35,11 @@ func (s *signService) Put(ctx context.Context, req *container.PutRequest) (*cont
 }
 
 func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
-	resp, err := s.delSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Get(ctx, req.(*container.GetRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +48,11 @@ func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) 
 }
 
 func (s *signService) Get(ctx context.Context, req *container.GetRequest) (*container.GetResponse, error) {
-	resp, err := s.getSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Delete(ctx, req.(*container.DeleteRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +61,11 @@ func (s *signService) Get(ctx context.Context, req *container.GetRequest) (*cont
 }
 
 func (s *signService) List(ctx context.Context, req *container.ListRequest) (*container.ListResponse, error) {
-	resp, err := s.listSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.List(ctx, req.(*container.ListRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +74,11 @@ func (s *signService) List(ctx context.Context, req *container.ListRequest) (*co
 }
 
 func (s *signService) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
-	resp, err := s.setEACLSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.SetExtendedACL(ctx, req.(*container.SetExtendedACLRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +87,11 @@ func (s *signService) SetExtendedACL(ctx context.Context, req *container.SetExte
 }
 
 func (s *signService) GetExtendedACL(ctx context.Context, req *container.GetExtendedACLRequest) (*container.GetExtendedACLResponse, error) {
-	resp, err := s.getEACLSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.GetExtendedACL(ctx, req.(*container.GetExtendedACLRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -12,24 +12,21 @@ type UnaryHandler func(context.Context, interface{}) (interface{}, error)
 
 type UnarySignService struct {
 	key *ecdsa.PrivateKey
-
-	unaryHandler UnaryHandler
 }
 
-func NewUnarySignService(key *ecdsa.PrivateKey, handler UnaryHandler) *UnarySignService {
+func NewUnarySignService(key *ecdsa.PrivateKey) *UnarySignService {
 	return &UnarySignService{
-		key:          key,
-		unaryHandler: handler,
+		key: key,
 	}
 }
 
-func (s *UnarySignService) HandleServerStreamRequest(ctx context.Context, req interface{}) (interface{}, error) {
-	return s.verifyAndProc(ctx, req)
+func (s *UnarySignService) HandleServerStreamRequest(ctx context.Context, req interface{}, handler UnaryHandler) (interface{}, error) {
+	return s.verifyAndProc(ctx, req, handler)
 }
 
-func (s *UnarySignService) HandleUnaryRequest(ctx context.Context, req interface{}) (interface{}, error) {
+func (s *UnarySignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler) (interface{}, error) {
 	// verify and process request
-	resp, err := s.verifyAndProc(ctx, req)
+	resp, err := s.verifyAndProc(ctx, req, handler)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +39,14 @@ func (s *UnarySignService) HandleUnaryRequest(ctx context.Context, req interface
 	return resp, nil
 }
 
-func (s *UnarySignService) verifyAndProc(ctx context.Context, req interface{}) (interface{}, error) {
+func (s *UnarySignService) verifyAndProc(ctx context.Context, req interface{}, handler UnaryHandler) (interface{}, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
 		return nil, errors.Wrap(err, "could not verify request")
 	}
 
 	// process request
-	resp, err := s.unaryHandler(ctx, req)
+	resp, err := handler(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not handle request")
 	}
