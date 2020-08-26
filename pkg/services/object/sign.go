@@ -13,13 +13,9 @@ import (
 type signService struct {
 	key *ecdsa.PrivateKey
 
-	searchSigService    *util.UnarySignService
-	getSigService       *util.UnarySignService
-	putService          object.Service
-	rangeSigService     *util.UnarySignService
-	headSigService      *util.UnarySignService
-	delSigService       *util.UnarySignService
-	rangeHashSigService *util.UnarySignService
+	unarySigService *util.UnarySignService
+
+	svc object.Service
 }
 
 type searchStreamSigner struct {
@@ -48,44 +44,9 @@ type getRangeStreamSigner struct {
 
 func NewSignService(key *ecdsa.PrivateKey, svc object.Service) object.Service {
 	return &signService{
-		key: key,
-		searchSigService: util.NewUnarySignService(
-			nil, // private key is not needed because service returns stream
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Search(ctx, req.(*object.SearchRequest))
-			},
-		),
-		getSigService: util.NewUnarySignService(
-			nil, // private key is not needed because service returns stream
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Get(ctx, req.(*object.GetRequest))
-			},
-		),
-		putService: svc,
-		rangeSigService: util.NewUnarySignService(
-			nil, // private key is not needed because service returns stream
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.GetRange(ctx, req.(*object.GetRangeRequest))
-			},
-		),
-		headSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Head(ctx, req.(*object.HeadRequest))
-			},
-		),
-		delSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.Delete(ctx, req.(*object.DeleteRequest))
-			},
-		),
-		rangeHashSigService: util.NewUnarySignService(
-			key,
-			func(ctx context.Context, req interface{}) (interface{}, error) {
-				return svc.GetRangeHash(ctx, req.(*object.GetRangeHashRequest))
-			},
-		),
+		key:             key,
+		unarySigService: util.NewUnarySignService(key),
+		svc:             svc,
 	}
 }
 
@@ -103,7 +64,11 @@ func (s *getStreamSigner) Recv() (*object.GetResponse, error) {
 }
 
 func (s *signService) Get(ctx context.Context, req *object.GetRequest) (object.GetObjectStreamer, error) {
-	resp, err := s.getSigService.HandleServerStreamRequest(ctx, req)
+	resp, err := s.unarySigService.HandleServerStreamRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Get(ctx, req.(*object.GetRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +101,7 @@ func (s *putStreamSigner) CloseAndRecv() (*object.PutResponse, error) {
 }
 
 func (s *signService) Put(ctx context.Context) (object.PutObjectStreamer, error) {
-	stream, err := s.putService.Put(ctx)
+	stream, err := s.svc.Put(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create Put object streamer")
 	}
@@ -148,7 +113,11 @@ func (s *signService) Put(ctx context.Context) (object.PutObjectStreamer, error)
 }
 
 func (s *signService) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
-	resp, err := s.headSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Head(ctx, req.(*object.HeadRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +139,11 @@ func (s *searchStreamSigner) Recv() (*object.SearchResponse, error) {
 }
 
 func (s *signService) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
-	resp, err := s.searchSigService.HandleServerStreamRequest(ctx, req)
+	resp, err := s.unarySigService.HandleServerStreamRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Search(ctx, req.(*object.SearchRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +155,11 @@ func (s *signService) Search(ctx context.Context, req *object.SearchRequest) (ob
 }
 
 func (s *signService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
-	resp, err := s.delSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.Delete(ctx, req.(*object.DeleteRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +181,11 @@ func (s *getRangeStreamSigner) Recv() (*object.GetRangeResponse, error) {
 }
 
 func (s *signService) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	resp, err := s.rangeSigService.HandleServerStreamRequest(ctx, req)
+	resp, err := s.unarySigService.HandleServerStreamRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.GetRange(ctx, req.(*object.GetRangeRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +197,11 @@ func (s *signService) GetRange(ctx context.Context, req *object.GetRangeRequest)
 }
 
 func (s *signService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	resp, err := s.rangeHashSigService.HandleUnaryRequest(ctx, req)
+	resp, err := s.unarySigService.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (interface{}, error) {
+			return s.svc.GetRangeHash(ctx, req.(*object.GetRangeHashRequest))
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
