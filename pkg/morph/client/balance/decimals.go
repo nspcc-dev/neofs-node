@@ -33,7 +33,7 @@ func (c *Client) Decimals(args DecimalsArgs) (*DecimalsValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.decimalsMethod, ln)
 	}
 
-	decimals, err := client.IntFromStackParameter(prms[0])
+	decimals, err := client.IntFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get integer stack item from stack item (%s)", c.decimalsMethod)
 	}

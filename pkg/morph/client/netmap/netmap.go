@@ -1,7 +1,7 @@
 package netmap
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/pkg/errors"
 )
@@ -37,7 +37,7 @@ func (c *Client) NetMap(args GetNetMapArgs) (*GetNetMapValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.netMapMethod, ln)
 	}
 
-	prms, err = client.ArrayFromStackParameter(prms[0])
+	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", c.netMapMethod)
 	}
@@ -58,8 +58,8 @@ func (c *Client) NetMap(args GetNetMapArgs) (*GetNetMapValues, error) {
 	return res, nil
 }
 
-func peerInfoFromStackItem(prm smartcontract.Parameter) (*PeerInfo, error) {
-	prms, err := client.ArrayFromStackParameter(prm)
+func peerInfoFromStackItem(prm stackitem.Item) (*PeerInfo, error) {
+	prms, err := client.ArrayFromStackItem(prm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get stack item array (PeerInfo)")
 	} else if ln := len(prms); ln != nodeInfoFixedPrmNumber {
@@ -69,25 +69,25 @@ func peerInfoFromStackItem(prm smartcontract.Parameter) (*PeerInfo, error) {
 	res := new(PeerInfo)
 
 	// Address
-	res.address, err = client.BytesFromStackParameter(prms[0])
+	res.address, err = client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get byte array from stack item (Address)")
 	}
 
 	// Public key
-	if res.key, err = client.BytesFromStackParameter(prms[1]); err != nil {
+	if res.key, err = client.BytesFromStackItem(prms[1]); err != nil {
 		return nil, errors.Wrap(err, "could not get byte array from stack item (Public key)")
 	}
 
 	// Options
-	if prms, err = client.ArrayFromStackParameter(prms[2]); err != nil {
+	if prms, err = client.ArrayFromStackItem(prms[2]); err != nil {
 		return nil, errors.Wrapf(err, "could not get stack item array (Options)")
 	}
 
 	res.opts = make([][]byte, 0, len(prms))
 
 	for i := range prms {
-		opt, err := client.BytesFromStackParameter(prms[i])
+		opt, err := client.BytesFromStackItem(prms[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not get byte array from stack item (Option #%d)", i)
 		}

@@ -41,7 +41,7 @@ func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.balanceOfMethod, ln)
 	}
 
-	amount, err := client.IntFromStackParameter(prms[0])
+	amount, err := client.IntFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get integer stack item from stack item (%s)", c.balanceOfMethod)
 	}

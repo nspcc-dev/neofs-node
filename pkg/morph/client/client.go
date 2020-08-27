@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
@@ -55,7 +56,7 @@ func (c *Client) Invoke(contract util.Uint160, fee util.Fixed8, method string, a
 		params = append(params, param)
 	}
 
-	cosigner := []transaction.Cosigner{
+	cosigner := []transaction.Signer{
 		{
 			Account: c.acc.PrivateKey().PublicKey().GetScriptHash(),
 			Scopes:  transaction.Global,
@@ -92,7 +93,7 @@ func (c *Client) Invoke(contract util.Uint160, fee util.Fixed8, method string, a
 
 // TestInvoke invokes contract method locally in neo-go node. This method should
 // be used to read data from smart-contract.
-func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interface{}) ([]sc.Parameter, error) {
+func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interface{}) ([]stackitem.Item, error) {
 	var params = make([]sc.Parameter, 0, len(args))
 
 	for i := range args {
@@ -104,7 +105,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 		params = append(params, p)
 	}
 
-	cosigner := []transaction.Cosigner{
+	cosigner := []transaction.Signer{
 		{
 			Account: c.acc.PrivateKey().PublicKey().GetScriptHash(),
 			Scopes:  transaction.Global,

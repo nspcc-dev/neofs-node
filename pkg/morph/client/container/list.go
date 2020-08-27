@@ -48,7 +48,7 @@ func (c *Client) List(args ListArgs) (*ListValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.listMethod, ln)
 	}
 
-	prms, err = client.ArrayFromStackParameter(prms[0])
+	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", c.listMethod)
 	}
@@ -58,7 +58,7 @@ func (c *Client) List(args ListArgs) (*ListValues, error) {
 	}
 
 	for i := range prms {
-		cid, err := client.BytesFromStackParameter(prms[i])
+		cid, err := client.BytesFromStackItem(prms[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.listMethod)
 		}

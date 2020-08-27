@@ -42,7 +42,7 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.eaclMethod, ln)
 	}
 
-	eacl, err := client.BytesFromStackParameter(prms[0])
+	eacl, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.eaclMethod)
 	}
