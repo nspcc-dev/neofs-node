@@ -57,7 +57,7 @@ func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan
 		}
 
 		// subscribe to contract notifications
-		id, err := s.client.SubscribeForExecutionNotifications(&contracts[i])
+		id, err := s.client.SubscribeForExecutionNotifications(&contracts[i], nil)
 		if err != nil {
 			// if there is some error, undo all subscriptions and return error
 			for _, id := range notifyIDs {
