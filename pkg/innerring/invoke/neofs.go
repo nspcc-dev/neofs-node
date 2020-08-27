@@ -45,7 +45,7 @@ func IsInnerRing(cli *client.Client, con util.Uint160, key *ecdsa.PublicKey) (bo
 		return false, err
 	}
 
-	isInnerRing, err := client.BoolFromStackParameter(val[0])
+	isInnerRing, err := client.BoolFromStackItem(val[0])
 	if err != nil {
 		return false, err
 	}
