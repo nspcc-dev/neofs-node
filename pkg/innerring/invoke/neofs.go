@@ -28,8 +28,8 @@ const (
 	// execution stage. Otherwise invocation will fail due to gas limit.
 	extraFee = 5000_0000 // 0.5 Fixed8 gas
 
-	checkIsInnerRingMethod = "IsInnerRing"
-	chequeMethod           = "Cheque"
+	checkIsInnerRingMethod = "isInnerRing"
+	chequeMethod           = "cheque"
 )
 
 // IsInnerRing returns true if 'key' is presented in inner ring list.

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	getEpochMethod    = "Epoch"
-	setNewEpochMethod = "NewEpoch"
+	getEpochMethod    = "epoch"
+	setNewEpochMethod = "newEpoch"
 )
 
 // Epoch return epoch value from contract.
