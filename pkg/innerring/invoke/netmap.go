@@ -21,7 +21,7 @@ func Epoch(cli *client.Client, con util.Uint160) (int64, error) {
 		return 0, err
 	}
 
-	epoch, err := client.IntFromStackParameter(val[0])
+	epoch, err := client.IntFromStackItem(val[0])
 	if err != nil {
 		return 0, err
 	}
