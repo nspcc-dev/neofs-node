@@ -161,21 +161,11 @@ func (s listener) parseAndHandle(notifyEvent *result.NotificationEvent) {
 		return
 	}
 
-	// first item must be a byte array
-	typBytes, err := client.BytesFromStackParameter(arr[0])
-	if err != nil {
-		log.Warn("first array item is not a byte array",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
 	// calculate event type from bytes
-	typEvent := TypeFromBytes(typBytes)
+	typEvent := TypeFromString(notifyEvent.Name)
 
 	log = log.With(
-		zap.Stringer("event type", typEvent),
+		zap.String("event type", notifyEvent.Name),
 	)
 
 	// get the event parser
@@ -194,7 +184,7 @@ func (s listener) parseAndHandle(notifyEvent *result.NotificationEvent) {
 	}
 
 	// parse the notification event
-	event, err := parser(arr[1:])
+	event, err := parser(arr)
 	if err != nil {
 		log.Warn("could not parse notification event",
 			zap.String("error", err.Error()),
