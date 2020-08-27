@@ -3,8 +3,8 @@ package client
 import (
 	"errors"
 
-	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
 // StaticClient is a wrapper over Neo:Morph client
@@ -53,7 +53,7 @@ func (s StaticClient) Invoke(method string, args ...interface{}) error {
 }
 
 // TestInvoke calls TestInvoke method of Client with static internal script hash.
-func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]sc.Parameter, error) {
+func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackitem.Item, error) {
 	return s.client.TestInvoke(
 		s.scScriptHash,
 		method,

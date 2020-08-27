@@ -42,7 +42,7 @@ func (c *Client) Get(args GetArgs) (*GetValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.getMethod, ln)
 	}
 
-	cnrBytes, err := client.BytesFromStackParameter(prms[0])
+	cnrBytes, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.getMethod)
 	}
