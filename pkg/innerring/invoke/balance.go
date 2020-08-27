@@ -26,7 +26,7 @@ type (
 
 const (
 	transferXMethod = "transferX"
-	lockMethod      = "Lock"
+	lockMethod      = "lock"
 )
 
 // TransferBalanceX invokes transferX method.
