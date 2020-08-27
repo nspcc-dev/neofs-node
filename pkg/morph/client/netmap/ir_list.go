@@ -34,7 +34,7 @@ func (c *Client) InnerRingList(args InnerRingListArgs) (*InnerRingListValues, er
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.innerRingListMethod, ln)
 	}
 
-	prms, err = client.ArrayFromStackParameter(prms[0])
+	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", c.innerRingListMethod)
 	}
@@ -44,12 +44,12 @@ func (c *Client) InnerRingList(args InnerRingListArgs) (*InnerRingListValues, er
 	}
 
 	for i := range prms {
-		nodePrms, err := client.ArrayFromStackParameter(prms[i])
+		nodePrms, err := client.ArrayFromStackItem(prms[i])
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get stack item array (Node #%d)")
 		}
 
-		key, err := client.BytesFromStackParameter(nodePrms[0])
+		key, err := client.BytesFromStackItem(nodePrms[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not parse stack item (Key #%d)", i)
 		}
