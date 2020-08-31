@@ -28,7 +28,11 @@ type cfg struct {
 
 	cfgContainer cfgContainer
 
+	cfgNetmap cfgNetmap
+
 	privateTokenStore *tokenStorage.TokenStore
+
+	cfgNodeInfo cfgNodeInfo
 }
 
 type cfgGRPC struct {
@@ -57,6 +61,26 @@ type cfgContainer struct {
 	fee util.Fixed8
 }
 
+type cfgNetmap struct {
+	scriptHash string
+
+	fee util.Fixed8
+}
+
+type BootstrapType uint32
+
+type cfgNodeInfo struct {
+	bootType BootstrapType
+
+	address string
+}
+
+const (
+	_ BootstrapType = iota
+	StorageNode
+	RelayNode
+)
+
 func defaultCfg() *cfg {
 	key, err := crypto.LoadPrivateKey("Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
 	fatalOnErr(err)
@@ -78,6 +102,13 @@ func defaultCfg() *cfg {
 		cfgContainer: cfgContainer{
 			scriptHash: "9d2ca84d7fb88213c4baced5a6ed4dc402309039",
 			fee:        util.Fixed8(1),
+		},
+		cfgNetmap: cfgNetmap{
+			scriptHash: "75194459637323ea8837d2afe8225ec74a5658c3",
+			fee:        util.Fixed8(1),
+		},
+		cfgNodeInfo: cfgNodeInfo{
+			bootType: StorageNode,
 		},
 	}
 }
