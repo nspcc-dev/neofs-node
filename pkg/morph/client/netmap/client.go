@@ -36,11 +36,11 @@ type cfg struct {
 }
 
 const (
-	defaultAddPeerMethod       = "AddPeer"       // default add peer method name
-	defaultNewEpochMethod      = "NewEpoch"      // default new epoch method name
-	defaultNetMapMethod        = "Netmap"        // default get network map method name
-	defaultUpdateStateMethod   = "UpdateState"   // default update state method name
-	defaultInnerRIngListMethod = "InnerRingList" // default IR list method name
+	defaultAddPeerMethod       = "addPeer"       // default add peer method name
+	defaultNewEpochMethod      = "newEpoch"      // default new epoch method name
+	defaultNetMapMethod        = "netmap"        // default get network map method name
+	defaultUpdateStateMethod   = "updateState"   // default update state method name
+	defaultInnerRIngListMethod = "innerRingList" // default IR list method name
 )
 
 func defaultConfig() *cfg {
