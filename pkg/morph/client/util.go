@@ -179,7 +179,7 @@ func ArrayFromStackItem(param stackitem.Item) ([]stackitem.Item, error) {
 	switch param.Type() {
 	case stackitem.AnyT:
 		return nil, nil
-	case stackitem.ArrayT:
+	case stackitem.ArrayT, stackitem.StructT:
 		items, ok := param.Value().([]stackitem.Item)
 		if !ok {
 			return nil, errors.Errorf("chain/client: can't convert %T to parameter slice", param.Value())
