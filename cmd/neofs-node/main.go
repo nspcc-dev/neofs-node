@@ -38,6 +38,7 @@ func init_(c *cfg) {
 
 func bootUp(c *cfg) {
 	serveGRPC(c)
+	bootstrapNode(c)
 }
 
 func wait(c *cfg) {
