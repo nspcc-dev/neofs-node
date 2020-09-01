@@ -17,6 +17,5 @@ func (w *Wrapper) Decimals() (uint32, error) {
 		return 0, errors.Wrap(err, "could not invoke smart contract")
 	}
 
-	// FIXME: avoid narrowing cast
 	return uint32(values.Decimals()), nil
 }

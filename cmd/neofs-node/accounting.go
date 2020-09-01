@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	accounting "github.com/nspcc-dev/neofs-node/pkg/services/accounting/morph"
@@ -25,6 +26,9 @@ func initAccountingService(c *cfg) {
 	balanceClient, err := balance.New(staticClient)
 	fatalOnErr(err)
 
+	balanceMorphWrapper, err := wrapper.New(balanceClient)
+	fatalOnErr(err)
+
 	metaHdr := new(session.ResponseMetaHeader)
 	xHdr := new(session.XHeader)
 	xHdr.SetKey("test X-Header key")
@@ -36,7 +40,7 @@ func initAccountingService(c *cfg) {
 			accountingService.NewSignService(
 				c.key,
 				accountingService.NewExecutionService(
-					accounting.NewExecutor(balanceClient),
+					accounting.NewExecutor(balanceMorphWrapper),
 					metaHdr,
 				),
 			),
