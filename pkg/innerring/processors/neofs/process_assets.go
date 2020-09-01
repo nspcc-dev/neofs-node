@@ -15,11 +15,6 @@ const (
 	lockAccountLifetime uint64 = 20
 )
 
-var (
-	// fedReserveAddr is a special account in balance contract.
-	fedReserveAddr = []byte{0x0F, 0xED}
-)
-
 // Process deposit event by invoking balance contract and sending native
 // gas in morph chain.
 func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
@@ -29,12 +24,11 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	}
 
 	// send transferX to balance contract
-	err := invoke.TransferBalanceX(np.morphClient, np.balanceContract,
-		&invoke.TransferXParams{
-			Sender:   fedReserveAddr,
-			Receiver: deposit.To().BytesBE(),
-			Amount:   deposit.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
-			Comment:  append([]byte(txLogPrefix), deposit.ID()...),
+	err := invoke.Mint(np.morphClient, np.balanceContract,
+		&invoke.MintBurnParams{
+			ScriptHash: deposit.To().BytesBE(),
+			Amount:     deposit.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
+			Comment:    append([]byte(txLogPrefix), deposit.ID()...),
 		})
 	if err != nil {
 		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
@@ -91,12 +85,11 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		return
 	}
 
-	err := invoke.TransferBalanceX(np.morphClient, np.balanceContract,
-		&invoke.TransferXParams{
-			Sender:   cheque.LockAccount().BytesBE(),
-			Receiver: fedReserveAddr,
-			Amount:   cheque.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
-			Comment:  append([]byte(txLogPrefix), cheque.ID()...),
+	err := invoke.Burn(np.morphClient, np.balanceContract,
+		&invoke.MintBurnParams{
+			ScriptHash: cheque.LockAccount().BytesBE(),
+			Amount:     cheque.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
+			Comment:    append([]byte(txLogPrefix), cheque.ID()...),
 		})
 	if err != nil {
 		np.log.Error("can't transfer assets to fed contract", zap.Error(err))

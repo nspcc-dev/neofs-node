@@ -22,11 +22,20 @@ type (
 		Amount      int64  // in Fixed16
 		Until       uint64 // epochs
 	}
+
+	// MintBurnParams for Mint and Burn invocations.
+	MintBurnParams struct {
+		ScriptHash []byte
+		Amount     int64 // in Fixed16
+		Comment    []byte
+	}
 )
 
 const (
 	transferXMethod = "transferX"
 	lockMethod      = "lock"
+	mintMethod      = "mint"
+	burnMethod      = "burn"
 )
 
 // TransferBalanceX invokes transferX method.
@@ -38,6 +47,32 @@ func TransferBalanceX(cli *client.Client, con util.Uint160, p *TransferXParams) 
 	return cli.Invoke(con, extraFee, transferXMethod,
 		p.Sender,
 		p.Receiver,
+		p.Amount,
+		p.Comment,
+	)
+}
+
+// Mint assets in contract.
+func Mint(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	return cli.Invoke(con, extraFee, mintMethod,
+		p.ScriptHash,
+		p.Amount,
+		p.Comment,
+	)
+}
+
+// Burn minted assets.
+func Burn(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	return cli.Invoke(con, extraFee, burnMethod,
+		p.ScriptHash,
 		p.Amount,
 		p.Comment,
 	)
