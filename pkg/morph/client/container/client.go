@@ -37,12 +37,12 @@ type cfg struct {
 }
 
 const (
-	defaultPutMethod     = "Put"     // default put container method name
-	defaultDeleteMethod  = "Delete"  // default delete container method name
-	defaultGetMethod     = "Get"     // default get container method name
-	defaultListMethod    = "List"    // default list containers method name
-	defaultEACLMethod    = "EACL"    // default get eACL method name
-	defaultSetEACLMethod = "SetEACL" // default set eACL method name
+	defaultPutMethod     = "put"     // default put container method name
+	defaultDeleteMethod  = "delete"  // default delete container method name
+	defaultGetMethod     = "get"     // default get container method name
+	defaultListMethod    = "list"    // default list containers method name
+	defaultEACLMethod    = "eACL"    // default get eACL method name
+	defaultSetEACLMethod = "setEACL" // default set eACL method name
 )
 
 func defaultConfig() *cfg {
