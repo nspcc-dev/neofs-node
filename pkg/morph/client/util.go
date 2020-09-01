@@ -136,7 +136,7 @@ func StringFromStackParameter(param sc.Parameter) (string, error) {
 func BoolFromStackItem(param stackitem.Item) (bool, error) {
 	switch param.Type() {
 	case stackitem.BooleanT, stackitem.IntegerT, stackitem.ByteArrayT:
-		return param.Bool(), nil
+		return param.TryBool()
 	default:
 		return false, errors.Errorf("chain/client: %s is not a bool type", param.Type())
 	}
@@ -174,7 +174,6 @@ func BytesFromStackItem(param stackitem.Item) ([]byte, error) {
 //
 // If passed parameter carries boolean false value, (nil, nil) returns.
 func ArrayFromStackItem(param stackitem.Item) ([]stackitem.Item, error) {
-	// if param.Type()
 	switch param.Type() {
 	case stackitem.AnyT:
 		return nil, nil
