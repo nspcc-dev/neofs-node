@@ -37,7 +37,7 @@ func (s *signService) Put(ctx context.Context, req *container.PutRequest) (*cont
 func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (interface{}, error) {
-			return s.svc.Get(ctx, req.(*container.GetRequest))
+			return s.svc.Delete(ctx, req.(*container.DeleteRequest))
 		},
 	)
 	if err != nil {
@@ -50,7 +50,7 @@ func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) 
 func (s *signService) Get(ctx context.Context, req *container.GetRequest) (*container.GetResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (interface{}, error) {
-			return s.svc.Delete(ctx, req.(*container.DeleteRequest))
+			return s.svc.Get(ctx, req.(*container.GetRequest))
 		},
 	)
 	if err != nil {

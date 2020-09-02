@@ -7,15 +7,7 @@ import "github.com/pkg/errors"
 type DeleteArgs struct {
 	cid []byte // container identifier
 
-	ownerID []byte // container owner identifier
-
 	sig []byte // container identifier signature
-}
-
-// SetOwnerID sets the container owner identifier
-// in a binary format.
-func (p *DeleteArgs) SetOwnerID(v []byte) {
-	p.ownerID = v
 }
 
 // SetCID sets the container identifier
@@ -36,7 +28,6 @@ func (c *Client) Delete(args DeleteArgs) error {
 	return errors.Wrapf(c.client.Invoke(
 		c.deleteMethod,
 		args.cid,
-		args.ownerID,
 		args.sig,
 	), "could not invoke method (%s)", c.deleteMethod)
 }
