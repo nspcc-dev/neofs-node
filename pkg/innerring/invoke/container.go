@@ -13,10 +13,17 @@ type (
 		Container []byte
 		Signature []byte
 	}
+
+	// ContainerParams for container put invocation.
+	RemoveContainerParams struct {
+		ContainerID []byte
+		Signature   []byte
+	}
 )
 
 const (
-	putContainerMethod = "put"
+	putContainerMethod    = "put"
+	deleteContainerMethod = "delete"
 )
 
 // RegisterContainer invokes Put method.
@@ -29,5 +36,17 @@ func RegisterContainer(cli *client.Client, con util.Uint160, p *ContainerParams)
 		p.Container,
 		p.Signature,
 		p.Key.Bytes(),
+	)
+}
+
+// RegisterContainer invokes Delete method.
+func RemoveContainer(cli *client.Client, con util.Uint160, p *RemoveContainerParams) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	return cli.Invoke(con, extraFee, deleteContainerMethod,
+		p.ContainerID,
+		p.Signature,
 	)
 }

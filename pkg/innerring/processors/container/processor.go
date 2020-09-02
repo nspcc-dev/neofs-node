@@ -36,7 +36,8 @@ type (
 )
 
 const (
-	putNotification = "containerPut"
+	putNotification    = "containerPut"
+	deleteNotification = "containerDelete"
 )
 
 // New creates container contract processor instance.
@@ -71,11 +72,18 @@ func (cp *Processor) ListenerParsers() []event.ParserInfo {
 	var parsers []event.ParserInfo
 
 	// container put event
-	deposit := event.ParserInfo{}
-	deposit.SetType(putNotification)
-	deposit.SetScriptHash(cp.containerContract)
-	deposit.SetParser(containerEvent.ParsePut)
-	parsers = append(parsers, deposit)
+	put := event.ParserInfo{}
+	put.SetType(putNotification)
+	put.SetScriptHash(cp.containerContract)
+	put.SetParser(containerEvent.ParsePut)
+	parsers = append(parsers, put)
+
+	// container del event
+	del := event.ParserInfo{}
+	del.SetType(deleteNotification)
+	del.SetScriptHash(cp.containerContract)
+	del.SetParser(containerEvent.ParseDelete)
+	parsers = append(parsers, del)
 
 	return parsers
 }
@@ -85,11 +93,17 @@ func (cp *Processor) ListenerHandlers() []event.HandlerInfo {
 	var handlers []event.HandlerInfo
 
 	// container put handler
-	deposit := event.HandlerInfo{}
-	deposit.SetType(putNotification)
-	deposit.SetScriptHash(cp.containerContract)
-	deposit.SetHandler(cp.handlePut)
-	handlers = append(handlers, deposit)
+	put := event.HandlerInfo{}
+	put.SetType(putNotification)
+	put.SetScriptHash(cp.containerContract)
+	put.SetHandler(cp.handlePut)
+	handlers = append(handlers, put)
+
+	del := event.HandlerInfo{}
+	del.SetType(deleteNotification)
+	del.SetScriptHash(cp.containerContract)
+	del.SetHandler(cp.handleDelete)
+	handlers = append(handlers, del)
 
 	return handlers
 }
