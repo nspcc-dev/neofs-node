@@ -159,15 +159,17 @@ func IntFromStackItem(param stackitem.Item) (int64, error) {
 
 // BytesFromStackItem receives binary value from the value of a smart contract parameter.
 func BytesFromStackItem(param stackitem.Item) ([]byte, error) {
-	if param.Type() != stackitem.ByteArrayT {
-		if param.Type() == stackitem.AnyT && param.Value() == nil {
+	switch param.Type() {
+	case stackitem.BufferT, stackitem.ByteArrayT:
+		return param.TryBytes()
+	case stackitem.AnyT:
+		if param.Value() == nil {
 			return nil, nil
 		}
-
+		fallthrough
+	default:
 		return nil, errors.Errorf("chain/client: %s is not a byte array type", param.Type())
 	}
-
-	return param.TryBytes()
 }
 
 // ArrayFromStackItem returns the slice contract parameters from passed parameter.
