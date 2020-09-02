@@ -7,17 +7,17 @@ import (
 // PutArgs groups the arguments
 // of put container invocation call.
 type PutArgs struct {
-	ownerID []byte // container owner identifier
-
 	cnr []byte // container in a binary format
 
 	sig []byte // binary container signature
+
+	publicKey []byte // public key of container owner
 }
 
-// SetOwnerID sets the container owner identifier
+// SetPublicKey sets the public key of container owner
 // in a binary format.
-func (p *PutArgs) SetOwnerID(v []byte) {
-	p.ownerID = v
+func (p *PutArgs) SetPublicKey(v []byte) {
+	p.publicKey = v
 }
 
 // SetContainer sets the container structure
@@ -37,8 +37,8 @@ func (p *PutArgs) SetSignature(v []byte) {
 func (c *Client) Put(args PutArgs) error {
 	return errors.Wrapf(c.client.Invoke(
 		c.putMethod,
-		args.ownerID,
 		args.cnr,
 		args.sig,
+		args.publicKey,
 	), "could not invoke method (%s)", c.putMethod)
 }
