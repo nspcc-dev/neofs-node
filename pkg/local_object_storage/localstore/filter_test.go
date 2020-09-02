@@ -1,17 +1,11 @@
 package localstore
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestSkippingFilterFunc(t *testing.T) {
-	res := SkippingFilterFunc(context.TODO(), &ObjectMeta{})
-	require.Equal(t, CodePass, res.Code())
-}
 
 func TestFilterResult(t *testing.T) {
 	var (

@@ -1,52 +1,82 @@
 package localstore
 
 import (
-	"context"
+	"encoding/binary"
+	"io"
 
-	"github.com/nspcc-dev/neofs-api-go/hash"
-	"github.com/nspcc-dev/neofs-api-go/refs"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
 
-// StoreEpochValue is a context key of object storing epoch number.
-const StoreEpochValue = "store epoch"
+// ObjectMeta represents meta information about
+// the object that is stored in meta storage.
+type ObjectMeta struct {
+	head *object.Object
 
-func (l *localstore) Meta(key refs.Address) (*ObjectMeta, error) {
-	var (
-		err  error
-		meta ObjectMeta
-		k, v []byte
-	)
-
-	k, err = key.Hash()
-	if err != nil {
-		return nil, errors.Wrap(err, "Localstore Meta failed on key.Marshal")
-	}
-
-	v, err = l.metaBucket.Get(k)
-	if err != nil {
-		return nil, errors.Wrap(err, "Localstore Meta failed on metaBucket.Get")
-	}
-
-	if err := meta.Unmarshal(v); err != nil {
-		return nil, errors.Wrap(err, "Localstore Metafailed on ObjectMeta.Unmarshal")
-	}
-
-	return &meta, nil
+	savedAtEpoch uint64
 }
 
-func metaFromObject(ctx context.Context, obj *Object) *ObjectMeta {
-	meta := new(ObjectMeta)
-	o := *obj
-	meta.Object = &o
-	meta.Object.Payload = nil
-	meta.PayloadSize = uint64(len(obj.Payload))
-	meta.PayloadHash = hash.Sum(obj.Payload)
+// SavedAtEpoch returns the number of epoch
+// at which the object was saved locally.
+func (m *ObjectMeta) SavedAtEpoch() uint64 {
+	if m != nil {
+		return m.savedAtEpoch
+	}
 
-	storeEpoch, ok := ctx.Value(StoreEpochValue).(uint64)
-	if ok {
-		meta.StoreEpoch = storeEpoch
+	return 0
+}
+
+// Head returns the object w/o payload.
+func (m *ObjectMeta) Head() *object.Object {
+	if m != nil {
+		return m.head
+	}
+
+	return nil
+}
+
+// AddressFromMeta extracts the Address from object meta.
+func AddressFromMeta(m *ObjectMeta) *object.Address {
+	return m.Head().Address()
+}
+
+func metaFromObject(o *object.Object) *ObjectMeta {
+	// FIXME: remove hard-code
+	meta := new(ObjectMeta)
+	meta.savedAtEpoch = 10
+	meta.head = &object.Object{
+		Object: o.CutPayload(),
 	}
 
 	return meta
+}
+
+func metaToBytes(m *ObjectMeta) ([]byte, error) {
+	data := make([]byte, 8)
+
+	binary.BigEndian.PutUint64(data, m.savedAtEpoch)
+
+	addrBytes, err := m.head.MarshalStableV2()
+	if err != nil {
+		return nil, err
+	}
+
+	return append(data, addrBytes...), nil
+}
+
+func metaFromBytes(data []byte) (*ObjectMeta, error) {
+	if len(data) < 8 {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	obj, err := object.FromBytes(data[8:])
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get object address from bytes")
+	}
+
+	meta := new(ObjectMeta)
+	meta.savedAtEpoch = binary.BigEndian.Uint64(data)
+	meta.head = obj
+
+	return meta, nil
 }
