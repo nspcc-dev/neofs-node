@@ -26,3 +26,19 @@ func (cp *Processor) handlePut(ev event.Event) {
 			zap.Int("capacity", cp.pool.Cap()))
 	}
 }
+
+func (cp *Processor) handleDelete(ev event.Event) {
+	del := ev.(containerEvent.Delete) // todo: check panic in production
+	cp.log.Info("notification",
+		zap.String("type", "container delete"),
+		zap.String("id", base58.Encode(del.ContainerID())))
+
+	// send event to the worker pool
+
+	err := cp.pool.Submit(func() { cp.processContainerDelete(&del) })
+	if err != nil {
+		// todo: move into controlled degradation stage
+		cp.log.Warn("container processor worker pool drained",
+			zap.Int("capacity", cp.pool.Cap()))
+	}
+}

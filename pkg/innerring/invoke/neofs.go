@@ -26,7 +26,7 @@ const (
 	// for invocation calculated based on testinvoke which happens at collection
 	// stage. Therefore client has to provide some extra SysFee to operate at
 	// execution stage. Otherwise invocation will fail due to gas limit.
-	extraFee = 5000_0000 // 0.5 Fixed8 gas
+	extraFee = 1_5000_0000 // 1.5 Fixed8 gas
 
 	checkIsInnerRingMethod = "isInnerRing"
 	chequeMethod           = "cheque"
