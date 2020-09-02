@@ -28,12 +28,6 @@ func NewExecutor(client *containerMorph.Client) containerSvc.ServiceExecutor {
 func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody) (*container.PutResponseBody, error) {
 	cnr := body.GetContainer()
 
-	// marshal owner ID of the container
-	ownerBytes, err := cnr.GetOwnerID().StableMarshal(nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal owner ID")
-	}
-
 	// marshal the container
 	cnrBytes, err := cnr.StableMarshal(nil)
 	if err != nil {
@@ -41,9 +35,9 @@ func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody)
 	}
 
 	args := containerMorph.PutArgs{}
-	args.SetOwnerID(ownerBytes)
 	args.SetContainer(cnrBytes)
 	args.SetSignature(body.GetSignature().GetSign())
+	args.SetPublicKey(body.GetSignature().GetKey())
 
 	if err := s.client.Put(args); err != nil {
 		return nil, errors.Wrap(err, "could not call Put method")
@@ -61,14 +55,8 @@ func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody)
 }
 
 func (s *morphExecutor) Delete(ctx context.Context, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
-	// marshal container identifier
-	cidBytes, err := body.GetContainerID().StableMarshal(nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal container ID")
-	}
-
 	args := containerMorph.DeleteArgs{}
-	args.SetCID(cidBytes)
+	args.SetCID(body.GetContainerID().GetValue())
 	args.SetSignature(body.GetSignature().GetSign())
 
 	if err := s.client.Delete(args); err != nil {
@@ -100,14 +88,8 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 }
 
 func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBody) (*container.ListResponseBody, error) {
-	// marshal owner ID
-	ownerBytes, err := body.GetOwnerID().StableMarshal(nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal owner ID")
-	}
-
 	args := containerMorph.ListArgs{}
-	args.SetOwnerID(ownerBytes)
+	args.SetOwnerID(body.GetOwnerID().GetValue())
 
 	val, err := s.client.List(args)
 	if err != nil {
