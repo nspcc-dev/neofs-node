@@ -175,27 +175,6 @@ func NewFilter(p *FilterParams) FilterPipeline {
 	}
 }
 
-// AllPassIncludingFilter returns FilterPipeline with sub-filters composed from parameters.
-// Result filter fails with CodeFail code if any of the sub-filters returns not a CodePass code.
-func AllPassIncludingFilter(name string, params ...*FilterParams) (FilterPipeline, error) {
-	res := NewFilter(&FilterParams{
-		Name:       name,
-		FilterFunc: SkippingFilterFunc,
-	})
-
-	for i := range params {
-		if err := res.PutSubFilter(SubFilterParams{
-			FilterPipeline: NewFilter(params[i]),
-			OnIgnore:       CodeFail,
-			OnFail:         CodeFail,
-		}); err != nil {
-			return nil, errors.Wrap(err, "could not create all pass including filter")
-		}
-	}
-
-	return res, nil
-}
-
 func (p *filterPipeline) Pass(ctx context.Context, meta *ObjectMeta) *FilterResult {
 	p.RLock()
 	defer p.RUnlock()
