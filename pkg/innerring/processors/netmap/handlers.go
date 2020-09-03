@@ -1,6 +1,8 @@
 package netmap
 
 import (
+	"encoding/hex"
+
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -31,6 +33,43 @@ func (np *Processor) handleNewEpoch(ev event.Event) {
 
 	err := np.pool.Submit(func() {
 		np.processNewEpoch(epochEvent.EpochNumber())
+	})
+	if err != nil {
+		// todo: move into controlled degradation stage
+		np.log.Warn("netmap worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
+
+func (np *Processor) handleAddPeer(ev event.Event) {
+	newPeer := ev.(netmapEvent.AddPeer) // todo: check panic in production
+
+	np.log.Info("notification",
+		zap.String("type", "add peer"),
+	)
+
+	// send event to the worker pool
+
+	err := np.pool.Submit(func() {
+		np.processAddPeer(newPeer.Node())
+	})
+	if err != nil {
+		// todo: move into controlled degradation stage
+		np.log.Warn("netmap worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
+
+func (np *Processor) handleUpdateState(ev event.Event) {
+	updPeer := ev.(netmapEvent.UpdatePeer) // todo: check panic in production
+	np.log.Info("notification",
+		zap.String("type", "update peer state"),
+		zap.String("key", hex.EncodeToString(updPeer.PublicKey().Bytes())))
+
+	// send event to the worker pool
+
+	err := np.pool.Submit(func() {
+		np.processUpdatePeer(updPeer)
 	})
 	if err != nil {
 		// todo: move into controlled degradation stage
