@@ -53,7 +53,9 @@ type (
 )
 
 const (
-	newEpochNotification = "NewEpoch"
+	newEpochNotification        = "NewEpoch"
+	addPeerNotification         = "AddPeer"
+	updatePeerStateNotification = "UpdateState"
 )
 
 // New creates network map contract processor instance.
@@ -100,6 +102,20 @@ func (np *Processor) ListenerParsers() []event.ParserInfo {
 	newEpoch.SetParser(netmapEvent.ParseNewEpoch)
 	parsers = append(parsers, newEpoch)
 
+	// new peer event
+	addPeer := event.ParserInfo{}
+	addPeer.SetType(addPeerNotification)
+	addPeer.SetScriptHash(np.netmapContract)
+	addPeer.SetParser(netmapEvent.ParseAddPeer)
+	parsers = append(parsers, addPeer)
+
+	// update peer event
+	updatePeer := event.ParserInfo{}
+	updatePeer.SetType(updatePeerStateNotification)
+	updatePeer.SetScriptHash(np.netmapContract)
+	updatePeer.SetParser(netmapEvent.ParseUpdatePeer)
+	parsers = append(parsers, updatePeer)
+
 	return parsers
 }
 
@@ -113,6 +129,20 @@ func (np *Processor) ListenerHandlers() []event.HandlerInfo {
 	newEpoch.SetScriptHash(np.netmapContract)
 	newEpoch.SetHandler(np.handleNewEpoch)
 	handlers = append(handlers, newEpoch)
+
+	// new peer handler
+	addPeer := event.HandlerInfo{}
+	addPeer.SetType(addPeerNotification)
+	addPeer.SetScriptHash(np.netmapContract)
+	addPeer.SetHandler(np.handleAddPeer)
+	handlers = append(handlers, addPeer)
+
+	// update peer handler
+	updatePeer := event.HandlerInfo{}
+	updatePeer.SetType(updatePeerStateNotification)
+	updatePeer.SetScriptHash(np.netmapContract)
+	updatePeer.SetHandler(np.handleUpdateState)
+	handlers = append(handlers, updatePeer)
 
 	return handlers
 }
