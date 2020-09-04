@@ -115,18 +115,12 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 func (s *morphExecutor) SetExtendedACL(ctx context.Context, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
 	eacl := body.GetEACL()
 
-	cidBytes, err := eacl.GetContainerID().StableMarshal(nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal container ID")
-	}
-
 	eaclBytes, err := eacl.StableMarshal(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not marshal eACL table")
 	}
 
 	args := containerMorph.SetEACLArgs{}
-	args.SetCID(cidBytes)
 	args.SetEACL(eaclBytes)
 	args.SetSignature(body.GetSignature().GetSign())
 
@@ -154,8 +148,16 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, req *container.GetEx
 
 	eacl := acl.TableFromGRPCMessage(eaclGRPC)
 
+	eaclSignature := new(refs.Signature)
+	eaclSignature.SetSign(val.Signature())
+
 	res := new(container.GetExtendedACLResponseBody)
 	res.SetEACL(eacl)
+
+	// Public key should be obtained by request sender, so we set up only
+	// the signature. Technically, node can make invocation to find container
+	// owner public key, but request sender cannot trust this info.
+	res.SetSignature(eaclSignature)
 
 	return res, nil
 }
