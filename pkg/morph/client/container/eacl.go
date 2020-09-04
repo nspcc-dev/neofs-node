@@ -15,6 +15,8 @@ type EACLArgs struct {
 // returned by get eACL test invoke.
 type EACLValues struct {
 	eacl []byte // extended ACL table
+
+	signature []byte // signature of extended ACL table
 }
 
 // SetCID sets the container identifier
@@ -27,6 +29,10 @@ func (g *EACLArgs) SetCID(v []byte) {
 // in a binary format.
 func (g *EACLValues) EACL() []byte {
 	return g.eacl
+}
+
+func (g *EACLValues) Signature() []byte {
+	return g.signature
 }
 
 // EACL performs the test invoke of get eACL
@@ -42,12 +48,27 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.eaclMethod, ln)
 	}
 
-	eacl, err := client.BytesFromStackItem(prms[0])
+	arr, err := client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.eaclMethod)
+		return nil, errors.Wrapf(err, "could not get item array of eACL (%s)", c.eaclMethod)
+	}
+
+	if len(arr) != 2 {
+		return nil, errors.Errorf("unexpected eacl stack item count (%s): %d", c.eaclMethod, len(arr))
+	}
+
+	eacl, err := client.BytesFromStackItem(arr[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get byte array of eACL (%s)", c.eaclMethod)
+	}
+
+	sig, err := client.BytesFromStackItem(arr[1])
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get byte array of eACL signature (%s)", c.eaclMethod)
 	}
 
 	return &EACLValues{
-		eacl: eacl,
+		eacl:      eacl,
+		signature: sig,
 	}, nil
 }
