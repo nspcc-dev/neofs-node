@@ -55,3 +55,20 @@ func (np *Processor) handleCheque(ev event.Event) {
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
+
+func (np *Processor) handleConfig(ev event.Event) {
+	cfg := ev.(neofsEvent.Config) // todo: check panic in production
+	np.log.Info("notification",
+		zap.String("type", "set config"),
+		zap.String("key", hex.EncodeToString(cfg.Key())),
+		zap.String("value", hex.EncodeToString(cfg.Value())))
+
+	// send event to the worker pool
+
+	err := np.pool.Submit(func() { np.processConfig(&cfg) })
+	if err != nil {
+		// todo: move into controlled degradation stage
+		np.log.Warn("neofs processor worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
