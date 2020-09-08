@@ -27,6 +27,7 @@ type (
 		pool            *ants.Pool
 		neofsContract   util.Uint160
 		balanceContract util.Uint160
+		netmapContract  util.Uint160
 		morphClient     *client.Client
 		epochState      EpochState
 		activeState     ActiveState
@@ -38,6 +39,7 @@ type (
 		PoolSize        int
 		NeoFSContract   util.Uint160
 		BalanceContract util.Uint160
+		NetmapContract  util.Uint160
 		MorphClient     *client.Client
 		EpochState      EpochState
 		ActiveState     ActiveState
@@ -75,6 +77,7 @@ func New(p *Params) (*Processor, error) {
 		pool:            pool,
 		neofsContract:   p.NeoFSContract,
 		balanceContract: p.BalanceContract,
+		netmapContract:  p.NetmapContract,
 		morphClient:     p.MorphClient,
 		epochState:      p.EpochState,
 		activeState:     p.ActiveState,
