@@ -9,7 +9,7 @@ import (
 )
 
 func (np *Processor) handleDeposit(ev event.Event) {
-	deposit := ev.(neofsEvent.Deposit) // todo: check panic in production
+	deposit := ev.(neofsEvent.Deposit)
 	np.log.Info("notification",
 		zap.String("type", "deposit"),
 		zap.String("id", hex.EncodeToString(deposit.ID())))
@@ -18,14 +18,14 @@ func (np *Processor) handleDeposit(ev event.Event) {
 
 	err := np.pool.Submit(func() { np.processDeposit(&deposit) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("neofs processor worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleWithdraw(ev event.Event) {
-	withdraw := ev.(neofsEvent.Withdraw) // todo: check panic in production
+	withdraw := ev.(neofsEvent.Withdraw)
 	np.log.Info("notification",
 		zap.String("type", "withdraw"),
 		zap.String("id", hex.EncodeToString(withdraw.ID())))
@@ -34,14 +34,14 @@ func (np *Processor) handleWithdraw(ev event.Event) {
 
 	err := np.pool.Submit(func() { np.processWithdraw(&withdraw) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("neofs processor worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleCheque(ev event.Event) {
-	cheque := ev.(neofsEvent.Cheque) // todo: check panic in production
+	cheque := ev.(neofsEvent.Cheque)
 	np.log.Info("notification",
 		zap.String("type", "cheque"),
 		zap.String("id", hex.EncodeToString(cheque.ID())))
@@ -50,14 +50,14 @@ func (np *Processor) handleCheque(ev event.Event) {
 
 	err := np.pool.Submit(func() { np.processCheque(&cheque) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("neofs processor worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleConfig(ev event.Event) {
-	cfg := ev.(neofsEvent.Config) // todo: check panic in production
+	cfg := ev.(neofsEvent.Config)
 	np.log.Info("notification",
 		zap.String("type", "set config"),
 		zap.String("key", hex.EncodeToString(cfg.Key())),
@@ -67,14 +67,14 @@ func (np *Processor) handleConfig(ev event.Event) {
 
 	err := np.pool.Submit(func() { np.processConfig(&cfg) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("neofs processor worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleUpdateInnerRing(ev event.Event) {
-	updIR := ev.(neofsEvent.UpdateInnerRing) // todo: check panic in production
+	updIR := ev.(neofsEvent.UpdateInnerRing)
 	np.log.Info("notification",
 		zap.String("type", "update inner ring"),
 	)
@@ -83,7 +83,7 @@ func (np *Processor) handleUpdateInnerRing(ev event.Event) {
 
 	err := np.pool.Submit(func() { np.processUpdateInnerRing(&updIR) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("neofs processor worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
