@@ -72,3 +72,19 @@ func (np *Processor) handleConfig(ev event.Event) {
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
+
+func (np *Processor) handleUpdateInnerRing(ev event.Event) {
+	updIR := ev.(neofsEvent.UpdateInnerRing) // todo: check panic in production
+	np.log.Info("notification",
+		zap.String("type", "update inner ring"),
+	)
+
+	// send event to the worker pool
+
+	err := np.pool.Submit(func() { np.processUpdateInnerRing(&updIR) })
+	if err != nil {
+		// todo: move into controlled degradation stage
+		np.log.Warn("neofs processor worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
