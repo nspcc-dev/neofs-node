@@ -3,8 +3,11 @@ package netmap
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
+
+type NodeInfo = netmap.NodeInfo
 
 // Client is a wrapper over StaticClient
 // which makes calls with the names and arguments

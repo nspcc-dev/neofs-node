@@ -25,13 +25,16 @@ func bootstrapNode(c *cfg) {
 		cli, err := netmap.New(staticClient)
 		fatalOnErr(err)
 
-		peerInfo := new(netmap.PeerInfo)
+		peerInfo := new(netmap.NodeInfo)
 		peerInfo.SetAddress(c.cfgNodeInfo.address)
 		peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
 		// todo: add attributes as opts
 
+		rawInfo, err := peerInfo.StableMarshal(nil)
+		fatalOnErr(err)
+
 		args := new(netmap.AddPeerArgs)
-		args.SetInfo(*peerInfo)
+		args.SetInfo(rawInfo)
 		err = cli.AddPeer(*args)
 		fatalOnErr(err)
 	}
