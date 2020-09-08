@@ -50,6 +50,7 @@ const (
 	depositNotification  = "Deposit"
 	withdrawNotification = "Withdraw"
 	chequeNotification   = "Cheque"
+	configNotification   = "SetConfig"
 )
 
 // New creates neofs mainnet contract processor instance.
@@ -109,6 +110,13 @@ func (np *Processor) ListenerParsers() []event.ParserInfo {
 	cheque.SetParser(neofsEvent.ParseCheque)
 	parsers = append(parsers, cheque)
 
+	// config event
+	config := event.ParserInfo{}
+	config.SetType(configNotification)
+	config.SetScriptHash(np.neofsContract)
+	config.SetParser(neofsEvent.ParseConfig)
+	parsers = append(parsers, config)
+
 	return parsers
 }
 
@@ -136,6 +144,13 @@ func (np *Processor) ListenerHandlers() []event.HandlerInfo {
 	cheque.SetScriptHash(np.neofsContract)
 	cheque.SetHandler(np.handleCheque)
 	handlers = append(handlers, cheque)
+
+	// config handler
+	config := event.HandlerInfo{}
+	config.SetType(configNotification)
+	config.SetScriptHash(np.neofsContract)
+	config.SetHandler(np.handleConfig)
+	handlers = append(handlers, config)
 
 	return handlers
 }
