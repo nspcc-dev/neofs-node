@@ -11,6 +11,11 @@ type (
 		Key    *keys.PublicKey
 		Status uint32
 	}
+
+	SetConfigArgs struct {
+		Key   []byte
+		Value []byte
+	}
 )
 
 const (
@@ -18,6 +23,8 @@ const (
 	setNewEpochMethod     = "newEpoch"
 	approvePeerMethod     = "addPeer"
 	updatePeerStateMethod = "updateState"
+	setConfigMethod       = "setConfigMethod"
+	updateInnerRingMethod = "updateInnerRingMethod"
 )
 
 // Epoch return epoch value from contract.
@@ -39,7 +46,7 @@ func Epoch(cli *client.Client, con util.Uint160) (int64, error) {
 	return epoch, nil
 }
 
-// SetNewEpoch invokes NewEpoch method.
+// SetNewEpoch invokes newEpoch method.
 func SetNewEpoch(cli *client.Client, con util.Uint160, epoch uint64) error {
 	if cli == nil {
 		return client.ErrNilClient
@@ -48,7 +55,7 @@ func SetNewEpoch(cli *client.Client, con util.Uint160, epoch uint64) error {
 	return cli.Invoke(con, extraFee, setNewEpochMethod, int64(epoch))
 }
 
-// ApprovePeer invokes AddPeer method.
+// ApprovePeer invokes addPeer method.
 func ApprovePeer(cli *client.Client, con util.Uint160, peer []byte) error {
 	if cli == nil {
 		return client.ErrNilClient
@@ -57,7 +64,7 @@ func ApprovePeer(cli *client.Client, con util.Uint160, peer []byte) error {
 	return cli.Invoke(con, extraFee, approvePeerMethod, peer)
 }
 
-// UpdatePeerState invokes AddPeer method.
+// UpdatePeerState invokes addPeer method.
 func UpdatePeerState(cli *client.Client, con util.Uint160, args *UpdatePeerArgs) error {
 	if cli == nil {
 		return client.ErrNilClient
@@ -67,4 +74,30 @@ func UpdatePeerState(cli *client.Client, con util.Uint160, args *UpdatePeerArgs)
 		args.Key.Bytes(),
 		int64(args.Status),
 	)
+}
+
+// SetConfig invokes setConfig method.
+func SetConfig(cli *client.Client, con util.Uint160, args *SetConfigArgs) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	return cli.Invoke(con, extraFee, setConfigMethod,
+		args.Key,
+		args.Value,
+	)
+}
+
+// UpdateInnerRing invokes updateInnerRing method.
+func UpdateInnerRing(cli *client.Client, con util.Uint160, list []*keys.PublicKey) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	rawKeys := make([][]byte, 0, len(list))
+	for i := range list {
+		rawKeys = append(rawKeys, list[i].Bytes())
+	}
+
+	return cli.Invoke(con, extraFee, updateInnerRingMethod, rawKeys)
 }
