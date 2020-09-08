@@ -144,11 +144,24 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 	}
 
 	// todo: add more types
-	switch value.(type) {
+	switch v := value.(type) {
 	case []byte:
 		result.Type = sc.ByteArrayType
 	case int64: // TODO: add other numerical types
 		result.Type = sc.IntegerType
+	case [][]byte:
+		arr := make([]sc.Parameter, 0, len(v))
+		for i := range v {
+			elem, err := toStackParameter(v[i])
+			if err != nil {
+				return result, err
+			}
+
+			arr = append(arr, elem)
+		}
+
+		result.Type = sc.ArrayType
+		result.Value = arr
 	default:
 		return result, errors.Errorf("chain/client: unsupported parameter %v", value)
 	}
