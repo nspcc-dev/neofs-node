@@ -9,7 +9,7 @@ import (
 )
 
 func (bp *Processor) handleLock(ev event.Event) {
-	lock := ev.(balanceEvent.Lock) // todo: check panic in production
+	lock := ev.(balanceEvent.Lock)
 	bp.log.Info("notification",
 		zap.String("type", "lock"),
 		zap.String("value", hex.EncodeToString(lock.ID())))
@@ -18,7 +18,7 @@ func (bp *Processor) handleLock(ev event.Event) {
 
 	err := bp.pool.Submit(func() { bp.processLock(&lock) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		bp.log.Warn("balance worker pool drained",
 			zap.Int("capacity", bp.pool.Cap()))
 	}

@@ -89,6 +89,6 @@ func LockAsset(cli *client.Client, con util.Uint160, p *LockParams) error {
 		p.User.BytesBE(),
 		p.LockAccount.BytesBE(),
 		p.Amount,
-		int64(p.Until), // fixme: invoke can work only with int64 values
+		int64(p.Until),
 	)
 }
