@@ -202,6 +202,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		PoolSize:        cfg.GetInt("workers.neofs"),
 		NeoFSContract:   contracts.neofs,
 		BalanceContract: contracts.balance,
+		NetmapContract:  contracts.netmap,
 		MorphClient:     server.morphClient,
 		EpochState:      server,
 		ActiveState:     server,
