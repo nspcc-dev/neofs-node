@@ -5,6 +5,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 )
 
 func initMorphComponents(c *cfg) {
@@ -25,17 +26,15 @@ func bootstrapNode(c *cfg) {
 		cli, err := netmap.New(staticClient)
 		fatalOnErr(err)
 
+		cliWrapper, err := wrapper.New(cli)
+		fatalOnErr(err)
+
 		peerInfo := new(netmap.NodeInfo)
 		peerInfo.SetAddress(c.cfgNodeInfo.address)
 		peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
 		// todo: add attributes as opts
 
-		rawInfo, err := peerInfo.StableMarshal(nil)
-		fatalOnErr(err)
-
-		args := new(netmap.AddPeerArgs)
-		args.SetInfo(rawInfo)
-		err = cli.AddPeer(*args)
+		err = cliWrapper.AddPeer(peerInfo)
 		fatalOnErr(err)
 	}
 }
