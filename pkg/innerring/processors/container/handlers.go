@@ -10,7 +10,7 @@ import (
 )
 
 func (cp *Processor) handlePut(ev event.Event) {
-	put := ev.(containerEvent.Put) // todo: check panic in production
+	put := ev.(containerEvent.Put)
 
 	id := sha256.Sum256(put.Container())
 	cp.log.Info("notification",
@@ -21,14 +21,14 @@ func (cp *Processor) handlePut(ev event.Event) {
 
 	err := cp.pool.Submit(func() { cp.processContainerPut(&put) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",
 			zap.Int("capacity", cp.pool.Cap()))
 	}
 }
 
 func (cp *Processor) handleDelete(ev event.Event) {
-	del := ev.(containerEvent.Delete) // todo: check panic in production
+	del := ev.(containerEvent.Delete)
 	cp.log.Info("notification",
 		zap.String("type", "container delete"),
 		zap.String("id", base58.Encode(del.ContainerID())))
@@ -37,7 +37,7 @@ func (cp *Processor) handleDelete(ev event.Event) {
 
 	err := cp.pool.Submit(func() { cp.processContainerDelete(&del) })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",
 			zap.Int("capacity", cp.pool.Cap()))
 	}

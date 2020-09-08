@@ -55,7 +55,7 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 	}
 
 	// create lock account
-	// todo: check collision there, consider reversed script hash
+	// fixme: check collision there, consider reversed script hash
 	lock, err := util.Uint160DecodeBytesBE(withdraw.ID()[:util.Uint160Size])
 	if err != nil {
 		np.log.Error("can't create lock account", zap.Error(err))
@@ -69,7 +69,7 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 			ID:          withdraw.ID(),
 			User:        withdraw.User(),
 			LockAccount: lock,
-			Amount:      withdraw.Amount() * 1_0000_0000, // todo: from Fixed8 to Fixed16
+			Amount:      withdraw.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
 			Until:       curEpoch + lockAccountLifetime,
 		})
 	if err != nil {

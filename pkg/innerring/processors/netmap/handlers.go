@@ -10,21 +10,21 @@ import (
 )
 
 func (np *Processor) handleNewEpochTick(ev event.Event) {
-	_ = ev.(timerEvent.NewEpochTick) // todo: check panic in production
+	_ = ev.(timerEvent.NewEpochTick)
 	np.log.Info("tick", zap.String("type", "epoch"))
 
 	// send event to the worker pool
 
 	err := np.pool.Submit(func() { np.processNewEpochTick() })
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleNewEpoch(ev event.Event) {
-	epochEvent := ev.(netmapEvent.NewEpoch) // todo: check panic in production
+	epochEvent := ev.(netmapEvent.NewEpoch)
 	np.log.Info("notification",
 		zap.String("type", "new epoch"),
 		zap.Uint64("value", epochEvent.EpochNumber()))
@@ -35,14 +35,14 @@ func (np *Processor) handleNewEpoch(ev event.Event) {
 		np.processNewEpoch(epochEvent.EpochNumber())
 	})
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleAddPeer(ev event.Event) {
-	newPeer := ev.(netmapEvent.AddPeer) // todo: check panic in production
+	newPeer := ev.(netmapEvent.AddPeer)
 
 	np.log.Info("notification",
 		zap.String("type", "add peer"),
@@ -54,14 +54,14 @@ func (np *Processor) handleAddPeer(ev event.Event) {
 		np.processAddPeer(newPeer.Node())
 	})
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
 
 func (np *Processor) handleUpdateState(ev event.Event) {
-	updPeer := ev.(netmapEvent.UpdatePeer) // todo: check panic in production
+	updPeer := ev.(netmapEvent.UpdatePeer)
 	np.log.Info("notification",
 		zap.String("type", "update peer state"),
 		zap.String("key", hex.EncodeToString(updPeer.PublicKey().Bytes())))
@@ -72,7 +72,7 @@ func (np *Processor) handleUpdateState(ev event.Event) {
 		np.processUpdatePeer(updPeer)
 	})
 	if err != nil {
-		// todo: move into controlled degradation stage
+		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
