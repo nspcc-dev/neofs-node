@@ -11,6 +11,7 @@ import (
 
 var (
 	ErrInvalidNumber   = errors.New("policy: expected positive integer")
+	ErrUnknownClause   = errors.New("policy: unknown clause")
 	ErrUnknownOp       = errors.New("policy: unknown operation")
 	ErrUnknownFilter   = errors.New("policy: filter not found")
 	ErrUnknownSelector = errors.New("policy: selector not found")
