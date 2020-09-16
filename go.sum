@@ -267,10 +267,6 @@ github.com/nspcc-dev/neo-go v0.73.1-pre.0.20200303142215-f5a1b928ce09/go.mod h1:
 github.com/nspcc-dev/neo-go v0.91.0/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
 github.com/nspcc-dev/neo-go v0.91.1-pre.0.20200827184617-7560aa345a78 h1:stIa+nBXK8uDY/JZaxIZzAUfkzfaotVw2FbnHxO4aZI=
 github.com/nspcc-dev/neo-go v0.91.1-pre.0.20200827184617-7560aa345a78/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200902121740-5a6dff8c83ba h1:S8YfqJ2F8o4KY5dP7DcBNXdJsWtTK/vtD9mcF4J/g6Y=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200902121740-5a6dff8c83ba/go.mod h1:f5Z4UggDgVgZXnDNr2ItdGwBpVYJBKlm5Yyu2XYEiAc=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200911095622-47fd771ee4c5 h1:+/VTNh3tHfuBHF+Xyf/QVO/U7QTcWyJ0rPHl+b8i0kU=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200911095622-47fd771ee4c5/go.mod h1:FsFd1z4YzoEgPlltsUgnqna9qhcF87RHYjot0pby2L4=
 github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200916115135-ff325b877023 h1:tltnqudivH6TBzs4DEouLx9rwPUBuvn7bjm4EZyosUc=
 github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200916115135-ff325b877023/go.mod h1:FsFd1z4YzoEgPlltsUgnqna9qhcF87RHYjot0pby2L4=
 github.com/nspcc-dev/neofs-crypto v0.2.0/go.mod h1:F/96fUzPM3wR+UGsPi3faVNmFlA9KAEAUQR7dMxZmNA=
@@ -280,6 +276,8 @@ github.com/nspcc-dev/neofs-crypto v0.3.0/go.mod h1:8w16GEJbH6791ktVqHN9YRNH3s9BE
 github.com/nspcc-dev/rfc6979 v0.1.0/go.mod h1:exhIh1PdpDC5vQmyEsGvc4YDM/lyQp/452QxGq/UEso=
 github.com/nspcc-dev/rfc6979 v0.2.0 h1:3e1WNxrN60/6N0DW7+UYisLeZJyfqZTNOjeV/toYvOE=
 github.com/nspcc-dev/rfc6979 v0.2.0/go.mod h1:exhIh1PdpDC5vQmyEsGvc4YDM/lyQp/452QxGq/UEso=
+github.com/nspcc-dev/tzhash v1.4.0 h1:RVIR+mxOBHl58CE99+DXtE31ylD5PEkZSoWqoj4fVjg=
+github.com/nspcc-dev/tzhash v1.4.0/go.mod h1:Z8gp/VZbyWgPhaMp/KTmeoW5UTynp/N60g0jTtSzBws=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
@@ -488,6 +486,7 @@ golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20191008105621-543471e840be/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20191010194322-b09406accb47/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200106162015-b016eb3dc98e/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200113162924-86b910548bc1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f h1:gWF768j/LaZugp8dyS4UwsslYCYz9XgFxvlgsn0n9H8=
