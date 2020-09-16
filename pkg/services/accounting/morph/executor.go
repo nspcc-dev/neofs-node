@@ -20,12 +20,7 @@ func NewExecutor(client *wrapper.Wrapper) accountingSvc.ServiceExecutor {
 }
 
 func (s *morphExecutor) Balance(ctx context.Context, body *accounting.BalanceRequestBody) (*accounting.BalanceResponseBody, error) {
-	id, err := owner.IDFromV2(body.GetOwnerID())
-	if err != nil {
-		return nil, err
-	}
-
-	amount, err := s.client.BalanceOf(id)
+	amount, err := s.client.BalanceOf(owner.NewIDFromV2(body.GetOwnerID()))
 	if err != nil {
 		return nil, err
 	}

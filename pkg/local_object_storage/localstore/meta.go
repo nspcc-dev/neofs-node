@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
@@ -44,8 +45,14 @@ func metaFromObject(o *object.Object) *ObjectMeta {
 	// FIXME: remove hard-code
 	meta := new(ObjectMeta)
 	meta.savedAtEpoch = 10
+
+	raw := objectSDK.NewRaw()
+	raw.SetContainerID(o.GetContainerID())
+	raw.SetOwnerID(o.GetOwnerID())
+	// TODO: set other meta fields
+
 	meta.head = &object.Object{
-		Object: o.CutPayload(),
+		Object: raw.Object(),
 	}
 
 	return meta
