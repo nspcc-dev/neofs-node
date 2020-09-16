@@ -28,15 +28,23 @@ func (o *Object) Address() *object.Address {
 	return nil
 }
 
-// FromV2 converts v2 Object message to Object.
-func FromV2(oV2 *objectV2.Object) *Object {
-	if oV2 == nil {
-		return nil
-	}
-
+// NewFromV2 constructs Object instance from v2 Object message.
+func NewFromV2(obj *objectV2.Object) *Object {
 	return &Object{
-		Object: object.NewFromV2(oV2),
+		Object: object.NewFromV2(obj),
 	}
+}
+
+// NewFromSDK constructs Object instance from NeoFS SDK Object.
+func NewFromSDK(obj *object.Object) *Object {
+	return &Object{
+		Object: obj,
+	}
+}
+
+// New constructs blank Object instance.
+func New() *Object {
+	return NewFromSDK(object.New())
 }
 
 // FromBytes restores Object from binary format.
