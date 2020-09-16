@@ -9,13 +9,21 @@ import (
 	"go.uber.org/zap"
 )
 
+func addressBytes(a *objectSDK.Address) ([]byte, error) {
+	return a.ToV2().StableMarshal(nil)
+}
+
+func objectBytes(o *object.Object) ([]byte, error) {
+	return o.ToV2().StableMarshal(nil)
+}
+
 func (s *Storage) Put(obj *object.Object) error {
-	addrBytes, err := obj.Address().ToV2().StableMarshal(nil)
+	addrBytes, err := addressBytes(obj.Address())
 	if err != nil {
 		return errors.Wrap(err, "could not marshal object address")
 	}
 
-	objBytes, err := obj.MarshalStableV2()
+	objBytes, err := objectBytes(obj)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal the object")
 	}
@@ -37,7 +45,7 @@ func (s *Storage) Put(obj *object.Object) error {
 }
 
 func (s *Storage) Delete(addr *objectSDK.Address) error {
-	addrBytes, err := addr.ToV2().StableMarshal(nil)
+	addrBytes, err := addressBytes(addr)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal object address")
 	}
@@ -56,7 +64,7 @@ func (s *Storage) Delete(addr *objectSDK.Address) error {
 }
 
 func (s *Storage) Get(addr *objectSDK.Address) (*object.Object, error) {
-	addrBytes, err := addr.ToV2().StableMarshal(nil)
+	addrBytes, err := addressBytes(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not marshal object address")
 	}
@@ -70,7 +78,7 @@ func (s *Storage) Get(addr *objectSDK.Address) (*object.Object, error) {
 }
 
 func (s *Storage) Head(addr *objectSDK.Address) (*ObjectMeta, error) {
-	addrBytes, err := addr.ToV2().StableMarshal(nil)
+	addrBytes, err := addressBytes(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not marshal object address")
 	}
