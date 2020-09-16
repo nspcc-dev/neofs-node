@@ -15,15 +15,6 @@ type Object struct {
 	*object.Object
 }
 
-// MarshalStableV2 marshals Object to v2 binary format.
-func (o *Object) MarshalStableV2() ([]byte, error) {
-	if o != nil {
-		return o.ToV2().StableMarshal(nil)
-	}
-
-	return nil, nil
-}
-
 // Address returns address of the object.
 func (o *Object) Address() *object.Address {
 	if o != nil {
