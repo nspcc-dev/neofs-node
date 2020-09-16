@@ -3,6 +3,7 @@ package object
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 )
 
 // Object represents the NeoFS object.
@@ -17,12 +18,7 @@ type Object struct {
 // MarshalStableV2 marshals Object to v2 binary format.
 func (o *Object) MarshalStableV2() ([]byte, error) {
 	if o != nil {
-		v2, err := o.ToV2(nil) // fixme: remove
-		if err != nil {
-			return nil, err
-		}
-
-		return v2.StableMarshal(nil)
+		return o.ToV2().StableMarshal(nil)
 	}
 
 	return nil, nil
@@ -31,8 +27,12 @@ func (o *Object) MarshalStableV2() ([]byte, error) {
 // Address returns address of the object.
 func (o *Object) Address() *Address {
 	if o != nil {
+		aV2 := new(refs.Address)
+		aV2.SetObjectID(o.GetID().ToV2())
+		aV2.SetContainerID(o.GetContainerID().ToV2())
+
 		return &Address{
-			Address: o.Object.Address(),
+			Address: object.NewAddressFromV2(aV2),
 		}
 	}
 
@@ -40,19 +40,14 @@ func (o *Object) Address() *Address {
 }
 
 // FromV2 converts v2 Object message to Object.
-func FromV2(oV2 *objectV2.Object) (*Object, error) {
+func FromV2(oV2 *objectV2.Object) *Object {
 	if oV2 == nil {
-		return nil, nil
-	}
-
-	o, err := object.FromV2(oV2)
-	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	return &Object{
-		Object: o,
-	}, nil
+		Object: object.NewFromV2(oV2),
+	}
 }
 
 // FromBytes restores Object from binary format.
