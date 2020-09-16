@@ -17,7 +17,12 @@ type Object struct {
 // MarshalStableV2 marshals Object to v2 binary format.
 func (o *Object) MarshalStableV2() ([]byte, error) {
 	if o != nil {
-		return o.ToV2().StableMarshal(nil)
+		v2, err := o.ToV2(nil) // fixme: remove
+		if err != nil {
+			return nil, err
+		}
+
+		return v2.StableMarshal(nil)
 	}
 
 	return nil, nil
