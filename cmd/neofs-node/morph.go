@@ -5,6 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	"github.com/pkg/errors"
 )
 
 func initMorphComponents(c *cfg) {
@@ -24,10 +25,10 @@ func bootstrapNode(c *cfg) {
 		fatalOnErr(err)
 
 		cli, err := netmap.New(staticClient)
-		fatalOnErr(err)
+		fatalOnErr(errors.Wrap(err, "bootstrap error"))
 
 		cliWrapper, err := wrapper.New(cli)
-		fatalOnErr(err)
+		fatalOnErr(errors.Wrap(err, "bootstrap error"))
 
 		peerInfo := new(netmap.NodeInfo)
 		peerInfo.SetAddress(c.viper.GetString(cfgBootstrapAddress))
@@ -35,6 +36,6 @@ func bootstrapNode(c *cfg) {
 		// todo: add attributes as opts
 
 		err = cliWrapper.AddPeer(peerInfo)
-		fatalOnErr(err)
+		fatalOnErr(errors.Wrap(err, "bootstrap error"))
 	}
 }
