@@ -46,14 +46,12 @@ func metaFromObject(o *object.Object) *ObjectMeta {
 	meta := new(ObjectMeta)
 	meta.savedAtEpoch = 10
 
-	raw := objectSDK.NewRaw()
+	raw := object.NewRaw()
 	raw.SetContainerID(o.GetContainerID())
 	raw.SetOwnerID(o.GetOwnerID())
 	// TODO: set other meta fields
 
-	meta.head = &object.Object{
-		Object: raw.Object(),
-	}
+	meta.head = raw.Object()
 
 	return meta
 }
@@ -63,12 +61,12 @@ func metaToBytes(m *ObjectMeta) ([]byte, error) {
 
 	binary.BigEndian.PutUint64(data, m.savedAtEpoch)
 
-	addrBytes, err := m.head.MarshalStableV2()
+	objBytes, err := objectBytes(m.head)
 	if err != nil {
 		return nil, err
 	}
 
-	return append(data, addrBytes...), nil
+	return append(data, objBytes...), nil
 }
 
 func metaFromBytes(data []byte) (*ObjectMeta, error) {
