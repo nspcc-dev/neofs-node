@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -12,10 +11,11 @@ import (
 )
 
 func initContainerService(c *cfg) {
-	u160, err := util.Uint160DecodeStringLE(c.cfgContainer.scriptHash)
-	fatalOnErr(err)
-
-	staticClient, err := client.NewStatic(c.cfgMorph.client, u160, c.cfgContainer.fee)
+	staticClient, err := client.NewStatic(
+		c.cfgMorph.client,
+		c.cfgContainer.scriptHash,
+		c.cfgContainer.fee,
+	)
 	fatalOnErr(err)
 
 	cnrClient, err := container.New(staticClient)
