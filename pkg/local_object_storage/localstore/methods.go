@@ -3,13 +3,14 @@ package localstore
 import (
 	"context"
 
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
 func (s *Storage) Put(obj *object.Object) error {
-	addrBytes, err := obj.Address().MarshalStableV2()
+	addrBytes, err := obj.Address().ToV2().StableMarshal(nil)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal object address")
 	}
@@ -35,8 +36,8 @@ func (s *Storage) Put(obj *object.Object) error {
 	return nil
 }
 
-func (s *Storage) Delete(addr *object.Address) error {
-	addrBytes, err := addr.MarshalStableV2()
+func (s *Storage) Delete(addr *objectSDK.Address) error {
+	addrBytes, err := addr.ToV2().StableMarshal(nil)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal object address")
 	}
@@ -54,8 +55,8 @@ func (s *Storage) Delete(addr *object.Address) error {
 	return nil
 }
 
-func (s *Storage) Get(addr *object.Address) (*object.Object, error) {
-	addrBytes, err := addr.MarshalStableV2()
+func (s *Storage) Get(addr *objectSDK.Address) (*object.Object, error) {
+	addrBytes, err := addr.ToV2().StableMarshal(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not marshal object address")
 	}
@@ -68,8 +69,8 @@ func (s *Storage) Get(addr *object.Address) (*object.Object, error) {
 	return object.FromBytes(objBytes)
 }
 
-func (s *Storage) Head(addr *object.Address) (*ObjectMeta, error) {
-	addrBytes, err := addr.MarshalStableV2()
+func (s *Storage) Head(addr *objectSDK.Address) (*ObjectMeta, error) {
+	addrBytes, err := addr.ToV2().StableMarshal(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not marshal object address")
 	}

@@ -25,15 +25,13 @@ func (o *Object) MarshalStableV2() ([]byte, error) {
 }
 
 // Address returns address of the object.
-func (o *Object) Address() *Address {
+func (o *Object) Address() *object.Address {
 	if o != nil {
 		aV2 := new(refs.Address)
 		aV2.SetObjectID(o.GetID().ToV2())
 		aV2.SetContainerID(o.GetContainerID().ToV2())
 
-		return &Address{
-			Address: object.NewAddressFromV2(aV2),
-		}
+		return object.NewAddressFromV2(aV2)
 	}
 
 	return nil

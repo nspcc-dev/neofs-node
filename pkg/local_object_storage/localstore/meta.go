@@ -37,7 +37,7 @@ func (m *ObjectMeta) Head() *object.Object {
 }
 
 // AddressFromMeta extracts the Address from object meta.
-func AddressFromMeta(m *ObjectMeta) *object.Address {
+func AddressFromMeta(m *ObjectMeta) *objectSDK.Address {
 	return m.Head().Address()
 }
 
