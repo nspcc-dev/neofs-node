@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 
@@ -14,7 +15,10 @@ func fatalOnErr(err error) {
 }
 
 func main() {
-	c := defaultCfg()
+	configFile := flag.String("config", "", "path to config")
+	flag.Parse()
+
+	c := initCfg(*configFile)
 
 	init_(c)
 

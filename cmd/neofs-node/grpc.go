@@ -10,7 +10,7 @@ import (
 func initGRPC(c *cfg) {
 	var err error
 
-	c.cfgGRPC.listener, err = net.Listen("tcp", c.cfgGRPC.endpoint)
+	c.cfgGRPC.listener, err = net.Listen("tcp", c.viper.GetString(cfgListenAddress))
 	fatalOnErr(err)
 
 	c.cfgGRPC.server = grpc.NewServer()

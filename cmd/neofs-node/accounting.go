@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -17,10 +16,11 @@ func initAccountingService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	u160, err := util.Uint160DecodeStringLE(c.cfgAccounting.scriptHash)
-	fatalOnErr(err)
-
-	staticClient, err := client.NewStatic(c.cfgMorph.client, u160, c.cfgAccounting.fee)
+	staticClient, err := client.NewStatic(
+		c.cfgMorph.client,
+		c.cfgAccounting.scriptHash,
+		c.cfgAccounting.fee,
+	)
 	fatalOnErr(err)
 
 	balanceClient, err := balance.New(staticClient)

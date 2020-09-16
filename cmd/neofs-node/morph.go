@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -11,16 +10,17 @@ import (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	c.cfgMorph.client, err = client.New(c.key, c.cfgMorph.endpoint)
+	c.cfgMorph.client, err = client.New(c.key, c.viper.GetString(cfgMorphRPCAddress))
 	fatalOnErr(err)
 }
 
 func bootstrapNode(c *cfg) {
 	if c.cfgNodeInfo.bootType == StorageNode {
-		u160, err := util.Uint160DecodeStringLE(c.cfgNetmap.scriptHash)
-		fatalOnErr(err)
-
-		staticClient, err := client.NewStatic(c.cfgMorph.client, u160, c.cfgContainer.fee)
+		staticClient, err := client.NewStatic(
+			c.cfgMorph.client,
+			c.cfgNetmap.scriptHash,
+			c.cfgContainer.fee,
+		)
 		fatalOnErr(err)
 
 		cli, err := netmap.New(staticClient)
@@ -30,7 +30,7 @@ func bootstrapNode(c *cfg) {
 		fatalOnErr(err)
 
 		peerInfo := new(netmap.NodeInfo)
-		peerInfo.SetAddress(c.cfgNodeInfo.address)
+		peerInfo.SetAddress(c.viper.GetString(cfgBootstrapAddress))
 		peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
 		// todo: add attributes as opts
 
