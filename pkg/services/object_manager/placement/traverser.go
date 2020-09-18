@@ -29,11 +29,9 @@ type Option func(*cfg)
 type Traverser struct {
 	mtx *sync.RWMutex
 
-	rem int
-
-	nextI, nextJ int
-
 	vectors []netmap.Nodes
+
+	rem []int
 }
 
 type cfg struct {
@@ -46,11 +44,14 @@ type cfg struct {
 	builder Builder
 }
 
+const invalidOptsMsg = "invalid traverser options"
+
 var errNilBuilder = errors.New("placement builder is nil")
+
+var errNilPolicy = errors.New("placement policy is nil")
 
 func defaultCfg() *cfg {
 	return &cfg{
-		rem:  1,
 		addr: object.NewAddress(),
 	}
 }
@@ -66,7 +67,9 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 	}
 
 	if cfg.builder == nil {
-		return nil, errors.Wrap(errNilBuilder, "incomplete traverser options")
+		return nil, errors.Wrap(errNilBuilder, invalidOptsMsg)
+	} else if cfg.policy == nil {
+		return nil, errors.Wrap(errNilPolicy, invalidOptsMsg)
 	}
 
 	ns, err := cfg.builder.BuildPlacement(cfg.addr, cfg.policy)
@@ -74,9 +77,22 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		return nil, errors.Wrap(err, "could not build placement")
 	}
 
+	ss := cfg.policy.GetSelectors()
+	rem := make([]int, 0, len(ss))
+
+	for i := range ss {
+		cnt := cfg.rem
+
+		if cnt == 0 {
+			cnt = int(ss[i].GetCount())
+		}
+
+		rem = append(rem, cnt)
+	}
+
 	return &Traverser{
 		mtx:     new(sync.RWMutex),
-		rem:     cfg.rem,
+		rem:     rem,
 		vectors: ns,
 	}, nil
 }
@@ -84,41 +100,73 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 // Next returns next unprocessed address of the object placement.
 //
 // Returns nil if no nodes left or traversal operation succeeded.
-func (t *Traverser) Next() *network.Address {
+func (t *Traverser) Next() []*network.Address {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	if t.rem == 0 || t.nextI == len(t.vectors) {
+	t.skipEmptyVectors()
+
+	if len(t.vectors) == 0 {
+		return nil
+	} else if len(t.vectors[0]) < t.rem[0] {
 		return nil
 	}
 
-	addr, err := network.AddressFromString(t.vectors[t.nextI][t.nextJ].NetworkAddress())
-	if err != nil {
-		// TODO: log error
+	count := t.rem[0]
+	if count < 0 {
+		count = len(t.vectors[0])
 	}
 
-	if t.nextJ++; t.nextJ == len(t.vectors[t.nextI]) {
-		t.nextJ = 0
-		t.nextI++
+	addrs := make([]*network.Address, 0, count)
+
+	for i := 0; i < count; i++ {
+		addr, err := network.AddressFromString(t.vectors[0][i].NetworkAddress())
+		if err != nil {
+			// TODO: log error
+			return nil
+		}
+
+		addrs = append(addrs, addr)
 	}
 
-	return addr
+	t.vectors[0] = t.vectors[0][count:]
+
+	return addrs
+}
+
+func (t *Traverser) skipEmptyVectors() {
+	for i := 0; i < len(t.vectors); i++ { // don't use range, slice changes in body
+		if len(t.vectors[i]) == 0 && t.rem[i] <= 0 || t.rem[0] == 0 {
+			t.vectors = append(t.vectors[:i], t.vectors[i+1:]...)
+			t.rem = append(t.rem[:i], t.rem[i+1:]...)
+			i--
+		} else {
+			break
+		}
+	}
 }
 
 // SubmitSuccess writes single succeeded node operation.
 func (t *Traverser) SubmitSuccess() {
 	t.mtx.Lock()
-	t.rem--
+	if len(t.rem) > 0 {
+		t.rem[0]--
+	}
 	t.mtx.Unlock()
 }
 
 // Success returns true if traversal operation succeeded.
 func (t *Traverser) Success() bool {
 	t.mtx.RLock()
-	s := t.rem <= 0
-	t.mtx.RUnlock()
+	defer t.mtx.RUnlock()
 
-	return s
+	for i := range t.rem {
+		if t.rem[i] > 0 {
+			return false
+		}
+	}
+
+	return true
 }
 
 // UseBuilder is a placement builder setting option.
@@ -146,12 +194,6 @@ func UseNetworkMap(nm *netmap.Netmap) Option {
 func ForContainer(cnr *container.Container) Option {
 	return func(c *cfg) {
 		c.policy = cnr.GetPlacementPolicy()
-
-		c.rem = 0
-		for _, r := range c.policy.GetReplicas() {
-			c.rem += int(r.GetCount())
-		}
-
 		c.addr.SetContainerID(container.CalculateID(cnr))
 	}
 }
