@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	netmapV2 "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -35,86 +36,156 @@ func flattenVectors(vs []netmap.Nodes) netmap.Nodes {
 	return v
 }
 
-func testPlacement(t *testing.T, sz []int) []netmap.Nodes {
-	res := make([]netmap.Nodes, 0, len(sz))
+func copyVectors(v []netmap.Nodes) []netmap.Nodes {
+	vc := make([]netmap.Nodes, 0, len(v))
+
+	for i := range v {
+		ns := make(netmap.Nodes, len(v[i]))
+		copy(ns, v[i])
+
+		vc = append(vc, ns)
+	}
+
+	return vc
+}
+
+func testPlacement(t *testing.T, rs, ss []int) ([]netmap.Nodes, *container.Container) {
+	nodes := make([]netmap.Nodes, 0, len(rs))
+	selectors := make([]*netmap.Selector, 0, len(rs))
 	num := uint32(0)
 
-	for i := range sz {
-		ns := make([]netmapV2.NodeInfo, 0, sz[i])
+	for i := range rs {
+		ns := make([]netmapV2.NodeInfo, 0, rs[i])
 
-		for j := 0; j < sz[i]; j++ {
+		for j := 0; j < rs[i]; j++ {
 			ns = append(ns, testNode(num))
 			num++
 		}
 
-		res = append(res, netmap.NodesFromV2(ns))
+		nodes = append(nodes, netmap.NodesFromV2(ns))
+
+		s := new(netmap.Selector)
+		s.SetCount(uint32(ss[i]))
+
+		selectors = append(selectors, s)
 	}
 
-	return res
+	policy := new(netmap.PlacementPolicy)
+	policy.SetSelectors(selectors)
+
+	return nodes, container.New(container.WithPolicy(policy))
 }
 
 func TestTraverserObjectScenarios(t *testing.T) {
 	t.Run("search scenario", func(t *testing.T) {
-		nodes := testPlacement(t, []int{2, 3})
+		replicas := []int{2, 3}
+		selectors := []int{1, 2}
 
-		allNodes := flattenVectors(nodes)
+		nodes, cnr := testPlacement(t, replicas, selectors)
+
+		nodesCopy := copyVectors(nodes)
 
 		tr, err := NewTraverser(
-			UseBuilder(&testBuilder{vectors: nodes}),
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{vectors: nodesCopy}),
 			WithoutSuccessTracking(),
 		)
 		require.NoError(t, err)
 
-		require.True(t, tr.Success())
+		for i := range replicas {
+			addrs := tr.Next()
 
-		for i := range allNodes {
-			require.Equal(t, allNodes[i].NetworkAddress(), tr.Next().String())
+			require.Len(t, addrs, len(nodes[i]))
+
+			for j, n := range nodes[i] {
+				require.Equal(t, n.NetworkAddress(), addrs[j].String())
+			}
 		}
 
-		require.Nil(t, tr.Next())
+		require.Empty(t, tr.Next())
 		require.True(t, tr.Success())
 	})
 
 	t.Run("read scenario", func(t *testing.T) {
-		nodes := testPlacement(t, []int{5, 3, 4})
+		replicas := []int{5, 3}
+		selectors := []int{2, 2}
 
-		allNodes := flattenVectors(nodes)
+		nodes, cnr := testPlacement(t, replicas, selectors)
+
+		nodesCopy := copyVectors(nodes)
 
 		tr, err := NewTraverser(
-			UseBuilder(&testBuilder{vectors: nodes}),
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{vectors: nodesCopy}),
+			SuccessAfter(1),
 		)
 		require.NoError(t, err)
 
-		for i := range allNodes[:len(allNodes)-3] {
-			require.Equal(t, allNodes[i].NetworkAddress(), tr.Next().String())
-		}
+		fn := func(curVector int) {
+			for i := 0; i < replicas[curVector]; i++ {
+				addrs := tr.Next()
+				require.Len(t, addrs, 1)
 
-		require.False(t, tr.Success())
+				require.Equal(t, nodes[curVector][i].NetworkAddress(), addrs[0].String())
+			}
 
-		tr.SubmitSuccess()
-
-		require.True(t, tr.Success())
-
-		require.Nil(t, tr.Next())
-	})
-
-	t.Run("put scenario", func(t *testing.T) {
-		nodes := testPlacement(t, []int{3, 3, 3})
-		sucCount := 3
-
-		tr, err := NewTraverser(
-			UseBuilder(&testBuilder{vectors: nodes}),
-			SuccessAfter(sucCount),
-		)
-		require.NoError(t, err)
-
-		for i := 0; i < sucCount; i++ {
-			require.NotNil(t, tr.Next())
+			require.Empty(t, tr.Next())
 			require.False(t, tr.Success())
+
 			tr.SubmitSuccess()
 		}
 
-		require.Nil(t, tr.Next())
-		require.True(t, tr.Success())
+		for i := range replicas {
+			fn(i)
+
+			if i < len(replicas)-1 {
+				require.False(t, tr.Success())
+			} else {
+				require.True(t, tr.Success())
+			}
+		}
+	})
+
+	t.Run("put scenario", func(t *testing.T) {
+		replicas := []int{5, 3}
+		selectors := []int{2, 2}
+
+		nodes, cnr := testPlacement(t, replicas, selectors)
+
+		nodesCopy := copyVectors(nodes)
+
+		tr, err := NewTraverser(
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{vectors: nodesCopy}),
+		)
+		require.NoError(t, err)
+
+		fn := func(curVector int) {
+			for i := 0; i+selectors[curVector] < replicas[curVector]; i += selectors[curVector] {
+				addrs := tr.Next()
+				require.Len(t, addrs, selectors[curVector])
+
+				for j := range addrs {
+					require.Equal(t, nodes[curVector][i+j].NetworkAddress(), addrs[j].String())
+				}
+			}
+
+			require.Empty(t, tr.Next())
+			require.False(t, tr.Success())
+
+			for i := 0; i < selectors[curVector]; i++ {
+				tr.SubmitSuccess()
+			}
+		}
+
+		for i := range replicas {
+			fn(i)
+
+			if i < len(replicas)-1 {
+				require.False(t, tr.Success())
+			} else {
+				require.True(t, tr.Success())
+			}
+		}
 	})
 }
