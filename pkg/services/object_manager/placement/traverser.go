@@ -77,14 +77,14 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		return nil, errors.Wrap(err, "could not build placement")
 	}
 
-	ss := cfg.policy.GetSelectors()
-	rem := make([]int, 0, len(ss))
+	rs := cfg.policy.GetReplicas()
+	rem := make([]int, 0, len(rs))
 
-	for i := range ss {
+	for i := range rs {
 		cnt := cfg.rem
 
 		if cnt == 0 {
-			cnt = int(ss[i].GetCount())
+			cnt = int(rs[i].GetCount())
 		}
 
 		rem = append(rem, cnt)
