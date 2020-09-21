@@ -4,23 +4,18 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 
+	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	sdk "github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	"github.com/nspcc-dev/neofs-api-go/v2/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/pkg/errors"
 )
 
 type (
-	// fixme: use core.netmap interface implementation
-	NetmapFetcher interface {
-		Current() (netmap.Netmap, error)
-		Previous(int) (netmap.Netmap, error)
-	}
-
 	InnerRingFetcher interface {
 		InnerRingKeys() ([][]byte, error)
 	}
@@ -32,12 +27,11 @@ type (
 
 	SenderClassifier struct {
 		innerRing InnerRingFetcher
-		netmap    NetmapFetcher
+		netmap    core.Source
 	}
 )
 
-// fixme: update classifier constructor
-func NewSenderClassifier(ir InnerRingFetcher, nm NetmapFetcher) SenderClassifier {
+func NewSenderClassifier(ir InnerRingFetcher, nm core.Source) SenderClassifier {
 	return SenderClassifier{
 		innerRing: ir,
 		netmap:    nm,
@@ -120,16 +114,16 @@ func requestOwner(req RequestV2) (*refs.OwnerID, *ecdsa.PublicKey, error) {
 	}
 
 	key := crypto.UnmarshalPublicKey(bodySignature.GetKey())
-	neo3wallet, err := sdk.NEO3WalletFromPublicKey(key)
+	neo3wallet, err := owner.NEO3WalletFromPublicKey(key)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "can't create neo3 wallet")
 	}
 
-	// form owner from public key
-	owner := new(refs.OwnerID)
-	owner.SetValue(neo3wallet.Bytes())
+	// form user from public key
+	user := new(refs.OwnerID)
+	user.SetValue(neo3wallet.Bytes())
 
-	return owner, key, nil
+	return user, key, nil
 }
 
 func originalBodySignature(v *session.RequestVerificationHeader) *refs.Signature {
@@ -165,7 +159,7 @@ func (c SenderClassifier) isContainerKey(
 	cnr *container.Container) (bool, error) {
 
 	// first check current netmap
-	nm, err := c.netmap.Current()
+	nm, err := core.GetLatestNetworkMap(c.netmap)
 	if err != nil {
 		return false, err
 	}
@@ -179,7 +173,7 @@ func (c SenderClassifier) isContainerKey(
 
 	// then check previous netmap, this can happen in-between epoch change
 	// when node migrates data from last epoch container
-	nm, err = c.netmap.Previous(1)
+	nm, err = core.GetPreviousNetworkMap(c.netmap)
 	if err != nil {
 		return false, err
 	}
@@ -188,7 +182,7 @@ func (c SenderClassifier) isContainerKey(
 }
 
 func lookupKeyInContainer(
-	nm netmap.Netmap,
+	nm *netmap.Netmap,
 	owner, cid []byte,
 	cnr *container.Container) (bool, error) {
 
