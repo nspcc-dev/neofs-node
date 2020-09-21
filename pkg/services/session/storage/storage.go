@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/mr-tron/base58"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 )
 
 type key struct {
@@ -34,8 +34,8 @@ func New() *TokenStore {
 // Get returns private token corresponding to the given identifiers.
 //
 // Returns nil is there is no element in storage.
-func (s *TokenStore) Get(ownerID *refs.OwnerID, tokenID []byte) *PrivateToken {
-	ownerBytes, err := ownerID.StableMarshal(nil)
+func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *PrivateToken {
+	ownerBytes, err := ownerID.ToV2().StableMarshal(nil)
 	if err != nil {
 		panic(err)
 	}
