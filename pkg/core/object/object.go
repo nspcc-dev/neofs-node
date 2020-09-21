@@ -28,6 +28,15 @@ func (o *Object) Address() *object.Address {
 	return nil
 }
 
+// SDK returns NeoFS SDK object instance.
+func (o *Object) SDK() *object.Object {
+	if o != nil {
+		return o.Object
+	}
+
+	return nil
+}
+
 // NewFromV2 constructs Object instance from v2 Object message.
 func NewFromV2(obj *objectV2.Object) *Object {
 	return &Object{
