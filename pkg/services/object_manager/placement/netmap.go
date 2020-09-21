@@ -10,6 +10,12 @@ type netMapBuilder struct {
 	nm *netmap.Netmap
 }
 
+func NewNetworkMapBuilder(nm *netmap.Netmap) Builder {
+	return &netMapBuilder{
+		nm: nm,
+	}
+}
+
 func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
 	aV2 := a.ToV2()
 
