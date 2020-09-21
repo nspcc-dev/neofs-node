@@ -178,18 +178,6 @@ func UseBuilder(b Builder) Option {
 	}
 }
 
-// UseNetworkMap is a placement builder based on network
-// map setting option.
-//
-// Overlaps UseBuilder option.
-func UseNetworkMap(nm *netmap.Netmap) Option {
-	return func(c *cfg) {
-		c.builder = &netMapBuilder{
-			nm: nm,
-		}
-	}
-}
-
 // ForContainer is a traversal container setting option.
 func ForContainer(cnr *container.Container) Option {
 	return func(c *cfg) {
