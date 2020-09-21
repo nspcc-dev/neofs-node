@@ -15,12 +15,6 @@ import (
 )
 
 type (
-	// ContainerFetcher accesses NeoFS container storage.
-	// fixme: use core.container interface implementation
-	ContainerFetcher interface {
-		Fetch(*refs.ContainerID) (*container.Container, error)
-	}
-
 	// fixme: use core.netmap interface implementation
 	NetmapFetcher interface {
 		Current() (netmap.Netmap, error)
@@ -37,18 +31,23 @@ type (
 	}
 
 	SenderClassifier struct {
-		containers ContainerFetcher
-		innerRing  InnerRingFetcher
-		netmap     NetmapFetcher
+		innerRing InnerRingFetcher
+		netmap    NetmapFetcher
 	}
 )
 
 // fixme: update classifier constructor
-func NewSenderClassifier() SenderClassifier {
-	return SenderClassifier{}
+func NewSenderClassifier(ir InnerRingFetcher, nm NetmapFetcher) SenderClassifier {
+	return SenderClassifier{
+		innerRing: ir,
+		netmap:    nm,
+	}
 }
 
-func (c SenderClassifier) Classify(req RequestV2, cid *refs.ContainerID) acl.Role {
+func (c SenderClassifier) Classify(
+	req RequestV2,
+	cid *refs.ContainerID,
+	cnr *container.Container) acl.Role {
 	if cid == nil || req == nil {
 		// log there
 		return acl.RoleUnknown
@@ -62,15 +61,8 @@ func (c SenderClassifier) Classify(req RequestV2, cid *refs.ContainerID) acl.Rol
 
 	// todo: get owner from neofs.id if present
 
-	// fetch actual container
-	cnr, err := c.containers.Fetch(cid)
-	if err != nil || cnr.GetOwnerID() == nil {
-		// log there
-		return acl.RoleUnknown
-	}
-
 	// if request owner is the same as container owner, return RoleUser
-	if bytes.Equal(cnr.GetOwnerID().GetValue(), cid.GetValue()) {
+	if bytes.Equal(cnr.GetOwnerID().GetValue(), ownerID.GetValue()) {
 		return acl.RoleUser
 	}
 
