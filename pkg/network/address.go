@@ -12,6 +12,12 @@ type Address struct {
 	ma multiaddr.Multiaddr
 }
 
+// LocalAddressSource is an interface of local
+// network address container with read access.
+type LocalAddressSource interface {
+	LocalAddress() *Address
+}
+
 func (a Address) String() string {
 	return a.ma.String()
 }
@@ -36,4 +42,10 @@ func AddressFromString(s string) (*Address, error) {
 	return &Address{
 		ma: ma,
 	}, nil
+}
+
+// IsLocalAddress returns true if network endpoint from local address
+// source is equal to network endpoint of passed address.
+func IsLocalAddress(src LocalAddressSource, addr *Address) bool {
+	return src.LocalAddress().NetAddr() == addr.NetAddr()
 }
