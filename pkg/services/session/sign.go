@@ -17,6 +17,7 @@ type signService struct {
 func NewSignService(key *ecdsa.PrivateKey, svc session.Service) session.Service {
 	return &signService{
 		sigSvc: util.NewUnarySignService(key),
+		svc:    svc,
 	}
 }
 
