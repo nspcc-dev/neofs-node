@@ -3,27 +3,18 @@ package acl
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	"github.com/nspcc-dev/neofs-api-go/v2/container"
+	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/pkg/errors"
 )
 
 type (
-	// ContainerGetter accesses NeoFS container storage.
-	// fixme: use core.container interface implementation
-	ContainerGetter interface {
-		Get(*refs.ContainerID) (*container.Container, error)
-	}
-
-	Classifier interface {
-		Classify(RequestV2, *refs.ContainerID) acl.Role
-	}
-
 	// BasicChecker checks basic ACL rules.
 	BasicChecker struct {
-		containers ContainerGetter
+		containers container.Source
 		sender     SenderClassifier
 		next       object.Service
 	}
@@ -62,7 +53,7 @@ var (
 // NewBasicChecker is a constructor for basic ACL checker of object requests.
 func NewBasicChecker(
 	c SenderClassifier,
-	cnr ContainerGetter,
+	cnr container.Source,
 	next object.Service) BasicChecker {
 
 	return BasicChecker{
@@ -247,8 +238,12 @@ func (b BasicChecker) findRequestInfo(
 	cid *refs.ContainerID,
 	op acl.Operation) (info requestInfo, err error) {
 
+	// container.Source interface implemented with SDK's definitions,
+	// so we have to convert id there.
+	containerID := containerSDK.NewIDFromV2(cid)
+
 	// fetch actual container
-	cnr, err := b.containers.Get(cid)
+	cnr, err := b.containers.Get(containerID)
 	if err != nil || cnr.GetOwnerID() == nil {
 		return info, ErrUnknownContainer
 	}
