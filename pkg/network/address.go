@@ -2,6 +2,8 @@ package network
 
 import (
 	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
+	"github.com/pkg/errors"
 )
 
 // Address represents the NeoFS node
@@ -12,6 +14,16 @@ type Address struct {
 
 func (a Address) String() string {
 	return a.ma.String()
+}
+
+// NetAddr returns network endpoint address in string format.
+func (a Address) NetAddr() string {
+	ip, err := manet.ToNetAddr(a.ma)
+	if err != nil {
+		panic(errors.Wrap(err, "could not get net addr"))
+	}
+
+	return ip.String()
 }
 
 // AddressFromString restores address from a string representation.
