@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -18,8 +19,11 @@ import (
 
 const (
 	// config keys for cfgNodeInfo
-	cfgNodeKey          = "node.key"
-	cfgBootstrapAddress = "node.address"
+	cfgNodeKey             = "node.key"
+	cfgBootstrapAddress    = "node.address"
+	cfgNodeAttributePrefix = "node.attribute"
+	cfgNodeCapacity        = "node.capacity"
+	cfgNodePrice           = "node.price"
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
@@ -95,7 +99,10 @@ type cfgNetmap struct {
 type BootstrapType uint32
 
 type cfgNodeInfo struct {
-	bootType BootstrapType
+	bootType   BootstrapType
+	attributes []string
+	capacity   uint64
+	price      uint64
 }
 
 const (
@@ -140,7 +147,10 @@ func initCfg(path string) *cfg {
 			fee:        util.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
 		},
 		cfgNodeInfo: cfgNodeInfo{
-			bootType: StorageNode,
+			bootType:   StorageNode,
+			attributes: readAttributes(viperCfg),
+			capacity:   viperCfg.GetUint64(cfgNodeCapacity),
+			price:      viperCfg.GetUint64(cfgNodePrice),
 		},
 	}
 }
@@ -169,6 +179,8 @@ func initViper(path string) *viper.Viper {
 func defaultConfiguration(v *viper.Viper) {
 	// fixme: all hardcoded private keys must be removed
 	v.SetDefault(cfgNodeKey, "Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
+	v.SetDefault(cfgNodeCapacity, "10")
+	v.SetDefault(cfgNodePrice, "10")
 	v.SetDefault(cfgBootstrapAddress, "") // address to bootstrap with
 
 	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
@@ -182,4 +194,19 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
 	v.SetDefault(cfgNetmapFee, "1")
+}
+
+func readAttributes(v *viper.Viper) (attrs []string) {
+	const maxAttributes = 100
+
+	for i := 0; i < maxAttributes; i++ {
+		attr := v.GetString(cfgNodeAttributePrefix + "_" + strconv.Itoa(i))
+		if attr == "" {
+			return
+		} else {
+			attrs = append(attrs, attr)
+		}
+	}
+
+	return attrs
 }
