@@ -22,8 +22,6 @@ const (
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
 	cfgNodeAttributePrefix = "node.attribute"
-	cfgNodeCapacity        = "node.capacity"
-	cfgNodePrice           = "node.price"
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
@@ -101,8 +99,8 @@ type BootstrapType uint32
 type cfgNodeInfo struct {
 	bootType   BootstrapType
 	attributes []string
-	capacity   uint64
-	price      uint64
+	capacity   uint64 // default: 0
+	price      uint64 // default: 0
 }
 
 const (
@@ -149,8 +147,6 @@ func initCfg(path string) *cfg {
 		cfgNodeInfo: cfgNodeInfo{
 			bootType:   StorageNode,
 			attributes: readAttributes(viperCfg),
-			capacity:   viperCfg.GetUint64(cfgNodeCapacity),
-			price:      viperCfg.GetUint64(cfgNodePrice),
 		},
 	}
 }
@@ -179,8 +175,6 @@ func initViper(path string) *viper.Viper {
 func defaultConfiguration(v *viper.Viper) {
 	// fixme: all hardcoded private keys must be removed
 	v.SetDefault(cfgNodeKey, "Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
-	v.SetDefault(cfgNodeCapacity, "10")
-	v.SetDefault(cfgNodePrice, "10")
 	v.SetDefault(cfgBootstrapAddress, "") // address to bootstrap with
 
 	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
