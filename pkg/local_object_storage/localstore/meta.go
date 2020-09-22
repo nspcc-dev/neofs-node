@@ -46,13 +46,7 @@ func metaFromObject(o *object.Object) *ObjectMeta {
 	meta := new(ObjectMeta)
 	meta.savedAtEpoch = 10
 
-	raw := object.NewRaw()
-	raw.SetID(o.GetID())
-	raw.SetContainerID(o.GetContainerID())
-	raw.SetOwnerID(o.GetOwnerID())
-	// TODO: set other meta fields
-
-	meta.head = raw.Object()
+	meta.head = object.NewRawFromObject(o).CutPayload().Object()
 
 	return meta
 }
