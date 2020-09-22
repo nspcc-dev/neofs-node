@@ -10,10 +10,6 @@ import (
 // github.com/nspcc-dev/neofs-node/pkg/morph/client/container.Client.
 type Client = container.Client
 
-// CID represents the container identifier.
-// FIXME: correct the definition.
-type CID struct{}
-
 // Wrapper is a wrapper over container contract
 // client which implements container storage and
 // eACL storage methods.
