@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -98,9 +98,7 @@ type BootstrapType uint32
 
 type cfgNodeInfo struct {
 	bootType   BootstrapType
-	attributes []string
-	capacity   uint64 // default: 0
-	price      uint64 // default: 0
+	attributes []*netmap.Attribute
 }
 
 const (
@@ -146,7 +144,7 @@ func initCfg(path string) *cfg {
 		},
 		cfgNodeInfo: cfgNodeInfo{
 			bootType:   StorageNode,
-			attributes: readAttributes(viperCfg),
+			attributes: parseAttributes(viperCfg),
 		},
 	}
 }
@@ -188,19 +186,4 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
 	v.SetDefault(cfgNetmapFee, "1")
-}
-
-func readAttributes(v *viper.Viper) (attrs []string) {
-	const maxAttributes = 100
-
-	for i := 0; i < maxAttributes; i++ {
-		attr := v.GetString(cfgNodeAttributePrefix + "_" + strconv.Itoa(i))
-		if attr == "" {
-			return
-		} else {
-			attrs = append(attrs, attr)
-		}
-	}
-
-	return attrs
 }
