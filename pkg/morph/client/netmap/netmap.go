@@ -11,6 +11,12 @@ import (
 type GetNetMapArgs struct {
 }
 
+// GetSnapshotArgs groups the arguments
+// of get netmap snapshot test invoke call.
+type GetSnapshotArgs struct {
+	diff uint64
+}
+
 // GetNetMapValues groups the stack parameters
 // returned by get network map test invoke.
 type GetNetMapValues struct {
@@ -18,6 +24,12 @@ type GetNetMapValues struct {
 }
 
 const nodeInfoFixedPrmNumber = 1
+
+// SetDiff sets argument for snapshot method of
+// netmap contract.
+func (g *GetSnapshotArgs) SetDiff(d uint64) {
+	g.diff = d
+}
 
 // Peers return the list of peers from
 // network map in a binary format.
@@ -32,24 +44,53 @@ func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
 		c.netMapMethod,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.netMapMethod)
-	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.netMapMethod, ln)
+		return nil, errors.Wrapf(err,
+			"could not perform test invocation (%s)",
+			c.netMapMethod)
 	}
 
-	prms, err = client.ArrayFromStackItem(prms[0])
+	return peersFromStackItems(prms, c.netMapMethod)
+}
+
+// NetMap performs the test invoke of get snapshot of network map
+// from NeoFS Netmap contract. Contract saves only one previous epoch,
+// so all invokes with diff > 1 return error.
+func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
+	prms, err := c.client.TestInvoke(
+		c.snapshotMethod,
+		int64(a.diff),
+	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", c.netMapMethod)
+		return nil, errors.Wrapf(err,
+			"could not perform test invocation (%s)",
+			c.netMapMethod)
+	}
+
+	return peersFromStackItems(prms, c.snapshotMethod)
+}
+
+func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValues, error) {
+	if ln := len(stack); ln != 1 {
+		return nil, errors.Errorf("unexpected stack item count (%s): %d",
+			method, ln)
+	}
+
+	peers, err := client.ArrayFromStackItem(stack[0])
+	if err != nil {
+		return nil, errors.Wrapf(err,
+			"could not get stack item array from stack item (%s)",
+			method)
 	}
 
 	res := &GetNetMapValues{
-		peers: make([][]byte, 0, len(prms)),
+		peers: make([][]byte, 0, len(peers)),
 	}
 
-	for i := range prms {
-		peer, err := peerInfoFromStackItem(prms[i])
+	for i := range peers {
+		peer, err := peerInfoFromStackItem(peers[i])
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not parse stack item (Peer #%d)", i)
+			return nil, errors.Wrapf(err,
+				"could not parse stack item (Peer #%d)", i)
 		}
 
 		res.peers = append(res.peers, peer)
