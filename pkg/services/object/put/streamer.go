@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/pkg/errors"
@@ -107,10 +108,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		prm.traverseOpts = append(prm.traverseOpts, placement.SuccessAfter(1))
 
 		// use local-only placement builder
-		builder = &localPlacement{
-			builder:      placement.NewNetworkMapBuilder(nm),
-			localAddrSrc: p.localAddrSrc,
-		}
+		builder = util.NewLocalPlacement(placement.NewNetworkMapBuilder(nm), p.localAddrSrc)
 	}
 
 	// set placement builder
