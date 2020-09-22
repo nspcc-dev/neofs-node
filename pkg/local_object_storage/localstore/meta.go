@@ -47,6 +47,7 @@ func metaFromObject(o *object.Object) *ObjectMeta {
 	meta.savedAtEpoch = 10
 
 	raw := object.NewRaw()
+	raw.SetID(o.GetID())
 	raw.SetContainerID(o.GetContainerID())
 	raw.SetOwnerID(o.GetOwnerID())
 	// TODO: set other meta fields
