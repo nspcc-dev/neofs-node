@@ -28,6 +28,11 @@ func NewRawFrom(obj *object.RawObject) *RawObject {
 	}
 }
 
+// NewRawFromObject wraps Object instance to RawObject.
+func NewRawFromObject(obj *Object) *RawObject {
+	return NewRawFrom(object.NewRawFrom(obj.SDK()))
+}
+
 // NewRaw constructs blank RawObject instance.
 func NewRaw() *RawObject {
 	return NewRawFrom(object.NewRaw())
