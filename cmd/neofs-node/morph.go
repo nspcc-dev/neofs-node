@@ -1,10 +1,12 @@
 package main
 
 import (
+	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
 	"github.com/pkg/errors"
 )
 
@@ -30,10 +32,15 @@ func bootstrapNode(c *cfg) {
 		cliWrapper, err := wrapper.New(cli)
 		fatalOnErr(errors.Wrap(err, "bootstrap error"))
 
-		peerInfo := new(netmap.NodeInfo)
+		attrs, err := attributes.ParseV2Attributes(c.cfgNodeInfo.attributes, nil)
+		if err != nil {
+			fatalOnErr(errors.Wrap(err, "bootstrap attribute error"))
+		}
+
+		peerInfo := new(v2netmap.NodeInfo)
 		peerInfo.SetAddress(c.viper.GetString(cfgBootstrapAddress))
 		peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
-		// todo: add attributes as opts
+		peerInfo.SetAttributes(attrs)
 
 		err = cliWrapper.AddPeer(peerInfo)
 		fatalOnErr(errors.Wrap(err, "bootstrap error"))
