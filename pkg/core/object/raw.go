@@ -57,3 +57,16 @@ func (o *RawObject) Object() *Object {
 
 	return nil
 }
+
+// CutPayload returns RawObject w/ empty payload.
+//
+// Changes of non-payload fields affect source object.
+func (o *RawObject) CutPayload() *RawObject {
+	if o != nil {
+		return &RawObject{
+			RawObject: o.RawObject.CutPayload(),
+		}
+	}
+
+	return nil
+}
