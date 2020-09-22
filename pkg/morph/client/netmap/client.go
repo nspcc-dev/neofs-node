@@ -34,6 +34,7 @@ type cfg struct {
 	addPeerMethod, // add peer method name for invocation
 	newEpochMethod, // new epoch method name for invocation
 	netMapMethod, // get network map method name
+	snapshotMethod, // get network map snapshot method name
 	updateStateMethod, // update state method name for invocation
 	innerRingListMethod string // IR list method name for invocation
 }
@@ -42,6 +43,7 @@ const (
 	defaultAddPeerMethod       = "addPeer"       // default add peer method name
 	defaultNewEpochMethod      = "newEpoch"      // default new epoch method name
 	defaultNetMapMethod        = "netmap"        // default get network map method name
+	defaultSnapshotMethod      = "snapshot"      // default get network map snapshot method name
 	defaultUpdateStateMethod   = "updateState"   // default update state method name
 	defaultInnerRIngListMethod = "innerRingList" // default IR list method name
 )
@@ -51,6 +53,7 @@ func defaultConfig() *cfg {
 		addPeerMethod:       defaultAddPeerMethod,
 		newEpochMethod:      defaultNewEpochMethod,
 		netMapMethod:        defaultNetMapMethod,
+		snapshotMethod:      defaultSnapshotMethod,
 		updateStateMethod:   defaultUpdateStateMethod,
 		innerRingListMethod: defaultInnerRIngListMethod,
 	}
