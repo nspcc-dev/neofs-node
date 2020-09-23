@@ -8,13 +8,21 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head/v2"
+	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
+	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 )
 
-type objectExecutor struct{}
+type objectSvc struct {
+	put *putsvc.Service
+
+	search *searchsvc.Service
+
+	head *headsvc.Service
+}
 
 type inMemBucket struct {
 	bucket.Bucket
@@ -89,49 +97,42 @@ func makeCopy(val []byte) []byte {
 	return tmp
 }
 
-func (*objectExecutor) Get(context.Context, *object.GetRequestBody) (objectService.GetObjectBodyStreamer, error) {
+func (s *objectSvc) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+	return s.put.Put(ctx)
+}
+
+func (s *objectSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
+	return s.head.Head(ctx, req)
+}
+
+func (s *objectSvc) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
+	return s.search.Search(ctx, req)
+}
+
+func (*objectSvc) Get(context.Context, *object.GetRequest) (object.GetObjectStreamer, error) {
 	return nil, errors.New("unimplemented service call")
 }
 
-func (*objectExecutor) Put(context.Context) (objectService.PutObjectBodyStreamer, error) {
+func (*objectSvc) Delete(context.Context, *object.DeleteRequest) (*object.DeleteResponse, error) {
 	return nil, errors.New("unimplemented service call")
 }
 
-func (*objectExecutor) Head(context.Context, *object.HeadRequestBody) (*object.HeadResponseBody, error) {
+func (*objectSvc) GetRange(context.Context, *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
 	return nil, errors.New("unimplemented service call")
 }
 
-func (s *objectExecutor) Search(context.Context, *object.SearchRequestBody) (objectService.SearchObjectBodyStreamer, error) {
-	return nil, errors.New("unimplemented service call")
-}
-
-func (*objectExecutor) Delete(_ context.Context, body *object.DeleteRequestBody) (*object.DeleteResponseBody, error) {
-	return nil, errors.New("unimplemented service call")
-}
-
-func (*objectExecutor) GetRange(_ context.Context, body *object.GetRangeRequestBody) (objectService.GetRangeObjectBodyStreamer, error) {
-	return nil, errors.New("unimplemented service call")
-}
-
-func (*objectExecutor) GetRangeHash(context.Context, *object.GetRangeHashRequestBody) (*object.GetRangeHashResponseBody, error) {
+func (*objectSvc) GetRangeHash(context.Context, *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	return nil, errors.New("unimplemented service call")
 }
 
 func initObjectService(c *cfg) {
-	metaHdr := new(session.ResponseMetaHeader)
-	xHdr := new(session.XHeader)
-	xHdr.SetKey("test X-Header key for Object service")
-	xHdr.SetValue("test X-Header value for Object service")
-	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
+	svc := new(objectSvc)
 
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
 		objectTransportGRPC.New(
 			objectService.NewSignService(
 				c.key,
-				objectService.NewExecutionService(
-					new(objectExecutor),
-					metaHdr,
-				),
+				svc,
 			),
 		),
 	)
