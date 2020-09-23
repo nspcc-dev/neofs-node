@@ -4,12 +4,19 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/pkg/errors"
 )
+
+type RelationSearcher interface {
+	SearchRightChild(context.Context, *objectSDK.Address) (*objectSDK.ID, error)
+}
 
 type Service struct {
 	*cfg
@@ -29,6 +36,8 @@ type cfg struct {
 	workerPool util.WorkerPool
 
 	localAddrSrc network.LocalAddressSource
+
+	relSearcher RelationSearcher
 }
 
 func defaultCfg() *cfg {
@@ -50,9 +59,34 @@ func NewService(opts ...Option) *Service {
 }
 
 func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
-	return (&distributedHeader{
+	// try to receive header of physically stored
+	r, err := (&distributedHeader{
 		cfg: s.cfg,
 	}).head(ctx, prm)
+	if err == nil || prm.local {
+		return r, err
+	}
+
+	// try to find far right child that carries header of desired object
+	rightChildID, err := s.relSearcher.SearchRightChild(ctx, prm.addr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "(%T) could not find right child", s)
+	}
+
+	addr := objectSDK.NewAddress()
+	addr.SetContainerID(prm.addr.GetContainerID())
+	addr.SetObjectID(rightChildID)
+
+	rightChild, err := s.Head(ctx, new(Prm).WithAddress(addr))
+	if err != nil {
+		return nil, errors.Wrapf(err, "(%T) could not get right child header", s)
+	}
+
+	// TODO: check if received parent has requested address
+
+	return &Response{
+		hdr: object.NewFromSDK(rightChild.Header().GetParent()),
+	}, nil
 }
 
 func WithKey(v *ecdsa.PrivateKey) Option {
@@ -88,5 +122,11 @@ func WithWorkerPool(v util.WorkerPool) Option {
 func WithLocalAddressSource(v network.LocalAddressSource) Option {
 	return func(c *cfg) {
 		c.localAddrSrc = v
+	}
+}
+
+func WithRelationSearcher(v RelationSearcher) Option {
+	return func(c *cfg) {
+		c.relSearcher = v
 	}
 }
