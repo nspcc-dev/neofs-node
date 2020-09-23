@@ -22,6 +22,14 @@ type inMemBucket struct {
 	items map[string][]byte
 }
 
+type maxSzSrc struct {
+	v uint64
+}
+
+func (s *maxSzSrc) MaxObjectSize() uint64 {
+	return s.v
+}
+
 func newBucket() bucket.Bucket {
 	return &inMemBucket{
 		RWMutex: new(sync.RWMutex),
