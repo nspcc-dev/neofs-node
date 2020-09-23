@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/misc"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
@@ -78,6 +80,8 @@ type cfg struct {
 	cfgNodeInfo cfgNodeInfo
 
 	localAddr *network.Address
+
+	cfgObject cfgObject
 }
 
 type cfgGRPC struct {
@@ -113,6 +117,12 @@ type BootstrapType uint32
 type cfgNodeInfo struct {
 	bootType   BootstrapType
 	attributes []*netmap.Attribute
+}
+
+type cfgObject struct {
+	netMapStorage netmapCore.Source
+
+	cnrStorage container.Source
 }
 
 const (
