@@ -97,6 +97,10 @@ func headerEqual(obj *object.Object, key, value string) bool {
 		return value == cidValue(obj.GetContainerID())
 	case objectSDK.HdrSysNameOwnerID:
 		return value == ownerIDValue(obj.GetOwnerID())
+	case keyChildrenField:
+		return len(obj.GetChildren()) == 0
+	case keyParentIDField:
+		return idValue(obj.GetParent().GetID()) == value
 		// TODO: add other headers
 	}
 }
