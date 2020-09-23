@@ -12,6 +12,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/viper"
@@ -75,6 +76,8 @@ type cfg struct {
 	privateTokenStore *tokenStorage.TokenStore
 
 	cfgNodeInfo cfgNodeInfo
+
+	localAddr *network.Address
 }
 
 type cfgGRPC struct {
@@ -139,6 +142,19 @@ func initCfg(path string) *cfg {
 	log, err := logger.NewLogger(viperCfg)
 	fatalOnErr(err)
 
+	viperCfg.GetString(cfgListenAddress)
+
+	endpoint, port, err := net.SplitHostPort(viperCfg.GetString(cfgListenAddress))
+	fatalOnErr(err)
+
+	netAddr, err := network.AddressFromString(strings.Join([]string{
+		"/ip4",
+		endpoint,
+		"tcp",
+		port,
+	}, "/"))
+	fatalOnErr(err)
+
 	return &cfg{
 		ctx:   context.Background(),
 		viper: viperCfg,
@@ -161,6 +177,7 @@ func initCfg(path string) *cfg {
 			bootType:   StorageNode,
 			attributes: parseAttributes(viperCfg),
 		},
+		localAddr: netAddr,
 	}
 }
 
@@ -207,4 +224,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgLogTrace, "fatal")
 	v.SetDefault(cfgLogInitSampling, 1000)
 	v.SetDefault(cfgLogThereafterSampling, 1000)
+}
+
+func (c *cfg) LocalAddress() *network.Address {
+	return c.localAddr
 }
