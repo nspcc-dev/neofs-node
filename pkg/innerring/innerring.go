@@ -221,7 +221,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	err = initConfigFromBlockchain(server, contracts, &key.PublicKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "initializing error")
 	}
 
 	return server, nil
@@ -304,13 +304,13 @@ func initConfigFromBlockchain(s *Server, c *contracts, key *ecdsa.PublicKey) err
 	// get current epoch
 	epoch, err := invoke.Epoch(s.morphClient, c.netmap)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't read epoch")
 	}
 
 	// check if node inside inner ring list
 	state, err := invoke.IsInnerRing(s.mainnetClient, c.neofs, key)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't read inner ring list")
 	}
 
 	s.epochCounter.Store(uint64(epoch))
