@@ -32,7 +32,7 @@ func (r *remoteRangeWriter) WriteTo(w io.Writer) (int64, error) {
 		return 0, errors.Wrapf(err, "(%T) could not receive private key", r)
 	}
 
-	addr, err := r.node.NetAddr()
+	addr, err := r.node.IPAddrString()
 	if err != nil {
 		return 0, err
 	}

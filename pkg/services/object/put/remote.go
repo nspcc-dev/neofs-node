@@ -38,7 +38,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, errors.Wrapf(err, "(%T) could not receive private key", t)
 	}
 
-	addr, err := t.addr.NetAddr()
+	addr, err := t.addr.IPAddrString()
 	if err != nil {
 		return nil, err
 	}
