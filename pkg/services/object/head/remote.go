@@ -22,7 +22,7 @@ func (h *remoteHeader) head(ctx context.Context, prm *Prm, handler func(*object.
 		return errors.Wrapf(err, "(%T) could not receive private key", h)
 	}
 
-	addr, err := h.node.NetAddr()
+	addr, err := h.node.IPAddrString()
 	if err != nil {
 		return err
 	}

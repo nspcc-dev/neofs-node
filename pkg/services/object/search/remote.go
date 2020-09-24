@@ -24,7 +24,7 @@ func (s *remoteStream) stream(ctx context.Context, ch chan<- []*object.ID) error
 		return errors.Wrapf(err, "(%T) could not receive private key", s)
 	}
 
-	addr, err := s.addr.NetAddr()
+	addr, err := s.addr.IPAddrString()
 	if err != nil {
 		return err
 	}
