@@ -24,7 +24,7 @@ func TestAddress_NetAddr(t *testing.T) {
 	addr, err := AddressFromString(ma.String())
 	require.NoError(t, err)
 
-	netAddr, err := addr.NetAddr()
+	netAddr, err := addr.IPAddrString()
 	require.NoError(t, err)
 	require.Equal(t, ip+":"+port, netAddr)
 }

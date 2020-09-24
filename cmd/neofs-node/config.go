@@ -154,17 +154,7 @@ func initCfg(path string) *cfg {
 	log, err := logger.NewLogger(viperCfg)
 	fatalOnErr(err)
 
-	viperCfg.GetString(cfgListenAddress)
-
-	endpoint, port, err := net.SplitHostPort(viperCfg.GetString(cfgListenAddress))
-	fatalOnErr(err)
-
-	netAddr, err := network.AddressFromString(strings.Join([]string{
-		"/ip4",
-		endpoint,
-		"tcp",
-		port,
-	}, "/"))
+	netAddr, err := network.AddressFromString(viperCfg.GetString(cfgBootstrapAddress))
 	fatalOnErr(err)
 
 	return &cfg{
