@@ -63,7 +63,7 @@ func (h *distributedHeader) prepare(ctx context.Context, prm *Prm) error {
 
 	if prm.local {
 		// use local-only placement builder
-		builder = util.NewLocalPlacement(placement.NewNetworkMapBuilder(nm), h.localAddrSrc)
+		builder = util.NewLocalPlacement(builder, h.localAddrSrc)
 	}
 
 	// set placement builder

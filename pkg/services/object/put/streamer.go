@@ -108,7 +108,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		prm.traverseOpts = append(prm.traverseOpts, placement.SuccessAfter(1))
 
 		// use local-only placement builder
-		builder = util.NewLocalPlacement(placement.NewNetworkMapBuilder(nm), p.localAddrSrc)
+		builder = util.NewLocalPlacement(builder, p.localAddrSrc)
 	}
 
 	// set placement builder
