@@ -23,13 +23,13 @@ func (a Address) String() string {
 }
 
 // NetAddr returns network endpoint address in string format.
-func (a Address) NetAddr() string {
+func (a Address) NetAddr() (string, error) {
 	ip, err := manet.ToNetAddr(a.ma)
 	if err != nil {
-		panic(errors.Wrap(err, "could not get net addr"))
+		return "", errors.Wrap(err, "could not get net addr")
 	}
 
-	return ip.String()
+	return ip.String(), nil
 }
 
 // AddressFromString restores address from a string representation.
@@ -47,5 +47,5 @@ func AddressFromString(s string) (*Address, error) {
 // IsLocalAddress returns true if network endpoint from local address
 // source is equal to network endpoint of passed address.
 func IsLocalAddress(src LocalAddressSource, addr *Address) bool {
-	return src.LocalAddress().NetAddr() == addr.NetAddr()
+	return src.LocalAddress().ma.Equal(addr.ma)
 }
