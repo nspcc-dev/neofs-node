@@ -31,7 +31,7 @@ const defaultFilePermission = 0777
 
 var errEmptyPath = errors.New("database empty path")
 
-const name = "boltbucket"
+const Name = "boltdb"
 
 func makeCopy(val []byte) []byte {
 	tmp := make([]byte, len(val))
@@ -41,7 +41,9 @@ func makeCopy(val []byte) []byte {
 }
 
 // NewOptions prepares options for badger instance.
-func NewOptions(v *viper.Viper) (opts Options, err error) {
+func NewOptions(prefix string, v *viper.Viper) (opts Options, err error) {
+	prefix = prefix + "." + Name
+
 	opts = Options{
 		Options: bbolt.Options{
 			// set defaults:
@@ -49,30 +51,30 @@ func NewOptions(v *viper.Viper) (opts Options, err error) {
 			FreelistType: bbolt.DefaultOptions.FreelistType,
 
 			// set config options:
-			NoSync:         v.GetBool(name + ".no_sync"),
-			ReadOnly:       v.GetBool(name + ".read_only"),
-			NoGrowSync:     v.GetBool(name + ".no_grow_sync"),
-			NoFreelistSync: v.GetBool(name + ".no_freelist_sync"),
+			NoSync:         v.GetBool(prefix + ".no_sync"),
+			ReadOnly:       v.GetBool(prefix + ".read_only"),
+			NoGrowSync:     v.GetBool(prefix + ".no_grow_sync"),
+			NoFreelistSync: v.GetBool(prefix + ".no_freelist_sync"),
 
-			PageSize:        v.GetInt(name + ".page_size"),
-			MmapFlags:       v.GetInt(name + ".mmap_flags"),
-			InitialMmapSize: v.GetInt(name + ".initial_mmap_size"),
+			PageSize:        v.GetInt(prefix + ".page_size"),
+			MmapFlags:       v.GetInt(prefix + ".mmap_flags"),
+			InitialMmapSize: v.GetInt(prefix + ".initial_mmap_size"),
 		},
 
-		Name: []byte(name),
+		Name: []byte(Name),
 		Perm: defaultFilePermission,
-		Path: v.GetString(name + ".path"),
+		Path: v.GetString(prefix + ".path"),
 	}
 
 	if opts.Path == "" {
 		return opts, errEmptyPath
 	}
 
-	if tmp := v.GetDuration(name + ".lock_timeout"); tmp > 0 {
+	if tmp := v.GetDuration(prefix + ".lock_timeout"); tmp > 0 {
 		opts.Timeout = tmp
 	}
 
-	if perm := v.GetUint32(name + ".perm"); perm != 0 {
+	if perm := v.GetUint32(prefix + ".perm"); perm != 0 {
 		opts.Perm = os.FileMode(perm)
 	}
 
