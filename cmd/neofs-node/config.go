@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -108,6 +109,7 @@ type cfgContainer struct {
 
 type cfgNetmap struct {
 	scriptHash util.Uint160
+	wrapper    *nmwrapper.Wrapper
 
 	fee util.Fixed8
 }
