@@ -50,8 +50,12 @@ func (h *distributedHeader) prepare(ctx context.Context, prm *Prm) error {
 	traverseOpts = append(traverseOpts,
 		// set processing container
 		placement.ForContainer(cnr),
+
 		// set success count (1st incoming header)
 		placement.SuccessAfter(1),
+
+		// set identifier of the processing object
+		placement.ForObject(prm.addr.GetObjectID()),
 	)
 
 	// create placement builder from network map
