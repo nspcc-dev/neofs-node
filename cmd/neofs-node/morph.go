@@ -14,29 +14,30 @@ func initMorphComponents(c *cfg) {
 
 	c.cfgMorph.client, err = client.New(c.key, c.viper.GetString(cfgMorphRPCAddress))
 	fatalOnErr(err)
+
+	staticClient, err := client.NewStatic(
+		c.cfgMorph.client,
+		c.cfgNetmap.scriptHash,
+		c.cfgContainer.fee,
+	)
+	fatalOnErr(err)
+
+	cli, err := netmap.New(staticClient)
+	fatalOnErr(err)
+
+	wrap, err := wrapper.New(cli)
+	fatalOnErr(err)
+
+	c.cfgObject.netMapStorage = wrap
+	c.cfgNetmap.wrapper = wrap
 }
 
 func bootstrapNode(c *cfg) {
-	if c.cfgNodeInfo.bootType == StorageNode {
-		staticClient, err := client.NewStatic(
-			c.cfgMorph.client,
-			c.cfgNetmap.scriptHash,
-			c.cfgContainer.fee,
-		)
-		fatalOnErr(err)
+	peerInfo := new(v2netmap.NodeInfo)
+	peerInfo.SetAddress(c.localAddr.String())
+	peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
+	peerInfo.SetAttributes(c.cfgNodeInfo.attributes)
 
-		cli, err := netmap.New(staticClient)
-		fatalOnErr(errors.Wrap(err, "bootstrap error"))
-
-		cliWrapper, err := wrapper.New(cli)
-		fatalOnErr(errors.Wrap(err, "bootstrap error"))
-
-		peerInfo := new(v2netmap.NodeInfo)
-		peerInfo.SetAddress(c.viper.GetString(cfgBootstrapAddress))
-		peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
-		peerInfo.SetAttributes(c.cfgNodeInfo.attributes)
-
-		err = cliWrapper.AddPeer(peerInfo)
-		fatalOnErr(errors.Wrap(err, "bootstrap error"))
-	}
+	err := c.cfgNetmap.wrapper.AddPeer(peerInfo)
+	fatalOnErr(errors.Wrap(err, "bootstrap error"))
 }
