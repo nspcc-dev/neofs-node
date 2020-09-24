@@ -99,40 +99,7 @@ func (s *payloadSizeLimiter) initializeCurrent() {
 	s.target = s.targetInit()
 
 	// create payload hashers
-	s.currentHashers = []*payloadChecksumHasher{
-		{
-			hasher: sha256.New(),
-			checksumWriter: func(cs []byte) {
-				if ln := len(cs); ln != sha256.Size {
-					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", ln, sha256.Size))
-				}
-
-				csSHA := [sha256.Size]byte{}
-				copy(csSHA[:], cs)
-
-				checksum := pkg.NewChecksum()
-				checksum.SetSHA256(csSHA)
-
-				s.current.SetPayloadChecksum(checksum)
-			},
-		},
-		{
-			hasher: tz.New(),
-			checksumWriter: func(cs []byte) {
-				if ln := len(cs); ln != tzChecksumSize {
-					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", ln, tzChecksumSize))
-				}
-
-				csTZ := [tzChecksumSize]byte{}
-				copy(csTZ[:], cs)
-
-				checksum := pkg.NewChecksum()
-				checksum.SetTillichZemor(csTZ)
-
-				s.current.SetPayloadHomomorphicHash(checksum)
-			},
-		},
-	}
+	s.currentHashers = payloadHashersForObject(s.current)
 
 	// compose multi-writer from target and all payload hashers
 	ws := make([]io.Writer, 0, 1+len(s.currentHashers)+len(s.parentHashers))
@@ -148,6 +115,43 @@ func (s *payloadSizeLimiter) initializeCurrent() {
 	}
 
 	s.chunkWriter = io.MultiWriter(ws...)
+}
+
+func payloadHashersForObject(obj *object.RawObject) []*payloadChecksumHasher {
+	return []*payloadChecksumHasher{
+		{
+			hasher: sha256.New(),
+			checksumWriter: func(cs []byte) {
+				if ln := len(cs); ln != sha256.Size {
+					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", ln, sha256.Size))
+				}
+
+				csSHA := [sha256.Size]byte{}
+				copy(csSHA[:], cs)
+
+				checksum := pkg.NewChecksum()
+				checksum.SetSHA256(csSHA)
+
+				obj.SetPayloadChecksum(checksum)
+			},
+		},
+		{
+			hasher: tz.New(),
+			checksumWriter: func(cs []byte) {
+				if ln := len(cs); ln != tzChecksumSize {
+					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", ln, tzChecksumSize))
+				}
+
+				csTZ := [tzChecksumSize]byte{}
+				copy(csTZ[:], cs)
+
+				checksum := pkg.NewChecksum()
+				checksum.SetTillichZemor(csTZ)
+
+				obj.SetPayloadHomomorphicHash(checksum)
+			},
+		},
+	}
 }
 
 func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
