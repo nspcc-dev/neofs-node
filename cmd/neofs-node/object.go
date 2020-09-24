@@ -149,7 +149,10 @@ func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRe
 }
 
 func initObjectService(c *cfg) {
-	ls := localstore.New(newBucket(), newBucket())
+	ls := localstore.New(
+		c.cfgObject.blobstorage,
+		c.cfgObject.metastorage,
+	)
 	keyStorage := util.NewKeyStorage(c.key, c.privateTokenStore)
 	nodeOwner := owner.NewID()
 

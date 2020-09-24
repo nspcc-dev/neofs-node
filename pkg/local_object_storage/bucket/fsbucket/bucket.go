@@ -26,7 +26,7 @@ type (
 	}
 )
 
-const name = "fsbucket"
+const Name = "filesystem"
 
 const (
 	defaultDirectory   = "fsbucket"
@@ -51,7 +51,8 @@ func decodeKey(key string) []byte {
 }
 
 // NewBucket creates new file system bucket instance.
-func NewBucket(v *viper.Viper) (bucket.Bucket, error) {
+func NewBucket(prefix string, v *viper.Viper) (bucket.Bucket, error) {
+	prefix = prefix + "." + Name
 	var (
 		dir  string
 		perm os.FileMode
@@ -60,27 +61,27 @@ func NewBucket(v *viper.Viper) (bucket.Bucket, error) {
 		depth     int
 	)
 
-	if dir = v.GetString(name + ".directory"); dir == "" {
+	if dir = v.GetString(prefix + ".directory"); dir == "" {
 		dir = defaultDirectory
 	}
 
-	if perm = os.FileMode(v.GetInt(name + ".permissions")); perm == 0 {
+	if perm = os.FileMode(v.GetInt(prefix + ".permissions")); perm == 0 {
 		perm = defaultPermissions
 	}
 
-	if depth = v.GetInt(name + ".depth"); depth <= 0 {
+	if depth = v.GetInt(prefix + ".depth"); depth <= 0 {
 		depth = defaultDepth
 	}
 
-	if prefixLen = v.GetInt(name + ".prefix_len"); prefixLen <= 0 {
+	if prefixLen = v.GetInt(prefix + ".prefix_len"); prefixLen <= 0 {
 		prefixLen = defaultPrefixLen
 	}
 
 	if err := os.MkdirAll(dir, perm); err != nil {
-		return nil, errors.Wrapf(err, "could not create bucket %s", name)
+		return nil, errors.Wrapf(err, "could not create bucket %s", Name)
 	}
 
-	if v.GetBool(name + ".tree_enabled") {
+	if v.GetBool(prefix + ".tree_enabled") {
 		b := &treeBucket{
 			dir:          dir,
 			perm:         perm,

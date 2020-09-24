@@ -13,11 +13,15 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/boltdb"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -56,6 +60,9 @@ const (
 	cfgContainerFee      = "container.fee"
 
 	cfgMaxObjectSize = "node.maxobjectsize" // get value from chain
+
+	cfgObjectStorage = "storage.object"
+	cfgMetaStorage   = "storage.meta"
 )
 
 const (
@@ -138,6 +145,10 @@ type cfgObject struct {
 	cnrStorage container.Source
 
 	maxObjectSize uint64
+
+	metastorage bucket.Bucket
+
+	blobstorage bucket.Bucket
 }
 
 const (
@@ -173,7 +184,7 @@ func initCfg(path string) *cfg {
 	maxChunkSize := viperCfg.GetUint64(cfgMaxMsgSize) * 3 / 4 // 25% to meta, 75% to payload
 	maxAddrAmount := maxChunkSize / addressSize               // each address is about 72 bytes
 
-	return &cfg{
+	c := &cfg{
 		ctx:   context.Background(),
 		viper: viperCfg,
 		log:   log,
@@ -204,6 +215,10 @@ func initCfg(path string) *cfg {
 		},
 		localAddr: netAddr,
 	}
+
+	initLocalStorage(c)
+
+	return c
 }
 
 func initViper(path string) *viper.Viper {
@@ -246,6 +261,9 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
 	v.SetDefault(cfgNetmapFee, "1")
 
+	v.SetDefault(cfgObjectStorage+".type", "inmemory")
+	v.SetDefault(cfgMetaStorage+".type", "inmemory")
+
 	v.SetDefault(cfgLogLevel, "info")
 	v.SetDefault(cfgLogFormat, "console")
 	v.SetDefault(cfgLogTrace, "fatal")
@@ -255,4 +273,44 @@ func defaultConfiguration(v *viper.Viper) {
 
 func (c *cfg) LocalAddress() *network.Address {
 	return c.localAddr
+}
+
+func initLocalStorage(c *cfg) {
+	var err error
+
+	c.cfgObject.blobstorage, err = initBucket(cfgObjectStorage, c)
+	fatalOnErr(err)
+
+	c.cfgObject.metastorage, err = initBucket(cfgMetaStorage, c)
+	fatalOnErr(err)
+}
+
+func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {
+	const inmemory = "inmemory"
+
+	switch c.viper.GetString(prefix + ".type") {
+	case inmemory:
+		bucket = newBucket()
+		c.log.Info("using in-memory bucket", zap.String("storage", prefix))
+	case boltdb.Name:
+		opts, err := boltdb.NewOptions(prefix, c.viper)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't create boltdb opts")
+		}
+		bucket, err = boltdb.NewBucket(&opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't create boltdb bucket")
+		}
+		c.log.Info("using boltdb bucket", zap.String("storage", prefix))
+	case fsbucket.Name:
+		bucket, err = fsbucket.NewBucket(prefix, c.viper)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't create fs bucket")
+		}
+		c.log.Info("using filesystem bucket", zap.String("storage", prefix))
+	default:
+		return nil, errors.New("unknown storage type")
+	}
+
+	return bucket, nil
 }
