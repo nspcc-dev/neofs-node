@@ -77,15 +77,18 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	addr.SetContainerID(prm.addr.GetContainerID())
 	addr.SetObjectID(rightChildID)
 
-	rightChild, err := s.Head(ctx, new(Prm).WithAddress(addr))
+	r, err = s.Head(ctx, new(Prm).WithAddress(addr))
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not get right child header", s)
 	}
 
+	rightChild := r.Header()
+
 	// TODO: check if received parent has requested address
 
 	return &Response{
-		hdr: object.NewFromSDK(rightChild.Header().GetParent()),
+		hdr:        object.NewFromSDK(rightChild.GetParent()),
+		rightChild: rightChild,
 	}, nil
 }
 
