@@ -267,10 +267,8 @@ github.com/nspcc-dev/neo-go v0.73.1-pre.0.20200303142215-f5a1b928ce09/go.mod h1:
 github.com/nspcc-dev/neo-go v0.91.0/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
 github.com/nspcc-dev/neo-go v0.91.1-pre.0.20200827184617-7560aa345a78 h1:stIa+nBXK8uDY/JZaxIZzAUfkzfaotVw2FbnHxO4aZI=
 github.com/nspcc-dev/neo-go v0.91.1-pre.0.20200827184617-7560aa345a78/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200918082543-e97f7096c6c4 h1:9pN6XX99JYL2JEP0OsYYHNoQDmVoaGaejx8LWihJvrQ=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200918082543-e97f7096c6c4/go.mod h1:FsFd1z4YzoEgPlltsUgnqna9qhcF87RHYjot0pby2L4=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200922150714-14fa89b81919 h1:EBk/P6mWDqwLmE7G4aY9ypxcRRhgV1bcpjvb+WPsxm0=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200922150714-14fa89b81919/go.mod h1:FsFd1z4YzoEgPlltsUgnqna9qhcF87RHYjot0pby2L4=
+github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200925125840-c814cc62faf4 h1:+ko1UlGsPhKF6O1+ZDOwW7lNhXLEk+e/N/gdma5NNJo=
+github.com/nspcc-dev/neofs-api-go v1.3.1-0.20200925125840-c814cc62faf4/go.mod h1:FsFd1z4YzoEgPlltsUgnqna9qhcF87RHYjot0pby2L4=
 github.com/nspcc-dev/neofs-crypto v0.2.0/go.mod h1:F/96fUzPM3wR+UGsPi3faVNmFlA9KAEAUQR7dMxZmNA=
 github.com/nspcc-dev/neofs-crypto v0.2.3/go.mod h1:8w16GEJbH6791ktVqHN9YRNH3s9BEEKYxGhlFnp0cDw=
 github.com/nspcc-dev/neofs-crypto v0.3.0 h1:zlr3pgoxuzrmGCxc5W8dGVfA9Rro8diFvVnBg0L4ifM=
