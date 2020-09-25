@@ -13,11 +13,20 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 const (
+	// logger keys
+	cfgLogLevel              = "logger.level"
+	cfgLogFormat             = "logger.format"
+	cfgLogTrace              = "logger.trace_level"
+	cfgLogInitSampling       = "logger.sampling.initial"
+	cfgLogThereafterSampling = "logger.sampling.thereafter"
+
 	// config keys for cfgNodeInfo
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
@@ -46,6 +55,8 @@ type cfg struct {
 	ctx context.Context
 
 	viper *viper.Viper
+
+	log *zap.Logger
 
 	wg *sync.WaitGroup
 
@@ -125,9 +136,13 @@ func initCfg(path string) *cfg {
 		viperCfg.GetString(cfgContainerContract))
 	fatalOnErr(err)
 
+	log, err := logger.NewLogger(viperCfg)
+	fatalOnErr(err)
+
 	return &cfg{
 		ctx:   context.Background(),
 		viper: viperCfg,
+		log:   log,
 		wg:    new(sync.WaitGroup),
 		key:   key,
 		cfgAccounting: cfgAccounting{
@@ -186,4 +201,10 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
 	v.SetDefault(cfgNetmapFee, "1")
+
+	v.SetDefault(cfgLogLevel, "info")
+	v.SetDefault(cfgLogFormat, "console")
+	v.SetDefault(cfgLogTrace, "fatal")
+	v.SetDefault(cfgLogInitSampling, 1000)
+	v.SetDefault(cfgLogThereafterSampling, 1000)
 }

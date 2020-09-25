@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
@@ -46,12 +45,15 @@ func bootUp(c *cfg) {
 }
 
 func wait(c *cfg) {
+	c.log.Info("application started")
+
 	<-c.ctx.Done()
 }
 
 func shutdown(c *cfg) {
 	c.cfgGRPC.server.GracefulStop()
-	fmt.Println("gRPC server stopped")
+
+	c.log.Info("gRPC server stopped")
 
 	c.wg.Wait()
 }
