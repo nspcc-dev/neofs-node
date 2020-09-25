@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 
@@ -42,7 +43,8 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 	id, err := c.PutObject(t.ctx, new(client.PutObjectParams).
 		WithObject(
 			t.obj.SDK(),
-		),
+		).
+		WithPayloadReader(bytes.NewReader(t.obj.GetPayload())),
 		client.WithTTL(1), // FIXME: use constant
 	)
 	if err != nil {
