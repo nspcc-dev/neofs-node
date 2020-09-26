@@ -64,12 +64,16 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 		return nil, errors.Wrapf(err, "(%T) could not receive Head result", s)
 	}
 
-	off, ln := prm.rng.GetOffset(), prm.rng.GetLength()
-
 	origin := headResult.Header()
 
 	originSize := origin.GetPayloadSize()
-	if originSize < off+ln {
+
+	if prm.full {
+		prm.rng = new(object.Range)
+		prm.rng.SetLength(originSize)
+	}
+
+	if originSize < prm.rng.GetOffset()+prm.rng.GetLength() {
 		return nil, errors.Errorf("(%T) requested payload range is out-of-bounds", s)
 	}
 

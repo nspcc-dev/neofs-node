@@ -5,7 +5,7 @@ import (
 )
 
 type Prm struct {
-	local bool
+	local, full bool
 
 	addr *object.Address
 
@@ -33,6 +33,14 @@ func (p *Prm) WithAddress(v *object.Address) *Prm {
 func (p *Prm) WithRange(v *object.Range) *Prm {
 	if p != nil {
 		p.rng = v
+	}
+
+	return p
+}
+
+func (p *Prm) FullRange() *Prm {
+	if p != nil {
+		p.full = true
 	}
 
 	return p
