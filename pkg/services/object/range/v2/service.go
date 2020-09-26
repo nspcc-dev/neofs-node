@@ -35,12 +35,12 @@ func NewService(opts ...Option) *Service {
 
 // GetRange calls internal service and returns v2 object payload range stream.
 func (s *Service) GetRange(ctx context.Context, req *objectV2.GetRangeRequest) (objectV2.GetRangeObjectStreamer, error) {
-	stream, err := s.svc.GetRange(ctx, toPrm(req))
+	r, err := s.svc.GetRange(ctx, toPrm(req))
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not get object payload range data", s)
 	}
 
-	return fromResponse(stream), nil
+	return fromResponse(r.Stream()), nil
 }
 
 func WithInternalService(v *rangesvc.Service) Option {
