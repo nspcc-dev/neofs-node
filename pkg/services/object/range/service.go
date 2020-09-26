@@ -55,7 +55,7 @@ func NewService(opts ...Option) *Service {
 	}
 }
 
-func (s *Service) GetRange(ctx context.Context, prm *Prm) (Streamer, error) {
+func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 	headResult, err := s.headSvc.Head(ctx, new(headsvc.Prm).
 		WithAddress(prm.addr).
 		OnlyLocal(prm.local),
@@ -83,12 +83,15 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (Streamer, error) {
 		return nil, errors.Wrapf(err, "(%T) could not fill range traverser", s)
 	}
 
-	return &streamer{
-		cfg:            s.cfg,
-		once:           new(sync.Once),
-		ctx:            ctx,
-		prm:            prm,
-		rangeTraverser: rngTraverser,
+	return &Result{
+		head: origin,
+		stream: &streamer{
+			cfg:            s.cfg,
+			once:           new(sync.Once),
+			ctx:            ctx,
+			prm:            prm,
+			rangeTraverser: rngTraverser,
+		},
 	}, nil
 }
 
