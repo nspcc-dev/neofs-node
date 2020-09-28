@@ -10,8 +10,6 @@ type Prm struct {
 	addr *object.Address
 
 	rng *object.Range
-
-	traverser *rangeTraverser
 }
 
 func (p *Prm) OnlyLocal(v bool) *Prm {

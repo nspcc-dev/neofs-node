@@ -28,7 +28,7 @@ type streamer struct {
 
 	traverser *placement.Traverser
 
-	rangeTraverser *rangeTraverser
+	rangeTraverser *util.RangeTraverser
 
 	ch chan []byte
 }
@@ -58,7 +58,7 @@ func (p *streamer) Recv() (*Response, error) {
 		return nil, errors.Wrapf(p.ctx.Err(), "(%T) stream is stopped by context", p)
 	case v, ok := <-p.ch:
 		if !ok {
-			if p.rangeTraverser.next().rng.GetLength() != 0 {
+			if _, rng := p.rangeTraverser.Next(); rng.GetLength() != 0 {
 				return nil, errors.Errorf("(%T) incomplete get payload range", p)
 			}
 
@@ -135,15 +135,15 @@ loop:
 		default:
 		}
 
-		nextRange := p.rangeTraverser.next()
-		if nextRange.rng.GetLength() == 0 {
+		nextID, nextRange := p.rangeTraverser.Next()
+		if nextRange.GetLength() == 0 {
 			break
-		} else if err := p.switchToObject(nextRange.id); err != nil {
+		} else if err := p.switchToObject(nextID); err != nil {
 			// TODO: log error
 			break
 		}
 
-		objAddr.SetObjectID(nextRange.id)
+		objAddr.SetObjectID(nextID)
 
 	subloop:
 		for {
@@ -173,7 +173,7 @@ loop:
 					if network.IsLocalAddress(p.localAddrSrc, addr) {
 						rngWriter = &localRangeWriter{
 							addr:    objAddr,
-							rng:     nextRange.rng,
+							rng:     nextRange,
 							storage: p.localStore,
 						}
 					} else {
@@ -182,7 +182,7 @@ loop:
 							key:  p.key,
 							node: addr,
 							addr: objAddr,
-							rng:  nextRange.rng,
+							rng:  nextRange,
 						}
 					}
 
@@ -194,12 +194,12 @@ loop:
 						// TODO: log error
 					}
 
-					ln := nextRange.rng.GetLength()
+					ln := nextRange.GetLength()
 					uw := uint64(written)
 
-					p.rangeTraverser.pushSuccessSize(uw)
-					nextRange.rng.SetLength(ln - uw)
-					nextRange.rng.SetOffset(nextRange.rng.GetOffset() + uw)
+					p.rangeTraverser.PushSuccessSize(uw)
+					nextRange.SetLength(ln - uw)
+					nextRange.SetOffset(nextRange.GetOffset() + uw)
 				}); err != nil {
 					wg.Done()
 					// TODO: log error
@@ -208,7 +208,7 @@ loop:
 
 				wg.Wait()
 
-				if nextRange.rng.GetLength() == 0 {
+				if nextRange.GetLength() == 0 {
 					p.traverser.SubmitSuccess()
 					break subloop
 				}
