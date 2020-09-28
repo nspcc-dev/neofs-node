@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/pkg/errors"
 )
@@ -82,7 +83,7 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 		right = origin
 	}
 
-	rngTraverser := newRangeTraverser(originSize, right, prm.rng)
+	rngTraverser := objutil.NewRangeTraverser(originSize, right, prm.rng)
 	if err := s.fillTraverser(ctx, prm, rngTraverser); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not fill range traverser", s)
 	}
@@ -99,17 +100,17 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 	}, nil
 }
 
-func (s *Service) fillTraverser(ctx context.Context, prm *Prm, traverser *rangeTraverser) error {
+func (s *Service) fillTraverser(ctx context.Context, prm *Prm, traverser *objutil.RangeTraverser) error {
 	addr := object.NewAddress()
 	addr.SetContainerID(prm.addr.GetContainerID())
 
 	for {
-		next := traverser.next()
-		if next.rng != nil {
+		nextID, nextRng := traverser.Next()
+		if nextRng != nil {
 			return nil
 		}
 
-		addr.SetObjectID(next.id)
+		addr.SetObjectID(nextID)
 
 		head, err := s.headSvc.Head(ctx, new(headsvc.Prm).
 			WithAddress(addr).
@@ -119,7 +120,7 @@ func (s *Service) fillTraverser(ctx context.Context, prm *Prm, traverser *rangeT
 			return errors.Wrapf(err, "(%T) could not receive object header", s)
 		}
 
-		traverser.pushHeader(head.Header())
+		traverser.PushHeader(head.Header())
 	}
 }
 
