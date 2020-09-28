@@ -297,13 +297,6 @@ func (b BasicChecker) findRequestInfo(
 }
 
 func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
-	defer func() {
-		// if there is a NPE on get body and get address
-		if r := recover(); r != nil {
-			err = ErrMalformedRequest
-		}
-	}()
-
 	switch v := req.(type) {
 	case *object.GetRequest:
 		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
@@ -330,13 +323,6 @@ func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
 }
 
 func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
-	defer func() {
-		// if there is a NPE on get body and get address
-		if r := recover(); r != nil {
-			err = ErrMalformedRequest
-		}
-	}()
-
 	switch v := req.(type) {
 	case *object.PutRequest:
 		objPart := v.GetBody().GetObjectPart()
