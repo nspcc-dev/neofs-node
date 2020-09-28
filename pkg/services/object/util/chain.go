@@ -104,3 +104,33 @@ func (c *RangeTraverser) PushSuccessSize(sz uint64) {
 		c.chain = c.chain.next
 	}
 }
+
+// SetSeekRange moves the chain to the specified range.
+// The range is expected to be within the filled chain.
+func (c *RangeTraverser) SetSeekRange(r *objectSDK.Range) {
+	ln, off := r.GetLength(), r.GetOffset()
+
+	for {
+		if off < c.chain.bounds.left {
+			if c.chain.prev == nil {
+				break
+			}
+
+			c.chain = c.chain.prev
+		} else if off >= c.chain.bounds.left && off < c.chain.bounds.right {
+			break
+		} else if off >= c.chain.bounds.right {
+			if c.chain.next == nil {
+				break
+			}
+
+			c.chain = c.chain.next
+		}
+	}
+
+	if c.seekBounds == nil {
+		c.seekBounds = new(rangeBounds)
+	}
+
+	c.seekBounds.left, c.seekBounds.right = off, off+ln
+}
