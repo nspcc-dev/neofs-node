@@ -5,17 +5,17 @@ import (
 	"context"
 
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/pkg/errors"
 )
 
 type (
 	// BasicChecker checks basic ACL rules.
 	BasicChecker struct {
-		containers container.Source
+		containers core.Source
 		sender     SenderClassifier
 		next       object.Service
 	}
@@ -42,7 +42,7 @@ type (
 		basicACL    uint32
 		requestRole acl.Role
 		operation   acl.Operation // put, get, head, etc.
-		owner       *refs.OwnerID // container owner
+		owner       *owner.ID     // container owner
 	}
 )
 
@@ -56,7 +56,7 @@ var (
 // NewBasicChecker is a constructor for basic ACL checker of object requests.
 func NewBasicChecker(
 	c SenderClassifier,
-	cnr container.Source,
+	cnr core.Source,
 	next object.Service) BasicChecker {
 
 	return BasicChecker{
@@ -126,7 +126,7 @@ func (b BasicChecker) Search(
 	ctx context.Context,
 	request *object.SearchRequest) (object.SearchObjectStreamer, error) {
 
-	var cid *refs.ContainerID
+	var cid *container.ID
 
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
@@ -258,12 +258,12 @@ func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
 
 	part := body.GetObjectPart()
 	if _, ok := part.(*object.GetObjectPartInit); ok {
-		owner, err := getObjectOwnerFromMessage(resp)
+		ownerID, err := getObjectOwnerFromMessage(resp)
 		if err != nil {
 			return nil, err
 		}
 
-		if !stickyBitCheck(g.info, owner) {
+		if !stickyBitCheck(g.info, ownerID) {
 			return nil, ErrBasicAccessDenied
 		}
 	}
@@ -273,15 +273,11 @@ func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
 
 func (b BasicChecker) findRequestInfo(
 	req RequestV2,
-	cid *refs.ContainerID,
+	cid *container.ID,
 	op acl.Operation) (info requestInfo, err error) {
 
-	// container.Source interface implemented with SDK's definitions,
-	// so we have to convert id there.
-	containerID := containerSDK.NewIDFromV2(cid)
-
 	// fetch actual container
-	cnr, err := b.containers.Get(containerID)
+	cnr, err := b.containers.Get(cid)
 	if err != nil || cnr.GetOwnerID() == nil {
 		return info, ErrUnknownContainer
 	}
@@ -295,12 +291,12 @@ func (b BasicChecker) findRequestInfo(
 	info.basicACL = cnr.GetBasicACL()
 	info.requestRole = role
 	info.operation = op
-	info.owner = cnr.GetOwnerID()
+	info.owner = owner.NewIDFromV2(cnr.GetOwnerID())
 
 	return info, nil
 }
 
-func getContainerIDFromRequest(req interface{}) (id *refs.ContainerID, err error) {
+func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
 	defer func() {
 		// if there is a NPE on get body and get address
 		if r := recover(); r != nil {
@@ -310,30 +306,30 @@ func getContainerIDFromRequest(req interface{}) (id *refs.ContainerID, err error
 
 	switch v := req.(type) {
 	case *object.GetRequest:
-		return v.GetBody().GetAddress().GetContainerID(), nil
+		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.PutRequest:
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.PutObjectPartInit); ok {
-			return part.GetHeader().GetContainerID(), nil
+			return container.NewIDFromV2(part.GetHeader().GetContainerID()), nil
 		} else {
 			return nil, errors.New("can't get cid in chunk")
 		}
 	case *object.HeadRequest:
-		return v.GetBody().GetAddress().GetContainerID(), nil
+		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.SearchRequest:
-		return v.GetBody().GetContainerID(), nil
+		return container.NewIDFromV2(v.GetBody().GetContainerID()), nil
 	case *object.DeleteRequest:
-		return v.GetBody().GetAddress().GetContainerID(), nil
+		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.GetRangeRequest:
-		return v.GetBody().GetAddress().GetContainerID(), nil
+		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.GetRangeHashRequest:
-		return v.GetBody().GetAddress().GetContainerID(), nil
+		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	default:
 		return nil, errors.New("unknown request type")
 	}
 }
 
-func getObjectOwnerFromMessage(req interface{}) (id *refs.OwnerID, err error) {
+func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 	defer func() {
 		// if there is a NPE on get body and get address
 		if r := recover(); r != nil {
@@ -345,14 +341,14 @@ func getObjectOwnerFromMessage(req interface{}) (id *refs.OwnerID, err error) {
 	case *object.PutRequest:
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.PutObjectPartInit); ok {
-			return part.GetHeader().GetOwnerID(), nil
+			return owner.NewIDFromV2(part.GetHeader().GetOwnerID()), nil
 		} else {
 			return nil, errors.New("can't get cid in chunk")
 		}
 	case *object.GetResponse:
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.GetObjectPartInit); ok {
-			return part.GetHeader().GetOwnerID(), nil
+			return owner.NewIDFromV2(part.GetHeader().GetOwnerID()), nil
 		} else {
 			return nil, errors.New("can't get cid in chunk")
 		}
@@ -384,7 +380,7 @@ func basicACLCheck(info requestInfo) bool {
 	return checkFn(info.operation)
 }
 
-func stickyBitCheck(info requestInfo, owner *refs.OwnerID) bool {
+func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 	if owner == nil || info.owner == nil {
 		return false
 	}
@@ -394,5 +390,5 @@ func stickyBitCheck(info requestInfo, owner *refs.OwnerID) bool {
 		return true
 	}
 
-	return bytes.Equal(owner.GetValue(), info.owner.GetValue())
+	return bytes.Equal(owner.ToV2().GetValue(), info.owner.ToV2().GetValue())
 }
