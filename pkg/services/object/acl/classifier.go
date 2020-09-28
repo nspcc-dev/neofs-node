@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -31,6 +31,7 @@ type (
 	}
 )
 
+// fixme: update classifier constructor
 func NewSenderClassifier(ir InnerRingFetcher, nm core.Source) SenderClassifier {
 	return SenderClassifier{
 		innerRing: ir,
@@ -40,7 +41,7 @@ func NewSenderClassifier(ir InnerRingFetcher, nm core.Source) SenderClassifier {
 
 func (c SenderClassifier) Classify(
 	req RequestV2,
-	cid *refs.ContainerID,
+	cid *container.ID,
 	cnr *container.Container) acl.Role {
 	if cid == nil || req == nil {
 		// log there
@@ -56,7 +57,7 @@ func (c SenderClassifier) Classify(
 	// todo: get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
-	if bytes.Equal(cnr.GetOwnerID().GetValue(), ownerID.GetValue()) {
+	if bytes.Equal(cnr.GetOwnerID().GetValue(), ownerID.ToV2().GetValue()) {
 		return acl.RoleUser
 	}
 
@@ -70,7 +71,7 @@ func (c SenderClassifier) Classify(
 		return acl.RoleSystem
 	}
 
-	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, cid.GetValue(), cnr)
+	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, cid.ToV2().GetValue(), cnr)
 	if err != nil {
 		// log there
 		return acl.RoleUnknown
@@ -82,7 +83,7 @@ func (c SenderClassifier) Classify(
 	return acl.RoleOthers
 }
 
-func requestOwner(req RequestV2) (*refs.OwnerID, *ecdsa.PublicKey, error) {
+func requestOwner(req RequestV2) (*owner.ID, *ecdsa.PublicKey, error) {
 	var (
 		meta   = req.GetMetaHeader()
 		verify = req.GetVerificationHeader()
@@ -104,7 +105,7 @@ func requestOwner(req RequestV2) (*refs.OwnerID, *ecdsa.PublicKey, error) {
 			return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at signature")
 		}
 
-		return body.GetOwnerID(), crypto.UnmarshalPublicKey(signature.GetKey()), nil
+		return owner.NewIDFromV2(body.GetOwnerID()), crypto.UnmarshalPublicKey(signature.GetKey()), nil
 	}
 
 	// otherwise get original body signature
@@ -120,13 +121,13 @@ func requestOwner(req RequestV2) (*refs.OwnerID, *ecdsa.PublicKey, error) {
 	}
 
 	// form user from public key
-	user := new(refs.OwnerID)
-	user.SetValue(neo3wallet.Bytes())
+	user := new(owner.ID)
+	user.SetNeo3Wallet(neo3wallet)
 
 	return user, key, nil
 }
 
-func originalBodySignature(v *session.RequestVerificationHeader) *refs.Signature {
+func originalBodySignature(v *session.RequestVerificationHeader) *pkg.Signature {
 	if v == nil {
 		return nil
 	}
@@ -135,7 +136,7 @@ func originalBodySignature(v *session.RequestVerificationHeader) *refs.Signature
 		v = v.GetOrigin()
 	}
 
-	return v.GetBodySignature()
+	return pkg.NewSignatureFromV2(v.GetBodySignature())
 }
 
 func (c SenderClassifier) isInnerRingKey(owner []byte) (bool, error) {
