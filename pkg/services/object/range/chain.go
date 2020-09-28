@@ -97,9 +97,11 @@ func (c *rangeTraverser) pushHeader(obj *object.Object) {
 
 	c.chain = c.chain.prev
 
-	c.chain.prev = &rangeChain{
-		next: c.chain,
-		id:   obj.GetPreviousID(),
+	if prev := obj.GetPreviousID(); prev != nil {
+		c.chain.prev = &rangeChain{
+			next: c.chain,
+			id:   prev,
+		}
 	}
 }
 
