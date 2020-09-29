@@ -63,7 +63,7 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	r, err := (&distributedHeader{
 		cfg: s.cfg,
 	}).head(ctx, prm)
-	if err == nil || prm.local {
+	if err == nil || prm.common.LocalOnly() {
 		return r, err
 	}
 

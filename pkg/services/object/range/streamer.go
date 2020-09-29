@@ -104,7 +104,7 @@ func (p *streamer) switchToObject(id *object.ID) error {
 	// create placement builder from network map
 	builder := placement.NewNetworkMapBuilder(nm)
 
-	if p.prm.local {
+	if p.prm.common.LocalOnly() {
 		// use local-only placement builder
 		builder = util.NewLocalPlacement(builder, p.localAddrSrc)
 	}

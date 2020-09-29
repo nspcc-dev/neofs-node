@@ -6,6 +6,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	rangehashsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/rangehash"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
 
@@ -33,9 +34,9 @@ func toPrm(req *objectV2.GetRangeHashRequest) (*rangehashsvc.Prm, error) {
 		WithAddress(
 			object.NewAddressFromV2(body.GetAddress()),
 		).
-		OnlyLocal(req.GetMetaHeader().GetTTL() == 1). // FIXME: use constant
 		WithChecksumType(typ).
-		FromRanges(rngs...), nil
+		FromRanges(rngs...).
+		WithCommonPrm(util.CommonPrmFromV2(req)), nil
 }
 
 func fromResponse(r *rangehashsvc.Response, typ refs.ChecksumType) *objectV2.GetRangeHashResponse {

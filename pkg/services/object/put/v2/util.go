@@ -1,27 +1,23 @@
 package putsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
-func toInitPrm(req *objectV2.PutObjectPartInit, t *session.SessionToken, ttl uint32) *putsvc.PutInitPrm {
+func toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) *putsvc.PutInitPrm {
 	oV2 := new(objectV2.Object)
-	oV2.SetObjectID(req.GetObjectID())
-	oV2.SetSignature(req.GetSignature())
-	oV2.SetHeader(req.GetHeader())
+	oV2.SetObjectID(part.GetObjectID())
+	oV2.SetSignature(part.GetSignature())
+	oV2.SetHeader(part.GetHeader())
 
 	return new(putsvc.PutInitPrm).
 		WithObject(
 			object.NewRawFromV2(oV2),
 		).
-		WithSession(
-			token.NewSessionTokenFromV2(t),
-		).
-		OnlyLocal(ttl == 1) // FIXME: use constant
+		WithCommonPrm(util.CommonPrmFromV2(req))
 }
 
 func toChunkPrm(req *objectV2.PutObjectPartChunk) *putsvc.PutChunkPrm {

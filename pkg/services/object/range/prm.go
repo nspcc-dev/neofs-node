@@ -2,19 +2,22 @@ package rangesvc
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type Prm struct {
-	local, full bool
+	common *util.CommonPrm
+
+	full bool
 
 	addr *object.Address
 
 	rng *object.Range
 }
 
-func (p *Prm) OnlyLocal(v bool) *Prm {
+func (p *Prm) WithCommonPrm(v *util.CommonPrm) *Prm {
 	if p != nil {
-		p.local = v
+		p.common = v
 	}
 
 	return p

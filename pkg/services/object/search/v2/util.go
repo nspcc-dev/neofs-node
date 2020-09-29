@@ -7,17 +7,18 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
 	queryV1 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/query/v1"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
 
-func toPrm(req *object.SearchRequestBody, ttl uint32) (*searchsvc.Prm, error) {
+func toPrm(body *object.SearchRequestBody, req *object.SearchRequest) (*searchsvc.Prm, error) {
 	var q query.Query
 
-	switch v := req.GetVersion(); v {
+	switch v := body.GetVersion(); v {
 	default:
 		return nil, errors.Errorf("unsupported query version #%d", v)
 	case 1:
-		fs := req.GetFilters()
+		fs := body.GetFilters()
 		fsV1 := make([]*queryV1.Filter, 0, len(fs))
 
 		for _, f := range fs {
@@ -34,10 +35,10 @@ func toPrm(req *object.SearchRequestBody, ttl uint32) (*searchsvc.Prm, error) {
 
 	return new(searchsvc.Prm).
 		WithContainerID(
-			container.NewIDFromV2(req.GetContainerID()),
+			container.NewIDFromV2(body.GetContainerID()),
 		).
 		WithSearchQuery(q).
-		OnlyLocal(ttl == 1), nil // FIXME: use constant
+		WithCommonPrm(util.CommonPrmFromV2(req)), nil
 }
 
 func fromResponse(r *searchsvc.Response) *object.SearchResponse {

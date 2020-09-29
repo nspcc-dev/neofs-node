@@ -65,7 +65,7 @@ func NewService(opts ...Option) *Service {
 func (s *Service) GetRangeHash(ctx context.Context, prm *Prm) (*Response, error) {
 	headResult, err := s.headSvc.Head(ctx, new(headsvc.Prm).
 		WithAddress(prm.addr).
-		OnlyLocal(prm.local),
+		WithCommonPrm(prm.common),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not receive Head result", s)
@@ -124,7 +124,7 @@ func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.Ra
 
 			head, err := s.headSvc.Head(ctx, new(headsvc.Prm).
 				WithAddress(addr).
-				OnlyLocal(prm.local),
+				WithCommonPrm(prm.common),
 			)
 			if err != nil {
 				return nil, errors.Wrapf(err, "(%T) could not receive object header", s)
@@ -167,9 +167,9 @@ func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.Ra
 				// here we cannot receive SHA256 checksum through GetRangeHash service
 				// since SHA256 is not homomorphic
 				res, err := s.rangeSvc.GetRange(ctx, new(rangesvc.Prm).
-					OnlyLocal(prm.local).
 					WithAddress(addr).
-					WithRange(nextRng),
+					WithRange(nextRng).
+					WithCommonPrm(prm.common),
 				)
 				if err != nil {
 					return nil, errors.Wrapf(err, "(%T) could not receive payload range for %v checksum", s, prm.typ)
@@ -187,10 +187,10 @@ func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.Ra
 				resp, err := (&distributedHasher{
 					cfg: s.cfg,
 				}).head(ctx, new(Prm).
-					OnlyLocal(prm.local).
 					WithAddress(addr).
 					WithChecksumType(prm.typ).
-					FromRanges(nextRng),
+					FromRanges(nextRng).
+					WithCommonPrm(prm.common),
 				)
 				if err != nil {
 					return nil, errors.Wrapf(err, "(%T) could not receive %v checksum", s, prm.typ)

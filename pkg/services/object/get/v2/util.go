@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 func toPrm(req *objectV2.GetRequest) *getsvc.Prm {
@@ -11,7 +12,7 @@ func toPrm(req *objectV2.GetRequest) *getsvc.Prm {
 		WithAddress(
 			object.NewAddressFromV2(req.GetBody().GetAddress()),
 		).
-		OnlyLocal(req.GetMetaHeader().GetTTL() == 1) // FIXME: use constant
+		WithCommonPrm(util.CommonPrmFromV2(req))
 }
 
 func fromResponse(res *getsvc.Streamer) objectV2.GetObjectStreamer {
