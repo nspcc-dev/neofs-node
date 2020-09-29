@@ -2,7 +2,6 @@ package headsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -10,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/pkg/errors"
 )
@@ -25,7 +25,7 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	key *ecdsa.PrivateKey
+	keyStorage *objutil.KeyStorage
 
 	localStore *localstore.Storage
 
@@ -92,9 +92,9 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	}, nil
 }
 
-func WithKey(v *ecdsa.PrivateKey) Option {
+func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
-		c.key = v
+		c.keyStorage = v
 	}
 }
 

@@ -2,7 +2,6 @@ package searchsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"io"
 	"sync"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query/v1"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/pkg/errors"
 )
@@ -23,7 +23,7 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	key *ecdsa.PrivateKey
+	keyStorage *objutil.KeyStorage
 
 	localStore *localstore.Storage
 
@@ -104,9 +104,9 @@ func readFullStream(s *Streamer, cap int) ([]*object.ID, error) {
 	return res, nil
 }
 
-func WithKey(v *ecdsa.PrivateKey) Option {
+func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
-		c.key = v
+		c.keyStorage = v
 	}
 }
 

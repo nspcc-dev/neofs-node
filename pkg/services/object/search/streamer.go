@@ -160,9 +160,9 @@ loop:
 					}
 				} else {
 					streamer = &remoteStream{
-						prm:  prm,
-						key:  p.key,
-						addr: addr,
+						prm:        prm,
+						keyStorage: p.keyStorage,
+						addr:       addr,
 					}
 				}
 

@@ -2,7 +2,6 @@ package rangehashsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -27,7 +26,7 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	key *ecdsa.PrivateKey
+	keyStorage *objutil.KeyStorage
 
 	localStore *localstore.Storage
 
@@ -218,9 +217,9 @@ func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.Ra
 	return resp, nil
 }
 
-func WithKey(v *ecdsa.PrivateKey) Option {
+func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
-		c.key = v
+		c.keyStorage = v
 	}
 }
 
