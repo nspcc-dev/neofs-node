@@ -58,7 +58,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	if par := f.obj.GetParent(); par != nil && par.ToV2().GetHeader() != nil {
 		rawPar := objectSDK.NewRawFromV2(par.ToV2())
 
-		if err := setIDAndSignature(f.key, rawPar); err != nil {
+		if err := objectSDK.SetIDWithSignature(f.key, rawPar); err != nil {
 			return nil, errors.Wrap(err, "could not finalize parent object")
 		}
 
@@ -67,7 +67,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		f.obj.SetParent(rawPar.Object())
 	}
 
-	if err := setIDAndSignature(f.key, f.obj.SDK()); err != nil {
+	if err := objectSDK.SetIDWithSignature(f.key, f.obj.SDK()); err != nil {
 		return nil, errors.Wrap(err, "could not finalize object")
 	}
 
@@ -82,16 +82,4 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	return new(AccessIdentifiers).
 		WithSelfID(f.obj.GetID()).
 		WithParentID(parID), nil
-}
-
-func setIDAndSignature(key *ecdsa.PrivateKey, obj *objectSDK.RawObject) error {
-	if err := objectSDK.CalculateAndSetID(obj); err != nil {
-		return errors.Wrap(err, "could not set identifier")
-	}
-
-	if err := objectSDK.CalculateAndSetSignature(key, obj); err != nil {
-		return errors.Wrap(err, "could not set signature")
-	}
-
-	return nil
 }
