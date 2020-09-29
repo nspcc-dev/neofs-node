@@ -160,7 +160,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithMaxSizeSource(&maxSzSrc{3}),
+		putsvc.WithMaxSizeSource(&maxSzSrc{c.cfgObject.maxObjectSize}),
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),

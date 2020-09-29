@@ -53,6 +53,8 @@ const (
 	// config keys for cfgContainer
 	cfgContainerContract = "container.scripthash"
 	cfgContainerFee      = "container.fee"
+
+	cfgMaxObjectSize = "node.maxobjectsize" // get value from chain
 )
 
 type cfg struct {
@@ -125,6 +127,8 @@ type cfgObject struct {
 	netMapStorage netmapCore.Source
 
 	cnrStorage container.Source
+
+	maxObjectSize uint64
 }
 
 const (
@@ -179,6 +183,9 @@ func initCfg(path string) *cfg {
 			bootType:   StorageNode,
 			attributes: parseAttributes(viperCfg),
 		},
+		cfgObject: cfgObject{
+			maxObjectSize: viperCfg.GetUint64(cfgMaxObjectSize),
+		},
 		localAddr: netAddr,
 	}
 }
@@ -207,7 +214,8 @@ func initViper(path string) *viper.Viper {
 func defaultConfiguration(v *viper.Viper) {
 	// fixme: all hardcoded private keys must be removed
 	v.SetDefault(cfgNodeKey, "Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
-	v.SetDefault(cfgBootstrapAddress, "") // address to bootstrap with
+	v.SetDefault(cfgBootstrapAddress, "")     // address to bootstrap with
+	v.SetDefault(cfgMaxObjectSize, 1024*1024) // default max object size 1 megabyte
 
 	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
