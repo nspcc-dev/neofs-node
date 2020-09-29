@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
@@ -38,11 +39,14 @@ type cfg struct {
 	workerPool util.WorkerPool
 
 	localAddrSrc network.LocalAddressSource
+
+	fmtValidator *object.FormatValidator
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
-		workerPool: new(util.SyncWorkerPool),
+		workerPool:   new(util.SyncWorkerPool),
+		fmtValidator: object.NewFormatValidator(),
 	}
 }
 
