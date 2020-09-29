@@ -53,6 +53,8 @@ func NewPayloadSizeLimiter(maxSize uint64, targetInit TargetInitializer) ObjectT
 func (s *payloadSizeLimiter) WriteHeader(hdr *object.RawObject) error {
 	s.current = fromObject(hdr)
 
+	s.initialize()
+
 	return nil
 }
 
@@ -214,15 +216,11 @@ func (s *payloadSizeLimiter) initializeLinking() {
 }
 
 func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
-	// statement is true if:
-	//   1. the method is called for the first time;
-	//   2. the previous write of bytes reached exactly the boundary.
-	if s.written%s.maxSize == 0 {
-		// if 2. we need to release current object
-		if s.written > 0 {
-			if _, err := s.release(false); err != nil {
-				return errors.Wrap(err, "could not release object")
-			}
+	// statement is true if the previous write of bytes reached exactly the boundary.
+	if s.written > 0 && s.written%s.maxSize == 0 {
+		// we need to release current object
+		if _, err := s.release(false); err != nil {
+			return errors.Wrap(err, "could not release object")
 		}
 
 		// initialize another object
