@@ -50,7 +50,10 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 	if prm.token == nil {
 		// prepare untrusted-Put object target
-		p.target = p.newCommonTarget(prm)
+		p.target = &validatingTarget{
+			nextTarget: p.newCommonTarget(prm),
+			fmt:        p.fmtValidator,
+		}
 
 		return nil
 	}
