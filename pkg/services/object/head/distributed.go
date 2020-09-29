@@ -115,8 +115,8 @@ loop:
 					}
 				} else {
 					header = &remoteHeader{
-						key:  h.key,
-						node: addr,
+						keyStorage: h.keyStorage,
+						node:       addr,
 					}
 				}
 

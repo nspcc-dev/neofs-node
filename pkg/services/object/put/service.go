@@ -2,14 +2,13 @@ package putsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
@@ -24,11 +23,9 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	key *ecdsa.PrivateKey
+	keyStorage *objutil.KeyStorage
 
 	maxSizeSrc MaxSizeSource
-
-	tokenStore *storage.TokenStore
 
 	localStore *localstore.Storage
 
@@ -69,21 +66,15 @@ func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 	}, nil
 }
 
-func WithKey(v *ecdsa.PrivateKey) Option {
+func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
-		c.key = v
+		c.keyStorage = v
 	}
 }
 
 func WithMaxSizeSource(v MaxSizeSource) Option {
 	return func(c *cfg) {
 		c.maxSizeSrc = v
-	}
-}
-
-func WithTokenStorage(v *storage.TokenStore) Option {
-	return func(c *cfg) {
-		c.tokenStore = v
 	}
 }
 
