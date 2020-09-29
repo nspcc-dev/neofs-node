@@ -106,7 +106,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	// create placement builder from network map
 	builder := placement.NewNetworkMapBuilder(nm)
 
-	if prm.local {
+	if prm.common.LocalOnly() {
 		// restrict success count to 1 stored copy (to local storage)
 		prm.traverseOpts = append(prm.traverseOpts, placement.SuccessAfter(1))
 

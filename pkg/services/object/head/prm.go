@@ -2,17 +2,20 @@ package headsvc
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type Prm struct {
-	local, short bool
+	common *util.CommonPrm
+
+	short bool
 
 	addr *object.Address
 }
 
-func (p *Prm) OnlyLocal(v bool) *Prm {
+func (p *Prm) WithCommonPrm(v *util.CommonPrm) *Prm {
 	if p != nil {
-		p.local = v
+		p.common = v
 	}
 
 	return p

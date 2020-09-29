@@ -37,7 +37,7 @@ func (s *Service) Get(ctx context.Context, prm *Prm) (*Streamer, error) {
 	r, err := s.rngSvc.GetRange(ctx, new(rangesvc.Prm).
 		WithAddress(prm.addr).
 		FullRange().
-		OnlyLocal(prm.local),
+		WithCommonPrm(prm.common),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not get range", s)

@@ -35,7 +35,7 @@ func NewService(opts ...Option) *Service {
 
 // Search calls internal service and returns v2 search object streamer.
 func (s *Service) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
-	prm, err := toPrm(req.GetBody(), req.GetMetaHeader().GetTTL())
+	prm, err := toPrm(req.GetBody(), req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not convert search parameters", s)
 	}
