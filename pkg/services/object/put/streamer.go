@@ -48,7 +48,9 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return errors.Wrapf(err, "(%T) could not prepare put parameters", p)
 	}
 
-	if prm.token == nil {
+	sToken := prm.common.SessionToken()
+
+	if sToken == nil {
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
 			nextTarget: p.newCommonTarget(prm),
@@ -61,7 +63,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// prepare trusted-Put object target
 
 	// get private token from local storage
-	pToken := p.tokenStore.Get(prm.token.OwnerID(), prm.token.ID())
+	pToken := p.tokenStore.Get(sToken.OwnerID(), sToken.ID())
 	if pToken == nil {
 		return errPrivateTokenNotFound
 	}
@@ -69,7 +71,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	p.target = transformer.NewPayloadSizeLimiter(
 		p.maxSizeSrc.MaxObjectSize(),
 		func() transformer.ObjectTarget {
-			return transformer.NewFormatTarget(pToken.SessionKey(), p.newCommonTarget(prm), prm.token)
+			return transformer.NewFormatTarget(pToken.SessionKey(), p.newCommonTarget(prm), sToken)
 		},
 	)
 

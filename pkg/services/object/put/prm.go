@@ -1,7 +1,6 @@
 package putsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -11,8 +10,6 @@ type PutInitPrm struct {
 	common *util.CommonPrm
 
 	hdr *object.RawObject
-
-	token *token.SessionToken
 
 	traverseOpts []placement.Option
 }
@@ -32,14 +29,6 @@ func (p *PutInitPrm) WithCommonPrm(v *util.CommonPrm) *PutInitPrm {
 func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
 	if p != nil {
 		p.hdr = v
-	}
-
-	return p
-}
-
-func (p *PutInitPrm) WithSession(v *token.SessionToken) *PutInitPrm {
-	if p != nil {
-		p.token = v
 	}
 
 	return p
