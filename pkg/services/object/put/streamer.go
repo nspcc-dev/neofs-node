@@ -23,8 +23,6 @@ var errNotInit = errors.New("stream not initialized")
 
 var errInitRecall = errors.New("init recall")
 
-var errPrivateTokenNotFound = errors.New("private token not found")
-
 func (p *Streamer) Init(prm *PutInitPrm) error {
 	// initialize destination target
 	if err := p.initTarget(prm); err != nil {
@@ -63,15 +61,15 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// prepare trusted-Put object target
 
 	// get private token from local storage
-	pToken := p.tokenStore.Get(sToken.OwnerID(), sToken.ID())
-	if pToken == nil {
-		return errPrivateTokenNotFound
+	sessionKey, err := p.keyStorage.GetKey(sToken)
+	if err != nil {
+		return errors.Wrapf(err, "(%T) could not receive session key", p)
 	}
 
 	p.target = transformer.NewPayloadSizeLimiter(
 		p.maxSizeSrc.MaxObjectSize(),
 		func() transformer.ObjectTarget {
-			return transformer.NewFormatTarget(pToken.SessionKey(), p.newCommonTarget(prm), sToken)
+			return transformer.NewFormatTarget(sessionKey, p.newCommonTarget(prm), sToken)
 		},
 	)
 
@@ -133,9 +131,10 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				}
 			} else {
 				return &remoteTarget{
-					ctx:  p.ctx,
-					key:  p.key,
-					addr: addr,
+					ctx:        p.ctx,
+					keyStorage: p.keyStorage,
+					token:      prm.common.SessionToken(),
+					addr:       addr,
 				}
 			}
 		},

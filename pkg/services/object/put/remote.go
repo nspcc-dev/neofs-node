@@ -2,11 +2,12 @@ package putsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/pkg/errors"
 )
@@ -16,7 +17,9 @@ type remoteTarget struct {
 
 	ctx context.Context
 
-	key *ecdsa.PrivateKey
+	keyStorage *util.KeyStorage
+
+	token *token.SessionToken
 
 	addr *network.Address
 
@@ -30,9 +33,14 @@ func (t *remoteTarget) WriteHeader(obj *object.RawObject) error {
 }
 
 func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
+	key, err := t.keyStorage.GetKey(t.token)
+	if err != nil {
+		return nil, errors.Wrapf(err, "(%T) could not receive private key", t)
+	}
+
 	addr := t.addr.NetAddr()
 
-	c, err := client.New(t.key,
+	c, err := client.New(key,
 		client.WithAddress(addr),
 	)
 	if err != nil {

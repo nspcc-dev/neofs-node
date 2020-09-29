@@ -178,11 +178,12 @@ loop:
 						}
 					} else {
 						rngWriter = &remoteRangeWriter{
-							ctx:  p.ctx,
-							key:  p.key,
-							node: addr,
-							addr: objAddr,
-							rng:  nextRange,
+							ctx:        p.ctx,
+							keyStorage: p.keyStorage,
+							node:       addr,
+							token:      p.prm.common.SessionToken(),
+							addr:       objAddr,
+							rng:        nextRange,
 						}
 					}
 

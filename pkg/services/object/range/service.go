@@ -2,7 +2,6 @@ package rangesvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -23,7 +22,7 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	key *ecdsa.PrivateKey
+	keyStorage *objutil.KeyStorage
 
 	localStore *localstore.Storage
 
@@ -124,9 +123,9 @@ func (s *Service) fillTraverser(ctx context.Context, prm *Prm, traverser *objuti
 	}
 }
 
-func WithKey(v *ecdsa.PrivateKey) Option {
+func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
-		c.key = v
+		c.keyStorage = v
 	}
 }
 

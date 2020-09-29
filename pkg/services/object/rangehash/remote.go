@@ -2,25 +2,30 @@ package rangehashsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
 
 type remoteHasher struct {
-	key *ecdsa.PrivateKey
+	keyStorage *util.KeyStorage
 
 	node *network.Address
 }
 
 func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][]byte)) error {
+	key, err := h.keyStorage.GetKey(prm.common.SessionToken())
+	if err != nil {
+		return errors.Wrapf(err, "(%T) could not receive private key", h)
+	}
+
 	addr := h.node.NetAddr()
 
-	c, err := client.New(h.key,
+	c, err := client.New(key,
 		client.WithAddress(addr),
 	)
 	if err != nil {
@@ -36,6 +41,7 @@ func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][
 
 	opts := []client.CallOption{
 		client.WithTTL(1), // FIXME: use constant
+		client.WithSession(prm.common.SessionToken()),
 	}
 
 	switch prm.typ {
