@@ -1,0 +1,101 @@
+package object
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"testing"
+
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/util/test"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+)
+
+func testSHA(t *testing.T) [sha256.Size]byte {
+	cs := [sha256.Size]byte{}
+
+	_, err := rand.Read(cs[:])
+	require.NoError(t, err)
+
+	return cs
+}
+
+func testContainerID(t *testing.T) *container.ID {
+	id := container.NewID()
+	id.SetSHA256(testSHA(t))
+
+	return id
+}
+
+func testObjectID(t *testing.T) *object.ID {
+	id := object.NewID()
+	id.SetSHA256(testSHA(t))
+
+	return id
+}
+
+func TestFormatValidator_Validate(t *testing.T) {
+	v := NewFormatValidator()
+
+	t.Run("nil input", func(t *testing.T) {
+		require.Error(t, v.Validate(nil))
+	})
+
+	t.Run("nil identifier", func(t *testing.T) {
+		obj := NewRaw()
+
+		require.True(t, errors.Is(v.Validate(obj.Object()), errNilID))
+	})
+
+	t.Run("nil container identifier", func(t *testing.T) {
+		obj := NewRaw()
+		obj.SetID(testObjectID(t))
+
+		require.True(t, errors.Is(v.Validate(obj.Object()), errNilCID))
+	})
+
+	t.Run("unsigned object", func(t *testing.T) {
+		obj := NewRaw()
+		obj.SetContainerID(testContainerID(t))
+		obj.SetID(testObjectID(t))
+
+		require.Error(t, v.Validate(obj.Object()))
+	})
+
+	t.Run("correct w/ session token", func(t *testing.T) {
+		sessionKey := test.DecodeKey(-1)
+
+		tok := token.NewSessionToken()
+		tok.SetSessionKey(crypto.MarshalPublicKey(&sessionKey.PublicKey))
+
+		obj := NewRaw()
+		obj.SetContainerID(testContainerID(t))
+		obj.SetSessionToken(tok)
+
+		require.NoError(t, object.SetIDWithSignature(sessionKey, obj.SDK()))
+
+		require.NoError(t, v.Validate(obj.Object()))
+	})
+
+	t.Run("correct w/o session token", func(t *testing.T) {
+		ownerKey := test.DecodeKey(-1)
+
+		wallet, err := owner.NEO3WalletFromPublicKey(&ownerKey.PublicKey)
+		require.NoError(t, err)
+
+		ownerID := owner.NewID()
+		ownerID.SetNeo3Wallet(wallet)
+
+		obj := NewRaw()
+		obj.SetContainerID(testContainerID(t))
+		obj.SetOwnerID(ownerID)
+
+		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+
+		require.NoError(t, v.Validate(obj.Object()))
+	})
+}
