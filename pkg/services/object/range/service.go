@@ -59,7 +59,7 @@ func NewService(opts ...Option) *Service {
 func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 	headResult, err := s.headSvc.Head(ctx, new(headsvc.Prm).
 		WithAddress(prm.addr).
-		OnlyLocal(prm.local),
+		WithCommonPrm(prm.common),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not receive Head result", s)
@@ -114,7 +114,7 @@ func (s *Service) fillTraverser(ctx context.Context, prm *Prm, traverser *objuti
 
 		head, err := s.headSvc.Head(ctx, new(headsvc.Prm).
 			WithAddress(addr).
-			OnlyLocal(prm.local),
+			WithCommonPrm(prm.common),
 		)
 		if err != nil {
 			return errors.Wrapf(err, "(%T) could not receive object header", s)

@@ -13,7 +13,7 @@ type streamer struct {
 func (s *streamer) Send(req *object.PutRequest) (err error) {
 	switch v := req.GetBody().GetObjectPart().(type) {
 	case *object.PutObjectPartInit:
-		if err = s.stream.Init(toInitPrm(v, req.GetMetaHeader().GetSessionToken(), req.GetMetaHeader().GetTTL())); err != nil {
+		if err = s.stream.Init(toInitPrm(v, req)); err != nil {
 			err = errors.Wrapf(err, "(%T) could not init object put stream", s)
 		}
 	case *object.PutObjectPartChunk:

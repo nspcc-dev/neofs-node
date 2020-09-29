@@ -3,10 +3,11 @@ package searchsvc
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type Prm struct {
-	local bool
+	common *util.CommonPrm
 
 	cid *container.ID
 
@@ -29,9 +30,9 @@ func (p *Prm) WithSearchQuery(v query.Query) *Prm {
 	return p
 }
 
-func (p *Prm) OnlyLocal(v bool) *Prm {
+func (p *Prm) WithCommonPrm(v *util.CommonPrm) *Prm {
 	if p != nil {
-		p.local = v
+		p.common = v
 	}
 
 	return p

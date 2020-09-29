@@ -58,7 +58,7 @@ func (h *distributedHasher) prepare(ctx context.Context, prm *Prm) error {
 	// create placement builder from network map
 	builder := placement.NewNetworkMapBuilder(nm)
 
-	if prm.local {
+	if prm.common.LocalOnly() {
 		// use local-only placement builder
 		builder = util.NewLocalPlacement(builder, h.localAddrSrc)
 	}

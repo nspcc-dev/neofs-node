@@ -3,10 +3,11 @@ package rangehashsvc
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type Prm struct {
-	local bool
+	common *util.CommonPrm
 
 	addr *object.Address
 
@@ -17,9 +18,9 @@ type Prm struct {
 	salt []byte
 }
 
-func (p *Prm) OnlyLocal(v bool) *Prm {
+func (p *Prm) WithCommonPrm(v *util.CommonPrm) *Prm {
 	if p != nil {
-		p.local = v
+		p.common = v
 	}
 
 	return p

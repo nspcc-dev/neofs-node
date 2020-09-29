@@ -3,11 +3,12 @@ package putsvc
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 )
 
 type PutInitPrm struct {
-	local bool
+	common *util.CommonPrm
 
 	hdr *object.RawObject
 
@@ -18,6 +19,14 @@ type PutInitPrm struct {
 
 type PutChunkPrm struct {
 	chunk []byte
+}
+
+func (p *PutInitPrm) WithCommonPrm(v *util.CommonPrm) *PutInitPrm {
+	if p != nil {
+		p.common = v
+	}
+
+	return p
 }
 
 func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
@@ -31,14 +40,6 @@ func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
 func (p *PutInitPrm) WithSession(v *token.SessionToken) *PutInitPrm {
 	if p != nil {
 		p.token = v
-	}
-
-	return p
-}
-
-func (p *PutInitPrm) OnlyLocal(v bool) *PutInitPrm {
-	if p != nil {
-		p.local = v
 	}
 
 	return p
