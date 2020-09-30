@@ -26,8 +26,6 @@ type searchQueryFilter struct {
 }
 
 func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) error {
-	idList := make([]*objectSDK.ID, 0)
-
 	filter := &searchQueryFilter{
 		query: s.query,
 		ch:    ch,
@@ -38,15 +36,11 @@ func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) err
 		case <-ctx.Done():
 			return true
 		default:
-			idList = append(idList, meta.Head().GetID())
-
 			return false
 		}
 	}); err != nil && !errors.Is(errors.Cause(err), bucket.ErrIteratingAborted) {
 		return errors.Wrapf(err, "(%T) could not iterate over local storage", s)
 	}
-
-	ch <- idList
 
 	return nil
 }
