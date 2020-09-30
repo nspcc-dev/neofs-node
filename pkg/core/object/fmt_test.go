@@ -1,6 +1,7 @@
 package object
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"testing"
@@ -38,8 +39,24 @@ func testObjectID(t *testing.T) *object.ID {
 	return id
 }
 
+func blankValidObject(t *testing.T, key *ecdsa.PrivateKey) *RawObject {
+	wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
+	require.NoError(t, err)
+
+	ownerID := owner.NewID()
+	ownerID.SetNeo3Wallet(wallet)
+
+	obj := NewRaw()
+	obj.SetContainerID(testContainerID(t))
+	obj.SetOwnerID(ownerID)
+
+	return obj
+}
+
 func TestFormatValidator_Validate(t *testing.T) {
 	v := NewFormatValidator()
+
+	ownerKey := test.DecodeKey(-1)
 
 	t.Run("nil input", func(t *testing.T) {
 		require.Error(t, v.Validate(nil))
@@ -67,32 +84,53 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		sessionKey := test.DecodeKey(-1)
-
 		tok := token.NewSessionToken()
-		tok.SetSessionKey(crypto.MarshalPublicKey(&sessionKey.PublicKey))
+		tok.SetSessionKey(crypto.MarshalPublicKey(&ownerKey.PublicKey))
 
 		obj := NewRaw()
 		obj.SetContainerID(testContainerID(t))
 		obj.SetSessionToken(tok)
 
-		require.NoError(t, object.SetIDWithSignature(sessionKey, obj.SDK()))
+		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
 
 		require.NoError(t, v.Validate(obj.Object()))
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {
-		ownerKey := test.DecodeKey(-1)
+		obj := blankValidObject(t, ownerKey)
 
-		wallet, err := owner.NEO3WalletFromPublicKey(&ownerKey.PublicKey)
+		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+
+		require.NoError(t, v.Validate(obj.Object()))
+	})
+
+	t.Run("tombstone content", func(t *testing.T) {
+		obj := blankValidObject(t, ownerKey)
+
+		obj.SetType(object.TypeTombstone)
+
+		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+
+		require.Error(t, v.Validate(obj.Object()))
+
+		addr := object.NewAddress()
+
+		data, err := addr.ToV2().StableMarshal(nil)
 		require.NoError(t, err)
 
-		ownerID := owner.NewID()
-		ownerID.SetNeo3Wallet(wallet)
+		obj.SetPayload(data)
 
-		obj := NewRaw()
-		obj.SetContainerID(testContainerID(t))
-		obj.SetOwnerID(ownerID)
+		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+
+		require.Error(t, v.Validate(obj.Object()))
+
+		addr.SetContainerID(testContainerID(t))
+		addr.SetObjectID(testObjectID(t))
+
+		data, err = addr.ToV2().StableMarshal(nil)
+		require.NoError(t, err)
+
+		obj.SetPayload(data)
 
 		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
 

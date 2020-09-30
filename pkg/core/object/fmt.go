@@ -35,6 +35,10 @@ func (v *FormatValidator) Validate(obj *Object) error {
 		return errNilCID
 	}
 
+	if err := v.validateContent(obj.GetType(), obj.GetPayload()); err != nil {
+		return errors.Wrapf(err, "(%T) incorrect content", v)
+	}
+
 	if err := v.validateSignatureKey(obj); err != nil {
 		return errors.Wrapf(err, "(%T) could not validate signature key", v)
 	}
@@ -79,6 +83,26 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 	// FIXME: implement Equal method
 	if s1, s2 := id.String(), id2.String(); s1 != s2 {
 		return errors.Errorf("(%T) different owner identifiers %s/%s", v, s1, s2)
+	}
+
+	return nil
+}
+
+func (v *FormatValidator) validateContent(t object.Type, payload []byte) error {
+	switch t {
+	case object.TypeTombstone:
+		if len(payload) == 0 {
+			return errors.Errorf("(%T) empty payload in tombstone", v)
+		}
+
+		addr, err := object.AddressFromBytes(payload)
+		if err != nil {
+			return errors.Wrapf(err, "(%T) could not parse object address from tombstone", v)
+		}
+
+		if addr.GetContainerID() == nil || addr.GetObjectID() == nil {
+			return errors.Errorf("(%T) empty address reference in tombstone", v)
+		}
 	}
 
 	return nil
