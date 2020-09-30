@@ -21,6 +21,8 @@ type distributedTarget struct {
 	chunks [][]byte
 
 	nodeTargetInitializer func(*network.Address) transformer.ObjectTarget
+
+	fmt *object.FormatValidator
 }
 
 var errIncompletePut = errors.New("incomplete object put")
@@ -55,6 +57,10 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 	for i := range t.chunks {
 		payload = append(payload, t.chunks[i]...)
+	}
+
+	if err := t.fmt.ValidateContent(t.obj.GetType(), payload); err != nil {
+		return nil, errors.Wrapf(err, "(%T) could not validate payload content", t)
 	}
 
 	t.obj.SetPayload(payload)
