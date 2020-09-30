@@ -25,6 +25,8 @@ func NewFormatValidator() *FormatValidator {
 
 // Validate validates object format.
 //
+// Does not validate payload checksum and content.
+//
 // Returns nil error if object has valid structure.
 func (v *FormatValidator) Validate(obj *Object) error {
 	if obj == nil {
@@ -33,10 +35,6 @@ func (v *FormatValidator) Validate(obj *Object) error {
 		return errNilID
 	} else if obj.GetContainerID() == nil {
 		return errNilCID
-	}
-
-	if err := v.validateContent(obj.GetType(), obj.GetPayload()); err != nil {
-		return errors.Wrapf(err, "(%T) incorrect content", v)
 	}
 
 	if err := v.validateSignatureKey(obj); err != nil {
@@ -88,7 +86,8 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 	return nil
 }
 
-func (v *FormatValidator) validateContent(t object.Type, payload []byte) error {
+// ValidateContent validates payload content according to object type.
+func (v *FormatValidator) ValidateContent(t object.Type, payload []byte) error {
 	switch t {
 	case object.TypeTombstone:
 		if len(payload) == 0 {

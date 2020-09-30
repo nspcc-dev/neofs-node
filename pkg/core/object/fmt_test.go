@@ -105,24 +105,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("tombstone content", func(t *testing.T) {
-		obj := blankValidObject(t, ownerKey)
-
-		obj.SetType(object.TypeTombstone)
-
-		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
-
-		require.Error(t, v.Validate(obj.Object()))
+		require.Error(t, v.ValidateContent(object.TypeTombstone, nil))
 
 		addr := object.NewAddress()
 
 		data, err := addr.ToV2().StableMarshal(nil)
 		require.NoError(t, err)
 
-		obj.SetPayload(data)
-
-		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
-
-		require.Error(t, v.Validate(obj.Object()))
+		require.Error(t, v.ValidateContent(object.TypeTombstone, data))
 
 		addr.SetContainerID(testContainerID(t))
 		addr.SetObjectID(testObjectID(t))
@@ -130,10 +120,6 @@ func TestFormatValidator_Validate(t *testing.T) {
 		data, err = addr.ToV2().StableMarshal(nil)
 		require.NoError(t, err)
 
-		obj.SetPayload(data)
-
-		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
-
-		require.NoError(t, v.Validate(obj.Object()))
+		require.NoError(t, v.ValidateContent(object.TypeTombstone, data))
 	})
 }
