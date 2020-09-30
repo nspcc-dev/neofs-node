@@ -92,6 +92,7 @@ func fromObject(obj *object.RawObject) *object.RawObject {
 	res.SetContainerID(obj.GetContainerID())
 	res.SetOwnerID(obj.GetOwnerID())
 	res.SetAttributes(obj.GetAttributes()...)
+	res.SetType(obj.GetType())
 
 	return res
 }
