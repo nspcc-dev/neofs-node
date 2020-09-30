@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/viper"
@@ -91,6 +92,10 @@ type cfgGRPC struct {
 	listener net.Listener
 
 	server *grpc.Server
+
+	maxChunkSize uint64
+
+	maxAddrAmount uint64
 }
 
 type cfgMorph struct {
@@ -185,6 +190,10 @@ func initCfg(path string) *cfg {
 		},
 		cfgObject: cfgObject{
 			maxObjectSize: viperCfg.GetUint64(cfgMaxObjectSize),
+		},
+		cfgGRPC: cfgGRPC{
+			maxChunkSize:  object.GRPCPayloadChunkSize,
+			maxAddrAmount: object.GRPCSearchAddrAmount,
 		},
 		localAddr: netAddr,
 	}

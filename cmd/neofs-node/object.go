@@ -253,15 +253,19 @@ func initObjectService(c *cfg) {
 		objectTransportGRPC.New(
 			objectService.NewSignService(
 				c.key,
-				&objectSvc{
-					put:     sPutV2,
-					search:  sSearchV2,
-					head:    sHeadV2,
-					rng:     sRangeV2,
-					get:     sGetV2,
-					rngHash: sRangeHashV2,
-					delete:  sDeleteV2,
-				},
+				objectService.NewTransportSplitter(
+					c.cfgGRPC.maxChunkSize,
+					c.cfgGRPC.maxAddrAmount,
+					&objectSvc{
+						put:     sPutV2,
+						search:  sSearchV2,
+						head:    sHeadV2,
+						rng:     sRangeV2,
+						get:     sGetV2,
+						rngHash: sRangeHashV2,
+						delete:  sDeleteV2,
+					},
+				),
 			),
 		),
 	)
