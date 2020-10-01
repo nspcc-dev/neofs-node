@@ -100,7 +100,7 @@ func headerEqual(obj *object.Object, key, value string) bool {
 	case keyNoChildrenField:
 		return len(obj.GetChildren()) == 0
 	case keyParentIDField:
-		return idValue(obj.GetParent().GetID()) == value
+		return idValue(obj.GetParentID()) == value
 	case keyParentField:
 		return len(obj.GetChildren()) > 0
 		// TODO: add other headers

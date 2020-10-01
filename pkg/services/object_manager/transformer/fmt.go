@@ -61,7 +61,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 
 	var parID *objectSDK.ID
 
-	if par := f.obj.GetParent(); par != nil && par.ToV2().GetHeader() != nil {
+	if par := f.obj.GetParent(); par != nil {
 		rawPar := objectSDK.NewRawFromV2(par.ToV2())
 
 		rawPar.SetSessionToken(f.token)

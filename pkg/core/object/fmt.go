@@ -37,19 +37,14 @@ func (v *FormatValidator) Validate(obj *Object) error {
 		return errNilCID
 	}
 
-	if err := v.validateSignatureKey(obj); err != nil {
-		return errors.Wrapf(err, "(%T) could not validate signature key", v)
-	}
+	for ; obj != nil; obj = obj.GetParent() {
+		if err := v.validateSignatureKey(obj); err != nil {
+			return errors.Wrapf(err, "(%T) could not validate signature key", v)
+		}
 
-	if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
-		return errors.Wrapf(err, "(%T) could not validate header fields", v)
-	}
-
-	par := NewFromSDK(obj.GetParent())
-
-	// validate parent object header
-	if par.GetID() != nil && len(obj.GetChildren()) == 0 {
-		return v.Validate(par)
+		if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
+			return errors.Wrapf(err, "(%T) could not validate header fields", v)
+		}
 	}
 
 	return nil
