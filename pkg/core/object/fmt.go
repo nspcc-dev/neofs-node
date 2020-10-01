@@ -89,13 +89,15 @@ func (v *FormatValidator) ValidateContent(t object.Type, payload []byte) error {
 			return errors.Errorf("(%T) empty payload in tombstone", v)
 		}
 
-		addr, err := object.AddressFromBytes(payload)
+		content, err := TombstoneContentFromBytes(payload)
 		if err != nil {
-			return errors.Wrapf(err, "(%T) could not parse object address from tombstone", v)
+			return errors.Wrapf(err, "(%T) could not parse tombstone content", err)
 		}
 
-		if addr.GetContainerID() == nil || addr.GetObjectID() == nil {
-			return errors.Errorf("(%T) empty address reference in tombstone", v)
+		for _, addr := range content.GetAddressList() {
+			if addr.GetContainerID() == nil || addr.GetObjectID() == nil {
+				return errors.Errorf("(%T) empty address reference in tombstone", v)
+			}
 		}
 	}
 

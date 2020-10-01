@@ -109,7 +109,10 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		addr := object.NewAddress()
 
-		data, err := addr.ToV2().StableMarshal(nil)
+		content := NewTombstoneContent()
+		content.SetAddressList(addr)
+
+		data, err := content.MarshalBinary()
 		require.NoError(t, err)
 
 		require.Error(t, v.ValidateContent(object.TypeTombstone, data))
@@ -117,7 +120,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		addr.SetContainerID(testContainerID(t))
 		addr.SetObjectID(testObjectID(t))
 
-		data, err = addr.ToV2().StableMarshal(nil)
+		data, err = content.MarshalBinary()
 		require.NoError(t, err)
 
 		require.NoError(t, v.ValidateContent(object.TypeTombstone, data))
