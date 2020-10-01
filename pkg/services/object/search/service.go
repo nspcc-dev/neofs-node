@@ -2,7 +2,6 @@ package searchsvc
 
 import (
 	"context"
-	"io"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -10,10 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query/v1"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/pkg/errors"
 )
 
 type Service struct {
@@ -62,46 +59,6 @@ func (p *Service) Search(ctx context.Context, prm *Prm) (*Streamer, error) {
 		ctx:   ctx,
 		cache: make([][]*object.ID, 0, 10),
 	}, nil
-}
-
-func (p *Service) SearchRightChild(ctx context.Context, addr *object.Address) (*object.ID, error) {
-	streamer, err := p.Search(ctx, new(Prm).
-		WithContainerID(addr.GetContainerID()).
-		WithSearchQuery(
-			query.NewRightChildQuery(addr.GetObjectID()),
-		),
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not create search streamer", p)
-	}
-
-	res, err := readFullStream(streamer, 1)
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not read full search stream", p)
-	} else if ln := len(res); ln != 1 {
-		return nil, errors.Errorf("(%T) unexpected amount of found objects %d", p, ln)
-	}
-
-	return res[0], nil
-}
-
-func readFullStream(s *Streamer, cap int) ([]*object.ID, error) {
-	res := make([]*object.ID, 0, cap)
-
-	for {
-		r, err := s.Recv()
-		if err != nil {
-			if errors.Is(errors.Cause(err), io.EOF) {
-				break
-			}
-
-			return nil, errors.Wrapf(err, "(%s) could not receive search result", "readFullStream")
-		}
-
-		res = append(res, r.IDList()...)
-	}
-
-	return res, nil
 }
 
 func WithKeyStorage(v *objutil.KeyStorage) Option {
