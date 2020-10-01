@@ -62,3 +62,12 @@ func NewRightChildSearcher(svc *Service) *RelationSearcher {
 		},
 	}
 }
+
+func NewLinkingSearcher(svc *Service) *RelationSearcher {
+	return &RelationSearcher{
+		svc: svc,
+		queryGenerator: func(addr *object.Address) query.Query {
+			return queryV1.NewLinkingQuery(addr.GetObjectID())
+		},
+	}
+}
