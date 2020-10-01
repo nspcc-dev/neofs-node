@@ -67,3 +67,16 @@ func FromBytes(data []byte) (*Object, error) {
 		Object: o,
 	}, nil
 }
+
+// GetParent returns parent object.
+func (o *Object) GetParent() *Object {
+	if o != nil {
+		if par := o.Object.GetParent(); par != nil {
+			return &Object{
+				Object: par,
+			}
+		}
+	}
+
+	return nil
+}

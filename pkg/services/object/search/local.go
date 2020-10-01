@@ -4,7 +4,6 @@ import (
 	"context"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
@@ -47,7 +46,7 @@ func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) err
 
 func (f *searchQueryFilter) Pass(ctx context.Context, meta *localstore.ObjectMeta) *localstore.FilterResult {
 loop:
-	for obj := meta.Head(); obj.GetID() != nil; obj = object.NewFromSDK(obj.GetParent()) {
+	for obj := meta.Head(); obj != nil; obj = obj.GetParent() {
 		if !f.query.Match(obj) {
 			continue
 		}

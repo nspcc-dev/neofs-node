@@ -6,7 +6,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -87,7 +86,7 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	// TODO: check if received parent has requested address
 
 	return &Response{
-		hdr:        object.NewFromSDK(rightChild.GetParent()),
+		hdr:        rightChild.GetParent(),
 		rightChild: rightChild,
 	}, nil
 }
