@@ -2,7 +2,6 @@ package query
 
 import (
 	"encoding/hex"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -12,23 +11,10 @@ import (
 )
 
 type Query struct {
-	filters []*Filter
+	filters objectSDK.SearchFilters
 }
 
-type matchType uint8
-
-type Filter struct {
-	matchType matchType
-
-	key, val string
-}
-
-const (
-	_ matchType = iota
-	matchStringEqual
-)
-
-func New(filters ...*Filter) query.Query {
+func New(filters objectSDK.SearchFilters) query.Query {
 	return &Query{
 		filters: filters,
 	}
@@ -38,47 +24,38 @@ func idValue(id *objectSDK.ID) string {
 	return hex.EncodeToString(id.ToV2().GetValue())
 }
 
-func NewIDEqualFilter(id *objectSDK.ID) *Filter {
-	return NewFilterEqual(objectSDK.HdrSysNameID, idValue(id))
-}
-
 func cidValue(id *container.ID) string {
 	return hex.EncodeToString(id.ToV2().GetValue())
-}
-
-func NewContainerIDEqualFilter(id *container.ID) *Filter {
-	return NewFilterEqual(objectSDK.HdrSysNameCID, cidValue(id))
 }
 
 func ownerIDValue(id *owner.ID) string {
 	return hex.EncodeToString(id.ToV2().GetValue())
 }
 
-func NewOwnerIDEqualFilter(id *owner.ID) *Filter {
-	return NewFilterEqual(objectSDK.HdrSysNameOwnerID, ownerIDValue(id))
-}
+func (q *Query) Match(obj *object.Object, handler func(*objectSDK.ID)) {
+	for par := (*object.Object)(nil); obj != nil; par, obj = obj, obj.GetParent() {
+		match := true
 
-func NewFilterEqual(key, val string) *Filter {
-	return &Filter{
-		matchType: matchStringEqual,
-		key:       key,
-		val:       val,
-	}
-}
-
-func (q *Query) Match(obj *object.Object) bool {
-	for _, f := range q.filters {
-		switch f.matchType {
-		case matchStringEqual:
-			if !headerEqual(obj, f.key, f.val) {
-				return false
+		for i := 0; match && i < len(q.filters); i++ {
+			switch typ := q.filters[i].Operation(); typ {
+			default:
+				match = false
+			case objectSDK.MatchStringEqual:
+				switch key := q.filters[i].Header(); key {
+				default:
+					match = headerEqual(obj, key, q.filters[i].Value())
+				case objectSDK.KeyRoot:
+					match = !obj.HasParent()
+				case objectSDK.KeyLeaf:
+					match = par == nil
+				}
 			}
-		default:
-			panic(fmt.Sprintf("unsupported match type %d", f.matchType))
+		}
+
+		if match {
+			handler(obj.GetID())
 		}
 	}
-
-	return true
 }
 
 func headerEqual(obj *object.Object, key, value string) bool {
@@ -108,11 +85,5 @@ func headerEqual(obj *object.Object, key, value string) bool {
 }
 
 func (q *Query) ToSearchFilters() objectSDK.SearchFilters {
-	fs := make(objectSDK.SearchFilters, 0, len(q.filters))
-
-	for i := range q.filters {
-		fs.AddFilter(q.filters[i].key, q.filters[i].val, objectSDK.MatchStringEqual)
-	}
-
-	return fs
+	return q.filters
 }

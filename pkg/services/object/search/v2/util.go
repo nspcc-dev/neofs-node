@@ -2,6 +2,7 @@ package searchsvc
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
@@ -18,19 +19,9 @@ func toPrm(body *object.SearchRequestBody, req *object.SearchRequest) (*searchsv
 	default:
 		return nil, errors.Errorf("unsupported query version #%d", v)
 	case 1:
-		fs := body.GetFilters()
-		fsV1 := make([]*queryV1.Filter, 0, len(fs))
-
-		for _, f := range fs {
-			switch mt := f.GetMatchType(); mt {
-			default:
-				return nil, errors.Errorf("unsupported match type %d in query version #%d", mt, v)
-			case object.MatchStringEqual:
-				fsV1 = append(fsV1, queryV1.NewFilterEqual(f.GetName(), f.GetValue()))
-			}
-		}
-
-		q = queryV1.New(fsV1...)
+		q = queryV1.New(
+			objectSDK.NewSearchFiltersFromV2(body.GetFilters()),
+		)
 	}
 
 	return new(searchsvc.Prm).

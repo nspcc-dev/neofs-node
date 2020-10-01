@@ -9,6 +9,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,6 +49,14 @@ func testOwnerID(t *testing.T) *owner.ID {
 	return id
 }
 
+func matchesQuery(q query.Query, obj *object.Object) (res bool) {
+	q.Match(obj, func(id *objectSDK.ID) {
+		res = id.Equal(obj.GetID())
+	})
+
+	return
+}
+
 func TestQ_Match(t *testing.T) {
 	t.Run("object identifier equal", func(t *testing.T) {
 		obj := object.NewRaw()
@@ -55,15 +64,16 @@ func TestQ_Match(t *testing.T) {
 		id := testID(t)
 		obj.SetID(id)
 
-		q := New(
-			NewIDEqualFilter(id),
-		)
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter(objectSDK.HdrSysNameID, idValue(id), objectSDK.MatchStringEqual)
 
-		require.True(t, q.Match(obj.Object()))
+		q := New(fs)
+
+		require.True(t, matchesQuery(q, obj.Object()))
 
 		obj.SetID(testID(t))
 
-		require.False(t, q.Match(obj.Object()))
+		require.False(t, matchesQuery(q, obj.Object()))
 	})
 
 	t.Run("container identifier equal", func(t *testing.T) {
@@ -72,15 +82,16 @@ func TestQ_Match(t *testing.T) {
 		id := testCID(t)
 		obj.SetContainerID(id)
 
-		q := New(
-			NewContainerIDEqualFilter(id),
-		)
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter(objectSDK.HdrSysNameCID, cidValue(id), objectSDK.MatchStringEqual)
 
-		require.True(t, q.Match(obj.Object()))
+		q := New(fs)
+
+		require.True(t, matchesQuery(q, obj.Object()))
 
 		obj.SetContainerID(testCID(t))
 
-		require.False(t, q.Match(obj.Object()))
+		require.False(t, matchesQuery(q, obj.Object()))
 	})
 
 	t.Run("owner identifier equal", func(t *testing.T) {
@@ -89,15 +100,16 @@ func TestQ_Match(t *testing.T) {
 		id := testOwnerID(t)
 		obj.SetOwnerID(id)
 
-		q := New(
-			NewOwnerIDEqualFilter(id),
-		)
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter(objectSDK.HdrSysNameOwnerID, ownerIDValue(id), objectSDK.MatchStringEqual)
 
-		require.True(t, q.Match(obj.Object()))
+		q := New(fs)
+
+		require.True(t, matchesQuery(q, obj.Object()))
 
 		obj.SetOwnerID(testOwnerID(t))
 
-		require.False(t, q.Match(obj.Object()))
+		require.False(t, matchesQuery(q, obj.Object()))
 	})
 
 	t.Run("attribute equal", func(t *testing.T) {
@@ -110,14 +122,15 @@ func TestQ_Match(t *testing.T) {
 
 		obj.SetAttributes(a)
 
-		q := New(
-			NewFilterEqual(k, v),
-		)
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter(k, v, objectSDK.MatchStringEqual)
 
-		require.True(t, q.Match(obj.Object()))
+		q := New(fs)
+
+		require.True(t, matchesQuery(q, obj.Object()))
 
 		a.SetKey(k + "1")
 
-		require.False(t, q.Match(obj.Object()))
+		require.False(t, matchesQuery(q, obj.Object()))
 	})
 }
