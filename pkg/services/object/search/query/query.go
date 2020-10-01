@@ -7,5 +7,5 @@ import (
 
 type Query interface {
 	ToSearchFilters() objectSDK.SearchFilters
-	Match(*object.Object) bool
+	Match(*object.Object, func(*objectSDK.ID))
 }
