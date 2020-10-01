@@ -15,7 +15,7 @@ import (
 )
 
 type RelationSearcher interface {
-	SearchRightChild(context.Context, *objectSDK.Address) (*objectSDK.ID, error)
+	SearchRelation(context.Context, *objectSDK.Address) (*objectSDK.ID, error)
 }
 
 type Service struct {
@@ -37,7 +37,7 @@ type cfg struct {
 
 	localAddrSrc network.LocalAddressSource
 
-	relSearcher RelationSearcher
+	rightChildSearcher RelationSearcher
 }
 
 func defaultCfg() *cfg {
@@ -68,7 +68,7 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	}
 
 	// try to find far right child that carries header of desired object
-	rightChildID, err := s.relSearcher.SearchRightChild(ctx, prm.addr)
+	rightChildID, err := s.rightChildSearcher.SearchRelation(ctx, prm.addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not find right child", s)
 	}
@@ -128,8 +128,8 @@ func WithLocalAddressSource(v network.LocalAddressSource) Option {
 	}
 }
 
-func WithRelationSearcher(v RelationSearcher) Option {
+func WithRightChildSearcher(v RelationSearcher) Option {
 	return func(c *cfg) {
-		c.relSearcher = v
+		c.rightChildSearcher = v
 	}
 }
