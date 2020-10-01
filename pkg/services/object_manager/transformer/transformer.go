@@ -76,6 +76,7 @@ func (s *payloadSizeLimiter) initialize() {
 		// initialize parent object once (after 1st object)
 		if ln == 1 {
 			s.parent = s.current
+			s.parent.ResetRelations()
 			s.parentHashers = s.currentHashers
 			s.current = fromObject(s.parent)
 		}
@@ -206,19 +207,19 @@ func writeHashes(hashers []*payloadChecksumHasher) {
 }
 
 func (s *payloadSizeLimiter) initializeLinking() {
-	id := s.current.GetParent().GetID()
-	par := objectSDK.NewRaw()
-	par.SetID(id)
+	id := s.current.GetParentID()
 
 	s.current = fromObject(s.current)
+	s.current.SetParentID(id)
 	s.current.SetChildren(s.previous...)
-
-	s.current.SetParent(par.Object())
 }
 
 func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
 	// statement is true if the previous write of bytes reached exactly the boundary.
 	if s.written > 0 && s.written%s.maxSize == 0 {
+		// initialize blank split header
+		s.current.InitRelations()
+
 		// we need to release current object
 		if _, err := s.release(false); err != nil {
 			return errors.Wrap(err, "could not release object")
