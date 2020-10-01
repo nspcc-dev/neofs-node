@@ -3,7 +3,9 @@ package deletesvc
 import (
 	"context"
 
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -16,6 +18,10 @@ type Service struct {
 
 type Option func(*cfg)
 
+type RelationHeader interface {
+	HeadRelation(context.Context, *objectSDK.Address) (*object.Object, error)
+}
+
 type cfg struct {
 	ownerID *owner.ID
 
@@ -24,6 +30,8 @@ type cfg struct {
 	putSvc *putsvc.Service
 
 	headSvc *headsvc.Service
+
+	hdrLinking RelationHeader
 }
 
 func defaultCfg() *cfg {
@@ -60,8 +68,24 @@ func (s *Service) Delete(ctx context.Context, prm *Prm) (*Response, error) {
 		commonPrm: prm.common,
 	}
 
-	if err := s.deleteAll(tool); err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not delete all objcet relations", s)
+	if linking, err := s.hdrLinking.HeadRelation(ctx, prm.addr); err != nil {
+		if err := s.deleteAll(tool); err != nil {
+			return nil, errors.Wrapf(err, "(%T) could not delete all object relations", s)
+		}
+	} else {
+		if err := tool.delete(prm.addr.GetObjectID()); err != nil {
+			return nil, errors.Wrapf(err, "(%T) could not delete object", s)
+		}
+
+		for _, child := range linking.GetChildren() {
+			if err := tool.delete(child); err != nil {
+				return nil, errors.Wrapf(err, "(%T) could not delete child object", s)
+			}
+		}
+
+		if err := tool.delete(linking.GetID()); err != nil {
+			return nil, errors.Wrapf(err, "(%T) could not delete linking object", s)
+		}
 	}
 
 	return new(Response), nil
@@ -122,5 +146,11 @@ func WithPutService(v *putsvc.Service) Option {
 func WitHeadService(v *headsvc.Service) Option {
 	return func(c *cfg) {
 		c.headSvc = v
+	}
+}
+
+func WithLinkingHeader(v RelationHeader) Option {
+	return func(c *cfg) {
+		c.hdrLinking = v
 	}
 }
