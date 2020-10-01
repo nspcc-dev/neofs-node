@@ -13,24 +13,24 @@ const keyNoChildrenField = "Object.Header.Split.NoChildren"
 
 const keyParentIDField = "Object.Header.Split.Parent"
 
-func NewEmptyChildrenFilter() *Filter {
-	return NewFilterEqual(keyNoChildrenField, "")
-}
-
-func NewParentIDFilter(par *object.ID) *Filter {
-	return NewFilterEqual(keyParentIDField, idValue(par))
-}
-
 func NewRightChildQuery(par *object.ID) query.Query {
-	return New(
-		NewParentIDFilter(par),
-		NewEmptyChildrenFilter(),
-	)
+	q := &Query{
+		filters: make(object.SearchFilters, 0, 2),
+	}
+
+	q.filters.AddFilter(keyParentIDField, idValue(par), object.MatchStringEqual)
+	q.filters.AddFilter(keyNoChildrenField, "", object.MatchStringEqual)
+
+	return q
 }
 
 func NewLinkingQuery(par *object.ID) query.Query {
-	return New(
-		NewParentIDFilter(par),
-		NewFilterEqual(keyParentField, ""),
-	)
+	q := &Query{
+		filters: make(object.SearchFilters, 0, 2),
+	}
+
+	q.filters.AddFilter(keyParentIDField, idValue(par), object.MatchStringEqual)
+	q.filters.AddFilter(keyParentField, "", object.MatchStringEqual)
+
+	return q
 }

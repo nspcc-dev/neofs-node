@@ -51,17 +51,14 @@ func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) err
 }
 
 func (f *searchQueryFilter) Pass(ctx context.Context, meta *localstore.ObjectMeta) *localstore.FilterResult {
-loop:
-	for obj := meta.Head(); obj != nil; obj = obj.GetParent() {
-		if !f.cid.Equal(obj.GetContainerID()) || !f.query.Match(obj) {
-			continue
-		}
-
-		select {
-		case <-ctx.Done():
-			break loop
-		case f.ch <- []*objectSDK.ID{obj.GetID()}:
-		}
+	if obj := meta.Head(); f.cid.Equal(obj.GetContainerID()) {
+		f.query.Match(meta.Head(), func(id *objectSDK.ID) {
+			select {
+			case <-ctx.Done():
+				return
+			case f.ch <- []*objectSDK.ID{id}:
+			}
+		})
 	}
 
 	return localstore.ResultPass()
