@@ -3,6 +3,7 @@ package searchsvc
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
@@ -14,6 +15,8 @@ type localStream struct {
 	query query.Query
 
 	storage *localstore.Storage
+
+	cid *container.ID
 }
 
 type searchQueryFilter struct {
@@ -22,12 +25,15 @@ type searchQueryFilter struct {
 	query query.Query
 
 	ch chan<- []*objectSDK.ID
+
+	cid *container.ID
 }
 
 func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) error {
 	filter := &searchQueryFilter{
 		query: s.query,
 		ch:    ch,
+		cid:   s.cid,
 	}
 
 	if err := s.storage.Iterate(filter, func(meta *localstore.ObjectMeta) bool {
@@ -47,7 +53,7 @@ func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) err
 func (f *searchQueryFilter) Pass(ctx context.Context, meta *localstore.ObjectMeta) *localstore.FilterResult {
 loop:
 	for obj := meta.Head(); obj != nil; obj = obj.GetParent() {
-		if !f.query.Match(obj) {
+		if !f.cid.Equal(obj.GetContainerID()) || !f.query.Match(obj) {
 			continue
 		}
 

@@ -157,6 +157,7 @@ loop:
 					streamer = &localStream{
 						query:   prm.query,
 						storage: p.localStore,
+						cid:     prm.cid,
 					}
 				} else {
 					streamer = &remoteStream{
