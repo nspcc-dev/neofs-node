@@ -7,12 +7,14 @@ import (
 
 // FIXME: this is a temporary solution for object fields filters
 
-const keyChildrenField = "Object.Header.Split.Children"
+const keyParentField = "Object.Header.Split.WithChildren"
+
+const keyNoChildrenField = "Object.Header.Split.NoChildren"
 
 const keyParentIDField = "Object.Header.Split.Parent"
 
 func NewEmptyChildrenFilter() *Filter {
-	return NewFilterEqual(keyChildrenField, "")
+	return NewFilterEqual(keyNoChildrenField, "")
 }
 
 func NewParentIDFilter(par *object.ID) *Filter {
@@ -23,5 +25,12 @@ func NewRightChildQuery(par *object.ID) query.Query {
 	return New(
 		NewParentIDFilter(par),
 		NewEmptyChildrenFilter(),
+	)
+}
+
+func NewLinkingQuery(par *object.ID) query.Query {
+	return New(
+		NewParentIDFilter(par),
+		NewFilterEqual(keyParentField, ""),
 	)
 }
