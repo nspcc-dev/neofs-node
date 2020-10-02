@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -34,6 +35,11 @@ const (
 	cfgLogTrace              = "logger.trace_level"
 	cfgLogInitSampling       = "logger.sampling.initial"
 	cfgLogThereafterSampling = "logger.sampling.thereafter"
+
+	// pprof keys
+	cfgProfilerEnable = "pprof.enabled"
+	cfgProfilerAddr   = "pprof.address"
+	cfgProfilerTTL    = "pprof.shutdown_ttl"
 
 	// config keys for cfgNodeInfo
 	cfgNodeKey             = "node.key"
@@ -97,6 +103,8 @@ type cfg struct {
 	localAddr *network.Address
 
 	cfgObject cfgObject
+
+	profiler profiler.Profiler
 }
 
 type cfgGRPC struct {
@@ -269,6 +277,10 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgLogTrace, "fatal")
 	v.SetDefault(cfgLogInitSampling, 1000)
 	v.SetDefault(cfgLogThereafterSampling, 1000)
+
+	v.SetDefault(cfgProfilerEnable, false)
+	v.SetDefault(cfgProfilerAddr, ":6060")
+	v.SetDefault(cfgProfilerTTL, "30s")
 }
 
 func (c *cfg) LocalAddress() *network.Address {
