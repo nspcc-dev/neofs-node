@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/pkg/errors"
 )
@@ -75,7 +76,12 @@ func (b BasicChecker) Get(
 		return nil, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cid, acl.OperationGet)
+	req := metaWithToken{
+		vheader: request.GetVerificationHeader(),
+		token:   request.GetMetaHeader().GetSessionToken(),
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationGet)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +116,12 @@ func (b BasicChecker) Head(
 		return nil, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cid, acl.OperationHead)
+	req := metaWithToken{
+		vheader: request.GetVerificationHeader(),
+		token:   request.GetMetaHeader().GetSessionToken(),
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationHead)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +144,12 @@ func (b BasicChecker) Search(
 		return nil, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cid, acl.OperationSearch)
+	req := metaWithToken{
+		vheader: request.GetVerificationHeader(),
+		token:   request.GetMetaHeader().GetSessionToken(),
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationSearch)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +171,12 @@ func (b BasicChecker) Delete(
 		return nil, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cid, acl.OperationDelete)
+	req := metaWithToken{
+		vheader: request.GetVerificationHeader(),
+		token:   request.GetMetaHeader().GetSessionToken(),
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationDelete)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +197,12 @@ func (b BasicChecker) GetRange(
 		return nil, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cid, acl.OperationRange)
+	req := metaWithToken{
+		vheader: request.GetVerificationHeader(),
+		token:   request.GetMetaHeader().GetSessionToken(),
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRange)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +224,12 @@ func (b BasicChecker) GetRangeHash(
 		return nil, err
 	}
 
-	reqInfo, err := b.findRequestInfo(request, cid, acl.OperationRangeHash)
+	req := metaWithToken{
+		vheader: request.GetVerificationHeader(),
+		token:   request.GetMetaHeader().GetSessionToken(),
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRangeHash)
 	if err != nil {
 		return nil, err
 	}
@@ -217,23 +248,28 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 	}
 
 	part := body.GetObjectPart()
-	if _, ok := part.(*object.PutObjectPartInit); ok {
+	if part, ok := part.(*object.PutObjectPartInit); ok {
 		cid, err := getContainerIDFromRequest(request)
 		if err != nil {
 			return err
 		}
 
-		owner, err := getObjectOwnerFromMessage(request)
+		ownerID, err := getObjectOwnerFromMessage(request)
 		if err != nil {
 			return err
 		}
 
-		reqInfo, err := p.source.findRequestInfo(request, cid, acl.OperationPut)
+		req := metaWithToken{
+			vheader: request.GetVerificationHeader(),
+			token:   part.GetHeader().GetSessionToken(),
+		}
+
+		reqInfo, err := p.source.findRequestInfo(req, cid, acl.OperationPut)
 		if err != nil {
 			return err
 		}
 
-		if !basicACLCheck(reqInfo) || !stickyBitCheck(reqInfo, owner) {
+		if !basicACLCheck(reqInfo) || !stickyBitCheck(reqInfo, ownerID) {
 			return ErrBasicAccessDenied
 		}
 	}
@@ -272,7 +308,7 @@ func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
 }
 
 func (b BasicChecker) findRequestInfo(
-	req RequestV2,
+	req metaWithToken,
 	cid *container.ID,
 	op acl.Operation) (info requestInfo, err error) {
 
