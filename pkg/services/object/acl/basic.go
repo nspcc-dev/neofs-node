@@ -324,9 +324,13 @@ func (b BasicChecker) findRequestInfo(
 		return info, ErrUnknownRole
 	}
 
+	// find verb from token if it is present
+	verb := sourceVerbOfRequest(req, op)
+	// todo: check verb sanity, if it was generated correctly. Do we need it ?
+
 	info.basicACL = cnr.GetBasicACL()
 	info.requestRole = role
-	info.operation = op
+	info.operation = verb
 	info.owner = owner.NewIDFromV2(cnr.GetOwnerID())
 
 	return info, nil
@@ -413,4 +417,40 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 	}
 
 	return bytes.Equal(owner.ToV2().GetValue(), info.owner.ToV2().GetValue())
+}
+
+// sourceVerbOfRequest looks for verb in session token and if it is not found,
+// returns reqVerb.
+func sourceVerbOfRequest(req metaWithToken, reqVerb acl.Operation) acl.Operation {
+	if req.token != nil {
+		switch v := req.token.GetBody().GetContext().(type) {
+		case *session.ObjectSessionContext:
+			return tokenVerbToOperation(v.GetVerb())
+		default:
+			// do nothing, return request verb
+		}
+	}
+
+	return reqVerb
+}
+
+func tokenVerbToOperation(verb session.ObjectSessionVerb) acl.Operation {
+	switch verb {
+	case session.ObjectVerbGet:
+		return acl.OperationGet
+	case session.ObjectVerbPut:
+		return acl.OperationPut
+	case session.ObjectVerbHead:
+		return acl.OperationHead
+	case session.ObjectVerbSearch:
+		return acl.OperationSearch
+	case session.ObjectVerbDelete:
+		return acl.OperationDelete
+	case session.ObjectVerbRange:
+		return acl.OperationRange
+	case session.ObjectVerbRangeHash:
+		return acl.OperationRangeHash
+	default:
+		return acl.OperationUnknown
+	}
 }
