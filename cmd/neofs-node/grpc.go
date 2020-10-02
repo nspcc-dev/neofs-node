@@ -13,7 +13,9 @@ func initGRPC(c *cfg) {
 	c.cfgGRPC.listener, err = net.Listen("tcp", c.viper.GetString(cfgListenAddress))
 	fatalOnErr(err)
 
-	c.cfgGRPC.server = grpc.NewServer()
+	c.cfgGRPC.server = grpc.NewServer(
+		grpc.MaxSendMsgSize(c.viper.GetInt(cfgMaxMsgSize)),
+	)
 }
 
 func serveGRPC(c *cfg) {
