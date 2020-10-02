@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/viper"
@@ -39,6 +38,7 @@ const (
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
+	cfgMaxMsgSize    = "grpc.maxmessagesize"
 
 	// config keys for cfgMorph
 	cfgMorphRPCAddress = "morph.endpoint"
@@ -56,6 +56,10 @@ const (
 	cfgContainerFee      = "container.fee"
 
 	cfgMaxObjectSize = "node.maxobjectsize" // get value from chain
+)
+
+const (
+	addressSize = 72 // 32 bytes oid, 32 bytes cid, 8 bytes protobuf encoding
 )
 
 type cfg struct {
@@ -166,6 +170,9 @@ func initCfg(path string) *cfg {
 	netAddr, err := network.AddressFromString(viperCfg.GetString(cfgBootstrapAddress))
 	fatalOnErr(err)
 
+	maxChunkSize := viperCfg.GetUint64(cfgMaxMsgSize) * 3 / 4 // 25% to meta, 75% to payload
+	maxAddrAmount := maxChunkSize / addressSize               // each address is about 72 bytes
+
 	return &cfg{
 		ctx:   context.Background(),
 		viper: viperCfg,
@@ -192,8 +199,8 @@ func initCfg(path string) *cfg {
 			maxObjectSize: viperCfg.GetUint64(cfgMaxObjectSize),
 		},
 		cfgGRPC: cfgGRPC{
-			maxChunkSize:  object.GRPCPayloadChunkSize,
-			maxAddrAmount: object.GRPCSearchAddrAmount,
+			maxChunkSize:  maxChunkSize,
+			maxAddrAmount: maxAddrAmount,
 		},
 		localAddr: netAddr,
 	}
@@ -228,6 +235,7 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
+	v.SetDefault(cfgMaxMsgSize, 4<<20)                // transport msg limit 4 MiB
 
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
 	v.SetDefault(cfgAccountingFee, "1")

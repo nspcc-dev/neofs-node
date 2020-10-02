@@ -9,11 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	GRPCPayloadChunkSize = 1024 * 1024 * 3 // 4 MiB is a max limit, 3 MiB should be okay
-	GRPCSearchAddrAmount = 1024 * 32       // 64 bytes per addr, in total about 2 MiB
-)
-
 var (
 	errChunking = errors.New("can't split message to stream chunks")
 )
