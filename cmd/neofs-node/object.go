@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	deletesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/delete/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -251,20 +252,27 @@ func initObjectService(c *cfg) {
 
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
 		objectTransportGRPC.New(
-			objectService.NewSignService(
-				c.key,
-				objectService.NewTransportSplitter(
-					c.cfgGRPC.maxChunkSize,
-					c.cfgGRPC.maxAddrAmount,
-					&objectSvc{
-						put:     sPutV2,
-						search:  sSearchV2,
-						head:    sHeadV2,
-						rng:     sRangeV2,
-						get:     sGetV2,
-						rngHash: sRangeHashV2,
-						delete:  sDeleteV2,
-					},
+			acl.NewBasicChecker(
+				acl.NewSenderClassifier(
+					c.cfgNetmap.wrapper,
+					c.cfgNetmap.wrapper,
+				),
+				c.cfgObject.cnrStorage,
+				objectService.NewSignService(
+					c.key,
+					objectService.NewTransportSplitter(
+						c.cfgGRPC.maxChunkSize,
+						c.cfgGRPC.maxAddrAmount,
+						&objectSvc{
+							put:     sPutV2,
+							search:  sSearchV2,
+							head:    sHeadV2,
+							rng:     sRangeV2,
+							get:     sGetV2,
+							rngHash: sRangeHashV2,
+							delete:  sDeleteV2,
+						},
+					),
 				),
 			),
 		),
