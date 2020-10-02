@@ -37,9 +37,11 @@ func init_(c *cfg) {
 	initContainerService(c)
 	initSessionService(c)
 	initObjectService(c)
+	initProfiler(c)
 }
 
 func bootUp(c *cfg) {
+	serveProfiler(c)
 	serveGRPC(c)
 	bootstrapNode(c)
 }
