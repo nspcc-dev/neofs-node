@@ -20,9 +20,9 @@ type (
 		InnerRingKeys() ([][]byte, error)
 	}
 
-	RequestV2 interface {
-		GetMetaHeader() *session.RequestMetaHeader
-		GetVerificationHeader() *session.RequestVerificationHeader
+	metaWithToken struct {
+		vheader *session.RequestVerificationHeader
+		token   *session.SessionToken
 	}
 
 	SenderClassifier struct {
@@ -40,10 +40,11 @@ func NewSenderClassifier(ir InnerRingFetcher, nm core.Source) SenderClassifier {
 }
 
 func (c SenderClassifier) Classify(
-	req RequestV2,
+	req metaWithToken,
 	cid *container.ID,
 	cnr *container.Container) acl.Role {
-	if cid == nil || req == nil {
+
+	if cid == nil {
 		// log there
 		return acl.RoleUnknown
 	}
@@ -83,24 +84,19 @@ func (c SenderClassifier) Classify(
 	return acl.RoleOthers
 }
 
-func requestOwner(req RequestV2) (*owner.ID, *ecdsa.PublicKey, error) {
-	var (
-		meta   = req.GetMetaHeader()
-		verify = req.GetVerificationHeader()
-	)
-
-	if meta == nil || verify == nil {
-		return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at meta or verify header")
+func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
+	if req.vheader == nil {
+		return nil, nil, errors.Wrap(ErrMalformedRequest, "nil verification header")
 	}
 
 	// if session token is presented, use it as truth source
-	if token := meta.GetSessionToken(); token != nil {
-		body := token.GetBody()
+	if req.token != nil {
+		body := req.token.GetBody()
 		if body == nil {
 			return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at session token body")
 		}
 
-		signature := token.GetSignature()
+		signature := req.token.GetSignature()
 		if signature == nil {
 			return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at signature")
 		}
@@ -109,7 +105,7 @@ func requestOwner(req RequestV2) (*owner.ID, *ecdsa.PublicKey, error) {
 	}
 
 	// otherwise get original body signature
-	bodySignature := originalBodySignature(verify)
+	bodySignature := originalBodySignature(req.vheader)
 	if bodySignature == nil {
 		return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at body signature")
 	}
