@@ -10,7 +10,21 @@ import (
 )
 
 // FormatValidator represents object format validator.
-type FormatValidator struct{}
+type FormatValidator struct {
+	*cfg
+}
+
+// FormatValidatorOption represents FormatValidator constructor option.
+type FormatValidatorOption func(*cfg)
+
+type cfg struct {
+	deleteHandler DeleteHandler
+}
+
+// DeleteHandler is an interface of delete queue processor.
+type DeleteHandler interface {
+	DeleteObjects(...*object.Address)
+}
 
 var errNilObject = errors.New("object is nil")
 
@@ -18,9 +32,21 @@ var errNilID = errors.New("missing identifier")
 
 var errNilCID = errors.New("missing container identifier")
 
+func defaultCfg() *cfg {
+	return new(cfg)
+}
+
 // NewFormatValidator creates, initializes and returns FormatValidator instance.
-func NewFormatValidator() *FormatValidator {
-	return new(FormatValidator)
+func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
+	cfg := defaultCfg()
+
+	for i := range opts {
+		opts[i](cfg)
+	}
+
+	return &FormatValidator{
+		cfg: cfg,
+	}
 }
 
 // Validate validates object format.
@@ -94,12 +120,25 @@ func (v *FormatValidator) ValidateContent(t object.Type, payload []byte) error {
 			return errors.Wrapf(err, "(%T) could not parse tombstone content", err)
 		}
 
-		for _, addr := range content.GetAddressList() {
+		addrList := content.GetAddressList()
+
+		for _, addr := range addrList {
 			if addr.GetContainerID() == nil || addr.GetObjectID() == nil {
 				return errors.Errorf("(%T) empty address reference in tombstone", v)
 			}
 		}
+
+		if v.deleteHandler != nil {
+			v.deleteHandler.DeleteObjects(addrList...)
+		}
 	}
 
 	return nil
+}
+
+// WithDeleteHandler returns option to set delete queue processor.
+func WithDeleteHandler(v DeleteHandler) FormatValidatorOption {
+	return func(c *cfg) {
+		c.deleteHandler = v
+	}
 }
