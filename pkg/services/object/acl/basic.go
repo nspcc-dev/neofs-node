@@ -3,6 +3,7 @@ package acl
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -56,11 +57,16 @@ type cfg struct {
 	next object.Service
 }
 
+type accessErr struct {
+	requestInfo
+
+	failedCheckTyp string
+}
+
 var (
-	ErrMalformedRequest  = errors.New("malformed request")
-	ErrUnknownRole       = errors.New("can't classify request sender")
-	ErrUnknownContainer  = errors.New("can't fetch container info")
-	ErrBasicAccessDenied = errors.New("access denied by basic acl")
+	ErrMalformedRequest = errors.New("malformed request")
+	ErrUnknownRole      = errors.New("can't classify request sender")
+	ErrUnknownContainer = errors.New("can't fetch container info")
 )
 
 func defaultCfg() *cfg {
@@ -99,7 +105,7 @@ func (b Service) Get(
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, ErrBasicAccessDenied
+		return nil, basicACLErr(reqInfo)
 	}
 
 	stream, err := b.next.Get(ctx, request)
@@ -139,7 +145,7 @@ func (b Service) Head(
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, ErrBasicAccessDenied
+		return nil, basicACLErr(reqInfo)
 	}
 
 	return b.next.Head(ctx, request)
@@ -167,7 +173,7 @@ func (b Service) Search(
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, ErrBasicAccessDenied
+		return nil, basicACLErr(reqInfo)
 	}
 
 	stream, err := b.next.Search(ctx, request)
@@ -194,7 +200,7 @@ func (b Service) Delete(
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, ErrBasicAccessDenied
+		return nil, basicACLErr(reqInfo)
 	}
 
 	return b.next.Delete(ctx, request)
@@ -220,7 +226,7 @@ func (b Service) GetRange(
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, ErrBasicAccessDenied
+		return nil, basicACLErr(reqInfo)
 	}
 
 	stream, err := b.next.GetRange(ctx, request)
@@ -247,7 +253,7 @@ func (b Service) GetRangeHash(
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, ErrBasicAccessDenied
+		return nil, basicACLErr(reqInfo)
 	}
 
 	return b.next.GetRangeHash(ctx, request)
@@ -282,7 +288,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 		}
 
 		if !basicACLCheck(reqInfo) || !stickyBitCheck(reqInfo, ownerID) {
-			return ErrBasicAccessDenied
+			return basicACLErr(reqInfo)
 		}
 	}
 
@@ -312,7 +318,7 @@ func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
 		}
 
 		if !stickyBitCheck(g.info, ownerID) {
-			return nil, ErrBasicAccessDenied
+			return nil, basicACLErr(g.info)
 		}
 	}
 
@@ -461,5 +467,16 @@ func tokenVerbToOperation(verb session.ObjectSessionVerb) acl.Operation {
 		return acl.OperationRangeHash
 	default:
 		return acl.OperationUnknown
+	}
+}
+
+func (a *accessErr) Error() string {
+	return fmt.Sprintf("access to operation %v is denied by %s check", a.operation, a.failedCheckTyp)
+}
+
+func basicACLErr(info requestInfo) error {
+	return &accessErr{
+		requestInfo:    info,
+		failedCheckTyp: "basic ACL",
 	}
 }
