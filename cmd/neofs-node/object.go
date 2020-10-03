@@ -256,25 +256,31 @@ func initObjectService(c *cfg) {
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
 		objectTransportGRPC.New(
 			acl.New(
-				acl.NewSenderClassifier(
-					c.cfgNetmap.wrapper,
-					c.cfgNetmap.wrapper,
+				acl.WithSenderClassifier(
+					acl.NewSenderClassifier(
+						c.cfgNetmap.wrapper,
+						c.cfgNetmap.wrapper,
+					),
 				),
-				c.cfgObject.cnrStorage,
-				objectService.NewSignService(
-					c.key,
-					objectService.NewTransportSplitter(
-						c.cfgGRPC.maxChunkSize,
-						c.cfgGRPC.maxAddrAmount,
-						&objectSvc{
-							put:     sPutV2,
-							search:  sSearchV2,
-							head:    sHeadV2,
-							rng:     sRangeV2,
-							get:     sGetV2,
-							rngHash: sRangeHashV2,
-							delete:  sDeleteV2,
-						},
+				acl.WithContainerSource(
+					c.cfgObject.cnrStorage,
+				),
+				acl.WithNextService(
+					objectService.NewSignService(
+						c.key,
+						objectService.NewTransportSplitter(
+							c.cfgGRPC.maxChunkSize,
+							c.cfgGRPC.maxAddrAmount,
+							&objectSvc{
+								put:     sPutV2,
+								search:  sSearchV2,
+								head:    sHeadV2,
+								rng:     sRangeV2,
+								get:     sGetV2,
+								rngHash: sRangeHashV2,
+								delete:  sDeleteV2,
+							},
+						),
 					),
 				),
 			),
