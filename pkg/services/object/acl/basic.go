@@ -38,7 +38,7 @@ type (
 	}
 
 	requestInfo struct {
-		basicACL    uint32
+		basicACL    basicACLHelper
 		requestRole acl.Role
 		operation   acl.Operation // put, get, head, etc.
 		owner       *owner.ID     // container owner
@@ -340,7 +340,7 @@ func (b Service) findRequestInfo(
 	verb := sourceVerbOfRequest(req, op)
 	// todo: check verb sanity, if it was generated correctly. Do we need it ?
 
-	info.basicACL = cnr.GetBasicACL()
+	info.basicACL = basicACLHelper(cnr.GetBasicACL())
 	info.requestRole = role
 	info.operation = verb
 	info.owner = owner.NewIDFromV2(cnr.GetOwnerID())
@@ -398,18 +398,16 @@ func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 
 // main check function for basic ACL
 func basicACLCheck(info requestInfo) bool {
-	rule := basicACLHelper(info.basicACL)
-
 	// check basic ACL permissions
 	var checkFn func(acl.Operation) bool
 
 	switch info.requestRole {
 	case acl.RoleUser:
-		checkFn = rule.UserAllowed
+		checkFn = info.basicACL.UserAllowed
 	case acl.RoleSystem:
-		checkFn = rule.SystemAllowed
+		checkFn = info.basicACL.SystemAllowed
 	case acl.RoleOthers:
-		checkFn = rule.OthersAllowed
+		checkFn = info.basicACL.OthersAllowed
 	default:
 		// log there
 		return false
@@ -423,8 +421,7 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 		return false
 	}
 
-	rule := basicACLHelper(info.basicACL)
-	if !rule.Sticky() {
+	if !info.basicACL.Sticky() {
 		return true
 	}
 
