@@ -255,7 +255,7 @@ func initObjectService(c *cfg) {
 
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
 		objectTransportGRPC.New(
-			acl.NewBasicChecker(
+			acl.New(
 				acl.NewSenderClassifier(
 					c.cfgNetmap.wrapper,
 					c.cfgNetmap.wrapper,
