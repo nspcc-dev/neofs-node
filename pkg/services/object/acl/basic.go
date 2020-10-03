@@ -14,15 +14,15 @@ import (
 )
 
 type (
-	// BasicChecker checks basic ACL rules.
-	BasicChecker struct {
+	// Service checks basic ACL rules.
+	Service struct {
 		containers core.Source
 		sender     SenderClassifier
 		next       object.Service
 	}
 
 	putStreamBasicChecker struct {
-		source *BasicChecker
+		source *Service
 		next   object.PutObjectStreamer
 	}
 
@@ -54,23 +54,22 @@ var (
 	ErrBasicAccessDenied = errors.New("access denied by basic acl")
 )
 
-// NewBasicChecker is a constructor for basic ACL checker of object requests.
-func NewBasicChecker(
+// New is a constructor for object ACL checking service.
+func New(
 	c SenderClassifier,
 	cnr core.Source,
-	next object.Service) BasicChecker {
+	next object.Service) Service {
 
-	return BasicChecker{
+	return Service{
 		containers: cnr,
 		sender:     c,
 		next:       next,
 	}
 }
 
-func (b BasicChecker) Get(
+func (b Service) Get(
 	ctx context.Context,
 	request *object.GetRequest) (object.GetObjectStreamer, error) {
-
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
@@ -98,7 +97,7 @@ func (b BasicChecker) Get(
 	}, err
 }
 
-func (b BasicChecker) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (b Service) Put(ctx context.Context) (object.PutObjectStreamer, error) {
 	streamer, err := b.next.Put(ctx)
 
 	return putStreamBasicChecker{
@@ -107,7 +106,7 @@ func (b BasicChecker) Put(ctx context.Context) (object.PutObjectStreamer, error)
 	}, err
 }
 
-func (b BasicChecker) Head(
+func (b Service) Head(
 	ctx context.Context,
 	request *object.HeadRequest) (*object.HeadResponse, error) {
 
@@ -133,7 +132,7 @@ func (b BasicChecker) Head(
 	return b.next.Head(ctx, request)
 }
 
-func (b BasicChecker) Search(
+func (b Service) Search(
 	ctx context.Context,
 	request *object.SearchRequest) (object.SearchObjectStreamer, error) {
 
@@ -162,7 +161,7 @@ func (b BasicChecker) Search(
 	return searchStreamBasicChecker{stream}, err
 }
 
-func (b BasicChecker) Delete(
+func (b Service) Delete(
 	ctx context.Context,
 	request *object.DeleteRequest) (*object.DeleteResponse, error) {
 
@@ -188,7 +187,7 @@ func (b BasicChecker) Delete(
 	return b.next.Delete(ctx, request)
 }
 
-func (b BasicChecker) GetRange(
+func (b Service) GetRange(
 	ctx context.Context,
 	request *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
 
@@ -215,7 +214,7 @@ func (b BasicChecker) GetRange(
 	return getRangeStreamBasicChecker{stream}, err
 }
 
-func (b BasicChecker) GetRangeHash(
+func (b Service) GetRangeHash(
 	ctx context.Context,
 	request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 
@@ -307,7 +306,7 @@ func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
 	return resp, err
 }
 
-func (b BasicChecker) findRequestInfo(
+func (b Service) findRequestInfo(
 	req metaWithToken,
 	cid *container.ID,
 	op acl.Operation) (info requestInfo, err error) {
