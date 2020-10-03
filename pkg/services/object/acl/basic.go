@@ -43,6 +43,10 @@ type (
 		requestRole acl.Role
 		operation   acl.Operation // put, get, head, etc.
 		owner       *owner.ID     // container owner
+
+		cid *container.ID
+
+		senderKey []byte
 	}
 )
 
@@ -350,6 +354,12 @@ func (b Service) findRequestInfo(
 	info.requestRole = role
 	info.operation = verb
 	info.owner = owner.NewIDFromV2(cnr.GetOwnerID())
+
+	info.cid = cid
+
+	// it is assumed that at the moment the key will be valid,
+	// otherwise the request would not pass validation
+	info.senderKey = req.vheader.GetBodySignature().GetKey()
 
 	return info, nil
 }
