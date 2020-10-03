@@ -13,6 +13,7 @@ import (
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
+	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	"github.com/pkg/errors"
 )
 
@@ -25,11 +26,15 @@ type (
 	putStreamBasicChecker struct {
 		source *Service
 		next   object.PutObjectStreamer
+
+		*eACLCfg
 	}
 
 	getStreamBasicChecker struct {
 		next object.GetObjectStreamer
 		info requestInfo
+
+		*eACLCfg
 	}
 
 	searchStreamBasicChecker struct {
@@ -126,13 +131,16 @@ func (b Service) Get(
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
+	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
+		return nil, eACLErr(reqInfo)
 	}
 
 	stream, err := b.next.Get(ctx, request)
 
 	return getStreamBasicChecker{
-		next: stream,
-		info: reqInfo,
+		next:    stream,
+		info:    reqInfo,
+		eACLCfg: b.eACLCfg,
 	}, err
 }
 
@@ -140,8 +148,9 @@ func (b Service) Put(ctx context.Context) (object.PutObjectStreamer, error) {
 	streamer, err := b.next.Put(ctx)
 
 	return putStreamBasicChecker{
-		source: &b,
-		next:   streamer,
+		source:  &b,
+		next:    streamer,
+		eACLCfg: b.eACLCfg,
 	}, err
 }
 
@@ -166,9 +175,18 @@ func (b Service) Head(
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
+	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
+		return nil, eACLErr(reqInfo)
 	}
 
-	return b.next.Head(ctx, request)
+	resp, err := b.next.Head(ctx, request)
+	if err == nil {
+		if !eACLCheck(resp, reqInfo, b.eACLCfg) {
+			err = eACLErr(reqInfo)
+		}
+	}
+
+	return resp, err
 }
 
 func (b Service) Search(
@@ -194,6 +212,8 @@ func (b Service) Search(
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
+	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
+		return nil, eACLErr(reqInfo)
 	}
 
 	stream, err := b.next.Search(ctx, request)
@@ -221,6 +241,8 @@ func (b Service) Delete(
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
+	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
+		return nil, eACLErr(reqInfo)
 	}
 
 	return b.next.Delete(ctx, request)
@@ -247,6 +269,8 @@ func (b Service) GetRange(
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
+	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
+		return nil, eACLErr(reqInfo)
 	}
 
 	stream, err := b.next.GetRange(ctx, request)
@@ -274,6 +298,8 @@ func (b Service) GetRangeHash(
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
+	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
+		return nil, eACLErr(reqInfo)
 	}
 
 	return b.next.GetRangeHash(ctx, request)
@@ -309,6 +335,8 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 
 		if !basicACLCheck(reqInfo) || !stickyBitCheck(reqInfo, ownerID) {
 			return basicACLErr(reqInfo)
+		} else if !eACLCheck(request, reqInfo, p.eACLCfg) {
+			return eACLErr(reqInfo)
 		}
 	}
 
@@ -339,6 +367,8 @@ func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
 
 		if !stickyBitCheck(g.info, ownerID) {
 			return nil, basicACLErr(g.info)
+		} else if !eACLCheck(resp, g.info, g.eACLCfg) {
+			return nil, eACLErr(g.info)
 		}
 	}
 
@@ -460,6 +490,34 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 	return bytes.Equal(owner.ToV2().GetValue(), info.owner.ToV2().GetValue())
 }
 
+func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
+	if reqInfo.basicACL.Final() {
+		return true
+	}
+
+	hdrSrcOpts := make([]eaclV2.Option, 0, 2)
+
+	hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithLocalObjectStorage(cfg.localStorage))
+
+	if req, ok := msg.(eaclV2.Request); ok {
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
+	} else {
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceResponse(msg.(eaclV2.Response)))
+	}
+
+	action := cfg.eACL.CalculateAction(new(eacl.ValidationUnit).
+		WithRole(reqInfo.requestRole).
+		WithOperation(reqInfo.operation).
+		WithContainerID(reqInfo.cid).
+		WithSenderKey(reqInfo.senderKey).
+		WithHeaderSource(
+			eaclV2.NewMessageHeaderSource(hdrSrcOpts...),
+		),
+	)
+
+	return action == acl.ActionAllow
+}
+
 // sourceVerbOfRequest looks for verb in session token and if it is not found,
 // returns reqVerb.
 func sourceVerbOfRequest(req metaWithToken, reqVerb acl.Operation) acl.Operation {
@@ -504,5 +562,12 @@ func basicACLErr(info requestInfo) error {
 	return &accessErr{
 		requestInfo:    info,
 		failedCheckTyp: "basic ACL",
+	}
+}
+
+func eACLErr(info requestInfo) error {
+	return &accessErr{
+		requestInfo:    info,
+		failedCheckTyp: "extended ACL",
 	}
 }
