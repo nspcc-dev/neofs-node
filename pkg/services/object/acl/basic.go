@@ -16,9 +16,7 @@ import (
 type (
 	// Service checks basic ACL rules.
 	Service struct {
-		containers core.Source
-		sender     SenderClassifier
-		next       object.Service
+		*cfg
 	}
 
 	putStreamBasicChecker struct {
@@ -47,6 +45,17 @@ type (
 	}
 )
 
+// Option represents Service constructor option.
+type Option func(*cfg)
+
+type cfg struct {
+	containers core.Source
+
+	sender SenderClassifier
+
+	next object.Service
+}
+
 var (
 	ErrMalformedRequest  = errors.New("malformed request")
 	ErrUnknownRole       = errors.New("can't classify request sender")
@@ -54,16 +63,20 @@ var (
 	ErrBasicAccessDenied = errors.New("access denied by basic acl")
 )
 
+func defaultCfg() *cfg {
+	return new(cfg)
+}
+
 // New is a constructor for object ACL checking service.
-func New(
-	c SenderClassifier,
-	cnr core.Source,
-	next object.Service) Service {
+func New(opts ...Option) Service {
+	cfg := defaultCfg()
+
+	for i := range opts {
+		opts[i](cfg)
+	}
 
 	return Service{
-		containers: cnr,
-		sender:     c,
-		next:       next,
+		cfg: cfg,
 	}
 }
 
