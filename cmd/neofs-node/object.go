@@ -69,6 +69,14 @@ func newBucket() bucket.Bucket {
 	}
 }
 
+func (b *inMemBucket) Del(key []byte) error {
+	b.Lock()
+	delete(b.items, base58.Encode(key))
+	b.Unlock()
+
+	return nil
+}
+
 func (b *inMemBucket) Get(key []byte) ([]byte, error) {
 	b.RLock()
 	v, ok := b.items[base58.Encode(key)]
