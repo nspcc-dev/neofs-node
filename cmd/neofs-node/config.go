@@ -105,6 +105,8 @@ type cfg struct {
 	cfgObject cfgObject
 
 	profiler profiler.Profiler
+
+	workers []worker
 }
 
 type cfgGRPC struct {
