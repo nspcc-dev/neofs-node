@@ -31,6 +31,7 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/gc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -187,6 +188,13 @@ func initObjectService(c *cfg) {
 
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
+	objGC := gc.New(
+		gc.WithLogger(c.log),
+		gc.WithRemover(ls),
+	)
+
+	c.workers = append(c.workers, objGC)
+
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithMaxSizeSource(&maxSzSrc{c.cfgObject.maxObjectSize}),
@@ -195,7 +203,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		putsvc.WithLocalAddressSource(c),
 		putsvc.WithFormatValidatorOpts(
-			objectCore.WithDeleteHandler(&deleteHandler{c.log}),
+			objectCore.WithDeleteHandler(objGC),
 		),
 	)
 
