@@ -38,12 +38,13 @@ type cfg struct {
 	localAddrSrc network.LocalAddressSource
 
 	fmtValidator *object.FormatValidator
+
+	fmtValidatorOpts []object.FormatValidatorOption
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
-		workerPool:   new(util.SyncWorkerPool),
-		fmtValidator: object.NewFormatValidator(),
+		workerPool: new(util.SyncWorkerPool),
 	}
 }
 
@@ -53,6 +54,8 @@ func NewService(opts ...Option) *Service {
 	for i := range opts {
 		opts[i](c)
 	}
+
+	c.fmtValidator = object.NewFormatValidator(c.fmtValidatorOpts...)
 
 	return &Service{
 		cfg: c,
@@ -105,5 +108,11 @@ func WithWorkerPool(v util.WorkerPool) Option {
 func WithLocalAddressSource(v network.LocalAddressSource) Option {
 	return func(c *cfg) {
 		c.localAddrSrc = v
+	}
+}
+
+func WithFormatValidatorOpts(v ...object.FormatValidatorOption) Option {
+	return func(c *cfg) {
+		c.fmtValidatorOpts = v
 	}
 }
