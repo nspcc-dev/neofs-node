@@ -44,6 +44,7 @@ func bootUp(c *cfg) {
 	serveProfiler(c)
 	serveGRPC(c)
 	bootstrapNode(c)
+	startWorkers(c)
 }
 
 func wait(c *cfg) {
