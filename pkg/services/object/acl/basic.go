@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	"github.com/pkg/errors"
 )
 
@@ -59,6 +61,16 @@ type cfg struct {
 	sender SenderClassifier
 
 	next object.Service
+
+	*eACLCfg
+}
+
+type eACLCfg struct {
+	eACLOpts []eacl.Option
+
+	eACL *eacl.Validator
+
+	localStorage *localstore.Storage
 }
 
 type accessErr struct {
@@ -74,7 +86,9 @@ var (
 )
 
 func defaultCfg() *cfg {
-	return new(cfg)
+	return &cfg{
+		eACLCfg: new(eACLCfg),
+	}
 }
 
 // New is a constructor for object ACL checking service.
@@ -84,6 +98,8 @@ func New(opts ...Option) Service {
 	for i := range opts {
 		opts[i](cfg)
 	}
+
+	cfg.eACL = eacl.NewValidator(cfg.eACLOpts...)
 
 	return Service{
 		cfg: cfg,

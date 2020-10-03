@@ -16,6 +16,7 @@ import (
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	deletesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/delete/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -318,6 +319,11 @@ func initObjectService(c *cfg) {
 							},
 						),
 					),
+				),
+				acl.WithLocalStorage(ls),
+				acl.WithEACLValidatorOptions(
+					eacl.WithMorphClient(c.cfgObject.cnrClient),
+					eacl.WithLogger(c.log),
 				),
 			),
 		),

@@ -26,6 +26,7 @@ func initContainerService(c *cfg) {
 	fatalOnErr(err)
 
 	c.cfgObject.cnrStorage = wrap // use RPC node as source of containers
+	c.cfgObject.cnrClient = wrap
 
 	metaHdr := new(session.ResponseMetaHeader)
 	xHdr := new(session.XHeader)

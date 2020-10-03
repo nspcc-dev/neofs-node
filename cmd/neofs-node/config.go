@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/boltdb"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
@@ -159,6 +160,8 @@ type cfgObject struct {
 	metastorage bucket.Bucket
 
 	blobstorage bucket.Bucket
+
+	cnrClient *wrapper.Wrapper
 }
 
 const (
