@@ -36,8 +36,16 @@ func ParseUpdatePeer(prms []smartcontract.Parameter) (event.Event, error) {
 		return nil, event.WrongNumberOfParameters(2, ln)
 	}
 
+	// parse node status
+	st, err := client.IntFromStackParameter(prms[0])
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get node status")
+	}
+
+	ev.status = uint32(st)
+
 	// parse public key
-	key, err := client.BytesFromStackParameter(prms[0])
+	key, err := client.BytesFromStackParameter(prms[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get public key")
 	}
@@ -46,14 +54,6 @@ func ParseUpdatePeer(prms []smartcontract.Parameter) (event.Event, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse public key")
 	}
-
-	// parse node status
-	st, err := client.IntFromStackParameter(prms[1])
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get node status")
-	}
-
-	ev.status = uint32(st)
 
 	return ev, nil
 }
