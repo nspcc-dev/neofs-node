@@ -386,8 +386,8 @@ func (b Service) findRequestInfo(
 		return info, ErrUnknownContainer
 	}
 
-	// find request role
-	role := b.sender.Classify(req, cid, cnr)
+	// find request role and key
+	role, key := b.sender.Classify(req, cid, cnr)
 	if role == acl.RoleUnknown {
 		return info, ErrUnknownRole
 	}
@@ -400,12 +400,11 @@ func (b Service) findRequestInfo(
 	info.requestRole = role
 	info.operation = verb
 	info.owner = owner.NewIDFromV2(cnr.GetOwnerID())
-
 	info.cid = cid
 
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation
-	info.senderKey = req.vheader.GetBodySignature().GetKey()
+	info.senderKey = key
 
 	return info, nil
 }
