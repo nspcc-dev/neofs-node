@@ -45,6 +45,7 @@ const (
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
 	cfgNodeAttributePrefix = "node.attribute"
+	cfgMaxObjectSize       = "node.maxobjectsize" // todo: get value from chain
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
@@ -65,10 +66,12 @@ const (
 	cfgContainerContract = "container.scripthash"
 	cfgContainerFee      = "container.fee"
 
-	cfgMaxObjectSize = "node.maxobjectsize" // get value from chain
-
 	cfgObjectStorage = "storage.object"
 	cfgMetaStorage   = "storage.meta"
+
+	cfgGCQueueSize = "gc.queuesize"
+	cfgGCQueueTick = "gc.duration.sleep"
+	cfgGCTimeout   = "gc.duration.timeout"
 )
 
 const (
@@ -283,6 +286,10 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgProfilerEnable, false)
 	v.SetDefault(cfgProfilerAddr, ":6060")
 	v.SetDefault(cfgProfilerTTL, "30s")
+
+	v.SetDefault(cfgGCQueueSize, 1000)
+	v.SetDefault(cfgGCQueueTick, "5s")
+	v.SetDefault(cfgGCTimeout, "5s")
 }
 
 func (c *cfg) LocalAddress() *network.Address {
