@@ -71,8 +71,8 @@ func UpdatePeerState(cli *client.Client, con util.Uint160, args *UpdatePeerArgs)
 	}
 
 	return cli.Invoke(con, extraFee, updatePeerStateMethod,
-		args.Key.Bytes(),
 		int64(args.Status),
+		args.Key.Bytes(),
 	)
 }
 
