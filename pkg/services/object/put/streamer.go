@@ -91,9 +91,6 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return errors.Wrapf(err, "(%T) could not get container by ID", p)
 	}
 
-	// allocate placement traverser options
-	prm.traverseOpts = make([]placement.Option, 0, 4)
-
 	// add common options
 	prm.traverseOpts = append(prm.traverseOpts,
 		// set processing container

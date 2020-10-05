@@ -9,6 +9,7 @@ import (
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/pkg/errors"
 )
 
@@ -78,9 +79,14 @@ func (s *Service) Delete(ctx context.Context, prm *Prm) (*Response, error) {
 		return nil, errors.Wrapf(err, "(%T) could not open put stream", s)
 	}
 
+	// `WithoutSuccessTracking` option broadcast message to all container nodes.
+	// For now there is no better solution to distributed tombstones with
+	// content address storage (CAS) and one tombstone for several split
+	// objects.
 	if err := r.Init(new(putsvc.PutInitPrm).
 		WithObject(newTombstone(ownerID, prm.addr.GetContainerID())).
-		WithCommonPrm(prm.common),
+		WithCommonPrm(prm.common).
+		WithTraverseOption(placement.WithoutSuccessTracking()), // broadcast tombstone, maybe one
 	); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not initialize tombstone stream", s)
 	}
