@@ -192,6 +192,9 @@ func initObjectService(c *cfg) {
 	objGC := gc.New(
 		gc.WithLogger(c.log),
 		gc.WithRemover(ls),
+		gc.WithQueueCapacity(c.viper.GetUint32(cfgGCQueueSize)),
+		gc.WithSleepInterval(c.viper.GetDuration(cfgGCQueueTick)),
+		gc.WithWorkingInterval(c.viper.GetDuration(cfgGCTimeout)),
 	)
 
 	c.workers = append(c.workers, objGC)
