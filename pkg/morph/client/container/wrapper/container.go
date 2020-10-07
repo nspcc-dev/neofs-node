@@ -8,7 +8,6 @@ import (
 	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
 	msgContainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	msgRefs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/pkg/errors"
@@ -144,16 +143,9 @@ func (w *Wrapper) List(ownerID *owner.ID) ([]*container.ID, error) {
 	result := make([]*container.ID, 0, len(rawIDs))
 
 	for i := range rawIDs {
-		// convert serialized bytes into GRPC structure
-		grpcMsg := new(msgRefs.ContainerID)
-		err = grpcMsg.Unmarshal(rawIDs[i])
-		if err != nil {
-			// use other major version if there any
-			return nil, errors.Wrap(err, "can't unmarshal container id")
-		}
+		v2 := new(v2refs.ContainerID)
+		v2.SetValue(rawIDs[i])
 
-		// convert GRPC structure into SDK structure, used in the code
-		v2 := v2refs.ContainerIDFromGRPCMessage(grpcMsg)
 		cid := container.NewIDFromV2(v2)
 
 		result = append(result, cid)
