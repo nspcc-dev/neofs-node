@@ -71,7 +71,14 @@ func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
 	// ask RPC neo node to get serialized container
 	rpcAnswer, err := w.client.Get(args)
 	if err != nil {
-		return nil, errors.Wrap(core.ErrNotFound, err.Error())
+		return nil, err
+	}
+
+	// In #37 we've decided to remove length check, because smart contract would
+	// fail on casting `nil` value from storage to `[]byte` producing FAULT state.
+	// Apparently it does not fail, so we have to check length explicitly.
+	if len(rpcAnswer.Container()) == 0 {
+		return nil, core.ErrNotFound
 	}
 
 	// convert serialized bytes into GRPC structure
