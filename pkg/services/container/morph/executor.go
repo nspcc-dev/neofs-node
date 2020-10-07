@@ -2,108 +2,84 @@ package container
 
 import (
 	"context"
-	"crypto/sha256"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	aclGRPC "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
+	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
-	container2 "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
-	"github.com/pkg/errors"
 )
 
 type morphExecutor struct {
-	// TODO: use client wrapper
-	client *containerMorph.Client
+	wrapper *wrapper.Wrapper
 }
 
 func NewExecutor(client *containerMorph.Client) containerSvc.ServiceExecutor {
+	w, err := wrapper.New(client)
+	if err != nil {
+		// log there, maybe panic?
+		return nil
+	}
+
 	return &morphExecutor{
-		client: client,
+		wrapper: w,
 	}
 }
 
 func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody) (*container.PutResponseBody, error) {
-	cnr := body.GetContainer()
+	cnr := containerSDK.NewContainerFromV2(body.GetContainer())
+	sig := body.GetSignature()
 
-	// marshal the container
-	cnrBytes, err := cnr.StableMarshal(nil)
+	cid, err := s.wrapper.Put(cnr, sig.GetKey(), sig.GetSign())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal the container")
-	}
-
-	args := containerMorph.PutArgs{}
-	args.SetContainer(cnrBytes)
-	args.SetSignature(body.GetSignature().GetSign())
-	args.SetPublicKey(body.GetSignature().GetKey())
-
-	if err := s.client.Put(args); err != nil {
-		return nil, errors.Wrap(err, "could not call Put method")
+		return nil, err
 	}
 
 	res := new(container.PutResponseBody)
-
-	// FIXME: implement and use CID calculation
-	cidBytes := sha256.Sum256(cnrBytes)
-	cid := new(refs.ContainerID)
-	cid.SetValue(cidBytes[:])
-	res.SetContainerID(cid)
+	res.SetContainerID(cid.ToV2())
 
 	return res, nil
 }
 
 func (s *morphExecutor) Delete(ctx context.Context, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
-	args := containerMorph.DeleteArgs{}
-	args.SetCID(body.GetContainerID().GetValue())
-	args.SetSignature(body.GetSignature().GetSign())
+	cid := containerSDK.NewIDFromV2(body.GetContainerID())
 
-	if err := s.client.Delete(args); err != nil {
-		return nil, errors.Wrap(err, "could not call Delete method")
+	err := s.wrapper.Delete(cid, body.GetSignature().GetSign())
+	if err != nil {
+		return nil, err
 	}
 
 	return new(container.DeleteResponseBody), nil
 }
 
 func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
-	args := containerMorph.GetArgs{}
-	args.SetCID(body.GetContainerID().GetValue())
+	cid := containerSDK.NewIDFromV2(body.GetContainerID())
 
-	val, err := s.client.Get(args)
+	cnr, err := s.wrapper.Get(cid)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not call Get method")
-	}
-
-	// FIXME: implement and use stable unmarshaler
-	cnrGRPC := new(container2.Container)
-	if err := cnrGRPC.Unmarshal(val.Container()); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal the container")
+		return nil, err
 	}
 
 	res := new(container.GetResponseBody)
-	res.SetContainer(container.ContainerFromGRPCMessage(cnrGRPC))
+	res.SetContainer(cnr.ToV2())
 
 	return res, nil
 }
 
 func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBody) (*container.ListResponseBody, error) {
-	args := containerMorph.ListArgs{}
-	args.SetOwnerID(body.GetOwnerID().GetValue())
+	oid := owner.NewIDFromV2(body.GetOwnerID())
 
-	val, err := s.client.List(args)
+	cnrs, err := s.wrapper.List(oid)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not call List method")
+		return nil, err
 	}
 
-	binCidList := val.CIDList()
-	cidList := make([]*refs.ContainerID, 0, len(binCidList))
-
-	for i := range binCidList {
-		cid := new(refs.ContainerID)
-		cid.SetValue(binCidList[i])
-
-		cidList = append(cidList, cid)
+	cidList := make([]*refs.ContainerID, 0, len(cnrs))
+	for i := range cnrs {
+		cidList = append(cidList, cnrs[i].ToV2())
 	}
 
 	res := new(container.ListResponseBody)
@@ -113,51 +89,31 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 }
 
 func (s *morphExecutor) SetExtendedACL(ctx context.Context, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
-	eacl := body.GetEACL()
+	table := eaclSDK.NewTableFromV2(body.GetEACL())
 
-	eaclBytes, err := eacl.StableMarshal(nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal eACL table")
-	}
+	err := s.wrapper.PutEACL(table, body.GetSignature().GetSign())
 
-	args := containerMorph.SetEACLArgs{}
-	args.SetEACL(eaclBytes)
-	args.SetSignature(body.GetSignature().GetSign())
-
-	if err := s.client.SetEACL(args); err != nil {
-		return nil, errors.Wrap(err, "could not call SetEACL method")
-	}
-
-	return new(container.SetExtendedACLResponseBody), nil
+	return new(container.SetExtendedACLResponseBody), err
 }
 
-func (s *morphExecutor) GetExtendedACL(ctx context.Context, req *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
-	args := containerMorph.EACLArgs{}
-	args.SetCID(req.GetContainerID().GetValue())
+func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
+	cid := containerSDK.NewIDFromV2(body.GetContainerID())
 
-	val, err := s.client.EACL(args)
+	table, signature, err := s.wrapper.GetEACL(cid)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not call EACL method")
+		return nil, err
 	}
-
-	// FIXME: implement and use stable unmarshaler
-	eaclGRPC := new(aclGRPC.EACLTable)
-	if err := eaclGRPC.Unmarshal(val.EACL()); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal eACL table")
-	}
-
-	eacl := acl.TableFromGRPCMessage(eaclGRPC)
-
-	eaclSignature := new(refs.Signature)
-	eaclSignature.SetSign(val.Signature())
 
 	res := new(container.GetExtendedACLResponseBody)
-	res.SetEACL(eacl)
+	res.SetEACL(table.ToV2())
 
 	// Public key should be obtained by request sender, so we set up only
 	// the signature. Technically, node can make invocation to find container
 	// owner public key, but request sender cannot trust this info.
-	res.SetSignature(eaclSignature)
+	sig := new(refs.Signature)
+	sig.SetSign(signature)
+
+	res.SetSignature(sig)
 
 	return res, nil
 }
