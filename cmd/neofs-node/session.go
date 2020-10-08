@@ -11,19 +11,13 @@ import (
 func initSessionService(c *cfg) {
 	c.privateTokenStore = storage.New()
 
-	metaHdr := new(session.ResponseMetaHeader)
-	xHdr := new(session.XHeader)
-	xHdr.SetKey("test X-Header key")
-	xHdr.SetValue("test X-Header value")
-	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
-
 	sessionGRPC.RegisterSessionServiceServer(c.cfgGRPC.server,
 		sessionTransportGRPC.New(
 			sessionSvc.NewSignService(
 				c.key,
 				sessionSvc.NewExecutionService(
 					c.privateTokenStore,
-					metaHdr,
+					new(session.ResponseMetaHeader),
 				),
 			),
 		),

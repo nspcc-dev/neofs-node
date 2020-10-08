@@ -29,19 +29,13 @@ func initAccountingService(c *cfg) {
 	balanceMorphWrapper, err := wrapper.New(balanceClient)
 	fatalOnErr(err)
 
-	metaHdr := new(session.ResponseMetaHeader)
-	xHdr := new(session.XHeader)
-	xHdr.SetKey("test X-Header key")
-	xHdr.SetValue("test X-Header value")
-	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
-
 	accountingGRPC.RegisterAccountingServiceServer(c.cfgGRPC.server,
 		accountingTransportGRPC.New(
 			accountingService.NewSignService(
 				c.key,
 				accountingService.NewExecutionService(
 					accounting.NewExecutor(balanceMorphWrapper),
-					metaHdr,
+					new(session.ResponseMetaHeader),
 				),
 			),
 		),
