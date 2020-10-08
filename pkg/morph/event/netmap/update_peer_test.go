@@ -30,7 +30,7 @@ func TestParseUpdatePeer(t *testing.T) {
 	t.Run("wrong first parameter type", func(t *testing.T) {
 		_, err := ParseUpdatePeer([]smartcontract.Parameter{
 			{
-				Type: smartcontract.ByteArrayType,
+				Type: smartcontract.ArrayType,
 			},
 		})
 
@@ -40,8 +40,8 @@ func TestParseUpdatePeer(t *testing.T) {
 	t.Run("wrong second parameter type", func(t *testing.T) {
 		_, err := ParseUpdatePeer([]smartcontract.Parameter{
 			{
-				Type:  smartcontract.ByteArrayType,
-				Value: crypto.MarshalPublicKey(publicKey),
+				Type:  smartcontract.IntegerType,
+				Value: state,
 			},
 			{
 				Type: smartcontract.ArrayType,
@@ -54,12 +54,12 @@ func TestParseUpdatePeer(t *testing.T) {
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParseUpdatePeer([]smartcontract.Parameter{
 			{
-				Type:  smartcontract.ByteArrayType,
-				Value: crypto.MarshalPublicKey(publicKey),
-			},
-			{
 				Type:  smartcontract.IntegerType,
 				Value: state,
+			},
+			{
+				Type:  smartcontract.ByteArrayType,
+				Value: crypto.MarshalPublicKey(publicKey),
 			},
 		})
 		require.NoError(t, err)
