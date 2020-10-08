@@ -28,19 +28,13 @@ func initContainerService(c *cfg) {
 	c.cfgObject.cnrStorage = wrap // use RPC node as source of containers
 	c.cfgObject.cnrClient = wrap
 
-	metaHdr := new(session.ResponseMetaHeader)
-	xHdr := new(session.XHeader)
-	xHdr.SetKey("test X-Header key")
-	xHdr.SetValue("test X-Header value")
-	metaHdr.SetXHeaders([]*session.XHeader{xHdr})
-
 	containerGRPC.RegisterContainerServiceServer(c.cfgGRPC.server,
 		containerTransportGRPC.New(
 			containerService.NewSignService(
 				c.key,
 				containerService.NewExecutionService(
 					containerMorph.NewExecutor(cnrClient),
-					metaHdr,
+					new(session.ResponseMetaHeader),
 				),
 			),
 		),

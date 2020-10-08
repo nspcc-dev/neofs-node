@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/mr-tron/base58"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
@@ -33,9 +32,7 @@ import (
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/gc"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 type objectSvc struct {
@@ -161,19 +158,6 @@ func (s *objectSvc) GetRange(ctx context.Context, req *object.GetRangeRequest) (
 
 func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	return s.rngHash.GetRangeHash(ctx, req)
-}
-
-type deleteHandler struct {
-	log *logger.Logger
-}
-
-func (s *deleteHandler) DeleteObjects(list ...*objectSDK.Address) {
-	for i := range list {
-		s.log.Info("object is marked for removal",
-			zap.String("CID", base58.Encode(list[i].GetContainerID().ToV2().GetValue())),
-			zap.String("ID", base58.Encode(list[i].GetObjectID().ToV2().GetValue())),
-		)
-	}
 }
 
 func initObjectService(c *cfg) {
