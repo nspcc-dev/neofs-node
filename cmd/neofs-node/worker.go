@@ -12,9 +12,9 @@ func startWorkers(c *cfg) {
 	for _, wrk := range c.workers {
 		c.wg.Add(1)
 
-		go func() {
-			wrk.Run(c.ctx)
+		go func(w worker) {
+			w.Run(c.ctx)
 			c.wg.Done()
-		}()
+		}(wrk)
 	}
 }
