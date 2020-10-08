@@ -152,8 +152,12 @@ type cfgNetmap struct {
 type BootstrapType uint32
 
 type cfgNodeInfo struct {
+	// values from config
 	bootType   BootstrapType
 	attributes []*netmap.Attribute
+
+	// values at runtime
+	info *netmap.NodeInfo
 }
 
 type cfgObject struct {
