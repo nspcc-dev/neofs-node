@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -89,6 +90,8 @@ type cfg struct {
 	wg *sync.WaitGroup
 
 	key *ecdsa.PrivateKey
+
+	apiVersion *pkg.Version
 
 	cfgGRPC cfgGRPC
 
@@ -201,11 +204,12 @@ func initCfg(path string) *cfg {
 	maxAddrAmount := maxChunkSize / addressSize               // each address is about 72 bytes
 
 	c := &cfg{
-		ctx:   context.Background(),
-		viper: viperCfg,
-		log:   log,
-		wg:    new(sync.WaitGroup),
-		key:   key,
+		ctx:        context.Background(),
+		viper:      viperCfg,
+		log:        log,
+		wg:         new(sync.WaitGroup),
+		key:        key,
+		apiVersion: pkg.SDKVersion(),
 		cfgAccounting: cfgAccounting{
 			scriptHash: u160Accounting,
 			fee:        util.Fixed8(viperCfg.GetInt(cfgAccountingFee)),
