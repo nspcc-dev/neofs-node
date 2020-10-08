@@ -33,6 +33,7 @@ func init_(c *cfg) {
 
 	initGRPC(c)
 
+	initNetmapService(c)
 	initAccountingService(c)
 	initContainerService(c)
 	initSessionService(c)
