@@ -51,6 +51,8 @@ type (
 		reputation util.Uint160 // in morph
 		neofsid    util.Uint160 // in morph
 		gas        util.Uint160 // native contract in both chains
+
+		alphabet [alphabetContractsN]util.Uint160 // in morph
 	}
 
 	chainParams struct {
@@ -65,6 +67,8 @@ type (
 const (
 	morphPrefix   = "morph"
 	mainnetPrefix = "mainnet"
+
+	alphabetContractsN = 7 // az, buky, vedi, glagoli, dobro, jest, zhivete
 )
 
 // Start runs all event providers.
@@ -297,7 +301,28 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 		return nil, errors.Wrap(err, "ir: can't read container script-hash")
 	}
 
+	result.alphabet, err = parseAlphabetContracts(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return result, nil
+}
+
+func parseAlphabetContracts(cfg *viper.Viper) (res [7]util.Uint160, err error) {
+	// list of glagolic script letters that represent alphabet contracts
+	glagolic := []string{"az", "buky", "vedi", "glagoli", "dobro", "jest", "zhivete"}
+
+	for i, letter := range glagolic {
+		contractStr := cfg.GetString("contracts.alphabet." + letter)
+
+		res[i], err = util.Uint160DecodeStringLE(contractStr)
+		if err != nil {
+			return res, errors.Wrapf(err, "ir: can't read alphabet %s contract", letter)
+		}
+	}
+
+	return res, nil
 }
 
 func initConfigFromBlockchain(s *Server, c *contracts, key *ecdsa.PublicKey) error {
