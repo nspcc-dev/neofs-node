@@ -18,6 +18,8 @@ var (
 	cfgFile    string
 	privateKey string
 	endpoint   string
+
+	verbose bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -56,6 +58,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&privateKey, "key", "k", "", "private key in hex, WIF or filepath")
 	rootCmd.PersistentFlags().StringVarP(&endpoint, "rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
