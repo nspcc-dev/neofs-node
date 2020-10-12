@@ -6,7 +6,12 @@ import (
 	"math"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/accounting"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/spf13/cobra"
+)
+
+var (
+	balanceOwner string
 )
 
 // accountingCmd represents the accounting command
@@ -23,8 +28,10 @@ var accountingBalanceCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
 			response *accounting.Decimal
+			oid      *owner.ID
 			err      error
-			ctx      = context.Background()
+
+			ctx = context.Background()
 		)
 
 		cli, err := getSDKClient()
@@ -32,7 +39,18 @@ var accountingBalanceCmd = &cobra.Command{
 			return err
 		}
 
-		response, err = cli.GetSelfBalance(ctx)
+		switch balanceOwner {
+		case "":
+			response, err = cli.GetSelfBalance(ctx)
+		default:
+			oid, err = ownerFromString(balanceOwner)
+			if err != nil {
+				return err
+			}
+
+			response, err = cli.GetBalance(ctx, oid)
+		}
+
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -57,6 +75,8 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// accountingCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
 }
 
 func prettyPrintDecimal(decimal *accounting.Decimal) {
