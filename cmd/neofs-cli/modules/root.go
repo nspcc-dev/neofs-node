@@ -1,16 +1,22 @@
 package cmd
 
 import (
+	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/mitchellh/go-homedir"
+	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/spf13/cobra"
-
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+// Global scope flags.
+var (
+	cfgFile    string
+	privateKey string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -23,6 +29,10 @@ of neofs-api and some useful utilities for compiling ACL rules from JSON
 notation, managing container access through protocol gates, querying network map
 and much more!`,
 }
+
+var (
+	errInvalidKey = errors.New("provided key is incorrect")
+)
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -40,7 +50,8 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&privateKey, "key", "k", "", "private key in hex, WIF or filepath")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -71,4 +82,14 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+// getKey returns private key that was provided in global arguments.
+func getKey() (*ecdsa.PrivateKey, error) {
+	key, err := crypto.LoadPrivateKey(privateKey)
+	if err != nil {
+		return nil, errInvalidKey
+	}
+
+	return key, nil
 }
