@@ -29,6 +29,11 @@ const (
 	// execution stage. Otherwise invocation will fail due to gas limit.
 	extraFee = 1_5000_0000 // 1.5 Fixed8 gas
 
+	// Different methods need different extra fee values, so with this
+	// constants let's try to minimize spent GAS of inner ring node.
+	feeHalfGas = 50_000_000     // 0.5 Fixed8 gas
+	feeOneGas  = feeHalfGas * 2 // 1.0 Fixed8 gas
+
 	checkIsInnerRingMethod = "isInnerRing"
 	innerRingListMethod    = "innerRingList"
 	chequeMethod           = "cheque"
