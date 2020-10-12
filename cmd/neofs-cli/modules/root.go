@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +17,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+const generateKeyConst = "new"
 
 // Global scope flags.
 var (
@@ -40,6 +44,7 @@ and much more!`,
 var (
 	errInvalidKey      = errors.New("provided key is incorrect")
 	errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
+	errCantGenerateKey = errors.New("can't generate new private key")
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -58,7 +63,7 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&privateKey, "key", "k", "", "private key in hex, WIF or filepath")
+	rootCmd.PersistentFlags().StringVarP(&privateKey, "key", "k", "", "private key in hex, WIF or filepath (use `--key new` to generate key for request)")
 	rootCmd.PersistentFlags().StringVarP(&endpoint, "rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
@@ -95,6 +100,21 @@ func initConfig() {
 
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
+	if privateKey == generateKeyConst {
+		buf := make([]byte, crypto.PrivateKeyCompressedSize)
+
+		_, err := rand.Read(buf)
+		if err != nil {
+			return nil, errCantGenerateKey
+		}
+
+		if verbose {
+			fmt.Println("Generating private key:", hex.EncodeToString(buf))
+		}
+
+		return crypto.UnmarshalPrivateKey(buf)
+	}
+
 	key, err := crypto.LoadPrivateKey(privateKey)
 	if err != nil {
 		return nil, errInvalidKey
