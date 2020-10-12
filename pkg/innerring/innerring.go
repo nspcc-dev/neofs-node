@@ -34,10 +34,10 @@ type (
 		localTimers     *timers.Timers
 
 		// global state
-		morphClient   *client.Client
-		mainnetClient *client.Client
-		epochCounter  atomic.Uint64
-		activeState   atomic.Bool
+		morphClient    *client.Client
+		mainnetClient  *client.Client
+		epochCounter   atomic.Uint64
+		innerRingIndex atomic.Int32
 
 		// todo: export error channel
 	}
@@ -307,17 +307,17 @@ func initConfigFromBlockchain(s *Server, c *contracts, key *ecdsa.PublicKey) err
 		return errors.Wrap(err, "can't read epoch")
 	}
 
-	// check if node inside inner ring list
-	state, err := invoke.IsInnerRing(s.mainnetClient, c.neofs, key)
+	// check if node inside inner ring list and what index it has
+	index, err := invoke.InnerRingIndex(s.mainnetClient, c.neofs, key)
 	if err != nil {
 		return errors.Wrap(err, "can't read inner ring list")
 	}
 
 	s.epochCounter.Store(uint64(epoch))
-	s.activeState.Store(state)
+	s.innerRingIndex.Store(index)
 
 	s.log.Debug("read config from blockchain",
-		zap.Bool("active", state),
+		zap.Bool("active", s.IsActive()),
 		zap.Int64("epoch", epoch),
 	)
 
