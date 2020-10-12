@@ -7,7 +7,9 @@ import (
 	"os"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/spf13/cobra"
@@ -131,4 +133,22 @@ func getSDKClient() (*client.Client, error) {
 	}
 
 	return client.New(key, client.WithAddress(ipAddr))
+}
+
+// ownerFromString converts string with NEO3 wallet address to neofs owner ID.
+func ownerFromString(s string) (*owner.ID, error) {
+	var w owner.NEO3Wallet
+
+	// todo: move this into neofs-api-go `owner.NEO3WalletFromString` function
+	binaryWallet, err := base58.Decode(s)
+	if err != nil || len(binaryWallet) != len(w) {
+		return nil, errors.New("can't decode owner ID wallet address")
+	}
+
+	copy(w[:], binaryWallet)
+
+	id := owner.NewID()
+	id.SetNeo3Wallet(&w)
+
+	return id, nil
 }
