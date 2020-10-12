@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,6 +17,7 @@ import (
 var (
 	cfgFile    string
 	privateKey string
+	endpoint   string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -31,7 +33,8 @@ and much more!`,
 }
 
 var (
-	errInvalidKey = errors.New("provided key is incorrect")
+	errInvalidKey      = errors.New("provided key is incorrect")
+	errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -52,6 +55,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&privateKey, "key", "k", "", "private key in hex, WIF or filepath")
+	rootCmd.PersistentFlags().StringVarP(&endpoint, "rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -92,4 +96,15 @@ func getKey() (*ecdsa.PrivateKey, error) {
 	}
 
 	return key, nil
+}
+
+// getEndpointAddress returns network address structure that stores multiaddr
+// inside, parsed from global arguments.
+func getEndpointAddress() (*network.Address, error) {
+	addr, err := network.AddressFromString(endpoint)
+	if err != nil {
+		return nil, errInvalidEndpoint
+	}
+
+	return addr, nil
 }
