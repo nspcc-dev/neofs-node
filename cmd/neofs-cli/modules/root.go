@@ -18,14 +18,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-const generateKeyConst = "new"
+const (
+	envPrefix = "NEOFS_CLI"
+
+	generateKeyConst = "new"
+)
 
 // Global scope flags.
 var (
-	cfgFile    string
-	privateKey string
-	endpoint   string
-
+	cfgFile string
 	verbose bool
 )
 
@@ -63,8 +64,13 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&privateKey, "key", "k", "", "private key in hex, WIF or filepath (use `--key new` to generate key for request)")
-	rootCmd.PersistentFlags().StringVarP(&endpoint, "rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
+
+	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF or filepath (use `--key new` to generate key for request)")
+	_ = viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
+
+	rootCmd.PersistentFlags().StringP("rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
+	_ = viper.BindPFlag("rpc", rootCmd.PersistentFlags().Lookup("rpc-endpoint"))
+
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	// Cobra also supports local flags, which will only run
@@ -90,6 +96,7 @@ func initConfig() {
 		viper.SetConfigName(".config/neofs-cli")
 	}
 
+	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
@@ -100,6 +107,7 @@ func initConfig() {
 
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
+	privateKey := viper.GetString("key")
 	if privateKey == generateKeyConst {
 		buf := make([]byte, crypto.PrivateKeyCompressedSize)
 
@@ -126,6 +134,8 @@ func getKey() (*ecdsa.PrivateKey, error) {
 // getEndpointAddress returns network address structure that stores multiaddr
 // inside, parsed from global arguments.
 func getEndpointAddress() (*network.Address, error) {
+	endpoint := viper.GetString("rpc")
+
 	addr, err := network.AddressFromString(endpoint)
 	if err != nil {
 		return nil, errInvalidEndpoint
