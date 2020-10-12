@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
@@ -217,6 +218,23 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	err = bindMainnetProcessor(neofsProcessor, server)
+	if err != nil {
+		return nil, err
+	}
+
+	// create alphabet processor
+	alphabetProcessor, err := alphabet.New(&alphabet.Params{
+		Log:               log,
+		PoolSize:          cfg.GetInt("workers.alphabet"),
+		AlphabetContracts: contracts.alphabet,
+		MorphClient:       server.morphClient,
+		IRList:            server,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = bindMorphProcessor(alphabetProcessor, server)
 	if err != nil {
 		return nil, err
 	}
