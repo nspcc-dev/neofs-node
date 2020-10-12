@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/spf13/cobra"
@@ -110,4 +111,25 @@ func getEndpointAddress() (*network.Address, error) {
 	}
 
 	return addr, nil
+}
+
+// getSDKClient returns default neofs-api-go sdk client. Consider using
+// opts... to provide TTL or other global configuration flags.
+func getSDKClient() (*client.Client, error) {
+	key, err := getKey()
+	if err != nil {
+		return nil, err
+	}
+
+	netAddr, err := getEndpointAddress()
+	if err != nil {
+		return nil, err
+	}
+
+	ipAddr, err := netAddr.IPAddrString()
+	if err != nil {
+		return nil, errInvalidEndpoint
+	}
+
+	return client.New(key, client.WithAddress(ipAddr))
 }
