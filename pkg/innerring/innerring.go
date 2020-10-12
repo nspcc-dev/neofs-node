@@ -105,8 +105,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create local timer instance
 	server.localTimers = timers.New(&timers.Params{
-		Log:           log,
-		EpochDuration: cfg.GetDuration("timers.epoch"),
+		Log:              log,
+		EpochDuration:    cfg.GetDuration("timers.epoch"),
+		AlphabetDuration: cfg.GetDuration("timers.emit"),
 	})
 
 	morphChain := &chainParams{
