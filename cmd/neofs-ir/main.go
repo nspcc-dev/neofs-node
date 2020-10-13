@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
+	"go.uber.org/zap"
 )
 
 const (
@@ -44,6 +45,7 @@ func main() {
 	exitErr(err)
 
 	ctx := grace.NewGracefulContext(log)
+	intErr := make(chan error) // internal inner ring errors
 
 	pprof := profiler.NewProfiler(log, cfg)
 	prometheus := profiler.NewMetrics(log, cfg)
@@ -66,15 +68,19 @@ func main() {
 	}
 
 	// start inner ring
-	err = innerRing.Start(ctx)
+	err = innerRing.Start(ctx, intErr)
 	if err != nil {
 		exitErr(err)
 	}
 
 	log.Info("application started")
 
-	// todo: select ctx.Done or exported error channel
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case err := <-intErr:
+		// todo: restart application instead of shutdown
+		log.Info("internal error", zap.String("msg", err.Error()))
+	}
 
 	innerRing.Stop()
 

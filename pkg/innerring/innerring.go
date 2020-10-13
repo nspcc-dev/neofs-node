@@ -75,7 +75,7 @@ const (
 )
 
 // Start runs all event providers.
-func (s *Server) Start(ctx context.Context) error {
+func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	err := s.initConfigFromBlockchain()
 	if err != nil {
 		return err
@@ -83,8 +83,23 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.localTimers.Start(ctx) // local timers start ticking
 
-	go s.morphListener.Listen(ctx)   // listen for neo:morph events
-	go s.mainnetListener.Listen(ctx) // listen for neo:mainnet events
+	morphErr := make(chan error)
+	mainnnetErr := make(chan error)
+
+	// anonymous function to multiplex error channels
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-morphErr:
+			intError <- errors.Wrap(err, "sidechain")
+		case err := <-mainnnetErr:
+			intError <- errors.Wrap(err, "mainnet")
+		}
+	}()
+
+	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
+	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
 	return nil
 }
