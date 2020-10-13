@@ -40,7 +40,9 @@ type (
 		epochCounter   atomic.Uint64
 		innerRingIndex atomic.Int32
 
-		// todo: export error channel
+		// internal variables
+		key       *ecdsa.PrivateKey
+		contracts *contracts
 	}
 
 	contracts struct {
@@ -74,6 +76,11 @@ const (
 
 // Start runs all event providers.
 func (s *Server) Start(ctx context.Context) error {
+	err := s.initConfigFromBlockchain()
+	if err != nil {
+		return err
+	}
+
 	s.localTimers.Start(ctx) // local timers start ticking
 
 	go s.morphListener.Listen(ctx)   // listen for neo:morph events
@@ -90,16 +97,17 @@ func (s *Server) Stop() {
 
 // New creates instance of inner ring sever structure.
 func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error) {
+	var err error
 	server := &Server{log: log}
 
 	// prepare inner ring node private key
-	key, err := crypto.LoadPrivateKey(cfg.GetString("key"))
+	server.key, err = crypto.LoadPrivateKey(cfg.GetString("key"))
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't create private key")
 	}
 
 	// get all script hashes of contracts
-	contracts, err := parseContracts(cfg)
+	server.contracts, err = parseContracts(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +122,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	morphChain := &chainParams{
 		log:  log,
 		cfg:  cfg,
-		key:  key,
-		gas:  contracts.gas,
+		key:  server.key,
+		gas:  server.contracts.gas,
 		name: morphPrefix,
 	}
 
@@ -150,7 +158,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	netmapProcessor, err := netmap.New(&netmap.Params{
 		Log:            log,
 		PoolSize:       cfg.GetInt("workers.netmap"),
-		NetmapContract: contracts.netmap,
+		NetmapContract: server.contracts.netmap,
 		EpochTimer:     server.localTimers,
 		MorphClient:    server.morphClient,
 		EpochState:     server,
@@ -169,7 +177,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	containerProcessor, err := container.New(&container.Params{
 		Log:               log,
 		PoolSize:          cfg.GetInt("workers.container"),
-		ContainerContract: contracts.container,
+		ContainerContract: server.contracts.container,
 		MorphClient:       server.morphClient,
 		ActiveState:       server,
 	})
@@ -186,8 +194,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	balanceProcessor, err := balance.New(&balance.Params{
 		Log:             log,
 		PoolSize:        cfg.GetInt("workers.balance"),
-		NeoFSContract:   contracts.neofs,
-		BalanceContract: contracts.balance,
+		NeoFSContract:   server.contracts.neofs,
+		BalanceContract: server.contracts.balance,
 		MainnetClient:   server.mainnetClient,
 		ActiveState:     server,
 	})
@@ -206,9 +214,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	neofsProcessor, err := neofs.New(&neofs.Params{
 		Log:             log,
 		PoolSize:        cfg.GetInt("workers.neofs"),
-		NeoFSContract:   contracts.neofs,
-		BalanceContract: contracts.balance,
-		NetmapContract:  contracts.netmap,
+		NeoFSContract:   server.contracts.neofs,
+		BalanceContract: server.contracts.balance,
+		NetmapContract:  server.contracts.netmap,
 		MorphClient:     server.morphClient,
 		EpochState:      server,
 		ActiveState:     server,
@@ -226,7 +234,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	alphabetProcessor, err := alphabet.New(&alphabet.Params{
 		Log:               log,
 		PoolSize:          cfg.GetInt("workers.alphabet"),
-		AlphabetContracts: contracts.alphabet,
+		AlphabetContracts: server.contracts.alphabet,
 		MorphClient:       server.morphClient,
 		IRList:            server,
 	})
@@ -241,11 +249,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// todo: create vivid id component
 	// todo: create audit scheduler
-
-	err = initConfigFromBlockchain(server, contracts, &key.PublicKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "initializing error")
-	}
 
 	return server, nil
 }
@@ -344,15 +347,17 @@ func parseAlphabetContracts(cfg *viper.Viper) (res [7]util.Uint160, err error) {
 	return res, nil
 }
 
-func initConfigFromBlockchain(s *Server, c *contracts, key *ecdsa.PublicKey) error {
+func (s *Server) initConfigFromBlockchain() error {
 	// get current epoch
-	epoch, err := invoke.Epoch(s.morphClient, c.netmap)
+	epoch, err := invoke.Epoch(s.morphClient, s.contracts.netmap)
 	if err != nil {
 		return errors.Wrap(err, "can't read epoch")
 	}
 
+	key := &s.key.PublicKey
+
 	// check if node inside inner ring list and what index it has
-	index, err := invoke.InnerRingIndex(s.mainnetClient, c.neofs, key)
+	index, err := invoke.InnerRingIndex(s.mainnetClient, s.contracts.neofs, key)
 	if err != nil {
 		return errors.Wrap(err, "can't read inner ring list")
 	}
