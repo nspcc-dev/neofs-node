@@ -104,7 +104,14 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case notification := <-s.client.Notifications:
+		case notification, ok := <-s.client.Notifications:
+			if !ok {
+				s.log.Warn("remote channel has been closed")
+				close(s.notify)
+
+				return
+			}
+
 			switch notification.Type {
 			case response.NotificationEventID:
 				notification, ok := notification.Value.(*result.NotificationEvent)
