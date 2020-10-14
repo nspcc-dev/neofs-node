@@ -14,7 +14,7 @@ import (
 )
 
 type RelationSearcher interface {
-	SearchRelation(context.Context, *objectSDK.Address) (*objectSDK.ID, error)
+	SearchRelation(context.Context, *objectSDK.Address, *objutil.CommonPrm) (*objectSDK.ID, error)
 }
 
 type Service struct {
@@ -67,7 +67,7 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	}
 
 	// try to find far right child that carries header of desired object
-	rightChildID, err := s.rightChildSearcher.SearchRelation(ctx, prm.addr)
+	rightChildID, err := s.rightChildSearcher.SearchRelation(ctx, prm.addr, prm.common)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not find right child", s)
 	}
@@ -76,7 +76,7 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	addr.SetContainerID(prm.addr.GetContainerID())
 	addr.SetObjectID(rightChildID)
 
-	r, err = s.Head(ctx, new(Prm).WithAddress(addr))
+	r, err = s.Head(ctx, new(Prm).WithAddress(addr).WithCommonPrm(prm.common))
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not get right child header", s)
 	}

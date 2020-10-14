@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
 	queryV1 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/query/v1"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
 
@@ -16,9 +17,9 @@ type RelationSearcher struct {
 	queryGenerator func(*object.Address) query.Query
 }
 
-func (s *RelationSearcher) SearchRelation(ctx context.Context, addr *object.Address) (*object.ID, error) {
+func (s *RelationSearcher) SearchRelation(ctx context.Context, addr *object.Address, prm *util.CommonPrm) (*object.ID, error) {
 	streamer, err := s.svc.Search(ctx, new(Prm).
-		WithContainerID(addr.GetContainerID()).
+		WithContainerID(addr.GetContainerID()).WithCommonPrm(prm).
 		WithSearchQuery(s.queryGenerator(addr)),
 	)
 	if err != nil {

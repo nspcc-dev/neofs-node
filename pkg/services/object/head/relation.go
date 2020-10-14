@@ -5,6 +5,7 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
 
@@ -21,8 +22,8 @@ func NewRelationHeader(srch RelationSearcher, svc *Service) *RelationHeader {
 	}
 }
 
-func (h *RelationHeader) HeadRelation(ctx context.Context, addr *objectSDK.Address) (*object.Object, error) {
-	id, err := h.srch.SearchRelation(ctx, addr)
+func (h *RelationHeader) HeadRelation(ctx context.Context, addr *objectSDK.Address, prm *objutil.CommonPrm) (*object.Object, error) {
+	id, err := h.srch.SearchRelation(ctx, addr, prm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not find relation", h)
 	}
