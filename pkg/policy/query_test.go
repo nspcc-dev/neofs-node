@@ -48,6 +48,39 @@ SELECT 1 IN City FROM * AS SPB`
 	require.Equal(t, expected, r)
 }
 
+// https://github.com/nspcc-dev/neofs-node/issues/46
+func TestFromSelectNoAttribute(t *testing.T) {
+	t.Run("Simple", func(t *testing.T) {
+		q := `REP 2
+		SELECT 6 FROM *`
+
+		expected := new(netmap.PlacementPolicy)
+		expected.SetFilters([]*netmap.Filter{})
+		expected.SetSelectors([]*netmap.Selector{newSelector(6, netmap.UnspecifiedClause, "", "*", "")})
+		expected.SetReplicas([]*netmap.Replica{newReplica("", 2)})
+
+		r, err := Parse(q)
+		require.NoError(t, err)
+		require.Equal(t, expected, r)
+
+	})
+
+	t.Run("with filter", func(t *testing.T) {
+		q := `REP 2
+		SELECT 6 FROM F
+		FILTER StorageType EQ SSD AS F`
+
+		expected := new(netmap.PlacementPolicy)
+		expected.SetFilters([]*netmap.Filter{newFilter("F", "StorageType", "SSD", netmap.EQ)})
+		expected.SetSelectors([]*netmap.Selector{newSelector(6, netmap.UnspecifiedClause, "", "F", "")})
+		expected.SetReplicas([]*netmap.Replica{newReplica("", 2)})
+
+		r, err := Parse(q)
+		require.NoError(t, err)
+		require.Equal(t, expected, r)
+	})
+}
+
 func TestFromSelectClause(t *testing.T) {
 	q := `REP 4
 SELECT 3 IN Country FROM *
