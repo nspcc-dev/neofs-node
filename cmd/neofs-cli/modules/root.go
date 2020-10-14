@@ -101,7 +101,7 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		printVerbose("Using config file: %s", viper.ConfigFileUsed())
 	}
 }
 
@@ -116,9 +116,7 @@ func getKey() (*ecdsa.PrivateKey, error) {
 			return nil, errCantGenerateKey
 		}
 
-		if verbose {
-			fmt.Println("Generating private key:", hex.EncodeToString(buf))
-		}
+		printVerbose("Generating private key:", hex.EncodeToString(buf))
 
 		return crypto.UnmarshalPrivateKey(buf)
 	}
@@ -181,4 +179,10 @@ func ownerFromString(s string) (*owner.ID, error) {
 	id.SetNeo3Wallet(&w)
 
 	return id, nil
+}
+
+func printVerbose(format string, a ...interface{}) {
+	if verbose {
+		fmt.Printf(format+"\n", a...)
+	}
 }
