@@ -50,8 +50,9 @@ const (
 	cfgMaxObjectSize       = "node.maxobjectsize" // todo: get value from chain
 
 	// config keys for cfgGRPC
-	cfgListenAddress = "grpc.endpoint"
-	cfgMaxMsgSize    = "grpc.maxmessagesize"
+	cfgListenAddress  = "grpc.endpoint"
+	cfgMaxMsgSize     = "grpc.maxmessagesize"
+	cfgReflectService = "grpc.enable_reflect_service"
 
 	// config keys for cfgMorph
 	cfgMorphRPCAddress = "morph.endpoint"
@@ -124,6 +125,8 @@ type cfgGRPC struct {
 	maxChunkSize uint64
 
 	maxAddrAmount uint64
+
+	enableReflectService bool
 }
 
 type cfgMorph struct {
@@ -234,8 +237,9 @@ func initCfg(path string) *cfg {
 			maxObjectSize: viperCfg.GetUint64(cfgMaxObjectSize),
 		},
 		cfgGRPC: cfgGRPC{
-			maxChunkSize:  maxChunkSize,
-			maxAddrAmount: maxAddrAmount,
+			maxChunkSize:         maxChunkSize,
+			maxAddrAmount:        maxAddrAmount,
+			enableReflectService: viperCfg.GetBool(cfgReflectService),
 		},
 		localAddr: netAddr,
 	}
