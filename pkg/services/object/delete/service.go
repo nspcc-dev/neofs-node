@@ -20,7 +20,7 @@ type Service struct {
 type Option func(*cfg)
 
 type RelationHeader interface {
-	HeadRelation(context.Context, *objectSDK.Address) (*object.Object, error)
+	HeadRelation(context.Context, *objectSDK.Address, *objutil.CommonPrm) (*object.Object, error)
 }
 
 type cfg struct {
@@ -107,7 +107,7 @@ func (s *Service) Delete(ctx context.Context, prm *Prm) (*Response, error) {
 func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Address, error) {
 	var res []*objectSDK.Address
 
-	if linking, err := s.hdrLinking.HeadRelation(ctx, prm.addr); err != nil {
+	if linking, err := s.hdrLinking.HeadRelation(ctx, prm.addr, prm.common); err != nil {
 		cid := prm.addr.GetContainerID()
 
 		for prev := prm.addr.GetObjectID(); prev != nil; {
