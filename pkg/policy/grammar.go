@@ -27,11 +27,10 @@ type replicaStmt struct {
 }
 
 type selectorStmt struct {
-	Count  uint32 `"SELECT" @Int`
-	Clause string `"IN" @("SAME" | "DISTINCT")?`
-	Bucket string `@Ident`
-	Filter string `"FROM" @(Ident | "*")`
-	Name   string `("AS" @Ident)?`
+	Count  uint32   `"SELECT" @Int`
+	Bucket []string `("IN" @(("SAME" | "DISTINCT")? Ident))?`
+	Filter string   `"FROM" @(Ident | "*")`
+	Name   string   `("AS" @Ident)?`
 }
 
 type filterStmt struct {

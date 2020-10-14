@@ -52,18 +52,16 @@ func Parse(s string) (*netmap.PlacementPolicy, error) {
 			return nil, fmt.Errorf("%w: '%s'", ErrUnknownFilter, qs.Filter)
 		}
 		s := new(netmap.Selector)
-		switch qs.Clause {
-		case "SAME":
-			s.SetClause(netmap.Same)
-		case "DISTINCT":
-			s.SetClause(netmap.Distinct)
-		default:
-			s.SetClause(netmap.UnspecifiedClause)
+		switch len(qs.Bucket) {
+		case 1: // only bucket
+			s.SetAttribute(qs.Bucket[0])
+		case 2: // clause + bucket
+			s.SetClause(clauseFromString(qs.Bucket[0]))
+			s.SetAttribute(qs.Bucket[1])
 		}
 		s.SetName(qs.Name)
 		seenSelectors[qs.Name] = true
 		s.SetFilter(qs.Filter)
-		s.SetAttribute(qs.Bucket)
 		if qs.Count == 0 {
 			return nil, fmt.Errorf("%w: SELECT", ErrInvalidNumber)
 		}
@@ -93,6 +91,17 @@ func Parse(s string) (*netmap.PlacementPolicy, error) {
 	p.SetReplicas(rs)
 	p.SetContainerBackupFactor(q.CBF)
 	return p, nil
+}
+
+func clauseFromString(s string) netmap.Clause {
+	switch strings.ToUpper(s) {
+	case "SAME":
+		return netmap.Same
+	case "DISTINCT":
+		return netmap.Distinct
+	default:
+		return netmap.UnspecifiedClause
+	}
 }
 
 func filterFromOrChain(expr *orChain, seen map[string]bool) (*netmap.Filter, error) {

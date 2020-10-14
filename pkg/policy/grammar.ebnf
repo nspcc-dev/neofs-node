@@ -15,7 +15,7 @@ CbtStmt ::= 'CBF', Number1 (* container backup factor *)
 
 SelectStmt ::=
     'SELECT', Number1,    (* number of nodes to select without container backup factor *)
-    'IN', Clause?, Ident, (* bucket name *)
+    ('IN', Clause?, Ident)?, (* bucket name *)
     FROM, (Ident | '*'),  (* filter reference or whole netmap *)
     ('AS', Ident)?        (* optional selector name *)
 ;
