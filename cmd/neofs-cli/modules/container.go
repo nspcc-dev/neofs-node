@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -12,8 +13,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl"
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
@@ -197,11 +200,54 @@ Only owner of the container has a permission to remove container.`,
 	},
 }
 
+var listContainerObjectsCmd = &cobra.Command{
+	Use:   "list-objects",
+	Short: "List existing objects in container",
+	Long:  `List existing objects in container`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		cli, err := getSDKClient()
+		if err != nil {
+			return err
+		}
+
+		id, err := parseContainerID(containerID)
+		if err != nil {
+			return err
+		}
+
+		sessionToken, err := cli.CreateSession(ctx, math.MaxUint64)
+		if err != nil {
+			return fmt.Errorf("can't create session token: %w", err)
+		}
+
+		filters := new(object.SearchFilters)
+		filters.AddRootFilter() // search only user created objects
+
+		searchQuery := new(client.SearchObjectParams)
+		searchQuery.WithContainerID(id)
+		searchQuery.WithSearchFilters(*filters)
+
+		objectIDs, err := cli.SearchObject(ctx, searchQuery, client.WithSession(sessionToken))
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
+
+		for i := range objectIDs {
+			fmt.Println(objectIDs[i])
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(containerCmd)
 	containerCmd.AddCommand(listContainersCmd)
 	containerCmd.AddCommand(createContainerCmd)
 	containerCmd.AddCommand(deleteContainerCmd)
+	containerCmd.AddCommand(listContainerObjectsCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -213,8 +259,10 @@ func init() {
 	// is called directly, e.g.:
 	// containerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
+	// container list
 	listContainersCmd.Flags().StringVar(&containerOwner, "owner", "", "owner of containers (omit to use owner from private key)")
 
+	// container create
 	createContainerCmd.Flags().StringVar(&containerACL, "basic-acl", "private",
 		"hex encoded basic ACL value or keywords 'public', 'private', 'readonly'")
 	createContainerCmd.Flags().StringVarP(&containerPolicy, "policy", "p", "",
@@ -224,8 +272,12 @@ func init() {
 	createContainerCmd.Flags().StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
 	createContainerCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
 
+	// container delete
 	deleteContainerCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
 	deleteContainerCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until container is removed")
+
+	// container list-object
+	listContainerObjectsCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
 }
 
 func prettyPrintContainerList(list []*container.ID) {
@@ -313,6 +365,10 @@ func parseNonce(nonce string) (uuid.UUID, error) {
 }
 
 func parseContainerID(cid string) (*container.ID, error) {
+	if cid == "" {
+		return nil, errors.New("container ID is not set")
+	}
+
 	id := container.NewID()
 
 	err := id.Parse(cid)
