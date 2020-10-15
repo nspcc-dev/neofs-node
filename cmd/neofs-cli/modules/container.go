@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
+	grpccontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
 	"github.com/spf13/cobra"
 )
@@ -39,6 +40,9 @@ var (
 	containerAwait      bool
 
 	containerID string
+
+	containerPathFrom string
+	containerPathTo   string
 )
 
 // containerCmd represents the container command
@@ -242,12 +246,74 @@ var listContainerObjectsCmd = &cobra.Command{
 	},
 }
 
+var getContainerInfoCmd = &cobra.Command{
+	Use:   "get",
+	Short: "Get container field info",
+	Long:  `Get container field info`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			cnr *container.Container
+
+			ctx = context.Background()
+		)
+
+		if containerPathFrom != "" {
+			data, err := ioutil.ReadFile(containerPathFrom)
+			if err != nil {
+				return fmt.Errorf("can't read file: %w", err)
+			}
+
+			// todo: make more user friendly way to parse raw data
+			msg := new(grpccontainer.Container)
+			if msg.Unmarshal(data) != nil {
+				return errors.New("can't unmarshal container")
+			}
+
+			v2cnr := v2container.ContainerFromGRPCMessage(msg)
+
+			cnr = container.NewContainerFromV2(v2cnr)
+		} else {
+			cli, err := getSDKClient()
+			if err != nil {
+				return err
+			}
+
+			id, err := parseContainerID(containerID)
+			if err != nil {
+				return err
+			}
+
+			cnr, err = cli.GetContainer(ctx, id)
+			if err != nil {
+				return fmt.Errorf("rpc error: %w", err)
+			}
+		}
+
+		prettyPrintContainer(cnr)
+
+		if containerPathTo != "" {
+			data, err := cnr.ToV2().StableMarshal(nil)
+			if err != nil {
+				return errors.New("can't marshal container")
+			}
+
+			err = ioutil.WriteFile(containerPathTo, data, 0644)
+			if err != nil {
+				return fmt.Errorf("can't write container to file: %w", err)
+			}
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(containerCmd)
 	containerCmd.AddCommand(listContainersCmd)
 	containerCmd.AddCommand(createContainerCmd)
 	containerCmd.AddCommand(deleteContainerCmd)
 	containerCmd.AddCommand(listContainerObjectsCmd)
+	containerCmd.AddCommand(getContainerInfoCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -278,6 +344,11 @@ func init() {
 
 	// container list-object
 	listContainerObjectsCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
+
+	// container get
+	getContainerInfoCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
+	getContainerInfoCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump binary encoded container")
+	getContainerInfoCmd.Flags().StringVar(&containerPathFrom, "from", "", "path to file with binary encoded container")
 }
 
 func prettyPrintContainerList(list []*container.ID) {
@@ -377,4 +448,45 @@ func parseContainerID(cid string) (*container.ID, error) {
 	}
 
 	return id, nil
+}
+
+func prettyPrintContainer(cnr *container.Container) {
+	if cnr == nil {
+		return
+	}
+
+	id := container.CalculateID(cnr)
+	fmt.Println("container ID:", id)
+
+	version := cnr.GetVersion()
+	fmt.Printf("version: %d.%d\n", version.GetMajor(), version.GetMinor())
+
+	// todo: return pkg structures instead of v2 structures
+	ownerID := owner.NewIDFromV2(cnr.GetOwnerID())
+	fmt.Println("owner ID:", ownerID)
+
+	basicACL := cnr.GetBasicACL()
+	fmt.Printf("basic ACL: %s", strconv.FormatUint(uint64(basicACL), 16))
+	switch basicACL {
+	case acl.PublicBasicRule:
+		fmt.Println(" (public)")
+	case acl.PrivateBasicRule:
+		fmt.Println(" (private)")
+	case acl.ReadOnlyBasicRule:
+		fmt.Println(" (readonly)")
+	default:
+		fmt.Println()
+	}
+
+	for _, attribute := range cnr.GetAttributes() {
+		fmt.Printf("attribute: `%s:%s`\n", attribute.GetKey(), attribute.GetValue())
+	}
+
+	nonce, err := uuid.FromBytes(cnr.GetNonce())
+	if err == nil {
+		fmt.Println("nonce:", nonce)
+	}
+
+	fmt.Println("placement policy:")
+	fmt.Println(strings.Join(policy.Encode(cnr.GetPlacementPolicy()), "\n"))
 }
