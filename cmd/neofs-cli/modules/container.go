@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -132,8 +130,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		// todo: use stringers after neofs-api-go#147
-		fmt.Println("container ID:", base58.Encode(id.ToV2().GetValue()))
+		fmt.Println("container ID:", id)
 
 		if containerAwait {
 			fmt.Println("awaiting...")
@@ -233,8 +230,7 @@ func init() {
 
 func prettyPrintContainerList(list []*container.ID) {
 	for i := range list {
-		// todo: use stringers after neofs-api-go#147
-		fmt.Println(base58.Encode(list[i].ToV2().GetValue()))
+		fmt.Println(list[i])
 	}
 }
 
@@ -317,17 +313,12 @@ func parseNonce(nonce string) (uuid.UUID, error) {
 }
 
 func parseContainerID(cid string) (*container.ID, error) {
-	// todo: use decoders after neofs-api-go#147
-	data, err := base58.Decode(cid)
-	if err != nil || len(data) != sha256.Size {
+	id := container.NewID()
+
+	err := id.Parse(cid)
+	if err != nil {
 		return nil, errors.New("can't decode container ID value")
 	}
-
-	var buf [sha256.Size]byte
-	copy(buf[:], data)
-
-	id := container.NewID()
-	id.SetSHA256(buf)
 
 	return id, nil
 }
