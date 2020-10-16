@@ -48,6 +48,8 @@ dep:
 	CGO_ENABLED=0 \
 	GO111MODULE=on \
 	go mod download && echo OK
+
+test_dep:
 	@printf "⇒ Install test requirements: "
 	CGO_ENABLED=0 \
 	GO111MODULE=on \
@@ -96,7 +98,7 @@ imports:
 	@GO111MODULE=on goimports -w cmd/ pkg/ misc/
 
 # Run Unit Test with go test
-test:
+test: test_dep
 	@echo "⇒ Runnning go test"
 	@GO111MODULE=on go test ./...
 
