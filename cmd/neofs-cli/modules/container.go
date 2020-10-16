@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	attributeDelimiter = ":"
+	attributeDelimiter = "="
 
 	awaitTimeout = 120 // in seconds
 )
@@ -333,8 +333,8 @@ func init() {
 		"hex encoded basic ACL value or keywords 'public', 'private', 'readonly'")
 	createContainerCmd.Flags().StringVarP(&containerPolicy, "policy", "p", "",
 		"QL-encoded or JSON-encoded placement policy or path to file with it")
-	createContainerCmd.Flags().StringArrayVarP(&containerAttributes, "attribute", "a", nil,
-		"colon separated pair of container attribute key and value, e.g. `target:cats`")
+	createContainerCmd.Flags().StringSliceVarP(&containerAttributes, "attributes", "a", nil,
+		"comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	createContainerCmd.Flags().StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
 	createContainerCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
 
@@ -479,7 +479,7 @@ func prettyPrintContainer(cnr *container.Container) {
 	}
 
 	for _, attribute := range cnr.GetAttributes() {
-		fmt.Printf("attribute: `%s:%s`\n", attribute.GetKey(), attribute.GetValue())
+		fmt.Printf("attribute: %s=%s\n", attribute.GetKey(), attribute.GetValue())
 	}
 
 	nonce, err := uuid.FromBytes(cnr.GetNonce())
