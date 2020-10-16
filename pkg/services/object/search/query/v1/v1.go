@@ -45,8 +45,8 @@ func (q *Query) Match(obj *object.Object, handler func(*objectSDK.ID)) {
 				default:
 					match = headerEqual(obj, key, q.filters[i].Value())
 				case objectSDK.KeyRoot:
-					match = (q.filters[i].Value() == objectSDK.ValRoot) == !obj.HasParent() &&
-						obj.GetType() == objectSDK.TypeRegular
+					match = (q.filters[i].Value() == objectSDK.ValRoot) == (!obj.HasParent() &&
+						obj.GetType() == objectSDK.TypeRegular)
 				case objectSDK.KeyLeaf:
 					match = (q.filters[i].Value() == objectSDK.ValLeaf) == (par == nil)
 				}
