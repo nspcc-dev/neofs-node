@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -453,30 +451,16 @@ func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
 
 func getCID(cmd *cobra.Command) (*container.ID, error) {
 	cid := container.NewID()
-	var v [32]byte
-	b, err := base58.Decode(cmd.Flag("cid").Value.String())
-	if err != nil {
-		return nil, err
-	} else if len(b) != sha256.Size {
-		return nil, errors.New("invalid length")
-	}
-	copy(v[:], b)
-	cid.SetSHA256(v)
-	return cid, nil
+	err := cid.Parse(cmd.Flag("cid").Value.String())
+
+	return cid, err
 }
 
 func getOID(cmd *cobra.Command) (*object.ID, error) {
 	oid := object.NewID()
-	var v [32]byte
-	b, err := base58.Decode(cmd.Flag("oid").Value.String())
-	if err != nil {
-		return nil, err
-	} else if len(b) != sha256.Size {
-		return nil, errors.New("invalid length")
-	}
-	copy(v[:], b)
-	oid.SetSHA256(v)
-	return oid, nil
+	err := oid.Parse(cmd.Flag("oid").Value.String())
+
+	return oid, err
 }
 
 func getObjectAddress(cmd *cobra.Command) (*object.Address, error) {
