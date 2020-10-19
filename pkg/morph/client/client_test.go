@@ -20,6 +20,10 @@ func TestToStackParameter(t *testing.T) {
 			value:   int64(100),
 			expType: sc.IntegerType,
 		},
+		{
+			value:   "hello world",
+			expType: sc.StringType,
+		},
 	}
 
 	for _, item := range items {
