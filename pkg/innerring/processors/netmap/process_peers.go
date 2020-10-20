@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Process add peer notification by sanity check of new node
@@ -20,7 +21,7 @@ func (np *Processor) processAddPeer(node []byte) {
 	// unmarshal grpc (any transport) version of node info from API v2
 	nodeInfo := new(netmap.NodeInfo)
 
-	err := nodeInfo.Unmarshal(node)
+	err := proto.Unmarshal(node, nodeInfo)
 	if err != nil {
 		// it will be nice to have tx id at event structure to log it
 		np.log.Warn("can't parse network map candidate")

@@ -22,6 +22,7 @@ import (
 	grpccontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -265,7 +266,7 @@ var getContainerInfoCmd = &cobra.Command{
 
 			// todo: make more user friendly way to parse raw data
 			msg := new(grpccontainer.Container)
-			if msg.Unmarshal(data) != nil {
+			if proto.Unmarshal(data, msg) != nil {
 				return errors.New("can't unmarshal container")
 			}
 

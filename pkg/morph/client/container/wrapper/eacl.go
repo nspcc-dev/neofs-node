@@ -7,6 +7,7 @@ import (
 	msgACL "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 // GetEACL reads the extended ACL table from NeoFS system
@@ -30,7 +31,7 @@ func (w *Wrapper) GetEACL(cid *container.ID) (*eacl.Table, []byte, error) {
 	}
 
 	grpcMsg := new(msgACL.EACLTable)
-	err = grpcMsg.Unmarshal(rpcAnswer.EACL())
+	err = proto.Unmarshal(rpcAnswer.EACL(), grpcMsg)
 	if err != nil {
 		// use other major version if there any
 		return nil, nil, err
