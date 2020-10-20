@@ -8,7 +8,8 @@ import (
 type CommonPrm struct {
 	local bool
 
-	token *token.SessionToken
+	token  *token.SessionToken
+	bearer *token.BearerToken
 }
 
 func (p *CommonPrm) WithLocalOnly(v bool) *CommonPrm {
@@ -35,9 +36,25 @@ func (p *CommonPrm) WithSessionToken(token *token.SessionToken) *CommonPrm {
 	return p
 }
 
+func (p *CommonPrm) WithBearerToken(token *token.BearerToken) *CommonPrm {
+	if p != nil {
+		p.bearer = token
+	}
+
+	return p
+}
+
 func (p *CommonPrm) SessionToken() *token.SessionToken {
 	if p != nil {
 		return p.token
+	}
+
+	return nil
+}
+
+func (p *CommonPrm) BearerToken() *token.BearerToken {
+	if p != nil {
+		return p.bearer
 	}
 
 	return nil
@@ -49,7 +66,8 @@ func CommonPrmFromV2(req interface {
 	meta := req.GetMetaHeader()
 
 	return &CommonPrm{
-		local: meta.GetTTL() <= 1, // FIXME: use constant
-		token: token.NewSessionTokenFromV2(meta.GetSessionToken()),
+		local:  meta.GetTTL() <= 1, // FIXME: use constant
+		token:  token.NewSessionTokenFromV2(meta.GetSessionToken()),
+		bearer: token.NewBearerTokenFromV2(meta.GetBearerToken()),
 	}
 }

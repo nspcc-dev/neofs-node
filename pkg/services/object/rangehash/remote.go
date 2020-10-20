@@ -45,6 +45,7 @@ func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][
 	opts := []client.CallOption{
 		client.WithTTL(1), // FIXME: use constant
 		client.WithSession(prm.common.SessionToken()),
+		client.WithBearer(prm.common.BearerToken()),
 	}
 
 	switch prm.typ {

@@ -44,6 +44,7 @@ func (h *remoteHeader) head(ctx context.Context, prm *Prm, handler func(*object.
 	hdr, err := c.GetObjectHeader(ctx, p,
 		client.WithTTL(1), // FIXME: use constant
 		client.WithSession(prm.common.SessionToken()),
+		client.WithBearer(prm.common.BearerToken()),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not head object in %s", h, addr)

@@ -182,6 +182,7 @@ loop:
 							keyStorage: p.keyStorage,
 							node:       addr,
 							token:      p.prm.common.SessionToken(),
+							bearer:     p.prm.common.BearerToken(),
 							addr:       objAddr,
 							rng:        nextRange,
 						}
