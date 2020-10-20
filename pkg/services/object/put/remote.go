@@ -21,6 +21,8 @@ type remoteTarget struct {
 
 	token *token.SessionToken
 
+	bearer *token.BearerToken
+
 	addr *network.Address
 
 	obj *object.Object
@@ -55,6 +57,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 			t.obj.SDK(),
 		),
 		client.WithTTL(1), // FIXME: use constant
+		client.WithBearer(t.bearer),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not put object to %s", t, addr)

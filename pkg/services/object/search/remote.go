@@ -42,6 +42,7 @@ func (s *remoteStream) stream(ctx context.Context, ch chan<- []*object.ID) error
 		WithSearchFilters(s.prm.query.ToSearchFilters()),
 		client.WithTTL(1), // FIXME: use constant
 		client.WithSession(s.prm.common.SessionToken()),
+		client.WithBearer(s.prm.common.BearerToken()),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not search objects in %s", s, addr)

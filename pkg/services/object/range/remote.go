@@ -21,6 +21,8 @@ type remoteRangeWriter struct {
 
 	token *token.SessionToken
 
+	bearer *token.BearerToken
+
 	addr *object.Address
 
 	rng *object.Range
@@ -50,6 +52,7 @@ func (r *remoteRangeWriter) WriteTo(w io.Writer) (int64, error) {
 		WithAddress(r.addr),
 		client.WithTTL(1), // FIXME: use constant
 		client.WithSession(r.token),
+		client.WithBearer(r.bearer),
 	)
 	if err != nil {
 		return 0, errors.Wrapf(err, "(%T) could not read object payload range from %s", r, addr)

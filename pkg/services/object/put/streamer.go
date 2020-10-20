@@ -131,6 +131,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 					ctx:        p.ctx,
 					keyStorage: p.keyStorage,
 					token:      prm.common.SessionToken(),
+					bearer:     prm.common.BearerToken(),
 					addr:       addr,
 				}
 			}
