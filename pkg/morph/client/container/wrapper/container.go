@@ -11,6 +11,7 @@ import (
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -82,7 +83,7 @@ func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
 
 	// convert serialized bytes into GRPC structure
 	grpcMsg := new(msgContainer.Container)
-	err = grpcMsg.Unmarshal(rpcAnswer.Container())
+	err = proto.Unmarshal(rpcAnswer.Container(), grpcMsg)
 	if err != nil {
 		// use other major version if there any
 		return nil, errors.Wrap(err, "can't unmarshal container")

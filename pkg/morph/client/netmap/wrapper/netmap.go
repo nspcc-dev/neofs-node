@@ -6,6 +6,7 @@ import (
 	grpcNetmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 // GetNetMap receives information list about storage nodes
@@ -26,7 +27,7 @@ func (w Wrapper) GetNetMap(diff uint64) (*netmap.Netmap, error) {
 
 	for _, peer := range rawPeers {
 		grpcNodeInfo := new(grpcNetmap.NodeInfo) // transport representation of struct
-		err = grpcNodeInfo.Unmarshal(peer)
+		err = proto.Unmarshal(peer, grpcNodeInfo)
 		if err != nil {
 			// consider unmarshalling into different major versions
 			// of NodeInfo structure, if there any
