@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,11 +15,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl"
+	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	v2ACL "github.com/nspcc-dev/neofs-api-go/v2/acl"
+	grpcACL "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
 	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
 	grpccontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
@@ -44,6 +49,10 @@ var (
 
 	containerPathFrom string
 	containerPathTo   string
+
+	containerJSON bool
+
+	eaclPathFrom string
 )
 
 // containerCmd represents the container command
@@ -308,6 +317,122 @@ var getContainerInfoCmd = &cobra.Command{
 	},
 }
 
+var getExtendedACLCmd = &cobra.Command{
+	Use:   "get-eacl",
+	Short: "Get extended ACL table of container",
+	Long:  `Get extended ACL talbe of container`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		cli, err := getSDKClient()
+		if err != nil {
+			return err
+		}
+
+		id, err := parseContainerID(containerID)
+		if err != nil {
+			return err
+		}
+
+		eaclTable, err := cli.GetEACL(ctx, id)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
+
+		v := eaclTable.Version()
+		if v.GetMajor() == 0 && v.GetMajor() == 0 {
+			fmt.Println("extended ACL table is not set for this container")
+			return nil
+		}
+
+		if containerPathTo == "" {
+			prettyPrintEACL(eaclTable)
+			return nil
+		}
+
+		var data []byte
+
+		if containerJSON {
+			data = v2ACL.TableToJSON(eaclTable.ToV2())
+			if len(data) == 0 {
+				return errors.New("can't encode to JSON")
+			}
+		} else {
+			data, err = eaclTable.ToV2().StableMarshal(nil)
+			if err != nil {
+				return errors.New("can't encode to binary")
+			}
+		}
+
+		fmt.Println("dumping data to file:", containerPathTo)
+
+		return ioutil.WriteFile(containerPathTo, data, 0644)
+	},
+}
+
+var setExtendedACLCmd = &cobra.Command{
+	Use:   "set-eacl",
+	Short: "Set new extended ACL table for container",
+	Long: `Set new extended ACL table for container.
+Container ID in EACL table will be substituted with ID from the CLI.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		cli, err := getSDKClient()
+		if err != nil {
+			return err
+		}
+
+		id, err := parseContainerID(containerID)
+		if err != nil {
+			return err
+		}
+
+		eaclTable, err := parseEACL(eaclPathFrom)
+		if err != nil {
+			return err
+		}
+
+		eaclTable.SetCID(id)
+
+		err = cli.SetEACL(ctx, eaclTable)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
+
+		if containerAwait {
+			exp, err := eaclTable.ToV2().StableMarshal(nil)
+			if err != nil {
+				return errors.New("broken EACL table")
+			}
+
+			fmt.Println("awaiting...")
+
+			for i := 0; i < awaitTimeout; i++ {
+				time.Sleep(1 * time.Second)
+
+				table, err := cli.GetEACL(ctx, id)
+				if err == nil {
+					// compare binary values because EACL could have been set already
+					got, err := table.ToV2().StableMarshal(nil)
+					if err != nil {
+						continue
+					}
+
+					if bytes.Equal(exp, got) {
+						fmt.Println("EACL has been persisted on sidechain")
+						return nil
+					}
+				}
+			}
+
+			return errors.New("timeout: EACL has not been persisted on sidechain")
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(containerCmd)
 	containerCmd.AddCommand(listContainersCmd)
@@ -315,6 +440,8 @@ func init() {
 	containerCmd.AddCommand(deleteContainerCmd)
 	containerCmd.AddCommand(listContainerObjectsCmd)
 	containerCmd.AddCommand(getContainerInfoCmd)
+	containerCmd.AddCommand(getExtendedACLCmd)
+	containerCmd.AddCommand(setExtendedACLCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -350,6 +477,16 @@ func init() {
 	getContainerInfoCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
 	getContainerInfoCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump binary encoded container")
 	getContainerInfoCmd.Flags().StringVar(&containerPathFrom, "from", "", "path to file with binary encoded container")
+
+	// container get-eacl
+	getExtendedACLCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
+	getExtendedACLCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump encoded container (default: binary encoded)")
+	getExtendedACLCmd.Flags().BoolVar(&containerJSON, "json", false, "encode EACL table in json format")
+
+	// container set-eacl
+	setExtendedACLCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
+	setExtendedACLCmd.Flags().StringVar(&eaclPathFrom, "table", "", "path to file with JSON or binary encoded EACL table")
+	setExtendedACLCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
 }
 
 func prettyPrintContainerList(list []*container.ID) {
@@ -490,4 +627,41 @@ func prettyPrintContainer(cnr *container.Container) {
 
 	fmt.Println("placement policy:")
 	fmt.Println(strings.Join(policy.Encode(cnr.GetPlacementPolicy()), "\n"))
+}
+
+func parseEACL(eaclPath string) (*eacl.Table, error) {
+	_, err := os.Stat(eaclPath) // check if `eaclPath` is an existing file
+	if err != nil {
+		return nil, errors.New("incorrect path to file with EACL")
+	}
+
+	printVerbose("Reading EACL from file: %s", eaclPath)
+
+	data, err := ioutil.ReadFile(eaclPath)
+	if err != nil {
+		return nil, fmt.Errorf("can't read file with EACL: %w", err)
+	}
+
+	msg := new(grpcACL.EACLTable)
+	if proto.Unmarshal(data, msg) == nil {
+		printVerbose("Parsed binary encoded EACL table")
+		v2 := v2ACL.TableFromGRPCMessage(msg)
+		return eacl.NewTableFromV2(v2), nil
+	}
+
+	if v2 := v2ACL.TableFromJSON(data); v2 != nil {
+		printVerbose("Parsed JSON encoded EACL table")
+		return eacl.NewTableFromV2(v2), nil
+	}
+
+	return nil, errors.New("can't parse EACL table")
+}
+
+func prettyPrintEACL(table *eacl.Table) {
+	data := v2ACL.TableToJSON(table.ToV2())
+	buf := new(bytes.Buffer)
+	if err := json.Indent(buf, data, "", "  "); err != nil {
+		printVerbose("Can't pretty print json: %w", err)
+	}
+	fmt.Println(buf)
 }
