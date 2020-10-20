@@ -299,12 +299,24 @@ var getContainerInfoCmd = &cobra.Command{
 			}
 		}
 
-		prettyPrintContainer(cnr)
+		prettyPrintContainer(cnr, containerJSON)
 
 		if containerPathTo != "" {
-			data, err := cnr.ToV2().StableMarshal(nil)
-			if err != nil {
-				return errors.New("can't marshal container")
+			var (
+				data []byte
+				err  error
+			)
+
+			if containerJSON {
+				data = v2container.ContainerToJSON(cnr.ToV2())
+				if len(data) == 0 {
+					return errors.New("can't JSON encode container")
+				}
+			} else {
+				data, err = cnr.ToV2().StableMarshal(nil)
+				if err != nil {
+					return errors.New("can't binary encode container")
+				}
 			}
 
 			err = ioutil.WriteFile(containerPathTo, data, 0644)
@@ -475,8 +487,9 @@ func init() {
 
 	// container get
 	getContainerInfoCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
-	getContainerInfoCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump binary encoded container")
-	getContainerInfoCmd.Flags().StringVar(&containerPathFrom, "from", "", "path to file with binary encoded container")
+	getContainerInfoCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump encoded container")
+	getContainerInfoCmd.Flags().StringVar(&containerPathFrom, "from", "", "path to file with encoded container")
+	getContainerInfoCmd.Flags().BoolVar(&containerJSON, "json", false, "print or dump container in JSON format")
 
 	// container get-eacl
 	getExtendedACLCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
@@ -588,8 +601,20 @@ func parseContainerID(cid string) (*container.ID, error) {
 	return id, nil
 }
 
-func prettyPrintContainer(cnr *container.Container) {
+func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	if cnr == nil {
+		return
+	}
+
+	if jsonEncoding {
+		data := v2container.ContainerToJSON(cnr.ToV2())
+		buf := new(bytes.Buffer)
+		if err := json.Indent(buf, data, "", "  "); err != nil {
+			printVerbose("Can't pretty print json: %w", err)
+		}
+
+		fmt.Println(buf)
+
 		return
 	}
 
