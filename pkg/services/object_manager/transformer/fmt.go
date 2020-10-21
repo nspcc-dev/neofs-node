@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
@@ -25,6 +26,8 @@ type FormatterParams struct {
 	NextTarget ObjectTarget
 
 	SessionToken *token.SessionToken
+
+	NetworkState netmap.State
 }
 
 // NewFormatTarget returns ObjectTarget instance that finalizes object structure
@@ -36,6 +39,7 @@ type FormatterParams struct {
 // - sets version to current SDK version;
 // - sets payload size to the total length of all written chunks;
 // - sets session token;
+// - sets number of creation epoch;
 // - calculates and sets verification fields (ID, Signature).
 func NewFormatTarget(p *FormatterParams) ObjectTarget {
 	return &formatter{
@@ -58,9 +62,12 @@ func (f *formatter) Write(p []byte) (n int, err error) {
 }
 
 func (f *formatter) Close() (*AccessIdentifiers, error) {
+	curEpoch := f.prm.NetworkState.CurrentEpoch()
+
 	f.obj.SetVersion(pkg.SDKVersion())
 	f.obj.SetPayloadSize(f.sz)
 	f.obj.SetSessionToken(f.prm.SessionToken)
+	f.obj.SetCreationEpoch(curEpoch)
 
 	var parID *objectSDK.ID
 
@@ -68,6 +75,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		rawPar := objectSDK.NewRawFromV2(par.ToV2())
 
 		rawPar.SetSessionToken(f.prm.SessionToken)
+		rawPar.SetCreationEpoch(curEpoch)
 
 		if err := objectSDK.SetIDWithSignature(f.prm.Key, rawPar); err != nil {
 			return nil, errors.Wrap(err, "could not finalize parent object")
