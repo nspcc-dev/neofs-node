@@ -9,7 +9,9 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/pkg/errors"
@@ -90,18 +92,9 @@ func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
 	}
 
 	// if session token is presented, use it as truth source
-	if req.token != nil {
-		body := req.token.GetBody()
-		if body == nil {
-			return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at session token body")
-		}
-
-		signature := req.token.GetSignature()
-		if signature == nil {
-			return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at signature")
-		}
-
-		return owner.NewIDFromV2(body.GetOwnerID()), crypto.UnmarshalPublicKey(signature.GetKey()), nil
+	if req.token.GetBody() != nil {
+		// verify signature of session token
+		return ownerFromToken(req.token)
 	}
 
 	// otherwise get original body signature
@@ -196,4 +189,29 @@ func lookupKeyInContainer(
 	}
 
 	return false, nil
+}
+
+func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, error) {
+	// 1. First check signature of session token.
+	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
+	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
+		tokenSignature := token.GetSignature()
+		return tokenSignature.GetKey(), tokenSignature.GetSign()
+	}); err != nil {
+		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid session token signature")
+	}
+
+	// 2. Then check if session token owner issued the session token
+	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
+	tokenIssuerWallet, err := owner.NEO3WalletFromPublicKey(tokenIssuerKey)
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid token issuer key")
+	}
+
+	if !bytes.Equal(token.GetBody().GetOwnerID().GetValue(), tokenIssuerWallet.Bytes()) {
+		// todo: in this case we can issue all owner keys from neofs.id and check once again
+		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid session token owner")
+	}
+
+	return owner.NewIDFromV2(token.GetBody().GetOwnerID()), tokenIssuerKey, nil
 }
