@@ -135,7 +135,7 @@ loop:
 	}
 
 	if !h.traverser.Success() {
-		return nil, errors.Errorf("(%T) incomplete object Head operation", h)
+		return nil, errors.Wrapf(ErrNotFound, "(%T) incomplete object Head operation", h)
 	}
 
 	return resp, nil

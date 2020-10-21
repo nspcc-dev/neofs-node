@@ -39,6 +39,8 @@ type cfg struct {
 	rightChildSearcher RelationSearcher
 }
 
+var ErrNotFound = errors.New("object header not found")
+
 func defaultCfg() *cfg {
 	return &cfg{
 		workerPool: new(util.SyncWorkerPool),
