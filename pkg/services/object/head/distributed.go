@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -105,25 +104,24 @@ loop:
 			if err := h.workerPool.Submit(func() {
 				defer wg.Done()
 
-				var header interface {
-					head(context.Context, *Prm, func(*object.Object)) error
-				}
-
 				if network.IsLocalAddress(h.localAddrSrc, addr) {
-					header = &localHeader{
-						storage: h.localStore,
+					if err := h.localHeader.head(ctx, prm, h.w.write); err != nil {
+						// TODO: log error
 					}
-				} else {
-					header = &remoteHeader{
-						keyStorage: h.keyStorage,
-						node:       addr,
-					}
+
+					return
 				}
 
-				if err := header.head(ctx, prm, h.w.write); err != nil {
+				head, err := h.remoteHeader.Head(ctx, &RemoteHeadPrm{
+					commonHeadPrm: prm,
+					node:          addr,
+				})
+				if err != nil {
 					// TODO: log error
 					return
 				}
+
+				h.w.write(head)
 			}); err != nil {
 				wg.Done()
 				// TODO: log error

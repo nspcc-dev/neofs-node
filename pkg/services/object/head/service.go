@@ -24,10 +24,6 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	keyStorage *objutil.KeyStorage
-
-	localStore *localstore.Storage
-
 	cnrSrc container.Source
 
 	netMapSrc netmap.Source
@@ -37,6 +33,10 @@ type cfg struct {
 	localAddrSrc network.LocalAddressSource
 
 	rightChildSearcher RelationSearcher
+
+	localHeader localHeader
+
+	remoteHeader RemoteHeader
 }
 
 var ErrNotFound = errors.New("object header not found")
@@ -95,13 +95,13 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 
 func WithKeyStorage(v *objutil.KeyStorage) Option {
 	return func(c *cfg) {
-		c.keyStorage = v
+		c.remoteHeader.keyStorage = v
 	}
 }
 
 func WithLocalStorage(v *localstore.Storage) Option {
 	return func(c *cfg) {
-		c.localStore = v
+		c.localHeader.storage = v
 	}
 }
 
