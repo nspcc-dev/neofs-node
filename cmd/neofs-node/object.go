@@ -12,6 +12,7 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -32,6 +33,8 @@ import (
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/gc"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -182,6 +185,43 @@ func initObjectService(c *cfg) {
 	)
 
 	c.workers = append(c.workers, objGC)
+
+	ch := make(chan *policer.Task, 1)
+
+	pol := policer.New(
+		policer.WithLogger(c.log),
+		policer.WithLocalStorage(ls),
+		policer.WithContainerSource(c.cfgObject.cnrStorage),
+		policer.WithPlacementBuilder(
+			placement.NewNetworkMapSourceBuilder(c.cfgObject.netMapStorage),
+		),
+		policer.WithWorkScope(
+			c.viper.GetInt(cfgPolicerWorkScope),
+		),
+		policer.WithExpansionRate(
+			c.viper.GetInt(cfgPolicerExpRate),
+		),
+		policer.WithTrigger(ch),
+		policer.WithRemoteHeader(
+			headsvc.NewRemoteHeader(keyStorage),
+		),
+		policer.WithLocalAddressSource(c),
+		policer.WithHeadTimeout(
+			c.viper.GetDuration(cfgPolicerHeadTimeout),
+		),
+	)
+
+	addNewEpochNotificationHandler(c, func(ev event.Event) {
+		select {
+		case ch <- new(policer.Task):
+		case <-c.ctx.Done():
+			close(ch)
+		default:
+			c.log.Info("policer is busy")
+		}
+	})
+
+	c.workers = append(c.workers, pol)
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),

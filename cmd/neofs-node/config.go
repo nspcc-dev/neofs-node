@@ -80,6 +80,10 @@ const (
 	cfgGCQueueSize = "gc.queuesize"
 	cfgGCQueueTick = "gc.duration.sleep"
 	cfgGCTimeout   = "gc.duration.timeout"
+
+	cfgPolicerWorkScope   = "policer.work_scope"
+	cfgPolicerExpRate     = "policer.expansion_rate"
+	cfgPolicerHeadTimeout = "policer.head_timeout"
 )
 
 const (
@@ -316,6 +320,10 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgGCQueueSize, 1000)
 	v.SetDefault(cfgGCQueueTick, "5s")
 	v.SetDefault(cfgGCTimeout, "5s")
+
+	v.SetDefault(cfgPolicerWorkScope, 100)
+	v.SetDefault(cfgPolicerExpRate, 10) // in %
+	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
 }
 
 func (c *cfg) LocalAddress() *network.Address {
