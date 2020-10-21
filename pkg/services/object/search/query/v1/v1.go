@@ -1,8 +1,6 @@
 package query
 
 import (
-	"encoding/hex"
-
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
@@ -21,15 +19,15 @@ func New(filters objectSDK.SearchFilters) query.Query {
 }
 
 func idValue(id *objectSDK.ID) string {
-	return hex.EncodeToString(id.ToV2().GetValue())
+	return id.String()
 }
 
 func cidValue(id *container.ID) string {
-	return hex.EncodeToString(id.ToV2().GetValue())
+	return id.String()
 }
 
 func ownerIDValue(id *owner.ID) string {
-	return hex.EncodeToString(id.ToV2().GetValue())
+	return id.String()
 }
 
 func (q *Query) Match(obj *object.Object, handler func(*objectSDK.ID)) {
