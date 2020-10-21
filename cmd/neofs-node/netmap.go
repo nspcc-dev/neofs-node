@@ -10,6 +10,7 @@ import (
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
 )
 
 // primary solution of local network state dump.
@@ -58,6 +59,8 @@ func initNetmapService(c *cfg) {
 }
 
 func bootstrapNode(c *cfg) {
+	initState(c)
+
 	err := c.cfgNetmap.wrapper.AddPeer(c.cfgNodeInfo.info)
 	fatalOnErr(errors.Wrap(err, "bootstrap error"))
 }
@@ -80,6 +83,17 @@ func setNetmapNotificationParser(c *cfg, sTyp string, p event.Parser) {
 	}
 
 	c.cfgNetmap.parsers[typ] = p
+}
+
+func initState(c *cfg) {
+	epoch, err := c.cfgNetmap.wrapper.Epoch()
+	fatalOnErr(errors.Wrap(err, "could not initialize current epoch number"))
+
+	c.log.Info("initial epoch number",
+		zap.Uint64("value", epoch),
+	)
+
+	c.cfgNetmap.state.setCurrentEpoch(epoch)
 }
 
 func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
