@@ -1,25 +1,45 @@
 package placement
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/pkg/errors"
 )
 
 type netMapBuilder struct {
-	nm *netmap.Netmap
+	nmSrc netmap.Source
 }
 
-func NewNetworkMapBuilder(nm *netmap.Netmap) Builder {
+type netMapSrc struct {
+	nm *netmapSDK.Netmap
+}
+
+func NewNetworkMapBuilder(nm *netmapSDK.Netmap) Builder {
 	return &netMapBuilder{
-		nm: nm,
+		nmSrc: &netMapSrc{nm},
 	}
 }
 
-func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+func NewNetworkMapSourceBuilder(nmSrc netmap.Source) Builder {
+	return &netMapBuilder{
+		nmSrc: nmSrc,
+	}
+}
+
+func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
+	return s.nm, nil
+}
+
+func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get network map")
+	}
+
 	aV2 := a.ToV2()
 
-	cn, err := b.nm.GetContainerNodes(p, aV2.GetContainerID().GetValue())
+	cn, err := nm.GetContainerNodes(p, aV2.GetContainerID().GetValue())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get container nodes")
 	}
@@ -29,7 +49,7 @@ func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmap.PlacementPol
 		return cn.Replicas(), nil
 	}
 
-	on, err := b.nm.GetPlacementVectors(cn, oid.GetValue())
+	on, err := nm.GetPlacementVectors(cn, oid.GetValue())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get placement vectors for object")
 	}
