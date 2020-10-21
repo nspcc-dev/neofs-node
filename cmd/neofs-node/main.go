@@ -39,6 +39,8 @@ func init_(c *cfg) {
 	initSessionService(c)
 	initObjectService(c)
 	initProfiler(c)
+
+	listenMorphNotifications(c)
 }
 
 func bootUp(c *cfg) {
