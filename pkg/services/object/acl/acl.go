@@ -514,6 +514,11 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		return true
 	}
 
+	// if bearer token is not allowed, then ignore it
+	if !reqInfo.basicACL.BearerAllowed(reqInfo.operation) {
+		reqInfo.bearer = nil
+	}
+
 	// if bearer token is not present, isValidBearer returns true
 	if !isValidBearer(reqInfo) {
 		return false
