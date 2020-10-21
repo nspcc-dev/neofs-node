@@ -5,10 +5,31 @@ import (
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 )
+
+// primary solution of local network state dump.
+type networkState struct {
+	epoch *atomic.Uint64
+}
+
+func newNetworkState() *networkState {
+	return &networkState{
+		epoch: atomic.NewUint64(0),
+	}
+}
+
+func (s *networkState) CurrentEpoch() uint64 {
+	return s.epoch.Load()
+}
+
+func (s *networkState) setCurrentEpoch(v uint64) {
+	s.epoch.Store(v)
+}
 
 func initNetmapService(c *cfg) {
 	peerInfo := new(netmap.NodeInfo)
@@ -29,6 +50,11 @@ func initNetmapService(c *cfg) {
 			),
 		),
 	)
+
+	c.cfgNetmap.state = newNetworkState()
+	addNewEpochNotificationHandler(c, func(ev event.Event) {
+		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
+	})
 }
 
 func bootstrapNode(c *cfg) {
