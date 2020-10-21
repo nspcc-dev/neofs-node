@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
+	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"go.uber.org/zap"
 )
 
@@ -98,6 +99,11 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 		p.log.Info("shortage of object copies detected",
 			zap.Uint32("shortage", shortage),
 		)
-		// TODO: send task to replicator
+
+		p.replicator.AddTask(new(replicator.Task).
+			WithObjectAddress(addr).
+			WithNodes(nodes).
+			WithCopiesNumber(shortage),
+		)
 	}
 }
