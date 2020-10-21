@@ -8,8 +8,12 @@ import (
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/util/signature"
+	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
+	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
@@ -54,6 +58,8 @@ type (
 		cid *container.ID
 
 		senderKey []byte
+
+		bearer *bearer.BearerToken // bearer token of request
 	}
 )
 
@@ -122,6 +128,7 @@ func (b Service) Get(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
+		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationGet)
@@ -166,6 +173,7 @@ func (b Service) Head(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
+		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationHead)
@@ -203,6 +211,7 @@ func (b Service) Search(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
+		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationSearch)
@@ -232,6 +241,7 @@ func (b Service) Delete(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
+		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationDelete)
@@ -260,6 +270,7 @@ func (b Service) GetRange(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
+		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRange)
@@ -289,6 +300,7 @@ func (b Service) GetRangeHash(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
+		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRangeHash)
@@ -326,6 +338,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 		req := metaWithToken{
 			vheader: request.GetVerificationHeader(),
 			token:   part.GetHeader().GetSessionToken(),
+			bearer:  request.GetMetaHeader().GetBearerToken(),
 		}
 
 		reqInfo, err := p.source.findRequestInfo(req, cid, acl.OperationPut)
@@ -409,6 +422,9 @@ func (b Service) findRequestInfo(
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation
 	info.senderKey = key
+
+	// add bearer token if it is present in request
+	info.bearer = req.bearer
 
 	return info, nil
 }
@@ -498,6 +514,11 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		return true
 	}
 
+	// if bearer token is not present, isValidBearer returns true
+	if !isValidBearer(reqInfo) {
+		return false
+	}
+
 	hdrSrcOpts := make([]eaclV2.Option, 0, 2)
 
 	hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithLocalObjectStorage(cfg.localStorage))
@@ -515,7 +536,8 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		WithSenderKey(reqInfo.senderKey).
 		WithHeaderSource(
 			eaclV2.NewMessageHeaderSource(hdrSrcOpts...),
-		),
+		).
+		WithBearerToken(reqInfo.bearer),
 	)
 
 	return action == acl.ActionAllow
@@ -573,4 +595,59 @@ func eACLErr(info requestInfo) error {
 		requestInfo:    info,
 		failedCheckTyp: "extended ACL",
 	}
+}
+
+// isValidBearer returns true if bearer token correctly signed by authorized
+// entity. This method might be define on whole ACL service because it will
+// require to fetch current epoch to check lifetime.
+func isValidBearer(reqInfo requestInfo) bool {
+	token := reqInfo.bearer
+
+	// 0. Check if bearer token is present in reqInfo. It might be non nil
+	// empty structure.
+	if token == nil || (token.GetBody() == nil && token.GetSignature() == nil) {
+		return true
+	}
+
+	// 1. First check if bearer token is signed correctly.
+	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
+	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
+		tokenSignature := token.GetSignature()
+		return tokenSignature.GetKey(), tokenSignature.GetSign()
+	}); err != nil {
+		return false // invalid signature
+	}
+
+	// 2. Then check if container owner signed this token.
+	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
+	tokenIssuerWallet, err := owner.NEO3WalletFromPublicKey(tokenIssuerKey)
+	if err != nil {
+		return false
+	}
+	// here we compare `owner.ID -> wallet` with `wallet <- publicKey`
+	// consider making equal method on owner.ID structure
+	// we can compare .String() version of owners but don't think it is good idea
+	// binary comparison is better but MarshalBinary is more expensive
+	if !bytes.Equal(reqInfo.owner.ToV2().GetValue(), tokenIssuerWallet.Bytes()) {
+		// todo: in this case we can issue all owner keys from neofs.id and check once again
+		return false
+	}
+
+	// 3. Then check if request sender has rights to use this token.
+	tokenOwnerField := token.GetBody().GetOwnerID()
+	if tokenOwnerField != nil { // see bearer token owner field description
+		requestSenderKey := crypto.UnmarshalPublicKey(reqInfo.senderKey)
+		requestSenderWallet, err := owner.NEO3WalletFromPublicKey(requestSenderKey)
+		if err != nil {
+			return false
+		}
+		// the same issue as above
+		if !bytes.Equal(tokenOwnerField.GetValue(), requestSenderWallet.Bytes()) {
+			return false
+		}
+	}
+
+	// todo: 4. Then check token lifetime.
+
+	return true
 }

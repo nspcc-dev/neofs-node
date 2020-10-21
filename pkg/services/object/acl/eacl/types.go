@@ -3,6 +3,7 @@ package eacl
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 )
 
 // Storage is the interface that wraps
@@ -43,6 +44,8 @@ type ValidationUnit struct {
 	hdrSrc TypedHeaderSource
 
 	key []byte
+
+	bearer *bearer.BearerToken
 }
 
 func (u *ValidationUnit) WithContainerID(v *container.ID) *ValidationUnit {
@@ -80,6 +83,14 @@ func (u *ValidationUnit) WithHeaderSource(v TypedHeaderSource) *ValidationUnit {
 func (u *ValidationUnit) WithSenderKey(v []byte) *ValidationUnit {
 	if u != nil {
 		u.key = v
+	}
+
+	return u
+}
+
+func (u *ValidationUnit) WithBearerToken(bearer *bearer.BearerToken) *ValidationUnit {
+	if u != nil {
+		u.bearer = bearer
 	}
 
 	return u

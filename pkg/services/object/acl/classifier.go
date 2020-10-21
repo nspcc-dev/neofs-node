@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
+	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	crypto "github.com/nspcc-dev/neofs-crypto"
@@ -25,6 +26,7 @@ type (
 	metaWithToken struct {
 		vheader *session.RequestVerificationHeader
 		token   *session.SessionToken
+		bearer  *bearer.BearerToken
 	}
 
 	SenderClassifier struct {
