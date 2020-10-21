@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -42,6 +43,8 @@ type cfg struct {
 	remoteHeader *headsvc.RemoteHeader
 
 	localAddrSrc network.LocalAddressSource
+
+	replicator *replicator.Replicator
 }
 
 func defaultCfg() *cfg {
@@ -136,5 +139,12 @@ func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 func WithLocalAddressSource(v network.LocalAddressSource) Option {
 	return func(c *cfg) {
 		c.localAddrSrc = v
+	}
+}
+
+// WithReplicator returns option to set object replicator of Policer.
+func WithReplicator(v *replicator.Replicator) Option {
+	return func(c *cfg) {
+		c.replicator = v
 	}
 }
