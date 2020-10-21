@@ -84,6 +84,8 @@ const (
 	cfgPolicerWorkScope   = "policer.work_scope"
 	cfgPolicerExpRate     = "policer.expansion_rate"
 	cfgPolicerHeadTimeout = "policer.head_timeout"
+
+	cfgReplicatorPutTimeout = "replicator.put_timeout"
 )
 
 const (
@@ -324,6 +326,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgPolicerWorkScope, 100)
 	v.SetDefault(cfgPolicerExpRate, 10) // in %
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
+
+	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
 }
 
 func (c *cfg) LocalAddress() *network.Address {

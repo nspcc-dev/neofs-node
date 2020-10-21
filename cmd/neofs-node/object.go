@@ -35,6 +35,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/gc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
+	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -186,6 +187,19 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, objGC)
 
+	repl := replicator.New(
+		replicator.WithLogger(c.log),
+		replicator.WithPutTimeout(
+			c.viper.GetDuration(cfgReplicatorPutTimeout),
+		),
+		replicator.WithLocalStorage(ls),
+		replicator.WithRemoteSender(
+			putsvc.NewRemoteSender(keyStorage),
+		),
+	)
+
+	c.workers = append(c.workers, repl)
+
 	ch := make(chan *policer.Task, 1)
 
 	pol := policer.New(
@@ -209,6 +223,7 @@ func initObjectService(c *cfg) {
 		policer.WithHeadTimeout(
 			c.viper.GetDuration(cfgPolicerHeadTimeout),
 		),
+		policer.WithReplicator(repl),
 	)
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
