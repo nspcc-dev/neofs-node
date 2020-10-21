@@ -69,7 +69,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	p.target = transformer.NewPayloadSizeLimiter(
 		p.maxSizeSrc.MaxObjectSize(),
 		func() transformer.ObjectTarget {
-			return transformer.NewFormatTarget(sessionKey, p.newCommonTarget(prm), sToken)
+			return transformer.NewFormatTarget(&transformer.FormatterParams{
+				Key:          sessionKey,
+				NextTarget:   p.newCommonTarget(prm),
+				SessionToken: sToken,
+			})
 		},
 	)
 

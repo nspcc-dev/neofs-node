@@ -11,15 +11,20 @@ import (
 )
 
 type formatter struct {
-	nextTarget ObjectTarget
-
-	key *ecdsa.PrivateKey
+	prm *FormatterParams
 
 	obj *object.RawObject
 
 	sz uint64
+}
 
-	token *token.SessionToken
+// FormatterParams groups NewFormatTarget parameters.
+type FormatterParams struct {
+	Key *ecdsa.PrivateKey
+
+	NextTarget ObjectTarget
+
+	SessionToken *token.SessionToken
 }
 
 // NewFormatTarget returns ObjectTarget instance that finalizes object structure
@@ -32,11 +37,9 @@ type formatter struct {
 // - sets payload size to the total length of all written chunks;
 // - sets session token;
 // - calculates and sets verification fields (ID, Signature).
-func NewFormatTarget(key *ecdsa.PrivateKey, nextTarget ObjectTarget, token *token.SessionToken) ObjectTarget {
+func NewFormatTarget(p *FormatterParams) ObjectTarget {
 	return &formatter{
-		nextTarget: nextTarget,
-		key:        key,
-		token:      token,
+		prm: p,
 	}
 }
 
@@ -47,7 +50,7 @@ func (f *formatter) WriteHeader(obj *object.RawObject) error {
 }
 
 func (f *formatter) Write(p []byte) (n int, err error) {
-	n, err = f.nextTarget.Write(p)
+	n, err = f.prm.NextTarget.Write(p)
 
 	f.sz += uint64(n)
 
@@ -57,16 +60,16 @@ func (f *formatter) Write(p []byte) (n int, err error) {
 func (f *formatter) Close() (*AccessIdentifiers, error) {
 	f.obj.SetVersion(pkg.SDKVersion())
 	f.obj.SetPayloadSize(f.sz)
-	f.obj.SetSessionToken(f.token)
+	f.obj.SetSessionToken(f.prm.SessionToken)
 
 	var parID *objectSDK.ID
 
 	if par := f.obj.GetParent(); par != nil {
 		rawPar := objectSDK.NewRawFromV2(par.ToV2())
 
-		rawPar.SetSessionToken(f.token)
+		rawPar.SetSessionToken(f.prm.SessionToken)
 
-		if err := objectSDK.SetIDWithSignature(f.key, rawPar); err != nil {
+		if err := objectSDK.SetIDWithSignature(f.prm.Key, rawPar); err != nil {
 			return nil, errors.Wrap(err, "could not finalize parent object")
 		}
 
@@ -75,15 +78,15 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		f.obj.SetParent(rawPar.Object())
 	}
 
-	if err := objectSDK.SetIDWithSignature(f.key, f.obj.SDK()); err != nil {
+	if err := objectSDK.SetIDWithSignature(f.prm.Key, f.obj.SDK()); err != nil {
 		return nil, errors.Wrap(err, "could not finalize object")
 	}
 
-	if err := f.nextTarget.WriteHeader(f.obj); err != nil {
+	if err := f.prm.NextTarget.WriteHeader(f.obj); err != nil {
 		return nil, errors.Wrap(err, "could not write header to next target")
 	}
 
-	if _, err := f.nextTarget.Close(); err != nil {
+	if _, err := f.prm.NextTarget.Close(); err != nil {
 		return nil, errors.Wrap(err, "could not close next target")
 	}
 
