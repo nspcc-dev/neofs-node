@@ -86,6 +86,7 @@ type accessErr struct {
 
 var (
 	ErrMalformedRequest = errors.New("malformed request")
+	ErrInternal         = errors.New("internal error")
 	ErrUnknownRole      = errors.New("can't classify request sender")
 	ErrUnknownContainer = errors.New("can't fetch container info")
 )
@@ -387,7 +388,11 @@ func (b Service) findRequestInfo(
 	}
 
 	// find request role and key
-	role, key := b.sender.Classify(req, cid, cnr)
+	role, key, err := b.sender.Classify(req, cid, cnr)
+	if err != nil {
+		return info, err
+	}
+
 	if role == acl.RoleUnknown {
 		return info, ErrUnknownRole
 	}
