@@ -40,6 +40,8 @@ type cfg struct {
 	fmtValidator *object.FormatValidator
 
 	fmtValidatorOpts []object.FormatValidatorOption
+
+	networkState netmap.State
 }
 
 func defaultCfg() *cfg {
@@ -114,5 +116,11 @@ func WithLocalAddressSource(v network.LocalAddressSource) Option {
 func WithFormatValidatorOpts(v ...object.FormatValidatorOption) Option {
 	return func(c *cfg) {
 		c.fmtValidatorOpts = v
+	}
+}
+
+func WithNetworkState(v netmap.State) Option {
+	return func(c *cfg) {
+		c.networkState = v
 	}
 }

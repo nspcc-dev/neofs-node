@@ -73,6 +73,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 				Key:          sessionKey,
 				NextTarget:   p.newCommonTarget(prm),
 				SessionToken: sToken,
+				NetworkState: p.networkState,
 			})
 		},
 	)
