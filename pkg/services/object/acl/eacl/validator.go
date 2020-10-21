@@ -55,14 +55,23 @@ func NewValidator(opts ...Option) *Validator {
 //
 // If no matching table entry is found, ActionAllow is returned.
 func (v *Validator) CalculateAction(unit *ValidationUnit) eacl.Action {
-	// get eACL table by container ID
-	table, err := v.storage.GetEACL(unit.cid)
-	if err != nil {
-		v.logger.Error("could not get eACL table",
-			zap.String("error", err.Error()),
-		)
+	var (
+		err   error
+		table *eacl.Table
+	)
 
-		return eacl.ActionUnknown
+	if unit.bearer != nil {
+		table = eacl.NewTableFromV2(unit.bearer.GetBody().GetEACL())
+	} else {
+		// get eACL table by container ID
+		table, err = v.storage.GetEACL(unit.cid)
+		if err != nil {
+			v.logger.Error("could not get eACL table",
+				zap.String("error", err.Error()),
+			)
+
+			return eacl.ActionUnknown
+		}
 	}
 
 	return tableAction(unit, table)
