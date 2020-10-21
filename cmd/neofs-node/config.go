@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
@@ -20,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -56,6 +58,9 @@ const (
 
 	// config keys for cfgMorph
 	cfgMorphRPCAddress = "morph.endpoint"
+
+	cfgMorphNotifyRPCAddress  = "morph.notification.endpoint"
+	cfgMorphNotifyDialTimeout = "morph.notification.dial_timeout"
 
 	// config keys for cfgAccounting
 	cfgAccountingContract = "accounting.scripthash"
@@ -150,6 +155,10 @@ type cfgNetmap struct {
 	wrapper    *nmwrapper.Wrapper
 
 	fee util.Fixed8
+
+	parsers map[event.Type]event.Parser
+
+	subscribers map[event.Type][]event.Handler
 }
 
 type BootstrapType uint32
@@ -277,6 +286,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgMaxObjectSize, 1024*1024) // default max object size 1 megabyte
 
 	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
+	v.SetDefault(cfgMorphNotifyRPCAddress, "ws://morph_chain:30333/ws")
+	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
 	v.SetDefault(cfgMaxMsgSize, 4<<20)                // transport msg limit 4 MiB
 
