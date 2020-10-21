@@ -163,6 +163,8 @@ type cfgNetmap struct {
 	parsers map[event.Type]event.Parser
 
 	subscribers map[event.Type][]event.Handler
+
+	state *networkState
 }
 
 type BootstrapType uint32

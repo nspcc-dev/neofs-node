@@ -233,6 +233,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithFormatValidatorOpts(
 			objectCore.WithDeleteHandler(objGC),
 		),
+		putsvc.WithNetworkState(c.cfgNetmap.state),
 	)
 
 	sPutV2 := putsvcV2.NewService(
