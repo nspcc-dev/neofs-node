@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"encoding/hex"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -23,18 +22,16 @@ func (s *sysObjHdr) GetValue() string {
 	return s.v
 }
 
-// TODO: replace value conversions to neofs-api-go
-
 func idValue(id *objectSDK.ID) string {
-	return hex.EncodeToString(id.ToV2().GetValue())
+	return id.String()
 }
 
 func cidValue(id *container.ID) string {
-	return hex.EncodeToString(id.ToV2().GetValue())
+	return id.String()
 }
 
 func ownerIDValue(id *owner.ID) string {
-	return hex.EncodeToString(id.ToV2().GetValue())
+	return id.String()
 }
 
 func u64Value(v uint64) string {
