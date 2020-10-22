@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	sessionTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
 	sessionSvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
@@ -18,7 +17,6 @@ func initSessionService(c *cfg) {
 				sessionSvc.NewResponseService(
 					sessionSvc.NewExecutionService(
 						c.privateTokenStore,
-						new(session.ResponseMetaHeader),
 					),
 					c.respSvc,
 				),

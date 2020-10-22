@@ -2,7 +2,6 @@ package main
 
 import (
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -35,7 +34,6 @@ func initContainerService(c *cfg) {
 				containerService.NewResponseService(
 					containerService.NewExecutionService(
 						containerMorph.NewExecutor(cnrClient),
-						new(session.ResponseMetaHeader),
 					),
 					c.respSvc,
 				),

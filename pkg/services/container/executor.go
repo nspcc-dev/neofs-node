@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/pkg/errors"
 )
 
@@ -19,17 +18,12 @@ type ServiceExecutor interface {
 
 type executorSvc struct {
 	exec ServiceExecutor
-
-	metaHeader *session.ResponseMetaHeader
 }
 
 // NewExecutionService wraps ServiceExecutor and returns Container Service interface.
-//
-// Passed meta header is attached to all responses.
-func NewExecutionService(exec ServiceExecutor, metaHdr *session.ResponseMetaHeader) container.Service {
+func NewExecutionService(exec ServiceExecutor) container.Service {
 	return &executorSvc{
-		exec:       exec,
-		metaHeader: metaHdr,
+		exec: exec,
 	}
 }
 
@@ -41,7 +35,6 @@ func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*cont
 
 	resp := new(container.PutResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }
@@ -54,7 +47,6 @@ func (s *executorSvc) Delete(ctx context.Context, req *container.DeleteRequest) 
 
 	resp := new(container.DeleteResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }
@@ -67,7 +59,6 @@ func (s *executorSvc) Get(ctx context.Context, req *container.GetRequest) (*cont
 
 	resp := new(container.GetResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }
@@ -80,7 +71,6 @@ func (s *executorSvc) List(ctx context.Context, req *container.ListRequest) (*co
 
 	resp := new(container.ListResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }
@@ -93,7 +83,6 @@ func (s *executorSvc) SetExtendedACL(ctx context.Context, req *container.SetExte
 
 	resp := new(container.SetExtendedACLResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }
@@ -106,7 +95,6 @@ func (s *executorSvc) GetExtendedACL(ctx context.Context, req *container.GetExte
 
 	resp := new(container.GetExtendedACLResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }

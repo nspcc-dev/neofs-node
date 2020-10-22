@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 )
 
 type executorSvc struct {
@@ -35,7 +34,6 @@ func (s *executorSvc) LocalNodeInfo(
 
 	resp := new(netmap.LocalNodeInfoResponse)
 	resp.SetBody(body)
-	resp.SetMetaHeader(new(session.ResponseMetaHeader))
 
 	return resp, nil
 }
