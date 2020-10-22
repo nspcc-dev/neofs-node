@@ -44,9 +44,12 @@ func initNetmapService(c *cfg) {
 		netmapTransportGRPC.New(
 			netmapService.NewSignService(
 				c.key,
-				netmapService.NewExecutionService(
-					c.cfgNodeInfo.info,
-					c.apiVersion,
+				netmapService.NewResponseService(
+					netmapService.NewExecutionService(
+						c.cfgNodeInfo.info,
+						c.apiVersion,
+					),
+					c.respSvc,
 				),
 			),
 		),

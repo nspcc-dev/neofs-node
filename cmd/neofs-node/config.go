@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
 	"github.com/pkg/errors"
@@ -124,6 +125,8 @@ type cfg struct {
 	profiler profiler.Profiler
 
 	workers []worker
+
+	respSvc *response.Service
 }
 
 type cfgGRPC struct {
@@ -257,6 +260,7 @@ func initCfg(path string) *cfg {
 			enableReflectService: viperCfg.GetBool(cfgReflectService),
 		},
 		localAddr: netAddr,
+		respSvc:   response.NewService(),
 	}
 
 	initLocalStorage(c)
