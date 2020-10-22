@@ -353,6 +353,7 @@ func initObjectService(c *cfg) {
 					eacl.WithMorphClient(c.cfgObject.cnrClient),
 					eacl.WithLogger(c.log),
 				),
+				acl.WithNetmapState(c.cfgNetmap.state),
 			),
 		),
 	)

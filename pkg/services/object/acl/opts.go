@@ -3,6 +3,7 @@ package acl
 import (
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 )
@@ -39,5 +40,12 @@ func WithEACLValidatorOptions(v ...eacl.Option) Option {
 func WithLocalStorage(v *localstore.Storage) Option {
 	return func(c *cfg) {
 		c.localStorage = v
+	}
+}
+
+// WithNetmapState returns options to set global netmap state.
+func WithNetmapState(v netmap.State) Option {
+	return func(c *cfg) {
+		c.state = v
 	}
 }

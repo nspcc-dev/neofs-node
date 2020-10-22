@@ -15,6 +15,7 @@ import (
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
@@ -82,6 +83,8 @@ type eACLCfg struct {
 	eACL *eacl.Validator
 
 	localStorage *localstore.Storage
+
+	state netmap.State
 }
 
 type accessErr struct {
@@ -520,7 +523,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 	}
 
 	// if bearer token is not present, isValidBearer returns true
-	if !isValidBearer(reqInfo) {
+	if !isValidBearer(reqInfo, cfg.state) {
 		return false
 	}
 
@@ -605,7 +608,7 @@ func eACLErr(info requestInfo) error {
 // isValidBearer returns true if bearer token correctly signed by authorized
 // entity. This method might be define on whole ACL service because it will
 // require to fetch current epoch to check lifetime.
-func isValidBearer(reqInfo requestInfo) bool {
+func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 	token := reqInfo.bearer
 
 	// 0. Check if bearer token is present in reqInfo. It might be non nil
@@ -652,7 +655,19 @@ func isValidBearer(reqInfo requestInfo) bool {
 		}
 	}
 
-	// todo: 4. Then check token lifetime.
+	// 4. Then check token lifetime.
+	if !isValidLifetime(token.GetBody().GetLifetime(), st.CurrentEpoch()) {
+		return false
+	}
 
 	return true
+}
+
+func isValidLifetime(lifetime *bearer.TokenLifetime, epoch uint64) bool {
+	// The "exp" (expiration time) claim identifies the expiration time on
+	// or after which the JWT MUST NOT be accepted for processing.
+	// The "nbf" (not before) claim identifies the time before which the JWT
+	// MUST NOT be accepted for processing
+	// RFC 7519 sections 4.1.4, 4.1.5
+	return epoch >= lifetime.GetNbf() && epoch <= lifetime.GetExp()
 }
