@@ -36,6 +36,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 )
 
 type objectSvc struct {
@@ -60,12 +61,15 @@ type inMemBucket struct {
 	items map[string][]byte
 }
 
-type maxSzSrc struct {
-	v uint64
-}
+func (c *cfg) MaxObjectSize() uint64 {
+	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
+	if err != nil {
+		c.log.Error("could not get max object size value",
+			zap.String("error", err.Error()),
+		)
+	}
 
-func (s *maxSzSrc) MaxObjectSize() uint64 {
-	return s.v
+	return sz
 }
 
 func newBucket() bucket.Bucket {
@@ -225,7 +229,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithMaxSizeSource(&maxSzSrc{c.cfgObject.maxObjectSize}),
+		putsvc.WithMaxSizeSource(c),
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
