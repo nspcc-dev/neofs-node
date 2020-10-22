@@ -228,6 +228,8 @@ func initCfg(path string) *cfg {
 	maxChunkSize := viperCfg.GetUint64(cfgMaxMsgSize) * 3 / 4 // 25% to meta, 75% to payload
 	maxAddrAmount := maxChunkSize / addressSize               // each address is about 72 bytes
 
+	state := newNetworkState()
+
 	c := &cfg{
 		ctx:        context.Background(),
 		viper:      viperCfg,
@@ -246,6 +248,7 @@ func initCfg(path string) *cfg {
 		cfgNetmap: cfgNetmap{
 			scriptHash: u160Netmap,
 			fee:        util.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
+			state:      state,
 		},
 		cfgNodeInfo: cfgNodeInfo{
 			bootType:   StorageNode,
@@ -260,7 +263,9 @@ func initCfg(path string) *cfg {
 			enableReflectService: viperCfg.GetBool(cfgReflectService),
 		},
 		localAddr: netAddr,
-		respSvc:   response.NewService(),
+		respSvc: response.NewService(
+			response.WithNetworkState(state),
+		),
 	}
 
 	initLocalStorage(c)
