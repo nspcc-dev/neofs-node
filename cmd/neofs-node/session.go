@@ -15,9 +15,12 @@ func initSessionService(c *cfg) {
 		sessionTransportGRPC.New(
 			sessionSvc.NewSignService(
 				c.key,
-				sessionSvc.NewExecutionService(
-					c.privateTokenStore,
-					new(session.ResponseMetaHeader),
+				sessionSvc.NewResponseService(
+					sessionSvc.NewExecutionService(
+						c.privateTokenStore,
+						new(session.ResponseMetaHeader),
+					),
+					c.respSvc,
 				),
 			),
 		),

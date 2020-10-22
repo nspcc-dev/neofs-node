@@ -33,9 +33,12 @@ func initAccountingService(c *cfg) {
 		accountingTransportGRPC.New(
 			accountingService.NewSignService(
 				c.key,
-				accountingService.NewExecutionService(
-					accounting.NewExecutor(balanceMorphWrapper),
-					new(session.ResponseMetaHeader),
+				accountingService.NewResponseService(
+					accountingService.NewExecutionService(
+						accounting.NewExecutor(balanceMorphWrapper),
+						new(session.ResponseMetaHeader),
+					),
+					c.respSvc,
 				),
 			),
 		),

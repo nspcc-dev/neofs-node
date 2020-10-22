@@ -333,18 +333,21 @@ func initObjectService(c *cfg) {
 				acl.WithNextService(
 					objectService.NewSignService(
 						c.key,
-						objectService.NewTransportSplitter(
-							c.cfgGRPC.maxChunkSize,
-							c.cfgGRPC.maxAddrAmount,
-							&objectSvc{
-								put:     sPutV2,
-								search:  sSearchV2,
-								head:    sHeadV2,
-								rng:     sRangeV2,
-								get:     sGetV2,
-								rngHash: sRangeHashV2,
-								delete:  sDeleteV2,
-							},
+						objectService.NewResponseService(
+							objectService.NewTransportSplitter(
+								c.cfgGRPC.maxChunkSize,
+								c.cfgGRPC.maxAddrAmount,
+								&objectSvc{
+									put:     sPutV2,
+									search:  sSearchV2,
+									head:    sHeadV2,
+									rng:     sRangeV2,
+									get:     sGetV2,
+									rngHash: sRangeHashV2,
+									delete:  sDeleteV2,
+								},
+							),
+							c.respSvc,
 						),
 					),
 				),

@@ -32,9 +32,12 @@ func initContainerService(c *cfg) {
 		containerTransportGRPC.New(
 			containerService.NewSignService(
 				c.key,
-				containerService.NewExecutionService(
-					containerMorph.NewExecutor(cnrClient),
-					new(session.ResponseMetaHeader),
+				containerService.NewResponseService(
+					containerService.NewExecutionService(
+						containerMorph.NewExecutor(cnrClient),
+						new(session.ResponseMetaHeader),
+					),
+					c.respSvc,
 				),
 			),
 		),
