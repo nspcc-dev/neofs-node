@@ -13,6 +13,10 @@ import (
 )
 
 type MaxSizeSource interface {
+	// MaxObjectSize returns maximum payload size
+	// of physically stored object in system.
+	//
+	// Must return 0 if value can not be obtained.
 	MaxObjectSize() uint64
 }
 
