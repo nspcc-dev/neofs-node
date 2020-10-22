@@ -13,17 +13,12 @@ type ServiceExecutor interface {
 
 type executorSvc struct {
 	exec ServiceExecutor
-
-	metaHeader *session.ResponseMetaHeader
 }
 
 // NewExecutionService wraps ServiceExecutor and returns Session Service interface.
-//
-// Passed meta header is attached to all responses.
-func NewExecutionService(exec ServiceExecutor, metaHdr *session.ResponseMetaHeader) session.Service {
+func NewExecutionService(exec ServiceExecutor) session.Service {
 	return &executorSvc{
-		exec:       exec,
-		metaHeader: metaHdr,
+		exec: exec,
 	}
 }
 
@@ -35,7 +30,6 @@ func (s *executorSvc) Create(ctx context.Context, req *session.CreateRequest) (*
 
 	resp := new(session.CreateResponse)
 	resp.SetBody(respBody)
-	resp.SetMetaHeader(s.metaHeader)
 
 	return resp, nil
 }

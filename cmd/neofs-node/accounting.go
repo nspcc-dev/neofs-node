@@ -2,7 +2,6 @@ package main
 
 import (
 	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
@@ -36,7 +35,6 @@ func initAccountingService(c *cfg) {
 				accountingService.NewResponseService(
 					accountingService.NewExecutionService(
 						accounting.NewExecutor(balanceMorphWrapper),
-						new(session.ResponseMetaHeader),
 					),
 					c.respSvc,
 				),
