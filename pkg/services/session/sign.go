@@ -23,7 +23,7 @@ func NewSignService(key *ecdsa.PrivateKey, svc session.Service) session.Service 
 
 func (s *signService) Create(ctx context.Context, req *session.CreateRequest) (*session.CreateResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (interface{}, error) {
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Create(ctx, req.(*session.CreateRequest))
 		},
 	)

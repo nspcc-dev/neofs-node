@@ -58,7 +58,7 @@ func (s *signService) Get(ctx context.Context, req *object.GetRequest) (object.G
 				return nil, err
 			}
 
-			return func() (interface{}, error) {
+			return func() (util.ResponseMessage, error) {
 				return stream.Recv()
 			}, nil
 		},
@@ -96,7 +96,7 @@ func (s *signService) Put(ctx context.Context) (object.PutObjectStreamer, error)
 			func(req interface{}) error {
 				return stream.Send(req.(*object.PutRequest))
 			},
-			func() (interface{}, error) {
+			func() (util.ResponseMessage, error) {
 				return stream.CloseAndRecv()
 			},
 		),
@@ -105,7 +105,7 @@ func (s *signService) Put(ctx context.Context) (object.PutObjectStreamer, error)
 
 func (s *signService) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (interface{}, error) {
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Head(ctx, req.(*object.HeadRequest))
 		},
 	)
@@ -133,7 +133,7 @@ func (s *signService) Search(ctx context.Context, req *object.SearchRequest) (ob
 				return nil, err
 			}
 
-			return func() (interface{}, error) {
+			return func() (util.ResponseMessage, error) {
 				return stream.Recv()
 			}, nil
 		},
@@ -149,7 +149,7 @@ func (s *signService) Search(ctx context.Context, req *object.SearchRequest) (ob
 
 func (s *signService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (interface{}, error) {
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Delete(ctx, req.(*object.DeleteRequest))
 		},
 	)
@@ -177,7 +177,7 @@ func (s *signService) GetRange(ctx context.Context, req *object.GetRangeRequest)
 				return nil, err
 			}
 
-			return func() (interface{}, error) {
+			return func() (util.ResponseMessage, error) {
 				return stream.Recv()
 			}, nil
 		},
@@ -193,7 +193,7 @@ func (s *signService) GetRange(ctx context.Context, req *object.GetRangeRequest)
 
 func (s *signService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (interface{}, error) {
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.GetRangeHash(ctx, req.(*object.GetRangeHashRequest))
 		},
 	)
