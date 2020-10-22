@@ -66,8 +66,13 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return errors.Wrapf(err, "(%T) could not receive session key", p)
 	}
 
+	maxSz := p.maxSizeSrc.MaxObjectSize()
+	if maxSz == 0 {
+		return errors.Errorf("(%T) could not obtain max object size parameter", p)
+	}
+
 	p.target = transformer.NewPayloadSizeLimiter(
-		p.maxSizeSrc.MaxObjectSize(),
+		maxSz,
 		func() transformer.ObjectTarget {
 			return transformer.NewFormatTarget(&transformer.FormatterParams{
 				Key:          sessionKey,
