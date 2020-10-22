@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/pkg/errors"
 )
 
 // ResponseMessage is an interface of NeoFS response message.
-type ResponseMessage interface{}
+type ResponseMessage interface {
+	GetMetaHeader() *session.ResponseMetaHeader
+	SetMetaHeader(*session.ResponseMetaHeader)
+}
 
 type UnaryHandler func(context.Context, interface{}) (ResponseMessage, error)
 
@@ -54,7 +58,7 @@ func (s *RequestMessageStreamer) Send(req interface{}) error {
 	return s.send(req)
 }
 
-func (s *RequestMessageStreamer) CloseAndRecv() (interface{}, error) {
+func (s *RequestMessageStreamer) CloseAndRecv() (ResponseMessage, error) {
 	resp, err := s.close()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not close stream and receive response")
@@ -75,7 +79,7 @@ func (s *SignService) CreateRequestStreamer(sender RequestMessageWriter, closer 
 	}
 }
 
-func (s *ResponseMessageStreamer) Recv() (interface{}, error) {
+func (s *ResponseMessageStreamer) Recv() (ResponseMessage, error) {
 	m, err := s.recv()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not receive response message for signing")
@@ -105,7 +109,7 @@ func (s *SignService) HandleServerStreamRequest(ctx context.Context, req interfa
 	}, nil
 }
 
-func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler) (interface{}, error) {
+func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler) (ResponseMessage, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
 		return nil, errors.Wrap(err, "could not verify request")
