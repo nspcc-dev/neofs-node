@@ -8,7 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-type UnaryHandler func(context.Context, interface{}) (interface{}, error)
+// ResponseMessage is an interface of NeoFS response message.
+type ResponseMessage interface{}
+
+type UnaryHandler func(context.Context, interface{}) (ResponseMessage, error)
 
 type SignService struct {
 	key *ecdsa.PrivateKey
@@ -16,7 +19,7 @@ type SignService struct {
 
 type ServerStreamHandler func(context.Context, interface{}) (ResponseMessageReader, error)
 
-type ResponseMessageReader func() (interface{}, error)
+type ResponseMessageReader func() (ResponseMessage, error)
 
 type ResponseMessageStreamer struct {
 	key *ecdsa.PrivateKey
@@ -26,7 +29,7 @@ type ResponseMessageStreamer struct {
 
 type RequestMessageWriter func(interface{}) error
 
-type ClientStreamCloser func() (interface{}, error)
+type ClientStreamCloser func() (ResponseMessage, error)
 
 type RequestMessageStreamer struct {
 	key *ecdsa.PrivateKey

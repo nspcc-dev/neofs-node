@@ -23,7 +23,7 @@ func NewSignService(key *ecdsa.PrivateKey, svc accounting.Service) accounting.Se
 
 func (s *signService) Balance(ctx context.Context, req *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (interface{}, error) {
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Balance(ctx, req.(*accounting.BalanceRequest))
 		},
 	)

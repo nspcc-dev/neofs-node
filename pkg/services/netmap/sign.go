@@ -26,7 +26,7 @@ func (s *signService) LocalNodeInfo(
 	req *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
 
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (interface{}, error) {
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.LocalNodeInfo(ctx, req.(*netmap.LocalNodeInfoRequest))
 		},
 	)
