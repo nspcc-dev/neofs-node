@@ -55,7 +55,6 @@ func initNetmapService(c *cfg) {
 		),
 	)
 
-	c.cfgNetmap.state = newNetworkState()
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
 	})
