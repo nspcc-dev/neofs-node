@@ -617,7 +617,12 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 		return true
 	}
 
-	// 1. First check if bearer token is signed correctly.
+	// 1. First check token lifetime. Simplest verification.
+	if !isValidLifetime(token.GetBody().GetLifetime(), st.CurrentEpoch()) {
+		return false
+	}
+
+	// 2. Then check if bearer token is signed correctly.
 	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
 	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
 		tokenSignature := token.GetSignature()
@@ -626,7 +631,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 		return false // invalid signature
 	}
 
-	// 2. Then check if container owner signed this token.
+	// 3. Then check if container owner signed this token.
 	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
 	tokenIssuerWallet, err := owner.NEO3WalletFromPublicKey(tokenIssuerKey)
 	if err != nil {
@@ -641,7 +646,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 		return false
 	}
 
-	// 3. Then check if request sender has rights to use this token.
+	// 4. Then check if request sender has rights to use this token.
 	tokenOwnerField := token.GetBody().GetOwnerID()
 	if tokenOwnerField != nil { // see bearer token owner field description
 		requestSenderKey := crypto.UnmarshalPublicKey(reqInfo.senderKey)
@@ -653,11 +658,6 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 		if !bytes.Equal(tokenOwnerField.GetValue(), requestSenderWallet.Bytes()) {
 			return false
 		}
-	}
-
-	// 4. Then check token lifetime.
-	if !isValidLifetime(token.GetBody().GetLifetime(), st.CurrentEpoch()) {
-		return false
 	}
 
 	return true
