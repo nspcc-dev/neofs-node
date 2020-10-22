@@ -18,7 +18,10 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	v2ACL "github.com/nspcc-dev/neofs-api-go/v2/acl"
+	grpcACL "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -81,6 +84,7 @@ const (
 
 func init() {
 	rootCmd.AddCommand(objectCmd)
+	objectCmd.PersistentFlags().String("bearer", "", "File with signed JSON or binary encoded bearer token")
 
 	objectCmd.AddCommand(objectPutCmd)
 	objectPutCmd.Flags().String("file", "", "File with object payload")
@@ -185,11 +189,16 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	btok, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
 	oid, err := cli.PutObject(ctx,
 		new(client.PutObjectParams).
 			WithObject(obj.Object()).
 			WithPayloadReader(f),
-		client.WithSession(tok))
+		client.WithSession(tok),
+		client.WithBearer(btok))
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
@@ -210,9 +219,14 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	btok, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
 	err = cli.DeleteObject(ctx,
 		new(client.DeleteObjectParams).WithAddress(objAddr),
-		client.WithSession(tok))
+		client.WithSession(tok),
+		client.WithBearer(btok))
 	if err != nil {
 		return err
 	}
@@ -246,11 +260,16 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	btok, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
 	obj, err := cli.GetObject(ctx,
 		new(client.GetObjectParams).
 			WithAddress(objAddr).
 			WithPayloadWriter(out),
-		client.WithSession(tok))
+		client.WithSession(tok),
+		client.WithBearer(btok))
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
@@ -278,11 +297,17 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	btok, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
 	ps := new(client.ObjectHeaderParams).WithAddress(objAddr)
 	if ok, _ := cmd.Flags().GetBool("main-only"); ok {
 		ps = ps.WithMainFields()
 	}
-	obj, err := cli.GetObjectHeader(ctx, ps, client.WithSession(tok))
+	obj, err := cli.GetObjectHeader(ctx, ps,
+		client.WithSession(tok),
+		client.WithBearer(btok))
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
@@ -306,9 +331,14 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-
+	btok, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
 	ps := new(client.SearchObjectParams).WithContainerID(cid).WithSearchFilters(sf)
-	ids, err := cli.SearchObject(ctx, ps, client.WithSession(tok))
+	ids, err := cli.SearchObject(ctx, ps,
+		client.WithSession(tok),
+		client.WithBearer(btok))
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
@@ -338,10 +368,15 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	btok, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
 	if len(ranges) == 0 { // hash of full payload
 		obj, err := cli.GetObjectHeader(ctx,
 			new(client.ObjectHeaderParams).WithAddress(objAddr),
-			client.WithSession(tok))
+			client.WithSession(tok),
+			client.WithBearer(btok))
 		if err != nil {
 			return fmt.Errorf("can't get object: %w", err)
 		}
@@ -357,7 +392,9 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	ps := new(client.RangeChecksumParams).WithAddress(objAddr).WithRangeList(ranges...)
 	switch typ {
 	case hashSha256:
-		res, err := cli.ObjectPayloadRangeSHA256(ctx, ps, client.WithSession(tok))
+		res, err := cli.ObjectPayloadRangeSHA256(ctx, ps,
+			client.WithSession(tok),
+			client.WithBearer(btok))
 		if err != nil {
 			return err
 		}
@@ -366,7 +403,9 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 				hex.EncodeToString(res[i][:]))
 		}
 	case hashTz:
-		res, err := cli.ObjectPayloadRangeTZ(ctx, ps, client.WithSession(tok))
+		res, err := cli.ObjectPayloadRangeTZ(ctx, ps,
+			client.WithSession(tok),
+			client.WithBearer(btok))
 		if err != nil {
 			return err
 		}
@@ -572,4 +611,32 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	default:
 		return nil, nil
 	}
+}
+
+func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, error) {
+	path, err := cmd.Flags().GetString(flagname)
+	if err != nil || len(path) == 0 {
+		return nil, nil
+	}
+
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("can't read bearer token file: %w", err)
+	}
+
+	v2token := v2ACL.BearerTokenFromJSON(data)
+	if v2token == nil {
+		msg := new(grpcACL.BearerToken)
+		if proto.Unmarshal(data, msg) != nil {
+			return nil, errors.New("can't decode bearer token")
+		}
+
+		v2token = v2ACL.BearerTokenFromGRPCMessage(msg)
+
+		printVerbose("Using binary encoded bearer token")
+	} else {
+		printVerbose("Using JSON encoded bearer token")
+	}
+
+	return token.NewBearerTokenFromV2(v2token), nil
 }
