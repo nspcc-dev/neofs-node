@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 )
 
@@ -19,7 +20,7 @@ type Option func(*cfg)
 type cfg struct {
 	version *refs.Version
 
-	// TODO: neofs-node#83 add network state
+	state netmap.State
 }
 
 func defaultCfg() *cfg {
@@ -45,9 +46,7 @@ func setMeta(resp util.ResponseMessage, cfg *cfg) {
 	meta := new(session.ResponseMetaHeader)
 	meta.SetVersion(cfg.version)
 	meta.SetTTL(1) // FIXME: TTL must be calculated
-
-	// TODO: neofs-node#83
-	// meta.SetEpoch()
+	meta.SetEpoch(cfg.state.CurrentEpoch())
 
 	if origin := resp.GetMetaHeader(); origin != nil {
 		// FIXME: what if origin is set by local server?
@@ -55,4 +54,11 @@ func setMeta(resp util.ResponseMessage, cfg *cfg) {
 	}
 
 	resp.SetMetaHeader(meta)
+}
+
+// WithNetworkState returns option to set network state of Service.
+func WithNetworkState(v netmap.State) Option {
+	return func(c *cfg) {
+		c.state = v
+	}
 }
