@@ -50,7 +50,6 @@ const (
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
 	cfgNodeAttributePrefix = "node.attribute"
-	cfgMaxObjectSize       = "node.maxobjectsize" // todo: get value from chain
 
 	// config keys for cfgGRPC
 	cfgListenAddress  = "grpc.endpoint"
@@ -186,8 +185,6 @@ type cfgObject struct {
 
 	cnrStorage container.Source
 
-	maxObjectSize uint64
-
 	metastorage bucket.Bucket
 
 	blobstorage bucket.Bucket
@@ -254,9 +251,6 @@ func initCfg(path string) *cfg {
 			bootType:   StorageNode,
 			attributes: parseAttributes(viperCfg),
 		},
-		cfgObject: cfgObject{
-			maxObjectSize: viperCfg.GetUint64(cfgMaxObjectSize),
-		},
 		cfgGRPC: cfgGRPC{
 			maxChunkSize:         maxChunkSize,
 			maxAddrAmount:        maxAddrAmount,
@@ -297,8 +291,7 @@ func initViper(path string) *viper.Viper {
 func defaultConfiguration(v *viper.Viper) {
 	// fixme: all hardcoded private keys must be removed
 	v.SetDefault(cfgNodeKey, "Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
-	v.SetDefault(cfgBootstrapAddress, "")     // address to bootstrap with
-	v.SetDefault(cfgMaxObjectSize, 1024*1024) // default max object size 1 megabyte
+	v.SetDefault(cfgBootstrapAddress, "") // address to bootstrap with
 
 	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
 	v.SetDefault(cfgMorphNotifyRPCAddress, "ws://morph_chain:30333/ws")
