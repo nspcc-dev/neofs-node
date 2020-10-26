@@ -85,8 +85,12 @@ func New(key *ecdsa.PrivateKey, endpoint string, opts ...Option) (*Client, error
 
 	cli, err := client.New(cfg.ctx, endpoint, client.Options{
 		DialTimeout: cfg.dialTimeout,
-		Network:     cfg.magic,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = cli.Init() // magic number is set there based on RPC node answer
 	if err != nil {
 		return nil, err
 	}

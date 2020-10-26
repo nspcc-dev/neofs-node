@@ -1,10 +1,11 @@
 package neofs
 
 import (
+	"math/big"
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
@@ -19,9 +20,9 @@ func TestParseCheque(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseCheque(prms)
@@ -29,87 +30,49 @@ func TestParseCheque(t *testing.T) {
 	})
 
 	t.Run("wrong id parameter", func(t *testing.T) {
-		_, err := ParseCheque([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseCheque([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong user parameter", func(t *testing.T) {
-		_, err := ParseCheque([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: id,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseCheque([]stackitem.Item{
+			stackitem.NewByteArray(id),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong amount parameter", func(t *testing.T) {
-		_, err := ParseCheque([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: id,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseCheque([]stackitem.Item{
+			stackitem.NewByteArray(id),
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong lock parameter", func(t *testing.T) {
-		_, err := ParseCheque([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: id,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type:  smartcontract.IntegerType,
-				Value: amount,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseCheque([]stackitem.Item{
+			stackitem.NewByteArray(id),
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseCheque([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: id,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type:  smartcontract.IntegerType,
-				Value: amount,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: lock.BytesBE(),
-			},
+		ev, err := ParseCheque([]stackitem.Item{
+			stackitem.NewByteArray(id),
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
+			stackitem.NewByteArray(lock.BytesBE()),
 		})
 
 		require.NoError(t, err)

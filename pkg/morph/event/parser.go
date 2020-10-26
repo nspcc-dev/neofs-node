@@ -1,13 +1,13 @@
 package event
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/pkg/errors"
 )
 
 // Parser is a function that constructs Event
 // from the StackItem list.
-type Parser func([]smartcontract.Parameter) (Event, error)
+type Parser func([]stackitem.Item) (Event, error)
 
 // ParserInfo is a structure that groups
 // the parameters of particular contract

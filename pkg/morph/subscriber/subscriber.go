@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"go.uber.org/zap"
 )
@@ -16,7 +16,7 @@ import (
 type (
 	// Subscriber is an interface of the NotificationEvent listener.
 	Subscriber interface {
-		SubscribeForNotification(...util.Uint160) (<-chan *result.NotificationEvent, error)
+		SubscribeForNotification(...util.Uint160) (<-chan *state.NotificationEvent, error)
 		UnsubscribeForNotification()
 		Close()
 	}
@@ -26,7 +26,7 @@ type (
 		log    *zap.Logger
 		client *client.WSClient
 
-		notify    chan *result.NotificationEvent
+		notify    chan *state.NotificationEvent
 		notifyIDs map[util.Uint160]string
 	}
 
@@ -44,7 +44,7 @@ var (
 	errNilLogger = errors.New("chain/subscriber: logger was not provided to the constructor")
 )
 
-func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan *result.NotificationEvent, error) {
+func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan *state.NotificationEvent, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -114,7 +114,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 
 			switch notification.Type {
 			case response.NotificationEventID:
-				notification, ok := notification.Value.(*result.NotificationEvent)
+				notification, ok := notification.Value.(*state.NotificationEvent)
 				if !ok {
 					s.log.Error("can't cast notify event to the notify struct")
 					continue
@@ -150,7 +150,7 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		RWMutex:   new(sync.RWMutex),
 		log:       p.Log,
 		client:    wsClient,
-		notify:    make(chan *result.NotificationEvent),
+		notify:    make(chan *state.NotificationEvent),
 		notifyIDs: make(map[util.Uint160]string),
 	}
 

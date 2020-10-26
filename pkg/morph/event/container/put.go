@@ -4,7 +4,7 @@ import (
 	"crypto/elliptic"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -30,7 +30,7 @@ func (p Put) Signature() []byte { return p.signature }
 func (p Put) PublicKey() *keys.PublicKey { return p.publicKey }
 
 // ParsePut from notification into container event structure.
-func ParsePut(params []smartcontract.Parameter) (event.Event, error) {
+func ParsePut(params []stackitem.Item) (event.Event, error) {
 	var (
 		ev  Put
 		err error
@@ -41,19 +41,19 @@ func ParsePut(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse container
-	ev.rawContainer, err = client.BytesFromStackParameter(params[0])
+	ev.rawContainer, err = client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get container")
 	}
 
 	// parse signature
-	ev.signature, err = client.BytesFromStackParameter(params[1])
+	ev.signature, err = client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get signature")
 	}
 
 	// parse public key
-	key, err := client.BytesFromStackParameter(params[2])
+	key, err := client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get public key")
 	}

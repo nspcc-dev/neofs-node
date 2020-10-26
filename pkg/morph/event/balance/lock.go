@@ -1,8 +1,8 @@
 package balance
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -36,7 +36,7 @@ func (l Lock) Amount() int64 { return l.amount }
 func (l Lock) Until() int64 { return l.until }
 
 // ParseLock from notification into lock structure.
-func ParseLock(params []smartcontract.Parameter) (event.Event, error) {
+func ParseLock(params []stackitem.Item) (event.Event, error) {
 	var (
 		ev  Lock
 		err error
@@ -47,13 +47,13 @@ func ParseLock(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse id
-	ev.id, err = client.BytesFromStackParameter(params[0])
+	ev.id, err = client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get lock id")
 	}
 
 	// parse user
-	user, err := client.BytesFromStackParameter(params[1])
+	user, err := client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get lock user value")
 	}
@@ -64,7 +64,7 @@ func ParseLock(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse lock account
-	lock, err := client.BytesFromStackParameter(params[2])
+	lock, err := client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get lock account value")
 	}
@@ -75,13 +75,13 @@ func ParseLock(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse amount
-	ev.amount, err = client.IntFromStackParameter(params[3])
+	ev.amount, err = client.IntFromStackItem(params[3])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get lock amount")
 	}
 
 	// parse until deadline
-	ev.until, err = client.IntFromStackParameter(params[4])
+	ev.until, err = client.IntFromStackItem(params[4])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get lock deadline")
 	}

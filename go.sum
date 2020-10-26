@@ -179,6 +179,8 @@ github.com/hashicorp/go.net v0.0.1/go.mod h1:hjKkEWcCURg++eb33jQU7oqQcI9XDCnUzHA
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1 h1:0hERBMJE1eitiLkihrMvRVBYAkpHzc/J3QdDN+dAcgU=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
+github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+lJfyTc=
+github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/hashicorp/logutils v1.0.0/go.mod h1:QIAnNjmIWmVIIkWDTG1z5v++HQmx9WQRO+LraFDTW64=
@@ -265,14 +267,14 @@ github.com/nspcc-dev/dbft v0.0.0-20200117124306-478e5cfbf03a/go.mod h1:/YFK+XOxx
 github.com/nspcc-dev/dbft v0.0.0-20200219114139-199d286ed6c1/go.mod h1:O0qtn62prQSqizzoagHmuuKoz8QMkU3SzBoKdEvm3aQ=
 github.com/nspcc-dev/dbft v0.0.0-20200711144034-c526ccc6f570 h1:EHBwlOyd2m06C3dnxhpPokpYqlNg7u5ZX/uPBhjYuZ4=
 github.com/nspcc-dev/dbft v0.0.0-20200711144034-c526ccc6f570/go.mod h1:1FYQXSbb6/9HQIkoF8XO7W/S8N7AZRkBsgwbcXRvk0E=
+github.com/nspcc-dev/dbft v0.0.0-20200925163137-8f3b9ab3b720 h1:e/lFQUIPnWErf2yiHjp2HyPhf0nyo3lp4hMm8IlQX1U=
+github.com/nspcc-dev/dbft v0.0.0-20200925163137-8f3b9ab3b720/go.mod h1:I5D0W3tu3epdt2RMCTxS//HDr4S+OHRqajouQTOAHI8=
 github.com/nspcc-dev/hrw v1.0.9 h1:17VcAuTtrstmFppBjfRiia4K2wA/ukXZhLFS8Y8rz5Y=
 github.com/nspcc-dev/hrw v1.0.9/go.mod h1:l/W2vx83vMQo6aStyx2AuZrJ+07lGv2JQGlVkPG06MU=
 github.com/nspcc-dev/neo-go v0.73.1-pre.0.20200303142215-f5a1b928ce09/go.mod h1:pPYwPZ2ks+uMnlRLUyXOpLieaDQSEaf4NM3zHVbRjmg=
 github.com/nspcc-dev/neo-go v0.91.0/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
-github.com/nspcc-dev/neo-go v0.91.1-pre.0.20200827184617-7560aa345a78 h1:stIa+nBXK8uDY/JZaxIZzAUfkzfaotVw2FbnHxO4aZI=
-github.com/nspcc-dev/neo-go v0.91.1-pre.0.20200827184617-7560aa345a78/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201028111149-ac38d13f04ff h1:TBybhFCjTdSgpw0zGLw7ucjA3gTTLZDfp4D2trcSyT4=
-github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201028111149-ac38d13f04ff/go.mod h1:G7dqincfdjBrAbL5nxVp82emF05fSVEqe59ICsoRDI8=
+github.com/nspcc-dev/neo-go v0.91.1-pre.0.20201030072836-71216865717b h1:gk5bZgpWOehaDVKI5vBDkcjXTpRkKqcvIb1h/vHnBH4=
+github.com/nspcc-dev/neo-go v0.91.1-pre.0.20201030072836-71216865717b/go.mod h1:9s7LNp2lMgf0caH2t0sam4+WT2SIauXozwP0AdBqnEo=
 github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201029071528-352e99d9b91a h1:+fYK6dnV+ty2p/PoVLTgN2OgOeyFgl/fFYfIPXdvJYI=
 github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201029071528-352e99d9b91a/go.mod h1:G7dqincfdjBrAbL5nxVp82emF05fSVEqe59ICsoRDI8=
 github.com/nspcc-dev/neofs-crypto v0.2.0/go.mod h1:F/96fUzPM3wR+UGsPi3faVNmFlA9KAEAUQR7dMxZmNA=
@@ -574,7 +576,6 @@ google.golang.org/protobuf v1.20.1-0.20200309200217-e05f789c0967/go.mod h1:A+miE
 google.golang.org/protobuf v1.21.0/go.mod h1:47Nbq4nVaFHyn7ilMalzfO3qCViNmqZ2kzikPIcrTAo=
 google.golang.org/protobuf v1.23.0 h1:4MY060fB1DLGMB/7MBTLnwQUY6+F09GEiz6SsrNqyzM=
 google.golang.org/protobuf v1.23.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
-google.golang.org/protobuf v1.25.0 h1:Ejskq+SyPohKW+1uil0JJMtmHCgJPJ/qWTxr8qp+R4c=
 gopkg.in/abiosoft/ishell.v2 v2.0.0/go.mod h1:sFp+cGtH6o4s1FtpVPTMcHq2yue+c4DGOVohJCPUzwY=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

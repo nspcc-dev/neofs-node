@@ -1,7 +1,7 @@
 package netmap
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -23,12 +23,12 @@ func (s NewEpoch) EpochNumber() uint64 {
 // ParseNewEpoch is a parser of new epoch notification event.
 //
 // Result is type of NewEpoch.
-func ParseNewEpoch(prms []smartcontract.Parameter) (event.Event, error) {
+func ParseNewEpoch(prms []stackitem.Item) (event.Event, error) {
 	if ln := len(prms); ln != 1 {
 		return nil, event.WrongNumberOfParameters(1, ln)
 	}
 
-	prmEpochNum, err := client.IntFromStackParameter(prms[0])
+	prmEpochNum, err := client.IntFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get integer epoch number")
 	}

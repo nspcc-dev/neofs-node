@@ -2,10 +2,11 @@ package netmap
 
 import (
 	"crypto/elliptic"
+	"math/big"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-crypto/test"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -19,8 +20,8 @@ func TestParseUpdatePeer(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseUpdatePeer(prms)
@@ -28,39 +29,26 @@ func TestParseUpdatePeer(t *testing.T) {
 	})
 
 	t.Run("wrong first parameter type", func(t *testing.T) {
-		_, err := ParseUpdatePeer([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseUpdatePeer([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong second parameter type", func(t *testing.T) {
-		_, err := ParseUpdatePeer([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.IntegerType,
-				Value: state,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseUpdatePeer([]stackitem.Item{
+			stackitem.NewByteArray(crypto.MarshalPublicKey(publicKey)),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseUpdatePeer([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.IntegerType,
-				Value: state,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: crypto.MarshalPublicKey(publicKey),
-			},
+		ev, err := ParseUpdatePeer([]stackitem.Item{
+			stackitem.NewByteArray(crypto.MarshalPublicKey(publicKey)),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(state)),
 		})
 		require.NoError(t, err)
 

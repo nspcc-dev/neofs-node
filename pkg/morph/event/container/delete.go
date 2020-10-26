@@ -1,7 +1,7 @@
 package container
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -23,7 +23,7 @@ func (d Delete) ContainerID() []byte { return d.containerID }
 func (d Delete) Signature() []byte { return d.signature }
 
 // ParseDelete from notification into container event structure.
-func ParseDelete(params []smartcontract.Parameter) (event.Event, error) {
+func ParseDelete(params []stackitem.Item) (event.Event, error) {
 	var (
 		ev  Delete
 		err error
@@ -34,13 +34,13 @@ func ParseDelete(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse container
-	ev.containerID, err = client.BytesFromStackParameter(params[0])
+	ev.containerID, err = client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get container")
 	}
 
 	// parse signature
-	ev.signature, err = client.BytesFromStackParameter(params[1])
+	ev.signature, err = client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get signature")
 	}
