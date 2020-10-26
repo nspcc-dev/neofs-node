@@ -1,8 +1,8 @@
 package neofs
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -32,7 +32,7 @@ func (d Deposit) To() util.Uint160 { return d.to }
 func (d Deposit) Amount() int64 { return d.amount }
 
 // ParseDeposit notification into deposit structure.
-func ParseDeposit(params []smartcontract.Parameter) (event.Event, error) {
+func ParseDeposit(params []stackitem.Item) (event.Event, error) {
 	var ev Deposit
 
 	if ln := len(params); ln != 4 {
@@ -40,7 +40,7 @@ func ParseDeposit(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse from
-	from, err := client.BytesFromStackParameter(params[0])
+	from, err := client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get deposit sender")
 	}
@@ -51,13 +51,13 @@ func ParseDeposit(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse amount
-	ev.amount, err = client.IntFromStackParameter(params[1])
+	ev.amount, err = client.IntFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get deposit amount")
 	}
 
 	// parse to
-	to, err := client.BytesFromStackParameter(params[2])
+	to, err := client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get deposit receiver")
 	}
@@ -68,7 +68,7 @@ func ParseDeposit(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse id
-	ev.id, err = client.BytesFromStackParameter(params[3])
+	ev.id, err = client.BytesFromStackItem(params[3])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get deposit id")
 	}

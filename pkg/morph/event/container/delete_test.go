@@ -3,7 +3,7 @@ package container
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
@@ -15,8 +15,8 @@ func TestParseDelete(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseDelete(prms)
@@ -24,39 +24,26 @@ func TestParseDelete(t *testing.T) {
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
-		_, err := ParsePut([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParsePut([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong signature parameter", func(t *testing.T) {
-		_, err := ParseDelete([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: containerID,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseDelete([]stackitem.Item{
+			stackitem.NewByteArray(containerID),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseDelete([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: containerID,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: signature,
-			},
+		ev, err := ParseDelete([]stackitem.Item{
+			stackitem.NewByteArray(containerID),
+			stackitem.NewByteArray(signature),
 		})
 
 		require.NoError(t, err)

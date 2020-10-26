@@ -1,10 +1,11 @@
 package neofs
 
 import (
+	"math/big"
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +19,9 @@ func TestParseWithdraw(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseWithdraw(prms)
@@ -28,61 +29,37 @@ func TestParseWithdraw(t *testing.T) {
 	})
 
 	t.Run("wrong user parameter", func(t *testing.T) {
-		_, err := ParseWithdraw([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseWithdraw([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong amount parameter", func(t *testing.T) {
-		_, err := ParseWithdraw([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseWithdraw([]stackitem.Item{
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong id parameter", func(t *testing.T) {
-		_, err := ParseWithdraw([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type:  smartcontract.IntegerType,
-				Value: amount,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseWithdraw([]stackitem.Item{
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseWithdraw([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type:  smartcontract.IntegerType,
-				Value: amount,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: id,
-			},
+		ev, err := ParseWithdraw([]stackitem.Item{
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
+			stackitem.NewByteArray(id),
 		})
 
 		require.NoError(t, err)

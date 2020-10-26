@@ -1,7 +1,7 @@
 package netmap
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -18,7 +18,7 @@ func (s AddPeer) Node() []byte {
 	return s.node
 }
 
-func ParseAddPeer(prms []smartcontract.Parameter) (event.Event, error) {
+func ParseAddPeer(prms []stackitem.Item) (event.Event, error) {
 	var (
 		ev  AddPeer
 		err error
@@ -28,7 +28,7 @@ func ParseAddPeer(prms []smartcontract.Parameter) (event.Event, error) {
 		return nil, event.WrongNumberOfParameters(1, ln)
 	}
 
-	ev.node, err = client.BytesFromStackParameter(prms[0])
+	ev.node, err = client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get integer epoch number")
 	}

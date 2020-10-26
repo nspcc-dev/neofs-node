@@ -4,8 +4,8 @@ import (
 	"crypto/elliptic"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -23,7 +23,7 @@ func (b Bind) Keys() []*keys.PublicKey { return b.keys }
 
 func (b Bind) User() util.Uint160 { return b.user }
 
-func ParseBind(params []smartcontract.Parameter) (event.Event, error) {
+func ParseBind(params []stackitem.Item) (event.Event, error) {
 	var (
 		ev  Bind
 		err error
@@ -34,7 +34,7 @@ func ParseBind(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse user
-	user, err := client.BytesFromStackParameter(params[0])
+	user, err := client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get bind user")
 	}
@@ -45,14 +45,14 @@ func ParseBind(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse keys
-	bindKeys, err := client.ArrayFromStackParameter(params[1])
+	bindKeys, err := client.ArrayFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get bind keys")
 	}
 
 	ev.keys = make([]*keys.PublicKey, 0, len(bindKeys))
 	for i := range bindKeys {
-		rawKey, err := client.BytesFromStackParameter(bindKeys[i])
+		rawKey, err := client.BytesFromStackItem(bindKeys[i])
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get bind public key")
 		}

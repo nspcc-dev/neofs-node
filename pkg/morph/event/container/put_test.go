@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
@@ -20,9 +20,9 @@ func TestParsePut(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
+			stackitem.NewMap(),
 		}
 
 		_, err := ParsePut(prms)
@@ -30,61 +30,37 @@ func TestParsePut(t *testing.T) {
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
-		_, err := ParsePut([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParsePut([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong signature parameter", func(t *testing.T) {
-		_, err := ParsePut([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: containerData,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParsePut([]stackitem.Item{
+			stackitem.NewByteArray(containerData),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong key parameter", func(t *testing.T) {
-		_, err := ParsePut([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: containerData,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: signature,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParsePut([]stackitem.Item{
+			stackitem.NewByteArray(containerData),
+			stackitem.NewByteArray(signature),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParsePut([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: containerData,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: signature,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: crypto.MarshalPublicKey(publicKey),
-			},
+		ev, err := ParsePut([]stackitem.Item{
+			stackitem.NewByteArray(containerData),
+			stackitem.NewByteArray(signature),
+			stackitem.NewByteArray(crypto.MarshalPublicKey(publicKey)),
 		})
 		require.NoError(t, err)
 

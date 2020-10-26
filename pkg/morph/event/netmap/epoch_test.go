@@ -1,18 +1,19 @@
 package netmap
 
 import (
+	"math/big"
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
 
 func TestParseNewEpoch(t *testing.T) {
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseNewEpoch(prms)
@@ -20,10 +21,8 @@ func TestParseNewEpoch(t *testing.T) {
 	})
 
 	t.Run("wrong first parameter type", func(t *testing.T) {
-		_, err := ParseNewEpoch([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ByteArrayType,
-			},
+		_, err := ParseNewEpoch([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
@@ -32,11 +31,8 @@ func TestParseNewEpoch(t *testing.T) {
 	t.Run("correct behavior", func(t *testing.T) {
 		epochNum := uint64(100)
 
-		ev, err := ParseNewEpoch([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.IntegerType,
-				Value: int64(epochNum),
-			},
+		ev, err := ParseNewEpoch([]stackitem.Item{
+			stackitem.NewBigInteger(new(big.Int).SetUint64(epochNum)),
 		})
 
 		require.NoError(t, err)

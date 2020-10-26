@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
@@ -25,8 +25,8 @@ func TestParseUnbind(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseUnbind(prms)
@@ -34,58 +34,37 @@ func TestParseUnbind(t *testing.T) {
 	})
 
 	t.Run("wrong first parameter", func(t *testing.T) {
-		_, err := ParseUnbind([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseUnbind([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong second parameter", func(t *testing.T) {
-		_, err := ParseUnbind([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseUnbind([]stackitem.Item{
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
-		ev, err := ParseUnbind([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: user.BytesBE(),
-			},
-			{
-				Type: smartcontract.ArrayType,
-				Value: []smartcontract.Parameter{
-					{
-						Type:  smartcontract.ByteArrayType,
-						Value: crypto.MarshalPublicKey(publicKeys[0]),
-					},
-					{
-						Type:  smartcontract.ByteArrayType,
-						Value: crypto.MarshalPublicKey(publicKeys[1]),
-					},
-					{
-						Type:  smartcontract.ByteArrayType,
-						Value: crypto.MarshalPublicKey(publicKeys[2]),
-					},
-				},
-			},
+		ev, err := ParseUnbind([]stackitem.Item{
+			stackitem.NewByteArray(user.BytesBE()),
+			stackitem.NewArray([]stackitem.Item{
+				stackitem.NewByteArray(crypto.MarshalPublicKey(publicKeys[0])),
+				stackitem.NewByteArray(crypto.MarshalPublicKey(publicKeys[1])),
+				stackitem.NewByteArray(crypto.MarshalPublicKey(publicKeys[2])),
+			}),
 		})
 		require.NoError(t, err)
 
 		expKeys := make([]*keys.PublicKey, len(publicKeys))
 		for i := range publicKeys {
-			expKeys[i], err = keys.NewPublicKeyFromBytes(crypto.MarshalPublicKey(publicKeys[i]), elliptic.P256())
+			expKeys[i], err = keys.NewPublicKeyFromBytes(
+				crypto.MarshalPublicKey(publicKeys[i]), elliptic.P256())
 			require.NoError(t, err)
 		}
 

@@ -1,8 +1,8 @@
 package neofs
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -28,7 +28,7 @@ func (w Withdraw) User() util.Uint160 { return w.user }
 func (w Withdraw) Amount() int64 { return w.amount }
 
 // ParseWithdraw notification into withdraw structure.
-func ParseWithdraw(params []smartcontract.Parameter) (event.Event, error) {
+func ParseWithdraw(params []stackitem.Item) (event.Event, error) {
 	var ev Withdraw
 
 	if ln := len(params); ln != 3 {
@@ -36,7 +36,7 @@ func ParseWithdraw(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse user
-	user, err := client.BytesFromStackParameter(params[0])
+	user, err := client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get withdraw user")
 	}
@@ -47,13 +47,13 @@ func ParseWithdraw(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse amount
-	ev.amount, err = client.IntFromStackParameter(params[1])
+	ev.amount, err = client.IntFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get withdraw amount")
 	}
 
 	// parse id
-	ev.id, err = client.BytesFromStackParameter(params[2])
+	ev.id, err = client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get withdraw id")
 	}

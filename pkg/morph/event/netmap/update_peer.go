@@ -4,7 +4,7 @@ import (
 	"crypto/elliptic"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -26,7 +26,7 @@ func (s UpdatePeer) PublicKey() *keys.PublicKey {
 	return s.publicKey
 }
 
-func ParseUpdatePeer(prms []smartcontract.Parameter) (event.Event, error) {
+func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 	var (
 		ev  UpdatePeer
 		err error
@@ -36,16 +36,8 @@ func ParseUpdatePeer(prms []smartcontract.Parameter) (event.Event, error) {
 		return nil, event.WrongNumberOfParameters(2, ln)
 	}
 
-	// parse node status
-	st, err := client.IntFromStackParameter(prms[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get node status")
-	}
-
-	ev.status = uint32(st)
-
 	// parse public key
-	key, err := client.BytesFromStackParameter(prms[1])
+	key, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get public key")
 	}
@@ -54,6 +46,14 @@ func ParseUpdatePeer(prms []smartcontract.Parameter) (event.Event, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse public key")
 	}
+
+	// parse node status
+	st, err := client.IntFromStackItem(prms[1])
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get node status")
+	}
+
+	ev.status = uint32(st)
 
 	return ev, nil
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
@@ -143,7 +143,7 @@ func (s listener) listen(ctx context.Context, intError chan<- error) error {
 	return nil
 }
 
-func (s listener) listenLoop(ctx context.Context, chEvent <-chan *result.NotificationEvent, intErr chan<- error) {
+func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
 loop:
 	for {
 		select {
@@ -170,13 +170,13 @@ loop:
 	}
 }
 
-func (s listener) parseAndHandle(notifyEvent *result.NotificationEvent) {
+func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 	log := s.log.With(
-		zap.String("script hash LE", notifyEvent.Contract.StringLE()),
+		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
 
 	// stack item must be an array of items
-	arr, err := client.ArrayFromStackParameter(notifyEvent.Item)
+	arr, err := client.ArrayFromStackItem(notifyEvent.Item)
 	if err != nil {
 		log.Warn("stack item is not an array type",
 			zap.String("error", err.Error()),
@@ -197,7 +197,7 @@ func (s listener) parseAndHandle(notifyEvent *result.NotificationEvent) {
 
 	// get the event parser
 	keyEvent := scriptHashWithType{}
-	keyEvent.SetScriptHash(notifyEvent.Contract)
+	keyEvent.SetScriptHash(notifyEvent.ScriptHash)
 	keyEvent.SetType(typEvent)
 
 	s.mtx.RLock()

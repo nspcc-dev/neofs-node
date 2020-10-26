@@ -3,7 +3,7 @@ package neofs
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
@@ -15,8 +15,8 @@ func TestParseConfig(t *testing.T) {
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
-		prms := []smartcontract.Parameter{
-			{},
+		prms := []stackitem.Item{
+			stackitem.NewMap(),
 		}
 
 		_, err := ParseConfig(prms)
@@ -24,39 +24,26 @@ func TestParseConfig(t *testing.T) {
 	})
 
 	t.Run("wrong first parameter", func(t *testing.T) {
-		_, err := ParseConfig([]smartcontract.Parameter{
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseConfig([]stackitem.Item{
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong second parameter", func(t *testing.T) {
-		_, err := ParseConfig([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: key,
-			},
-			{
-				Type: smartcontract.ArrayType,
-			},
+		_, err := ParseConfig([]stackitem.Item{
+			stackitem.NewByteArray(key),
+			stackitem.NewMap(),
 		})
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
-		ev, err := ParseConfig([]smartcontract.Parameter{
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: key,
-			},
-			{
-				Type:  smartcontract.ByteArrayType,
-				Value: value,
-			},
+		ev, err := ParseConfig([]stackitem.Item{
+			stackitem.NewByteArray(key),
+			stackitem.NewByteArray(value),
 		})
 		require.NoError(t, err)
 

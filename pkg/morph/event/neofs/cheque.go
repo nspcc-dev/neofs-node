@@ -1,8 +1,8 @@
 package neofs
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -32,7 +32,7 @@ func (c Cheque) Amount() int64 { return c.amount }
 func (c Cheque) LockAccount() util.Uint160 { return c.lock }
 
 // ParseCheque from notification into cheque structure.
-func ParseCheque(params []smartcontract.Parameter) (event.Event, error) {
+func ParseCheque(params []stackitem.Item) (event.Event, error) {
 	var (
 		ev  Cheque
 		err error
@@ -43,13 +43,13 @@ func ParseCheque(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse id
-	ev.id, err = client.BytesFromStackParameter(params[0])
+	ev.id, err = client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get cheque id")
 	}
 
 	// parse user
-	user, err := client.BytesFromStackParameter(params[1])
+	user, err := client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get cheque user")
 	}
@@ -60,13 +60,13 @@ func ParseCheque(params []smartcontract.Parameter) (event.Event, error) {
 	}
 
 	// parse amount
-	ev.amount, err = client.IntFromStackParameter(params[2])
+	ev.amount, err = client.IntFromStackItem(params[2])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get cheque amount")
 	}
 
 	// parse lock account
-	lock, err := client.BytesFromStackParameter(params[3])
+	lock, err := client.BytesFromStackItem(params[3])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get cheque lock account")
 	}

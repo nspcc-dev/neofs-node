@@ -1,8 +1,6 @@
 package client
 
 import (
-	"encoding/hex"
-
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -72,10 +70,7 @@ func (c *Client) Invoke(contract util.Uint160, fee util.Fixed8, method string, a
 		return errEmptyInvocationScript
 	}
 
-	script, err := hex.DecodeString(resp.Script)
-	if err != nil {
-		return errScriptDecode
-	}
+	script := resp.Script
 
 	sysFee := resp.GasConsumed + int64(fee) // consumed gas + extra fee
 
