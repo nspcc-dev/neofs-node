@@ -36,6 +36,7 @@ const (
 	lockMethod      = "lock"
 	mintMethod      = "mint"
 	burnMethod      = "burn"
+	precisionMethod = "decimals"
 )
 
 // TransferBalanceX invokes transferX method.
@@ -91,4 +92,23 @@ func LockAsset(cli *client.Client, con util.Uint160, p *LockParams) error {
 		p.Amount,
 		int64(p.Until),
 	)
+}
+
+// BalancePrecision invokes Decimal method that returns precision of NEP-5 contract.
+func BalancePrecision(cli *client.Client, con util.Uint160) (uint32, error) {
+	if cli == nil {
+		return 0, client.ErrNilClient
+	}
+
+	v, err := cli.TestInvoke(con, precisionMethod)
+	if err != nil {
+		return 0, err
+	}
+
+	precision, err := client.IntFromStackItem(v[0])
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(precision), nil
 }
