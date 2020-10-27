@@ -16,6 +16,11 @@ type (
 		IsActive() bool
 	}
 
+	// PrecisionConverter converts balance amount values.
+	PrecisionConverter interface {
+		ToFixed8(int64) int64
+	}
+
 	// Processor of events produced by balance contract in morph chain.
 	Processor struct {
 		log             *zap.Logger
@@ -24,6 +29,7 @@ type (
 		balanceContract util.Uint160
 		mainnetClient   *client.Client
 		activeState     ActiveState
+		converter       PrecisionConverter
 	}
 
 	// Params of the processor constructor.
@@ -34,6 +40,7 @@ type (
 		BalanceContract util.Uint160
 		MainnetClient   *client.Client
 		ActiveState     ActiveState
+		Converter       PrecisionConverter
 	}
 )
 
@@ -50,6 +57,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/balance: neo:mainnet client is not set")
 	case p.ActiveState == nil:
 		return nil, errors.New("ir/balance: global state is not set")
+	case p.Converter == nil:
+		return nil, errors.New("ir/balance: balance precision converter is not set")
 	}
 
 	p.Log.Debug("balance worker pool", zap.Int("size", p.PoolSize))
@@ -66,6 +75,7 @@ func New(p *Params) (*Processor, error) {
 		balanceContract: p.BalanceContract,
 		mainnetClient:   p.MainnetClient,
 		activeState:     p.ActiveState,
+		converter:       p.Converter,
 	}, nil
 }
 
