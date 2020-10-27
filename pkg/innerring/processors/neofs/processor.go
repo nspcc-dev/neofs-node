@@ -21,6 +21,11 @@ type (
 		IsActive() bool
 	}
 
+	// PrecisionConverter converts balance amount values.
+	PrecisionConverter interface {
+		ToBalancePrecision(int64) int64
+	}
+
 	// Processor of events produced by neofs contract in main net.
 	Processor struct {
 		log             *zap.Logger
@@ -31,6 +36,7 @@ type (
 		morphClient     *client.Client
 		epochState      EpochState
 		activeState     ActiveState
+		converter       PrecisionConverter
 	}
 
 	// Params of the processor constructor.
@@ -43,6 +49,7 @@ type (
 		MorphClient     *client.Client
 		EpochState      EpochState
 		ActiveState     ActiveState
+		Converter       PrecisionConverter
 	}
 )
 
@@ -65,6 +72,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/neofs: global state is not set")
 	case p.ActiveState == nil:
 		return nil, errors.New("ir/neofs: global state is not set")
+	case p.Converter == nil:
+		return nil, errors.New("ir/neofs: balance precision converter is not set")
 	}
 
 	p.Log.Debug("neofs worker pool", zap.Int("size", p.PoolSize))
@@ -83,6 +92,7 @@ func New(p *Params) (*Processor, error) {
 		morphClient:     p.MorphClient,
 		epochState:      p.EpochState,
 		activeState:     p.ActiveState,
+		converter:       p.Converter,
 	}, nil
 }
 

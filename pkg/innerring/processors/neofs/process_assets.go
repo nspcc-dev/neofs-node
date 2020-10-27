@@ -27,7 +27,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	err := invoke.Mint(np.morphClient, np.balanceContract,
 		&invoke.MintBurnParams{
 			ScriptHash: deposit.To().BytesBE(),
-			Amount:     deposit.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
+			Amount:     np.converter.ToBalancePrecision(deposit.Amount()),
 			Comment:    append([]byte(txLogPrefix), deposit.ID()...),
 		})
 	if err != nil {
@@ -69,7 +69,7 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 			ID:          withdraw.ID(),
 			User:        withdraw.User(),
 			LockAccount: lock,
-			Amount:      withdraw.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
+			Amount:      np.converter.ToBalancePrecision(withdraw.Amount()),
 			Until:       curEpoch + lockAccountLifetime,
 		})
 	if err != nil {
@@ -88,7 +88,7 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 	err := invoke.Burn(np.morphClient, np.balanceContract,
 		&invoke.MintBurnParams{
 			ScriptHash: cheque.LockAccount().BytesBE(),
-			Amount:     cheque.Amount() * 1_0000_0000, // from Fixed8 to Fixed16
+			Amount:     np.converter.ToBalancePrecision(cheque.Amount()),
 			Comment:    append([]byte(txLogPrefix), cheque.ID()...),
 		})
 	if err != nil {
