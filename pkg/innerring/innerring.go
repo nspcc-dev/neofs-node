@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
+	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/atomic"
@@ -39,6 +40,7 @@ type (
 		mainnetClient  *client.Client
 		epochCounter   atomic.Uint64
 		innerRingIndex atomic.Int32
+		precision      precision.Fixed8Converter
 
 		// internal variables
 		key       *ecdsa.PrivateKey
@@ -213,6 +215,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		BalanceContract: server.contracts.balance,
 		MainnetClient:   server.mainnetClient,
 		ActiveState:     server,
+		Converter:       &server.precision,
 	})
 	if err != nil {
 		return nil, err
@@ -235,6 +238,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		MorphClient:     server.morphClient,
 		EpochState:      server,
 		ActiveState:     server,
+		Converter:       &server.precision,
 	})
 	if err != nil {
 		return nil, err
@@ -377,12 +381,20 @@ func (s *Server) initConfigFromBlockchain() error {
 		return errors.Wrap(err, "can't read inner ring list")
 	}
 
+	// get balance precision
+	balancePrecision, err := invoke.BalancePrecision(s.morphClient, s.contracts.balance)
+	if err != nil {
+		return errors.Wrap(err, "can't read balance contract precision")
+	}
+
 	s.epochCounter.Store(uint64(epoch))
 	s.innerRingIndex.Store(index)
+	s.precision.SetBalancePrecision(balancePrecision)
 
 	s.log.Debug("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
 		zap.Int64("epoch", epoch),
+		zap.Uint32("precision", balancePrecision),
 	)
 
 	return nil
