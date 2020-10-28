@@ -1,6 +1,8 @@
 package balance
 
 import (
+	"math/big"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/pkg/errors"
 )
@@ -14,7 +16,7 @@ type GetBalanceOfArgs struct {
 // GetBalanceOfValues groups the stack parameters
 // returned by "balance of" test invoke.
 type GetBalanceOfValues struct {
-	amount int64 // wallet funds amount
+	amount *big.Int // wallet funds amount
 }
 
 // SetWallet sets the wallet script hash
@@ -24,7 +26,7 @@ func (g *GetBalanceOfArgs) SetWallet(v []byte) {
 }
 
 // Amount returns the amount of funds.
-func (g *GetBalanceOfValues) Amount() int64 {
+func (g *GetBalanceOfValues) Amount() *big.Int {
 	return g.amount
 }
 
@@ -41,7 +43,7 @@ func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
 		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.balanceOfMethod, ln)
 	}
 
-	amount, err := client.IntFromStackItem(prms[0])
+	amount, err := client.BigIntFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get integer stack item from stack item (%s)", c.balanceOfMethod)
 	}
