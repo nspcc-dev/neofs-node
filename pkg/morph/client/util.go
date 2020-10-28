@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/binary"
+	"math/big"
 
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -155,6 +156,11 @@ func IntFromStackItem(param stackitem.Item) (int64, error) {
 	default:
 		return 0, errors.Errorf("chain/client: %s is not an integer type", param.Type())
 	}
+}
+
+// BigIntFromStackItem receives numerical value from the value of a smart contract parameter.
+func BigIntFromStackItem(param stackitem.Item) (*big.Int, error) {
+	return param.TryInteger()
 }
 
 // BytesFromStackItem receives binary value from the value of a smart contract parameter.

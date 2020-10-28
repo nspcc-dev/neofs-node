@@ -1,9 +1,11 @@
 package client
 
 import (
+	"math"
 	"math/big"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/bigint"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/stretchr/testify/require"
@@ -50,9 +52,13 @@ var (
 		Value: []sc.Parameter{intParam, byteArrayParam},
 	}
 
+	bigIntValue = new(big.Int).Mul(big.NewInt(math.MaxInt64), big.NewInt(10))
+
 	stringByteItem     = stackitem.NewByteArray([]byte("Hello World"))
 	intItem            = stackitem.NewBigInteger(new(big.Int).SetInt64(1))
+	bigIntItem         = stackitem.NewBigInteger(bigIntValue)
 	byteWithIntItem    = stackitem.NewByteArray([]byte{0x0a})
+	byteWithBigIntItem = stackitem.NewByteArray(bigint.ToBytes(bigIntValue))
 	emptyByteArrayItem = stackitem.NewByteArray([]byte{})
 	trueBoolItem       = stackitem.NewBool(true)
 	falseBoolItem      = stackitem.NewBool(false)
@@ -229,6 +235,27 @@ func TestIntFromStackItem(t *testing.T) {
 
 	t.Run("incorrect assert", func(t *testing.T) {
 		_, err := IntFromStackItem(arrayItem)
+		require.Error(t, err)
+	})
+}
+
+func TestBigIntFromStackItem(t *testing.T) {
+	t.Run("correct assert", func(t *testing.T) {
+		val, err := BigIntFromStackItem(bigIntItem)
+		require.NoError(t, err)
+		require.Equal(t, bigIntValue, val)
+
+		val, err = BigIntFromStackItem(byteWithBigIntItem)
+		require.NoError(t, err)
+		require.Equal(t, bigIntValue, val)
+
+		val, err = BigIntFromStackItem(emptyByteArrayItem)
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(0), val)
+	})
+
+	t.Run("incorrect assert", func(t *testing.T) {
+		_, err := BigIntFromStackItem(arrayItem)
 		require.Error(t, err)
 	})
 }
