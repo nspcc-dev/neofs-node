@@ -2,6 +2,7 @@ package localstore
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -10,7 +11,7 @@ import (
 type Storage struct {
 	log *logger.Logger
 
-	metaBucket bucket.Bucket
+	metaBase *meta.DB
 
 	blobBucket bucket.Bucket
 }
@@ -29,7 +30,7 @@ func defaultCfg() *cfg {
 }
 
 // New is a local object storage constructor.
-func New(blob, meta bucket.Bucket, opts ...Option) *Storage {
+func New(blob bucket.Bucket, meta *meta.DB, opts ...Option) *Storage {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -37,9 +38,9 @@ func New(blob, meta bucket.Bucket, opts ...Option) *Storage {
 	}
 
 	return &Storage{
-		metaBucket: meta,
-		blobBucket: blob,
 		log:        cfg.logger,
+		metaBase:   meta,
+		blobBucket: blob,
 	}
 }
 

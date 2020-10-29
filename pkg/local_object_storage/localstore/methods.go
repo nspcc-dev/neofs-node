@@ -1,8 +1,6 @@
 package localstore
 
 import (
-	"context"
-
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
@@ -28,16 +26,11 @@ func (s *Storage) Put(obj *object.Object) error {
 		return errors.Wrap(err, "could not marshal the object")
 	}
 
-	metaBytes, err := metaToBytes(metaFromObject(obj))
-	if err != nil {
-		return errors.Wrap(err, "could not marshal object meta")
-	}
-
 	if err := s.blobBucket.Set(addrBytes, objBytes); err != nil {
 		return errors.Wrap(err, "could no save object in BLOB storage")
 	}
 
-	if err := s.metaBucket.Set(addrBytes, metaBytes); err != nil {
+	if err := s.metaBase.Put(object.NewRawFromObject(obj).CutPayload().Object()); err != nil {
 		return errors.Wrap(err, "could not save object in meta storage")
 	}
 
@@ -56,7 +49,7 @@ func (s *Storage) Delete(addr *objectSDK.Address) error {
 		)
 	}
 
-	if err := s.metaBucket.Del(addrBytes); err != nil {
+	if err := s.metaBase.Delete(addr); err != nil {
 		return errors.Wrap(err, "could not remove object from meta storage")
 	}
 
@@ -77,40 +70,10 @@ func (s *Storage) Get(addr *objectSDK.Address) (*object.Object, error) {
 	return object.FromBytes(objBytes)
 }
 
-func (s *Storage) Head(addr *objectSDK.Address) (*ObjectMeta, error) {
-	addrBytes, err := addressBytes(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal object address")
-	}
-
-	metaBytes, err := s.metaBucket.Get(addrBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get object from meta storage")
-	}
-
-	return metaFromBytes(metaBytes)
+func (s *Storage) Head(addr *objectSDK.Address) (*object.Object, error) {
+	return s.metaBase.Get(addr)
 }
 
-func (s *Storage) Iterate(filter FilterPipeline, handler func(*ObjectMeta) bool) error {
-	if filter == nil {
-		filter = NewFilter(&FilterParams{
-			Name: "SKIPPING_FILTER",
-			FilterFunc: func(context.Context, *ObjectMeta) *FilterResult {
-				return ResultPass()
-			},
-		})
-	}
-
-	return s.metaBucket.Iterate(func(_, v []byte) bool {
-		meta, err := metaFromBytes(v)
-		if err != nil {
-			s.log.Error("unmarshal meta bucket item failure",
-				zap.Error(err),
-			)
-		} else if filter.Pass(context.TODO(), meta).Code() == CodePass {
-			return !handler(meta)
-		}
-
-		return true
-	})
+func (s *Storage) Select(fs objectSDK.SearchFilters) ([]*objectSDK.Address, error) {
+	return s.metaBase.Select(fs)
 }
