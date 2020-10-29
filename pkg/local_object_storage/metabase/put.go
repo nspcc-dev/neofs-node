@@ -62,7 +62,7 @@ func (db *DB) Put(obj *object.Object) error {
 			v := []byte(indices[i].val)
 
 			// create address bucket for the value
-			valBucket, err := keyBucket.CreateBucketIfNotExists(keyWithPrefix(v, true))
+			valBucket, err := keyBucket.CreateBucketIfNotExists(nonEmptyKeyBytes(v))
 			if err != nil {
 				return errors.Wrapf(err, "(%T) could not create bucket for header value", db)
 			}
@@ -77,13 +77,8 @@ func (db *DB) Put(obj *object.Object) error {
 	})
 }
 
-func keyWithPrefix(key []byte, bucket bool) []byte {
-	b := byte(0)
-	if bucket {
-		b = 1
-	}
-
-	return append([]byte{b}, key...)
+func nonEmptyKeyBytes(key []byte) []byte {
+	return append([]byte{0}, key...)
 }
 
 func cutKeyBytes(key []byte) []byte {
