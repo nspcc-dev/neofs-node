@@ -41,7 +41,7 @@ func (np *Processor) processAddPeer(node []byte) {
 	}
 }
 
-// Process new epoch tick by invoking new epoch method in network map contract.
+// Process update peer notification by sending approval tx to the smart contract.
 func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	if !np.activeState.IsActive() {
 		np.log.Info("passive mode, ignore new epoch tick")
@@ -56,6 +56,10 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 		)
 		return
 	}
+
+	// flag node to remove from local view, so it can be re-bootstrapped
+	// again before new epoch will tick
+	np.netmapSnapshot.flag(ev.PublicKey().String())
 
 	err := invoke.UpdatePeerState(np.morphClient, np.netmapContract,
 		&invoke.UpdatePeerArgs{
