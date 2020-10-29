@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 )
 
 type (
