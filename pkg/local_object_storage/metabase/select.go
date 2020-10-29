@@ -39,7 +39,7 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 
 			// iterate over all existing values for the key
 			if err := keyBucket.ForEach(func(k, _ []byte) error {
-				if !matchFunc(string(cutKeyBytes(k)), fVal) {
+				if !matchFunc(string(key), string(cutKeyBytes(k)), fVal) {
 					// exclude all addresses with this value
 					return keyBucket.Bucket(k).ForEach(func(k, _ []byte) error {
 						mAddr[string(k)] = struct{}{}
