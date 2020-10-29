@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
 	"github.com/pkg/errors"
@@ -19,47 +18,25 @@ type localStream struct {
 	cid *container.ID
 }
 
-type searchQueryFilter struct {
-	localstore.FilterPipeline
-
-	query query.Query
-
-	ch chan<- []*objectSDK.ID
-
-	cid *container.ID
-}
-
 func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) error {
-	filter := &searchQueryFilter{
-		query: s.query,
-		ch:    ch,
-		cid:   s.cid,
+	fs := s.query.ToSearchFilters()
+	fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, s.cid)
+
+	addrList, err := s.storage.Select(fs)
+	if err != nil {
+		return errors.Wrapf(err, "(%T) could not select objects from local storage", s)
 	}
 
-	if err := s.storage.Iterate(filter, func(meta *localstore.ObjectMeta) bool {
-		select {
-		case <-ctx.Done():
-			return true
-		default:
-			return false
-		}
-	}); err != nil && !errors.Is(errors.Cause(err), bucket.ErrIteratingAborted) {
-		return errors.Wrapf(err, "(%T) could not iterate over local storage", s)
+	idList := make([]*objectSDK.ID, 0, len(addrList))
+
+	for i := range addrList {
+		idList = append(idList, addrList[i].GetObjectID())
 	}
 
-	return nil
-}
-
-func (f *searchQueryFilter) Pass(ctx context.Context, meta *localstore.ObjectMeta) *localstore.FilterResult {
-	if obj := meta.Head(); f.cid.Equal(obj.GetContainerID()) {
-		f.query.Match(meta.Head(), func(id *objectSDK.ID) {
-			select {
-			case <-ctx.Done():
-				return
-			case f.ch <- []*objectSDK.ID{id}:
-			}
-		})
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ch <- idList:
+		return nil
 	}
-
-	return localstore.ResultPass()
 }

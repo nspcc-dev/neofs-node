@@ -23,6 +23,10 @@ func NewDB(boltDB *bbolt.DB) *DB {
 	}
 }
 
+func (db *DB) Close() error {
+	return db.boltDB.Close()
+}
+
 func stringEqualMatcher(key, objVal, filterVal string) bool {
 	switch key {
 	default:

@@ -14,15 +14,15 @@ func (q *jobQueue) Select(limit int) ([]*object.Address, error) {
 	// We can prioritize objects for migration, newly arrived objects, etc.
 	// It is recommended to make changes after updating the metabase
 
-	res := make([]*object.Address, 0, limit)
-
-	if err := q.localStorage.Iterate(nil, func(meta *localstore.ObjectMeta) bool {
-		res = append(res, meta.Head().Address())
-
-		return len(res) >= limit
-	}); err != nil {
+	// FIXME: add the ability to limit Select result
+	res, err := q.localStorage.Select(object.SearchFilters{})
+	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	if len(res) < limit {
+		return res, nil
+	}
+
+	return res[:limit], nil
 }

@@ -13,12 +13,12 @@ type localHeader struct {
 }
 
 func (h *localHeader) head(ctx context.Context, prm *Prm, handler func(*object.Object)) error {
-	m, err := h.storage.Head(prm.addr)
+	head, err := h.storage.Head(prm.addr)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not get header from local storage", h)
 	}
 
-	handler(m.Head())
+	handler(head)
 
 	return nil
 }
