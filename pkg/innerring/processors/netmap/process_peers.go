@@ -29,11 +29,12 @@ func (np *Processor) processAddPeer(node []byte) {
 	}
 
 	keyString := hex.EncodeToString(nodeInfo.PublicKey)
-	np.log.Info("approving network map candidate",
-		zap.String("key", keyString))
 
 	exists := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter())
 	if !exists {
+		np.log.Info("approving network map candidate",
+			zap.String("key", keyString))
+
 		err = invoke.ApprovePeer(np.morphClient, np.netmapContract, node)
 		if err != nil {
 			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
