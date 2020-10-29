@@ -22,55 +22,60 @@ var (
 // Object payload expected to be cut.
 func (db *DB) Put(obj *object.Object) error {
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		// create primary bucket (addr: header)
-		primaryBucket, err := tx.CreateBucketIfNotExists(primaryBucket)
-		if err != nil {
-			return errors.Wrapf(err, "(%T) could not create primary bucket", db)
-		}
+		par := false
 
-		data, err := obj.ToV2().StableMarshal(nil)
-		if err != nil {
-			return errors.Wrapf(err, "(%T) could not marshal the object", db)
-		}
-
-		addrKey := addressKey(obj.Address())
-
-		// put header to primary bucket
-		if err := primaryBucket.Put(addrKey, data); err != nil {
-			return errors.Wrapf(err, "(%T) could not put item to primary bucket", db)
-		}
-
-		// create bucket for indices
-		indexBucket, err := tx.CreateBucketIfNotExists(indexBucket)
-		if err != nil {
-			return errors.Wrapf(err, "(%T) could not create index bucket", db)
-		}
-
-		// calculate indexed values for object
-		indices := objectIndices(obj)
-
-		for i := range indices {
-			// create index bucket
-			keyBucket, err := indexBucket.CreateBucketIfNotExists([]byte(indices[i].key))
+		for ; obj != nil; obj, par = obj.GetParent(), true {
+			// create primary bucket (addr: header)
+			primaryBucket, err := tx.CreateBucketIfNotExists(primaryBucket)
 			if err != nil {
-				return errors.Wrapf(err, "(%T) could not create bucket for header key", db)
+				return errors.Wrapf(err, "(%T) could not create primary bucket", db)
 			}
 
-			// FIXME: here we can get empty slice that could not be the key
-			// Possible solutions:
-			// 1. add prefix byte (0 if empty);
-			v := []byte(indices[i].val)
-
-			// create address bucket for the value
-			valBucket, err := keyBucket.CreateBucketIfNotExists(nonEmptyKeyBytes(v))
+			data, err := obj.ToV2().StableMarshal(nil)
 			if err != nil {
-				return errors.Wrapf(err, "(%T) could not create bucket for header value", db)
+				return errors.Wrapf(err, "(%T) could not marshal the object", db)
 			}
 
-			// put object address to value bucket
-			if err := valBucket.Put(addrKey, nil); err != nil {
-				return errors.Wrapf(err, "(%T) could not put item to header bucket", db)
+			addrKey := addressKey(obj.Address())
+
+			// put header to primary bucket
+			if err := primaryBucket.Put(addrKey, data); err != nil {
+				return errors.Wrapf(err, "(%T) could not put item to primary bucket", db)
 			}
+
+			// create bucket for indices
+			indexBucket, err := tx.CreateBucketIfNotExists(indexBucket)
+			if err != nil {
+				return errors.Wrapf(err, "(%T) could not create index bucket", db)
+			}
+
+			// calculate indexed values for object
+			indices := objectIndices(obj, par)
+
+			for i := range indices {
+				// create index bucket
+				keyBucket, err := indexBucket.CreateBucketIfNotExists([]byte(indices[i].key))
+				if err != nil {
+					return errors.Wrapf(err, "(%T) could not create bucket for header key", db)
+				}
+
+				// FIXME: here we can get empty slice that could not be the key
+				// Possible solutions:
+				// 1. add prefix byte (0 if empty);
+				v := []byte(indices[i].val)
+
+				// create address bucket for the value
+				valBucket, err := keyBucket.CreateBucketIfNotExists(nonEmptyKeyBytes(v))
+				if err != nil {
+					return errors.Wrapf(err, "(%T) could not create bucket for header value", db)
+				}
+
+				// put object address to value bucket
+				if err := valBucket.Put(addrKey, nil); err != nil {
+					return errors.Wrapf(err, "(%T) could not put item to header bucket", db)
+				}
+			}
+
 		}
 
 		return nil
@@ -89,10 +94,25 @@ func addressKey(addr *objectSDK.Address) []byte {
 	return []byte(addr.String())
 }
 
-func objectIndices(obj *object.Object) []bucketItem {
+func objectIndices(obj *object.Object, parent bool) []bucketItem {
 	as := obj.GetAttributes()
 
-	res := make([]bucketItem, 0, 3+len(as))
+	res := make([]bucketItem, 0, 5+len(as))
+
+	rootVal := v2object.BooleanPropertyValueTrue
+	if obj.HasParent() {
+		rootVal = ""
+	}
+
+	leafVal := v2object.BooleanPropertyValueTrue
+	if parent {
+		leafVal = ""
+	}
+
+	childfreeVal := v2object.BooleanPropertyValueTrue
+	if len(obj.GetChildren()) > 0 {
+		childfreeVal = ""
+	}
 
 	res = append(res,
 		bucketItem{
@@ -106,6 +126,18 @@ func objectIndices(obj *object.Object) []bucketItem {
 		bucketItem{
 			key: v2object.FilterHeaderOwnerID,
 			val: obj.GetOwnerID().String(),
+		},
+		bucketItem{
+			key: v2object.FilterPropertyRoot,
+			val: rootVal,
+		},
+		bucketItem{
+			key: v2object.FilterPropertyLeaf,
+			val: leafVal,
+		},
+		bucketItem{
+			key: v2object.FilterPropertyChildfree,
+			val: childfreeVal,
 		},
 		// TODO: add remaining fields after neofs-api#72
 	)
