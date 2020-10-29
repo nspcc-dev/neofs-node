@@ -67,6 +67,11 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 				return nil
 			}
 
+			// check if object marked as deleted
+			if objectRemoved(tx, k) {
+				return nil
+			}
+
 			addr := object.NewAddress()
 			if err := addr.Parse(string(k)); err != nil {
 				// TODO: storage was broken, so we need to handle it

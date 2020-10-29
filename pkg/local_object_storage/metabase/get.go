@@ -15,12 +15,19 @@ func (db *DB) Get(addr *objectSDK.Address) (*object.Object, error) {
 	var obj *object.Object
 
 	if err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		addrKey := addressKey(addr)
+
+		// check if object marked as deleted
+		if objectRemoved(tx, addrKey) {
+			return errNotFound
+		}
+
 		primaryBucket := tx.Bucket(primaryBucket)
 		if primaryBucket == nil {
 			return errNotFound
 		}
 
-		data := primaryBucket.Get(addressKey(addr))
+		data := primaryBucket.Get(addrKey)
 		if data == nil {
 			return errNotFound
 		}
