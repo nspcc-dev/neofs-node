@@ -124,7 +124,7 @@ func matchFilters(hdrSrc TypedHeaderSource, filters []eacl.Filter) int {
 			}
 
 			// check header name
-			if header.GetKey() != filter.Name() {
+			if header.GetKey() != filter.Key() {
 				continue
 			}
 
