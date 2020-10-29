@@ -89,14 +89,14 @@ func signBearerToken(cmd *cobra.Command, _ []string) error {
 
 	var data []byte
 	if jsonFlag || len(to) == 0 {
-		data = v2ACL.BearerTokenToJSON(btok.ToV2())
-		if len(data) == 0 {
-			return errors.New("can't JSON encode bearer token")
+		data, err = v2ACL.BearerTokenToJSON(btok.ToV2())
+		if err != nil {
+			return fmt.Errorf("can't JSON encode bearer token: %w", err)
 		}
 	} else {
 		data, err = btok.ToV2().StableMarshal(nil)
 		if err != nil {
-			return errors.New("can't binary encode bearer token")
+			return fmt.Errorf("can't binary encode bearer token: %w", err)
 		}
 	}
 
@@ -128,14 +128,14 @@ func convertEACLTable(cmd *cobra.Command, _ []string) error {
 
 	var data []byte
 	if jsonFlag || len(to) == 0 {
-		data = v2ACL.TableToJSON(table.ToV2())
-		if len(data) == 0 {
-			return errors.New("can't JSON encode extended ACL table")
+		data, err = v2ACL.TableToJSON(table.ToV2())
+		if err != nil {
+			return fmt.Errorf("can't JSON encode extended ACL table: %w", err)
 		}
 	} else {
 		data, err = table.ToV2().StableMarshal(nil)
 		if err != nil {
-			return errors.New("can't binary encode extended ACL table")
+			return fmt.Errorf("can't binary encode extended ACL table: %w", err)
 		}
 	}
 

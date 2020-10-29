@@ -308,14 +308,14 @@ var getContainerInfoCmd = &cobra.Command{
 			)
 
 			if containerJSON {
-				data = v2container.ContainerToJSON(cnr.ToV2())
-				if len(data) == 0 {
-					return errors.New("can't JSON encode container")
+				data, err = v2container.ContainerToJSON(cnr.ToV2())
+				if err != nil {
+					return fmt.Errorf("can't JSON encode container: %w", err)
 				}
 			} else {
 				data, err = cnr.ToV2().StableMarshal(nil)
 				if err != nil {
-					return errors.New("can't binary encode container")
+					return fmt.Errorf("can't binary encode container: %w", err)
 				}
 			}
 
@@ -365,14 +365,14 @@ var getExtendedACLCmd = &cobra.Command{
 		var data []byte
 
 		if containerJSON {
-			data = v2ACL.TableToJSON(eaclTable.ToV2())
-			if len(data) == 0 {
-				return errors.New("can't encode to JSON")
+			data, err = v2ACL.TableToJSON(eaclTable.ToV2())
+			if err != nil {
+				return fmt.Errorf("can't enode to JSON: %w", err)
 			}
 		} else {
 			data, err = eaclTable.ToV2().StableMarshal(nil)
 			if err != nil {
-				return errors.New("can't encode to binary")
+				return fmt.Errorf("can't enode to binary: %w", err)
 			}
 		}
 
@@ -607,7 +607,11 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	}
 
 	if jsonEncoding {
-		data := v2container.ContainerToJSON(cnr.ToV2())
+		data, err := v2container.ContainerToJSON(cnr.ToV2())
+		if err != nil {
+			printVerbose("Can't convert container to json: %w", err)
+			return
+		}
 		buf := new(bytes.Buffer)
 		if err := json.Indent(buf, data, "", "  "); err != nil {
 			printVerbose("Can't pretty print json: %w", err)
@@ -674,19 +678,24 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 		return eacl.NewTableFromV2(v2), nil
 	}
 
-	if v2 := v2ACL.TableFromJSON(data); v2 != nil {
+	if v2, err := v2ACL.TableFromJSON(data); err == nil {
 		printVerbose("Parsed JSON encoded EACL table")
 		return eacl.NewTableFromV2(v2), nil
 	}
 
-	return nil, errors.New("can't parse EACL table")
+	return nil, fmt.Errorf("can't parse EACL table: %w", err)
 }
 
 func prettyPrintEACL(table *eacl.Table) {
-	data := v2ACL.TableToJSON(table.ToV2())
+	data, err := v2ACL.TableToJSON(table.ToV2())
+	if err != nil {
+		printVerbose("Can't convert container to json: %w", err)
+		return
+	}
 	buf := new(bytes.Buffer)
 	if err := json.Indent(buf, data, "", "  "); err != nil {
 		printVerbose("Can't pretty print json: %w", err)
+		return
 	}
 	fmt.Println(buf)
 }
