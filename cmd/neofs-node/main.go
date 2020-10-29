@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
+	"go.uber.org/zap"
 )
 
 func fatalOnErr(err error) {
@@ -57,6 +58,12 @@ func wait(c *cfg) {
 }
 
 func shutdown(c *cfg) {
+	if err := c.cfgObject.metastorage.Close(); err != nil {
+		c.log.Error("could not close metabase",
+			zap.String("error", err.Error()),
+		)
+	}
+
 	c.cfgGRPC.server.GracefulStop()
 
 	c.log.Info("gRPC server stopped")
