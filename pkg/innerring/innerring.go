@@ -173,13 +173,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create netmap processor
 	netmapProcessor, err := netmap.New(&netmap.Params{
-		Log:            log,
-		PoolSize:       cfg.GetInt("workers.netmap"),
-		NetmapContract: server.contracts.netmap,
-		EpochTimer:     server.localTimers,
-		MorphClient:    server.morphClient,
-		EpochState:     server,
-		ActiveState:    server,
+		Log:              log,
+		PoolSize:         cfg.GetInt("workers.netmap"),
+		NetmapContract:   server.contracts.netmap,
+		EpochTimer:       server.localTimers,
+		MorphClient:      server.morphClient,
+		EpochState:       server,
+		ActiveState:      server,
+		CleanupEnabled:   cfg.GetBool("netmap_cleaner.enabled"),
+		CleanupThreshold: cfg.GetUint64("netmap_cleaner.threshold"),
 	})
 	if err != nil {
 		return nil, err

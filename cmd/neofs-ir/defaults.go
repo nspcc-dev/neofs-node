@@ -83,4 +83,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("workers.neofs", "10")
 	cfg.SetDefault("workers.container", "10")
 	cfg.SetDefault("workers.alphabet", "10")
+
+	cfg.SetDefault("netmap_cleaner.enabled", false)
+	cfg.SetDefault("netmap_cleaner.threshold", 3)
 }
