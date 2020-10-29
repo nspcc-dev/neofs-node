@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,8 +17,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/boltdb"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -29,6 +30,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -75,7 +77,9 @@ const (
 	cfgContainerFee      = "container.fee"
 
 	cfgObjectStorage = "storage.object"
-	cfgMetaStorage   = "storage.meta"
+
+	cfgMetaBasePath = "storage.metabase.path"
+	cfgMetaBasePerm = "storage.metabase.perm"
 
 	cfgGCQueueSize = "gc.queuesize"
 	cfgGCQueueTick = "gc.duration.sleep"
@@ -193,7 +197,7 @@ type cfgObject struct {
 
 	cnrStorage container.Source
 
-	metastorage bucket.Bucket
+	metastorage *meta.DB
 
 	blobstorage bucket.Bucket
 
@@ -319,7 +323,9 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgNetmapFee, "1")
 
 	v.SetDefault(cfgObjectStorage+".type", "inmemory")
-	v.SetDefault(cfgMetaStorage+".type", "inmemory")
+
+	v.SetDefault(cfgMetaBasePath, "metabase")
+	v.SetDefault(cfgMetaBasePerm, 0600)
 
 	v.SetDefault(cfgLogLevel, "info")
 	v.SetDefault(cfgLogFormat, "console")
@@ -355,8 +361,14 @@ func initLocalStorage(c *cfg) {
 	c.cfgObject.blobstorage, err = initBucket(cfgObjectStorage, c)
 	fatalOnErr(err)
 
-	c.cfgObject.metastorage, err = initBucket(cfgMetaStorage, c)
+	boltDB, err := bbolt.Open(
+		c.viper.GetString(cfgMetaBasePath),
+		os.FileMode(c.viper.GetUint32(cfgMetaBasePerm)),
+		nil,
+	)
 	fatalOnErr(err)
+
+	c.cfgObject.metastorage = meta.NewDB(boltDB)
 }
 
 func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {
@@ -366,16 +378,6 @@ func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {
 	case inmemory:
 		bucket = newBucket()
 		c.log.Info("using in-memory bucket", zap.String("storage", prefix))
-	case boltdb.Name:
-		opts, err := boltdb.NewOptions(prefix, c.viper)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't create boltdb opts")
-		}
-		bucket, err = boltdb.NewBucket(&opts)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't create boltdb bucket")
-		}
-		c.log.Info("using boltdb bucket", zap.String("storage", prefix))
 	case fsbucket.Name:
 		bucket, err = fsbucket.NewBucket(prefix, c.viper)
 		if err != nil {
