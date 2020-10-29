@@ -624,11 +624,11 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 		return nil, fmt.Errorf("can't read bearer token file: %w", err)
 	}
 
-	v2token := v2ACL.BearerTokenFromJSON(data)
-	if v2token == nil {
+	v2token, err := v2ACL.BearerTokenFromJSON(data)
+	if err != nil {
 		msg := new(grpcACL.BearerToken)
 		if proto.Unmarshal(data, msg) != nil {
-			return nil, errors.New("can't decode bearer token")
+			return nil, fmt.Errorf("can't decode beare token: %w", err)
 		}
 
 		v2token = v2ACL.BearerTokenFromGRPCMessage(msg)
