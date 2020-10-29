@@ -3,7 +3,11 @@ package invoke
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 type (
@@ -19,12 +23,13 @@ type (
 )
 
 const (
-	getEpochMethod        = "epoch"
-	setNewEpochMethod     = "newEpoch"
-	approvePeerMethod     = "addPeer"
-	updatePeerStateMethod = "updateState"
-	setConfigMethod       = "setConfigMethod"
-	updateInnerRingMethod = "updateInnerRingMethod"
+	getEpochMethod          = "epoch"
+	setNewEpochMethod       = "newEpoch"
+	approvePeerMethod       = "addPeer"
+	updatePeerStateMethod   = "updateState"
+	setConfigMethod         = "setConfigMethod"
+	updateInnerRingMethod   = "updateInnerRingMethod"
+	getNetmapSnapshotMethod = "netmap"
 )
 
 // Epoch return epoch value from contract.
@@ -100,4 +105,55 @@ func UpdateInnerRing(cli *client.Client, con util.Uint160, list []*keys.PublicKe
 	}
 
 	return cli.Invoke(con, extraFee, updateInnerRingMethod, rawKeys)
+}
+
+// NetmapSnapshot returns current netmap node infos.
+func NetmapSnapshot(cli *client.Client, con util.Uint160) ([]netmap.NodeInfo, error) {
+	if cli == nil {
+		return nil, client.ErrNilClient
+	}
+
+	rawNetmapStack, err := cli.TestInvoke(con, getNetmapSnapshotMethod)
+	if err != nil {
+		return nil, err
+	}
+
+	if ln := len(rawNetmapStack); ln != 1 {
+		return nil, errors.New("invalid RPC response")
+	}
+
+	rawNodeInfos, err := client.ArrayFromStackItem(rawNetmapStack[0])
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]netmap.NodeInfo, 0, len(rawNodeInfos))
+
+	for i := range rawNodeInfos {
+		nodeInfo, err := peerInfoFromStackItem(rawNodeInfos[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid RPC response")
+		}
+
+		result = append(result, *nodeInfo)
+	}
+
+	return result, nil
+}
+
+func peerInfoFromStackItem(prm stackitem.Item) (*netmap.NodeInfo, error) {
+	node := new(netmap.NodeInfo)
+
+	subItems, err := client.ArrayFromStackItem(prm)
+	if err != nil {
+		return nil, err
+	} else if ln := len(subItems); ln != 1 {
+		return nil, errors.New("invalid RPC response")
+	} else if rawNodeInfo, err := client.BytesFromStackItem(subItems[0]); err != nil {
+		return nil, err
+	} else if err = proto.Unmarshal(rawNodeInfo, node); err != nil {
+		return nil, err
+	}
+
+	return node, nil
 }
