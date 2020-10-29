@@ -38,17 +38,21 @@ type (
 		epochState     EpochState
 		activeState    ActiveState
 		morphClient    *client.Client
+
+		netmapSnapshot cleanupTable
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log            *zap.Logger
-		PoolSize       int
-		NetmapContract util.Uint160
-		EpochTimer     EpochTimerReseter
-		MorphClient    *client.Client
-		EpochState     EpochState
-		ActiveState    ActiveState
+		Log              *zap.Logger
+		PoolSize         int
+		NetmapContract   util.Uint160
+		EpochTimer       EpochTimerReseter
+		MorphClient      *client.Client
+		EpochState       EpochState
+		ActiveState      ActiveState
+		CleanupEnabled   bool
+		CleanupThreshold uint64 // in epochs
 	}
 )
 
@@ -88,6 +92,7 @@ func New(p *Params) (*Processor, error) {
 		epochState:     p.EpochState,
 		activeState:    p.ActiveState,
 		morphClient:    p.MorphClient,
+		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),
 	}, nil
 }
 

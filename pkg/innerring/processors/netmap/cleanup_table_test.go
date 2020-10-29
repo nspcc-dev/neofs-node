@@ -4,20 +4,20 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCleanupTable(t *testing.T) {
-	var infos = []netmap.NodeInfo{
+	infos := []netmap.NodeInfo{
 		{PublicKey: crypto.MarshalPublicKey(&test.DecodeKey(1).PublicKey)},
 		{PublicKey: crypto.MarshalPublicKey(&test.DecodeKey(2).PublicKey)},
 		{PublicKey: crypto.MarshalPublicKey(&test.DecodeKey(3).PublicKey)},
 	}
 
-	var mapInfos = map[string]struct{}{
+	mapInfos := map[string]struct{}{
 		hex.EncodeToString(infos[0].PublicKey): {},
 		hex.EncodeToString(infos[1].PublicKey): {},
 		hex.EncodeToString(infos[2].PublicKey): {},
@@ -110,6 +110,5 @@ func TestCleanupTable(t *testing.T) {
 				}))
 			require.EqualValues(t, len(infos)-1, cnt)
 		})
-
 	})
 }
