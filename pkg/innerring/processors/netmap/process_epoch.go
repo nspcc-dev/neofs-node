@@ -10,6 +10,18 @@ import (
 func (np *Processor) processNewEpoch(epoch uint64) {
 	np.epochState.SetEpochCounter(epoch)
 	np.epochTimer.ResetEpochTimer()
+
+	// get new netmap snapshot
+	snapshot, err := invoke.NetmapSnapshot(np.morphClient, np.netmapContract)
+	if err != nil {
+		np.log.Warn("can't get netmap snapshot to perform cleanup",
+			zap.String("error", err.Error()))
+
+		return
+	}
+
+	np.netmapSnapshot.update(snapshot, epoch)
+	np.handleCleanupTick(netmapCleanupTick{epoch: epoch})
 }
 
 // Process new epoch tick by invoking new epoch method in network map contract.

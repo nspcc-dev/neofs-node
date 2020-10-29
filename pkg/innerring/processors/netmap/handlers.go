@@ -77,3 +77,25 @@ func (np *Processor) handleUpdateState(ev event.Event) {
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
+
+func (np *Processor) handleCleanupTick(ev event.Event) {
+	if !np.netmapSnapshot.enabled {
+		np.log.Debug("netmap clean up routine is disabled")
+
+		return
+	}
+
+	cleanup := ev.(netmapCleanupTick)
+
+	np.log.Info("tick", zap.String("type", "netmap cleaner"))
+
+	// send event to the worker pool
+	err := np.pool.Submit(func() {
+		np.processNetmapCleanupTick(cleanup.epoch)
+	})
+	if err != nil {
+		// there system can be moved into controlled degradation stage
+		np.log.Warn("netmap worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
