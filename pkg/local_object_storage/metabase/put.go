@@ -61,11 +61,6 @@ func (db *DB) Put(obj *object.Object) error {
 			// 1. add prefix byte (0 if empty);
 			v := []byte(indices[i].val)
 
-			// put value to key bucket (it is needed for iteration over all values (Select))
-			if err := keyBucket.Put(keyWithPrefix(v, false), nil); err != nil {
-				return errors.Wrapf(err, "(%T) could not put header value", db)
-			}
-
 			// create address bucket for the value
 			valBucket, err := keyBucket.CreateBucketIfNotExists(keyWithPrefix(v, true))
 			if err != nil {
@@ -91,8 +86,8 @@ func keyWithPrefix(key []byte, bucket bool) []byte {
 	return append([]byte{b}, key...)
 }
 
-func keyWithoutPrefix(key []byte) ([]byte, bool) {
-	return key[1:], key[0] == 1
+func cutKeyBytes(key []byte) []byte {
+	return key[1:]
 }
 
 func addressKey(addr *objectSDK.Address) []byte {
