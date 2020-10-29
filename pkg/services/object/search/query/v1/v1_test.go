@@ -58,24 +58,6 @@ func matchesQuery(q query.Query, obj *object.Object) (res bool) {
 }
 
 func TestQ_Match(t *testing.T) {
-	t.Run("object identifier equal", func(t *testing.T) {
-		obj := object.NewRaw()
-
-		id := testID(t)
-		obj.SetID(id)
-
-		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(objectSDK.HdrSysNameID, idValue(id), objectSDK.MatchStringEqual)
-
-		q := New(fs)
-
-		require.True(t, matchesQuery(q, obj.Object()))
-
-		obj.SetID(testID(t))
-
-		require.False(t, matchesQuery(q, obj.Object()))
-	})
-
 	t.Run("container identifier equal", func(t *testing.T) {
 		obj := object.NewRaw()
 
@@ -83,7 +65,7 @@ func TestQ_Match(t *testing.T) {
 		obj.SetContainerID(id)
 
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(objectSDK.HdrSysNameCID, cidValue(id), objectSDK.MatchStringEqual)
+		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, id)
 
 		q := New(fs)
 
@@ -101,7 +83,7 @@ func TestQ_Match(t *testing.T) {
 		obj.SetOwnerID(id)
 
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(objectSDK.HdrSysNameOwnerID, ownerIDValue(id), objectSDK.MatchStringEqual)
+		fs.AddObjectOwnerIDFilter(objectSDK.MatchStringEqual, id)
 
 		q := New(fs)
 

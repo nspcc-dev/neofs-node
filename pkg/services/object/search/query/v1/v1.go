@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
 )
@@ -42,11 +43,11 @@ func (q *Query) Match(obj *object.Object, handler func(*objectSDK.ID)) {
 				switch key := q.filters[i].Header(); key {
 				default:
 					match = headerEqual(obj, key, q.filters[i].Value())
-				case objectSDK.KeyRoot:
-					match = (q.filters[i].Value() == objectSDK.ValRoot) == (!obj.HasParent() &&
+				case v2object.FilterPropertyRoot:
+					match = (q.filters[i].Value() == v2object.BooleanPropertyValueTrue) == (!obj.HasParent() &&
 						obj.GetType() == objectSDK.TypeRegular)
-				case objectSDK.KeyLeaf:
-					match = (q.filters[i].Value() == objectSDK.ValLeaf) == (par == nil)
+				case v2object.FilterPropertyLeaf:
+					match = (q.filters[i].Value() == v2object.BooleanPropertyValueTrue) == (par == nil)
 				}
 			}
 		}
@@ -67,18 +68,14 @@ func headerEqual(obj *object.Object, key, value string) bool {
 		}
 
 		return false
-	case objectSDK.HdrSysNameID:
-		return value == idValue(obj.GetID())
-	case objectSDK.HdrSysNameCID:
+	case v2object.FilterHeaderContainerID:
 		return value == cidValue(obj.GetContainerID())
-	case objectSDK.HdrSysNameOwnerID:
+	case v2object.FilterHeaderOwnerID:
 		return value == ownerIDValue(obj.GetOwnerID())
-	case keyNoChildrenField:
-		return len(obj.GetChildren()) == 0
-	case keyParentIDField:
+	case v2object.FilterPropertyChildfree:
+		return (value == v2object.BooleanPropertyValueTrue) == (len(obj.GetChildren()) == 0)
+	case v2object.FilterHeaderParent:
 		return idValue(obj.GetParentID()) == value
-	case keyParentField:
-		return len(obj.GetChildren()) > 0
 		// TODO: add other headers
 	}
 }
