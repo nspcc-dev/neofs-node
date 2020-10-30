@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"sync"
 
-	netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
 
 type (
@@ -31,15 +31,15 @@ func newCleanupTable(enabled bool, threshold uint64) cleanupTable {
 }
 
 // Update cleanup table based on on-chain information about netmap.
-func (c *cleanupTable) update(snapshot []netmap.NodeInfo, now uint64) {
+func (c *cleanupTable) update(snapshot *netmap.Netmap, now uint64) {
 	c.Lock()
 	defer c.Unlock()
 
 	// replacing map is less memory efficient but faster
-	newMap := make(map[string]epochStamp, len(snapshot))
+	newMap := make(map[string]epochStamp, len(snapshot.Nodes))
 
-	for i := range snapshot {
-		keyString := hex.EncodeToString(snapshot[i].PublicKey)
+	for i := range snapshot.Nodes {
+		keyString := hex.EncodeToString(snapshot.Nodes[i].PublicKey())
 		if access, ok := c.lastAccess[keyString]; ok {
 			access.removeFlag = false // reset remove Flag on each Update
 			newMap[keyString] = access
