@@ -58,6 +58,19 @@ func initNetmapService(c *cfg) {
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
 	})
+
+	if c.cfgNetmap.reBootstrapEnabled {
+		addNewEpochNotificationHandler(c, func(ev event.Event) {
+			n := ev.(netmapEvent.NewEpoch).EpochNumber()
+
+			if n%c.cfgNetmap.reBootstrapInterval == 0 {
+				err := c.cfgNetmap.wrapper.AddPeer(c.cfgNodeInfo.info)
+				if err != nil {
+					c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
+				}
+			}
+		})
+	}
 }
 
 func bootstrapNode(c *cfg) {

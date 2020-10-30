@@ -86,6 +86,9 @@ const (
 	cfgPolicerHeadTimeout = "policer.head_timeout"
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
+
+	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
+	cfgReBootstrapInterval = "bootstrap.periodic.interval"
 )
 
 const (
@@ -169,6 +172,9 @@ type cfgNetmap struct {
 	subscribers map[event.Type][]event.Handler
 
 	state *networkState
+
+	reBootstrapEnabled  bool
+	reBootstrapInterval uint64 // in epochs
 }
 
 type BootstrapType uint32
@@ -245,9 +251,11 @@ func initCfg(path string) *cfg {
 			fee:        util.Fixed8(viperCfg.GetInt(cfgContainerFee)),
 		},
 		cfgNetmap: cfgNetmap{
-			scriptHash: u160Netmap,
-			fee:        util.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
-			state:      state,
+			scriptHash:          u160Netmap,
+			fee:                 util.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
+			state:               state,
+			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
+			reBootstrapEnabled:  viperCfg.GetBool(cfgReBootstrapEnabled),
 		},
 		cfgNodeInfo: cfgNodeInfo{
 			bootType:   StorageNode,
@@ -332,6 +340,9 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
+
+	v.SetDefault(cfgReBootstrapEnabled, false) // in epochs
+	v.SetDefault(cfgReBootstrapInterval, 2)    // in epochs
 }
 
 func (c *cfg) LocalAddress() *network.Address {
