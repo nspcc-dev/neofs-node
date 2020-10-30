@@ -4,7 +4,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	netmapv2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	netmapgrpc "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -108,7 +110,8 @@ func UpdateInnerRing(cli *client.Client, con util.Uint160, list []*keys.PublicKe
 }
 
 // NetmapSnapshot returns current netmap node infos.
-func NetmapSnapshot(cli *client.Client, con util.Uint160) ([]netmap.NodeInfo, error) {
+// Consider using pkg/morph/client/netmap for this.
+func NetmapSnapshot(cli *client.Client, con util.Uint160) (*netmap.Netmap, error) {
 	if cli == nil {
 		return nil, client.ErrNilClient
 	}
@@ -127,7 +130,7 @@ func NetmapSnapshot(cli *client.Client, con util.Uint160) ([]netmap.NodeInfo, er
 		return nil, err
 	}
 
-	result := make([]netmap.NodeInfo, 0, len(rawNodeInfos))
+	result := make([]netmapv2.NodeInfo, 0, len(rawNodeInfos))
 
 	for i := range rawNodeInfos {
 		nodeInfo, err := peerInfoFromStackItem(rawNodeInfos[i])
@@ -138,11 +141,11 @@ func NetmapSnapshot(cli *client.Client, con util.Uint160) ([]netmap.NodeInfo, er
 		result = append(result, *nodeInfo)
 	}
 
-	return result, nil
+	return netmap.NewNetmap(netmap.NodesFromV2(result))
 }
 
-func peerInfoFromStackItem(prm stackitem.Item) (*netmap.NodeInfo, error) {
-	node := new(netmap.NodeInfo)
+func peerInfoFromStackItem(prm stackitem.Item) (*netmapv2.NodeInfo, error) {
+	node := new(netmapgrpc.NodeInfo)
 
 	subItems, err := client.ArrayFromStackItem(prm)
 	if err != nil {
@@ -155,5 +158,5 @@ func peerInfoFromStackItem(prm stackitem.Item) (*netmap.NodeInfo, error) {
 		return nil, err
 	}
 
-	return node, nil
+	return netmapv2.NodeInfoFromGRPCMessage(node), nil
 }
