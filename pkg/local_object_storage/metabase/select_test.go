@@ -2,12 +2,10 @@ package meta
 
 import (
 	"crypto/rand"
-	"os"
 	"testing"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 )
 
 func addNFilters(fs *objectSDK.SearchFilters, n int) {
@@ -23,17 +21,9 @@ func addNFilters(fs *objectSDK.SearchFilters, n int) {
 }
 
 func BenchmarkDB_Select(b *testing.B) {
-	path := "select_test.db"
+	db := newDB(b)
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(b, err)
-
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
-	db := NewDB(bdb)
+	defer releaseDB(db)
 
 	for i := 0; i < 100; i++ {
 		obj := generateObject(b, testPrm{

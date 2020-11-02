@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
@@ -13,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 )
 
 type testPrm struct {
@@ -87,17 +85,9 @@ func generateObject(t require.TestingT, prm testPrm) *object.Object {
 }
 
 func BenchmarkDB_Put(b *testing.B) {
-	path := "put_test.db"
+	db := newDB(b)
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(b, err)
-
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
-	db := NewDB(bdb)
+	defer releaseDB(db)
 
 	for _, prm := range []testPrm{
 		{
