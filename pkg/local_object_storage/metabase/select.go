@@ -32,7 +32,8 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			// get bucket with values
 			keyBucket := indexBucket.Bucket([]byte(key))
 			if keyBucket == nil {
-				continue
+				// no object has this attribute => empty result
+				return nil
 			}
 
 			fVal := f.Value()
