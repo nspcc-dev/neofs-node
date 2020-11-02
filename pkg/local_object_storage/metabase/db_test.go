@@ -239,3 +239,24 @@ func releaseDB(db *DB) {
 	db.Close()
 	os.Remove(db.Path())
 }
+
+func TestSelectNonExistentAttributes(t *testing.T) {
+	db := newDB(t)
+
+	defer releaseDB(db)
+
+	obj := object.NewRaw()
+	obj.SetID(testOID())
+	obj.SetContainerID(testCID())
+
+	require.NoError(t, db.Put(obj.Object()))
+
+	fs := objectSDK.SearchFilters{}
+
+	// add filter by non-existent attribute
+	fs.AddFilter("key", "value", objectSDK.MatchStringEqual)
+
+	res, err := db.Select(fs)
+	require.NoError(t, err)
+	require.Empty(t, res)
+}
