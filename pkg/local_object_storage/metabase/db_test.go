@@ -236,3 +236,19 @@ func TestDB_SelectProperties(t *testing.T) {
 	fs.AddFilter(v2object.FilterPropertyChildfree, "some false value", objectSDK.MatchStringEqual)
 	testSelect(t, db, fs, lnkAddr)
 }
+
+func TestDB_Path(t *testing.T) {
+	path := t.Name()
+
+	bdb, err := bbolt.Open(path, 0600, nil)
+	require.NoError(t, err)
+
+	defer func() {
+		bdb.Close()
+		os.Remove(path)
+	}()
+
+	db := NewDB(bdb)
+
+	require.Equal(t, path, db.Path())
+}

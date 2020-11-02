@@ -8,6 +8,8 @@ import (
 
 // DB represents local metabase of storage node.
 type DB struct {
+	path string
+
 	boltDB *bbolt.DB
 
 	matchers map[object.SearchMatchType]func(string, string, string) bool
@@ -16,6 +18,7 @@ type DB struct {
 // NewDB creates, initializes and returns DB instance.
 func NewDB(boltDB *bbolt.DB) *DB {
 	return &DB{
+		path:   boltDB.Path(),
 		boltDB: boltDB,
 		matchers: map[object.SearchMatchType]func(string, string, string) bool{
 			object.MatchStringEqual: stringEqualMatcher,
@@ -25,6 +28,11 @@ func NewDB(boltDB *bbolt.DB) *DB {
 
 func (db *DB) Close() error {
 	return db.boltDB.Close()
+}
+
+// Path returns the path to meta database.
+func (db *DB) Path() string {
+	return db.path
 }
 
 func stringEqualMatcher(key, objVal, filterVal string) bool {
