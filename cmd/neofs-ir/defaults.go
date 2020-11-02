@@ -3,7 +3,6 @@ package main
 import (
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/spf13/viper"
 )
@@ -51,12 +50,10 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("morph.endpoint.client", "")
 	cfg.SetDefault("morph.endpoint.notification", "")
 	cfg.SetDefault("morph.dial_timeout", "10s")
-	cfg.SetDefault("morph.magic_number", uint32(netmode.PrivNet))
 
 	cfg.SetDefault("mainnet.endpoint.client", "")
 	cfg.SetDefault("mainnet.endpoint.notification", "")
 	cfg.SetDefault("mainnet.dial_timeout", "10s")
-	cfg.SetDefault("mainnet.magic_number", uint32(netmode.PrivNet))
 
 	cfg.SetDefault("key", "") // inner ring node key
 

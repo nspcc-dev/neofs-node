@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
@@ -302,7 +301,6 @@ func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeouts")),
-		client.WithMagic(netmode.Magic(p.cfg.GetUint32(p.name+".magic_number"))),
 		client.WithGasContract(p.gas),
 	)
 }

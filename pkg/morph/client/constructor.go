@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -24,8 +23,6 @@ type cfg struct {
 
 	dialTimeout time.Duration // client dial timeout
 
-	magic netmode.Magic // type of Neo blockchain network
-
 	logger *logger.Logger // logging component
 
 	gas util.Uint160 // native gas script-hash
@@ -33,13 +30,10 @@ type cfg struct {
 
 const defaultDialTimeout = 5 * time.Second
 
-const defaultMagic = netmode.PrivNet
-
 func defaultConfig() *cfg {
 	return &cfg{
 		ctx:         context.Background(),
 		dialTimeout: defaultDialTimeout,
-		magic:       defaultMagic,
 		logger:      zap.L(),
 		gas:         util.Uint160{},
 	}
@@ -128,16 +122,6 @@ func WithDialTimeout(dur time.Duration) Option {
 		if dur > 0 {
 			c.dialTimeout = dur
 		}
-	}
-}
-
-// WithMagic returns a client constructor option
-// that specifies neo blockchain network type.
-//
-// If option not provided, netmode.PrivNet is used.
-func WithMagic(mag netmode.Magic) Option {
-	return func(c *cfg) {
-		c.magic = mag
 	}
 }
 
