@@ -76,17 +76,9 @@ func TestDB(t *testing.T) {
 
 	obj.SetAttributes(a)
 
-	path := "test.db"
+	db := newDB(t)
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(t, err)
-
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
-	db := NewDB(bdb)
+	defer releaseDB(db)
 
 	o := obj.Object()
 
@@ -117,17 +109,9 @@ func TestDB(t *testing.T) {
 }
 
 func TestDB_Delete(t *testing.T) {
-	path := "test.db"
+	db := newDB(t)
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(t, err)
-
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
-	db := NewDB(bdb)
+	defer releaseDB(db)
 
 	obj := object.NewRaw()
 	obj.SetContainerID(testCID())
@@ -139,7 +123,7 @@ func TestDB_Delete(t *testing.T) {
 
 	addr := o.Address()
 
-	_, err = db.Get(addr)
+	_, err := db.Get(addr)
 	require.NoError(t, err)
 
 	fs := objectSDK.SearchFilters{}
@@ -156,17 +140,9 @@ func TestDB_Delete(t *testing.T) {
 }
 
 func TestDB_SelectProperties(t *testing.T) {
-	path := "test.db"
+	db := newDB(t)
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(t, err)
-
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
-	db := NewDB(bdb)
+	defer releaseDB(db)
 
 	parent := object.NewRaw()
 	parent.SetContainerID(testCID())
@@ -243,12 +219,23 @@ func TestDB_Path(t *testing.T) {
 	bdb, err := bbolt.Open(path, 0600, nil)
 	require.NoError(t, err)
 
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
 	db := NewDB(bdb)
 
+	defer releaseDB(db)
+
 	require.Equal(t, path, db.Path())
+}
+
+func newDB(t testing.TB) *DB {
+	path := t.Name()
+
+	bdb, err := bbolt.Open(path, 0600, nil)
+	require.NoError(t, err)
+
+	return NewDB(bdb)
+}
+
+func releaseDB(db *DB) {
+	db.Close()
+	os.Remove(db.Path())
 }

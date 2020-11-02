@@ -1,26 +1,16 @@
 package meta
 
 import (
-	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 )
 
 func BenchmarkDB_Delete(b *testing.B) {
-	path := "delete_test.db"
+	db := newDB(b)
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(b, err)
-
-	defer func() {
-		bdb.Close()
-		os.Remove(path)
-	}()
-
-	db := NewDB(bdb)
+	defer releaseDB(db)
 
 	var existingAddr *object.Address
 
