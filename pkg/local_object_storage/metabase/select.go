@@ -68,18 +68,23 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			fVal := f.Value()
 
 			// iterate over all existing values for the key
-			if err := keyBucket.ForEach(func(k, _ []byte) error {
+			if err := keyBucket.ForEach(func(k, v []byte) error {
 				include := matchFunc(string(cutKeyBytes(k)), fVal)
 
-				return keyBucket.Bucket(k).ForEach(func(k, _ []byte) error {
-					if include {
-						mAddr[string(k)] = struct{}{}
-					} else {
-						delete(mAddr, string(k))
-					}
+				strs, err := decodeAddressList(v)
+				if err != nil {
+					return errors.Wrapf(err, "(%T) could not decode address list", db)
+				}
 
-					return nil
-				})
+				for i := range strs {
+					if include {
+						mAddr[strs[i]] = struct{}{}
+					} else {
+						delete(mAddr, strs[i])
+					}
+				}
+
+				return nil
 			}); err != nil {
 				return errors.Wrapf(err, "(%T) could not iterate bucket %s", db, key)
 			}
