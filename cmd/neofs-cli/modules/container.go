@@ -39,11 +39,13 @@ const (
 var (
 	containerOwner string
 
-	containerACL        string
-	containerNonce      string
-	containerPolicy     string
-	containerAttributes []string
-	containerAwait      bool
+	containerACL         string
+	containerNonce       string
+	containerPolicy      string
+	containerAttributes  []string
+	containerAwait       bool
+	containerName        string
+	containerNoTimestamp bool
 
 	containerID string
 
@@ -477,6 +479,8 @@ func init() {
 		"comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	createContainerCmd.Flags().StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
 	createContainerCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
+	createContainerCmd.Flags().StringVar(&containerName, "name", "", "container name attribute")
+	createContainerCmd.Flags().BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
 
 	// container delete
 	deleteContainerCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
@@ -537,7 +541,7 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 }
 
 func parseAttributes(attributes []string) ([]*v2container.Attribute, error) {
-	result := make([]*v2container.Attribute, 0, len(attributes))
+	result := make([]*v2container.Attribute, 0, len(attributes)+2) // name + timestamp attributes
 
 	for i := range attributes {
 		kvPair := strings.Split(attributes[i], attributeDelimiter)
@@ -550,6 +554,22 @@ func parseAttributes(attributes []string) ([]*v2container.Attribute, error) {
 		parsedAttribute.SetValue(kvPair[1])
 
 		result = append(result, parsedAttribute)
+	}
+
+	if !containerNoTimestamp {
+		timestamp := new(v2container.Attribute)
+		timestamp.SetKey(container.AttributeTimestamp)
+		timestamp.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
+
+		result = append(result, timestamp)
+	}
+
+	if containerName != "" {
+		cnrName := new(v2container.Attribute)
+		cnrName.SetKey(container.AttributeName)
+		cnrName.SetValue(containerName)
+
+		result = append(result, cnrName)
 	}
 
 	return result, nil
@@ -646,6 +666,15 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	}
 
 	for _, attribute := range cnr.GetAttributes() {
+		if attribute.GetKey() == container.AttributeTimestamp {
+			fmt.Printf("attribute: %s=%s (%s)\n",
+				attribute.GetKey(),
+				attribute.GetValue(),
+				prettyPrintUnixTime(attribute.GetValue()))
+
+			continue
+		}
+
 		fmt.Printf("attribute: %s=%s\n", attribute.GetKey(), attribute.GetValue())
 	}
 
