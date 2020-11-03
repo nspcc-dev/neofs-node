@@ -45,16 +45,17 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			})
 		}
 
-		// keep processed addresses (false if address was added and excluded later)
-		mAddr := make(map[string]bool)
+		// keep processed addresses
+		// value equal to number (index+1) of latest matched filter
+		mAddr := make(map[string]int)
 
-		for _, f := range fs {
-			matchFunc, ok := db.matchers[f.Operation()]
+		for fNum := range fs {
+			matchFunc, ok := db.matchers[fs[fNum].Operation()]
 			if !ok {
-				return errors.Errorf("no function for matcher %v", f.Operation())
+				return errors.Errorf("no function for matcher %v", fs[fNum].Operation())
 			}
 
-			key := f.Header()
+			key := fs[fNum].Header()
 
 			// get bucket with values
 			keyBucket := indexBucket.Bucket([]byte(key))
@@ -63,7 +64,7 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 				return nil
 			}
 
-			fVal := f.Value()
+			fVal := fs[fNum].Value()
 
 			// iterate over all existing values for the key
 			if err := keyBucket.ForEach(func(k, v []byte) error {
@@ -74,13 +75,12 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 					return errors.Wrapf(err, "(%T) could not decode address list", db)
 				}
 
-				for i := range strs {
-					if include {
-						if _, ok := mAddr[strs[i]]; !ok {
-							mAddr[strs[i]] = true
-						}
-					} else {
-						mAddr[strs[i]] = false
+				for j := range strs {
+					if num := mAddr[strs[j]]; num != fNum {
+						// than object does not match some previous filter
+						continue
+					} else if include {
+						mAddr[strs[j]] = fNum + 1
 					}
 				}
 
@@ -90,8 +90,10 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			}
 		}
 
-		for a, inc := range mAddr {
-			if !inc {
+		fLen := len(fs)
+
+		for a, ind := range mAddr {
+			if ind != fLen {
 				continue
 			}
 
