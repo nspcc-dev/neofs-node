@@ -97,7 +97,7 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 
 			// check if object marked as deleted
 			if objectRemoved(tx, []byte(a)) {
-				return nil
+				continue
 			}
 
 			addr := object.NewAddress()
