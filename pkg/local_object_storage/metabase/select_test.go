@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,4 +111,44 @@ func TestMismatchAfterMatch(t *testing.T) {
 	fs.AddFilter(a.GetKey(), a.GetValue(), objectSDK.MatchStringEqual)
 
 	testSelect(t, db, fs)
+}
+
+func addCommonAttribute(objs ...*object.Object) *objectSDK.Attribute {
+	aCommon := objectSDK.NewAttribute()
+	aCommon.SetKey("common key")
+	aCommon.SetValue("common value")
+
+	for _, o := range objs {
+		object.NewRawFromObject(o).SetAttributes(
+			append(o.GetAttributes(), aCommon)...,
+		)
+	}
+
+	return aCommon
+}
+
+func TestSelectRemoved(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	// create 2 objects
+	obj1 := generateObject(t, testPrm{})
+	obj2 := generateObject(t, testPrm{})
+
+	// add common attribute
+	a := addCommonAttribute(obj1, obj2)
+
+	// add to DB
+	require.NoError(t, db.Put(obj1))
+	require.NoError(t, db.Put(obj2))
+
+	fs := objectSDK.SearchFilters{}
+	fs.AddFilter(a.GetKey(), a.GetValue(), objectSDK.MatchStringEqual)
+
+	testSelect(t, db, fs, obj1.Address(), obj2.Address())
+
+	// remote 1st object
+	require.NoError(t, db.Delete(obj1.Address()))
+
+	testSelect(t, db, fs, obj2.Address())
 }
