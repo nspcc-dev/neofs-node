@@ -18,7 +18,34 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			return nil
 		}
 
-		// keep addresses that does not match some filter
+		if len(fs) == 0 {
+			// get primary bucket
+			primaryBucket := tx.Bucket(primaryBucket)
+			if primaryBucket == nil {
+				// empty storage
+				return nil
+			}
+
+			// iterate over all stored addresses
+			return primaryBucket.ForEach(func(k, v []byte) error {
+				// check if object marked as deleted
+				if objectRemoved(tx, k) {
+					return nil
+				}
+
+				addr := object.NewAddress()
+				if err := addr.Parse(string(k)); err != nil {
+					// TODO: storage was broken, so we need to handle it
+					return err
+				}
+
+				res = append(res, addr)
+
+				return nil
+			})
+		}
+
+		// keep processed addresses
 		mAddr := make(map[string]struct{})
 
 		for _, f := range fs {
@@ -40,49 +67,38 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 
 			// iterate over all existing values for the key
 			if err := keyBucket.ForEach(func(k, _ []byte) error {
-				if !matchFunc(string(key), string(cutKeyBytes(k)), fVal) {
-					// exclude all addresses with this value
-					return keyBucket.Bucket(k).ForEach(func(k, _ []byte) error {
+				include := matchFunc(string(key), string(cutKeyBytes(k)), fVal)
+
+				return keyBucket.Bucket(k).ForEach(func(k, _ []byte) error {
+					if include {
 						mAddr[string(k)] = struct{}{}
+					} else {
+						delete(mAddr, string(k))
+					}
 
-						return nil
-					})
-				}
-
-				return nil
+					return nil
+				})
 			}); err != nil {
 				return errors.Wrapf(err, "(%T) could not iterate bucket %s", db, key)
 			}
 		}
 
-		// get primary bucket
-		primaryBucket := tx.Bucket(primaryBucket)
-		if primaryBucket == nil {
-			// empty storage
-			return nil
-		}
-
-		// iterate over all stored addresses
-		return primaryBucket.ForEach(func(k, v []byte) error {
-			if _, ok := mAddr[string(k)]; ok {
-				return nil
-			}
-
+		for a := range mAddr {
 			// check if object marked as deleted
-			if objectRemoved(tx, k) {
+			if objectRemoved(tx, []byte(a)) {
 				return nil
 			}
 
 			addr := object.NewAddress()
-			if err := addr.Parse(string(k)); err != nil {
+			if err := addr.Parse(a); err != nil {
 				// TODO: storage was broken, so we need to handle it
 				return err
 			}
 
 			res = append(res, addr)
+		}
 
-			return nil
-		})
+		return nil
 	})
 
 	return res, err
