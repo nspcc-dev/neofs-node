@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -93,6 +94,8 @@ func init() {
 	objectPutCmd.Flags().String("cid", "", "Container ID")
 	_ = objectPutCmd.MarkFlagRequired("cid")
 	objectPutCmd.Flags().String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
+	objectPutCmd.Flags().Bool("disable-filename", false, "Do not set well-known filename attribute")
+	objectPutCmd.Flags().Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
 
 	objectCmd.AddCommand(objectDelCmd)
 	objectDelCmd.Flags().String("cid", "", "Container ID")
@@ -470,21 +473,42 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 }
 
 func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
+	var rawAttrs []string
+
 	raw := cmd.Flag("attributes").Value.String()
-	if len(raw) == 0 {
-		return nil, nil
+	if len(raw) != 0 {
+		rawAttrs = strings.Split(raw, ",")
 	}
-	rawAttrs := strings.Split(raw, ",")
-	attrs := make([]*object.Attribute, len(rawAttrs))
+
+	attrs := make([]*object.Attribute, 0, len(rawAttrs)+2) // name + timestamp attributes
 	for i := range rawAttrs {
 		kv := strings.SplitN(rawAttrs[i], "=", 2)
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid attribute format: %s", rawAttrs[i])
 		}
-		attrs[i] = object.NewAttribute()
-		attrs[i].SetKey(kv[0])
-		attrs[i].SetValue(kv[1])
+		attr := object.NewAttribute()
+		attr.SetKey(kv[0])
+		attr.SetValue(kv[1])
+		attrs = append(attrs, attr)
 	}
+
+	disableFilename, _ := cmd.Flags().GetBool("disable-filename")
+	if !disableFilename {
+		filename := cmd.Flag("file").Value.String()
+		attr := object.NewAttribute()
+		attr.SetKey(object.AttributeFileName)
+		attr.SetValue(filename)
+		attrs = append(attrs, attr)
+	}
+
+	disableTime, _ := cmd.Flags().GetBool("disable-timestamp")
+	if !disableTime {
+		attr := object.NewAttribute()
+		attr.SetKey(object.AttributeTimestamp)
+		attr.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
+		attrs = append(attrs, attr)
+	}
+
 	return attrs, nil
 }
 
@@ -593,6 +617,13 @@ func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error 
 
 	cmd.Println("Attributes:")
 	for _, attr := range obj.GetAttributes() {
+		if attr.GetKey() == object.AttributeTimestamp {
+			cmd.Printf("  %s=%s (%s)\n",
+				attr.GetKey(),
+				attr.GetValue(),
+				prettyPrintUnixTime(attr.GetValue()))
+			continue
+		}
 		cmd.Printf("  %s=%s\n", attr.GetKey(), attr.GetValue())
 	}
 	return nil
