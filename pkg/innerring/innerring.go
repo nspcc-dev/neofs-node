@@ -231,15 +231,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create mainnnet neofs processor
 	neofsProcessor, err := neofs.New(&neofs.Params{
-		Log:             log,
-		PoolSize:        cfg.GetInt("workers.neofs"),
-		NeoFSContract:   server.contracts.neofs,
-		BalanceContract: server.contracts.balance,
-		NetmapContract:  server.contracts.netmap,
-		MorphClient:     server.morphClient,
-		EpochState:      server,
-		ActiveState:     server,
-		Converter:       &server.precision,
+		Log:               log,
+		PoolSize:          cfg.GetInt("workers.neofs"),
+		NeoFSContract:     server.contracts.neofs,
+		BalanceContract:   server.contracts.balance,
+		NetmapContract:    server.contracts.netmap,
+		MorphClient:       server.morphClient,
+		EpochState:        server,
+		ActiveState:       server,
+		Converter:         &server.precision,
+		MintEmitCacheSize: cfg.GetInt("emit.mint.cache_size"),
+		MintEmitThreshold: cfg.GetUint64("emit.mint.threshold"),
+		MintEmitValue:     util.Fixed8(cfg.GetInt64("emit.mint.value")),
 	})
 	if err != nil {
 		return nil, err
