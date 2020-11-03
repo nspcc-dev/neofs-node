@@ -1,6 +1,9 @@
 package neofs
 
 import (
+	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -28,28 +31,35 @@ type (
 
 	// Processor of events produced by neofs contract in main net.
 	Processor struct {
-		log             *zap.Logger
-		pool            *ants.Pool
-		neofsContract   util.Uint160
-		balanceContract util.Uint160
-		netmapContract  util.Uint160
-		morphClient     *client.Client
-		epochState      EpochState
-		activeState     ActiveState
-		converter       PrecisionConverter
+		log               *zap.Logger
+		pool              *ants.Pool
+		neofsContract     util.Uint160
+		balanceContract   util.Uint160
+		netmapContract    util.Uint160
+		morphClient       *client.Client
+		epochState        EpochState
+		activeState       ActiveState
+		converter         PrecisionConverter
+		mintEmitLock      *sync.Mutex
+		mintEmitCache     *lru.Cache
+		mintEmitThreshold uint64
+		mintEmitValue     util.Fixed8
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log             *zap.Logger
-		PoolSize        int
-		NeoFSContract   util.Uint160
-		BalanceContract util.Uint160
-		NetmapContract  util.Uint160
-		MorphClient     *client.Client
-		EpochState      EpochState
-		ActiveState     ActiveState
-		Converter       PrecisionConverter
+		Log               *zap.Logger
+		PoolSize          int
+		NeoFSContract     util.Uint160
+		BalanceContract   util.Uint160
+		NetmapContract    util.Uint160
+		MorphClient       *client.Client
+		EpochState        EpochState
+		ActiveState       ActiveState
+		Converter         PrecisionConverter
+		MintEmitCacheSize int
+		MintEmitThreshold uint64 // in epochs
+		MintEmitValue     util.Fixed8
 	}
 )
 
@@ -83,16 +93,25 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.Wrap(err, "ir/neofs: can't create worker pool")
 	}
 
+	lruCache, err := lru.New(p.MintEmitCacheSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir/neofs: can't create LRU cache for gas emission")
+	}
+
 	return &Processor{
-		log:             p.Log,
-		pool:            pool,
-		neofsContract:   p.NeoFSContract,
-		balanceContract: p.BalanceContract,
-		netmapContract:  p.NetmapContract,
-		morphClient:     p.MorphClient,
-		epochState:      p.EpochState,
-		activeState:     p.ActiveState,
-		converter:       p.Converter,
+		log:               p.Log,
+		pool:              pool,
+		neofsContract:     p.NeoFSContract,
+		balanceContract:   p.BalanceContract,
+		netmapContract:    p.NetmapContract,
+		morphClient:       p.MorphClient,
+		epochState:        p.EpochState,
+		activeState:       p.ActiveState,
+		converter:         p.Converter,
+		mintEmitLock:      new(sync.Mutex),
+		mintEmitCache:     lruCache,
+		mintEmitThreshold: p.MintEmitThreshold,
+		mintEmitValue:     p.MintEmitValue,
 	}, nil
 }
 

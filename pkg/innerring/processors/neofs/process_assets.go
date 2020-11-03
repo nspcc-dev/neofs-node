@@ -34,12 +34,34 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
 	}
 
-	// fixme: send gas when ^ tx accepted
-	// fixme: do not send gas to the same user twice per epoch
-	err = np.morphClient.TransferGas(deposit.To(), util.Fixed8FromInt64(2))
-	if err != nil {
-		np.log.Error("can't transfer native gas to receiver", zap.Error(err))
+	curEpoch := np.epochState.EpochCounter()
+	receiver := deposit.To()
+
+	// check if receiver already received some mint GAS emissions
+	// we should lock there even though LRU cache is already thread save
+	// we lock there because GAS transfer AND cache update must be atomic
+	np.mintEmitLock.Lock()
+	defer np.mintEmitLock.Unlock()
+
+	val, ok := np.mintEmitCache.Get(receiver.String())
+	if ok && val.(uint64)+np.mintEmitThreshold >= curEpoch {
+		np.log.Warn("double mint emission declined",
+			zap.String("receiver", receiver.String()),
+			zap.Uint64("last_emission", val.(uint64)),
+			zap.Uint64("current_epoch", curEpoch))
+
+		return
 	}
+
+	err = np.morphClient.TransferGas(receiver, np.mintEmitValue)
+	if err != nil {
+		np.log.Error("can't transfer native gas to receiver",
+			zap.String("error", err.Error()))
+
+		return
+	}
+
+	np.mintEmitCache.Add(receiver.String(), curEpoch)
 }
 
 // Process withdraw event by locking assets in balance account.

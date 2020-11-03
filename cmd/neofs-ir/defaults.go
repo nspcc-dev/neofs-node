@@ -85,4 +85,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("netmap_cleaner.threshold", 3)
 
 	cfg.SetDefault("emit.storage.amount", 0)
+	cfg.SetDefault("emit.mint.cache_size", 1000)
+	cfg.SetDefault("emit.mint.threshold", 1)
+	cfg.SetDefault("emit.mint.value", 20000000) // 0.2 Fixed8
 }

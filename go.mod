@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/participle v0.6.0
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.1
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.1.3
 	github.com/multiformats/go-multiaddr v0.2.0
