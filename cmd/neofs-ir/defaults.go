@@ -83,4 +83,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("netmap_cleaner.enabled", false)
 	cfg.SetDefault("netmap_cleaner.threshold", 3)
+
+	cfg.SetDefault("emit.storage.amount", 0)
 }
