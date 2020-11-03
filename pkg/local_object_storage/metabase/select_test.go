@@ -152,3 +152,35 @@ func TestSelectRemoved(t *testing.T) {
 
 	testSelect(t, db, fs, obj2.Address())
 }
+
+func TestMissingObjectAttribute(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	// add object w/o attribute
+	obj1 := generateObject(t, testPrm{
+		attrNum: 1,
+	})
+
+	// add object w/o attribute
+	obj2 := generateObject(t, testPrm{})
+
+	a1 := obj1.GetAttributes()[0]
+
+	// add common attribute
+	aCommon := addCommonAttribute(obj1, obj2)
+
+	// write to DB
+	require.NoError(t, db.Put(obj1))
+	require.NoError(t, db.Put(obj2))
+
+	fs := objectSDK.SearchFilters{}
+
+	// 1st filter by common attribute
+	fs.AddFilter(aCommon.GetKey(), aCommon.GetValue(), objectSDK.MatchStringEqual)
+
+	// next filter by attribute from 1st object only
+	fs.AddFilter(a1.GetKey(), a1.GetValue(), objectSDK.MatchStringEqual)
+
+	testSelect(t, db, fs, obj1.Address())
+}
