@@ -21,8 +21,10 @@ type (
 		log               *zap.Logger
 		pool              *ants.Pool
 		alphabetContracts [7]util.Uint160
+		netmapContract    util.Uint160
 		morphClient       *client.Client
 		irList            Indexer
+		storageEmission   uint64
 	}
 
 	// Params of the processor constructor.
@@ -30,8 +32,10 @@ type (
 		Log               *zap.Logger
 		PoolSize          int
 		AlphabetContracts [7]util.Uint160
+		NetmapContract    util.Uint160
 		MorphClient       *client.Client
 		IRList            Indexer
+		StorageEmission   uint64
 	}
 )
 
@@ -57,8 +61,10 @@ func New(p *Params) (*Processor, error) {
 		log:               p.Log,
 		pool:              pool,
 		alphabetContracts: p.AlphabetContracts,
+		netmapContract:    p.NetmapContract,
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
+		storageEmission:   p.StorageEmission,
 	}, nil
 }
 
