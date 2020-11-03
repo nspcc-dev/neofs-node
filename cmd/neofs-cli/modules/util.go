@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strconv"
+	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
@@ -177,4 +179,15 @@ func prettyPrintJSON(cmd *cobra.Command, data []byte) {
 	}
 
 	cmd.Println(buf)
+}
+
+func prettyPrintUnixTime(s string) string {
+	unixTime, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return "malformed"
+	}
+
+	timestamp := time.Unix(unixTime, 0)
+
+	return timestamp.String()
 }
