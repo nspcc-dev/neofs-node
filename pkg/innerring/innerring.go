@@ -255,8 +255,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Log:               log,
 		PoolSize:          cfg.GetInt("workers.alphabet"),
 		AlphabetContracts: server.contracts.alphabet,
+		NetmapContract:    server.contracts.netmap,
 		MorphClient:       server.morphClient,
 		IRList:            server,
+		StorageEmission:   cfg.GetUint64("emit.storage.amount"),
 	})
 	if err != nil {
 		return nil, err
