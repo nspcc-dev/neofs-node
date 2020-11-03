@@ -88,3 +88,26 @@ func BenchmarkDB_Select(b *testing.B) {
 		})
 	}
 }
+
+func TestMismatchAfterMatch(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	obj := generateObject(t, testPrm{
+		attrNum: 1,
+	})
+
+	require.NoError(t, db.Put(obj))
+
+	a := obj.GetAttributes()[0]
+
+	fs := objectSDK.SearchFilters{}
+
+	// 1st - mismatching filter
+	fs.AddFilter(a.GetKey(), a.GetValue()+"1", objectSDK.MatchStringEqual)
+
+	// 2nd - matching filter
+	fs.AddFilter(a.GetKey(), a.GetValue(), objectSDK.MatchStringEqual)
+
+	testSelect(t, db, fs)
+}

@@ -45,8 +45,8 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			})
 		}
 
-		// keep processed addresses
-		mAddr := make(map[string]struct{})
+		// keep processed addresses (false if address was added and excluded later)
+		mAddr := make(map[string]bool)
 
 		for _, f := range fs {
 			matchFunc, ok := db.matchers[f.Operation()]
@@ -76,9 +76,11 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 
 				for i := range strs {
 					if include {
-						mAddr[strs[i]] = struct{}{}
+						if _, ok := mAddr[strs[i]]; !ok {
+							mAddr[strs[i]] = true
+						}
 					} else {
-						delete(mAddr, strs[i])
+						mAddr[strs[i]] = false
 					}
 				}
 
@@ -88,7 +90,11 @@ func (db *DB) Select(fs object.SearchFilters) ([]*object.Address, error) {
 			}
 		}
 
-		for a := range mAddr {
+		for a, inc := range mAddr {
+			if !inc {
+				continue
+			}
+
 			// check if object marked as deleted
 			if objectRemoved(tx, []byte(a)) {
 				return nil
