@@ -17,6 +17,8 @@ type RelationSearcher struct {
 	queryGenerator func(*object.Address) query.Query
 }
 
+var ErrRelationNotFound = errors.New("relation not found")
+
 func (s *RelationSearcher) SearchRelation(ctx context.Context, addr *object.Address, prm *util.CommonPrm) (*object.ID, error) {
 	streamer, err := s.svc.Search(ctx, new(Prm).
 		WithContainerID(addr.GetContainerID()).WithCommonPrm(prm).
@@ -30,6 +32,10 @@ func (s *RelationSearcher) SearchRelation(ctx context.Context, addr *object.Addr
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not read full search stream", s)
 	} else if ln := len(res); ln != 1 {
+		if ln == 0 {
+			return nil, ErrRelationNotFound
+		}
+
 		return nil, errors.Errorf("(%T) unexpected amount of found objects %d", s, ln)
 	}
 
