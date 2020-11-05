@@ -16,6 +16,7 @@ func (np *Processor) processConfig(config *neofsEvent.Config) {
 
 	err := invoke.SetConfig(np.morphClient, np.netmapContract,
 		&invoke.SetConfigArgs{
+			ID:    config.ID(),
 			Key:   config.Key(),
 			Value: config.Value(),
 		},
