@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,13 +20,28 @@ var netmapCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(netmapCmd)
 
-	// Here you will define your flags and configuration settings.
+	netmapCmd.AddCommand(
+		getEpochCmd,
+	)
+}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// netmapCmd.PersistentFlags().String("foo", "", "A help for foo")
+var getEpochCmd = &cobra.Command{
+	Use:   "epoch",
+	Short: "Get current epoch number",
+	Long:  "Get current epoch number",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cli, err := getSDKClient()
+		if err != nil {
+			return err
+		}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// netmapCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+		e, err := cli.Epoch(context.Background())
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
+
+		fmt.Println(e)
+
+		return nil
+	},
 }
