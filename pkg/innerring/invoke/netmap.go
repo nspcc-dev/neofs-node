@@ -19,6 +19,7 @@ type (
 	}
 
 	SetConfigArgs struct {
+		ID    []byte
 		Key   []byte
 		Value []byte
 	}
@@ -90,6 +91,7 @@ func SetConfig(cli *client.Client, con util.Uint160, args *SetConfigArgs) error 
 	}
 
 	return cli.Invoke(con, extraFee, setConfigMethod,
+		args.ID,
 		args.Key,
 		args.Value,
 	)
