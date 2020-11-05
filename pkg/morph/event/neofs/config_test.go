@@ -10,6 +10,7 @@ import (
 
 func TestParseConfig(t *testing.T) {
 	var (
+		id    = []byte("id")
 		key   = []byte("key")
 		value = []byte("value")
 	)
@@ -20,7 +21,7 @@ func TestParseConfig(t *testing.T) {
 		}
 
 		_, err := ParseConfig(prms)
-		require.EqualError(t, err, event.WrongNumberOfParameters(2, len(prms)).Error())
+		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
 	})
 
 	t.Run("wrong first parameter", func(t *testing.T) {
@@ -33,6 +34,16 @@ func TestParseConfig(t *testing.T) {
 
 	t.Run("wrong second parameter", func(t *testing.T) {
 		_, err := ParseConfig([]stackitem.Item{
+			stackitem.NewByteArray(id),
+			stackitem.NewMap(),
+		})
+
+		require.Error(t, err)
+	})
+
+	t.Run("wrong third parameter", func(t *testing.T) {
+		_, err := ParseConfig([]stackitem.Item{
+			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(key),
 			stackitem.NewMap(),
 		})
@@ -42,12 +53,14 @@ func TestParseConfig(t *testing.T) {
 
 	t.Run("correct", func(t *testing.T) {
 		ev, err := ParseConfig([]stackitem.Item{
+			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(key),
 			stackitem.NewByteArray(value),
 		})
 		require.NoError(t, err)
 
 		require.Equal(t, Config{
+			id:    id,
 			key:   key,
 			value: value,
 		}, ev)
