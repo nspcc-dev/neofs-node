@@ -10,10 +10,13 @@ import (
 type Config struct {
 	key   []byte
 	value []byte
+	id    []byte
 }
 
 // MorphEvent implements Neo:Morph Event interface.
 func (Config) MorphEvent() {}
+
+func (u Config) ID() []byte { return u.id }
 
 func (u Config) Key() []byte { return u.key }
 
@@ -25,18 +28,24 @@ func ParseConfig(params []stackitem.Item) (event.Event, error) {
 		err error
 	)
 
-	if ln := len(params); ln != 2 {
-		return nil, event.WrongNumberOfParameters(2, ln)
+	if ln := len(params); ln != 3 {
+		return nil, event.WrongNumberOfParameters(3, ln)
+	}
+
+	// parse id
+	ev.id, err = client.BytesFromStackItem(params[0])
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get config update id")
 	}
 
 	// parse key
-	ev.key, err = client.BytesFromStackItem(params[0])
+	ev.key, err = client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get config key")
 	}
 
 	// parse value
-	ev.value, err = client.BytesFromStackItem(params[1])
+	ev.value, err = client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get config value")
 	}
