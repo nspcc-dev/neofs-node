@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -494,7 +495,7 @@ func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
 
 	disableFilename, _ := cmd.Flags().GetBool("disable-filename")
 	if !disableFilename {
-		filename := cmd.Flag("file").Value.String()
+		filename := filepath.Base(cmd.Flag("file").Value.String())
 		attr := object.NewAttribute()
 		attr.SetKey(object.AttributeFileName)
 		attr.SetValue(filename)
