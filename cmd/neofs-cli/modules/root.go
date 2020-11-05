@@ -62,6 +62,9 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
+	// use stdout as default output for cmd.Print()
+	rootCmd.SetOut(os.Stdout)
+
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
 
 	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF or filepath (use `--key new` to generate key for request)")
