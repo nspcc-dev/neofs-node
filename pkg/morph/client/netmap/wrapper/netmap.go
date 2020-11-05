@@ -23,7 +23,7 @@ func (w Wrapper) GetNetMap(diff uint64) (*netmap.Netmap, error) {
 	}
 
 	rawPeers := peers.Peers() // slice of serialized node infos
-	infos := make([]v2netmap.NodeInfo, 0, len(rawPeers))
+	infos := make([]netmap.NodeInfo, 0, len(rawPeers))
 
 	for _, peer := range rawPeers {
 		grpcNodeInfo := new(grpcNetmap.NodeInfo) // transport representation of struct
@@ -35,10 +35,10 @@ func (w Wrapper) GetNetMap(diff uint64) (*netmap.Netmap, error) {
 		}
 
 		v2 := v2netmap.NodeInfoFromGRPCMessage(grpcNodeInfo)
-		infos = append(infos, *v2)
+		infos = append(infos, *netmap.NewNodeInfoFromV2(v2))
 	}
 
-	nodes := netmap.NodesFromV2(infos)
+	nodes := netmap.NodesFromInfo(infos)
 
 	return netmap.NewNetmap(nodes)
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	netmapV2 "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,8 +18,7 @@ func (b testBuilder) BuildPlacement(*object.Address, *netmap.PlacementPolicy) ([
 	return b.vectors, nil
 }
 
-func testNode(v uint32) netmapV2.NodeInfo {
-	n := netmapV2.NodeInfo{}
+func testNode(v uint32) (n netmap.NodeInfo) {
 	n.SetAddress("/ip4/0.0.0.0/tcp/" + strconv.Itoa(int(v)))
 
 	return n
@@ -55,14 +53,14 @@ func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Conta
 	num := uint32(0)
 
 	for i := range ss {
-		ns := make([]netmapV2.NodeInfo, 0, ss[i])
+		ns := make([]netmap.NodeInfo, 0, ss[i])
 
 		for j := 0; j < ss[i]; j++ {
 			ns = append(ns, testNode(num))
 			num++
 		}
 
-		nodes = append(nodes, netmap.NodesFromV2(ns))
+		nodes = append(nodes, netmap.NodesFromInfo(ns))
 
 		s := new(netmap.Replica)
 		s.SetCount(uint32(rs[i]))
@@ -71,7 +69,7 @@ func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Conta
 	}
 
 	policy := new(netmap.PlacementPolicy)
-	policy.SetReplicas(replicas)
+	policy.SetReplicas(replicas...)
 
 	return nodes, container.New(container.WithPolicy(policy))
 }
@@ -98,7 +96,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 			require.Len(t, addrs, len(nodes[i]))
 
 			for j, n := range nodes[i] {
-				require.Equal(t, n.NetworkAddress(), addrs[j].String())
+				require.Equal(t, n.Address(), addrs[j].String())
 			}
 		}
 
@@ -126,7 +124,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 				addrs := tr.Next()
 				require.Len(t, addrs, 1)
 
-				require.Equal(t, nodes[curVector][i].NetworkAddress(), addrs[0].String())
+				require.Equal(t, nodes[curVector][i].Address(), addrs[0].String())
 			}
 
 			require.Empty(t, tr.Next())
@@ -166,7 +164,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 				require.Len(t, addrs, replicas[curVector])
 
 				for j := range addrs {
-					require.Equal(t, nodes[curVector][i+j].NetworkAddress(), addrs[j].String())
+					require.Equal(t, nodes[curVector][i+j].Address(), addrs[j].String())
 				}
 			}
 

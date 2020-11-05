@@ -174,14 +174,14 @@ func lookupKeyInContainer(
 	owner, cid []byte,
 	cnr *container.Container) (bool, error) {
 
-	cnrNodes, err := nm.GetContainerNodes(cnr.GetPlacementPolicy(), cid)
+	cnrNodes, err := nm.GetContainerNodes(netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy()), cid)
 	if err != nil {
 		return false, err
 	}
 
 	flatCnrNodes := cnrNodes.Flatten() // we need single array to iterate on
 	for i := range flatCnrNodes {
-		if bytes.Equal(flatCnrNodes[i].InfoV2.GetPublicKey(), owner) {
+		if bytes.Equal(flatCnrNodes[i].PublicKey(), owner) {
 			return true, nil
 		}
 	}

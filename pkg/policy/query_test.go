@@ -17,7 +17,7 @@ func TestSimple(t *testing.T) {
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestSimpleWithHRWB(t *testing.T) {
@@ -30,7 +30,7 @@ func TestSimpleWithHRWB(t *testing.T) {
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestFromSelect(t *testing.T) {
@@ -45,7 +45,7 @@ SELECT 1 IN City FROM * AS SPB`
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 // https://github.com/nspcc-dev/neofs-node/issues/46
@@ -61,7 +61,7 @@ func TestFromSelectNoAttribute(t *testing.T) {
 
 		r, err := Parse(q)
 		require.NoError(t, err)
-		require.Equal(t, expected, r)
+		require.EqualValues(t, expected, r)
 
 	})
 
@@ -77,7 +77,7 @@ func TestFromSelectNoAttribute(t *testing.T) {
 
 		r, err := Parse(q)
 		require.NoError(t, err)
-		require.Equal(t, expected, r)
+		require.EqualValues(t, expected, r)
 	})
 }
 
@@ -97,7 +97,7 @@ SELECT 1 IN DISTINCT Continent FROM *`
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestSimpleFilter(t *testing.T) {
@@ -115,7 +115,7 @@ FILTER Rating GT 7 AS Good`
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestFilterReference(t *testing.T) {
@@ -137,7 +137,7 @@ FILTER @FromRU AND Rating GT 7 AS Good`
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestFilterOps(t *testing.T) {
@@ -162,7 +162,7 @@ FILTER A GT 1 AND B GE 2 AND C LT 3 AND D LE 4
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestWithFilterPrecedence(t *testing.T) {
@@ -186,7 +186,7 @@ FILTER City EQ "SPB" AND SSD EQ true OR City EQ "SPB" AND Rating GE 5 AS SPBSSD`
 
 	r, err := Parse(q)
 	require.NoError(t, err)
-	require.Equal(t, expected, r)
+	require.EqualValues(t, expected, r)
 }
 
 func TestValidation(t *testing.T) {

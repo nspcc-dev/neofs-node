@@ -29,7 +29,7 @@ func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmap.Pla
 
 	for i := range vs {
 		for j := range vs[i] {
-			addr, err := network.AddressFromString(vs[i][j].NetworkAddress())
+			addr, err := network.AddressFromString(vs[i][j].Address())
 			if err != nil {
 				// TODO: log error
 				continue

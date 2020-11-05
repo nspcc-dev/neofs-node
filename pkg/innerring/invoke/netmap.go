@@ -130,7 +130,7 @@ func NetmapSnapshot(cli *client.Client, con util.Uint160) (*netmap.Netmap, error
 		return nil, err
 	}
 
-	result := make([]netmapv2.NodeInfo, 0, len(rawNodeInfos))
+	result := make([]netmap.NodeInfo, 0, len(rawNodeInfos))
 
 	for i := range rawNodeInfos {
 		nodeInfo, err := peerInfoFromStackItem(rawNodeInfos[i])
@@ -138,10 +138,10 @@ func NetmapSnapshot(cli *client.Client, con util.Uint160) (*netmap.Netmap, error
 			return nil, errors.Wrap(err, "invalid RPC response")
 		}
 
-		result = append(result, *nodeInfo)
+		result = append(result, *netmap.NewNodeInfoFromV2(nodeInfo))
 	}
 
-	return netmap.NewNetmap(netmap.NodesFromV2(result))
+	return netmap.NewNetmap(netmap.NodesFromInfo(result))
 }
 
 func peerInfoFromStackItem(prm stackitem.Item) (*netmapv2.NodeInfo, error) {

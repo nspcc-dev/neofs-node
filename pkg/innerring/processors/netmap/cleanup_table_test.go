@@ -6,26 +6,25 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	netmapv2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCleanupTable(t *testing.T) {
-	infos := []netmapv2.NodeInfo{
+	infos := []netmap.NodeInfo{
 		newNodeInfo(&test.DecodeKey(1).PublicKey),
 		newNodeInfo(&test.DecodeKey(2).PublicKey),
 		newNodeInfo(&test.DecodeKey(3).PublicKey),
 	}
 
-	networkMap, err := netmap.NewNetmap(netmap.NodesFromV2(infos))
+	networkMap, err := netmap.NewNetmap(netmap.NodesFromInfo(infos))
 	require.NoError(t, err)
 
 	mapInfos := map[string]struct{}{
-		hex.EncodeToString(infos[0].GetPublicKey()): {},
-		hex.EncodeToString(infos[1].GetPublicKey()): {},
-		hex.EncodeToString(infos[2].GetPublicKey()): {},
+		hex.EncodeToString(infos[0].PublicKey()): {},
+		hex.EncodeToString(infos[1].PublicKey()): {},
+		hex.EncodeToString(infos[2].PublicKey()): {},
 	}
 
 	t.Run("update", func(t *testing.T) {
@@ -42,7 +41,7 @@ func TestCleanupTable(t *testing.T) {
 		}
 
 		t.Run("update with flagged", func(t *testing.T) {
-			key := hex.EncodeToString(infos[0].GetPublicKey())
+			key := hex.EncodeToString(infos[0].PublicKey())
 			c.flag(key)
 
 			c.update(networkMap, 2)
@@ -55,7 +54,7 @@ func TestCleanupTable(t *testing.T) {
 		c := newCleanupTable(true, 1)
 		c.update(networkMap, 1)
 
-		key := hex.EncodeToString(infos[1].GetPublicKey())
+		key := hex.EncodeToString(infos[1].PublicKey())
 		require.True(t, c.touch(key, 11))
 		require.EqualValues(t, 11, c.lastAccess[key].epoch)
 
@@ -67,7 +66,7 @@ func TestCleanupTable(t *testing.T) {
 		c := newCleanupTable(true, 1)
 		c.update(networkMap, 1)
 
-		key := hex.EncodeToString(infos[1].GetPublicKey())
+		key := hex.EncodeToString(infos[1].PublicKey())
 		c.flag(key)
 		require.True(t, c.lastAccess[key].removeFlag)
 
@@ -103,7 +102,7 @@ func TestCleanupTable(t *testing.T) {
 
 		t.Run("some nodes to remove", func(t *testing.T) {
 			cnt := 0
-			key := hex.EncodeToString(infos[1].GetPublicKey())
+			key := hex.EncodeToString(infos[1].PublicKey())
 
 			require.False(t, c.touch(key, 4)) // one node was updated
 
@@ -118,7 +117,7 @@ func TestCleanupTable(t *testing.T) {
 	})
 }
 
-func newNodeInfo(key *ecdsa.PublicKey) (n netmapv2.NodeInfo) {
+func newNodeInfo(key *ecdsa.PublicKey) (n netmap.NodeInfo) {
 	n.SetPublicKey(crypto.MarshalPublicKey(key))
 	return n
 }

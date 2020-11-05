@@ -14,7 +14,7 @@ require (
 	github.com/multiformats/go-multiaddr-net v0.1.2 // v0.1.1 => v0.1.2
 	github.com/multiformats/go-multihash v0.0.13 // indirect
 	github.com/nspcc-dev/neo-go v0.91.1-pre.0.20201030072836-71216865717b
-	github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201103083623-89a7a946dcd5
+	github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201106062850-d704795dcc7b
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.3.0

@@ -77,14 +77,14 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		return nil, errors.Wrap(err, "could not build placement")
 	}
 
-	rs := cfg.policy.GetReplicas()
+	rs := cfg.policy.Replicas()
 	rem := make([]int, 0, len(rs))
 
 	for i := range rs {
 		cnt := cfg.rem
 
 		if cnt == 0 {
-			cnt = int(rs[i].GetCount())
+			cnt = int(rs[i].Count())
 		}
 
 		rem = append(rem, cnt)
@@ -120,7 +120,7 @@ func (t *Traverser) Next() []*network.Address {
 	addrs := make([]*network.Address, 0, count)
 
 	for i := 0; i < count; i++ {
-		addr, err := network.AddressFromString(t.vectors[0][i].NetworkAddress())
+		addr, err := network.AddressFromString(t.vectors[0][i].Address())
 		if err != nil {
 			// TODO: log error
 			return nil
@@ -181,7 +181,7 @@ func UseBuilder(b Builder) Option {
 // ForContainer is a traversal container setting option.
 func ForContainer(cnr *container.Container) Option {
 	return func(c *cfg) {
-		c.policy = cnr.GetPlacementPolicy()
+		c.policy = netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy())
 		c.addr.SetContainerID(container.CalculateID(cnr))
 	}
 }

@@ -139,7 +139,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		}
 
 		cnr := container.New()
-		cnr.SetPlacementPolicy(placementPolicy)
+		cnr.SetPlacementPolicy(placementPolicy.ToV2())
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
 		cnr.SetNonce(nonce[:])
@@ -531,7 +531,7 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 		return result, nil
 	}
 
-	result, err = policy.FromJSON([]byte(policyString))
+	result, err = netmap.PlacementPolicyFromJSON([]byte(policyString))
 	if err == nil {
 		printVerbose("Parsed JSON encoded policy")
 		return result, nil
@@ -684,7 +684,8 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	}
 
 	fmt.Println("placement policy:")
-	fmt.Println(strings.Join(policy.Encode(cnr.GetPlacementPolicy()), "\n"))
+	cnrPolicy := netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy())
+	fmt.Println(strings.Join(policy.Encode(cnrPolicy), "\n"))
 }
 
 func parseEACL(eaclPath string) (*eacl.Table, error) {
