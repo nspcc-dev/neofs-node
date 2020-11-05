@@ -18,7 +18,7 @@ func TestCheckFormat(t *testing.T) {
 	require.Error(t, CheckFormat(c))
 
 	policy := new(netmap.PlacementPolicy)
-	c.SetPlacementPolicy(policy)
+	c.SetPlacementPolicy(policy.ToV2())
 
 	require.Error(t, CheckFormat(c))
 

@@ -22,7 +22,7 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 		return
 	}
 
-	policy := cnr.GetPlacementPolicy()
+	policy := netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy())
 
 	nn, err := p.placementBuilder.BuildPlacement(addr, policy)
 	if err != nil {
@@ -33,7 +33,7 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 		return
 	}
 
-	replicas := policy.GetReplicas()
+	replicas := policy.Replicas()
 
 	for i := range nn {
 		select {
@@ -42,7 +42,7 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 		default:
 		}
 
-		p.processNodes(ctx, addr, nn[i], replicas[i].GetCount())
+		p.processNodes(ctx, addr, nn[i], replicas[i].Count())
 	}
 }
 
@@ -56,7 +56,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 		default:
 		}
 
-		netAddr := nodes[i].NetworkAddress()
+		netAddr := nodes[i].Address()
 
 		log := p.log.With(zap.String("node", netAddr))
 

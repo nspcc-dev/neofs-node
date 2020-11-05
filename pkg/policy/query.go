@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	sdknm "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
 
 var (
@@ -48,10 +47,10 @@ func Parse(s string) (*netmap.PlacementPolicy, error) {
 	seenSelectors := map[string]bool{}
 	ss := make([]*netmap.Selector, 0, len(q.Selectors))
 	for _, qs := range q.Selectors {
-		if qs.Filter != sdknm.MainFilterName && !seenFilters[qs.Filter] {
+		if qs.Filter != netmap.MainFilterName && !seenFilters[qs.Filter] {
 			return nil, fmt.Errorf("%w: '%s'", ErrUnknownFilter, qs.Filter)
 		}
-		s := new(netmap.Selector)
+		s := netmap.NewSelector()
 		switch len(qs.Bucket) {
 		case 1: // only bucket
 			s.SetAttribute(qs.Bucket[0])
@@ -71,7 +70,7 @@ func Parse(s string) (*netmap.PlacementPolicy, error) {
 
 	rs := make([]*netmap.Replica, 0, len(q.Replicas))
 	for _, qr := range q.Replicas {
-		r := new(netmap.Replica)
+		r := netmap.NewReplica()
 		if qr.Selector != "" {
 			if !seenSelectors[qr.Selector] {
 				return nil, fmt.Errorf("%w: '%s'", ErrUnknownSelector, qr.Selector)
@@ -86,21 +85,22 @@ func Parse(s string) (*netmap.PlacementPolicy, error) {
 	}
 
 	p := new(netmap.PlacementPolicy)
-	p.SetFilters(fs)
-	p.SetSelectors(ss)
-	p.SetReplicas(rs)
+	p.SetFilters(fs...)
+	p.SetSelectors(ss...)
+	p.SetReplicas(rs...)
 	p.SetContainerBackupFactor(q.CBF)
+
 	return p, nil
 }
 
 func clauseFromString(s string) netmap.Clause {
 	switch strings.ToUpper(s) {
 	case "SAME":
-		return netmap.Same
+		return netmap.ClauseSame
 	case "DISTINCT":
-		return netmap.Distinct
+		return netmap.ClauseDistinct
 	default:
-		return netmap.UnspecifiedClause
+		return 0
 	}
 }
 
@@ -117,9 +117,9 @@ func filterFromOrChain(expr *orChain, seen map[string]bool) (*netmap.Filter, err
 		return fs[0], nil
 	}
 
-	f := new(netmap.Filter)
-	f.SetOp(netmap.OR)
-	f.SetFilters(fs)
+	f := netmap.NewFilter()
+	f.SetOperation(netmap.OpOR)
+	f.SetInnerFilters(fs...)
 	return f, nil
 }
 
@@ -131,7 +131,7 @@ func filterFromAndChain(expr *andChain, seen map[string]bool) (*netmap.Filter, e
 		if fe.Expr != nil {
 			f, err = filterFromSimpleExpr(fe.Expr, seen)
 		} else {
-			f = new(netmap.Filter)
+			f = netmap.NewFilter()
 			f.SetName(fe.Reference)
 		}
 		if err != nil {
@@ -143,28 +143,28 @@ func filterFromAndChain(expr *andChain, seen map[string]bool) (*netmap.Filter, e
 		return fs[0], nil
 	}
 
-	f := new(netmap.Filter)
-	f.SetOp(netmap.AND)
-	f.SetFilters(fs)
+	f := netmap.NewFilter()
+	f.SetOperation(netmap.OpAND)
+	f.SetInnerFilters(fs...)
 	return f, nil
 }
 
 func filterFromSimpleExpr(se *simpleExpr, seen map[string]bool) (*netmap.Filter, error) {
-	f := new(netmap.Filter)
+	f := netmap.NewFilter()
 	f.SetKey(se.Key)
 	switch se.Op {
 	case "EQ":
-		f.SetOp(netmap.EQ)
+		f.SetOperation(netmap.OpEQ)
 	case "NE":
-		f.SetOp(netmap.NE)
+		f.SetOperation(netmap.OpNE)
 	case "GE":
-		f.SetOp(netmap.GE)
+		f.SetOperation(netmap.OpGE)
 	case "GT":
-		f.SetOp(netmap.GT)
+		f.SetOperation(netmap.OpGT)
 	case "LE":
-		f.SetOp(netmap.LE)
+		f.SetOperation(netmap.OpLE)
 	case "LT":
-		f.SetOp(netmap.LT)
+		f.SetOperation(netmap.OpLT)
 	default:
 		return nil, fmt.Errorf("%w: '%s'", ErrUnknownOp, se.Op)
 	}

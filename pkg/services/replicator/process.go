@@ -65,7 +65,7 @@ func (p *Replicator) handleTask(ctx context.Context, task *Task) {
 		default:
 		}
 
-		netAddr := task.nodes[i].NetworkAddress()
+		netAddr := task.nodes[i].Address()
 
 		log := p.log.With(zap.String("node", netAddr))
 
