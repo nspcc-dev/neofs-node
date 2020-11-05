@@ -184,3 +184,26 @@ func TestMissingObjectAttribute(t *testing.T) {
 
 	testSelect(t, db, fs, obj1.Address())
 }
+
+func TestSelectParentID(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	// generate 2 objects
+	obj1 := generateObject(t, testPrm{})
+	obj2 := generateObject(t, testPrm{})
+
+	// set parent ID of 1st object
+	par := testOID()
+	object.NewRawFromObject(obj1).SetParentID(par)
+
+	// store objects
+	require.NoError(t, db.Put(obj1))
+	require.NoError(t, db.Put(obj2))
+
+	// filter by parent ID
+	fs := objectSDK.SearchFilters{}
+	fs.AddParentIDFilter(objectSDK.MatchStringEqual, par)
+
+	testSelect(t, db, fs, obj1.Address())
+}
