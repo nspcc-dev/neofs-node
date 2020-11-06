@@ -2,18 +2,23 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	v2ACL "github.com/nspcc-dev/neofs-api-go/v2/acl"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	"github.com/spf13/cobra"
 )
+
+var errKeyerSingleArgument = errors.New("pass only one argument at a time")
 
 var (
 	utilCmd = &cobra.Command{
@@ -42,6 +47,12 @@ var (
 		Short: "convert representation of extended ACL table",
 		RunE:  convertEACLTable,
 	}
+
+	keyerCmd = &cobra.Command{
+		Use:   "keyer",
+		Short: "generate or print information about keys",
+		RunE:  processKeyer,
+	}
 )
 
 func init() {
@@ -49,6 +60,7 @@ func init() {
 
 	utilCmd.AddCommand(signCmd)
 	utilCmd.AddCommand(convertCmd)
+	utilCmd.AddCommand(keyerCmd)
 
 	signCmd.AddCommand(signBearerCmd)
 	signBearerCmd.Flags().String("from", "", "File with JSON or binary encoded bearer token to sign")
@@ -63,6 +75,11 @@ func init() {
 	_ = convertEACLCmd.MarkFlagRequired("from")
 	convertEACLCmd.Flags().String("to", "", "File to dump extended ACL table (default: binary encoded)")
 	convertEACLCmd.Flags().Bool("json", false, "Dump extended ACL table in JSON encoding")
+
+	keyerCmd.Flags().BoolP("generate", "g", false, "generate new private key")
+	keyerCmd.Flags().Bool("hex", false, "print all values in hex encoding")
+	keyerCmd.Flags().BoolP("uncompressed", "u", false, "use uncompressed public key format")
+	keyerCmd.Flags().BoolP("multisig", "m", false, "calculate multisig address from public keys")
 }
 
 func signBearerToken(cmd *cobra.Command, _ []string) error {
@@ -157,6 +174,48 @@ func convertEACLTable(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+func processKeyer(cmd *cobra.Command, args []string) error {
+	var (
+		err error
+
+		result          = new(keyer.Dashboard)
+		generate, _     = cmd.Flags().GetBool("generate")
+		useHex, _       = cmd.Flags().GetBool("hex")
+		uncompressed, _ = cmd.Flags().GetBool("uncompressed")
+		multisig, _     = cmd.Flags().GetBool("multisig")
+	)
+
+	if multisig {
+		err = result.ParseMultiSig(args)
+	} else {
+		if len(args) > 1 {
+			return errKeyerSingleArgument
+		}
+
+		var argument string
+		if len(args) > 0 {
+			argument = args[0]
+		}
+
+		switch {
+		case generate:
+			err = keyerGenerate(argument, result)
+		case fileExists(argument):
+			err = keyerParseFile(argument, result)
+		default:
+			err = result.ParseString(argument)
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	result.PrettyPrint(uncompressed, useHex)
+
+	return nil
+}
+
 func completeBearerToken(btok *token.BearerToken) error {
 	if v2 := btok.ToV2(); v2 != nil {
 		// set eACL table version, because it usually omitted
@@ -190,4 +249,42 @@ func prettyPrintUnixTime(s string) string {
 	timestamp := time.Unix(unixTime, 0)
 
 	return timestamp.String()
+}
+
+func keyerGenerate(filename string, d *keyer.Dashboard) error {
+	key := make([]byte, keyer.NeoPrivateKeySize)
+
+	_, err := rand.Read(key)
+	if err != nil {
+		return fmt.Errorf("can't get random source: %w", err)
+	}
+
+	err = d.ParseBinary(key)
+	if err != nil {
+		return fmt.Errorf("can't parse key: %w", err)
+	}
+
+	if filename != "" {
+		return ioutil.WriteFile(filename, key, 0600)
+	}
+
+	return nil
+}
+
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+
+	return !info.IsDir()
+}
+
+func keyerParseFile(filename string, d *keyer.Dashboard) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("can't open %v file: %w", filename, err)
+	}
+
+	return d.ParseBinary(data)
 }
