@@ -99,7 +99,7 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 	res := make([]bucketItem, 0, 5+len(as))
 
 	rootVal := v2object.BooleanPropertyValueTrue
-	if obj.HasParent() {
+	if obj.GetType() != objectSDK.TypeRegular || obj.HasParent() {
 		rootVal = ""
 	}
 
