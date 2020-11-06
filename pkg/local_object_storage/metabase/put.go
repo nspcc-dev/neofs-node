@@ -41,9 +41,11 @@ func (db *DB) Put(obj *object.Object) error {
 
 			addrKey := addressKey(obj.Address())
 
-			// put header to primary bucket
-			if err := primaryBucket.Put(addrKey, data); err != nil {
-				return errors.Wrapf(err, "(%T) could not put item to primary bucket", db)
+			if !par {
+				// put header to primary bucket
+				if err := primaryBucket.Put(addrKey, data); err != nil {
+					return errors.Wrapf(err, "(%T) could not put item to primary bucket", db)
+				}
 			}
 
 			// create bucket for indices
