@@ -13,6 +13,7 @@ import (
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )
@@ -259,4 +260,46 @@ func TestSelectNonExistentAttributes(t *testing.T) {
 	res, err := db.Select(fs)
 	require.NoError(t, err)
 	require.Empty(t, res)
+}
+
+func TestVirtualObject(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	// create object with parent
+	obj := generateObject(t, testPrm{
+		withParent: true,
+	})
+
+	require.NoError(t, db.Put(obj))
+
+	childAddr := obj.Address()
+	parAddr := obj.GetParent().Address()
+
+	// child object must be readable
+	_, err := db.Get(childAddr)
+	require.NoError(t, err)
+
+	// parent object must not be readable
+	_, err = db.Get(parAddr)
+	require.True(t, errors.Is(err, errNotFound))
+
+	fs := objectSDK.SearchFilters{}
+
+	// both objects should appear in selection
+	testSelect(t, db, fs, childAddr, parAddr)
+
+	// filter leaves
+	fs.AddLeafFilter()
+
+	// only child object should appear
+	testSelect(t, db, fs, childAddr)
+
+	fs = fs[:0]
+
+	// filter non-leaf objects
+	fs.AddNonLeafFilter()
+
+	// only parent object should appear
+	testSelect(t, db, fs, parAddr)
 }
