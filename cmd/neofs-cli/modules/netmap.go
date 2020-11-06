@@ -3,10 +3,10 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/spf13/cobra"
 )
@@ -96,7 +96,7 @@ func prettyPrintNodeInfo(i *netmap.NodeInfo, jsonEncoding bool) {
 		return
 	}
 
-	fmt.Println("key:", base58.Encode(i.PublicKey()))
+	fmt.Println("key:", hex.EncodeToString(i.PublicKey()))
 	fmt.Println("address:", i.Address())
 	fmt.Println("state:", i.State())
 
