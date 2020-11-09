@@ -54,3 +54,18 @@ func BenchmarkDB_Delete(b *testing.B) {
 		}
 	})
 }
+
+func TestDB_DeleteObjects(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	o1 := generateObject(t, testPrm{})
+	o2 := generateObject(t, testPrm{})
+
+	require.NoError(t, db.Put(o1))
+	require.NoError(t, db.Put(o2))
+
+	db.DeleteObjects(o1.Address(), o2.Address())
+
+	testSelect(t, db, object.SearchFilters{})
+}
