@@ -36,7 +36,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -253,6 +252,7 @@ func initObjectService(c *cfg) {
 			objectCore.WithDeleteHandler(c.cfgObject.metastorage),
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
+		putsvc.WithWorkerPool(c.cfgObject.pool.put),
 	)
 
 	sPutV2 := putsvcV2.NewService(
@@ -265,6 +265,7 @@ func initObjectService(c *cfg) {
 		searchsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		searchsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		searchsvc.WithLocalAddressSource(c),
+		searchsvc.WithWorkerPool(c.cfgObject.pool.search),
 	)
 
 	sSearchV2 := searchsvcV2.NewService(
@@ -278,14 +279,12 @@ func initObjectService(c *cfg) {
 		headsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		headsvc.WithLocalAddressSource(c),
 		headsvc.WithRightChildSearcher(searchsvc.NewRightChildSearcher(sSearch)),
+		headsvc.WithWorkerPool(c.cfgObject.pool.head),
 	)
 
 	sHeadV2 := headsvcV2.NewService(
 		headsvcV2.WithInternalService(sHead),
 	)
-
-	pool, err := ants.NewPool(10)
-	fatalOnErr(err)
 
 	sRange := rangesvc.NewService(
 		rangesvc.WithKeyStorage(keyStorage),
@@ -293,7 +292,7 @@ func initObjectService(c *cfg) {
 		rangesvc.WithContainerSource(c.cfgObject.cnrStorage),
 		rangesvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		rangesvc.WithLocalAddressSource(c),
-		rangesvc.WithWorkerPool(pool),
+		rangesvc.WithWorkerPool(c.cfgObject.pool.rng),
 		rangesvc.WithHeadService(sHead),
 	)
 
@@ -317,6 +316,7 @@ func initObjectService(c *cfg) {
 		rangehashsvc.WithLocalAddressSource(c),
 		rangehashsvc.WithHeadService(sHead),
 		rangehashsvc.WithRangeService(sRange),
+		rangehashsvc.WithWorkerPool(c.cfgObject.pool.rngHash),
 	)
 
 	sRangeHashV2 := rangehashsvcV2.NewService(

@@ -28,6 +28,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
+	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.etcd.io/bbolt"
@@ -93,6 +94,13 @@ const (
 
 	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
 	cfgReBootstrapInterval = "bootstrap.periodic.interval"
+
+	cfgObjectPutPoolSize       = "pool.object.put.size"
+	cfgObjectGetPoolSize       = "pool.object.get.size"
+	cfgObjectHeadPoolSize      = "pool.object.head.size"
+	cfgObjectSearchPoolSize    = "pool.object.search.size"
+	cfgObjectRangePoolSize     = "pool.object.range.size"
+	cfgObjectRangeHashPoolSize = "pool.object.rangehash.size"
 )
 
 const (
@@ -202,6 +210,12 @@ type cfgObject struct {
 	blobstorage bucket.Bucket
 
 	cnrClient *wrapper.Wrapper
+
+	pool cfgObjectRoutines
+}
+
+type cfgObjectRoutines struct {
+	get, head, put, search, rng, rngHash *ants.Pool
 }
 
 const (
@@ -274,6 +288,9 @@ func initCfg(path string) *cfg {
 		respSvc: response.NewService(
 			response.WithNetworkState(state),
 		),
+		cfgObject: cfgObject{
+			pool: initObjectPool(viperCfg),
+		},
 	}
 
 	initLocalStorage(c)
@@ -349,6 +366,13 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgReBootstrapEnabled, false) // in epochs
 	v.SetDefault(cfgReBootstrapInterval, 2)    // in epochs
+
+	v.SetDefault(cfgObjectGetPoolSize, 10)
+	v.SetDefault(cfgObjectHeadPoolSize, 10)
+	v.SetDefault(cfgObjectPutPoolSize, 10)
+	v.SetDefault(cfgObjectSearchPoolSize, 10)
+	v.SetDefault(cfgObjectRangePoolSize, 10)
+	v.SetDefault(cfgObjectRangeHashPoolSize, 10)
 }
 
 func (c *cfg) LocalAddress() *network.Address {
@@ -392,4 +416,40 @@ func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {
 	}
 
 	return bucket, nil
+}
+
+func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
+	var err error
+
+	pool.get, err = ants.NewPool(cfg.GetInt(cfgObjectGetPoolSize))
+	if err != nil {
+		fatalOnErr(err)
+	}
+
+	pool.head, err = ants.NewPool(cfg.GetInt(cfgObjectHeadPoolSize))
+	if err != nil {
+		fatalOnErr(err)
+	}
+
+	pool.search, err = ants.NewPool(cfg.GetInt(cfgObjectSearchPoolSize))
+	if err != nil {
+		fatalOnErr(err)
+	}
+
+	pool.put, err = ants.NewPool(cfg.GetInt(cfgObjectPutPoolSize))
+	if err != nil {
+		fatalOnErr(err)
+	}
+
+	pool.rng, err = ants.NewPool(cfg.GetInt(cfgObjectRangePoolSize))
+	if err != nil {
+		fatalOnErr(err)
+	}
+
+	pool.rngHash, err = ants.NewPool(cfg.GetInt(cfgObjectRangeHashPoolSize))
+	if err != nil {
+		fatalOnErr(err)
+	}
+
+	return pool
 }
