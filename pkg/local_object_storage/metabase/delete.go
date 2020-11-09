@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 var tombstoneBucket = []byte("tombstones")
@@ -22,7 +23,9 @@ func objectRemoved(tx *bbolt.Tx, addr []byte) bool {
 // DeleteObjects marks list of objects as deleted.
 func (db *DB) DeleteObjects(list ...*object.Address) {
 	if err := db.delete(list...); err != nil {
-		// TODO: log error
+		db.log.Error("could not delete object list",
+			zap.String("error", err.Error()),
+		)
 	}
 }
 
