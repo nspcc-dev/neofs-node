@@ -3,7 +3,9 @@ package meta
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 // DB represents local metabase of storage node.
@@ -20,10 +22,14 @@ type Option func(*cfg)
 
 type cfg struct {
 	boltDB *bbolt.DB
+
+	log *logger.Logger
 }
 
 func defaultCfg() *cfg {
-	return &cfg{}
+	return &cfg{
+		log: zap.L(),
+	}
 }
 
 // NewDB creates, initializes and returns DB instance.
@@ -68,5 +74,12 @@ func stringEqualMatcher(key, objVal, filterVal string) bool {
 func FromBoltDB(db *bbolt.DB) Option {
 	return func(c *cfg) {
 		c.boltDB = db
+	}
+}
+
+// WithLogger returns option to set logger of DB.
+func WithLogger(l *logger.Logger) Option {
+	return func(c *cfg) {
+		c.log = l
 	}
 }
