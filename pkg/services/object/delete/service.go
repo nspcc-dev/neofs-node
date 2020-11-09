@@ -138,7 +138,7 @@ func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Addr
 		}
 	} else {
 		childList := linking.GetChildren()
-		res = make([]*objectSDK.Address, 0, len(childList)+1)
+		res = make([]*objectSDK.Address, 0, len(childList)+2) // 1 for parent, 1 for linking
 
 		for i := range childList {
 			addr := objectSDK.NewAddress()
@@ -154,6 +154,8 @@ func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Addr
 
 		res = append(res, addr)
 	}
+
+	res = append(res, prm.addr)
 
 	return res, nil
 }
