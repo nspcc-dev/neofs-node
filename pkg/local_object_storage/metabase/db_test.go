@@ -220,7 +220,7 @@ func TestDB_Path(t *testing.T) {
 	bdb, err := bbolt.Open(path, 0600, nil)
 	require.NoError(t, err)
 
-	db := NewDB(bdb)
+	db := NewDB(FromBoltDB(bdb))
 
 	defer releaseDB(db)
 
@@ -233,7 +233,7 @@ func newDB(t testing.TB) *DB {
 	bdb, err := bbolt.Open(path, 0600, nil)
 	require.NoError(t, err)
 
-	return NewDB(bdb)
+	return NewDB(FromBoltDB(bdb))
 }
 
 func releaseDB(db *DB) {

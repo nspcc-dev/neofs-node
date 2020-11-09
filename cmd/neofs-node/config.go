@@ -368,7 +368,9 @@ func initLocalStorage(c *cfg) {
 	)
 	fatalOnErr(err)
 
-	c.cfgObject.metastorage = meta.NewDB(boltDB)
+	c.cfgObject.metastorage = meta.NewDB(
+		meta.FromBoltDB(boltDB),
+	)
 }
 
 func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {

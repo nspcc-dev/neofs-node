@@ -10,16 +10,33 @@ import (
 type DB struct {
 	path string
 
-	boltDB *bbolt.DB
+	*cfg
 
 	matchers map[object.SearchMatchType]func(string, string, string) bool
 }
 
+// Option is an option of DB constructor.
+type Option func(*cfg)
+
+type cfg struct {
+	boltDB *bbolt.DB
+}
+
+func defaultCfg() *cfg {
+	return &cfg{}
+}
+
 // NewDB creates, initializes and returns DB instance.
-func NewDB(boltDB *bbolt.DB) *DB {
+func NewDB(opts ...Option) *DB {
+	c := defaultCfg()
+
+	for i := range opts {
+		opts[i](c)
+	}
+
 	return &DB{
-		path:   boltDB.Path(),
-		boltDB: boltDB,
+		path: c.boltDB.Path(),
+		cfg:  c,
 		matchers: map[object.SearchMatchType]func(string, string, string) bool{
 			object.MatchStringEqual: stringEqualMatcher,
 		},
@@ -44,5 +61,12 @@ func stringEqualMatcher(key, objVal, filterVal string) bool {
 		v2object.FilterPropertyChildfree,
 		v2object.FilterPropertyLeaf:
 		return (filterVal == v2object.BooleanPropertyValueTrue) == (objVal == v2object.BooleanPropertyValueTrue)
+	}
+}
+
+// FromBoltDB returns option to construct DB from BoltDB instance.
+func FromBoltDB(db *bbolt.DB) Option {
+	return func(c *cfg) {
+		c.boltDB = db
 	}
 }
