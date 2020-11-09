@@ -250,7 +250,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		putsvc.WithLocalAddressSource(c),
 		putsvc.WithFormatValidatorOpts(
-			objectCore.WithDeleteHandler(objGC),
+			objectCore.WithDeleteHandler(c.cfgObject.metastorage),
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 	)
