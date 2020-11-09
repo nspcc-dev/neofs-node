@@ -32,7 +32,10 @@ func (h *RelationHeader) HeadRelation(ctx context.Context, addr *objectSDK.Addre
 	a.SetContainerID(addr.GetContainerID())
 	a.SetObjectID(id)
 
-	r, err := h.svc.Head(ctx, new(Prm).WithAddress(a))
+	r, err := h.svc.Head(ctx, new(Prm).
+		WithAddress(a).
+		WithCommonPrm(prm),
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not receive relation header", h)
 	}
