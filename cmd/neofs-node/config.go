@@ -370,6 +370,7 @@ func initLocalStorage(c *cfg) {
 
 	c.cfgObject.metastorage = meta.NewDB(
 		meta.FromBoltDB(boltDB),
+		meta.WithLogger(c.log),
 	)
 }
 
