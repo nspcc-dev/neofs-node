@@ -53,18 +53,15 @@ func (db *DB) selectObjects(tx *bbolt.Tx, fs object.SearchFilters) ([]*object.Ad
 		if err := keyBucket.ForEach(func(k, v []byte) error {
 			include := matchFunc(string(key), string(cutKeyBytes(k)), fVal)
 
-			strs, err := decodeAddressList(v)
-			if err != nil {
-				return errors.Wrapf(err, "(%T) could not decode address list", db)
-			}
+			if include {
+				return keyBucket.Bucket(k).ForEach(func(k, _ []byte) error {
+					if num := mAddr[string(k)]; num == fNum {
+						// otherwise object does not match current or some previous filter
+						mAddr[string(k)] = fNum + 1
+					}
 
-			for j := range strs {
-				if num := mAddr[strs[j]]; num != fNum {
-					// than object does not match some previous filter
-					continue
-				} else if include {
-					mAddr[strs[j]] = fNum + 1
-				}
+					return nil
+				})
 			}
 
 			return nil

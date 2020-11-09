@@ -1,9 +1,6 @@
 package meta
 
 import (
-	"bytes"
-	"encoding/gob"
-
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -64,19 +61,16 @@ func (db *DB) Put(obj *object.Object) error {
 					return errors.Wrapf(err, "(%T) could not create bucket for header key", db)
 				}
 
-				v := nonEmptyKeyBytes([]byte(indices[i].val))
+				v := []byte(indices[i].val)
 
-				strs, err := decodeAddressList(keyBucket.Get(v))
+				// create address bucket for the value
+				valBucket, err := keyBucket.CreateBucketIfNotExists(nonEmptyKeyBytes(v))
 				if err != nil {
-					return errors.Wrapf(err, "(%T) could not decode address list", db)
+					return errors.Wrapf(err, "(%T) could not create bucket for header value", db)
 				}
 
-				data, err := encodeAddressList(append(strs, string(addrKey)))
-				if err != nil {
-					return errors.Wrapf(err, "(%T) could not encode address list", db)
-				}
-
-				if err := keyBucket.Put(v, data); err != nil {
+				// put object address to value bucket
+				if err := valBucket.Put(addrKey, nil); err != nil {
 					return errors.Wrapf(err, "(%T) could not put item to header bucket", db)
 				}
 			}
@@ -159,31 +153,4 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 	}
 
 	return res
-}
-
-// FIXME: gob is a temporary solution, use protobuf.
-func decodeAddressList(data []byte) ([]string, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-
-	var strs []string
-
-	decoder := gob.NewDecoder(bytes.NewReader(data))
-	if err := decoder.Decode(&strs); err != nil {
-		return nil, err
-	}
-
-	return strs, nil
-}
-
-func encodeAddressList(l []string) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := gob.NewEncoder(buf)
-
-	if err := encoder.Encode(l); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
 }
