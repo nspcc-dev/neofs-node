@@ -164,30 +164,10 @@ func TestDB_SelectProperties(t *testing.T) {
 	fs.AddRootFilter()
 	testSelect(t, db, fs, parAddr)
 
-	// non-root filter
+	// phy filter
 	fs = fs[:0]
-	fs.AddNonRootFilter()
+	fs.AddPhyFilter()
 	testSelect(t, db, fs, childAddr)
-
-	// root filter (with random false value)
-	fs = fs[:0]
-	fs.AddFilter(v2object.FilterPropertyRoot, "some false value", objectSDK.MatchStringEqual)
-	testSelect(t, db, fs, childAddr)
-
-	// leaf filter
-	fs = fs[:0]
-	fs.AddLeafFilter()
-	testSelect(t, db, fs, childAddr)
-
-	// non-leaf filter
-	fs = fs[:0]
-	fs.AddNonLeafFilter()
-	testSelect(t, db, fs, parAddr)
-
-	// leaf filter (with random false value)
-	fs = fs[:0]
-	fs.AddFilter(v2object.FilterPropertyLeaf, "some false value", objectSDK.MatchStringEqual)
-	testSelect(t, db, fs, parAddr)
 
 	lnk := object.NewRaw()
 	lnk.SetContainerID(testCID())
@@ -290,7 +270,7 @@ func TestVirtualObject(t *testing.T) {
 	testSelect(t, db, fs, childAddr, parAddr)
 
 	// filter leaves
-	fs.AddLeafFilter()
+	fs.AddPhyFilter()
 
 	// only child object should appear
 	testSelect(t, db, fs, childAddr)
@@ -298,7 +278,7 @@ func TestVirtualObject(t *testing.T) {
 	fs = fs[:0]
 
 	// filter non-leaf objects
-	fs.AddNonLeafFilter()
+	fs.AddRootFilter()
 
 	// only parent object should appear
 	testSelect(t, db, fs, parAddr)

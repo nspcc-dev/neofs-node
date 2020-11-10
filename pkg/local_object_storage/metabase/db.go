@@ -44,6 +44,7 @@ func NewDB(opts ...Option) *DB {
 		path: c.boltDB.Path(),
 		cfg:  c,
 		matchers: map[object.SearchMatchType]func(string, string, string) bool{
+			object.MatchUnknown:     unknownMatcher,
 			object.MatchStringEqual: stringEqualMatcher,
 		},
 	}
@@ -62,11 +63,19 @@ func stringEqualMatcher(key, objVal, filterVal string) bool {
 	switch key {
 	default:
 		return objVal == filterVal
-	case
-		v2object.FilterPropertyRoot,
-		v2object.FilterPropertyChildfree,
-		v2object.FilterPropertyLeaf:
+	case v2object.FilterPropertyChildfree:
 		return (filterVal == v2object.BooleanPropertyValueTrue) == (objVal == v2object.BooleanPropertyValueTrue)
+	case v2object.FilterPropertyPhy, v2object.FilterPropertyRoot:
+		return true
+	}
+}
+
+func unknownMatcher(key, _, _ string) bool {
+	switch key {
+	default:
+		return false
+	case v2object.FilterPropertyPhy, v2object.FilterPropertyRoot:
+		return true
 	}
 }
 

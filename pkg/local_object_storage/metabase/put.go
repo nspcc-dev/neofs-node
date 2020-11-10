@@ -96,17 +96,7 @@ func addressKey(addr *objectSDK.Address) []byte {
 func objectIndices(obj *object.Object, parent bool) []bucketItem {
 	as := obj.GetAttributes()
 
-	res := make([]bucketItem, 0, 5+len(as))
-
-	rootVal := v2object.BooleanPropertyValueTrue
-	if obj.GetType() != objectSDK.TypeRegular || obj.HasParent() {
-		rootVal = ""
-	}
-
-	leafVal := v2object.BooleanPropertyValueTrue
-	if parent {
-		leafVal = ""
-	}
+	res := make([]bucketItem, 0, 7+len(as)) // 7 predefined buckets and object attributes
 
 	childfreeVal := v2object.BooleanPropertyValueTrue
 	if len(obj.GetChildren()) > 0 {
@@ -127,14 +117,6 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 			val: obj.GetOwnerID().String(),
 		},
 		bucketItem{
-			key: v2object.FilterPropertyRoot,
-			val: rootVal,
-		},
-		bucketItem{
-			key: v2object.FilterPropertyLeaf,
-			val: leafVal,
-		},
-		bucketItem{
 			key: v2object.FilterPropertyChildfree,
 			val: childfreeVal,
 		},
@@ -144,6 +126,20 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 		},
 		// TODO: add remaining fields after neofs-api#72
 	)
+
+	if obj.GetType() == objectSDK.TypeRegular && !obj.HasParent() {
+		res = append(res, bucketItem{
+			key: v2object.FilterPropertyRoot,
+			val: v2object.BooleanPropertyValueTrue,
+		})
+	}
+
+	if !parent {
+		res = append(res, bucketItem{
+			key: v2object.FilterPropertyPhy,
+			val: v2object.BooleanPropertyValueTrue,
+		})
+	}
 
 	for _, a := range as {
 		res = append(res, bucketItem{
