@@ -2,6 +2,7 @@ package meta
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
@@ -51,7 +52,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, fs object.SearchFilters) ([]*object.Ad
 
 		// iterate over all existing values for the key
 		if err := keyBucket.ForEach(func(k, v []byte) error {
-			include := matchFunc(string(key), string(cutKeyBytes(k)), fVal)
+			include := matchFunc(key, string(cutKeyBytes(k)), fVal)
 
 			if include {
 				return keyBucket.Bucket(k).ForEach(func(k, _ []byte) error {
@@ -96,25 +97,53 @@ func (db *DB) selectObjects(tx *bbolt.Tx, fs object.SearchFilters) ([]*object.Ad
 }
 
 func (db *DB) selectAll(tx *bbolt.Tx) ([]*object.Address, error) {
-	fs := object.SearchFilters{}
+	result := map[string]struct{}{}
 
-	// to select all objects we can select by any property
-	// that splits objects into disjoint subsets
-	fs.AddRootFilter()
+	primaryBucket := tx.Bucket(primaryBucket)
+	indexBucket := tx.Bucket(indexBucket)
 
-	list1, err := db.selectObjects(tx, fs)
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not select root objects", db)
+	if primaryBucket == nil || indexBucket == nil {
+		return nil, nil
 	}
 
-	fs = fs[:0]
+	if err := primaryBucket.ForEach(func(k, _ []byte) error {
+		result[string(k)] = struct{}{}
 
-	fs.AddNonRootFilter()
-
-	list2, err := db.selectObjects(tx, fs)
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not select non-root objects", db)
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "(%T) could not iterate primary bucket", db)
 	}
 
-	return append(list1, list2...), nil
+	rootBucket := indexBucket.Bucket([]byte(v2object.FilterPropertyRoot))
+	if rootBucket != nil {
+		rootBucket = rootBucket.Bucket(nonEmptyKeyBytes([]byte(v2object.BooleanPropertyValueTrue)))
+	}
+
+	if rootBucket != nil {
+		if err := rootBucket.ForEach(func(k, v []byte) error {
+			result[string(k)] = struct{}{}
+
+			return nil
+		}); err != nil {
+			return nil, errors.Wrapf(err, "(%T) could not iterate root bucket", db)
+		}
+	}
+
+	list := make([]*object.Address, 0, len(result))
+
+	for k := range result {
+		// check if object marked as deleted
+		if objectRemoved(tx, []byte(k)) {
+			continue
+		}
+
+		addr := object.NewAddress()
+		if err := addr.Parse(k); err != nil {
+			return nil, err // TODO: storage was broken, so we need to handle it
+		}
+
+		list = append(list, addr)
+	}
+
+	return list, nil
 }
