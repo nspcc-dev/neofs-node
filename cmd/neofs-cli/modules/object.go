@@ -117,9 +117,7 @@ func init() {
 	_ = objectSearchCmd.MarkFlagRequired("cid")
 	objectSearchCmd.Flags().String("filters", "", "Filters in the form hdrName=value,...")
 	objectSearchCmd.Flags().Bool("root", false, "Search for user objects")
-	objectSearchCmd.Flags().Bool("no-root", false, "Search for service objects")
-	objectSearchCmd.Flags().Bool("leaf", false, "Search physically stored objects")
-	objectSearchCmd.Flags().Bool("no-leaf", false, "Search for virtual objects")
+	objectSearchCmd.Flags().Bool("phy", false, "Search physically stored objects")
 
 	objectCmd.AddCommand(objectHeadCmd)
 	objectHeadCmd.Flags().String("file", "", "File to write header to. Default: stdout.")
@@ -449,25 +447,13 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 	}
 
 	root, _ := cmd.Flags().GetBool("root")
-	noroot, _ := cmd.Flags().GetBool("no-root")
-	switch {
-	case root && noroot:
-		return nil, errors.New("'--root' and '--no-root' flags can't be set together")
-	case root:
+	if root {
 		fs.AddRootFilter()
-	case noroot:
-		fs.AddNonRootFilter()
 	}
 
-	leaf, _ := cmd.Flags().GetBool("leaf")
-	noleaf, _ := cmd.Flags().GetBool("no-leaf")
-	switch {
-	case leaf && noleaf:
-		return nil, errors.New("'--leaf' and '--no-leaf' flags can't be set together")
-	case leaf:
-		fs.AddLeafFilter()
-	case noleaf:
-		fs.AddNonLeafFilter()
+	phy, _ := cmd.Flags().GetBool("phy")
+	if phy {
+		fs.AddPhyFilter()
 	}
 
 	return fs, nil
