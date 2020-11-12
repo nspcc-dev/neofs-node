@@ -43,9 +43,6 @@ func generateObject(t require.TestingT, prm testPrm) *object.Object {
 	obj.SetID(testOID())
 	obj.SetVersion(pkg.SDKVersion())
 	obj.SetContainerID(testCID())
-	obj.SetChildren(testOID())
-	obj.SetPreviousID(testOID())
-	obj.SetParentID(testOID())
 	obj.SetPayloadChecksum(generateChecksum())
 	obj.SetPayloadHomomorphicHash(generateChecksum())
 	obj.SetType(objectSDK.TypeRegular)
@@ -78,6 +75,10 @@ func generateObject(t require.TestingT, prm testPrm) *object.Object {
 
 	if prm.withParent {
 		prm.withParent = false
+
+		obj.SetChildren(testOID())
+		obj.SetPreviousID(testOID())
+		obj.SetParentID(testOID())
 		obj.SetParent(generateObject(t, prm).SDK())
 	}
 
