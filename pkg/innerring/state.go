@@ -51,3 +51,15 @@ func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
 
 	return invoke.AlphabetVote(s.morphClient, s.contracts.alphabet[index], candidate)
 }
+
+// InitAndVoteForSidechainValidator is a public function to use outside of
+// inner ring daemon execution. It initialize inner ring structure with data
+// from blockchain and then calls vote method on corresponding alphabet contract.
+func (s *Server) InitAndVoteForSidechainValidator(validators []keys.PublicKey) error {
+	err := s.initConfigFromBlockchain()
+	if err != nil {
+		return err
+	}
+
+	return s.voteForSidechainValidator(validators)
+}

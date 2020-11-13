@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
@@ -30,6 +32,7 @@ func exitErr(err error) {
 
 func main() {
 	configFile := flag.String("config", "", "path to config")
+	validators := flag.String("vote", "", "hex encoded public keys split with comma")
 	versionFlag := flag.Bool("version", false, "neofs-ir node version")
 	flag.Parse()
 
@@ -53,6 +56,16 @@ func main() {
 	innerRing, err := innerring.New(ctx, log, cfg)
 	if err != nil {
 		exitErr(err)
+	}
+
+	if len(*validators) != 0 {
+		validatorKeys, err := parsePublicKeysFromString(*validators)
+		exitErr(err)
+
+		err = innerRing.InitAndVoteForSidechainValidator(validatorKeys)
+		exitErr(err)
+
+		return
 	}
 
 	// start pprof if enabled
@@ -85,4 +98,10 @@ func main() {
 	innerRing.Stop()
 
 	log.Info("application stopped")
+}
+
+func parsePublicKeysFromString(argument string) ([]keys.PublicKey, error) {
+	publicKeysString := strings.Split(argument, ",")
+
+	return innerring.ParsePublicKeysFromStrings(publicKeysString)
 }
