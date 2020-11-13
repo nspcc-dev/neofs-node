@@ -130,14 +130,12 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 	if obj.GetType() == objectSDK.TypeRegular && !obj.HasParent() {
 		res = append(res, bucketItem{
 			key: v2object.FilterPropertyRoot,
-			val: v2object.BooleanPropertyValueTrue,
 		})
 	}
 
 	if !parent {
 		res = append(res, bucketItem{
 			key: v2object.FilterPropertyPhy,
-			val: v2object.BooleanPropertyValueTrue,
 		})
 	}
 

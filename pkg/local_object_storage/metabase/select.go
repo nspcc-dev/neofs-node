@@ -116,7 +116,7 @@ func (db *DB) selectAll(tx *bbolt.Tx) ([]*object.Address, error) {
 
 	rootBucket := indexBucket.Bucket([]byte(v2object.FilterPropertyRoot))
 	if rootBucket != nil {
-		rootBucket = rootBucket.Bucket(nonEmptyKeyBytes([]byte(v2object.BooleanPropertyValueTrue)))
+		rootBucket = rootBucket.Bucket(nonEmptyKeyBytes(nil))
 	}
 
 	if rootBucket != nil {
