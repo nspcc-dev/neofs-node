@@ -69,7 +69,7 @@ func ApprovePeer(cli *client.Client, con util.Uint160, peer []byte) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, feeHalfGas, approvePeerMethod, peer)
+	return cli.Invoke(con, feeOneGas, approvePeerMethod, peer)
 }
 
 // UpdatePeerState invokes addPeer method.
