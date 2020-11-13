@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
@@ -42,8 +43,9 @@ type (
 		precision      precision.Fixed8Converter
 
 		// internal variables
-		key       *ecdsa.PrivateKey
-		contracts *contracts
+		key                  *ecdsa.PrivateKey
+		contracts            *contracts
+		predefinedValidators []keys.PublicKey
 	}
 
 	contracts struct {
@@ -80,6 +82,14 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	err := s.initConfigFromBlockchain()
 	if err != nil {
 		return err
+	}
+
+	// vote for sidechain validator if it is prepared in config
+	err = s.voteForSidechainValidator(s.predefinedValidators)
+	if err != nil {
+		// we don't stop inner ring execution on this error
+		s.log.Warn("can't vote for prepared validators",
+			zap.String("error", err.Error()))
 	}
 
 	s.localTimers.Start(ctx) // local timers start ticking
@@ -126,6 +136,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	server.contracts, err = parseContracts(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	// parse default validators
+	server.predefinedValidators, err = parsePredefinedValidators(cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir: can't parse predefined validators list")
 	}
 
 	// create local timer instance
@@ -353,6 +369,29 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	}
 
 	return result, nil
+}
+
+func parsePredefinedValidators(cfg *viper.Viper) ([]keys.PublicKey, error) {
+	publicKeyStrings := cfg.GetStringSlice("morph.validators")
+
+	return ParsePublicKeysFromStrings(publicKeyStrings)
+}
+
+// ParsePublicKeysFromStrings returns slice of neo public keys from slice
+// of hex encoded strings.
+func ParsePublicKeysFromStrings(pubKeys []string) ([]keys.PublicKey, error) {
+	publicKeys := make([]keys.PublicKey, 0, len(pubKeys))
+
+	for i := range pubKeys {
+		key, err := keys.NewPublicKeyFromString(pubKeys[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "can't decode public key")
+		}
+
+		publicKeys = append(publicKeys, *key)
+	}
+
+	return publicKeys, nil
 }
 
 func parseAlphabetContracts(cfg *viper.Viper) (res [7]util.Uint160, err error) {
