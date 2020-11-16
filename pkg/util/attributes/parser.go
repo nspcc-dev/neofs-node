@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
 
 const (
@@ -21,13 +21,13 @@ var (
 
 // ParseV2Attributes parses strings like "K1:V1/K2:V2/K3:V3" into netmap
 // attributes.
-func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.Attribute, error) {
+func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, error) {
 	restricted := make(map[string]struct{}, len(excl))
 	for i := range excl {
 		restricted[excl[i]] = struct{}{}
 	}
 
-	cache := make(map[string]*netmap.Attribute, len(attrs))
+	cache := make(map[string]*netmap.NodeAttribute, len(attrs))
 
 	for i := range attrs {
 		line := strings.Trim(attrs[i], pairSeparator)
@@ -47,7 +47,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.Attribute, erro
 			key := pair[0]
 			value := pair[1]
 
-			if at, ok := cache[key]; ok && at.GetValue() != value {
+			if at, ok := cache[key]; ok && at.Value() != value {
 				return nil, errNonUniqueBucket
 			}
 
@@ -55,12 +55,12 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.Attribute, erro
 				return nil, errUnexpectedKey
 			}
 
-			attribute := new(netmap.Attribute)
+			attribute := netmap.NewNodeAttribute()
 			attribute.SetKey(key)
 			attribute.SetValue(value)
 
 			if parentKey != "" {
-				attribute.SetParents([]string{parentKey})
+				attribute.SetParentKeys(parentKey)
 			}
 
 			parentKey = key
@@ -68,7 +68,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.Attribute, erro
 		}
 	}
 
-	result := make([]*netmap.Attribute, 0, len(cache))
+	result := make([]*netmap.NodeAttribute, 0, len(cache))
 	for _, v := range cache {
 		result = append(result, v)
 	}

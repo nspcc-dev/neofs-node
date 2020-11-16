@@ -8,11 +8,11 @@ import (
 )
 
 func addressBytes(a *objectSDK.Address) ([]byte, error) {
-	return a.ToV2().StableMarshal(nil)
+	return a.Marshal()
 }
 
 func objectBytes(o *object.Object) ([]byte, error) {
-	return o.ToV2().StableMarshal(nil)
+	return o.Marshal()
 }
 
 func (s *Storage) Put(obj *object.Object) error {

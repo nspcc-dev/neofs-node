@@ -35,7 +35,7 @@ func New() *TokenStore {
 //
 // Returns nil is there is no element in storage.
 func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *PrivateToken {
-	ownerBytes, err := ownerID.ToV2().StableMarshal(nil)
+	ownerBytes, err := ownerID.Marshal()
 	if err != nil {
 		panic(err)
 	}

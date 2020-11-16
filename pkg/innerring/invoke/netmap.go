@@ -5,17 +5,14 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	netmapv2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
-	netmapgrpc "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 )
 
 type (
 	UpdatePeerArgs struct {
 		Key    *keys.PublicKey
-		Status uint32
+		Status netmap.NodeState
 	}
 
 	SetConfigArgs struct {
@@ -140,14 +137,14 @@ func NetmapSnapshot(cli *client.Client, con util.Uint160) (*netmap.Netmap, error
 			return nil, errors.Wrap(err, "invalid RPC response")
 		}
 
-		result = append(result, *netmap.NewNodeInfoFromV2(nodeInfo))
+		result = append(result, *nodeInfo)
 	}
 
 	return netmap.NewNetmap(netmap.NodesFromInfo(result))
 }
 
-func peerInfoFromStackItem(prm stackitem.Item) (*netmapv2.NodeInfo, error) {
-	node := new(netmapgrpc.NodeInfo)
+func peerInfoFromStackItem(prm stackitem.Item) (*netmap.NodeInfo, error) {
+	node := netmap.NewNodeInfo()
 
 	subItems, err := client.ArrayFromStackItem(prm)
 	if err != nil {
@@ -156,9 +153,9 @@ func peerInfoFromStackItem(prm stackitem.Item) (*netmapv2.NodeInfo, error) {
 		return nil, errors.New("invalid RPC response")
 	} else if rawNodeInfo, err := client.BytesFromStackItem(subItems[0]); err != nil {
 		return nil, err
-	} else if err = proto.Unmarshal(rawNodeInfo, node); err != nil {
+	} else if err = node.Unmarshal(rawNodeInfo); err != nil {
 		return nil, err
 	}
 
-	return netmapv2.NodeInfoFromGRPCMessage(node), nil
+	return node, nil
 }

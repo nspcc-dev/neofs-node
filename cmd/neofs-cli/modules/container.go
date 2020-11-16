@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -21,11 +20,9 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
-	grpccontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -275,15 +272,10 @@ var getContainerInfoCmd = &cobra.Command{
 				return fmt.Errorf("can't read file: %w", err)
 			}
 
-			// todo: make more user friendly way to parse raw data
-			msg := new(grpccontainer.Container)
-			if proto.Unmarshal(data, msg) != nil {
-				return errors.New("can't unmarshal container")
+			cnr = container.New()
+			if err := cnr.Unmarshal(data); err != nil {
+				return errors.Wrap(err, "can't unmarshal container")
 			}
-
-			v2cnr := v2container.ContainerFromGRPCMessage(msg)
-
-			cnr = container.NewContainerFromV2(v2cnr)
 		} else {
 			cli, err := getSDKClient()
 			if err != nil {
@@ -315,7 +307,7 @@ var getContainerInfoCmd = &cobra.Command{
 					return fmt.Errorf("can't JSON encode container: %w", err)
 				}
 			} else {
-				data, err = cnr.ToV2().StableMarshal(nil)
+				data, err = cnr.Marshal()
 				if err != nil {
 					return fmt.Errorf("can't binary encode container: %w", err)
 				}
@@ -372,7 +364,7 @@ var getExtendedACLCmd = &cobra.Command{
 				return fmt.Errorf("can't enode to JSON: %w", err)
 			}
 		} else {
-			data, err = eaclTable.ToV2().StableMarshal(nil)
+			data, err = eaclTable.Marshal()
 			if err != nil {
 				return fmt.Errorf("can't enode to binary: %w", err)
 			}
@@ -415,7 +407,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		}
 
 		if containerAwait {
-			exp, err := eaclTable.ToV2().StableMarshal(nil)
+			exp, err := eaclTable.Marshal()
 			if err != nil {
 				return errors.New("broken EACL table")
 			}
@@ -428,7 +420,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				table, err := cli.GetEACL(ctx, id, client.WithTTL(getTTL()))
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					got, err := table.ToV2().StableMarshal(nil)
+					got, err := table.Marshal()
 					if err != nil {
 						continue
 					}

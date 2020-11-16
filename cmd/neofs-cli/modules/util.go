@@ -112,7 +112,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("can't JSON encode bearer token: %w", err)
 		}
 	} else {
-		data, err = btok.ToV2().StableMarshal(nil)
+		data, err = btok.Marshal()
 		if err != nil {
 			return fmt.Errorf("can't binary encode bearer token: %w", err)
 		}
@@ -151,7 +151,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("can't JSON encode extended ACL table: %w", err)
 		}
 	} else {
-		data, err = table.ToV2().StableMarshal(nil)
+		data, err = table.Marshal()
 		if err != nil {
 			return fmt.Errorf("can't binary encode extended ACL table: %w", err)
 		}
