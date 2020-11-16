@@ -86,15 +86,15 @@ func prettyPrintDecimal(decimal *accounting.Decimal) {
 	}
 
 	if verbose {
-		fmt.Println("value:", decimal.GetValue())
-		fmt.Println("precision:", decimal.GetPrecision())
+		fmt.Println("value:", decimal.Value())
+		fmt.Println("precision:", decimal.Precision())
 	} else {
 		// divider = 10^{precision}; v:365, p:2 => 365 / 10^2 = 3.65
-		divider := math.Pow(10, float64(decimal.GetPrecision()))
+		divider := math.Pow(10, float64(decimal.Precision()))
 
 		// %0.8f\n for precision 8
-		format := fmt.Sprintf("%%0.%df\n", decimal.GetPrecision())
+		format := fmt.Sprintf("%%0.%df\n", decimal.Precision())
 
-		fmt.Printf(format, float64(decimal.GetValue())/divider)
+		fmt.Printf(format, float64(decimal.Value())/divider)
 	}
 }

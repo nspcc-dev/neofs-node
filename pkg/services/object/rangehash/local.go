@@ -23,7 +23,7 @@ func (h *localHasher) hashRange(ctx context.Context, prm *Prm, handler func([][]
 		return errors.Wrapf(err, "(%T) could not get object from local storage", h)
 	}
 
-	payload := obj.GetPayload()
+	payload := obj.Payload()
 	hashes := make([][]byte, 0, len(prm.rngs))
 
 	var hasher hash.Hash

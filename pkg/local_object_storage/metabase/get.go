@@ -34,7 +34,9 @@ func (db *DB) Get(addr *objectSDK.Address) (*object.Object, error) {
 
 		var err error
 
-		obj, err = object.FromBytes(data)
+		obj = object.New()
+
+		err = obj.Unmarshal(data)
 
 		return err
 	}); err != nil {

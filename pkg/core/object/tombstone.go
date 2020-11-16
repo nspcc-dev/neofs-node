@@ -122,7 +122,7 @@ func (c *TombstoneContentV2) StableUnmarshal(data []byte) error {
 		data = data[ln:]
 
 		addr := new(refs.Address)
-		if err := addr.StableUnmarshal(data[:sz]); err != nil {
+		if err := addr.Unmarshal(data[:sz]); err != nil {
 			fmt.Println(err)
 			return err
 		}

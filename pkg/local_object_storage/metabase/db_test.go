@@ -128,7 +128,7 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	fs := objectSDK.SearchFilters{}
-	fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, o.GetContainerID())
+	fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, o.ContainerID())
 
 	testSelect(t, db, fs, o.Address())
 

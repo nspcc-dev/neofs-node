@@ -20,10 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
-	v2ACL "github.com/nspcc-dev/neofs-api-go/v2/acl"
-	grpcACL "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -236,7 +233,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Println("Object removed successfully.")
-	cmd.Printf("  ID: %s\n  CID: %s\n", objAddr.GetObjectID(), objAddr.GetContainerID())
+	cmd.Printf("  ID: %s\n  CID: %s\n", objAddr.ObjectID(), objAddr.ContainerID())
 	return nil
 }
 
@@ -390,9 +387,9 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		}
 		switch typ {
 		case hashSha256:
-			cmd.Println(hex.EncodeToString(obj.GetPayloadChecksum().GetSum()))
+			cmd.Println(hex.EncodeToString(obj.PayloadChecksum().Sum()))
 		case hashTz:
-			cmd.Println(hex.EncodeToString(obj.GetPayloadHomomorphicHash().GetSum()))
+			cmd.Println(hex.EncodeToString(obj.PayloadHomomorphicHash().Sum()))
 		}
 		return nil
 	}
@@ -592,14 +589,14 @@ func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error 
 		cmd.Printf("[%s] Header successfully saved.", filename)
 	}
 
-	cmd.Printf("ID: %s\n", obj.GetID())
-	cmd.Printf("CID: %s\n", obj.GetContainerID())
-	cmd.Printf("Owner: %s\n", obj.GetOwnerID())
-	cmd.Printf("CreatedAt: %d\n", obj.GetCreationEpoch())
-	cmd.Printf("Size: %d\n", obj.GetPayloadSize())
-	cmd.Printf("HomoHash: %s\n", hex.EncodeToString(obj.GetPayloadHomomorphicHash().GetSum()))
-	cmd.Printf("Checksum: %s\n", hex.EncodeToString(obj.GetPayloadChecksum().GetSum()))
-	switch obj.GetType() {
+	cmd.Printf("ID: %s\n", obj.ID())
+	cmd.Printf("CID: %s\n", obj.ContainerID())
+	cmd.Printf("Owner: %s\n", obj.OwnerID())
+	cmd.Printf("CreatedAt: %d\n", obj.CreationEpoch())
+	cmd.Printf("Size: %d\n", obj.PayloadSize())
+	cmd.Printf("HomoHash: %s\n", hex.EncodeToString(obj.PayloadHomomorphicHash().Sum()))
+	cmd.Printf("Checksum: %s\n", hex.EncodeToString(obj.PayloadChecksum().Sum()))
+	switch obj.Type() {
 	case object.TypeRegular:
 		cmd.Println("Type: regular")
 	case object.TypeTombstone:
@@ -611,15 +608,15 @@ func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error 
 	}
 
 	cmd.Println("Attributes:")
-	for _, attr := range obj.GetAttributes() {
-		if attr.GetKey() == object.AttributeTimestamp {
+	for _, attr := range obj.Attributes() {
+		if attr.Key() == object.AttributeTimestamp {
 			cmd.Printf("  %s=%s (%s)\n",
-				attr.GetKey(),
-				attr.GetValue(),
-				prettyPrintUnixTime(attr.GetValue()))
+				attr.Key(),
+				attr.Value(),
+				prettyPrintUnixTime(attr.Value()))
 			continue
 		}
-		cmd.Printf("  %s=%s\n", attr.GetKey(), attr.GetValue())
+		cmd.Printf("  %s=%s\n", attr.Key(), attr.Value())
 	}
 	return nil
 }
@@ -650,19 +647,16 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 		return nil, fmt.Errorf("can't read bearer token file: %w", err)
 	}
 
-	v2token, err := v2ACL.BearerTokenFromJSON(data)
-	if err != nil {
-		msg := new(grpcACL.BearerToken)
-		if proto.Unmarshal(data, msg) != nil {
-			return nil, fmt.Errorf("can't decode beare token: %w", err)
+	tok := token.NewBearerToken()
+	if err := tok.UnmarshalJSON(data); err != nil {
+		if err = tok.Unmarshal(data); err != nil {
+			return nil, fmt.Errorf("can't decode bearer token: %w", err)
 		}
-
-		v2token = v2ACL.BearerTokenFromGRPCMessage(msg)
 
 		printVerbose("Using binary encoded bearer token")
 	} else {
 		printVerbose("Using JSON encoded bearer token")
 	}
 
-	return token.NewBearerTokenFromV2(v2token), nil
+	return tok, nil
 }

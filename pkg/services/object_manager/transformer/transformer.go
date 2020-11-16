@@ -90,10 +90,10 @@ func (s *payloadSizeLimiter) initialize() {
 
 func fromObject(obj *object.RawObject) *object.RawObject {
 	res := object.NewRaw()
-	res.SetContainerID(obj.GetContainerID())
-	res.SetOwnerID(obj.GetOwnerID())
-	res.SetAttributes(obj.GetAttributes()...)
-	res.SetType(obj.GetType())
+	res.SetContainerID(obj.ContainerID())
+	res.SetOwnerID(obj.OwnerID())
+	res.SetAttributes(obj.Attributes()...)
+	res.SetType(obj.Type())
 
 	return res
 }
@@ -207,7 +207,7 @@ func writeHashes(hashers []*payloadChecksumHasher) {
 }
 
 func (s *payloadSizeLimiter) initializeLinking() {
-	id := s.current.GetParentID()
+	id := s.current.ParentID()
 
 	s.current = fromObject(s.current)
 	s.current.SetParentID(id)

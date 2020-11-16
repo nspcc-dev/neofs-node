@@ -17,19 +17,19 @@ func TestCheckFormat(t *testing.T) {
 
 	require.Error(t, CheckFormat(c))
 
-	policy := new(netmap.PlacementPolicy)
-	c.SetPlacementPolicy(policy.ToV2())
+	policy := netmap.NewPlacementPolicy()
+	c.SetPlacementPolicy(policy)
 
 	require.Error(t, CheckFormat(c))
 
-	c.SetVersion(pkg.SDKVersion().ToV2())
+	c.SetVersion(pkg.SDKVersion())
 
 	require.Error(t, CheckFormat(c))
 
 	wallet, err := owner.NEO3WalletFromPublicKey(&test.DecodeKey(-1).PublicKey)
 	require.NoError(t, err)
 
-	c.SetOwnerID(owner.NewIDFromNeo3Wallet(wallet).ToV2())
+	c.SetOwnerID(owner.NewIDFromNeo3Wallet(wallet))
 
 	c.SetNonce(nil)
 

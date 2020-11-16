@@ -72,7 +72,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm *Prm) (*Response, error)
 
 	origin := headResult.Header()
 
-	originSize := origin.GetPayloadSize()
+	originSize := origin.PayloadSize()
 
 	var minLeft, maxRight uint64
 	for i := range prm.rngs {
@@ -106,7 +106,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm *Prm) (*Response, error)
 
 func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.RangeTraverser) (*Response, error) {
 	addr := object.NewAddress()
-	addr.SetContainerID(prm.addr.GetContainerID())
+	addr.SetContainerID(prm.addr.ContainerID())
 
 	resp := &Response{
 		hashes: make([][]byte, 0, len(prm.rngs)),

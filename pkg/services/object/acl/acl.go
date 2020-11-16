@@ -399,7 +399,7 @@ func (b Service) findRequestInfo(
 
 	// fetch actual container
 	cnr, err := b.containers.Get(cid)
-	if err != nil || cnr.GetOwnerID() == nil {
+	if err != nil || cnr.OwnerID() == nil {
 		return info, ErrUnknownContainer
 	}
 
@@ -417,10 +417,10 @@ func (b Service) findRequestInfo(
 	verb := sourceVerbOfRequest(req, op)
 	// todo: check verb sanity, if it was generated correctly. Do we need it ?
 
-	info.basicACL = basicACLHelper(cnr.GetBasicACL())
+	info.basicACL = basicACLHelper(cnr.BasicACL())
 	info.requestRole = role
 	info.operation = verb
-	info.owner = owner.NewIDFromV2(cnr.GetOwnerID())
+	info.owner = cnr.OwnerID()
 	info.cid = cid
 
 	// it is assumed that at the moment the key will be valid,

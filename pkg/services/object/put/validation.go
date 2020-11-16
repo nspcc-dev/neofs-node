@@ -23,8 +23,8 @@ type validatingTarget struct {
 }
 
 func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
-	cs := obj.GetPayloadChecksum()
-	switch typ := cs.GetType(); typ {
+	cs := obj.PayloadChecksum()
+	switch typ := cs.Type(); typ {
 	default:
 		return errors.Errorf("(%T) unsupported payload checksum type %v", t, typ)
 	case pkg.ChecksumSHA256:
@@ -33,7 +33,7 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 		t.hash = tz.New()
 	}
 
-	t.checksum = cs.GetSum()
+	t.checksum = cs.Sum()
 
 	if err := t.fmt.Validate(obj.Object()); err != nil {
 		return errors.Wrapf(err, "(%T) coult not validate object format", t)

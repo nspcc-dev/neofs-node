@@ -35,14 +35,14 @@ type rangeChain struct {
 func newRangeTraverser(originSize uint64, rightElement *object.Object, rngSeek *objectSDK.Range) *rangeTraverser {
 	right := &rangeChain{
 		bounds: &rangeBounds{
-			left:  originSize - rightElement.GetPayloadSize(),
+			left:  originSize - rightElement.PayloadSize(),
 			right: originSize,
 		},
-		id: rightElement.GetID(),
+		id: rightElement.ID(),
 	}
 
 	left := &rangeChain{
-		id: rightElement.GetPreviousID(),
+		id: rightElement.PreviousID(),
 	}
 
 	left.next, right.prev = right, left
@@ -83,12 +83,12 @@ func min(a, b uint64) uint64 {
 }
 
 func (c *rangeTraverser) pushHeader(obj *object.Object) {
-	id := obj.GetID()
+	id := obj.ID()
 	if !id.Equal(c.chain.prev.id) {
 		panic(fmt.Sprintf("(%T) unexpected identifier in header", c))
 	}
 
-	sz := obj.GetPayloadSize()
+	sz := obj.PayloadSize()
 
 	c.chain.prev.bounds = &rangeBounds{
 		left:  c.chain.bounds.left - sz,
@@ -97,7 +97,7 @@ func (c *rangeTraverser) pushHeader(obj *object.Object) {
 
 	c.chain = c.chain.prev
 
-	if prev := obj.GetPreviousID(); prev != nil {
+	if prev := obj.PreviousID(); prev != nil {
 		c.chain.prev = &rangeChain{
 			next: c.chain,
 			id:   prev,

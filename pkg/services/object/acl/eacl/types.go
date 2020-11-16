@@ -18,8 +18,8 @@ type Storage interface {
 
 // Header is an interface of string key-value header.
 type Header interface {
-	GetKey() string
-	GetValue() string
+	Key() string
+	Value() string
 }
 
 // TypedHeaderSource is the interface that wraps

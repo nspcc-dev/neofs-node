@@ -67,7 +67,9 @@ func (s *Storage) Get(addr *objectSDK.Address) (*object.Object, error) {
 		return nil, errors.Wrap(err, "could not get object from BLOB storage")
 	}
 
-	return object.FromBytes(objBytes)
+	obj := object.New()
+
+	return obj, obj.Unmarshal(objBytes)
 }
 
 func (s *Storage) Head(addr *objectSDK.Address) (*object.Object, error) {

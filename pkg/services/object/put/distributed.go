@@ -41,7 +41,7 @@ func (t *distributedTarget) Write(p []byte) (n int, err error) {
 
 func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	traverser, err := placement.NewTraverser(
-		append(t.traverseOpts, placement.ForObject(t.obj.GetID()))...,
+		append(t.traverseOpts, placement.ForObject(t.obj.ID()))...,
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create object placement traverser", t)
@@ -59,7 +59,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 		payload = append(payload, t.chunks[i]...)
 	}
 
-	if err := t.fmt.ValidateContent(t.obj.GetType(), payload); err != nil {
+	if err := t.fmt.ValidateContent(t.obj.Type(), payload); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not validate payload content", t)
 	}
 
@@ -108,5 +108,5 @@ loop:
 	}
 
 	return new(transformer.AccessIdentifiers).
-		WithSelfID(t.obj.GetID()), nil
+		WithSelfID(t.obj.ID()), nil
 }

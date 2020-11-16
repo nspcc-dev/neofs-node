@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -71,7 +72,7 @@ func requestHeaders(msg xHeaderSource) []eacl.Header {
 	res := make([]eacl.Header, 0, len(xHdrs))
 
 	for i := range xHdrs {
-		res = append(res, xHdrs[i])
+		res = append(res, pkg.NewXHeaderFromV2(xHdrs[i]))
 	}
 
 	return res

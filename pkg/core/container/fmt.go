@@ -10,24 +10,24 @@ import (
 
 var errNilPolicy = errors.New("placement policy is nil")
 
-// CheckFormat conducts an initial check of the container data.
+// CheckFormat conducts an initial check of the v2 container data.
 //
 // It is expected that if a container fails this test,
 // it will not be inner-ring approved.
 func CheckFormat(c *container.Container) error {
-	if c.GetPlacementPolicy() == nil {
+	if c.PlacementPolicy() == nil {
 		return errNilPolicy
 	}
 
-	if err := pkg.IsSupportedVersion(pkg.NewVersionFromV2(c.GetVersion())); err != nil {
+	if err := pkg.IsSupportedVersion(c.Version()); err != nil {
 		return errors.Wrap(err, "incorrect version")
 	}
 
-	if len(c.GetOwnerID().GetValue()) != owner.NEO3WalletSize {
+	if len(c.OwnerID().ToV2().GetValue()) != owner.NEO3WalletSize {
 		return errors.Wrap(owner.ErrBadID, "incorrect owner identifier")
 	}
 
-	if _, err := uuid.FromBytes(c.GetNonce()); err != nil {
+	if _, err := uuid.FromBytes(c.Nonce()); err != nil {
 		return errors.Wrap(err, "incorrect nonce")
 	}
 

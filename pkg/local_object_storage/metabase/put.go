@@ -94,27 +94,27 @@ func addressKey(addr *objectSDK.Address) []byte {
 }
 
 func objectIndices(obj *object.Object, parent bool) []bucketItem {
-	as := obj.GetAttributes()
+	as := obj.Attributes()
 
 	res := make([]bucketItem, 0, 7+len(as)) // 7 predefined buckets and object attributes
 
 	childfreeVal := v2object.BooleanPropertyValueTrue
-	if len(obj.GetChildren()) > 0 {
+	if len(obj.Children()) > 0 {
 		childfreeVal = ""
 	}
 
 	res = append(res,
 		bucketItem{
 			key: v2object.FilterHeaderVersion,
-			val: obj.GetVersion().String(),
+			val: obj.Version().String(),
 		},
 		bucketItem{
 			key: v2object.FilterHeaderContainerID,
-			val: obj.GetContainerID().String(),
+			val: obj.ContainerID().String(),
 		},
 		bucketItem{
 			key: v2object.FilterHeaderOwnerID,
-			val: obj.GetOwnerID().String(),
+			val: obj.OwnerID().String(),
 		},
 		bucketItem{
 			key: v2object.FilterPropertyChildfree,
@@ -122,12 +122,12 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 		},
 		bucketItem{
 			key: v2object.FilterHeaderParent,
-			val: obj.GetParentID().String(),
+			val: obj.ParentID().String(),
 		},
 		// TODO: add remaining fields after neofs-api#72
 	)
 
-	if obj.GetType() == objectSDK.TypeRegular && !obj.HasParent() {
+	if obj.Type() == objectSDK.TypeRegular && !obj.HasParent() {
 		res = append(res, bucketItem{
 			key: v2object.FilterPropertyRoot,
 		})
@@ -141,8 +141,8 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 
 	for _, a := range as {
 		res = append(res, bucketItem{
-			key: a.GetKey(),
-			val: a.GetValue(),
+			key: a.Key(),
+			val: a.Value(),
 		})
 	}
 

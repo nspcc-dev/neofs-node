@@ -57,9 +57,9 @@ func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
 func (v *FormatValidator) Validate(obj *Object) error {
 	if obj == nil {
 		return errNilObject
-	} else if obj.GetID() == nil {
+	} else if obj.ID() == nil {
 		return errNilID
-	} else if obj.GetContainerID() == nil {
+	} else if obj.ContainerID() == nil {
 		return errNilCID
 	}
 
@@ -77,11 +77,11 @@ func (v *FormatValidator) Validate(obj *Object) error {
 }
 
 func (v *FormatValidator) validateSignatureKey(obj *Object) error {
-	token := obj.GetSessionToken()
-	key := obj.GetSignature().GetKey()
+	token := obj.SessionToken()
+	key := obj.Signature().Key()
 
 	if token == nil || !bytes.Equal(token.SessionKey(), key) {
-		return v.checkOwnerKey(obj.GetOwnerID(), obj.GetSignature().GetKey())
+		return v.checkOwnerKey(obj.OwnerID(), obj.Signature().Key())
 	}
 
 	// FIXME: perform token verification
@@ -123,7 +123,7 @@ func (v *FormatValidator) ValidateContent(t object.Type, payload []byte) error {
 		addrList := content.GetAddressList()
 
 		for _, addr := range addrList {
-			if addr.GetContainerID() == nil || addr.GetObjectID() == nil {
+			if addr.ContainerID() == nil || addr.ObjectID() == nil {
 				return errors.Errorf("(%T) empty address reference in tombstone", v)
 			}
 		}

@@ -22,7 +22,7 @@ func (l *localRangeWriter) WriteTo(w io.Writer) (int64, error) {
 		return 0, errors.Wrapf(err, "(%T) could not get object from local storage", l)
 	}
 
-	payload := obj.GetPayload()
+	payload := obj.Payload()
 	left := l.rng.GetOffset()
 	right := left + l.rng.GetLength()
 

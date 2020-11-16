@@ -181,7 +181,7 @@ func UseBuilder(b Builder) Option {
 // ForContainer is a traversal container setting option.
 func ForContainer(cnr *container.Container) Option {
 	return func(c *cfg) {
-		c.policy = netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy())
+		c.policy = cnr.PlacementPolicy()
 		c.addr.SetContainerID(container.CalculateID(cnr))
 	}
 }

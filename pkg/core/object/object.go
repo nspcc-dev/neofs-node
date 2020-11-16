@@ -19,8 +19,8 @@ type Object struct {
 func (o *Object) Address() *object.Address {
 	if o != nil {
 		aV2 := new(refs.Address)
-		aV2.SetObjectID(o.GetID().ToV2())
-		aV2.SetContainerID(o.GetContainerID().ToV2())
+		aV2.SetObjectID(o.ID().ToV2())
+		aV2.SetContainerID(o.ContainerID().ToV2())
 
 		return object.NewAddressFromV2(aV2)
 	}
@@ -56,22 +56,10 @@ func New() *Object {
 	return NewFromSDK(object.New())
 }
 
-// FromBytes restores Object from binary format.
-func FromBytes(data []byte) (*Object, error) {
-	o, err := object.FromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Object{
-		Object: o,
-	}, nil
-}
-
 // GetParent returns parent object.
 func (o *Object) GetParent() *Object {
 	if o != nil {
-		if par := o.Object.GetParent(); par != nil {
+		if par := o.Object.Parent(); par != nil {
 			return &Object{
 				Object: par,
 			}
