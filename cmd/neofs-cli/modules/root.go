@@ -21,6 +21,8 @@ const (
 	envPrefix = "NEOFS_CLI"
 
 	generateKeyConst = "new"
+
+	ttlDefaultValue = 2
 )
 
 // Global scope flags.
@@ -72,6 +74,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringP("rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
 	_ = viper.BindPFlag("rpc", rootCmd.PersistentFlags().Lookup("rpc-endpoint"))
+
+	rootCmd.PersistentFlags().Uint32("ttl", ttlDefaultValue, "TTL value in request meta header")
+	_ = viper.BindPFlag("ttl", rootCmd.PersistentFlags().Lookup("ttl"))
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
@@ -163,6 +168,13 @@ func getSDKClient() (*client.Client, error) {
 	}
 
 	return client.New(key, client.WithAddress(ipAddr))
+}
+
+func getTTL() uint32 {
+	ttl := viper.GetUint32("ttl")
+	printVerbose("TTL: %d", ttl)
+
+	return ttl
 }
 
 // ownerFromString converts string with NEO3 wallet address to neofs owner ID.

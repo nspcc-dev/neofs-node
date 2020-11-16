@@ -199,6 +199,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		new(client.PutObjectParams).
 			WithObject(obj.Object()).
 			WithPayloadReader(f),
+		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
@@ -227,6 +228,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	}
 	err = cli.DeleteObject(ctx,
 		new(client.DeleteObjectParams).WithAddress(objAddr),
+		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
@@ -270,6 +272,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 		new(client.GetObjectParams).
 			WithAddress(objAddr).
 			WithPayloadWriter(out),
+		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
@@ -308,6 +311,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 		ps = ps.WithMainFields()
 	}
 	obj, err := cli.GetObjectHeader(ctx, ps,
+		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
@@ -339,6 +343,7 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 	}
 	ps := new(client.SearchObjectParams).WithContainerID(cid).WithSearchFilters(sf)
 	ids, err := cli.SearchObject(ctx, ps,
+		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
@@ -377,6 +382,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	if len(ranges) == 0 { // hash of full payload
 		obj, err := cli.GetObjectHeader(ctx,
 			new(client.ObjectHeaderParams).WithAddress(objAddr),
+			client.WithTTL(getTTL()),
 			client.WithSession(tok),
 			client.WithBearer(btok))
 		if err != nil {
@@ -395,6 +401,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	switch typ {
 	case hashSha256:
 		res, err := cli.ObjectPayloadRangeSHA256(ctx, ps,
+			client.WithTTL(getTTL()),
 			client.WithSession(tok),
 			client.WithBearer(btok))
 		if err != nil {
@@ -406,6 +413,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		}
 	case hashTz:
 		res, err := cli.ObjectPayloadRangeTZ(ctx, ps,
+			client.WithTTL(getTTL()),
 			client.WithSession(tok),
 			client.WithBearer(btok))
 		if err != nil {

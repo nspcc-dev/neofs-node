@@ -84,14 +84,14 @@ var listContainersCmd = &cobra.Command{
 
 		switch containerOwner {
 		case "":
-			response, err = cli.ListSelfContainers(ctx)
+			response, err = cli.ListSelfContainers(ctx, client.WithTTL(getTTL()))
 		default:
 			oid, err = ownerFromString(containerOwner)
 			if err != nil {
 				return err
 			}
 
-			response, err = cli.ListContainers(ctx, oid)
+			response, err = cli.ListContainers(ctx, oid, client.WithTTL(getTTL()))
 		}
 
 		if err != nil {
@@ -144,7 +144,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetAttributes(attributes)
 		cnr.SetNonce(nonce[:])
 
-		id, err := cli.PutContainer(ctx, cnr)
+		id, err := cli.PutContainer(ctx, cnr, client.WithTTL(getTTL()))
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -157,7 +157,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				_, err := cli.GetContainer(ctx, id)
+				_, err := cli.GetContainer(ctx, id, client.WithTTL(getTTL()))
 				if err == nil {
 					fmt.Println("container has been persisted on sidechain")
 					return nil
@@ -189,7 +189,7 @@ Only owner of the container has a permission to remove container.`,
 			return err
 		}
 
-		err = cli.DeleteContainer(ctx, id)
+		err = cli.DeleteContainer(ctx, id, client.WithTTL(getTTL()))
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -202,7 +202,7 @@ Only owner of the container has a permission to remove container.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				_, err := cli.GetContainer(ctx, id)
+				_, err := cli.GetContainer(ctx, id, client.WithTTL(getTTL()))
 				if err != nil {
 					fmt.Println("container has been removed:", containerID)
 					return nil
@@ -245,7 +245,9 @@ var listContainerObjectsCmd = &cobra.Command{
 		searchQuery.WithContainerID(id)
 		searchQuery.WithSearchFilters(*filters)
 
-		objectIDs, err := cli.SearchObject(ctx, searchQuery, client.WithSession(sessionToken))
+		objectIDs, err := cli.SearchObject(ctx, searchQuery,
+			client.WithTTL(getTTL()),
+			client.WithSession(sessionToken))
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -295,7 +297,7 @@ var getContainerInfoCmd = &cobra.Command{
 				return err
 			}
 
-			cnr, err = cli.GetContainer(ctx, id)
+			cnr, err = cli.GetContainer(ctx, id, client.WithTTL(getTTL()))
 			if err != nil {
 				return fmt.Errorf("rpc error: %w", err)
 			}
@@ -348,7 +350,7 @@ var getExtendedACLCmd = &cobra.Command{
 			return err
 		}
 
-		eaclTable, err := cli.GetEACL(ctx, id)
+		eaclTable, err := cli.GetEACL(ctx, id, client.WithTTL(getTTL()))
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -409,7 +411,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		eaclTable.SetCID(id)
 
-		err = cli.SetEACL(ctx, eaclTable)
+		err = cli.SetEACL(ctx, eaclTable, client.WithTTL(getTTL()))
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -425,7 +427,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				table, err := cli.GetEACL(ctx, id)
+				table, err := cli.GetEACL(ctx, id, client.WithTTL(getTTL()))
 				if err == nil {
 					// compare binary values because EACL could have been set already
 					got, err := table.ToV2().StableMarshal(nil)
