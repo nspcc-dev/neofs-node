@@ -31,7 +31,7 @@ func (db *DB) Put(obj *object.Object) error {
 				return errors.Wrapf(err, "(%T) could not create primary bucket", db)
 			}
 
-			data, err := obj.ToV2().StableMarshal(nil)
+			data, err := obj.Marshal()
 			if err != nil {
 				return errors.Wrapf(err, "(%T) could not marshal the object", db)
 			}

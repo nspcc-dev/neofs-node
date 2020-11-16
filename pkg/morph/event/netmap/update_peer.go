@@ -5,6 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/pkg/errors"
@@ -12,13 +14,13 @@ import (
 
 type UpdatePeer struct {
 	publicKey *keys.PublicKey
-	status    uint32
+	status    netmap.NodeState
 }
 
 // MorphEvent implements Neo:Morph Event interface.
 func (UpdatePeer) MorphEvent() {}
 
-func (s UpdatePeer) Status() uint32 {
+func (s UpdatePeer) Status() netmap.NodeState {
 	return s.status
 }
 
@@ -53,7 +55,7 @@ func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 		return nil, errors.Wrap(err, "could not get node status")
 	}
 
-	ev.status = uint32(st)
+	ev.status = netmap.NodeStateFromV2(v2netmap.NodeState(st))
 
 	return ev, nil
 }

@@ -12,7 +12,7 @@ func (w *Wrapper) AddPeer(nodeInfo *netmap.NodeInfo) error {
 		return errors.New("nil node info")
 	}
 
-	rawNodeInfo, err := nodeInfo.StableMarshal(nil)
+	rawNodeInfo, err := nodeInfo.Marshal()
 	if err != nil {
 		return err
 	}

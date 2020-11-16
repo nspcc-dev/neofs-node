@@ -5,13 +5,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
-	msgContainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -33,19 +30,15 @@ func (w *Wrapper) Put(cnr *container.Container, pubKey, signature []byte) (*cont
 	args.SetPublicKey(pubKey)
 	args.SetSignature(signature)
 
-	id := new(container.ID)
+	id := container.NewID()
 
-	if v2 := cnr.ToV2(); v2 == nil {
-		return nil, errUnsupported // use other major version if there any
-	} else {
-		data, err := v2.StableMarshal(nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't marshal container")
-		}
-
-		id.SetSHA256(sha256.Sum256(data))
-		args.SetContainer(data)
+	data, err := cnr.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "can't marshal container")
 	}
+
+	id.SetSHA256(sha256.Sum256(data))
+	args.SetContainer(data)
 
 	return id, w.client.Put(args)
 }
@@ -81,18 +74,14 @@ func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
 		return nil, core.ErrNotFound
 	}
 
-	// convert serialized bytes into GRPC structure
-	grpcMsg := new(msgContainer.Container)
-	err = proto.Unmarshal(rpcAnswer.Container(), grpcMsg)
-	if err != nil {
+	// unmarshal container
+	cnr := container.New()
+	if err := cnr.Unmarshal(rpcAnswer.Container()); err != nil {
 		// use other major version if there any
 		return nil, errors.Wrap(err, "can't unmarshal container")
 	}
 
-	// convert GRPC structure into SDK structure, used in the code
-	v2Cnr := v2container.ContainerFromGRPCMessage(grpcMsg)
-
-	return container.NewContainerFromV2(v2Cnr), nil
+	return cnr, nil
 }
 
 // Delete removes the container from NeoFS system

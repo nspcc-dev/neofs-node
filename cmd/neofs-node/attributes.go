@@ -3,8 +3,7 @@ package main
 import (
 	"strconv"
 
-	sdk "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
 	"github.com/spf13/viper"
 )
@@ -15,7 +14,7 @@ const (
 	defaultPrice    = 0
 )
 
-func parseAttributes(v *viper.Viper) []*netmap.Attribute {
+func parseAttributes(v *viper.Viper) []*netmap.NodeAttribute {
 	stringAttributes := readAttributes(v)
 
 	attrs, err := attributes.ParseV2Attributes(stringAttributes, nil)
@@ -41,14 +40,14 @@ func readAttributes(v *viper.Viper) (attrs []string) {
 	return attrs
 }
 
-func addWellKnownAttributes(attrs []*netmap.Attribute) []*netmap.Attribute {
+func addWellKnownAttributes(attrs []*netmap.NodeAttribute) []*netmap.NodeAttribute {
 	var hasCapacity, hasPrice bool
 
 	// check if user defined capacity and price attributes
 	for i := range attrs {
-		if !hasPrice && attrs[i].GetKey() == sdk.PriceAttr {
+		if !hasPrice && attrs[i].Key() == netmap.PriceAttr {
 			hasPrice = true
-		} else if !hasCapacity && attrs[i].GetKey() == sdk.CapacityAttr {
+		} else if !hasCapacity && attrs[i].Key() == netmap.CapacityAttr {
 			hasCapacity = true
 		}
 	}
@@ -56,15 +55,15 @@ func addWellKnownAttributes(attrs []*netmap.Attribute) []*netmap.Attribute {
 	// do not override user defined capacity and price attributes
 
 	if !hasCapacity {
-		capacity := new(netmap.Attribute)
-		capacity.SetKey(sdk.CapacityAttr)
+		capacity := netmap.NewNodeAttribute()
+		capacity.SetKey(netmap.CapacityAttr)
 		capacity.SetValue(strconv.FormatUint(defaultCapacity, 10))
 		attrs = append(attrs, capacity)
 	}
 
 	if !hasPrice {
-		price := new(netmap.Attribute)
-		price.SetKey(sdk.PriceAttr)
+		price := netmap.NewNodeAttribute()
+		price.SetKey(netmap.PriceAttr)
 		price.SetValue(strconv.FormatUint(defaultPrice, 10))
 		attrs = append(attrs, price)
 	}

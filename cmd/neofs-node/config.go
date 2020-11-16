@@ -11,7 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -194,7 +194,7 @@ type BootstrapType uint32
 type cfgNodeInfo struct {
 	// values from config
 	bootType   BootstrapType
-	attributes []*netmap.Attribute
+	attributes []*netmap.NodeAttribute
 
 	// values at runtime
 	info *netmap.NodeInfo

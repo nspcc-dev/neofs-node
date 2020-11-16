@@ -3,7 +3,7 @@ package netmap
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 

@@ -2,7 +2,7 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"go.uber.org/zap"
 )
@@ -27,7 +27,7 @@ func (np *Processor) processNetmapCleanupTick(epoch uint64) {
 
 		err = invoke.UpdatePeerState(np.morphClient, np.netmapContract, &invoke.UpdatePeerArgs{
 			Key:    key,
-			Status: uint32(netmap.Offline),
+			Status: netmap.NodeStateOffline,
 		})
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))

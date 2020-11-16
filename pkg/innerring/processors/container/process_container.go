@@ -1,10 +1,7 @@
 package container
 
 import (
-	"github.com/golang/protobuf/proto"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
-	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
-	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -22,19 +19,14 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 	cnrData := put.Container()
 
 	// unmarshal container structure
-	// FIXME: temp solution, replace after neofs-api-go#168
-	cnrProto := new(containerGRPC.Container)
-	if err := proto.Unmarshal(cnrData, cnrProto); err != nil {
+	cnr := containerSDK.New()
+	if err := cnr.Unmarshal(cnrData); err != nil {
 		cp.log.Info("could not unmarshal container structure",
 			zap.String("error", err.Error()),
 		)
 
 		return
 	}
-
-	cnr := containerSDK.NewContainerFromV2(
-		v2container.ContainerFromGRPCMessage(cnrProto),
-	)
 
 	// perform format check
 	if err := container.CheckFormat(cnr); err != nil {

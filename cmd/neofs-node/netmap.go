@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -36,7 +36,7 @@ func initNetmapService(c *cfg) {
 	peerInfo := new(netmap.NodeInfo)
 	peerInfo.SetAddress(c.localAddr.String())
 	peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
-	peerInfo.SetAttributes(c.cfgNodeInfo.attributes)
+	peerInfo.SetAttributes(c.cfgNodeInfo.attributes...)
 
 	c.cfgNodeInfo.info = peerInfo
 
@@ -46,7 +46,7 @@ func initNetmapService(c *cfg) {
 				c.key,
 				netmapService.NewResponseService(
 					netmapService.NewExecutionService(
-						c.cfgNodeInfo.info,
+						c.cfgNodeInfo.info.ToV2(),
 						c.apiVersion,
 					),
 					c.respSvc,

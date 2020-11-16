@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-crypto/test"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -15,8 +16,8 @@ import (
 
 func TestParseUpdatePeer(t *testing.T) {
 	var (
-		publicKey       = &test.DecodeKey(-1).PublicKey
-		state     int64 = 1
+		publicKey = &test.DecodeKey(-1).PublicKey
+		state     = netmap.NodeStateOffline
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
@@ -48,7 +49,7 @@ func TestParseUpdatePeer(t *testing.T) {
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParseUpdatePeer([]stackitem.Item{
 			stackitem.NewByteArray(crypto.MarshalPublicKey(publicKey)),
-			stackitem.NewBigInteger(new(big.Int).SetInt64(state)),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(int64(state.ToV2()))),
 		})
 		require.NoError(t, err)
 
@@ -57,7 +58,7 @@ func TestParseUpdatePeer(t *testing.T) {
 
 		require.Equal(t, UpdatePeer{
 			publicKey: expectedKey,
-			status:    uint32(state),
+			status:    state,
 		}, ev)
 	})
 }

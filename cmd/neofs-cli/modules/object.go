@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -628,9 +627,9 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	case toJson && toProto:
 		return nil, errors.New("'--json' and '--proto' flags are mutually exclusive")
 	case toJson:
-		return json.Marshal(hdr) // TODO currently not supported by neofs-api-go
+		return hdr.MarshalJSON()
 	case toProto:
-		return hdr.ToV2().StableMarshal(nil)
+		return hdr.Marshal()
 	default:
 		return nil, nil
 	}

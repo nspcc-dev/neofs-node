@@ -8,13 +8,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/pkg/errors"
 )
 
 func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
-	ownerBytes, err := body.GetOwnerID().StableMarshal(nil)
+	ownerBytes, err := owner.NewIDFromV2(body.GetOwnerID()).Marshal()
 	if err != nil {
 		panic(err)
 	}

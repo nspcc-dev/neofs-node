@@ -3,11 +3,10 @@ package netmap
 import (
 	"encoding/hex"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 // Process add peer notification by sanity check of new node
@@ -18,25 +17,22 @@ func (np *Processor) processAddPeer(node []byte) {
 		return
 	}
 
-	// unmarshal grpc (any transport) version of node info from API v2
-	nodeInfo := new(netmap.NodeInfo)
-
-	err := proto.Unmarshal(node, nodeInfo)
-	if err != nil {
+	// unmarshal node info
+	nodeInfo := netmap.NewNodeInfo()
+	if err := nodeInfo.Unmarshal(node); err != nil {
 		// it will be nice to have tx id at event structure to log it
 		np.log.Warn("can't parse network map candidate")
 		return
 	}
 
-	keyString := hex.EncodeToString(nodeInfo.PublicKey)
+	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 
 	exists := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter())
 	if !exists {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
-		err = invoke.ApprovePeer(np.morphClient, np.netmapContract, node)
-		if err != nil {
+		if err := invoke.ApprovePeer(np.morphClient, np.netmapContract, node); err != nil {
 			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
 		}
 	}
@@ -50,10 +46,10 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	}
 
 	// better use unified enum from neofs-api-go/v2/netmap package
-	if ev.Status() != uint32(netmap.NodeInfo_OFFLINE) {
+	if ev.Status() != netmap.NodeStateOffline {
 		np.log.Warn("node proposes unknown state",
 			zap.String("key", hex.EncodeToString(ev.PublicKey().Bytes())),
-			zap.Uint32("status", ev.Status()),
+			zap.Stringer("status", ev.Status()),
 		)
 		return
 	}
