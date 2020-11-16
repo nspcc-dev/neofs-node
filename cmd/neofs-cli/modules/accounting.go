@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/accounting"
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/spf13/cobra"
 )
@@ -41,14 +42,14 @@ var accountingBalanceCmd = &cobra.Command{
 
 		switch balanceOwner {
 		case "":
-			response, err = cli.GetSelfBalance(ctx)
+			response, err = cli.GetSelfBalance(ctx, client.WithTTL(getTTL()))
 		default:
 			oid, err = ownerFromString(balanceOwner)
 			if err != nil {
 				return err
 			}
 
-			response, err = cli.GetBalance(ctx, oid)
+			response, err = cli.GetBalance(ctx, oid, client.WithTTL(getTTL()))
 		}
 
 		if err != nil {
