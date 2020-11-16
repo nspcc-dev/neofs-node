@@ -75,7 +75,7 @@ func (s *Service) Head(ctx context.Context, prm *Prm) (*Response, error) {
 	}
 
 	addr := objectSDK.NewAddress()
-	addr.SetContainerID(prm.addr.GetContainerID())
+	addr.SetContainerID(prm.addr.ContainerID())
 	addr.SetObjectID(rightChildID)
 
 	r, err = s.Head(ctx, new(Prm).WithAddress(addr).WithCommonPrm(prm.common))

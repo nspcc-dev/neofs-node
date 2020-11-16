@@ -96,7 +96,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 
 	// get container to store the object
-	cnr, err := p.cnrSrc.Get(prm.hdr.GetContainerID())
+	cnr, err := p.cnrSrc.Get(prm.hdr.ContainerID())
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not get container by ID", p)
 	}
@@ -107,7 +107,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		placement.ForContainer(cnr),
 
 		// set identifier of the processing object
-		placement.ForObject(prm.hdr.GetID()),
+		placement.ForObject(prm.hdr.ID()),
 	)
 
 	// create placement builder from network map

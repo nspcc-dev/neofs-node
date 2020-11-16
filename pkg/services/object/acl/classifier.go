@@ -62,7 +62,7 @@ func (c SenderClassifier) Classify(
 	// todo: get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
-	if bytes.Equal(cnr.GetOwnerID().GetValue(), ownerID.ToV2().GetValue()) {
+	if bytes.Equal(cnr.OwnerID().ToV2().GetValue(), ownerID.ToV2().GetValue()) {
 		return acl.RoleUser, ownerKeyInBytes, nil
 	}
 
@@ -101,7 +101,7 @@ func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
 		return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at body signature")
 	}
 
-	key := crypto.UnmarshalPublicKey(bodySignature.GetKey())
+	key := crypto.UnmarshalPublicKey(bodySignature.Key())
 	neo3wallet, err := owner.NEO3WalletFromPublicKey(key)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "can't create neo3 wallet")
@@ -174,7 +174,7 @@ func lookupKeyInContainer(
 	owner, cid []byte,
 	cnr *container.Container) (bool, error) {
 
-	cnrNodes, err := nm.GetContainerNodes(netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy()), cid)
+	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), cid)
 	if err != nil {
 		return false, err
 	}

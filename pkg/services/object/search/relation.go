@@ -21,7 +21,7 @@ var ErrRelationNotFound = errors.New("relation not found")
 
 func (s *RelationSearcher) SearchRelation(ctx context.Context, addr *object.Address, prm *util.CommonPrm) (*object.ID, error) {
 	streamer, err := s.svc.Search(ctx, new(Prm).
-		WithContainerID(addr.GetContainerID()).WithCommonPrm(prm).
+		WithContainerID(addr.ContainerID()).WithCommonPrm(prm).
 		WithSearchQuery(s.queryGenerator(addr)),
 	)
 	if err != nil {
@@ -65,7 +65,7 @@ func NewRightChildSearcher(svc *Service) *RelationSearcher {
 	return &RelationSearcher{
 		svc: svc,
 		queryGenerator: func(addr *object.Address) query.Query {
-			return queryV1.NewRightChildQuery(addr.GetObjectID())
+			return queryV1.NewRightChildQuery(addr.ObjectID())
 		},
 	}
 }
@@ -74,7 +74,7 @@ func NewLinkingSearcher(svc *Service) *RelationSearcher {
 	return &RelationSearcher{
 		svc: svc,
 		queryGenerator: func(addr *object.Address) query.Query {
-			return queryV1.NewLinkingQuery(addr.GetObjectID())
+			return queryV1.NewLinkingQuery(addr.ObjectID())
 		},
 	}
 }

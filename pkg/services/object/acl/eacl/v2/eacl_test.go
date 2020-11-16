@@ -40,7 +40,7 @@ func (s *testEACLStorage) GetEACL(id *container.ID) (*eacl.Table, error) {
 }
 
 func (s *testLocalStorage) Head(addr *objectSDK.Address) (*object.Object, error) {
-	require.True(s.t, addr.GetContainerID().Equal(addr.GetContainerID()) && addr.GetObjectID().Equal(addr.GetObjectID()))
+	require.True(s.t, addr.ContainerID().Equal(addr.ContainerID()) && addr.ObjectID().Equal(addr.ObjectID()))
 
 	return s.obj, nil
 }
@@ -139,7 +139,7 @@ func TestHeadRequest(t *testing.T) {
 		obj:     obj.Object(),
 	}
 
-	cid := addr.GetContainerID()
+	cid := addr.ContainerID()
 	unit := new(eacl2.ValidationUnit).
 		WithContainerID(cid).
 		WithOperation(eacl.OperationHead).

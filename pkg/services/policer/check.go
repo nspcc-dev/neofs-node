@@ -13,7 +13,7 @@ import (
 )
 
 func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
-	cnr, err := p.cnrSrc.Get(addr.GetContainerID())
+	cnr, err := p.cnrSrc.Get(addr.ContainerID())
 	if err != nil {
 		p.log.Error("could not get container",
 			zap.String("error", err.Error()),
@@ -22,7 +22,7 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 		return
 	}
 
-	policy := netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy())
+	policy := cnr.PlacementPolicy()
 
 	nn, err := p.placementBuilder.BuildPlacement(addr, policy)
 	if err != nil {

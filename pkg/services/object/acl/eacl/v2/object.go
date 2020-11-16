@@ -15,11 +15,11 @@ type sysObjHdr struct {
 	k, v string
 }
 
-func (s *sysObjHdr) GetKey() string {
+func (s *sysObjHdr) Key() string {
 	return s.k
 }
 
-func (s *sysObjHdr) GetValue() string {
+func (s *sysObjHdr) Value() string {
 	return s.v
 }
 
@@ -48,27 +48,27 @@ func headersFromObject(obj *object.Object) []eacl.Header {
 			// container ID
 			&sysObjHdr{
 				k: acl.FilterObjectContainerID,
-				v: cidValue(obj.GetContainerID()),
+				v: cidValue(obj.ContainerID()),
 			},
 			// owner ID
 			&sysObjHdr{
 				k: acl.FilterObjectOwnerID,
-				v: ownerIDValue(obj.GetOwnerID()),
+				v: ownerIDValue(obj.OwnerID()),
 			},
 			// creation epoch
 			&sysObjHdr{
 				k: acl.FilterObjectCreationEpoch,
-				v: u64Value(obj.GetCreationEpoch()),
+				v: u64Value(obj.CreationEpoch()),
 			},
 			// payload size
 			&sysObjHdr{
 				k: acl.FilterObjectPayloadLength,
-				v: u64Value(obj.GetPayloadSize()),
+				v: u64Value(obj.PayloadSize()),
 			},
 			// TODO: add others fields after neofs-api#84
 		)
 
-		attrs := obj.GetAttributes()
+		attrs := obj.Attributes()
 		hs := make([]eacl.Header, 0, len(attrs))
 
 		for i := range attrs {

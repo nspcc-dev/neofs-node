@@ -84,7 +84,7 @@ func (s *Service) Delete(ctx context.Context, prm *Prm) (*Response, error) {
 	// content address storage (CAS) and one tombstone for several split
 	// objects.
 	if err := r.Init(new(putsvc.PutInitPrm).
-		WithObject(newTombstone(ownerID, prm.addr.GetContainerID())).
+		WithObject(newTombstone(ownerID, prm.addr.ContainerID())).
 		WithCommonPrm(prm.common).
 		WithTraverseOption(placement.WithoutSuccessTracking()), // broadcast tombstone, maybe one
 	); err != nil {
@@ -108,9 +108,9 @@ func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Addr
 	var res []*objectSDK.Address
 
 	if linking, err := s.hdrLinking.HeadRelation(ctx, prm.addr, prm.common); err != nil {
-		cid := prm.addr.GetContainerID()
+		cid := prm.addr.ContainerID()
 
-		for prev := prm.addr.GetObjectID(); prev != nil; {
+		for prev := prm.addr.ObjectID(); prev != nil; {
 			addr := objectSDK.NewAddress()
 			addr.SetObjectID(prev)
 			addr.SetContainerID(cid)
@@ -124,12 +124,12 @@ func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Addr
 			}
 
 			hdr := headResult.Header()
-			id := hdr.GetID()
-			prev = hdr.GetPreviousID()
+			id := hdr.ID()
+			prev = hdr.PreviousID()
 
 			if rightChild := headResult.RightChild(); rightChild != nil {
-				id = rightChild.GetID()
-				prev = rightChild.GetPreviousID()
+				id = rightChild.ID()
+				prev = rightChild.PreviousID()
 			}
 
 			addr.SetObjectID(id)
@@ -137,20 +137,20 @@ func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Addr
 			res = append(res, addr)
 		}
 	} else {
-		childList := linking.GetChildren()
+		childList := linking.Children()
 		res = make([]*objectSDK.Address, 0, len(childList)+2) // 1 for parent, 1 for linking
 
 		for i := range childList {
 			addr := objectSDK.NewAddress()
 			addr.SetObjectID(childList[i])
-			addr.SetContainerID(prm.addr.GetContainerID())
+			addr.SetContainerID(prm.addr.ContainerID())
 
 			res = append(res, addr)
 		}
 
 		addr := objectSDK.NewAddress()
-		addr.SetObjectID(linking.GetID())
-		addr.SetContainerID(prm.addr.GetContainerID())
+		addr.SetObjectID(linking.ID())
+		addr.SetContainerID(prm.addr.ContainerID())
 
 		res = append(res, addr)
 	}

@@ -124,7 +124,7 @@ func matchFilters(hdrSrc TypedHeaderSource, filters []eacl.Filter) int {
 			}
 
 			// check header name
-			if header.GetKey() != filter.Key() {
+			if header.Key() != filter.Key() {
 				continue
 			}
 
@@ -172,10 +172,10 @@ func targetMatches(unit *ValidationUnit, record eacl.Record) bool {
 // Maps match type to corresponding function.
 var mMatchFns = map[eacl.Match]func(Header, eacl.Filter) bool{
 	eacl.MatchStringEqual: func(header Header, filter eacl.Filter) bool {
-		return header.GetValue() == filter.Value()
+		return header.Value() == filter.Value()
 	},
 
 	eacl.MatchStringNotEqual: func(header Header, filter eacl.Filter) bool {
-		return header.GetValue() != filter.Value()
+		return header.Value() != filter.Value()
 	},
 }

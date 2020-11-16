@@ -81,7 +81,7 @@ var localNodeInfoCmd = &cobra.Command{
 
 func prettyPrintNodeInfo(i *netmap.NodeInfo, jsonEncoding bool) {
 	if jsonEncoding {
-		data, err := netmap.NodeInfoToJSON(i)
+		data, err := i.MarshalJSON()
 		if err != nil {
 			printVerbose("Can't convert container to json: %w", err)
 			return

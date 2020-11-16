@@ -13,7 +13,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
-	v2ACL "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	"github.com/spf13/cobra"
 )
@@ -108,7 +107,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) error {
 
 	var data []byte
 	if jsonFlag || len(to) == 0 {
-		data, err = v2ACL.BearerTokenToJSON(btok.ToV2())
+		data, err = btok.MarshalJSON()
 		if err != nil {
 			return fmt.Errorf("can't JSON encode bearer token: %w", err)
 		}
@@ -147,7 +146,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) error {
 
 	var data []byte
 	if jsonFlag || len(to) == 0 {
-		data, err = v2ACL.TableToJSON(table.ToV2())
+		data, err = table.MarshalJSON()
 		if err != nil {
 			return fmt.Errorf("can't JSON encode extended ACL table: %w", err)
 		}

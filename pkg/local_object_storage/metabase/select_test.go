@@ -100,15 +100,15 @@ func TestMismatchAfterMatch(t *testing.T) {
 
 	require.NoError(t, db.Put(obj))
 
-	a := obj.GetAttributes()[0]
+	a := obj.Attributes()[0]
 
 	fs := objectSDK.SearchFilters{}
 
 	// 1st - mismatching filter
-	fs.AddFilter(a.GetKey(), a.GetValue()+"1", objectSDK.MatchStringEqual)
+	fs.AddFilter(a.Key(), a.Value()+"1", objectSDK.MatchStringEqual)
 
 	// 2nd - matching filter
-	fs.AddFilter(a.GetKey(), a.GetValue(), objectSDK.MatchStringEqual)
+	fs.AddFilter(a.Key(), a.Value(), objectSDK.MatchStringEqual)
 
 	testSelect(t, db, fs)
 }
@@ -120,7 +120,7 @@ func addCommonAttribute(objs ...*object.Object) *objectSDK.Attribute {
 
 	for _, o := range objs {
 		object.NewRawFromObject(o).SetAttributes(
-			append(o.GetAttributes(), aCommon)...,
+			append(o.Attributes(), aCommon)...,
 		)
 	}
 
@@ -143,7 +143,7 @@ func TestSelectRemoved(t *testing.T) {
 	require.NoError(t, db.Put(obj2))
 
 	fs := objectSDK.SearchFilters{}
-	fs.AddFilter(a.GetKey(), a.GetValue(), objectSDK.MatchStringEqual)
+	fs.AddFilter(a.Key(), a.Value(), objectSDK.MatchStringEqual)
 
 	testSelect(t, db, fs, obj1.Address(), obj2.Address())
 
@@ -165,7 +165,7 @@ func TestMissingObjectAttribute(t *testing.T) {
 	// add object w/o attribute
 	obj2 := generateObject(t, testPrm{})
 
-	a1 := obj1.GetAttributes()[0]
+	a1 := obj1.Attributes()[0]
 
 	// add common attribute
 	aCommon := addCommonAttribute(obj1, obj2)
@@ -177,10 +177,10 @@ func TestMissingObjectAttribute(t *testing.T) {
 	fs := objectSDK.SearchFilters{}
 
 	// 1st filter by common attribute
-	fs.AddFilter(aCommon.GetKey(), aCommon.GetValue(), objectSDK.MatchStringEqual)
+	fs.AddFilter(aCommon.Key(), aCommon.Value(), objectSDK.MatchStringEqual)
 
 	// next filter by attribute from 1st object only
-	fs.AddFilter(a1.GetKey(), a1.GetValue(), objectSDK.MatchStringEqual)
+	fs.AddFilter(a1.Key(), a1.Value(), objectSDK.MatchStringEqual)
 
 	testSelect(t, db, fs, obj1.Address())
 }

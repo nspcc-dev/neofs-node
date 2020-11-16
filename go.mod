@@ -14,7 +14,7 @@ require (
 	github.com/multiformats/go-multiaddr-net v0.1.2 // v0.1.1 => v0.1.2
 	github.com/multiformats/go-multihash v0.0.13 // indirect
 	github.com/nspcc-dev/neo-go v0.91.1-pre.0.20201030072836-71216865717b
-	github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201111110701-789474906015
+	github.com/nspcc-dev/neofs-api-go v1.3.1-0.20201116094437-fe336fd5ba28
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.3.0
@@ -36,7 +36,6 @@ require (
 	golang.org/x/sys v0.0.0-20201024232916-9f70ab9862d5 // indirect
 	golang.org/x/tools v0.0.0-20200123022218-593de606220b // indirect
 	google.golang.org/grpc v1.29.1
-	google.golang.org/protobuf v1.23.0
 )
 
 // Used for debug reasons

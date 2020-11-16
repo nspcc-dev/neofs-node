@@ -66,7 +66,7 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 
 	origin := headResult.Header()
 
-	originSize := origin.GetPayloadSize()
+	originSize := origin.PayloadSize()
 
 	if prm.full {
 		prm.rng = new(object.Range)
@@ -101,7 +101,7 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 
 func (s *Service) fillTraverser(ctx context.Context, prm *Prm, traverser *objutil.RangeTraverser) error {
 	addr := object.NewAddress()
-	addr.SetContainerID(prm.addr.GetContainerID())
+	addr.SetContainerID(prm.addr.ContainerID())
 
 	for {
 		nextID, nextRng := traverser.Next()

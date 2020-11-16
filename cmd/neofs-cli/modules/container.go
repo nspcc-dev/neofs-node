@@ -21,8 +21,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	v2ACL "github.com/nspcc-dev/neofs-api-go/v2/acl"
-	grpcACL "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
 	v2container "github.com/nspcc-dev/neofs-api-go/v2/container"
 	grpccontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
@@ -139,7 +137,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		}
 
 		cnr := container.New()
-		cnr.SetPlacementPolicy(placementPolicy.ToV2())
+		cnr.SetPlacementPolicy(placementPolicy)
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
 		cnr.SetNonce(nonce[:])
@@ -312,7 +310,7 @@ var getContainerInfoCmd = &cobra.Command{
 			)
 
 			if containerJSON {
-				data, err = v2container.ContainerToJSON(cnr.ToV2())
+				data, err = cnr.MarshalJSON()
 				if err != nil {
 					return fmt.Errorf("can't JSON encode container: %w", err)
 				}
@@ -356,7 +354,7 @@ var getExtendedACLCmd = &cobra.Command{
 		}
 
 		v := eaclTable.Version()
-		if v.GetMajor() == 0 && v.GetMajor() == 0 {
+		if v.Major() == 0 && v.Major() == 0 {
 			fmt.Println("extended ACL table is not set for this container")
 			return nil
 		}
@@ -369,7 +367,7 @@ var getExtendedACLCmd = &cobra.Command{
 		var data []byte
 
 		if containerJSON {
-			data, err = v2ACL.TableToJSON(eaclTable.ToV2())
+			data, err = eaclTable.MarshalJSON()
 			if err != nil {
 				return fmt.Errorf("can't enode to JSON: %w", err)
 			}
@@ -533,8 +531,8 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 		return result, nil
 	}
 
-	result, err = netmap.PlacementPolicyFromJSON([]byte(policyString))
-	if err == nil {
+	result = netmap.NewPlacementPolicy()
+	if err = result.UnmarshalJSON([]byte(policyString)); err == nil {
 		printVerbose("Parsed JSON encoded policy")
 		return result, nil
 	}
@@ -542,8 +540,8 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 	return nil, errors.New("can't parse placement policy")
 }
 
-func parseAttributes(attributes []string) ([]*v2container.Attribute, error) {
-	result := make([]*v2container.Attribute, 0, len(attributes)+2) // name + timestamp attributes
+func parseAttributes(attributes []string) ([]*container.Attribute, error) {
+	result := make([]*container.Attribute, 0, len(attributes)+2) // name + timestamp attributes
 
 	for i := range attributes {
 		kvPair := strings.Split(attributes[i], attributeDelimiter)
@@ -551,7 +549,7 @@ func parseAttributes(attributes []string) ([]*v2container.Attribute, error) {
 			return nil, errors.New("invalid container attribute")
 		}
 
-		parsedAttribute := new(v2container.Attribute)
+		parsedAttribute := container.NewAttribute()
 		parsedAttribute.SetKey(kvPair[0])
 		parsedAttribute.SetValue(kvPair[1])
 
@@ -559,7 +557,7 @@ func parseAttributes(attributes []string) ([]*v2container.Attribute, error) {
 	}
 
 	if !containerNoTimestamp {
-		timestamp := new(v2container.Attribute)
+		timestamp := container.NewAttribute()
 		timestamp.SetKey(container.AttributeTimestamp)
 		timestamp.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
 
@@ -567,7 +565,7 @@ func parseAttributes(attributes []string) ([]*v2container.Attribute, error) {
 	}
 
 	if containerName != "" {
-		cnrName := new(v2container.Attribute)
+		cnrName := container.NewAttribute()
 		cnrName.SetKey(container.AttributeName)
 		cnrName.SetValue(containerName)
 
@@ -629,7 +627,7 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	}
 
 	if jsonEncoding {
-		data, err := v2container.ContainerToJSON(cnr.ToV2())
+		data, err := cnr.MarshalJSON()
 		if err != nil {
 			printVerbose("Can't convert container to json: %w", err)
 			return
@@ -647,14 +645,12 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	id := container.CalculateID(cnr)
 	fmt.Println("container ID:", id)
 
-	version := cnr.GetVersion()
-	fmt.Printf("version: %d.%d\n", version.GetMajor(), version.GetMinor())
+	version := cnr.Version()
+	fmt.Printf("version: %d.%d\n", version.Major(), version.Minor())
 
-	// todo: return pkg structures instead of v2 structures
-	ownerID := owner.NewIDFromV2(cnr.GetOwnerID())
-	fmt.Println("owner ID:", ownerID)
+	fmt.Println("owner ID:", cnr.OwnerID())
 
-	basicACL := cnr.GetBasicACL()
+	basicACL := cnr.BasicACL()
 	fmt.Printf("basic ACL: %s", strconv.FormatUint(uint64(basicACL), 16))
 	switch basicACL {
 	case acl.PublicBasicRule:
@@ -667,27 +663,26 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 		fmt.Println()
 	}
 
-	for _, attribute := range cnr.GetAttributes() {
-		if attribute.GetKey() == container.AttributeTimestamp {
+	for _, attribute := range cnr.Attributes() {
+		if attribute.Key() == container.AttributeTimestamp {
 			fmt.Printf("attribute: %s=%s (%s)\n",
-				attribute.GetKey(),
-				attribute.GetValue(),
-				prettyPrintUnixTime(attribute.GetValue()))
+				attribute.Key(),
+				attribute.Value(),
+				prettyPrintUnixTime(attribute.Value()))
 
 			continue
 		}
 
-		fmt.Printf("attribute: %s=%s\n", attribute.GetKey(), attribute.GetValue())
+		fmt.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
 	}
 
-	nonce, err := uuid.FromBytes(cnr.GetNonce())
+	nonce, err := uuid.FromBytes(cnr.Nonce())
 	if err == nil {
 		fmt.Println("nonce:", nonce)
 	}
 
 	fmt.Println("placement policy:")
-	cnrPolicy := netmap.NewPlacementPolicyFromV2(cnr.GetPlacementPolicy())
-	fmt.Println(strings.Join(policy.Encode(cnrPolicy), "\n"))
+	fmt.Println(strings.Join(policy.Encode(cnr.PlacementPolicy()), "\n"))
 }
 
 func parseEACL(eaclPath string) (*eacl.Table, error) {
@@ -703,23 +698,17 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 		return nil, fmt.Errorf("can't read file with EACL: %w", err)
 	}
 
-	msg := new(grpcACL.EACLTable)
-	if proto.Unmarshal(data, msg) == nil {
-		printVerbose("Parsed binary encoded EACL table")
-		v2 := v2ACL.TableFromGRPCMessage(msg)
-		return eacl.NewTableFromV2(v2), nil
-	}
-
-	if v2, err := v2ACL.TableFromJSON(data); err == nil {
+	table := eacl.NewTable()
+	if err = table.UnmarshalJSON(data); err == nil {
 		printVerbose("Parsed JSON encoded EACL table")
-		return eacl.NewTableFromV2(v2), nil
+		return table, nil
 	}
 
 	return nil, fmt.Errorf("can't parse EACL table: %w", err)
 }
 
 func prettyPrintEACL(table *eacl.Table) {
-	data, err := v2ACL.TableToJSON(table.ToV2())
+	data, err := table.MarshalJSON()
 	if err != nil {
 		printVerbose("Can't convert container to json: %w", err)
 		return

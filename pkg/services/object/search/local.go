@@ -30,7 +30,7 @@ func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) err
 	idList := make([]*objectSDK.ID, 0, len(addrList))
 
 	for i := range addrList {
-		idList = append(idList, addrList[i].GetObjectID())
+		idList = append(idList, addrList[i].ObjectID())
 	}
 
 	select {

@@ -29,7 +29,7 @@ func (h *RelationHeader) HeadRelation(ctx context.Context, addr *objectSDK.Addre
 	}
 
 	a := objectSDK.NewAddress()
-	a.SetContainerID(addr.GetContainerID())
+	a.SetContainerID(addr.ContainerID())
 	a.SetObjectID(id)
 
 	r, err := h.svc.Head(ctx, new(Prm).

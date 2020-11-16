@@ -116,8 +116,8 @@ func (gc *GC) Run(ctx context.Context) {
 						)
 					} else {
 						gc.log.Info("object removed",
-							zap.String("CID", stringifyCID(addr.GetContainerID())),
-							zap.String("ID", stringifyID(addr.GetObjectID())),
+							zap.String("CID", stringifyCID(addr.ContainerID())),
+							zap.String("ID", stringifyID(addr.ObjectID())),
 						)
 					}
 				}

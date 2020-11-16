@@ -18,7 +18,7 @@ type localTarget struct {
 func (t *localTarget) WriteHeader(obj *object.RawObject) error {
 	t.obj = obj
 
-	t.payload = make([]byte, 0, obj.GetPayloadSize())
+	t.payload = make([]byte, 0, obj.PayloadSize())
 
 	return nil
 }
@@ -35,5 +35,5 @@ func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {
 	}
 
 	return new(transformer.AccessIdentifiers).
-		WithSelfID(t.obj.GetID()), nil
+		WithSelfID(t.obj.ID()), nil
 }

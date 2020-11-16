@@ -71,7 +71,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 
 	var parID *objectSDK.ID
 
-	if par := f.obj.GetParent(); par != nil {
+	if par := f.obj.Parent(); par != nil {
 		rawPar := objectSDK.NewRawFromV2(par.ToV2())
 
 		rawPar.SetSessionToken(f.prm.SessionToken)
@@ -81,7 +81,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 			return nil, errors.Wrap(err, "could not finalize parent object")
 		}
 
-		parID = rawPar.GetID()
+		parID = rawPar.ID()
 
 		f.obj.SetParent(rawPar.Object())
 	}
@@ -99,6 +99,6 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	}
 
 	return new(AccessIdentifiers).
-		WithSelfID(f.obj.GetID()).
+		WithSelfID(f.obj.ID()).
 		WithParentID(parID), nil
 }

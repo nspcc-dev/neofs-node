@@ -35,7 +35,7 @@ func (h *distributedHasher) prepare(ctx context.Context, prm *Prm) error {
 	}
 
 	// get container to read the object
-	cnr, err := h.cnrSrc.Get(prm.addr.GetContainerID())
+	cnr, err := h.cnrSrc.Get(prm.addr.ContainerID())
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not get container by ID", h)
 	}
@@ -52,7 +52,7 @@ func (h *distributedHasher) prepare(ctx context.Context, prm *Prm) error {
 		placement.SuccessAfter(1),
 
 		// set identifier of the processing object
-		placement.ForObject(prm.addr.GetObjectID()),
+		placement.ForObject(prm.addr.ObjectID()),
 	)
 
 	// create placement builder from network map

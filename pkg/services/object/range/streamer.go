@@ -81,7 +81,7 @@ func (p *streamer) switchToObject(id *object.ID) error {
 	}
 
 	// get container to read payload range
-	cnr, err := p.cnrSrc.Get(p.prm.addr.GetContainerID())
+	cnr, err := p.cnrSrc.Get(p.prm.addr.ContainerID())
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not get container by ID", p)
 	}
@@ -124,7 +124,7 @@ func (p *streamer) start() {
 	defer close(p.ch)
 
 	objAddr := object.NewAddress()
-	objAddr.SetContainerID(p.prm.addr.GetContainerID())
+	objAddr.SetContainerID(p.prm.addr.ContainerID())
 
 loop:
 	for {
