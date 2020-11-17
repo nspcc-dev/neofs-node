@@ -5,6 +5,7 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 )
 
 // GetPrm groups the parameters of Get operation.
@@ -73,7 +74,47 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	// FIXME: implement me
+	if prm.ln < 0 {
+		// try to read from WriteCache
+		// TODO: implement
 
-	return nil, nil
+		res, err := s.blobStor.Get(
+			new(blobstor.GetPrm).
+				WithAddress(prm.addr),
+		)
+		if err != nil {
+			if errors.Is(err, blobstor.ErrObjectNotFound) {
+				err = ErrObjectNotFound
+			}
+
+			return nil, err
+		}
+
+		return &GetRes{
+			obj: res.Object(),
+		}, nil
+	}
+
+	// try to read from WriteCache
+	// TODO: implement
+
+	res, err := s.blobStor.GetRange(
+		new(blobstor.GetRangePrm).
+			WithAddress(prm.addr).
+			WithPayloadRange(prm.off, uint64(prm.ln)),
+	)
+	if err != nil {
+		if errors.Is(err, blobstor.ErrObjectNotFound) {
+			err = ErrObjectNotFound
+		}
+
+		return nil, err
+	}
+
+	obj := object.NewRaw()
+	obj.SetPayload(res.RangeData())
+
+	return &GetRes{
+		obj: obj.Object(),
+	}, nil
 }
