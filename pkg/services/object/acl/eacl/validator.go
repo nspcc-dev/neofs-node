@@ -107,7 +107,7 @@ func tableAction(unit *ValidationUnit, table *eacl.Table) eacl.Action {
 //  - positive value if no matching header is found for at least one filter;
 //  - zero if at least one suitable header is found for all filters;
 //  - negative value if the headers of at least one filter cannot be obtained.
-func matchFilters(hdrSrc TypedHeaderSource, filters []eacl.Filter) int {
+func matchFilters(hdrSrc TypedHeaderSource, filters []*eacl.Filter) int {
 	matched := 0
 
 	for _, filter := range filters {
@@ -151,7 +151,7 @@ func matchFilters(hdrSrc TypedHeaderSource, filters []eacl.Filter) int {
 
 // returns true if one of ExtendedACLTarget has
 // suitable target OR suitable public key.
-func targetMatches(unit *ValidationUnit, record eacl.Record) bool {
+func targetMatches(unit *ValidationUnit, record *eacl.Record) bool {
 	for _, target := range record.Targets() {
 		// check public key match
 		for _, key := range target.Keys() {
@@ -170,12 +170,12 @@ func targetMatches(unit *ValidationUnit, record eacl.Record) bool {
 }
 
 // Maps match type to corresponding function.
-var mMatchFns = map[eacl.Match]func(Header, eacl.Filter) bool{
-	eacl.MatchStringEqual: func(header Header, filter eacl.Filter) bool {
+var mMatchFns = map[eacl.Match]func(Header, *eacl.Filter) bool{
+	eacl.MatchStringEqual: func(header Header, filter *eacl.Filter) bool {
 		return header.Value() == filter.Value()
 	},
 
-	eacl.MatchStringNotEqual: func(header Header, filter eacl.Filter) bool {
+	eacl.MatchStringNotEqual: func(header Header, filter *eacl.Filter) bool {
 		return header.Value() != filter.Value()
 	},
 }
