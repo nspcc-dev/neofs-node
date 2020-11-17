@@ -1,6 +1,28 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.12.0] - 2020-11-17
+
+NeoFS-API v2.0 support and updated brand-new storage node application.
+
+### Fixed
+
+- SetConfig method invocation of netmap contract. (#147)
+- Balance response overflow. (#122)
+
+### Added
+
+- Gas emission routine in inner ring nodes.
+- GRPC reflection service. (`NEOFS_GRPC_ENABLE_REFLECT_SERVICE=true`)
+- New netmap query language parser.
+
+### Changed
+
+- Storage node application rebuilt from scratch.
+- CLI supports accounting, object and container related operations.
+- Inner ring node shutdowns on neo RPC node connection drop.
+- Updated to preview4 compatible neo-go version.
+
 ## [0.11.0] - 2020-07-23
 
 ### Added
@@ -17,4 +39,5 @@ Changelog for NeoFS Node
 
 First public review release.
 
-[0.11.0]: https://github.com/nspcc-dev/neofs-api-go/compare/v0.10.0...v0.11.0
+[0.12.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.10.0...v0.11.0
