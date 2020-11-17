@@ -23,8 +23,8 @@ func CheckFormat(c *container.Container) error {
 		return errors.Wrap(err, "incorrect version")
 	}
 
-	if len(c.OwnerID().ToV2().GetValue()) != owner.NEO3WalletSize {
-		return errors.Wrap(owner.ErrBadID, "incorrect owner identifier")
+	if ln := len(c.OwnerID().ToV2().GetValue()); ln != owner.NEO3WalletSize {
+		return errors.Errorf("incorrect owner identifier: expected length %d != %d", owner.NEO3WalletSize, ln)
 	}
 
 	if _, err := uuid.FromBytes(c.Nonce()); err != nil {
