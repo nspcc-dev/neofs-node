@@ -2,6 +2,8 @@ package shard
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/pkg/errors"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -29,7 +31,31 @@ func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	// FIXME: implement me
+	// check object existence
+	ex, err := s.metaBase.Exists(prm.obj.Address())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not check object existence")
+	} else if ex {
+		return nil, nil
+	}
+
+	// try to put to WriteCache
+	// TODO: implement
+
+	// put to BlobStor
+	if _, err := s.blobStor.Put(
+		new(blobstor.PutPrm).
+			WithObject(prm.obj),
+	); err != nil {
+		return nil, errors.Wrap(err, "could not put object to BLOB storage")
+	}
+
+	// put to metabase
+	if err := s.metaBase.Put(prm.obj); err != nil {
+		// may we need to handle this case in a special way
+		// since the object has been successfully written to BlobStor
+		return nil, errors.Wrap(err, "could not put object to metabase")
+	}
 
 	return nil, nil
 }
