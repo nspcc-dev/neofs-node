@@ -2,6 +2,7 @@ package shard
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/pkg/errors"
 )
 
 // SelectPrm groups the parameters of Select operation.
@@ -36,7 +37,12 @@ func (s *Shard) Select(prm *SelectPrm) (*SelectRes, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	// FIXME: implement me
+	addrList, err := s.metaBase.Select(prm.filters)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not select objects from metabase")
+	}
 
-	return nil, nil
+	return &SelectRes{
+		addrList: addrList,
+	}, nil
 }
