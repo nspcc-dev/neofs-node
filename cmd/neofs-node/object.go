@@ -200,7 +200,7 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage),
+			putsvc.NewRemoteSender(keyStorage, clientCache),
 		),
 	)
 
@@ -246,6 +246,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
+		putsvc.WithClientCache(clientCache),
 		putsvc.WithMaxSizeSource(c),
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrStorage),
