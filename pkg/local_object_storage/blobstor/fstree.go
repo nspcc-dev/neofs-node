@@ -20,7 +20,7 @@ type fsTree struct {
 	rootDir string
 }
 
-const dirNameLen = 2 // in bytes
+const dirNameLen = 1 // in bytes
 
 var maxDepth = (sha256.Size - 1) / dirNameLen
 
