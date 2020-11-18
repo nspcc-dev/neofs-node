@@ -121,6 +121,21 @@ func (a basicACLHelper) SystemAllowed(op eacl.Operation) bool {
 	return false
 }
 
+// InnerRingAllowed returns true if the operation is allowed by ACL for
+// InnerRing nodes, as part of System group.
+func (a basicACLHelper) InnerRingAllowed(op eacl.Operation) bool {
+	switch op {
+	case eacl.OperationSearch, eacl.OperationRangeHash, eacl.OperationHead:
+		return true
+	default:
+		if n, ok := order[op]; ok {
+			return isLeftBitSet(a, opOffset+n*bitsPerOp+bitSystem)
+		}
+
+		return false
+	}
+}
+
 // AllowSystem allows System group the n-th operation in ACL.
 func (a *basicACLHelper) AllowSystem(op eacl.Operation) {
 	if n, ok := order[op]; ok {
