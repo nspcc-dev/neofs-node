@@ -2,7 +2,6 @@ package engine
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -18,7 +17,7 @@ type SelectRes struct {
 }
 
 // WithFilters is a Select option to set the object filters.
-func (p *SelectPrm) WithFilters(fs objectSDK.SearchFilters) *SelectPrm {
+func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 	if p != nil {
 		p.filters = fs
 	}
@@ -27,7 +26,7 @@ func (p *SelectPrm) WithFilters(fs objectSDK.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*objectSDK.Address {
+func (r *SelectRes) AddressList() []*object.Address {
 	return r.addrList
 }
 
