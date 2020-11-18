@@ -43,9 +43,6 @@ func (r *HeadRes) Header() *object.Object {
 //
 // Returns ErrObjectNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
-
 	var head *object.Object
 
 	shPrm := new(shard.GetPrm).
