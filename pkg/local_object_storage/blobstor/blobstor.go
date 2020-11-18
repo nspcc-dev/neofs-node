@@ -55,6 +55,7 @@ func New(opts ...Option) *BlobStor {
 
 	return &BlobStor{
 		cfg: c,
+		mtx: new(sync.RWMutex),
 	}
 }
 
