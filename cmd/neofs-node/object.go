@@ -265,6 +265,7 @@ func initObjectService(c *cfg) {
 
 	sSearch := searchsvc.NewService(
 		searchsvc.WithKeyStorage(keyStorage),
+		searchsvc.WithClientCache(clientCache),
 		searchsvc.WithLocalStorage(ls),
 		searchsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		searchsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),

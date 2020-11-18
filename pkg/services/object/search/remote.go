@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
@@ -16,6 +17,8 @@ type remoteStream struct {
 	keyStorage *util.KeyStorage
 
 	addr *network.Address
+
+	clientCache *cache.ClientCache
 }
 
 func (s *remoteStream) stream(ctx context.Context, ch chan<- []*object.ID) error {
@@ -29,9 +32,7 @@ func (s *remoteStream) stream(ctx context.Context, ch chan<- []*object.ID) error
 		return err
 	}
 
-	c, err := client.New(key,
-		client.WithAddress(addr),
-	)
+	c, err := s.clientCache.Get(key, addr)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not create SDK client %s", s, addr)
 	}
