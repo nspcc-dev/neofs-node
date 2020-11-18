@@ -49,6 +49,9 @@ func (e *StorageEngine) shardWeight(sh *shard.Shard) float64 {
 }
 
 func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []*shard.Shard {
+	e.mtx.RLock()
+	defer e.mtx.RUnlock()
+
 	shards := make([]*shard.Shard, 0, len(e.shards))
 	weights := make([]float64, 0, len(e.shards))
 

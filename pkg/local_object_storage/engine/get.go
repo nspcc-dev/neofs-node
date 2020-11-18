@@ -61,9 +61,6 @@ func (r *GetRes) Object() *object.Object {
 //
 // Returns ErrObjectNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
-
 	var obj *object.Object
 
 	shPrm := new(shard.GetPrm).
