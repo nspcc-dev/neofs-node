@@ -405,7 +405,7 @@ func (b Service) findRequestInfo(
 	}
 
 	// find request role and key
-	role, key, err := b.sender.Classify(req, cid, cnr)
+	role, isIR, key, err := b.sender.Classify(req, cid, cnr)
 	if err != nil {
 		return info, err
 	}
@@ -420,6 +420,7 @@ func (b Service) findRequestInfo(
 
 	info.basicACL = basicACLHelper(cnr.BasicACL())
 	info.requestRole = role
+	info.isInnerRing = isIR
 	info.operation = verb
 	info.owner = cnr.OwnerID()
 	info.cid = cid
