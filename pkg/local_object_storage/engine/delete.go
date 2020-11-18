@@ -30,9 +30,6 @@ func (p *DeletePrm) WithAddress(addr *objectSDK.Address) *DeletePrm {
 // Returns any error encountered that did not allow to completely
 // mark the object to delete.
 func (e *StorageEngine) Delete(prm *DeletePrm) (*DeleteRes, error) {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
-
 	shPrm := new(shard.DeletePrm)
 
 	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
