@@ -31,9 +31,6 @@ func (p *DeletePrm) WithAddress(addr *objectSDK.Address) *DeletePrm {
 // Returns any error encountered that did not allow to completely
 // mark the object to delete.
 func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
 	// mark object to delete in metabase
 	if err := s.metaBase.Delete(prm.addr); err != nil {
 		s.log.Warn("could not mark object to delete in metabase",

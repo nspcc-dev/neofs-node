@@ -1,8 +1,6 @@
 package shard
 
 import (
-	"sync"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -11,8 +9,6 @@ import (
 // Shard represents single shard of NeoFS Local Storage Engine.
 type Shard struct {
 	*cfg
-
-	mtx *sync.RWMutex
 
 	weight WeightValues
 
@@ -48,7 +44,6 @@ func New(opts ...Option) *Shard {
 
 	return &Shard{
 		cfg:      c,
-		mtx:      new(sync.RWMutex),
 		blobStor: blobstor.New(c.blobOpts...),
 		metaBase: meta.NewDB(c.metaOpts...),
 	}
