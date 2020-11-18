@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -180,6 +181,8 @@ func initObjectService(c *cfg) {
 
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
+	clientCache := cache.NewSDKClientCache()
+
 	objGC := gc.New(
 		gc.WithLogger(c.log),
 		gc.WithRemover(ls),
@@ -220,7 +223,7 @@ func initObjectService(c *cfg) {
 		),
 		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
-			headsvc.NewRemoteHeader(keyStorage),
+			headsvc.NewRemoteHeader(keyStorage, clientCache),
 		),
 		policer.WithLocalAddressSource(c),
 		policer.WithHeadTimeout(
@@ -274,6 +277,7 @@ func initObjectService(c *cfg) {
 
 	sHead := headsvc.NewService(
 		headsvc.WithKeyStorage(keyStorage),
+		headsvc.WithClientCache(clientCache),
 		headsvc.WithLocalStorage(ls),
 		headsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		headsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),

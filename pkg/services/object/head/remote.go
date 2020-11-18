@@ -7,6 +7,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
@@ -15,6 +16,8 @@ import (
 // the object header from a remote host.
 type RemoteHeader struct {
 	keyStorage *util.KeyStorage
+
+	clientCache *cache.ClientCache
 }
 
 // RemoteHeadPrm groups remote header operation parameters.
@@ -25,9 +28,10 @@ type RemoteHeadPrm struct {
 }
 
 // NewRemoteHeader creates, initializes and returns new RemoteHeader instance.
-func NewRemoteHeader(keyStorage *util.KeyStorage) *RemoteHeader {
+func NewRemoteHeader(keyStorage *util.KeyStorage, cache *cache.ClientCache) *RemoteHeader {
 	return &RemoteHeader{
-		keyStorage: keyStorage,
+		keyStorage:  keyStorage,
+		clientCache: cache,
 	}
 }
 
@@ -61,9 +65,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, err
 	}
 
-	c, err := client.New(key,
-		client.WithAddress(addr),
-	)
+	c, err := h.clientCache.Get(key, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", h, addr)
 	}
