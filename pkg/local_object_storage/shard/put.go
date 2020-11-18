@@ -29,7 +29,7 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // did not allow to completely save the object.
 func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
 	// check object existence
-	ex, err := s.metaBase.Exists(prm.obj.Address())
+	ex, err := s.objectExists(prm.obj.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not check object existence")
 	} else if ex {
