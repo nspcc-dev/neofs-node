@@ -1,5 +1,9 @@
 package shard
 
+import (
+	"github.com/mr-tron/base58"
+)
+
 // ID represents Shard identifier.
 //
 // Each shard should have the unique ID within
@@ -12,7 +16,7 @@ func NewIDFromBytes(v []byte) *ID {
 }
 
 func (id ID) String() string {
-	return string(id)
+	return base58.Encode(id)
 }
 
 // ID returns Shard identifier.
