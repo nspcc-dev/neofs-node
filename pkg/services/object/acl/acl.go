@@ -53,6 +53,7 @@ type (
 	requestInfo struct {
 		basicACL    basicACLHelper
 		requestRole acl.Role
+		isInnerRing bool
 		operation   acl.Operation // put, get, head, etc.
 		owner       *owner.ID     // container owner
 
@@ -491,6 +492,9 @@ func basicACLCheck(info requestInfo) bool {
 		checkFn = info.basicACL.UserAllowed
 	case acl.RoleSystem:
 		checkFn = info.basicACL.SystemAllowed
+		if info.isInnerRing {
+			checkFn = info.basicACL.InnerRingAllowed
+		}
 	case acl.RoleOthers:
 		checkFn = info.basicACL.OthersAllowed
 	default:
