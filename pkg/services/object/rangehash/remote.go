@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
@@ -15,6 +16,8 @@ type remoteHasher struct {
 	keyStorage *util.KeyStorage
 
 	node *network.Address
+
+	clientCache *cache.ClientCache
 }
 
 func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][]byte)) error {
@@ -28,9 +31,7 @@ func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][
 		return err
 	}
 
-	c, err := client.New(key,
-		client.WithAddress(addr),
-	)
+	c, err := h.clientCache.Get(key, addr)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not create SDK client %s", h, addr)
 	}
