@@ -49,6 +49,9 @@ func (p *GetPrm) WithFullRange() *GetPrm {
 //
 // Calling with negative length is equivalent
 // to getting the full payload range.
+//
+// Calling with zero length is equivalent
+// to getting the object header.
 func (p *GetPrm) WithRange(off uint64, ln int64) *GetPrm {
 	if p != nil {
 		p.off, p.ln = off, ln
@@ -88,6 +91,15 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 
 		return &GetRes{
 			obj: res.Object(),
+		}, nil
+	} else if prm.ln == 0 {
+		head, err := s.metaBase.Get(prm.addr)
+		if err != nil {
+			return nil, err
+		}
+
+		return &GetRes{
+			obj: head,
 		}, nil
 	}
 
