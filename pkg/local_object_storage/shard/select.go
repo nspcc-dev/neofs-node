@@ -34,9 +34,6 @@ func (r *SelectRes) AddressList() []*objectSDK.Address {
 // Returns any error encountered that
 // did not allow to completely select the objects.
 func (s *Shard) Select(prm *SelectPrm) (*SelectRes, error) {
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
-
 	addrList, err := s.metaBase.Select(prm.filters)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not select objects from metabase")

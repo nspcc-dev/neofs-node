@@ -71,9 +71,6 @@ func (r *GetRes) Object() *object.Object {
 //
 // Returns ErrObjectNotFound if requested object is missing in shard.
 func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
-
 	if prm.ln < 0 {
 		// try to read from WriteCache
 		// TODO: implement
