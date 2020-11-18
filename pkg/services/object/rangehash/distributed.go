@@ -112,8 +112,9 @@ loop:
 					}
 				} else {
 					hasher = &remoteHasher{
-						keyStorage: h.keyStorage,
-						node:       addr,
+						keyStorage:  h.keyStorage,
+						node:        addr,
+						clientCache: h.clientCache,
 					}
 				}
 

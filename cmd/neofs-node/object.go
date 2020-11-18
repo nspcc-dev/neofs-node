@@ -317,6 +317,7 @@ func initObjectService(c *cfg) {
 
 	sRangeHash := rangehashsvc.NewService(
 		rangehashsvc.WithKeyStorage(keyStorage),
+		rangehashsvc.WithClientCache(clientCache),
 		rangehashsvc.WithLocalStorage(ls),
 		rangehashsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		rangehashsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),

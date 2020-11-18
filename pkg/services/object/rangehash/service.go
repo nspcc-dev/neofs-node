@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	rangesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/range"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -41,6 +42,8 @@ type cfg struct {
 	headSvc *headsvc.Service
 
 	rangeSvc *rangesvc.Service
+
+	clientCache *cache.ClientCache
 }
 
 func defaultCfg() *cfg {
@@ -262,5 +265,11 @@ func WithHeadService(v *headsvc.Service) Option {
 func WithRangeService(v *rangesvc.Service) Option {
 	return func(c *cfg) {
 		c.rangeSvc = v
+	}
+}
+
+func WithClientCache(v *cache.ClientCache) Option {
+	return func(c *cfg) {
+		c.clientCache = v
 	}
 }
