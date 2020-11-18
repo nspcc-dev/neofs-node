@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"os"
 	"sync"
+
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 // BlobStor represents NeoFS local BLOB storage.
@@ -71,15 +74,32 @@ func WithShallowDepth(depth int) Option {
 
 // WithCompressObjects returns option to toggle
 // compression of the stored objects.
-func WithCompressObjects(comp bool) Option {
+//
+// If true, Zstandard algorithm is used for data compression.
+//
+// If compressor (decompressor) creation failed,
+// the uncompressed option will be used, and the error
+// is recorded in the provided log.
+func WithCompressObjects(comp bool, log *logger.Logger) Option {
 	return func(c *cfg) {
 		if comp {
-			c.compressor = zstdCompressor()
-			c.decompressor = zstdDecompressor()
-		} else {
-			c.compressor = noOpCompressor
-			c.decompressor = noOpDecompressor
+			var err error
+
+			if c.compressor, err = zstdCompressor(); err != nil {
+				log.Error("could not create zstd compressor",
+					zap.String("error", err.Error()),
+				)
+			} else if c.decompressor, err = zstdDecompressor(); err != nil {
+				log.Error("could not create zstd decompressor",
+					zap.String("error", err.Error()),
+				)
+			} else {
+				return
+			}
 		}
+
+		c.compressor = noOpCompressor
+		c.decompressor = noOpDecompressor
 	}
 }
 
