@@ -46,15 +46,15 @@ func NewSenderClassifier(ir InnerRingFetcher, nm core.Source) SenderClassifier {
 func (c SenderClassifier) Classify(
 	req metaWithToken,
 	cid *container.ID,
-	cnr *container.Container) (acl.Role, []byte, error) {
+	cnr *container.Container) (role acl.Role, isIR bool, key []byte, err error) {
 
 	if cid == nil {
-		return 0, nil, errors.Wrap(ErrMalformedRequest, "container id is not set")
+		return 0, false, nil, errors.Wrap(ErrMalformedRequest, "container id is not set")
 	}
 
 	ownerID, ownerKey, err := requestOwner(req)
 	if err != nil {
-		return 0, nil, err
+		return 0, false, nil, err
 	}
 
 	ownerKeyInBytes := crypto.MarshalPublicKey(ownerKey)
@@ -63,25 +63,25 @@ func (c SenderClassifier) Classify(
 
 	// if request owner is the same as container owner, return RoleUser
 	if bytes.Equal(cnr.OwnerID().ToV2().GetValue(), ownerID.ToV2().GetValue()) {
-		return acl.RoleUser, ownerKeyInBytes, nil
+		return acl.RoleUser, false, ownerKeyInBytes, nil
 	}
 
 	isInnerRingNode, err := c.isInnerRingKey(ownerKeyInBytes)
 	if err != nil {
-		return 0, nil, errors.Wrap(err, "can't check if request from inner ring")
+		return 0, false, nil, errors.Wrap(err, "can't check if request from inner ring")
 	} else if isInnerRingNode {
-		return acl.RoleSystem, ownerKeyInBytes, nil
+		return acl.RoleSystem, true, ownerKeyInBytes, nil
 	}
 
 	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, cid.ToV2().GetValue(), cnr)
 	if err != nil {
-		return 0, nil, errors.Wrap(err, "can't check if request from container node")
+		return 0, false, nil, errors.Wrap(err, "can't check if request from container node")
 	} else if isContainerNode {
-		return acl.RoleSystem, ownerKeyInBytes, nil
+		return acl.RoleSystem, false, ownerKeyInBytes, nil
 	}
 
 	// if none of above, return RoleOthers
-	return acl.RoleOthers, ownerKeyInBytes, nil
+	return acl.RoleOthers, false, ownerKeyInBytes, nil
 }
 
 func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
