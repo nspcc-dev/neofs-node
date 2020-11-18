@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
@@ -46,6 +47,8 @@ type cfg struct {
 	fmtValidatorOpts []object.FormatValidatorOption
 
 	networkState netmap.State
+
+	clientCache *cache.ClientCache
 }
 
 func defaultCfg() *cfg {
@@ -126,5 +129,11 @@ func WithFormatValidatorOpts(v ...object.FormatValidatorOption) Option {
 func WithNetworkState(v netmap.State) Option {
 	return func(c *cfg) {
 		c.networkState = v
+	}
+}
+
+func WithClientCache(v *cache.ClientCache) Option {
+	return func(c *cfg) {
+		c.clientCache = v
 	}
 }
