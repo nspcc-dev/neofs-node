@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/pkg/errors"
@@ -132,5 +133,11 @@ func WithLocalAddressSource(v network.LocalAddressSource) Option {
 func WithRightChildSearcher(v RelationSearcher) Option {
 	return func(c *cfg) {
 		c.rightChildSearcher = v
+	}
+}
+
+func WithClientCache(v *cache.ClientCache) Option {
+	return func(c *cfg) {
+		c.remoteHeader.clientCache = v
 	}
 }
