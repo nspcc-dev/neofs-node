@@ -104,7 +104,7 @@ test: test_dep
 
 # Run linters
 lint:
-	@golangci-lint run
+	@golangci-lint --timeout=5m run
 
 # Run linters in Docker
 docker/lint:
