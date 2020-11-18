@@ -34,9 +34,6 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
-	e.mtx.Lock()
-	defer e.mtx.Unlock()
-
 	// choose shards through sorting by weight
 	sortedShards := e.sortShardsByWeight(prm.obj.Address())
 

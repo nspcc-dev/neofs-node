@@ -35,9 +35,6 @@ func (r *SelectRes) AddressList() []*objectSDK.Address {
 //
 // Returns any error encountered that did not allow to completely select the objects.
 func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
-
 	addrList := make([]*object.Address, 0)
 
 	shPrm := new(shard.SelectPrm).
