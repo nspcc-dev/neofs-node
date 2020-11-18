@@ -22,7 +22,7 @@ type fsTree struct {
 
 const dirNameLen = 2 // in bytes
 
-var maxDepth = (hex.EncodedLen(sha256.Size) - 1) / dirNameLen
+var maxDepth = (sha256.Size - 1) / dirNameLen
 
 var errFileNotFound = errors.New("file not found")
 
