@@ -62,14 +62,14 @@ func WithID(id *ID) Option {
 }
 
 // WithBlobStorOptions returns option to set internal BlobStor options.
-func WithBlobStorOptions(opts []blobstor.Option) Option {
+func WithBlobStorOptions(opts ...blobstor.Option) Option {
 	return func(c *cfg) {
 		c.blobOpts = opts
 	}
 }
 
 // WithMetaBaseOptions returns option to set internal metabase options.
-func WithMetaBaseOptions(opts []meta.Option) Option {
+func WithMetaBaseOptions(opts ...meta.Option) Option {
 	return func(c *cfg) {
 		c.metaOpts = opts
 	}
