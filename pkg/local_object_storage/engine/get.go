@@ -37,7 +37,7 @@ func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
 
 // WithPayloadRange is a Get option to set range of requested payload data.
 //
-// Missing an option or calling with zero arguments is equivalent
+// Missing an option or calling with zero length is equivalent
 // to getting the full payload range.
 func (p *GetPrm) WithPayloadRange(off, ln uint64) *GetPrm {
 	if p != nil {
@@ -67,8 +67,13 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 	var obj *object.Object
 
 	shPrm := new(shard.GetPrm).
-		WithAddress(prm.addr).
-		WithFullRange()
+		WithAddress(prm.addr)
+
+	if prm.ln == 0 {
+		shPrm = shPrm.WithFullRange()
+	} else {
+		shPrm = shPrm.WithRange(prm.off, int64(prm.ln))
+	}
 
 	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
 		res, err := sh.Get(shPrm)
