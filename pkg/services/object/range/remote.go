@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
@@ -26,6 +27,8 @@ type remoteRangeWriter struct {
 	addr *object.Address
 
 	rng *object.Range
+
+	clientCache *cache.ClientCache
 }
 
 func (r *remoteRangeWriter) WriteTo(w io.Writer) (int64, error) {
@@ -39,9 +42,7 @@ func (r *remoteRangeWriter) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	c, err := client.New(key,
-		client.WithAddress(addr),
-	)
+	c, err := r.clientCache.Get(key, addr)
 	if err != nil {
 		return 0, errors.Wrapf(err, "(%T) could not create SDK client %s", r, addr)
 	}

@@ -294,6 +294,7 @@ func initObjectService(c *cfg) {
 
 	sRange := rangesvc.NewService(
 		rangesvc.WithKeyStorage(keyStorage),
+		rangesvc.WithClientCache(clientCache),
 		rangesvc.WithLocalStorage(ls),
 		rangesvc.WithContainerSource(c.cfgObject.cnrStorage),
 		rangesvc.WithNetworkMapSource(c.cfgObject.netMapStorage),

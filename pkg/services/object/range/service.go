@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -35,6 +36,8 @@ type cfg struct {
 	localAddrSrc network.LocalAddressSource
 
 	headSvc *headsvc.Service
+
+	clientCache *cache.ClientCache
 }
 
 func defaultCfg() *cfg {
@@ -162,5 +165,11 @@ func WithLocalAddressSource(v network.LocalAddressSource) Option {
 func WithHeadService(v *headsvc.Service) Option {
 	return func(c *cfg) {
 		c.headSvc = v
+	}
+}
+
+func WithClientCache(v *cache.ClientCache) Option {
+	return func(c *cfg) {
+		c.clientCache = v
 	}
 }
