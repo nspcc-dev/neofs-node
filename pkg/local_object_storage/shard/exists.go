@@ -33,9 +33,6 @@ func (p *ExistsRes) Exists() bool {
 // Returns any error encountered that does not allow to
 // unambiguously determine the presence of an object.
 func (s *Shard) Exists(prm *ExistsPrm) (*ExistsRes, error) {
-	s.mtx.RLock()
-	defer s.mtx.RUnlock()
-
 	// FIXME: implement me
 	return &ExistsRes{
 		ex: false,
