@@ -61,7 +61,7 @@ func New(opts ...Option) *BlobStor {
 // Depth is reduced to maximum value in case of overflow.
 func WithShallowDepth(depth int) Option {
 	return func(c *cfg) {
-		if depth <= maxDepth {
+		if depth > maxDepth {
 			depth = maxDepth
 		}
 
