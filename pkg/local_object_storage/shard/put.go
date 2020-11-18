@@ -28,9 +28,6 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
 	// check object existence
 	ex, err := s.metaBase.Exists(prm.obj.Address())
 	if err != nil {
