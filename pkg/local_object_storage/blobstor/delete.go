@@ -4,13 +4,12 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/pkg/errors"
 )
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addr *objectSDK.Address
+	addr *object.Address
 }
 
 // DeleteRes groups resulting values of Delete operation.
@@ -19,7 +18,7 @@ type DeleteRes struct{}
 // WithAddress is a Delete option to set the address of the object to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddress(addr *objectSDK.Address) *DeletePrm {
+func (p *DeletePrm) WithAddress(addr *object.Address) *DeletePrm {
 	if p != nil {
 		p.addr = addr
 	}
