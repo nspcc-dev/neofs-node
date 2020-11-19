@@ -53,9 +53,9 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 func (t *fsTree) put(addr *objectSDK.Address, data []byte) error {
 	p := t.treePath(addr)
 
-	if err := os.MkdirAll(path.Dir(p), t.perm); err != nil {
+	if err := os.MkdirAll(path.Dir(p), t.Permissions); err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(p, data, t.perm)
+	return ioutil.WriteFile(p, data, t.Permissions)
 }
