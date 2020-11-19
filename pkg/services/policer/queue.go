@@ -2,11 +2,11 @@ package policer
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 )
 
 type jobQueue struct {
-	localStorage *localstore.Storage
+	localStorage *engine.StorageEngine
 }
 
 var jobFilter object.SearchFilters
@@ -17,7 +17,7 @@ func (q *jobQueue) Select(limit int) ([]*object.Address, error) {
 	// It is recommended to make changes after updating the metabase
 
 	// FIXME: add the ability to limit Select result
-	res, err := q.localStorage.Select(getJobFilter())
+	res, err := engine.Select(q.localStorage, getJobFilter())
 	if err != nil {
 		return nil, err
 	}
