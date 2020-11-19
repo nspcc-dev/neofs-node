@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -108,7 +108,7 @@ func WithLogger(v *logger.Logger) Option {
 }
 
 // WithLocalStorage returns option to set local object storage of Policer.
-func WithLocalStorage(v *localstore.Storage) Option {
+func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.jobQueue.localStorage = v
 	}
