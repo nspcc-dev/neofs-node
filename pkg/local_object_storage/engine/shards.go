@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var errShardNotFound = errors.New("shard not found")
+
 // AddShard adds a new shard to the storage engine.
 //
 // Returns any error encountered that did not allow adding a shard.
@@ -71,4 +73,20 @@ func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler fu
 			break
 		}
 	}
+}
+
+// SetShardMode sets mode of the shard with provided identifier.
+//
+// Returns an error if shard mode was not set, or shard was not found in storage engine.
+func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode) error {
+	e.mtx.RLock()
+	defer e.mtx.RUnlock()
+
+	for shID, sh := range e.shards {
+		if id.String() == shID {
+			return sh.SetMode(m)
+		}
+	}
+
+	return errShardNotFound
 }
