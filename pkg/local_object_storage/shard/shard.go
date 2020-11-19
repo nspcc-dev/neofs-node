@@ -13,8 +13,6 @@ type Shard struct {
 
 	mode *atomic.Uint32
 
-	weight WeightValues
-
 	blobStor *blobstor.BlobStor
 
 	metaBase *meta.DB
