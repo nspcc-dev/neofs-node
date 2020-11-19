@@ -40,3 +40,15 @@ func (m Mode) String() string {
 		return "EVACUATE"
 	}
 }
+
+// SetMode sets mode of the shard.
+//
+// Returns any error encountered that did not allow
+// to set shard mode.
+func (s *Shard) SetMode(m Mode) error {
+	s.mode.Store(uint32(m))
+}
+
+func (s *Shard) getMode() Mode {
+	return Mode(s.mode.Load())
+}
