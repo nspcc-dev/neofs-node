@@ -21,5 +21,5 @@ func (id ID) String() string {
 
 // ID returns Shard identifier.
 func (s *Shard) ID() *ID {
-	return s.id
+	return s.info.ID
 }
