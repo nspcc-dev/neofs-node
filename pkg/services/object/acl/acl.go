@@ -17,7 +17,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	"github.com/pkg/errors"
@@ -84,7 +84,7 @@ type eACLCfg struct {
 
 	eACL *eacl.Validator
 
-	localStorage *localstore.Storage
+	localStorage *engine.StorageEngine
 
 	state netmap.State
 }

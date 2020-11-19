@@ -1,7 +1,7 @@
 package v2
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 )
 
 func WithObjectStorage(v ObjectStorage) Option {
@@ -10,7 +10,7 @@ func WithObjectStorage(v ObjectStorage) Option {
 	}
 }
 
-func WithLocalObjectStorage(v *localstore.Storage) Option {
+func WithLocalObjectStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.storage = &localStorage{
 			ls: v,
