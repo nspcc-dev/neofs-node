@@ -7,18 +7,22 @@ import (
 	"hash"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/pkg/errors"
 )
 
 type localHasher struct {
-	storage *localstore.Storage
+	storage *engine.StorageEngine
 }
 
 func (h *localHasher) hashRange(ctx context.Context, prm *Prm, handler func([][]byte)) error {
-	obj, err := h.storage.Get(prm.addr)
+	// FIXME: get partial range instead of full object.
+	//  Current solution is simple, but more loaded
+	//  We can calculate left and right border between all ranges
+	//  and request bordered range (look Service.GetRangeHash).
+	obj, err := engine.Get(h.storage, prm.addr)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not get object from local storage", h)
 	}
