@@ -3,6 +3,7 @@ package replicator
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"go.uber.org/zap"
@@ -48,7 +49,7 @@ func (p *Replicator) handleTask(ctx context.Context, task *Task) {
 		)
 	}()
 
-	obj, err := p.localStorage.Get(task.addr)
+	obj, err := engine.Get(p.localStorage, task.addr)
 	if err != nil {
 		p.log.Error("could not get object from local storage")
 
