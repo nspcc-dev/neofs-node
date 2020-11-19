@@ -47,6 +47,8 @@ func (m Mode) String() string {
 // to set shard mode.
 func (s *Shard) SetMode(m Mode) error {
 	s.mode.Store(uint32(m))
+
+	return nil
 }
 
 func (s *Shard) getMode() Mode {
