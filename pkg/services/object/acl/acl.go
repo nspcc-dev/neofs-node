@@ -3,6 +3,7 @@ package acl
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
@@ -639,29 +640,17 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 
 	// 3. Then check if container owner signed this token.
 	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
-	tokenIssuerWallet, err := owner.NEO3WalletFromPublicKey(tokenIssuerKey)
-	if err != nil {
-		return false
-	}
-	// here we compare `owner.ID -> wallet` with `wallet <- publicKey`
-	// consider making equal method on owner.ID structure
-	// we can compare .String() version of owners but don't think it is good idea
-	// binary comparison is better but MarshalBinary is more expensive
-	if !bytes.Equal(reqInfo.owner.ToV2().GetValue(), tokenIssuerWallet.Bytes()) {
+	if !isOwnerFromKey(reqInfo.owner, tokenIssuerKey) {
 		// todo: in this case we can issue all owner keys from neofs.id and check once again
 		return false
 	}
 
 	// 4. Then check if request sender has rights to use this token.
-	tokenOwnerField := token.GetBody().GetOwnerID()
+	tokenOwnerField := owner.NewIDFromV2(token.GetBody().GetOwnerID())
 	if tokenOwnerField != nil { // see bearer token owner field description
 		requestSenderKey := crypto.UnmarshalPublicKey(reqInfo.senderKey)
-		requestSenderWallet, err := owner.NEO3WalletFromPublicKey(requestSenderKey)
-		if err != nil {
-			return false
-		}
-		// the same issue as above
-		if !bytes.Equal(tokenOwnerField.GetValue(), requestSenderWallet.Bytes()) {
+		if !isOwnerFromKey(tokenOwnerField, requestSenderKey) {
+			// todo: in this case we can issue all owner keys from neofs.id and check once again
 			return false
 		}
 	}
@@ -676,4 +665,21 @@ func isValidLifetime(lifetime *bearer.TokenLifetime, epoch uint64) bool {
 	// MUST NOT be accepted for processing
 	// RFC 7519 sections 4.1.4, 4.1.5
 	return epoch >= lifetime.GetNbf() && epoch <= lifetime.GetExp()
+}
+
+func isOwnerFromKey(id *owner.ID, key *ecdsa.PublicKey) bool {
+	if id == nil || key == nil {
+		return false
+	}
+
+	wallet, err := owner.NEO3WalletFromPublicKey(key)
+	if err != nil {
+		return false
+	}
+
+	// here we compare `owner.ID -> wallet` with `wallet <- publicKey`
+	// consider making equal method on owner.ID structure
+	// we can compare .String() version of owners but don't think it is good idea
+	// binary comparison is better but MarshalBinary is more expensive
+	return bytes.Equal(id.ToV2().GetValue(), wallet.Bytes())
 }
