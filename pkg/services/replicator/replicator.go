@@ -3,7 +3,7 @@ package replicator
 import (
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -29,7 +29,7 @@ type cfg struct {
 
 	remoteSender *putsvc.RemoteSender
 
-	localStorage *localstore.Storage
+	localStorage *engine.StorageEngine
 }
 
 func defaultCfg() *cfg {
@@ -73,7 +73,7 @@ func WithRemoteSender(v *putsvc.RemoteSender) Option {
 }
 
 // WithLocalStorage returns option to set local object storage of Replicator.
-func WithLocalStorage(v *localstore.Storage) Option {
+func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.localStorage = v
 	}
