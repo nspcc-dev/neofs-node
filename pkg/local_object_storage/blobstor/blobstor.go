@@ -37,8 +37,10 @@ func defaultCfg() *cfg {
 		fsTree: fsTree{
 			depth:      defaultShallowDepth,
 			dirNameLen: hex.EncodedLen(dirNameLen),
-			perm:       defaultPerm,
-			rootDir:    "./",
+			Info: Info{
+				Permissions: defaultPerm,
+				RootPath:    "./",
+			},
 		},
 		compressor:   noOpCompressor,
 		decompressor: noOpDecompressor,
@@ -108,7 +110,7 @@ func WithCompressObjects(comp bool, log *logger.Logger) Option {
 // of the fs tree to write the objects.
 func WithTreeRootPath(rootDir string) Option {
 	return func(c *cfg) {
-		c.fsTree.rootDir = rootDir
+		c.fsTree.RootPath = rootDir
 	}
 }
 
@@ -116,6 +118,6 @@ func WithTreeRootPath(rootDir string) Option {
 // bits of the fs tree.
 func WithTreeRootPerm(perm os.FileMode) Option {
 	return func(c *cfg) {
-		c.fsTree.perm = perm
+		c.fsTree.Permissions = perm
 	}
 }
