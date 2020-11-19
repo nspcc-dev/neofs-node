@@ -5,11 +5,11 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 )
 
 type localStorage struct {
-	ls *localstore.Storage
+	ls *engine.StorageEngine
 }
 
 func (s *localStorage) Head(addr *objectSDK.Address) (*object.Object, error) {
@@ -17,5 +17,5 @@ func (s *localStorage) Head(addr *objectSDK.Address) (*object.Object, error) {
 		return nil, io.ErrUnexpectedEOF
 	}
 
-	return s.ls.Head(addr)
+	return engine.Head(s.ls, addr)
 }
