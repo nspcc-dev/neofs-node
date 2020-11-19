@@ -73,3 +73,15 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 		head: head,
 	}, nil
 }
+
+// Head reads object header from local storage by provided address.
+func Head(storage *StorageEngine, addr *objectSDK.Address) (*object.Object, error) {
+	res, err := storage.Head(new(HeadPrm).
+		WithAddress(addr),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Header(), nil
+}
