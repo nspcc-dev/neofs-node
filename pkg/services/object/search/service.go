@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -26,7 +26,7 @@ type Option func(*cfg)
 type cfg struct {
 	keyStorage *objutil.KeyStorage
 
-	localStore *localstore.Storage
+	localStore *engine.StorageEngine
 
 	cnrSrc container.Source
 
@@ -78,7 +78,7 @@ func WithKeyStorage(v *objutil.KeyStorage) Option {
 	}
 }
 
-func WithLocalStorage(v *localstore.Storage) Option {
+func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.localStore = v
 	}
