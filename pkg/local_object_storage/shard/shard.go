@@ -24,7 +24,7 @@ type Shard struct {
 type Option func(*cfg)
 
 type cfg struct {
-	id *ID
+	info Info
 
 	blobOpts []blobstor.Option
 
@@ -56,7 +56,7 @@ func New(opts ...Option) *Shard {
 // WithID returns option to set shard identifier.
 func WithID(id *ID) Option {
 	return func(c *cfg) {
-		c.id = id
+		c.info.ID = id
 	}
 }
 
