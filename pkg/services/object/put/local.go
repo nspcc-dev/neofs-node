@@ -2,13 +2,13 @@ package putsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/pkg/errors"
 )
 
 type localTarget struct {
-	storage *localstore.Storage
+	storage *engine.StorageEngine
 
 	obj *object.RawObject
 
@@ -30,7 +30,7 @@ func (t *localTarget) Write(p []byte) (n int, err error) {
 }
 
 func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {
-	if err := t.storage.Put(t.obj.Object()); err != nil {
+	if err := engine.Put(t.storage, t.obj.Object()); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not put object to local storage", t)
 	}
 
