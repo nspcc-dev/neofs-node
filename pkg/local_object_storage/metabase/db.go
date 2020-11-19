@@ -10,7 +10,7 @@ import (
 
 // DB represents local metabase of storage node.
 type DB struct {
-	path string
+	info Info
 
 	*cfg
 
@@ -41,8 +41,10 @@ func NewDB(opts ...Option) *DB {
 	}
 
 	return &DB{
-		path: c.boltDB.Path(),
-		cfg:  c,
+		info: Info{
+			Path: c.boltDB.Path(),
+		},
+		cfg: c,
 		matchers: map[object.SearchMatchType]func(string, string, string) bool{
 			object.MatchUnknown:     unknownMatcher,
 			object.MatchStringEqual: stringEqualMatcher,
@@ -52,11 +54,6 @@ func NewDB(opts ...Option) *DB {
 
 func (db *DB) Close() error {
 	return db.boltDB.Close()
-}
-
-// Path returns the path to meta database.
-func (db *DB) Path() string {
-	return db.path
 }
 
 func stringEqualMatcher(key, objVal, filterVal string) bool {
