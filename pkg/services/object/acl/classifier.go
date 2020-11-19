@@ -201,15 +201,12 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, e
 
 	// 2. Then check if session token owner issued the session token
 	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
-	tokenIssuerWallet, err := owner.NEO3WalletFromPublicKey(tokenIssuerKey)
-	if err != nil {
-		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid token issuer key")
-	}
+	tokenOwner := owner.NewIDFromV2(token.GetBody().GetOwnerID())
 
-	if !bytes.Equal(token.GetBody().GetOwnerID().GetValue(), tokenIssuerWallet.Bytes()) {
+	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
 		// todo: in this case we can issue all owner keys from neofs.id and check once again
 		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid session token owner")
 	}
 
-	return owner.NewIDFromV2(token.GetBody().GetOwnerID()), tokenIssuerKey, nil
+	return tokenOwner, tokenIssuerKey, nil
 }
