@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"net"
 	"os"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,9 +18,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -77,11 +82,6 @@ const (
 	cfgContainerContract = "container.scripthash"
 	cfgContainerFee      = "container.fee"
 
-	cfgObjectStorage = "storage.object"
-
-	cfgMetaBasePath = "storage.metabase.path"
-	cfgMetaBasePerm = "storage.metabase.perm"
-
 	cfgGCQueueSize = "gc.queuesize"
 	cfgGCQueueTick = "gc.duration.sleep"
 	cfgGCTimeout   = "gc.duration.timeout"
@@ -109,6 +109,21 @@ const (
 	cfgObjectRangeDialTimeout     = "object.range.dial_timeout"
 	cfgObjectRangeHashDialTimeout = "object.rangehash.dial_timeout"
 	cfgObjectSearchDialTimeout    = "object.search.dial_timeout"
+)
+
+const (
+	cfgLocalStorageSection = "storage"
+	cfgStorageShardSection = "shard"
+
+	cfgBlobStorSection      = "blobstor"
+	cfgBlobStorCompress     = "compress"
+	cfgBlobStorShallowDepth = "shallow_depth"
+	cfgBlobStorTreePath     = "path"
+	cfgBlobStorTreePerm     = "perm"
+
+	cfgMetaBaseSection = "metabase"
+	cfgMetaBasePath    = "path"
+	cfgMetaBasePerm    = "perm"
 )
 
 const (
@@ -213,13 +228,17 @@ type cfgObject struct {
 
 	cnrStorage container.Source
 
-	metastorage *meta.DB
-
-	blobstorage bucket.Bucket
-
 	cnrClient *wrapper.Wrapper
 
 	pool cfgObjectRoutines
+
+	cfgLocalStorage cfgLocalStorage
+}
+
+type cfgLocalStorage struct {
+	localStorage *engine.StorageEngine
+
+	shardOpts [][]shard.Option
 }
 
 type cfgObjectRoutines struct {
@@ -347,11 +366,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
 	v.SetDefault(cfgNetmapFee, "1")
 
-	v.SetDefault(cfgObjectStorage+".type", "inmemory")
-
-	v.SetDefault(cfgMetaBasePath, "metabase")
-	v.SetDefault(cfgMetaBasePerm, 0600)
-
 	v.SetDefault(cfgLogLevel, "info")
 	v.SetDefault(cfgLogFormat, "console")
 	v.SetDefault(cfgLogTrace, "fatal")
@@ -388,22 +402,99 @@ func (c *cfg) LocalAddress() *network.Address {
 }
 
 func initLocalStorage(c *cfg) {
-	var err error
+	initShardOptions(c)
 
-	c.cfgObject.blobstorage, err = initBucket(cfgObjectStorage, c)
-	fatalOnErr(err)
-
-	boltDB, err := bbolt.Open(
-		c.viper.GetString(cfgMetaBasePath),
-		os.FileMode(c.viper.GetUint32(cfgMetaBasePerm)),
-		nil,
+	ls := engine.New(
+		engine.WithLogger(c.log),
 	)
-	fatalOnErr(err)
 
-	c.cfgObject.metastorage = meta.NewDB(
-		meta.FromBoltDB(boltDB),
-		meta.WithLogger(c.log),
-	)
+	for _, opts := range c.cfgObject.cfgLocalStorage.shardOpts {
+		id, err := ls.AddShard(opts...)
+		fatalOnErr(err)
+
+		c.log.Info("shard attached to engine",
+			zap.Stringer("id", id),
+		)
+	}
+
+	c.cfgObject.cfgLocalStorage.localStorage = ls
+}
+
+func initShardOptions(c *cfg) {
+	var opts [][]shard.Option
+
+	for i := 0; ; i++ {
+		prefix := configPath(
+			cfgLocalStorageSection,
+			cfgStorageShardSection,
+			strconv.Itoa(i),
+		)
+
+		blobPrefix := configPath(prefix, cfgBlobStorSection)
+
+		blobPath := c.viper.GetString(
+			configPath(blobPrefix, cfgBlobStorTreePath),
+		)
+		if blobPath == "" {
+			break
+		}
+
+		compressObjects := c.viper.GetBool(
+			configPath(blobPrefix, cfgBlobStorCompress),
+		)
+
+		blobPerm := os.FileMode(c.viper.GetInt(
+			configPath(blobPrefix, cfgBlobStorTreePerm),
+		))
+
+		shallowDepth := c.viper.GetInt(
+			configPath(blobPrefix, cfgBlobStorShallowDepth),
+		)
+
+		metaPrefix := configPath(prefix, cfgMetaBaseSection)
+
+		metaPath := c.viper.GetString(
+			configPath(metaPrefix, cfgMetaBasePath),
+		)
+
+		metaPerm := os.FileMode(c.viper.GetUint32(
+			configPath(metaPrefix, cfgMetaBasePerm),
+		))
+
+		fatalOnErr(os.MkdirAll(path.Dir(metaPath), metaPerm))
+
+		boltDB, err := bbolt.Open(metaPath, metaPerm, nil)
+		fatalOnErr(err)
+
+		opts = append(opts, []shard.Option{
+			shard.WithLogger(c.log),
+			shard.WithBlobStorOptions(
+				blobstor.WithTreeRootPath(blobPath),
+				blobstor.WithCompressObjects(compressObjects, c.log),
+				blobstor.WithTreeRootPerm(blobPerm),
+				blobstor.WithShallowDepth(shallowDepth),
+			),
+			shard.WithMetaBaseOptions(
+				meta.WithLogger(c.log),
+				meta.FromBoltDB(boltDB),
+			),
+		})
+
+		c.log.Info("storage shard options",
+			zap.String("BLOB path", blobPath),
+			zap.Stringer("BLOB permissions", blobPerm),
+			zap.Bool("BLOB compress", compressObjects),
+			zap.Int("BLOB shallow depth", shallowDepth),
+			zap.String("metabase path", metaPath),
+			zap.Stringer("metabase permissions", metaPerm),
+		)
+	}
+
+	c.cfgObject.cfgLocalStorage.shardOpts = opts
+}
+
+func configPath(sections ...string) string {
+	return strings.Join(sections, ".")
 }
 
 func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {

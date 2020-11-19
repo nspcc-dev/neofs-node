@@ -7,12 +7,13 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/localstore"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
@@ -38,6 +39,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -169,11 +171,33 @@ func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRe
 	return s.rngHash.GetRangeHash(ctx, req)
 }
 
-func initObjectService(c *cfg) {
-	ls := localstore.New(
-		c.cfgObject.blobstorage,
-		c.cfgObject.metastorage,
+type localObjectRemover struct {
+	storage *engine.StorageEngine
+
+	log *logger.Logger
+}
+
+func (r *localObjectRemover) Delete(addr *objectSDK.Address) error {
+	_, err := r.storage.Delete(new(engine.DeletePrm).
+		WithAddress(addr),
 	)
+
+	return err
+}
+
+func (r *localObjectRemover) DeleteObjects(list ...*objectSDK.Address) {
+	for _, a := range list {
+		if err := r.Delete(a); err != nil {
+			r.log.Error("could not delete object",
+				zap.Stringer("address", a),
+				zap.String("error", err.Error()),
+			)
+		}
+	}
+}
+
+func initObjectService(c *cfg) {
+	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(c.key, c.privateTokenStore)
 	nodeOwner := owner.NewID()
 
@@ -184,9 +208,14 @@ func initObjectService(c *cfg) {
 
 	clientCache := cache.NewSDKClientCache()
 
+	objRemover := &localObjectRemover{
+		storage: ls,
+		log:     c.log,
+	}
+
 	objGC := gc.New(
 		gc.WithLogger(c.log),
-		gc.WithRemover(ls),
+		gc.WithRemover(objRemover),
 		gc.WithQueueCapacity(c.viper.GetUint32(cfgGCQueueSize)),
 		gc.WithSleepInterval(c.viper.GetDuration(cfgGCQueueTick)),
 		gc.WithWorkingInterval(c.viper.GetDuration(cfgGCTimeout)),
@@ -258,7 +287,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		putsvc.WithLocalAddressSource(c),
 		putsvc.WithFormatValidatorOpts(
-			objectCore.WithDeleteHandler(c.cfgObject.metastorage),
+			objectCore.WithDeleteHandler(objRemover),
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPool(c.cfgObject.pool.put),
