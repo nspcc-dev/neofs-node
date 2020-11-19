@@ -508,7 +508,7 @@ func basicACLCheck(info requestInfo) bool {
 }
 
 func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
-	if owner == nil || info.cnrOwner == nil {
+	if owner == nil || len(info.senderKey) == 0 {
 		return false
 	}
 
@@ -516,7 +516,9 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 		return true
 	}
 
-	return bytes.Equal(owner.ToV2().GetValue(), info.cnrOwner.ToV2().GetValue())
+	requestSenderKey := crypto.UnmarshalPublicKey(info.senderKey)
+
+	return isOwnerFromKey(owner, requestSenderKey)
 }
 
 func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
