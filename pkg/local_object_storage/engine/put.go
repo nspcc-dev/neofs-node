@@ -89,3 +89,12 @@ func (e *StorageEngine) objectExists(obj *object.Object, shards []*shard.Shard) 
 
 	return exists
 }
+
+// Put writes provided object to local storage.
+func Put(storage *StorageEngine, obj *object.Object) error {
+	_, err := storage.Put(new(PutPrm).
+		WithObject(obj),
+	)
+
+	return err
+}
