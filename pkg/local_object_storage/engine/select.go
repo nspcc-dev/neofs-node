@@ -58,3 +58,20 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 		addrList: addrList,
 	}, nil
 }
+
+// Select selects objects from local storage using provided filters.
+func Select(storage *StorageEngine, fs object.SearchFilters) ([]*object.Address, error) {
+	res, err := storage.Select(new(SelectPrm).
+		WithFilters(fs),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.AddressList(), nil
+}
+
+// SelectAll selects all objects from local storage.
+func SelectAll(storage *StorageEngine) ([]*object.Address, error) {
+	return Select(storage, object.SearchFilters{})
+}

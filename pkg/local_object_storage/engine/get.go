@@ -97,3 +97,28 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 		obj: obj,
 	}, nil
 }
+
+// Get reads object from local storage by provided address.
+func Get(storage *StorageEngine, addr *objectSDK.Address) (*object.Object, error) {
+	res, err := storage.Get(new(GetPrm).
+		WithAddress(addr),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Object(), nil
+}
+
+// GetRange reads object payload range from local storage by provided address.
+func GetRange(storage *StorageEngine, addr *objectSDK.Address, rng *objectSDK.Range) ([]byte, error) {
+	res, err := storage.Get(new(GetPrm).
+		WithAddress(addr).
+		WithPayloadRange(rng.GetOffset(), rng.GetLength()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Object().Payload(), nil
+}
