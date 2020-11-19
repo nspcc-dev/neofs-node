@@ -56,7 +56,7 @@ type (
 		requestRole acl.Role
 		isInnerRing bool
 		operation   acl.Operation // put, get, head, etc.
-		owner       *owner.ID     // container owner
+		cnrOwner    *owner.ID     // container owner
 
 		cid *container.ID
 
@@ -423,7 +423,7 @@ func (b Service) findRequestInfo(
 	info.requestRole = role
 	info.isInnerRing = isIR
 	info.operation = verb
-	info.owner = cnr.OwnerID()
+	info.cnrOwner = cnr.OwnerID()
 	info.cid = cid
 
 	// it is assumed that at the moment the key will be valid,
@@ -508,7 +508,7 @@ func basicACLCheck(info requestInfo) bool {
 }
 
 func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
-	if owner == nil || info.owner == nil {
+	if owner == nil || info.cnrOwner == nil {
 		return false
 	}
 
@@ -516,7 +516,7 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 		return true
 	}
 
-	return bytes.Equal(owner.ToV2().GetValue(), info.owner.ToV2().GetValue())
+	return bytes.Equal(owner.ToV2().GetValue(), info.cnrOwner.ToV2().GetValue())
 }
 
 func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
@@ -640,7 +640,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 
 	// 3. Then check if container owner signed this token.
 	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
-	if !isOwnerFromKey(reqInfo.owner, tokenIssuerKey) {
+	if !isOwnerFromKey(reqInfo.cnrOwner, tokenIssuerKey) {
 		// todo: in this case we can issue all owner keys from neofs.id and check once again
 		return false
 	}
