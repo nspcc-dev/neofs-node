@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"os"
 	"path"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -15,9 +14,7 @@ type fsTree struct {
 
 	dirNameLen int
 
-	perm os.FileMode
-
-	rootDir string
+	Info
 }
 
 const dirNameLen = 1 // in bytes
@@ -36,7 +33,7 @@ func (t *fsTree) treePath(addr *objectSDK.Address) string {
 	sAddr := stringifyAddress(addr)
 
 	dirs := make([]string, 0, t.depth+1+1) // 1 for root, 1 for file
-	dirs = append(dirs, t.rootDir)
+	dirs = append(dirs, t.RootPath)
 
 	for i := 0; i < t.depth; i++ {
 		dirs = append(dirs, sAddr[:t.dirNameLen])
