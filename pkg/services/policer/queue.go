@@ -14,8 +14,11 @@ func (q *jobQueue) Select(limit int) ([]*object.Address, error) {
 	// We can prioritize objects for migration, newly arrived objects, etc.
 	// It is recommended to make changes after updating the metabase
 
+	jobFilter := object.NewSearchFilters()
+	jobFilter.AddPhyFilter()
+
 	// FIXME: add the ability to limit Select result
-	res, err := q.localStorage.Select(object.SearchFilters{})
+	res, err := q.localStorage.Select(jobFilter)
 	if err != nil {
 		return nil, err
 	}
