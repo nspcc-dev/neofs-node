@@ -8,5 +8,5 @@ type WeightValues struct {
 
 // WeightValues returns current weight values of the Shard.
 func (s *Shard) WeightValues() WeightValues {
-	return s.weight
+	return s.info.WeightValues
 }

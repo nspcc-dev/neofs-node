@@ -15,6 +15,9 @@ type Info struct {
 
 	// Information about the BLOB storage.
 	BlobStorInfo blobstor.Info
+
+	// Weight parameters of the shard.
+	WeightValues WeightValues
 }
 
 // DumpInfo returns information about the Shard.
