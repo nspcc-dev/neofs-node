@@ -4,11 +4,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/atomic"
 )
 
 // Shard represents single shard of NeoFS Local Storage Engine.
 type Shard struct {
 	*cfg
+
+	mode *atomic.Uint32
 
 	weight WeightValues
 
@@ -44,6 +47,7 @@ func New(opts ...Option) *Shard {
 
 	return &Shard{
 		cfg:      c,
+		mode:     atomic.NewUint32(0), // TODO: init with particular mode
 		blobStor: blobstor.New(c.blobOpts...),
 		metaBase: meta.NewDB(c.metaOpts...),
 	}
