@@ -186,7 +186,7 @@ func TestDB_Path(t *testing.T) {
 
 	defer releaseDB(db)
 
-	require.Equal(t, path, db.Path())
+	require.Equal(t, path, db.DumpInfo().Path)
 }
 
 func newDB(t testing.TB) *DB {
@@ -200,7 +200,7 @@ func newDB(t testing.TB) *DB {
 
 func releaseDB(db *DB) {
 	db.Close()
-	os.Remove(db.Path())
+	os.Remove(db.DumpInfo().Path)
 }
 
 func TestSelectNonExistentAttributes(t *testing.T) {
