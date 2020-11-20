@@ -80,6 +80,8 @@ const (
 	rangeSep   = ":"
 )
 
+const searchOIDFlag = "oid"
+
 func init() {
 	rootCmd.AddCommand(objectCmd)
 	objectCmd.PersistentFlags().String("bearer", "", "File with signed JSON or binary encoded bearer token")
@@ -114,6 +116,7 @@ func init() {
 	objectSearchCmd.Flags().String("filters", "", "Filters in the form hdrName=value,...")
 	objectSearchCmd.Flags().Bool("root", false, "Search for user objects")
 	objectSearchCmd.Flags().Bool("phy", false, "Search physically stored objects")
+	objectSearchCmd.Flags().String(searchOIDFlag, "", "Search object by identifier")
 
 	objectCmd.AddCommand(objectHeadCmd)
 	objectHeadCmd.Flags().String("file", "", "File to write header to. Default: stdout.")
@@ -458,6 +461,16 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 	phy, _ := cmd.Flags().GetBool("phy")
 	if phy {
 		fs.AddPhyFilter()
+	}
+
+	oid, _ := cmd.Flags().GetString(searchOIDFlag)
+	if oid != "" {
+		id := object.NewID()
+		if err := id.Parse(oid); err != nil {
+			return nil, err
+		}
+
+		fs.AddObjectIDFilter(object.MatchStringEqual, id)
 	}
 
 	return fs, nil
