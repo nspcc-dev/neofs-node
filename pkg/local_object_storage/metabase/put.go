@@ -124,6 +124,10 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 			key: v2object.FilterHeaderParent,
 			val: obj.ParentID().String(),
 		},
+		bucketItem{
+			key: v2object.FilterHeaderObjectID,
+			val: obj.ID().String(),
+		},
 		// TODO: add remaining fields after neofs-api#72
 	)
 

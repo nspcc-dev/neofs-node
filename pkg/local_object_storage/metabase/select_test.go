@@ -207,3 +207,20 @@ func TestSelectParentID(t *testing.T) {
 
 	testSelect(t, db, fs, obj1.Address())
 }
+
+func TestSelectObjectID(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	// generate object
+	obj := generateObject(t, testPrm{})
+
+	// store objects
+	require.NoError(t, db.Put(obj))
+
+	// filter by object ID
+	fs := objectSDK.SearchFilters{}
+	fs.AddObjectIDFilter(objectSDK.MatchStringEqual, obj.ID())
+
+	testSelect(t, db, fs, obj.Address())
+}
