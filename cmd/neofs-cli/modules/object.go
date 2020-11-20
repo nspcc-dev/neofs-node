@@ -22,6 +22,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	getRangeCmdUse = "range"
+
+	getRangeCmdShortDesc = "Get payload range data of an object"
+
+	getRangeCmdLongDesc = "Get payload range data of an object"
+)
+
 var (
 	// objectCmd represents the object command
 	objectCmd = &cobra.Command{
@@ -71,6 +79,13 @@ var (
 		Short: "Get object hash",
 		Long:  "Get object hash",
 		RunE:  getObjectHash,
+	}
+
+	objectRangeCmd = &cobra.Command{
+		Use:   getRangeCmdUse,
+		Short: getRangeCmdShortDesc,
+		Long:  getRangeCmdLongDesc,
+		RunE:  getObjectRange,
 	}
 )
 
@@ -135,6 +150,14 @@ func init() {
 	_ = objectHashCmd.MarkFlagRequired("oid")
 	objectHashCmd.Flags().String("range", "", "Range to take hash from in the form offset1:length1,...")
 	objectHashCmd.Flags().String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")
+
+	objectCmd.AddCommand(objectRangeCmd)
+	objectRangeCmd.Flags().String("cid", "", "Container ID")
+	_ = objectRangeCmd.MarkFlagRequired("cid")
+	objectRangeCmd.Flags().String("oid", "", "Object ID")
+	_ = objectRangeCmd.MarkFlagRequired("oid")
+	objectRangeCmd.Flags().String("range", "", "Range to take data from in the form offset:length")
+	objectRangeCmd.Flags().String("file", "", "File to write object payload to. Default: stdout.")
 
 	// Here you will define your flags and configuration settings.
 
@@ -671,4 +694,64 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 	}
 
 	return tok, nil
+}
+
+func getObjectRange(cmd *cobra.Command, _ []string) error {
+	objAddr, err := getObjectAddress(cmd)
+	if err != nil {
+		return err
+	}
+
+	ranges, err := getRangeList(cmd)
+	if err != nil {
+		return err
+	} else if len(ranges) != 1 {
+		return errors.New("exactly one range must be specified")
+	}
+
+	var out io.Writer
+
+	filename := cmd.Flag("file").Value.String()
+	if filename == "" {
+		out = os.Stdout
+	} else {
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("can't open file '%s': %w", filename, err)
+		}
+
+		defer f.Close()
+
+		out = f
+	}
+
+	ctx := context.Background()
+
+	c, sessionToken, err := initSession(ctx)
+	if err != nil {
+		return err
+	}
+
+	bearerToken, err := getBearerToken(cmd, "bearer")
+	if err != nil {
+		return err
+	}
+
+	_, err = c.ObjectPayloadRangeData(ctx,
+		new(client.RangeDataParams).
+			WithAddress(objAddr).
+			WithRange(ranges[0]).
+			WithDataWriter(out),
+		client.WithTTL(getTTL()),
+		client.WithSession(sessionToken),
+		client.WithBearer(bearerToken))
+	if err != nil {
+		return fmt.Errorf("can't get object payload range: %w", err)
+	}
+
+	if filename != "" {
+		cmd.Printf("[%s] Payload successfully saved\n", filename)
+	}
+
+	return nil
 }
