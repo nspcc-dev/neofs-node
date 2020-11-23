@@ -272,6 +272,7 @@ func initObjectService(c *cfg) {
 		searchsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		searchsvc.WithLocalAddressSource(c),
 		searchsvc.WithWorkerPool(c.cfgObject.pool.search),
+		searchsvc.WithLogger(c.log),
 	)
 
 	sSearchV2 := searchsvcV2.NewService(
