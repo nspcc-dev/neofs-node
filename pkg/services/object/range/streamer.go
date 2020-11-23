@@ -205,7 +205,9 @@ loop:
 					nextRange.SetOffset(nextRange.GetOffset() + uw)
 				}); err != nil {
 					wg.Done()
-					// TODO: log error
+
+					svcutil.LogWorkerPoolError(p.log, "RANGE", err)
+
 					break loop
 				}
 

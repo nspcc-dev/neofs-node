@@ -103,7 +103,9 @@ loop:
 				traverser.SubmitSuccess()
 			}); err != nil {
 				wg.Done()
-				// TODO: log error
+
+				svcutil.LogWorkerPoolError(t.log, "PUT", err)
+
 				break loop
 			}
 		}

@@ -14,3 +14,11 @@ func LogServiceError(l *logger.Logger, req string, node *network.Address, err er
 		zap.String("error", err.Error()),
 	)
 }
+
+// LogWorkerPoolError writes debug error message of object worker pool to provided logger.
+func LogWorkerPoolError(l *logger.Logger, req string, err error) {
+	l.Debug("could not push task to worker pool",
+		zap.String("request", req),
+		zap.String("error", err.Error()),
+	)
+}
