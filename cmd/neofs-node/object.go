@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
@@ -200,7 +201,9 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, clientCache),
+			putsvc.NewRemoteSender(keyStorage, clientCache,
+				client.WithDialTimeout(c.viper.GetDuration(cfgReplicatorDialTimeout)),
+			),
 		),
 	)
 
@@ -223,7 +226,9 @@ func initObjectService(c *cfg) {
 		),
 		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
-			headsvc.NewRemoteHeader(keyStorage, clientCache),
+			headsvc.NewRemoteHeader(keyStorage, clientCache,
+				client.WithDialTimeout(c.viper.GetDuration(cfgPolicerDialTimeout)),
+			),
 		),
 		policer.WithLocalAddressSource(c),
 		policer.WithHeadTimeout(
@@ -258,6 +263,9 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPool(c.cfgObject.pool.put),
 		putsvc.WithLogger(c.log),
+		putsvc.WithClientOptions(
+			client.WithDialTimeout(c.viper.GetDuration(cfgObjectPutDialTimeout)),
+		),
 	)
 
 	sPutV2 := putsvcV2.NewService(
@@ -273,6 +281,9 @@ func initObjectService(c *cfg) {
 		searchsvc.WithLocalAddressSource(c),
 		searchsvc.WithWorkerPool(c.cfgObject.pool.search),
 		searchsvc.WithLogger(c.log),
+		searchsvc.WithClientOptions(
+			client.WithDialTimeout(c.viper.GetDuration(cfgObjectSearchDialTimeout)),
+		),
 	)
 
 	sSearchV2 := searchsvcV2.NewService(
@@ -289,6 +300,9 @@ func initObjectService(c *cfg) {
 		headsvc.WithRightChildSearcher(searchsvc.NewRightChildSearcher(sSearch)),
 		headsvc.WithWorkerPool(c.cfgObject.pool.head),
 		headsvc.WithLogger(c.log),
+		headsvc.WithClientOptions(
+			client.WithDialTimeout(c.viper.GetDuration(cfgObjectHeadDialTimeout)),
+		),
 	)
 
 	sHeadV2 := headsvcV2.NewService(
@@ -305,6 +319,9 @@ func initObjectService(c *cfg) {
 		rangesvc.WithWorkerPool(c.cfgObject.pool.rng),
 		rangesvc.WithHeadService(sHead),
 		rangesvc.WithLogger(c.log),
+		rangesvc.WithClientOptions(
+			client.WithDialTimeout(c.viper.GetDuration(cfgObjectRangeDialTimeout)),
+		),
 	)
 
 	sRangeV2 := rangesvcV2.NewService(
@@ -330,6 +347,9 @@ func initObjectService(c *cfg) {
 		rangehashsvc.WithRangeService(sRange),
 		rangehashsvc.WithWorkerPool(c.cfgObject.pool.rngHash),
 		rangehashsvc.WithLogger(c.log),
+		rangehashsvc.WithClientOptions(
+			client.WithDialTimeout(c.viper.GetDuration(cfgObjectRangeHashDialTimeout)),
+		),
 	)
 
 	sRangeHashV2 := rangehashsvcV2.NewService(

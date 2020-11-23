@@ -89,8 +89,10 @@ const (
 	cfgPolicerWorkScope   = "policer.work_scope"
 	cfgPolicerExpRate     = "policer.expansion_rate"
 	cfgPolicerHeadTimeout = "policer.head_timeout"
+	cfgPolicerDialTimeout = "policer.dial_timeout"
 
-	cfgReplicatorPutTimeout = "replicator.put_timeout"
+	cfgReplicatorPutTimeout  = "replicator.put_timeout"
+	cfgReplicatorDialTimeout = "replicator.dial_timeout"
 
 	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
 	cfgReBootstrapInterval = "bootstrap.periodic.interval"
@@ -101,6 +103,12 @@ const (
 	cfgObjectSearchPoolSize    = "pool.object.search.size"
 	cfgObjectRangePoolSize     = "pool.object.range.size"
 	cfgObjectRangeHashPoolSize = "pool.object.rangehash.size"
+
+	cfgObjectPutDialTimeout       = "object.put.dial_timeout"
+	cfgObjectHeadDialTimeout      = "object.head.dial_timeout"
+	cfgObjectRangeDialTimeout     = "object.range.dial_timeout"
+	cfgObjectRangeHashDialTimeout = "object.rangehash.dial_timeout"
+	cfgObjectSearchDialTimeout    = "object.search.dial_timeout"
 )
 
 const (
