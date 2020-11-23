@@ -165,6 +165,7 @@ loop:
 						keyStorage:  p.keyStorage,
 						addr:        addr,
 						clientCache: p.clientCache,
+						clientOpts:  p.clientOpts,
 					}
 				}
 

@@ -3,6 +3,7 @@ package headsvc
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -150,5 +151,11 @@ func WithClientCache(v *cache.ClientCache) Option {
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
+	}
+}
+
+func WithClientOptions(opts ...client.Option) Option {
+	return func(c *cfg) {
+		c.remoteHeader.clientOpts = opts
 	}
 }
