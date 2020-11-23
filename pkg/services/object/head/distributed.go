@@ -125,7 +125,9 @@ loop:
 				h.w.write(head)
 			}); err != nil {
 				wg.Done()
-				// TODO: log error
+
+				svcutil.LogWorkerPoolError(h.log, "HEAD", err)
+
 				break loop
 			}
 		}

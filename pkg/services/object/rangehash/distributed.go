@@ -125,7 +125,9 @@ loop:
 				}
 			}); err != nil {
 				wg.Done()
-				// TODO: log error
+
+				svcutil.LogWorkerPoolError(h.log, "RANGEHASH", err)
+
 				break loop
 			}
 		}

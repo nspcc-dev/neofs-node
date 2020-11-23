@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/pkg/errors"
 )
@@ -113,7 +113,7 @@ func (p *Streamer) preparePrm(prm *Prm) error {
 		traverseOpts = append(traverseOpts, placement.SuccessAfter(1))
 
 		// use local-only placement builder
-		builder = util.NewLocalPlacement(builder, p.localAddrSrc)
+		builder = svcutil.NewLocalPlacement(builder, p.localAddrSrc)
 	}
 
 	// set placement builder
@@ -169,11 +169,13 @@ loop:
 				}
 
 				if err := streamer.stream(p.ctx, p.ch); err != nil {
-					util.LogServiceError(p.log, "SEARCH", addr, err)
+					svcutil.LogServiceError(p.log, "SEARCH", addr, err)
 				}
 			}); err != nil {
 				wg.Done()
-				// TODO: log error
+
+				svcutil.LogWorkerPoolError(p.log, "SEARCH", err)
+
 				break loop
 			}
 		}
