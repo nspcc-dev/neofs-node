@@ -421,32 +421,34 @@ func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {
 func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
 	var err error
 
-	pool.get, err = ants.NewPool(cfg.GetInt(cfgObjectGetPoolSize))
+	optNonBlocking := ants.WithNonblocking(true)
+
+	pool.get, err = ants.NewPool(cfg.GetInt(cfgObjectGetPoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
 
-	pool.head, err = ants.NewPool(cfg.GetInt(cfgObjectHeadPoolSize))
+	pool.head, err = ants.NewPool(cfg.GetInt(cfgObjectHeadPoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
 
-	pool.search, err = ants.NewPool(cfg.GetInt(cfgObjectSearchPoolSize))
+	pool.search, err = ants.NewPool(cfg.GetInt(cfgObjectSearchPoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
 
-	pool.put, err = ants.NewPool(cfg.GetInt(cfgObjectPutPoolSize))
+	pool.put, err = ants.NewPool(cfg.GetInt(cfgObjectPutPoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
 
-	pool.rng, err = ants.NewPool(cfg.GetInt(cfgObjectRangePoolSize))
+	pool.rng, err = ants.NewPool(cfg.GetInt(cfgObjectRangePoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
 
-	pool.rngHash, err = ants.NewPool(cfg.GetInt(cfgObjectRangeHashPoolSize))
+	pool.rngHash, err = ants.NewPool(cfg.GetInt(cfgObjectRangeHashPoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
