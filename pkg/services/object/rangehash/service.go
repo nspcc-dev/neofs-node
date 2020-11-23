@@ -17,7 +17,9 @@ import (
 	rangesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/range"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -44,11 +46,14 @@ type cfg struct {
 	rangeSvc *rangesvc.Service
 
 	clientCache *cache.ClientCache
+
+	log *logger.Logger
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
 		workerPool: new(util.SyncWorkerPool),
+		log:        zap.L(),
 	}
 }
 
@@ -271,5 +276,11 @@ func WithRangeService(v *rangesvc.Service) Option {
 func WithClientCache(v *cache.ClientCache) Option {
 	return func(c *cfg) {
 		c.clientCache = v
+	}
+}
+
+func WithLogger(l *logger.Logger) Option {
+	return func(c *cfg) {
+		c.log = l
 	}
 }
