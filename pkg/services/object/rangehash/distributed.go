@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/pkg/errors"
 )
@@ -60,7 +60,7 @@ func (h *distributedHasher) prepare(ctx context.Context, prm *Prm) error {
 
 	if prm.common.LocalOnly() {
 		// use local-only placement builder
-		builder = util.NewLocalPlacement(builder, h.localAddrSrc)
+		builder = svcutil.NewLocalPlacement(builder, h.localAddrSrc)
 	}
 
 	// set placement builder
@@ -119,7 +119,8 @@ loop:
 				}
 
 				if err := hasher.hashRange(ctx, prm, w.write); err != nil {
-					// TODO: log error
+					svcutil.LogServiceError(h.log, "RANGEHASH", addr, err)
+
 					return
 				}
 			}); err != nil {

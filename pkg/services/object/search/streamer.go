@@ -169,7 +169,7 @@ loop:
 				}
 
 				if err := streamer.stream(p.ctx, p.ch); err != nil {
-					// TODO: log error
+					util.LogServiceError(p.log, "SEARCH", addr, err)
 				}
 			}); err != nil {
 				wg.Done()

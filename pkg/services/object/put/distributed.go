@@ -5,9 +5,11 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
 )
 
@@ -23,6 +25,8 @@ type distributedTarget struct {
 	nodeTargetInitializer func(*network.Address) transformer.ObjectTarget
 
 	fmt *object.FormatValidator
+
+	log *logger.Logger
 }
 
 var errIncompletePut = errors.New("incomplete object put")
@@ -85,10 +89,14 @@ loop:
 				target := t.nodeTargetInitializer(addr)
 
 				if err := target.WriteHeader(t.obj); err != nil {
-					// TODO: log error
+					svcutil.LogServiceError(t.log, "PUT", addr,
+						errors.Wrap(err, "could not write header"))
+
 					return
 				} else if _, err := target.Close(); err != nil {
-					// TODO: log error
+					svcutil.LogServiceError(t.log, "PUT", addr,
+						errors.Wrap(err, "could not close object stream"))
+
 					return
 				}
 
