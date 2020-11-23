@@ -19,6 +19,8 @@ type remoteStream struct {
 	addr *network.Address
 
 	clientCache *cache.ClientCache
+
+	clientOpts []client.Option
 }
 
 func (s *remoteStream) stream(ctx context.Context, ch chan<- []*object.ID) error {
@@ -32,7 +34,7 @@ func (s *remoteStream) stream(ctx context.Context, ch chan<- []*object.ID) error
 		return err
 	}
 
-	c, err := s.clientCache.Get(key, addr)
+	c, err := s.clientCache.Get(key, addr, s.clientOpts...)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not create SDK client %s", s, addr)
 	}

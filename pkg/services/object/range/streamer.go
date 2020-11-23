@@ -186,6 +186,7 @@ loop:
 							addr:        objAddr,
 							rng:         nextRange,
 							clientCache: p.clientCache,
+							clientOpts:  p.clientOpts,
 						}
 					}
 

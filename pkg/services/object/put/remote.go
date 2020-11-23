@@ -29,13 +29,18 @@ type remoteTarget struct {
 	obj *object.Object
 
 	clientCache *cache.ClientCache
+
+	clientOpts []client.Option
 }
 
 // RemoteSender represents utility for
 // sending an object to a remote host.
 type RemoteSender struct {
-	keyStorage  *util.KeyStorage
+	keyStorage *util.KeyStorage
+
 	clientCache *cache.ClientCache
+
+	clientOpts []client.Option
 }
 
 // RemotePutPrm groups remote put operation parameters.
@@ -62,7 +67,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, err
 	}
 
-	c, err := t.clientCache.Get(key, addr)
+	c, err := t.clientCache.Get(key, addr, t.clientOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", t, addr)
 	}
@@ -83,10 +88,11 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.
-func NewRemoteSender(keyStorage *util.KeyStorage, cache *cache.ClientCache) *RemoteSender {
+func NewRemoteSender(keyStorage *util.KeyStorage, cache *cache.ClientCache, opts ...client.Option) *RemoteSender {
 	return &RemoteSender{
 		keyStorage:  keyStorage,
 		clientCache: cache,
+		clientOpts:  opts,
 	}
 }
 
@@ -115,6 +121,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		keyStorage:  s.keyStorage,
 		addr:        p.node,
 		clientCache: s.clientCache,
+		clientOpts:  s.clientOpts,
 	}
 
 	if err := t.WriteHeader(object.NewRawFromObject(p.obj)); err != nil {

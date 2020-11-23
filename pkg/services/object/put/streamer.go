@@ -144,6 +144,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 					bearer:      prm.common.BearerToken(),
 					addr:        addr,
 					clientCache: p.clientCache,
+					clientOpts:  p.clientOpts,
 				}
 			}
 		},

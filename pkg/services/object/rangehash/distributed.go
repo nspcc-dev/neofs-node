@@ -115,6 +115,7 @@ loop:
 						keyStorage:  h.keyStorage,
 						node:        addr,
 						clientCache: h.clientCache,
+						clientOpts:  h.clientOpts,
 					}
 				}
 

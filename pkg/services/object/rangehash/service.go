@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -48,6 +49,8 @@ type cfg struct {
 	clientCache *cache.ClientCache
 
 	log *logger.Logger
+
+	clientOpts []client.Option
 }
 
 func defaultCfg() *cfg {
@@ -282,5 +285,11 @@ func WithClientCache(v *cache.ClientCache) Option {
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
+	}
+}
+
+func WithClientOptions(opts ...client.Option) Option {
+	return func(c *cfg) {
+		c.clientOpts = opts
 	}
 }

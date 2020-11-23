@@ -18,6 +18,8 @@ type remoteHasher struct {
 	node *network.Address
 
 	clientCache *cache.ClientCache
+
+	clientOpts []client.Option
 }
 
 func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][]byte)) error {
@@ -31,7 +33,7 @@ func (h *remoteHasher) hashRange(ctx context.Context, prm *Prm, handler func([][
 		return err
 	}
 
-	c, err := h.clientCache.Get(key, addr)
+	c, err := h.clientCache.Get(key, addr, h.clientOpts...)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not create SDK client %s", h, addr)
 	}

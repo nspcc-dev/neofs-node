@@ -29,6 +29,8 @@ type remoteRangeWriter struct {
 	rng *object.Range
 
 	clientCache *cache.ClientCache
+
+	clientOpts []client.Option
 }
 
 func (r *remoteRangeWriter) WriteTo(w io.Writer) (int64, error) {
@@ -42,7 +44,7 @@ func (r *remoteRangeWriter) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	c, err := r.clientCache.Get(key, addr)
+	c, err := r.clientCache.Get(key, addr, r.clientOpts...)
 	if err != nil {
 		return 0, errors.Wrapf(err, "(%T) could not create SDK client %s", r, addr)
 	}

@@ -18,6 +18,8 @@ type RemoteHeader struct {
 	keyStorage *util.KeyStorage
 
 	clientCache *cache.ClientCache
+
+	clientOpts []client.Option
 }
 
 // RemoteHeadPrm groups remote header operation parameters.
@@ -28,10 +30,11 @@ type RemoteHeadPrm struct {
 }
 
 // NewRemoteHeader creates, initializes and returns new RemoteHeader instance.
-func NewRemoteHeader(keyStorage *util.KeyStorage, cache *cache.ClientCache) *RemoteHeader {
+func NewRemoteHeader(keyStorage *util.KeyStorage, cache *cache.ClientCache, opts ...client.Option) *RemoteHeader {
 	return &RemoteHeader{
 		keyStorage:  keyStorage,
 		clientCache: cache,
+		clientOpts:  opts,
 	}
 }
 
@@ -65,7 +68,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, err
 	}
 
-	c, err := h.clientCache.Get(key, addr)
+	c, err := h.clientCache.Get(key, addr, h.clientOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", h, addr)
 	}
