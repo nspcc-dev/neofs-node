@@ -148,6 +148,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 			}
 		},
 		fmt: p.fmtValidator,
+		log: p.log,
 	}
 }
 

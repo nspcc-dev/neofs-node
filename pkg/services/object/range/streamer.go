@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/pkg/errors"
 )
@@ -28,7 +28,7 @@ type streamer struct {
 
 	traverser *placement.Traverser
 
-	rangeTraverser *util.RangeTraverser
+	rangeTraverser *svcutil.RangeTraverser
 
 	ch chan []byte
 }
@@ -106,7 +106,7 @@ func (p *streamer) switchToObject(id *object.ID) error {
 
 	if p.prm.common.LocalOnly() {
 		// use local-only placement builder
-		builder = util.NewLocalPlacement(builder, p.localAddrSrc)
+		builder = svcutil.NewLocalPlacement(builder, p.localAddrSrc)
 	}
 
 	// set placement builder
@@ -194,7 +194,7 @@ loop:
 						ch:  p.ch,
 					})
 					if err != nil {
-						// TODO: log error
+						svcutil.LogServiceError(p.log, "RANGE", addr, err)
 					}
 
 					ln := nextRange.GetLength()
