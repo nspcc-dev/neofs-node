@@ -11,7 +11,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type RelationSearcher interface {
@@ -38,6 +40,8 @@ type cfg struct {
 	localHeader localHeader
 
 	remoteHeader RemoteHeader
+
+	log *logger.Logger
 }
 
 var ErrNotFound = errors.New("object header not found")
@@ -45,6 +49,7 @@ var ErrNotFound = errors.New("object header not found")
 func defaultCfg() *cfg {
 	return &cfg{
 		workerPool: new(util.SyncWorkerPool),
+		log:        zap.L(),
 	}
 }
 
@@ -139,5 +144,11 @@ func WithRightChildSearcher(v RelationSearcher) Option {
 func WithClientCache(v *cache.ClientCache) Option {
 	return func(c *cfg) {
 		c.remoteHeader.clientCache = v
+	}
+}
+
+func WithLogger(l *logger.Logger) Option {
+	return func(c *cfg) {
+		c.log = l
 	}
 }

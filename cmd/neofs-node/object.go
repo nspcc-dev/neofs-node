@@ -286,6 +286,7 @@ func initObjectService(c *cfg) {
 		headsvc.WithLocalAddressSource(c),
 		headsvc.WithRightChildSearcher(searchsvc.NewRightChildSearcher(sSearch)),
 		headsvc.WithWorkerPool(c.cfgObject.pool.head),
+		headsvc.WithLogger(c.log),
 	)
 
 	sHeadV2 := headsvcV2.NewService(
