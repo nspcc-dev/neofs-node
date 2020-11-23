@@ -27,10 +27,8 @@ func NewSDKClientCache() *ClientCache {
 	}
 }
 
-// Get function returns existing client or creates a new one. Consider passing
-// connection options to specify details for client, but don't forget that two
-// different set of options should provide two different clients.
-func (c *ClientCache) Get(key *ecdsa.PrivateKey, address string) (*client.Client, error) {
+// Get function returns existing client or creates a new one.
+func (c *ClientCache) Get(key *ecdsa.PrivateKey, address string, opts ...client.Option) (*client.Client, error) {
 	id := uniqueID(key, address)
 
 	c.mu.RLock()
@@ -52,7 +50,7 @@ func (c *ClientCache) Get(key *ecdsa.PrivateKey, address string) (*client.Client
 		return cli, nil
 	}
 
-	cli, err := client.New(key, client.WithAddress(address))
+	cli, err := client.New(key, append(opts, client.WithAddress(address))...)
 	if err != nil {
 		return nil, err
 	}
