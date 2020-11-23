@@ -339,6 +339,7 @@ func initObjectService(c *cfg) {
 		deletesvc.WithLinkingHeader(
 			headsvc.NewRelationHeader(searchsvc.NewLinkingSearcher(sSearch), sHead),
 		),
+		deletesvc.WithLogger(c.log),
 	)
 
 	sDeleteV2 := deletesvcV2.NewService(

@@ -10,7 +10,9 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -33,10 +35,14 @@ type cfg struct {
 	headSvc *headsvc.Service
 
 	hdrLinking RelationHeader
+
+	log *logger.Logger
 }
 
 func defaultCfg() *cfg {
-	return new(cfg)
+	return &cfg{
+		log: zap.L(),
+	}
 }
 
 func NewService(opts ...Option) *Service {
@@ -187,5 +193,11 @@ func WitHeadService(v *headsvc.Service) Option {
 func WithLinkingHeader(v RelationHeader) Option {
 	return func(c *cfg) {
 		c.hdrLinking = v
+	}
+}
+
+func WithLogger(l *logger.Logger) Option {
+	return func(c *cfg) {
+		c.log = l
 	}
 }
