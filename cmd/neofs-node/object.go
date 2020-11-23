@@ -257,6 +257,7 @@ func initObjectService(c *cfg) {
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPool(c.cfgObject.pool.put),
+		putsvc.WithLogger(c.log),
 	)
 
 	sPutV2 := putsvcV2.NewService(

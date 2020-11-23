@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 type MaxSizeSource interface {
@@ -49,11 +51,14 @@ type cfg struct {
 	networkState netmap.State
 
 	clientCache *cache.ClientCache
+
+	log *logger.Logger
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
 		workerPool: new(util.SyncWorkerPool),
+		log:        zap.L(),
 	}
 }
 
@@ -135,5 +140,11 @@ func WithNetworkState(v netmap.State) Option {
 func WithClientCache(v *cache.ClientCache) Option {
 	return func(c *cfg) {
 		c.clientCache = v
+	}
+}
+
+func WithLogger(l *logger.Logger) Option {
+	return func(c *cfg) {
+		c.log = l
 	}
 }
