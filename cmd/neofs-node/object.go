@@ -303,6 +303,7 @@ func initObjectService(c *cfg) {
 		rangesvc.WithLocalAddressSource(c),
 		rangesvc.WithWorkerPool(c.cfgObject.pool.rng),
 		rangesvc.WithHeadService(sHead),
+		rangesvc.WithLogger(c.log),
 	)
 
 	sRangeV2 := rangesvcV2.NewService(
