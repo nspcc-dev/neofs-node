@@ -328,6 +328,7 @@ func initObjectService(c *cfg) {
 		rangehashsvc.WithHeadService(sHead),
 		rangehashsvc.WithRangeService(sRange),
 		rangehashsvc.WithWorkerPool(c.cfgObject.pool.rngHash),
+		rangehashsvc.WithLogger(c.log),
 	)
 
 	sRangeHashV2 := rangehashsvcV2.NewService(
