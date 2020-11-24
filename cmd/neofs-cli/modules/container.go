@@ -345,12 +345,6 @@ var getExtendedACLCmd = &cobra.Command{
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		v := eaclTable.Version()
-		if v.Major() == 0 && v.Major() == 0 {
-			fmt.Println("extended ACL table is not set for this container")
-			return nil
-		}
-
 		if containerPathTo == "" {
 			prettyPrintEACL(eaclTable)
 			return nil
