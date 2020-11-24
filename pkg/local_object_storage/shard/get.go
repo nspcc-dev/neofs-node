@@ -108,11 +108,17 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	// try to read from WriteCache
 	// TODO: implement
 
-	res, err := s.blobStor.GetRange(
-		new(blobstor.GetRangePrm).
-			WithAddress(prm.addr).
-			WithPayloadRange(prm.off, uint64(prm.ln)),
-	)
+	// form GetRangeBig parameters
+	getRngBigPrm := new(blobstor.GetRangeBigPrm)
+	getRngBigPrm.SetAddress(prm.addr)
+
+	rng := objectSDK.NewRange()
+	rng.SetOffset(prm.off)
+	rng.SetLength(uint64(prm.ln))
+
+	getRngBigPrm.SetRange(rng)
+
+	res, err := s.blobStor.GetRangeBig(getRngBigPrm)
 	if err != nil {
 		if errors.Is(err, blobstor.ErrObjectNotFound) {
 			err = ErrObjectNotFound
