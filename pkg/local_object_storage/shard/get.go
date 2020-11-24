@@ -77,10 +77,12 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	if prm.ln < 0 {
 		// try to read from WriteCache
 		// TODO: implement
-		res, err := s.blobStor.GetBig(
-			new(blobstor.GetBigPrm).
-				WithAddress(prm.addr),
-		)
+
+		// form GetBig parameters
+		getBigPrm := new(blobstor.GetBigPrm)
+		getBigPrm.SetAddress(prm.addr)
+
+		res, err := s.blobStor.GetBig(getBigPrm)
 		if err != nil {
 			if errors.Is(err, blobstor.ErrObjectNotFound) {
 				err = ErrObjectNotFound
