@@ -27,6 +27,8 @@ type payloadSizeLimiter struct {
 	previous []*objectSDK.ID
 
 	chunkWriter io.Writer
+
+	splitID *objectSDK.SplitID
 }
 
 type payloadChecksumHasher struct {
@@ -47,6 +49,7 @@ func NewPayloadSizeLimiter(maxSize uint64, targetInit TargetInitializer) ObjectT
 	return &payloadSizeLimiter{
 		maxSize:    maxSize,
 		targetInit: targetInit,
+		splitID:    objectSDK.NewSplitID(),
 	}
 }
 
@@ -76,9 +79,9 @@ func (s *payloadSizeLimiter) initialize() {
 		// initialize parent object once (after 1st object)
 		if ln == 1 {
 			s.parent = s.current
+			s.current = fromObject(s.parent)
 			s.parent.ResetRelations()
 			s.parentHashers = s.currentHashers
-			s.current = fromObject(s.parent)
 		}
 
 		// set previous object to the last previous identifier
@@ -94,6 +97,12 @@ func fromObject(obj *object.RawObject) *object.RawObject {
 	res.SetOwnerID(obj.OwnerID())
 	res.SetAttributes(obj.Attributes()...)
 	res.SetType(obj.Type())
+
+	// obj.SetSplitID creates splitHeader but we don't need to do it in case
+	// of small objects, so we should make nil check.
+	if obj.SplitID() != nil {
+		res.SetSplitID(obj.SplitID())
+	}
 
 	return res
 }
@@ -212,14 +221,16 @@ func (s *payloadSizeLimiter) initializeLinking() {
 	s.current = fromObject(s.current)
 	s.current.SetParentID(id)
 	s.current.SetChildren(s.previous...)
+	s.current.SetSplitID(s.splitID)
 }
 
 func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
 	// statement is true if the previous write of bytes reached exactly the boundary.
 	if s.written > 0 && s.written%s.maxSize == 0 {
 		if s.written == s.maxSize {
-			// initialize blank split header on first object in chain
+			// initialize split header with split ID on first object in chain
 			s.current.InitRelations()
+			s.current.SetSplitID(s.splitID)
 		}
 
 		// we need to release current object
