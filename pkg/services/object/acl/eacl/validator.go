@@ -2,9 +2,11 @@ package eacl
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -66,6 +68,10 @@ func (v *Validator) CalculateAction(unit *ValidationUnit) eacl.Action {
 		// get eACL table by container ID
 		table, err = v.storage.GetEACL(unit.cid)
 		if err != nil {
+			if errors.Is(err, wrapper.ErrEACLNotFound) {
+				return eacl.ActionAllow
+			}
+
 			v.logger.Error("could not get eACL table",
 				zap.String("error", err.Error()),
 			)
