@@ -22,3 +22,7 @@ type Source interface {
 
 // ErrNotFound is the error returned when container was not found in storage.
 var ErrNotFound = errors.New("container not found")
+
+// ErrEACLNotFound is returned by eACL storage implementations when
+// requested eACL table is not in storage.
+var ErrEACLNotFound = errors.New("extended ACL table is not set for this container")
