@@ -77,8 +77,8 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	if prm.ln < 0 {
 		// try to read from WriteCache
 		// TODO: implement
-		res, err := s.blobStor.Get(
-			new(blobstor.GetPrm).
+		res, err := s.blobStor.GetBig(
+			new(blobstor.GetBigPrm).
 				WithAddress(prm.addr),
 		)
 		if err != nil {
