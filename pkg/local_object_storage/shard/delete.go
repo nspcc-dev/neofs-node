@@ -38,10 +38,11 @@ func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
 		)
 	}
 
-	if _, err := s.blobStor.Delete(
-		new(blobstor.DeletePrm).
-			WithAddress(prm.addr),
-	); err != nil {
+	// form DeleteBig parameters
+	delBigPrm := new(blobstor.DeleteBigPrm)
+	delBigPrm.SetAddress(prm.addr)
+
+	if _, err := s.blobStor.DeleteBig(delBigPrm); err != nil {
 		return nil, errors.Wrap(err, "could not remove object from BLOB storage")
 	}
 
