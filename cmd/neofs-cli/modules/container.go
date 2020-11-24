@@ -340,13 +340,21 @@ var getExtendedACLCmd = &cobra.Command{
 			return err
 		}
 
-		eaclTable, err := cli.GetEACL(ctx, id, client.WithTTL(getTTL()))
+		res, err := cli.GetEACLWithSignature(ctx, id, client.WithTTL(getTTL()))
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
+		eaclTable := res.EACL()
+		sig := res.Signature()
+
 		if containerPathTo == "" {
+			fmt.Println("eACL: ")
 			prettyPrintEACL(eaclTable)
+
+			fmt.Println("Signature:")
+			printJSONMarshaler(sig, "signature")
+
 			return nil
 		}
 
@@ -365,6 +373,9 @@ var getExtendedACLCmd = &cobra.Command{
 		}
 
 		fmt.Println("dumping data to file:", containerPathTo)
+
+		fmt.Println("Signature:")
+		printJSONMarshaler(sig, "signature")
 
 		return ioutil.WriteFile(containerPathTo, data, 0644)
 	},
@@ -694,9 +705,13 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 }
 
 func prettyPrintEACL(table *eacl.Table) {
-	data, err := table.MarshalJSON()
+	printJSONMarshaler(table, "eACL")
+}
+
+func printJSONMarshaler(j json.Marshaler, entity string) {
+	data, err := j.MarshalJSON()
 	if err != nil {
-		printVerbose("Can't convert container to json: %w", err)
+		printVerbose("Can't convert %s to json: %w", entity, err)
 		return
 	}
 	buf := new(bytes.Buffer)
