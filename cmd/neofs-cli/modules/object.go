@@ -653,6 +653,11 @@ func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error 
 		}
 		cmd.Printf("  %s=%s\n", attr.Key(), attr.Value())
 	}
+
+	if obj.SplitID() != nil {
+		cmd.Printf("SplitID: %s\n", obj.SplitID().String())
+	}
+
 	return nil
 }
 
