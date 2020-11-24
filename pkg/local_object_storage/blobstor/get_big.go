@@ -9,23 +9,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-// GetPrm groups the parameters of Get operation.
-type GetPrm struct {
+// GetBigPrm groups the parameters of GetBig operation.
+type GetBigPrm struct {
 	addr *objectSDK.Address
 }
 
-// GetRes groups resulting values of Get operation.
-type GetRes struct {
+// GetBigRes groups resulting values of GetBig operation.
+type GetBigRes struct {
 	obj *object.Object
 }
 
 // ErrObjectNotFound is returns on read operations requested on a missing object.
 var ErrObjectNotFound = errors.New("object not found")
 
-// WithAddress is a Get option to set the address of the requested object.
+// WithAddress is a GetBig option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
+func (p *GetBigPrm) WithAddress(addr *objectSDK.Address) *GetBigPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -34,15 +34,15 @@ func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
 }
 
 // Object returns the requested object.
-func (r *GetRes) Object() *object.Object {
+func (r *GetBigRes) Object() *object.Object {
 	return r.obj
 }
 
-// Get reads the object from BLOB storage.
+// GetBig reads the object from shallow dir of BLOB storage by address.
 //
 // Returns any error encountered that
-// did not allow to completely read the object part.
-func (b *BlobStor) Get(prm *GetPrm) (*GetRes, error) {
+// did not allow to completely read the object.
+func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
@@ -67,7 +67,7 @@ func (b *BlobStor) Get(prm *GetPrm) (*GetRes, error) {
 		return nil, errors.Wrap(err, "could not unmarshal the object")
 	}
 
-	return &GetRes{
+	return &GetBigRes{
 		obj: obj,
 	}, nil
 }
