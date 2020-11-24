@@ -7,6 +7,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var errEACLNotFound = errors.New("extended ACL table is not set for this container")
+
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
 func (w *Wrapper) GetEACL(cid *container.ID) (*eacl.Table, []byte, error) {
@@ -27,13 +29,21 @@ func (w *Wrapper) GetEACL(cid *container.ID) (*eacl.Table, []byte, error) {
 		return nil, nil, err
 	}
 
+	// Client may not return errors if the table is missing, so check this case additionally.
+	// The absence of a signature in the response can be taken as an eACL absence criterion,
+	// since unsigned table cannot be approved in the storage by design.
+	sig := rpcAnswer.Signature()
+	if len(sig) == 0 {
+		return nil, nil, errEACLNotFound
+	}
+
 	table := eacl.NewTable()
 	if err = table.Unmarshal(rpcAnswer.EACL()); err != nil {
 		// use other major version if there any
 		return nil, nil, err
 	}
 
-	return table, rpcAnswer.Signature(), nil
+	return table, sig, nil
 }
 
 // PutEACL saves the extended ACL table in NeoFS system
