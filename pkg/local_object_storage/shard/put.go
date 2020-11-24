@@ -39,11 +39,12 @@ func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
 	// try to put to WriteCache
 	// TODO: implement
 
+	// form Put parameters
+	putPrm := new(blobstor.PutPrm)
+	putPrm.SetObject(prm.obj)
+
 	// put to BlobStor
-	if _, err := s.blobStor.Put(
-		new(blobstor.PutPrm).
-			WithObject(prm.obj),
-	); err != nil {
+	if _, err := s.blobStor.Put(putPrm); err != nil {
 		return nil, errors.Wrap(err, "could not put object to BLOB storage")
 	}
 
