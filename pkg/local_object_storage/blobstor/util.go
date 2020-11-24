@@ -50,3 +50,30 @@ type rwBlobovniczaID struct {
 func (v *rwBlobovniczaID) SetBlobovniczaID(id *blobovnicza.ID) {
 	v.blobovniczaID = id
 }
+
+type roRange struct {
+	rng *objectSDK.Range
+}
+
+// Range returns range of the object payload.
+func (r roRange) Range() *objectSDK.Range {
+	return r.rng
+}
+
+type rwRange struct {
+	roRange
+}
+
+// SetRange sets range of the object payload.
+func (r *rwRange) SetRange(rng *objectSDK.Range) {
+	r.rng = rng
+}
+
+type rangeData struct {
+	data []byte
+}
+
+// RangeData returns data of the requested payload range.
+func (d rangeData) RangeData() []byte {
+	return d.data
+}
