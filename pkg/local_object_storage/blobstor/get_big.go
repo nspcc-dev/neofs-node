@@ -11,32 +11,16 @@ import (
 
 // GetBigPrm groups the parameters of GetBig operation.
 type GetBigPrm struct {
-	addr *objectSDK.Address
+	address
 }
 
 // GetBigRes groups resulting values of GetBig operation.
 type GetBigRes struct {
-	obj *object.Object
+	roObject
 }
 
 // ErrObjectNotFound is returns on read operations requested on a missing object.
 var ErrObjectNotFound = errors.New("object not found")
-
-// WithAddress is a GetBig option to set the address of the requested object.
-//
-// Option is required.
-func (p *GetBigPrm) WithAddress(addr *objectSDK.Address) *GetBigPrm {
-	if p != nil {
-		p.addr = addr
-	}
-
-	return p
-}
-
-// Object returns the requested object.
-func (r *GetBigRes) Object() *object.Object {
-	return r.obj
-}
 
 // GetBig reads the object from shallow dir of BLOB storage by address.
 //
@@ -68,7 +52,9 @@ func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	}
 
 	return &GetBigRes{
-		obj: obj,
+		roObject: roObject{
+			obj: obj,
+		},
 	}, nil
 }
 
