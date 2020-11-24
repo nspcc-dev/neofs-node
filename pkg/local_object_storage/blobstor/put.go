@@ -6,30 +6,24 @@ import (
 	"path"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	obj *object.Object
+	rwObject
 }
 
 // PutRes groups resulting values of Put operation.
-type PutRes struct{}
-
-// WithObject is a Put option to set object to save.
-//
-// Option is required.
-func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
-	if p != nil {
-		p.obj = obj
-	}
-
-	return p
+type PutRes struct {
+	roBlobovniczaID
 }
 
 // Put saves the object in BLOB storage.
+//
+// If object is "big", BlobStor saves the object in shallow dir.
+// Otherwise, BlobStor saves the object in blobonicza. In this
+// case the identifier of blobovnicza is returned.
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
