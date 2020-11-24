@@ -2,16 +2,15 @@ package wrapper
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/pkg/errors"
 )
 
-var ErrEACLNotFound = errors.New("extended ACL table is not set for this container")
-
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (w *Wrapper) GetEACL(cid *container.ID) (*eacl.Table, []byte, error) {
+func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, []byte, error) {
 	if cid == nil {
 		return nil, nil, errNilArgument
 	}
@@ -34,7 +33,7 @@ func (w *Wrapper) GetEACL(cid *container.ID) (*eacl.Table, []byte, error) {
 	// since unsigned table cannot be approved in the storage by design.
 	sig := rpcAnswer.Signature()
 	if len(sig) == 0 {
-		return nil, nil, ErrEACLNotFound
+		return nil, nil, container.ErrEACLNotFound
 	}
 
 	table := eacl.NewTable()
