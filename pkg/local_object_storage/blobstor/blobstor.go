@@ -3,7 +3,6 @@ package blobstor
 import (
 	"encoding/hex"
 	"os"
-	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -12,8 +11,6 @@ import (
 // BlobStor represents NeoFS local BLOB storage.
 type BlobStor struct {
 	*cfg
-
-	mtx *sync.RWMutex
 }
 
 // Option represents BlobStor's constructor option.
@@ -57,7 +54,6 @@ func New(opts ...Option) *BlobStor {
 
 	return &BlobStor{
 		cfg: c,
-		mtx: new(sync.RWMutex),
 	}
 }
 

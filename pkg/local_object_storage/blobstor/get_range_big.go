@@ -21,9 +21,6 @@ type GetRangeBigRes struct {
 // Returns any error encountered that
 // did not allow to completely read the object payload range.
 func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
-	b.mtx.RLock()
-	defer b.mtx.RUnlock()
-
 	// get compressed object data
 	data, err := b.fsTree.get(prm.addr)
 	if err != nil {
