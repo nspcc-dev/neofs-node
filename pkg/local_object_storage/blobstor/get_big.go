@@ -27,9 +27,6 @@ var ErrObjectNotFound = errors.New("object not found")
 // Returns any error encountered that
 // did not allow to completely read the object.
 func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
-	b.mtx.RLock()
-	defer b.mtx.RUnlock()
-
 	// get compressed object data
 	data, err := b.fsTree.get(prm.addr)
 	if err != nil {
