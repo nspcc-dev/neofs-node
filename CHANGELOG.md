@@ -1,6 +1,28 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.12.1] - 2020-11-25
+
+Bugfixes and small performance improvements.
+
+### Fixed
+
+- Routine leak by adding SDK client cache. (#184)
+- Variety of ACL bugs. (#180, #190, #209)
+- Policer tried to replicate virtual objects. (#182)
+- Search queries with object ID field. (#177)
+- Bug with extended ACL signature check in neofs-cli (#206)
+
+### Added
+
+- More debug logs in object service. 
+- Dial timeouts in object service config (`NEOFS_OBJECT_PUT_DIAL_TIMEOUT=5s`)
+
+### Changed
+
+- Routine pools in object service are non-blocking now.
+- Container service now returns error if extended ACL is not set.
+
 ## [0.12.0] - 2020-11-17
 
 NeoFS-API v2.0 support and updated brand-new storage node application.
@@ -39,5 +61,6 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.12.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.10.0...v0.11.0
