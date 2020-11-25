@@ -22,9 +22,6 @@ type DeleteBigRes struct{}
 //
 // Returns ErrObjectNotFound if there is no object to delete.
 func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
-	b.mtx.Lock()
-	defer b.mtx.Unlock()
-
 	err := b.fsTree.delete(prm.addr)
 	if errors.Is(err, errFileNotFound) {
 		err = ErrObjectNotFound
