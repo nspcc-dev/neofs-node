@@ -34,10 +34,9 @@ func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
 }
 
 func (t *fsTree) delete(addr *object.Address) error {
-	p := t.treePath(addr)
-
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return errFileNotFound
+	p, err := t.exists(addr)
+	if err != nil {
+		return err
 	}
 
 	return os.Remove(p)
