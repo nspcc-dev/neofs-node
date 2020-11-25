@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -697,6 +698,11 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 
 	table := eacl.NewTable()
 	if err = table.UnmarshalJSON(data); err == nil {
+		version := table.Version()
+		if err := pkg.IsSupportedVersion(&version); err != nil {
+			table.SetVersion(*pkg.SDKVersion())
+		}
+
 		printVerbose("Parsed JSON encoded EACL table")
 		return table, nil
 	}
