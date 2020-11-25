@@ -1,17 +1,17 @@
 package blobovnicza
 
 import (
-	"github.com/google/uuid"
+	"encoding/hex"
 )
 
 // ID represents Blobovnicza identifier.
-type ID uuid.UUID
+type ID []byte
 
-// NewIDFromUUID constructs ID from UUID instance.
-func NewIDFromUUID(uid uuid.UUID) *ID {
-	return (*ID)(&uid)
+// NewIDFromBytes constructs ID from byte slice.
+func NewIDFromBytes(v []byte) *ID {
+	return (*ID)(&v)
 }
 
 func (id ID) String() string {
-	return (uuid.UUID)(id).String()
+	return hex.EncodeToString(id)
 }
