@@ -65,6 +65,10 @@ func headersFromObject(obj *object.Object) []eacl.Header {
 				k: acl.FilterObjectPayloadLength,
 				v: u64Value(obj.PayloadSize()),
 			},
+			&sysObjHdr{
+				k: acl.FilterObjectID,
+				v: idValue(obj.ID()),
+			},
 			// TODO: add others fields after neofs-api#84
 		)
 
