@@ -6,7 +6,6 @@ import (
 	"path"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
 
@@ -35,10 +34,10 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, errors.Wrap(err, "could not marshal the object")
 	}
 
-	// compress object data
-	data = b.compressor(data)
+	if b.isBig(data) {
+		// compress object data
+		data = b.compressor(data)
 
-	if b.isBig(prm.obj) {
 		// save object in shallow dir
 		return nil, b.fsTree.put(prm.obj.Address(), data)
 	} else {
@@ -46,7 +45,7 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 
 		// FIXME: use Blobovnicza when it becomes implemented.
 		//  Temporary save in shallow dir.
-		return nil, b.fsTree.put(prm.obj.Address(), data)
+		return nil, b.fsTree.put(prm.obj.Address(), b.compressor(data))
 	}
 }
 
@@ -61,12 +60,6 @@ func (t *fsTree) put(addr *objectSDK.Address, data []byte) error {
 }
 
 // checks if object is "big".
-func (b *BlobStor) isBig(obj *object.Object) bool {
-	// FIXME: headers are temporary ignored
-	//  due to slight impact in size.
-	//  In fact, we have to honestly calculate the size
-	//  in binary format, which requires Size() method.
-	sz := obj.PayloadSize()
-
-	return sz > b.smallSizeLimit
+func (b *BlobStor) isBig(data []byte) bool {
+	return uint64(len(data)) > b.smallSizeLimit
 }
