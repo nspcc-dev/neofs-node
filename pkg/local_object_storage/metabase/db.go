@@ -63,8 +63,6 @@ func stringEqualMatcher(key, objVal, filterVal string) bool {
 	switch key {
 	default:
 		return objVal == filterVal
-	case v2object.FilterPropertyChildfree:
-		return (filterVal == v2object.BooleanPropertyValueTrue) == (objVal == v2object.BooleanPropertyValueTrue)
 	case v2object.FilterPropertyPhy, v2object.FilterPropertyRoot:
 		return true
 	}
