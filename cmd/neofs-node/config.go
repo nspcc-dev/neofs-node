@@ -120,6 +120,7 @@ const (
 	cfgBlobStorShallowDepth = "shallow_depth"
 	cfgBlobStorTreePath     = "path"
 	cfgBlobStorTreePerm     = "perm"
+	cfgBlobStorSmallSzLimit = "small_size_limit"
 
 	cfgMetaBaseSection = "metabase"
 	cfgMetaBasePath    = "path"
@@ -451,6 +452,10 @@ func initShardOptions(c *cfg) {
 			configPath(blobPrefix, cfgBlobStorShallowDepth),
 		)
 
+		smallSzLimit := c.viper.GetUint64(
+			configPath(blobPrefix, cfgBlobStorSmallSzLimit),
+		)
+
 		metaPrefix := configPath(prefix, cfgMetaBaseSection)
 
 		metaPath := c.viper.GetString(
@@ -473,6 +478,7 @@ func initShardOptions(c *cfg) {
 				blobstor.WithCompressObjects(compressObjects, c.log),
 				blobstor.WithTreeRootPerm(blobPerm),
 				blobstor.WithShallowDepth(shallowDepth),
+				blobstor.WithSmallSizeLimit(smallSzLimit),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithLogger(c.log),
@@ -485,6 +491,7 @@ func initShardOptions(c *cfg) {
 			zap.Stringer("BLOB permissions", blobPerm),
 			zap.Bool("BLOB compress", compressObjects),
 			zap.Int("BLOB shallow depth", shallowDepth),
+			zap.Uint64("BLOB small size limit", smallSzLimit),
 			zap.String("metabase path", metaPath),
 			zap.Stringer("metabase permissions", metaPerm),
 		)
