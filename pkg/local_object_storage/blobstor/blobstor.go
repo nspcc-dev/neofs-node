@@ -22,6 +22,8 @@ type cfg struct {
 	compressor func([]byte) []byte
 
 	decompressor func([]byte) ([]byte, error)
+
+	smallSizeLimit uint64
 }
 
 const (
@@ -39,8 +41,9 @@ func defaultCfg() *cfg {
 				RootPath:    "./",
 			},
 		},
-		compressor:   noOpCompressor,
-		decompressor: noOpDecompressor,
+		compressor:     noOpCompressor,
+		decompressor:   noOpDecompressor,
+		smallSizeLimit: 1 << 20,
 	}
 }
 
@@ -115,5 +118,13 @@ func WithTreeRootPath(rootDir string) Option {
 func WithTreeRootPerm(perm os.FileMode) Option {
 	return func(c *cfg) {
 		c.fsTree.Permissions = perm
+	}
+}
+
+// WithSmallSizeLimit returns option to set maximum size of
+// "small" object.
+func WithSmallSizeLimit(lim uint64) Option {
+	return func(c *cfg) {
+		c.smallSizeLimit = lim
 	}
 }
