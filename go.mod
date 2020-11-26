@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	bou.ke/monkey v1.0.2
+	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/alecthomas/participle v0.6.0
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.1
