@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/pkg/errors"
@@ -174,24 +173,7 @@ func TestDB_SelectProperties(t *testing.T) {
 	lnk.SetID(testOID())
 	lnk.SetChildren(testOID())
 
-	lnkAddr := lnk.Object().Address()
-
 	require.NoError(t, db.Put(lnk.Object()))
-
-	// childfree filter
-	fs = fs[:0]
-	fs.AddChildfreeFilter()
-	testSelect(t, db, fs, childAddr, parAddr)
-
-	// non-childfree filter
-	fs = fs[:0]
-	fs.AddNonChildfreeFilter()
-	testSelect(t, db, fs, lnkAddr)
-
-	// childfree filter (with random false value)
-	fs = fs[:0]
-	fs.AddFilter(v2object.FilterPropertyChildfree, "some false value", objectSDK.MatchStringEqual)
-	testSelect(t, db, fs, lnkAddr)
 }
 
 func TestDB_Path(t *testing.T) {

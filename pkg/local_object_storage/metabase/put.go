@@ -96,12 +96,7 @@ func addressKey(addr *objectSDK.Address) []byte {
 func objectIndices(obj *object.Object, parent bool) []bucketItem {
 	as := obj.Attributes()
 
-	res := make([]bucketItem, 0, 7+len(as)) // 7 predefined buckets and object attributes
-
-	childfreeVal := v2object.BooleanPropertyValueTrue
-	if len(obj.Children()) > 0 {
-		childfreeVal = ""
-	}
+	res := make([]bucketItem, 0, 6+len(as)) // 6 predefined buckets and object attributes
 
 	res = append(res,
 		bucketItem{
@@ -115,10 +110,6 @@ func objectIndices(obj *object.Object, parent bool) []bucketItem {
 		bucketItem{
 			key: v2object.FilterHeaderOwnerID,
 			val: obj.OwnerID().String(),
-		},
-		bucketItem{
-			key: v2object.FilterPropertyChildfree,
-			val: childfreeVal,
 		},
 		bucketItem{
 			key: v2object.FilterHeaderParent,
