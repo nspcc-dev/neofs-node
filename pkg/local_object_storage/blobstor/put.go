@@ -6,6 +6,7 @@ import (
 	"path"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
 
@@ -37,8 +38,16 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 	// compress object data
 	data = b.compressor(data)
 
-	// save object in fs tree
-	return nil, b.fsTree.put(prm.obj.Address(), data)
+	if b.isBig(prm.obj) {
+		// save object in shallow dir
+		return nil, b.fsTree.put(prm.obj.Address(), data)
+	} else {
+		// save object in blobovnicza
+
+		// FIXME: use Blobovnicza when it becomes implemented.
+		//  Temporary save in shallow dir.
+		return nil, b.fsTree.put(prm.obj.Address(), data)
+	}
 }
 
 func (t *fsTree) put(addr *objectSDK.Address, data []byte) error {
@@ -49,4 +58,15 @@ func (t *fsTree) put(addr *objectSDK.Address, data []byte) error {
 	}
 
 	return ioutil.WriteFile(p, data, t.Permissions)
+}
+
+// checks if object is "big".
+func (b *BlobStor) isBig(obj *object.Object) bool {
+	// FIXME: headers are temporary ignored
+	//  due to slight impact in size.
+	//  In fact, we have to honestly calculate the size
+	//  in binary format, which requires Size() method.
+	sz := obj.PayloadSize()
+
+	return sz > b.smallSizeLimit
 }
