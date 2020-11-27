@@ -12,17 +12,22 @@ import (
 // indexed in metabase.
 func (db *DB) IsSmall(addr *objectSDK.Address) (id *blobovnicza.ID, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		// if graveyard is empty, then check if object exists in primary bucket
-		smallBucket := tx.Bucket(smallBucketName(addr.ContainerID()))
-		if smallBucket == nil {
-			return nil
-		}
-
-		blobovniczaID := smallBucket.Get(objectKey(addr.ObjectID()))
-		id = blobovnicza.NewIDFromBytes(blobovniczaID)
+		id, err = db.isSmall(tx, addr)
 
 		return err
 	})
 
 	return id, err
+}
+
+func (db *DB) isSmall(tx *bbolt.Tx, addr *objectSDK.Address) (*blobovnicza.ID, error) {
+	smallBucket := tx.Bucket(smallBucketName(addr.ContainerID()))
+	if smallBucket == nil {
+		return nil, nil
+	}
+
+	blobovniczaID := smallBucket.Get(objectKey(addr.ObjectID()))
+	id := blobovnicza.NewIDFromBytes(blobovniczaID)
+
+	return id, nil
 }
