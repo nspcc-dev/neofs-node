@@ -58,7 +58,7 @@ func TestDB_Exists(t *testing.T) {
 
 		child := generateRawObjectWithCID(t, cid)
 		child.SetParent(parent.Object().SDK())
-		child.SetParentID(parent.Object().Address().ObjectID())
+		child.SetParentID(parent.ID())
 
 		err := db.Put(child.Object(), nil)
 		require.NoError(t, err)

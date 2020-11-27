@@ -95,14 +95,14 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 	rightChild := generateRawObjectWithCID(t, cid)
 	rightChild.SetParent(parent.Object().SDK())
-	rightChild.SetParentID(parent.Object().Address().ObjectID())
+	rightChild.SetParentID(parent.ID())
 	err = db.Put(rightChild.Object(), nil)
 	require.NoError(t, err)
 
 	link := generateRawObjectWithCID(t, cid)
 	link.SetParent(parent.Object().SDK())
-	link.SetParentID(parent.Object().Address().ObjectID())
-	link.SetChildren(leftChild.Object().Address().ObjectID(), rightChild.Object().Address().ObjectID())
+	link.SetParentID(parent.ID())
+	link.SetChildren(leftChild.ID(), rightChild.ID())
 
 	err = db.Put(link.Object(), nil)
 	require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	t.Run("objects with parent", func(t *testing.T) {
 		fs := generateSearchFilter(cid)
 		fs.AddFilter(v2object.FilterHeaderParent,
-			parent.Object().Address().ObjectID().String(),
+			parent.ID().String(),
 			objectSDK.MatchStringEqual)
 
 		testSelect(t, db, fs,
