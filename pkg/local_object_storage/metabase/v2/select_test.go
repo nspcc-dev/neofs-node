@@ -107,9 +107,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	err = db.Put(link.Object(), nil)
 	require.NoError(t, err)
 
-	// printDB(meta.ExtractDB(db))
-	// return
-
 	t.Run("root objects", func(t *testing.T) {
 		fs := generateSearchFilter(cid)
 		fs.AddRootFilter()
@@ -299,4 +296,65 @@ func generateSearchFilter(cid *container.ID) objectSDK.SearchFilters {
 	fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, cid)
 
 	return fs
+}
+
+func TestDB_SelectObjectID(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	cid := testCID()
+
+	// prepare
+
+	parent := generateRawObjectWithCID(t, cid)
+
+	regular := generateRawObjectWithCID(t, cid)
+	regular.SetParentID(parent.ID())
+	regular.SetParent(parent.Object().SDK())
+
+	err := db.Put(regular.Object(), nil)
+	require.NoError(t, err)
+
+	ts := generateRawObjectWithCID(t, cid)
+	ts.SetType(objectSDK.TypeTombstone)
+	err = db.Put(ts.Object(), nil)
+	require.NoError(t, err)
+
+	sg := generateRawObjectWithCID(t, cid)
+	sg.SetType(objectSDK.TypeStorageGroup)
+	err = db.Put(sg.Object(), nil)
+	require.NoError(t, err)
+
+	t.Run("not found objects", func(t *testing.T) {
+		raw := generateRawObjectWithCID(t, cid)
+
+		fs := generateSearchFilter(cid)
+		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, raw.ID())
+
+		testSelect(t, db, fs)
+	})
+
+	t.Run("regular objects", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, regular.ID())
+		testSelect(t, db, fs, regular.Object().Address())
+	})
+
+	t.Run("tombstone objects", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, ts.ID())
+		testSelect(t, db, fs, ts.Object().Address())
+	})
+
+	t.Run("storage group objects", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, sg.ID())
+		testSelect(t, db, fs, sg.Object().Address())
+	})
+
+	t.Run("storage group objects", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, parent.ID())
+		testSelect(t, db, fs, parent.Object().Address())
+	})
 }
