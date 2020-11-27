@@ -131,7 +131,7 @@ func (db *DB) selectFastFilter(
 
 	switch f.Header() {
 	case v2object.FilterHeaderObjectID:
-		// todo: implement me
+		db.selectObjectID(tx, f, prefix, to, fNum)
 	case v2object.FilterHeaderOwnerID:
 		bucketName := ownerBucketName(cid)
 		db.selectFromFKBT(tx, bucketName, f, prefix, to, fNum)
@@ -249,6 +249,41 @@ func (db *DB) selectFromList(
 	for i := range lst {
 		addr := prefix + string(lst[i])
 		markAddressInCache(to, fNum, addr)
+	}
+}
+
+// selectObjectID processes objectID filter with in-place optimizations.
+func (db *DB) selectObjectID(
+	tx *bbolt.Tx,
+	f object.SearchFilter,
+	prefix string,
+	to map[string]int, // resulting cache
+	fNum int, // index of filter
+) {
+	switch f.Operation() {
+	case object.MatchStringEqual:
+	default:
+		db.log.Debug("unknown operation", zap.Uint32("operation", uint32(f.Operation())))
+	}
+
+	// warning: it is in-place optimization and works only for MatchStringEQ,
+	// for NotEQ you should iterate over bkt and apply matchFunc
+
+	addrStr := prefix + f.Value()
+	addr := object.NewAddress()
+
+	err := addr.Parse(addrStr)
+	if err != nil {
+		db.log.Debug("can't decode object id address",
+			zap.String("addr", addrStr),
+			zap.String("error", err.Error()))
+
+		return
+	}
+
+	ok, err := db.exists(tx, addr)
+	if err == nil && ok {
+		markAddressInCache(to, fNum, addrStr)
 	}
 }
 
