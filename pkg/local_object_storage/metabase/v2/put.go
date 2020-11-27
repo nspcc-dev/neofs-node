@@ -18,7 +18,10 @@ type (
 	}
 )
 
-var ErrUnknownObjectType = errors.New("unknown object type")
+var (
+	ErrUnknownObjectType          = errors.New("unknown object type")
+	ErrIncorrectBlobovniczaUpdate = errors.New("updating blobovnicza id on object without it")
+)
 
 // Put saves object header in metabase. Object payload expected to be cut.
 // Big objects have nil blobovniczaID.
@@ -37,6 +40,13 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, isParent
 	// most right child and split header overlap parent so we have to
 	// check if object exists to not overwrite it twice
 	if exists {
+		// when storage engine moves small objects from one blobovniczaID
+		// to another, then it calls metabase.Put method with new blobovniczaID
+		// and this code should be triggered.
+		if !isParent && id != nil {
+			return updateBlobovniczaID(tx, obj.Address(), id)
+		}
+
 		return nil
 	}
 
@@ -267,4 +277,23 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 	}
 
 	return lst, nil
+}
+
+// updateBlobovniczaID for existing objects if they were moved from from
+// one blobovnicza to another.
+func updateBlobovniczaID(tx *bbolt.Tx, addr *objectSDK.Address, id *blobovnicza.ID) error {
+	bkt := tx.Bucket(smallBucketName(addr.ContainerID()))
+	if bkt == nil {
+		// if object exists, don't have blobovniczaID and we want to update it
+		// then ignore, this should never happen
+		return ErrIncorrectBlobovniczaUpdate
+	}
+
+	objectKey := objectKey(addr.ObjectID())
+
+	if len(bkt.Get(objectKey)) == 0 {
+		return ErrIncorrectBlobovniczaUpdate
+	}
+
+	return bkt.Put(objectKey, *id)
 }
