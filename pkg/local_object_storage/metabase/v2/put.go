@@ -23,65 +23,67 @@ var ErrUnknownObjectType = errors.New("unknown object type")
 // Put saves object header in metabase. Object payload expected to be cut.
 // Big objects have nil blobovniczaID.
 func (db *DB) Put(obj *object.Object, id *blobovnicza.ID) error {
-	var isParent bool // true when object header obtained from `split.Parent`
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		return db.put(tx, obj, id, false)
+	})
+}
 
-	for ; obj != nil; obj, isParent = obj.GetParent(), true {
-		exists, err := db.Exists(obj.Address())
+func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, isParent bool) error {
+	exists, err := db.exists(tx, obj.Address())
+	if err != nil {
+		return err
+	}
+
+	// most right child and split header overlap parent so we have to
+	// check if object exists to not overwrite it twice
+	if exists {
+		return nil
+	}
+
+	if obj.GetParent() != nil && !isParent { // limit depth by two
+		err = db.put(tx, obj.GetParent(), id, true)
 		if err != nil {
 			return err
 		}
+	}
 
-		// most right child and split header overlap parent so we have to
-		// check if object exists to not overwrite it twice
-		if exists {
-			continue
-		}
+	uniqueIndexes, err := uniqueIndexes(obj, isParent, id)
+	if err != nil {
+		return fmt.Errorf("can' build unique indexes: %w", err)
+	}
 
-		uniqueIndexes, err := uniqueIndexes(obj, isParent, id)
+	// put unique indexes
+	for i := range uniqueIndexes {
+		err := putUniqueIndexItem(tx, uniqueIndexes[i])
 		if err != nil {
-			return fmt.Errorf("can' build unique indexes: %w", err)
+			return err
 		}
+	}
 
-		// build list indexes
-		listIndexes, err := listIndexes(obj)
+	// build list indexes
+	listIndexes, err := listIndexes(obj)
+	if err != nil {
+		return fmt.Errorf("can' build list indexes: %w", err)
+	}
+
+	// put list indexes
+	for i := range listIndexes {
+		err := putListIndexItem(tx, listIndexes[i])
 		if err != nil {
-			return fmt.Errorf("can' build list indexes: %w", err)
+			return err
 		}
+	}
 
-		fkbtIndexes, err := fkbtIndexes(obj)
+	// build fake bucket tree indexes
+	fkbtIndexes, err := fkbtIndexes(obj)
+	if err != nil {
+		return fmt.Errorf("can' build fake bucket tree indexes: %w", err)
+	}
+
+	// put fake bucket tree indexes
+	for i := range fkbtIndexes {
+		err := putFKBTIndexItem(tx, fkbtIndexes[i])
 		if err != nil {
-			return fmt.Errorf("can' build fake bucket tree indexes: %w", err)
-		}
-
-		// consider making one TX for both target object and parent
-		err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-			// put unique indexes
-			for i := range uniqueIndexes {
-				err := putUniqueIndexItem(tx, uniqueIndexes[i])
-				if err != nil {
-					return err
-				}
-			}
-
-			// put list indexes
-			for i := range listIndexes {
-				err := putListIndexItem(tx, listIndexes[i])
-				if err != nil {
-					return err
-				}
-			}
-
-			// put fake bucket tree indexes
-			for i := range fkbtIndexes {
-				err := putFKBTIndexItem(tx, fkbtIndexes[i])
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-		if err != nil { // if tx failed then return error
 			return err
 		}
 	}
