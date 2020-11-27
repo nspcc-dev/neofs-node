@@ -12,7 +12,7 @@ import (
 // Get returns object header for specified address.
 func (db *DB) Get(addr *objectSDK.Address) (obj *object.Object, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		obj, err = db.get(tx, addr)
+		obj, err = db.get(tx, addr, true)
 
 		return err
 	})
@@ -20,12 +20,12 @@ func (db *DB) Get(addr *objectSDK.Address) (obj *object.Object, err error) {
 	return obj, err
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address) (*object.Object, error) {
+func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard bool) (*object.Object, error) {
 	obj := object.New()
 	key := objectKey(addr.ObjectID())
 	cid := addr.ContainerID()
 
-	if inGraveyard(tx, addr) {
+	if checkGraveyard && inGraveyard(tx, addr) {
 		return nil, ErrAlreadyRemoved
 	}
 
