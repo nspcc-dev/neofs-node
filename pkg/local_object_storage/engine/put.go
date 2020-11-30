@@ -46,14 +46,14 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 
 	// save the object into the "largest" possible shard
 	for _, sh := range sortedShards {
-		_, err := sh.Put(
+		_, err := sh.sh.Put(
 			shPrm.WithObject(prm.obj),
 		)
 
 		if err != nil {
 			// TODO: smth wrong with shard, need to be processed
 			e.log.Warn("could not save object in shard",
-				zap.Stringer("shard", sh.ID()),
+				zap.Stringer("shard", sh.sh.ID()),
 				zap.String("error", err.Error()),
 			)
 		} else {
@@ -64,11 +64,11 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 	return nil, errPutShard
 }
 
-func (e *StorageEngine) objectExists(obj *object.Object, shards []*shard.Shard) bool {
+func (e *StorageEngine) objectExists(obj *object.Object, shards []hashedShard) bool {
 	exists := false
 
 	for _, sh := range shards {
-		res, err := sh.Exists(
+		res, err := sh.sh.Exists(
 			new(shard.ExistsPrm).
 				WithAddress(obj.Address()),
 		)
