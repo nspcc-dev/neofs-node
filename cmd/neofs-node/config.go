@@ -114,6 +114,8 @@ const (
 	cfgLocalStorageSection = "storage"
 	cfgStorageShardSection = "shard"
 
+	cfgShardUseWriteCache = "use_write_cache"
+
 	cfgBlobStorSection      = "blobstor"
 	cfgBlobStorCompress     = "compress"
 	cfgBlobStorShallowDepth = "shallow_depth"
@@ -436,6 +438,10 @@ func initShardOptions(c *cfg) {
 			strconv.Itoa(i),
 		)
 
+		useCache := c.viper.GetBool(
+			configPath(prefix, cfgShardUseWriteCache),
+		)
+
 		blobPrefix := configPath(prefix, cfgBlobStorSection)
 
 		blobPath := c.viper.GetString(
@@ -510,9 +516,11 @@ func initShardOptions(c *cfg) {
 				meta.WithPath(metaPath),
 				meta.WithPermissions(metaPerm),
 			),
+			shard.WithWriteCache(useCache),
 		})
 
 		c.log.Info("storage shard options",
+			zap.Bool("with write cache", useCache),
 			zap.String("BLOB path", blobPath),
 			zap.Stringer("BLOB permissions", blobPerm),
 			zap.Bool("BLOB compress", compressObjects),
