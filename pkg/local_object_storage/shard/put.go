@@ -49,7 +49,7 @@ func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
 	}
 
 	// put to metabase
-	if err := s.metaBase.Put(prm.obj); err != nil {
+	if err := s.metaBase.Put(prm.obj, nil); err != nil {
 		// may we need to handle this case in a special way
 		// since the object has been successfully written to BlobStor
 		return nil, errors.Wrap(err, "could not put object to metabase")
