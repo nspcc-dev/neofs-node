@@ -1,9 +1,5 @@
 package blobstor
 
-import (
-	"github.com/pkg/errors"
-)
-
 // GetSmallPrm groups the parameters of GetSmallPrm operation.
 type GetSmallPrm struct {
 	address
@@ -23,5 +19,5 @@ type GetSmallRes struct {
 // Returns any error encountered that
 // did not allow to completely read the object.
 func (b *BlobStor) GetSmall(prm *GetSmallPrm) (*GetSmallRes, error) {
-	return nil, errors.New("method GetSmall is not implemented yet")
+	return b.blobovniczas.get(prm)
 }
