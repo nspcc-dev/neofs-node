@@ -27,6 +27,7 @@ var (
 	payloadHashPostfix  = "_payloadhash"
 	rootPostfix         = "_root"
 	parentPostfix       = "_parent"
+	splitPostfix        = "_splitid"
 
 	userAttributePostfix = "_attr_"
 )
@@ -76,9 +77,14 @@ func ownerBucketName(cid *container.ID) []byte {
 	return []byte(cid.String() + ownerPostfix)
 }
 
-// parentBucketNAme returns <CID>_parent.
+// parentBucketName returns <CID>_parent.
 func parentBucketName(cid *container.ID) []byte {
 	return []byte(cid.String() + parentPostfix)
+}
+
+// splitBucketName returns <CID>_splitid.
+func splitBucketName(cid *container.ID) []byte {
+	return []byte(cid.String() + splitPostfix)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.
