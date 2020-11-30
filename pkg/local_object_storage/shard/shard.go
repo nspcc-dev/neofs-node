@@ -22,6 +22,8 @@ type Shard struct {
 type Option func(*cfg)
 
 type cfg struct {
+	useWriteCache bool
+
 	info Info
 
 	blobOpts []blobstor.Option
@@ -76,5 +78,12 @@ func WithMetaBaseOptions(opts ...meta.Option) Option {
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
+	}
+}
+
+// WithWriteCache returns option to toggle write cache usage.
+func WithWriteCache(use bool) Option {
+	return func(c *cfg) {
+		c.useWriteCache = use
 	}
 }
