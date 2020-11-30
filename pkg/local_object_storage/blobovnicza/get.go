@@ -18,9 +18,6 @@ type GetRes struct {
 	obj *object.Object
 }
 
-// ErrObjectNotFound is returns on read operations requested on a missing object.
-var ErrObjectNotFound = errors.New("object not found")
-
 // SetAddress sets address of the requested object.
 func (p *GetPrm) SetAddress(addr *objectSDK.Address) {
 	p.addr = addr
@@ -35,6 +32,9 @@ func (p *GetRes) Object() *object.Object {
 //
 // Returns any error encountered that
 // did not allow to completely read the object.
+//
+// Returns ErrNotFound if requested object is not
+// presented in Blobovnicza.
 func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 	var (
 		data    []byte
@@ -61,7 +61,7 @@ func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 	}
 
 	if data == nil {
-		return nil, ErrObjectNotFound
+		return nil, object.ErrNotFound
 	}
 
 	// TODO: add decompression step

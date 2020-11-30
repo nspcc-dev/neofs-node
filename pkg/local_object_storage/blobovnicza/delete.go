@@ -2,6 +2,7 @@ package blobovnicza
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -25,7 +26,7 @@ func (p *DeletePrm) SetAddress(addr *objectSDK.Address) {
 // Returns any error encountered that
 // did not allow to completely delete the object.
 //
-// Returns ErrObjectNotFound if the object to be deleted is not in blobovnicza.
+// Returns ErrNotFound if the object to be deleted is not in blobovnicza.
 func (b *Blobovnicza) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	addrKey := addressKey(prm.addr)
 
@@ -62,7 +63,7 @@ func (b *Blobovnicza) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	})
 
 	if err == nil && !removed {
-		err = ErrObjectNotFound
+		err = object.ErrNotFound
 	}
 
 	return nil, err

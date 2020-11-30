@@ -2,6 +2,7 @@ package blobovnicza
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
 
@@ -16,8 +17,6 @@ type GetRangePrm struct {
 type GetRangeRes struct {
 	rngData []byte
 }
-
-var ErrRangeOutOfBounds = errors.New("payload range is out of bounds")
 
 // SetAddress sets address of the requested object.
 func (p *GetRangePrm) SetAddress(addr *objectSDK.Address) {
@@ -38,6 +37,10 @@ func (p *GetRangeRes) RangeData() []byte {
 //
 // Returns any error encountered that
 // did not allow to completely read the object.
+//
+// Returns ErrNotFound if requested object is not
+// presented in Blobovnicza. Returns ErrRangeOutOfBounds
+// if requested range is outside the payload.
 func (b *Blobovnicza) GetRange(prm *GetRangePrm) (*GetRangeRes, error) {
 	res, err := b.Get(&GetPrm{
 		addr: prm.addr,
@@ -53,7 +56,7 @@ func (b *Blobovnicza) GetRange(prm *GetRangePrm) (*GetRangeRes, error) {
 	if from > to {
 		return nil, errors.Errorf("invalid range [%d:%d]", from, to)
 	} else if uint64(len(payload)) < to {
-		return nil, ErrRangeOutOfBounds
+		return nil, object.ErrRangeOutOfBounds
 	}
 
 	return &GetRangeRes{

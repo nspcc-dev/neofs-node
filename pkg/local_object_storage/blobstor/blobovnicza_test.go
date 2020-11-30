@@ -152,9 +152,9 @@ func TestBlobovniczas(t *testing.T) {
 		gPrm.SetAddress(addrList[i])
 
 		_, err = b.get(gPrm)
-		require.True(t, errors.Is(err, ErrObjectNotFound))
+		require.True(t, errors.Is(err, object.ErrNotFound))
 
 		_, err = b.delete(dPrm)
-		require.True(t, errors.Is(err, ErrObjectNotFound))
+		require.True(t, errors.Is(err, object.ErrNotFound))
 	}
 }
