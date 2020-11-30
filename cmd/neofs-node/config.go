@@ -22,7 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -36,7 +36,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -121,6 +120,12 @@ const (
 	cfgBlobStorTreePath     = "path"
 	cfgBlobStorTreePerm     = "perm"
 	cfgBlobStorSmallSzLimit = "small_size_limit"
+
+	cfgBlobStorBlzSection = "blobovnicza"
+	cfgBlzSize            = "size"
+	cfgBlzShallowDepth    = "shallow_depth"
+	cfgBlzShallowWidth    = "shallow_width"
+	cfgBlzOpenedCacheSize = "opened_cache_size"
 
 	cfgMetaBaseSection = "metabase"
 	cfgMetaBasePath    = "path"
@@ -456,6 +461,24 @@ func initShardOptions(c *cfg) {
 			configPath(blobPrefix, cfgBlobStorSmallSzLimit),
 		)
 
+		blzPrefix := configPath(blobPrefix, cfgBlobStorBlzSection)
+
+		blzSize := c.viper.GetUint64(
+			configPath(blzPrefix, cfgBlzSize),
+		)
+
+		blzShallowDepth := c.viper.GetUint64(
+			configPath(blzPrefix, cfgBlzShallowDepth),
+		)
+
+		blzShallowWidth := c.viper.GetUint64(
+			configPath(blzPrefix, cfgBlzShallowWidth),
+		)
+
+		blzCacheSize := c.viper.GetInt(
+			configPath(blzPrefix, cfgBlzOpenedCacheSize),
+		)
+
 		metaPrefix := configPath(prefix, cfgMetaBaseSection)
 
 		metaPath := c.viper.GetString(
@@ -468,9 +491,6 @@ func initShardOptions(c *cfg) {
 
 		fatalOnErr(os.MkdirAll(path.Dir(metaPath), metaPerm))
 
-		boltDB, err := bbolt.Open(metaPath, metaPerm, nil)
-		fatalOnErr(err)
-
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithBlobStorOptions(
@@ -479,10 +499,16 @@ func initShardOptions(c *cfg) {
 				blobstor.WithTreeRootPerm(blobPerm),
 				blobstor.WithShallowDepth(shallowDepth),
 				blobstor.WithSmallSizeLimit(smallSzLimit),
+				blobstor.WithBlobovniczaSize(blzSize),
+				blobstor.WithBlobovniczaShallowDepth(blzShallowDepth),
+				blobstor.WithBlobovniczaShallowWidth(blzShallowWidth),
+				blobstor.WithBlobovniczaOpenedCacheSize(blzCacheSize),
+				blobstor.WithLogger(c.log),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithLogger(c.log),
-				meta.FromBoltDB(boltDB),
+				meta.WithPath(metaPath),
+				meta.WithPermissions(metaPerm),
 			),
 		})
 

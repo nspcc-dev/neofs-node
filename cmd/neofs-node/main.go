@@ -40,6 +40,9 @@ func init_(c *cfg) {
 	initObjectService(c)
 	initProfiler(c)
 
+	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
+	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())
+
 	listenMorphNotifications(c)
 }
 
