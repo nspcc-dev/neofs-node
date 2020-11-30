@@ -12,6 +12,10 @@ import (
 
 var errShardNotFound = errors.New("shard not found")
 
+type hashedShard struct {
+	sh *shard.Shard
+}
+
 // AddShard adds a new shard to the storage engine.
 //
 // Returns any error encountered that did not allow adding a shard.
@@ -50,15 +54,15 @@ func (e *StorageEngine) shardWeight(sh *shard.Shard) float64 {
 	return float64(weightValues.FreeSpace)
 }
 
-func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []*shard.Shard {
+func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []hashedShard {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
-	shards := make([]*shard.Shard, 0, len(e.shards))
+	shards := make([]hashedShard, 0, len(e.shards))
 	weights := make([]float64, 0, len(e.shards))
 
 	for _, sh := range e.shards {
-		shards = append(shards, sh)
+		shards = append(shards, hashedShard{sh})
 		weights = append(weights, e.shardWeight(sh))
 	}
 
@@ -69,7 +73,7 @@ func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []*shard.Shard 
 
 func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler func(*shard.Shard) (stop bool)) {
 	for _, sh := range e.sortShardsByWeight(addr) {
-		if handler(sh) {
+		if handler(sh.sh) {
 			break
 		}
 	}
@@ -89,4 +93,10 @@ func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode) error {
 	}
 
 	return errShardNotFound
+}
+
+func (s hashedShard) Hash() uint64 {
+	return hrw.Hash(
+		[]byte(s.sh.ID().String()),
+	)
 }
