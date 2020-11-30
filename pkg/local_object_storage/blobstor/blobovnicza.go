@@ -293,6 +293,57 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 	return
 }
 
+// reads range of object payload data from blobovnicza tree.
+//
+// If blobocvnicza ID is specified, only this blobovnicza is processed.
+// Otherwise, all blobovniczas are processed descending weight.
+//
+// TODO:quite similar to GET, can be unified
+func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, err error) {
+	bPrm := new(blobovnicza.GetRangePrm)
+	bPrm.SetAddress(prm.addr)
+	bPrm.SetRange(prm.rng)
+
+	if prm.blobovniczaID != nil {
+		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
+		if err != nil {
+			return nil, err
+		}
+
+		return b.getObjectRange(blz, bPrm)
+	}
+
+	activeCache := make(map[string]struct{})
+
+	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
+		dirPath := path.Dir(p)
+
+		_, ok := activeCache[dirPath]
+
+		res, err = b.getRangeFromLevel(bPrm, p, !ok)
+		if err != nil {
+			if !errors.Is(err, ErrObjectNotFound) {
+				b.log.Debug("could not get object from level",
+					zap.String("level", p),
+					zap.String("error", err.Error()),
+				)
+			}
+		}
+
+		activeCache[dirPath] = struct{}{}
+
+		// abort iterator if found, otherwise process all blobovniczas
+		return err == nil, nil
+	})
+
+	if err == nil && res == nil {
+		// not found in any blobovnicza
+		err = ErrObjectNotFound
+	}
+
+	return
+}
+
 // tries to delete object from particular blobovnicza.
 //
 // returns no error if object was removed from some blobovnicza of the same level.
@@ -412,6 +463,66 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 	return b.getObject(blz, prm)
 }
 
+// tries to read range of object payload data from particular blobovnicza.
+//
+// returns error if object could not be read from any blobovnicza of the same level.
+func (b *blobovniczas) getRangeFromLevel(prm *blobovnicza.GetRangePrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
+	lvlPath := path.Dir(blzPath)
+
+	log := b.log.With(
+		zap.String("path", blzPath),
+	)
+
+	// try to read from blobovnicza if it is opened
+	v, ok := b.opened.Get(blzPath)
+	if ok {
+		if res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm); err == nil {
+			return res, err
+		} else if !errors.Is(err, ErrObjectNotFound) {
+			log.Debug("could not read payload range from opened blobovnicza",
+				zap.String("error", err.Error()),
+			)
+		}
+	}
+
+	// therefore the object is possibly placed in a lighter blobovnicza
+
+	// next we check in the active level blobobnicza:
+	//  * the freshest objects are probably the most demanded;
+	//  * the active blobovnicza is always opened.
+	b.activeMtx.RLock()
+	active, ok := b.active[lvlPath]
+	b.activeMtx.RUnlock()
+
+	if ok && tryActive {
+		if res, err := b.getObjectRange(active.blz, prm); err == nil {
+			return res, err
+		} else if !errors.Is(err, ErrObjectNotFound) {
+			log.Debug("could not read payload range from active blobovnicza",
+				zap.String("error", err.Error()),
+			)
+		}
+	}
+
+	// then object is possibly placed in closed blobovnicza
+
+	// check if it makes sense to try to open the blob
+	// (blobovniczas "after" the active one are empty anyway,
+	// and it's pointless to open them).
+	if u64FromHexString(path.Base(blzPath)) > active.ind {
+		log.Debug("index is too big")
+		return nil, ErrObjectNotFound
+	}
+
+	// open blobovnicza (cached inside)
+	blz, err := b.openBlobovnicza(blzPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.getObjectRange(blz, prm)
+}
+
 // removes object from blobovnicza and returns DeleteSmallRes.
 func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.DeletePrm) (*DeleteSmallRes, error) {
 	_, err := blz.Delete(prm)
@@ -440,6 +551,24 @@ func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.
 	return &GetSmallRes{
 		roObject: roObject{
 			obj: res.Object(),
+		},
+	}, nil
+}
+
+// reads range of object payload data from blobovnicza and returns GetRangeSmallRes.
+func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *blobovnicza.GetRangePrm) (*GetRangeSmallRes, error) {
+	res, err := blz.GetRange(prm)
+	if err != nil {
+		if errors.Is(err, blobovnicza.ErrObjectNotFound) {
+			err = ErrObjectNotFound
+		}
+
+		return nil, err
+	}
+
+	return &GetRangeSmallRes{
+		rangeData: rangeData{
+			data: res.RangeData(),
 		},
 	}, nil
 }
