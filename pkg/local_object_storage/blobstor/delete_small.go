@@ -19,5 +19,5 @@ type DeleteSmallRes struct{}
 //
 // Returns ErrObjectNotFound if there is no object to delete.
 func (b *BlobStor) DeleteSmall(prm *DeleteSmallPrm) (*DeleteSmallRes, error) {
-	panic("implement me")
+	return b.blobovniczas.delete(prm)
 }
