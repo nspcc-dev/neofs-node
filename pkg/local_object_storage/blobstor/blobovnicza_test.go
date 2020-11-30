@@ -84,7 +84,7 @@ func TestBlobovniczas(t *testing.T) {
 	objSz := uint64(szLim / 2)
 
 	addrList := make([]*objectSDK.Address, 0)
-	minFitObjNum := 2 * 2 * szLim / objSz
+	minFitObjNum := width * depth * szLim / objSz
 
 	for i := uint64(0); i < minFitObjNum; i++ {
 		obj := testObject(objSz)
