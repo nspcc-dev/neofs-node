@@ -3,6 +3,7 @@ package blobstor
 import (
 	"encoding/hex"
 	"os"
+	"path"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -34,8 +35,6 @@ type cfg struct {
 
 	blzRootPath string
 
-	blzPerm os.FileMode
-
 	blzOpts []blobovnicza.Option
 }
 
@@ -48,6 +47,8 @@ const (
 	defaultBlzShallowDepth = 2
 	defaultBlzShallowWidth = 16
 )
+
+const blobovniczaDir = "blobovnicza"
 
 func defaultCfg() *cfg {
 	return &cfg{
@@ -132,6 +133,7 @@ func WithCompressObjects(comp bool, log *logger.Logger) Option {
 func WithTreeRootPath(rootDir string) Option {
 	return func(c *cfg) {
 		c.fsTree.RootPath = rootDir
+		c.blzRootPath = path.Join(rootDir, blobovniczaDir)
 	}
 }
 
@@ -140,6 +142,7 @@ func WithTreeRootPath(rootDir string) Option {
 func WithTreeRootPerm(perm os.FileMode) Option {
 	return func(c *cfg) {
 		c.fsTree.Permissions = perm
+		c.blzOpts = append(c.blzOpts, blobovnicza.WithPermissions(perm))
 	}
 }
 
@@ -181,22 +184,6 @@ func WithBlobovniczaShallowWidth(w uint64) Option {
 func WithBlobovniczaOpenedCacheSize(sz int) Option {
 	return func(c *cfg) {
 		c.openedCacheSize = sz
-	}
-}
-
-// WithBlobovniczaRootPath returns options to set
-// system path to blobovnicza's root.
-func WithBlobovniczaRootPath(root string) Option {
-	return func(c *cfg) {
-		c.blzRootPath = root
-	}
-}
-
-// WithBlobovniczaPersmissions returns options to specify
-// permission bits of blobovnicza tree.
-func WithBlobovniczaPersmissions(perm os.FileMode) Option {
-	return func(c *cfg) {
-		c.blzPerm = perm
 	}
 }
 
