@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"os"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -14,30 +15,36 @@ import (
 
 // DB represents local metabase of storage node.
 type DB struct {
-	info Info
-
 	*cfg
 
 	matchers map[object.SearchMatchType]func(string, []byte, string) bool
+
+	boltDB *bbolt.DB
 }
 
 // Option is an option of DB constructor.
 type Option func(*cfg)
 
 type cfg struct {
-	boltDB *bbolt.DB
+	boltOptions *bbolt.Options // optional
+
+	info Info
 
 	log *logger.Logger
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
+		info: Info{
+			Permission: os.ModePerm, // 0777
+		},
+
 		log: zap.L(),
 	}
 }
 
-// NewDB creates, initializes and returns DB instance.
-func NewDB(opts ...Option) *DB {
+// New creates and returns new Metabase instance.
+func New(opts ...Option) *DB {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -45,19 +52,12 @@ func NewDB(opts ...Option) *DB {
 	}
 
 	return &DB{
-		info: Info{
-			Path: c.boltDB.Path(),
-		},
 		cfg: c,
 		matchers: map[object.SearchMatchType]func(string, []byte, string) bool{
 			object.MatchUnknown:     unknownMatcher,
 			object.MatchStringEqual: stringEqualMatcher,
 		},
 	}
-}
-
-func (db *DB) Close() error {
-	return db.boltDB.Close()
 }
 
 func stringEqualMatcher(key string, objVal []byte, filterVal string) bool {
@@ -100,16 +100,31 @@ func bucketKeyHelper(hdr string, val string) []byte {
 	}
 }
 
-// FromBoltDB returns option to construct DB from BoltDB instance.
-func FromBoltDB(db *bbolt.DB) Option {
-	return func(c *cfg) {
-		c.boltDB = db
-	}
-}
-
 // WithLogger returns option to set logger of DB.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
+	}
+}
+
+// WithBoltDBOptions returns option to specify BoltDB options.
+func WithBoltDBOptions(opts *bbolt.Options) Option {
+	return func(c *cfg) {
+		c.boltOptions = opts
+	}
+}
+
+// WithPath returns option to set system path to Metabase.
+func WithPath(path string) Option {
+	return func(c *cfg) {
+		c.info.Path = path
+	}
+}
+
+// WithPermissions returns option to specify permission bits
+// of Metabase system path.
+func WithPermissions(perm os.FileMode) Option {
+	return func(c *cfg) {
+		c.info.Permission = perm
 	}
 }
