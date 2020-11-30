@@ -1,9 +1,5 @@
 package blobovnicza
 
-import (
-	"encoding/hex"
-)
-
 // ID represents Blobovnicza identifier.
 type ID []byte
 
@@ -13,5 +9,5 @@ func NewIDFromBytes(v []byte) *ID {
 }
 
 func (id ID) String() string {
-	return hex.EncodeToString(id)
+	return string(id)
 }
