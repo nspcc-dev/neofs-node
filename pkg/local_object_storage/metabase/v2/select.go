@@ -160,6 +160,9 @@ func (db *DB) selectFastFilter(
 	case v2object.FilterHeaderParent:
 		bucketName := parentBucketName(cid)
 		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
+	case v2object.FilterHeaderSplitID:
+		bucketName := splitBucketName(cid)
+		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
 	case v2object.FilterPropertyRoot:
 		selectAllFromBucket(tx, rootBucketName(cid), prefix, to, fNum)
 	case v2object.FilterPropertyPhy:
