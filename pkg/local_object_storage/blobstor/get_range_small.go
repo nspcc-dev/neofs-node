@@ -19,6 +19,6 @@ type GetRangeSmallRes struct {
 //
 // Returns any error encountered that
 // did not allow to completely read the object payload range.
-func (b *BlobStor) GetRangeSmall(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
-	panic("implement me")
+func (b *BlobStor) GetRangeSmall(prm *GetRangeSmallPrm) (*GetRangeSmallRes, error) {
+	return b.blobovniczas.getRange(prm)
 }
