@@ -2,7 +2,7 @@ package shard
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/atomic"
 )
@@ -47,7 +47,7 @@ func New(opts ...Option) *Shard {
 		cfg:      c,
 		mode:     atomic.NewUint32(0), // TODO: init with particular mode
 		blobStor: blobstor.New(c.blobOpts...),
-		metaBase: meta.NewDB(c.metaOpts...),
+		metaBase: meta.New(c.metaOpts...),
 	}
 }
 
