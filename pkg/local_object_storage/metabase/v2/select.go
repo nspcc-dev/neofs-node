@@ -127,8 +127,6 @@ func (db *DB) selectFastFilter(
 ) {
 	prefix := cid.String() + "/"
 
-	// todo: add splitID
-
 	switch f.Header() {
 	case v2object.FilterHeaderObjectID:
 		db.selectObjectID(tx, f, prefix, to, fNum)
@@ -154,6 +152,8 @@ func (db *DB) selectFastFilter(
 			bucketName = storageGroupBucketName(cid)
 		default:
 			db.log.Debug("unknown object type", zap.String("type", f.Value()))
+
+			return
 		}
 
 		selectAllFromBucket(tx, bucketName, prefix, to, fNum)
@@ -238,6 +238,8 @@ func (db *DB) selectFromList(
 	case object.MatchStringEqual:
 	default:
 		db.log.Debug("unknown operation", zap.Uint32("operation", uint32(f.Operation())))
+
+		return
 	}
 
 	// warning: it works only for MatchStringEQ, for NotEQ you should iterate over
@@ -267,6 +269,8 @@ func (db *DB) selectObjectID(
 	case object.MatchStringEqual:
 	default:
 		db.log.Debug("unknown operation", zap.Uint32("operation", uint32(f.Operation())))
+
+		return
 	}
 
 	// warning: it is in-place optimization and works only for MatchStringEQ,
@@ -320,6 +324,8 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *object.Address, f object.Sear
 		case v2object.FilterHeaderPayloadLength:
 			data = make([]byte, 8)
 			binary.LittleEndian.PutUint64(data, obj.PayloadSize())
+		default:
+			continue // ignore unknown search attributes
 		}
 
 		if !matchFunc(f[i].Header(), data, f[i].Value()) {
