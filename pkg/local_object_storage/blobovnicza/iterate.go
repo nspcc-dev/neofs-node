@@ -26,7 +26,7 @@ func (b *Blobovnicza) iterateBucketKeys(f func(uint64, uint64, []byte) (bool, er
 }
 
 func (b *Blobovnicza) iterateBounds(f func(uint64, uint64) (bool, error)) error {
-	for upper := firstBucketBound; upper <= b.objSizeLimit; upper *= 2 {
+	for upper := firstBucketBound; upper <= max(b.objSizeLimit, firstBucketBound); upper *= 2 {
 		var lower uint64
 
 		if upper == firstBucketBound {
@@ -43,4 +43,12 @@ func (b *Blobovnicza) iterateBounds(f func(uint64, uint64) (bool, error)) error 
 	}
 
 	return nil
+}
+
+func max(a, b uint64) uint64 {
+	if a > b {
+		return a
+	}
+
+	return b
 }
