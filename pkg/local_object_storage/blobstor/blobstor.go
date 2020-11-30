@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"os"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -24,11 +25,28 @@ type cfg struct {
 	decompressor func([]byte) ([]byte, error)
 
 	smallSizeLimit uint64
+
+	log *logger.Logger
+
+	openedCacheSize int
+
+	blzShallowDepth, blzShallowWidth uint64
+
+	blzRootPath string
+
+	blzPerm os.FileMode
+
+	blzOpts []blobovnicza.Option
 }
 
 const (
 	defaultShallowDepth = 4
 	defaultPerm         = 0700
+
+	defaultSmallSizeLimit  = 1 << 20 // 1MB
+	defaultOpenedCacheSize = 50
+	defaultBlzShallowDepth = 2
+	defaultBlzShallowWidth = 16
 )
 
 func defaultCfg() *cfg {
@@ -41,9 +59,13 @@ func defaultCfg() *cfg {
 				RootPath:    "./",
 			},
 		},
-		compressor:     noOpCompressor,
-		decompressor:   noOpDecompressor,
-		smallSizeLimit: 1 << 20,
+		compressor:      noOpCompressor,
+		decompressor:    noOpDecompressor,
+		smallSizeLimit:  defaultSmallSizeLimit,
+		log:             zap.L(),
+		openedCacheSize: defaultOpenedCacheSize,
+		blzShallowDepth: defaultBlzShallowDepth,
+		blzShallowWidth: defaultBlzShallowWidth,
 	}
 }
 
@@ -126,5 +148,62 @@ func WithTreeRootPerm(perm os.FileMode) Option {
 func WithSmallSizeLimit(lim uint64) Option {
 	return func(c *cfg) {
 		c.smallSizeLimit = lim
+		c.blzOpts = append(c.blzOpts, blobovnicza.WithObjectSizeLimit(lim))
+	}
+}
+
+// WithLogger returns option to specify BlobStor's logger.
+func WithLogger(l *logger.Logger) Option {
+	return func(c *cfg) {
+		c.log = l.With(zap.String("component", "BlobStor"))
+		c.blzOpts = append(c.blzOpts, blobovnicza.WithLogger(l))
+	}
+}
+
+// WithBlobovniczaShallowDepth returns option to specify
+// depth of blobovnicza directories.
+func WithBlobovniczaShallowDepth(d uint64) Option {
+	return func(c *cfg) {
+		c.blzShallowDepth = d
+	}
+}
+
+// WithBlobovniczaShallowWidth returns option to specify
+// width of blobovnicza directories.
+func WithBlobovniczaShallowWidth(w uint64) Option {
+	return func(c *cfg) {
+		c.blzShallowWidth = w
+	}
+}
+
+// WithBlobovniczaOpenedCacheSize return option to specify
+// maximum number of opened non-active blobovnicza's.
+func WithBlobovniczaOpenedCacheSize(sz int) Option {
+	return func(c *cfg) {
+		c.openedCacheSize = sz
+	}
+}
+
+// WithBlobovniczaRootPath returns options to set
+// system path to blobovnicza's root.
+func WithBlobovniczaRootPath(root string) Option {
+	return func(c *cfg) {
+		c.blzRootPath = root
+	}
+}
+
+// WithBlobovniczaPersmissions returns options to specify
+// permission bits of blobovnicza tree.
+func WithBlobovniczaPersmissions(perm os.FileMode) Option {
+	return func(c *cfg) {
+		c.blzPerm = perm
+	}
+}
+
+// WithBlobovniczaSize returns option to specify maximum volume
+// of each blobovnicza.
+func WithBlobovniczaSize(sz uint64) Option {
+	return func(c *cfg) {
+		c.blzOpts = append(c.blzOpts, blobovnicza.WithFullSizeLimit(sz))
 	}
 }
