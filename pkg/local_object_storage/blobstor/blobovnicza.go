@@ -463,10 +463,15 @@ func (b *blobovniczas) iterateSortedLeaves(addr *objectSDK.Address, f func(strin
 
 // iterator over directories with blobovniczas sorted by weight.
 func (b *blobovniczas) iterateDeepest(addr *objectSDK.Address, f func(string) (bool, error)) error {
+	depth := b.blzShallowDepth
+	if depth > 0 {
+		depth--
+	}
+
 	_, err := b.iterateSorted(
 		addr,
-		make([]string, 0, b.blzShallowDepth-1),
-		b.blzShallowDepth-1,
+		make([]string, 0, depth),
+		depth,
 		func(p []string) (bool, error) { return f(path.Join(p...)) },
 	)
 
