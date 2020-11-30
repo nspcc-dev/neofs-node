@@ -596,6 +596,28 @@ func (b *blobovniczas) init() error {
 	})
 }
 
+// closes blobovnicza tree.
+func (b *blobovniczas) close() error {
+	b.opened.Purge()
+
+	b.activeMtx.Lock()
+
+	for p, v := range b.active {
+		if err := v.blz.Close(); err != nil {
+			b.log.Debug("could not close active blobovnicza",
+				zap.String("path", p),
+				zap.String("error", err.Error()),
+			)
+		}
+
+		delete(b.active, p)
+	}
+
+	b.activeMtx.Unlock()
+
+	return nil
+}
+
 // opens and returns blobovnicza with path p.
 //
 // If blobovnicza is already opened and cached, instance from cache is returned w/o changes.
