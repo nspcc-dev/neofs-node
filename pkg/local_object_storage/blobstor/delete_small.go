@@ -3,6 +3,7 @@ package blobstor
 // DeleteSmallPrm groups the parameters of DeleteSmall operation.
 type DeleteSmallPrm struct {
 	address
+	rwBlobovniczaID
 }
 
 // DeleteSmallRes groups resulting values of DeleteSmall operation.
