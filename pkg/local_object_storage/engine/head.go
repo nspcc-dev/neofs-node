@@ -41,7 +41,7 @@ func (r *HeadRes) Header() *object.Object {
 // Returns any error encountered that
 // did not allow to completely read the object header.
 //
-// Returns ErrObjectNotFound if requested object is missing in local storage.
+// Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	var head *object.Object
 
@@ -51,7 +51,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
 		res, err := sh.Get(shPrm)
 		if err != nil {
-			if !errors.Is(err, shard.ErrObjectNotFound) {
+			if !errors.Is(err, object.ErrNotFound) {
 				// TODO: smth wrong with shard, need to be processed
 				e.log.Warn("could not get object from shard",
 					zap.Stringer("shard", sh.ID()),
@@ -66,7 +66,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	})
 
 	if head == nil {
-		return nil, ErrObjectNotFound
+		return nil, object.ErrNotFound
 	}
 
 	return &HeadRes{

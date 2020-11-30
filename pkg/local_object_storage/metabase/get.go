@@ -1,14 +1,10 @@
 package meta
 
 import (
-	"errors"
-
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
 )
-
-var errNotFound = errors.New("object not found")
 
 // Get returns object header for specified address.
 func (db *DB) Get(addr *objectSDK.Address) (*object.Object, error) {
@@ -19,17 +15,17 @@ func (db *DB) Get(addr *objectSDK.Address) (*object.Object, error) {
 
 		// check if object marked as deleted
 		if objectRemoved(tx, addrKey) {
-			return errNotFound
+			return object.ErrNotFound
 		}
 
 		primaryBucket := tx.Bucket(primaryBucket)
 		if primaryBucket == nil {
-			return errNotFound
+			return object.ErrNotFound
 		}
 
 		data := primaryBucket.Get(addrKey)
 		if data == nil {
-			return errNotFound
+			return object.ErrNotFound
 		}
 
 		var err error
