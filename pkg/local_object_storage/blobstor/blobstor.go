@@ -13,6 +13,8 @@ import (
 // BlobStor represents NeoFS local BLOB storage.
 type BlobStor struct {
 	*cfg
+
+	blobovniczas *blobovniczas
 }
 
 // Option represents BlobStor's constructor option.
@@ -79,7 +81,8 @@ func New(opts ...Option) *BlobStor {
 	}
 
 	return &BlobStor{
-		cfg: c,
+		cfg:          c,
+		blobovniczas: newBlobovniczaTree(c),
 	}
 }
 
