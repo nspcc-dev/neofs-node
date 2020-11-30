@@ -112,6 +112,32 @@ func TestBlobovniczas(t *testing.T) {
 		res, err = b.get(prm)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
+
+		// get range w/ blobovnicza ID
+		rngPrm := new(GetRangeSmallPrm)
+		rngPrm.SetBlobovniczaID(id)
+		rngPrm.SetAddress(obj.Address())
+
+		payload := obj.Payload()
+		pSize := uint64(len(obj.Payload()))
+
+		rng := objectSDK.NewRange()
+		rngPrm.SetRange(rng)
+
+		off, ln := pSize/3, 2*pSize/3
+		rng.SetOffset(off)
+		rng.SetLength(ln)
+
+		rngRes, err := b.getRange(rngPrm)
+		require.NoError(t, err)
+		require.Equal(t, payload[off:off+ln], rngRes.RangeData())
+
+		// get range w/o blobovnicza ID
+		rngPrm.SetBlobovniczaID(nil)
+
+		rngRes, err = b.getRange(rngPrm)
+		require.NoError(t, err)
+		require.Equal(t, payload[off:off+ln], rngRes.RangeData())
 	}
 
 	dPrm := new(DeleteSmallPrm)
