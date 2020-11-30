@@ -9,6 +9,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/hrw"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -216,7 +217,7 @@ func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
 
 		res, err = b.getObjectFromLevel(bPrm, p, !ok)
 		if err != nil {
-			if !errors.Is(err, ErrObjectNotFound) {
+			if !errors.Is(err, object.ErrNotFound) {
 				b.log.Debug("could not get object from level",
 					zap.String("level", p),
 					zap.String("error", err.Error()),
@@ -232,7 +233,7 @@ func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
 
 	if err == nil && res == nil {
 		// not found in any blobovnicza
-		err = ErrObjectNotFound
+		err = object.ErrNotFound
 	}
 
 	return
@@ -267,7 +268,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 
 		res, err = b.deleteObjectFromLevel(bPrm, p, !ok)
 		if err != nil {
-			if !errors.Is(err, ErrObjectNotFound) {
+			if !errors.Is(err, object.ErrNotFound) {
 				b.log.Debug("could not remove object from level",
 					zap.String("level", p),
 					zap.String("error", err.Error()),
@@ -287,7 +288,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 
 	if err == nil && res == nil {
 		// not found in any blobovnicza
-		err = ErrObjectNotFound
+		err = object.ErrNotFound
 	}
 
 	return
@@ -322,7 +323,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 
 		res, err = b.getRangeFromLevel(bPrm, p, !ok)
 		if err != nil {
-			if !errors.Is(err, ErrObjectNotFound) {
+			if !errors.Is(err, object.ErrNotFound) {
 				b.log.Debug("could not get object from level",
 					zap.String("level", p),
 					zap.String("error", err.Error()),
@@ -338,7 +339,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 
 	if err == nil && res == nil {
 		// not found in any blobovnicza
-		err = ErrObjectNotFound
+		err = object.ErrNotFound
 	}
 
 	return
@@ -359,7 +360,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	if ok {
 		if res, err := b.deleteObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
 			return res, err
-		} else if !errors.Is(err, ErrObjectNotFound) {
+		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not remove object from opened blobovnicza",
 				zap.String("error", err.Error()),
 			)
@@ -377,7 +378,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	if ok && tryActive {
 		if res, err := b.deleteObject(active.blz, prm); err == nil {
 			return res, err
-		} else if !errors.Is(err, ErrObjectNotFound) {
+		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not remove object from active blobovnicza",
 				zap.String("error", err.Error()),
 			)
@@ -391,7 +392,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	// and it's pointless to open them).
 	if u64FromHexString(path.Base(blzPath)) > active.ind {
 		log.Debug("index is too big")
-		return nil, ErrObjectNotFound
+		return nil, object.ErrNotFound
 	}
 
 	// open blobovnicza (cached inside)
@@ -418,7 +419,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 	if ok {
 		if res, err := b.getObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
 			return res, err
-		} else if !errors.Is(err, ErrObjectNotFound) {
+		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not read object from opened blobovnicza",
 				zap.String("error", err.Error()),
 			)
@@ -437,7 +438,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 	if ok && tryActive {
 		if res, err := b.getObject(active.blz, prm); err == nil {
 			return res, err
-		} else if !errors.Is(err, ErrObjectNotFound) {
+		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not get object from active blobovnicza",
 				zap.String("error", err.Error()),
 			)
@@ -451,7 +452,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 	// and it's pointless to open them).
 	if u64FromHexString(path.Base(blzPath)) > active.ind {
 		log.Debug("index is too big")
-		return nil, ErrObjectNotFound
+		return nil, object.ErrNotFound
 	}
 
 	// open blobovnicza (cached inside)
@@ -478,7 +479,7 @@ func (b *blobovniczas) getRangeFromLevel(prm *blobovnicza.GetRangePrm, blzPath s
 	if ok {
 		if res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm); err == nil {
 			return res, err
-		} else if !errors.Is(err, ErrObjectNotFound) {
+		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not read payload range from opened blobovnicza",
 				zap.String("error", err.Error()),
 			)
@@ -497,7 +498,7 @@ func (b *blobovniczas) getRangeFromLevel(prm *blobovnicza.GetRangePrm, blzPath s
 	if ok && tryActive {
 		if res, err := b.getObjectRange(active.blz, prm); err == nil {
 			return res, err
-		} else if !errors.Is(err, ErrObjectNotFound) {
+		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not read payload range from active blobovnicza",
 				zap.String("error", err.Error()),
 			)
@@ -511,7 +512,7 @@ func (b *blobovniczas) getRangeFromLevel(prm *blobovnicza.GetRangePrm, blzPath s
 	// and it's pointless to open them).
 	if u64FromHexString(path.Base(blzPath)) > active.ind {
 		log.Debug("index is too big")
-		return nil, ErrObjectNotFound
+		return nil, object.ErrNotFound
 	}
 
 	// open blobovnicza (cached inside)
@@ -527,10 +528,6 @@ func (b *blobovniczas) getRangeFromLevel(prm *blobovnicza.GetRangePrm, blzPath s
 func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.DeletePrm) (*DeleteSmallRes, error) {
 	_, err := blz.Delete(prm)
 	if err != nil {
-		if errors.Is(err, blobovnicza.ErrObjectNotFound) {
-			err = ErrObjectNotFound
-		}
-
 		return nil, err
 	}
 
@@ -541,10 +538,6 @@ func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnic
 func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.GetPrm) (*GetSmallRes, error) {
 	res, err := blz.Get(prm)
 	if err != nil {
-		if errors.Is(err, blobovnicza.ErrObjectNotFound) {
-			err = ErrObjectNotFound
-		}
-
 		return nil, err
 	}
 
@@ -559,10 +552,6 @@ func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.
 func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *blobovnicza.GetRangePrm) (*GetRangeSmallRes, error) {
 	res, err := blz.GetRange(prm)
 	if err != nil {
-		if errors.Is(err, blobovnicza.ErrObjectNotFound) {
-			err = ErrObjectNotFound
-		}
-
 		return nil, err
 	}
 

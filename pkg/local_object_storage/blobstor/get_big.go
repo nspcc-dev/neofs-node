@@ -19,19 +19,19 @@ type GetBigRes struct {
 	roObject
 }
 
-// ErrObjectNotFound is returns on read operations requested on a missing object.
-var ErrObjectNotFound = errors.New("object not found")
-
 // GetBig reads the object from shallow dir of BLOB storage by address.
 //
 // Returns any error encountered that
 // did not allow to completely read the object.
+//
+// Returns ErrNotFound if requested object is not
+// presented in shallow dir.
 func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.get(prm.addr)
 	if err != nil {
 		if errors.Is(err, errFileNotFound) {
-			return nil, ErrObjectNotFound
+			return nil, object.ErrNotFound
 		}
 
 		return nil, errors.Wrap(err, "could not read object from fs tree")

@@ -1,16 +1,17 @@
 package meta
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 )
 
 // Exists checks if object is presented in metabase.
-func (db *DB) Exists(addr *object.Address) (bool, error) {
+func (db *DB) Exists(addr *objectSDK.Address) (bool, error) {
 	// FIXME: temp solution, avoid direct Get usage
 	_, err := db.Get(addr)
 	if err != nil {
-		if errors.Is(err, errNotFound) {
+		if errors.Is(err, object.ErrNotFound) {
 			return false, nil
 		}
 

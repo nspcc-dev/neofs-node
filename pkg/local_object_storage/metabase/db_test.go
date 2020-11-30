@@ -244,7 +244,7 @@ func TestVirtualObject(t *testing.T) {
 
 	// parent object must not be readable
 	_, err = db.Get(parAddr)
-	require.True(t, errors.Is(err, errNotFound))
+	require.True(t, errors.Is(err, object.ErrNotFound))
 
 	fs := objectSDK.SearchFilters{}
 

@@ -1,8 +1,6 @@
 package shard
 
 import (
-	"errors"
-
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -21,9 +19,6 @@ type GetPrm struct {
 type GetRes struct {
 	obj *object.Object
 }
-
-// ErrObjectNotFound is returns on read operations requested on a missing object.
-var ErrObjectNotFound = errors.New("object not found")
 
 // WithAddress is a Get option to set the address of the requested object.
 //
@@ -72,7 +67,7 @@ func (r *GetRes) Object() *object.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns ErrObjectNotFound if requested object is missing in shard.
+// Returns ErrNotFound if requested object is missing in shard.
 func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	if prm.ln < 0 {
 		// try to read from WriteCache
@@ -84,10 +79,6 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 
 		res, err := s.blobStor.GetBig(getBigPrm)
 		if err != nil {
-			if errors.Is(err, blobstor.ErrObjectNotFound) {
-				err = ErrObjectNotFound
-			}
-
 			return nil, err
 		}
 
@@ -120,10 +111,6 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 
 	res, err := s.blobStor.GetRangeBig(getRngBigPrm)
 	if err != nil {
-		if errors.Is(err, blobstor.ErrObjectNotFound) {
-			err = ErrObjectNotFound
-		}
-
 		return nil, err
 	}
 
