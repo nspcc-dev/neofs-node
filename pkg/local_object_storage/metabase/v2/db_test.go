@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 )
 
 func testSelect(t *testing.T, db *meta.DB, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
@@ -51,10 +50,11 @@ func testOID() *objectSDK.ID {
 func newDB(t testing.TB) *meta.DB {
 	path := t.Name()
 
-	bdb, err := bbolt.Open(path, 0600, nil)
-	require.NoError(t, err)
+	bdb := meta.New(meta.WithPath(path), meta.WithPermissions(0600))
 
-	return meta.NewDB(meta.FromBoltDB(bdb))
+	require.NoError(t, bdb.Open())
+
+	return bdb
 }
 
 func releaseDB(db *meta.DB) {
