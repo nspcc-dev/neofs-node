@@ -358,3 +358,52 @@ func TestDB_SelectObjectID(t *testing.T) {
 		testSelect(t, db, fs, parent.Object().Address())
 	})
 }
+
+func TestDB_SelectSplitID(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	cid := testCID()
+
+	child1 := generateRawObjectWithCID(t, cid)
+	child2 := generateRawObjectWithCID(t, cid)
+	child3 := generateRawObjectWithCID(t, cid)
+
+	split1 := objectSDK.NewSplitID()
+	split2 := objectSDK.NewSplitID()
+
+	child1.SetSplitID(split1)
+	child2.SetSplitID(split1)
+	child3.SetSplitID(split2)
+
+	require.NoError(t, db.Put(child1.Object(), nil))
+	require.NoError(t, db.Put(child2.Object(), nil))
+	require.NoError(t, db.Put(child3.Object(), nil))
+
+	t.Run("split id", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddFilter(v2object.FilterHeaderSplitID, split1.String(), objectSDK.MatchStringEqual)
+		testSelect(t, db, fs,
+			child1.Object().Address(),
+			child2.Object().Address(),
+		)
+
+		fs = generateSearchFilter(cid)
+		fs.AddFilter(v2object.FilterHeaderSplitID, split2.String(), objectSDK.MatchStringEqual)
+		testSelect(t, db, fs, child3.Object().Address())
+	})
+
+	t.Run("empty split", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddFilter(v2object.FilterHeaderSplitID, "", objectSDK.MatchStringEqual)
+		testSelect(t, db, fs)
+	})
+
+	t.Run("unknown split id", func(t *testing.T) {
+		fs := generateSearchFilter(cid)
+		fs.AddFilter(v2object.FilterHeaderSplitID,
+			objectSDK.NewSplitID().String(),
+			objectSDK.MatchStringEqual)
+		testSelect(t, db, fs)
+	})
+}
