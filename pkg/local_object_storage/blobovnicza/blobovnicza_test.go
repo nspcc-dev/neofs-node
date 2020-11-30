@@ -109,7 +109,7 @@ func TestBlobovnicza(t *testing.T) {
 	require.NoError(t, blz.Init())
 
 	// try to read non-existent address
-	testGet(t, blz, testAddress(), nil, ErrObjectNotFound)
+	testGet(t, blz, testAddress(), nil, object.ErrNotFound)
 
 	filled := uint64(15 * 1 << 10)
 
@@ -124,7 +124,7 @@ func TestBlobovnicza(t *testing.T) {
 	require.NoError(t, err)
 
 	// should return 404
-	testGet(t, blz, addr, nil, ErrObjectNotFound)
+	testGet(t, blz, addr, nil, object.ErrNotFound)
 
 	// fill Blobovnicza fully
 	for ; filled < sizeLim; filled += objSizeLim {

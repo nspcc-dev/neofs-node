@@ -21,9 +21,6 @@ type GetRes struct {
 	obj *object.Object
 }
 
-// ErrObjectNotFound is returns on read operations requested on a missing object.
-var ErrObjectNotFound = errors.New("object not found")
-
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
@@ -59,7 +56,7 @@ func (r *GetRes) Object() *object.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns ErrObjectNotFound if requested object is missing in local storage.
+// Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 	var obj *object.Object
 
@@ -75,7 +72,7 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
 		res, err := sh.Get(shPrm)
 		if err != nil {
-			if !errors.Is(err, shard.ErrObjectNotFound) {
+			if !errors.Is(err, object.ErrNotFound) {
 				// TODO: smth wrong with shard, need to be processed
 				e.log.Warn("could not get object from shard",
 					zap.Stringer("shard", sh.ID()),
@@ -90,7 +87,7 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 	})
 
 	if obj == nil {
-		return nil, ErrObjectNotFound
+		return nil, object.ErrNotFound
 	}
 
 	return &GetRes{
