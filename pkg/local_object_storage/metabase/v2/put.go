@@ -105,7 +105,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, isParent
 func uniqueIndexes(obj *object.Object, isParent bool, id *blobovnicza.ID) ([]namedBucketItem, error) {
 	addr := obj.Address()
 	objKey := objectKey(addr.ObjectID())
-	result := make([]namedBucketItem, 0, 2)
+	result := make([]namedBucketItem, 0, 3)
 
 	// add value to primary unique bucket
 	if !isParent {
@@ -157,7 +157,7 @@ func uniqueIndexes(obj *object.Object, isParent bool, id *blobovnicza.ID) ([]nam
 
 // builds list of <list> indexes from the object.
 func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
-	result := make([]namedBucketItem, 0, 1)
+	result := make([]namedBucketItem, 0, 3)
 	addr := obj.Address()
 	objKey := objectKey(addr.ObjectID())
 
@@ -168,6 +168,7 @@ func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
 		val:  objKey,
 	})
 
+	// index parent ids
 	if obj.ParentID() != nil {
 		result = append(result, namedBucketItem{
 			name: parentBucketName(addr.ContainerID()),
@@ -176,7 +177,14 @@ func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
 		})
 	}
 
-	// todo: index splitID
+	// index split ids
+	if obj.SplitID() != nil {
+		result = append(result, namedBucketItem{
+			name: splitBucketName(addr.ContainerID()),
+			key:  obj.SplitID().ToV2(),
+			val:  objKey,
+		})
+	}
 
 	return result, nil
 }

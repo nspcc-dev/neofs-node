@@ -86,6 +86,15 @@ func bucketKeyHelper(hdr string, val string) []byte {
 		}
 
 		return v
+	case v2object.FilterHeaderSplitID:
+		s := object.NewSplitID()
+
+		err := s.Parse(val)
+		if err != nil {
+			return nil
+		}
+
+		return s.ToV2()
 	default:
 		return []byte(val)
 	}
