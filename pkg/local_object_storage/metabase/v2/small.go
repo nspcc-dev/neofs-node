@@ -27,7 +27,9 @@ func (db *DB) isSmall(tx *bbolt.Tx, addr *objectSDK.Address) (*blobovnicza.ID, e
 	}
 
 	blobovniczaID := smallBucket.Get(objectKey(addr.ObjectID()))
-	id := blobovnicza.NewIDFromBytes(blobovniczaID)
+	if len(blobovniczaID) == 0 {
+		return nil, nil
+	}
 
-	return id, nil
+	return blobovnicza.NewIDFromBytes(blobovniczaID), nil
 }
