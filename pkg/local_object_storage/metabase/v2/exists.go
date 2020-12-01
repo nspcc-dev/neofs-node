@@ -2,6 +2,7 @@ package meta
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
 )
 
@@ -20,7 +21,7 @@ func (db *DB) Exists(addr *objectSDK.Address) (exists bool, err error) {
 func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err error) {
 	// check graveyard first
 	if inGraveyard(tx, addr) {
-		return false, ErrAlreadyRemoved
+		return false, object.ErrAlreadyRemoved
 	}
 
 	objKey := objectKey(addr.ObjectID())

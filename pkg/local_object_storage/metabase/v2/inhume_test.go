@@ -3,7 +3,7 @@ package meta_test
 import (
 	"testing"
 
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +23,8 @@ func TestDB_Inhume(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = db.Exists(raw.Object().Address())
-	require.EqualError(t, err, meta.ErrAlreadyRemoved.Error())
+	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
 
 	_, err = db.Get(raw.Object().Address())
-	require.EqualError(t, err, meta.ErrAlreadyRemoved.Error())
+	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
 }
