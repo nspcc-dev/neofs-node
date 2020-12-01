@@ -32,6 +32,8 @@ type cfg struct {
 
 	metaOpts []meta.Option
 
+	writeCacheOpts []blobstor.Option
+
 	log *logger.Logger
 }
 
@@ -51,10 +53,11 @@ func New(opts ...Option) *Shard {
 
 	if c.useWriteCache {
 		writeCache = blobstor.New(
-			blobstor.WithBlobovniczaShallowDepth(0),
-			blobstor.WithBlobovniczaShallowWidth(1),
-			blobstor.WithLogger(c.log),
-			// ? what about path
+			append(c.blobOpts, append(
+				c.writeCacheOpts,
+				blobstor.WithBlobovniczaShallowDepth(0),
+				blobstor.WithBlobovniczaShallowWidth(1))...,
+			)...,
 		)
 	}
 
@@ -85,6 +88,13 @@ func WithBlobStorOptions(opts ...blobstor.Option) Option {
 func WithMetaBaseOptions(opts ...meta.Option) Option {
 	return func(c *cfg) {
 		c.metaOpts = opts
+	}
+}
+
+// WithMetaBaseOptions returns option to set internal metabase options.
+func WithWriteCacheOptions(opts ...blobstor.Option) Option {
+	return func(c *cfg) {
+		c.writeCacheOpts = opts
 	}
 }
 
