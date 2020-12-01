@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/stretchr/testify/require"
 )
 
@@ -114,34 +115,21 @@ func TestTraverserObjectScenarios(t *testing.T) {
 
 		tr, err := NewTraverser(
 			ForContainer(cnr),
-			UseBuilder(&testBuilder{vectors: nodesCopy}),
+			UseBuilder(&testBuilder{
+				vectors: nodesCopy,
+			}),
 			SuccessAfter(1),
 		)
 		require.NoError(t, err)
 
-		fn := func(curVector int) {
-			for i := 0; i < selectors[curVector]; i++ {
-				addrs := tr.Next()
-				require.Len(t, addrs, 1)
-
-				require.Equal(t, nodes[curVector][i].Address(), addrs[0].String())
-			}
-
-			require.Empty(t, tr.Next())
-			require.False(t, tr.Success())
-
-			tr.SubmitSuccess()
+		for i := 0; i < len(nodes[0]); i++ {
+			require.NotNil(t, tr.Next())
 		}
 
-		for i := range selectors {
-			fn(i)
+		n, err := network.AddressFromString(nodes[1][0].Address())
+		require.NoError(t, err)
 
-			if i < len(selectors)-1 {
-				require.False(t, tr.Success())
-			} else {
-				require.True(t, tr.Success())
-			}
-		}
+		require.Equal(t, []*network.Address{n}, tr.Next())
 	})
 
 	t.Run("put scenario", func(t *testing.T) {
@@ -185,5 +173,33 @@ func TestTraverserObjectScenarios(t *testing.T) {
 				require.True(t, tr.Success())
 			}
 		}
+	})
+
+	t.Run("local operation scenario", func(t *testing.T) {
+		selectors := []int{2, 3}
+		replicas := []int{1, 2}
+
+		nodes, cnr := testPlacement(t, selectors, replicas)
+
+		tr, err := NewTraverser(
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{
+				vectors: []netmap.Nodes{{nodes[1][1]}}, // single node (local)
+			}),
+			SuccessAfter(1),
+		)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, tr.Next())
+		require.False(t, tr.Success())
+
+		// add 1 OK
+		tr.SubmitSuccess()
+
+		// nothing more to do
+		require.Empty(t, tr.Next())
+
+		// common success
+		require.True(t, tr.Success())
 	})
 }
