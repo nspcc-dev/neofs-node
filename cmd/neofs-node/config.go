@@ -449,6 +449,7 @@ func initShardOptions(c *cfg) {
 			configPath(writeCachePrefix, cfgBlobStorTreePath),
 		)
 		if useCache && writeCachePath == "" {
+			c.log.Warn("incorrect writeCache path, ignore shard")
 			break
 		}
 
@@ -458,6 +459,7 @@ func initShardOptions(c *cfg) {
 			configPath(blobPrefix, cfgBlobStorTreePath),
 		)
 		if blobPath == "" {
+			c.log.Warn("incorrect blobStor path, ignore shard")
 			break
 		}
 
@@ -543,6 +545,10 @@ func initShardOptions(c *cfg) {
 			zap.String("metabase path", metaPath),
 			zap.Stringer("metabase permissions", metaPerm),
 		)
+	}
+
+	if len(opts) == 0 {
+		fatalOnErr(errors.New("no correctly set up shards, exit"))
 	}
 
 	c.cfgObject.cfgLocalStorage.shardOpts = opts
