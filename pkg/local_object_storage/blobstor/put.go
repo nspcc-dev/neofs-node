@@ -42,7 +42,7 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		return new(PutRes), b.fsTree.put(prm.obj.Address(), data)
 	} else {
 		// save object in blobovnicza
-		res, err := b.blobovniczas.put(prm.obj.Address(), b.compressor(data))
+		res, err := b.blobovniczas.put(prm.obj.Address(), data)
 		if err != nil {
 			return nil, err
 		}
