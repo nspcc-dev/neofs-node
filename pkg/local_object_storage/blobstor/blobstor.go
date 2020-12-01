@@ -131,18 +131,18 @@ func WithCompressObjects(comp bool, log *logger.Logger) Option {
 	}
 }
 
-// WithTreeRootPath returns option to set path to root directory
+// WithRootPath returns option to set path to root directory
 // of the fs tree to write the objects.
-func WithTreeRootPath(rootDir string) Option {
+func WithRootPath(rootDir string) Option {
 	return func(c *cfg) {
 		c.fsTree.RootPath = rootDir
 		c.blzRootPath = path.Join(rootDir, blobovniczaDir)
 	}
 }
 
-// WithTreeRootPerm returns option to set permission
+// WithRootPerm returns option to set permission
 // bits of the fs tree.
-func WithTreeRootPerm(perm os.FileMode) Option {
+func WithRootPerm(perm os.FileMode) Option {
 	return func(c *cfg) {
 		c.fsTree.Permissions = perm
 		c.blzOpts = append(c.blzOpts, blobovnicza.WithPermissions(perm))
