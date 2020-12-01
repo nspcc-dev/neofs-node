@@ -67,7 +67,7 @@ func TestBlobovniczas(t *testing.T) {
 		WithSmallSizeLimit(szLim),
 		WithBlobovniczaShallowWidth(width),
 		WithBlobovniczaShallowDepth(depth),
-		WithTreeRootPath(p),
+		WithRootPath(p),
 		WithBlobovniczaSize(szLim),
 	} {
 		opt(c)
