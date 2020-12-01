@@ -63,11 +63,11 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 		payload = append(payload, t.chunks[i]...)
 	}
 
-	if err := t.fmt.ValidateContent(t.obj.Type(), payload); err != nil {
+	t.obj.SetPayload(payload)
+
+	if err := t.fmt.ValidateContent(t.obj.Object().SDK()); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not validate payload content", t)
 	}
-
-	t.obj.SetPayload(payload)
 
 loop:
 	for {

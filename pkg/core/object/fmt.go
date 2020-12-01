@@ -23,7 +23,7 @@ type cfg struct {
 
 // DeleteHandler is an interface of delete queue processor.
 type DeleteHandler interface {
-	DeleteObjects(...*object.Address)
+	DeleteObjects(*object.Address, ...*object.Address)
 }
 
 var errNilObject = errors.New("object is nil")
@@ -108,14 +108,14 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 }
 
 // ValidateContent validates payload content according to object type.
-func (v *FormatValidator) ValidateContent(t object.Type, payload []byte) error {
-	switch t {
+func (v *FormatValidator) ValidateContent(o *object.Object) error {
+	switch o.Type() {
 	case object.TypeTombstone:
-		if len(payload) == 0 {
+		if len(o.Payload()) == 0 {
 			return errors.Errorf("(%T) empty payload in tombstone", v)
 		}
 
-		content, err := TombstoneContentFromBytes(payload)
+		content, err := TombstoneContentFromBytes(o.Payload())
 		if err != nil {
 			return errors.Wrapf(err, "(%T) could not parse tombstone content", err)
 		}
@@ -128,8 +128,12 @@ func (v *FormatValidator) ValidateContent(t object.Type, payload []byte) error {
 			}
 		}
 
+		tsAddr := new(object.Address)
+		tsAddr.SetContainerID(o.ContainerID())
+		tsAddr.SetObjectID(o.ID())
+
 		if v.deleteHandler != nil {
-			v.deleteHandler.DeleteObjects(addrList...)
+			v.deleteHandler.DeleteObjects(tsAddr, addrList...)
 		}
 	}
 

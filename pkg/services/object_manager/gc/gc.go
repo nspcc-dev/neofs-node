@@ -35,8 +35,8 @@ type cfg struct {
 
 // Remover is an interface of the component that stores objects.
 type Remover interface {
-	// Delete removes (or marks to remove) object from physical storage.
-	Delete(*object.Address) error
+	// Delete removes object from physical storage.
+	Delete(...*object.Address) error
 }
 
 func defaultCfg() *cfg {
