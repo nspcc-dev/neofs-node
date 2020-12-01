@@ -13,6 +13,8 @@ type Shard struct {
 
 	mode *atomic.Uint32
 
+	writeCache *blobstor.BlobStor
+
 	blobStor *blobstor.BlobStor
 
 	metaBase *meta.DB
@@ -45,11 +47,23 @@ func New(opts ...Option) *Shard {
 		opts[i](c)
 	}
 
+	var writeCache *blobstor.BlobStor
+
+	if c.useWriteCache {
+		writeCache = blobstor.New(
+			blobstor.WithBlobovniczaShallowDepth(0),
+			blobstor.WithBlobovniczaShallowWidth(1),
+			blobstor.WithLogger(c.log),
+			// ? what about path
+		)
+	}
+
 	return &Shard{
-		cfg:      c,
-		mode:     atomic.NewUint32(0), // TODO: init with particular mode
-		blobStor: blobstor.New(c.blobOpts...),
-		metaBase: meta.New(c.metaOpts...),
+		cfg:        c,
+		mode:       atomic.NewUint32(0), // TODO: init with particular mode
+		blobStor:   blobstor.New(c.blobOpts...),
+		metaBase:   meta.New(c.metaOpts...),
+		writeCache: writeCache,
 	}
 }
 
@@ -86,4 +100,9 @@ func WithWriteCache(use bool) Option {
 	return func(c *cfg) {
 		c.useWriteCache = use
 	}
+}
+
+// hasWriteCache returns bool if write cache exists on shars.
+func (s Shard) hasWriteCache() bool {
+	return s.cfg.useWriteCache
 }
