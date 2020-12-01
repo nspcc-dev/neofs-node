@@ -26,7 +26,7 @@ func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard bool) (*
 	cid := addr.ContainerID()
 
 	if checkGraveyard && inGraveyard(tx, addr) {
-		return nil, ErrAlreadyRemoved
+		return nil, object.ErrAlreadyRemoved
 	}
 
 	// check in primary index
@@ -63,7 +63,7 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte) (*object.Object, error) {
 	parentBucket := tx.Bucket(parentBucketName(cid))
 	if parentBucket == nil {
-		return nil, ErrNotFound
+		return nil, object.ErrNotFound
 	}
 
 	relativeLst, err := decodeList(parentBucket.Get(key))
@@ -72,7 +72,7 @@ func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte) (*object.Obje
 	}
 
 	if len(relativeLst) == 0 { // this should never happen though
-		return nil, ErrNotFound
+		return nil, object.ErrNotFound
 	}
 
 	// pick last item, for now there is not difference which address to pick
@@ -89,7 +89,7 @@ func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte) (*object.Obje
 	}
 
 	if child.GetParent() == nil { // this should never happen though
-		return nil, ErrNotFound
+		return nil, object.ErrNotFound
 	}
 
 	return child.GetParent(), nil

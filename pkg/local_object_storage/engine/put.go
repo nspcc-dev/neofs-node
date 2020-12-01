@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -43,7 +42,7 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 	// todo: make this check parallel
 	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
 		_, err := s.Exists(existPrm)
-		if err != nil && errors.Is(err, meta.ErrAlreadyRemoved) {
+		if err != nil && errors.Is(err, object.ErrAlreadyRemoved) {
 			alreadyRemoved = true
 
 			return true
@@ -53,7 +52,7 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 	})
 
 	if alreadyRemoved {
-		return nil, meta.ErrAlreadyRemoved
+		return nil, object.ErrAlreadyRemoved
 	}
 
 	finished := false
