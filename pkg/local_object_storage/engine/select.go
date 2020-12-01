@@ -35,11 +35,12 @@ func (r *SelectRes) AddressList() []*object.Address {
 // Returns any error encountered that did not allow to completely select the objects.
 func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 	addrList := make([]*object.Address, 0)
+	uniqueMap := make(map[string]struct{})
 
 	shPrm := new(shard.SelectPrm).
 		WithFilters(prm.filters)
 
-	e.iterateOverSortedShards(nil, func(_ int, sh *shard.Shard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
 			// TODO: smth wrong with shard, need to be processed
@@ -48,7 +49,12 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 				zap.String("error", err.Error()),
 			)
 		} else {
-			addrList = append(addrList, res.AddressList()...)
+			for _, addr := range res.AddressList() { // save only unique values
+				if _, ok := uniqueMap[addr.String()]; !ok {
+					uniqueMap[addr.String()] = struct{}{}
+					addrList = append(addrList, addr)
+				}
+			}
 		}
 
 		return false
