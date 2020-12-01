@@ -177,17 +177,27 @@ type localObjectRemover struct {
 	log *logger.Logger
 }
 
-func (r *localObjectRemover) Delete(addr *objectSDK.Address) error {
+type localObjectInhumer struct {
+	storage *engine.StorageEngine
+
+	log *logger.Logger
+}
+
+func (r *localObjectRemover) Delete(addr ...*objectSDK.Address) error {
 	_, err := r.storage.Delete(new(engine.DeletePrm).
-		WithAddress(addr),
+		WithAddress(addr...),
 	)
 
 	return err
 }
 
-func (r *localObjectRemover) DeleteObjects(list ...*objectSDK.Address) {
-	for _, a := range list {
-		if err := r.Delete(a); err != nil {
+func (r *localObjectInhumer) DeleteObjects(ts *objectSDK.Address, addr ...*objectSDK.Address) {
+	prm := new(engine.InhumePrm)
+
+	for _, a := range addr {
+		prm.WithTarget(a, ts)
+
+		if _, err := r.storage.Inhume(prm); err != nil {
 			r.log.Error("could not delete object",
 				zap.Stringer("address", a),
 				zap.String("error", err.Error()),
@@ -209,6 +219,11 @@ func initObjectService(c *cfg) {
 	clientCache := cache.NewSDKClientCache()
 
 	objRemover := &localObjectRemover{
+		storage: ls,
+		log:     c.log,
+	}
+
+	objInhumer := &localObjectInhumer{
 		storage: ls,
 		log:     c.log,
 	}
@@ -287,7 +302,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		putsvc.WithLocalAddressSource(c),
 		putsvc.WithFormatValidatorOpts(
-			objectCore.WithDeleteHandler(objRemover),
+			objectCore.WithDeleteHandler(objInhumer),
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPool(c.cfgObject.pool.put),
