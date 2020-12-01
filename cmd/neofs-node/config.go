@@ -510,9 +510,9 @@ func initShardOptions(c *cfg) {
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithBlobStorOptions(
-				blobstor.WithTreeRootPath(blobPath),
+				blobstor.WithRootPath(blobPath),
 				blobstor.WithCompressObjects(compressObjects, c.log),
-				blobstor.WithTreeRootPerm(blobPerm),
+				blobstor.WithRootPerm(blobPerm),
 				blobstor.WithShallowDepth(shallowDepth),
 				blobstor.WithSmallSizeLimit(smallSzLimit),
 				blobstor.WithBlobovniczaSize(blzSize),
@@ -528,7 +528,7 @@ func initShardOptions(c *cfg) {
 			),
 			shard.WithWriteCache(useCache),
 			shard.WithWriteCacheOptions(
-				blobstor.WithTreeRootPath(writeCachePath),
+				blobstor.WithRootPath(writeCachePath),
 			),
 		})
 
