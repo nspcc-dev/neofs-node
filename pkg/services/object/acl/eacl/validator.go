@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -160,8 +159,8 @@ func matchFilters(hdrSrc TypedHeaderSource, filters []*eacl.Filter) int {
 func targetMatches(unit *ValidationUnit, record *eacl.Record) bool {
 	for _, target := range record.Targets() {
 		// check public key match
-		for _, key := range target.Keys() {
-			if bytes.Equal(crypto.MarshalPublicKey(&key), unit.key) {
+		for _, key := range target.BinaryKeys() {
+			if bytes.Equal(key, unit.key) {
 				return true
 			}
 		}

@@ -124,12 +124,12 @@ func TestHeadRequest(t *testing.T) {
 
 	senderKey := test.DecodeKey(-1).PublicKey
 
-	r := new(eacl.Record)
+	r := eacl.NewRecord()
 	r.SetOperation(eacl.OperationHead)
 	r.SetAction(eacl.ActionDeny)
 	r.AddFilter(eacl.HeaderFromObject, eacl.MatchStringEqual, attrKey, attrVal)
 	r.AddFilter(eacl.HeaderFromRequest, eacl.MatchStringEqual, xKey, xVal)
-	r.AddTarget(eacl.RoleUnknown, senderKey)
+	eacl.AddFormedTarget(r, eacl.RoleUnknown, senderKey)
 
 	table.AddRecord(r)
 
