@@ -5,7 +5,6 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -75,7 +74,7 @@ func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
-			case errors.Is(err, meta.ErrAlreadyRemoved):
+			case errors.Is(err, object.ErrAlreadyRemoved):
 				alreadyRemoved = true
 
 				return true // stop, return it back
@@ -98,7 +97,7 @@ func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 
 	if obj == nil {
 		if alreadyRemoved {
-			return nil, meta.ErrAlreadyRemoved
+			return nil, object.ErrAlreadyRemoved
 		}
 
 		return nil, object.ErrNotFound
