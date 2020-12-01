@@ -39,13 +39,19 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		data = b.compressor(data)
 
 		// save object in shallow dir
-		return nil, b.fsTree.put(prm.obj.Address(), data)
+		return new(PutRes), b.fsTree.put(prm.obj.Address(), data)
 	} else {
 		// save object in blobovnicza
+		res, err := b.blobovniczas.put(prm.obj.Address(), b.compressor(data))
+		if err != nil {
+			return nil, err
+		}
 
-		// FIXME: use Blobovnicza when it becomes implemented.
-		//  Temporary save in shallow dir.
-		return nil, b.fsTree.put(prm.obj.Address(), b.compressor(data))
+		return &PutRes{
+			roBlobovniczaID: roBlobovniczaID{
+				blobovniczaID: res,
+			},
+		}, nil
 	}
 }
 
