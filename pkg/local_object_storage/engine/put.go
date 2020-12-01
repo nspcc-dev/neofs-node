@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -34,60 +35,78 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
-	// choose shards through sorting by weight
-	sortedShards := e.sortShardsByWeight(prm.obj.Address())
+	alreadyRemoved := false // first check if object has not been marked as removed
 
-	// check object existence
-	if e.objectExists(prm.obj, sortedShards) {
-		return nil, nil
+	existPrm := new(shard.ExistsPrm)
+	existPrm.WithAddress(prm.obj.Address())
+
+	// todo: make this check parallel
+	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
+		_, err := s.Exists(existPrm)
+		if err != nil && errors.Is(err, meta.ErrAlreadyRemoved) {
+			alreadyRemoved = true
+
+			return true
+		}
+
+		return false
+	})
+
+	if alreadyRemoved {
+		return nil, meta.ErrAlreadyRemoved
 	}
 
-	shPrm := new(shard.PutPrm)
+	finished := false
 
-	// save the object into the "largest" possible shard
-	for _, sh := range sortedShards {
-		_, err := sh.sh.Put(
-			shPrm.WithObject(prm.obj),
-		)
-
+	e.iterateOverSortedShards(prm.obj.Address(), func(ind int, s *shard.Shard) (stop bool) {
+		exists, err := s.Exists(existPrm)
 		if err != nil {
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not save object in shard",
-				zap.Stringer("shard", sh.sh.ID()),
+			return false // this is not ErrAlreadyRemoved error so we can go to the next shard
+		}
+
+		if exists.Exists() {
+			if ind != 0 {
+				toMoveItPrm := new(shard.ToMoveItPrm)
+				toMoveItPrm.WithAddress(prm.obj.Address())
+
+				_, err = s.ToMoveIt(toMoveItPrm)
+				if err != nil {
+					e.log.Warn("could not mark object for shard relocation",
+						zap.Stringer("shard", s.ID()),
+						zap.String("error", err.Error()),
+					)
+				}
+			}
+
+			finished = true
+
+			return true
+		}
+
+		putPrm := new(shard.PutPrm)
+		putPrm.WithObject(prm.obj)
+
+		_, err = s.Put(putPrm)
+		if err != nil {
+			e.log.Warn("could not put object in shard",
+				zap.Stringer("shard", s.ID()),
 				zap.String("error", err.Error()),
 			)
-		} else {
-			return nil, nil
+
+			return false
 		}
+
+		finished = true
+		return true
+	})
+
+	var err error = nil
+
+	if !finished {
+		err = errPutShard
 	}
 
-	return nil, errPutShard
-}
-
-func (e *StorageEngine) objectExists(obj *object.Object, shards []hashedShard) bool {
-	exists := false
-
-	for _, sh := range shards {
-		res, err := sh.sh.Exists(
-			new(shard.ExistsPrm).
-				WithAddress(obj.Address()),
-		)
-
-		if err != nil {
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not check object existence",
-				zap.String("error", err.Error()),
-			)
-
-			continue
-		}
-
-		if exists = res.Exists(); exists {
-			break
-		}
-	}
-
-	return exists
+	return nil, err
 }
 
 // Put writes provided object to local storage.

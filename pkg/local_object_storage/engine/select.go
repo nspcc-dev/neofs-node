@@ -39,7 +39,7 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 	shPrm := new(shard.SelectPrm).
 		WithFilters(prm.filters)
 
-	e.iterateOverSortedShards(nil, func(sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(nil, func(_ int, sh *shard.Shard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
 			// TODO: smth wrong with shard, need to be processed
