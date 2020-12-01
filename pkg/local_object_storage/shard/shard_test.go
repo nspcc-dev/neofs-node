@@ -42,6 +42,8 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
 			blobstor.WithRootPath(path.Join(rootPath, "wcache")),
+			blobstor.WithBlobovniczaShallowWidth(1),
+			blobstor.WithBlobovniczaShallowDepth(0),
 		),
 	}
 

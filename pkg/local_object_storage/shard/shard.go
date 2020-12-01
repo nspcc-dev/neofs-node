@@ -53,11 +53,7 @@ func New(opts ...Option) *Shard {
 
 	if c.useWriteCache {
 		writeCache = blobstor.New(
-			append(c.blobOpts, append(
-				c.writeCacheOpts,
-				blobstor.WithBlobovniczaShallowDepth(0),
-				blobstor.WithBlobovniczaShallowWidth(1))...,
-			)...,
+			append(c.blobOpts, c.writeCacheOpts...)...,
 		)
 	}
 
