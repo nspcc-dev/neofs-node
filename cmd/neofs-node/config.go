@@ -531,6 +531,8 @@ func initShardOptions(c *cfg) {
 			shard.WithWriteCache(useCache),
 			shard.WithWriteCacheOptions(
 				blobstor.WithRootPath(writeCachePath),
+				blobstor.WithBlobovniczaShallowDepth(0),
+				blobstor.WithBlobovniczaShallowWidth(1),
 			),
 		})
 
