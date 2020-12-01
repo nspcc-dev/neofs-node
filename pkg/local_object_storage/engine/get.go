@@ -69,7 +69,7 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 		shPrm = shPrm.WithRange(prm.off, int64(prm.ln))
 	}
 
-	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
 		res, err := sh.Get(shPrm)
 		if err != nil {
 			if !errors.Is(err, object.ErrNotFound) {

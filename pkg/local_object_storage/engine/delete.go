@@ -33,7 +33,7 @@ func (e *StorageEngine) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	shPrm := new(shard.DeletePrm).
 		WithAddress(prm.addr)
 
-	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
 		_, err := sh.Delete(shPrm)
 		if err != nil {
 			// TODO: smth wrong with shard, need to be processed

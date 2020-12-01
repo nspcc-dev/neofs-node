@@ -71,8 +71,29 @@ func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []hashedShard {
 	return shards
 }
 
-func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler func(*shard.Shard) (stop bool)) {
-	for _, sh := range e.sortShardsByWeight(addr) {
+func (e *StorageEngine) unsortedShards() []hashedShard {
+	e.mtx.RLock()
+	defer e.mtx.RUnlock()
+
+	shards := make([]hashedShard, 0, len(e.shards))
+
+	for _, sh := range e.shards {
+		shards = append(shards, hashedShard{sh})
+	}
+
+	return shards
+}
+
+func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler func(int, *shard.Shard) (stop bool)) {
+	for i, sh := range e.sortShardsByWeight(addr) {
+		if handler(i, sh.sh) {
+			break
+		}
+	}
+}
+
+func (e *StorageEngine) iterateOverUnsortedShards(handler func(*shard.Shard) (stop bool)) {
+	for _, sh := range e.unsortedShards() {
 		if handler(sh.sh) {
 			break
 		}

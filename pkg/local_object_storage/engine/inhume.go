@@ -30,7 +30,7 @@ func (p *InhumePrm) WithTarget(addr, tombstone *objectSDK.Address) *InhumePrm {
 func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 	shPrm := new(shard.InhumePrm).WithTarget(prm.addr, prm.tombstone)
 
-	e.iterateOverSortedShards(prm.addr, func(sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
 		_, err := sh.Inhume(shPrm)
 		if err != nil {
 			// TODO: smth wrong with shard, need to be processed
