@@ -1,17 +1,20 @@
 package shard
 
 import (
+	"fmt"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 )
 
+// storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
+// method. It represents generalization of `getSmall` and `getBig` methods.
+type storFetcher = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error)
+
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	ln int64 // negative value for full range
-
-	off uint64
-
 	addr *objectSDK.Address
 }
 
@@ -31,93 +34,94 @@ func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
 	return p
 }
 
-// WithFullRange is a Get option to receive full object payload.
-func (p *GetPrm) WithFullRange() *GetPrm {
-	if p != nil {
-		p.ln = -1
-	}
-
-	return p
-}
-
-// WithRange is a Get option to set range of requested payload data.
-//
-// Calling with negative length is equivalent
-// to getting the full payload range.
-//
-// Calling with zero length is equivalent
-// to getting the object header.
-func (p *GetPrm) WithRange(off uint64, ln int64) *GetPrm {
-	if p != nil {
-		p.off, p.ln = off, ln
-	}
-
-	return p
-}
-
-// Object returns the requested object part.
-//
-// Instance payload contains the requested range of the original object.
+// Object returns the requested object.
 func (r *GetRes) Object() *object.Object {
 	return r.obj
 }
 
-// Get reads part of an object from shard.
+// Get reads an object from shard.
 //
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns ErrNotFound if requested object is missing in shard.
+// Returns object.ErrNotFound if requested object is missing in shard.
 func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
-	if prm.ln < 0 {
-		// try to read from WriteCache
-		// TODO: implement
+	var big, small storFetcher
 
-		// form GetBig parameters
+	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*object.Object, error) {
 		getBigPrm := new(blobstor.GetBigPrm)
 		getBigPrm.SetAddress(prm.addr)
 
-		res, err := s.blobStor.GetBig(getBigPrm)
+		res, err := stor.GetBig(getBigPrm)
 		if err != nil {
 			return nil, err
 		}
 
-		return &GetRes{
-			obj: res.Object(),
-		}, nil
-	} else if prm.ln == 0 {
-		head, err := s.metaBase.Get(prm.addr)
-		if err != nil {
-			return nil, err
-		}
-
-		return &GetRes{
-			obj: head,
-		}, nil
+		return res.Object(), nil
 	}
 
-	// try to read from WriteCache
-	// TODO: implement
+	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
+		getSmallPrm := new(blobstor.GetSmallPrm)
+		getSmallPrm.SetAddress(prm.addr)
+		getSmallPrm.SetBlobovniczaID(id)
 
-	// form GetRangeBig parameters
-	getRngBigPrm := new(blobstor.GetRangeBigPrm)
-	getRngBigPrm.SetAddress(prm.addr)
+		res, err := stor.GetSmall(getSmallPrm)
+		if err != nil {
+			return nil, err
+		}
 
-	rng := objectSDK.NewRange()
-	rng.SetOffset(prm.off)
-	rng.SetLength(uint64(prm.ln))
+		return res.Object(), nil
+	}
 
-	getRngBigPrm.SetRange(rng)
+	obj, err := s.fetchObjectData(prm.addr, big, small)
 
-	res, err := s.blobStor.GetRangeBig(getRngBigPrm)
+	return &GetRes{
+		obj: obj,
+	}, err
+}
+
+// fetchObjectData looks through writeCache and blobStor to find object.
+func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher) (*object.Object, error) {
+	var (
+		err error
+		res *object.Object
+	)
+
+	if s.hasWriteCache() {
+		res, err = small(s.writeCache, nil)
+		if err == nil {
+			return res, nil
+		}
+
+		s.log.Debug("miss in writeCache blobovnicza")
+
+		res, err = big(s.writeCache, nil)
+		if err == nil {
+			return res, nil
+		}
+
+		s.log.Debug("miss in writeCache shallow dir")
+	}
+
+	exists, err := s.metaBase.Exists(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	obj := object.NewRaw()
-	obj.SetPayload(res.RangeData())
+	if !exists {
+		return nil, object.ErrNotFound
+	}
 
-	return &GetRes{
-		obj: obj.Object(),
-	}, nil
+	blobovniczaID, err := s.metaBase.IsSmall(addr)
+	if err != nil {
+		return nil, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
+	}
+
+	if blobovniczaID != nil {
+		res, err = small(s.blobStor, blobovniczaID)
+	} else {
+		res, err = big(s.blobStor, nil)
+	}
+
+	return res, err
 }
