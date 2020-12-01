@@ -34,26 +34,13 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
-	alreadyRemoved := false // first check if object has not been marked as removed
+	_, err := e.exists(prm.obj.Address()) // todo: make this check parallel
+	if err != nil {
+		return nil, err
+	}
 
 	existPrm := new(shard.ExistsPrm)
 	existPrm.WithAddress(prm.obj.Address())
-
-	// todo: make this check parallel
-	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
-		_, err := s.Exists(existPrm)
-		if err != nil && errors.Is(err, object.ErrAlreadyRemoved) {
-			alreadyRemoved = true
-
-			return true
-		}
-
-		return false
-	})
-
-	if alreadyRemoved {
-		return nil, object.ErrAlreadyRemoved
-	}
 
 	finished := false
 
@@ -96,10 +83,9 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 		}
 
 		finished = true
+
 		return true
 	})
-
-	var err error = nil
 
 	if !finished {
 		err = errPutShard
