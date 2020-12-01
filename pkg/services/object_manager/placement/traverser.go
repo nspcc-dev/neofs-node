@@ -35,7 +35,9 @@ type Traverser struct {
 }
 
 type cfg struct {
-	rem int
+	trackCopies bool
+
+	flatSuccess *uint32
 
 	addr *object.Address
 
@@ -52,7 +54,8 @@ var errNilPolicy = errors.New("placement policy is nil")
 
 func defaultCfg() *cfg {
 	return &cfg{
-		addr: object.NewAddress(),
+		trackCopies: true,
+		addr:        object.NewAddress(),
 	}
 }
 
@@ -77,17 +80,21 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		return nil, errors.Wrap(err, "could not build placement")
 	}
 
-	rs := cfg.policy.Replicas()
-	rem := make([]int, 0, len(rs))
+	var rem []int
+	if cfg.flatSuccess != nil {
+		ns = flatNodes(ns)
+		rem = []int{int(*cfg.flatSuccess)}
+	} else {
+		rs := cfg.policy.Replicas()
+		rem = make([]int, 0, len(rs))
 
-	for i := range rs {
-		cnt := cfg.rem
-
-		if cnt == 0 {
-			cnt = int(rs[i].Count())
+		for i := range rs {
+			if cfg.trackCopies {
+				rem = append(rem, int(rs[i].Count()))
+			} else {
+				rem = append(rem, -1)
+			}
 		}
-
-		rem = append(rem, cnt)
 	}
 
 	return &Traverser{
@@ -95,6 +102,20 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		rem:     rem,
 		vectors: ns,
 	}, nil
+}
+
+func flatNodes(ns []netmap.Nodes) []netmap.Nodes {
+	sz := 0
+	for i := range ns {
+		sz += len(ns[i])
+	}
+
+	flat := make(netmap.Nodes, 0, sz)
+	for i := range ns {
+		flat = append(flat, ns[i]...)
+	}
+
+	return []netmap.Nodes{flat}
 }
 
 // Next returns next unprocessed address of the object placement.
@@ -193,13 +214,13 @@ func ForObject(id *object.ID) Option {
 	}
 }
 
-// SuccessAfter is a success number setting option.
+// SuccessAfter is a flat success number setting option.
 //
 // Option has no effect if the number is not positive.
-func SuccessAfter(v int) Option {
+func SuccessAfter(v uint32) Option {
 	return func(c *cfg) {
 		if v > 0 {
-			c.rem = v
+			c.flatSuccess = &v
 		}
 	}
 }
@@ -207,6 +228,6 @@ func SuccessAfter(v int) Option {
 // WithoutSuccessTracking disables success tracking in traversal.
 func WithoutSuccessTracking() Option {
 	return func(c *cfg) {
-		c.rem = -1
+		c.trackCopies = false
 	}
 }
