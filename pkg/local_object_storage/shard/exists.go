@@ -2,7 +2,6 @@ package shard
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/pkg/errors"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
@@ -35,13 +34,10 @@ func (p *ExistsRes) Exists() bool {
 // unambiguously determine the presence of an object.
 func (s *Shard) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 	exists, err := s.objectExists(prm.addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not check object presence in metabase")
-	}
 
 	return &ExistsRes{
 		ex: exists,
-	}, nil
+	}, err
 }
 
 func (s *Shard) objectExists(addr *object.Address) (bool, error) {
