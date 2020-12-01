@@ -43,29 +43,47 @@ func (r *HeadRes) Header() *object.Object {
 //
 // Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
-	var head *object.Object
+	var (
+		head *object.Object
 
-	shPrm := new(shard.GetPrm).
+		alreadyRemoved = false
+	)
+
+	shPrm := new(shard.HeadPrm).
 		WithAddress(prm.addr)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
-		res, err := sh.Get(shPrm)
+		res, err := sh.Head(shPrm)
 		if err != nil {
-			if !errors.Is(err, object.ErrNotFound) {
-				// TODO: smth wrong with shard, need to be processed
-				e.log.Warn("could not get object from shard",
+			switch {
+			case errors.Is(err, object.ErrNotFound):
+				return false // ignore, go to next shard
+			case errors.Is(err, object.ErrAlreadyRemoved):
+				alreadyRemoved = true
+
+				return true // stop, return it back
+			default:
+				// TODO: smth wrong with shard, need to be processed, but
+				// still go to next shard
+				e.log.Warn("could not head object from shard",
 					zap.Stringer("shard", sh.ID()),
 					zap.String("error", err.Error()),
 				)
+
+				return false
 			}
-		} else {
-			head = res.Object()
 		}
 
-		return err == nil
+		head = res.Object()
+
+		return true
 	})
 
 	if head == nil {
+		if alreadyRemoved {
+			return nil, object.ErrAlreadyRemoved
+		}
+
 		return nil, object.ErrNotFound
 	}
 
