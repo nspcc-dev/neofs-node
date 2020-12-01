@@ -28,28 +28,35 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
-	// check object existence
-	ex, err := s.objectExists(prm.obj.Address())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not check object existence")
-	} else if ex {
-		return nil, nil
-	}
-
-	// try to put to WriteCache
-	// TODO: implement
-
-	// form Put parameters
-	putPrm := new(blobstor.PutPrm)
+	putPrm := new(blobstor.PutPrm) // form Put parameters
 	putPrm.SetObject(prm.obj)
 
-	// put to BlobStor
-	if _, err := s.blobStor.Put(putPrm); err != nil {
-		return nil, errors.Wrap(err, "could not put object to BLOB storage")
+	// exist check are not performed there, these checks should be executed
+	// ahead of `Put` by storage engine
+
+	var (
+		err error
+		res *blobstor.PutRes
+	)
+
+	if s.hasWriteCache() {
+		res, err = s.writeCache.Put(putPrm)
+		if err != nil {
+			s.log.Debug("can't put message to writeCache, trying to blobStor")
+
+			res = nil // just in case
+		}
+	}
+
+	// res == nil if there is no writeCache or writeCache.Put has been failed
+	if res == nil {
+		if res, err = s.blobStor.Put(putPrm); err != nil {
+			return nil, errors.Wrap(err, "could not put object to BLOB storage")
+		}
 	}
 
 	// put to metabase
-	if err := s.metaBase.Put(prm.obj, nil); err != nil {
+	if err := s.metaBase.Put(prm.obj, res.BlobovniczaID()); err != nil {
 		// may we need to handle this case in a special way
 		// since the object has been successfully written to BlobStor
 		return nil, errors.Wrap(err, "could not put object to metabase")
