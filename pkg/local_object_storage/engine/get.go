@@ -5,14 +5,13 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	off, ln uint64
-
 	addr *objectSDK.Address
 }
 
@@ -32,61 +31,59 @@ func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
 	return p
 }
 
-// WithPayloadRange is a Get option to set range of requested payload data.
-//
-// Missing an option or calling with zero length is equivalent
-// to getting the full payload range.
-func (p *GetPrm) WithPayloadRange(off, ln uint64) *GetPrm {
-	if p != nil {
-		p.off, p.ln = off, ln
-	}
-
-	return p
-}
-
-// Object returns the requested object part.
-//
-// Instance payload contains the requested range of the original object.
+// Object returns the requested object.
 func (r *GetRes) Object() *object.Object {
 	return r.obj
 }
 
-// Get reads part of an object from local storage.
+// Get reads an object from local storage.
 //
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
 // Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
-	var obj *object.Object
+	var (
+		obj *object.Object
+
+		alreadyRemoved = false
+	)
 
 	shPrm := new(shard.GetPrm).
 		WithAddress(prm.addr)
 
-	if prm.ln == 0 {
-		shPrm = shPrm.WithFullRange()
-	} else {
-		shPrm = shPrm.WithRange(prm.off, int64(prm.ln))
-	}
-
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
 		res, err := sh.Get(shPrm)
 		if err != nil {
-			if !errors.Is(err, object.ErrNotFound) {
-				// TODO: smth wrong with shard, need to be processed
+			switch {
+			case errors.Is(err, object.ErrNotFound):
+				return false // ignore, go to next shard
+			case errors.Is(err, meta.ErrAlreadyRemoved):
+				alreadyRemoved = true
+
+				return true // stop, return it back
+			default:
+				// TODO: smth wrong with shard, need to be processed, but
+				// still go to next shard
 				e.log.Warn("could not get object from shard",
 					zap.Stringer("shard", sh.ID()),
 					zap.String("error", err.Error()),
 				)
+
+				return false
 			}
-		} else {
-			obj = res.Object()
 		}
 
-		return err == nil
+		obj = res.Object()
+
+		return true
 	})
 
 	if obj == nil {
+		if alreadyRemoved {
+			return nil, meta.ErrAlreadyRemoved
+		}
+
 		return nil, object.ErrNotFound
 	}
 
@@ -105,17 +102,4 @@ func Get(storage *StorageEngine, addr *objectSDK.Address) (*object.Object, error
 	}
 
 	return res.Object(), nil
-}
-
-// GetRange reads object payload range from local storage by provided address.
-func GetRange(storage *StorageEngine, addr *objectSDK.Address, rng *objectSDK.Range) ([]byte, error) {
-	res, err := storage.Get(new(GetPrm).
-		WithAddress(addr).
-		WithPayloadRange(rng.GetOffset(), rng.GetLength()),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Object().Payload(), nil
 }
