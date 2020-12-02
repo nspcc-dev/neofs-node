@@ -34,10 +34,12 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, errors.Wrap(err, "could not marshal the object")
 	}
 
-	if b.isBig(data) {
-		// compress object data
-		data = b.compressor(data)
+	big := b.isBig(data)
 
+	// compress object data
+	data = b.compressor(data)
+
+	if big {
 		// save object in shallow dir
 		return new(PutRes), b.fsTree.put(prm.obj.Address(), data)
 	} else {
