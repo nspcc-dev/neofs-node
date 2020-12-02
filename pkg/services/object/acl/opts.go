@@ -1,10 +1,10 @@
 package acl
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 )
 
@@ -23,7 +23,7 @@ func WithSenderClassifier(v SenderClassifier) Option {
 }
 
 // WithNextService returns option to set next object service.
-func WithNextService(v object.Service) Option {
+func WithNextService(v objectSvc.ServiceServer) Option {
 	return func(c *cfg) {
 		c.next = v
 	}

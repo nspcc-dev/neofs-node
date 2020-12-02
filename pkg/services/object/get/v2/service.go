@@ -1,10 +1,11 @@
 package getsvc
 
 import (
-	"context"
-
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
 
@@ -18,6 +19,8 @@ type Option func(*cfg)
 
 type cfg struct {
 	svc *getsvc.Service
+
+	keyStorage *objutil.KeyStorage
 }
 
 // NewService constructs Service instance from provided options.
@@ -34,17 +37,33 @@ func NewService(opts ...Option) *Service {
 }
 
 // Get calls internal service and returns v2 object stream.
-func (s *Service) Get(ctx context.Context, req *objectV2.GetRequest) (objectV2.GetObjectStreamer, error) {
-	stream, err := s.svc.Get(ctx, toPrm(req))
+func (s *Service) Get(req *objectV2.GetRequest, stream objectSvc.GetObjectStream) error {
+	p, err := s.toPrm(req, stream)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not get object payload range data", s)
+		return err
 	}
 
-	return fromResponse(stream), nil
+	err = s.svc.Get(stream.Context(), *p)
+
+	var splitErr *object.SplitInfoError
+
+	switch {
+	case errors.As(err, &splitErr):
+		return stream.Send(splitInfoResponse(splitErr.SplitInfo()))
+	default:
+		return err
+	}
 }
 
 func WithInternalService(v *getsvc.Service) Option {
 	return func(c *cfg) {
 		c.svc = v
+	}
+}
+
+// WithKeyStorage returns option to set local private key storage.
+func WithKeyStorage(ks *objutil.KeyStorage) Option {
+	return func(c *cfg) {
+		c.keyStorage = ks
 	}
 }

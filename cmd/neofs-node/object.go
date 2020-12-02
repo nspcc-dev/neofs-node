@@ -155,8 +155,8 @@ func (s *objectSvc) Search(ctx context.Context, req *object.SearchRequest) (obje
 	return s.search.Search(ctx, req)
 }
 
-func (s *objectSvc) Get(ctx context.Context, req *object.GetRequest) (object.GetObjectStreamer, error) {
-	return s.get.Get(ctx, req)
+func (s *objectSvc) Get(req *object.GetRequest, stream objectService.GetObjectStream) error {
+	return s.get.Get(req, stream)
 }
 
 func (s *objectSvc) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
@@ -291,6 +291,8 @@ func initObjectService(c *cfg) {
 		}
 	})
 
+	traverseGen := util.NewTraverserGenerator(c.cfgObject.netMapStorage, c.cfgObject.cnrStorage, c)
+
 	c.workers = append(c.workers, pol)
 
 	sPut := putsvc.NewService(
@@ -372,12 +374,24 @@ func initObjectService(c *cfg) {
 		rangesvcV2.WithInternalService(sRange),
 	)
 
-	sGet := getsvc.NewService(
-		getsvc.WithRangeService(sRange),
+	sGet := getsvc.New(
+		getsvc.WithLogger(c.log),
+		getsvc.WithLocalStorageEngine(ls),
+		getsvc.WithClientCache(clientCache),
+		getsvc.WithHeadService(sHead),
+		getsvc.WithClientOptions(
+			client.WithDialTimeout(c.viper.GetDuration(cfgObjectGetDialTimeout)),
+		),
+		getsvc.WithTraverserGenerator(
+			traverseGen.WithTraverseOptions(
+				placement.SuccessAfter(1),
+			),
+		),
 	)
 
 	sGetV2 := getsvcV2.NewService(
 		getsvcV2.WithInternalService(sGet),
+		getsvcV2.WithKeyStorage(keyStorage),
 	)
 
 	sRangeHash := rangehashsvc.NewService(

@@ -40,3 +40,11 @@ func (s *Service) HandleServerStreamRequest(ctx context.Context, req interface{}
 		recv: msgRdr,
 	}, nil
 }
+
+func (s *Service) HandleServerStreamRequest_(respWriter util.ResponseMessageWriter) util.ResponseMessageWriter {
+	return func(resp util.ResponseMessage) error {
+		setMeta(resp, s.cfg)
+
+		return respWriter(resp)
+	}
+}
