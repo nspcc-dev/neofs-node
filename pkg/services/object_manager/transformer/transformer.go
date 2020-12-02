@@ -29,6 +29,8 @@ type payloadSizeLimiter struct {
 	chunkWriter io.Writer
 
 	splitID *objectSDK.SplitID
+
+	parAttrs []*objectSDK.Attribute
 }
 
 type payloadChecksumHasher struct {
@@ -78,10 +80,7 @@ func (s *payloadSizeLimiter) initialize() {
 	if ln := len(s.previous); ln > 0 {
 		// initialize parent object once (after 1st object)
 		if ln == 1 {
-			s.parent = s.current
-			s.current = fromObject(s.parent)
-			s.parent.ResetRelations()
-			s.parentHashers = s.currentHashers
+			s.detachParent()
 		}
 
 		// set previous object to the last previous identifier
@@ -228,9 +227,7 @@ func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
 	// statement is true if the previous write of bytes reached exactly the boundary.
 	if s.written > 0 && s.written%s.maxSize == 0 {
 		if s.written == s.maxSize {
-			// initialize split header with split ID on first object in chain
-			s.current.InitRelations()
-			s.current.SetSplitID(s.splitID)
+			s.prepareFirstChild()
 		}
 
 		// we need to release current object
@@ -266,4 +263,26 @@ func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
 	}
 
 	return nil
+}
+
+func (s *payloadSizeLimiter) prepareFirstChild() {
+	// initialize split header with split ID on first object in chain
+	s.current.InitRelations()
+	s.current.SetSplitID(s.splitID)
+
+	// cut source attributes
+	s.parAttrs = s.current.Attributes()
+	s.current.SetAttributes()
+
+	// attributes will be added to parent in detachParent
+}
+
+func (s *payloadSizeLimiter) detachParent() {
+	s.parent = s.current
+	s.current = fromObject(s.parent)
+	s.parent.ResetRelations()
+	s.parentHashers = s.currentHashers
+
+	// return source attributes
+	s.parent.SetAttributes(s.parAttrs...)
 }
