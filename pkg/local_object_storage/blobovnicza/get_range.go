@@ -49,9 +49,14 @@ func (b *Blobovnicza) GetRange(prm *GetRangePrm) (*GetRangeRes, error) {
 		return nil, err
 	}
 
+	// FIXME: code below is incorrect because Get returns raw object data
+	//  so we should unmarshal payload from it before. If blobovnicza
+	//  stores objects in non-protocol format (e.g. compressed)
+	//  then it should not provide GetRange method.
+
 	from := prm.rng.GetOffset()
 	to := from + prm.rng.GetLength()
-	payload := res.obj.Payload()
+	payload := res.obj
 
 	if from > to {
 		return nil, errors.Errorf("invalid range [%d:%d]", from, to)
