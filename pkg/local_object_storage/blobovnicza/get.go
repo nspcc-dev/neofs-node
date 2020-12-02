@@ -3,7 +3,6 @@ package blobovnicza
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -15,7 +14,7 @@ type GetPrm struct {
 
 // GetRes groups resulting values of Get operation.
 type GetRes struct {
-	obj *object.Object
+	obj []byte
 }
 
 // SetAddress sets address of the requested object.
@@ -23,8 +22,8 @@ func (p *GetPrm) SetAddress(addr *objectSDK.Address) {
 	p.addr = addr
 }
 
-// Object returns the requested object.
-func (p *GetRes) Object() *object.Object {
+// Object returns binary representation of the requested object.
+func (p *GetRes) Object() []byte {
 	return p.obj
 }
 
@@ -64,15 +63,7 @@ func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 		return nil, object.ErrNotFound
 	}
 
-	// TODO: add decompression step
-
-	// unmarshal the object
-	obj := object.New()
-	if err := obj.Unmarshal(data); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal the object")
-	}
-
 	return &GetRes{
-		obj: obj,
+		obj: data,
 	}, nil
 }

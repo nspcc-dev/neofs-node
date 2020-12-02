@@ -301,17 +301,13 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 //
 // TODO:quite similar to GET, can be unified
 func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, err error) {
-	bPrm := new(blobovnicza.GetRangePrm)
-	bPrm.SetAddress(prm.addr)
-	bPrm.SetRange(prm.rng)
-
 	if prm.blobovniczaID != nil {
 		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
 		if err != nil {
 			return nil, err
 		}
 
-		return b.getObjectRange(blz, bPrm)
+		return b.getObjectRange(blz, prm)
 	}
 
 	activeCache := make(map[string]struct{})
@@ -321,7 +317,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 
 		_, ok := activeCache[dirPath]
 
-		res, err = b.getRangeFromLevel(bPrm, p, !ok)
+		res, err = b.getRangeFromLevel(prm, p, !ok)
 		if err != nil {
 			if !errors.Is(err, object.ErrNotFound) {
 				b.log.Debug("could not get object from level",
@@ -467,7 +463,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 // tries to read range of object payload data from particular blobovnicza.
 //
 // returns error if object could not be read from any blobovnicza of the same level.
-func (b *blobovniczas) getRangeFromLevel(prm *blobovnicza.GetRangePrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
+func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
 	lvlPath := path.Dir(blzPath)
 
 	log := b.log.With(
@@ -541,23 +537,62 @@ func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.
 		return nil, err
 	}
 
+	// decompress the data
+	data, err := b.decompressor(res.Object())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not decompress object data")
+	}
+
+	// unmarshal the object
+	obj := object.New()
+	if err := obj.Unmarshal(data); err != nil {
+		return nil, errors.Wrap(err, "could not unmarshal the object")
+	}
+
 	return &GetSmallRes{
 		roObject: roObject{
-			obj: res.Object(),
+			obj: obj,
 		},
 	}, nil
 }
 
 // reads range of object payload data from blobovnicza and returns GetRangeSmallRes.
-func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *blobovnicza.GetRangePrm) (*GetRangeSmallRes, error) {
-	res, err := blz.GetRange(prm)
+func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *GetRangeSmallPrm) (*GetRangeSmallRes, error) {
+	gPrm := new(blobovnicza.GetPrm)
+	gPrm.SetAddress(prm.addr)
+
+	// we don't use GetRange call for now since blobovnicza
+	// stores data that is compressed on BlobStor side.
+	// If blobovnicza learns to do the compression itself,
+	// wecan start using GetRange.
+	res, err := blz.Get(gPrm)
 	if err != nil {
 		return nil, err
 	}
 
+	// decompress the data
+	data, err := b.decompressor(res.Object())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not decompress object data")
+	}
+
+	// unmarshal the object
+	obj := object.New()
+	if err := obj.Unmarshal(data); err != nil {
+		return nil, errors.Wrap(err, "could not unmarshal the object")
+	}
+
+	from := prm.rng.GetOffset()
+	to := from + prm.rng.GetLength()
+	payload := obj.Payload()
+
+	if uint64(len(payload)) < to {
+		return nil, object.ErrRangeOutOfBounds
+	}
+
 	return &GetRangeSmallRes{
 		rangeData: rangeData{
-			data: res.RangeData(),
+			data: payload[from:to],
 		},
 	}, nil
 }

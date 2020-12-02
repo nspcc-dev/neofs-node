@@ -55,12 +55,15 @@ func testObject(sz uint64) *object.Object {
 }
 
 func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error) *objectSDK.Address {
-	// create new object
-	obj := testObject(sz)
+	// create binary object
+	data := make([]byte, sz)
+
+	addr := testAddress()
 
 	// try to save object in Blobovnicza
 	pPut := new(PutPrm)
-	pPut.SetObject(obj)
+	pPut.SetAddress(addr)
+	pPut.SetMarshaledObject(data)
 	_, err := blz.Put(pPut)
 	require.True(t, errors.Is(err, expPut))
 
@@ -68,12 +71,12 @@ func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error)
 		return nil
 	}
 
-	testGet(t, blz, obj.Address(), obj, expGet)
+	testGet(t, blz, addr, data, expGet)
 
-	return obj.Address()
+	return addr
 }
 
-func testGet(t *testing.T, blz *Blobovnicza, addr *objectSDK.Address, expObj *object.Object, expErr error) {
+func testGet(t *testing.T, blz *Blobovnicza, addr *objectSDK.Address, expObj []byte, expErr error) {
 	pGet := new(GetPrm)
 	pGet.SetAddress(addr)
 

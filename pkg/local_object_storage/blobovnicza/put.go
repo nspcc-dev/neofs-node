@@ -2,7 +2,6 @@ package blobovnicza
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
@@ -10,8 +9,6 @@ import (
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
 	addr *objectSDK.Address
-
-	obj *object.Object
 
 	objData []byte
 }
@@ -29,11 +26,6 @@ var errNilAddress = errors.New("object address is nil")
 // SetAddress sets address of saving object.
 func (p *PutPrm) SetAddress(addr *objectSDK.Address) {
 	p.addr = addr
-}
-
-// SetObject sets the object.
-func (p *PutPrm) SetObject(obj *object.Object) {
-	p.obj = obj
 }
 
 // SetMarshaledObject sets binary representation of the object.
@@ -56,9 +48,7 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 	addr := prm.addr
 	if addr == nil {
-		if addr = prm.obj.Address(); addr == nil {
-			return nil, errNilAddress
-		}
+		return nil, errNilAddress
 	}
 
 	err := b.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -66,19 +56,8 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 			return ErrFull
 		}
 
-		// marshal the object
-		data := prm.objData
-		if data == nil {
-			var err error
-
-			if data, err = prm.obj.Marshal(); err != nil {
-				return errors.Wrapf(err, "(%T) could not marshal the object", b)
-			}
-		}
-		// TODO: add compression step
-
 		// calculate size
-		sz := uint64(len(data))
+		sz := uint64(len(prm.objData))
 
 		// get bucket for size
 		buck := tx.Bucket(bucketForSize(sz))
@@ -90,7 +69,7 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 		}
 
 		// save the object in bucket
-		if err := buck.Put(addressKey(addr), data); err != nil {
+		if err := buck.Put(addressKey(addr), prm.objData); err != nil {
 			return errors.Wrapf(err, "(%T) could not save object in bucket", b)
 		}
 
