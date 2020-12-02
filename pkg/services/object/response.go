@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-type responseService struct {
+type ResponseService struct {
 	respSvc *response.Service
 
-	svc object.Service
+	svc ServiceServer
 }
 
 type searchStreamResponser struct {
@@ -20,7 +20,9 @@ type searchStreamResponser struct {
 }
 
 type getStreamResponser struct {
-	stream *response.ServerMessageStreamer
+	util.ServerStream
+
+	respWriter util.ResponseMessageWriter
 }
 
 type getRangeStreamResponser struct {
@@ -33,42 +35,24 @@ type putStreamResponser struct {
 
 // NewResponseService returns object service instance that passes internal service
 // call to response service.
-func NewResponseService(objSvc object.Service, respSvc *response.Service) object.Service {
-	return &responseService{
+func NewResponseService(objSvc ServiceServer, respSvc *response.Service) *ResponseService {
+	return &ResponseService{
 		respSvc: respSvc,
 		svc:     objSvc,
 	}
 }
 
-func (s *getStreamResponser) Recv() (*object.GetResponse, error) {
-	r, err := s.stream.Recv()
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not receive response", s)
-	}
-
-	return r.(*object.GetResponse), nil
+func (s *getStreamResponser) Send(resp *object.GetResponse) error {
+	return s.respWriter(resp)
 }
 
-func (s *responseService) Get(ctx context.Context, req *object.GetRequest) (object.GetObjectStreamer, error) {
-	stream, err := s.respSvc.HandleServerStreamRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
-			stream, err := s.svc.Get(ctx, req.(*object.GetRequest))
-			if err != nil {
-				return nil, err
-			}
-
-			return func() (util.ResponseMessage, error) {
-				return stream.Recv()
-			}, nil
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &getStreamResponser{
-		stream: stream,
-	}, nil
+func (s *ResponseService) Get(req *object.GetRequest, stream GetObjectStream) error {
+	return s.svc.Get(req, &getStreamResponser{
+		ServerStream: stream,
+		respWriter: s.respSvc.HandleServerStreamRequest_(func(resp util.ResponseMessage) error {
+			return stream.Send(resp.(*object.GetResponse))
+		}),
+	})
 }
 
 func (s *putStreamResponser) Send(req *object.PutRequest) error {
@@ -84,7 +68,7 @@ func (s *putStreamResponser) CloseAndRecv() (*object.PutResponse, error) {
 	return r.(*object.PutResponse), nil
 }
 
-func (s *responseService) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (s *ResponseService) Put(ctx context.Context) (object.PutObjectStreamer, error) {
 	stream, err := s.svc.Put(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create Put object streamer")
@@ -102,7 +86,7 @@ func (s *responseService) Put(ctx context.Context) (object.PutObjectStreamer, er
 	}, nil
 }
 
-func (s *responseService) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
+func (s *ResponseService) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Head(ctx, req.(*object.HeadRequest))
@@ -124,7 +108,7 @@ func (s *searchStreamResponser) Recv() (*object.SearchResponse, error) {
 	return r.(*object.SearchResponse), nil
 }
 
-func (s *responseService) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
+func (s *ResponseService) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
 	stream, err := s.respSvc.HandleServerStreamRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
 			stream, err := s.svc.Search(ctx, req.(*object.SearchRequest))
@@ -146,7 +130,7 @@ func (s *responseService) Search(ctx context.Context, req *object.SearchRequest)
 	}, nil
 }
 
-func (s *responseService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
+func (s *ResponseService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Delete(ctx, req.(*object.DeleteRequest))
@@ -168,7 +152,7 @@ func (s *getRangeStreamResponser) Recv() (*object.GetRangeResponse, error) {
 	return r.(*object.GetRangeResponse), nil
 }
 
-func (s *responseService) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
+func (s *ResponseService) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
 	stream, err := s.respSvc.HandleServerStreamRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
 			stream, err := s.svc.GetRange(ctx, req.(*object.GetRangeRequest))
@@ -190,7 +174,7 @@ func (s *responseService) GetRange(ctx context.Context, req *object.GetRangeRequ
 	}, nil
 }
 
-func (s *responseService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
+func (s *ResponseService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.GetRangeHash(ctx, req.(*object.GetRangeHashRequest))

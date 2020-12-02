@@ -108,6 +108,7 @@ const (
 	cfgObjectRangeDialTimeout     = "object.range.dial_timeout"
 	cfgObjectRangeHashDialTimeout = "object.rangehash.dial_timeout"
 	cfgObjectSearchDialTimeout    = "object.search.dial_timeout"
+	cfgObjectGetDialTimeout       = "object.get.dial_timeout"
 )
 
 const (

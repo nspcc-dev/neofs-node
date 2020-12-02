@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
-	"github.com/pkg/errors"
 )
 
 // KeyStorage represents private key storage of the local node.
@@ -30,11 +29,9 @@ func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore *storage.TokenStore) *
 func (s *KeyStorage) GetKey(token *token.SessionToken) (*ecdsa.PrivateKey, error) {
 	if token != nil {
 		pToken := s.tokenStore.Get(token.OwnerID(), token.ID())
-		if pToken == nil {
-			return nil, errors.Wrapf(storage.ErrNotFound, "(%T) could not get session key", s)
+		if pToken != nil {
+			return pToken.SessionKey(), nil
 		}
-
-		return pToken.SessionKey(), nil
 	}
 
 	return s.key, nil
