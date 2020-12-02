@@ -215,10 +215,8 @@ func writeHashes(hashers []*payloadChecksumHasher) {
 }
 
 func (s *payloadSizeLimiter) initializeLinking() {
-	id := s.current.ParentID()
-
 	s.current = fromObject(s.current)
-	s.current.SetParentID(id)
+	s.current.SetParent(s.parent.Object().SDK())
 	s.current.SetChildren(s.previous...)
 	s.current.SetSplitID(s.splitID)
 }
