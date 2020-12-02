@@ -6,44 +6,20 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/pkg/errors"
 )
 
 // Server wraps NeoFS API Object service and
 // provides gRPC Object service server interface.
 type Server struct {
-	srv object.Service
+	srv objectSvc.ServiceServer
 }
 
 // New creates, initializes and returns Server instance.
-func New(c object.Service) *Server {
+func New(c objectSvc.ServiceServer) *Server {
 	return &Server{
 		srv: c,
-	}
-}
-
-// Get converts gRPC GetRequest message, opens internal Object service Get stream and overtakes its data
-// to gRPC stream.
-func (s *Server) Get(req *objectGRPC.GetRequest, gStream objectGRPC.ObjectService_GetServer) error {
-	stream, err := s.srv.Get(gStream.Context(), object.GetRequestFromGRPCMessage(req))
-	if err != nil {
-		// TODO: think about how we transport errors through gRPC
-		return err
-	}
-
-	for {
-		r, err := stream.Recv()
-		if err != nil {
-			if errors.Is(errors.Cause(err), io.EOF) {
-				return nil
-			}
-
-			return err
-		}
-
-		if err := gStream.Send(object.GetResponseToGRPCMessage(r)); err != nil {
-			return err
-		}
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/pkg/errors"
 )
 
@@ -15,16 +16,17 @@ var (
 
 type (
 	TransportSplitter struct {
-		next object.Service
+		next ServiceServer
 
 		chunkSize  uint64
 		addrAmount uint64
 	}
 
-	getStreamBasicChecker struct {
-		next      object.GetObjectStreamer
-		buf       *bytes.Buffer
-		resp      *object.GetResponse
+	getStreamMsgSizeCtrl struct {
+		util.ServerStream
+
+		stream GetObjectStream
+
 		chunkSize int
 	}
 
@@ -43,7 +45,37 @@ type (
 	}
 )
 
-func NewTransportSplitter(size, amount uint64, next object.Service) *TransportSplitter {
+func (s *getStreamMsgSizeCtrl) Send(resp *object.GetResponse) error {
+	body := resp.GetBody()
+
+	part := body.GetObjectPart()
+
+	chunkPart, ok := part.(*object.GetObjectPartChunk)
+	if !ok {
+		return s.stream.Send(resp)
+	}
+
+	var newResp *object.GetResponse
+
+	for buf := bytes.NewBuffer(chunkPart.GetChunk()); buf.Len() > 0; {
+		if newResp == nil {
+			newResp = new(object.GetResponse)
+			newResp.SetBody(body)
+		}
+
+		chunkPart.SetChunk(buf.Next(s.chunkSize))
+		newResp.SetMetaHeader(resp.GetMetaHeader())
+		newResp.SetVerificationHeader(resp.GetVerificationHeader())
+
+		if err := s.stream.Send(newResp); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func NewTransportSplitter(size, amount uint64, next ServiceServer) *TransportSplitter {
 	return &TransportSplitter{
 		next:       next,
 		chunkSize:  size,
@@ -51,13 +83,12 @@ func NewTransportSplitter(size, amount uint64, next object.Service) *TransportSp
 	}
 }
 
-func (c TransportSplitter) Get(ctx context.Context, request *object.GetRequest) (object.GetObjectStreamer, error) {
-	stream, err := c.next.Get(ctx, request)
-
-	return &getStreamBasicChecker{
-		next:      stream,
-		chunkSize: int(c.chunkSize),
-	}, err
+func (c *TransportSplitter) Get(req *object.GetRequest, stream GetObjectStream) error {
+	return c.next.Get(req, &getStreamMsgSizeCtrl{
+		ServerStream: stream,
+		stream:       stream,
+		chunkSize:    int(c.chunkSize),
+	})
 }
 
 func (c TransportSplitter) Put(ctx context.Context) (object.PutObjectStreamer, error) {
@@ -92,40 +123,6 @@ func (c TransportSplitter) GetRange(ctx context.Context, request *object.GetRang
 
 func (c TransportSplitter) GetRangeHash(ctx context.Context, request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	return c.next.GetRangeHash(ctx, request)
-}
-
-func (g *getStreamBasicChecker) Recv() (*object.GetResponse, error) {
-	if g.resp == nil {
-		resp, err := g.next.Recv()
-		if err != nil {
-			return resp, err
-		}
-
-		if part, ok := resp.GetBody().GetObjectPart().(*object.GetObjectPartChunk); !ok {
-			return resp, err
-		} else {
-			g.resp = resp
-			g.buf = bytes.NewBuffer(part.GetChunk())
-		}
-	}
-
-	chunkBody := new(object.GetObjectPartChunk)
-	chunkBody.SetChunk(g.buf.Next(g.chunkSize))
-
-	body := new(object.GetResponseBody)
-	body.SetObjectPart(chunkBody)
-
-	resp := new(object.GetResponse)
-	resp.SetVerificationHeader(g.resp.GetVerificationHeader())
-	resp.SetMetaHeader(g.resp.GetMetaHeader())
-	resp.SetBody(body)
-
-	if g.buf.Len() == 0 {
-		g.buf = nil
-		g.resp = nil
-	}
-
-	return resp, nil
 }
 
 func (r *rangeStreamBasicChecker) Recv() (*object.GetRangeResponse, error) {

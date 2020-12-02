@@ -18,6 +18,7 @@ import (
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	"github.com/pkg/errors"
@@ -37,7 +38,8 @@ type (
 	}
 
 	getStreamBasicChecker struct {
-		next object.GetObjectStreamer
+		objectSvc.GetObjectStream
+
 		info requestInfo
 
 		*eACLCfg
@@ -74,7 +76,7 @@ type cfg struct {
 
 	sender SenderClassifier
 
-	next object.Service
+	next objectSvc.ServiceServer
 
 	*eACLCfg
 }
@@ -123,12 +125,10 @@ func New(opts ...Option) Service {
 	}
 }
 
-func (b Service) Get(
-	ctx context.Context,
-	request *object.GetRequest) (object.GetObjectStreamer, error) {
+func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStream) error {
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req := metaWithToken{
@@ -139,22 +139,20 @@ func (b Service) Get(
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationGet)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, basicACLErr(reqInfo)
+		return basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
-		return nil, eACLErr(reqInfo)
+		return eACLErr(reqInfo)
 	}
 
-	stream, err := b.next.Get(ctx, request)
-
-	return getStreamBasicChecker{
-		next:    stream,
-		info:    reqInfo,
-		eACLCfg: b.eACLCfg,
-	}, err
+	return b.next.Get(request, &getStreamBasicChecker{
+		GetObjectStream: stream,
+		info:            reqInfo,
+		eACLCfg:         b.eACLCfg,
+	})
 }
 
 func (b Service) Put(ctx context.Context) (object.PutObjectStreamer, error) {
@@ -366,32 +364,14 @@ func (p putStreamBasicChecker) CloseAndRecv() (*object.PutResponse, error) {
 	return p.next.CloseAndRecv()
 }
 
-func (g getStreamBasicChecker) Recv() (*object.GetResponse, error) {
-	resp, err := g.next.Recv()
-	if err != nil {
-		return resp, err
-	}
-
-	body := resp.GetBody()
-	if body == nil {
-		return resp, err
-	}
-
-	part := body.GetObjectPart()
-	if _, ok := part.(*object.GetObjectPartInit); ok {
-		ownerID, err := getObjectOwnerFromMessage(resp)
-		if err != nil {
-			return nil, err
-		}
-
-		if !stickyBitCheck(g.info, ownerID) {
-			return nil, basicACLErr(g.info)
-		} else if !eACLCheck(resp, g.info, g.eACLCfg) {
-			return nil, eACLErr(g.info)
+func (g *getStreamBasicChecker) Send(resp *object.GetResponse) error {
+	if _, ok := resp.GetBody().GetObjectPart().(*object.GetObjectPartInit); ok {
+		if !eACLCheck(resp, g.info, g.eACLCfg) {
+			return eACLErr(g.info)
 		}
 	}
 
-	return resp, err
+	return g.GetObjectStream.Send(resp)
 }
 
 func (b Service) findRequestInfo(
