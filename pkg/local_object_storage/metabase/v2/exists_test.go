@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"errors"
 	"testing"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -63,8 +64,9 @@ func TestDB_Exists(t *testing.T) {
 		err := db.Put(child.Object(), nil)
 		require.NoError(t, err)
 
-		exists, err := db.Exists(parent.Object().Address())
-		require.NoError(t, err)
-		require.True(t, exists)
+		_, err = db.Exists(parent.Object().Address())
+
+		var expectedErr *objectSDK.SplitInfoError
+		require.True(t, errors.As(err, &expectedErr))
 	})
 }

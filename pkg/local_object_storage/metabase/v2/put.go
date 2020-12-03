@@ -37,7 +37,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 	isParent := si != nil
 
 	exists, err := db.exists(tx, obj.Address())
-	if err != nil {
+	if err != nil && !errors.As(err, &splitInfoError) {
 		return err
 	}
 
