@@ -15,10 +15,10 @@ type DeletePrm struct {
 // DeleteRes groups resulting values of Delete operation.
 type DeleteRes struct{}
 
-// WithAddress is a Delete option to set the addresses of the objects to delete.
+// WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddress(addr ...*objectSDK.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
 	}

@@ -14,10 +14,10 @@ type DeletePrm struct {
 // DeleteRes groups resulting values of Delete operation.
 type DeleteRes struct{}
 
-// WithAddress is a Delete option to set the addresses of the objects to delete.
+// WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddress(addr ...*objectSDK.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
 	}
@@ -28,7 +28,7 @@ func (p *DeletePrm) WithAddress(addr ...*objectSDK.Address) *DeletePrm {
 // Delete removes objects from the shards.
 func (e *StorageEngine) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	shPrm := new(shard.DeletePrm).
-		WithAddress(prm.addr...)
+		WithAddresses(prm.addr...)
 
 	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
 		_, err := sh.Delete(shPrm)

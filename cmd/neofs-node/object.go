@@ -185,7 +185,7 @@ type localObjectInhumer struct {
 
 func (r *localObjectRemover) Delete(addr ...*objectSDK.Address) error {
 	_, err := r.storage.Delete(new(engine.DeletePrm).
-		WithAddress(addr...),
+		WithAddresses(addr...),
 	)
 
 	return err
