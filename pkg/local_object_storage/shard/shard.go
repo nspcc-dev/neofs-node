@@ -108,7 +108,7 @@ func WithWriteCache(use bool) Option {
 	}
 }
 
-// hasWriteCache returns bool if write cache exists on shars.
+// hasWriteCache returns bool if write cache exists on shards.
 func (s Shard) hasWriteCache() bool {
 	return s.cfg.useWriteCache
 }
