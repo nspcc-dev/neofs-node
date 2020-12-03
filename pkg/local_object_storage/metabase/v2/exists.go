@@ -1,10 +1,15 @@
 package meta
 
 import (
+	"errors"
+	"fmt"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
 )
+
+var ErrLackSplitInfo = errors.New("no split info on parent object")
 
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
@@ -33,7 +38,19 @@ func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err er
 
 	// if primary bucket is empty, then check if object exists in parent bucket
 	if inBucket(tx, parentBucketName(addr.ContainerID()), objKey) {
-		return true, nil
+		rawSplitInfo := getFromBucket(tx, rootBucketName(addr.ContainerID()), objKey)
+		if len(rawSplitInfo) == 0 {
+			return false, ErrLackSplitInfo
+		}
+
+		splitInfo := objectSDK.NewSplitInfo()
+
+		err := splitInfo.Unmarshal(rawSplitInfo)
+		if err != nil {
+			return false, fmt.Errorf("can't unmarshal split info from root index: %w", err)
+		}
+
+		return false, objectSDK.NewSplitInfoError(splitInfo)
 	}
 
 	// if parent bucket is empty, then check if object exists in tombstone bucket

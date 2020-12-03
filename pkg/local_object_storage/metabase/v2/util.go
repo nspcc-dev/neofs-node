@@ -30,6 +30,8 @@ var (
 	splitPostfix        = "_splitid"
 
 	userAttributePostfix = "_attr_"
+
+	splitInfoError *object.SplitInfoError // for errors.As comparisons
 )
 
 // primaryBucketName returns <CID>.
