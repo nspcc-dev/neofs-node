@@ -46,7 +46,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	var (
 		head *object.Object
 
-		alreadyRemoved = false
+		outError = object.ErrNotFound
 	)
 
 	shPrm := new(shard.HeadPrm).
@@ -59,7 +59,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
 			case errors.Is(err, object.ErrAlreadyRemoved):
-				alreadyRemoved = true
+				outError = err
 
 				return true // stop, return it back
 			default:
@@ -80,11 +80,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	})
 
 	if head == nil {
-		if alreadyRemoved {
-			return nil, object.ErrAlreadyRemoved
-		}
-
-		return nil, object.ErrNotFound
+		return nil, outError
 	}
 
 	return &HeadRes{
