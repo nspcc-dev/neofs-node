@@ -9,15 +9,12 @@ type jobQueue struct {
 	localStorage *engine.StorageEngine
 }
 
-var jobFilter object.SearchFilters
-
 func (q *jobQueue) Select(limit int) ([]*object.Address, error) {
 	// TODO: optimize the logic for selecting objects
 	// We can prioritize objects for migration, newly arrived objects, etc.
 	// It is recommended to make changes after updating the metabase
 
-	// FIXME: add the ability to limit Select result
-	res, err := engine.Select(q.localStorage, getJobFilter())
+	res, err := engine.List(q.localStorage, 0) // consider some limit
 	if err != nil {
 		return nil, err
 	}
@@ -27,13 +24,4 @@ func (q *jobQueue) Select(limit int) ([]*object.Address, error) {
 	}
 
 	return res[:limit], nil
-}
-
-// getJobFilter is a getter for a singleton instance.
-func getJobFilter() object.SearchFilters {
-	if len(jobFilter) == 0 {
-		jobFilter.AddPhyFilter() // this initiates a list of filters
-	}
-
-	return jobFilter
 }
