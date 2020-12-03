@@ -289,7 +289,7 @@ func (db *DB) selectObjectID(
 	}
 
 	ok, err := db.exists(tx, addr)
-	if err == nil && ok {
+	if (err == nil && ok) || errors.As(err, &splitInfoError) {
 		markAddressInCache(to, fNum, addrStr)
 	}
 }
