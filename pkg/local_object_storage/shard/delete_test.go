@@ -42,7 +42,7 @@ func testShardDelete(t *testing.T, sh *shard.Shard) {
 		getPrm.WithAddress(obj.Object().Address())
 
 		delPrm := new(shard.DeletePrm)
-		delPrm.WithAddress(obj.Object().Address())
+		delPrm.WithAddresses(obj.Object().Address())
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
@@ -65,7 +65,7 @@ func testShardDelete(t *testing.T, sh *shard.Shard) {
 		getPrm.WithAddress(obj.Object().Address())
 
 		delPrm := new(shard.DeletePrm)
-		delPrm.WithAddress(obj.Object().Address())
+		delPrm.WithAddresses(obj.Object().Address())
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
