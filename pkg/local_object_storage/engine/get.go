@@ -43,9 +43,10 @@ func (r *GetRes) Object() *object.Object {
 // Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 	var (
-		obj *object.Object
+		obj   *object.Object
+		siErr *objectSDK.SplitInfoError
 
-		alreadyRemoved = false
+		outError = object.ErrNotFound
 	)
 
 	shPrm := new(shard.GetPrm).
@@ -57,8 +58,10 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
-			case errors.Is(err, object.ErrAlreadyRemoved):
-				alreadyRemoved = true
+			case
+				errors.Is(err, object.ErrAlreadyRemoved),
+				errors.As(err, &siErr):
+				outError = err
 
 				return true // stop, return it back
 			default:
@@ -79,11 +82,7 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 	})
 
 	if obj == nil {
-		if alreadyRemoved {
-			return nil, object.ErrAlreadyRemoved
-		}
-
-		return nil, object.ErrNotFound
+		return nil, outError
 	}
 
 	return &GetRes{
