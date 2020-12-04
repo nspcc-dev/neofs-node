@@ -3,6 +3,7 @@ package innerring
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
+	"go.uber.org/zap"
 )
 
 // EpochCounter is a getter for a global epoch counter.
@@ -41,15 +42,18 @@ func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
 		return nil
 	}
 
-	// len(validators) can be less than 7, in this case we split votes by
-	// using `mod` operations, e.g: with two validators:
-	// - node[0] vote for validators[0],
-	// - node[1] vote for validators[1],
-	// - node[2] vote for validators[0], etc.
-	// If there are more than 7 validators, this function will ignore the rest.
-	candidate := validators[int(index)%len(validators)]
+	epoch := s.EpochCounter()
 
-	return invoke.AlphabetVote(s.morphClient, s.contracts.alphabet[index], candidate)
+	for i := range s.contracts.alphabet {
+		err := invoke.AlphabetVote(s.morphClient, s.contracts.alphabet[i], epoch, validators)
+		if err != nil {
+			s.log.Warn("can't invoke vote method in alphabet contract",
+				zap.Int("alphabet_index", i),
+				zap.Uint64("epoch", epoch))
+		}
+	}
+
+	return nil
 }
 
 // InitAndVoteForSidechainValidator is a public function to use outside of
