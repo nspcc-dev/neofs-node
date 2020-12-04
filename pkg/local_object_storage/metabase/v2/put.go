@@ -37,8 +37,11 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 	isParent := si != nil
 
 	exists, err := db.exists(tx, obj.Address())
-	if err != nil && !errors.As(err, &splitInfoError) {
-		return err
+
+	if errors.As(err, &splitInfoError) {
+		exists = true // object exists, however it is virtual
+	} else if err != nil {
+		return err // return any error besides SplitInfoError
 	}
 
 	// most right child and split header overlap parent so we have to

@@ -69,4 +69,59 @@ func TestDB_Exists(t *testing.T) {
 		var expectedErr *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &expectedErr))
 	})
+
+	t.Run("merge split info", func(t *testing.T) {
+		cid := testCID()
+		splitID := objectSDK.NewSplitID()
+
+		parent := generateRawObjectWithCID(t, cid)
+		addAttribute(parent, "foo", "bar")
+
+		child := generateRawObjectWithCID(t, cid)
+		child.SetParent(parent.Object().SDK())
+		child.SetParentID(parent.ID())
+		child.SetSplitID(splitID)
+
+		link := generateRawObjectWithCID(t, cid)
+		link.SetParent(parent.Object().SDK())
+		link.SetParentID(parent.ID())
+		link.SetChildren(child.ID())
+		link.SetSplitID(splitID)
+
+		t.Run("direct order", func(t *testing.T) {
+			err := db.Put(child.Object(), nil)
+			require.NoError(t, err)
+
+			err = db.Put(link.Object(), nil)
+			require.NoError(t, err)
+
+			_, err = db.Exists(parent.Object().Address())
+			require.Error(t, err)
+
+			si, ok := err.(*objectSDK.SplitInfoError)
+			require.True(t, ok)
+
+			require.Equal(t, splitID, si.SplitInfo().SplitID())
+			require.Equal(t, child.ID(), si.SplitInfo().LastPart())
+			require.Equal(t, link.ID(), si.SplitInfo().Link())
+		})
+
+		t.Run("reverse order", func(t *testing.T) {
+			err := db.Put(link.Object(), nil)
+			require.NoError(t, err)
+
+			err = db.Put(child.Object(), nil)
+			require.NoError(t, err)
+
+			_, err = db.Exists(parent.Object().Address())
+			require.Error(t, err)
+
+			si, ok := err.(*objectSDK.SplitInfoError)
+			require.True(t, ok)
+
+			require.Equal(t, splitID, si.SplitInfo().SplitID())
+			require.Equal(t, child.ID(), si.SplitInfo().LastPart())
+			require.Equal(t, link.ID(), si.SplitInfo().Link())
+		})
+	})
 }
