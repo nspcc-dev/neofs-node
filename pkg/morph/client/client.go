@@ -81,7 +81,7 @@ func (c *Client) Invoke(contract util.Uint160, fee util.Fixed8, method string, a
 
 	c.logger.Debug("neo client invoke",
 		zap.String("method", method),
-		zap.Stringer("tx_hash", txHash))
+		zap.Stringer("tx_hash", txHash.Reverse()))
 
 	return nil
 }
