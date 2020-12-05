@@ -103,16 +103,11 @@ func (s *Service) GetRangeHash(ctx context.Context, prm *Prm) (*Response, error)
 		}
 	}
 
-	right := headResult.RightChild()
-	if right == nil {
-		right = origin
-	}
-
 	borderRng := new(object.Range)
 	borderRng.SetOffset(minLeft)
 	borderRng.SetLength(maxRight - minLeft)
 
-	return s.getHashes(ctx, prm, objutil.NewRangeTraverser(originSize, right, borderRng))
+	return s.getHashes(ctx, prm, objutil.NewRangeTraverser(originSize, origin, borderRng))
 }
 
 func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.RangeTraverser) (*Response, error) {

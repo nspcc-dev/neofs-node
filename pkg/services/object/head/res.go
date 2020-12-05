@@ -5,13 +5,9 @@ import (
 )
 
 type Response struct {
-	hdr, rightChild *object.Object
+	hdr *object.Object
 }
 
 func (r *Response) Header() *object.Object {
 	return r.hdr
-}
-
-func (r *Response) RightChild() *object.Object {
-	return r.rightChild
 }
