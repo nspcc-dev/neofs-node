@@ -133,11 +133,6 @@ func (s *Service) getRelations(ctx context.Context, prm *Prm) ([]*objectSDK.Addr
 			id := hdr.ID()
 			prev = hdr.PreviousID()
 
-			if rightChild := headResult.RightChild(); rightChild != nil {
-				id = rightChild.ID()
-				prev = rightChild.PreviousID()
-			}
-
 			addr.SetObjectID(id)
 
 			res = append(res, addr)

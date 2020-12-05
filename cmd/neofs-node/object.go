@@ -343,7 +343,6 @@ func initObjectService(c *cfg) {
 		headsvc.WithContainerSource(c.cfgObject.cnrStorage),
 		headsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		headsvc.WithLocalAddressSource(c),
-		headsvc.WithRightChildSearcher(searchsvc.NewRightChildSearcher(sSearch)),
 		headsvc.WithWorkerPool(c.cfgObject.pool.head),
 		headsvc.WithLogger(c.log),
 		headsvc.WithClientOptions(
