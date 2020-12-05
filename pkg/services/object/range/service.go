@@ -88,12 +88,7 @@ func (s *Service) GetRange(ctx context.Context, prm *Prm) (*Result, error) {
 		return nil, errors.Errorf("(%T) requested payload range is out-of-bounds", s)
 	}
 
-	right := headResult.RightChild()
-	if right == nil {
-		right = origin
-	}
-
-	rngTraverser := objutil.NewRangeTraverser(originSize, right, prm.rng)
+	rngTraverser := objutil.NewRangeTraverser(originSize, origin, prm.rng)
 	if err := s.fillTraverser(ctx, prm, rngTraverser); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not fill range traverser", s)
 	}
