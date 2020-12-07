@@ -119,17 +119,16 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 			var hdr *objectV2.Header
 
 			switch v := resp.GetBody().GetHeaderPart().(type) {
-			case *objectV2.GetHeaderPartShort:
+			case *objectV2.ShortHeader:
 				hdr = new(objectV2.Header)
-				h := v.GetShortHeader()
 
-				hdr.SetVersion(h.GetVersion())
-				hdr.SetCreationEpoch(h.GetCreationEpoch())
-				hdr.SetOwnerID(h.GetOwnerID())
-				hdr.SetObjectType(h.GetObjectType())
-				hdr.SetPayloadLength(h.GetPayloadLength())
-			case *objectV2.GetHeaderPartFull:
-				hdr = v.GetHeaderWithSignature().GetHeader()
+				hdr.SetVersion(v.GetVersion())
+				hdr.SetCreationEpoch(v.GetCreationEpoch())
+				hdr.SetOwnerID(v.GetOwnerID())
+				hdr.SetObjectType(v.GetObjectType())
+				hdr.SetPayloadLength(v.GetPayloadLength())
+			case *objectV2.HeaderWithSignature:
+				hdr = v.GetHeader()
 			}
 
 			oV2.SetHeader(hdr)

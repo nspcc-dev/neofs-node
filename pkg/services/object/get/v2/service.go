@@ -55,6 +55,25 @@ func (s *Service) Get(req *objectV2.GetRequest, stream objectSvc.GetObjectStream
 	}
 }
 
+// GetRange calls internal service and returns v2 payload range stream.
+func (s *Service) GetRange(req *objectV2.GetRangeRequest, stream objectSvc.GetObjectRangeStream) error {
+	p, err := s.toRangePrm(req, stream)
+	if err != nil {
+		return err
+	}
+
+	err = s.svc.GetRange(stream.Context(), *p)
+
+	var splitErr *object.SplitInfoError
+
+	switch {
+	case errors.As(err, &splitErr):
+		return stream.Send(splitInfoRangeResponse(splitErr.SplitInfo()))
+	default:
+		return err
+	}
+}
+
 func WithInternalService(v *getsvc.Service) Option {
 	return func(c *cfg) {
 		c.svc = v

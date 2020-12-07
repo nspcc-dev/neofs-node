@@ -25,7 +25,7 @@ type Service struct {
 type Option func(*cfg)
 
 type getClient interface {
-	GetObject(context.Context, Prm) (*objectSDK.Object, error)
+	GetObject(context.Context, RangePrm) (*objectSDK.Object, error)
 }
 
 type cfg struct {
@@ -38,7 +38,7 @@ type cfg struct {
 	}
 
 	localStorage interface {
-		Get(*objectSDK.Address) (*object.Object, error)
+		Get(RangePrm) (*object.Object, error)
 	}
 
 	clientCache interface {

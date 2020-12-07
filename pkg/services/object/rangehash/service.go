@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -14,8 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
+	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
-	rangesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/range"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -44,7 +43,7 @@ type cfg struct {
 
 	headSvc *headsvc.Service
 
-	rangeSvc *rangesvc.Service
+	rangeSvc *getsvc.Service
 
 	clientCache *cache.ClientCache
 
@@ -171,22 +170,14 @@ func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.Ra
 			if prm.typ == pkg.ChecksumSHA256 && nextRng.GetLength() != rng.GetLength() {
 				// here we cannot receive SHA256 checksum through GetRangeHash service
 				// since SHA256 is not homomorphic
-				res, err := s.rangeSvc.GetRange(ctx, new(rangesvc.Prm).
-					WithAddress(addr).
-					WithRange(nextRng).
-					WithCommonPrm(prm.common),
-				)
+				rngPrm := getsvc.RangePrm{}
+				rngPrm.SetRange(nextRng)
+				rngPrm.WithAddress(addr)
+				rngPrm.SetChunkWriter(hasher)
+
+				err := s.rangeSvc.GetRange(ctx, rngPrm)
 				if err != nil {
 					return nil, errors.Wrapf(err, "(%T) could not receive payload range for %v checksum", s, prm.typ)
-				}
-
-				for stream := res.Stream(); ; {
-					resp, err := stream.Recv()
-					if errors.Is(errors.Cause(err), io.EOF) {
-						break
-					}
-
-					hasher.add(resp.PayloadChunk())
 				}
 			} else {
 				resp, err := (&distributedHasher{
@@ -206,7 +197,7 @@ func (s *Service) getHashes(ctx context.Context, prm *Prm, traverser *objutil.Ra
 					return nil, errors.Errorf("(%T) unexpected %v hashes amount %d", s, prm.typ, ln)
 				}
 
-				hasher.add(hs[0])
+				_ = hasher.WriteChunk(hs[0])
 			}
 
 			traverser.PushSuccessSize(nextRng.GetLength())
@@ -265,7 +256,7 @@ func WithHeadService(v *headsvc.Service) Option {
 	}
 }
 
-func WithRangeService(v *rangesvc.Service) Option {
+func WithRangeService(v *getsvc.Service) Option {
 	return func(c *cfg) {
 		c.rangeSvc = v
 	}

@@ -23,10 +23,31 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	p.SetPrivateKey(key)
 
 	body := req.GetBody()
-	p.SetAddress(object.NewAddressFromV2(body.GetAddress()))
-	p.SetRaw(body.GetRaw())
+	p.WithAddress(object.NewAddressFromV2(body.GetAddress()))
+	p.WithRawFlag(body.GetRaw())
 	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetObjectWriter(&streamObjectWriter{stream})
+
+	return p, nil
+}
+
+func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.GetObjectRangeStream) (*getsvc.RangePrm, error) {
+	meta := req.GetMetaHeader()
+
+	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	if err != nil {
+		return nil, err
+	}
+
+	p := new(getsvc.RangePrm)
+	p.SetPrivateKey(key)
+
+	body := req.GetBody()
+	p.WithAddress(object.NewAddressFromV2(body.GetAddress()))
+	p.WithRawFlag(body.GetRaw())
+	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
+	p.SetChunkWriter(&streamObjectRangeWriter{stream})
+	p.SetRange(object.NewRangeFromV2(body.GetRange()))
 
 	return p, nil
 }
@@ -57,6 +78,17 @@ func splitInfoResponse(info *object.SplitInfo) *objectV2.GetResponse {
 	resp.SetBody(body)
 
 	body.SetObjectPart(info.ToV2())
+
+	return resp
+}
+
+func splitInfoRangeResponse(info *object.SplitInfo) *objectV2.GetRangeResponse {
+	resp := new(objectV2.GetRangeResponse)
+
+	body := new(objectV2.GetRangeResponseBody)
+	resp.SetBody(body)
+
+	body.SetRangePart(info.ToV2())
 
 	return resp
 }

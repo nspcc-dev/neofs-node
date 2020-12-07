@@ -20,7 +20,7 @@ type onceHashWriter struct {
 }
 
 type hasher interface {
-	add([]byte)
+	WriteChunk([]byte) error
 	sum() ([]byte, error)
 }
 
@@ -36,8 +36,10 @@ type singleHasher struct {
 	hash []byte
 }
 
-func (h *singleHasher) add(p []byte) {
+func (h *singleHasher) WriteChunk(p []byte) error {
 	h.hash = p
+
+	return nil
 }
 
 func (h *singleHasher) sum() ([]byte, error) {
@@ -52,18 +54,20 @@ func (w *onceHashWriter) write(hs [][]byte) {
 	})
 }
 
-func (h *tzHasher) add(p []byte) {
+func (h *tzHasher) WriteChunk(p []byte) error {
 	h.hashes = append(h.hashes, p)
 
-	return
+	return nil
 }
 
 func (h *tzHasher) sum() ([]byte, error) {
 	return tz.Concat(h.hashes)
 }
 
-func (h *commonHasher) add(p []byte) {
+func (h *commonHasher) WriteChunk(p []byte) error {
 	h.h.Write(p)
+
+	return nil
 }
 
 func (h *commonHasher) sum() ([]byte, error) {

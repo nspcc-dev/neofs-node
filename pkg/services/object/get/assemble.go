@@ -24,8 +24,19 @@ func (exec *execCtx) assemble() {
 	prev, children := exec.initFromChild(childID)
 
 	if len(children) > 0 {
-		if ok := exec.writeCollectedHeader(); ok {
-			exec.overtakePayloadDirectly(children)
+		if exec.ctxRange() == nil {
+			if ok := exec.writeCollectedHeader(); ok {
+				exec.overtakePayloadDirectly(children, nil)
+			}
+		} else {
+			// TODO: choose one-by-one restoring algorithm according to size
+			//  * if size > MAX => go right-to-left with HEAD and back with GET
+			//  * else go right-to-left with GET and compose in single object before writing
+
+			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
+				// payload of all children except the last are written, write last payload
+				exec.writeObjectPayload(exec.collectedObject)
+			}
 		}
 	} else if prev != nil {
 		if ok := exec.writeCollectedHeader(); ok {
@@ -39,9 +50,6 @@ func (exec *execCtx) assemble() {
 			}
 		}
 	} else {
-		exec.status = statusUndefined
-		exec.err = object.ErrNotFound
-
 		exec.log.Debug("could not init parent from child")
 	}
 }
@@ -51,8 +59,9 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 
 	log.Debug("starting assembling from child")
 
-	child, ok := exec.getChild(id)
+	child, ok := exec.getChild(id, nil)
 	if !ok {
+
 		return
 	}
 
@@ -75,14 +84,48 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 	}
 
 	exec.collectedObject = par
-	object.NewRawFromObject(exec.collectedObject).SetPayload(child.Payload())
+
+	var payload []byte
+
+	if rng := exec.ctxRange(); rng != nil {
+		seekLen := rng.GetLength()
+		seekOff := rng.GetOffset()
+		parSize := par.PayloadSize()
+
+		if seekOff+seekLen > parSize {
+			exec.status = statusOutOfRange
+			exec.err = object.ErrRangeOutOfBounds
+			return
+		}
+
+		childSize := child.PayloadSize()
+
+		if to := seekOff + seekLen; childSize > 0 && to > parSize-childSize {
+			pref := to + childSize - parSize
+			payload = child.Payload()[:pref]
+			rng.SetLength(rng.GetLength() - pref)
+		}
+
+		exec.curOff = parSize - childSize
+	} else {
+		payload = child.Payload()
+	}
+
+	object.NewRawFromObject(exec.collectedObject).SetPayload(payload)
 
 	return child.PreviousID(), child.Children()
 }
 
-func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID) {
+func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*objectSDK.Range) {
+	withRng := len(rngs) > 0
+
 	for i := range children {
-		child, ok := exec.getChild(children[i])
+		var r *objectSDK.Range
+		if withRng {
+			r = rngs[i]
+		}
+
+		child, ok := exec.getChild(children[i], r)
 		if !ok {
 			return
 		}
@@ -97,31 +140,81 @@ func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID) {
 }
 
 func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
-	chain := make([]*objectSDK.ID, 0)
-
-	// fill the chain end-to-start
-	for prev != nil {
-		head, ok := exec.headChild(prev)
-		if !ok {
-			return false
-		}
-
-		chain = append(chain, head.ID())
-
-		prev = head.PreviousID()
+	chain, rngs := exec.buildChainInReverse(prev)
+	if len(chain) == 0 {
+		return false
 	}
+
+	reverseRngs := len(rngs) > 0
 
 	// reverse chain
 	for left, right := 0, len(chain)-1; left < right; left, right = left+1, right-1 {
 		chain[left], chain[right] = chain[right], chain[left]
+
+		if reverseRngs {
+			rngs[left], rngs[right] = rngs[right], rngs[left]
+		}
 	}
 
-	exec.overtakePayloadDirectly(chain)
+	exec.overtakePayloadDirectly(chain, rngs)
 
 	exec.status = statusOK
 	exec.err = nil
 
 	return true
+}
+
+func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, []*objectSDK.Range) {
+	var (
+		chain   = make([]*objectSDK.ID, 0)
+		rngs    = make([]*objectSDK.Range, 0)
+		seekRng = exec.ctxRange()
+		from    = seekRng.GetOffset()
+		to      = from + seekRng.GetLength()
+	)
+
+	// fill the chain end-to-start
+	for prev != nil {
+		if exec.curOff < from {
+			break
+		}
+
+		head, ok := exec.headChild(prev)
+		if !ok {
+			return nil, nil
+		}
+
+		if seekRng != nil {
+			sz := head.PayloadSize()
+
+			exec.curOff -= sz
+
+			if exec.curOff < from+to {
+				off := uint64(0)
+				if from > exec.curOff {
+					off = from - exec.curOff
+					sz -= from - exec.curOff
+				}
+
+				if to < exec.curOff+off+sz {
+					sz = to - off - exec.curOff
+				}
+
+				r := objectSDK.NewRange()
+				r.SetOffset(off)
+				r.SetLength(sz)
+
+				rngs = append(rngs, r)
+				chain = append(chain, head.ID())
+			}
+		} else {
+			chain = append(chain, head.ID())
+		}
+
+		prev = head.PreviousID()
+	}
+
+	return chain, rngs
 }
 
 func equalAddresses(a, b *objectSDK.Address) bool {

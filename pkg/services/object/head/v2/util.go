@@ -40,10 +40,7 @@ func fullPartFromResponse(r *headsvc.Response) objectV2.GetHeaderPart {
 	hs.SetHeader(obj.GetHeader())
 	hs.SetSignature(obj.GetSignature())
 
-	p := new(objectV2.GetHeaderPartFull)
-	p.SetHeaderWithSignature(hs)
-
-	return p
+	return hs
 }
 
 func shortPartFromResponse(r *headsvc.Response) objectV2.GetHeaderPart {
@@ -56,8 +53,5 @@ func shortPartFromResponse(r *headsvc.Response) objectV2.GetHeaderPart {
 	sh.SetVersion(hdr.GetVersion())
 	sh.SetObjectType(hdr.GetObjectType())
 
-	p := new(objectV2.GetHeaderPartShort)
-	p.SetShortHeader(sh)
-
-	return p
+	return sh
 }

@@ -37,10 +37,11 @@ type (
 		addrAmount uint64
 	}
 
-	rangeStreamBasicChecker struct {
-		next      object.GetRangeObjectStreamer
-		buf       *bytes.Buffer
-		resp      *object.GetRangeResponse
+	rangeStreamMsgSizeCtrl struct {
+		util.ServerStream
+
+		stream GetObjectRangeStream
+
 		chunkSize int
 	}
 )
@@ -112,44 +113,45 @@ func (c TransportSplitter) Delete(ctx context.Context, request *object.DeleteReq
 	return c.next.Delete(ctx, request)
 }
 
-func (c TransportSplitter) GetRange(ctx context.Context, request *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	stream, err := c.next.GetRange(ctx, request)
+func (s *rangeStreamMsgSizeCtrl) Send(resp *object.GetRangeResponse) error {
+	body := resp.GetBody()
 
-	return &rangeStreamBasicChecker{
-		next:      stream,
-		chunkSize: int(c.chunkSize),
-	}, err
+	chunkPart, ok := body.GetRangePart().(*object.GetRangePartChunk)
+	if !ok {
+		return s.stream.Send(resp)
+	}
+
+	var newResp *object.GetRangeResponse
+
+	for buf := bytes.NewBuffer(chunkPart.GetChunk()); buf.Len() > 0; {
+		if newResp == nil {
+			newResp = new(object.GetRangeResponse)
+			newResp.SetBody(body)
+		}
+
+		chunkPart.SetChunk(buf.Next(s.chunkSize))
+		body.SetRangePart(chunkPart)
+		newResp.SetMetaHeader(resp.GetMetaHeader())
+		newResp.SetVerificationHeader(resp.GetVerificationHeader())
+
+		if err := s.stream.Send(newResp); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c TransportSplitter) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
+	return c.next.GetRange(req, &rangeStreamMsgSizeCtrl{
+		ServerStream: stream,
+		stream:       stream,
+		chunkSize:    int(c.chunkSize),
+	})
 }
 
 func (c TransportSplitter) GetRangeHash(ctx context.Context, request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	return c.next.GetRangeHash(ctx, request)
-}
-
-func (r *rangeStreamBasicChecker) Recv() (*object.GetRangeResponse, error) {
-	if r.resp == nil {
-		resp, err := r.next.Recv()
-		if err != nil {
-			return resp, err
-		}
-
-		r.resp = resp
-		r.buf = bytes.NewBuffer(resp.GetBody().GetChunk())
-	}
-
-	body := new(object.GetRangeResponseBody)
-	body.SetChunk(r.buf.Next(r.chunkSize))
-
-	resp := new(object.GetRangeResponse)
-	resp.SetVerificationHeader(r.resp.GetVerificationHeader())
-	resp.SetMetaHeader(r.resp.GetMetaHeader())
-	resp.SetBody(body)
-
-	if r.buf.Len() == 0 {
-		r.buf = nil
-		r.resp = nil
-	}
-
-	return resp, nil
 }
 
 func (s *searchStreamBasicChecker) Recv() (*object.SearchResponse, error) {

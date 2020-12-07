@@ -26,7 +26,9 @@ type getStreamResponser struct {
 }
 
 type getRangeStreamResponser struct {
-	stream *response.ServerMessageStreamer
+	util.ServerStream
+
+	respWriter util.ResponseMessageWriter
 }
 
 type putStreamResponser struct {
@@ -143,35 +145,17 @@ func (s *ResponseService) Delete(ctx context.Context, req *object.DeleteRequest)
 	return resp.(*object.DeleteResponse), nil
 }
 
-func (s *getRangeStreamResponser) Recv() (*object.GetRangeResponse, error) {
-	r, err := s.stream.Recv()
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not receive response", s)
-	}
-
-	return r.(*object.GetRangeResponse), nil
+func (s *getRangeStreamResponser) Send(resp *object.GetRangeResponse) error {
+	return s.respWriter(resp)
 }
 
-func (s *ResponseService) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	stream, err := s.respSvc.HandleServerStreamRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
-			stream, err := s.svc.GetRange(ctx, req.(*object.GetRangeRequest))
-			if err != nil {
-				return nil, err
-			}
-
-			return func() (util.ResponseMessage, error) {
-				return stream.Recv()
-			}, nil
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &getRangeStreamResponser{
-		stream: stream,
-	}, nil
+func (s *ResponseService) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
+	return s.svc.GetRange(req, &getRangeStreamResponser{
+		ServerStream: stream,
+		respWriter: s.respSvc.HandleServerStreamRequest_(func(resp util.ResponseMessage) error {
+			return stream.Send(resp.(*object.GetRangeResponse))
+		}),
+	})
 }
 
 func (s *ResponseService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
