@@ -93,17 +93,21 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) GetObject(_ context.Context, p Prm) (*objectSDK.Object, error) {
-	v, ok := c.results[p.addr.String()]
+func (c *testClient) GetObject(_ context.Context, p RangePrm) (*objectSDK.Object, error) {
+	v, ok := c.results[p.Address().String()]
 	if !ok {
 		return nil, object.ErrNotFound
 	}
 
-	return v.obj.Object().SDK(), v.err
+	if v.err != nil {
+		return nil, v.err
+	}
+
+	return cutToRange(v.obj.Object(), p.rng).SDK(), nil
 }
 
 func (c *testClient) head(_ context.Context, p Prm) (*object.Object, error) {
-	v, ok := c.results[p.addr.String()]
+	v, ok := c.results[p.Address().String()]
 	if !ok {
 		return nil, object.ErrNotFound
 	}
@@ -122,11 +126,11 @@ func (c *testClient) addResult(addr *objectSDK.Address, obj *object.RawObject, e
 	}{obj: obj, err: err}
 }
 
-func (s *testStorage) Get(addr *objectSDK.Address) (*object.Object, error) {
+func (s *testStorage) Get(p RangePrm) (*object.Object, error) {
 	var (
 		ok    bool
 		obj   *object.Object
-		sAddr = addr.String()
+		sAddr = p.Address().String()
 	)
 
 	if _, ok = s.inhumed[sAddr]; ok {
@@ -138,10 +142,28 @@ func (s *testStorage) Get(addr *objectSDK.Address) (*object.Object, error) {
 	}
 
 	if obj, ok = s.phy[sAddr]; ok {
-		return obj, nil
+		return cutToRange(obj, p.rng), nil
 	}
 
 	return nil, object.ErrNotFound
+}
+
+func cutToRange(o *object.Object, rng *objectSDK.Range) *object.Object {
+	obj := object.NewRawFromObject(o)
+
+	if rng == nil {
+		return obj.Object()
+	}
+
+	from := rng.GetOffset()
+	to := from + rng.GetLength()
+
+	payload := obj.Payload()
+
+	obj = obj.CutPayload()
+	obj.SetPayload(payload[from:to])
+
+	return obj.Object()
 }
 
 func (s *testStorage) addPhy(addr *objectSDK.Address, obj *object.RawObject) {
@@ -204,11 +226,27 @@ func TestGetLocalOnly(t *testing.T) {
 	}
 
 	newPrm := func(raw bool, w ObjectWriter) Prm {
-		return Prm{
-			objWriter: w,
-			raw:       raw,
-			common:    new(util.CommonPrm).WithLocalOnly(true),
-		}
+		p := Prm{}
+		p.SetObjectWriter(w)
+		p.WithRawFlag(raw)
+		p.common = new(util.CommonPrm).WithLocalOnly(true)
+
+		return p
+	}
+
+	newRngPrm := func(raw bool, w ChunkWriter, off, ln uint64) RangePrm {
+		p := RangePrm{}
+		p.SetChunkWriter(w)
+		p.WithRawFlag(raw)
+		p.common = new(util.CommonPrm).WithLocalOnly(true)
+
+		r := objectSDK.NewRange()
+		r.SetOffset(off)
+		r.SetLength(ln)
+
+		p.SetRange(r)
+
+		return p
 	}
 
 	t.Run("OK", func(t *testing.T) {
@@ -218,12 +256,16 @@ func TestGetLocalOnly(t *testing.T) {
 		w := newSimpleObjectWriter()
 		p := newPrm(false, w)
 
+		payloadSz := uint64(10)
+		payload := make([]byte, payloadSz)
+		rand.Read(payload)
+
 		addr := generateAddress()
-		obj := generateObject(addr, nil, nil)
+		obj := generateObject(addr, nil, payload)
 
 		storage.addPhy(addr, obj)
 
-		p.addr = addr
+		p.WithAddress(addr)
 
 		storage.addPhy(addr, obj)
 
@@ -232,6 +274,15 @@ func TestGetLocalOnly(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, obj.Object(), w.object())
+
+		w = newSimpleObjectWriter()
+
+		rngPrm := newRngPrm(false, w, payloadSz/3, payloadSz/3)
+		rngPrm.WithAddress(addr)
+
+		err = svc.GetRange(ctx, rngPrm)
+		require.NoError(t, err)
+		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.object().Payload())
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {
@@ -244,10 +295,16 @@ func TestGetLocalOnly(t *testing.T) {
 
 		storage.inhume(addr)
 
-		p.addr = addr
+		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
 
+		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+
+		rngPrm := newRngPrm(false, nil, 0, 0)
+		rngPrm.WithAddress(addr)
+
+		err = svc.GetRange(ctx, rngPrm)
 		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
 	})
 
@@ -259,9 +316,16 @@ func TestGetLocalOnly(t *testing.T) {
 
 		addr := generateAddress()
 
-		p.addr = addr
+		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
+
+		require.True(t, errors.Is(err, object.ErrNotFound))
+
+		rngPrm := newRngPrm(false, nil, 0, 0)
+		rngPrm.WithAddress(addr)
+
+		err = svc.GetRange(ctx, rngPrm)
 
 		require.True(t, errors.Is(err, object.ErrNotFound))
 	})
@@ -279,7 +343,7 @@ func TestGetLocalOnly(t *testing.T) {
 		splitInfo.SetLink(generateID())
 		splitInfo.SetLastPart(generateID())
 
-		p.addr = addr
+		p.WithAddress(addr)
 
 		storage.addVirtual(addr, splitInfo)
 
@@ -290,6 +354,13 @@ func TestGetLocalOnly(t *testing.T) {
 		require.True(t, errors.As(err, &errSplit))
 
 		require.Equal(t, splitInfo, errSplit.SplitInfo())
+
+		rngPrm := newRngPrm(true, nil, 0, 0)
+		rngPrm.WithAddress(addr)
+
+		err = svc.Get(ctx, p)
+
+		require.True(t, errors.As(err, &errSplit))
 	})
 }
 
@@ -347,6 +418,7 @@ func generateChain(ln int, cid *container.ID) ([]*object.RawObject, []*objectSDK
 
 		o := generateObject(addr, prevID, []byte{byte(i)})
 		o.SetPayload(payloadPart)
+		o.SetPayloadSize(uint64(len(payloadPart)))
 		o.SetID(curID)
 
 		payload = append(payload, payloadPart...)
@@ -381,11 +453,27 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	newPrm := func(raw bool, w ObjectWriter) Prm {
-		return Prm{
-			objWriter: w,
-			raw:       raw,
-			common:    new(util.CommonPrm).WithLocalOnly(false),
-		}
+		p := Prm{}
+		p.SetObjectWriter(w)
+		p.WithRawFlag(raw)
+		p.common = new(util.CommonPrm).WithLocalOnly(false)
+
+		return p
+	}
+
+	newRngPrm := func(raw bool, w ChunkWriter, off, ln uint64) RangePrm {
+		p := RangePrm{}
+		p.SetChunkWriter(w)
+		p.WithRawFlag(raw)
+		p.common = new(util.CommonPrm).WithLocalOnly(false)
+
+		r := objectSDK.NewRange()
+		r.SetOffset(off)
+		r.SetLength(ln)
+
+		p.SetRange(r)
+
+		return p
 	}
 
 	t.Run("OK", func(t *testing.T) {
@@ -400,7 +488,11 @@ func TestGetRemoteSmall(t *testing.T) {
 			},
 		}
 
-		obj := generateObject(addr, nil, nil)
+		payloadSz := uint64(10)
+		payload := make([]byte, payloadSz)
+		rand.Read(payload)
+
+		obj := generateObject(addr, nil, payload)
 
 		c1 := newTestClient()
 		c1.addResult(addr, obj, nil)
@@ -418,7 +510,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		w := newSimpleObjectWriter()
 
 		p := newPrm(false, w)
-		p.addr = addr
+		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
 		require.NoError(t, err)
@@ -429,6 +521,14 @@ func TestGetRemoteSmall(t *testing.T) {
 		err = svc.Get(ctx, p)
 		require.NoError(t, err)
 		require.Equal(t, obj.Object(), w.object())
+
+		w = newSimpleObjectWriter()
+		rngPrm := newRngPrm(false, w, payloadSz/3, payloadSz/3)
+		rngPrm.WithAddress(addr)
+
+		err = svc.GetRange(ctx, rngPrm)
+		require.NoError(t, err)
+		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.object().Payload())
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {
@@ -457,9 +557,15 @@ func TestGetRemoteSmall(t *testing.T) {
 		})
 
 		p := newPrm(false, nil)
-		p.addr = addr
+		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
+		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+
+		rngPrm := newRngPrm(false, nil, 0, 0)
+		rngPrm.WithAddress(addr)
+
+		err = svc.GetRange(ctx, rngPrm)
 		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
 	})
 
@@ -489,9 +595,15 @@ func TestGetRemoteSmall(t *testing.T) {
 		})
 
 		p := newPrm(false, nil)
-		p.addr = addr
+		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
+		require.True(t, errors.Is(err, object.ErrNotFound))
+
+		rngPrm := newRngPrm(false, nil, 0, 0)
+		rngPrm.WithAddress(addr)
+
+		err = svc.GetRange(ctx, rngPrm)
 		require.True(t, errors.Is(err, object.ErrNotFound))
 	})
 
@@ -534,9 +646,15 @@ func TestGetRemoteSmall(t *testing.T) {
 				})
 
 				p := newPrm(false, nil)
-				p.addr = addr
+				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
+				require.True(t, errors.Is(err, object.ErrNotFound))
+
+				rngPrm := newRngPrm(false, nil, 0, 0)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
 				require.True(t, errors.Is(err, object.ErrNotFound))
 			})
 
@@ -546,6 +664,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				addr.SetObjectID(generateID())
 
 				srcObj := generateObject(addr, nil, nil)
+				srcObj.SetPayloadSize(10)
 
 				ns, as := testNodeMatrix(t, []int{2})
 
@@ -580,7 +699,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
 				c2.addResult(linkAddr, linkingObj, nil)
 				c2.addResult(child1Addr, children[0], nil)
-				c2.addResult(child2Addr, nil, errors.New("any error"))
+				c2.addResult(child2Addr, nil, object.ErrNotFound)
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
@@ -599,9 +718,17 @@ func TestGetRemoteSmall(t *testing.T) {
 				})
 
 				p := newPrm(false, newSimpleObjectWriter())
-				p.addr = addr
+				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
+				require.True(t, errors.Is(err, object.ErrNotFound))
+
+				svc.headSvc = c2
+
+				rngPrm := newRngPrm(false, newSimpleObjectWriter(), 0, 1)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
 				require.True(t, errors.Is(err, object.ErrNotFound))
 			})
 
@@ -619,6 +746,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				children, childIDs, payload := generateChain(2, cid)
 				srcObj.SetPayload(payload)
+				srcObj.SetPayloadSize(uint64(len(payload)))
 
 				linkAddr := objectSDK.NewAddress()
 				linkAddr.SetContainerID(cid)
@@ -667,11 +795,26 @@ func TestGetRemoteSmall(t *testing.T) {
 				w := newSimpleObjectWriter()
 
 				p := newPrm(false, w)
-				p.addr = addr
+				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
 				require.NoError(t, err)
 				require.Equal(t, srcObj.Object(), w.object())
+
+				svc.headSvc = c2
+
+				w = newSimpleObjectWriter()
+				payloadSz := srcObj.PayloadSize()
+
+				off := payloadSz / 3
+				ln := payloadSz / 3
+
+				rngPrm := newRngPrm(false, w, off, ln)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
+				require.NoError(t, err)
+				require.Equal(t, payload[off:off+ln], w.object().Payload())
 			})
 		})
 
@@ -713,9 +856,15 @@ func TestGetRemoteSmall(t *testing.T) {
 				})
 
 				p := newPrm(false, nil)
-				p.addr = addr
+				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
+				require.True(t, errors.Is(err, object.ErrNotFound))
+
+				rngPrm := newRngPrm(false, nil, 0, 0)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
 				require.True(t, errors.Is(err, object.ErrNotFound))
 			})
 
@@ -725,6 +874,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				addr.SetObjectID(generateID())
 
 				srcObj := generateObject(addr, nil, nil)
+				srcObj.SetPayloadSize(10)
 
 				ns, as := testNodeMatrix(t, []int{2})
 
@@ -757,7 +907,6 @@ func TestGetRemoteSmall(t *testing.T) {
 						addr.String():         ns,
 						rightAddr.String():    ns,
 						preRightAddr.String(): ns,
-						preRightAddr.String(): ns,
 					},
 				}
 
@@ -773,9 +922,15 @@ func TestGetRemoteSmall(t *testing.T) {
 				svc.headSvc = headSvc
 
 				p := newPrm(false, newSimpleObjectWriter())
-				p.addr = addr
+				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
+				require.True(t, errors.Is(err, object.ErrNotFound))
+
+				rngPrm := newRngPrm(false, nil, 0, 1)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
 				require.True(t, errors.Is(err, object.ErrNotFound))
 			})
 
@@ -792,6 +947,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				splitInfo.SetLastPart(generateID())
 
 				children, _, payload := generateChain(2, cid)
+				srcObj.SetPayloadSize(uint64(len(payload)))
 				srcObj.SetPayload(payload)
 
 				rightObj := children[len(children)-1]
@@ -836,11 +992,24 @@ func TestGetRemoteSmall(t *testing.T) {
 				w := newSimpleObjectWriter()
 
 				p := newPrm(false, w)
-				p.addr = addr
+				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
 				require.NoError(t, err)
 				require.Equal(t, srcObj.Object(), w.object())
+
+				w = newSimpleObjectWriter()
+				payloadSz := srcObj.PayloadSize()
+
+				off := payloadSz / 3
+				ln := payloadSz / 3
+
+				rngPrm := newRngPrm(false, w, off, ln)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
+				require.NoError(t, err)
+				require.Equal(t, payload[off:off+ln], w.object().Payload())
 			})
 		})
 	})

@@ -45,6 +45,14 @@ type (
 		*eACLCfg
 	}
 
+	rangeStreamBasicChecker struct {
+		objectSvc.GetObjectRangeStream
+
+		info requestInfo
+
+		*eACLCfg
+	}
+
 	searchStreamBasicChecker struct {
 		object.SearchObjectStreamer
 	}
@@ -262,13 +270,10 @@ func (b Service) Delete(
 	return b.next.Delete(ctx, request)
 }
 
-func (b Service) GetRange(
-	ctx context.Context,
-	request *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-
+func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetObjectRangeStream) error {
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req := metaWithToken{
@@ -279,17 +284,20 @@ func (b Service) GetRange(
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRange)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, basicACLErr(reqInfo)
+		return basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
-		return nil, eACLErr(reqInfo)
+		return eACLErr(reqInfo)
 	}
 
-	stream, err := b.next.GetRange(ctx, request)
-	return getRangeStreamBasicChecker{stream}, err
+	return b.next.GetRange(request, &rangeStreamBasicChecker{
+		GetObjectRangeStream: stream,
+		info:                 reqInfo,
+		eACLCfg:              b.eACLCfg,
+	})
 }
 
 func (b Service) GetRangeHash(
@@ -372,6 +380,14 @@ func (g *getStreamBasicChecker) Send(resp *object.GetResponse) error {
 	}
 
 	return g.GetObjectStream.Send(resp)
+}
+
+func (g *rangeStreamBasicChecker) Send(resp *object.GetRangeResponse) error {
+	if !eACLCheck(resp, g.info, g.eACLCfg) {
+		return eACLErr(g.info)
+	}
+
+	return g.GetObjectRangeStream.Send(resp)
 }
 
 func (b Service) findRequestInfo(

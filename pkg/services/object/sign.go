@@ -32,7 +32,9 @@ type putStreamSigner struct {
 }
 
 type getRangeStreamSigner struct {
-	stream *util.ResponseMessageStreamer
+	util.ServerStream
+
+	respWriter util.ResponseMessageWriter
 }
 
 func NewSignService(key *ecdsa.PrivateKey, svc ServiceServer) *SignService {
@@ -151,35 +153,24 @@ func (s *SignService) Delete(ctx context.Context, req *object.DeleteRequest) (*o
 	return resp.(*object.DeleteResponse), nil
 }
 
-func (s *getRangeStreamSigner) Recv() (*object.GetRangeResponse, error) {
-	r, err := s.stream.Recv()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not receive response")
-	}
-
-	return r.(*object.GetRangeResponse), nil
+func (s *getRangeStreamSigner) Send(resp *object.GetRangeResponse) error {
+	return s.respWriter(resp)
 }
 
-func (s *SignService) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	stream, err := s.sigSvc.HandleServerStreamRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
-			stream, err := s.svc.GetRange(ctx, req.(*object.GetRangeRequest))
-			if err != nil {
-				return nil, err
-			}
-
-			return func() (util.ResponseMessage, error) {
-				return stream.Recv()
-			}, nil
+func (s *SignService) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
+	respWriter, err := s.sigSvc.HandleServerStreamRequest_(req,
+		func(resp util.ResponseMessage) error {
+			return stream.Send(resp.(*object.GetRangeResponse))
 		},
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &getRangeStreamSigner{
-		stream: stream,
-	}, nil
+	return s.svc.GetRange(req, &getRangeStreamSigner{
+		ServerStream: stream,
+		respWriter:   respWriter,
+	})
 }
 
 func (s *SignService) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {

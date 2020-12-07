@@ -10,7 +10,7 @@ import (
 func (exec *execCtx) executeLocal() {
 	var err error
 
-	exec.collectedObject, err = exec.svc.localStorage.Get(exec.address())
+	exec.collectedObject, err = exec.svc.localStorage.Get(exec.prm)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 
@@ -33,5 +33,8 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
 		exec.err = objectSDK.NewSplitInfoError(exec.infoSplit)
+	case errors.Is(err, object.ErrRangeOutOfBounds):
+		exec.status = statusOutOfRange
+		exec.err = object.ErrRangeOutOfBounds
 	}
 }

@@ -28,8 +28,6 @@ import (
 	headsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/head/v2"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
-	rangesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/range"
-	rangesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/range/v2"
 	rangehashsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/rangehash"
 	rangehashsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/rangehash/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
@@ -51,8 +49,6 @@ type objectSvc struct {
 	head *headsvcV2.Service
 
 	get *getsvcV2.Service
-
-	rng *rangesvcV2.Service
 
 	rngHash *rangehashsvcV2.Service
 
@@ -163,8 +159,8 @@ func (s *objectSvc) Delete(ctx context.Context, req *object.DeleteRequest) (*obj
 	return s.delete.Delete(ctx, req)
 }
 
-func (s *objectSvc) GetRange(ctx context.Context, req *object.GetRangeRequest) (object.GetRangeObjectStreamer, error) {
-	return s.rng.GetRange(ctx, req)
+func (s *objectSvc) GetRange(req *object.GetRangeRequest, stream objectService.GetObjectRangeStream) error {
+	return s.get.GetRange(req, stream)
 }
 
 func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
@@ -354,25 +350,6 @@ func initObjectService(c *cfg) {
 		headsvcV2.WithInternalService(sHead),
 	)
 
-	sRange := rangesvc.NewService(
-		rangesvc.WithKeyStorage(keyStorage),
-		rangesvc.WithClientCache(clientCache),
-		rangesvc.WithLocalStorage(ls),
-		rangesvc.WithContainerSource(c.cfgObject.cnrStorage),
-		rangesvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
-		rangesvc.WithLocalAddressSource(c),
-		rangesvc.WithWorkerPool(c.cfgObject.pool.rng),
-		rangesvc.WithHeadService(sHead),
-		rangesvc.WithLogger(c.log),
-		rangesvc.WithClientOptions(
-			client.WithDialTimeout(c.viper.GetDuration(cfgObjectRangeDialTimeout)),
-		),
-	)
-
-	sRangeV2 := rangesvcV2.NewService(
-		rangesvcV2.WithInternalService(sRange),
-	)
-
 	sGet := getsvc.New(
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
@@ -401,7 +378,7 @@ func initObjectService(c *cfg) {
 		rangehashsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
 		rangehashsvc.WithLocalAddressSource(c),
 		rangehashsvc.WithHeadService(sHead),
-		rangehashsvc.WithRangeService(sRange),
+		rangehashsvc.WithRangeService(sGet),
 		rangehashsvc.WithWorkerPool(c.cfgObject.pool.rngHash),
 		rangehashsvc.WithLogger(c.log),
 		rangehashsvc.WithClientOptions(
@@ -451,7 +428,6 @@ func initObjectService(c *cfg) {
 									put:     sPutV2,
 									search:  sSearchV2,
 									head:    sHeadV2,
-									rng:     sRangeV2,
 									get:     sGetV2,
 									rngHash: sRangeHashV2,
 									delete:  sDeleteV2,
