@@ -99,31 +99,6 @@ func (s *Server) Search(req *objectGRPC.SearchRequest, gStream objectGRPC.Object
 	}
 }
 
-// GetRange converts gRPC GetRangeRequest message, opens internal Object service Search stream and overtakes its data
-// to gRPC stream.
-func (s *Server) GetRange(req *objectGRPC.GetRangeRequest, gStream objectGRPC.ObjectService_GetRangeServer) error {
-	stream, err := s.srv.GetRange(gStream.Context(), object.GetRangeRequestFromGRPCMessage(req))
-	if err != nil {
-		// TODO: think about how we transport errors through gRPC
-		return err
-	}
-
-	for {
-		r, err := stream.Recv()
-		if err != nil {
-			if errors.Is(errors.Cause(err), io.EOF) {
-				return nil
-			}
-
-			return err
-		}
-
-		if err := gStream.Send(object.GetRangeResponseToGRPCMessage(r)); err != nil {
-			return err
-		}
-	}
-}
-
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
 func (s *Server) GetRangeHash(ctx context.Context, req *objectGRPC.GetRangeHashRequest) (*objectGRPC.GetRangeHashResponse, error) {
 	resp, err := s.srv.GetRangeHash(ctx, object.GetRangeHashRequestFromGRPCMessage(req))

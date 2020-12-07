@@ -10,6 +10,10 @@ type streamObjectWriter struct {
 	objectSvc.GetObjectStream
 }
 
+type streamObjectRangeWriter struct {
+	objectSvc.GetObjectRangeStream
+}
+
 func (s *streamObjectWriter) WriteHeader(obj *object.Object) error {
 	p := new(objectV2.GetObjectPartInit)
 
@@ -35,6 +39,24 @@ func newResponse(p objectV2.GetObjectPart) *objectV2.GetResponse {
 	r.SetBody(body)
 
 	body.SetObjectPart(p)
+
+	return r
+}
+
+func (s *streamObjectRangeWriter) WriteChunk(chunk []byte) error {
+	return s.GetObjectRangeStream.Send(newRangeResponse(chunk))
+}
+
+func newRangeResponse(p []byte) *objectV2.GetRangeResponse {
+	r := new(objectV2.GetRangeResponse)
+
+	body := new(objectV2.GetRangeResponseBody)
+	r.SetBody(body)
+
+	part := new(objectV2.GetRangePartChunk)
+	part.SetChunk(p)
+
+	body.SetRangePart(part)
 
 	return r
 }

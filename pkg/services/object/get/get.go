@@ -9,10 +9,17 @@ import (
 
 // Get serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) Get(ctx context.Context, prm Prm) error {
+	return s.get(ctx, RangePrm{
+		commonPrm: prm.commonPrm,
+	}).err
+}
+
+// GetRange serves a request to get an object by address, and returns Streamer instance.
+func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 	return s.get(ctx, prm).err
 }
 
-func (s *Service) get(ctx context.Context, prm Prm) statusError {
+func (s *Service) get(ctx context.Context, prm RangePrm) statusError {
 	exec := &execCtx{
 		svc:       s,
 		ctx:       ctx,
@@ -46,6 +53,8 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	case statusVIRTUAL:
 		exec.log.Debug("requested object is virtual")
 		exec.assemble()
+	case statusOutOfRange:
+		exec.log.Debug("requested range is out of object bounds")
 	default:
 		exec.log.Debug("operation finished with error",
 			zap.String("error", exec.err.Error()),

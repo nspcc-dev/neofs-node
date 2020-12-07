@@ -36,9 +36,9 @@ func (p *RngPrm) WithAddress(addr *objectSDK.Address) *RngPrm {
 //
 // Missing an option or calling with zero length is equivalent
 // to getting the full payload range.
-func (p *RngPrm) WithPayloadRange(off, ln uint64) *RngPrm {
+func (p *RngPrm) WithPayloadRange(rng *objectSDK.Range) *RngPrm {
 	if p != nil {
-		p.off, p.ln = off, ln
+		p.off, p.ln = rng.GetOffset(), rng.GetLength()
 	}
 
 	return p
@@ -111,7 +111,7 @@ func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 func GetRange(storage *StorageEngine, addr *objectSDK.Address, rng *objectSDK.Range) ([]byte, error) {
 	res, err := storage.GetRange(new(RngPrm).
 		WithAddress(addr).
-		WithPayloadRange(rng.GetOffset(), rng.GetLength()),
+		WithPayloadRange(rng),
 	)
 	if err != nil {
 		return nil, err

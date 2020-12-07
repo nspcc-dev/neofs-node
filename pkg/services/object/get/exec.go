@@ -24,7 +24,7 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm Prm
+	prm RangePrm
 
 	statusError
 
@@ -33,6 +33,8 @@ type execCtx struct {
 	log *logger.Logger
 
 	collectedObject *object.Object
+
+	curOff uint64
 }
 
 const (
@@ -40,11 +42,17 @@ const (
 	statusOK
 	statusINHUMED
 	statusVIRTUAL
+	statusOutOfRange
 )
 
 func (exec *execCtx) setLogger(l *logger.Logger) {
+	req := "GET"
+	if exec.ctxRange() != nil {
+		req = "GET_RANGE"
+	}
+
 	exec.log = l.With(
-		zap.String("request", "GET"),
+		zap.String("request", req),
 		zap.Stringer("address", exec.address()),
 		zap.Bool("raw", exec.isRaw()),
 		zap.Bool("local", exec.isLocal()),
@@ -62,11 +70,11 @@ func (exec execCtx) isLocal() bool {
 }
 
 func (exec execCtx) isRaw() bool {
-	return exec.prm.raw
+	return exec.prm.RawFlag()
 }
 
 func (exec execCtx) address() *objectSDK.Address {
-	return exec.prm.addr
+	return exec.prm.Address()
 }
 
 func (exec execCtx) key() *ecdsa.PrivateKey {
@@ -79,8 +87,8 @@ func (exec execCtx) callOptions() []client.CallOption {
 
 func (exec execCtx) remotePrm() *client.GetObjectParams {
 	return new(client.GetObjectParams).
-		WithAddress(exec.prm.addr).
-		WithRawFlag(exec.prm.raw)
+		WithAddress(exec.prm.Address()).
+		WithRawFlag(exec.prm.RawFlag())
 }
 
 func (exec *execCtx) canAssemble() bool {
@@ -93,6 +101,10 @@ func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
 
 func (exec *execCtx) containerID() *container.ID {
 	return exec.address().ContainerID()
+}
+
+func (exec *execCtx) ctxRange() *objectSDK.Range {
+	return exec.prm.rng
 }
 
 func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Traverser, bool) {
@@ -113,18 +125,19 @@ func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Trav
 	}
 }
 
-func (exec *execCtx) getChild(id *objectSDK.ID) (*object.Object, bool) {
+func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range) (*object.Object, bool) {
 	w := newSimpleObjectWriter()
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
-	p.SetObjectWriter(w)
+	p.objWriter = w
+	p.SetRange(rng)
 
 	addr := objectSDK.NewAddress()
 	addr.SetContainerID(exec.address().ContainerID())
 	addr.SetObjectID(id)
 
-	p.SetAddress(addr)
+	p.WithAddress(addr)
 
 	exec.statusError = exec.svc.get(exec.context(), p)
 
@@ -138,9 +151,11 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
-	p.SetAddress(childAddr)
+	p.WithAddress(childAddr)
 
-	header, err := exec.svc.headSvc.head(exec.context(), p)
+	header, err := exec.svc.headSvc.head(exec.context(), Prm{
+		commonPrm: p.commonPrm,
+	})
 
 	switch {
 	default:
@@ -204,6 +219,10 @@ func mergeSplitInfo(dst, src *objectSDK.SplitInfo) {
 }
 
 func (exec *execCtx) writeCollectedHeader() bool {
+	if exec.ctxRange() != nil {
+		return true
+	}
+
 	err := exec.prm.objWriter.WriteHeader(
 		object.NewRawFromObject(exec.collectedObject).CutPayload().Object(),
 	)
