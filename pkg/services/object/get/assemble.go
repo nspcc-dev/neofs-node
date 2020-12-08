@@ -45,7 +45,7 @@ func (exec *execCtx) assemble() {
 			//  * else go right-to-left with GET and compose in single object before writing
 
 			if ok := exec.overtakePayloadInReverse(prev); ok {
-				// payload of all children except the last are written, write last payload
+				// payload of all children except the last are written, write last payloa
 				exec.writeObjectPayload(exec.collectedObject)
 			}
 		}
@@ -61,7 +61,6 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 
 	child, ok := exec.getChild(id, nil)
 	if !ok {
-
 		return
 	}
 
@@ -100,13 +99,20 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 
 		childSize := child.PayloadSize()
 
-		if to := seekOff + seekLen; childSize > 0 && to > parSize-childSize {
-			pref := to + childSize - parSize
-			payload = child.Payload()[:pref]
-			rng.SetLength(rng.GetLength() - pref)
+		exec.curOff = parSize - childSize
+
+		from := uint64(0)
+		if exec.curOff < seekOff {
+			from = seekOff - exec.curOff
 		}
 
-		exec.curOff = parSize - childSize
+		to := uint64(0)
+		if seekOff+seekLen > exec.curOff+from {
+			to = seekOff + seekLen - exec.curOff
+		}
+
+		payload = child.Payload()[from:to]
+		rng.SetLength(rng.GetLength() - to + from)
 	} else {
 		payload = child.Payload()
 	}
@@ -140,8 +146,8 @@ func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*o
 }
 
 func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
-	chain, rngs := exec.buildChainInReverse(prev)
-	if len(chain) == 0 {
+	chain, rngs, ok := exec.buildChainInReverse(prev)
+	if !ok {
 		return false
 	}
 
@@ -164,7 +170,7 @@ func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
 	return true
 }
 
-func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, []*objectSDK.Range) {
+func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, []*objectSDK.Range, bool) {
 	var (
 		chain   = make([]*objectSDK.ID, 0)
 		rngs    = make([]*objectSDK.Range, 0)
@@ -181,7 +187,7 @@ func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, [
 
 		head, ok := exec.headChild(prev)
 		if !ok {
-			return nil, nil
+			return nil, nil, false
 		}
 
 		if seekRng != nil {
@@ -189,7 +195,7 @@ func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, [
 
 			exec.curOff -= sz
 
-			if exec.curOff < from+to {
+			if exec.curOff < to {
 				off := uint64(0)
 				if from > exec.curOff {
 					off = from - exec.curOff
@@ -214,7 +220,7 @@ func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, [
 		prev = head.PreviousID()
 	}
 
-	return chain, rngs
+	return chain, rngs, true
 }
 
 func equalAddresses(a, b *objectSDK.Address) bool {
