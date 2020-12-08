@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -17,8 +16,6 @@ type DeletePrm struct {
 
 // DeleteRes groups resulting values of Delete operation.
 type DeleteRes struct{}
-
-var ErrVirtualObject = errors.New("do not remove virtual object directly")
 
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
@@ -37,7 +34,7 @@ func Delete(db *DB, addrs ...*objectSDK.Address) error {
 	return err
 }
 
-// DeleteObjects marks list of objects as deleted.
+// Delete removed object records from metabase indexes.
 func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	return new(DeleteRes), db.boltDB.Update(func(tx *bbolt.Tx) error {
 		for i := range prm.addrs {
@@ -52,15 +49,8 @@ func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
 }
 
 func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, isParent bool) error {
-	pl := parentLength(tx, addr) // parentLength of address, for virtual objects it is > 0
-
-	// do not remove virtual objects directly
-	if !isParent && pl > 0 {
-		return ErrVirtualObject
-	}
-
-	// unmarshal object
-	obj, err := db.get(tx, addr, false)
+	// unmarshal object, work only with physically stored (raw == true) objects
+	obj, err := db.get(tx, addr, false, true)
 	if err != nil {
 		return err
 	}

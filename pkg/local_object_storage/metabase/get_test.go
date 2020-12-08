@@ -60,21 +60,36 @@ func TestDB_Get(t *testing.T) {
 
 	t.Run("put virtual object", func(t *testing.T) {
 		cid := testCID()
+		splitID := objectSDK.NewSplitID()
+
 		parent := generateRawObjectWithCID(t, cid)
 		addAttribute(parent, "foo", "bar")
 
 		child := generateRawObjectWithCID(t, cid)
 		child.SetParent(parent.Object().SDK())
 		child.SetParentID(parent.ID())
+		child.SetSplitID(splitID)
 
 		err := putBig(db, child.Object())
 		require.NoError(t, err)
 
-		newParent, err := meta.Get(db, parent.Object().Address())
+		t.Run("raw is true", func(t *testing.T) {
+			_, err = meta.GetRaw(db, parent.Object().Address(), true)
+			require.Error(t, err)
+
+			siErr, ok := err.(*objectSDK.SplitInfoError)
+			require.True(t, ok)
+
+			require.Equal(t, splitID, siErr.SplitInfo().SplitID())
+			require.Equal(t, child.ID(), siErr.SplitInfo().LastPart())
+			require.Nil(t, siErr.SplitInfo().Link())
+		})
+
+		newParent, err := meta.GetRaw(db, parent.Object().Address(), false)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(parent.Object(), newParent))
 
-		newChild, err := meta.Get(db, child.Object().Address())
+		newChild, err := meta.GetRaw(db, child.Object().Address(), true)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child.Object(), newChild))
 	})

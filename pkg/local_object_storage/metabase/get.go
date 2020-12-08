@@ -12,6 +12,7 @@ import (
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
 	addr *objectSDK.Address
+	raw  bool
 }
 
 // GetRes groups resulting values of Get operation.
@@ -30,14 +31,35 @@ func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
 	return p
 }
 
+// WithRaw is a Get option to set raw flag value. If flag is unset, then Get
+// returns header of virtual object, otherwise it returns SplitInfo of virtual
+// object.
+func (p *GetPrm) WithRaw(raw bool) *GetPrm {
+	if p != nil {
+		p.raw = raw
+	}
+
+	return p
+}
+
 // Header returns the requested object header.
 func (r *GetRes) Header() *object.Object {
 	return r.hdr
 }
 
-// Get read the object from DB.
+// Get reads the object from DB.
 func Get(db *DB, addr *objectSDK.Address) (*object.Object, error) {
 	r, err := db.Get(new(GetPrm).WithAddress(addr))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Header(), nil
+}
+
+// GetRaw reads physically stored object from DB.
+func GetRaw(db *DB, addr *objectSDK.Address, raw bool) (*object.Object, error) {
+	r, err := db.Get(new(GetPrm).WithAddress(addr).WithRaw(raw))
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +72,7 @@ func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	res = new(GetRes)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.hdr, err = db.get(tx, prm.addr, true)
+		res.hdr, err = db.get(tx, prm.addr, true, prm.raw)
 
 		return err
 	})
@@ -58,7 +80,7 @@ func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	return
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard bool) (*object.Object, error) {
+func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard, raw bool) (*object.Object, error) {
 	obj := object.New()
 	key := objectKey(addr.ObjectID())
 	cid := addr.ContainerID()
@@ -86,7 +108,7 @@ func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard bool) (*
 	}
 
 	// if not found then check if object is a virtual
-	return getVirtualObject(tx, cid, key)
+	return getVirtualObject(tx, cid, key, raw)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
@@ -98,7 +120,11 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte) (*object.Object, error) {
+func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte, raw bool) (*object.Object, error) {
+	if raw {
+		return nil, getSplitInfoError(tx, cid, key)
+	}
+
 	parentBucket := tx.Bucket(parentBucketName(cid))
 	if parentBucket == nil {
 		return nil, object.ErrNotFound
@@ -131,4 +157,13 @@ func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte) (*object.Obje
 	}
 
 	return child.GetParent(), nil
+}
+
+func getSplitInfoError(tx *bbolt.Tx, cid *container.ID, key []byte) error {
+	splitInfo, err := getSplitInfo(tx, cid, key)
+	if err == nil {
+		return objectSDK.NewSplitInfoError(splitInfo)
+	}
+
+	return object.ErrNotFound
 }

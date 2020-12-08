@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
@@ -74,16 +75,9 @@ func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err er
 
 	// if primary bucket is empty, then check if object exists in parent bucket
 	if inBucket(tx, parentBucketName(addr.ContainerID()), objKey) {
-		rawSplitInfo := getFromBucket(tx, rootBucketName(addr.ContainerID()), objKey)
-		if len(rawSplitInfo) == 0 {
-			return false, ErrLackSplitInfo
-		}
-
-		splitInfo := objectSDK.NewSplitInfo()
-
-		err := splitInfo.Unmarshal(rawSplitInfo)
+		splitInfo, err := getSplitInfo(tx, addr.ContainerID(), objKey)
 		if err != nil {
-			return false, fmt.Errorf("can't unmarshal split info from root index: %w", err)
+			return false, err
 		}
 
 		return false, objectSDK.NewSplitInfoError(splitInfo)
@@ -121,4 +115,22 @@ func inBucket(tx *bbolt.Tx, name, key []byte) bool {
 	val := bkt.Get(key)
 
 	return len(val) != 0
+}
+
+// getSplitInfo returns SplitInfo structure from root index. Returns error
+// if there is no `key` record in root index.
+func getSplitInfo(tx *bbolt.Tx, cid *container.ID, key []byte) (*objectSDK.SplitInfo, error) {
+	rawSplitInfo := getFromBucket(tx, rootBucketName(cid), key)
+	if len(rawSplitInfo) == 0 {
+		return nil, ErrLackSplitInfo
+	}
+
+	splitInfo := objectSDK.NewSplitInfo()
+
+	err := splitInfo.Unmarshal(rawSplitInfo)
+	if err != nil {
+		return nil, fmt.Errorf("can't unmarshal split info from root index: %w", err)
+	}
+
+	return splitInfo, nil
 }
