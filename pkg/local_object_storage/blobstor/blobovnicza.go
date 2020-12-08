@@ -473,12 +473,17 @@ func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, 
 	// try to read from blobovnicza if it is opened
 	v, ok := b.opened.Get(blzPath)
 	if ok {
-		if res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm); err == nil {
+		res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm)
+		switch {
+		case err == nil,
+			errors.Is(err, object.ErrRangeOutOfBounds):
 			return res, err
-		} else if !errors.Is(err, object.ErrNotFound) {
-			log.Debug("could not read payload range from opened blobovnicza",
-				zap.String("error", err.Error()),
-			)
+		default:
+			if !errors.Is(err, object.ErrNotFound) {
+				log.Debug("could not read payload range from opened blobovnicza",
+					zap.String("error", err.Error()),
+				)
+			}
 		}
 	}
 
@@ -492,12 +497,17 @@ func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, 
 	b.activeMtx.RUnlock()
 
 	if ok && tryActive {
-		if res, err := b.getObjectRange(active.blz, prm); err == nil {
+		res, err := b.getObjectRange(active.blz, prm)
+		switch {
+		case err == nil,
+			errors.Is(err, object.ErrRangeOutOfBounds):
 			return res, err
-		} else if !errors.Is(err, object.ErrNotFound) {
-			log.Debug("could not read payload range from active blobovnicza",
-				zap.String("error", err.Error()),
-			)
+		default:
+			if !errors.Is(err, object.ErrNotFound) {
+				log.Debug("could not read payload range from active blobovnicza",
+					zap.String("error", err.Error()),
+				)
+			}
 		}
 	}
 

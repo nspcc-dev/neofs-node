@@ -52,6 +52,8 @@ func (r *RngRes) Object() *object.Object {
 //
 // Returns any error encountered that
 // did not allow to completely read the object part.
+//
+// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 	var big, small storFetcher
 
