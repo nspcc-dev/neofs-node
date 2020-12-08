@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/pkg/errors"
 )
@@ -33,6 +34,9 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	p.WithRawFlag(body.GetRaw())
 	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetObjectWriter(&streamObjectWriter{stream})
+	p.SetCommonParameters(new(util.CommonPrm).
+		WithLocalOnly(meta.GetTTL() <= 1),
+	)
 
 	return p, nil
 }
@@ -54,6 +58,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetChunkWriter(&streamObjectRangeWriter{stream})
 	p.SetRange(object.NewRangeFromV2(body.GetRange()))
+	p.SetCommonParameters(commonParameters(meta))
 
 	return p, nil
 }
@@ -72,6 +77,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	body := req.GetBody()
 	p.WithAddress(object.NewAddressFromV2(body.GetAddress()))
 	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
+	p.SetCommonParameters(commonParameters(meta))
 
 	rngsV2 := body.GetRanges()
 	rngs := make([]*object.Range, 0, len(rngsV2))
@@ -115,6 +121,11 @@ func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOpt
 	}
 
 	return opts
+}
+
+func commonParameters(meta *session.RequestMetaHeader) *util.CommonPrm {
+	return new(util.CommonPrm).
+		WithLocalOnly(meta.GetTTL() <= 1)
 }
 
 func splitInfoResponse(info *object.SplitInfo) *objectV2.GetResponse {
