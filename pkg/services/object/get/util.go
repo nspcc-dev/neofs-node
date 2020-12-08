@@ -3,6 +3,7 @@ package getsvc
 import (
 	"context"
 	"crypto/ecdsa"
+	"hash"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -40,6 +41,10 @@ type rangeWriter struct {
 	ObjectWriter
 
 	chunkWriter ChunkWriter
+}
+
+type hasherWrapper struct {
+	hash hash.Hash
 }
 
 func newSimpleObjectWriter() *simpleObjectWriter {
@@ -155,4 +160,9 @@ func payloadOnlyObject(payload []byte) *objectSDK.Object {
 	rawObj.SetPayload(payload)
 
 	return rawObj.Object().SDK()
+}
+
+func (h *hasherWrapper) WriteChunk(p []byte) error {
+	_, err := h.hash.Write(p)
+	return err
 }

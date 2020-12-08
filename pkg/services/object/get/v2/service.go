@@ -1,6 +1,8 @@
 package getsvc
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -72,6 +74,21 @@ func (s *Service) GetRange(req *objectV2.GetRangeRequest, stream objectSvc.GetOb
 	default:
 		return err
 	}
+}
+
+// GetRangeHash calls internal service and returns v2 response.
+func (s *Service) GetRangeHash(ctx context.Context, req *objectV2.GetRangeHashRequest) (*objectV2.GetRangeHashResponse, error) {
+	p, err := s.toHashRangePrm(req)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := s.svc.GetRangeHash(ctx, *p)
+	if err != nil {
+		return nil, err
+	}
+
+	return toHashResponse(req.GetBody().GetType(), res), nil
 }
 
 func WithInternalService(v *getsvc.Service) Option {

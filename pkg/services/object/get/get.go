@@ -19,6 +19,37 @@ func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
 	return s.get(ctx, prm).err
 }
 
+func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
+	hashes := make([][]byte, 0, len(prm.rngs))
+
+	for _, rng := range prm.rngs {
+		h := prm.hashGen()
+
+		// TODO: calculating of homomorphic hash (TZ) for "big" ranges can be optimized
+		//  by "smaller" range hash requests spawn and response concatenation.
+		//  NOTE: for non-homomorphic hashes (SHA256) this won't work with split-range.
+
+		rngPrm := RangePrm{
+			commonPrm: prm.commonPrm,
+		}
+
+		rngPrm.SetRange(rng)
+		rngPrm.SetChunkWriter(&hasherWrapper{
+			hash: h,
+		})
+
+		if err := s.GetRange(ctx, rngPrm); err != nil {
+			return nil, err
+		}
+
+		hashes = append(hashes, h.Sum(nil))
+	}
+
+	return &RangeHashRes{
+		hashes: hashes,
+	}, nil
+}
+
 func (s *Service) get(ctx context.Context, prm RangePrm) statusError {
 	exec := &execCtx{
 		svc:       s,
