@@ -92,3 +92,8 @@ func (p *RangeHashPrm) SetRangeList(rngs []*objectSDK.Range) {
 func (p *RangeHashPrm) SetHashGenerator(v func() hash.Hash) {
 	p.hashGen = v
 }
+
+// SetCommonParameters sets common parameters of the operation.
+func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
+	p.common = common
+}
