@@ -1,56 +1,96 @@
-package meta
+package meta_test
 
 import (
+	"bytes"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/stretchr/testify/require"
 )
 
-func BenchmarkDB_Get(b *testing.B) {
-	db := newDB(b)
-
+func TestDB_Get(t *testing.T) {
+	db := newDB(t)
 	defer releaseDB(db)
 
-	var existingAddr *object.Address
+	raw := generateRawObject(t)
 
-	for i := 0; i < 10; i++ {
-		obj := generateObject(b, testPrm{})
+	// equal fails on diff of <nil> attributes and <{}> attributes,
+	/* so we make non empty attribute slice in parent*/
+	addAttribute(raw, "foo", "bar")
 
-		existingAddr = obj.Address()
+	t.Run("object not found", func(t *testing.T) {
+		_, err := db.Get(raw.Object().Address())
+		require.Error(t, err)
+	})
 
-		require.NoError(b, db.Put(obj))
+	t.Run("put regular object", func(t *testing.T) {
+		err := db.Put(raw.Object(), nil)
+		require.NoError(t, err)
+
+		newObj, err := db.Get(raw.Object().Address())
+		require.NoError(t, err)
+		require.Equal(t, raw.Object(), newObj)
+	})
+
+	t.Run("put tombstone object", func(t *testing.T) {
+		raw.SetType(objectSDK.TypeTombstone)
+		raw.SetID(testOID())
+
+		err := db.Put(raw.Object(), nil)
+		require.NoError(t, err)
+
+		newObj, err := db.Get(raw.Object().Address())
+		require.NoError(t, err)
+		require.Equal(t, raw.Object(), newObj)
+	})
+
+	t.Run("put storage group object", func(t *testing.T) {
+		raw.SetType(objectSDK.TypeStorageGroup)
+		raw.SetID(testOID())
+
+		err := db.Put(raw.Object(), nil)
+		require.NoError(t, err)
+
+		newObj, err := db.Get(raw.Object().Address())
+		require.NoError(t, err)
+		require.Equal(t, raw.Object(), newObj)
+	})
+
+	t.Run("put virtual object", func(t *testing.T) {
+		cid := testCID()
+		parent := generateRawObjectWithCID(t, cid)
+		addAttribute(parent, "foo", "bar")
+
+		child := generateRawObjectWithCID(t, cid)
+		child.SetParent(parent.Object().SDK())
+		child.SetParentID(parent.ID())
+
+		err := db.Put(child.Object(), nil)
+		require.NoError(t, err)
+
+		newParent, err := db.Get(parent.Object().Address())
+		require.NoError(t, err)
+		require.True(t, binaryEqual(parent.Object(), newParent))
+
+		newChild, err := db.Get(child.Object().Address())
+		require.NoError(t, err)
+		require.True(t, binaryEqual(child.Object(), newChild))
+	})
+}
+
+// binary equal is used when object contains empty lists in the structure and
+// requre.Equal fails on comparing <nil> and []{} lists.
+func binaryEqual(a, b *object.Object) bool {
+	binaryA, err := a.Marshal()
+	if err != nil {
+		return false
 	}
 
-	b.Run("existing address", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
+	binaryB, err := b.Marshal()
+	if err != nil {
+		return false
+	}
 
-		for i := 0; i < b.N; i++ {
-			_, err := db.Get(existingAddr)
-
-			b.StopTimer()
-			require.NoError(b, err)
-			b.StartTimer()
-		}
-	})
-
-	b.Run("non-existing address", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			b.StopTimer()
-			addr := object.NewAddress()
-			addr.SetContainerID(testCID())
-			addr.SetObjectID(testOID())
-			b.StartTimer()
-
-			_, err := db.Get(addr)
-
-			b.StopTimer()
-			require.Error(b, err)
-			b.StartTimer()
-		}
-	})
+	return bytes.Equal(binaryA, binaryB)
 }

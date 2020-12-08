@@ -22,7 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase/v2"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"

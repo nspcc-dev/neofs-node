@@ -1,6 +1,11 @@
 package meta
 
 import (
+	"encoding/binary"
+	"encoding/hex"
+	"os"
+	"strconv"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -10,30 +15,36 @@ import (
 
 // DB represents local metabase of storage node.
 type DB struct {
-	info Info
-
 	*cfg
 
-	matchers map[object.SearchMatchType]func(string, string, string) bool
+	matchers map[object.SearchMatchType]func(string, []byte, string) bool
+
+	boltDB *bbolt.DB
 }
 
 // Option is an option of DB constructor.
 type Option func(*cfg)
 
 type cfg struct {
-	boltDB *bbolt.DB
+	boltOptions *bbolt.Options // optional
+
+	info Info
 
 	log *logger.Logger
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
+		info: Info{
+			Permission: os.ModePerm, // 0777
+		},
+
 		log: zap.L(),
 	}
 }
 
-// NewDB creates, initializes and returns DB instance.
-func NewDB(opts ...Option) *DB {
+// New creates and returns new Metabase instance.
+func New(opts ...Option) *DB {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -41,43 +52,51 @@ func NewDB(opts ...Option) *DB {
 	}
 
 	return &DB{
-		info: Info{
-			Path: c.boltDB.Path(),
-		},
 		cfg: c,
-		matchers: map[object.SearchMatchType]func(string, string, string) bool{
+		matchers: map[object.SearchMatchType]func(string, []byte, string) bool{
 			object.MatchUnknown:     unknownMatcher,
 			object.MatchStringEqual: stringEqualMatcher,
 		},
 	}
 }
 
-func (db *DB) Close() error {
-	return db.boltDB.Close()
-}
-
-func stringEqualMatcher(key, objVal, filterVal string) bool {
+func stringEqualMatcher(key string, objVal []byte, filterVal string) bool {
 	switch key {
 	default:
-		return objVal == filterVal
-	case v2object.FilterPropertyPhy, v2object.FilterPropertyRoot:
-		return true
+		return string(objVal) == filterVal
+	case v2object.FilterHeaderPayloadHash, v2object.FilterHeaderHomomorphicHash:
+		return hex.EncodeToString(objVal) == filterVal
+	case v2object.FilterHeaderCreationEpoch, v2object.FilterHeaderPayloadLength:
+		return strconv.FormatUint(binary.LittleEndian.Uint64(objVal), 10) == filterVal
 	}
 }
 
-func unknownMatcher(key, _, _ string) bool {
-	switch key {
-	default:
-		return false
-	case v2object.FilterPropertyPhy, v2object.FilterPropertyRoot:
-		return true
-	}
+func unknownMatcher(_ string, _ []byte, _ string) bool {
+	return false
 }
 
-// FromBoltDB returns option to construct DB from BoltDB instance.
-func FromBoltDB(db *bbolt.DB) Option {
-	return func(c *cfg) {
-		c.boltDB = db
+// bucketKeyHelper returns byte representation of val that is used as a key
+// in boltDB. Useful for getting filter values from unique and list indexes.
+func bucketKeyHelper(hdr string, val string) []byte {
+	switch hdr {
+	case v2object.FilterHeaderPayloadHash:
+		v, err := hex.DecodeString(val)
+		if err != nil {
+			return nil
+		}
+
+		return v
+	case v2object.FilterHeaderSplitID:
+		s := object.NewSplitID()
+
+		err := s.Parse(val)
+		if err != nil {
+			return nil
+		}
+
+		return s.ToV2()
+	default:
+		return []byte(val)
 	}
 }
 
@@ -85,5 +104,27 @@ func FromBoltDB(db *bbolt.DB) Option {
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
+	}
+}
+
+// WithBoltDBOptions returns option to specify BoltDB options.
+func WithBoltDBOptions(opts *bbolt.Options) Option {
+	return func(c *cfg) {
+		c.boltOptions = opts
+	}
+}
+
+// WithPath returns option to set system path to Metabase.
+func WithPath(path string) Option {
+	return func(c *cfg) {
+		c.info.Path = path
+	}
+}
+
+// WithPermissions returns option to specify permission bits
+// of Metabase system path.
+func WithPermissions(perm os.FileMode) Option {
+	return func(c *cfg) {
+		c.info.Permission = perm
 	}
 }
