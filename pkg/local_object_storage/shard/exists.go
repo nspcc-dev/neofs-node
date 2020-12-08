@@ -2,6 +2,7 @@ package shard
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
@@ -41,5 +42,5 @@ func (s *Shard) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 }
 
 func (s *Shard) objectExists(addr *object.Address) (bool, error) {
-	return s.metaBase.Exists(addr)
+	return meta.Exists(s.metaBase, addr)
 }

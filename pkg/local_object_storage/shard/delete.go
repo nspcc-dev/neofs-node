@@ -4,6 +4,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"go.uber.org/zap"
 )
 
@@ -46,7 +47,7 @@ func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
 			}
 		}
 
-		blobovniczaID, err := s.metaBase.IsSmall(prm.addr[i])
+		blobovniczaID, err := meta.IsSmall(s.metaBase, prm.addr[i])
 		if err != nil {
 			s.log.Debug("can't get blobovniczaID from metabase",
 				zap.Stringer("object", prm.addr[i]),
@@ -60,7 +61,7 @@ func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
 		}
 	}
 
-	err := s.metaBase.Delete(prm.addr...)
+	err := meta.Delete(s.metaBase, prm.addr...)
 	if err != nil {
 		return nil, err // stop on metabase error ?
 	}

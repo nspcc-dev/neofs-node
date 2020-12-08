@@ -9,18 +9,54 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+// ExistsPrm groups the parameters of Exists operation.
+type ExistsPrm struct {
+	addr *objectSDK.Address
+}
+
+// ExistsRes groups resulting values of Exists operation.
+type ExistsRes struct {
+	exists bool
+}
+
 var ErrLackSplitInfo = errors.New("no split info on parent object")
+
+// WithAddress is an Exists option to set object checked for existence.
+func (p *ExistsPrm) WithAddress(addr *objectSDK.Address) *ExistsPrm {
+	if p != nil {
+		p.addr = addr
+	}
+
+	return p
+}
+
+// Exists returns the fact that the object is in the metabase.
+func (p *ExistsRes) Exists() bool {
+	return p.exists
+}
+
+// Exists checks if object is presented in DB.
+func Exists(db *DB, addr *objectSDK.Address) (bool, error) {
+	r, err := db.Exists(new(ExistsPrm).WithAddress(addr))
+	if err != nil {
+		return false, err
+	}
+
+	return r.Exists(), nil
+}
 
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
-func (db *DB) Exists(addr *objectSDK.Address) (exists bool, err error) {
+func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
+	res = new(ExistsRes)
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		exists, err = db.exists(tx, addr)
+		res.exists, err = db.exists(tx, prm.addr)
 
 		return err
 	})
 
-	return exists, err
+	return
 }
 
 func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err error) {
