@@ -11,6 +11,7 @@ import (
 // HeadPrm groups the parameters of Head operation.
 type HeadPrm struct {
 	addr *objectSDK.Address
+	raw  bool
 }
 
 // HeadRes groups resulting values of Head operation.
@@ -24,6 +25,17 @@ type HeadRes struct {
 func (p *HeadPrm) WithAddress(addr *objectSDK.Address) *HeadPrm {
 	if p != nil {
 		p.addr = addr
+	}
+
+	return p
+}
+
+// WithRaw is a Head option to set raw flag value. If flag is unset, then Head
+// returns header of virtual object, otherwise it returns SplitInfo of virtual
+// object.
+func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
+	if p != nil {
+		p.raw = raw
 	}
 
 	return p
@@ -51,7 +63,8 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	)
 
 	shPrm := new(shard.HeadPrm).
-		WithAddress(prm.addr)
+		WithAddress(prm.addr).
+		WithRaw(prm.raw)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
 		res, err := sh.Head(shPrm)
@@ -95,6 +108,20 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 func Head(storage *StorageEngine, addr *objectSDK.Address) (*object.Object, error) {
 	res, err := storage.Head(new(HeadPrm).
 		WithAddress(addr),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Header(), nil
+}
+
+// HeadRaw reads object header from local storage by provided address and raw
+// flag.
+func HeadRaw(storage *StorageEngine, addr *objectSDK.Address, raw bool) (*object.Object, error) {
+	res, err := storage.Head(new(HeadPrm).
+		WithAddress(addr).
+		WithRaw(raw),
 	)
 	if err != nil {
 		return nil, err
