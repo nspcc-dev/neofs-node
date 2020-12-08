@@ -59,7 +59,8 @@ func (r *RngRes) Object() *object.Object {
 // Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 	var (
-		obj *object.Object
+		obj   *object.Object
+		siErr *objectSDK.SplitInfoError
 
 		outError = object.ErrNotFound
 	)
@@ -74,7 +75,9 @@ func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
-			case errors.Is(err, object.ErrAlreadyRemoved):
+			case
+				errors.Is(err, object.ErrAlreadyRemoved),
+				errors.As(err, &siErr):
 				outError = err
 
 				return true // stop, return it back
