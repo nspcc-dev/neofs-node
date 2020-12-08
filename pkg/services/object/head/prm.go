@@ -11,6 +11,8 @@ type Prm struct {
 	short bool
 
 	addr *object.Address
+
+	raw bool
 }
 
 func (p *Prm) WithCommonPrm(v *util.CommonPrm) *Prm {
@@ -32,6 +34,14 @@ func (p *Prm) Short(v bool) *Prm {
 func (p *Prm) WithAddress(v *object.Address) *Prm {
 	if p != nil {
 		p.addr = v
+	}
+
+	return p
+}
+
+func (p *Prm) WithRaw(v bool) *Prm {
+	if p != nil {
+		p.raw = v
 	}
 
 	return p

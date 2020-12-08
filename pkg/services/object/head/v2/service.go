@@ -3,6 +3,7 @@ package headsvc
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/pkg/errors"
@@ -38,6 +39,12 @@ func (s *Service) Head(ctx context.Context, req *objectV2.HeadRequest) (*objectV
 	r, err := s.svc.Head(ctx, toPrm(req))
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not get object header", s)
+	}
+
+	var splitErr *object.SplitInfoError
+
+	if errors.As(err, &splitErr) {
+		return splitInfoResponse(splitErr.SplitInfo()), nil
 	}
 
 	return fromResponse(r, req.GetBody().GetMainOnly()), nil
