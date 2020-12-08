@@ -1010,6 +1010,17 @@ func TestGetRemoteSmall(t *testing.T) {
 				err = svc.GetRange(ctx, rngPrm)
 				require.NoError(t, err)
 				require.Equal(t, payload[off:off+ln], w.object().Payload())
+
+				w = newSimpleObjectWriter()
+				off = payloadSz - 2
+				ln = 1
+
+				rngPrm = newRngPrm(false, w, off, ln)
+				rngPrm.WithAddress(addr)
+
+				err = svc.GetRange(ctx, rngPrm)
+				require.NoError(t, err)
+				require.Equal(t, payload[off:off+ln], w.object().Payload())
 			})
 		})
 	})
