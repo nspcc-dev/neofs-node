@@ -336,7 +336,7 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *object.Address, f object.Sear
 		return true
 	}
 
-	obj, err := db.get(tx, addr, true)
+	obj, err := db.get(tx, addr, true, false)
 	if err != nil {
 		return false
 	}

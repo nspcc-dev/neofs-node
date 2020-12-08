@@ -32,6 +32,10 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, l, 1)
 
+	// try to remove parent unsuccessfully
+	err = meta.Delete(db, parent.Object().Address())
+	require.Error(t, err)
+
 	// inhume parent and child so they will be on graveyard
 	ts := generateRawObjectWithCID(t, cid)
 
