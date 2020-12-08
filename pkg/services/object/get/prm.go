@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"crypto/ecdsa"
+	"hash"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -19,6 +20,15 @@ type RangePrm struct {
 	commonPrm
 
 	rng *objectSDK.Range
+}
+
+// RangeHashPrm groups parameters of GetRange service call.
+type RangeHashPrm struct {
+	commonPrm
+
+	hashGen func() hash.Hash
+
+	rngs []*objectSDK.Range
 }
 
 type commonPrm struct {
@@ -71,4 +81,14 @@ func (p *RangePrm) SetChunkWriter(w ChunkWriter) {
 // SetRange sets range of the requested payload data.
 func (p *RangePrm) SetRange(rng *objectSDK.Range) {
 	p.rng = rng
+}
+
+// SetRangeList sets list of object payload ranges.
+func (p *RangeHashPrm) SetRangeList(rngs []*objectSDK.Range) {
+	p.rngs = rngs
+}
+
+// SetHashGenerator sets constructor of hashing algorithm.
+func (p *RangeHashPrm) SetHashGenerator(v func() hash.Hash) {
+	p.hashGen = v
 }
