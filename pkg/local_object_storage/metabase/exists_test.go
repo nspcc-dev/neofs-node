@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,17 +15,17 @@ func TestDB_Exists(t *testing.T) {
 
 	t.Run("no object", func(t *testing.T) {
 		nonExist := generateRawObject(t)
-		exists, err := db.Exists(nonExist.Object().Address())
+		exists, err := meta.Exists(db, nonExist.Object().Address())
 		require.NoError(t, err)
 		require.False(t, exists)
 	})
 
 	t.Run("regular object", func(t *testing.T) {
 		regular := generateRawObject(t)
-		err := db.Put(regular.Object(), nil)
+		err := putBig(db, regular.Object())
 		require.NoError(t, err)
 
-		exists, err := db.Exists(regular.Object().Address())
+		exists, err := meta.Exists(db, regular.Object().Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -33,10 +34,10 @@ func TestDB_Exists(t *testing.T) {
 		ts := generateRawObject(t)
 		ts.SetType(objectSDK.TypeTombstone)
 
-		err := db.Put(ts.Object(), nil)
+		err := putBig(db, ts.Object())
 		require.NoError(t, err)
 
-		exists, err := db.Exists(ts.Object().Address())
+		exists, err := meta.Exists(db, ts.Object().Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -45,10 +46,10 @@ func TestDB_Exists(t *testing.T) {
 		sg := generateRawObject(t)
 		sg.SetType(objectSDK.TypeStorageGroup)
 
-		err := db.Put(sg.Object(), nil)
+		err := putBig(db, sg.Object())
 		require.NoError(t, err)
 
-		exists, err := db.Exists(sg.Object().Address())
+		exists, err := meta.Exists(db, sg.Object().Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 	})
@@ -61,10 +62,10 @@ func TestDB_Exists(t *testing.T) {
 		child.SetParent(parent.Object().SDK())
 		child.SetParentID(parent.ID())
 
-		err := db.Put(child.Object(), nil)
+		err := putBig(db, child.Object())
 		require.NoError(t, err)
 
-		_, err = db.Exists(parent.Object().Address())
+		_, err = meta.Exists(db, parent.Object().Address())
 
 		var expectedErr *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &expectedErr))
@@ -89,13 +90,13 @@ func TestDB_Exists(t *testing.T) {
 		link.SetSplitID(splitID)
 
 		t.Run("direct order", func(t *testing.T) {
-			err := db.Put(child.Object(), nil)
+			err := putBig(db, child.Object())
 			require.NoError(t, err)
 
-			err = db.Put(link.Object(), nil)
+			err = putBig(db, link.Object())
 			require.NoError(t, err)
 
-			_, err = db.Exists(parent.Object().Address())
+			_, err = meta.Exists(db, parent.Object().Address())
 			require.Error(t, err)
 
 			si, ok := err.(*objectSDK.SplitInfoError)
@@ -107,13 +108,13 @@ func TestDB_Exists(t *testing.T) {
 		})
 
 		t.Run("reverse order", func(t *testing.T) {
-			err := db.Put(link.Object(), nil)
+			err := meta.Put(db, link.Object(), nil)
 			require.NoError(t, err)
 
-			err = db.Put(child.Object(), nil)
+			err = putBig(db, child.Object())
 			require.NoError(t, err)
 
-			_, err = db.Exists(parent.Object().Address())
+			_, err = meta.Exists(db, parent.Object().Address())
 			require.Error(t, err)
 
 			si, ok := err.(*objectSDK.SplitInfoError)

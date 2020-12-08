@@ -2,6 +2,7 @@ package shard
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +27,7 @@ func (p *ToMoveItPrm) WithAddress(addr *objectSDK.Address) *ToMoveItPrm {
 // ToMoveIt calls metabase.ToMoveIt method to mark object as relocatable to
 // another shard.
 func (s *Shard) ToMoveIt(prm *ToMoveItPrm) (*ToMoveItRes, error) {
-	err := s.metaBase.ToMoveIt(prm.addr)
+	err := meta.ToMoveIt(s.metaBase, prm.addr)
 	if err != nil {
 		s.log.Debug("could not mark object for shard relocation in metabase",
 			zap.String("error", err.Error()),

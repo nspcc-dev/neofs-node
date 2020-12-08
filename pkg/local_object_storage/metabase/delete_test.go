@@ -3,6 +3,7 @@ package meta_test
 import (
 	"testing"
 
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,42 +20,42 @@ func TestDB_Delete(t *testing.T) {
 	child.SetParentID(parent.ID())
 
 	// put object with parent
-	err := db.Put(child.Object(), nil)
+	err := putBig(db, child.Object())
 	require.NoError(t, err)
 
 	// fill ToMoveIt index
-	err = db.ToMoveIt(child.Object().Address())
+	err = meta.ToMoveIt(db, child.Object().Address())
 	require.NoError(t, err)
 
 	// check if Movable list is not empty
-	l, err := db.Movable()
+	l, err := meta.Movable(db)
 	require.NoError(t, err)
 	require.Len(t, l, 1)
 
 	// inhume parent and child so they will be on graveyard
 	ts := generateRawObjectWithCID(t, cid)
 
-	err = db.Inhume(child.Object().Address(), ts.Object().Address())
+	err = meta.Inhume(db, child.Object().Address(), ts.Object().Address())
 	require.NoError(t, err)
 
-	err = db.Inhume(child.Object().Address(), ts.Object().Address())
+	err = meta.Inhume(db, child.Object().Address(), ts.Object().Address())
 	require.NoError(t, err)
 
 	// delete object
-	err = db.Delete(child.Object().Address())
+	err = meta.Delete(db, child.Object().Address())
 	require.NoError(t, err)
 
 	// check if there is no data in Movable index
-	l, err = db.Movable()
+	l, err = meta.Movable(db)
 	require.NoError(t, err)
 	require.Len(t, l, 0)
 
 	// check if they removed from graveyard
-	ok, err := db.Exists(child.Object().Address())
+	ok, err := meta.Exists(db, child.Object().Address())
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	ok, err = db.Exists(parent.Object().Address())
+	ok, err = meta.Exists(db, parent.Object().Address())
 	require.NoError(t, err)
 	require.False(t, ok)
 }

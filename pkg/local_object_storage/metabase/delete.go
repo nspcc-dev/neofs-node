@@ -10,13 +10,38 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+// DeletePrm groups the parameters of Delete operation.
+type DeletePrm struct {
+	addrs []*objectSDK.Address
+}
+
+// DeleteRes groups resulting values of Delete operation.
+type DeleteRes struct{}
+
 var ErrVirtualObject = errors.New("do not remove virtual object directly")
 
+// WithAddresses is a Delete option to set the addresses of the objects to delete.
+//
+// Option is required.
+func (p *DeletePrm) WithAddresses(addrs ...*objectSDK.Address) *DeletePrm {
+	if p != nil {
+		p.addrs = addrs
+	}
+
+	return p
+}
+
+// Delete removes objects from DB.
+func Delete(db *DB, addrs ...*objectSDK.Address) error {
+	_, err := db.Delete(new(DeletePrm).WithAddresses(addrs...))
+	return err
+}
+
 // DeleteObjects marks list of objects as deleted.
-func (db *DB) Delete(lst ...*objectSDK.Address) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		for i := range lst {
-			err := db.delete(tx, lst[i], false)
+func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
+	return new(DeleteRes), db.boltDB.Update(func(tx *bbolt.Tx) error {
+		for i := range prm.addrs {
+			err := db.delete(tx, prm.addrs[i], false)
 			if err != nil {
 				return err // maybe log and continue?
 			}

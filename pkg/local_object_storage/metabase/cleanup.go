@@ -6,8 +6,15 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-func (db *DB) CleanUp() error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+// CleanUpPrm groups the parameters of CleanUp operation.
+type CleanUpPrm struct{}
+
+// CleanUpRes groups resulting values of CleanUp operation.
+type CleanUpRes struct{}
+
+// CleanUp removes empty buckets from metabase.
+func (db *DB) CleanUp(prm *CleanUpPrm) (res *CleanUpRes, err error) {
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 			switch {
 			case isFKBTBucket(name):
@@ -21,6 +28,8 @@ func (db *DB) CleanUp() error {
 			return nil
 		})
 	})
+
+	return
 }
 
 func isFKBTBucket(name []byte) bool {

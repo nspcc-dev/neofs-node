@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"go.uber.org/zap"
 )
 
@@ -20,7 +21,7 @@ func (s *Shard) List() (*SelectRes, error) {
 		filters = filters[:0]
 		filters.AddObjectContainerIDFilter(object.MatchStringEqual, lst[i])
 
-		ids, err := s.metaBase.Select(filters) // consider making List in metabase
+		ids, err := meta.Select(s.metaBase, filters) // consider making List in metabase
 		if err != nil {
 			s.log.Debug("can't select all objects",
 				zap.Stringer("cid", lst[i]),

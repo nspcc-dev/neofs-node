@@ -24,12 +24,48 @@ type (
 	}
 )
 
+// SelectPrm groups the parameters of Select operation.
+type SelectPrm struct {
+	filters object.SearchFilters
+}
+
+// SelectRes groups resulting values of Select operation.
+type SelectRes struct {
+	addrList []*object.Address
+}
+
+// WithFilters is a Select option to set the object filters.
+func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
+	if p != nil {
+		p.filters = fs
+	}
+
+	return p
+}
+
+// AddressList returns list of addresses of the selected objects.
+func (r *SelectRes) AddressList() []*object.Address {
+	return r.addrList
+}
+
 var ErrContainerNotInQuery = errors.New("search query does not contain container id filter")
 
+// Select selects the objects from DB with filtering.
+func Select(db *DB, fs object.SearchFilters) ([]*object.Address, error) {
+	r, err := db.Select(new(SelectPrm).WithFilters(fs))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.AddressList(), nil
+}
+
 // Select returns list of addresses of objects that match search filters.
-func (db *DB) Select(fs object.SearchFilters) (res []*object.Address, err error) {
+func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
+	res = new(SelectRes)
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res, err = db.selectObjects(tx, fs)
+		res.addrList, err = db.selectObjects(tx, prm.filters)
 
 		return err
 	})
