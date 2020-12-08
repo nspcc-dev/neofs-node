@@ -19,6 +19,8 @@ type GetRangeSmallRes struct {
 //
 // Returns any error encountered that
 // did not allow to completely read the object payload range.
+//
+// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 func (b *BlobStor) GetRangeSmall(prm *GetRangeSmallPrm) (*GetRangeSmallRes, error) {
 	return b.blobovniczas.getRange(prm)
 }
