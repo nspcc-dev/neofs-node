@@ -44,7 +44,8 @@ func (r *HeadRes) Header() *object.Object {
 // Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 	var (
-		head *object.Object
+		head  *object.Object
+		siErr *objectSDK.SplitInfoError
 
 		outError = object.ErrNotFound
 	)
@@ -58,7 +59,9 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
-			case errors.Is(err, object.ErrAlreadyRemoved):
+			case
+				errors.Is(err, object.ErrAlreadyRemoved),
+				errors.As(err, &siErr):
 				outError = err
 
 				return true // stop, return it back
