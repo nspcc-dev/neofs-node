@@ -3,6 +3,7 @@ package shard
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 )
 
 // HeadPrm groups the parameters of Head operation.
@@ -35,7 +36,7 @@ func (r *HeadRes) Object() *object.Object {
 //
 // Returns any error encountered.
 func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
-	head, err := s.metaBase.Get(prm.addr)
+	head, err := meta.Get(s.metaBase, prm.addr)
 
 	return &HeadRes{
 		obj: head,

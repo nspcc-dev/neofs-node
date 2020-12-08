@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/pkg/errors"
 )
 
@@ -56,7 +57,7 @@ func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
 	}
 
 	// put to metabase
-	if err := s.metaBase.Put(prm.obj, res.BlobovniczaID()); err != nil {
+	if err := meta.Put(s.metaBase, prm.obj, res.BlobovniczaID()); err != nil {
 		// may we need to handle this case in a special way
 		// since the object has been successfully written to BlobStor
 		return nil, errors.Wrap(err, "could not put object to metabase")

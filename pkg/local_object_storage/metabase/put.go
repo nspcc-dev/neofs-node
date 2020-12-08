@@ -18,6 +18,34 @@ type (
 	}
 )
 
+// PutPrm groups the parameters of Put operation.
+type PutPrm struct {
+	obj *object.Object
+
+	id *blobovnicza.ID
+}
+
+// PutRes groups resulting values of Put operation.
+type PutRes struct{}
+
+// WithObject is a Put option to set object to save.
+func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
+	if p != nil {
+		p.obj = obj
+	}
+
+	return p
+}
+
+// WithBlobovniczaID is a Put option to set blobovnicza ID to save.
+func (p *PutPrm) WithBlobovniczaID(id *blobovnicza.ID) *PutPrm {
+	if p != nil {
+		p.id = id
+	}
+
+	return p
+}
+
 var (
 	ErrUnknownObjectType          = errors.New("unknown object type")
 	ErrIncorrectBlobovniczaUpdate = errors.New("updating blobovnicza id on object without it")
@@ -25,12 +53,24 @@ var (
 	ErrIncorrectRootObject        = errors.New("invalid root object")
 )
 
+// Put saves the object in DB.
+func Put(db *DB, obj *object.Object, id *blobovnicza.ID) error {
+	_, err := db.Put(new(PutPrm).
+		WithObject(obj).
+		WithBlobovniczaID(id),
+	)
+
+	return err
+}
+
 // Put saves object header in metabase. Object payload expected to be cut.
 // Big objects have nil blobovniczaID.
-func (db *DB) Put(obj *object.Object, id *blobovnicza.ID) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, id, nil)
+func (db *DB) Put(prm *PutPrm) (res *PutRes, err error) {
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		return db.put(tx, prm.obj, prm.id, nil)
 	})
+
+	return
 }
 
 func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *objectSDK.SplitInfo) error {

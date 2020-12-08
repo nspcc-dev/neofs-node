@@ -17,8 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// saves "big" object in DB.
+func putBig(db *meta.DB, obj *object.Object) error {
+	return meta.Put(db, obj, nil)
+}
+
 func testSelect(t *testing.T, db *meta.DB, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
-	res, err := db.Select(fs)
+	res, err := meta.Select(db, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
 

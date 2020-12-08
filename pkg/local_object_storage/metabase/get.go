@@ -9,15 +9,53 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+// GetPrm groups the parameters of Get operation.
+type GetPrm struct {
+	addr *objectSDK.Address
+}
+
+// GetRes groups resulting values of Get operation.
+type GetRes struct {
+	hdr *object.Object
+}
+
+// WithAddress is a Get option to set the address of the requested object.
+//
+// Option is required.
+func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
+	if p != nil {
+		p.addr = addr
+	}
+
+	return p
+}
+
+// Header returns the requested object header.
+func (r *GetRes) Header() *object.Object {
+	return r.hdr
+}
+
+// Get read the object from DB.
+func Get(db *DB, addr *objectSDK.Address) (*object.Object, error) {
+	r, err := db.Get(new(GetPrm).WithAddress(addr))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Header(), nil
+}
+
 // Get returns object header for specified address.
-func (db *DB) Get(addr *objectSDK.Address) (obj *object.Object, err error) {
+func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
+	res = new(GetRes)
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		obj, err = db.get(tx, addr, true)
+		res.hdr, err = db.get(tx, prm.addr, true)
 
 		return err
 	})
 
-	return obj, err
+	return
 }
 
 func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard bool) (*object.Object, error) {

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,20 +22,20 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 	addAttribute(raw1, "foo", "bar")
 	addAttribute(raw1, "x", "y")
 
-	err := db.Put(raw1.Object(), nil)
+	err := putBig(db, raw1.Object())
 	require.NoError(t, err)
 
 	raw2 := generateRawObjectWithCID(t, cid)
 	addAttribute(raw2, "foo", "bar")
 	addAttribute(raw2, "x", "z")
 
-	err = db.Put(raw2.Object(), nil)
+	err = putBig(db, raw2.Object())
 	require.NoError(t, err)
 
 	raw3 := generateRawObjectWithCID(t, cid)
 	addAttribute(raw3, "a", "b")
 
-	err = db.Put(raw3.Object(), nil)
+	err = putBig(db, raw3.Object())
 	require.NoError(t, err)
 
 	fs := generateSearchFilter(cid)
@@ -73,22 +74,22 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	// prepare
 
 	small := generateRawObjectWithCID(t, cid)
-	err := db.Put(small.Object(), nil)
+	err := putBig(db, small.Object())
 	require.NoError(t, err)
 
 	ts := generateRawObjectWithCID(t, cid)
 	ts.SetType(objectSDK.TypeTombstone)
-	err = db.Put(ts.Object(), nil)
+	err = putBig(db, ts.Object())
 	require.NoError(t, err)
 
 	sg := generateRawObjectWithCID(t, cid)
 	sg.SetType(objectSDK.TypeStorageGroup)
-	err = db.Put(sg.Object(), nil)
+	err = putBig(db, sg.Object())
 	require.NoError(t, err)
 
 	leftChild := generateRawObjectWithCID(t, cid)
 	leftChild.InitRelations()
-	err = db.Put(leftChild.Object(), nil)
+	err = putBig(db, leftChild.Object())
 	require.NoError(t, err)
 
 	parent := generateRawObjectWithCID(t, cid)
@@ -96,7 +97,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	rightChild := generateRawObjectWithCID(t, cid)
 	rightChild.SetParent(parent.Object().SDK())
 	rightChild.SetParentID(parent.ID())
-	err = db.Put(rightChild.Object(), nil)
+	err = putBig(db, rightChild.Object())
 	require.NoError(t, err)
 
 	link := generateRawObjectWithCID(t, cid)
@@ -104,7 +105,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	link.SetParentID(parent.ID())
 	link.SetChildren(leftChild.ID(), rightChild.ID())
 
-	err = db.Put(link.Object(), nil)
+	err = putBig(db, link.Object())
 	require.NoError(t, err)
 
 	t.Run("root objects", func(t *testing.T) {
@@ -186,11 +187,11 @@ func TestDB_SelectInhume(t *testing.T) {
 	cid := testCID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
-	err := db.Put(raw1.Object(), nil)
+	err := putBig(db, raw1.Object())
 	require.NoError(t, err)
 
 	raw2 := generateRawObjectWithCID(t, cid)
-	err = db.Put(raw2.Object(), nil)
+	err = putBig(db, raw2.Object())
 	require.NoError(t, err)
 
 	fs := generateSearchFilter(cid)
@@ -203,7 +204,7 @@ func TestDB_SelectInhume(t *testing.T) {
 	tombstone.SetContainerID(cid)
 	tombstone.SetObjectID(testOID())
 
-	err = db.Inhume(raw2.Object().Address(), tombstone)
+	err = meta.Inhume(db, raw2.Object().Address(), tombstone)
 	require.NoError(t, err)
 
 	fs = generateSearchFilter(cid)
@@ -219,11 +220,11 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	cid := testCID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
-	err := db.Put(raw1.Object(), nil)
+	err := putBig(db, raw1.Object())
 	require.NoError(t, err)
 
 	raw2 := generateRawObjectWithCID(t, cid)
-	err = db.Put(raw2.Object(), nil)
+	err = putBig(db, raw2.Object())
 	require.NoError(t, err)
 
 	fs := generateSearchFilter(cid)
@@ -251,14 +252,14 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 	raw1.SetPayloadSize(10)
 	raw1.SetCreationEpoch(11)
 	raw1.SetVersion(v20)
-	err := db.Put(raw1.Object(), nil)
+	err := putBig(db, raw1.Object())
 	require.NoError(t, err)
 
 	raw2 := generateRawObjectWithCID(t, cid)
 	raw2.SetPayloadSize(20)
 	raw2.SetCreationEpoch(21)
 	raw2.SetVersion(v21)
-	err = db.Put(raw2.Object(), nil)
+	err = putBig(db, raw2.Object())
 	require.NoError(t, err)
 
 	t.Run("object with TZHash", func(t *testing.T) {
@@ -312,17 +313,17 @@ func TestDB_SelectObjectID(t *testing.T) {
 	regular.SetParentID(parent.ID())
 	regular.SetParent(parent.Object().SDK())
 
-	err := db.Put(regular.Object(), nil)
+	err := putBig(db, regular.Object())
 	require.NoError(t, err)
 
 	ts := generateRawObjectWithCID(t, cid)
 	ts.SetType(objectSDK.TypeTombstone)
-	err = db.Put(ts.Object(), nil)
+	err = putBig(db, ts.Object())
 	require.NoError(t, err)
 
 	sg := generateRawObjectWithCID(t, cid)
 	sg.SetType(objectSDK.TypeStorageGroup)
-	err = db.Put(sg.Object(), nil)
+	err = putBig(db, sg.Object())
 	require.NoError(t, err)
 
 	t.Run("not found objects", func(t *testing.T) {
@@ -376,9 +377,9 @@ func TestDB_SelectSplitID(t *testing.T) {
 	child2.SetSplitID(split1)
 	child3.SetSplitID(split2)
 
-	require.NoError(t, db.Put(child1.Object(), nil))
-	require.NoError(t, db.Put(child2.Object(), nil))
-	require.NoError(t, db.Put(child3.Object(), nil))
+	require.NoError(t, putBig(db, child1.Object()))
+	require.NoError(t, putBig(db, child2.Object()))
+	require.NoError(t, putBig(db, child3.Object()))
 
 	t.Run("split id", func(t *testing.T) {
 		fs := generateSearchFilter(cid)

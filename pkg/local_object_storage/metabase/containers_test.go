@@ -19,7 +19,7 @@ func TestDB_Containers(t *testing.T) {
 
 		cids[obj.ContainerID().String()] = 0
 
-		err := db.Put(obj.Object(), nil)
+		err := putBig(db, obj.Object())
 		require.NoError(t, err)
 	}
 

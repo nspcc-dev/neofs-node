@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,15 +17,15 @@ func TestDB_Inhume(t *testing.T) {
 
 	tombstoneID := generateAddress()
 
-	err := db.Put(raw.Object(), nil)
+	err := putBig(db, raw.Object())
 	require.NoError(t, err)
 
-	err = db.Inhume(raw.Object().Address(), tombstoneID)
+	err = meta.Inhume(db, raw.Object().Address(), tombstoneID)
 	require.NoError(t, err)
 
-	_, err = db.Exists(raw.Object().Address())
+	_, err = meta.Exists(db, raw.Object().Address())
 	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
 
-	_, err = db.Get(raw.Object().Address())
+	_, err = meta.Get(db, raw.Object().Address())
 	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
 }

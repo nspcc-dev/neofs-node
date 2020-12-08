@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 )
 
 // storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
@@ -103,7 +104,7 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher)
 		s.log.Debug("miss in writeCache shallow dir")
 	}
 
-	exists, err := s.metaBase.Exists(addr)
+	exists, err := meta.Exists(s.metaBase, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher)
 		return nil, object.ErrNotFound
 	}
 
-	blobovniczaID, err := s.metaBase.IsSmall(addr)
+	blobovniczaID, err := meta.IsSmall(s.metaBase, addr)
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
