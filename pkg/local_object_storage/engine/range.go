@@ -57,6 +57,8 @@ func (r *RngRes) Object() *object.Object {
 // did not allow to completely read the object part.
 //
 // Returns ErrNotFound if requested object is missing in local storage.
+// Returns ErrAlreadyRemoved if requested object is inhumed.
+// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 	var (
 		obj   *object.Object
@@ -77,6 +79,7 @@ func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
 				return false // ignore, go to next shard
 			case
 				errors.Is(err, object.ErrAlreadyRemoved),
+				errors.Is(err, object.ErrRangeOutOfBounds),
 				errors.As(err, &siErr):
 				outError = err
 
