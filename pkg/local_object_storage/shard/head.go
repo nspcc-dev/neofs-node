@@ -9,6 +9,7 @@ import (
 // HeadPrm groups the parameters of Head operation.
 type HeadPrm struct {
 	addr *objectSDK.Address
+	raw  bool
 }
 
 // HeadRes groups resulting values of Head operation.
@@ -27,6 +28,17 @@ func (p *HeadPrm) WithAddress(addr *objectSDK.Address) *HeadPrm {
 	return p
 }
 
+// WithRaw is a Head option to set raw flag value. If flag is unset, then Head
+// returns header of virtual object, otherwise it returns SplitInfo of virtual
+// object.
+func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
+	if p != nil {
+		p.raw = raw
+	}
+
+	return p
+}
+
 // Object returns the requested object header.
 func (r *HeadRes) Object() *object.Object {
 	return r.obj
@@ -36,9 +48,13 @@ func (r *HeadRes) Object() *object.Object {
 //
 // Returns any error encountered.
 func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
-	head, err := meta.Get(s.metaBase, prm.addr)
+	headParams := new(meta.GetPrm).
+		WithAddress(prm.addr).
+		WithRaw(prm.raw)
+
+	head, err := s.metaBase.Get(headParams)
 
 	return &HeadRes{
-		obj: head,
+		obj: head.Header(),
 	}, err
 }
