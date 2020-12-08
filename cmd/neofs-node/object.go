@@ -28,8 +28,6 @@ import (
 	headsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/head/v2"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
-	rangehashsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/rangehash"
-	rangehashsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/rangehash/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -49,8 +47,6 @@ type objectSvc struct {
 	head *headsvcV2.Service
 
 	get *getsvcV2.Service
-
-	rngHash *rangehashsvcV2.Service
 
 	delete *deletesvcV2.Service
 }
@@ -164,7 +160,7 @@ func (s *objectSvc) GetRange(req *object.GetRangeRequest, stream objectService.G
 }
 
 func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	return s.rngHash.GetRangeHash(ctx, req)
+	return s.get.GetRangeHash(ctx, req)
 }
 
 type localObjectRemover struct {
@@ -370,26 +366,6 @@ func initObjectService(c *cfg) {
 		getsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sRangeHash := rangehashsvc.NewService(
-		rangehashsvc.WithKeyStorage(keyStorage),
-		rangehashsvc.WithClientCache(clientCache),
-		rangehashsvc.WithLocalStorage(ls),
-		rangehashsvc.WithContainerSource(c.cfgObject.cnrStorage),
-		rangehashsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
-		rangehashsvc.WithLocalAddressSource(c),
-		rangehashsvc.WithHeadService(sHead),
-		rangehashsvc.WithRangeService(sGet),
-		rangehashsvc.WithWorkerPool(c.cfgObject.pool.rngHash),
-		rangehashsvc.WithLogger(c.log),
-		rangehashsvc.WithClientOptions(
-			client.WithDialTimeout(c.viper.GetDuration(cfgObjectRangeHashDialTimeout)),
-		),
-	)
-
-	sRangeHashV2 := rangehashsvcV2.NewService(
-		rangehashsvcV2.WithInternalService(sRangeHash),
-	)
-
 	sDelete := deletesvc.NewService(
 		deletesvc.WithKeyStorage(keyStorage),
 		deletesvc.WitHeadService(sHead),
@@ -425,12 +401,11 @@ func initObjectService(c *cfg) {
 								c.cfgGRPC.maxChunkSize,
 								c.cfgGRPC.maxAddrAmount,
 								&objectSvc{
-									put:     sPutV2,
-									search:  sSearchV2,
-									head:    sHeadV2,
-									get:     sGetV2,
-									rngHash: sRangeHashV2,
-									delete:  sDeleteV2,
+									put:    sPutV2,
+									search: sSearchV2,
+									head:   sHeadV2,
+									get:    sGetV2,
+									delete: sDeleteV2,
 								},
 							),
 							c.respSvc,
