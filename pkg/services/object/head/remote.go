@@ -74,7 +74,8 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 	}
 
 	p := new(client.ObjectHeaderParams).
-		WithAddress(prm.commonHeadPrm.addr)
+		WithAddress(prm.commonHeadPrm.addr).
+		WithRawFlag(prm.commonHeadPrm.raw)
 
 	if prm.commonHeadPrm.short {
 		p = p.WithMainFields()

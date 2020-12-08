@@ -15,7 +15,8 @@ func toPrm(req *objectV2.HeadRequest) *headsvc.Prm {
 			object.NewAddressFromV2(body.GetAddress()),
 		).
 		Short(body.GetMainOnly()).
-		WithCommonPrm(util.CommonPrmFromV2(req))
+		WithCommonPrm(util.CommonPrmFromV2(req)).
+		WithRaw(body.GetRaw())
 }
 
 func fromResponse(r *headsvc.Response, short bool) *objectV2.HeadResponse {
@@ -54,4 +55,15 @@ func shortPartFromResponse(r *headsvc.Response) objectV2.GetHeaderPart {
 	sh.SetObjectType(hdr.GetObjectType())
 
 	return sh
+}
+
+func splitInfoResponse(info *object.SplitInfo) *objectV2.HeadResponse {
+	resp := new(objectV2.HeadResponse)
+
+	body := new(objectV2.HeadResponseBody)
+	resp.SetBody(body)
+
+	body.SetHeaderPart(info.ToV2())
+
+	return resp
 }
