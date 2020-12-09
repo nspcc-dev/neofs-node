@@ -31,6 +31,11 @@ type RangeHashPrm struct {
 	rngs []*objectSDK.Range
 }
 
+// HeadPrm groups parameters of Head service call.
+type HeadPrm struct {
+	commonPrm
+}
+
 type commonPrm struct {
 	objWriter ObjectWriter
 
@@ -50,9 +55,15 @@ type ChunkWriter interface {
 	WriteChunk([]byte) error
 }
 
+// HeaderWriter is an interface of target component
+// to write object header.
+type HeaderWriter interface {
+	WriteHeader(*object.Object) error
+}
+
 // ObjectWriter is an interface of target component to write object.
 type ObjectWriter interface {
-	WriteHeader(*object.Object) error
+	HeaderWriter
 	ChunkWriter
 }
 
@@ -71,9 +82,9 @@ func (p *commonPrm) SetRemoteCallOptions(opts ...client.CallOption) {
 	p.callOpts = opts
 }
 
-// SetObjectWriter sets target component to write the object payload range.
+// SetChunkWriter sets target component to write the object payload range.
 func (p *RangePrm) SetChunkWriter(w ChunkWriter) {
-	p.objWriter = &rangeWriter{
+	p.objWriter = &partWriter{
 		chunkWriter: w,
 	}
 }
@@ -96,4 +107,11 @@ func (p *RangeHashPrm) SetHashGenerator(v func() hash.Hash) {
 // SetCommonParameters sets common parameters of the operation.
 func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
 	p.common = common
+}
+
+// SetHeaderWriter sets target component to write the object header.
+func (p *HeadPrm) SetHeaderWriter(w HeaderWriter) {
+	p.objWriter = &partWriter{
+		headWriter: w,
+	}
 }

@@ -93,8 +93,8 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) GetObject(_ context.Context, p RangePrm) (*objectSDK.Object, error) {
-	v, ok := c.results[p.Address().String()]
+func (c *testClient) getObject(exec *execCtx) (*objectSDK.Object, error) {
+	v, ok := c.results[exec.address().String()]
 	if !ok {
 		return nil, object.ErrNotFound
 	}
@@ -103,7 +103,7 @@ func (c *testClient) GetObject(_ context.Context, p RangePrm) (*objectSDK.Object
 		return nil, v.err
 	}
 
-	return cutToRange(v.obj.Object(), p.rng).SDK(), nil
+	return cutToRange(v.obj.Object(), exec.ctxRange()).SDK(), nil
 }
 
 func (c *testClient) head(_ context.Context, p Prm) (*object.Object, error) {
@@ -126,11 +126,11 @@ func (c *testClient) addResult(addr *objectSDK.Address, obj *object.RawObject, e
 	}{obj: obj, err: err}
 }
 
-func (s *testStorage) Get(p RangePrm) (*object.Object, error) {
+func (s *testStorage) get(exec *execCtx) (*object.Object, error) {
 	var (
 		ok    bool
 		obj   *object.Object
-		sAddr = p.Address().String()
+		sAddr = exec.address().String()
 	)
 
 	if _, ok = s.inhumed[sAddr]; ok {
@@ -142,7 +142,7 @@ func (s *testStorage) Get(p RangePrm) (*object.Object, error) {
 	}
 
 	if obj, ok = s.phy[sAddr]; ok {
-		return cutToRange(obj, p.rng), nil
+		return cutToRange(obj, exec.ctxRange()), nil
 	}
 
 	return nil, object.ErrNotFound
@@ -207,6 +207,7 @@ func generateObject(addr *objectSDK.Address, prev *objectSDK.ID, payload []byte,
 	obj.SetContainerID(addr.ContainerID())
 	obj.SetID(addr.ObjectID())
 	obj.SetPayload(payload)
+	obj.SetPayloadSize(uint64(len(payload)))
 	obj.SetPreviousID(prev)
 	obj.SetChildren(children...)
 
@@ -249,11 +250,20 @@ func TestGetLocalOnly(t *testing.T) {
 		return p
 	}
 
+	newHeadPrm := func(raw bool, w ObjectWriter) HeadPrm {
+		p := HeadPrm{}
+		p.SetHeaderWriter(w)
+		p.WithRawFlag(raw)
+		p.common = new(util.CommonPrm).WithLocalOnly(true)
+
+		return p
+	}
+
 	t.Run("OK", func(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		w := newSimpleObjectWriter()
+		w := NewSimpleObjectWriter()
 		p := newPrm(false, w)
 
 		payloadSz := uint64(10)
@@ -273,16 +283,24 @@ func TestGetLocalOnly(t *testing.T) {
 
 		require.NoError(t, err)
 
-		require.Equal(t, obj.Object(), w.object())
+		require.Equal(t, obj.Object(), w.Object())
 
-		w = newSimpleObjectWriter()
+		w = NewSimpleObjectWriter()
 
 		rngPrm := newRngPrm(false, w, payloadSz/3, payloadSz/3)
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
 		require.NoError(t, err)
-		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.object().Payload())
+		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.Object().Payload())
+
+		w = NewSimpleObjectWriter()
+		headPrm := newHeadPrm(false, w)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
+		require.NoError(t, err)
+		require.Equal(t, obj.CutPayload().Object(), w.Object())
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {
@@ -306,6 +324,12 @@ func TestGetLocalOnly(t *testing.T) {
 
 		err = svc.GetRange(ctx, rngPrm)
 		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+
+		headPrm := newHeadPrm(false, nil)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
+		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
 	})
 
 	t.Run("404", func(t *testing.T) {
@@ -327,6 +351,12 @@ func TestGetLocalOnly(t *testing.T) {
 
 		err = svc.GetRange(ctx, rngPrm)
 
+		require.True(t, errors.Is(err, object.ErrNotFound))
+
+		headPrm := newHeadPrm(false, nil)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
 		require.True(t, errors.Is(err, object.ErrNotFound))
 	})
 
@@ -361,6 +391,13 @@ func TestGetLocalOnly(t *testing.T) {
 		err = svc.Get(ctx, p)
 
 		require.True(t, errors.As(err, &errSplit))
+
+		headPrm := newHeadPrm(true, nil)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
+		require.True(t, errors.As(err, &errSplit))
+		require.Equal(t, splitInfo, errSplit.SplitInfo())
 	})
 }
 
@@ -440,7 +477,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
-		svc.log = test.NewLogger(true)
+		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 		svc.assembly = true
 		svc.traverserGenerator = &testTraverserGenerator{
@@ -476,6 +513,15 @@ func TestGetRemoteSmall(t *testing.T) {
 		return p
 	}
 
+	newHeadPrm := func(raw bool, w ObjectWriter) HeadPrm {
+		p := HeadPrm{}
+		p.SetHeaderWriter(w)
+		p.WithRawFlag(raw)
+		p.common = new(util.CommonPrm).WithLocalOnly(false)
+
+		return p
+	}
+
 	t.Run("OK", func(t *testing.T) {
 		addr := generateAddress()
 		addr.SetContainerID(cid)
@@ -507,28 +553,36 @@ func TestGetRemoteSmall(t *testing.T) {
 			},
 		})
 
-		w := newSimpleObjectWriter()
+		w := NewSimpleObjectWriter()
 
 		p := newPrm(false, w)
 		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
 		require.NoError(t, err)
-		require.Equal(t, obj.Object(), w.object())
+		require.Equal(t, obj.Object(), w.Object())
 
 		*c1, *c2 = *c2, *c1
 
 		err = svc.Get(ctx, p)
 		require.NoError(t, err)
-		require.Equal(t, obj.Object(), w.object())
+		require.Equal(t, obj.Object(), w.Object())
 
-		w = newSimpleObjectWriter()
+		w = NewSimpleObjectWriter()
 		rngPrm := newRngPrm(false, w, payloadSz/3, payloadSz/3)
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
 		require.NoError(t, err)
-		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.object().Payload())
+		require.Equal(t, payload[payloadSz/3:2*payloadSz/3], w.Object().Payload())
+
+		w = NewSimpleObjectWriter()
+		headPrm := newHeadPrm(false, w)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
+		require.NoError(t, err)
+		require.Equal(t, obj.CutPayload().Object(), w.Object())
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {
@@ -566,6 +620,12 @@ func TestGetRemoteSmall(t *testing.T) {
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
+		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+
+		headPrm := newHeadPrm(false, nil)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
 		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
 	})
 
@@ -605,9 +665,26 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		err = svc.GetRange(ctx, rngPrm)
 		require.True(t, errors.Is(err, object.ErrNotFound))
+
+		headPrm := newHeadPrm(false, nil)
+		headPrm.WithAddress(addr)
+
+		err = svc.Head(ctx, headPrm)
+		require.True(t, errors.Is(err, object.ErrNotFound))
 	})
 
 	t.Run("VIRTUAL", func(t *testing.T) {
+		testHeadVirtual := func(svc *Service, addr *objectSDK.Address, i *objectSDK.SplitInfo) {
+			headPrm := newHeadPrm(false, nil)
+			headPrm.WithAddress(addr)
+
+			errSplit := objectSDK.NewSplitInfoError(objectSDK.NewSplitInfo())
+
+			err := svc.Head(ctx, headPrm)
+			require.True(t, errors.As(err, &errSplit))
+			require.Equal(t, i, errSplit.SplitInfo())
+		}
+
 		t.Run("linking", func(t *testing.T) {
 			t.Run("get linking failure", func(t *testing.T) {
 				addr := generateAddress()
@@ -644,6 +721,8 @@ func TestGetRemoteSmall(t *testing.T) {
 						as[0][1]: c2,
 					},
 				})
+
+				testHeadVirtual(svc, addr, splitInfo)
 
 				p := newPrm(false, nil)
 				p.WithAddress(addr)
@@ -717,15 +796,15 @@ func TestGetRemoteSmall(t *testing.T) {
 					},
 				})
 
-				p := newPrm(false, newSimpleObjectWriter())
+				testHeadVirtual(svc, addr, splitInfo)
+
+				p := newPrm(false, NewSimpleObjectWriter())
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
 				require.True(t, errors.Is(err, object.ErrNotFound))
 
-				svc.headSvc = c2
-
-				rngPrm := newRngPrm(false, newSimpleObjectWriter(), 0, 1)
+				rngPrm := newRngPrm(false, NewSimpleObjectWriter(), 0, 1)
 				rngPrm.WithAddress(addr)
 
 				err = svc.GetRange(ctx, rngPrm)
@@ -792,18 +871,18 @@ func TestGetRemoteSmall(t *testing.T) {
 					},
 				})
 
-				w := newSimpleObjectWriter()
+				testHeadVirtual(svc, addr, splitInfo)
+
+				w := NewSimpleObjectWriter()
 
 				p := newPrm(false, w)
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
 				require.NoError(t, err)
-				require.Equal(t, srcObj.Object(), w.object())
+				require.Equal(t, srcObj.Object(), w.Object())
 
-				svc.headSvc = c2
-
-				w = newSimpleObjectWriter()
+				w = NewSimpleObjectWriter()
 				payloadSz := srcObj.PayloadSize()
 
 				off := payloadSz / 3
@@ -814,7 +893,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				err = svc.GetRange(ctx, rngPrm)
 				require.NoError(t, err)
-				require.Equal(t, payload[off:off+ln], w.object().Payload())
+				require.Equal(t, payload[off:off+ln], w.Object().Payload())
 			})
 		})
 
@@ -854,6 +933,8 @@ func TestGetRemoteSmall(t *testing.T) {
 						as[0][1]: c2,
 					},
 				})
+
+				testHeadVirtual(svc, addr, splitInfo)
 
 				p := newPrm(false, nil)
 				p.WithAddress(addr)
@@ -917,11 +998,12 @@ func TestGetRemoteSmall(t *testing.T) {
 					},
 				})
 
+				testHeadVirtual(svc, addr, splitInfo)
+
 				headSvc := newTestClient()
 				headSvc.addResult(preRightAddr, nil, object.ErrNotFound)
-				svc.headSvc = headSvc
 
-				p := newPrm(false, newSimpleObjectWriter())
+				p := newPrm(false, NewSimpleObjectWriter())
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
@@ -987,18 +1069,18 @@ func TestGetRemoteSmall(t *testing.T) {
 					},
 				})
 
-				svc.headSvc = c2
+				testHeadVirtual(svc, addr, splitInfo)
 
-				w := newSimpleObjectWriter()
+				w := NewSimpleObjectWriter()
 
 				p := newPrm(false, w)
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
 				require.NoError(t, err)
-				require.Equal(t, srcObj.Object(), w.object())
+				require.Equal(t, srcObj.Object(), w.Object())
 
-				w = newSimpleObjectWriter()
+				w = NewSimpleObjectWriter()
 				payloadSz := srcObj.PayloadSize()
 
 				off := payloadSz / 3
@@ -1009,9 +1091,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				err = svc.GetRange(ctx, rngPrm)
 				require.NoError(t, err)
-				require.Equal(t, payload[off:off+ln], w.object().Payload())
+				require.Equal(t, payload[off:off+ln], w.Object().Payload())
 
-				w = newSimpleObjectWriter()
+				w = NewSimpleObjectWriter()
 				off = payloadSz - 2
 				ln = 1
 
@@ -1020,7 +1102,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				err = svc.GetRange(ctx, rngPrm)
 				require.NoError(t, err)
-				require.Equal(t, payload[off:off+ln], w.object().Payload())
+				require.Equal(t, payload[off:off+ln], w.Object().Payload())
 			})
 		})
 	})
