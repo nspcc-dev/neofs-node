@@ -91,6 +91,28 @@ func (s *Service) GetRangeHash(ctx context.Context, req *objectV2.GetRangeHashRe
 	return toHashResponse(req.GetBody().GetType(), res), nil
 }
 
+// Head serves NeoFS API v2 compatible HEAD requests.
+func (s *Service) Head(ctx context.Context, req *objectV2.HeadRequest) (*objectV2.HeadResponse, error) {
+	resp := new(objectV2.HeadResponse)
+	resp.SetBody(new(objectV2.HeadResponseBody))
+
+	p, err := s.toHeadPrm(req, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.svc.Head(ctx, *p)
+
+	var splitErr *object.SplitInfoError
+
+	if errors.As(err, &splitErr) {
+		setSplitInfoHeadResponse(splitErr.SplitInfo(), resp)
+		err = nil
+	}
+
+	return resp, err
+}
+
 func WithInternalService(v *getsvc.Service) Option {
 	return func(c *cfg) {
 		c.svc = v

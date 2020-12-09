@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"context"
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -9,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
-	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -25,7 +23,7 @@ type Service struct {
 type Option func(*cfg)
 
 type getClient interface {
-	GetObject(context.Context, RangePrm) (*objectSDK.Object, error)
+	getObject(*execCtx) (*objectSDK.Object, error)
 }
 
 type cfg struct {
@@ -33,12 +31,8 @@ type cfg struct {
 
 	log *logger.Logger
 
-	headSvc interface {
-		head(context.Context, Prm) (*object.Object, error)
-	}
-
 	localStorage interface {
-		Get(RangePrm) (*object.Object, error)
+		get(*execCtx) (*object.Object, error)
 	}
 
 	clientCache interface {
@@ -54,7 +48,6 @@ func defaultCfg() *cfg {
 	return &cfg{
 		assembly:     true,
 		log:          zap.L(),
-		headSvc:      new(headSvcWrapper),
 		localStorage: new(storageEngineWrapper),
 		clientCache:  new(clientCacheWrapper),
 	}
@@ -115,12 +108,5 @@ func WithClientOptions(opts ...client.Option) Option {
 func WithTraverserGenerator(t *util.TraverserGenerator) Option {
 	return func(c *cfg) {
 		c.traverserGenerator = t
-	}
-}
-
-// WithHeadService returns option to set the utility serving object.Head.
-func WithHeadService(svc *headsvc.Service) Option {
-	return func(c *cfg) {
-		c.headSvc.(*headSvcWrapper).svc = svc
 	}
 }
