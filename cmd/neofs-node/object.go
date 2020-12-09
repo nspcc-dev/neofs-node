@@ -25,7 +25,6 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	getsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/get/v2"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
-	headsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/head/v2"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
@@ -43,8 +42,6 @@ type objectSvc struct {
 	put *putsvcV2.Service
 
 	search *searchsvcV2.Service
-
-	head *headsvcV2.Service
 
 	get *getsvcV2.Service
 
@@ -140,7 +137,7 @@ func (s *objectSvc) Put(ctx context.Context) (object.PutObjectStreamer, error) {
 }
 
 func (s *objectSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
-	return s.head.Head(ctx, req)
+	return s.get.Head(ctx, req)
 }
 
 func (s *objectSvc) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
@@ -342,15 +339,10 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	sHeadV2 := headsvcV2.NewService(
-		headsvcV2.WithInternalService(sHead),
-	)
-
 	sGet := getsvc.New(
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientCache(clientCache),
-		getsvc.WithHeadService(sHead),
 		getsvc.WithClientOptions(
 			client.WithDialTimeout(c.viper.GetDuration(cfgObjectGetDialTimeout)),
 		),
@@ -403,7 +395,6 @@ func initObjectService(c *cfg) {
 								&objectSvc{
 									put:    sPutV2,
 									search: sSearchV2,
-									head:   sHeadV2,
 									get:    sGetV2,
 									delete: sDeleteV2,
 								},

@@ -9,14 +9,12 @@ import (
 
 // Get serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) Get(ctx context.Context, prm Prm) error {
-	return s.get(ctx, RangePrm{
-		commonPrm: prm.commonPrm,
-	}).err
+	return s.get(ctx, prm.commonPrm).err
 }
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
-	return s.get(ctx, prm).err
+	return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng)).err
 }
 
 func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
@@ -50,12 +48,26 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 	}, nil
 }
 
-func (s *Service) get(ctx context.Context, prm RangePrm) statusError {
+// Head reads object header from container.
+//
+// Returns ErrNotFound if the header was not received for the call.
+// Returns SplitInfoError if object is virtual and raw flag is set.
+func (s *Service) Head(ctx context.Context, prm HeadPrm) error {
+	return s.get(ctx, prm.commonPrm, headOnly()).err
+}
+
+func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) statusError {
 	exec := &execCtx{
-		svc:       s,
-		ctx:       ctx,
-		prm:       prm,
+		svc: s,
+		ctx: ctx,
+		prm: RangePrm{
+			commonPrm: prm,
+		},
 		infoSplit: objectSDK.NewSplitInfo(),
+	}
+
+	for i := range opts {
+		opts[i](exec)
 	}
 
 	exec.setLogger(s.log)

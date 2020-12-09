@@ -35,7 +35,11 @@ type execCtx struct {
 	collectedObject *object.Object
 
 	curOff uint64
+
+	head bool
 }
+
+type execOption func(*execCtx)
 
 const (
 	statusUndefined int = iota
@@ -45,9 +49,23 @@ const (
 	statusOutOfRange
 )
 
+func headOnly() execOption {
+	return func(c *execCtx) {
+		c.head = true
+	}
+}
+
+func withPayloadRange(r *objectSDK.Range) execOption {
+	return func(c *execCtx) {
+		c.prm.rng = r
+	}
+}
+
 func (exec *execCtx) setLogger(l *logger.Logger) {
 	req := "GET"
-	if exec.ctxRange() != nil {
+	if exec.headOnly() {
+		req = "HEAD"
+	} else if exec.ctxRange() != nil {
 		req = "GET_RANGE"
 	}
 
@@ -92,7 +110,7 @@ func (exec execCtx) remotePrm() *client.GetObjectParams {
 }
 
 func (exec *execCtx) canAssemble() bool {
-	return exec.svc.assembly && !exec.isRaw()
+	return exec.svc.assembly && !exec.isRaw() && !exec.headOnly()
 }
 
 func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
@@ -105,6 +123,10 @@ func (exec *execCtx) containerID() *container.ID {
 
 func (exec *execCtx) ctxRange() *objectSDK.Range {
 	return exec.prm.rng
+}
+
+func (exec *execCtx) headOnly() bool {
+	return exec.head
 }
 
 func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Traverser, bool) {
@@ -126,7 +148,7 @@ func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Trav
 }
 
 func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range) (*object.Object, bool) {
-	w := newSimpleObjectWriter()
+	w := NewSimpleObjectWriter()
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
@@ -139,9 +161,9 @@ func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range) (*object.O
 
 	p.WithAddress(addr)
 
-	exec.statusError = exec.svc.get(exec.context(), p)
+	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng))
 
-	return w.object(), exec.status == statusOK
+	return w.Object(), exec.status == statusOK
 }
 
 func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
@@ -153,9 +175,14 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 	p.common = p.common.WithLocalOnly(false)
 	p.WithAddress(childAddr)
 
-	header, err := exec.svc.headSvc.head(exec.context(), Prm{
+	prm := HeadPrm{
 		commonPrm: p.commonPrm,
-	})
+	}
+
+	w := NewSimpleObjectWriter()
+	prm.SetHeaderWriter(w)
+
+	err := exec.svc.Head(exec.context(), prm)
 
 	switch {
 	default:
@@ -172,7 +199,7 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 		exec.status = statusOK
 		exec.err = nil
 
-		return header, true
+		return w.Object(), true
 	}
 }
 
@@ -244,6 +271,10 @@ func (exec *execCtx) writeCollectedHeader() bool {
 }
 
 func (exec *execCtx) writeObjectPayload(obj *object.Object) bool {
+	if exec.headOnly() {
+		return true
+	}
+
 	err := exec.prm.objWriter.WriteChunk(obj.Payload())
 
 	switch {
