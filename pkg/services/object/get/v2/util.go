@@ -35,9 +35,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	p.WithRawFlag(body.GetRaw())
 	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetObjectWriter(&streamObjectWriter{stream})
-	p.SetCommonParameters(new(util.CommonPrm).
-		WithLocalOnly(meta.GetTTL() <= 1),
-	)
+	p.SetCommonParameters(commonParameters(meta))
 
 	return p, nil
 }
