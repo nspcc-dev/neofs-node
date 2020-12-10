@@ -1,8 +1,11 @@
 package engine
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -48,6 +51,8 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 	addrList := make([]*object.Address, 0)
 	uniqueMap := make(map[string]struct{})
 
+	var outError error
+
 	shPrm := new(shard.SelectPrm).
 		WithContainerID(prm.cid).
 		WithFilters(prm.filters)
@@ -55,11 +60,20 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not select objects from shard",
-				zap.Stringer("shard", sh.ID()),
-				zap.String("error", err.Error()),
-			)
+			switch {
+			case errors.Is(err, meta.ErrMissingContainerID): // should never happen
+				e.log.Error("missing container ID parameter")
+				outError = err
+
+				return true
+			default:
+				// TODO: smth wrong with shard, need to be processed
+				e.log.Warn("could not select objects from shard",
+					zap.Stringer("shard", sh.ID()),
+					zap.String("error", err.Error()),
+				)
+				return false
+			}
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
 				if _, ok := uniqueMap[addr.String()]; !ok {
@@ -74,7 +88,7 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 
 	return &SelectRes{
 		addrList: addrList,
-	}, nil
+	}, outError
 }
 
 // List returns `limit` available physically storage object addresses in engine.
