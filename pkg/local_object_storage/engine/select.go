@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
@@ -8,12 +9,22 @@ import (
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
+	cid     *container.ID
 	filters object.SearchFilters
 }
 
 // SelectRes groups resulting values of Select operation.
 type SelectRes struct {
 	addrList []*object.Address
+}
+
+// WithContainerID is a Select option to set the container id to search in.
+func (p *SelectPrm) WithContainerID(cid *container.ID) *SelectPrm {
+	if p != nil {
+		p.cid = cid
+	}
+
+	return p
 }
 
 // WithFilters is a Select option to set the object filters.
@@ -38,6 +49,7 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 	uniqueMap := make(map[string]struct{})
 
 	shPrm := new(shard.SelectPrm).
+		WithContainerID(prm.cid).
 		WithFilters(prm.filters)
 
 	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
@@ -104,8 +116,9 @@ func (e *StorageEngine) List(limit uint64) (*SelectRes, error) {
 }
 
 // Select selects objects from local storage using provided filters.
-func Select(storage *StorageEngine, fs object.SearchFilters) ([]*object.Address, error) {
+func Select(storage *StorageEngine, cid *container.ID, fs object.SearchFilters) ([]*object.Address, error) {
 	res, err := storage.Select(new(SelectPrm).
+		WithContainerID(cid).
 		WithFilters(fs),
 	)
 	if err != nil {
