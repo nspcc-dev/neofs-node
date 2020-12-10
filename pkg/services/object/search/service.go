@@ -1,56 +1,58 @@
 package searchsvc
 
 import (
-	"context"
-	"sync"
+	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
-	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
+// Service is an utility serving requests
+// of Object.Search service.
 type Service struct {
 	*cfg
 }
 
+// Option is a Service's constructor option.
 type Option func(*cfg)
 
+type searchClient interface {
+	searchObjects(*execCtx) ([]*object.ID, error)
+}
+
 type cfg struct {
-	keyStorage *objutil.KeyStorage
-
-	localStore *engine.StorageEngine
-
-	cnrSrc container.Source
-
-	netMapSrc netmap.Source
-
-	workerPool util.WorkerPool
-
-	localAddrSrc network.LocalAddressSource
-
-	clientCache *cache.ClientCache
-
 	log *logger.Logger
 
-	clientOpts []client.Option
+	localStorage interface {
+		search(*execCtx) ([]*object.ID, error)
+	}
+
+	clientCache interface {
+		get(*ecdsa.PrivateKey, string) (searchClient, error)
+	}
+
+	traverserGenerator interface {
+		generateTraverser(*container.ID) (*placement.Traverser, error)
+	}
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
-		workerPool: new(util.SyncWorkerPool),
-		log:        zap.L(),
+		log:         zap.L(),
+		clientCache: new(clientCacheWrapper),
 	}
 }
 
-func NewService(opts ...Option) *Service {
+// New creates, initializes and returns utility serving
+// Object.Get service requests.
+func New(opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -62,66 +64,39 @@ func NewService(opts ...Option) *Service {
 	}
 }
 
-func (p *Service) Search(ctx context.Context, prm *Prm) (*Streamer, error) {
-	return &Streamer{
-		cfg:   p.cfg,
-		once:  new(sync.Once),
-		prm:   prm,
-		ctx:   ctx,
-		cache: make([][]*object.ID, 0, 10),
-	}, nil
-}
-
-func WithKeyStorage(v *objutil.KeyStorage) Option {
-	return func(c *cfg) {
-		c.keyStorage = v
-	}
-}
-
-func WithLocalStorage(v *engine.StorageEngine) Option {
-	return func(c *cfg) {
-		c.localStore = v
-	}
-}
-
-func WithContainerSource(v container.Source) Option {
-	return func(c *cfg) {
-		c.cnrSrc = v
-	}
-}
-
-func WithNetworkMapSource(v netmap.Source) Option {
-	return func(c *cfg) {
-		c.netMapSrc = v
-	}
-}
-
-func WithWorkerPool(v util.WorkerPool) Option {
-	return func(c *cfg) {
-		c.workerPool = v
-	}
-}
-
-func WithLocalAddressSource(v network.LocalAddressSource) Option {
-	return func(c *cfg) {
-		c.localAddrSrc = v
-	}
-}
-
-func WithClientCache(v *cache.ClientCache) Option {
-	return func(c *cfg) {
-		c.clientCache = v
-	}
-}
-
+// WithLogger returns option to specify Get service's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = l
+		c.log = l.With(zap.String("component", "Object.Get service"))
 	}
 }
 
+// WithLocalStorageEngine returns option to set local storage
+// instance.
+func WithLocalStorageEngine(e *engine.StorageEngine) Option {
+	return func(c *cfg) {
+		c.localStorage = (*storageEngineWrapper)(e)
+	}
+}
+
+// WithClientCache returns option to set cache of remote node clients.
+func WithClientCache(v *cache.ClientCache) Option {
+	return func(c *cfg) {
+		c.clientCache.(*clientCacheWrapper).cache = v
+	}
+}
+
+// WithClientOptions returns option to specify options of remote node clients.
 func WithClientOptions(opts ...client.Option) Option {
 	return func(c *cfg) {
-		c.clientOpts = opts
+		c.clientCache.(*clientCacheWrapper).opts = opts
+	}
+}
+
+// WithTraverserGenerator returns option to set generator of
+// placement traverser to get the objects from containers.
+func WithTraverserGenerator(t *util.TraverserGenerator) Option {
+	return func(c *cfg) {
+		c.traverserGenerator = (*traverseGeneratorWrapper)(t)
 	}
 }

@@ -1,50 +1,61 @@
 package searchsvc
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg"
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/search/query"
-	queryV1 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/query/v1"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/pkg/errors"
 )
 
-func toPrm(body *object.SearchRequestBody, req *object.SearchRequest) (*searchsvc.Prm, error) {
-	var q query.Query
+func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
+	meta := req.GetMetaHeader()
 
-	switch v := body.GetVersion(); v {
-	default:
-		return nil, errors.Errorf("unsupported query version #%d", v)
-	case 1:
-		q = queryV1.New(
-			objectSDK.NewSearchFiltersFromV2(body.GetFilters()),
-		)
+	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	if err != nil {
+		return nil, err
 	}
 
-	return new(searchsvc.Prm).
-		WithContainerID(
-			container.NewIDFromV2(body.GetContainerID()),
-		).
-		WithSearchQuery(q).
-		WithCommonPrm(util.CommonPrmFromV2(req)), nil
+	p := new(searchsvc.Prm)
+	p.SetPrivateKey(key)
+	p.SetCommonParameters(commonParameters(meta))
+	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
+	p.SetWriter(&streamWriter{
+		stream: stream,
+	})
+
+	body := req.GetBody()
+	p.WithContainerID(container.NewIDFromV2(body.GetContainerID()))
+	p.WithSearchFilters(objectSDK.NewSearchFiltersFromV2(body.GetFilters()))
+
+	return p, nil
 }
 
-func fromResponse(r *searchsvc.Response) *object.SearchResponse {
-	ids := r.IDList()
-	idsV2 := make([]*refs.ObjectID, 0, len(ids))
+// can be shared accross all services
+func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOption {
+	xHdrs := meta.GetXHeaders()
 
-	for i := range ids {
-		idsV2 = append(idsV2, ids[i].ToV2())
+	opts := make([]client.CallOption, 0, 3+len(xHdrs))
+
+	opts = append(opts,
+		client.WithBearer(token.NewBearerTokenFromV2(meta.GetBearerToken())),
+		client.WithSession(token.NewSessionTokenFromV2(meta.GetSessionToken())),
+		client.WithTTL(meta.GetTTL()-1),
+	)
+
+	for i := range xHdrs {
+		opts = append(opts, client.WithXHeader(pkg.NewXHeaderFromV2(xHdrs[i])))
 	}
 
-	body := new(object.SearchResponseBody)
-	body.SetIDList(idsV2)
+	return opts
+}
 
-	resp := new(object.SearchResponse)
-	resp.SetBody(body)
-
-	return resp
+func commonParameters(meta *session.RequestMetaHeader) *util.CommonPrm {
+	return new(util.CommonPrm).
+		WithLocalOnly(meta.GetTTL() <= 1)
 }

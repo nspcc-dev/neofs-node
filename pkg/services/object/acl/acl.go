@@ -54,11 +54,11 @@ type (
 	}
 
 	searchStreamBasicChecker struct {
-		object.SearchObjectStreamer
-	}
+		objectSvc.SearchStream
 
-	getRangeStreamBasicChecker struct {
-		object.GetRangeObjectStreamer
+		info requestInfo
+
+		*eACLCfg
 	}
 
 	requestInfo struct {
@@ -209,15 +209,12 @@ func (b Service) Head(
 	return resp, err
 }
 
-func (b Service) Search(
-	ctx context.Context,
-	request *object.SearchRequest) (object.SearchObjectStreamer, error) {
-
+func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchStream) error {
 	var cid *container.ID
 
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req := metaWithToken{
@@ -228,17 +225,20 @@ func (b Service) Search(
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationSearch)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !basicACLCheck(reqInfo) {
-		return nil, basicACLErr(reqInfo)
+		return basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
-		return nil, eACLErr(reqInfo)
+		return eACLErr(reqInfo)
 	}
 
-	stream, err := b.next.Search(ctx, request)
-	return searchStreamBasicChecker{stream}, err
+	return b.next.Search(request, &searchStreamBasicChecker{
+		SearchStream: stream,
+		info:         reqInfo,
+		eACLCfg:      b.eACLCfg,
+	})
 }
 
 func (b Service) Delete(
@@ -388,6 +388,14 @@ func (g *rangeStreamBasicChecker) Send(resp *object.GetRangeResponse) error {
 	}
 
 	return g.GetObjectRangeStream.Send(resp)
+}
+
+func (g *searchStreamBasicChecker) Send(resp *object.SearchResponse) error {
+	if !eACLCheck(resp, g.info, g.eACLCfg) {
+		return eACLErr(g.info)
+	}
+
+	return g.SearchStream.Send(resp)
 }
 
 func (b Service) findRequestInfo(
