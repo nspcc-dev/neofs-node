@@ -1,26 +1,29 @@
 package searchsvc
 
 import (
-	"io"
-
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
-	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
-	"github.com/pkg/errors"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 )
 
-type streamer struct {
-	stream *searchsvc.Streamer
+type streamWriter struct {
+	stream objectSvc.SearchStream
 }
 
-func (s *streamer) Recv() (*object.SearchResponse, error) {
-	r, err := s.stream.Recv()
-	if err != nil {
-		if errors.Is(errors.Cause(err), io.EOF) {
-			return nil, io.EOF
-		}
+func (s *streamWriter) WriteIDs(ids []*objectSDK.ID) error {
+	r := new(object.SearchResponse)
 
-		return nil, errors.Wrapf(err, "(%T) could not receive search response", s)
+	body := new(object.SearchResponseBody)
+	r.SetBody(body)
+
+	idsV2 := make([]*refs.ObjectID, len(ids))
+
+	for i := range ids {
+		idsV2[i] = ids[i].ToV2()
 	}
 
-	return fromResponse(r), nil
+	body.SetIDList(idsV2)
+
+	return s.stream.Send(r)
 }

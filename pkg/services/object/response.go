@@ -16,7 +16,9 @@ type ResponseService struct {
 }
 
 type searchStreamResponser struct {
-	stream *response.ServerMessageStreamer
+	util.ServerStream
+
+	respWriter util.ResponseMessageWriter
 }
 
 type getStreamResponser struct {
@@ -101,35 +103,17 @@ func (s *ResponseService) Head(ctx context.Context, req *object.HeadRequest) (*o
 	return resp.(*object.HeadResponse), nil
 }
 
-func (s *searchStreamResponser) Recv() (*object.SearchResponse, error) {
-	r, err := s.stream.Recv()
-	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not receive response", s)
-	}
-
-	return r.(*object.SearchResponse), nil
+func (s *searchStreamResponser) Send(resp *object.SearchResponse) error {
+	return s.respWriter(resp)
 }
 
-func (s *ResponseService) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
-	stream, err := s.respSvc.HandleServerStreamRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
-			stream, err := s.svc.Search(ctx, req.(*object.SearchRequest))
-			if err != nil {
-				return nil, err
-			}
-
-			return func() (util.ResponseMessage, error) {
-				return stream.Recv()
-			}, nil
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &searchStreamResponser{
-		stream: stream,
-	}, nil
+func (s *ResponseService) Search(req *object.SearchRequest, stream SearchStream) error {
+	return s.svc.Search(req, &searchStreamResponser{
+		ServerStream: stream,
+		respWriter: s.respSvc.HandleServerStreamRequest_(func(resp util.ResponseMessage) error {
+			return stream.Send(resp.(*object.SearchResponse))
+		}),
+	})
 }
 
 func (s *ResponseService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {

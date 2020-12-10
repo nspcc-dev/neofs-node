@@ -74,31 +74,6 @@ func (s *Server) Head(ctx context.Context, req *objectGRPC.HeadRequest) (*object
 	return object.HeadResponseToGRPCMessage(resp), nil
 }
 
-// Search converts gRPC SearchRequest message, opens internal Object service Search stream and overtakes its data
-// to gRPC stream.
-func (s *Server) Search(req *objectGRPC.SearchRequest, gStream objectGRPC.ObjectService_SearchServer) error {
-	stream, err := s.srv.Search(gStream.Context(), object.SearchRequestFromGRPCMessage(req))
-	if err != nil {
-		// TODO: think about how we transport errors through gRPC
-		return err
-	}
-
-	for {
-		r, err := stream.Recv()
-		if err != nil {
-			if errors.Is(errors.Cause(err), io.EOF) {
-				return nil
-			}
-
-			return err
-		}
-
-		if err := gStream.Send(object.SearchResponseToGRPCMessage(r)); err != nil {
-			return err
-		}
-	}
-}
-
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
 func (s *Server) GetRangeHash(ctx context.Context, req *objectGRPC.GetRangeHashRequest) (*objectGRPC.GetRangeHashResponse, error) {
 	resp, err := s.srv.GetRangeHash(ctx, object.GetRangeHashRequestFromGRPCMessage(req))

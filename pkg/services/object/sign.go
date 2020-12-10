@@ -18,7 +18,9 @@ type SignService struct {
 }
 
 type searchStreamSigner struct {
-	stream *util.ResponseMessageStreamer
+	util.ServerStream
+
+	respWriter util.ResponseMessageWriter
 }
 
 type getStreamSigner struct {
@@ -109,35 +111,24 @@ func (s *SignService) Head(ctx context.Context, req *object.HeadRequest) (*objec
 	return resp.(*object.HeadResponse), nil
 }
 
-func (s *searchStreamSigner) Recv() (*object.SearchResponse, error) {
-	r, err := s.stream.Recv()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not receive response")
-	}
-
-	return r.(*object.SearchResponse), nil
+func (s *searchStreamSigner) Send(resp *object.SearchResponse) error {
+	return s.respWriter(resp)
 }
 
-func (s *SignService) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
-	stream, err := s.sigSvc.HandleServerStreamRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessageReader, error) {
-			stream, err := s.svc.Search(ctx, req.(*object.SearchRequest))
-			if err != nil {
-				return nil, err
-			}
-
-			return func() (util.ResponseMessage, error) {
-				return stream.Recv()
-			}, nil
+func (s *SignService) Search(req *object.SearchRequest, stream SearchStream) error {
+	respWriter, err := s.sigSvc.HandleServerStreamRequest_(req,
+		func(resp util.ResponseMessage) error {
+			return stream.Send(resp.(*object.SearchResponse))
 		},
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &searchStreamSigner{
-		stream: stream,
-	}, nil
+	return s.svc.Search(req, &searchStreamSigner{
+		ServerStream: stream,
+		respWriter:   respWriter,
+	})
 }
 
 func (s *SignService) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {

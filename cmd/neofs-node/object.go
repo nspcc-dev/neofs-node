@@ -140,8 +140,8 @@ func (s *objectSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.
 	return s.get.Head(ctx, req)
 }
 
-func (s *objectSvc) Search(ctx context.Context, req *object.SearchRequest) (object.SearchObjectStreamer, error) {
-	return s.search.Search(ctx, req)
+func (s *objectSvc) Search(req *object.SearchRequest, stream objectService.SearchStream) error {
+	return s.search.Search(req, stream)
 }
 
 func (s *objectSvc) Get(req *object.GetRequest, stream objectService.GetObjectStream) error {
@@ -307,22 +307,23 @@ func initObjectService(c *cfg) {
 		putsvcV2.WithInternalService(sPut),
 	)
 
-	sSearch := searchsvc.NewService(
-		searchsvc.WithKeyStorage(keyStorage),
-		searchsvc.WithClientCache(clientCache),
-		searchsvc.WithLocalStorage(ls),
-		searchsvc.WithContainerSource(c.cfgObject.cnrStorage),
-		searchsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
-		searchsvc.WithLocalAddressSource(c),
-		searchsvc.WithWorkerPool(c.cfgObject.pool.search),
+	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
+		searchsvc.WithLocalStorageEngine(ls),
+		searchsvc.WithClientCache(clientCache),
 		searchsvc.WithClientOptions(
 			client.WithDialTimeout(c.viper.GetDuration(cfgObjectSearchDialTimeout)),
+		),
+		searchsvc.WithTraverserGenerator(
+			traverseGen.WithTraverseOptions(
+				placement.WithoutSuccessTracking(),
+			),
 		),
 	)
 
 	sSearchV2 := searchsvcV2.NewService(
 		searchsvcV2.WithInternalService(sSearch),
+		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
 	sHead := headsvc.NewService(
@@ -364,7 +365,7 @@ func initObjectService(c *cfg) {
 		deletesvc.WithPutService(sPut),
 		deletesvc.WithOwnerID(nodeOwner),
 		deletesvc.WithLinkingHeader(
-			headsvc.NewRelationHeader(searchsvc.NewLinkingSearcher(sSearch), sHead),
+			headsvc.NewRelationHeader(nil, sHead),
 		),
 		deletesvc.WithLogger(c.log),
 	)
