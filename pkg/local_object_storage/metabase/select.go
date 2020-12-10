@@ -26,12 +26,22 @@ type (
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
+	cid     *container.ID
 	filters object.SearchFilters
 }
 
 // SelectRes groups resulting values of Select operation.
 type SelectRes struct {
 	addrList []*object.Address
+}
+
+// WithContainerID is a Select option to set the container id to search in.
+func (p *SelectPrm) WithContainerID(cid *container.ID) *SelectPrm {
+	if p != nil {
+		p.cid = cid
+	}
+
+	return p
 }
 
 // WithFilters is a Select option to set the object filters.
@@ -48,11 +58,11 @@ func (r *SelectRes) AddressList() []*object.Address {
 	return r.addrList
 }
 
-var ErrContainerNotInQuery = errors.New("search query does not contain container id filter")
+var ErrMissingContainerID = errors.New("missing container id field")
 
 // Select selects the objects from DB with filtering.
-func Select(db *DB, fs object.SearchFilters) ([]*object.Address, error) {
-	r, err := db.Select(new(SelectPrm).WithFilters(fs))
+func Select(db *DB, cid *container.ID, fs object.SearchFilters) ([]*object.Address, error) {
+	r, err := db.Select(new(SelectPrm).WithFilters(fs).WithContainerID(cid))
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +75,7 @@ func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	res = new(SelectRes)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, err = db.selectObjects(tx, prm.filters)
+		res.addrList, err = db.selectObjects(tx, prm.cid, prm.filters)
 
 		return err
 	})
@@ -73,14 +83,20 @@ func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	return res, err
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, fs object.SearchFilters) ([]*object.Address, error) {
+func (db *DB) selectObjects(tx *bbolt.Tx, cid *container.ID, fs object.SearchFilters) ([]*object.Address, error) {
+	if cid == nil {
+		return nil, ErrMissingContainerID
+	}
+
 	group, err := groupFilters(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	if group.cid == nil {
-		return nil, ErrContainerNotInQuery
+	// if there are conflicts in query and cid then it means that there is no
+	// objects to match this query.
+	if group.cid != nil && !cid.Equal(group.cid) {
+		return nil, nil
 	}
 
 	// keep matched addresses in this cache
@@ -92,10 +108,10 @@ func (db *DB) selectObjects(tx *bbolt.Tx, fs object.SearchFilters) ([]*object.Ad
 	if len(group.fastFilters) == 0 {
 		expLen = 1
 
-		db.selectAll(tx, group.cid, mAddr)
+		db.selectAll(tx, cid, mAddr)
 	} else {
 		for i := range group.fastFilters {
-			db.selectFastFilter(tx, group.cid, group.fastFilters[i], mAddr, i)
+			db.selectFastFilter(tx, cid, group.fastFilters[i], mAddr, i)
 		}
 	}
 
@@ -383,7 +399,7 @@ func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
 
 	for i := range filters {
 		switch filters[i].Header() {
-		case v2object.FilterHeaderContainerID:
+		case v2object.FilterHeaderContainerID: // support deprecated field
 			res.cid = container.NewID()
 
 			err := res.cid.Parse(filters[i].Value())
