@@ -39,10 +39,6 @@ func (exec *execCtx) prepare() {
 	if _, ok := exec.prm.writer.(*uniqueIDWriter); !ok {
 		exec.prm.writer = newUniqueAddressWriter(exec.prm.writer)
 	}
-
-	fs := exec.prm.SearchFilters()
-	fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, exec.containerID())
-	exec.prm.WithSearchFilters(fs)
 }
 
 func (exec *execCtx) setLogger(l *logger.Logger) {
