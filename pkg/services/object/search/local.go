@@ -20,9 +20,8 @@ type localStream struct {
 
 func (s *localStream) stream(ctx context.Context, ch chan<- []*objectSDK.ID) error {
 	fs := s.query.ToSearchFilters()
-	fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, s.cid)
 
-	addrList, err := engine.Select(s.storage, fs)
+	addrList, err := engine.Select(s.storage, s.cid, fs)
 	if err != nil {
 		return errors.Wrapf(err, "(%T) could not select objects from local storage", s)
 	}
