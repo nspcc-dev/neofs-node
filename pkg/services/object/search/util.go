@@ -82,7 +82,8 @@ func (c *clientWrapper) searchObjects(exec *execCtx) ([]*objectSDK.ID, error) {
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]*objectSDK.ID, error) {
 	r, err := (*engine.StorageEngine)(e).Select(new(engine.SelectPrm).
-		WithFilters(exec.searchFilters()),
+		WithFilters(exec.searchFilters()).
+		WithContainerID(exec.containerID()),
 	)
 	if err != nil {
 		return nil, err
