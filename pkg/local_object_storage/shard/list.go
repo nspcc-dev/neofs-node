@@ -18,10 +18,7 @@ func (s *Shard) List() (*SelectRes, error) {
 	filters := object.NewSearchFilters()
 
 	for i := range lst {
-		filters = filters[:0]
-		filters.AddObjectContainerIDFilter(object.MatchStringEqual, lst[i])
-
-		ids, err := meta.Select(s.metaBase, filters) // consider making List in metabase
+		ids, err := meta.Select(s.metaBase, lst[i], filters) // consider making List in metabase
 		if err != nil {
 			s.log.Debug("can't select all objects",
 				zap.Stringer("cid", lst[i]),
