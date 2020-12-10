@@ -22,8 +22,8 @@ func putBig(db *meta.DB, obj *object.Object) error {
 	return meta.Put(db, obj, nil)
 }
 
-func testSelect(t *testing.T, db *meta.DB, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
-	res, err := meta.Select(db, fs)
+func testSelect(t *testing.T, db *meta.DB, cid *container.ID, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
+	res, err := meta.Select(db, cid, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
 
