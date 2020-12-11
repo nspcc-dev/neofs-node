@@ -248,7 +248,8 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	err = cli.DeleteObject(ctx,
+
+	tombstoneAddr, err := client.DeleteObject(cli, ctx,
 		new(client.DeleteObjectParams).WithAddress(objAddr),
 		client.WithTTL(getTTL()),
 		client.WithSession(tok),
@@ -258,7 +259,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Println("Object removed successfully.")
-	cmd.Printf("  ID: %s\n  CID: %s\n", objAddr.ObjectID(), objAddr.ContainerID())
+	cmd.Printf("  ID: %s\n  CID: %s\n", tombstoneAddr.ObjectID(), tombstoneAddr.ContainerID())
 	return nil
 }
 
