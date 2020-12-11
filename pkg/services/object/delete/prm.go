@@ -1,28 +1,27 @@
 package deletesvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"crypto/ecdsa"
+
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
+// Prm groups parameters of Delete service call.
 type Prm struct {
+	key *ecdsa.PrivateKey
+
 	common *util.CommonPrm
 
-	addr *object.Address
+	client.DeleteObjectParams
 }
 
-func (p *Prm) WithCommonPrm(v *util.CommonPrm) *Prm {
-	if p != nil {
-		p.common = v
-	}
-
-	return p
+// SetCommonParameters sets common parameters of the operation.
+func (p *Prm) SetCommonParameters(common *util.CommonPrm) {
+	p.common = common
 }
 
-func (p *Prm) WithAddress(v *object.Address) *Prm {
-	if p != nil {
-		p.addr = v
-	}
-
-	return p
+// SetPrivateKey sets private key to use during execution.
+func (p *Prm) SetPrivateKey(key *ecdsa.PrivateKey) {
+	p.key = key
 }

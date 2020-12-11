@@ -326,20 +326,6 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sHead := headsvc.NewService(
-		headsvc.WithKeyStorage(keyStorage),
-		headsvc.WithClientCache(clientCache),
-		headsvc.WithLocalStorage(ls),
-		headsvc.WithContainerSource(c.cfgObject.cnrStorage),
-		headsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
-		headsvc.WithLocalAddressSource(c),
-		headsvc.WithWorkerPool(c.cfgObject.pool.head),
-		headsvc.WithLogger(c.log),
-		headsvc.WithClientOptions(
-			client.WithDialTimeout(c.viper.GetDuration(cfgObjectHeadDialTimeout)),
-		),
-	)
-
 	sGet := getsvc.New(
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
@@ -359,19 +345,16 @@ func initObjectService(c *cfg) {
 		getsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sDelete := deletesvc.NewService(
-		deletesvc.WithKeyStorage(keyStorage),
-		deletesvc.WitHeadService(sHead),
-		deletesvc.WithPutService(sPut),
-		deletesvc.WithOwnerID(nodeOwner),
-		deletesvc.WithLinkingHeader(
-			headsvc.NewRelationHeader(nil, sHead),
-		),
+	sDelete := deletesvc.New(
 		deletesvc.WithLogger(c.log),
+		deletesvc.WithHeadService(sGet),
+		deletesvc.WithSearchService(sSearch),
+		deletesvc.WithPutService(sPut),
 	)
 
 	sDeleteV2 := deletesvcV2.NewService(
 		deletesvcV2.WithInternalService(sDelete),
+		deletesvcV2.WithKeyStorage(keyStorage),
 	)
 
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
