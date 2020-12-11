@@ -66,7 +66,9 @@ func (b *Blobovnicza) Init() error {
 
 // Close releases all internal database resources.
 func (b *Blobovnicza) Close() error {
-	b.log.Debug("closing BoltDB")
+	b.log.Debug("closing BoltDB",
+		zap.String("path", b.path),
+	)
 
 	return b.boltDB.Close()
 }
