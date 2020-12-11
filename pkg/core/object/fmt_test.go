@@ -108,28 +108,25 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj := NewRaw()
 		obj.SetType(object.TypeTombstone)
 
-		require.Error(t, v.ValidateContent(obj.Object().SDK()))
+		require.Error(t, v.ValidateContent(obj.Object()))
 
-		addr := object.NewAddress()
+		content := object.NewTombstone()
+		content.SetMembers([]*object.ID{nil})
 
-		content := NewTombstoneContent()
-		content.SetAddressList(addr)
-
-		data, err := content.MarshalBinary()
+		data, err := content.Marshal()
 		require.NoError(t, err)
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj.Object().SDK()))
+		require.Error(t, v.ValidateContent(obj.Object()))
 
-		addr.SetContainerID(testContainerID(t))
-		addr.SetObjectID(testObjectID(t))
+		content.SetMembers([]*object.ID{testObjectID(t)})
 
-		data, err = content.MarshalBinary()
+		data, err = content.Marshal()
 		require.NoError(t, err)
 
 		obj.SetPayload(data)
 
-		require.NoError(t, v.ValidateContent(obj.Object().SDK()))
+		require.NoError(t, v.ValidateContent(obj.Object()))
 	})
 }
