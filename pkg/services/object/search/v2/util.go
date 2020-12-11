@@ -1,7 +1,6 @@
 package searchsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -38,24 +37,22 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 // can be shared accross all services
 func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOption {
-	xHdrs := meta.GetXHeaders()
+	opts := make([]client.CallOption, 0, 3)
+	opts = append(opts, client.WithTTL(meta.GetTTL()-1))
 
-	opts := make([]client.CallOption, 0, 3+len(xHdrs))
+	if tok := meta.GetBearerToken(); tok != nil {
+		opts = append(opts, client.WithBearer(token.NewBearerTokenFromV2(tok)))
+	}
 
-	opts = append(opts,
-		client.WithBearer(token.NewBearerTokenFromV2(meta.GetBearerToken())),
-		client.WithSession(token.NewSessionTokenFromV2(meta.GetSessionToken())),
-		client.WithTTL(meta.GetTTL()-1),
-	)
-
-	for i := range xHdrs {
-		opts = append(opts, client.WithXHeader(pkg.NewXHeaderFromV2(xHdrs[i])))
+	if tok := meta.GetSessionToken(); tok != nil {
+		opts = append(opts, client.WithSession(token.NewSessionTokenFromV2(tok)))
 	}
 
 	return opts
 }
 
 func commonParameters(meta *session.RequestMetaHeader) *util.CommonPrm {
+
 	return new(util.CommonPrm).
 		WithLocalOnly(meta.GetTTL() <= 1)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -72,6 +73,10 @@ func (exec *execCtx) containerID() *container.ID {
 
 func (exec *execCtx) commonParameters() *util.CommonPrm {
 	return exec.prm.common
+}
+
+func (exec execCtx) callOptions() []client.CallOption {
+	return exec.prm.callOpts
 }
 
 func (exec *execCtx) newAddress(id *objectSDK.ID) *objectSDK.Address {
