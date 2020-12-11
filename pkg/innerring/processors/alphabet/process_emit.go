@@ -4,7 +4,7 @@ import (
 	"crypto/elliptic"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"go.uber.org/zap"
 )
@@ -50,7 +50,7 @@ func (np *Processor) processEmit() {
 		return
 	}
 
-	gasPerNode := util.Fixed8(np.storageEmission / uint64(ln))
+	gasPerNode := fixedn.Fixed8(np.storageEmission / uint64(ln))
 
 	for i := range networkMap.Nodes {
 		keyBytes := networkMap.Nodes[i].PublicKey()
