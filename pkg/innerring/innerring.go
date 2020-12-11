@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
@@ -258,7 +259,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Converter:         &server.precision,
 		MintEmitCacheSize: cfg.GetInt("emit.mint.cache_size"),
 		MintEmitThreshold: cfg.GetUint64("emit.mint.threshold"),
-		MintEmitValue:     util.Fixed8(cfg.GetInt64("emit.mint.value")),
+		MintEmitValue:     fixedn.Fixed8(cfg.GetInt64("emit.mint.value")),
 	})
 	if err != nil {
 		return nil, err

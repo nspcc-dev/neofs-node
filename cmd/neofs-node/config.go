@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -197,20 +198,20 @@ type cfgMorph struct {
 type cfgAccounting struct {
 	scriptHash util.Uint160
 
-	fee util.Fixed8
+	fee fixedn.Fixed8
 }
 
 type cfgContainer struct {
 	scriptHash util.Uint160
 
-	fee util.Fixed8
+	fee fixedn.Fixed8
 }
 
 type cfgNetmap struct {
 	scriptHash util.Uint160
 	wrapper    *nmwrapper.Wrapper
 
-	fee util.Fixed8
+	fee fixedn.Fixed8
 
 	parsers map[event.Type]event.Parser
 
@@ -299,15 +300,15 @@ func initCfg(path string) *cfg {
 		apiVersion: pkg.SDKVersion(),
 		cfgAccounting: cfgAccounting{
 			scriptHash: u160Accounting,
-			fee:        util.Fixed8(viperCfg.GetInt(cfgAccountingFee)),
+			fee:        fixedn.Fixed8(viperCfg.GetInt(cfgAccountingFee)),
 		},
 		cfgContainer: cfgContainer{
 			scriptHash: u160Container,
-			fee:        util.Fixed8(viperCfg.GetInt(cfgContainerFee)),
+			fee:        fixedn.Fixed8(viperCfg.GetInt(cfgContainerFee)),
 		},
 		cfgNetmap: cfgNetmap{
 			scriptHash:          u160Netmap,
-			fee:                 util.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
+			fee:                 fixedn.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
 			state:               state,
 			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
 			reBootstrapEnabled:  viperCfg.GetBool(cfgReBootstrapEnabled),

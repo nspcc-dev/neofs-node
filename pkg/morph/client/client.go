@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -42,7 +43,7 @@ var errScriptDecode = errors.New("could not decode invocation script from neo no
 
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
-func (c *Client) Invoke(contract util.Uint160, fee util.Fixed8, method string, args ...interface{}) error {
+func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
 	params := make([]sc.Parameter, 0, len(args))
 
 	for i := range args {
@@ -120,8 +121,8 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 }
 
 // TransferGas to the receiver from local wallet
-func (c *Client) TransferGas(receiver util.Uint160, amount util.Fixed8) error {
-	txHash, err := c.client.TransferNEP5(c.acc, receiver, c.gas, int64(amount), 0)
+func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error {
+	txHash, err := c.client.TransferNEP17(c.acc, receiver, c.gas, int64(amount), 0)
 	if err != nil {
 		return err
 	}
