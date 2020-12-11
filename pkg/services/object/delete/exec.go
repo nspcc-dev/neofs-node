@@ -60,7 +60,7 @@ func (exec execCtx) isLocal() bool {
 }
 
 func (exec *execCtx) key() *ecdsa.PrivateKey {
-	return exec.prm.key
+	return exec.prm.common.PrivateKey()
 }
 
 func (exec *execCtx) address() *objectSDK.Address {
@@ -76,7 +76,7 @@ func (exec *execCtx) commonParameters() *util.CommonPrm {
 }
 
 func (exec execCtx) callOptions() []client.CallOption {
-	return exec.prm.callOpts
+	return exec.prm.common.RemoteCallOptions()
 }
 
 func (exec *execCtx) newAddress(id *objectSDK.ID) *objectSDK.Address {

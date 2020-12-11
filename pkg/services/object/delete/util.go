@@ -25,12 +25,10 @@ func (w *headSvcWrapper) headAddress(exec *execCtx, addr *objectSDK.Address) (*o
 	wr := getsvc.NewSimpleObjectWriter()
 
 	p := getsvc.HeadPrm{}
-	p.SetPrivateKey(exec.key())
 	p.SetCommonParameters(exec.commonParameters())
 	p.SetHeaderWriter(wr)
 	p.WithRawFlag(true)
 	p.WithAddress(addr)
-	p.SetRemoteCallOptions(exec.callOptions()...)
 
 	err := (*getsvc.Service)(w).Head(exec.context(), p)
 	if err != nil {
@@ -86,10 +84,8 @@ func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*objectSDK.ID, error) 
 	p := searchsvc.Prm{}
 	p.SetWriter(wr)
 	p.SetCommonParameters(exec.commonParameters())
-	p.SetPrivateKey(exec.key())
 	p.WithContainerID(exec.containerID())
 	p.WithSearchFilters(fs)
-	p.SetRemoteCallOptions(exec.callOptions()...)
 
 	err := (*searchsvc.Service)(w).Search(exec.context(), p)
 	if err != nil {

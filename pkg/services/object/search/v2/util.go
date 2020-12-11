@@ -1,12 +1,10 @@
 package searchsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -21,9 +19,10 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	}
 
 	p := new(searchsvc.Prm)
-	p.SetPrivateKey(key)
-	p.SetCommonParameters(commonParameters(meta))
-	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
+	p.SetCommonParameters(util.CommonPrmFromV2(req).
+		WithPrivateKey(key),
+	)
+
 	p.SetWriter(&streamWriter{
 		stream: stream,
 	})
@@ -33,26 +32,4 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	p.WithSearchFilters(objectSDK.NewSearchFiltersFromV2(body.GetFilters()))
 
 	return p, nil
-}
-
-// can be shared accross all services
-func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOption {
-	opts := make([]client.CallOption, 0, 3)
-	opts = append(opts, client.WithTTL(meta.GetTTL()-1))
-
-	if tok := meta.GetBearerToken(); tok != nil {
-		opts = append(opts, client.WithBearer(token.NewBearerTokenFromV2(tok)))
-	}
-
-	if tok := meta.GetSessionToken(); tok != nil {
-		opts = append(opts, client.WithSession(token.NewSessionTokenFromV2(tok)))
-	}
-
-	return opts
-}
-
-func commonParameters(meta *session.RequestMetaHeader) *util.CommonPrm {
-
-	return new(util.CommonPrm).
-		WithLocalOnly(meta.GetTTL() <= 1)
 }

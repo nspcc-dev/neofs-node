@@ -4,12 +4,10 @@ import (
 	"crypto/sha256"
 	"hash"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -27,14 +25,14 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	}
 
 	p := new(getsvc.Prm)
-	p.SetPrivateKey(key)
+	p.SetCommonParameters(util.CommonPrmFromV2(req).
+		WithPrivateKey(key),
+	)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
 	p.WithRawFlag(body.GetRaw())
-	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetObjectWriter(&streamObjectWriter{stream})
-	p.SetCommonParameters(commonParameters(meta))
 
 	return p, nil
 }
@@ -48,15 +46,15 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	}
 
 	p := new(getsvc.RangePrm)
-	p.SetPrivateKey(key)
+	p.SetCommonParameters(util.CommonPrmFromV2(req).
+		WithPrivateKey(key),
+	)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
 	p.WithRawFlag(body.GetRaw())
-	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetChunkWriter(&streamObjectRangeWriter{stream})
 	p.SetRange(objectSDK.NewRangeFromV2(body.GetRange()))
-	p.SetCommonParameters(commonParameters(meta))
 
 	return p, nil
 }
@@ -70,12 +68,12 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	}
 
 	p := new(getsvc.RangeHashPrm)
-	p.SetPrivateKey(key)
+	p.SetCommonParameters(util.CommonPrmFromV2(req).
+		WithPrivateKey(key),
+	)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
-	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
-	p.SetCommonParameters(commonParameters(meta))
 
 	rngsV2 := body.GetRanges()
 	rngs := make([]*objectSDK.Range, 0, len(rngsV2))
@@ -127,40 +125,19 @@ func (s *Service) toHeadPrm(req *objectV2.HeadRequest, resp *objectV2.HeadRespon
 	}
 
 	p := new(getsvc.HeadPrm)
-	p.SetPrivateKey(key)
+	p.SetCommonParameters(util.CommonPrmFromV2(req).
+		WithPrivateKey(key),
+	)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
 	p.WithRawFlag(body.GetRaw())
-	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 	p.SetHeaderWriter(&headResponseWriter{
 		mainOnly: body.GetMainOnly(),
 		body:     resp.GetBody(),
 	})
-	p.SetCommonParameters(commonParameters(meta))
 
 	return p, nil
-}
-
-// can be shared accross all services
-func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOption {
-	opts := make([]client.CallOption, 0, 3)
-	opts = append(opts, client.WithTTL(meta.GetTTL()-1))
-
-	if tok := meta.GetBearerToken(); tok != nil {
-		opts = append(opts, client.WithBearer(token.NewBearerTokenFromV2(tok)))
-	}
-
-	if tok := meta.GetSessionToken(); tok != nil {
-		opts = append(opts, client.WithSession(token.NewSessionTokenFromV2(tok)))
-	}
-
-	return opts
-}
-
-func commonParameters(meta *session.RequestMetaHeader) *util.CommonPrm {
-	return new(util.CommonPrm).
-		WithLocalOnly(meta.GetTTL() <= 1)
 }
 
 func splitInfoResponse(info *objectSDK.SplitInfo) *objectV2.GetResponse {
