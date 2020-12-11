@@ -1,6 +1,7 @@
 package deletesvc
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -24,6 +25,7 @@ func (s *Service) toPrm(req *objectV2.DeleteRequest, respBody *objectV2.DeleteRe
 	p := new(deletesvc.Prm)
 	p.SetPrivateKey(key)
 	p.SetCommonParameters(commonParameters(meta))
+	p.SetRemoteCallOptions(remoteCallOptionsFromMeta(meta)...)
 
 	body := req.GetBody()
 	p.WithAddress(object.NewAddressFromV2(body.GetAddress()))
@@ -50,4 +52,20 @@ func commonParameters(meta *session.RequestMetaHeader) *util.CommonPrm {
 	}
 
 	return prm
+}
+
+// can be shared accross all services
+func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOption {
+	opts := make([]client.CallOption, 0, 3)
+	opts = append(opts, client.WithTTL(meta.GetTTL()-1))
+
+	if tok := meta.GetBearerToken(); tok != nil {
+		opts = append(opts, client.WithBearer(token.NewBearerTokenFromV2(tok)))
+	}
+
+	if tok := meta.GetSessionToken(); tok != nil {
+		opts = append(opts, client.WithSession(token.NewSessionTokenFromV2(tok)))
+	}
+
+	return opts
 }

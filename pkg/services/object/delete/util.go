@@ -30,6 +30,7 @@ func (w *headSvcWrapper) headAddress(exec *execCtx, addr *objectSDK.Address) (*o
 	p.SetHeaderWriter(wr)
 	p.WithRawFlag(true)
 	p.WithAddress(addr)
+	p.SetRemoteCallOptions(exec.callOptions()...)
 
 	err := (*getsvc.Service)(w).Head(exec.context(), p)
 	if err != nil {
@@ -88,6 +89,7 @@ func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*objectSDK.ID, error) 
 	p.SetPrivateKey(exec.key())
 	p.WithContainerID(exec.containerID())
 	p.WithSearchFilters(fs)
+	p.SetRemoteCallOptions(exec.callOptions()...)
 
 	err := (*searchsvc.Service)(w).Search(exec.context(), p)
 	if err != nil {

@@ -13,6 +13,8 @@ type Prm struct {
 
 	common *util.CommonPrm
 
+	callOpts []client.CallOption
+
 	client.DeleteObjectParams
 }
 
@@ -24,4 +26,9 @@ func (p *Prm) SetCommonParameters(common *util.CommonPrm) {
 // SetPrivateKey sets private key to use during execution.
 func (p *Prm) SetPrivateKey(key *ecdsa.PrivateKey) {
 	p.key = key
+}
+
+// SetRemoteCallOptions sets call options of remote client calls.
+func (p *Prm) SetRemoteCallOptions(opts ...client.CallOption) {
+	p.callOpts = opts
 }

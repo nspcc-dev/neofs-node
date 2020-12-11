@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"hash"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
@@ -145,18 +144,15 @@ func (s *Service) toHeadPrm(req *objectV2.HeadRequest, resp *objectV2.HeadRespon
 
 // can be shared accross all services
 func remoteCallOptionsFromMeta(meta *session.RequestMetaHeader) []client.CallOption {
-	xHdrs := meta.GetXHeaders()
+	opts := make([]client.CallOption, 0, 3)
+	opts = append(opts, client.WithTTL(meta.GetTTL()-1))
 
-	opts := make([]client.CallOption, 0, 3+len(xHdrs))
+	if tok := meta.GetBearerToken(); tok != nil {
+		opts = append(opts, client.WithBearer(token.NewBearerTokenFromV2(tok)))
+	}
 
-	opts = append(opts,
-		client.WithBearer(token.NewBearerTokenFromV2(meta.GetBearerToken())),
-		client.WithSession(token.NewSessionTokenFromV2(meta.GetSessionToken())),
-		client.WithTTL(meta.GetTTL()-1),
-	)
-
-	for i := range xHdrs {
-		opts = append(opts, client.WithXHeader(pkg.NewXHeaderFromV2(xHdrs[i])))
+	if tok := meta.GetSessionToken(); tok != nil {
+		opts = append(opts, client.WithSession(token.NewSessionTokenFromV2(tok)))
 	}
 
 	return opts
