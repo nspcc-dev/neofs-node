@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"crypto/ecdsa"
 	"hash"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -39,11 +38,6 @@ type HeadPrm struct {
 type commonPrm struct {
 	objWriter ObjectWriter
 
-	// TODO: replace key and callOpts to CommonPrm
-	key *ecdsa.PrivateKey
-
-	callOpts []client.CallOption
-
 	common *util.CommonPrm
 
 	client.GetObjectParams
@@ -70,16 +64,6 @@ type ObjectWriter interface {
 // SetObjectWriter sets target component to write the object.
 func (p *Prm) SetObjectWriter(w ObjectWriter) {
 	p.objWriter = w
-}
-
-// SetPrivateKey sets private key to use during execution.
-func (p *commonPrm) SetPrivateKey(key *ecdsa.PrivateKey) {
-	p.key = key
-}
-
-// SetRemoteCallOptions sets call options remote remote client calls.
-func (p *commonPrm) SetRemoteCallOptions(opts ...client.CallOption) {
-	p.callOpts = opts
 }
 
 // SetChunkWriter sets target component to write the object payload range.
