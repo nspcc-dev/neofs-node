@@ -137,6 +137,7 @@ func (exec *execCtx) collectChain() bool {
 	exec.log.Debug("assembling chain...")
 
 	for prev := exec.splitInfo.LastPart(); prev != nil; {
+		chain = append(chain, prev)
 		prev, err = exec.svc.header.previous(exec, prev)
 
 		switch {
@@ -154,12 +155,9 @@ func (exec *execCtx) collectChain() bool {
 			exec.status = statusOK
 			exec.err = nil
 		}
-
-		chain = append(chain, prev)
 	}
 
 	exec.addMembers(chain)
-	exec.tombstone.SetSplitID(exec.splitInfo.SplitID())
 
 	return true
 }

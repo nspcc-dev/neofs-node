@@ -99,7 +99,7 @@ func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*objectSDK.ID, error) 
 	return wr.ids, nil
 }
 
-func (s simpleIDWriter) WriteIDs(ids []*objectSDK.ID) error {
+func (s *simpleIDWriter) WriteIDs(ids []*objectSDK.ID) error {
 	s.ids = append(s.ids, ids...)
 
 	return nil

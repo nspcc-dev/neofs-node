@@ -37,6 +37,8 @@ func (exec *execCtx) formTombstone() (ok bool) {
 
 	exec.log.Debug("split info successfully formed, collecting members...")
 
+	exec.tombstone.SetSplitID(exec.splitInfo.SplitID())
+
 	ok = exec.collectMembers()
 	if !ok {
 		return
