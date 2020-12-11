@@ -65,7 +65,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 	t.obj.SetPayload(payload)
 
-	if err := t.fmt.ValidateContent(t.obj.Object().SDK()); err != nil {
+	if err := t.fmt.ValidateContent(t.obj.Object()); err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not validate payload content", t)
 	}
 

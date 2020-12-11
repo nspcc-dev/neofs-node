@@ -108,32 +108,37 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 }
 
 // ValidateContent validates payload content according to object type.
-func (v *FormatValidator) ValidateContent(o *object.Object) error {
+func (v *FormatValidator) ValidateContent(o *Object) error {
 	switch o.Type() {
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
 			return errors.Errorf("(%T) empty payload in tombstone", v)
 		}
 
-		content, err := TombstoneContentFromBytes(o.Payload())
-		if err != nil {
-			return errors.Wrapf(err, "(%T) could not parse tombstone content", err)
+		tombstone := object.NewTombstone()
+
+		if err := tombstone.Unmarshal(o.Payload()); err != nil {
+			return errors.Wrapf(err, "(%T) could not unmarshal tombstone content", v)
 		}
 
-		addrList := content.GetAddressList()
+		cid := o.ContainerID()
+		idList := tombstone.Members()
+		addrList := make([]*object.Address, 0, len(idList))
 
-		for _, addr := range addrList {
-			if addr.ContainerID() == nil || addr.ObjectID() == nil {
-				return errors.Errorf("(%T) empty address reference in tombstone", v)
+		for _, id := range idList {
+			if id == nil {
+				return errors.Errorf("(%T) empty member in tombstone", v)
 			}
-		}
 
-		tsAddr := new(object.Address)
-		tsAddr.SetContainerID(o.ContainerID())
-		tsAddr.SetObjectID(o.ID())
+			a := object.NewAddress()
+			a.SetContainerID(cid)
+			a.SetObjectID(id)
+
+			addrList = append(addrList, a)
+		}
 
 		if v.deleteHandler != nil {
-			v.deleteHandler.DeleteObjects(tsAddr, addrList...)
+			v.deleteHandler.DeleteObjects(o.Address(), addrList...)
 		}
 	}
 
