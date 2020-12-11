@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
@@ -19,7 +20,7 @@ type StaticClient struct {
 
 	scScriptHash util.Uint160 // contract script-hash
 
-	fee util.Fixed8 // invocation fee
+	fee fixedn.Fixed8 // invocation fee
 }
 
 // ErrNilStaticClient is returned by functions that expect
@@ -29,7 +30,7 @@ var ErrNilStaticClient = errors.New("static client is nil")
 // NewStatic creates, initializes and returns the StaticClient instance.
 //
 // If provided Client instance is nil, ErrNilClient is returned.
-func NewStatic(client *Client, scriptHash util.Uint160, fee util.Fixed8) (*StaticClient, error) {
+func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8) (*StaticClient, error) {
 	if client == nil {
 		return nil, ErrNilClient
 	}

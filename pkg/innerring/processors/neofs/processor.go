@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -43,7 +44,7 @@ type (
 		mintEmitLock      *sync.Mutex
 		mintEmitCache     *lru.Cache
 		mintEmitThreshold uint64
-		mintEmitValue     util.Fixed8
+		mintEmitValue     fixedn.Fixed8
 	}
 
 	// Params of the processor constructor.
@@ -59,7 +60,7 @@ type (
 		Converter         PrecisionConverter
 		MintEmitCacheSize int
 		MintEmitThreshold uint64 // in epochs
-		MintEmitValue     util.Fixed8
+		MintEmitValue     fixedn.Fixed8
 	}
 )
 
