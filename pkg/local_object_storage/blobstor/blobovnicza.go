@@ -61,6 +61,10 @@ type blobovniczas struct {
 	// cache of opened filled blobovniczas
 	opened *lru.Cache
 
+	// mutex to exclude parallel bbolt.Open() calls
+	// bbolt.Open() deadlocks if it tries to open already opened file
+	openMtx sync.Mutex
+
 	// list of active (opened, non-filled) blobovniczas
 	activeMtx sync.RWMutex
 	active    map[string]blobovniczaWithIndex
@@ -676,10 +680,6 @@ func (b *blobovniczas) iterateSorted(addr *objectSDK.Address, curPath []string, 
 //
 // returns error if blobvnicza could not be activated.
 func (b *blobovniczas) getActivated(p string) (blobovniczaWithIndex, error) {
-	b.activeMtx.Lock()
-	defer b.activeMtx.Unlock()
-
-	// try again
 	return b.updateAndGet(p, nil)
 }
 
@@ -691,9 +691,7 @@ func (b *blobovniczas) updateActive(p string, old *uint64) error {
 
 	log.Debug("updating active blobovnicza...")
 
-	b.activeMtx.Lock()
 	_, err := b.updateAndGet(p, old)
-	b.activeMtx.Unlock()
 
 	log.Debug("active blobovnicza successfully updated")
 
@@ -704,7 +702,10 @@ func (b *blobovniczas) updateActive(p string, old *uint64) error {
 //
 // if current active blobovnicza's index is not old, it is returned unchanged.
 func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex, error) {
+	b.activeMtx.RLock()
 	active, ok := b.active[p]
+	b.activeMtx.RUnlock()
+
 	if ok {
 		if old != nil {
 			if active.ind == b.blzShallowWidth-1 {
@@ -724,6 +725,14 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	var err error
 	if active.blz, err = b.openBlobovnicza(path.Join(p, u64ToHexString(active.ind))); err != nil {
 		return active, err
+	}
+
+	b.activeMtx.Lock()
+	defer b.activeMtx.Unlock()
+
+	// check 2nd time to find out if it blobovnicza was activated while thread was locked
+	if tryActive, ok := b.active[p]; ok && tryActive.blz == active.blz {
+		return tryActive, nil
 	}
 
 	// remove from opened cache (active blobovnicza should always be opened)
@@ -785,6 +794,9 @@ func (b *blobovniczas) close() error {
 //
 // If blobovnicza is already opened and cached, instance from cache is returned w/o changes.
 func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, error) {
+	b.openMtx.Lock()
+	defer b.openMtx.Unlock()
+
 	v, ok := b.opened.Get(p)
 	if ok {
 		// blobovnicza should be opened in cache
