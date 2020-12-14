@@ -85,6 +85,8 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 					log.Error("could not receive object header",
 						zap.String("error", err.Error()),
 					)
+
+					continue
 				}
 			} else {
 				shortage--
