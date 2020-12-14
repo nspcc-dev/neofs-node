@@ -325,7 +325,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	// Print header only if file is not streamed to stdout.
 	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" || hdrFile != "" {
-		return printHeader(cmd, obj, hdrFile)
+		return saveAndPrintHeader(cmd, obj, hdrFile)
 	}
 	return nil
 }
@@ -365,7 +365,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't put object: %w", err)
 	}
 
-	return printHeader(cmd, obj, cmd.Flag("file").Value.String())
+	return saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String())
 }
 
 func searchObject(cmd *cobra.Command, _ []string) error {
@@ -632,7 +632,7 @@ func getHashType(cmd *cobra.Command) (string, error) {
 	}
 }
 
-func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error {
+func saveAndPrintHeader(cmd *cobra.Command, obj *object.Object, filename string) error {
 	bs, err := marshalHeader(cmd, obj)
 	if err != nil {
 		return err
@@ -649,6 +649,10 @@ func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error 
 		cmd.Printf("[%s] Header successfully saved.", filename)
 	}
 
+	return printHeader(cmd, obj)
+}
+
+func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	cmd.Printf("ID: %s\n", obj.ID())
 	cmd.Printf("CID: %s\n", obj.ContainerID())
 	cmd.Printf("Owner: %s\n", obj.OwnerID())
@@ -679,8 +683,37 @@ func printHeader(cmd *cobra.Command, obj *object.Object, filename string) error 
 		cmd.Printf("  %s=%s\n", attr.Key(), attr.Value())
 	}
 
-	if obj.SplitID() != nil {
-		cmd.Printf("SplitID: %s\n", obj.SplitID().String())
+	return printSplitHeader(cmd, obj)
+}
+
+func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
+	if splitID := obj.SplitID(); splitID != nil {
+		cmd.Printf("Split ID: %s\n", splitID)
+	}
+
+	if oid := obj.ParentID(); oid != nil {
+		cmd.Printf("Split ParentID: %s\n", oid)
+	}
+
+	if prev := obj.PreviousID(); prev != nil {
+		cmd.Printf("Split PreviousID: %s\n", prev)
+	}
+
+	for _, child := range obj.Children() {
+		cmd.Printf("Split ChildID: %s\n", child)
+	}
+
+	if signature := obj.Signature(); signature != nil {
+		cmd.Print("Split Header Signature:\n")
+		cmd.Printf("  public key: %s\n", hex.EncodeToString(signature.Key()))
+		cmd.Printf("  signature: %s\n", hex.EncodeToString(signature.Sign()))
+	}
+
+	parent := obj.Parent()
+	if parent != nil {
+		cmd.Print("\nSplit Parent Header:\n")
+
+		return printHeader(cmd, parent)
 	}
 
 	return nil
