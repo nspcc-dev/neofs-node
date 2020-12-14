@@ -31,12 +31,14 @@ func bucketKeyFromBounds(upperBound uint64) []byte {
 }
 
 func bucketForSize(sz uint64) []byte {
-	var upperBound uint64
+	return bucketKeyFromBounds(upperPowerOfTwo(sz))
+}
 
-	for upperBound = firstBucketBound; upperBound < sz; upperBound *= 2 {
+func upperPowerOfTwo(v uint64) (upperBound uint64) {
+	for upperBound = firstBucketBound; upperBound < v; upperBound *= 2 {
 	}
 
-	return bucketKeyFromBounds(upperBound)
+	return
 }
 
 func (b *Blobovnicza) incSize(sz uint64) {
