@@ -94,8 +94,7 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 		case *objectV2.HeadRequest:
 			return h.localObjectHeaders(req.GetBody().GetAddress())
 		case *objectV2.GetRangeRequest:
-			hs, _ := h.localObjectHeaders(req.GetBody().GetAddress())
-			return hs, true
+			return addressHeaders(objectSDK.NewAddressFromV2(req.GetBody().GetAddress())), true
 		case *objectV2.GetRangeHashRequest:
 			hs, _ := h.localObjectHeaders(req.GetBody().GetAddress())
 			return hs, true
