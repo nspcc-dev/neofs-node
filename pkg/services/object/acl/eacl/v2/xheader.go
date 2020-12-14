@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 )
 
@@ -14,6 +15,8 @@ type requestXHeaderSource struct {
 
 type responseXHeaderSource struct {
 	resp Response
+
+	addr *refs.Address
 }
 
 func (s *requestXHeaderSource) GetXHeaders() []*session.XHeader {
