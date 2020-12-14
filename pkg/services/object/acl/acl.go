@@ -8,10 +8,12 @@ import (
 
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	crypto "github.com/nspcc-dev/neofs-crypto"
@@ -69,6 +71,8 @@ type (
 		cnrOwner    *owner.ID     // container owner
 
 		cid *container.ID
+
+		oid *objectSDK.ID
 
 		senderKey []byte
 
@@ -150,6 +154,8 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 		return err
 	}
 
+	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+
 	if !basicACLCheck(reqInfo) {
 		return basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
@@ -193,6 +199,8 @@ func (b Service) Head(
 		return nil, err
 	}
 
+	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
@@ -228,6 +236,8 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 		return err
 	}
 
+	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+
 	if !basicACLCheck(reqInfo) {
 		return basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
@@ -261,6 +271,8 @@ func (b Service) Delete(
 		return nil, err
 	}
 
+	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
 	} else if !eACLCheck(request, reqInfo, b.eACLCfg) {
@@ -286,6 +298,8 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 	if err != nil {
 		return err
 	}
+
+	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
 
 	if !basicACLCheck(reqInfo) {
 		return basicACLErr(reqInfo)
@@ -319,6 +333,8 @@ func (b Service) GetRangeHash(
 	if err != nil {
 		return nil, err
 	}
+
+	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -357,6 +373,8 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 		if err != nil {
 			return err
 		}
+
+		reqInfo.oid = getObjectIDFromRequestBody(part)
 
 		if !basicACLCheck(reqInfo) || !stickyBitCheck(reqInfo, ownerID) {
 			return basicACLErr(reqInfo)
@@ -466,6 +484,21 @@ func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
 	}
 }
 
+func getObjectIDFromRequestBody(body interface{}) *objectSDK.ID {
+	switch v := body.(type) {
+	default:
+		return nil
+	case interface {
+		GetObjectID() *refs.ObjectID
+	}:
+		return objectSDK.NewIDFromV2(v.GetObjectID())
+	case interface {
+		GetAddress() *refs.Address
+	}:
+		return objectSDK.NewIDFromV2(v.GetAddress().GetObjectID())
+	}
+}
+
 func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 	switch v := req.(type) {
 	case *object.PutRequest:
@@ -547,7 +580,12 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 	if req, ok := msg.(eaclV2.Request); ok {
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
 	} else {
-		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceResponse(msg.(eaclV2.Response)))
+		addr := objectSDK.NewAddress()
+		addr.SetContainerID(reqInfo.cid)
+		addr.SetObjectID(reqInfo.oid)
+
+		// TODO: Add 'WithAddress' option to config and use address from reqInfo
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceResponse(msg.(eaclV2.Response), addr.ToV2()))
 	}
 
 	action := cfg.eACL.CalculateAction(new(eacl.ValidationUnit).

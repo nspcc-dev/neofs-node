@@ -46,10 +46,7 @@ func headersFromObject(obj *object.Object) []eacl.Header {
 	for ; obj != nil; obj = obj.GetParent() {
 		res = append(res,
 			// container ID
-			&sysObjHdr{
-				k: acl.FilterObjectContainerID,
-				v: cidValue(obj.ContainerID()),
-			},
+			cidHeader(obj.ContainerID()),
 			// owner ID
 			&sysObjHdr{
 				k: acl.FilterObjectOwnerID,
@@ -65,10 +62,7 @@ func headersFromObject(obj *object.Object) []eacl.Header {
 				k: acl.FilterObjectPayloadLength,
 				v: u64Value(obj.PayloadSize()),
 			},
-			&sysObjHdr{
-				k: acl.FilterObjectID,
-				v: idValue(obj.ID()),
-			},
+			oidHeader(obj.ID()),
 			// TODO: add others fields after neofs-api#84
 		)
 
