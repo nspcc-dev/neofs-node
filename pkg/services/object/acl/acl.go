@@ -143,9 +143,11 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 		return err
 	}
 
+	sTok := request.GetMetaHeader().GetSessionToken()
+
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   request.GetMetaHeader().GetSessionToken(),
+		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
@@ -155,6 +157,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 	}
 
 	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !basicACLCheck(reqInfo) {
 		return basicACLErr(reqInfo)
@@ -188,9 +191,11 @@ func (b Service) Head(
 		return nil, err
 	}
 
+	sTok := request.GetMetaHeader().GetSessionToken()
+
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   request.GetMetaHeader().GetSessionToken(),
+		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
@@ -200,6 +205,7 @@ func (b Service) Head(
 	}
 
 	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -260,9 +266,11 @@ func (b Service) Delete(
 		return nil, err
 	}
 
+	sTok := request.GetMetaHeader().GetSessionToken()
+
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   request.GetMetaHeader().GetSessionToken(),
+		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
@@ -272,6 +280,7 @@ func (b Service) Delete(
 	}
 
 	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -288,9 +297,11 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 		return err
 	}
 
+	sTok := request.GetMetaHeader().GetSessionToken()
+
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   request.GetMetaHeader().GetSessionToken(),
+		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
@@ -300,6 +311,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 	}
 
 	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !basicACLCheck(reqInfo) {
 		return basicACLErr(reqInfo)
@@ -323,9 +335,11 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
+	sTok := request.GetMetaHeader().GetSessionToken()
+
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   request.GetMetaHeader().GetSessionToken(),
+		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
 	}
 
@@ -335,6 +349,7 @@ func (b Service) GetRangeHash(
 	}
 
 	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !basicACLCheck(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -363,9 +378,11 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 			return err
 		}
 
+		sTok := part.GetHeader().GetSessionToken()
+
 		req := metaWithToken{
 			vheader: request.GetVerificationHeader(),
-			token:   part.GetHeader().GetSessionToken(),
+			token:   sTok,
 			bearer:  request.GetMetaHeader().GetBearerToken(),
 		}
 
@@ -375,6 +392,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 		}
 
 		reqInfo.oid = getObjectIDFromRequestBody(part)
+		useObjectIDFromSession(&reqInfo, sTok)
 
 		if !basicACLCheck(reqInfo) || !stickyBitCheck(reqInfo, ownerID) {
 			return basicACLErr(reqInfo)
@@ -482,6 +500,21 @@ func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
 	default:
 		return nil, errors.New("unknown request type")
 	}
+}
+
+func useObjectIDFromSession(req *requestInfo, token *session.SessionToken) {
+	if token == nil {
+		return
+	}
+
+	objCtx, ok := token.GetBody().GetContext().(*session.ObjectSessionContext)
+	if !ok {
+		return
+	}
+
+	req.oid = objectSDK.NewIDFromV2(
+		objCtx.GetAddress().GetObjectID(),
+	)
 }
 
 func getObjectIDFromRequestBody(body interface{}) *objectSDK.ID {
