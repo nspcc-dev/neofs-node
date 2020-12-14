@@ -97,6 +97,11 @@ const (
 
 const searchOIDFlag = "oid"
 
+const (
+	rawFlag     = "raw"
+	rawFlagDesc = "Set raw request option"
+)
+
 func init() {
 	rootCmd.AddCommand(objectCmd)
 	objectCmd.PersistentFlags().String("bearer", "", "File with signed JSON or binary encoded bearer token")
@@ -124,6 +129,7 @@ func init() {
 	_ = objectGetCmd.MarkFlagRequired("cid")
 	objectGetCmd.Flags().String("oid", "", "Object ID")
 	_ = objectGetCmd.MarkFlagRequired("oid")
+	objectGetCmd.Flags().Bool(rawFlag, false, rawFlagDesc)
 
 	objectCmd.AddCommand(objectSearchCmd)
 	objectSearchCmd.Flags().String("cid", "", "Container ID")
@@ -142,6 +148,7 @@ func init() {
 	objectHeadCmd.Flags().Bool("main-only", false, "Return only main fields")
 	objectHeadCmd.Flags().Bool("json", false, "Marshal output in JSON")
 	objectHeadCmd.Flags().Bool("proto", false, "Marshal output in Protobuf")
+	objectHeadCmd.Flags().Bool(rawFlag, false, rawFlagDesc)
 
 	objectCmd.AddCommand(objectHashCmd)
 	objectHashCmd.Flags().String("cid", "", "Container ID")
@@ -158,6 +165,7 @@ func init() {
 	_ = objectRangeCmd.MarkFlagRequired("oid")
 	objectRangeCmd.Flags().String("range", "", "Range to take data from in the form offset:length")
 	objectRangeCmd.Flags().String("file", "", "File to write object payload to. Default: stdout.")
+	objectRangeCmd.Flags().Bool(rawFlag, false, rawFlagDesc)
 
 	// Here you will define your flags and configuration settings.
 
@@ -291,14 +299,22 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	raw, _ := cmd.Flags().GetBool(rawFlag)
+
 	obj, err := cli.GetObject(ctx,
 		new(client.GetObjectParams).
 			WithAddress(objAddr).
-			WithPayloadWriter(out),
+			WithPayloadWriter(out).
+			WithRawFlag(raw),
 		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
+		if ok := printSplitInfoErr(cmd, err); ok {
+			return nil
+		}
+
 		return fmt.Errorf("can't put object: %w", err)
 	}
 
@@ -333,11 +349,19 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	if ok, _ := cmd.Flags().GetBool("main-only"); ok {
 		ps = ps.WithMainFields()
 	}
+
+	raw, _ := cmd.Flags().GetBool(rawFlag)
+	ps.WithRawFlag(raw)
+
 	obj, err := cli.GetObjectHeader(ctx, ps,
 		client.WithTTL(getTTL()),
 		client.WithSession(tok),
 		client.WithBearer(btok))
 	if err != nil {
+		if ok := printSplitInfoErr(cmd, err); ok {
+			return nil
+		}
+
 		return fmt.Errorf("can't put object: %w", err)
 	}
 
@@ -743,15 +767,22 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	raw, _ := cmd.Flags().GetBool(rawFlag)
+
 	_, err = c.ObjectPayloadRangeData(ctx,
 		new(client.RangeDataParams).
 			WithAddress(objAddr).
 			WithRange(ranges[0]).
-			WithDataWriter(out),
+			WithDataWriter(out).
+			WithRaw(raw),
 		client.WithTTL(getTTL()),
 		client.WithSession(sessionToken),
 		client.WithBearer(bearerToken))
 	if err != nil {
+		if ok := printSplitInfoErr(cmd, err); ok {
+			return nil
+		}
+
 		return fmt.Errorf("can't get object payload range: %w", err)
 	}
 
@@ -760,4 +791,31 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+func printSplitInfoErr(cmd *cobra.Command, err error) bool {
+	var errSplitInfo *object.SplitInfoError
+
+	ok := errors.As(err, &errSplitInfo)
+
+	if ok {
+		cmd.Println("Object is complex, split information received.")
+		printSplitInfo(cmd, errSplitInfo.SplitInfo())
+	}
+
+	return ok
+}
+
+func printSplitInfo(cmd *cobra.Command, info *object.SplitInfo) {
+	if splitID := info.SplitID(); splitID != nil {
+		cmd.Println("Split ID:", splitID)
+	}
+
+	if link := info.Link(); link != nil {
+		cmd.Println("Linking object:", link)
+	}
+
+	if last := info.LastPart(); last != nil {
+		cmd.Println("Last object:", last)
+	}
 }
