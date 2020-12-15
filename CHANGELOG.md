@@ -1,6 +1,27 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.13.0] - 2020-12-15 - Modo (모도, 茅島)
+
+Implementation of a local object storage engine. 
+Adaptation of the object service work scheme for the engine.
+
+### Changed
+
+- Object format after transformations.
+- Handling of object operations.
+
+### Added
+
+- Local storage components: `Engine`, `Shard`, `BlobStor`,
+  `Metabase`, `Blobovnicza`.
+- Support of voting for sidechain governance in IR node.
+- `Raw` flag support in Object Get/Head/GetRange CLI commands.
+
+### Fixed
+
+- Ignoring object address from session token in eACL validation.
+
 ## [0.12.1] - 2020-11-25
 
 Bugfixes and small performance improvements.
@@ -61,6 +82,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.13.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.10.0...v0.11.0
