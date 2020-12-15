@@ -1,8 +1,8 @@
 package v2
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 )
 
 func WithObjectStorage(v ObjectStorage) Option {
@@ -27,11 +27,16 @@ func WithServiceRequest(v Request) Option {
 	}
 }
 
-func WithServiceResponse(v Response, addr *refs.Address) Option {
+func WithServiceResponse(v Response) Option {
 	return func(c *cfg) {
 		c.msg = &responseXHeaderSource{
 			resp: v,
-			addr: addr,
 		}
+	}
+}
+
+func WithAddress(v *refs.Address) Option {
+	return func(c *cfg) {
+		c.addr = v
 	}
 }

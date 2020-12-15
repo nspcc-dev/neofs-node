@@ -606,19 +606,21 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		return false
 	}
 
-	hdrSrcOpts := make([]eaclV2.Option, 0, 2)
+	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
-	hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithLocalObjectStorage(cfg.localStorage))
+	addr := objectSDK.NewAddress()
+	addr.SetContainerID(reqInfo.cid)
+	addr.SetObjectID(reqInfo.oid)
+
+	hdrSrcOpts = append(hdrSrcOpts,
+		eaclV2.WithLocalObjectStorage(cfg.localStorage),
+		eaclV2.WithAddress(addr.ToV2()),
+	)
 
 	if req, ok := msg.(eaclV2.Request); ok {
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
 	} else {
-		addr := objectSDK.NewAddress()
-		addr.SetContainerID(reqInfo.cid)
-		addr.SetObjectID(reqInfo.oid)
-
-		// TODO: Add 'WithAddress' option to config and use address from reqInfo
-		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceResponse(msg.(eaclV2.Response), addr.ToV2()))
+		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceResponse(msg.(eaclV2.Response)))
 	}
 
 	action := cfg.eACL.CalculateAction(new(eacl.ValidationUnit).
