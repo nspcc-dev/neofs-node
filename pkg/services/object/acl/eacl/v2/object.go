@@ -39,14 +39,13 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object) []eacl.Header {
+func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eacl.Header {
 	// TODO: optimize allocs
 	res := make([]eacl.Header, 0)
 
 	for ; obj != nil; obj = obj.GetParent() {
 		res = append(res,
-			// container ID
-			cidHeader(obj.ContainerID()),
+			cidHeader(addr.ContainerID()),
 			// owner ID
 			&sysObjHdr{
 				k: acl.FilterObjectOwnerID,
@@ -62,7 +61,7 @@ func headersFromObject(obj *object.Object) []eacl.Header {
 				k: acl.FilterObjectPayloadLength,
 				v: u64Value(obj.PayloadSize()),
 			},
-			oidHeader(obj.ID()),
+			oidHeader(addr.ObjectID()),
 			// TODO: add others fields after neofs-api#84
 		)
 
