@@ -32,7 +32,7 @@ func RegisterContainer(cli *client.Client, con util.Uint160, p *ContainerParams)
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, 2*extraFee, putContainerMethod,
+	return cli.Invoke(con, 5*extraFee, putContainerMethod,
 		p.Container,
 		p.Signature,
 		p.Key.Bytes(),
