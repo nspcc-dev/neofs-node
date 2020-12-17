@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
@@ -111,6 +112,32 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj.Object()))
 
 		content := object.NewTombstone()
+		content.SetMembers([]*object.ID{nil})
+
+		data, err := content.Marshal()
+		require.NoError(t, err)
+
+		obj.SetPayload(data)
+
+		require.Error(t, v.ValidateContent(obj.Object()))
+
+		content.SetMembers([]*object.ID{testObjectID(t)})
+
+		data, err = content.Marshal()
+		require.NoError(t, err)
+
+		obj.SetPayload(data)
+
+		require.NoError(t, v.ValidateContent(obj.Object()))
+	})
+
+	t.Run("storage group content", func(t *testing.T) {
+		obj := NewRaw()
+		obj.SetType(object.TypeStorageGroup)
+
+		require.Error(t, v.ValidateContent(obj.Object()))
+
+		content := storagegroup.New()
 		content.SetMembers([]*object.ID{nil})
 
 		data, err := content.Marshal()
