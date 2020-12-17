@@ -3,6 +3,7 @@ package meta_test
 import (
 	"testing"
 
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,4 +34,36 @@ func TestDB_Containers(t *testing.T) {
 
 		cids[cid.String()] = 1
 	}
+
+	t.Run("Inhume", func(t *testing.T) {
+		obj := generateRawObject(t).Object()
+
+		require.NoError(t, putBig(db, obj))
+
+		cnrs, err := db.Containers()
+		require.NoError(t, err)
+		require.Contains(t, cnrs, obj.ContainerID())
+
+		require.NoError(t, meta.Inhume(db, obj.Address(), generateAddress()))
+
+		cnrs, err = db.Containers()
+		require.NoError(t, err)
+		require.Contains(t, cnrs, obj.ContainerID())
+	})
+
+	t.Run("ToMoveIt", func(t *testing.T) {
+		obj := generateRawObject(t).Object()
+
+		require.NoError(t, putBig(db, obj))
+
+		cnrs, err := db.Containers()
+		require.NoError(t, err)
+		require.Contains(t, cnrs, obj.ContainerID())
+
+		require.NoError(t, meta.ToMoveIt(db, obj.Address()))
+
+		cnrs, err = db.Containers()
+		require.NoError(t, err)
+		require.Contains(t, cnrs, obj.ContainerID())
+	})
 }

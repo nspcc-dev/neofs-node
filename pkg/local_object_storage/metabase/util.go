@@ -14,22 +14,24 @@ slows execution. Instead we can try to marshal these structures directly into
 bytes. Check it later.
 */
 
+const invalidBase58String = "_"
+
 var (
-	graveyardBucketName = []byte("Graveyard")
-	toMoveItBucketName  = []byte("ToMoveIt")
+	graveyardBucketName = []byte(invalidBase58String + "Graveyard")
+	toMoveItBucketName  = []byte(invalidBase58String + "ToMoveIt")
 
 	zeroValue = []byte{0xFF}
 
-	smallPostfix        = "_small"
-	storageGroupPostfix = "_SG"
-	tombstonePostfix    = "_TS"
-	ownerPostfix        = "_ownerid"
-	payloadHashPostfix  = "_payloadhash"
-	rootPostfix         = "_root"
-	parentPostfix       = "_parent"
-	splitPostfix        = "_splitid"
+	smallPostfix        = invalidBase58String + "small"
+	storageGroupPostfix = invalidBase58String + "SG"
+	tombstonePostfix    = invalidBase58String + "TS"
+	ownerPostfix        = invalidBase58String + "ownerid"
+	payloadHashPostfix  = invalidBase58String + "payloadhash"
+	rootPostfix         = invalidBase58String + "root"
+	parentPostfix       = invalidBase58String + "parent"
+	splitPostfix        = invalidBase58String + "splitid"
 
-	userAttributePostfix = "_attr_"
+	userAttributePostfix = invalidBase58String + "attr_"
 
 	splitInfoError *object.SplitInfoError // for errors.As comparisons
 )

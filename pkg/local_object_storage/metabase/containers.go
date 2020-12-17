@@ -39,7 +39,7 @@ func (db *DB) containers(tx *bbolt.Tx) ([]*container.ID, error) {
 func parseContainerID(name []byte) (*container.ID, error) {
 	strName := string(name)
 
-	if strings.Contains(strName, "_") {
+	if strings.Contains(strName, invalidBase58String) {
 		return nil, nil
 	}
 
