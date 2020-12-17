@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/pkg/errors"
 )
@@ -139,6 +140,22 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 
 		if v.deleteHandler != nil {
 			v.deleteHandler.DeleteObjects(o.Address(), addrList...)
+		}
+	case object.TypeStorageGroup:
+		if len(o.Payload()) == 0 {
+			return errors.Errorf("(%T) empty payload in SG", v)
+		}
+
+		sg := storagegroup.New()
+
+		if err := sg.Unmarshal(o.Payload()); err != nil {
+			return errors.Wrapf(err, "(%T) could not unmarshal SG content", v)
+		}
+
+		for _, id := range sg.Members() {
+			if id == nil {
+				return errors.Errorf("(%T) empty member in SG", v)
+			}
 		}
 	}
 
