@@ -17,7 +17,7 @@ require (
 	github.com/multiformats/go-multihash v0.0.13 // indirect
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.91.1-pre.0.20201215101847-7c2257803f32
-	github.com/nspcc-dev/neofs-api-go v1.21.0
+	github.com/nspcc-dev/neofs-api-go v1.21.2-0.20201221110721-3e6997c6c92c
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.3.0
