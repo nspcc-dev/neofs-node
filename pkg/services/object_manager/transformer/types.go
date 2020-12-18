@@ -12,6 +12,8 @@ import (
 // Consists of the ID of the stored object and the ID of the parent object.
 type AccessIdentifiers struct {
 	par, self *objectSDK.ID
+
+	parHdr *objectSDK.Object
 }
 
 // ObjectTarget is an interface of the object writer.
@@ -85,6 +87,27 @@ func (a *AccessIdentifiers) WithParentID(v *objectSDK.ID) *AccessIdentifiers {
 	}
 
 	res.par = v
+
+	return res
+}
+
+// Parent return identifier of the parent of the written object.
+func (a *AccessIdentifiers) Parent() *objectSDK.Object {
+	if a != nil {
+		return a.parHdr
+	}
+
+	return nil
+}
+
+// WithParentID returns AccessIdentifiers with passed parent identifier.
+func (a *AccessIdentifiers) WithParent(v *objectSDK.Object) *AccessIdentifiers {
+	res := a
+	if res == nil {
+		res = new(AccessIdentifiers)
+	}
+
+	res.parHdr = v
 
 	return res
 }
