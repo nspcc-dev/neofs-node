@@ -42,6 +42,7 @@ type (
 		mainnetClient  *client.Client
 		epochCounter   atomic.Uint64
 		innerRingIndex atomic.Int32
+		innerRingSize  atomic.Int32
 		precision      precision.Fixed8Converter
 
 		// internal variables
@@ -440,7 +441,7 @@ func (s *Server) initConfigFromBlockchain() error {
 	key := &s.key.PublicKey
 
 	// check if node inside inner ring list and what index it has
-	index, err := invoke.InnerRingIndex(s.mainnetClient, s.contracts.neofs, key)
+	index, size, err := invoke.InnerRingIndex(s.mainnetClient, s.contracts.neofs, key)
 	if err != nil {
 		return errors.Wrap(err, "can't read inner ring list")
 	}
@@ -452,6 +453,7 @@ func (s *Server) initConfigFromBlockchain() error {
 	}
 
 	s.epochCounter.Store(uint64(epoch))
+	s.innerRingSize.Store(size)
 	s.innerRingIndex.Store(index)
 	s.precision.SetBalancePrecision(balancePrecision)
 
