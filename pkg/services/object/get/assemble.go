@@ -114,7 +114,7 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 }
 
 func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*objectSDK.Range, checkRight bool) {
-	withRng := len(rngs) > 0
+	withRng := len(rngs) > 0 && exec.ctxRange() != nil
 
 	for i := range children {
 		var r *objectSDK.Range
