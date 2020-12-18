@@ -46,9 +46,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return errors.Wrapf(err, "(%T) could not prepare put parameters", p)
 	}
 
-	sToken := prm.common.SessionToken()
-
-	if sToken == nil {
+	if prm.hdr.Signature() != nil {
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
 			nextTarget: p.newCommonTarget(prm),
@@ -57,6 +55,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 		return nil
 	}
+
+	sToken := prm.common.SessionToken()
 
 	// prepare trusted-Put object target
 
