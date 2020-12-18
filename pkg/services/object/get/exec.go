@@ -3,6 +3,7 @@ package getsvc
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -95,6 +96,11 @@ func (exec execCtx) address() *objectSDK.Address {
 	return exec.prm.Address()
 }
 
+func (exec execCtx) isChild(obj *object.Object) bool {
+	par := obj.GetParent()
+	return par != nil && equalAddresses(exec.address(), par.Address())
+}
+
 func (exec execCtx) key() *ecdsa.PrivateKey {
 	return exec.prm.common.PrivateKey()
 }
@@ -147,7 +153,7 @@ func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Trav
 	}
 }
 
-func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range) (*object.Object, bool) {
+func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range, withHdr bool) (*object.Object, bool) {
 	w := NewSimpleObjectWriter()
 
 	p := exec.prm
@@ -163,7 +169,17 @@ func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range) (*object.O
 
 	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng))
 
-	return w.Object(), exec.status == statusOK
+	child := w.Object()
+	ok := exec.status == statusOK
+
+	if ok && withHdr && !exec.isChild(child) {
+		exec.status = statusUndefined
+		exec.err = errors.New("wrong child header")
+
+		exec.log.Debug("parent address in child object differs")
+	}
+
+	return child, ok
 }
 
 func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
@@ -196,10 +212,18 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 
 		return nil, false
 	case err == nil:
-		exec.status = statusOK
-		exec.err = nil
+		child := w.Object()
 
-		return w.Object(), true
+		if child.ParentID() != nil && !exec.isChild(child) {
+			exec.status = statusUndefined
+
+			exec.log.Debug("parent address in child object differs")
+		} else {
+			exec.status = statusOK
+			exec.err = nil
+		}
+
+		return child, true
 	}
 }
 
