@@ -69,9 +69,12 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	f.obj.SetSessionToken(f.prm.SessionToken)
 	f.obj.SetCreationEpoch(curEpoch)
 
-	var parID *objectSDK.ID
+	var (
+		parID  *objectSDK.ID
+		parHdr *objectSDK.Object
+	)
 
-	if par := f.obj.Parent(); par != nil {
+	if par := f.obj.Parent(); par != nil && par.Signature() == nil {
 		rawPar := objectSDK.NewRawFromV2(par.ToV2())
 
 		rawPar.SetSessionToken(f.prm.SessionToken)
@@ -82,8 +85,9 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		}
 
 		parID = rawPar.ID()
+		parHdr = rawPar.Object()
 
-		f.obj.SetParent(rawPar.Object())
+		f.obj.SetParent(parHdr)
 	}
 
 	if err := objectSDK.SetIDWithSignature(f.prm.Key, f.obj.SDK()); err != nil {
@@ -100,5 +104,6 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 
 	return new(AccessIdentifiers).
 		WithSelfID(f.obj.ID()).
-		WithParentID(parID), nil
+		WithParentID(parID).
+		WithParent(parHdr), nil
 }

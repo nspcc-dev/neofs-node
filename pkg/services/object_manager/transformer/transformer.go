@@ -196,7 +196,7 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 
 	if withParent {
 		// generate and release linking object
-		s.initializeLinking()
+		s.initializeLinking(ids.Parent())
 		s.initializeCurrent()
 
 		if _, err := s.release(false); err != nil {
@@ -214,9 +214,9 @@ func writeHashes(hashers []*payloadChecksumHasher) {
 	}
 }
 
-func (s *payloadSizeLimiter) initializeLinking() {
+func (s *payloadSizeLimiter) initializeLinking(parHdr *objectSDK.Object) {
 	s.current = fromObject(s.current)
-	s.current.SetParent(s.parent.Object().SDK())
+	s.current.SetParent(parHdr)
 	s.current.SetChildren(s.previous...)
 	s.current.SetSplitID(s.splitID)
 }
@@ -279,6 +279,7 @@ func (s *payloadSizeLimiter) detachParent() {
 	s.parent = s.current
 	s.current = fromObject(s.parent)
 	s.parent.ResetRelations()
+	s.parent.SetSignature(nil)
 	s.parentHashers = s.currentHashers
 
 	// return source attributes
