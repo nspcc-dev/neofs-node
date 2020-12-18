@@ -1,6 +1,25 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.13.1] - 2020-12-18
+
+Fixes based on Modo release testing results.
+
+### Added
+
+- Verification of chain element addresses during object assembling.
+
+### Changed
+
+- Processing of filters by non-address fields in Object Range/RangeHash/Delete.
+
+### Fixed
+
+- `Graveyard` and `ToMoveIt` bucket names in metabase.
+- Double formation of the parent title when transforming an object.
+- Loss of session token during Object Put.
+- Potential generating Range requests inside Get request execution context.
+
 ## [0.13.0] - 2020-12-15 - Modo (모도, 茅島)
 
 Implementation of a local object storage engine. 
@@ -82,6 +101,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.13.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.11.0...v0.12.0
