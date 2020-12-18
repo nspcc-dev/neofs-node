@@ -28,6 +28,12 @@ func (s *Server) Index() int32 {
 	return s.innerRingIndex.Load()
 }
 
+// InnerRingSize is a getter for a global size of inner ring list. This value
+// paired with inner ring index.
+func (s *Server) InnerRingSize() int32 {
+	return s.innerRingSize.Load()
+}
+
 func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
 	index := s.Index()
 	if index < 0 || index >= alphabetContractsN {
