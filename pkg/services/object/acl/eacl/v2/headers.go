@@ -95,16 +95,13 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 		switch req := m.req.(type) {
 		case *objectV2.GetRequest:
 			return h.localObjectHeaders(h.addr)
-		case *objectV2.DeleteRequest:
-			hs, _ := h.localObjectHeaders(h.addr)
-			return hs, true
 		case *objectV2.HeadRequest:
 			return h.localObjectHeaders(h.addr)
-		case *objectV2.GetRangeRequest:
+		case
+			*objectV2.GetRangeRequest,
+			*objectV2.GetRangeHashRequest,
+			*objectV2.DeleteRequest:
 			return addressHeaders(objectSDK.NewAddressFromV2(h.addr)), true
-		case *objectV2.GetRangeHashRequest:
-			hs, _ := h.localObjectHeaders(h.addr)
-			return hs, true
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
