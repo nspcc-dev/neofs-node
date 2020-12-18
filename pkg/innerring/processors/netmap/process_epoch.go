@@ -2,6 +2,7 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"go.uber.org/zap"
 )
 
@@ -22,6 +23,7 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 
 	np.netmapSnapshot.update(snapshot, epoch)
 	np.handleCleanupTick(netmapCleanupTick{epoch: epoch})
+	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
 }
 
 // Process new epoch tick by invoking new epoch method in network map contract.

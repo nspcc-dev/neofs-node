@@ -10,6 +10,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
@@ -187,6 +188,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	// create audit processor
+	auditProcessor, err := audit.New(&audit.Params{
+		Log:               log,
+		ContainerContract: server.contracts.container,
+		AuditContract:     server.contracts.audit,
+		MorphClient:       server.morphClient,
+		IRList:            server,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	// create netmap processor
 	netmapProcessor, err := netmap.New(&netmap.Params{
 		Log:              log,
@@ -198,6 +211,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		ActiveState:      server,
 		CleanupEnabled:   cfg.GetBool("netmap_cleaner.enabled"),
 		CleanupThreshold: cfg.GetUint64("netmap_cleaner.threshold"),
+		HandleAudit:      auditProcessor.StartAuditHandler(),
 	})
 	if err != nil {
 		return nil, err
@@ -290,7 +304,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	// todo: create vivid id component
-	// todo: create audit scheduler
 
 	return server, nil
 }
@@ -338,6 +351,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	balanceContractStr := cfg.GetString("contracts.balance")
 	nativeGasContractStr := cfg.GetString("contracts.gas")
 	containerContractStr := cfg.GetString("contracts.container")
+	auditContractStr := cfg.GetString("contracts.audit")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
@@ -362,6 +376,11 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.container, err = util.Uint160DecodeStringLE(containerContractStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't read container script-hash")
+	}
+
+	result.audit, err = util.Uint160DecodeStringLE(auditContractStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir: can't read audit script-hash")
 	}
 
 	result.alphabet, err = parseAlphabetContracts(cfg)
