@@ -78,6 +78,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		),
 		client.WithTTL(1), // FIXME: use constant
 		client.WithBearer(t.bearer),
+		client.WithSession(t.token),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not put object to %s", t, addr)
