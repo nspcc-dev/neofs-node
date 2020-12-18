@@ -196,6 +196,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		AuditContract:     server.contracts.audit,
 		MorphClient:       server.morphClient,
 		IRList:            server,
+		ClientCache:       newClientCache(server.key),
 	})
 	if err != nil {
 		return nil, err
