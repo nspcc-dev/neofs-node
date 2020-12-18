@@ -2,6 +2,7 @@ package audit
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/panjf2000/ants/v2"
@@ -16,6 +17,11 @@ type (
 		InnerRingSize() int32
 	}
 
+	// NeoFSClientCache is an interface for cache of neofs RPC clients
+	NeoFSClientCache interface {
+		Get(address string, opts ...SDKClient.Option) (*SDKClient.Client, error)
+	}
+
 	// Processor of events related with data audit.
 	Processor struct {
 		log               *zap.Logger
@@ -24,6 +30,7 @@ type (
 		auditContract     util.Uint160
 		morphClient       *client.Client
 		irList            Indexer
+		clientCache       NeoFSClientCache
 	}
 
 	// Params of the processor constructor.
@@ -33,6 +40,7 @@ type (
 		AuditContract     util.Uint160
 		MorphClient       *client.Client
 		IRList            Indexer
+		ClientCache       NeoFSClientCache
 	}
 )
 
@@ -50,6 +58,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/audit: neo:morph client is not set")
 	case p.IRList == nil:
 		return nil, errors.New("ir/audit: global state is not set")
+	case p.ClientCache == nil:
+		return nil, errors.New("ir/audit: neofs RPC client cache is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -64,6 +74,7 @@ func New(p *Params) (*Processor, error) {
 		auditContract:     p.AuditContract,
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
+		clientCache:       p.ClientCache,
 	}, nil
 }
 
