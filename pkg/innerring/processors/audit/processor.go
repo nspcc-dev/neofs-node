@@ -13,6 +13,7 @@ type (
 	// Indexer is a callback interface for inner ring global state.
 	Indexer interface {
 		Index() int32
+		InnerRingSize() int32
 	}
 
 	// Processor of events related with data audit.
