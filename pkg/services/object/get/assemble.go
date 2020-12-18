@@ -26,7 +26,7 @@ func (exec *execCtx) assemble() {
 	if len(children) > 0 {
 		if exec.ctxRange() == nil {
 			if ok := exec.writeCollectedHeader(); ok {
-				exec.overtakePayloadDirectly(children, nil)
+				exec.overtakePayloadDirectly(children, nil, true)
 			}
 		} else {
 			// TODO: choose one-by-one restoring algorithm according to size
@@ -59,7 +59,7 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 
 	log.Debug("starting assembling from child")
 
-	child, ok := exec.getChild(id, nil)
+	child, ok := exec.getChild(id, nil, true)
 	if !ok {
 		return
 	}
@@ -69,15 +69,6 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 		exec.status = statusUndefined
 
 		log.Debug("received child with empty parent")
-
-		return
-	} else if !equalAddresses(par.Address(), exec.address()) {
-		exec.status = statusUndefined
-
-		log.Debug("parent address in child object differs",
-			zap.Stringer("expected", exec.address()),
-			zap.Stringer("received", par.Address()),
-		)
 
 		return
 	}
@@ -122,7 +113,7 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 	return child.PreviousID(), child.Children()
 }
 
-func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*objectSDK.Range) {
+func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*objectSDK.Range, checkRight bool) {
 	withRng := len(rngs) > 0
 
 	for i := range children {
@@ -131,7 +122,7 @@ func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*o
 			r = rngs[i]
 		}
 
-		child, ok := exec.getChild(children[i], r)
+		child, ok := exec.getChild(children[i], r, !withRng && checkRight)
 		if !ok {
 			return
 		}
@@ -162,7 +153,7 @@ func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
 		}
 	}
 
-	exec.overtakePayloadDirectly(chain, rngs)
+	exec.overtakePayloadDirectly(chain, rngs, false)
 
 	exec.status = statusOK
 	exec.err = nil

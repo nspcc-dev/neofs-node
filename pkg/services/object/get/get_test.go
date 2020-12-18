@@ -826,6 +826,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				children, childIDs, payload := generateChain(2, cid)
 				srcObj.SetPayload(payload)
 				srcObj.SetPayloadSize(uint64(len(payload)))
+				children[len(children)-1].SetParent(srcObj.Object().SDK())
 
 				linkAddr := objectSDK.NewAddress()
 				linkAddr.SetContainerID(cid)
