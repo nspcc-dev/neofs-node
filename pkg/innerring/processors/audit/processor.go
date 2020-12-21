@@ -3,7 +3,10 @@ package audit
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
@@ -31,11 +34,15 @@ type (
 		morphClient       *client.Client
 		irList            Indexer
 		clientCache       NeoFSClientCache
+
+		containerClient *wrapContainer.Wrapper
+		netmapClient    *wrapNetmap.Wrapper
 	}
 
 	// Params of the processor constructor.
 	Params struct {
 		Log               *zap.Logger
+		NetmapContract    util.Uint160
 		ContainerContract util.Uint160
 		AuditContract     util.Uint160
 		MorphClient       *client.Client
@@ -67,6 +74,18 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.Wrap(err, "ir/audit: can't create worker pool")
 	}
 
+	// creating enhanced client for getting network map
+	netmapClient, err := invoke.NewNoFeeNetmapClient(p.MorphClient, p.NetmapContract)
+	if err != nil {
+		return nil, err
+	}
+
+	// creating enhanced client for getting containers
+	containerClient, err := invoke.NewNoFeeContainerClient(p.MorphClient, p.ContainerContract)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Processor{
 		log:               p.Log,
 		pool:              pool,
@@ -75,6 +94,8 @@ func New(p *Params) (*Processor, error) {
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
 		clientCache:       p.ClientCache,
+		containerClient:   containerClient,
+		netmapClient:      netmapClient,
 	}, nil
 }
 
