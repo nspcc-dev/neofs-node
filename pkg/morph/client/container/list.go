@@ -34,9 +34,7 @@ func (l *ListValues) CIDList() [][]byte {
 func (c *Client) List(args ListArgs) (*ListValues, error) {
 	invokeArgs := make([]interface{}, 0, 1)
 
-	if len(args.ownerID) > 0 {
-		invokeArgs = append(invokeArgs, args.ownerID)
-	}
+	invokeArgs = append(invokeArgs, args.ownerID)
 
 	prms, err := c.client.TestInvoke(
 		c.listMethod,
