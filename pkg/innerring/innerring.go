@@ -192,6 +192,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// create audit processor
 	auditProcessor, err := audit.New(&audit.Params{
 		Log:               log,
+		NetmapContract:    server.contracts.netmap,
 		ContainerContract: server.contracts.container,
 		AuditContract:     server.contracts.audit,
 		MorphClient:       server.morphClient,
