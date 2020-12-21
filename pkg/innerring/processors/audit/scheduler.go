@@ -5,14 +5,13 @@ import (
 	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/pkg/errors"
 )
 
 var ErrInvalidIRNode = errors.New("node is not in the inner ring list")
 
 func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*container.ID, error) {
-	containers, err := invoke.ListContainers(ap.morphClient, ap.containerContract)
+	containers, err := ap.containerClient.List(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get list of containers to start audit")
 	}

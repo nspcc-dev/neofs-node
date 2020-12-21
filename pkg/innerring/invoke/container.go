@@ -1,11 +1,8 @@
 package invoke
 
 import (
-	"crypto/sha256"
-
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/pkg/errors"
 )
@@ -56,48 +53,4 @@ func RemoveContainer(cli *client.Client, con util.Uint160, p *RemoveContainerPar
 		p.ContainerID,
 		p.Signature,
 	)
-}
-
-func ListContainers(cli *client.Client, con util.Uint160) ([]*container.ID, error) {
-	if cli == nil {
-		return nil, client.ErrNilClient
-	}
-
-	item, err := cli.TestInvoke(con, listContainersMethod, []byte{})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(item) < 1 {
-		return nil, errors.Wrap(ErrParseTestInvoke, "nested array expected")
-	}
-
-	rawIDs, err := client.ArrayFromStackItem(item[0])
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*container.ID, 0, len(rawIDs))
-
-	var bufHash [sha256.Size]byte
-
-	for i := range rawIDs {
-		cid, err := client.BytesFromStackItem(rawIDs[i])
-		if err != nil {
-			return nil, err
-		}
-
-		if len(cid) != sha256.Size {
-			return nil, errors.Wrap(ErrParseTestInvoke, "invalid container ID size")
-		}
-
-		copy(bufHash[:], cid)
-
-		containerID := container.NewID()
-		containerID.SetSHA256(bufHash)
-
-		result = append(result, containerID)
-	}
-
-	return result, nil
 }
