@@ -20,7 +20,6 @@ import (
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
-	auditSvc "github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/panjf2000/ants/v2"
@@ -138,13 +137,6 @@ func (s *Server) startWorkers(ctx context.Context) {
 func (s *Server) Stop() {
 	go s.morphListener.Stop()
 	go s.mainnetListener.Stop()
-}
-
-func (s *Server) WriteReport(r *auditSvc.Report) error {
-	res := r.Result()
-	res.SetPublicKey(s.pubKey)
-
-	return s.auditClient.PutAuditResult(res)
 }
 
 // New creates instance of inner ring sever structure.
