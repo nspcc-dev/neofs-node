@@ -1,6 +1,8 @@
 package audit
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
@@ -8,6 +10,7 @@ import (
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -25,6 +28,10 @@ type (
 		Get(address string, opts ...SDKClient.Option) (*SDKClient.Client, error)
 	}
 
+	TaskManager interface {
+		PushTask(*audit.Task) error
+	}
+
 	// Processor of events related with data audit.
 	Processor struct {
 		log               *zap.Logger
@@ -37,6 +44,10 @@ type (
 
 		containerClient *wrapContainer.Wrapper
 		netmapClient    *wrapNetmap.Wrapper
+
+		taskManager       TaskManager
+		reporter          audit.Reporter
+		prevAuditCanceler context.CancelFunc
 	}
 
 	// Params of the processor constructor.
@@ -48,8 +59,16 @@ type (
 		MorphClient       *client.Client
 		IRList            Indexer
 		ClientCache       NeoFSClientCache
+		TaskManager       TaskManager
+		Reporter          audit.Reporter
 	}
 )
+
+type epochAuditReporter struct {
+	epoch uint64
+
+	rep audit.Reporter
+}
 
 // AuditProcessor manages audit tasks and fills queue for next epoch. This
 // process must not be interrupted by new audit epoch, so we limit pool size
@@ -96,6 +115,9 @@ func New(p *Params) (*Processor, error) {
 		clientCache:       p.ClientCache,
 		containerClient:   containerClient,
 		netmapClient:      netmapClient,
+		taskManager:       p.TaskManager,
+		reporter:          p.Reporter,
+		prevAuditCanceler: func() {},
 	}, nil
 }
 
@@ -117,4 +139,11 @@ func (ap *Processor) TimersHandlers() []event.HandlerInfo {
 // StartAuditHandler for the internal event producer.
 func (ap *Processor) StartAuditHandler() event.Handler {
 	return ap.handleNewAuditRound
+}
+
+func (r *epochAuditReporter) WriteReport(rep *audit.Report) error {
+	res := rep.Result()
+	res.SetAuditEpoch(r.epoch)
+
+	return r.rep.WriteReport(rep)
 }
