@@ -21,6 +21,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	log := ap.log.With(zap.Uint64("epoch", epoch))
 
 	ap.prevAuditCanceler()
+	ap.taskManager.Reset()
 
 	containers, err := ap.selectContainersToAudit(epoch)
 	if err != nil {
