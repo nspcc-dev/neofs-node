@@ -71,6 +71,10 @@ func (c *Context) expired() bool {
 	}
 }
 
+func (c *Context) complete() {
+	c.report.Complete()
+}
+
 func (c *Context) writeReport() {
 	c.log.Debug("writing audit report...")
 
