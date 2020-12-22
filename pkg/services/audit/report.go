@@ -31,3 +31,8 @@ func NewReport(cid *container.ID) *Report {
 func (r *Report) Result() *audit.Result {
 	return r.res
 }
+
+// Complete completes audit report.
+func (r *Report) Complete() {
+	r.res.SetComplete(true)
+}
