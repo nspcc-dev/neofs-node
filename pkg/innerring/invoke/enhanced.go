@@ -5,6 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
+	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	morphContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	morphNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -41,4 +43,14 @@ func NewNoFeeNetmapClient(cli *client.Client, contract util.Uint160) (*wrapNetma
 	}
 
 	return wrapNetmap.New(enhancedNetmapClient)
+}
+
+// NewNoFeeAuditClient creates wrapper to work with Audit contract.
+func NewNoFeeAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapper.ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, readOnlyFee)
+	if err != nil {
+		return nil, err
+	}
+
+	return auditWrapper.WrapClient(audit.New(staticClient)), nil
 }
