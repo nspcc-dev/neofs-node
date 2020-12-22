@@ -3,6 +3,7 @@ package innerring
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"go.uber.org/zap"
 )
 
@@ -72,4 +73,13 @@ func (s *Server) InitAndVoteForSidechainValidator(validators []keys.PublicKey) e
 	}
 
 	return s.voteForSidechainValidator(validators)
+}
+
+// WriteReport composes audit result structure from audit report
+// and sends it to Audit contract.
+func (s *Server) WriteReport(r *audit.Report) error {
+	res := r.Result()
+	res.SetPublicKey(s.pubKey)
+
+	return s.auditClient.PutAuditResult(res)
 }
