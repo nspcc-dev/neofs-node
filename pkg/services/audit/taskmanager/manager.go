@@ -71,3 +71,11 @@ func WithQueueCapacity(cap uint32) Option {
 		c.queueCap = cap
 	}
 }
+
+// WithContainerCommunicator returns option to set component of communication
+// with container nodes.
+func WithContainerCommunicator(cnrCom auditor.ContainerCommunicator) Option {
+	return func(c *cfg) {
+		c.ctxPrm.SetContainerCommunicator(cnrCom)
+	}
+}

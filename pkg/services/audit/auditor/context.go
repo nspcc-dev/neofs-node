@@ -2,6 +2,9 @@ package auditor
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -19,6 +22,22 @@ type Context struct {
 // ContextPrm groups components required to conduct data audit checks.
 type ContextPrm struct {
 	log *logger.Logger
+
+	cnrCom ContainerCommunicator
+}
+
+// ContainerCommunicator is an interface of
+// component of communication with container nodes.
+type ContainerCommunicator interface {
+	// Must return storage group structure stored in object from container.
+	GetSG(*audit.Task, *object.ID) (*storagegroup.StorageGroup, error)
+
+	// Must return object header from the container node.
+	GetHeader(*audit.Task, *netmap.Node, *object.ID) (*object.Object, error)
+
+	// Must return homomorphic Tillich-Zemor hash of payload range of the
+	// object stored in container node.
+	GetRangeHash(*audit.Task, *netmap.Node, *object.ID, *object.Range) ([]byte, error)
 }
 
 // NewContext creates, initializes and returns Context.
@@ -32,6 +51,13 @@ func NewContext(prm ContextPrm) *Context {
 func (p *ContextPrm) SetLogger(l *logger.Logger) {
 	if p != nil {
 		p.log = l
+	}
+}
+
+// SetContainerCommunicator sets component of communication with container nodes.
+func (p *ContextPrm) SetContainerCommunicator(cnrCom ContainerCommunicator) {
+	if p != nil {
+		p.cnrCom = cnrCom
 	}
 }
 
