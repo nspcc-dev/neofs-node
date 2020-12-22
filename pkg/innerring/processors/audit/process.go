@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"go.uber.org/zap"
 )
@@ -18,6 +19,8 @@ var sgFilter = storagegroup.SearchQuery()
 
 func (ap *Processor) processStartAudit(epoch uint64) {
 	log := ap.log.With(zap.Uint64("epoch", epoch))
+
+	ap.prevAuditCanceler()
 
 	containers, err := ap.selectContainersToAudit(epoch)
 	if err != nil {
@@ -68,7 +71,25 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			zap.Stringer("cid", containers[i]),
 			zap.Int("amount", len(storageGroups)))
 
-		// todo: for each container push audit tasks into queue
+		var auditCtx context.Context
+		auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
+
+		auditTask := new(audit.Task).
+			WithReporter(&epochAuditReporter{
+				epoch: epoch,
+				rep:   ap.reporter,
+			}).
+			WithAuditContext(auditCtx).
+			WithContainerID(containers[i]).
+			WithStorageGroupList(storageGroups).
+			WithContainerStructure(cnr).
+			WithContainerNodes(nodes)
+
+		if err := ap.taskManager.PushTask(auditTask); err != nil {
+			ap.log.Error("could not push audit task",
+				zap.String("error", err.Error()),
+			)
+		}
 	}
 }
 

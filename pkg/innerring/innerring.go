@@ -17,9 +17,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
+	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
+	auditSvc "github.com/nspcc-dev/neofs-node/pkg/services/audit"
+	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
+	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/atomic"
@@ -44,11 +49,15 @@ type (
 		innerRingIndex atomic.Int32
 		innerRingSize  atomic.Int32
 		precision      precision.Fixed8Converter
+		auditClient    *auditWrapper.ClientWrapper
 
 		// internal variables
 		key                  *ecdsa.PrivateKey
+		pubKey               []byte
 		contracts            *contracts
 		predefinedValidators []keys.PublicKey
+
+		workers []func(context.Context)
 	}
 
 	contracts struct {
@@ -115,13 +124,28 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
+	s.startWorkers(ctx)
+
 	return nil
+}
+
+func (s *Server) startWorkers(ctx context.Context) {
+	for _, w := range s.workers {
+		go w(ctx)
+	}
 }
 
 // Stop closes all subscription channels.
 func (s *Server) Stop() {
 	go s.morphListener.Stop()
 	go s.mainnetListener.Stop()
+}
+
+func (s *Server) WriteReport(r *auditSvc.Report) error {
+	res := r.Result()
+	res.SetPublicKey(s.pubKey)
+
+	return s.auditClient.PutAuditResult(res)
 }
 
 // New creates instance of inner ring sever structure.
@@ -189,6 +213,28 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	server.pubKey = crypto.MarshalPublicKey(&server.key.PublicKey)
+
+	auditPool, err := ants.NewPool(cfg.GetInt("audit.task.exec_pool_size"), ants.WithNonblocking(true))
+	if err != nil {
+		return nil, err
+	}
+
+	staticAuditClient, err := client.NewStatic(server.morphClient, server.contracts.audit, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	server.auditClient = auditWrapper.WrapClient(auditClient.New(staticAuditClient))
+
+	auditTaskManager := audittask.New(
+		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
+		audittask.WithWorkerPool(auditPool),
+		audittask.WithLogger(log),
+	)
+
+	server.workers = append(server.workers, auditTaskManager.Listen)
+
 	// create audit processor
 	auditProcessor, err := audit.New(&audit.Params{
 		Log:               log,
@@ -198,6 +244,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		MorphClient:       server.morphClient,
 		IRList:            server,
 		ClientCache:       newClientCache(server.key),
+		TaskManager:       auditTaskManager,
+		Reporter:          server,
 	})
 	if err != nil {
 		return nil, err
