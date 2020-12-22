@@ -21,7 +21,13 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	log := ap.log.With(zap.Uint64("epoch", epoch))
 
 	ap.prevAuditCanceler()
-	ap.taskManager.Reset()
+
+	skipped := ap.taskManager.Reset()
+	if skipped > 0 {
+		ap.log.Info("some tasks from previous epoch are skipped",
+			zap.Int("amount", skipped),
+		)
+	}
 
 	containers, err := ap.selectContainersToAudit(epoch)
 	if err != nil {

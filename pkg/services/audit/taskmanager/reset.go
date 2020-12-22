@@ -1,8 +1,11 @@
 package audittask
 
 // Reset pops all tasks from the queue.
-func (m *Manager) Reset() {
-	for len(m.ch) > 0 {
+// Returns amount of popped elements.
+func (m *Manager) Reset() (popped int) {
+	for ; len(m.ch) > 0; popped++ {
 		<-m.ch
 	}
+
+	return
 }
