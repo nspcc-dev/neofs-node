@@ -216,10 +216,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	clientCache := newClientCache(server.key)
+
 	auditTaskManager := audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
 		audittask.WithWorkerPool(auditPool),
 		audittask.WithLogger(log),
+		audittask.WithContainerCommunicator(clientCache),
 	)
 
 	server.workers = append(server.workers, auditTaskManager.Listen)
@@ -232,7 +235,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		AuditContract:     server.contracts.audit,
 		MorphClient:       server.morphClient,
 		IRList:            server,
-		ClientCache:       newClientCache(server.key),
+		ClientCache:       clientCache,
 		TaskManager:       auditTaskManager,
 		Reporter:          server,
 	})
