@@ -8,21 +8,27 @@ import (
 func (c *Context) Execute() {
 	c.init()
 
-	for _, check := range []struct {
+	checks := []struct {
 		name string
 		exec func()
 	}{
 		{name: "PoR", exec: c.executePoR},
 		{name: "PoP", exec: c.executePoP},
 		{name: "PDP", exec: c.executePDP},
-	} {
-		c.log.Debug(fmt.Sprintf("executing %s check...", check.name))
+	}
+
+	for i := range checks {
+		c.log.Debug(fmt.Sprintf("executing %s check...", checks[i].name))
 
 		if c.expired() {
 			break
 		}
 
-		check.exec()
+		checks[i].exec()
+
+		if i == len(checks)-1 {
+			c.complete()
+		}
 	}
 
 	c.writeReport()
