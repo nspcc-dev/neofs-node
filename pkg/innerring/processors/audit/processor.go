@@ -30,7 +30,10 @@ type (
 
 	TaskManager interface {
 		PushTask(*audit.Task) error
-		Reset()
+
+		// Must skip all tasks planned for execution and
+		// return their number.
+		Reset() int
 	}
 
 	// Processor of events related with data audit.
