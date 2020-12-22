@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
@@ -220,12 +219,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	staticAuditClient, err := client.NewStatic(server.morphClient, server.contracts.audit, 0)
+	server.auditClient, err = invoke.NewNoFeeAuditClient(server.morphClient, server.contracts.audit)
 	if err != nil {
 		return nil, err
 	}
-
-	server.auditClient = auditWrapper.WrapClient(auditClient.New(staticAuditClient))
 
 	auditTaskManager := audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
