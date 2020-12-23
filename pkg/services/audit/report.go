@@ -54,3 +54,9 @@ func (r *Report) SetPlacementCounters(hit, miss, fail uint32) {
 	r.res.SetMiss(miss)
 	r.res.SetFail(fail)
 }
+
+// SetPDPResults sets lists of nodes according to their PDP results.
+func (r *Report) SetPDPResults(passed, failed [][]byte) {
+	r.res.SetPassNodes(passed)
+	r.res.SetFailNodes(failed)
+}

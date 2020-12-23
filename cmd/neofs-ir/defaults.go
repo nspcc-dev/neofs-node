@@ -97,4 +97,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("audit.timeout.head", "5s")
 	cfg.SetDefault("audit.timeout.rangehash", "5s")
 	cfg.SetDefault("audit.timeout.search", "10s")
+	cfg.SetDefault("audit.pdp.max_sleep_interval", "5s")
+	cfg.SetDefault("audit.pdp.pairs_pool_size", "10")
 }
