@@ -34,10 +34,6 @@ func (c *Context) Execute() {
 	c.writeReport()
 }
 
-func (c *Context) executePoR() {
-	// TODO: implement me
-}
-
 func (c *Context) executePoP() {
 	// TODO: implement me
 }
