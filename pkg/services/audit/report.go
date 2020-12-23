@@ -47,3 +47,10 @@ func (r *Report) PassedPoR(sg *object.ID) {
 func (r *Report) FailedPoR(sg *object.ID) {
 	r.res.SetFailSG(append(r.res.FailSG(), sg))
 }
+
+// SetPlacementCounters sets counters of compliance with placement.
+func (r *Report) SetPlacementCounters(hit, miss, fail uint32) {
+	r.res.SetHit(hit)
+	r.res.SetMiss(miss)
+	r.res.SetFail(fail)
+}
