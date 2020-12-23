@@ -50,7 +50,7 @@ func (c *Context) processObjectPlacement(id *object.ID, nodes netmap.Nodes, repl
 
 	for i := 0; ok < replicas && i < len(nodes); i++ {
 		// try to get object header from node
-		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id)
+		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id, false)
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
 				zap.Stringer("id", id),
