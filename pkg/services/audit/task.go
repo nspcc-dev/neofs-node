@@ -18,6 +18,8 @@ type Task struct {
 
 	cnr *container.Container
 
+	nm *netmap.Netmap
+
 	cnrNodes netmap.ContainerNodes
 
 	sgList []*object.ID
@@ -83,6 +85,20 @@ func (t *Task) ContainerStructure() *container.Container {
 func (t *Task) WithContainerNodes(cnrNodes netmap.ContainerNodes) *Task {
 	if t != nil {
 		t.cnrNodes = cnrNodes
+	}
+
+	return t
+}
+
+// NetworkMap returns network map of audit epoch.
+func (t *Task) NetworkMap() *netmap.Netmap {
+	return t.nm
+}
+
+// WithNetworkMap sets network map of audit epoch.
+func (t *Task) WithNetworkMap(nm *netmap.Netmap) *Task {
+	if t != nil {
+		t.nm = nm
 	}
 
 	return t
