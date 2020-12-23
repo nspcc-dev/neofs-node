@@ -216,7 +216,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	clientCache := newClientCache(server.key)
+	clientCache := newClientCache(&clientCacheParams{
+		Log:          log,
+		Key:          server.key,
+		SGTimeout:    cfg.GetDuration("audit.timeout.get"),
+		HeadTimeout:  cfg.GetDuration("audit.timeout.head"),
+		RangeTimeout: cfg.GetDuration("audit.timeout.rangehash"),
+	})
 
 	auditTaskManager := audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
