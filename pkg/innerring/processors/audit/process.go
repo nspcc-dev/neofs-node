@@ -2,7 +2,6 @@ package audit
 
 import (
 	"context"
-	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -134,8 +133,7 @@ func (ap *Processor) findStorageGroups(cid *container.ID, shuffled netmap.Nodes)
 		sgSearchParams.WithContainerID(cid)
 		sgSearchParams.WithSearchFilters(sgFilter)
 
-		// fixme: timeout from config
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), ap.searchTimeout)
 		result, err := cli.SearchObject(ctx, sgSearchParams)
 		cancel()
 
