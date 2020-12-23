@@ -2,7 +2,6 @@ package audit
 
 import (
 	"context"
-	"math/rand"
 	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -12,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
+	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"go.uber.org/zap"
 )
 
@@ -66,9 +66,11 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
-		// shuffle nodes to ask a random one
 		n := nodes.Flatten()
-		rand.Shuffle(len(n), func(i, j int) { // fixme: consider using crypto rand
+		crand := rand.New() // math/rand with cryptographic source
+
+		// shuffle nodes to ask a random one
+		crand.Shuffle(len(n), func(i, j int) {
 			n[i], n[j] = n[j], n[i]
 		})
 
