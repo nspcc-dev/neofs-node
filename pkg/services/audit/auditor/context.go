@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -23,6 +24,28 @@ type Context struct {
 	sgMembersCache map[int][]*object.ID
 
 	placementCache map[string][]netmap.Nodes
+
+	pairs []gamePair
+
+	pairedNodes map[uint64]pairMemberInfo
+
+	counters struct {
+		hit, miss, fail uint32
+	}
+
+	cnrNodesNum int
+}
+
+type pairMemberInfo struct {
+	failedPDP, passedPDP bool // at least one
+
+	node *netmap.Node
+}
+
+type gamePair struct {
+	n1, n2 *netmap.Node
+
+	id *object.ID
 }
 
 // ContextPrm groups components required to conduct data audit checks.
@@ -87,6 +110,10 @@ func (c *Context) init() {
 
 	c.placementCache = make(map[string][]netmap.Nodes)
 
+	c.cnrNodesNum = len(c.task.ContainerNodes().Flatten())
+
+	c.pairedNodes = make(map[uint64]pairMemberInfo)
+
 	c.log = c.log.With(
 		zap.Stringer("container ID", c.task.ContainerID()),
 	)
@@ -117,4 +144,25 @@ func (c *Context) writeReport() {
 	if err := c.task.Reporter().WriteReport(c.report); err != nil {
 		c.log.Error("could not write audit report")
 	}
+}
+
+func (c *Context) buildPlacement(id *object.ID) ([]netmap.Nodes, error) {
+	strID := id.String()
+
+	if nn, ok := c.placementCache[strID]; ok {
+		return nn, nil
+	}
+
+	nn, err := placement.BuildObjectPlacement(
+		c.task.NetworkMap(),
+		c.task.ContainerNodes(),
+		id,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	c.placementCache[strID] = nn
+
+	return nn, nil
 }

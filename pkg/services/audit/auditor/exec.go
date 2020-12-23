@@ -2,6 +2,8 @@ package auditor
 
 import (
 	"fmt"
+
+	"go.uber.org/zap"
 )
 
 // Execute audits container data.
@@ -34,10 +36,15 @@ func (c *Context) Execute() {
 	c.writeReport()
 }
 
-func (c *Context) executePoP() {
-	// TODO: implement me
-}
-
 func (c *Context) executePDP() {
-	// TODO: implement me
+	// TODO: replace logging with real algorithm
+	log := c.log.With(zap.Int("nodes in container", c.cnrNodesNum))
+
+	for i := range c.pairs {
+		log.Debug("next pair for hash game",
+			zap.String("node 1", c.pairs[i].n1.Address()),
+			zap.String("node 2", c.pairs[i].n2.Address()),
+			zap.Stringer("object", c.pairs[i].id),
+		)
+	}
 }
