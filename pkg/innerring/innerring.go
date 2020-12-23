@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
+	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
@@ -224,11 +225,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		RangeTimeout: cfg.GetDuration("audit.timeout.rangehash"),
 	})
 
+	pdpPoolSize := cfg.GetInt("audit.pdp.pairs_pool_size")
+
 	auditTaskManager := audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
 		audittask.WithWorkerPool(auditPool),
 		audittask.WithLogger(log),
 		audittask.WithContainerCommunicator(clientCache),
+		audittask.WithMaxPDPSleepInterval(cfg.GetDuration("audit.pdp.max_sleep_interval")),
+		audittask.WithPDPWorkerPoolGenerator(func() (util2.WorkerPool, error) {
+			return ants.NewPool(pdpPoolSize, ants.WithNonblocking(true))
+		}),
 	)
 
 	server.workers = append(server.workers, auditTaskManager.Listen)

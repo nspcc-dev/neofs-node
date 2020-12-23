@@ -38,9 +38,19 @@ func (m *Manager) Listen(ctx context.Context) {
 }
 
 func (m *Manager) handleTask(task *audit.Task) {
-	if err := m.workerPool.Submit(func() {
-		m.generateContext(task).Execute()
-	}); err != nil {
+	pdpPool, err := m.pdpPoolGenerator()
+	if err != nil {
+		m.log.Error("could not generate PDP worker pool",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	auditContext := m.generateContext(task).
+		WithPDPWorkerPool(pdpPool)
+
+	if err := m.workerPool.Submit(auditContext.Execute); err != nil {
 		// may be we should report it
 		m.log.Warn("could not submit audit task")
 	}
