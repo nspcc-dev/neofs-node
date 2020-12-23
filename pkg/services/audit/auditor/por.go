@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )
@@ -44,12 +45,21 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 			continue
 		}
 
-		for _, node := range placement.FlattenNodes(objectPlacement) {
+		flat := placement.FlattenNodes(objectPlacement)
+
+		crand := rand.New() // math/rand with cryptographic source
+		crand.Shuffle(len(flat), func(i, j int) {
+			flat[i], flat[j] = flat[j], flat[i]
+		})
+
+		for _, node := range flat {
 			hdr, err := c.cnrCom.GetHeader(c.task, node, members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
 					zap.String("remote_node", node.Address()),
 					zap.Stringer("oid", members[i]))
+
+				// todo: count all fails and successes for audit report
 
 				continue
 			}
