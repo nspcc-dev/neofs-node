@@ -37,19 +37,21 @@ func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmapSDK.Placement
 		return nil, errors.Wrap(err, "could not get network map")
 	}
 
-	aV2 := a.ToV2()
-
-	cn, err := nm.GetContainerNodes(p, aV2.GetContainerID().GetValue())
+	cn, err := nm.GetContainerNodes(p, a.ContainerID().ToV2().GetValue())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get container nodes")
 	}
 
-	oid := aV2.GetObjectID()
-	if oid == nil {
-		return cn.Replicas(), nil
+	return BuildObjectPlacement(nm, cn, a.ObjectID())
+}
+
+func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *object.ID) ([]netmapSDK.Nodes, error) {
+	objectID := id.ToV2()
+	if objectID == nil {
+		return cnrNodes.Replicas(), nil
 	}
 
-	on, err := nm.GetPlacementVectors(cn, oid.GetValue())
+	on, err := nm.GetPlacementVectors(cnrNodes, objectID.GetValue())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get placement vectors for object")
 	}
