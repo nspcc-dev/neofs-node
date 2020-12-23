@@ -125,7 +125,7 @@ func (a basicACLHelper) SystemAllowed(op eacl.Operation) bool {
 // InnerRing nodes, as part of System group.
 func (a basicACLHelper) InnerRingAllowed(op eacl.Operation) bool {
 	switch op {
-	case eacl.OperationSearch, eacl.OperationRangeHash, eacl.OperationHead:
+	case eacl.OperationSearch, eacl.OperationRangeHash, eacl.OperationHead, eacl.OperationGet:
 		return true
 	default:
 		if n, ok := order[op]; ok {
