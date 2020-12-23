@@ -149,5 +149,35 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 // GetRangeHash requests node from the container under audit to return Tillich-Zemor hash of the
 // payload range of the object with specified identifier.
 func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *object.ID, rng *object.Range) ([]byte, error) {
-	panic("implement me")
+	objAddress := new(object.Address)
+	objAddress.SetContainerID(task.ContainerID())
+	objAddress.SetObjectID(id)
+
+	rangeParams := new(client.RangeChecksumParams)
+	rangeParams.WithAddress(objAddress)
+	rangeParams.WithRangeList(rng)
+	rangeParams.WithSalt(nil) // it MUST be nil for correct hash concatenation in PDP game
+
+	addr, err := network.IPAddrFromMultiaddr(node.Address())
+	if err != nil {
+		return nil, fmt.Errorf("can't parse remote address %s: %w", node.Address(), err)
+	}
+
+	cli, err := c.Get(addr)
+	if err != nil {
+		return nil, fmt.Errorf("can't setup remote connection with %s: %w", addr, err)
+	}
+
+	cctx, cancel := context.WithTimeout(task.AuditContext(), c.rangeTimeout)
+	result, err := cli.ObjectPayloadRangeTZ(cctx, rangeParams, client.WithTTL(1))
+
+	cancel()
+
+	if err != nil {
+		return nil, fmt.Errorf("object rangehash error: %w", err)
+	}
+
+	// client guarantees that request and response have equal amount of ranges
+
+	return result[0][:], nil
 }
