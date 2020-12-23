@@ -90,7 +90,8 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			WithContainerID(containers[i]).
 			WithStorageGroupList(storageGroups).
 			WithContainerStructure(cnr).
-			WithContainerNodes(nodes)
+			WithContainerNodes(nodes).
+			WithNetworkMap(nm)
 
 		if err := ap.taskManager.PushTask(auditTask); err != nil {
 			ap.log.Error("could not push audit task",
