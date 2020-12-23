@@ -17,6 +17,12 @@ type Context struct {
 	task *audit.Task
 
 	report *audit.Report
+
+	// consider adding mutex to access caches
+
+	sgMembersCache map[int][]*object.ID
+
+	placementCache map[string][]netmap.Nodes
 }
 
 // ContextPrm groups components required to conduct data audit checks.
@@ -76,6 +82,10 @@ func (c *Context) containerID() *container.ID {
 
 func (c *Context) init() {
 	c.report = audit.NewReport(c.containerID())
+
+	c.sgMembersCache = make(map[int][]*object.ID)
+
+	c.placementCache = make(map[string][]netmap.Nodes)
 
 	c.log = c.log.With(
 		zap.Stringer("container ID", c.task.ContainerID()),
