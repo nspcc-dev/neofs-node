@@ -58,3 +58,13 @@ func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNode
 
 	return on, nil
 }
+
+// FlattenNodes appends each row to the flat list.
+func FlattenNodes(ns []netmapSDK.Nodes) netmapSDK.Nodes {
+	result := make(netmapSDK.Nodes, 0, len(ns))
+	for i := range ns {
+		result = append(result, ns[i]...)
+	}
+
+	return result
+}
