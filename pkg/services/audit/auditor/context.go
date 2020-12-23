@@ -34,6 +34,8 @@ type Context struct {
 	}
 
 	cnrNodesNum int
+
+	headResponses map[string]shortHeader
 }
 
 type pairMemberInfo struct {
@@ -46,6 +48,12 @@ type gamePair struct {
 	n1, n2 *netmap.Node
 
 	id *object.ID
+}
+
+type shortHeader struct {
+	tzhash []byte
+
+	objectSize uint64
 }
 
 // ContextPrm groups components required to conduct data audit checks.
@@ -114,6 +122,8 @@ func (c *Context) init() {
 
 	c.pairedNodes = make(map[uint64]pairMemberInfo)
 
+	c.headResponses = make(map[string]shortHeader)
+
 	c.log = c.log.With(
 		zap.Stringer("container ID", c.task.ContainerID()),
 	)
@@ -165,4 +175,35 @@ func (c *Context) buildPlacement(id *object.ID) ([]netmap.Nodes, error) {
 	c.placementCache[strID] = nn
 
 	return nn, nil
+}
+
+func (c *Context) objectSize(id *object.ID) uint64 {
+	strID := id.String()
+
+	if hdr, ok := c.headResponses[strID]; ok {
+		return hdr.objectSize
+	}
+
+	return 0
+}
+
+func (c *Context) objectHomoHash(id *object.ID) []byte {
+	strID := id.String()
+
+	if hdr, ok := c.headResponses[strID]; ok {
+		return hdr.tzhash
+	}
+
+	return nil
+}
+
+func (c *Context) updateHeadResponses(hdr *object.Object) {
+	strID := hdr.ID().String()
+
+	if _, ok := c.headResponses[strID]; !ok {
+		c.headResponses[strID] = shortHeader{
+			tzhash:     hdr.PayloadHomomorphicHash().Sum(),
+			objectSize: hdr.PayloadSize(),
+		}
+	}
 }
