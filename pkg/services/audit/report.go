@@ -3,6 +3,7 @@ package audit
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
 
 // Report tracks the progress of auditing container data.
@@ -35,4 +36,14 @@ func (r *Report) Result() *audit.Result {
 // Complete completes audit report.
 func (r *Report) Complete() {
 	r.res.SetComplete(true)
+}
+
+// PassedPoR updates list of passed storage groups.
+func (r *Report) PassedPoR(sg *object.ID) {
+	r.res.SetPassSG(append(r.res.PassSG(), sg))
+}
+
+// FailedPoR updates list of failed storage groups.
+func (r *Report) FailedPoR(sg *object.ID) {
+	r.res.SetFailSG(append(r.res.FailSG(), sg))
 }
