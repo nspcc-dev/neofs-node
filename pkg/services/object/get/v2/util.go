@@ -197,6 +197,8 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 	sh.SetPayloadLength(hdrV2.GetPayloadLength())
 	sh.SetVersion(hdrV2.GetVersion())
 	sh.SetObjectType(hdrV2.GetObjectType())
+	sh.SetHomomorphicHash(hdrV2.GetHomomorphicHash())
+	sh.SetPayloadHash(hdrV2.GetPayloadHash())
 
 	return sh
 }
