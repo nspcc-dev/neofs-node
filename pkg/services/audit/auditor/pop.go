@@ -48,7 +48,7 @@ func (c *Context) processObjectPlacement(id *object.ID, nodes netmap.Nodes, repl
 		pairedCandidate = -1
 	)
 
-	for i := 0; !optimal && ok < replicas && i < len(nodes); i++ {
+	for i := 0; ok < replicas && i < len(nodes); i++ {
 		// try to get object header from node
 		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id)
 		if err != nil {
@@ -109,10 +109,10 @@ func (c *Context) composePair(id *object.ID, n1, n2 *netmap.Node) {
 		id: id,
 	})
 
-	c.pairedNodes[n1.Hash()] = pairMemberInfo{
+	c.pairedNodes[n1.Hash()] = &pairMemberInfo{
 		node: n1,
 	}
-	c.pairedNodes[n2.Hash()] = pairMemberInfo{
+	c.pairedNodes[n2.Hash()] = &pairMemberInfo{
 		node: n2,
 	}
 }

@@ -1,12 +1,16 @@
 package auditor
 
 import (
+	"sync"
+	"time"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -27,7 +31,8 @@ type Context struct {
 
 	pairs []gamePair
 
-	pairedNodes map[uint64]pairMemberInfo
+	pairedMtx   sync.Mutex
+	pairedNodes map[uint64]*pairMemberInfo
 
 	counters struct {
 		hit, miss, fail uint32
@@ -48,6 +53,10 @@ type gamePair struct {
 	n1, n2 *netmap.Node
 
 	id *object.ID
+
+	rn1, rn2 []*object.Range
+
+	hh1, hh2 [][]byte
 }
 
 type shortHeader struct {
@@ -58,9 +67,13 @@ type shortHeader struct {
 
 // ContextPrm groups components required to conduct data audit checks.
 type ContextPrm struct {
+	maxPDPSleep uint64
+
 	log *logger.Logger
 
 	cnrCom ContainerCommunicator
+
+	pdpWorkerPool util.WorkerPool
 }
 
 // ContainerCommunicator is an interface of
@@ -98,10 +111,27 @@ func (p *ContextPrm) SetContainerCommunicator(cnrCom ContainerCommunicator) {
 	}
 }
 
+// SetMaxPDPSleep sets maximum sleep interval between range hash requests.
+// as part of PDP check.
+func (p *ContextPrm) SetMaxPDPSleep(dur time.Duration) {
+	if p != nil {
+		p.maxPDPSleep = uint64(dur)
+	}
+}
+
 // WithTask sets container audit parameters.
 func (c *Context) WithTask(t *audit.Task) *Context {
 	if c != nil {
 		c.task = t
+	}
+
+	return c
+}
+
+// WithPDPWorkerPool sets worker pool for PDP pairs processing..
+func (c *Context) WithPDPWorkerPool(pool util.WorkerPool) *Context {
+	if c != nil {
+		c.pdpWorkerPool = pool
 	}
 
 	return c
@@ -120,7 +150,7 @@ func (c *Context) init() {
 
 	c.cnrNodesNum = len(c.task.ContainerNodes().Flatten())
 
-	c.pairedNodes = make(map[uint64]pairMemberInfo)
+	c.pairedNodes = make(map[uint64]*pairMemberInfo)
 
 	c.headResponses = make(map[string]shortHeader)
 

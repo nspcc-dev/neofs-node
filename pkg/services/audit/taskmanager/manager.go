@@ -1,6 +1,8 @@
 package audittask
 
 import (
+	"time"
+
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -28,6 +30,8 @@ type cfg struct {
 	reporter audit.Reporter
 
 	workerPool util.WorkerPool
+
+	pdpPoolGenerator func() (util.WorkerPool, error)
 }
 
 func defaultCfg() *cfg {
@@ -77,5 +81,20 @@ func WithQueueCapacity(cap uint32) Option {
 func WithContainerCommunicator(cnrCom auditor.ContainerCommunicator) Option {
 	return func(c *cfg) {
 		c.ctxPrm.SetContainerCommunicator(cnrCom)
+	}
+}
+
+// WithMaxPDPSleepInterval returns option to set maximum sleep interval
+// between range hash requests as part of PDP check.
+func WithMaxPDPSleepInterval(dur time.Duration) Option {
+	return func(c *cfg) {
+		c.ctxPrm.SetMaxPDPSleep(dur)
+	}
+}
+
+// WithPDPWorkerPool returns option to set worker pool for PDP pairs processing.
+func WithPDPWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
+	return func(c *cfg) {
+		c.pdpPoolGenerator = f
 	}
 }
