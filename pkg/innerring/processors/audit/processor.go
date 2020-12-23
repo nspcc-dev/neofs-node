@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -45,6 +46,7 @@ type (
 		morphClient       *client.Client
 		irList            Indexer
 		clientCache       NeoFSClientCache
+		searchTimeout     time.Duration
 
 		containerClient *wrapContainer.Wrapper
 		netmapClient    *wrapNetmap.Wrapper
@@ -63,6 +65,7 @@ type (
 		MorphClient       *client.Client
 		IRList            Indexer
 		ClientCache       NeoFSClientCache
+		RPCSearchTimeout  time.Duration
 		TaskManager       TaskManager
 		Reporter          audit.Reporter
 	}
@@ -90,6 +93,10 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/audit: global state is not set")
 	case p.ClientCache == nil:
 		return nil, errors.New("ir/audit: neofs RPC client cache is not set")
+	case p.TaskManager == nil:
+		return nil, errors.New("ir/audit: audit task manager is not set")
+	case p.Reporter == nil:
+		return nil, errors.New("ir/audit: audit result reporter is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -117,6 +124,7 @@ func New(p *Params) (*Processor, error) {
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
 		clientCache:       p.ClientCache,
+		searchTimeout:     p.RPCSearchTimeout,
 		containerClient:   containerClient,
 		netmapClient:      netmapClient,
 		taskManager:       p.TaskManager,
