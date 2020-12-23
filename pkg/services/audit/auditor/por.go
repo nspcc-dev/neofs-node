@@ -34,11 +34,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 	)
 
 	for i := range members {
-		objectPlacement, err := placement.BuildObjectPlacement(
-			c.task.NetworkMap(),
-			c.task.ContainerNodes(),
-			members[i],
-		)
+		objectPlacement, err := c.buildPlacement(members[i])
 		if err != nil {
 			c.log.Info("can't build placement for storage group member",
 				zap.Stringer("sg", sg),
@@ -47,8 +43,6 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 
 			continue
 		}
-
-		c.placementCache[members[i].String()] = objectPlacement
 
 		for _, node := range placement.FlattenNodes(objectPlacement) {
 			hdr, err := c.cnrCom.GetHeader(c.task, node, members[i])
