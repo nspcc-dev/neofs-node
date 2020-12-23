@@ -96,4 +96,5 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("audit.timeout.get", "5s")
 	cfg.SetDefault("audit.timeout.head", "5s")
 	cfg.SetDefault("audit.timeout.rangehash", "5s")
+	cfg.SetDefault("audit.timeout.search", "10s")
 }
