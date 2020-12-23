@@ -93,4 +93,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("audit.task.exec_pool_size", 10)
 	cfg.SetDefault("audit.task.queue_capacity", 100)
+	cfg.SetDefault("audit.timeout.get", "5s")
+	cfg.SetDefault("audit.timeout.head", "5s")
+	cfg.SetDefault("audit.timeout.rangehash", "5s")
 }
