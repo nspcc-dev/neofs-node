@@ -90,6 +90,7 @@ func (c *ClientCache) GetSG(task *audit.Task, id *object.ID) (*storagegroup.Stor
 
 		cctx, cancel := context.WithTimeout(task.AuditContext(), c.sgTimeout)
 		obj, err := cli.GetObject(cctx, getParams)
+
 		cancel()
 
 		if err != nil {
@@ -135,6 +136,7 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.headTimeout)
 	head, err := cli.GetObjectHeader(cctx, headParams, client.WithTTL(1))
+
 	cancel()
 
 	if err != nil {
