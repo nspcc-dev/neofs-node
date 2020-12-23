@@ -54,6 +54,9 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 				continue
 			}
 
+			// update cache for PoR and PDP audit checks
+			c.updateHeadResponses(hdr)
+
 			if len(tzHash) == 0 {
 				tzHash = hdr.PayloadHomomorphicHash().Sum()
 			} else {
