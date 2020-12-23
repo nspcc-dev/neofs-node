@@ -1,9 +1,15 @@
 package auditor
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"go.uber.org/zap"
+)
+
+const (
+	hashRangeNumber    = 4
+	minGamePayloadSize = hashRangeNumber * client.TZSize
 )
 
 func (c *Context) executePoP() {
@@ -44,7 +50,7 @@ func (c *Context) processObjectPlacement(id *object.ID, nodes netmap.Nodes, repl
 
 	for i := 0; !optimal && ok < replicas && i < len(nodes); i++ {
 		// try to get object header from node
-		_, err := c.cnrCom.GetHeader(c.task, nodes[i], id)
+		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id)
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
 				zap.Stringer("id", id),
@@ -54,11 +60,18 @@ func (c *Context) processObjectPlacement(id *object.ID, nodes netmap.Nodes, repl
 			continue
 		}
 
+		c.updateHeadResponses(hdr)
+
 		// increment success counter
 		ok++
 
 		// update optimal flag
 		optimal = ok == replicas && uint32(i) < replicas
+
+		// exclude small objects from coverage
+		if c.objectSize(id) < minGamePayloadSize {
+			continue
+		}
 
 		// update potential candidates to be paired
 		if _, ok := c.pairedNodes[nodes[i].Hash()]; !ok {
