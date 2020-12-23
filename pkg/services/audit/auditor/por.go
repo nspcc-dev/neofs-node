@@ -45,7 +45,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 		}
 
 		for _, node := range placement.FlattenNodes(objectPlacement) {
-			hdr, err := c.cnrCom.GetHeader(c.task, node, members[i])
+			hdr, err := c.cnrCom.GetHeader(c.task, node, members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
 					zap.String("remote_node", node.Address()),

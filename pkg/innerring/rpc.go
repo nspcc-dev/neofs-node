@@ -114,13 +114,21 @@ func (c *ClientCache) GetSG(task *audit.Task, id *object.ID) (*storagegroup.Stor
 }
 
 // GetHeader requests node from the container under audit to return object header by id.
-func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.ID) (*object.Object, error) {
+func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.ID, relay bool) (*object.Object, error) {
+	raw := true
+	ttl := uint32(1)
+
+	if relay {
+		ttl = 10 // todo: instead of hardcode value we can set TTL based on container length
+		raw = false
+	}
+
 	objAddress := new(object.Address)
 	objAddress.SetContainerID(task.ContainerID())
 	objAddress.SetObjectID(id)
 
 	headParams := new(client.ObjectHeaderParams)
-	headParams.WithRawFlag(true)
+	headParams.WithRawFlag(raw)
 	headParams.WithMainFields()
 	headParams.WithAddress(objAddress)
 
@@ -135,7 +143,7 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.headTimeout)
-	head, err := cli.GetObjectHeader(cctx, headParams, client.WithTTL(1))
+	head, err := cli.GetObjectHeader(cctx, headParams, client.WithTTL(ttl))
 
 	cancel()
 

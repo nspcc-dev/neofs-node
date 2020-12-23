@@ -83,7 +83,7 @@ type ContainerCommunicator interface {
 	GetSG(*audit.Task, *object.ID) (*storagegroup.StorageGroup, error)
 
 	// Must return object header from the container node.
-	GetHeader(*audit.Task, *netmap.Node, *object.ID) (*object.Object, error)
+	GetHeader(*audit.Task, *netmap.Node, *object.ID, bool) (*object.Object, error)
 
 	// Must return homomorphic Tillich-Zemor hash of payload range of the
 	// object stored in container node.
