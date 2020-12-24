@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/spf13/cobra"
 )
@@ -47,7 +46,7 @@ var getEpochCmd = &cobra.Command{
 			return err
 		}
 
-		e, err := cli.Epoch(context.Background(), client.WithTTL(getTTL()))
+		e, err := cli.Epoch(context.Background(), globalCallOptions()...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -68,7 +67,7 @@ var localNodeInfoCmd = &cobra.Command{
 			return err
 		}
 
-		nodeInfo, err := cli.EndpointInfo(context.Background(), client.WithTTL(getTTL()))
+		nodeInfo, err := cli.EndpointInfo(context.Background(), globalCallOptions()...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
