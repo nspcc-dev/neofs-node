@@ -31,7 +31,7 @@ type cfg struct {
 
 	workerPool util.WorkerPool
 
-	pdpPoolGenerator func() (util.WorkerPool, error)
+	pdpPoolGenerator, porPoolGenerator func() (util.WorkerPool, error)
 }
 
 func defaultCfg() *cfg {
@@ -96,5 +96,12 @@ func WithMaxPDPSleepInterval(dur time.Duration) Option {
 func WithPDPWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
 	return func(c *cfg) {
 		c.pdpPoolGenerator = f
+	}
+}
+
+// WithPoRWorkerPool returns option to set worker pool for PoR SG processing.
+func WithPoRWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
+	return func(c *cfg) {
+		c.porPoolGenerator = f
 	}
 }

@@ -226,6 +226,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	})
 
 	pdpPoolSize := cfg.GetInt("audit.pdp.pairs_pool_size")
+	porPoolSize := cfg.GetInt("audit.por.pairs_pool_size")
 
 	auditTaskManager := audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
@@ -235,6 +236,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		audittask.WithMaxPDPSleepInterval(cfg.GetDuration("audit.pdp.max_sleep_interval")),
 		audittask.WithPDPWorkerPoolGenerator(func() (util2.WorkerPool, error) {
 			return ants.NewPool(pdpPoolSize)
+		}),
+		audittask.WithPoRWorkerPoolGenerator(func() (util2.WorkerPool, error) {
+			return ants.NewPool(porPoolSize)
 		}),
 	)
 
