@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -23,13 +24,13 @@ type Context struct {
 
 	report *audit.Report
 
-	// consider adding mutex to access caches
-
+	sgMembersMtx   sync.RWMutex
 	sgMembersCache map[int][]*object.ID
 
+	placementMtx   sync.Mutex
 	placementCache map[string][]netmap.Nodes
 
-	porRequests, porRetries uint32
+	porRequests, porRetries atomic.Uint32
 
 	pairs []gamePair
 
@@ -42,6 +43,7 @@ type Context struct {
 
 	cnrNodesNum int
 
+	headMtx       sync.RWMutex
 	headResponses map[string]shortHeader
 }
 
@@ -130,7 +132,7 @@ func (c *Context) WithTask(t *audit.Task) *Context {
 	return c
 }
 
-// WithPDPWorkerPool sets worker pool for PDP pairs processing..
+// WithPDPWorkerPool sets worker pool for PDP pairs processing.
 func (c *Context) WithPDPWorkerPool(pool util.WorkerPool) *Context {
 	if c != nil {
 		c.pdpWorkerPool = pool
@@ -198,6 +200,9 @@ func (c *Context) writeReport() {
 }
 
 func (c *Context) buildPlacement(id *object.ID) ([]netmap.Nodes, error) {
+	c.placementMtx.Lock()
+	defer c.placementMtx.Unlock()
+
 	strID := id.String()
 
 	if nn, ok := c.placementCache[strID]; ok {
@@ -219,6 +224,9 @@ func (c *Context) buildPlacement(id *object.ID) ([]netmap.Nodes, error) {
 }
 
 func (c *Context) objectSize(id *object.ID) uint64 {
+	c.headMtx.RLock()
+	defer c.headMtx.RUnlock()
+
 	strID := id.String()
 
 	if hdr, ok := c.headResponses[strID]; ok {
@@ -229,6 +237,9 @@ func (c *Context) objectSize(id *object.ID) uint64 {
 }
 
 func (c *Context) objectHomoHash(id *object.ID) []byte {
+	c.headMtx.RLock()
+	defer c.headMtx.RUnlock()
+
 	strID := id.String()
 
 	if hdr, ok := c.headResponses[strID]; ok {
@@ -239,6 +250,9 @@ func (c *Context) objectHomoHash(id *object.ID) []byte {
 }
 
 func (c *Context) updateHeadResponses(hdr *object.Object) {
+	c.headMtx.Lock()
+	defer c.headMtx.Unlock()
+
 	strID := hdr.ID().String()
 
 	if _, ok := c.headResponses[strID]; !ok {
@@ -247,4 +261,11 @@ func (c *Context) updateHeadResponses(hdr *object.Object) {
 			objectSize: hdr.PayloadSize(),
 		}
 	}
+}
+
+func (c *Context) updateSGInfo(ind int, members []*object.ID) {
+	c.sgMembersMtx.Lock()
+	defer c.sgMembersMtx.Unlock()
+
+	c.sgMembersCache[ind] = members
 }

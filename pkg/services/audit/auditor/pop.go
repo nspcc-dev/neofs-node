@@ -162,6 +162,9 @@ func (c *Context) iterateSGMembersRand(f func(*object.ID) bool) {
 }
 
 func (c *Context) iterateSGInfo(f func([]*object.ID) bool) {
+	c.sgMembersMtx.RLock()
+	defer c.sgMembersMtx.RUnlock()
+
 	// we can add randomization like for SG members,
 	// but list of storage groups is already expected
 	// to be shuffled since it is a Search response
