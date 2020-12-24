@@ -75,7 +75,7 @@ type ContextPrm struct {
 
 	cnrCom ContainerCommunicator
 
-	pdpWorkerPool util.WorkerPool
+	pdpWorkerPool, porWorkerPool util.WorkerPool
 }
 
 // ContainerCommunicator is an interface of
@@ -134,6 +134,15 @@ func (c *Context) WithTask(t *audit.Task) *Context {
 func (c *Context) WithPDPWorkerPool(pool util.WorkerPool) *Context {
 	if c != nil {
 		c.pdpWorkerPool = pool
+	}
+
+	return c
+}
+
+// WithPoRWorkerPool sets worker pool for PoR SG processing.
+func (c *Context) WithPoRWorkerPool(pool util.WorkerPool) *Context {
+	if c != nil {
+		c.porWorkerPool = pool
 	}
 
 	return c

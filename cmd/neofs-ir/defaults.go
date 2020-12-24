@@ -99,4 +99,5 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("audit.timeout.search", "10s")
 	cfg.SetDefault("audit.pdp.max_sleep_interval", "5s")
 	cfg.SetDefault("audit.pdp.pairs_pool_size", "10")
+	cfg.SetDefault("audit.por.pairs_pool_size", "10")
 }
