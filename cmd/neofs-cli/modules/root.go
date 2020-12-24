@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	crypto "github.com/nspcc-dev/neofs-crypto"
@@ -24,6 +26,10 @@ const (
 
 	ttlDefaultValue = 2
 )
+
+const xHeadersFlag = "xhdr"
+
+var xHeaders []string
 
 // Global scope flags.
 var (
@@ -79,6 +85,10 @@ func init() {
 	_ = viper.BindPFlag("ttl", rootCmd.PersistentFlags().Lookup("ttl"))
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+
+	rootCmd.PersistentFlags().StringSliceVarP(&xHeaders, xHeadersFlag, "x", nil,
+		"Request X-Headers in form of Key=Value")
+	_ = viper.BindPFlag(xHeadersFlag, rootCmd.PersistentFlags().Lookup(xHeadersFlag))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -193,4 +203,36 @@ func printVerbose(format string, a ...interface{}) {
 	if verbose {
 		fmt.Printf(format+"\n", a...)
 	}
+}
+
+func parseXHeaders() []*pkg.XHeader {
+	xs := make([]*pkg.XHeader, 0, len(xHeaders))
+
+	for i := range xHeaders {
+		kv := strings.SplitN(xHeaders[i], "=", 2)
+		if len(kv) != 2 {
+			panic(fmt.Errorf("invalid X-Header format: %s", xHeaders[i]))
+		}
+
+		x := pkg.NewXHeader()
+		x.SetKey(kv[0])
+		x.SetValue(kv[1])
+
+		xs = append(xs, x)
+	}
+
+	return xs
+}
+
+func globalCallOptions() []client.CallOption {
+	xHdrs := parseXHeaders()
+
+	opts := make([]client.CallOption, 0, len(xHdrs)+1) // + TTL
+	opts = append(opts, client.WithTTL(getTTL()))
+
+	for i := range xHdrs {
+		opts = append(opts, client.WithXHeader(xHdrs[i]))
+	}
+
+	return opts
 }

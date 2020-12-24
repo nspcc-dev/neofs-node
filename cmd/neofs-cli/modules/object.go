@@ -229,9 +229,11 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		new(client.PutObjectParams).
 			WithObject(obj.Object()).
 			WithPayloadReader(f),
-		client.WithTTL(getTTL()),
-		client.WithSession(tok),
-		client.WithBearer(btok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+			client.WithBearer(btok),
+		)...,
+	)
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
@@ -259,9 +261,11 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 
 	tombstoneAddr, err := client.DeleteObject(cli, ctx,
 		new(client.DeleteObjectParams).WithAddress(objAddr),
-		client.WithTTL(getTTL()),
-		client.WithSession(tok),
-		client.WithBearer(btok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+			client.WithBearer(btok),
+		)...,
+	)
 	if err != nil {
 		return err
 	}
@@ -307,9 +311,11 @@ func getObject(cmd *cobra.Command, _ []string) error {
 			WithAddress(objAddr).
 			WithPayloadWriter(out).
 			WithRawFlag(raw),
-		client.WithTTL(getTTL()),
-		client.WithSession(tok),
-		client.WithBearer(btok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+			client.WithBearer(btok),
+		)...,
+	)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return nil
@@ -354,9 +360,11 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	ps.WithRawFlag(raw)
 
 	obj, err := cli.GetObjectHeader(ctx, ps,
-		client.WithTTL(getTTL()),
-		client.WithSession(tok),
-		client.WithBearer(btok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+			client.WithBearer(btok),
+		)...,
+	)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return nil
@@ -390,9 +398,11 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 	}
 	ps := new(client.SearchObjectParams).WithContainerID(cid).WithSearchFilters(sf)
 	ids, err := cli.SearchObject(ctx, ps,
-		client.WithTTL(getTTL()),
-		client.WithSession(tok),
-		client.WithBearer(btok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+			client.WithBearer(btok),
+		)...,
+	)
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
@@ -429,9 +439,11 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	if len(ranges) == 0 { // hash of full payload
 		obj, err := cli.GetObjectHeader(ctx,
 			new(client.ObjectHeaderParams).WithAddress(objAddr),
-			client.WithTTL(getTTL()),
-			client.WithSession(tok),
-			client.WithBearer(btok))
+			append(globalCallOptions(),
+				client.WithSession(tok),
+				client.WithBearer(btok),
+			)...,
+		)
 		if err != nil {
 			return fmt.Errorf("can't get object: %w", err)
 		}
@@ -448,9 +460,11 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	switch typ {
 	case hashSha256:
 		res, err := cli.ObjectPayloadRangeSHA256(ctx, ps,
-			client.WithTTL(getTTL()),
-			client.WithSession(tok),
-			client.WithBearer(btok))
+			append(globalCallOptions(),
+				client.WithSession(tok),
+				client.WithBearer(btok),
+			)...,
+		)
 		if err != nil {
 			return err
 		}
@@ -460,9 +474,11 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		}
 	case hashTz:
 		res, err := cli.ObjectPayloadRangeTZ(ctx, ps,
-			client.WithTTL(getTTL()),
-			client.WithSession(tok),
-			client.WithBearer(btok))
+			append(globalCallOptions(),
+				client.WithSession(tok),
+				client.WithBearer(btok),
+			)...,
+		)
 		if err != nil {
 			return err
 		}
@@ -808,9 +824,11 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 			WithRange(ranges[0]).
 			WithDataWriter(out).
 			WithRaw(raw),
-		client.WithTTL(getTTL()),
-		client.WithSession(sessionToken),
-		client.WithBearer(bearerToken))
+		append(globalCallOptions(),
+			client.WithSession(sessionToken),
+			client.WithBearer(bearerToken),
+		)...,
+	)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return nil
