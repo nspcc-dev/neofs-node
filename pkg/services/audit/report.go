@@ -60,3 +60,9 @@ func (r *Report) SetPDPResults(passed, failed [][]byte) {
 	r.res.SetPassNodes(passed)
 	r.res.SetFailNodes(failed)
 }
+
+// SetPoRCounters sets amounts of head requests and retries at PoR audit stage.
+func (r *Report) SetPoRCounters(requests, retries uint32) {
+	r.res.SetRequests(requests)
+	r.res.SetRetries(retries)
+}

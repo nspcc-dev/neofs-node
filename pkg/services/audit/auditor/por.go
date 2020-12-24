@@ -14,6 +14,7 @@ func (c *Context) executePoR() {
 	for i, sg := range c.task.StorageGroupList() {
 		c.checkStorageGroupPoR(i, sg) // consider parallel it
 	}
+	c.report.SetPoRCounters(c.porRequests, c.porRetries)
 }
 
 func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
@@ -52,14 +53,17 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 			flat[i], flat[j] = flat[j], flat[i]
 		})
 
-		for _, node := range flat {
-			hdr, err := c.cnrCom.GetHeader(c.task, node, members[i], true)
+		for i := range flat {
+			c.porRequests++
+			if i > 0 { // in best case audit get object header on first iteration
+				c.porRetries++
+			}
+
+			hdr, err := c.cnrCom.GetHeader(c.task, flat[i], members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
-					zap.String("remote_node", node.Address()),
+					zap.String("remote_node", flat[i].Address()),
 					zap.Stringer("oid", members[i]))
-
-				// todo: count all fails and successes for audit report
 
 				continue
 			}
