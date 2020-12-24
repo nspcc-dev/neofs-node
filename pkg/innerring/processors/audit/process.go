@@ -45,6 +45,9 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		return
 	}
 
+	var auditCtx context.Context
+	auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
+
 	for i := range containers {
 		cnr, err := ap.containerClient.Get(containers[i]) // get container structure
 		if err != nil {
@@ -78,9 +81,6 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		log.Info("select storage groups for audit",
 			zap.Stringer("cid", containers[i]),
 			zap.Int("amount", len(storageGroups)))
-
-		var auditCtx context.Context
-		auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
 
 		auditTask := new(audit.Task).
 			WithReporter(&epochAuditReporter{
