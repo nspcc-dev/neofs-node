@@ -1,6 +1,18 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.13.2] - 2020-12-24
+
+Support changes from neofs-api-go v1.21.2 release.
+
+### Added
+
+- Support of request X-Headers in CLI commands.
+
+### Changed
+
+- Use updated API of container library.
+
 ## [0.13.1] - 2020-12-18
 
 Fixes based on Modo release testing results.
@@ -101,6 +113,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.13.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.12.0...v0.12.1
