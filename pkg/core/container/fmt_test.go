@@ -31,16 +31,14 @@ func TestCheckFormat(t *testing.T) {
 
 	c.SetOwnerID(owner.NewIDFromNeo3Wallet(wallet))
 
-	c.SetNonce(nil)
+	// set incorrect nonce
+	cV2 := c.ToV2()
+	cV2.SetNonce([]byte{1, 2, 3})
+	c = container.NewContainerFromV2(cV2)
 
 	require.Error(t, CheckFormat(c))
 
-	uid, err := uuid.NewRandom()
-	require.NoError(t, err)
-
-	nonce, _ := uid.MarshalBinary()
-
-	c.SetNonce(nonce)
+	c.SetNonceUUID(uuid.New())
 
 	require.NoError(t, CheckFormat(c))
 }
