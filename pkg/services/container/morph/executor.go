@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
@@ -32,12 +31,12 @@ func NewExecutor(client *containerMorph.Client) containerSvc.ServiceExecutor {
 }
 
 func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody) (*container.PutResponseBody, error) {
-	cnr := containerSDK.NewContainerFromV2(body.GetContainer())
-	sig := body.GetSignature()
-
-	if err := containerCore.CheckFormat(cnr); err != nil {
-		return nil, errors.Wrapf(err, "incorrect container format")
+	cnr, err := containerSDK.NewVerifiedFromV2(body.GetContainer())
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid format of the container structure")
 	}
+
+	sig := body.GetSignature()
 
 	cid, err := s.wrapper.Put(cnr, sig.GetKey(), sig.GetSign())
 	if err != nil {

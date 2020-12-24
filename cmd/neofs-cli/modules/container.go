@@ -138,7 +138,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetPlacementPolicy(placementPolicy)
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
-		cnr.SetNonce(nonce[:])
+		cnr.SetNonceUUID(nonce)
 
 		id, err := cli.PutContainer(ctx, cnr, client.WithTTL(getTTL()))
 		if err != nil {
@@ -674,9 +674,11 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 		fmt.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
 	}
 
-	nonce, err := uuid.FromBytes(cnr.Nonce())
+	nonce, err := cnr.NonceUUID()
 	if err == nil {
 		fmt.Println("nonce:", nonce)
+	} else {
+		fmt.Println("invalid nonce:", err)
 	}
 
 	fmt.Println("placement policy:")

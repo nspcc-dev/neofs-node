@@ -1,7 +1,6 @@
 package container
 
 import (
-	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
@@ -27,7 +26,7 @@ func CheckFormat(c *container.Container) error {
 		return errors.Errorf("incorrect owner identifier: expected length %d != %d", owner.NEO3WalletSize, ln)
 	}
 
-	if _, err := uuid.FromBytes(c.Nonce()); err != nil {
+	if _, err := c.NonceUUID(); err != nil {
 		return errors.Wrap(err, "incorrect nonce")
 	}
 
