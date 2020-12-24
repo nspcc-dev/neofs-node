@@ -207,7 +207,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	server.pubKey = crypto.MarshalPublicKey(&server.key.PublicKey)
 
-	auditPool, err := ants.NewPool(cfg.GetInt("audit.task.exec_pool_size"), ants.WithNonblocking(true))
+	auditPool, err := ants.NewPool(cfg.GetInt("audit.task.exec_pool_size"))
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		audittask.WithContainerCommunicator(clientCache),
 		audittask.WithMaxPDPSleepInterval(cfg.GetDuration("audit.pdp.max_sleep_interval")),
 		audittask.WithPDPWorkerPoolGenerator(func() (util2.WorkerPool, error) {
-			return ants.NewPool(pdpPoolSize, ants.WithNonblocking(true))
+			return ants.NewPool(pdpPoolSize)
 		}),
 	)
 
