@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -11,10 +12,25 @@ import (
 )
 
 func (c *Context) executePoR() {
-	for i, sg := range c.task.StorageGroupList() {
-		c.checkStorageGroupPoR(i, sg) // consider parallel it
+	wg := new(sync.WaitGroup)
+	sgs := c.task.StorageGroupList()
+
+	for i := range sgs {
+		wg.Add(1)
+
+		sg := sgs[i]
+
+		if err := c.porWorkerPool.Submit(func() {
+			c.checkStorageGroupPoR(i, sg)
+			wg.Done()
+		}); err != nil {
+			wg.Done()
+		}
 	}
-	c.report.SetPoRCounters(c.porRequests, c.porRetries)
+
+	wg.Wait()
+
+	c.report.SetPoRCounters(c.porRequests.Load(), c.porRetries.Load())
 }
 
 func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
@@ -28,11 +44,13 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 	}
 
 	members := storageGroup.Members()
-	c.sgMembersCache[ind] = members
+	c.updateSGInfo(ind, members)
 
 	var (
 		tzHash    []byte
 		totalSize uint64
+
+		accRequests, accRetries uint32
 	)
 
 	for i := range members {
@@ -54,9 +72,9 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 		})
 
 		for i := range flat {
-			c.porRequests++
+			accRequests++
 			if i > 0 { // in best case audit get object header on first iteration
-				c.porRetries++
+				accRetries++
 			}
 
 			hdr, err := c.cnrCom.GetHeader(c.task, flat[i], members[i], true)
@@ -92,6 +110,9 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 			break
 		}
 	}
+
+	c.porRequests.Add(accRequests)
+	c.porRetries.Add(accRetries)
 
 	sizeCheck := storageGroup.ValidationDataSize() == totalSize
 	tzCheck := bytes.Equal(tzHash, storageGroup.ValidationDataHash().Sum())
