@@ -47,8 +47,18 @@ func (m *Manager) handleTask(task *audit.Task) {
 		return
 	}
 
+	porPool, err := m.pdpPoolGenerator()
+	if err != nil {
+		m.log.Error("could not generate PoR worker pool",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
 	auditContext := m.generateContext(task).
-		WithPDPWorkerPool(pdpPool)
+		WithPDPWorkerPool(pdpPool).
+		WithPoRWorkerPool(porPool)
 
 	if err := m.workerPool.Submit(auditContext.Execute); err != nil {
 		// may be we should report it
