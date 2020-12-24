@@ -29,6 +29,8 @@ type Context struct {
 
 	placementCache map[string][]netmap.Nodes
 
+	porRequests, porRetries uint32
+
 	pairs []gamePair
 
 	pairedMtx   sync.Mutex
