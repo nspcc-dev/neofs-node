@@ -71,16 +71,16 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 			flat[i], flat[j] = flat[j], flat[i]
 		})
 
-		for i := range flat {
+		for j := range flat {
 			accRequests++
-			if i > 0 { // in best case audit get object header on first iteration
+			if j > 0 { // in best case audit get object header on first iteration
 				accRetries++
 			}
 
-			hdr, err := c.cnrCom.GetHeader(c.task, flat[i], members[i], true)
+			hdr, err := c.cnrCom.GetHeader(c.task, flat[j], members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
-					zap.String("remote_node", flat[i].Address()),
+					zap.String("remote_node", flat[j].Address()),
 					zap.Stringer("oid", members[i]))
 
 				continue
