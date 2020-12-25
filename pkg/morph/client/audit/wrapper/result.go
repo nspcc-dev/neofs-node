@@ -2,9 +2,15 @@ package audit
 
 import (
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	"github.com/pkg/errors"
 )
+
+// ResultID is an identity of audit result inside audit contract.
+type ResultID []byte
+
+var errUnsupported = errors.New("unsupported structure version")
 
 // PutAuditResult saves passed audit result structure in NeoFS system
 // through Audit contract call.
@@ -24,9 +30,8 @@ func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
 		PutAuditResult(args)
 }
 
-// ListAuditResults returns a list of all audit results in NeoFS system.
-// The list is composed through Audit contract call.
-func (w *ClientWrapper) ListAuditResults() ([]*auditAPI.Result, error) {
+// ListAuditResults returns a list of all audit result IDs inside audit contract.
+func (w *ClientWrapper) ListAllAuditResultID() ([]ResultID, error) {
 	args := audit.ListResultsArgs{}
 
 	values, err := (*audit.Client)(w).ListAuditResults(args)
@@ -34,17 +39,89 @@ func (w *ClientWrapper) ListAuditResults() ([]*auditAPI.Result, error) {
 		return nil, err
 	}
 
-	rawResults := values.RawResults()
-	result := make([]*auditAPI.Result, 0, len(rawResults))
+	return parseRawResult(values), nil
+}
 
-	for i := range rawResults {
-		auditRes := auditAPI.NewResult()
-		if err := auditRes.Unmarshal(rawResults[i]); err != nil {
-			return nil, errors.Wrap(err, "could not unmarshal audit result structure")
-		}
+// ListAuditResultIDByEpoch returns a list of audit result IDs inside audit
+// contract for specific epoch number.
+func (w *ClientWrapper) ListAuditResultIDByEpoch(epoch uint64) ([]ResultID, error) {
+	args := audit.ListResultsByEpochArgs{}
+	args.SetEpoch(int64(epoch))
 
-		result = append(result, auditRes)
+	values, err := (*audit.Client)(w).ListAuditResultsByEpoch(args)
+	if err != nil {
+		return nil, err
 	}
 
-	return result, nil
+	return parseRawResult(values), nil
+}
+
+// ListAuditResultIDByCID returns a list of audit result IDs inside audit
+// contract for specific epoch number and container ID.
+func (w *ClientWrapper) ListAuditResultIDByCID(epoch uint64, cid *container.ID) ([]ResultID, error) {
+	args := audit.ListResultsByCIDArgs{}
+	args.SetEpoch(int64(epoch))
+
+	if v2 := cid.ToV2(); v2 == nil {
+		return nil, errUnsupported // use other major version if there any
+	} else {
+		args.SetCID(v2.GetValue())
+	}
+
+	values, err := (*audit.Client)(w).ListAuditResultsByCID(args)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseRawResult(values), nil
+}
+
+// ListAuditResultIDByNode returns a list of audit result IDs inside audit
+// contract for specific epoch number, container ID and inner ring public key.
+func (w *ClientWrapper) ListAuditResultIDByNode(epoch uint64, cid *container.ID, key []byte) ([]ResultID, error) {
+	args := audit.ListResultsByNodeArgs{}
+	args.SetEpoch(int64(epoch))
+	args.SetNodeKey(key)
+
+	if v2 := cid.ToV2(); v2 == nil {
+		return nil, errUnsupported // use other major version if there any
+	} else {
+		args.SetCID(v2.GetValue())
+	}
+
+	values, err := (*audit.Client)(w).ListAuditResultsByNode(args)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseRawResult(values), nil
+}
+
+func parseRawResult(values *audit.ListResultsValues) []ResultID {
+	rawResults := values.RawResults()
+	result := make([]ResultID, 0, len(rawResults))
+
+	for i := range rawResults {
+		result = append(result, rawResults[i])
+	}
+
+	return result
+}
+
+// GetAuditResult returns audit result structure stored in audit contract.
+func (w *ClientWrapper) GetAuditResult(id ResultID) (*auditAPI.Result, error) {
+	args := audit.GetAuditResultArgs{}
+	args.SetID(id)
+
+	value, err := (*audit.Client)(w).GetAuditResult(args)
+	if err != nil {
+		return nil, err
+	}
+
+	auditRes := auditAPI.NewResult()
+	if err := auditRes.Unmarshal(value.Result()); err != nil {
+		return nil, errors.Wrap(err, "could not unmarshal audit result structure")
+	}
+
+	return auditRes, nil
 }

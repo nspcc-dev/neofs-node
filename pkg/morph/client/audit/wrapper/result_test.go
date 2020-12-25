@@ -17,9 +17,10 @@ import (
 
 func TestAuditResults(t *testing.T) {
 	t.Skip()
+	const epoch = 11
 
 	endpoint := "http://morph_chain.neofs.devenv:30333"
-	sAuditHash := "96a746aa7186f775e5744a6e2c6566dc5c4a57a2"
+	sAuditHash := "cdfb3dab86e6d60e8a143d9e2ecb0b188f3dc2eb"
 	irKeyWIF := "L3o221BojgcCPYgdbXsm6jn7ayTZ72xwREvBHXKknR8VJ3G4WmjB"
 
 	key, err := crypto.WIFDecode(irKeyWIF)
@@ -44,7 +45,7 @@ func TestAuditResults(t *testing.T) {
 	cid.SetSHA256([sha256.Size]byte{1, 2, 3})
 
 	auditRes := auditAPI.NewResult()
-	auditRes.SetAuditEpoch(11)
+	auditRes.SetAuditEpoch(epoch)
 	auditRes.SetPublicKey(pubKey)
 	auditRes.SetContainerID(cid)
 
@@ -52,8 +53,12 @@ func TestAuditResults(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
-	list, err := auditClientWrapper.ListAuditResults()
+	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, cid)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
-	require.Contains(t, list, auditRes)
+
+	savedAuditRes, err := auditClientWrapper.GetAuditResult(list[0])
+	require.NoError(t, err)
+
+	require.Equal(t, auditRes, savedAuditRes)
 }

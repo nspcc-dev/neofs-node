@@ -23,18 +23,30 @@ type Option func(*cfg)
 
 type cfg struct {
 	putResultMethod, // put audit result method name for invocation
-	listResultsMethod string // list audit results method name for invocation
+	getResultMethod, // get audit result method name for invocation
+	listResultsMethod string // list all audit result IDs method name for invocation
+	listByEpochResultsMethod string // list audit result IDs by epoch method name for invocation
+	listByCIDResultsMethod   string // list audit result IDs by epoch and CID method name for invocation
+	listByNodeResultsMethod  string // list audit result IDs by epoch, CID, and node key method name for invocation
 }
 
 const (
-	defaultPutResultMethod   = "put"  // default "put audit result" method name
-	defaultListResultsMethod = "list" // default "list audit results" method name
+	defaultPutResultMethod          = "put"         // default "put audit result" method name
+	defaultGetResultMethod          = "get"         // default "get audit result" method name
+	defaultListResultsMethod        = "list"        // default "list all audit result IDs" method name
+	defaultListByEpochResultsMethod = "listByEpoch" // default "list audit result IDs by epoch" method name
+	defaultListByCIDResultsMethod   = "listByCID"   // default "list audit result IDs by epoch and CID" method name
+	defaultListByNodeResultsMethod  = "listByNode"  // default "list audit result IDs by epoch, CID and node key" method name
 )
 
 func defaultConfig() *cfg {
 	return &cfg{
-		putResultMethod:   defaultPutResultMethod,
-		listResultsMethod: defaultListResultsMethod,
+		putResultMethod:          defaultPutResultMethod,
+		getResultMethod:          defaultGetResultMethod,
+		listResultsMethod:        defaultListResultsMethod,
+		listByEpochResultsMethod: defaultListByEpochResultsMethod,
+		listByCIDResultsMethod:   defaultListByCIDResultsMethod,
+		listByNodeResultsMethod:  defaultListByNodeResultsMethod,
 	}
 }
 
@@ -73,14 +85,62 @@ func WithPutAuditResultMethod(n string) Option {
 	}
 }
 
+// WithGetAuditResultMethod returns a client constructor option that
+// specifies the "get audit result" method name.
+//
+// Ignores empty value.
+func WithGetAuditResultMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.getResultMethod = n
+		}
+	}
+}
+
 // WithListResultsMethod returns a client constructor option that
-// specifies the "list audit results" method name.
+// specifies the "list all audit result IDs" method name.
 //
 // Ignores empty value.
 func WithListResultsMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.listResultsMethod = n
+		}
+	}
+}
+
+// WithListByEpochResultsMethod returns a client constructor option that
+// specifies the "list audit result IDs by epoch" method name.
+//
+// Ignores empty value.
+func WithListByEpochResultsMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.listByEpochResultsMethod = n
+		}
+	}
+}
+
+// WithListByCIDResultsMethod returns a client constructor option that
+// specifies the "list audit result IDs by epoch and CID" method name.
+//
+// Ignores empty value.
+func WithListByCIDResultsMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.listByCIDResultsMethod = n
+		}
+	}
+}
+
+// WithListByNodeResultsMethod returns a client constructor option that
+// specifies the "list audit result IDs by epoch, CID, and node key" method name.
+//
+// Ignores empty value.
+func WithListByNodeResultsMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.listByNodeResultsMethod = n
 		}
 	}
 }
