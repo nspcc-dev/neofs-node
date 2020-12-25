@@ -226,7 +226,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	})
 
 	pdpPoolSize := cfg.GetInt("audit.pdp.pairs_pool_size")
-	porPoolSize := cfg.GetInt("audit.por.pairs_pool_size")
+	porPoolSize := cfg.GetInt("audit.por.pool_size")
 
 	auditTaskManager := audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
