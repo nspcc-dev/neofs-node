@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -109,11 +110,15 @@ func CommonPrmFromV2(req interface {
 }) *CommonPrm {
 	meta := req.GetMetaHeader()
 
+	xHdrs := meta.GetXHeaders()
+
+	const staticOptNum = 3
+
 	prm := &CommonPrm{
 		local:    meta.GetTTL() <= 1, // FIXME: use constant
 		token:    nil,
 		bearer:   nil,
-		callOpts: make([]client.CallOption, 0, 3),
+		callOpts: make([]client.CallOption, 0, staticOptNum+len(xHdrs)),
 	}
 
 	prm.callOpts = append(prm.callOpts, client.WithTTL(meta.GetTTL()-1))
@@ -126,6 +131,14 @@ func CommonPrmFromV2(req interface {
 	if tok := meta.GetBearerToken(); tok != nil {
 		prm.bearer = token.NewBearerTokenFromV2(tok)
 		prm.callOpts = append(prm.callOpts, client.WithBearer(prm.bearer))
+	}
+
+	for i := range xHdrs {
+		prm.callOpts = append(prm.callOpts,
+			client.WithXHeader(
+				pkg.NewXHeaderFromV2(xHdrs[i]),
+			),
+		)
 	}
 
 	return prm
