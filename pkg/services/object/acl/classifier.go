@@ -27,6 +27,7 @@ type (
 		vheader *session.RequestVerificationHeader
 		token   *session.SessionToken
 		bearer  *bearer.BearerToken
+		src     interface{}
 	}
 
 	SenderClassifier struct {

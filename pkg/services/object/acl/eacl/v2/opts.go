@@ -27,10 +27,11 @@ func WithServiceRequest(v Request) Option {
 	}
 }
 
-func WithServiceResponse(v Response) Option {
+func WithServiceResponse(resp Response, req Request) Option {
 	return func(c *cfg) {
 		c.msg = &responseXHeaderSource{
-			resp: v,
+			resp: resp,
+			req:  req,
 		}
 	}
 }

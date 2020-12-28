@@ -77,6 +77,8 @@ type (
 		senderKey []byte
 
 		bearer *bearer.BearerToken // bearer token of request
+
+		srcRequest interface{}
 	}
 )
 
@@ -149,6 +151,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
+		src:     request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationGet)
@@ -197,6 +200,7 @@ func (b Service) Head(
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
+		src:     request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationHead)
@@ -235,6 +239,7 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
 		bearer:  request.GetMetaHeader().GetBearerToken(),
+		src:     request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationSearch)
@@ -272,6 +277,7 @@ func (b Service) Delete(
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
+		src:     request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationDelete)
@@ -303,6 +309,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
+		src:     request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRange)
@@ -341,6 +348,7 @@ func (b Service) GetRangeHash(
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
 		bearer:  request.GetMetaHeader().GetBearerToken(),
+		src:     request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRangeHash)
@@ -384,6 +392,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 			vheader: request.GetVerificationHeader(),
 			token:   sTok,
 			bearer:  request.GetMetaHeader().GetBearerToken(),
+			src:     request,
 		}
 
 		reqInfo, err := p.source.findRequestInfo(req, cid, acl.OperationPut)
@@ -472,6 +481,8 @@ func (b Service) findRequestInfo(
 
 	// add bearer token if it is present in request
 	info.bearer = req.bearer
+
+	info.srcRequest = req.src
 
 	return info, nil
 }
@@ -620,7 +631,12 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 	if req, ok := msg.(eaclV2.Request); ok {
 		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
 	} else {
-		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceResponse(msg.(eaclV2.Response)))
+		hdrSrcOpts = append(hdrSrcOpts,
+			eaclV2.WithServiceResponse(
+				msg.(eaclV2.Response),
+				reqInfo.srcRequest.(eaclV2.Request),
+			),
+		)
 	}
 
 	action := cfg.eACL.CalculateAction(new(eacl.ValidationUnit).
