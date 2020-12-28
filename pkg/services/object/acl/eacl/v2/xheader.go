@@ -14,6 +14,8 @@ type requestXHeaderSource struct {
 
 type responseXHeaderSource struct {
 	resp Response
+
+	req Request
 }
 
 func (s *requestXHeaderSource) GetXHeaders() []*session.XHeader {
@@ -43,7 +45,7 @@ func (s *responseXHeaderSource) GetXHeaders() []*session.XHeader {
 	ln := 0
 	xHdrs := make([][]*session.XHeader, 0)
 
-	for meta := s.resp.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
+	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		x := meta.GetXHeaders()
 
 		ln += len(x)
