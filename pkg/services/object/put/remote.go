@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -20,9 +19,7 @@ type remoteTarget struct {
 
 	keyStorage *util.KeyStorage
 
-	token *token.SessionToken
-
-	bearer *token.BearerToken
+	commonPrm *util.CommonPrm
 
 	addr *network.Address
 
@@ -57,7 +54,7 @@ func (t *remoteTarget) WriteHeader(obj *object.RawObject) error {
 }
 
 func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
-	key, err := t.keyStorage.GetKey(t.token)
+	key, err := t.keyStorage.GetKey(t.commonPrm.SessionToken())
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not receive private key", t)
 	}
@@ -76,9 +73,10 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		WithObject(
 			t.obj.SDK(),
 		),
-		client.WithTTL(1), // FIXME: use constant
-		client.WithBearer(t.bearer),
-		client.WithSession(t.token),
+		append(
+			t.commonPrm.RemoteCallOptions(),
+			client.WithTTL(1), // FIXME: use constant
+		)...,
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not put object to %s", t, addr)
