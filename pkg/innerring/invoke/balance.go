@@ -6,14 +6,6 @@ import (
 )
 
 type (
-	// TransferXParams for TransferBalanceX invocation.
-	TransferXParams struct {
-		Sender   []byte
-		Receiver []byte
-		Amount   int64 // in Fixed16
-		Comment  []byte
-	}
-
 	// LockParams for LockAsset invocation.
 	LockParams struct {
 		ID          []byte
@@ -38,20 +30,6 @@ const (
 	burnMethod      = "burn"
 	precisionMethod = "decimals"
 )
-
-// TransferBalanceX invokes transferX method.
-func TransferBalanceX(cli *client.Client, con util.Uint160, p *TransferXParams) error {
-	if cli == nil {
-		return client.ErrNilClient
-	}
-
-	return cli.Invoke(con, extraFee, transferXMethod,
-		p.Sender,
-		p.Receiver,
-		p.Amount,
-		p.Comment,
-	)
-}
 
 // Mint assets in contract.
 func Mint(cli *client.Client, con util.Uint160, p *MintBurnParams) error {

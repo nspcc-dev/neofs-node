@@ -113,7 +113,6 @@ type accessErr struct {
 
 var (
 	ErrMalformedRequest = errors.New("malformed request")
-	ErrInternal         = errors.New("internal error")
 	ErrUnknownRole      = errors.New("can't classify request sender")
 	ErrUnknownContainer = errors.New("can't fetch container info")
 )

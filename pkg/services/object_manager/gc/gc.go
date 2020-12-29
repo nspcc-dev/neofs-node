@@ -135,14 +135,3 @@ func stringifyID(addr *object.ID) string {
 func stringifyCID(addr *container.ID) string {
 	return base58.Encode(addr.ToV2().GetValue())
 }
-
-// DeleteObjects adds list of adresses to delete queue.
-func (gc *GC) DeleteObjects(list ...*object.Address) {
-	for i := range list {
-		select {
-		case gc.queue <- list[i]:
-		default:
-			gc.log.Info("queue for deletion is full")
-		}
-	}
-}

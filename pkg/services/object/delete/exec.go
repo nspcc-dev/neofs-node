@@ -2,9 +2,7 @@ package deletesvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -59,10 +57,6 @@ func (exec execCtx) isLocal() bool {
 	return exec.prm.common.LocalOnly()
 }
 
-func (exec *execCtx) key() *ecdsa.PrivateKey {
-	return exec.prm.common.PrivateKey()
-}
-
 func (exec *execCtx) address() *objectSDK.Address {
 	return exec.prm.Address()
 }
@@ -73,10 +67,6 @@ func (exec *execCtx) containerID() *container.ID {
 
 func (exec *execCtx) commonParameters() *util.CommonPrm {
 	return exec.prm.common
-}
-
-func (exec execCtx) callOptions() []client.CallOption {
-	return exec.prm.common.RemoteCallOptions()
 }
 
 func (exec *execCtx) newAddress(id *objectSDK.ID) *objectSDK.Address {

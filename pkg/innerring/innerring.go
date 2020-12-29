@@ -60,14 +60,12 @@ type (
 	}
 
 	contracts struct {
-		neofs      util.Uint160 // in mainnet
-		netmap     util.Uint160 // in morph
-		balance    util.Uint160 // in morph
-		container  util.Uint160 // in morph
-		audit      util.Uint160 // in morph
-		reputation util.Uint160 // in morph
-		neofsid    util.Uint160 // in morph
-		gas        util.Uint160 // native contract in both chains
+		neofs     util.Uint160 // in mainnet
+		netmap    util.Uint160 // in morph
+		balance   util.Uint160 // in morph
+		container util.Uint160 // in morph
+		audit     util.Uint160 // in morph
+		gas       util.Uint160 // native contract in both chains
 
 		alphabet [alphabetContractsN]util.Uint160 // in morph
 	}

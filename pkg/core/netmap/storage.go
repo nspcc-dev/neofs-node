@@ -1,8 +1,6 @@
 package netmap
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
 
@@ -20,9 +18,6 @@ type Source interface {
 	// the network map through it.
 	GetNetMap(diff uint64) (*netmap.Netmap, error)
 }
-
-// ErrNotFound is the error returned when network map was not found in storage.
-var ErrNotFound = errors.New("network map not found")
 
 // GetLatestNetworkMap requests and returns latest network map from storage.
 func GetLatestNetworkMap(src Source) (*netmap.Netmap, error) {

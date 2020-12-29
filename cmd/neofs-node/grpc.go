@@ -20,8 +20,9 @@ func initGRPC(c *cfg) {
 }
 
 func serveGRPC(c *cfg) {
+	c.wg.Add(1)
+
 	go func() {
-		c.wg.Add(1)
 		defer func() {
 			c.wg.Done()
 		}()

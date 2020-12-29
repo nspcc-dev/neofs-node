@@ -2,17 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
-	"sync"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -48,12 +44,6 @@ type objectSvc struct {
 	delete *deletesvcV2.Service
 }
 
-type inMemBucket struct {
-	bucket.Bucket
-	*sync.RWMutex
-	items map[string][]byte
-}
-
 func (c *cfg) MaxObjectSize() uint64 {
 	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
 	if err != nil {
@@ -63,73 +53,6 @@ func (c *cfg) MaxObjectSize() uint64 {
 	}
 
 	return sz
-}
-
-func newBucket() bucket.Bucket {
-	return &inMemBucket{
-		RWMutex: new(sync.RWMutex),
-		items:   map[string][]byte{},
-	}
-}
-
-func (b *inMemBucket) Del(key []byte) error {
-	b.Lock()
-	delete(b.items, base58.Encode(key))
-	b.Unlock()
-
-	return nil
-}
-
-func (b *inMemBucket) Get(key []byte) ([]byte, error) {
-	b.RLock()
-	v, ok := b.items[base58.Encode(key)]
-	b.RUnlock()
-
-	if !ok {
-		return nil, errors.New("not found")
-	}
-
-	return v, nil
-}
-
-func (b *inMemBucket) Set(key, value []byte) error {
-	k := base58.Encode(key)
-
-	b.Lock()
-	b.items[k] = makeCopy(value)
-	b.Unlock()
-
-	return nil
-}
-
-func (b *inMemBucket) Iterate(handler bucket.FilterHandler) error {
-	if handler == nil {
-		return bucket.ErrNilFilterHandler
-	}
-
-	b.RLock()
-	for key, val := range b.items {
-		k, err := base58.Decode(key)
-		if err != nil {
-			panic(err)
-		}
-
-		v := makeCopy(val)
-
-		if !handler(k, v) {
-			return bucket.ErrIteratingAborted
-		}
-	}
-	b.RUnlock()
-
-	return nil
-}
-
-func makeCopy(val []byte) []byte {
-	tmp := make([]byte, len(val))
-	copy(tmp, val)
-
-	return tmp
 }
 
 func (s *objectSvc) Put(ctx context.Context) (object.PutObjectStreamer, error) {

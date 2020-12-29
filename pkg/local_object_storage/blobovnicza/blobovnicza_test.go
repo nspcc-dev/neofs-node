@@ -34,26 +34,6 @@ func testAddress() *objectSDK.Address {
 	return addr
 }
 
-func testObject(sz uint64) *object.Object {
-	raw := object.NewRaw()
-
-	addr := testAddress()
-	raw.SetID(addr.ObjectID())
-	raw.SetContainerID(addr.ContainerID())
-
-	raw.SetPayload(make([]byte, sz))
-
-	// fit the binary size to the required
-	data, _ := raw.Marshal()
-	if ln := uint64(len(data)); ln > sz {
-		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
-	}
-
-	raw.SetAttributes() // for require.Equal
-
-	return raw.Object()
-}
-
 func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error) *objectSDK.Address {
 	// create binary object
 	data := make([]byte, sz)

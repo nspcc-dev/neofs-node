@@ -104,9 +104,7 @@ func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
 		return payloadOnlyObject(data), nil
 	} else {
 		return c.client.GetObject(exec.context(),
-			new(client.GetObjectParams).
-				WithAddress(exec.address()).
-				WithRawFlag(exec.isRaw()),
+			exec.remotePrm(),
 			exec.callOptions()...,
 		)
 	}

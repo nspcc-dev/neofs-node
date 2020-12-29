@@ -39,27 +39,6 @@ const (
 	chequeMethod           = "cheque"
 )
 
-// IsInnerRing returns true if 'key' is presented in inner ring list.
-func IsInnerRing(cli *client.Client, con util.Uint160, key *ecdsa.PublicKey) (bool, error) {
-	if cli == nil {
-		return false, client.ErrNilClient
-	}
-
-	pubKey := crypto.MarshalPublicKey(key)
-
-	val, err := cli.TestInvoke(con, checkIsInnerRingMethod, pubKey)
-	if err != nil {
-		return false, err
-	}
-
-	isInnerRing, err := client.BoolFromStackItem(val[0])
-	if err != nil {
-		return false, err
-	}
-
-	return isInnerRing, nil
-}
-
 // CashOutCheque invokes Cheque method.
 func CashOutCheque(cli *client.Client, con util.Uint160, p *ChequeParams) error {
 	if cli == nil {

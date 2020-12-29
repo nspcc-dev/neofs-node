@@ -220,9 +220,6 @@ func completeBearerToken(btok *token.BearerToken) error {
 		// set eACL table version, because it usually omitted
 		table := v2.GetBody().GetEACL()
 		table.SetVersion(pkg.SDKVersion().ToV2())
-
-		// back to SDK token
-		btok = token.NewBearerTokenFromV2(v2)
 	} else {
 		return errors.New("unsupported bearer token version")
 	}

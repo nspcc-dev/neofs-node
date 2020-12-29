@@ -6,11 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	"github.com/pkg/errors"
-)
-
-var (
-	errChunking = errors.New("can't split message to stream chunks")
 )
 
 type (
@@ -182,11 +177,4 @@ func (s *searchStreamMsgSizeCtrl) Send(resp *object.SearchResponse) error {
 	}
 
 	return nil
-}
-
-func min(a, b int) int {
-	if a > b {
-		return b
-	}
-	return a
 }

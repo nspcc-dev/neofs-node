@@ -25,4 +25,3 @@ var (
 	// Debug is an application debug mode flag.
 	Debug = "false"
 )
-

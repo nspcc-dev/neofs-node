@@ -27,8 +27,6 @@ type cfg struct {
 
 	ctxPrm auditor.ContextPrm
 
-	reporter audit.Reporter
-
 	workerPool util.WorkerPool
 
 	pdpPoolGenerator, porPoolGenerator func() (util.WorkerPool, error)

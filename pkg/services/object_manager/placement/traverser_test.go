@@ -25,16 +25,6 @@ func testNode(v uint32) (n netmap.NodeInfo) {
 	return n
 }
 
-func flattenVectors(vs []netmap.Nodes) netmap.Nodes {
-	v := make(netmap.Nodes, 0)
-
-	for i := range vs {
-		v = append(v, vs[i]...)
-	}
-
-	return v
-}
-
 func copyVectors(v []netmap.Nodes) []netmap.Nodes {
 	vc := make([]netmap.Nodes, 0, len(v))
 

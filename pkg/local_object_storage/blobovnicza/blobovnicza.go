@@ -101,10 +101,3 @@ func WithLogger(l *logger.Logger) Option {
 		c.log = l.With(zap.String("component", "Blobovnicza"))
 	}
 }
-
-// WithBoltDBOptions returns option to specify BoltDB options.
-func WithBoltDBOptions(opts *bbolt.Options) Option {
-	return func(c *cfg) {
-		c.boltOptions = opts
-	}
-}
