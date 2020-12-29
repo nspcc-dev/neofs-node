@@ -140,8 +140,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				return &remoteTarget{
 					ctx:         p.ctx,
 					keyStorage:  p.keyStorage,
-					token:       prm.common.SessionToken(),
-					bearer:      prm.common.BearerToken(),
+					commonPrm:   prm.common,
 					addr:        addr,
 					clientCache: p.clientCache,
 					clientOpts:  p.clientOpts,
