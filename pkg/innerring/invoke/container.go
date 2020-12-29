@@ -4,7 +4,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -21,8 +20,6 @@ type (
 		Signature   []byte
 	}
 )
-
-var ErrParseTestInvoke = errors.New("can't parse NEO node response")
 
 const (
 	putContainerMethod    = "put"

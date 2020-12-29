@@ -106,19 +106,6 @@ func (c *testClient) getObject(exec *execCtx) (*objectSDK.Object, error) {
 	return cutToRange(v.obj.Object(), exec.ctxRange()).SDK(), nil
 }
 
-func (c *testClient) head(_ context.Context, p Prm) (*object.Object, error) {
-	v, ok := c.results[p.Address().String()]
-	if !ok {
-		return nil, object.ErrNotFound
-	}
-
-	if v.err != nil {
-		return nil, v.err
-	}
-
-	return v.obj.CutPayload().Object(), nil
-}
-
 func (c *testClient) addResult(addr *objectSDK.Address, obj *object.RawObject, err error) {
 	c.results[addr.String()] = struct {
 		obj *object.RawObject

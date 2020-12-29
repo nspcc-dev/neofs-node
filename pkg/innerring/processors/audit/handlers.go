@@ -7,11 +7,14 @@ import (
 
 func (ap *Processor) handleNewAuditRound(ev event.Event) {
 	auditEvent := ev.(Start)
-	ap.log.Info("new round of audit", zap.Uint64("epoch", auditEvent.epoch))
+
+	epoch := auditEvent.Epoch()
+
+	ap.log.Info("new round of audit", zap.Uint64("epoch", epoch))
 
 	// send event to the worker pool
 
-	err := ap.pool.Submit(func() { ap.processStartAudit(auditEvent.epoch) })
+	err := ap.pool.Submit(func() { ap.processStartAudit(epoch) })
 	if err != nil {
 		ap.log.Warn("previous round of audit prepare hasn't finished yet")
 	}

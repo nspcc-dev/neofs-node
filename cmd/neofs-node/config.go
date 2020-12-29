@@ -20,8 +20,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/bucket/fsbucket"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -560,26 +558,6 @@ func initShardOptions(c *cfg) {
 
 func configPath(sections ...string) string {
 	return strings.Join(sections, ".")
-}
-
-func initBucket(prefix string, c *cfg) (bucket bucket.Bucket, err error) {
-	const inmemory = "inmemory"
-
-	switch c.viper.GetString(prefix + ".type") {
-	case inmemory:
-		bucket = newBucket()
-		c.log.Info("using in-memory bucket", zap.String("storage", prefix))
-	case fsbucket.Name:
-		bucket, err = fsbucket.NewBucket(prefix, c.viper)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't create fs bucket")
-		}
-		c.log.Info("using filesystem bucket", zap.String("storage", prefix))
-	default:
-		return nil, errors.New("unknown storage type")
-	}
-
-	return bucket, nil
 }
 
 func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
