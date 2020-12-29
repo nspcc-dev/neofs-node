@@ -29,6 +29,8 @@ type RemoteHeadPrm struct {
 	node *network.Address
 }
 
+var ErrNotFound = errors.New("object header not found")
+
 // NewRemoteHeader creates, initializes and returns new RemoteHeader instance.
 func NewRemoteHeader(keyStorage *util.KeyStorage, cache *cache.ClientCache, opts ...client.Option) *RemoteHeader {
 	return &RemoteHeader{
