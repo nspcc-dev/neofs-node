@@ -3,10 +3,8 @@ module github.com/nspcc-dev/neofs-node
 go 1.14
 
 require (
-	bou.ke/monkey v1.0.2
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/alecthomas/participle v0.6.0
-	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/compress v1.11.3
@@ -23,12 +21,10 @@ require (
 	github.com/panjf2000/ants/v2 v2.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
-	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
-	github.com/valyala/fasthttp v1.9.0
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/atomic v1.5.1
 	go.uber.org/multierr v1.4.0 // indirect
