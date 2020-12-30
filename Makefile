@@ -99,7 +99,7 @@ imports:
 
 # Run Unit Test with go test
 test: test_dep
-	@echo "⇒ Runnning go test"
+	@echo "⇒ Running go test"
 	@GO111MODULE=on go test ./...
 
 # Run linters
