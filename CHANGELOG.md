@@ -1,16 +1,23 @@
 # Changelog
 Changelog for NeoFS Node
 
-## [0.14.0] - 2020-12-XX Yeouido (여의도, 汝矣島)
+## [0.14.0] - 2020-12-30 Yeouido (여의도, 汝矣島)
 
 Preview4 compatible NeoFS nodes with data audit.
 
 ### Added
 - Data audit routines in inner ring nodes.
-- Storage group operations in CLI (`neofs-cli storagegroup --help`)
+- Storage group operations in CLI (`neofs-cli storagegroup --help`).
+
+### Fixed
+- Loss of request X-headers during the forwarding in Object service.
 
 ### Changed
-- Updated neo-go version for preview4 compatibility
+- Updated neo-go version for preview4 compatibility.
+
+### Updated
+- neo-go v0.92.0.
+- neofs-api-go v1.22.0.
 
 ## [0.13.2] - 2020-12-24
 
