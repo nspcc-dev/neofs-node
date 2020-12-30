@@ -1,7 +1,7 @@
 # Changelog
 Changelog for NeoFS Node
 
-## [0.14.0] - 2020-12-30 Yeouido (여의도, 汝矣島)
+## [0.14.0] - 2020-12-30 - Yeouido (여의도, 汝矣島)
 
 Preview4 compatible NeoFS nodes with data audit.
 
@@ -52,7 +52,7 @@ Fixes based on Modo release testing results.
 
 ## [0.13.0] - 2020-12-15 - Modo (모도, 茅島)
 
-Implementation of a local object storage engine. 
+Implementation of a local object storage engine.
 Adaptation of the object service work scheme for the engine.
 
 ### Changed
@@ -85,7 +85,7 @@ Bugfixes and small performance improvements.
 
 ### Added
 
-- More debug logs in object service. 
+- More debug logs in object service.
 - Dial timeouts in object service config (`NEOFS_OBJECT_PUT_DIAL_TIMEOUT=5s`)
 
 ### Changed
