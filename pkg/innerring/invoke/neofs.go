@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-crypto"
+	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
