@@ -4,6 +4,7 @@ import (
 	"context"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +34,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 
 		rngPrm.SetRange(rng)
 		rngPrm.SetChunkWriter(&hasherWrapper{
-			hash: h,
+			hash: util.NewSaltingWriter(h, prm.salt),
 		})
 
 		if err := s.GetRange(ctx, rngPrm); err != nil {

@@ -2,7 +2,7 @@ package getsvc
 
 import (
 	"crypto/ecdsa"
-	"hash"
+	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -40,7 +40,7 @@ type partWriter struct {
 }
 
 type hasherWrapper struct {
-	hash hash.Hash
+	hash io.Writer
 }
 
 func NewSimpleObjectWriter() *SimpleObjectWriter {
