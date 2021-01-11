@@ -1,8 +1,6 @@
 package response
 
 import (
-	"context"
-
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/pkg/errors"
 )
@@ -29,19 +27,7 @@ func (s *ServerMessageStreamer) Recv() (util.ResponseMessage, error) {
 }
 
 // HandleServerStreamRequest builds internal streamer via handlers, wraps it to ServerMessageStreamer and returns the result.
-func (s *Service) HandleServerStreamRequest(ctx context.Context, req interface{}, handler util.ServerStreamHandler) (*ServerMessageStreamer, error) {
-	msgRdr, err := handler(ctx, req)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create message reader")
-	}
-
-	return &ServerMessageStreamer{
-		cfg:  s.cfg,
-		recv: msgRdr,
-	}, nil
-}
-
-func (s *Service) HandleServerStreamRequest_(respWriter util.ResponseMessageWriter) util.ResponseMessageWriter {
+func (s *Service) HandleServerStreamRequest(respWriter util.ResponseMessageWriter) util.ResponseMessageWriter {
 	return func(resp util.ResponseMessage) error {
 		setMeta(resp, s.cfg)
 

@@ -52,7 +52,7 @@ func (s *getStreamSigner) Send(resp *object.GetResponse) error {
 }
 
 func (s *SignService) Get(req *object.GetRequest, stream GetObjectStream) error {
-	respWriter, err := s.sigSvc.HandleServerStreamRequest_(req,
+	respWriter, err := s.sigSvc.HandleServerStreamRequest(req,
 		func(resp util.ResponseMessage) error {
 			return stream.Send(resp.(*object.GetResponse))
 		},
@@ -116,7 +116,7 @@ func (s *searchStreamSigner) Send(resp *object.SearchResponse) error {
 }
 
 func (s *SignService) Search(req *object.SearchRequest, stream SearchStream) error {
-	respWriter, err := s.sigSvc.HandleServerStreamRequest_(req,
+	respWriter, err := s.sigSvc.HandleServerStreamRequest(req,
 		func(resp util.ResponseMessage) error {
 			return stream.Send(resp.(*object.SearchResponse))
 		},
@@ -149,7 +149,7 @@ func (s *getRangeStreamSigner) Send(resp *object.GetRangeResponse) error {
 }
 
 func (s *SignService) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
-	respWriter, err := s.sigSvc.HandleServerStreamRequest_(req,
+	respWriter, err := s.sigSvc.HandleServerStreamRequest(req,
 		func(resp util.ResponseMessage) error {
 			return stream.Send(resp.(*object.GetRangeResponse))
 		},

@@ -53,7 +53,7 @@ func (s *getStreamResponser) Send(resp *object.GetResponse) error {
 func (s *ResponseService) Get(req *object.GetRequest, stream GetObjectStream) error {
 	return s.svc.Get(req, &getStreamResponser{
 		ServerStream: stream,
-		respWriter: s.respSvc.HandleServerStreamRequest_(func(resp util.ResponseMessage) error {
+		respWriter: s.respSvc.HandleServerStreamRequest(func(resp util.ResponseMessage) error {
 			return stream.Send(resp.(*object.GetResponse))
 		}),
 	})
@@ -110,7 +110,7 @@ func (s *searchStreamResponser) Send(resp *object.SearchResponse) error {
 func (s *ResponseService) Search(req *object.SearchRequest, stream SearchStream) error {
 	return s.svc.Search(req, &searchStreamResponser{
 		ServerStream: stream,
-		respWriter: s.respSvc.HandleServerStreamRequest_(func(resp util.ResponseMessage) error {
+		respWriter: s.respSvc.HandleServerStreamRequest(func(resp util.ResponseMessage) error {
 			return stream.Send(resp.(*object.SearchResponse))
 		}),
 	})
@@ -136,7 +136,7 @@ func (s *getRangeStreamResponser) Send(resp *object.GetRangeResponse) error {
 func (s *ResponseService) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
 	return s.svc.GetRange(req, &getRangeStreamResponser{
 		ServerStream: stream,
-		respWriter: s.respSvc.HandleServerStreamRequest_(func(resp util.ResponseMessage) error {
+		respWriter: s.respSvc.HandleServerStreamRequest(func(resp util.ResponseMessage) error {
 			return stream.Send(resp.(*object.GetRangeResponse))
 		}),
 	})

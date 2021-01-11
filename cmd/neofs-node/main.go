@@ -19,7 +19,7 @@ func main() {
 
 	c := initCfg(*configFile)
 
-	init_(c)
+	initApp(c)
 
 	bootUp(c)
 
@@ -28,7 +28,7 @@ func main() {
 	shutdown(c)
 }
 
-func init_(c *cfg) {
+func initApp(c *cfg) {
 	c.ctx = grace.NewGracefulContext(nil)
 
 	initGRPC(c)
