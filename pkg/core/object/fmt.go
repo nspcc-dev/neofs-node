@@ -157,6 +157,8 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 				return errors.Errorf("(%T) empty member in SG", v)
 			}
 		}
+	default:
+		return errors.Errorf("(%T) unsupported object type %s", v, o.Type())
 	}
 
 	return nil
