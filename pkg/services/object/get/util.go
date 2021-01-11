@@ -102,12 +102,12 @@ func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
 		}
 
 		return payloadOnlyObject(data), nil
-	} else {
-		return c.client.GetObject(exec.context(),
-			exec.remotePrm(),
-			exec.callOptions()...,
-		)
 	}
+
+	return c.client.GetObject(exec.context(),
+		exec.remotePrm(),
+		exec.callOptions()...,
+	)
 }
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {

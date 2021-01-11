@@ -42,19 +42,19 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 	if big {
 		// save object in shallow dir
 		return new(PutRes), b.fsTree.put(prm.obj.Address(), data)
-	} else {
-		// save object in blobovnicza
-		res, err := b.blobovniczas.put(prm.obj.Address(), data)
-		if err != nil {
-			return nil, err
-		}
-
-		return &PutRes{
-			roBlobovniczaID: roBlobovniczaID{
-				blobovniczaID: res,
-			},
-		}, nil
 	}
+
+	// save object in blobovnicza
+	res, err := b.blobovniczas.put(prm.obj.Address(), data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PutRes{
+		roBlobovniczaID: roBlobovniczaID{
+			blobovniczaID: res,
+		},
+	}, nil
 }
 
 func (t *fsTree) put(addr *objectSDK.Address, data []byte) error {

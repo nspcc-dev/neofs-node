@@ -55,11 +55,12 @@ func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
 
 	args := client.GetArgs{}
 
-	if v2 := cid.ToV2(); v2 == nil {
+	v2 := cid.ToV2()
+	if v2 == nil {
 		return nil, errUnsupported // use other major version if there any
-	} else {
-		args.SetCID(v2.GetValue())
 	}
+
+	args.SetCID(v2.GetValue())
 
 	// ask RPC neo node to get serialized container
 	rpcAnswer, err := w.client.Get(args)
@@ -97,11 +98,12 @@ func (w *Wrapper) Delete(cid *container.ID, signature []byte) error {
 	args := client.DeleteArgs{}
 	args.SetSignature(signature)
 
-	if v2 := cid.ToV2(); v2 == nil {
+	v2 := cid.ToV2()
+	if v2 == nil {
 		return errUnsupported // use other major version if there any
-	} else {
-		args.SetCID(v2.GetValue())
 	}
+
+	args.SetCID(v2.GetValue())
 
 	return w.client.Delete(args)
 }

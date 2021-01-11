@@ -62,11 +62,12 @@ func (w *ClientWrapper) ListAuditResultIDByCID(epoch uint64, cid *container.ID) 
 	args := audit.ListResultsByCIDArgs{}
 	args.SetEpoch(int64(epoch))
 
-	if v2 := cid.ToV2(); v2 == nil {
+	v2 := cid.ToV2()
+	if v2 == nil {
 		return nil, errUnsupported // use other major version if there any
-	} else {
-		args.SetCID(v2.GetValue())
 	}
+
+	args.SetCID(v2.GetValue())
 
 	values, err := (*audit.Client)(w).ListAuditResultsByCID(args)
 	if err != nil {
@@ -83,11 +84,12 @@ func (w *ClientWrapper) ListAuditResultIDByNode(epoch uint64, cid *container.ID,
 	args.SetEpoch(int64(epoch))
 	args.SetNodeKey(key)
 
-	if v2 := cid.ToV2(); v2 == nil {
+	v2 := cid.ToV2()
+	if v2 == nil {
 		return nil, errUnsupported // use other major version if there any
-	} else {
-		args.SetCID(v2.GetValue())
 	}
+
+	args.SetCID(v2.GetValue())
 
 	values, err := (*audit.Client)(w).ListAuditResultsByNode(args)
 	if err != nil {

@@ -32,9 +32,9 @@ func readAttributes(v *viper.Viper) (attrs []string) {
 		attr := v.GetString(cfgNodeAttributePrefix + "_" + strconv.Itoa(i))
 		if attr == "" {
 			return
-		} else {
-			attrs = append(attrs, attr)
 		}
+
+		attrs = append(attrs, attr)
 	}
 
 	return attrs
