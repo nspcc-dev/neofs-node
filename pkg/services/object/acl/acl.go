@@ -489,9 +489,9 @@ func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.PutObjectPartInit); ok {
 			return container.NewIDFromV2(part.GetHeader().GetContainerID()), nil
-		} else {
-			return nil, errors.New("can't get cid in chunk")
 		}
+
+		return nil, errors.New("can't get cid in chunk")
 	case *object.HeadRequest:
 		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.SearchRequest:
@@ -543,16 +543,16 @@ func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.PutObjectPartInit); ok {
 			return owner.NewIDFromV2(part.GetHeader().GetOwnerID()), nil
-		} else {
-			return nil, errors.New("can't get cid in chunk")
 		}
+
+		return nil, errors.New("can't get cid in chunk")
 	case *object.GetResponse:
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.GetObjectPartInit); ok {
 			return owner.NewIDFromV2(part.GetHeader().GetOwnerID()), nil
-		} else {
-			return nil, errors.New("can't get cid in chunk")
 		}
+
+		return nil, errors.New("can't get cid in chunk")
 	default:
 		return nil, errors.New("unsupported request type")
 	}

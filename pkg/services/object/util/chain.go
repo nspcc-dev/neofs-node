@@ -119,10 +119,10 @@ func traverseSplitChain(r HeadReceiver, addr *objectSDK.Address, h SplitMemberHa
 				if stop, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 					if !reverseDirection {
 						return h(member, false)
-					} else {
-						reverseChain = append(reverseChain, member)
-						return false
 					}
+
+					reverseChain = append(reverseChain, member)
+					return false
 				}); err != nil || stop {
 					return stop, err
 				}

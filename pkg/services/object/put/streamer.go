@@ -136,15 +136,15 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				return &localTarget{
 					storage: p.localStore,
 				}
-			} else {
-				return &remoteTarget{
-					ctx:         p.ctx,
-					keyStorage:  p.keyStorage,
-					commonPrm:   prm.common,
-					addr:        addr,
-					clientCache: p.clientCache,
-					clientOpts:  p.clientOpts,
-				}
+			}
+
+			return &remoteTarget{
+				ctx:         p.ctx,
+				keyStorage:  p.keyStorage,
+				commonPrm:   prm.common,
+				addr:        addr,
+				clientCache: p.clientCache,
+				clientOpts:  p.clientOpts,
 			}
 		},
 		fmt: p.fmtValidator,

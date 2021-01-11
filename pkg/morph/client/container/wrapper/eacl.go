@@ -17,11 +17,12 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, []byte, error) {
 
 	args := client.EACLArgs{}
 
-	if v2 := cid.ToV2(); v2 == nil {
+	v2 := cid.ToV2()
+	if v2 == nil {
 		return nil, nil, errUnsupported // use other major version if there any
-	} else {
-		args.SetCID(v2.GetValue())
 	}
+
+	args.SetCID(v2.GetValue())
 
 	rpcAnswer, err := w.client.EACL(args)
 	if err != nil {
