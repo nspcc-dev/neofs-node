@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/misc"
 
 	"github.com/spf13/cobra"
