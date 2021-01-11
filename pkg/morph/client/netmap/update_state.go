@@ -27,8 +27,8 @@ func (u *UpdateStateArgs) SetState(v int64) {
 // of NeoFS Netmap contract.
 func (c *Client) UpdateState(args UpdateStateArgs) error {
 	return errors.Wrapf(c.client.Invoke(
-		c.addPeerMethod,
-		args.key,
+		c.updateStateMethod,
 		args.state,
+		args.key,
 	), "could not invoke method (%s)", c.updateStateMethod)
 }
