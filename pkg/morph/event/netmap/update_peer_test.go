@@ -48,8 +48,8 @@ func TestParseUpdatePeer(t *testing.T) {
 
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParseUpdatePeer([]stackitem.Item{
-			stackitem.NewByteArray(crypto.MarshalPublicKey(publicKey)),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(int64(state.ToV2()))),
+			stackitem.NewByteArray(crypto.MarshalPublicKey(publicKey)),
 		})
 		require.NoError(t, err)
 

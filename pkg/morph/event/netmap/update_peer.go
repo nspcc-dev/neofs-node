@@ -39,7 +39,7 @@ func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 	}
 
 	// parse public key
-	key, err := client.BytesFromStackItem(prms[0])
+	key, err := client.BytesFromStackItem(prms[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get public key")
 	}
@@ -50,7 +50,7 @@ func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 	}
 
 	// parse node status
-	st, err := client.IntFromStackItem(prms[1])
+	st, err := client.IntFromStackItem(prms[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get node status")
 	}
