@@ -28,6 +28,8 @@ type RangeHashPrm struct {
 	hashGen func() hash.Hash
 
 	rngs []*objectSDK.Range
+
+	salt []byte
 }
 
 // HeadPrm groups parameters of Head service call.
@@ -86,6 +88,11 @@ func (p *RangeHashPrm) SetRangeList(rngs []*objectSDK.Range) {
 // SetHashGenerator sets constructor of hashing algorithm.
 func (p *RangeHashPrm) SetHashGenerator(v func() hash.Hash) {
 	p.hashGen = v
+}
+
+// SetSalt sets binary salt to XOR object's payload ranges before hash calculation.
+func (p *RangeHashPrm) SetSalt(salt []byte) {
+	p.salt = salt
 }
 
 // SetCommonParameters sets common parameters of the operation.
