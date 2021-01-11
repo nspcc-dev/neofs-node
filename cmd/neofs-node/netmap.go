@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
@@ -113,4 +114,19 @@ func initState(c *cfg) {
 
 func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
 	addNetmapNotificationHandler(c, newEpochNotification, h)
+}
+
+func goOffline(c *cfg) {
+	err := c.cfgNetmap.wrapper.UpdatePeerState(
+		crypto.MarshalPublicKey(&c.key.PublicKey),
+		wrapper.StateOffline,
+	)
+
+	if err != nil {
+		c.log.Error("could not go offline",
+			zap.String("error", err.Error()),
+		)
+	} else {
+		c.log.Info("request to go offline successfully sent")
+	}
 }

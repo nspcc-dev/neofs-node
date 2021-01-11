@@ -64,5 +64,7 @@ func shutdown(c *cfg) {
 
 	c.log.Info("gRPC server stopped")
 
+	goOffline(c)
+
 	c.wg.Wait()
 }
