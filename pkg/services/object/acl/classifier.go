@@ -48,7 +48,6 @@ func (c SenderClassifier) Classify(
 	req metaWithToken,
 	cid *container.ID,
 	cnr *container.Container) (role acl.Role, isIR bool, key []byte, err error) {
-
 	if cid == nil {
 		return 0, false, nil, errors.Wrap(ErrMalformedRequest, "container id is not set")
 	}
@@ -146,9 +145,7 @@ func (c SenderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 func (c SenderClassifier) isContainerKey(
 	owner, cid []byte,
 	cnr *container.Container) (bool, error) {
-
-	// first check current netmap
-	nm, err := core.GetLatestNetworkMap(c.netmap)
+	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
 	if err != nil {
 		return false, err
 	}
@@ -174,7 +171,6 @@ func lookupKeyInContainer(
 	nm *netmap.Netmap,
 	owner, cid []byte,
 	cnr *container.Container) (bool, error) {
-
 	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), cid)
 	if err != nil {
 		return false, err

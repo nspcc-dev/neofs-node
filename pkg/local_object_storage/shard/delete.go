@@ -91,7 +91,6 @@ func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
 				zap.Stringer("object_address", prm.addr[i]),
 				zap.String("error", err.Error()))
 		}
-
 	}
 
 	return nil, nil

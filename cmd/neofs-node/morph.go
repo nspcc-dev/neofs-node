@@ -81,6 +81,5 @@ func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parse
 
 			lis.RegisterHandler(hi)
 		}
-
 	}
 }

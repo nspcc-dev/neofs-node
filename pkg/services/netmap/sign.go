@@ -24,7 +24,6 @@ func NewSignService(key *ecdsa.PrivateKey, svc netmap.Service) netmap.Service {
 func (s *signService) LocalNodeInfo(
 	ctx context.Context,
 	req *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
-
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.LocalNodeInfo(ctx, req.(*netmap.LocalNodeInfoRequest))

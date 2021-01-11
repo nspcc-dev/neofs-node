@@ -210,7 +210,6 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 func writeHashes(hashers []*payloadChecksumHasher) {
 	for i := range hashers {
 		hashers[i].checksumWriter(hashers[i].hasher.Sum(nil))
-
 	}
 }
 

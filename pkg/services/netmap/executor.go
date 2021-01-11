@@ -27,7 +27,6 @@ func NewExecutionService(ni *netmap.NodeInfo, v *pkg.Version) netmap.Service {
 func (s *executorSvc) LocalNodeInfo(
 	_ context.Context,
 	_ *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
-
 	body := new(netmap.LocalNodeInfoResponseBody)
 	body.SetVersion(s.version.ToV2())
 	body.SetNodeInfo(s.localNodeInfo)
