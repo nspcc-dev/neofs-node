@@ -24,7 +24,6 @@ func New(c netmap.Service) *Server {
 func (s *Server) LocalNodeInfo(
 	ctx context.Context,
 	req *netmapGRPC.LocalNodeInfoRequest) (*netmapGRPC.LocalNodeInfoResponse, error) {
-
 	resp, err := s.srv.LocalNodeInfo(ctx, netmap.LocalNodeInfoRequestFromGRPCMessage(req))
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC

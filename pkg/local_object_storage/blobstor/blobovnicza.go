@@ -840,5 +840,4 @@ func u64FromHexString(str string) uint64 {
 	}
 
 	return v
-
 }

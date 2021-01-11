@@ -187,7 +187,6 @@ func (b Service) Put(ctx context.Context) (object.PutObjectStreamer, error) {
 func (b Service) Head(
 	ctx context.Context,
 	request *object.HeadRequest) (*object.HeadResponse, error) {
-
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
@@ -264,7 +263,6 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 func (b Service) Delete(
 	ctx context.Context,
 	request *object.DeleteRequest) (*object.DeleteResponse, error) {
-
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
@@ -335,7 +333,6 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 func (b Service) GetRangeHash(
 	ctx context.Context,
 	request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-
 	cid, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
@@ -446,9 +443,7 @@ func (b Service) findRequestInfo(
 	req metaWithToken,
 	cid *container.ID,
 	op acl.Operation) (info requestInfo, err error) {
-
-	// fetch actual container
-	cnr, err := b.containers.Get(cid)
+	cnr, err := b.containers.Get(cid) // fetch actual container
 	if err != nil || cnr.OwnerID() == nil {
 		return info, ErrUnknownContainer
 	}
@@ -561,7 +556,6 @@ func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 	default:
 		return nil, errors.New("unsupported request type")
 	}
-
 }
 
 // main check function for basic ACL

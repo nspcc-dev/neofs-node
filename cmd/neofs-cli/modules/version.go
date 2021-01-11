@@ -31,7 +31,6 @@ func init() {
 }
 
 func versionRun(cmd *cobra.Command, args []string) {
-
 	versionInfo := VersionInfo{Version: misc.Version, Build: misc.Build, Debug: misc.Debug}
 
 	if flagJSON {
