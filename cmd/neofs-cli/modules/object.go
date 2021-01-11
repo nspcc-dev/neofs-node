@@ -30,6 +30,10 @@ const (
 	getRangeCmdLongDesc = "Get payload range data of an object"
 )
 
+const (
+	getRangeHashSaltFlag = "salt"
+)
+
 var (
 	// objectCmd represents the object command
 	objectCmd = &cobra.Command{
@@ -157,6 +161,7 @@ func init() {
 	_ = objectHashCmd.MarkFlagRequired("oid")
 	objectHashCmd.Flags().String("range", "", "Range to take hash from in the form offset1:length1,...")
 	objectHashCmd.Flags().String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")
+	objectHashCmd.Flags().String(getRangeHashSaltFlag, "", "Salt in hex format")
 
 	objectCmd.AddCommand(objectRangeCmd)
 	objectRangeCmd.Flags().String("cid", "", "Container ID")
@@ -427,6 +432,11 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	salt, err := hex.DecodeString(cmd.Flag(getRangeHashSaltFlag).Value.String())
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
@@ -456,7 +466,11 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	ps := new(client.RangeChecksumParams).WithAddress(objAddr).WithRangeList(ranges...)
+	ps := new(client.RangeChecksumParams).
+		WithAddress(objAddr).
+		WithRangeList(ranges...).
+		WithSalt(salt)
+
 	switch typ {
 	case hashSha256:
 		res, err := cli.ObjectPayloadRangeSHA256(ctx, ps,
