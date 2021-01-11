@@ -23,8 +23,6 @@ type SignService struct {
 
 type ResponseMessageWriter func(ResponseMessage) error
 
-type ServerStreamHandler_ func(interface{}, ResponseMessageWriter) (ResponseMessageWriter, error)
-
 type ServerStreamHandler func(context.Context, interface{}) (ResponseMessageReader, error)
 
 type ResponseMessageReader func() (ResponseMessage, error)
@@ -96,24 +94,7 @@ func (s *ResponseMessageStreamer) Recv() (ResponseMessage, error) {
 	return m, nil
 }
 
-func (s *SignService) HandleServerStreamRequest(ctx context.Context, req interface{}, handler ServerStreamHandler) (*ResponseMessageStreamer, error) {
-	// verify request signatures
-	if err := signature.VerifyServiceMessage(req); err != nil {
-		return nil, errors.Wrap(err, "could not verify request")
-	}
-
-	msgRdr, err := handler(ctx, req)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create message reader")
-	}
-
-	return &ResponseMessageStreamer{
-		key:  s.key,
-		recv: msgRdr,
-	}, nil
-}
-
-func (s *SignService) HandleServerStreamRequest_(req interface{}, respWriter ResponseMessageWriter) (ResponseMessageWriter, error) {
+func (s *SignService) HandleServerStreamRequest(req interface{}, respWriter ResponseMessageWriter) (ResponseMessageWriter, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
 		return nil, errors.Wrap(err, "could not verify request")
