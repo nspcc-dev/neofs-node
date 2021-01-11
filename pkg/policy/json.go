@@ -177,6 +177,8 @@ func (f *filter) fromNetmap(nf *netmap.Filter) {
 		f.Op = "AND"
 	case netmap.OR:
 		f.Op = "OR"
+	default:
+		// do nothing
 	}
 	if nf.GetFilters() != nil {
 		f.Filters = make([]filter, len(nf.GetFilters()))
@@ -216,6 +218,8 @@ func (s *selector) fromNetmap(ns *netmap.Selector) {
 		s.Clause = "same"
 	case netmap.Distinct:
 		s.Clause = "distinct"
+	default:
+		// do nothing
 	}
 	s.Name = ns.GetName()
 }
