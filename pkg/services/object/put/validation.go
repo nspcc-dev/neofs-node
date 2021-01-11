@@ -43,7 +43,10 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 }
 
 func (t *validatingTarget) Write(p []byte) (n int, err error) {
-	t.hash.Write(p)
+	n, err = t.hash.Write(p)
+	if err != nil {
+		return
+	}
 
 	return t.nextTarget.Write(p)
 }
