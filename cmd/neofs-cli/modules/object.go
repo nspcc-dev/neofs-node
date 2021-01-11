@@ -432,7 +432,9 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	salt, err := hex.DecodeString(cmd.Flag(getRangeHashSaltFlag).Value.String())
+	strSalt := strings.TrimPrefix(cmd.Flag(getRangeHashSaltFlag).Value.String(), "0x")
+
+	salt, err := hex.DecodeString(strSalt)
 	if err != nil {
 		return err
 	}
