@@ -83,6 +83,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	}
 
 	p.SetRangeList(rngs)
+	p.SetSalt(body.GetSalt())
 
 	switch t := body.GetType(); t {
 	default:
