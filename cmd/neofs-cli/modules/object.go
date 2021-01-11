@@ -752,12 +752,12 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 }
 
 func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
-	toJson, _ := cmd.Flags().GetBool("json")
+	toJSON, _ := cmd.Flags().GetBool("json")
 	toProto, _ := cmd.Flags().GetBool("proto")
 	switch {
-	case toJson && toProto:
+	case toJSON && toProto:
 		return nil, errors.New("'--json' and '--proto' flags are mutually exclusive")
-	case toJson:
+	case toJSON:
 		return hdr.MarshalJSON()
 	case toProto:
 		return hdr.Marshal()
