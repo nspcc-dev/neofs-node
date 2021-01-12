@@ -14,12 +14,30 @@ func (w Wrapper) GetNetMap(diff uint64) (*netmap.Netmap, error) {
 	args := client.GetSnapshotArgs{}
 	args.SetDiff(diff)
 
-	peers, err := w.client.Snapshot(args)
+	vals, err := w.client.Snapshot(args)
 	if err != nil {
 		return nil, err
 	}
 
-	rawPeers := peers.Peers() // slice of serialized node infos
+	return unmarshalNetmap(vals.Peers())
+}
+
+// GetNetMapByEpoch receives information list about storage nodes
+// through the Netmap contract call, composes network map
+// from them and returns it. Returns snapshot of the specified epoch number.
+func (w Wrapper) GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error) {
+	args := client.EpochSnapshotArgs{}
+	args.SetEpoch(epoch)
+
+	vals, err := w.client.EpochSnapshot(args)
+	if err != nil {
+		return nil, err
+	}
+
+	return unmarshalNetmap(vals.Peers())
+}
+
+func unmarshalNetmap(rawPeers [][]byte) (*netmap.Netmap, error) {
 	infos := make([]netmap.NodeInfo, 0, len(rawPeers))
 
 	for _, peer := range rawPeers {
