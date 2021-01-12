@@ -12,12 +12,14 @@ type netMapBuilder struct {
 }
 
 type netMapSrc struct {
+	netmap.Source
+
 	nm *netmapSDK.Netmap
 }
 
 func NewNetworkMapBuilder(nm *netmapSDK.Netmap) Builder {
 	return &netMapBuilder{
-		nmSrc: &netMapSrc{nm},
+		nmSrc: &netMapSrc{nm: nm},
 	}
 }
 
