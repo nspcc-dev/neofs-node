@@ -23,12 +23,29 @@ type GetNetMapValues struct {
 	peers [][]byte
 }
 
+// EpochSnapshotArgs groups the arguments
+// of snapshot by epoch test invoke call.
+type EpochSnapshotArgs struct {
+	epoch uint64
+}
+
+// EpochSnapshotValues groups the stack parameters
+// returned by snapshot by epoch test invoke.
+type EpochSnapshotValues struct {
+	*GetNetMapValues
+}
+
 const nodeInfoFixedPrmNumber = 1
 
 // SetDiff sets argument for snapshot method of
 // netmap contract.
 func (g *GetSnapshotArgs) SetDiff(d uint64) {
 	g.diff = d
+}
+
+// SetEpoch sets epoch number to get snapshot.
+func (a *EpochSnapshotArgs) SetEpoch(d uint64) {
+	a.epoch = d
 }
 
 // Peers return the list of peers from
@@ -67,6 +84,29 @@ func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
 	}
 
 	return peersFromStackItems(prms, c.snapshotMethod)
+}
+
+// EpochSnapshot performs the test invoke of get snapshot of network map by epoch
+// from NeoFS Netmap contract.
+func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, error) {
+	prms, err := c.client.TestInvoke(
+		c.epochSnapshotMethod,
+		int64(args.epoch),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err,
+			"could not perform test invocation (%s)",
+			c.epochSnapshotMethod)
+	}
+
+	nmVals, err := peersFromStackItems(prms, c.epochSnapshotMethod)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EpochSnapshotValues{
+		GetNetMapValues: nmVals,
+	}, nil
 }
 
 func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValues, error) {
