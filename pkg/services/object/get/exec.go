@@ -10,6 +10,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -38,6 +39,8 @@ type execCtx struct {
 	curOff uint64
 
 	head bool
+
+	curProcEpoch uint64
 }
 
 type execOption func(*execCtx)
@@ -106,7 +109,9 @@ func (exec execCtx) key() *ecdsa.PrivateKey {
 }
 
 func (exec execCtx) callOptions() []client.CallOption {
-	return exec.prm.common.RemoteCallOptions()
+	return exec.prm.common.RemoteCallOptions(
+		util.WithNetmapEpoch(exec.curProcEpoch),
+	)
 }
 
 func (exec execCtx) remotePrm() *client.GetObjectParams {
@@ -135,8 +140,40 @@ func (exec *execCtx) headOnly() bool {
 	return exec.head
 }
 
+func (exec *execCtx) netmapEpoch() uint64 {
+	return exec.prm.common.NetmapEpoch()
+}
+
+func (exec *execCtx) netmapLookupDepth() uint64 {
+	return exec.prm.common.NetmapLookupDepth()
+}
+
+func (exec *execCtx) initEpoch() bool {
+	exec.curProcEpoch = exec.netmapEpoch()
+	if exec.curProcEpoch > 0 {
+		return true
+	}
+
+	e, err := exec.svc.currentEpochReceiver.currentEpoch()
+
+	switch {
+	default:
+		exec.status = statusUndefined
+		exec.err = err
+
+		exec.log.Debug("could not get current epoch number",
+			zap.String("error", err.Error()),
+		)
+
+		return false
+	case err == nil:
+		exec.curProcEpoch = e
+		return true
+	}
+}
+
 func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Traverser, bool) {
-	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr)
+	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr, exec.curProcEpoch)
 
 	switch {
 	default:

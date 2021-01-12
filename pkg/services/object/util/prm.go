@@ -2,6 +2,7 @@ package util
 
 import (
 	"crypto/ecdsa"
+	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -12,6 +13,8 @@ import (
 type CommonPrm struct {
 	local bool
 
+	netmapEpoch, netmapLookupDepth uint64
+
 	token *token.SessionToken
 
 	bearer *token.BearerToken
@@ -20,6 +23,12 @@ type CommonPrm struct {
 
 	callOpts []client.CallOption
 }
+
+type remoteCallOpts struct {
+	opts []client.CallOption
+}
+
+type DynamicCallOption func(*remoteCallOpts)
 
 func (p *CommonPrm) WithLocalOnly(v bool) *CommonPrm {
 	if p != nil {
@@ -81,12 +90,30 @@ func (p *CommonPrm) WithRemoteCallOptions(opts ...client.CallOption) *CommonPrm 
 }
 
 // RemoteCallOptions return call options for remote client calls.
-func (p *CommonPrm) RemoteCallOptions() []client.CallOption {
+func (p *CommonPrm) RemoteCallOptions(dynamic ...DynamicCallOption) []client.CallOption {
 	if p != nil {
-		return p.callOpts
+		o := &remoteCallOpts{
+			opts: p.callOpts,
+		}
+
+		for _, applier := range dynamic {
+			applier(o)
+		}
+
+		return o.opts
 	}
 
 	return nil
+}
+
+func WithNetmapEpoch(v uint64) DynamicCallOption {
+	return func(o *remoteCallOpts) {
+		xHdr := pkg.NewXHeader()
+		xHdr.SetKey(session.XHeaderNetmapEpoch)
+		xHdr.SetValue(strconv.FormatUint(v, 10))
+
+		o.opts = append(o.opts, client.WithXHeader(xHdr))
+	}
 }
 
 func (p *CommonPrm) SessionToken() *token.SessionToken {
@@ -105,9 +132,31 @@ func (p *CommonPrm) BearerToken() *token.BearerToken {
 	return nil
 }
 
+func (p *CommonPrm) NetmapEpoch() uint64 {
+	if p != nil {
+		return p.netmapEpoch
+	}
+
+	return 0
+}
+
+func (p *CommonPrm) NetmapLookupDepth() uint64 {
+	if p != nil {
+		return p.netmapLookupDepth
+	}
+
+	return 0
+}
+
+func (p *CommonPrm) SetNetmapLookupDepth(v uint64) {
+	if p != nil {
+		p.netmapLookupDepth = v
+	}
+}
+
 func CommonPrmFromV2(req interface {
 	GetMetaHeader() *session.RequestMetaHeader
-}) *CommonPrm {
+}) (*CommonPrm, error) {
 	meta := req.GetMetaHeader()
 
 	xHdrs := meta.GetXHeaders()
@@ -134,12 +183,29 @@ func CommonPrmFromV2(req interface {
 	}
 
 	for i := range xHdrs {
-		prm.callOpts = append(prm.callOpts,
-			client.WithXHeader(
-				pkg.NewXHeaderFromV2(xHdrs[i]),
-			),
-		)
+		switch xHdrs[i].GetKey() {
+		case session.XHeaderNetmapEpoch:
+			var err error
+
+			prm.netmapEpoch, err = strconv.ParseUint(xHdrs[i].GetValue(), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		case session.XHeaderNetmapLookupDepth:
+			var err error
+
+			prm.netmapLookupDepth, err = strconv.ParseUint(xHdrs[i].GetValue(), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			prm.callOpts = append(prm.callOpts,
+				client.WithXHeader(
+					pkg.NewXHeaderFromV2(xHdrs[i]),
+				),
+			)
+		}
 	}
 
-	return prm
+	return prm, nil
 }

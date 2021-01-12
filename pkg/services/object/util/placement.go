@@ -116,12 +116,13 @@ func (g *TraverserGenerator) WithTraverseOptions(opts ...placement.Option) *Trav
 	}
 }
 
-// GenerateTraverser generates placement Traverser for provided object address.
-func (g *TraverserGenerator) GenerateTraverser(addr *object.Address) (*placement.Traverser, error) {
-	// get latest network map
-	nm, err := netmap.GetLatestNetworkMap(g.netMapSrc)
+// GenerateTraverser generates placement Traverser for provided object address
+// using epoch-th network map.
+func (g *TraverserGenerator) GenerateTraverser(addr *object.Address, epoch uint64) (*placement.Traverser, error) {
+	// get network map by epoch
+	nm, err := g.netMapSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get latest network map")
+		return nil, errors.Wrapf(err, "could not get network map #%d", epoch)
 	}
 
 	// get container related container

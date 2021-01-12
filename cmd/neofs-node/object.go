@@ -242,6 +242,7 @@ func initObjectService(c *cfg) {
 				placement.WithoutSuccessTracking(),
 			),
 		),
+		searchsvc.WithNetMapSource(c.cfgNetmap.wrapper),
 	)
 
 	sSearchV2 := searchsvcV2.NewService(
@@ -261,6 +262,7 @@ func initObjectService(c *cfg) {
 				placement.SuccessAfter(1),
 			),
 		),
+		getsvc.WithNetMapSource(c.cfgNetmap.wrapper),
 	)
 
 	sGetV2 := getsvcV2.NewService(

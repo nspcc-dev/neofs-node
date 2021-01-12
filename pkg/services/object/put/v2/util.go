@@ -7,17 +7,22 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
-func toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) *putsvc.PutInitPrm {
+func toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) (*putsvc.PutInitPrm, error) {
 	oV2 := new(objectV2.Object)
 	oV2.SetObjectID(part.GetObjectID())
 	oV2.SetSignature(part.GetSignature())
 	oV2.SetHeader(part.GetHeader())
 
+	commonPrm, err := util.CommonPrmFromV2(req)
+	if err != nil {
+		return nil, err
+	}
+
 	return new(putsvc.PutInitPrm).
 		WithObject(
 			object.NewRawFromV2(oV2),
 		).
-		WithCommonPrm(util.CommonPrmFromV2(req))
+		WithCommonPrm(commonPrm), nil
 }
 
 func toChunkPrm(req *objectV2.PutObjectPartChunk) *putsvc.PutChunkPrm {

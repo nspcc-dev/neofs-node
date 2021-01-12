@@ -31,7 +31,7 @@ type testStorage struct {
 
 type testTraverserGenerator struct {
 	c *container.Container
-	b placement.Builder
+	b map[uint64]placement.Builder
 }
 
 type testPlacementBuilder struct {
@@ -49,6 +49,12 @@ type testClient struct {
 	}
 }
 
+type testEpochReceiver uint64
+
+func (e testEpochReceiver) currentEpoch() (uint64, error) {
+	return uint64(e), nil
+}
+
 func newTestStorage() *testStorage {
 	return &testStorage{
 		inhumed: make(map[string]struct{}),
@@ -57,11 +63,11 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) GenerateTraverser(addr *objectSDK.Address) (*placement.Traverser, error) {
+func (g *testTraverserGenerator) GenerateTraverser(addr *objectSDK.Address, e uint64) (*placement.Traverser, error) {
 	return placement.NewTraverser(
 		placement.ForContainer(g.c),
 		placement.ForObject(addr.ObjectID()),
-		placement.UseBuilder(g.b),
+		placement.UseBuilder(g.b[e]),
 		placement.SuccessAfter(1),
 	)
 }
@@ -467,11 +473,17 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 		svc.assembly = true
+
+		const curEpoch = 13
+
 		svc.traverserGenerator = &testTraverserGenerator{
 			c: cnr,
-			b: b,
+			b: map[uint64]placement.Builder{
+				curEpoch: b,
+			},
 		}
 		svc.clientCache = c
+		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 		return svc
 	}
@@ -1094,4 +1106,128 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestGetFromPastEpoch(t *testing.T) {
+	ctx := context.Background()
+
+	cnr := container.New(container.WithPolicy(new(netmap.PlacementPolicy)))
+	cid := container.CalculateID(cnr)
+
+	addr := generateAddress()
+	addr.SetContainerID(cid)
+
+	payloadSz := uint64(10)
+	payload := make([]byte, payloadSz)
+	_, _ = rand.Read(payload)
+
+	obj := generateObject(addr, nil, payload)
+
+	ns, as := testNodeMatrix(t, []int{2, 2})
+
+	c11 := newTestClient()
+	c11.addResult(addr, nil, errors.New("any error"))
+
+	c12 := newTestClient()
+	c12.addResult(addr, nil, errors.New("any error"))
+
+	c21 := newTestClient()
+	c21.addResult(addr, nil, errors.New("any error"))
+
+	c22 := newTestClient()
+	c22.addResult(addr, obj, nil)
+
+	svc := &Service{cfg: new(cfg)}
+	svc.log = test.NewLogger(false)
+	svc.localStorage = newTestStorage()
+	svc.assembly = true
+
+	const curEpoch = 13
+
+	svc.traverserGenerator = &testTraverserGenerator{
+		c: cnr,
+		b: map[uint64]placement.Builder{
+			curEpoch: &testPlacementBuilder{
+				vectors: map[string][]netmap.Nodes{
+					addr.String(): ns[:1],
+				},
+			},
+			curEpoch - 1: &testPlacementBuilder{
+				vectors: map[string][]netmap.Nodes{
+					addr.String(): ns[1:],
+				},
+			},
+		},
+	}
+
+	svc.clientCache = &testClientCache{
+		clients: map[string]*testClient{
+			as[0][0]: c11,
+			as[0][1]: c12,
+			as[1][0]: c21,
+			as[1][1]: c22,
+		},
+	}
+
+	svc.currentEpochReceiver = testEpochReceiver(curEpoch)
+
+	w := NewSimpleObjectWriter()
+
+	commonPrm := new(util.CommonPrm)
+
+	p := Prm{}
+	p.SetObjectWriter(w)
+	p.SetCommonParameters(commonPrm)
+	p.WithAddress(addr)
+
+	err := svc.Get(ctx, p)
+	require.True(t, errors.Is(err, object.ErrNotFound))
+
+	commonPrm.SetNetmapLookupDepth(1)
+
+	err = svc.Get(ctx, p)
+	require.NoError(t, err)
+	require.Equal(t, obj.Object(), w.Object())
+
+	rp := RangePrm{}
+	rp.SetChunkWriter(w)
+	commonPrm.SetNetmapLookupDepth(0)
+	rp.SetCommonParameters(commonPrm)
+	rp.WithAddress(addr)
+
+	off, ln := payloadSz/3, payloadSz/3
+
+	r := objectSDK.NewRange()
+	r.SetOffset(off)
+	r.SetLength(ln)
+
+	rp.SetRange(r)
+
+	err = svc.GetRange(ctx, rp)
+	require.True(t, errors.Is(err, object.ErrNotFound))
+
+	w = NewSimpleObjectWriter()
+	rp.SetChunkWriter(w)
+	commonPrm.SetNetmapLookupDepth(1)
+
+	err = svc.GetRange(ctx, rp)
+	require.NoError(t, err)
+	require.Equal(t, payload[off:off+ln], w.Object().Payload())
+
+	hp := HeadPrm{}
+	hp.SetHeaderWriter(w)
+	commonPrm.SetNetmapLookupDepth(0)
+	hp.SetCommonParameters(commonPrm)
+	hp.WithAddress(addr)
+
+	err = svc.Head(ctx, hp)
+	require.True(t, errors.Is(err, object.ErrNotFound))
+
+	w = NewSimpleObjectWriter()
+	hp.SetHeaderWriter(w)
+	commonPrm.SetNetmapLookupDepth(1)
+
+	err = svc.Head(ctx, hp)
+	require.NoError(t, err)
+	require.Equal(t, obj.CutPayload().Object(), w.Object())
 }

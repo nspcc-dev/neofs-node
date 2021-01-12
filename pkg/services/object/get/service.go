@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -40,7 +41,11 @@ type cfg struct {
 	}
 
 	traverserGenerator interface {
-		GenerateTraverser(*objectSDK.Address) (*placement.Traverser, error)
+		GenerateTraverser(*objectSDK.Address, uint64) (*placement.Traverser, error)
+	}
+
+	currentEpochReceiver interface {
+		currentEpoch() (uint64, error)
 	}
 }
 
@@ -108,5 +113,15 @@ func WithClientOptions(opts ...client.Option) Option {
 func WithTraverserGenerator(t *util.TraverserGenerator) Option {
 	return func(c *cfg) {
 		c.traverserGenerator = t
+	}
+}
+
+// WithNetMapSource returns option to set network
+// map storage to receive current network state.
+func WithNetMapSource(nmSrc netmap.Source) Option {
+	return func(c *cfg) {
+		c.currentEpochReceiver = &nmSrcWrapper{
+			nmSrc: nmSrc,
+		}
 	}
 }

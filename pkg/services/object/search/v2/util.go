@@ -18,8 +18,13 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 		return nil, err
 	}
 
+	commonPrm, err := util.CommonPrmFromV2(req)
+	if err != nil {
+		return nil, err
+	}
+
 	p := new(searchsvc.Prm)
-	p.SetCommonParameters(util.CommonPrmFromV2(req).
+	p.SetCommonParameters(commonPrm.
 		WithPrivateKey(key),
 	)
 
