@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
+	"go.uber.org/zap"
 )
 
 func fatalOnErr(err error) {
@@ -29,7 +31,7 @@ func main() {
 }
 
 func initApp(c *cfg) {
-	c.ctx = grace.NewGracefulContext(nil)
+	c.ctx, c.ctxCancel = context.WithCancel(grace.NewGracefulContext(nil))
 
 	initGRPC(c)
 
@@ -56,7 +58,15 @@ func bootUp(c *cfg) {
 func wait(c *cfg) {
 	c.log.Info("application started")
 
-	<-c.ctx.Done()
+	select {
+	case <-c.ctx.Done(): // graceful shutdown
+	case err := <-c.internalErr: // internal application error
+		close(c.internalErr)
+		c.ctxCancel()
+
+		c.log.Warn("internal application error",
+			zap.String("message", err.Error()))
+	}
 }
 
 func shutdown(c *cfg) {
