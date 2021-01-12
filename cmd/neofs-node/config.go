@@ -361,15 +361,16 @@ func initViper(path string) *viper.Viper {
 }
 
 func defaultConfiguration(v *viper.Viper) {
-	// fixme: all hardcoded private keys must be removed
-	v.SetDefault(cfgNodeKey, "Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
-	v.SetDefault(cfgBootstrapAddress, "") // address to bootstrap with
+	v.SetDefault(cfgNodeKey, "")          // node key
+	v.SetDefault(cfgBootstrapAddress, "") // announced address of the node
 
 	v.SetDefault(cfgMorphRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
+
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
 	v.SetDefault(cfgMaxMsgSize, 4<<20)                // transport msg limit 4 MiB
+	v.SetDefault(cfgReflectService, false)
 
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
 	v.SetDefault(cfgAccountingFee, "1")
@@ -397,8 +398,10 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgPolicerWorkScope, 100)
 	v.SetDefault(cfgPolicerExpRate, 10) // in %
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
+	v.SetDefault(cfgPolicerDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
+	v.SetDefault(cfgReplicatorDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReBootstrapEnabled, false) // in epochs
 	v.SetDefault(cfgReBootstrapInterval, 2)    // in epochs
