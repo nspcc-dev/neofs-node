@@ -205,7 +205,7 @@ func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 	s.mtx.RUnlock()
 
 	if !ok {
-		log.Warn("event parser not set")
+		log.Debug("event parser not set")
 
 		return
 	}
