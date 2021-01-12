@@ -365,8 +365,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgNodeKey, "Kwk6k2eC3L3QuPvD8aiaNyoSXgQ2YL1bwS5CP1oKoA9waeAze97s")
 	v.SetDefault(cfgBootstrapAddress, "") // address to bootstrap with
 
-	v.SetDefault(cfgMorphRPCAddress, "http://morph_chain.localtest.nspcc.ru:30333/")
-	v.SetDefault(cfgMorphNotifyRPCAddress, "ws://morph_chain:30333/ws")
+	v.SetDefault(cfgMorphRPCAddress, []string{})
+	v.SetDefault(cfgMorphNotifyRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
 	v.SetDefault(cfgMaxMsgSize, 4<<20)                // transport msg limit 4 MiB
