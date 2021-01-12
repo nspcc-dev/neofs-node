@@ -12,11 +12,43 @@ func (exec *execCtx) executeOnContainer() {
 		return
 	}
 
-	exec.log.Debug("trying to execute in container...")
+	lookupDepth := exec.netmapLookupDepth()
+
+	exec.log.Debug("trying to execute in container...",
+		zap.Uint64("netmap lookup depth", lookupDepth),
+	)
+
+	// initialize epoch number
+	ok := exec.initEpoch()
+	if !ok {
+		return
+	}
+
+	for {
+		if exec.processCurrentEpoch() {
+			break
+		}
+
+		// check the maximum depth has been reached
+		if lookupDepth == 0 {
+			break
+		}
+
+		lookupDepth--
+
+		// go to the previous epoch
+		exec.curProcEpoch--
+	}
+}
+
+func (exec *execCtx) processCurrentEpoch() bool {
+	exec.log.Debug("process epoch",
+		zap.Uint64("number", exec.curProcEpoch),
+	)
 
 	traverser, ok := exec.generateTraverser(exec.address())
 	if !ok {
-		return
+		return true
 	}
 
 	ctx, cancel := context.WithCancel(exec.context())
@@ -24,12 +56,12 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.status = statusUndefined
 
-loop:
 	for {
 		addrs := traverser.Next()
 		if len(addrs) == 0 {
 			exec.log.Debug("no more nodes, abort placement iteration")
-			break
+
+			return false
 		}
 
 		for i := range addrs {
@@ -38,7 +70,8 @@ loop:
 				exec.log.Debug("interrupt placement iteration by context",
 					zap.String("error", ctx.Err().Error()),
 				)
-				break loop
+
+				return true
 			default:
 			}
 
@@ -47,7 +80,7 @@ loop:
 			//  we reach the best result - split info with linking object ID.
 			if exec.processNode(ctx, addrs[i]) {
 				exec.log.Debug("completing the operation")
-				break loop
+				return true
 			}
 		}
 	}

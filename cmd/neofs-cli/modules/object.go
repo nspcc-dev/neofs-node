@@ -264,7 +264,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	tombstoneAddr, err := client.DeleteObject(cli, ctx,
+	tombstoneAddr, err := client.DeleteObject(ctx, cli,
 		new(client.DeleteObjectParams).WithAddress(objAddr),
 		append(globalCallOptions(),
 			client.WithSession(tok),

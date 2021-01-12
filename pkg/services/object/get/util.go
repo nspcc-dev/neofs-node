@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -41,6 +42,10 @@ type partWriter struct {
 
 type hasherWrapper struct {
 	hash io.Writer
+}
+
+type nmSrcWrapper struct {
+	nmSrc netmap.Source
 }
 
 func NewSimpleObjectWriter() *SimpleObjectWriter {
@@ -161,4 +166,8 @@ func payloadOnlyObject(payload []byte) *objectSDK.Object {
 func (h *hasherWrapper) WriteChunk(p []byte) error {
 	_, err := h.hash.Write(p)
 	return err
+}
+
+func (n *nmSrcWrapper) currentEpoch() (uint64, error) {
+	return n.nmSrc.Epoch()
 }

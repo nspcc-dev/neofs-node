@@ -31,7 +31,7 @@ type testStorage struct {
 
 type testTraverserGenerator struct {
 	c *container.Container
-	b placement.Builder
+	b map[uint64]placement.Builder
 }
 
 type testPlacementBuilder struct {
@@ -46,6 +46,12 @@ type simpleIDWriter struct {
 	ids []*objectSDK.ID
 }
 
+type testEpochReceiver uint64
+
+func (e testEpochReceiver) currentEpoch() (uint64, error) {
+	return uint64(e), nil
+}
+
 func (s *simpleIDWriter) WriteIDs(ids []*objectSDK.ID) error {
 	s.ids = append(s.ids, ids...)
 	return nil
@@ -57,10 +63,10 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) generateTraverser(_ *container.ID) (*placement.Traverser, error) {
+func (g *testTraverserGenerator) generateTraverser(_ *container.ID, epoch uint64) (*placement.Traverser, error) {
 	return placement.NewTraverser(
 		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b),
+		placement.UseBuilder(g.b[epoch]),
 		placement.WithoutSuccessTracking(),
 	)
 }
@@ -71,7 +77,10 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 		return nil, errors.New("vectors for address not found")
 	}
 
-	return vs, nil
+	res := make([]netmap.Nodes, len(vs))
+	copy(res, vs)
+
+	return res, nil
 }
 
 func (c *testClientCache) get(_ *ecdsa.PrivateKey, addr string) (searchClient, error) {
@@ -217,41 +226,6 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 	return mNodes, mAddr
 }
 
-//
-// func generateChain(ln int, cid *container.ID) ([]*object.RawObject, []*objectSDK.ID, []byte) {
-// 	curID := generateID()
-// 	var prevID *objectSDK.ID
-//
-// 	addr := objectSDK.NewAddress()
-// 	addr.SetContainerID(cid)
-//
-// 	res := make([]*object.RawObject, 0, ln)
-// 	ids := make([]*objectSDK.ID, 0, ln)
-// 	payload := make([]byte, 0, ln*10)
-//
-// 	for i := 0; i < ln; i++ {
-// 		ids = append(ids, curID)
-// 		addr.SetObjectID(curID)
-//
-// 		payloadPart := make([]byte, 10)
-// 		rand.Read(payloadPart)
-//
-// 		o := generateObject(addr, prevID, []byte{byte(i)})
-// 		o.SetPayload(payloadPart)
-// 		o.SetPayloadSize(uint64(len(payloadPart)))
-// 		o.SetID(curID)
-//
-// 		payload = append(payload, payloadPart...)
-//
-// 		res = append(res, o)
-//
-// 		prevID = curID
-// 		curID = generateID()
-// 	}
-//
-// 	return res, ids, payload
-// }
-
 func TestGetRemoteSmall(t *testing.T) {
 	ctx := context.Background()
 
@@ -276,11 +250,16 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 
+		const curEpoch = 13
+
 		svc.traverserGenerator = &testTraverserGenerator{
 			c: cnr,
-			b: b,
+			b: map[uint64]placement.Builder{
+				curEpoch: b,
+			},
 		}
 		svc.clientCache = c
+		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 		return svc
 	}
@@ -333,4 +312,114 @@ func TestGetRemoteSmall(t *testing.T) {
 			require.Contains(t, w.ids, id)
 		}
 	})
+}
+
+func TestGetFromPastEpoch(t *testing.T) {
+	ctx := context.Background()
+
+	placementDim := []int{2, 2}
+
+	rs := make([]*netmap.Replica, 0, len(placementDim))
+
+	for i := range placementDim {
+		r := netmap.NewReplica()
+		r.SetCount(uint32(placementDim[i]))
+
+		rs = append(rs, r)
+	}
+
+	pp := netmap.NewPlacementPolicy()
+	pp.SetReplicas(rs...)
+
+	cnr := container.New(container.WithPolicy(pp))
+	cid := container.CalculateID(cnr)
+
+	addr := objectSDK.NewAddress()
+	addr.SetContainerID(cid)
+
+	ns, as := testNodeMatrix(t, placementDim)
+
+	c11 := newTestStorage()
+	ids11 := generateIDs(10)
+	c11.addResult(cid, ids11, nil)
+
+	c12 := newTestStorage()
+	ids12 := generateIDs(10)
+	c12.addResult(cid, ids12, nil)
+
+	c21 := newTestStorage()
+	ids21 := generateIDs(10)
+	c21.addResult(cid, ids21, nil)
+
+	c22 := newTestStorage()
+	ids22 := generateIDs(10)
+	c22.addResult(cid, ids22, nil)
+
+	svc := &Service{cfg: new(cfg)}
+	svc.log = test.NewLogger(false)
+	svc.localStorage = newTestStorage()
+
+	const curEpoch = 13
+
+	svc.traverserGenerator = &testTraverserGenerator{
+		c: cnr,
+		b: map[uint64]placement.Builder{
+			curEpoch: &testPlacementBuilder{
+				vectors: map[string][]netmap.Nodes{
+					addr.String(): ns[:1],
+				},
+			},
+			curEpoch - 1: &testPlacementBuilder{
+				vectors: map[string][]netmap.Nodes{
+					addr.String(): ns[1:],
+				},
+			},
+		},
+	}
+
+	svc.clientCache = &testClientCache{
+		clients: map[string]*testStorage{
+			as[0][0]: c11,
+			as[0][1]: c12,
+			as[1][0]: c21,
+			as[1][1]: c22,
+		},
+	}
+
+	svc.currentEpochReceiver = testEpochReceiver(curEpoch)
+
+	w := new(simpleIDWriter)
+
+	p := Prm{}
+	p.WithContainerID(cid)
+	p.SetWriter(w)
+
+	commonPrm := new(util.CommonPrm)
+	p.SetCommonParameters(commonPrm)
+
+	assertContains := func(idsList ...[]*objectSDK.ID) {
+		var sz int
+
+		for _, ids := range idsList {
+			sz += len(ids)
+
+			for _, id := range ids {
+				require.Contains(t, w.ids, id)
+			}
+		}
+
+		require.Len(t, w.ids, sz)
+	}
+
+	err := svc.Search(ctx, p)
+	require.NoError(t, err)
+	assertContains(ids11, ids12)
+
+	commonPrm.SetNetmapLookupDepth(1)
+	w = new(simpleIDWriter)
+	p.SetWriter(w)
+
+	err = svc.Search(ctx, p)
+	require.NoError(t, err)
+	assertContains(ids11, ids12, ids21, ids22)
 }

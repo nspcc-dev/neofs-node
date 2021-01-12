@@ -24,8 +24,13 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 		return nil, err
 	}
 
+	commonPrm, err := util.CommonPrmFromV2(req)
+	if err != nil {
+		return nil, err
+	}
+
 	p := new(getsvc.Prm)
-	p.SetCommonParameters(util.CommonPrmFromV2(req).
+	p.SetCommonParameters(commonPrm.
 		WithPrivateKey(key),
 	)
 
@@ -45,8 +50,13 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 		return nil, err
 	}
 
+	commonPrm, err := util.CommonPrmFromV2(req)
+	if err != nil {
+		return nil, err
+	}
+
 	p := new(getsvc.RangePrm)
-	p.SetCommonParameters(util.CommonPrmFromV2(req).
+	p.SetCommonParameters(commonPrm.
 		WithPrivateKey(key),
 	)
 
@@ -67,8 +77,13 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 		return nil, err
 	}
 
+	commonPrm, err := util.CommonPrmFromV2(req)
+	if err != nil {
+		return nil, err
+	}
+
 	p := new(getsvc.RangeHashPrm)
-	p.SetCommonParameters(util.CommonPrmFromV2(req).
+	p.SetCommonParameters(commonPrm.
 		WithPrivateKey(key),
 	)
 
@@ -125,8 +140,13 @@ func (s *Service) toHeadPrm(req *objectV2.HeadRequest, resp *objectV2.HeadRespon
 		return nil, err
 	}
 
+	commonPrm, err := util.CommonPrmFromV2(req)
+	if err != nil {
+		return nil, err
+	}
+
 	p := new(getsvc.HeadPrm)
-	p.SetCommonParameters(util.CommonPrmFromV2(req).
+	p.SetCommonParameters(commonPrm.
 		WithPrivateKey(key),
 	)
 

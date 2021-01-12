@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -34,6 +35,10 @@ type clientWrapper struct {
 type storageEngineWrapper engine.StorageEngine
 
 type traverseGeneratorWrapper util.TraverserGenerator
+
+type nmSrcWrapper struct {
+	nmSrc netmap.Source
+}
 
 func newUniqueAddressWriter(w IDListWriter) IDListWriter {
 	return &uniqueIDWriter{
@@ -102,9 +107,13 @@ func idsFromAddresses(addrs []*objectSDK.Address) []*objectSDK.ID {
 	return ids
 }
 
-func (e *traverseGeneratorWrapper) generateTraverser(cid *container.ID) (*placement.Traverser, error) {
+func (e *traverseGeneratorWrapper) generateTraverser(cid *container.ID, epoch uint64) (*placement.Traverser, error) {
 	a := objectSDK.NewAddress()
 	a.SetContainerID(cid)
 
-	return (*util.TraverserGenerator)(e).GenerateTraverser(a)
+	return (*util.TraverserGenerator)(e).GenerateTraverser(a, epoch)
+}
+
+func (n *nmSrcWrapper) currentEpoch() (uint64, error) {
+	return n.nmSrc.Epoch()
 }

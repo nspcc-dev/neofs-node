@@ -289,7 +289,7 @@ func delSG(cmd *cobra.Command, _ []string) error {
 	addr.SetContainerID(cid)
 	addr.SetObjectID(id)
 
-	tombstone, err := client.DeleteObject(cli, ctx,
+	tombstone, err := client.DeleteObject(ctx, cli,
 		new(client.DeleteObjectParams).
 			WithAddress(addr),
 		client.WithSession(tok))
