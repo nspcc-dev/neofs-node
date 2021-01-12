@@ -142,6 +142,10 @@ const (
 type cfg struct {
 	ctx context.Context
 
+	ctxCancel func()
+
+	internalErr chan error // channel for internal application errors at runtime
+
 	viper *viper.Viper
 
 	log *zap.Logger
@@ -290,12 +294,13 @@ func initCfg(path string) *cfg {
 	state := newNetworkState()
 
 	c := &cfg{
-		ctx:        context.Background(),
-		viper:      viperCfg,
-		log:        log,
-		wg:         new(sync.WaitGroup),
-		key:        key,
-		apiVersion: pkg.SDKVersion(),
+		ctx:         context.Background(),
+		internalErr: make(chan error),
+		viper:       viperCfg,
+		log:         log,
+		wg:          new(sync.WaitGroup),
+		key:         key,
+		apiVersion:  pkg.SDKVersion(),
 		cfgAccounting: cfgAccounting{
 			scriptHash: u160Accounting,
 			fee:        fixedn.Fixed8(viperCfg.GetInt(cfgAccountingFee)),

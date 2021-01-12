@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -51,7 +52,9 @@ func listenMorphNotifications(c *cfg) {
 	})
 	fatalOnErr(err)
 
-	c.workers = append(c.workers, newWorkerFromFunc(lis.Listen))
+	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
+		lis.ListenWithError(ctx, c.internalErr)
+	}))
 
 	setNetmapNotificationParser(c, newEpochNotification, netmapEvent.ParseNewEpoch)
 	registerNotificationHandlers(c.cfgNetmap.scriptHash, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
