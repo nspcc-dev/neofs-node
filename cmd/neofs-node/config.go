@@ -63,10 +63,10 @@ const (
 	cfgReflectService = "grpc.enable_reflect_service"
 
 	// config keys for cfgMorph
-	cfgMorphRPCAddress = "morph.endpoint"
+	cfgMorphRPCAddress = "morph.rpc_endpoint"
 
-	cfgMorphNotifyRPCAddress  = "morph.notification.endpoint"
-	cfgMorphNotifyDialTimeout = "morph.notification.dial_timeout"
+	cfgMorphNotifyRPCAddress  = "morph.notification_endpoint"
+	cfgMorphNotifyDialTimeout = "morph.dial_timeout"
 
 	// config keys for cfgAccounting
 	cfgAccountingContract = "accounting.scripthash"
