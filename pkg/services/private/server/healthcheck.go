@@ -23,8 +23,7 @@ func (s *Server) HealthCheck(_ context.Context, req *private.HealthCheckRequest)
 	body := new(private.HealthCheckResponse_Body)
 	resp.SetBody(body)
 
-	// FIXME: calculate the status
-	body.SetStatus(private.HealthStatus_ONLINE)
+	body.SetStatus(s.healthChecker.HealthStatus())
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {
