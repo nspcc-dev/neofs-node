@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package private;
+
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/private";
+
+// Signature of some message.
+message Signature {
+    // Public key used for signing.
+    bytes key = 1 [json_name = "key"];
+
+    // Binary signature.
+    bytes sign = 2 [json_name = "signature"];
+}
+
+// Health status of the storage node.
+enum HealthStatus {
+    // Undefined status, default value.
+    STATUS_UNDEFINED = 0;
+
+    // Node is online.
+    ONLINE = 1;
+
+    // Node is offline.
+    OFFLINE = 2;
+}
