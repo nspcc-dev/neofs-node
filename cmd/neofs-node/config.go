@@ -179,6 +179,8 @@ type cfg struct {
 	workers []worker
 
 	respSvc *response.Service
+
+	cfgPrivateService cfgPrivateService
 }
 
 type cfgGRPC struct {
@@ -256,6 +258,10 @@ type cfgLocalStorage struct {
 
 type cfgObjectRoutines struct {
 	get, head, put, search, rng, rngHash *ants.Pool
+}
+
+type cfgPrivateService struct {
+	server *grpc.Server
 }
 
 const (
@@ -412,6 +418,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgObjectSearchPoolSize, 10)
 	v.SetDefault(cfgObjectRangePoolSize, 10)
 	v.SetDefault(cfgObjectRangeHashPoolSize, 10)
+
+	v.SetDefault(cfgPrivateSvcAllowedKeys, []string{})
 }
 
 func (c *cfg) LocalAddress() *network.Address {

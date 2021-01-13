@@ -41,6 +41,7 @@ func initApp(c *cfg) {
 	initSessionService(c)
 	initObjectService(c)
 	initProfiler(c)
+	initPrivateService(c)
 
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())
@@ -71,6 +72,7 @@ func wait(c *cfg) {
 
 func shutdown(c *cfg) {
 	c.cfgGRPC.server.GracefulStop()
+	c.cfgPrivateService.server.GracefulStop()
 
 	c.log.Info("gRPC server stopped")
 
