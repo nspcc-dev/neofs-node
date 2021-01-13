@@ -66,7 +66,7 @@ protoc:
 	@for f in `find . -type f -name '*.proto' -not -path './vendor/*'`; do \
 		echo "⇒ Processing $$f "; \
 		protoc \
-			--proto_path=.:./vendor:./vendor/github.com/nspcc-dev/neofs-api-go:/usr/local/include \
+			--proto_path=.:./vendor:./vendor/github.com/nspcc-dev/neofs-api-go:/usr/local/include:./pkg/services/private \
 			--gofast_out=plugins=grpc,paths=source_relative:. $$f; \
 	done
 	rm -rf vendor

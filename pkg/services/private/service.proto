@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package private;
+
+import "types.proto";
+
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/private";
+
+// `PrivateService` provides an interface for internal work with the storage node.
+service PrivateService {
+    // Performs health check of the storage node.
+    rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Health check request.
+message HealthCheckRequest {
+    // Health check request body.
+    message Body {
+    }
+
+    // Body of health check request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// Health check request.
+message HealthCheckResponse {
+    // Health check response body
+    message Body {
+        // Health status of storage node.
+        HealthStatus status = 1;
+    }
+
+    // Body of health check response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
