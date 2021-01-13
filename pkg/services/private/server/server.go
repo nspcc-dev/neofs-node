@@ -2,12 +2,24 @@ package private
 
 import (
 	"crypto/ecdsa"
+
+	"github.com/nspcc-dev/neofs-node/pkg/services/private"
 )
 
 // Server is an entity that serves
 // Private service on storage node.
 type Server struct {
 	*cfg
+}
+
+// HealthChecker is component interface for calculating
+// the current health status of a node.
+type HealthChecker interface {
+	// Must calculate and return current node health status.
+	//
+	// If status can not be calculated for any reason,
+	// private.HealthStatus_STATUS_UNDEFINED should be returned.
+	HealthStatus() private.HealthStatus
 }
 
 // Option of the Server's constructor.
@@ -17,6 +29,8 @@ type cfg struct {
 	key *ecdsa.PrivateKey
 
 	allowedKeys [][]byte
+
+	healthChecker HealthChecker
 }
 
 func defaultCfg() *cfg {
@@ -49,5 +63,13 @@ func WithKey(key *ecdsa.PrivateKey) Option {
 func WithAllowedKeys(keys [][]byte) Option {
 	return func(c *cfg) {
 		c.allowedKeys = append(c.allowedKeys, keys...)
+	}
+}
+
+// WithHealthChecker returns option to set component
+// to calculate node health status.
+func WithHealthChecker(hc HealthChecker) Option {
+	return func(c *cfg) {
+		c.healthChecker = hc
 	}
 }
