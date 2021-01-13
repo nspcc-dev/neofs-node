@@ -1,0 +1,19 @@
+---
+
+version: "2.4"
+services:
+  storage01:
+    image: nspccdev/neofs-storage-testnet:0.14.1
+    container_name: neofs-testnet
+    network_mode: host
+    restart: always
+    volumes:
+      - neofs_storage:/storage
+      - <NEOFS_NODE_KEY>:/node.key
+    stop_signal: SIGINT
+    environment:
+      - NEOFS_NODE_ADDRESS=<ANNOUNCE_ADDRESS>
+      - NEOFS_GRPC_ENDPOINT=<BIND_ADDRESS>
+
+volumes:
+  neofs_storage:
