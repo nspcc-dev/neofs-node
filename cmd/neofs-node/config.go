@@ -28,6 +28,7 @@ import (
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/private"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -35,6 +36,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -181,6 +183,8 @@ type cfg struct {
 	respSvc *response.Service
 
 	cfgPrivateService cfgPrivateService
+
+	healthStatus *atomic.Int32
 }
 
 type cfgGRPC struct {
@@ -338,6 +342,7 @@ func initCfg(path string) *cfg {
 		cfgObject: cfgObject{
 			pool: initObjectPool(viperCfg),
 		},
+		healthStatus: atomic.NewInt32(int32(private.HealthStatus_STATUS_UNDEFINED)),
 	}
 
 	initLocalStorage(c)

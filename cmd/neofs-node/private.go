@@ -41,6 +41,7 @@ func initPrivateService(c *cfg) {
 	privSvc := privateSvc.New(
 		privateSvc.WithKey(c.key),
 		privateSvc.WithAllowedKeys(keys),
+		privateSvc.WithHealthChecker(c),
 	)
 
 	var (
@@ -64,4 +65,12 @@ func initPrivateService(c *cfg) {
 	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
 		fatalOnErr(c.cfgPrivateService.server.Serve(lis))
 	}))
+}
+
+func (c *cfg) setHealthStatus(st private.HealthStatus) {
+	c.healthStatus.Store(int32(st))
+}
+
+func (c *cfg) HealthStatus() private.HealthStatus {
+	return private.HealthStatus(c.healthStatus.Load())
 }
