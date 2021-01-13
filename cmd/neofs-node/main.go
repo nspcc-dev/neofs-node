@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/private"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	"go.uber.org/zap"
 )
@@ -42,7 +42,7 @@ func initApp(c *cfg) {
 	initSessionService(c)
 	initObjectService(c)
 	initProfiler(c)
-	initPrivateService(c)
+	initControlService(c)
 
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())
@@ -56,7 +56,7 @@ func bootUp(c *cfg) {
 	bootstrapNode(c)
 	startWorkers(c)
 
-	c.setHealthStatus(private.HealthStatus_ONLINE)
+	c.setHealthStatus(control.HealthStatus_ONLINE)
 }
 
 func wait(c *cfg) {
@@ -75,7 +75,7 @@ func wait(c *cfg) {
 
 func shutdown(c *cfg) {
 	c.cfgGRPC.server.GracefulStop()
-	c.cfgPrivateService.server.GracefulStop()
+	c.cfgControlService.server.GracefulStop()
 
 	c.log.Info("gRPC server stopped")
 

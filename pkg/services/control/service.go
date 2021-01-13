@@ -1,4 +1,4 @@
-package private
+package control
 
 // SetBody sets health check request body.
 func (m *HealthCheckRequest) SetBody(v *HealthCheckRequest_Body) {

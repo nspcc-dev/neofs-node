@@ -1,13 +1,13 @@
-package private
+package control
 
 import (
 	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/private"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
 
 // Server is an entity that serves
-// Private service on storage node.
+// Control service on storage node.
 type Server struct {
 	*cfg
 }
@@ -18,8 +18,8 @@ type HealthChecker interface {
 	// Must calculate and return current node health status.
 	//
 	// If status can not be calculated for any reason,
-	// private.HealthStatus_STATUS_UNDEFINED should be returned.
-	HealthStatus() private.HealthStatus
+	// control.HealthStatus_STATUS_UNDEFINED should be returned.
+	HealthStatus() control.HealthStatus
 }
 
 // Option of the Server's constructor.
@@ -59,7 +59,7 @@ func WithKey(key *ecdsa.PrivateKey) Option {
 }
 
 // WithAllowedKeys returns option to add list of public
-// keys that have rights to use private service.
+// keys that have rights to use Control service.
 func WithAllowedKeys(keys [][]byte) Option {
 	return func(c *cfg) {
 		c.allowedKeys = append(c.allowedKeys, keys...)

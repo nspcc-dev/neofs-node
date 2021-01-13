@@ -1,4 +1,4 @@
-package private
+package control
 
 import (
 	"bytes"
@@ -6,14 +6,14 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
-	"github.com/nspcc-dev/neofs-node/pkg/services/private"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
 
-// SignedMessage is an interface of Private service message.
+// SignedMessage is an interface of Control service message.
 type SignedMessage interface {
 	signature.DataSource
-	GetSignature() *private.Signature
-	SetSignature(*private.Signature)
+	GetSignature() *control.Signature
+	SetSignature(*control.Signature)
 }
 
 var errDisallowedKey = errors.New("key is not in the allowed list")
@@ -42,10 +42,10 @@ func (s *Server) isValidRequest(req SignedMessage) error {
 	})
 }
 
-// SignMessage signs Private service message with private key.
+// SignMessage signs Control service message with private key.
 func SignMessage(key *ecdsa.PrivateKey, msg SignedMessage) error {
 	return signature.SignDataWithHandler(key, msg, func(key []byte, sig []byte) {
-		s := new(private.Signature)
+		s := new(control.Signature)
 		s.SetKey(key)
 		s.SetSign(sig)
 

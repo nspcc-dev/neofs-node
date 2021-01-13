@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-package private;
+package control;
 
 import "types.proto";
 
-option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/private";
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/control";
 
-// `PrivateService` provides an interface for internal work with the storage node.
-service PrivateService {
+// `ControlService` provides an interface for internal work with the storage node.
+service ControlService {
     // Performs health check of the storage node.
     rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
 }
