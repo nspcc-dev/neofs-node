@@ -1,0 +1,51 @@
+logger:
+  level: info
+
+morph:
+  rpc_endpoint:
+    - http://rpc1-morph.preview4.nspcc.ru:24333
+    - http://rpc2-morph.preview4.nspcc.ru:24333
+    - http://rpc3-morph.preview4.nspcc.ru:24333
+    - http://rpc4-morph.preview4.nspcc.ru:24333
+    - http://rpc5-morph.preview4.nspcc.ru:24333
+    - http://rpc6-morph.preview4.nspcc.ru:24333
+    - http://rpc7-morph.preview4.nspcc.ru:24333
+  notification_endpoint:
+    - ws://rpc1-morph.preview4.nspcc.ru:24333/ws
+    - ws://rpc2-morph.preview4.nspcc.ru:24333/ws
+    - ws://rpc3-morph.preview4.nspcc.ru:24333/ws
+    - ws://rpc4-morph.preview4.nspcc.ru:24333/ws
+    - ws://rpc5-morph.preview4.nspcc.ru:24333/ws
+    - ws://rpc6-morph.preview4.nspcc.ru:24333/ws
+    - ws://rpc7-morph.preview4.nspcc.ru:24333/ws
+  dial_timeout: 20s
+
+bootstrap:
+  periodic:
+    enabled: true
+
+accounting:
+  scripthash: b9af268168b1546d8b1e0c25dece3faa31153058
+container:
+  scripthash: 31761cba924830bfce2662a39fc7f830b90adbef
+netmap:
+  scripthash: 7b383bc5a385859469f366b08b04b4fcd9a41f55
+node:
+  key: /node.key
+  attribute:
+    0: /external:true
+
+storage:
+  shard:
+    0:
+      use_write_cache: false
+      metabase:
+        path: /storage/metabase
+        perm: 0777
+      blobstor:
+        path: /storage/blobstor
+        perm: 0777
+        blobovnicza:
+          opened_cache_size: 32
+          shallow_depth: 1
+          shallow_width: 1
