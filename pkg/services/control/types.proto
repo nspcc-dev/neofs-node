@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package private;
+package control;
 
-option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/private";
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/control";
 
 // Signature of some message.
 message Signature {

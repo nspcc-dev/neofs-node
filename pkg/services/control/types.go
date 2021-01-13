@@ -1,4 +1,4 @@
-package private
+package control
 
 // SetKey sets public key used for signing.
 func (m *Signature) SetKey(v []byte) {

@@ -5,13 +5,13 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/client"
-	"github.com/nspcc-dev/neofs-node/pkg/services/private"
-	privateSvc "github.com/nspcc-dev/neofs-node/pkg/services/private/server"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
 )
 
-var privateCmd = &cobra.Command{
-	Use:   "private",
+var controlCmd = &cobra.Command{
+	Use:   "control",
 	Short: "Operations with storage node",
 	Long:  `Operations with storage node`,
 }
@@ -24,9 +24,9 @@ var healthCheckCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(privateCmd)
+	rootCmd.AddCommand(controlCmd)
 
-	privateCmd.AddCommand(healthCheckCmd)
+	controlCmd.AddCommand(healthCheckCmd)
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) error {
@@ -35,11 +35,11 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	req := new(private.HealthCheckRequest)
+	req := new(control.HealthCheckRequest)
 
-	req.SetBody(new(private.HealthCheckRequest_Body))
+	req.SetBody(new(control.HealthCheckRequest_Body))
 
-	if err := privateSvc.SignMessage(key, req); err != nil {
+	if err := controlSvc.SignMessage(key, req); err != nil {
 		return err
 	}
 
@@ -60,7 +60,7 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cli := private.NewPrivateServiceClient(con)
+	cli := control.NewControlServiceClient(con)
 
 	resp, err := cli.HealthCheck(context.Background(), req)
 	if err != nil {

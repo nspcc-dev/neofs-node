@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/private"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -117,7 +117,7 @@ func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
 }
 
 func goOffline(c *cfg) {
-	c.setHealthStatus(private.HealthStatus_OFFLINE)
+	c.setHealthStatus(control.HealthStatus_OFFLINE)
 
 	err := c.cfgNetmap.wrapper.UpdatePeerState(
 		crypto.MarshalPublicKey(&c.key.PublicKey),

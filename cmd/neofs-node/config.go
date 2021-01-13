@@ -28,7 +28,7 @@ import (
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/private"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -182,7 +182,7 @@ type cfg struct {
 
 	respSvc *response.Service
 
-	cfgPrivateService cfgPrivateService
+	cfgControlService cfgControlService
 
 	healthStatus *atomic.Int32
 }
@@ -264,7 +264,7 @@ type cfgObjectRoutines struct {
 	get, head, put, search, rng, rngHash *ants.Pool
 }
 
-type cfgPrivateService struct {
+type cfgControlService struct {
 	server *grpc.Server
 }
 
@@ -342,7 +342,7 @@ func initCfg(path string) *cfg {
 		cfgObject: cfgObject{
 			pool: initObjectPool(viperCfg),
 		},
-		healthStatus: atomic.NewInt32(int32(private.HealthStatus_STATUS_UNDEFINED)),
+		healthStatus: atomic.NewInt32(int32(control.HealthStatus_STATUS_UNDEFINED)),
 	}
 
 	initLocalStorage(c)
@@ -424,7 +424,7 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgObjectRangePoolSize, 10)
 	v.SetDefault(cfgObjectRangeHashPoolSize, 10)
 
-	v.SetDefault(cfgPrivateSvcAllowedKeys, []string{})
+	v.SetDefault(cfgCtrlSvcAllowedKeys, []string{})
 }
 
 func (c *cfg) LocalAddress() *network.Address {
