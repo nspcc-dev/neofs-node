@@ -425,10 +425,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				eaclSig, err := cli.GetEACLWithSignature(ctx, id, globalCallOptions()...)
+				table, err := cli.GetEACL(ctx, id, globalCallOptions()...)
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					got, err := eaclSig.EACL().Marshal()
+					got, err := table.Marshal()
 					if err != nil {
 						continue
 					}
