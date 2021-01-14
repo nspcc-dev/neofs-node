@@ -42,6 +42,7 @@ func initControlService(c *cfg) {
 		controlSvc.WithKey(c.key),
 		controlSvc.WithAuthorizedKeys(keys),
 		controlSvc.WithHealthChecker(c),
+		controlSvc.WithNetMapSource(c.cfgNetmap.wrapper),
 	)
 
 	var (

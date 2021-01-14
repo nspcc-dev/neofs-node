@@ -3,6 +3,7 @@ package control
 import (
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
 
@@ -31,6 +32,8 @@ type cfg struct {
 	allowedKeys [][]byte
 
 	healthChecker HealthChecker
+
+	netMapSrc netmap.Source
 }
 
 func defaultCfg() *cfg {
@@ -71,5 +74,12 @@ func WithAuthorizedKeys(keys [][]byte) Option {
 func WithHealthChecker(hc HealthChecker) Option {
 	return func(c *cfg) {
 		c.healthChecker = hc
+	}
+}
+
+// WithNetMapSource returns option to set network map storage.
+func WithNetMapSource(netMapSrc netmap.Source) Option {
+	return func(c *cfg) {
+		c.netMapSrc = netMapSrc
 	}
 }
