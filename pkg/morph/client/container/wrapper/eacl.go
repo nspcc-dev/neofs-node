@@ -1,6 +1,7 @@
 package wrapper
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -10,7 +11,7 @@ import (
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, []byte, error) {
+func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, *pkg.Signature, error) {
 	if cid == nil {
 		return nil, nil, errNilArgument
 	}
@@ -37,13 +38,17 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, []byte, error) {
 		return nil, nil, container.ErrEACLNotFound
 	}
 
+	tableSignature := pkg.NewSignature()
+	tableSignature.SetKey(rpcAnswer.PublicKey())
+	tableSignature.SetSign(sig)
+
 	table := eacl.NewTable()
 	if err = table.Unmarshal(rpcAnswer.EACL()); err != nil {
 		// use other major version if there any
 		return nil, nil, err
 	}
 
-	return table, sig, nil
+	return table, tableSignature, nil
 }
 
 // PutEACL saves the extended ACL table in NeoFS system

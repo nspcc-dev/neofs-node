@@ -111,14 +111,7 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetE
 
 	res := new(container.GetExtendedACLResponseBody)
 	res.SetEACL(table.ToV2())
-
-	// Public key should be obtained by request sender, so we set up only
-	// the signature. Technically, node can make invocation to find container
-	// owner public key, but request sender cannot trust this info.
-	sig := new(refs.Signature)
-	sig.SetSign(signature)
-
-	res.SetSignature(sig)
+	res.SetSignature(signature.ToV2())
 
 	return res, nil
 }
