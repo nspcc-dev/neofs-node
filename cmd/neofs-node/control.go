@@ -15,14 +15,14 @@ import (
 const (
 	cfgCtrlSvcSection = "control"
 
-	cfgCtrlSvcAllowedKeys = cfgCtrlSvcSection + ".permitted_keys"
+	cfgCtrlSvcAuthorizedKeys = cfgCtrlSvcSection + ".authorized_keys"
 
 	cfgCtrlSvcGRPCSection = cfgCtrlSvcSection + ".grpc"
 	cfgCtrlGRPCEndpoint   = cfgCtrlSvcGRPCSection + ".endpoint"
 )
 
 func initControlService(c *cfg) {
-	strKeys := c.viper.GetStringSlice(cfgCtrlSvcAllowedKeys)
+	strKeys := c.viper.GetStringSlice(cfgCtrlSvcAuthorizedKeys)
 	keys := make([][]byte, 0, len(strKeys)+1) // +1 for node key
 
 	keys = append(keys, crypto.MarshalPublicKey(&c.key.PublicKey))
