@@ -73,6 +73,18 @@ func (m *NetmapSnapshotRequest) SetSignature(body *Signature) {
 	}
 }
 
+// ReadSignedData marshals request body to buf.
+func (m *NetmapSnapshotRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	_, err := m.GetBody().MarshalTo(buf)
+
+	return buf, err
+}
+
+// SignedDataSize returns binary size of the request body.
+func (m *NetmapSnapshotRequest) SignedDataSize() int {
+	return m.GetBody().Size()
+}
+
 // SetNetmap sets structure of the current network map.
 func (m *NetmapSnapshotResponse_Body) SetNetmap(v *Netmap) {
 	if m != nil {
@@ -92,4 +104,16 @@ func (m *NetmapSnapshotResponse) SetSignature(v *Signature) {
 	if m != nil {
 		m.Signature = v
 	}
+}
+
+// ReadSignedData marshals request body to buf.
+func (m *NetmapSnapshotResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	_, err := m.GetBody().MarshalTo(buf)
+
+	return buf, err
+}
+
+// SignedDataSize returns binary size of the request body.
+func (m *NetmapSnapshotResponse) SignedDataSize() int {
+	return m.GetBody().Size()
 }
