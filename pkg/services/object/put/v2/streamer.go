@@ -13,7 +13,9 @@ type streamer struct {
 func (s *streamer) Send(req *object.PutRequest) (err error) {
 	switch v := req.GetBody().GetObjectPart().(type) {
 	case *object.PutObjectPartInit:
-		initPrm, err := toInitPrm(v, req)
+		var initPrm *putsvc.PutInitPrm
+
+		initPrm, err = toInitPrm(v, req)
 		if err != nil {
 			return err
 		}
