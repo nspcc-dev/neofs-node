@@ -1,18 +1,22 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
+	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-api-go/util/signature"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
 )
 
 var (
 	nodeInfoJSON bool
+
+	netmapSnapshotJSON bool
 )
 
 // netmapCmd represents the netmap command
@@ -31,9 +35,13 @@ func init() {
 	netmapCmd.AddCommand(
 		getEpochCmd,
 		localNodeInfoCmd,
+		snapshotCmd,
 	)
 
 	localNodeInfoCmd.Flags().BoolVar(&nodeInfoJSON, "json", false, "print node info in JSON format")
+
+	snapshotCmd.Flags().BoolVar(&netmapSnapshotJSON, "json", false,
+		"print netmap structure in JSON format")
 }
 
 var getEpochCmd = &cobra.Command{
@@ -78,21 +86,50 @@ var localNodeInfoCmd = &cobra.Command{
 	},
 }
 
+var snapshotCmd = &cobra.Command{
+	Use:   "snapshot",
+	Short: "Get network map snapshot",
+	Long:  "Get network map snapshot",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		req := new(control.NetmapSnapshotRequest)
+		req.SetBody(new(control.NetmapSnapshotRequest_Body))
+
+		if err := controlSvc.SignMessage(key, req); err != nil {
+			return err
+		}
+
+		cli, err := getControlServiceClient()
+		if err != nil {
+			return err
+		}
+
+		resp, err := cli.NetmapSnapshot(context.Background(), req)
+		if err != nil {
+			return err
+		}
+
+		sign := resp.GetSignature()
+
+		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		}); err != nil {
+			return err
+		}
+
+		prettyPrintNetmap(resp.GetBody().GetNetmap(), netmapSnapshotJSON)
+
+		return nil
+	},
+}
+
 func prettyPrintNodeInfo(i *netmap.NodeInfo, jsonEncoding bool) {
 	if jsonEncoding {
-		data, err := i.MarshalJSON()
-		if err != nil {
-			printVerbose("Can't convert container to json: %w", err)
-			return
-		}
-
-		buf := new(bytes.Buffer)
-		if err := json.Indent(buf, data, "", "  "); err != nil {
-			printVerbose("Can't pretty print json: %w", err)
-		}
-
-		fmt.Println(buf)
-
+		printJSONMarshaler(i, "node info")
 		return
 	}
 
@@ -102,5 +139,26 @@ func prettyPrintNodeInfo(i *netmap.NodeInfo, jsonEncoding bool) {
 
 	for _, attribute := range i.Attributes() {
 		fmt.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
+	}
+}
+
+func prettyPrintNetmap(nm *control.Netmap, jsonEncoding bool) {
+	if jsonEncoding {
+		fmt.Println("JSON encoding is not implemented")
+		return
+	}
+
+	fmt.Println("Epoch:", nm.GetEpoch())
+
+	for i, node := range nm.GetNodes() {
+		fmt.Printf("Node %d: %s %s %s\n", i+1,
+			base58.Encode(node.GetPublicKey()),
+			node.GetAddress(),
+			node.GetState(),
+		)
+
+		for _, attr := range node.GetAttributes() {
+			fmt.Printf("\t%s: %s\n", attr.GetKey(), attr.GetValue())
+		}
 	}
 }
