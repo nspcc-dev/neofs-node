@@ -58,3 +58,38 @@ func (m *HealthCheckResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (m *HealthCheckResponse) SignedDataSize() int {
 	return m.GetBody().Size()
 }
+
+// SetBody sets get netmap snapshot request body.
+func (m *NetmapSnapshotRequest) SetBody(v *NetmapSnapshotRequest_Body) {
+	if m != nil {
+		m.Body = v
+	}
+}
+
+// SetSignature sets signature of the netmap snapshot request body.
+func (m *NetmapSnapshotRequest) SetSignature(body *Signature) {
+	if m != nil {
+		m.Signature = body
+	}
+}
+
+// SetNetmap sets structure of the current network map.
+func (m *NetmapSnapshotResponse_Body) SetNetmap(v *Netmap) {
+	if m != nil {
+		m.Netmap = v
+	}
+}
+
+// SetBody sets get netmap snapshot response body.
+func (m *NetmapSnapshotResponse) SetBody(v *NetmapSnapshotResponse_Body) {
+	if m != nil {
+		m.Body = v
+	}
+}
+
+// SetSignature sets signature of the get netmap snapshot response body.
+func (m *NetmapSnapshotResponse) SetSignature(v *Signature) {
+	if m != nil {
+		m.Signature = v
+	}
+}
