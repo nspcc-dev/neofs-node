@@ -111,30 +111,286 @@ func (m *Signature) GetSign() []byte {
 	return nil
 }
 
+// NeoFS node description.
+type NodeInfo struct {
+	// Public key of the NeoFS node in a binary format.
+	PublicKey []byte `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	// Ways to connect to a node.
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	// Carries list of the NeoFS node attributes in a key-value form. Key name
+	// must be a node-unique valid UTF-8 string. Value can't be empty. NodeInfo
+	// structures with duplicated attribute names or attributes with empty values
+	// will be considered invalid.
+	Attributes []*NodeInfo_Attribute `protobuf:"bytes,3,rep,name=attributes,proto3" json:"attributes,omitempty"`
+	// Carries state of the NeoFS node.
+	State                HealthStatus `protobuf:"varint,4,opt,name=state,proto3,enum=control.HealthStatus" json:"state,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *NodeInfo) Reset()         { *m = NodeInfo{} }
+func (m *NodeInfo) String() string { return proto.CompactTextString(m) }
+func (*NodeInfo) ProtoMessage()    {}
+func (*NodeInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9c1109132c4fb65c, []int{1}
+}
+func (m *NodeInfo) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *NodeInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_NodeInfo.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *NodeInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeInfo.Merge(m, src)
+}
+func (m *NodeInfo) XXX_Size() int {
+	return m.Size()
+}
+func (m *NodeInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_NodeInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NodeInfo proto.InternalMessageInfo
+
+func (m *NodeInfo) GetPublicKey() []byte {
+	if m != nil {
+		return m.PublicKey
+	}
+	return nil
+}
+
+func (m *NodeInfo) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *NodeInfo) GetAttributes() []*NodeInfo_Attribute {
+	if m != nil {
+		return m.Attributes
+	}
+	return nil
+}
+
+func (m *NodeInfo) GetState() HealthStatus {
+	if m != nil {
+		return m.State
+	}
+	return HealthStatus_STATUS_UNDEFINED
+}
+
+// Administrator-defined Attributes of the NeoFS Storage Node.
+//
+// `Attribute` is a Key-Value metadata pair. Key name must be a valid UTF-8
+// string. Value can't be empty.
+//
+// Node's attributes are mostly used during Storage Policy evaluation to
+// calculate object's placement and find a set of nodes satisfying policy
+// requirements. There are some "well-known" node attributes common to all the
+// Storage Nodes in the network and used implicitly with default values if not
+// explicitly set:
+//
+// * Capacity \
+//   Total available disk space in Gigabytes.
+// * Price \
+//   Price in GAS tokens for storing one GB of data during one Epoch. In node
+//   attributes it's a string presenting floating point number with comma or
+//   point delimiter for decimal part. In the Network Map it will be saved as
+//   64-bit unsigned integer representing number of minimal token fractions.
+// * Subnet \
+//   String ID of Node's storage subnet. There can be only one subnet served
+//   by the Storage Node.
+// * Locode \
+//   Node's geographic location in
+//   [UN/LOCODE](https://www.unece.org/cefact/codesfortrade/codes_index.html)
+//   format approximated to the nearest point defined in standard.
+// * Country \
+//   Country code in
+//   [ISO 3166-1_alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
+//   format. Calculated automatically from `Locode` attribute
+// * Region \
+//   Country's administative subdivision where node is located. Calculated
+//   automatically from `Locode` attribute based on `SubDiv` field. Presented
+//   in [ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2) format.
+// * City \
+//   City, town, village or rural area name where node is located written
+//   without diacritics . Calculated automatically from `Locode` attribute.
+//
+// For detailed description of each well-known attribute please see the
+// corresponding section in NeoFS Technical specification.
+type NodeInfo_Attribute struct {
+	// Key of the node attribute.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Value of the node attribute.
+	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	// Parent keys, if any. For example for `City` it could be `Region` and
+	// `Country`.
+	Parents              []string `protobuf:"bytes,3,rep,name=parents,proto3" json:"parents,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NodeInfo_Attribute) Reset()         { *m = NodeInfo_Attribute{} }
+func (m *NodeInfo_Attribute) String() string { return proto.CompactTextString(m) }
+func (*NodeInfo_Attribute) ProtoMessage()    {}
+func (*NodeInfo_Attribute) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9c1109132c4fb65c, []int{1, 0}
+}
+func (m *NodeInfo_Attribute) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *NodeInfo_Attribute) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_NodeInfo_Attribute.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *NodeInfo_Attribute) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeInfo_Attribute.Merge(m, src)
+}
+func (m *NodeInfo_Attribute) XXX_Size() int {
+	return m.Size()
+}
+func (m *NodeInfo_Attribute) XXX_DiscardUnknown() {
+	xxx_messageInfo_NodeInfo_Attribute.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NodeInfo_Attribute proto.InternalMessageInfo
+
+func (m *NodeInfo_Attribute) GetKey() string {
+	if m != nil {
+		return m.Key
+	}
+	return ""
+}
+
+func (m *NodeInfo_Attribute) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+func (m *NodeInfo_Attribute) GetParents() []string {
+	if m != nil {
+		return m.Parents
+	}
+	return nil
+}
+
+// Network map structure.
+type Netmap struct {
+	// Network map revision number.
+	Epoch uint64 `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
+	// Nodes presented in network.
+	Nodes                []*NodeInfo `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *Netmap) Reset()         { *m = Netmap{} }
+func (m *Netmap) String() string { return proto.CompactTextString(m) }
+func (*Netmap) ProtoMessage()    {}
+func (*Netmap) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9c1109132c4fb65c, []int{2}
+}
+func (m *Netmap) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Netmap) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Netmap.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Netmap) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Netmap.Merge(m, src)
+}
+func (m *Netmap) XXX_Size() int {
+	return m.Size()
+}
+func (m *Netmap) XXX_DiscardUnknown() {
+	xxx_messageInfo_Netmap.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Netmap proto.InternalMessageInfo
+
+func (m *Netmap) GetEpoch() uint64 {
+	if m != nil {
+		return m.Epoch
+	}
+	return 0
+}
+
+func (m *Netmap) GetNodes() []*NodeInfo {
+	if m != nil {
+		return m.Nodes
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("control.HealthStatus", HealthStatus_name, HealthStatus_value)
 	proto.RegisterType((*Signature)(nil), "control.Signature")
+	proto.RegisterType((*NodeInfo)(nil), "control.NodeInfo")
+	proto.RegisterType((*NodeInfo_Attribute)(nil), "control.NodeInfo.Attribute")
+	proto.RegisterType((*Netmap)(nil), "control.Netmap")
 }
 
 func init() { proto.RegisterFile("pkg/services/control/types.proto", fileDescriptor_9c1109132c4fb65c) }
 
 var fileDescriptor_9c1109132c4fb65c = []byte{
-	// 227 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x28, 0xc8, 0x4e, 0xd7,
-	0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0x2d, 0xd6, 0x4f, 0xce, 0xcf, 0x2b, 0x29, 0xca, 0xcf,
-	0xd1, 0x2f, 0xa9, 0x2c, 0x48, 0x2d, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x87, 0x0a,
-	0x2a, 0x99, 0x71, 0x71, 0x06, 0x67, 0xa6, 0xe7, 0x25, 0x96, 0x94, 0x16, 0xa5, 0x0a, 0x09, 0x70,
-	0x31, 0x67, 0xa7, 0x56, 0x4a, 0x30, 0x2a, 0x30, 0x6a, 0xf0, 0x04, 0x81, 0x98, 0x42, 0xe2, 0x5c,
-	0x2c, 0xc5, 0x99, 0xe9, 0x79, 0x12, 0x4c, 0x60, 0x21, 0xce, 0x62, 0x98, 0x52, 0x2d, 0x5b, 0x2e,
-	0x1e, 0x8f, 0xd4, 0xc4, 0x9c, 0x92, 0x8c, 0xe0, 0x92, 0xc4, 0x92, 0xd2, 0x62, 0x21, 0x11, 0x2e,
-	0x81, 0xe0, 0x10, 0xc7, 0x90, 0xd0, 0xe0, 0xf8, 0x50, 0x3f, 0x17, 0x57, 0x37, 0x4f, 0x3f, 0x57,
-	0x17, 0x01, 0x06, 0x21, 0x2e, 0x2e, 0x36, 0x7f, 0x3f, 0x1f, 0x4f, 0x3f, 0x57, 0x01, 0x46, 0x21,
-	0x6e, 0x2e, 0x76, 0x7f, 0x37, 0x37, 0x30, 0x87, 0xc9, 0xc9, 0xed, 0xc4, 0x23, 0x39, 0xc6, 0x0b,
-	0x8f, 0xe4, 0x18, 0x1f, 0x3c, 0x92, 0x63, 0x9c, 0xf1, 0x58, 0x8e, 0x21, 0xca, 0x24, 0x3d, 0xb3,
-	0x24, 0xa3, 0x34, 0x49, 0x2f, 0x39, 0x3f, 0x57, 0x3f, 0xaf, 0xb8, 0x20, 0x39, 0x59, 0x37, 0x25,
-	0xb5, 0x4c, 0x3f, 0x2f, 0x35, 0x3f, 0xad, 0x58, 0x37, 0x2f, 0x3f, 0x25, 0x55, 0x1f, 0x9b, 0x9f,
-	0x92, 0xd8, 0xc0, 0xde, 0x31, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x7f, 0x31, 0x42, 0x61, 0xf2,
-	0x00, 0x00, 0x00,
+	// 398 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x52, 0x4f, 0x8b, 0xd3, 0x40,
+	0x1c, 0xdd, 0xd9, 0xfe, 0x33, 0xbf, 0x5d, 0x24, 0x0e, 0x2b, 0x06, 0xc5, 0x10, 0x7a, 0xb1, 0x28,
+	0x9b, 0xc0, 0x2a, 0x5e, 0xc4, 0xc3, 0xca, 0x36, 0x5a, 0xd4, 0x2c, 0x24, 0xbb, 0x17, 0x2f, 0xcb,
+	0x24, 0xf9, 0x35, 0x0d, 0x4d, 0x67, 0x86, 0xcc, 0xa4, 0xd0, 0x6f, 0xe2, 0x47, 0xf2, 0xe8, 0x47,
+	0x90, 0xfa, 0x35, 0x3c, 0x48, 0x92, 0xa6, 0x16, 0xdc, 0x5b, 0xde, 0xcb, 0x7b, 0x6f, 0xde, 0x83,
+	0x1f, 0x38, 0x72, 0x99, 0x79, 0x0a, 0xcb, 0x75, 0x9e, 0xa0, 0xf2, 0x12, 0xc1, 0x75, 0x29, 0x0a,
+	0x4f, 0x6f, 0x24, 0x2a, 0x57, 0x96, 0x42, 0x0b, 0x3a, 0xda, 0x91, 0xe3, 0xb7, 0x60, 0x44, 0x79,
+	0xc6, 0x99, 0xae, 0x4a, 0xa4, 0x26, 0xf4, 0x96, 0xb8, 0xb1, 0x88, 0x43, 0x26, 0xa7, 0x61, 0xfd,
+	0x49, 0x9f, 0x40, 0x5f, 0xe5, 0x19, 0xb7, 0x8e, 0x1b, 0xca, 0x50, 0x9d, 0x74, 0xfc, 0x87, 0xc0,
+	0x83, 0x40, 0xa4, 0x38, 0xe3, 0x73, 0x41, 0x9f, 0x03, 0xc8, 0x2a, 0x2e, 0xf2, 0xe4, 0xee, 0x9f,
+	0xdd, 0x68, 0x99, 0xcf, 0xb8, 0xa1, 0x16, 0x8c, 0x58, 0x9a, 0x96, 0xa8, 0x54, 0x93, 0x63, 0x84,
+	0x1d, 0xa4, 0xef, 0x00, 0x98, 0xd6, 0x65, 0x1e, 0x57, 0x1a, 0x95, 0xd5, 0x73, 0x7a, 0x93, 0x93,
+	0x8b, 0x67, 0xee, 0xae, 0x9b, 0xdb, 0xe5, 0xbb, 0x97, 0x9d, 0x26, 0x3c, 0x90, 0xd3, 0x57, 0x30,
+	0x50, 0x9a, 0x69, 0xb4, 0xfa, 0x0e, 0x99, 0x3c, 0xbc, 0x78, 0xbc, 0xf7, 0x7d, 0x42, 0x56, 0xe8,
+	0x45, 0xa4, 0x99, 0xae, 0x54, 0xd8, 0x6a, 0x9e, 0x7e, 0x05, 0x63, 0x9f, 0x72, 0xb8, 0xd3, 0x68,
+	0x77, 0x9e, 0xc1, 0x60, 0xcd, 0x8a, 0x0a, 0x77, 0x05, 0x5b, 0x50, 0x17, 0x97, 0xac, 0x44, 0xae,
+	0xdb, 0x6e, 0x46, 0xd8, 0xc1, 0xf1, 0x47, 0x18, 0x06, 0xa8, 0x57, 0x4c, 0xd6, 0x4e, 0x94, 0x22,
+	0x59, 0x34, 0x69, 0xfd, 0xb0, 0x05, 0xf4, 0x05, 0x0c, 0xb8, 0x48, 0xb1, 0x1e, 0x5c, 0x6f, 0x7a,
+	0xf4, 0xdf, 0xa6, 0xb0, 0xfd, 0xff, 0xf2, 0x3d, 0x9c, 0x1e, 0xd6, 0xa5, 0x67, 0x60, 0x46, 0x37,
+	0x97, 0x37, 0xb7, 0xd1, 0xdd, 0x6d, 0x70, 0x35, 0xf5, 0x67, 0xc1, 0xf4, 0xca, 0x3c, 0xa2, 0x00,
+	0xc3, 0xeb, 0xe0, 0xcb, 0x2c, 0x98, 0x9a, 0x84, 0x9e, 0xc0, 0xe8, 0xda, 0xf7, 0x1b, 0x70, 0xfc,
+	0xc1, 0xff, 0xb1, 0xb5, 0xc9, 0xcf, 0xad, 0x4d, 0x7e, 0x6d, 0x6d, 0xf2, 0xfd, 0xb7, 0x7d, 0xf4,
+	0xed, 0x4d, 0x96, 0xeb, 0x45, 0x15, 0xbb, 0x89, 0x58, 0x79, 0x5c, 0xc9, 0x24, 0x39, 0x4f, 0x71,
+	0xed, 0x71, 0x14, 0x73, 0x75, 0x5e, 0x3f, 0xe9, 0xdd, 0x77, 0x1b, 0xf1, 0xb0, 0x39, 0x8b, 0xd7,
+	0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x07, 0xad, 0x68, 0x10, 0x3a, 0x02, 0x00, 0x00,
 }
 
 func (m *Signature) Marshal() (dAtA []byte, err error) {
@@ -170,6 +426,142 @@ func (m *Signature) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *NodeInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *NodeInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.PublicKey) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.PublicKey)))
+		i += copy(dAtA[i:], m.PublicKey)
+	}
+	if len(m.Address) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Address)))
+		i += copy(dAtA[i:], m.Address)
+	}
+	if len(m.Attributes) > 0 {
+		for _, msg := range m.Attributes {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintTypes(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.State != 0 {
+		dAtA[i] = 0x20
+		i++
+		i = encodeVarintTypes(dAtA, i, uint64(m.State))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *NodeInfo_Attribute) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *NodeInfo_Attribute) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Key) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Key)))
+		i += copy(dAtA[i:], m.Key)
+	}
+	if len(m.Value) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Value)))
+		i += copy(dAtA[i:], m.Value)
+	}
+	if len(m.Parents) > 0 {
+		for _, s := range m.Parents {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *Netmap) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Netmap) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Epoch != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintTypes(dAtA, i, uint64(m.Epoch))
+	}
+	if len(m.Nodes) > 0 {
+		for _, msg := range m.Nodes {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintTypes(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintTypes(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -192,6 +584,82 @@ func (m *Signature) Size() (n int) {
 	l = len(m.Sign)
 	if l > 0 {
 		n += 1 + l + sovTypes(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *NodeInfo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.PublicKey)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	l = len(m.Address)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if len(m.Attributes) > 0 {
+		for _, e := range m.Attributes {
+			l = e.Size()
+			n += 1 + l + sovTypes(uint64(l))
+		}
+	}
+	if m.State != 0 {
+		n += 1 + sovTypes(uint64(m.State))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *NodeInfo_Attribute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Key)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	l = len(m.Value)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if len(m.Parents) > 0 {
+		for _, s := range m.Parents {
+			l = len(s)
+			n += 1 + l + sovTypes(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Netmap) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Epoch != 0 {
+		n += 1 + sovTypes(uint64(m.Epoch))
+	}
+	if len(m.Nodes) > 0 {
+		for _, e := range m.Nodes {
+			l = e.Size()
+			n += 1 + l + sovTypes(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -307,6 +775,436 @@ func (m *Signature) Unmarshal(dAtA []byte) error {
 			m.Sign = append(m.Sign[:0], dAtA[iNdEx:postIndex]...)
 			if m.Sign == nil {
 				m.Sign = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *NodeInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: NodeInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: NodeInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PublicKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PublicKey = append(m.PublicKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.PublicKey == nil {
+				m.PublicKey = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attributes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Attributes = append(m.Attributes, &NodeInfo_Attribute{})
+			if err := m.Attributes[len(m.Attributes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			m.State = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.State |= HealthStatus(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *NodeInfo_Attribute) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Attribute: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Attribute: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Key = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Value = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Parents", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Parents = append(m.Parents, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Netmap) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Netmap: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Netmap: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Epoch", wireType)
+			}
+			m.Epoch = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Epoch |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Nodes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Nodes = append(m.Nodes, &NodeInfo{})
+			if err := m.Nodes[len(m.Nodes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:
