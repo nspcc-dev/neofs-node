@@ -58,9 +58,9 @@ func WithKey(key *ecdsa.PrivateKey) Option {
 	}
 }
 
-// WithAllowedKeys returns option to add list of public
+// WithAuthorizedKeys returns option to add list of public
 // keys that have rights to use Control service.
-func WithAllowedKeys(keys [][]byte) Option {
+func WithAuthorizedKeys(keys [][]byte) Option {
 	return func(c *cfg) {
 		c.allowedKeys = append(c.allowedKeys, keys...)
 	}
