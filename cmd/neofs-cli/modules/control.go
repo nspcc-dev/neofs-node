@@ -27,6 +27,29 @@ func init() {
 	rootCmd.AddCommand(controlCmd)
 
 	controlCmd.AddCommand(healthCheckCmd)
+
+	controlCmd.AddCommand(snapshotCmd)
+}
+
+func getControlServiceClient() (control.ControlServiceClient, error) {
+	netAddr, err := getEndpointAddress()
+	if err != nil {
+		return nil, err
+	}
+
+	ipAddr, err := netAddr.IPAddrString()
+	if err != nil {
+		return nil, errInvalidEndpoint
+	}
+
+	con, err := client.NewGRPCClientConn(
+		client.WithNetworkAddress(ipAddr),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return control.NewControlServiceClient(con), nil
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) error {
@@ -43,24 +66,10 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	netAddr, err := getEndpointAddress()
+	cli, err := getControlServiceClient()
 	if err != nil {
 		return err
 	}
-
-	ipAddr, err := netAddr.IPAddrString()
-	if err != nil {
-		return errInvalidEndpoint
-	}
-
-	con, err := client.NewGRPCClientConn(
-		client.WithNetworkAddress(ipAddr),
-	)
-	if err != nil {
-		return err
-	}
-
-	cli := control.NewControlServiceClient(con)
 
 	resp, err := cli.HealthCheck(context.Background(), req)
 	if err != nil {
