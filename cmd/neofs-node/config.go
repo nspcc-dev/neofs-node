@@ -424,7 +424,7 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgObjectRangePoolSize, 10)
 	v.SetDefault(cfgObjectRangeHashPoolSize, 10)
 
-	v.SetDefault(cfgCtrlSvcAllowedKeys, []string{})
+	v.SetDefault(cfgCtrlSvcAuthorizedKeys, []string{})
 }
 
 func (c *cfg) LocalAddress() *network.Address {
