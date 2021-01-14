@@ -40,7 +40,7 @@ func initControlService(c *cfg) {
 
 	ctlSvc := controlSvc.New(
 		controlSvc.WithKey(c.key),
-		controlSvc.WithAllowedKeys(keys),
+		controlSvc.WithAuthorizedKeys(keys),
 		controlSvc.WithHealthChecker(c),
 	)
 
