@@ -19,8 +19,14 @@ type HealthChecker interface {
 	// Must calculate and return current status of the node in NeoFS network map.
 	//
 	// If status can not be calculated for any reason,
-	// control.HealthStatus_STATUS_UNDEFINED should be returned.
+	// control.netmapStatus_STATUS_UNDEFINED should be returned.
 	NetmapStatus() control.NetmapStatus
+
+	// Must calculate and return current health status of the node application.
+	//
+	// If status can not be calculated for any reason,
+	// control.HealthStatus_HEALTH_STATUS_UNDEFINED should be returned.
+	HealthStatus() control.HealthStatus
 }
 
 // Option of the Server's constructor.
