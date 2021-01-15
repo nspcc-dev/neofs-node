@@ -66,9 +66,17 @@ func (x *HealthCheckResponse_Body) SetNetmapStatus(v NetmapStatus) {
 	}
 }
 
+// SetHealthStatus sets health status of the storage node application.
+func (x *HealthCheckResponse_Body) SetHealthStatus(v HealthStatus) {
+	if x != nil {
+		x.HealthStatus = v
+	}
+}
+
 const (
 	_ = iota
 	healthRespBodyStatusFNum
+	healthRespBodyHealthStatusFNum
 )
 
 // StableMarshal reads binary representation of health check response body
@@ -89,7 +97,19 @@ func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.EnumMarshal(healthRespBodyStatusFNum, buf, int32(x.NetmapStatus))
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.EnumMarshal(healthRespBodyStatusFNum, buf[offset:], int32(x.NetmapStatus))
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	_, err = proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf[offset:], int32(x.HealthStatus))
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +129,7 @@ func (x *HealthCheckResponse_Body) StableSize() int {
 	size := 0
 
 	size += proto.EnumSize(healthRespBodyStatusFNum, int32(x.NetmapStatus))
+	size += proto.EnumSize(healthRespBodyHealthStatusFNum, int32(x.HealthStatus))
 
 	return size
 }

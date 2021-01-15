@@ -34,6 +34,9 @@ message HealthCheckResponse {
     message Body {
         // Status of the storage node in NeoFS network map.
         NetmapStatus netmap_status = 1;
+
+        // Health status of storage node application.
+        HealthStatus health_status = 2;
     }
 
     // Body of health check response message.
