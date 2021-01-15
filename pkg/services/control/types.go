@@ -140,7 +140,7 @@ func (x *NodeInfo) SetAttributes(v []*NodeInfo_Attribute) {
 }
 
 // SetState sets state of the NeoFS node.
-func (x *NodeInfo) SetState(v HealthStatus) {
+func (x *NodeInfo) SetState(v NetmapStatus) {
 	if x != nil {
 		x.State = v
 	}

@@ -13,8 +13,8 @@ message Signature {
     bytes sign = 2 [json_name = "signature"];
 }
 
-// Health status of the storage node.
-enum HealthStatus {
+// Status of the storage node in the NeoFS network map.
+enum NetmapStatus {
     // Undefined status, default value.
     STATUS_UNDEFINED = 0;
 
@@ -90,7 +90,7 @@ message NodeInfo {
     repeated Attribute attributes = 3 [json_name = "attributes"];
 
     // Carries state of the NeoFS node.
-    HealthStatus state = 4 [json_name = "state"];
+    NetmapStatus state = 4 [json_name = "state"];
 }
 
 // Network map structure.

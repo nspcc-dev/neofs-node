@@ -23,7 +23,7 @@ func (s *Server) HealthCheck(_ context.Context, req *control.HealthCheckRequest)
 	body := new(control.HealthCheckResponse_Body)
 	resp.SetBody(body)
 
-	body.SetStatus(s.healthChecker.HealthStatus())
+	body.SetNetmapStatus(s.healthChecker.NetmapStatus())
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {

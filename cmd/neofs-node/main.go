@@ -56,7 +56,7 @@ func bootUp(c *cfg) {
 	bootstrapNode(c)
 	startWorkers(c)
 
-	c.setHealthStatus(control.HealthStatus_ONLINE)
+	c.setNetmapStatus(control.NetmapStatus_ONLINE)
 }
 
 func wait(c *cfg) {

@@ -21,13 +21,13 @@ func TestHealthCheckResponse_Body_StableMarshal(t *testing.T) {
 
 func generateHealthCheckResponseBody() *control.HealthCheckResponse_Body {
 	body := new(control.HealthCheckResponse_Body)
-	body.SetStatus(control.HealthStatus_ONLINE)
+	body.SetNetmapStatus(control.NetmapStatus_ONLINE)
 
 	return body
 }
 
 func equalHealthCheckResponseBodies(b1, b2 *control.HealthCheckResponse_Body) bool {
-	return b1.GetStatus() == b2.GetStatus()
+	return b1.GetNetmapStatus() == b2.GetNetmapStatus()
 }
 
 func TestNetmapSnapshotResponse_Body_StableMarshal(t *testing.T) {

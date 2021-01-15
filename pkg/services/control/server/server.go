@@ -16,11 +16,11 @@ type Server struct {
 // HealthChecker is component interface for calculating
 // the current health status of a node.
 type HealthChecker interface {
-	// Must calculate and return current node health status.
+	// Must calculate and return current status of the node in NeoFS network map.
 	//
 	// If status can not be calculated for any reason,
 	// control.HealthStatus_STATUS_UNDEFINED should be returned.
-	HealthStatus() control.HealthStatus
+	NetmapStatus() control.NetmapStatus
 }
 
 // Option of the Server's constructor.
