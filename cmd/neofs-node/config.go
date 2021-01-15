@@ -184,6 +184,8 @@ type cfg struct {
 
 	cfgControlService cfgControlService
 
+	netStatus *atomic.Int32
+
 	healthStatus *atomic.Int32
 }
 
@@ -342,7 +344,8 @@ func initCfg(path string) *cfg {
 		cfgObject: cfgObject{
 			pool: initObjectPool(viperCfg),
 		},
-		healthStatus: atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
+		netStatus:    atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
+		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 	}
 
 	initLocalStorage(c)
