@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	"go.uber.org/zap"
 )
@@ -55,8 +54,6 @@ func bootUp(c *cfg) {
 	serveGRPC(c)
 	bootstrapNode(c)
 	startWorkers(c)
-
-	c.setNetmapStatus(control.NetmapStatus_ONLINE)
 }
 
 func wait(c *cfg) {

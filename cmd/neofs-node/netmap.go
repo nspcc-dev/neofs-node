@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
@@ -72,6 +74,22 @@ func initNetmapService(c *cfg) {
 			}
 		})
 	}
+
+	addNewEpochNotificationHandler(c, func(ev event.Event) {
+		e := ev.(netmapEvent.NewEpoch).EpochNumber()
+
+		netStatus, err := c.netmapStatus(e)
+		if err != nil {
+			c.log.Error("could not update network status on new epoch",
+				zap.Uint64("epoch", e),
+				zap.String("error", err.Error()),
+			)
+
+			return
+		}
+
+		c.setNetmapStatus(netStatus)
+	})
 }
 
 func bootstrapNode(c *cfg) {
@@ -105,11 +123,41 @@ func initState(c *cfg) {
 	epoch, err := c.cfgNetmap.wrapper.Epoch()
 	fatalOnErr(errors.Wrap(err, "could not initialize current epoch number"))
 
-	c.log.Info("initial epoch number",
-		zap.Uint64("value", epoch),
+	netStatus, err := c.netmapStatus(epoch)
+	fatalOnErr(errors.Wrap(err, "could not init network status"))
+
+	c.setNetmapStatus(netStatus)
+
+	c.log.Info("initial network state",
+		zap.Uint64("epoch", epoch),
+		zap.Stringer("status", netStatus),
 	)
 
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
+}
+
+func (c *cfg) netmapStatus(epoch uint64) (control.NetmapStatus, error) {
+	// calculate current network state
+	nm, err := c.cfgNetmap.wrapper.GetNetMapByEpoch(epoch)
+	if err != nil {
+		return control.NetmapStatus_STATUS_UNDEFINED, err
+	}
+
+	if c.inNetmap(nm) {
+		return control.NetmapStatus_ONLINE, nil
+	}
+
+	return control.NetmapStatus_OFFLINE, nil
+}
+
+func (c *cfg) inNetmap(nm *netmap.Netmap) bool {
+	for _, n := range nm.Nodes {
+		if bytes.Equal(n.PublicKey(), crypto.MarshalPublicKey(&c.key.PublicKey)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
@@ -117,8 +165,6 @@ func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
 }
 
 func goOffline(c *cfg) {
-	c.setNetmapStatus(control.NetmapStatus_OFFLINE)
-
 	err := c.cfgNetmap.wrapper.UpdatePeerState(
 		crypto.MarshalPublicKey(&c.key.PublicKey),
 		netmap.NodeStateOffline,
