@@ -144,7 +144,7 @@ func prettyPrintNodeInfo(i *netmap.NodeInfo, jsonEncoding bool) {
 
 func prettyPrintNetmap(nm *control.Netmap, jsonEncoding bool) {
 	if jsonEncoding {
-		fmt.Println("JSON encoding is not implemented")
+		printJSONMarshaler(nm, "netmap")
 		return
 	}
 
