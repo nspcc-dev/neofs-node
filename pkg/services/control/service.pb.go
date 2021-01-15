@@ -261,6 +261,122 @@ func (x *NetmapSnapshotResponse) GetSignature() *Signature {
 	return nil
 }
 
+// Set netmap status request.
+type SetNetmapStatusRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Body of set netmap status request message.
+	Body *SetNetmapStatusRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	// Body signature.
+	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *SetNetmapStatusRequest) Reset() {
+	*x = SetNetmapStatusRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SetNetmapStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetNetmapStatusRequest) ProtoMessage() {}
+
+func (x *SetNetmapStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetNetmapStatusRequest.ProtoReflect.Descriptor instead.
+func (*SetNetmapStatusRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SetNetmapStatusRequest) GetBody() *SetNetmapStatusRequest_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *SetNetmapStatusRequest) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+// Set netmap status response.
+type SetNetmapStatusResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Body of set netmap status response message.
+	Body *SetNetmapStatusResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	// Body signature.
+	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *SetNetmapStatusResponse) Reset() {
+	*x = SetNetmapStatusResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SetNetmapStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetNetmapStatusResponse) ProtoMessage() {}
+
+func (x *SetNetmapStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetNetmapStatusResponse.ProtoReflect.Descriptor instead.
+func (*SetNetmapStatusResponse) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SetNetmapStatusResponse) GetBody() *SetNetmapStatusResponse_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *SetNetmapStatusResponse) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 // Health check request body.
 type HealthCheckRequest_Body struct {
 	state         protoimpl.MessageState
@@ -271,7 +387,7 @@ type HealthCheckRequest_Body struct {
 func (x *HealthCheckRequest_Body) Reset() {
 	*x = HealthCheckRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[4]
+		mi := &file_pkg_services_control_service_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -284,7 +400,7 @@ func (x *HealthCheckRequest_Body) String() string {
 func (*HealthCheckRequest_Body) ProtoMessage() {}
 
 func (x *HealthCheckRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[4]
+	mi := &file_pkg_services_control_service_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +431,7 @@ type HealthCheckResponse_Body struct {
 func (x *HealthCheckResponse_Body) Reset() {
 	*x = HealthCheckResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[5]
+		mi := &file_pkg_services_control_service_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -328,7 +444,7 @@ func (x *HealthCheckResponse_Body) String() string {
 func (*HealthCheckResponse_Body) ProtoMessage() {}
 
 func (x *HealthCheckResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[5]
+	mi := &file_pkg_services_control_service_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -368,7 +484,7 @@ type NetmapSnapshotRequest_Body struct {
 func (x *NetmapSnapshotRequest_Body) Reset() {
 	*x = NetmapSnapshotRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[6]
+		mi := &file_pkg_services_control_service_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -381,7 +497,7 @@ func (x *NetmapSnapshotRequest_Body) String() string {
 func (*NetmapSnapshotRequest_Body) ProtoMessage() {}
 
 func (x *NetmapSnapshotRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[6]
+	mi := &file_pkg_services_control_service_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -410,7 +526,7 @@ type NetmapSnapshotResponse_Body struct {
 func (x *NetmapSnapshotResponse_Body) Reset() {
 	*x = NetmapSnapshotResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[7]
+		mi := &file_pkg_services_control_service_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -423,7 +539,7 @@ func (x *NetmapSnapshotResponse_Body) String() string {
 func (*NetmapSnapshotResponse_Body) ProtoMessage() {}
 
 func (x *NetmapSnapshotResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[7]
+	mi := &file_pkg_services_control_service_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -444,6 +560,94 @@ func (x *NetmapSnapshotResponse_Body) GetNetmap() *Netmap {
 		return x.Netmap
 	}
 	return nil
+}
+
+// Set netmap status request body.
+type SetNetmapStatusRequest_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// New storage node status in NeoFS network map.
+	Status NetmapStatus `protobuf:"varint,1,opt,name=status,proto3,enum=control.NetmapStatus" json:"status,omitempty"`
+}
+
+func (x *SetNetmapStatusRequest_Body) Reset() {
+	*x = SetNetmapStatusRequest_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SetNetmapStatusRequest_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetNetmapStatusRequest_Body) ProtoMessage() {}
+
+func (x *SetNetmapStatusRequest_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetNetmapStatusRequest_Body.ProtoReflect.Descriptor instead.
+func (*SetNetmapStatusRequest_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{4, 0}
+}
+
+func (x *SetNetmapStatusRequest_Body) GetStatus() NetmapStatus {
+	if x != nil {
+		return x.Status
+	}
+	return NetmapStatus_STATUS_UNDEFINED
+}
+
+// Set netmap status response body
+type SetNetmapStatusResponse_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *SetNetmapStatusResponse_Body) Reset() {
+	*x = SetNetmapStatusResponse_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SetNetmapStatusResponse_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetNetmapStatusResponse_Body) ProtoMessage() {}
+
+func (x *SetNetmapStatusResponse_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetNetmapStatusResponse_Body.ProtoReflect.Descriptor instead.
+func (*SetNetmapStatusResponse_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{5, 0}
 }
 
 var File_pkg_services_control_service_proto protoreflect.FileDescriptor
@@ -498,22 +702,49 @@ var file_pkg_services_control_service_proto_rawDesc = []byte{
 	0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x2f, 0x0a, 0x04, 0x42,
 	0x6f, 0x64, 0x79, 0x12, 0x27, 0x0a, 0x06, 0x6e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65,
-	0x74, 0x6d, 0x61, 0x70, 0x52, 0x06, 0x6e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x32, 0xad, 0x01, 0x0a,
-	0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
-	0x48, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x1b,
-	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43,
-	0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63,
-	0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x51, 0x0a, 0x0e, 0x4e, 0x65, 0x74,
-	0x6d, 0x61, 0x70, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x12, 0x1e, 0x2e, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x6e, 0x61, 0x70,
-	0x73, 0x68, 0x6f, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x6e, 0x61, 0x70,
-	0x73, 0x68, 0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x36, 0x5a, 0x34,
-	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x73, 0x70, 0x63, 0x63,
-	0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f, 0x66, 0x73, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f,
-	0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x63, 0x6f, 0x6e,
-	0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x6d, 0x61, 0x70, 0x52, 0x06, 0x6e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x22, 0xbb, 0x01, 0x0a,
+	0x16, 0x53, 0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x53, 0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64,
+	0x79, 0x12, 0x30, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x1a, 0x35, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x06, 0x73,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x15, 0x2e, 0x63, 0x6f,
+	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x8e, 0x01, 0x0a, 0x17, 0x53,
+	0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x39, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x25, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53,
+	0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64,
+	0x79, 0x12, 0x30, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x32, 0x83, 0x02, 0x0a, 0x0e,
+	0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x48,
+	0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x1b, 0x2e,
+	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68,
+	0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x51, 0x0a, 0x0e, 0x4e, 0x65, 0x74, 0x6d,
+	0x61, 0x70, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x12, 0x1e, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x6e, 0x61, 0x70, 0x73,
+	0x68, 0x6f, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x6e, 0x61, 0x70, 0x73,
+	0x68, 0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x54, 0x0a, 0x0f, 0x53,
+	0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1f,
+	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d,
+	0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x20, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x74, 0x4e, 0x65, 0x74,
+	0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
+	0x6e, 0x73, 0x70, 0x63, 0x63, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f, 0x66, 0x73, 0x2d,
+	0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
+	0x73, 0x2f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -528,42 +759,53 @@ func file_pkg_services_control_service_proto_rawDescGZIP() []byte {
 	return file_pkg_services_control_service_proto_rawDescData
 }
 
-var file_pkg_services_control_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_pkg_services_control_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_pkg_services_control_service_proto_goTypes = []interface{}{
-	(*HealthCheckRequest)(nil),          // 0: control.HealthCheckRequest
-	(*HealthCheckResponse)(nil),         // 1: control.HealthCheckResponse
-	(*NetmapSnapshotRequest)(nil),       // 2: control.NetmapSnapshotRequest
-	(*NetmapSnapshotResponse)(nil),      // 3: control.NetmapSnapshotResponse
-	(*HealthCheckRequest_Body)(nil),     // 4: control.HealthCheckRequest.Body
-	(*HealthCheckResponse_Body)(nil),    // 5: control.HealthCheckResponse.Body
-	(*NetmapSnapshotRequest_Body)(nil),  // 6: control.NetmapSnapshotRequest.Body
-	(*NetmapSnapshotResponse_Body)(nil), // 7: control.NetmapSnapshotResponse.Body
-	(*Signature)(nil),                   // 8: control.Signature
-	(NetmapStatus)(0),                   // 9: control.NetmapStatus
-	(HealthStatus)(0),                   // 10: control.HealthStatus
-	(*Netmap)(nil),                      // 11: control.Netmap
+	(*HealthCheckRequest)(nil),           // 0: control.HealthCheckRequest
+	(*HealthCheckResponse)(nil),          // 1: control.HealthCheckResponse
+	(*NetmapSnapshotRequest)(nil),        // 2: control.NetmapSnapshotRequest
+	(*NetmapSnapshotResponse)(nil),       // 3: control.NetmapSnapshotResponse
+	(*SetNetmapStatusRequest)(nil),       // 4: control.SetNetmapStatusRequest
+	(*SetNetmapStatusResponse)(nil),      // 5: control.SetNetmapStatusResponse
+	(*HealthCheckRequest_Body)(nil),      // 6: control.HealthCheckRequest.Body
+	(*HealthCheckResponse_Body)(nil),     // 7: control.HealthCheckResponse.Body
+	(*NetmapSnapshotRequest_Body)(nil),   // 8: control.NetmapSnapshotRequest.Body
+	(*NetmapSnapshotResponse_Body)(nil),  // 9: control.NetmapSnapshotResponse.Body
+	(*SetNetmapStatusRequest_Body)(nil),  // 10: control.SetNetmapStatusRequest.Body
+	(*SetNetmapStatusResponse_Body)(nil), // 11: control.SetNetmapStatusResponse.Body
+	(*Signature)(nil),                    // 12: control.Signature
+	(NetmapStatus)(0),                    // 13: control.NetmapStatus
+	(HealthStatus)(0),                    // 14: control.HealthStatus
+	(*Netmap)(nil),                       // 15: control.Netmap
 }
 var file_pkg_services_control_service_proto_depIdxs = []int32{
-	4,  // 0: control.HealthCheckRequest.body:type_name -> control.HealthCheckRequest.Body
-	8,  // 1: control.HealthCheckRequest.signature:type_name -> control.Signature
-	5,  // 2: control.HealthCheckResponse.body:type_name -> control.HealthCheckResponse.Body
-	8,  // 3: control.HealthCheckResponse.signature:type_name -> control.Signature
-	6,  // 4: control.NetmapSnapshotRequest.body:type_name -> control.NetmapSnapshotRequest.Body
-	8,  // 5: control.NetmapSnapshotRequest.signature:type_name -> control.Signature
-	7,  // 6: control.NetmapSnapshotResponse.body:type_name -> control.NetmapSnapshotResponse.Body
-	8,  // 7: control.NetmapSnapshotResponse.signature:type_name -> control.Signature
-	9,  // 8: control.HealthCheckResponse.Body.netmap_status:type_name -> control.NetmapStatus
-	10, // 9: control.HealthCheckResponse.Body.health_status:type_name -> control.HealthStatus
-	11, // 10: control.NetmapSnapshotResponse.Body.netmap:type_name -> control.Netmap
-	0,  // 11: control.ControlService.HealthCheck:input_type -> control.HealthCheckRequest
-	2,  // 12: control.ControlService.NetmapSnapshot:input_type -> control.NetmapSnapshotRequest
-	1,  // 13: control.ControlService.HealthCheck:output_type -> control.HealthCheckResponse
-	3,  // 14: control.ControlService.NetmapSnapshot:output_type -> control.NetmapSnapshotResponse
-	13, // [13:15] is the sub-list for method output_type
-	11, // [11:13] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	6,  // 0: control.HealthCheckRequest.body:type_name -> control.HealthCheckRequest.Body
+	12, // 1: control.HealthCheckRequest.signature:type_name -> control.Signature
+	7,  // 2: control.HealthCheckResponse.body:type_name -> control.HealthCheckResponse.Body
+	12, // 3: control.HealthCheckResponse.signature:type_name -> control.Signature
+	8,  // 4: control.NetmapSnapshotRequest.body:type_name -> control.NetmapSnapshotRequest.Body
+	12, // 5: control.NetmapSnapshotRequest.signature:type_name -> control.Signature
+	9,  // 6: control.NetmapSnapshotResponse.body:type_name -> control.NetmapSnapshotResponse.Body
+	12, // 7: control.NetmapSnapshotResponse.signature:type_name -> control.Signature
+	10, // 8: control.SetNetmapStatusRequest.body:type_name -> control.SetNetmapStatusRequest.Body
+	12, // 9: control.SetNetmapStatusRequest.signature:type_name -> control.Signature
+	11, // 10: control.SetNetmapStatusResponse.body:type_name -> control.SetNetmapStatusResponse.Body
+	12, // 11: control.SetNetmapStatusResponse.signature:type_name -> control.Signature
+	13, // 12: control.HealthCheckResponse.Body.netmap_status:type_name -> control.NetmapStatus
+	14, // 13: control.HealthCheckResponse.Body.health_status:type_name -> control.HealthStatus
+	15, // 14: control.NetmapSnapshotResponse.Body.netmap:type_name -> control.Netmap
+	13, // 15: control.SetNetmapStatusRequest.Body.status:type_name -> control.NetmapStatus
+	0,  // 16: control.ControlService.HealthCheck:input_type -> control.HealthCheckRequest
+	2,  // 17: control.ControlService.NetmapSnapshot:input_type -> control.NetmapSnapshotRequest
+	4,  // 18: control.ControlService.SetNetmapStatus:input_type -> control.SetNetmapStatusRequest
+	1,  // 19: control.ControlService.HealthCheck:output_type -> control.HealthCheckResponse
+	3,  // 20: control.ControlService.NetmapSnapshot:output_type -> control.NetmapSnapshotResponse
+	5,  // 21: control.ControlService.SetNetmapStatus:output_type -> control.SetNetmapStatusResponse
+	19, // [19:22] is the sub-list for method output_type
+	16, // [16:19] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_pkg_services_control_service_proto_init() }
@@ -622,7 +864,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthCheckRequest_Body); i {
+			switch v := v.(*SetNetmapStatusRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -634,7 +876,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthCheckResponse_Body); i {
+			switch v := v.(*SetNetmapStatusResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -646,7 +888,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetmapSnapshotRequest_Body); i {
+			switch v := v.(*HealthCheckRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -658,7 +900,55 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*HealthCheckResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NetmapSnapshotRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NetmapSnapshotResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SetNetmapStatusRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SetNetmapStatusResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -676,7 +966,7 @@ func file_pkg_services_control_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_services_control_service_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
@@ -706,6 +996,8 @@ type ControlServiceClient interface {
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
 	// Returns network map snapshot of the current NeoFS epoch.
 	NetmapSnapshot(ctx context.Context, in *NetmapSnapshotRequest, opts ...grpc.CallOption) (*NetmapSnapshotResponse, error)
+	// Sets status of the storage node in NeoFS network map.
+	SetNetmapStatus(ctx context.Context, in *SetNetmapStatusRequest, opts ...grpc.CallOption) (*SetNetmapStatusResponse, error)
 }
 
 type controlServiceClient struct {
@@ -734,12 +1026,23 @@ func (c *controlServiceClient) NetmapSnapshot(ctx context.Context, in *NetmapSna
 	return out, nil
 }
 
+func (c *controlServiceClient) SetNetmapStatus(ctx context.Context, in *SetNetmapStatusRequest, opts ...grpc.CallOption) (*SetNetmapStatusResponse, error) {
+	out := new(SetNetmapStatusResponse)
+	err := c.cc.Invoke(ctx, "/control.ControlService/SetNetmapStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServiceServer is the server API for ControlService service.
 type ControlServiceServer interface {
 	// Performs health check of the storage node.
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
 	// Returns network map snapshot of the current NeoFS epoch.
 	NetmapSnapshot(context.Context, *NetmapSnapshotRequest) (*NetmapSnapshotResponse, error)
+	// Sets status of the storage node in NeoFS network map.
+	SetNetmapStatus(context.Context, *SetNetmapStatusRequest) (*SetNetmapStatusResponse, error)
 }
 
 // UnimplementedControlServiceServer can be embedded to have forward compatible implementations.
@@ -751,6 +1054,9 @@ func (*UnimplementedControlServiceServer) HealthCheck(context.Context, *HealthCh
 }
 func (*UnimplementedControlServiceServer) NetmapSnapshot(context.Context, *NetmapSnapshotRequest) (*NetmapSnapshotResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NetmapSnapshot not implemented")
+}
+func (*UnimplementedControlServiceServer) SetNetmapStatus(context.Context, *SetNetmapStatusRequest) (*SetNetmapStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetNetmapStatus not implemented")
 }
 
 func RegisterControlServiceServer(s *grpc.Server, srv ControlServiceServer) {
@@ -793,6 +1099,24 @@ func _ControlService_NetmapSnapshot_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_SetNetmapStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetNetmapStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).SetNetmapStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.ControlService/SetNetmapStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).SetNetmapStatus(ctx, req.(*SetNetmapStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _ControlService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "control.ControlService",
 	HandlerType: (*ControlServiceServer)(nil),
@@ -804,6 +1128,10 @@ var _ControlService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NetmapSnapshot",
 			Handler:    _ControlService_NetmapSnapshot_Handler,
+		},
+		{
+			MethodName: "SetNetmapStatus",
+			Handler:    _ControlService_SetNetmapStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
