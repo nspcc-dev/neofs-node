@@ -1,6 +1,24 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.14.1] - 2021-01-15
+
+### Fixed
+
+- Inner ring node could not confirm `netmap.updateState` notification.
+- `object.RangeHash` method ignored salt values.
+
+### Added
+
+- Control API service for storage node with health check, netmap and node state
+  relate methods.
+- Object service now looks to previous epoch containers.
+- Possibility to configure up multiple NEO RPC endpoints in storage node.
+
+### Changed
+
+- Storage node shuts down if event producer RPC node is down.
+
 ## [0.14.0] - 2020-12-30 - Yeouido (여의도, 汝矣島)
 
 Preview4 compatible NeoFS nodes with data audit.
@@ -131,6 +149,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.14.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.0...v0.13.1
