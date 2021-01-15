@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package control;
 
-import "types.proto";
+import "pkg/services/control/types.proto";
 
 option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/control";
 

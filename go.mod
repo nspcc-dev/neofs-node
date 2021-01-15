@@ -36,6 +36,7 @@ require (
 	golang.org/x/sys v0.0.0-20201024232916-9f70ab9862d5 // indirect
 	golang.org/x/tools v0.0.0-20200123022218-593de606220b // indirect
 	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.23.0
 )
 
 // Used for debug reasons
