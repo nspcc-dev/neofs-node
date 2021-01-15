@@ -29,6 +29,11 @@ type HealthChecker interface {
 	HealthStatus() control.HealthStatus
 }
 
+// NodeState is an interface of storage node network state.
+type NodeState interface {
+	SetNetmapStatus(control.NetmapStatus) error
+}
+
 // Option of the Server's constructor.
 type Option func(*cfg)
 
@@ -40,6 +45,8 @@ type cfg struct {
 	healthChecker HealthChecker
 
 	netMapSrc netmap.Source
+
+	nodeState NodeState
 }
 
 func defaultCfg() *cfg {
@@ -87,5 +94,12 @@ func WithHealthChecker(hc HealthChecker) Option {
 func WithNetMapSource(netMapSrc netmap.Source) Option {
 	return func(c *cfg) {
 		c.netMapSrc = netMapSrc
+	}
+}
+
+// WithNodeState returns option to set node network state component.
+func WithNodeState(state NodeState) Option {
+	return func(c *cfg) {
+		c.nodeState = state
 	}
 }
