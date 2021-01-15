@@ -158,7 +158,7 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 			}
 		}
 	default:
-		return errors.Errorf("(%T) unsupported object type %s", v, o.Type())
+		// ignore all other object types, they do not need payload formatting
 	}
 
 	return nil
