@@ -82,6 +82,15 @@ func attributesFromAPI(apiAttrs []*netmapAPI.NodeAttribute) []*control.NodeInfo_
 		a.SetKey(apiAttr.Key())
 		a.SetValue(apiAttr.Value())
 
+		apiParents := apiAttr.ParentKeys()
+		parents := make([]string, 0, len(apiParents))
+
+		for i := range apiParents {
+			parents = append(parents, apiParents[i])
+		}
+
+		a.SetParents(parents)
+
 		attrs = append(attrs, a)
 	}
 
