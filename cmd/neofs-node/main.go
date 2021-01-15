@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	"go.uber.org/zap"
 )
@@ -23,9 +24,15 @@ func main() {
 
 	initApp(c)
 
+	c.setHealthStatus(control.HealthStatus_STARTING)
+
 	bootUp(c)
 
+	c.setHealthStatus(control.HealthStatus_READY)
+
 	wait(c)
+
+	c.setHealthStatus(control.HealthStatus_SHUTTING_DOWN)
 
 	shutdown(c)
 }
