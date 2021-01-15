@@ -1,78 +1,311 @@
 package control
 
+import (
+	"github.com/nspcc-dev/neofs-api-go/util/proto"
+)
+
 // SetKey sets public key used for signing.
-func (m *Signature) SetKey(v []byte) {
-	if m != nil {
-		m.Key = v
+func (x *Signature) SetKey(v []byte) {
+	if x != nil {
+		x.Key = v
 	}
 }
 
 // SetSign sets binary signature.
-func (m *Signature) SetSign(v []byte) {
-	if m != nil {
-		m.Sign = v
+func (x *Signature) SetSign(v []byte) {
+	if x != nil {
+		x.Sign = v
 	}
 }
 
 // SetKey sets key of the node attribute.
-func (m *NodeInfo_Attribute) SetKey(v string) {
-	if m != nil {
-		m.Key = v
+func (x *NodeInfo_Attribute) SetKey(v string) {
+	if x != nil {
+		x.Key = v
 	}
 }
 
 // SetValue sets value of the node attribute.
-func (m *NodeInfo_Attribute) SetValue(v string) {
-	if m != nil {
-		m.Value = v
+func (x *NodeInfo_Attribute) SetValue(v string) {
+	if x != nil {
+		x.Value = v
 	}
 }
 
 // SetParents sets parent keys.
-func (m *NodeInfo_Attribute) SetParents(v []string) {
-	if m != nil {
-		m.Parents = v
+func (x *NodeInfo_Attribute) SetParents(v []string) {
+	if x != nil {
+		x.Parents = v
 	}
 }
 
+const (
+	_ = iota
+	nodeAttrKeyFNum
+	nodeAttrValueFNum
+	nodeAttrParentsFNum
+)
+
+// StableMarshal reads binary representation of node attribute
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NodeInfo_Attribute) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.StringMarshal(nodeAttrKeyFNum, buf[offset:], x.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	n, err = proto.StringMarshal(nodeAttrValueFNum, buf[offset:], x.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	for i := range x.Parents {
+		n, err = proto.StringMarshal(nodeAttrParentsFNum, buf[offset:], x.Parents[i])
+		if err != nil {
+			return nil, err
+		}
+
+		offset += n
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of node attribute
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NodeInfo_Attribute) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.StringSize(nodeAttrKeyFNum, x.Key)
+	size += proto.StringSize(nodeAttrValueFNum, x.Value)
+
+	parents := x.GetParents()
+	for i := range parents {
+		size += proto.StringSize(nodeAttrParentsFNum, parents[i])
+	}
+
+	return size
+}
+
 // SetPublicKey sets public key of the NeoFS node in a binary format.
-func (m *NodeInfo) SetPublicKey(v []byte) {
-	if m != nil {
-		m.PublicKey = v
+func (x *NodeInfo) SetPublicKey(v []byte) {
+	if x != nil {
+		x.PublicKey = v
 	}
 }
 
 // SetAddress sets ways to connect to a node.
-func (m *NodeInfo) SetAddress(v string) {
-	if m != nil {
-		m.Address = v
+func (x *NodeInfo) SetAddress(v string) {
+	if x != nil {
+		x.Address = v
 	}
 }
 
 // SetAttributes sets attributes of the NeoFS Storage Node.
-func (m *NodeInfo) SetAttributes(v []*NodeInfo_Attribute) {
-	if m != nil {
-		m.Attributes = v
+func (x *NodeInfo) SetAttributes(v []*NodeInfo_Attribute) {
+	if x != nil {
+		x.Attributes = v
 	}
 }
 
 // SetState sets state of the NeoFS node.
-func (m *NodeInfo) SetState(v HealthStatus) {
-	if m != nil {
-		m.State = v
+func (x *NodeInfo) SetState(v HealthStatus) {
+	if x != nil {
+		x.State = v
 	}
 }
 
+const (
+	_ = iota
+	nodePubKeyFNum
+	nodeAddrFNum
+	nodeAttrsFNum
+	nodeStateFNum
+)
+
+// StableMarshal reads binary representation of node information
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NodeInfo) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.BytesMarshal(nodePubKeyFNum, buf[offset:], x.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	n, err = proto.StringMarshal(nodeAddrFNum, buf[offset:], x.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	for i := range x.Attributes {
+		n, err = proto.NestedStructureMarshal(nodeAttrsFNum, buf[offset:], x.Attributes[i])
+		if err != nil {
+			return nil, err
+		}
+
+		offset += n
+	}
+
+	_, err = proto.EnumMarshal(nodeStateFNum, buf[offset:], int32(x.State))
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of node information
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NodeInfo) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.BytesSize(nodePubKeyFNum, x.PublicKey)
+	size += proto.StringSize(nodeAddrFNum, x.Address)
+
+	for i := range x.Attributes {
+		size += proto.NestedStructureSize(nodeAttrsFNum, x.Attributes[i])
+	}
+
+	size += proto.EnumSize(nodeStateFNum, int32(x.State))
+
+	return size
+}
+
 // SetEpoch sets revision number of the network map.
-func (m *Netmap) SetEpoch(v uint64) {
-	if m != nil {
-		m.Epoch = v
+func (x *Netmap) SetEpoch(v uint64) {
+	if x != nil {
+		x.Epoch = v
 	}
 }
 
 // SetNodes sets nodes presented in network.
-func (m *Netmap) SetNodes(v []*NodeInfo) {
-	if m != nil {
-		m.Nodes = v
+func (x *Netmap) SetNodes(v []*NodeInfo) {
+	if x != nil {
+		x.Nodes = v
 	}
+}
+
+const (
+	_ = iota
+	netmapEpochFNum
+	netmapNodesFNum
+)
+
+// StableMarshal reads binary representation of netmap  in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *Netmap) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.UInt64Marshal(netmapEpochFNum, buf[offset:], x.Epoch)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	for i := range x.Nodes {
+		n, err = proto.NestedStructureMarshal(netmapNodesFNum, buf[offset:], x.Nodes[i])
+		if err != nil {
+			return nil, err
+		}
+
+		offset += n
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of netmap  in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *Netmap) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.UInt64Size(netmapEpochFNum, x.Epoch)
+
+	for i := range x.Nodes {
+		size += proto.NestedStructureSize(netmapNodesFNum, x.Nodes[i])
+	}
+
+	return size
 }
