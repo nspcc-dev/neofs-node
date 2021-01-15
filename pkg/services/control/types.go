@@ -2,6 +2,7 @@ package control
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/util/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // SetKey sets public key used for signing.
@@ -308,4 +309,10 @@ func (x *Netmap) StableSize() int {
 	}
 
 	return size
+}
+
+func (x *Netmap) MarshalJSON() ([]byte, error) {
+	return protojson.MarshalOptions{
+		EmitUnpopulated: true,
+	}.Marshal(x)
 }
