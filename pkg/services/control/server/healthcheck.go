@@ -24,6 +24,7 @@ func (s *Server) HealthCheck(_ context.Context, req *control.HealthCheckRequest)
 	resp.SetBody(body)
 
 	body.SetNetmapStatus(s.healthChecker.NetmapStatus())
+	body.SetHealthStatus(s.healthChecker.HealthStatus())
 
 	// sign the response
 	if err := SignMessage(s.key, resp); err != nil {
