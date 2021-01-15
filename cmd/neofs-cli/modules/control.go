@@ -84,7 +84,8 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cmd.Printf("Node network status: %s\n", resp.GetBody().GetNetmapStatus())
+	cmd.Printf("Network status: %s\n", resp.GetBody().GetNetmapStatus())
+	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 
 	return nil
 }
