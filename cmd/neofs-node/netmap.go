@@ -178,3 +178,20 @@ func goOffline(c *cfg) {
 		c.log.Info("request to go offline successfully sent")
 	}
 }
+
+func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
+	if st == control.NetmapStatus_ONLINE {
+		return c.cfgNetmap.wrapper.AddPeer(c.cfgNodeInfo.info)
+	}
+
+	var apiState netmap.NodeState
+
+	if st == control.NetmapStatus_OFFLINE {
+		apiState = netmap.NodeStateOffline
+	}
+
+	return c.cfgNetmap.wrapper.UpdatePeerState(
+		crypto.MarshalPublicKey(&c.key.PublicKey),
+		apiState,
+	)
+}
