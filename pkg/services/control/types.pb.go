@@ -25,56 +25,56 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
-// Health status of the storage node.
-type HealthStatus int32
+// Status of the storage node in the NeoFS network map.
+type NetmapStatus int32
 
 const (
 	// Undefined status, default value.
-	HealthStatus_STATUS_UNDEFINED HealthStatus = 0
+	NetmapStatus_STATUS_UNDEFINED NetmapStatus = 0
 	// Node is online.
-	HealthStatus_ONLINE HealthStatus = 1
+	NetmapStatus_ONLINE NetmapStatus = 1
 	// Node is offline.
-	HealthStatus_OFFLINE HealthStatus = 2
+	NetmapStatus_OFFLINE NetmapStatus = 2
 )
 
-// Enum value maps for HealthStatus.
+// Enum value maps for NetmapStatus.
 var (
-	HealthStatus_name = map[int32]string{
+	NetmapStatus_name = map[int32]string{
 		0: "STATUS_UNDEFINED",
 		1: "ONLINE",
 		2: "OFFLINE",
 	}
-	HealthStatus_value = map[string]int32{
+	NetmapStatus_value = map[string]int32{
 		"STATUS_UNDEFINED": 0,
 		"ONLINE":           1,
 		"OFFLINE":          2,
 	}
 )
 
-func (x HealthStatus) Enum() *HealthStatus {
-	p := new(HealthStatus)
+func (x NetmapStatus) Enum() *NetmapStatus {
+	p := new(NetmapStatus)
 	*p = x
 	return p
 }
 
-func (x HealthStatus) String() string {
+func (x NetmapStatus) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (HealthStatus) Descriptor() protoreflect.EnumDescriptor {
+func (NetmapStatus) Descriptor() protoreflect.EnumDescriptor {
 	return file_pkg_services_control_types_proto_enumTypes[0].Descriptor()
 }
 
-func (HealthStatus) Type() protoreflect.EnumType {
+func (NetmapStatus) Type() protoreflect.EnumType {
 	return &file_pkg_services_control_types_proto_enumTypes[0]
 }
 
-func (x HealthStatus) Number() protoreflect.EnumNumber {
+func (x NetmapStatus) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use HealthStatus.Descriptor instead.
-func (HealthStatus) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use NetmapStatus.Descriptor instead.
+func (NetmapStatus) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_services_control_types_proto_rawDescGZIP(), []int{0}
 }
 
@@ -152,7 +152,7 @@ type NodeInfo struct {
 	// will be considered invalid.
 	Attributes []*NodeInfo_Attribute `protobuf:"bytes,3,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	// Carries state of the NeoFS node.
-	State HealthStatus `protobuf:"varint,4,opt,name=state,proto3,enum=control.HealthStatus" json:"state,omitempty"`
+	State NetmapStatus `protobuf:"varint,4,opt,name=state,proto3,enum=control.NetmapStatus" json:"state,omitempty"`
 }
 
 func (x *NodeInfo) Reset() {
@@ -208,11 +208,11 @@ func (x *NodeInfo) GetAttributes() []*NodeInfo_Attribute {
 	return nil
 }
 
-func (x *NodeInfo) GetState() HealthStatus {
+func (x *NodeInfo) GetState() NetmapStatus {
 	if x != nil {
 		return x.State
 	}
-	return HealthStatus_STATUS_UNDEFINED
+	return NetmapStatus_STATUS_UNDEFINED
 }
 
 // Network map structure.
@@ -398,7 +398,7 @@ var file_pkg_services_control_types_proto_rawDesc = []byte{
 	0x2e, 0x41, 0x74, 0x74, 0x72, 0x69, 0x62, 0x75, 0x74, 0x65, 0x52, 0x0a, 0x61, 0x74, 0x74, 0x72,
 	0x69, 0x62, 0x75, 0x74, 0x65, 0x73, 0x12, 0x2b, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18,
 	0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x15, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
-	0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x05, 0x73, 0x74,
+	0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x05, 0x73, 0x74,
 	0x61, 0x74, 0x65, 0x1a, 0x4d, 0x0a, 0x09, 0x41, 0x74, 0x74, 0x72, 0x69, 0x62, 0x75, 0x74, 0x65,
 	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
 	0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
@@ -408,8 +408,8 @@ var file_pkg_services_control_types_proto_rawDesc = []byte{
 	0x65, 0x70, 0x6f, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x65, 0x70, 0x6f,
 	0x63, 0x68, 0x12, 0x27, 0x0a, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28,
 	0x0b, 0x32, 0x11, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f, 0x64, 0x65,
-	0x49, 0x6e, 0x66, 0x6f, 0x52, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x2a, 0x3d, 0x0a, 0x0c, 0x48,
-	0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x14, 0x0a, 0x10, 0x53,
+	0x49, 0x6e, 0x66, 0x6f, 0x52, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x2a, 0x3d, 0x0a, 0x0c, 0x4e,
+	0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x14, 0x0a, 0x10, 0x53,
 	0x54, 0x41, 0x54, 0x55, 0x53, 0x5f, 0x55, 0x4e, 0x44, 0x45, 0x46, 0x49, 0x4e, 0x45, 0x44, 0x10,
 	0x00, 0x12, 0x0a, 0x0a, 0x06, 0x4f, 0x4e, 0x4c, 0x49, 0x4e, 0x45, 0x10, 0x01, 0x12, 0x0b, 0x0a,
 	0x07, 0x4f, 0x46, 0x46, 0x4c, 0x49, 0x4e, 0x45, 0x10, 0x02, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69,
@@ -434,7 +434,7 @@ func file_pkg_services_control_types_proto_rawDescGZIP() []byte {
 var file_pkg_services_control_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_pkg_services_control_types_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_pkg_services_control_types_proto_goTypes = []interface{}{
-	(HealthStatus)(0),          // 0: control.HealthStatus
+	(NetmapStatus)(0),          // 0: control.NetmapStatus
 	(*Signature)(nil),          // 1: control.Signature
 	(*NodeInfo)(nil),           // 2: control.NodeInfo
 	(*Netmap)(nil),             // 3: control.Netmap
@@ -442,7 +442,7 @@ var file_pkg_services_control_types_proto_goTypes = []interface{}{
 }
 var file_pkg_services_control_types_proto_depIdxs = []int32{
 	4, // 0: control.NodeInfo.attributes:type_name -> control.NodeInfo.Attribute
-	0, // 1: control.NodeInfo.state:type_name -> control.HealthStatus
+	0, // 1: control.NodeInfo.state:type_name -> control.NetmapStatus
 	2, // 2: control.Netmap.nodes:type_name -> control.NodeInfo
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type

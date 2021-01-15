@@ -63,14 +63,14 @@ func nodesFromAPI(apiNodes netmapAPI.Nodes) []*control.NodeInfo {
 	return nodes
 }
 
-func stateFromAPI(s netmapAPI.NodeState) control.HealthStatus {
+func stateFromAPI(s netmapAPI.NodeState) control.NetmapStatus {
 	switch s {
 	default:
-		return control.HealthStatus_STATUS_UNDEFINED
+		return control.NetmapStatus_STATUS_UNDEFINED
 	case netmapAPI.NodeStateOffline:
-		return control.HealthStatus_OFFLINE
+		return control.NetmapStatus_OFFLINE
 	case netmapAPI.NodeStateOnline:
-		return control.HealthStatus_ONLINE
+		return control.NetmapStatus_ONLINE
 	}
 }
 

@@ -68,10 +68,10 @@ func initControlService(c *cfg) {
 	}))
 }
 
-func (c *cfg) setHealthStatus(st control.HealthStatus) {
+func (c *cfg) setNetmapStatus(st control.NetmapStatus) {
 	c.healthStatus.Store(int32(st))
 }
 
-func (c *cfg) HealthStatus() control.HealthStatus {
-	return control.HealthStatus(c.healthStatus.Load())
+func (c *cfg) NetmapStatus() control.NetmapStatus {
+	return control.NetmapStatus(c.healthStatus.Load())
 }

@@ -342,7 +342,7 @@ func initCfg(path string) *cfg {
 		cfgObject: cfgObject{
 			pool: initObjectPool(viperCfg),
 		},
-		healthStatus: atomic.NewInt32(int32(control.HealthStatus_STATUS_UNDEFINED)),
+		healthStatus: atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
 	}
 
 	initLocalStorage(c)

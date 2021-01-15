@@ -59,10 +59,10 @@ func (x *HealthCheckRequest) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
 
-// SetStatus sets health status of storage node.
-func (x *HealthCheckResponse_Body) SetStatus(v HealthStatus) {
+// SetNetmapStatus sets status of the storage node in NeoFS network map.
+func (x *HealthCheckResponse_Body) SetNetmapStatus(v NetmapStatus) {
 	if x != nil {
-		x.Status = v
+		x.NetmapStatus = v
 	}
 }
 
@@ -89,7 +89,7 @@ func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.EnumMarshal(healthRespBodyStatusFNum, buf, int32(x.Status))
+	_, err := proto.EnumMarshal(healthRespBodyStatusFNum, buf, int32(x.NetmapStatus))
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (x *HealthCheckResponse_Body) StableSize() int {
 
 	size := 0
 
-	size += proto.EnumSize(healthRespBodyStatusFNum, int32(x.Status))
+	size += proto.EnumSize(healthRespBodyStatusFNum, int32(x.NetmapStatus))
 
 	return size
 }

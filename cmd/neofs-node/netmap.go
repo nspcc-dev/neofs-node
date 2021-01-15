@@ -117,7 +117,7 @@ func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
 }
 
 func goOffline(c *cfg) {
-	c.setHealthStatus(control.HealthStatus_OFFLINE)
+	c.setNetmapStatus(control.NetmapStatus_OFFLINE)
 
 	err := c.cfgNetmap.wrapper.UpdatePeerState(
 		crypto.MarshalPublicKey(&c.key.PublicKey),

@@ -25,7 +25,7 @@ func generateNetmap() *control.Netmap {
 		n := new(control.NodeInfo)
 		n.SetPublicKey(testData(33))
 		n.SetAddress(testString())
-		n.SetState(control.HealthStatus_ONLINE)
+		n.SetState(control.NetmapStatus_ONLINE)
 
 		const attrCount = 2
 
