@@ -58,16 +58,14 @@ test_dep:
 # Regenerate proto files:
 protoc:
 	@GOPRIVATE=github.com/nspcc-dev go mod vendor
-	# Install specific version for gogo-proto
-	@go list -f '{{.Path}}/...@{{.Version}}' -m github.com/gogo/protobuf | xargs go get -v
 	# Install specific version for protobuf lib
 	@go list -f '{{.Path}}/...@{{.Version}}' -m  github.com/golang/protobuf | xargs go get -v
 	# Protoc generate
 	@for f in `find . -type f -name '*.proto' -not -path './vendor/*'`; do \
 		echo "⇒ Processing $$f "; \
 		protoc \
-			--proto_path=.:./vendor:./vendor/github.com/nspcc-dev/neofs-api-go:/usr/local/include:./pkg/services/control \
-			--gofast_out=plugins=grpc,paths=source_relative:. $$f; \
+			--proto_path=.:./vendor:/usr/local/include \
+			--go_out=plugins=grpc,paths=source_relative:. $$f; \
 	done
 	rm -rf vendor
 
