@@ -310,3 +310,146 @@ func (x *NetmapSnapshotResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *NetmapSnapshotResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
+
+// SetStatus sets new storage node status in NeoFS network map.
+func (x *SetNetmapStatusRequest_Body) SetStatus(v NetmapStatus) {
+	if x != nil {
+		x.Status = v
+	}
+}
+
+const (
+	_ = iota
+	setNetmapStatusReqBodyStatusFNum
+)
+
+// StableMarshal reads binary representation of set netmap status request body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *SetNetmapStatusRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	_, err := proto.EnumMarshal(setNetmapStatusReqBodyStatusFNum, buf, int32(x.Status))
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of health check response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *SetNetmapStatusRequest_Body) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.EnumSize(setNetmapStatusReqBodyStatusFNum, int32(x.Status))
+
+	return size
+}
+
+// SetBody sets body of the set netmap status request .
+func (x *SetNetmapStatusRequest) SetBody(v *SetNetmapStatusRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the set netmap status request body.
+func (x *SetNetmapStatusRequest) SetSignature(body *Signature) {
+	if x != nil {
+		x.Signature = body
+	}
+}
+
+// ReadSignedData reads signed data of set netmap status request to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *SetNetmapStatusRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data
+// of set netmap status request.
+//
+// Structures with the same field values have the same signed data size.
+func (x *SetNetmapStatusRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// StableMarshal reads binary representation of set netmap status response body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *SetNetmapStatusResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+// StableSize returns binary size of set netmap status response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *SetNetmapStatusResponse_Body) StableSize() int {
+	return 0
+}
+
+// SetBody sets set body of the netmap status response.
+func (x *SetNetmapStatusResponse) SetBody(v *SetNetmapStatusResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the set netmap status response body.
+func (x *SetNetmapStatusResponse) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data of set netmap status response to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *SetNetmapStatusResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data
+// of set netmap status response.
+//
+// Structures with the same field values have the same signed data size.
+func (x *SetNetmapStatusResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}

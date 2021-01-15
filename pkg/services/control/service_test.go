@@ -55,3 +55,27 @@ func generateNetmapSnapshotResponseBody() *control.NetmapSnapshotResponse_Body {
 func equalNetmapSnapshotResponseBodies(b1, b2 *control.NetmapSnapshotResponse_Body) bool {
 	return equalNetmaps(b1.GetNetmap(), b2.GetNetmap())
 }
+
+func TestSetNetmapStatusRequest_Body_StableMarshal(t *testing.T) {
+	testStableMarshal(t,
+		generateSetNetmapStatusRequestBody(),
+		new(control.SetNetmapStatusRequest_Body),
+		func(m1, m2 protoMessage) bool {
+			return equalSetnetmapStatusRequestBodies(
+				m1.(*control.SetNetmapStatusRequest_Body),
+				m2.(*control.SetNetmapStatusRequest_Body),
+			)
+		},
+	)
+}
+
+func generateSetNetmapStatusRequestBody() *control.SetNetmapStatusRequest_Body {
+	body := new(control.SetNetmapStatusRequest_Body)
+	body.SetStatus(control.NetmapStatus_ONLINE)
+
+	return body
+}
+
+func equalSetnetmapStatusRequestBodies(b1, b2 *control.SetNetmapStatusRequest_Body) bool {
+	return b1.GetStatus() == b2.GetStatus()
+}
