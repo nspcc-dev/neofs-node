@@ -306,7 +306,7 @@ type HealthCheckResponse_Body struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Network map status of storage node.
+	// Status of the storage node in NeoFS network map.
 	NetmapStatus NetmapStatus `protobuf:"varint,1,opt,name=netmap_status,json=netmapStatus,proto3,enum=control.NetmapStatus" json:"netmap_status,omitempty"`
 }
 

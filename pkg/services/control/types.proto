@@ -101,3 +101,18 @@ message Netmap {
     // Nodes presented in network.
     repeated NodeInfo nodes = 2 [json_name = "nodes"];
 }
+
+// Health status of the storage node application.
+enum HealthStatus {
+    // Undefined status, default value.
+    HEALTH_STATUS_UNDEFINED = 0;
+
+    // Storage node application is starting.
+    STARTING = 1;
+
+    // Storage node application is started and serves all services.
+    READY = 2;
+
+    // Storage node application is shutting down.
+    SHUTTING_DOWN = 3;
+}
