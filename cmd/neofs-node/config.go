@@ -453,6 +453,19 @@ func initLocalStorage(c *cfg) {
 	}
 
 	c.cfgObject.cfgLocalStorage.localStorage = ls
+
+	c.onShutdown(func() {
+		c.log.Info("closing components of the storage engine...")
+
+		err := ls.Close()
+		if err != nil {
+			c.log.Info("storage engine closing failure",
+				zap.String("error", err.Error()),
+			)
+		} else {
+			c.log.Info("all components of the storage engine closed successfully")
+		}
+	})
 }
 
 func initShardOptions(c *cfg) {
