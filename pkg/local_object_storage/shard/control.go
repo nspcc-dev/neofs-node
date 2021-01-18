@@ -16,7 +16,7 @@ func (s *Shard) Open() error {
 
 	for _, component := range components {
 		if err := component.Open(); err != nil {
-			return errors.Wrapf(err, "could not open %s", component)
+			return errors.Wrapf(err, "could not open %T", component)
 		}
 	}
 
