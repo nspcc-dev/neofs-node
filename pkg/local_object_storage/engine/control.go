@@ -12,7 +12,7 @@ func (e *StorageEngine) Open() error {
 
 	for id, sh := range e.shards {
 		if err := sh.Open(); err != nil {
-			return errors.Wrapf(err, "could not initialize shard %s", id)
+			return errors.Wrapf(err, "could not open shard %s", id)
 		}
 	}
 
