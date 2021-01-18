@@ -502,6 +502,9 @@ func initShardOptions(c *cfg) {
 		smallSzLimit := c.viper.GetUint64(
 			configPath(blobPrefix, cfgBlobStorSmallSzLimit),
 		)
+		if smallSzLimit == 0 {
+			smallSzLimit = 1 << 20 // 1MB
+		}
 
 		blzPrefix := configPath(blobPrefix, cfgBlobStorBlzSection)
 
