@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -17,6 +19,10 @@ func initGRPC(c *cfg) {
 	c.cfgGRPC.server = grpc.NewServer(
 		grpc.MaxSendMsgSize(c.viper.GetInt(cfgMaxMsgSize)),
 	)
+
+	c.onShutdown(func() {
+		stopGRPC("NeoFS Public API", c.cfgGRPC.server, c.log)
+	})
 }
 
 func serveGRPC(c *cfg) {
@@ -37,4 +43,14 @@ func serveGRPC(c *cfg) {
 			fmt.Println("gRPC server error", err)
 		}
 	}()
+}
+
+func stopGRPC(name string, s *grpc.Server, l *logger.Logger) {
+	l = l.With(zap.String("name", name))
+
+	l.Info("stopping gRPC server...")
+
+	s.GracefulStop()
+
+	l.Info("gRPC server stopped successfully")
 }

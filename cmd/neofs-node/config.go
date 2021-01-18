@@ -187,6 +187,8 @@ type cfg struct {
 	netStatus *atomic.Int32
 
 	healthStatus *atomic.Int32
+
+	closers []func()
 }
 
 type cfgGRPC struct {

@@ -78,12 +78,15 @@ func wait(c *cfg) {
 }
 
 func shutdown(c *cfg) {
-	c.cfgGRPC.server.GracefulStop()
-	c.cfgControlService.server.GracefulStop()
-
-	c.log.Info("gRPC server stopped")
+	for _, closer := range c.closers {
+		closer()
+	}
 
 	goOffline(c)
 
 	c.wg.Wait()
+}
+
+func (c *cfg) onShutdown(f func()) {
+	c.closers = append(c.closers, f)
 }
