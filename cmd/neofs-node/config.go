@@ -511,6 +511,9 @@ func initShardOptions(c *cfg) {
 		blzSize := c.viper.GetUint64(
 			configPath(blzPrefix, cfgBlzSize),
 		)
+		if blzSize == 0 {
+			blzSize = 1 << 30 // 1 GB
+		}
 
 		blzShallowDepth := c.viper.GetUint64(
 			configPath(blzPrefix, cfgBlzShallowDepth),
