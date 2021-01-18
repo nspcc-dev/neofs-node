@@ -56,7 +56,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 
 	// flag node to remove from local view, so it can be re-bootstrapped
 	// again before new epoch will tick
-	np.netmapSnapshot.flag(ev.PublicKey().String())
+	np.netmapSnapshot.flag(hex.EncodeToString(ev.PublicKey().Bytes()))
 
 	err := invoke.UpdatePeerState(np.morphClient, np.netmapContract,
 		&invoke.UpdatePeerArgs{
