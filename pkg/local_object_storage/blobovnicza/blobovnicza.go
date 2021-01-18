@@ -2,6 +2,7 @@ package blobovnicza
 
 import (
 	"os"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.etcd.io/bbolt"
@@ -43,6 +44,9 @@ func defaultCfg() *cfg {
 	return &cfg{
 		boltDBCfg: boltDBCfg{
 			perm: os.ModePerm, // 0777
+			boltOptions: &bbolt.Options{
+				Timeout: 100 * time.Millisecond,
+			},
 		},
 		fullSizeLimit: 1 << 30, // 1GB
 		objSizeLimit:  1 << 20, // 1MB
