@@ -36,6 +36,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -572,6 +573,9 @@ func initShardOptions(c *cfg) {
 				meta.WithLogger(c.log),
 				meta.WithPath(metaPath),
 				meta.WithPermissions(metaPerm),
+				meta.WithBoltDBOptions(&bbolt.Options{
+					Timeout: 100 * time.Millisecond,
+				}),
 			),
 			shard.WithWriteCache(useCache),
 			shard.WithWriteCacheOptions(
