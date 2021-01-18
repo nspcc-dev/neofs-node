@@ -35,7 +35,7 @@ func (s *Shard) Init() error {
 
 	for _, component := range components {
 		if err := component.Init(); err != nil {
-			return errors.Wrapf(err, "could not initialize %s", component)
+			return errors.Wrapf(err, "could not initialize %T", component)
 		}
 	}
 
