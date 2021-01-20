@@ -1,8 +1,8 @@
 package meta_test
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
+	"math/rand"
 	"os"
 	"testing"
 

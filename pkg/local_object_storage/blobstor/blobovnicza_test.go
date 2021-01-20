@@ -1,9 +1,9 @@
 package blobstor
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -55,6 +55,8 @@ func testObject(sz uint64) *object.Object {
 }
 
 func TestBlobovniczas(t *testing.T) {
+	rand.Seed(1024)
+
 	l := test.NewLogger(false)
 	p := "./test_blz"
 

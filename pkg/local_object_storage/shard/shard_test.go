@@ -1,8 +1,8 @@
 package shard_test
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
+	"math/rand"
 	"os"
 	"path"
 	"testing"
