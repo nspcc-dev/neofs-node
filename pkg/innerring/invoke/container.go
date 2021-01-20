@@ -24,7 +24,6 @@ type (
 const (
 	putContainerMethod    = "put"
 	deleteContainerMethod = "delete"
-	listContainersMethod  = "list"
 )
 
 // RegisterContainer invokes Put method.
@@ -33,7 +32,7 @@ func RegisterContainer(cli *client.Client, con util.Uint160, p *ContainerParams)
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, 5*extraFee, putContainerMethod,
+	return cli.Invoke(con, 3*extraFee, putContainerMethod,
 		p.Container,
 		p.Signature,
 		p.Key.Bytes(),
