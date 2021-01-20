@@ -2,7 +2,6 @@ package subscriber
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -20,7 +20,7 @@ type (
 		SubscribeForNotification(...util.Uint160) (<-chan *state.NotificationEvent, error)
 		UnsubscribeForNotification()
 		Close()
-		BlockNotifications() <-chan *block.Block
+		BlockNotifications() (<-chan *block.Block, error)
 	}
 
 	subscriber struct {
@@ -103,8 +103,18 @@ func (s *subscriber) Close() {
 	s.client.Close()
 }
 
-func (s *subscriber) BlockNotifications() <-chan *block.Block {
-	return s.blockChan
+func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
+	if err := s.client.Init(); err != nil {
+		return nil, errors.Wrap(err, "could not init ws client")
+	}
+
+	if _, err := s.client.SubscribeForNewBlocks(nil); err != nil {
+		return nil, errors.Wrap(err, "could not subscribe for new block events")
+	}
+
+	s.blockChan = make(chan *block.Block)
+
+	return s.blockChan, nil
 }
 
 func (s *subscriber) routeNotifications(ctx context.Context) {
@@ -163,17 +173,12 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		return nil, err
 	}
 
-	if _, err := wsClient.SubscribeForNewBlocks(nil); err != nil {
-		return nil, err
-	}
-
 	sub := &subscriber{
 		RWMutex:   new(sync.RWMutex),
 		log:       p.Log,
 		client:    wsClient,
 		notify:    make(chan *state.NotificationEvent),
 		notifyIDs: make(map[util.Uint160]string),
-		blockChan: make(chan *block.Block),
 	}
 
 	// Worker listens all events from neo-go websocket and puts them
