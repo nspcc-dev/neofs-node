@@ -1,6 +1,23 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.14.2] - 2021-01-20
+
+Testnet4 related bugfixes.
+
+### Fixed 
+- Default values for blobovnicza object size limit and blobstor small object 
+  size are not zero.
+- Various storage engine log messages.
+- Bug when inner ring node ignored bootstrap messages from restarted storage
+  nodes. 
+  
+### Added
+- Timeout for reading boltDB files at storage node initialization.
+
+### Changed
+- Increased default extra GAS fee for contract invocations at inner ring.
+
 ## [0.14.1] - 2021-01-15
 
 ### Fixed
@@ -149,6 +166,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.14.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.1...v0.13.2
