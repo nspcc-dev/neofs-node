@@ -57,7 +57,7 @@ func SetNewEpoch(cli *client.Client, con util.Uint160, epoch uint64) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, feeOneGas, setNewEpochMethod, int64(epoch))
+	return cli.Invoke(con, extraFee, setNewEpochMethod, int64(epoch))
 }
 
 // ApprovePeer invokes addPeer method.
@@ -66,7 +66,7 @@ func ApprovePeer(cli *client.Client, con util.Uint160, peer []byte) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, feeOneGas, approvePeerMethod, peer)
+	return cli.Invoke(con, extraFee, approvePeerMethod, peer)
 }
 
 // UpdatePeerState invokes addPeer method.
