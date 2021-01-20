@@ -43,6 +43,13 @@ type Listener interface {
 
 	// Must stop the event listener.
 	Stop()
+
+	// Must register chain block handler.
+	//
+	// The specified handler must be called after each capture and parsing of the new block from chain.
+	//
+	// Must ignore nil handlers.
+	RegisterBlockHandler(BlockHandler)
 }
 
 // ListenerParams is a group of parameters
@@ -67,6 +74,8 @@ type listener struct {
 	log *zap.Logger
 
 	subscriber subscriber.Subscriber
+
+	blockHandlers []BlockHandler
 }
 
 const newListenerFailMsg = "could not instantiate Listener"
@@ -144,6 +153,13 @@ func (s listener) listen(ctx context.Context, intError chan<- error) error {
 }
 
 func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
+	blockChan, err := s.subscriber.BlockNotifications()
+	if err != nil {
+		intErr <- errors.Wrap(err, "could not open block notifications channel")
+
+		return
+	}
+
 loop:
 	for {
 		select {
@@ -166,6 +182,23 @@ loop:
 			}
 
 			s.parseAndHandle(notifyEvent)
+		case b, ok := <-blockChan:
+			if !ok {
+				s.log.Warn("stop event listener by block channel")
+				if intErr != nil {
+					intErr <- errors.New("new block notification channel is closed")
+				}
+
+				break loop
+			} else if b == nil {
+				s.log.Warn("nil block was caught")
+				continue loop
+			}
+
+			// TODO: consider asynchronous execution
+			for i := range s.blockHandlers {
+				s.blockHandlers[i](b)
+			}
 		}
 	}
 }
@@ -311,6 +344,15 @@ func (s listener) RegisterHandler(p HandlerInfo) {
 // Stop closes subscription channel with remote neo node.
 func (s listener) Stop() {
 	s.subscriber.Close()
+}
+
+func (s *listener) RegisterBlockHandler(handler BlockHandler) {
+	if handler == nil {
+		s.log.Warn("ignore nil block handler")
+		return
+	}
+
+	s.blockHandlers = append(s.blockHandlers, handler)
 }
 
 // NewListener create the notification event listener instance and returns Listener interface.
