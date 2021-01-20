@@ -1,8 +1,8 @@
 package blobovnicza
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -70,6 +70,8 @@ func testGet(t *testing.T, blz *Blobovnicza, addr *objectSDK.Address, expObj []b
 }
 
 func TestBlobovnicza(t *testing.T) {
+	rand.Seed(1024)
+
 	p := "./test_blz"
 
 	sizeLim := uint64(256 * 1 << 10) // 256KB
