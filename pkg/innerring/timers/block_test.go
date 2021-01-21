@@ -1,6 +1,7 @@
 package timers_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
@@ -50,7 +51,34 @@ func TestBlockTimer(t *testing.T) {
 
 	tickN(bt, intervalNum*blockDur)
 
-	require.Equal(t, intervalNum*2, uint32(halfCallCounter))
+	require.Equal(t, intervalNum, uint32(halfCallCounter))
 	require.Equal(t, intervalNum, uint32(baseCallCounter))
 	require.Equal(t, intervalNum/2, uint32(doubleCallCounter))
+}
+
+func TestDeltaPulse(t *testing.T) {
+	blockDur := uint32(9)
+	baseCallCounter := uint32(0)
+
+	bt := timers.NewBlockTimer(timers.StaticBlockMeter(blockDur), func() {
+		baseCallCounter++
+	})
+
+	deltaCallCounter := uint32(0)
+
+	div := uint32(3)
+
+	bt.OnDelta(1, div, func() {
+		deltaCallCounter++
+	}, timers.WithPulse())
+
+	require.NoError(t, bt.Reset())
+
+	intervalNum := uint32(7)
+
+	tickN(bt, intervalNum*blockDur)
+
+	fmt.Println(baseCallCounter, deltaCallCounter)
+	require.Equal(t, intervalNum, uint32(baseCallCounter))
+	require.Equal(t, intervalNum*div, uint32(deltaCallCounter))
 }
