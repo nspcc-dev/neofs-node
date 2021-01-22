@@ -3,10 +3,22 @@ package shard
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
+
+type ListContainersPrm struct{}
+
+type ListContainersRes struct {
+	containers []*container.ID
+}
+
+func (r *ListContainersRes) Containers() []*container.ID {
+	return r.containers
+}
 
 func (s *Shard) List() (*SelectRes, error) {
 	lst, err := s.metaBase.Containers()
@@ -31,4 +43,24 @@ func (s *Shard) List() (*SelectRes, error) {
 	}
 
 	return res, nil
+}
+
+func (s *Shard) ListContainers(_ *ListContainersPrm) (*ListContainersRes, error) {
+	containers, err := s.metaBase.Containers()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get list of containers")
+	}
+
+	return &ListContainersRes{
+		containers: containers,
+	}, nil
+}
+
+func ListContainers(s *Shard) ([]*container.ID, error) {
+	res, err := s.ListContainers(&ListContainersPrm{})
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Containers(), nil
 }
