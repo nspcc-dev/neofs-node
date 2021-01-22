@@ -1,7 +1,6 @@
 package innerring
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -27,28 +26,16 @@ func connectListenerWithProcessor(l event.Listener, p ContractProcessor) {
 	}
 }
 
-func connectTimerWithProcessor(t *timers.Timers, p ContractProcessor) error {
-	var err error
-	for _, parser := range p.TimersHandlers() {
-		err = t.RegisterHandler(parser)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // bindMorphProcessor connects both morph chain listener handlers and
 // local timers handlers.
 func bindMorphProcessor(proc ContractProcessor, s *Server) error {
 	connectListenerWithProcessor(s.morphListener, proc)
-	return connectTimerWithProcessor(s.localTimers, proc)
+	return nil
 }
 
 // bindMainnetProcessor connects both mainnet chain listener handlers and
 // local timers handlers.
 func bindMainnetProcessor(proc ContractProcessor, s *Server) error {
 	connectListenerWithProcessor(s.mainnetListener, proc)
-	return connectTimerWithProcessor(s.localTimers, proc)
+	return nil
 }
