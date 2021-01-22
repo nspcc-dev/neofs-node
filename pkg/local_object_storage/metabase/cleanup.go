@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"strings"
 
 	"go.etcd.io/bbolt"
@@ -59,6 +60,19 @@ func isListBucket(name []byte) bool {
 }
 
 func cleanUpUniqueBucket(tx *bbolt.Tx, name []byte, b *bbolt.Bucket) {
+	switch { // clean well-known global metabase buckets
+	case bytes.Equal(name, containerVolumeBucketName):
+		_ = b.ForEach(func(k, v []byte) error {
+			if parseContainerSize(v) == 0 {
+				_ = b.Delete(k)
+			}
+
+			return nil
+		})
+	default:
+		// do nothing
+	}
+
 	if b.Stats().KeyN == 0 {
 		_ = tx.DeleteBucket(name) // ignore error, best effort there
 	}

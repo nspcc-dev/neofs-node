@@ -124,7 +124,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 
 	// put unique indexes
 	for i := range uniqueIndexes {
-		err := putUniqueIndexItem(tx, uniqueIndexes[i])
+		err = putUniqueIndexItem(tx, uniqueIndexes[i])
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 
 	// put list indexes
 	for i := range listIndexes {
-		err := putListIndexItem(tx, listIndexes[i])
+		err = putListIndexItem(tx, listIndexes[i])
 		if err != nil {
 			return err
 		}
@@ -152,7 +152,20 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 
 	// put fake bucket tree indexes
 	for i := range fkbtIndexes {
-		err := putFKBTIndexItem(tx, fkbtIndexes[i])
+		err = putFKBTIndexItem(tx, fkbtIndexes[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	// update container volume size estimation
+	if obj.Type() == objectSDK.TypeRegular && !isParent {
+		err = changeContainerSize(
+			tx,
+			obj.ContainerID(),
+			obj.PayloadSize(),
+			true,
+		)
 		if err != nil {
 			return err
 		}
