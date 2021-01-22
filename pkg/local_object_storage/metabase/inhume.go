@@ -49,6 +49,22 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			return err
 		}
 
+		obj, err := db.get(tx, prm.target, false, true)
+
+		// if object is stored and it is regular object then update bucket
+		// with container size estimations
+		if err == nil && obj.Type() == objectSDK.TypeRegular {
+			err := changeContainerSize(
+				tx,
+				obj.ContainerID(),
+				obj.PayloadSize(),
+				false,
+			)
+			if err != nil {
+				return err
+			}
+		}
+
 		// consider checking if target is already in graveyard?
 		return graveyard.Put(addressKey(prm.target), addressKey(prm.tomb))
 	})

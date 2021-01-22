@@ -1,8 +1,11 @@
 package meta_test
 
 import (
+	"math/rand"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
 )
@@ -65,5 +68,67 @@ func TestDB_Containers(t *testing.T) {
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
 		require.Contains(t, cnrs, obj.ContainerID())
+	})
+}
+
+func TestDB_ContainerSize(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	const (
+		C = 3
+		N = 5
+	)
+
+	cids := make(map[*container.ID]int, C)
+	objs := make(map[*container.ID][]*object.RawObject, C*N)
+
+	for i := 0; i < C; i++ {
+		cid := testCID()
+		cids[cid] = 0
+
+		for j := 0; j < N; j++ {
+			size := rand.Intn(1024)
+
+			parent := generateRawObjectWithCID(t, cid)
+			parent.SetPayloadSize(uint64(size / 2))
+
+			obj := generateRawObjectWithCID(t, cid)
+			obj.SetPayloadSize(uint64(size))
+			obj.SetParentID(parent.ID())
+			obj.SetParent(parent.Object().SDK())
+
+			cids[cid] += size
+			objs[cid] = append(objs[cid], obj)
+
+			err := putBig(db, obj.Object())
+			require.NoError(t, err)
+		}
+	}
+
+	for cid, volume := range cids {
+		n, err := db.ContainerSize(cid)
+		require.NoError(t, err)
+		require.Equal(t, volume, int(n))
+	}
+
+	t.Run("Inhume", func(t *testing.T) {
+		for cid, list := range objs {
+			volume := cids[cid]
+
+			for _, obj := range list {
+				require.NoError(t, meta.Inhume(
+					db,
+					obj.Object().Address(),
+					generateAddress(),
+				))
+
+				volume -= int(obj.PayloadSize())
+
+				n, err := db.ContainerSize(cid)
+				require.NoError(t, err)
+				require.Equal(t, volume, int(n))
+			}
+		}
 	})
 }
