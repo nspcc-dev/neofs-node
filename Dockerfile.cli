@@ -12,6 +12,7 @@ RUN make bin/neofs-cli
 
 # Executable image
 FROM alpine AS neofs-cli
+RUN apk add --update bash
 
 WORKDIR /
 

@@ -11,7 +11,8 @@ COPY . /src
 RUN make bin/neofs-ir
 
 # Executable image
-FROM scratch AS neofs-ir
+FROM alpine AS neofs-ir
+RUN apk add --update bash
 
 WORKDIR /
 

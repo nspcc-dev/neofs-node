@@ -11,7 +11,8 @@ COPY . /src
 RUN make bin/neofs-node
 
 # Executable image
-FROM scratch AS neofs-node
+FROM alpine AS neofs-node
+RUN apk add --update bash
 
 WORKDIR /
 
