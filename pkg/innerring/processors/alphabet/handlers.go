@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (np *Processor) handleGasEmission(ev event.Event) {
+func (np *Processor) HandleGasEmission(ev event.Event) {
 	_ = ev.(timers.NewAlphabetEmitTick)
 	np.log.Info("tick", zap.String("type", "alphabet gas emit"))
 

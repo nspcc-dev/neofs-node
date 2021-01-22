@@ -40,7 +40,7 @@ type (
 		// event producers
 		morphListener   event.Listener
 		mainnetListener event.Listener
-		localTimers     *timers.Timers
+		blockTimers     []*timers.BlockTimer
 		epochTimer      *timers.BlockTimer
 
 		// global state
@@ -103,8 +103,6 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 			zap.String("error", err.Error()))
 	}
 
-	s.localTimers.Start(ctx) // local timers start ticking
-
 	morphErr := make(chan error)
 	mainnnetErr := make(chan error)
 
@@ -128,11 +126,11 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 			zap.Uint32("index", b.Index),
 		)
 
-		s.epochTimer.Tick()
+		s.tickTimers()
 	})
 
-	if err := s.epochTimer.Reset(); err != nil {
-		return err
+	if err := s.startBlockTimers(); err != nil {
+		return errors.Wrap(err, "could not start block timers")
 	}
 
 	s.startWorkers(ctx)
@@ -174,12 +172,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't parse predefined validators list")
 	}
-
-	// create local timer instance
-	server.localTimers = timers.New(&timers.Params{
-		Log:              log,
-		AlphabetDuration: cfg.GetDuration("timers.emit"),
-	})
 
 	morphChain := &chainParams{
 		log:  log,
@@ -281,6 +273,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		},
 	)
 
+	server.addBlockTimer(server.epochTimer)
+
 	// create netmap processor
 	netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
@@ -365,8 +359,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	var alphabetProcessor *alphabet.Processor
+
+	server.addBlockTimer(timers.NewBlockTimer(
+		timers.StaticBlockMeter(cfg.GetUint32("timers.emit")),
+		func() {
+			alphabetProcessor.HandleGasEmission(timers.NewAlphabetEmitTick{})
+		},
+	))
+
 	// create alphabet processor
-	alphabetProcessor, err := alphabet.New(&alphabet.Params{
+	alphabetProcessor, err = alphabet.New(&alphabet.Params{
 		Log:               log,
 		PoolSize:          cfg.GetInt("workers.alphabet"),
 		AlphabetContracts: server.contracts.alphabet,
@@ -544,4 +547,24 @@ func (s *Server) initConfigFromBlockchain() error {
 	)
 
 	return nil
+}
+
+func (s *Server) addBlockTimer(t *timers.BlockTimer) {
+	s.blockTimers = append(s.blockTimers, t)
+}
+
+func (s *Server) startBlockTimers() error {
+	for i := range s.blockTimers {
+		if err := s.blockTimers[i].Reset(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) tickTimers() {
+	for i := range s.blockTimers {
+		s.blockTimers[i].Tick()
+	}
 }
