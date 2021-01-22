@@ -10,7 +10,12 @@ import (
 // local epoch timer.
 func (np *Processor) processNewEpoch(epoch uint64) {
 	np.epochState.SetEpochCounter(epoch)
-	np.epochTimer.ResetEpochTimer()
+	if err := np.epochTimer.ResetEpochTimer(); err != nil {
+		np.log.Warn("can't reset epoch timer",
+			zap.String("error", err.Error()))
+
+		return
+	}
 
 	// get new netmap snapshot
 	snapshot, err := invoke.NetmapSnapshot(np.morphClient, np.netmapContract)

@@ -2,7 +2,6 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -14,7 +13,7 @@ import (
 type (
 	// EpochTimerReseter is a callback interface for tickers component.
 	EpochTimerReseter interface {
-		ResetEpochTimer()
+		ResetEpochTimer() error
 	}
 
 	// EpochState is a callback interface for inner ring global state.
@@ -160,13 +159,5 @@ func (np *Processor) ListenerHandlers() []event.HandlerInfo {
 
 // TimersHandlers for the 'Timers' event producer.
 func (np *Processor) TimersHandlers() []event.HandlerInfo {
-	var handlers []event.HandlerInfo
-
-	// new epoch handler
-	newEpoch := event.HandlerInfo{}
-	newEpoch.SetType(timers.EpochTimer)
-	newEpoch.SetHandler(np.handleNewEpochTick)
-	handlers = append(handlers, newEpoch)
-
-	return handlers
+	return nil
 }
