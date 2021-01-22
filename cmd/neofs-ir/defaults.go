@@ -75,7 +75,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.gas", "a6a6c15dcdc9b997dac448b6926522d22efeedfb")
 
 	cfg.SetDefault("timers.epoch", "0")
-	cfg.SetDefault("timers.emit", "30s")
+	cfg.SetDefault("timers.emit", "0")
 
 	cfg.SetDefault("workers.netmap", "10")
 	cfg.SetDefault("workers.balance", "10")
