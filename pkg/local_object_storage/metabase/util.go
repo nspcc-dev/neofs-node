@@ -17,8 +17,9 @@ bytes. Check it later.
 const invalidBase58String = "_"
 
 var (
-	graveyardBucketName = []byte(invalidBase58String + "Graveyard")
-	toMoveItBucketName  = []byte(invalidBase58String + "ToMoveIt")
+	graveyardBucketName       = []byte(invalidBase58String + "Graveyard")
+	toMoveItBucketName        = []byte(invalidBase58String + "ToMoveIt")
+	containerVolumeBucketName = []byte(invalidBase58String + "ContainerSize")
 
 	zeroValue = []byte{0xFF}
 
