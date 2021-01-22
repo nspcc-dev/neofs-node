@@ -11,7 +11,7 @@ COPY . /src
 RUN make bin/neofs-cli
 
 # Executable image
-FROM scratch AS neofs-cli
+FROM alpine AS neofs-cli
 
 WORKDIR /
 
