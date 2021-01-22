@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (np *Processor) handleNewEpochTick(ev event.Event) {
+func (np *Processor) HandleNewEpochTick(ev event.Event) {
 	_ = ev.(timerEvent.NewEpochTick)
 	np.log.Info("tick", zap.String("type", "epoch"))
 

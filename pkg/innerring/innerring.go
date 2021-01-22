@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -40,6 +41,7 @@ type (
 		morphListener   event.Listener
 		mainnetListener event.Listener
 		localTimers     *timers.Timers
+		epochTimer      *timers.BlockTimer
 
 		// global state
 		morphClient    *client.Client
@@ -121,6 +123,18 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
+	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
+		s.log.Info("new block",
+			zap.Uint32("index", b.Index),
+		)
+
+		s.epochTimer.Tick()
+	})
+
+	if err := s.epochTimer.Reset(); err != nil {
+		return err
+	}
+
 	s.startWorkers(ctx)
 
 	return nil
@@ -164,7 +178,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// create local timer instance
 	server.localTimers = timers.New(&timers.Params{
 		Log:              log,
-		EpochDuration:    cfg.GetDuration("timers.epoch"),
 		AlphabetDuration: cfg.GetDuration("timers.emit"),
 	})
 
@@ -259,12 +272,21 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	var netmapProcessor *netmap.Processor
+
+	server.epochTimer = timers.NewBlockTimer(
+		timers.StaticBlockMeter(cfg.GetUint32("timers.epoch")),
+		func() {
+			netmapProcessor.HandleNewEpochTick(timers.NewEpochTick{})
+		},
+	)
+
 	// create netmap processor
-	netmapProcessor, err := netmap.New(&netmap.Params{
+	netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
 		PoolSize:         cfg.GetInt("workers.netmap"),
 		NetmapContract:   server.contracts.netmap,
-		EpochTimer:       server.localTimers,
+		EpochTimer:       (*blockTimerWrapper)(server.epochTimer),
 		MorphClient:      server.morphClient,
 		EpochState:       server,
 		ActiveState:      server,
