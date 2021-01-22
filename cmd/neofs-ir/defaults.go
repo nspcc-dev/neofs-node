@@ -74,7 +74,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	// gas native contract in LE
 	cfg.SetDefault("contracts.gas", "a6a6c15dcdc9b997dac448b6926522d22efeedfb")
 
-	cfg.SetDefault("timers.epoch", "5s")
+	cfg.SetDefault("timers.epoch", "0")
 	cfg.SetDefault("timers.emit", "30s")
 
 	cfg.SetDefault("workers.netmap", "10")
