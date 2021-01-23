@@ -12,7 +12,7 @@ RUN make bin/neofs-ir
 
 # Executable image
 FROM alpine AS neofs-ir
-RUN apk add --update bash
+RUN apk add --no-cache bash
 
 WORKDIR /
 
