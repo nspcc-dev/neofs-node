@@ -12,7 +12,7 @@ RUN make bin/neofs-node
 
 # Executable image
 FROM alpine AS neofs-node
-RUN apk add --update bash
+RUN apk add --no-cache bash
 
 WORKDIR /
 
