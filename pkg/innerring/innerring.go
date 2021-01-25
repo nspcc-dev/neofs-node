@@ -118,9 +118,6 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 		}
 	}()
 
-	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
-	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
-
 	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
 		s.log.Debug("new block",
 			zap.Uint32("index", b.Index),
@@ -128,6 +125,9 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 
 		s.tickTimers()
 	})
+
+	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
+	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
 	if err := s.startBlockTimers(); err != nil {
 		return errors.Wrap(err, "could not start block timers")
