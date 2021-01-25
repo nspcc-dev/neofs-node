@@ -104,10 +104,6 @@ func (s *subscriber) Close() {
 }
 
 func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
-	if err := s.client.Init(); err != nil {
-		return nil, errors.Wrap(err, "could not init ws client")
-	}
-
 	if _, err := s.client.SubscribeForNewBlocks(nil); err != nil {
 		return nil, errors.Wrap(err, "could not subscribe for new block events")
 	}
@@ -169,6 +165,10 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if err := wsClient.Init(); err != nil {
+		return nil, errors.Wrap(err, "could not init ws client")
 	}
 
 	sub := &subscriber{
