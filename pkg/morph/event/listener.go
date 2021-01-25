@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -153,17 +154,23 @@ func (s listener) listen(ctx context.Context, intError chan<- error) error {
 }
 
 func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
-	blockChan, err := s.subscriber.BlockNotifications()
-	if err != nil {
-		if intErr != nil {
-			intErr <- errors.Wrap(err, "could not open block notifications channel")
-		} else {
-			s.log.Debug("could not open block notifications channel",
-				zap.String("error", err.Error()),
-			)
-		}
+	var blockChan <-chan *block.Block
 
-		return
+	if len(s.blockHandlers) > 0 {
+		var err error
+		if blockChan, err = s.subscriber.BlockNotifications(); err != nil {
+			if intErr != nil {
+				intErr <- errors.Wrap(err, "could not open block notifications channel")
+			} else {
+				s.log.Debug("could not open block notifications channel",
+					zap.String("error", err.Error()),
+				)
+			}
+
+			return
+		}
+	} else {
+		blockChan = make(chan *block.Block)
 	}
 
 loop:
