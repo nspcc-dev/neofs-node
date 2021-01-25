@@ -122,7 +122,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
 	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
-		s.log.Info("new block",
+		s.log.Debug("new block",
 			zap.Uint32("index", b.Index),
 		)
 
