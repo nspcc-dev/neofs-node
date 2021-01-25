@@ -67,7 +67,9 @@ func (np *Processor) processEmit() {
 		if err != nil {
 			np.log.Warn("can't transfer gas",
 				zap.String("receiver", key.Address()),
-				zap.Int64("amount", int64(gasPerNode)))
+				zap.Int64("amount", int64(gasPerNode)),
+				zap.String("error", err.Error()),
+			)
 		}
 	}
 }
