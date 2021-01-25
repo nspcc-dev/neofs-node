@@ -13,8 +13,6 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 	if err := np.epochTimer.ResetEpochTimer(); err != nil {
 		np.log.Warn("can't reset epoch timer",
 			zap.String("error", err.Error()))
-
-		return
 	}
 
 	// get new netmap snapshot
