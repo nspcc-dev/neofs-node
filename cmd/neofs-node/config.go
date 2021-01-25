@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -244,7 +245,8 @@ type cfgNodeInfo struct {
 	attributes []*netmap.NodeAttribute
 
 	// values at runtime
-	info *netmap.NodeInfo
+	infoMtx sync.RWMutex
+	info    netmap.NodeInfo
 }
 
 type cfgObject struct {
@@ -645,4 +647,48 @@ func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
 	}
 
 	return pool
+}
+
+func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
+	ni := c.localNodeInfo()
+	return ni.ToV2(), nil
+}
+
+func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
+	c.cfgNodeInfo.infoMtx.Lock()
+
+	var nmState netmap.NodeState
+
+	if ni != nil {
+		c.cfgNodeInfo.info = *ni
+		nmState = ni.State()
+	} else {
+		nmState = netmap.NodeStateOffline
+		c.cfgNodeInfo.info.SetState(nmState)
+	}
+
+	switch nmState {
+	default:
+		c.setNetmapStatus(control.NetmapStatus_STATUS_UNDEFINED)
+	case netmap.NodeStateOnline:
+		c.setNetmapStatus(control.NetmapStatus_ONLINE)
+	case netmap.NodeStateOffline:
+		c.setNetmapStatus(control.NetmapStatus_OFFLINE)
+	}
+
+	c.cfgNodeInfo.infoMtx.Unlock()
+}
+
+func (c *cfg) localNodeInfo() netmap.NodeInfo {
+	c.cfgNodeInfo.infoMtx.RLock()
+	defer c.cfgNodeInfo.infoMtx.RUnlock()
+
+	return c.cfgNodeInfo.info
+}
+
+func (c *cfg) toOnlineLocalNodeInfo() *netmap.NodeInfo {
+	ni := c.localNodeInfo()
+	ni.SetState(netmap.NodeStateOnline)
+
+	return &ni
 }

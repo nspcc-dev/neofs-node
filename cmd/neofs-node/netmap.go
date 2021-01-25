@@ -40,8 +40,9 @@ func initNetmapService(c *cfg) {
 	peerInfo.SetAddress(c.localAddr.String())
 	peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
 	peerInfo.SetAttributes(c.cfgNodeInfo.attributes...)
+	peerInfo.SetState(netmap.NodeStateOffline)
 
-	c.cfgNodeInfo.info = peerInfo
+	c.handleLocalNodeInfo(peerInfo)
 
 	netmapGRPC.RegisterNetmapServiceServer(c.cfgGRPC.server,
 		netmapTransportGRPC.New(
@@ -49,7 +50,7 @@ func initNetmapService(c *cfg) {
 				c.key,
 				netmapService.NewResponseService(
 					netmapService.NewExecutionService(
-						c.cfgNodeInfo.info.ToV2(),
+						c,
 						c.apiVersion,
 					),
 					c.respSvc,
@@ -67,7 +68,7 @@ func initNetmapService(c *cfg) {
 			n := ev.(netmapEvent.NewEpoch).EpochNumber()
 
 			if n%c.cfgNetmap.reBootstrapInterval == 0 {
-				err := c.cfgNetmap.wrapper.AddPeer(c.cfgNodeInfo.info)
+				err := c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
 				if err != nil {
 					c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
 				}
@@ -78,9 +79,9 @@ func initNetmapService(c *cfg) {
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		e := ev.(netmapEvent.NewEpoch).EpochNumber()
 
-		netStatus, err := c.netmapStatus(e)
+		ni, err := c.netmapLocalNodeState(e)
 		if err != nil {
-			c.log.Error("could not update network status on new epoch",
+			c.log.Error("could not update node state on new epoch",
 				zap.Uint64("epoch", e),
 				zap.String("error", err.Error()),
 			)
@@ -88,14 +89,14 @@ func initNetmapService(c *cfg) {
 			return
 		}
 
-		c.setNetmapStatus(netStatus)
+		c.handleLocalNodeInfo(ni)
 	})
 }
 
 func bootstrapNode(c *cfg) {
 	initState(c)
 
-	err := c.cfgNetmap.wrapper.AddPeer(c.cfgNodeInfo.info)
+	err := c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
 	fatalOnErr(errors.Wrap(err, "bootstrap error"))
 }
 
@@ -123,41 +124,37 @@ func initState(c *cfg) {
 	epoch, err := c.cfgNetmap.wrapper.Epoch()
 	fatalOnErr(errors.Wrap(err, "could not initialize current epoch number"))
 
-	netStatus, err := c.netmapStatus(epoch)
-	fatalOnErr(errors.Wrap(err, "could not init network status"))
+	ni, err := c.netmapLocalNodeState(epoch)
+	fatalOnErr(errors.Wrap(err, "could not init network state"))
 
-	c.setNetmapStatus(netStatus)
+	c.handleLocalNodeInfo(ni)
 
 	c.log.Info("initial network state",
 		zap.Uint64("epoch", epoch),
-		zap.Stringer("status", netStatus),
+		zap.Stringer("state", ni.State()),
 	)
 
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
 }
 
-func (c *cfg) netmapStatus(epoch uint64) (control.NetmapStatus, error) {
+func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmap.NodeInfo, error) {
 	// calculate current network state
 	nm, err := c.cfgNetmap.wrapper.GetNetMapByEpoch(epoch)
 	if err != nil {
-		return control.NetmapStatus_STATUS_UNDEFINED, err
+		return nil, err
 	}
 
-	if c.inNetmap(nm) {
-		return control.NetmapStatus_ONLINE, nil
-	}
-
-	return control.NetmapStatus_OFFLINE, nil
+	return c.localNodeInfoFromNetmap(nm), nil
 }
 
-func (c *cfg) inNetmap(nm *netmap.Netmap) bool {
+func (c *cfg) localNodeInfoFromNetmap(nm *netmap.Netmap) *netmap.NodeInfo {
 	for _, n := range nm.Nodes {
 		if bytes.Equal(n.PublicKey(), crypto.MarshalPublicKey(&c.key.PublicKey)) {
-			return true
+			return n.NodeInfo
 		}
 	}
 
-	return false
+	return nil
 }
 
 func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
@@ -181,7 +178,7 @@ func goOffline(c *cfg) {
 
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	if st == control.NetmapStatus_ONLINE {
-		return c.cfgNetmap.wrapper.AddPeer(c.cfgNodeInfo.info)
+		return c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
 	}
 
 	var apiState netmap.NodeState
