@@ -155,7 +155,13 @@ func (s listener) listen(ctx context.Context, intError chan<- error) error {
 func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
 	blockChan, err := s.subscriber.BlockNotifications()
 	if err != nil {
-		intErr <- errors.Wrap(err, "could not open block notifications channel")
+		if intErr != nil {
+			intErr <- errors.Wrap(err, "could not open block notifications channel")
+		} else {
+			s.log.Debug("could not open block notifications channel",
+				zap.String("error", err.Error()),
+			)
+		}
 
 		return
 	}
