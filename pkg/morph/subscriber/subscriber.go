@@ -112,8 +112,6 @@ func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
 		return nil, errors.Wrap(err, "could not subscribe for new block events")
 	}
 
-	s.blockChan = make(chan *block.Block)
-
 	return s.blockChan, nil
 }
 
@@ -179,6 +177,7 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		client:    wsClient,
 		notify:    make(chan *state.NotificationEvent),
 		notifyIDs: make(map[util.Uint160]string),
+		blockChan: make(chan *block.Block),
 	}
 
 	// Worker listens all events from neo-go websocket and puts them
