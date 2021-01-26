@@ -16,10 +16,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
+	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
@@ -51,6 +54,7 @@ type (
 		innerRingSize  atomic.Int32
 		precision      precision.Fixed8Converter
 		auditClient    *auditWrapper.ClientWrapper
+		balanceClient  *balanceWrapper.Wrapper
 
 		// internal variables
 		key                  *ecdsa.PrivateKey
@@ -59,6 +63,8 @@ type (
 		predefinedValidators []keys.PublicKey
 
 		workers []func(context.Context)
+
+		auditSettlement *auditSettlement.Calculator
 	}
 
 	contracts struct {
@@ -388,6 +394,48 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	cnrClient, err := invoke.NewNoFeeContainerClient(server.morphClient, server.contracts.container)
+	if err != nil {
+		return nil, err
+	}
+
+	nmClient, err := invoke.NewNoFeeNetmapClient(server.morphClient, server.contracts.netmap)
+	if err != nil {
+		return nil, err
+	}
+
+	balClient, err := invoke.NewNoFeeBalanceClient(server.morphClient, server.contracts.balance)
+	if err != nil {
+		return nil, err
+	}
+
+	auditCalcDeps := &auditSettlementDeps{
+		log:           server.log,
+		cnrSrc:        cnrClient,
+		auditClient:   server.auditClient,
+		nmSrc:         nmClient,
+		clientCache:   clientCache,
+		balanceClient: balClient,
+	}
+
+	server.auditSettlement = auditSettlement.NewCalculator(
+		&auditSettlement.CalculatorPrm{
+			ResultStorage:       auditCalcDeps,
+			ContainerStorage:    auditCalcDeps,
+			PlacementCalculator: auditCalcDeps,
+			SGStorage:           auditCalcDeps,
+			AccountStorage:      auditCalcDeps,
+			Exchanger:           auditCalcDeps,
+		},
+		auditSettlement.WithLogger(server.log),
+	)
+
+	server.subscribeNewEpoch(func(e netmapEvent.NewEpoch) {
+		server.auditSettlement.Calculate(&auditSettlement.CalculatePrm{
+			Epoch: e.EpochNumber(),
+		})
+	})
+
 	// todo: create vivid id component
 
 	return server, nil
@@ -567,5 +615,28 @@ func (s *Server) startBlockTimers() error {
 func (s *Server) tickTimers() {
 	for i := range s.blockTimers {
 		s.blockTimers[i].Tick()
+	}
+}
+
+func (s *Server) subscribeNewEpoch(f func(netmapEvent.NewEpoch)) {
+	hi := event.HandlerInfo{}
+
+	// TODO: replace and share
+	const newEpochNotification = "NewEpoch"
+
+	hi.SetType(event.TypeFromString(newEpochNotification))
+	hi.SetScriptHash(s.contracts.netmap)
+	hi.SetHandler(s.onlyActiveEventHandler(func(ev event.Event) {
+		f(ev.(netmapEvent.NewEpoch))
+	}))
+
+	s.morphListener.RegisterHandler(hi)
+}
+
+func (s *Server) onlyActiveEventHandler(f event.Handler) event.Handler {
+	return func(ev event.Event) {
+		if s.IsActive() {
+			f(ev)
+		}
 	}
 }
