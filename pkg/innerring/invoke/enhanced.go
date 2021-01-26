@@ -7,10 +7,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
+	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	morphContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	morphNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	"github.com/pkg/errors"
 )
 
 const readOnlyFee = 0
@@ -53,4 +56,19 @@ func NewNoFeeAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapp
 	}
 
 	return auditWrapper.WrapClient(audit.New(staticClient)), nil
+}
+
+// NewNoFeeBalanceClient creates wrapper to work with Balance contract.
+func NewNoFeeBalanceClient(cli *client.Client, contract util.Uint160) (*balanceWrapper.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, readOnlyFee)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create static client of Balance contract")
+	}
+
+	enhancedBalanceClient, err := balance.New(staticClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create Balance contract client")
+	}
+
+	return balanceWrapper.New(enhancedBalanceClient)
 }
