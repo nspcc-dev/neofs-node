@@ -53,21 +53,21 @@ func (c *ClientCache) Get(address string, opts ...client.Option) (*client.Client
 // GetSG polls the container from audit task to get the object by id.
 // Returns storage groups structure from received object.
 func (c *ClientCache) GetSG(task *audit.Task, id *object.ID) (*storagegroup.StorageGroup, error) {
-	nodes, err := placement.BuildObjectPlacement( // shuffle nodes
-		task.NetworkMap(),
-		task.ContainerNodes(),
-		id,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("can't build object placement: %w", err)
-	}
-
 	sgAddress := new(object.Address)
 	sgAddress.SetContainerID(task.ContainerID())
 	sgAddress.SetObjectID(id)
 
+	return c.getSG(task.AuditContext(), sgAddress, task.NetworkMap(), task.ContainerNodes())
+}
+
+func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netmap.Netmap, cn netmap.ContainerNodes) (*storagegroup.StorageGroup, error) {
+	nodes, err := placement.BuildObjectPlacement(nm, cn, addr.ObjectID())
+	if err != nil {
+		return nil, fmt.Errorf("can't build object placement: %w", err)
+	}
+
 	getParams := new(client.GetObjectParams)
-	getParams.WithAddress(sgAddress)
+	getParams.WithAddress(addr)
 
 	for _, node := range placement.FlattenNodes(nodes) {
 		addr, err := network.IPAddrFromMultiaddr(node.Address())
@@ -88,7 +88,7 @@ func (c *ClientCache) GetSG(task *audit.Task, id *object.ID) (*storagegroup.Stor
 			continue
 		}
 
-		cctx, cancel := context.WithTimeout(task.AuditContext(), c.sgTimeout)
+		cctx, cancel := context.WithTimeout(ctx, c.sgTimeout)
 		obj, err := cli.GetObject(cctx, getParams)
 
 		cancel()
