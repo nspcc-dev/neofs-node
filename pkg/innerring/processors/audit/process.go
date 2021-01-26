@@ -58,8 +58,10 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
+		pivot := containers[i].ToV2().GetValue()
+
 		// find all container nodes for current epoch
-		nodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), nil)
+		nodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), pivot)
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
 				zap.Stringer("cid", containers[i]),
