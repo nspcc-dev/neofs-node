@@ -28,17 +28,20 @@ var ErrNilClient = errors.New("balance contract client is nil")
 type Option func(*cfg)
 
 type cfg struct {
+	transferXMethod, // transferX method name for invocation
 	balanceOfMethod, // balanceOf method name for invocation
 	decimalsMethod string // decimals method name for invocation
 }
 
 const (
+	defaultTransferXMethod = "transferX" // default "transferX" method name
 	defaultBalanceOfMethod = "balanceOf" // default "balance of" method name
 	defaultDecimalsMethod  = "decimals"  // default decimals method name
 )
 
 func defaultConfig() *cfg {
 	return &cfg{
+		transferXMethod: defaultTransferXMethod,
 		balanceOfMethod: defaultBalanceOfMethod,
 		decimalsMethod:  defaultDecimalsMethod,
 	}
@@ -97,6 +100,20 @@ func WithDecimalsMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.decimalsMethod = n
+		}
+	}
+}
+
+// WithTransferXMethod returns a client constructor option that
+// specifies the "transferX" method name.
+//
+// Ignores empty value.
+//
+// If option not provided, "transferX" is used.
+func WithTransferXMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.transferXMethod = n
 		}
 	}
 }
