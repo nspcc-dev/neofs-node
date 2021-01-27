@@ -1,6 +1,21 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.14.3] - 2021-01-27
+
+### Fixed
+- Upload of objects bigger than single gRPC message.
+- Inconsistent placement issues (#347, #349).
+- Bug when ACL request classifier failed to classify `RoleOthers` in 
+  first epoch.
+
+### Added
+- Debug section in readme file for testnet configuration.
+
+### Changed
+- Docker images now based on alpine and contain shell.
+- Node bootstraps with active state in node info structure.
+
 ## [0.14.2] - 2021-01-20
 
 Testnet4 related bugfixes.
@@ -166,6 +181,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.14.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.13.2...v0.14.0
