@@ -287,6 +287,7 @@ func initObjectService(c *cfg) {
 			acl.New(
 				acl.WithSenderClassifier(
 					acl.NewSenderClassifier(
+						c.log,
 						c.cfgNetmap.wrapper,
 						c.cfgNetmap.wrapper,
 					),
