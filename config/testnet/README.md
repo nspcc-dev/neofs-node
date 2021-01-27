@@ -91,3 +91,13 @@ env in docker-compose.
 ### Start
 
 Run node with `docker-compose up` command and stop it with `docker-compose down`.
+
+### Debug
+
+To print node logs use `docker logs neofs-testnet`. To print debug messages in 
+log, setup log level to debug with this env:
+
+```yaml
+     environment:
+       - NEOFS_LOGGER_LEVEL=debug
+```
