@@ -16,6 +16,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type (
@@ -31,14 +32,16 @@ type (
 	}
 
 	SenderClassifier struct {
+		log       *zap.Logger
 		innerRing InnerRingFetcher
 		netmap    core.Source
 	}
 )
 
 // fixme: update classifier constructor
-func NewSenderClassifier(ir InnerRingFetcher, nm core.Source) SenderClassifier {
+func NewSenderClassifier(l *zap.Logger, ir InnerRingFetcher, nm core.Source) SenderClassifier {
 	return SenderClassifier{
+		log:       l,
 		innerRing: ir,
 		netmap:    nm,
 	}
@@ -68,14 +71,20 @@ func (c SenderClassifier) Classify(
 
 	isInnerRingNode, err := c.isInnerRingKey(ownerKeyInBytes)
 	if err != nil {
-		return 0, false, nil, errors.Wrap(err, "can't check if request from inner ring")
+		// do not throw error, try best case matching
+		c.log.Debug("can't check if request from inner ring",
+			zap.String("error", err.Error()))
 	} else if isInnerRingNode {
 		return acl.RoleSystem, true, ownerKeyInBytes, nil
 	}
 
 	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, cid.ToV2().GetValue(), cnr)
 	if err != nil {
-		return 0, false, nil, errors.Wrap(err, "can't check if request from container node")
+		// error might happen if request has `RoleOther` key and placement
+		// is not possible for previous epoch, so
+		// do not throw error, try best case matching
+		c.log.Debug("can't check if request from container node",
+			zap.String("error", err.Error()))
 	} else if isContainerNode {
 		return acl.RoleSystem, false, ownerKeyInBytes, nil
 	}
