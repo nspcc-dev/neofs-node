@@ -82,6 +82,17 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 	log.Debug("processing transfers")
 
 	table.iterate(func(tx *transferTx) {
+		sign := tx.amount.Sign()
+		if sign == 0 {
+			log.Debug("ignore zero transfer")
+			return
+		}
+
+		if sign < 0 {
+			tx.from, tx.to = tx.to, tx.from
+			tx.amount.Neg(tx.amount)
+		}
+
 		c.prm.Exchanger.Transfer(tx.from, tx.to, tx.amount)
 	})
 }
