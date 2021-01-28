@@ -404,7 +404,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	balClient, err := invoke.NewNoFeeBalanceClient(server.morphClient, server.contracts.balance)
+	balClient, err := invoke.NewBalanceClient(server.morphClient, server.contracts.balance)
 	if err != nil {
 		return nil, err
 	}
