@@ -82,3 +82,31 @@ func TestDeltaPulse(t *testing.T) {
 	require.Equal(t, intervalNum, uint32(baseCallCounter))
 	require.Equal(t, intervalNum*div, uint32(deltaCallCounter))
 }
+
+func TestDeltaReset(t *testing.T) {
+	blockDur := uint32(6)
+	baseCallCounter := 0
+
+	bt := timers.NewBlockTimer(timers.StaticBlockMeter(blockDur), func() {
+		baseCallCounter++
+	})
+
+	detlaCallCounter := 0
+
+	bt.OnDelta(1, 3, func() {
+		detlaCallCounter++
+	})
+
+	require.NoError(t, bt.Reset())
+
+	tickN(bt, 6)
+
+	require.Equal(t, 1, baseCallCounter)
+	require.Equal(t, 1, detlaCallCounter)
+
+	require.NoError(t, bt.Reset())
+
+	tickN(bt, 3)
+
+	require.Equal(t, 2, detlaCallCounter)
+}
