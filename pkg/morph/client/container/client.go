@@ -29,6 +29,9 @@ type Option func(*cfg)
 
 type cfg struct {
 	putMethod, // put container method name for invocation
+	putSizeMethod, // put container size method name for invocation
+	listSizesMethod, // list container sizes method name for invocation
+	getSizeMethod, // get container size method name for invocation
 	deleteMethod, // delete container method name for invocation
 	getMethod, // get container method name for invocation
 	listMethod, // list container method name for invocation
@@ -48,6 +51,10 @@ const (
 
 	defaultStartEstimation = "startContainerEstimation"
 	defaultStopEstimation  = "stopContainerEstimation"
+
+	defaultPutSizeMethod   = "putContainerSize"   // default "put container size" method name
+	defaultListSizesMethod = "listContainerSizes" // default "list container sizes" method name
+	defaultGetSizeMethod   = "getContainerSize"   // default "get container size" method name
 )
 
 func defaultConfig() *cfg {
@@ -60,6 +67,10 @@ func defaultConfig() *cfg {
 		eaclMethod:      defaultEACLMethod,
 		startEstimation: defaultStartEstimation,
 		stopEstimation:  defaultStopEstimation,
+
+		putSizeMethod:   defaultPutSizeMethod,
+		listSizesMethod: defaultListSizesMethod,
+		getSizeMethod:   defaultGetSizeMethod,
 	}
 }
 
@@ -76,6 +87,9 @@ func defaultConfig() *cfg {
 //  * get eACL method name: EACL.
 //  * start estimation method name: startContainerEstimation
 //  * stop estimation method name: stopContainerEstimation
+//  * put container size method name: putContainerSize
+//  * get container size method name: getContainerSize
+//  * list container sizes method name: listContainerSizes
 //
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
@@ -206,6 +220,48 @@ func WithStopEstimationMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.stopEstimation = n
+		}
+	}
+}
+
+// WithPutSizeMethod returns a client constructor option that
+// specifies the method name of "put container size" operation.
+//
+// Ignores empty value.
+//
+// If option not provided, "putContainerSize" is used.
+func WithPutSizeMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.putSizeMethod = n
+		}
+	}
+}
+
+// WithListSizesMethod returns a client constructor option that
+// specifies the method name of "list container sizes" operation.
+//
+// Ignores empty value.
+//
+// If option not provided, "listContainerSizes" is used.
+func WithListSizesMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.listSizesMethod = n
+		}
+	}
+}
+
+// WithGetSizeMethod returns a client constructor option that
+// specifies the method name of "get container size" operation.
+//
+// Ignores empty value.
+//
+// If option not provided, "getContainerSize" is used.
+func WithGetSizeMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.getSizeMethod = n
 		}
 	}
 }
