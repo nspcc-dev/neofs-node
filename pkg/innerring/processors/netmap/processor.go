@@ -41,6 +41,8 @@ type (
 		netmapSnapshot cleanupTable
 
 		handleNewAudit event.Handler
+
+		handleAuditSettlements event.Handler
 	}
 
 	// Params of the processor constructor.
@@ -55,6 +57,8 @@ type (
 		CleanupEnabled   bool
 		CleanupThreshold uint64 // in epochs
 		HandleAudit      event.Handler
+
+		AuditSettlementsHandler event.Handler
 	}
 )
 
@@ -79,6 +83,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: global state is not set")
 	case p.HandleAudit == nil:
 		return nil, errors.New("ir/netmap: audit handler is not set")
+	case p.AuditSettlementsHandler == nil:
+		return nil, errors.New("ir/netmap: audit settlement handler is not set")
 	}
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
@@ -98,6 +104,8 @@ func New(p *Params) (*Processor, error) {
 		morphClient:    p.MorphClient,
 		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),
 		handleNewAudit: p.HandleAudit,
+
+		handleAuditSettlements: p.AuditSettlementsHandler,
 	}, nil
 }
 
