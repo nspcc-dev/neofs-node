@@ -58,9 +58,9 @@ func NewNoFeeAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapp
 	return auditWrapper.WrapClient(audit.New(staticClient)), nil
 }
 
-// NewNoFeeBalanceClient creates wrapper to work with Balance contract.
-func NewNoFeeBalanceClient(cli *client.Client, contract util.Uint160) (*balanceWrapper.Wrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, readOnlyFee)
+// NewBalanceClient creates wrapper to work with Balance contract.
+func NewBalanceClient(cli *client.Client, contract util.Uint160) (*balanceWrapper.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, extraFee)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create static client of Balance contract")
 	}
