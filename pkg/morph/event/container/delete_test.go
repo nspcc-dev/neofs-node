@@ -24,7 +24,7 @@ func TestParseDelete(t *testing.T) {
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParseDelete([]stackitem.Item{
 			stackitem.NewMap(),
 		})
 
