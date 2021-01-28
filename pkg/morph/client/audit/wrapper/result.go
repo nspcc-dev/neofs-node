@@ -15,8 +15,7 @@ var errUnsupported = errors.New("unsupported structure version")
 // PutAuditResult saves passed audit result structure in NeoFS system
 // through Audit contract call.
 //
-// Returns calculated container identifier and any error
-// encountered that caused the saving to interrupt.
+// Returns encountered error that caused the saving to interrupt.
 func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
 	rawResult, err := result.Marshal()
 	if err != nil {

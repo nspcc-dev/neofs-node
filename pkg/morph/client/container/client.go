@@ -33,7 +33,9 @@ type cfg struct {
 	getMethod, // get container method name for invocation
 	listMethod, // list container method name for invocation
 	setEACLMethod, // set eACL method name for invocation
-	eaclMethod string // get eACL method name for invocation
+	eaclMethod, // get eACL method name for invocation
+	startEstimation,
+	stopEstimation string
 }
 
 const (
@@ -43,16 +45,21 @@ const (
 	defaultListMethod    = "list"    // default list containers method name
 	defaultEACLMethod    = "eACL"    // default get eACL method name
 	defaultSetEACLMethod = "setEACL" // default set eACL method name
+
+	defaultStartEstimation = "startContainerEstimation"
+	defaultStopEstimation  = "stopContainerEstimation"
 )
 
 func defaultConfig() *cfg {
 	return &cfg{
-		putMethod:     defaultPutMethod,
-		deleteMethod:  defaultDeleteMethod,
-		getMethod:     defaultGetMethod,
-		listMethod:    defaultListMethod,
-		setEACLMethod: defaultSetEACLMethod,
-		eaclMethod:    defaultEACLMethod,
+		putMethod:       defaultPutMethod,
+		deleteMethod:    defaultDeleteMethod,
+		getMethod:       defaultGetMethod,
+		listMethod:      defaultListMethod,
+		setEACLMethod:   defaultSetEACLMethod,
+		eaclMethod:      defaultEACLMethod,
+		startEstimation: defaultStartEstimation,
+		stopEstimation:  defaultStopEstimation,
 	}
 }
 
@@ -67,6 +74,8 @@ func defaultConfig() *cfg {
 //  * list containers method name: List;
 //  * set eACL method name: SetEACL;
 //  * get eACL method name: EACL.
+//  * start estimation method name: startContainerEstimation
+//  * stop estimation method name: stopContainerEstimation
 //
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
@@ -169,6 +178,34 @@ func WithEACLMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.eaclMethod = n
+		}
+	}
+}
+
+// WithStartEstimationMethod returns a client constructor option that
+// specifies the method name of vote to start container size estimation.
+//
+// Ignores empty value.
+//
+// If option not provided, "startContainerEstimation" is used.
+func WithStartEstimationMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.startEstimation = n
+		}
+	}
+}
+
+// WithStopEstimationMethod returns a client constructor option that
+// specifies the method name of vote to stop container size estimation.
+//
+// Ignores empty value.
+//
+// If option not provided, "stopContainerEstimation" is used.
+func WithStopEstimationMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.stopEstimation = n
 		}
 	}
 }
