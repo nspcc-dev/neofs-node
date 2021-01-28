@@ -175,13 +175,8 @@ func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.I
 		return
 	}
 
-	amount64 := amount.Int64()
-	if amount64 == 0 {
-		amount64 = 1
-	}
-
 	if err := a.balanceClient.TransferX(balanceClient.TransferPrm{
-		Amount:  amount64,
+		Amount:  amount.Int64(),
 		From:    sender,
 		To:      recipient,
 		Details: transferAuditDetails,
