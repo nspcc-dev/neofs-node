@@ -39,7 +39,11 @@ type singleResultCtx struct {
 	sumSGSize *big.Int
 }
 
-var bigGB = big.NewInt(1 << 30)
+var (
+	bigGB   = big.NewInt(1 << 30)
+	bigZero = big.NewInt(0)
+	bigOne  = big.NewInt(1)
+)
 
 // Calculate calculates payments for audit results in a specific epoch of the network.
 // Wraps the results in a money transfer transaction and sends it to the network.
@@ -241,6 +245,10 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 
 		fee := big.NewInt(0).Mul(price, ctx.sumSGSize)
 		fee.Div(fee, bigGB)
+
+		if fee.Cmp(bigZero) == 0 {
+			fee.Add(fee, bigOne)
+		}
 
 		ctx.txTable.transfer(&transferTx{
 			from:   cnrOwner,
