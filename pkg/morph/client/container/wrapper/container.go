@@ -145,3 +145,93 @@ func (w *Wrapper) List(ownerID *owner.ID) ([]*container.ID, error) {
 
 	return result, nil
 }
+
+// AnnounceLoad saves container size estimation calculated by storage node
+// with key in NeoFS system through Container contract call.
+//
+// Returns any error encountered that caused the saving to interrupt.
+func (w *Wrapper) AnnounceLoad(a container.UsedSpaceAnnouncement, key []byte) error {
+	v2 := a.ContainerID().ToV2()
+	if v2 == nil {
+		return errUnsupported // use other major version if there any
+	}
+
+	args := client.PutSizeArgs{}
+	args.SetContainerID(v2.GetValue())
+	args.SetEpoch(a.Epoch())
+	args.SetSize(a.UsedSpace())
+	args.SetReporterKey(key)
+
+	return w.client.PutSize(args)
+}
+
+// EstimationID is an identity of container load estimation inside Container contract.
+type EstimationID []byte
+
+// ListLoadEstimationsByEpoch returns a list of container load estimations for to the specified epoch.
+// The list is composed through Container contract call.
+func (w *Wrapper) ListLoadEstimationsByEpoch(epoch uint64) ([]EstimationID, error) {
+	args := client.ListSizesArgs{}
+	args.SetEpoch(epoch)
+
+	// ask RPC neo node to get serialized container
+	rpcAnswer, err := w.client.ListSizes(args)
+	if err != nil {
+		return nil, err
+	}
+
+	rawIDs := rpcAnswer.IDList()
+	result := make([]EstimationID, 0, len(rawIDs))
+
+	for i := range rawIDs {
+		result = append(result, rawIDs[i])
+	}
+
+	return result, nil
+}
+
+// Estimation is a structure of single container load estimation
+// reported by storage node.
+type Estimation struct {
+	Size uint64
+
+	Reporter []byte
+}
+
+// Estimation is a structure of grouped container load estimation inside Container contract.
+type Estimations struct {
+	ContainerID *container.ID
+
+	Values []Estimation
+}
+
+// GetUsedSpaceEstimations returns a list of container load estimations by ID.
+// The list is composed through Container contract call.
+func (w *Wrapper) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error) {
+	args := client.GetSizeArgs{}
+	args.SetID(id)
+
+	rpcAnswer, err := w.client.GetContainerSize(args)
+	if err != nil {
+		return nil, err
+	}
+
+	es := rpcAnswer.Estimations()
+
+	v2 := new(v2refs.ContainerID)
+	v2.SetValue(es.ContainerID)
+
+	res := &Estimations{
+		ContainerID: container.NewIDFromV2(v2),
+		Values:      make([]Estimation, 0, len(es.Estimations)),
+	}
+
+	for i := range es.Estimations {
+		res.Values = append(res.Values, Estimation{
+			Size:     uint64(es.Estimations[i].Size),
+			Reporter: es.Estimations[i].Reporter,
+		})
+	}
+
+	return res, nil
+}
