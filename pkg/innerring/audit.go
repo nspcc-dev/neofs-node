@@ -167,10 +167,14 @@ func (a auditSettlementDeps) ResolveKey(ni audit.NodeInfo) (*owner.ID, error) {
 var transferAuditDetails = []byte("settlement-audit")
 
 func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
+	log := a.log.With(
+		zap.Stringer("sender", sender),
+		zap.Stringer("recipient", recipient),
+		zap.Stringer("amount (GASe-12)", amount),
+	)
+
 	if !amount.IsInt64() {
-		a.log.Error("amount can not be represented as an int64",
-			zap.Stringer("value", amount),
-		)
+		a.log.Error("amount can not be represented as an int64")
 
 		return
 	}
@@ -181,8 +185,12 @@ func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.I
 		To:      recipient,
 		Details: transferAuditDetails,
 	}); err != nil {
-		a.log.Error("transfer of funds for audit failed",
+		log.Error("could not send transfer transaction for audit",
 			zap.String("error", err.Error()),
 		)
+
+		return
 	}
+
+	log.Debug("transfer transaction for audit was successfully sent")
 }
