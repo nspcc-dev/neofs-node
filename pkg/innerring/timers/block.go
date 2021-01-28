@@ -136,10 +136,7 @@ func (t *BlockTimer) reset() {
 	}
 
 	t.tgt = delta
-
-	for i := range t.ps {
-		t.ps[i].reset()
-	}
+	t.cur = 0
 }
 
 // Tick ticks one block in the BlockTimer.
