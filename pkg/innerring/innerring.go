@@ -220,17 +220,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	server.auditClient, err = invoke.NewNoFeeAuditClient(server.morphClient, server.contracts.audit)
+	server.auditClient, err = invoke.NewAuditClient(server.morphClient, server.contracts.audit)
 	if err != nil {
 		return nil, err
 	}
 
-	cnrClient, err := invoke.NewNoFeeContainerClient(server.morphClient, server.contracts.container)
+	cnrClient, err := invoke.NewContainerClient(server.morphClient, server.contracts.container)
 	if err != nil {
 		return nil, err
 	}
 
-	nmClient, err := invoke.NewNoFeeNetmapClient(server.morphClient, server.contracts.netmap)
+	nmClient, err := invoke.NewNetmapClient(server.morphClient, server.contracts.netmap)
 	if err != nil {
 		return nil, err
 	}

@@ -105,13 +105,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	// creating enhanced client for getting network map
-	netmapClient, err := invoke.NewNoFeeNetmapClient(p.MorphClient, p.NetmapContract)
+	netmapClient, err := invoke.NewNetmapClient(p.MorphClient, p.NetmapContract)
 	if err != nil {
 		return nil, err
 	}
 
 	// creating enhanced client for getting containers
-	containerClient, err := invoke.NewNoFeeContainerClient(p.MorphClient, p.ContainerContract)
+	containerClient, err := invoke.NewContainerClient(p.MorphClient, p.ContainerContract)
 	if err != nil {
 		return nil, err
 	}
