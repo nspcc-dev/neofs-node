@@ -16,11 +16,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-const readOnlyFee = 0
-
-// NewNoFeeContainerClient creates wrapper to access data from container contract.
-func NewNoFeeContainerClient(cli *client.Client, contract util.Uint160) (*wrapContainer.Wrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, readOnlyFee)
+// NewContainerClient creates wrapper to access data from container contract.
+func NewContainerClient(cli *client.Client, contract util.Uint160) (*wrapContainer.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, extraFee)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container static client: %w", err)
 	}
@@ -33,9 +31,9 @@ func NewNoFeeContainerClient(cli *client.Client, contract util.Uint160) (*wrapCo
 	return wrapContainer.New(enhancedContainerClient)
 }
 
-// NewNoFeeNetmapClient creates wrapper to access data from netmap contract.
-func NewNoFeeNetmapClient(cli *client.Client, contract util.Uint160) (*wrapNetmap.Wrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, readOnlyFee)
+// NewNetmapClient creates wrapper to access data from netmap contract.
+func NewNetmapClient(cli *client.Client, contract util.Uint160) (*wrapNetmap.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, extraFee)
 	if err != nil {
 		return nil, fmt.Errorf("can't create netmap static client: %w", err)
 	}
@@ -48,9 +46,9 @@ func NewNoFeeNetmapClient(cli *client.Client, contract util.Uint160) (*wrapNetma
 	return wrapNetmap.New(enhancedNetmapClient)
 }
 
-// NewNoFeeAuditClient creates wrapper to work with Audit contract.
-func NewNoFeeAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapper.ClientWrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, readOnlyFee)
+// NewAuditClient creates wrapper to work with Audit contract.
+func NewAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapper.ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, extraFee)
 	if err != nil {
 		return nil, err
 	}
