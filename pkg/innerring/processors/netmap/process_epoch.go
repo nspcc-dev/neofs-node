@@ -25,6 +25,15 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 		return
 	}
 
+	if epoch > 0 { // estimates are invalid in genesis epoch
+		err = np.containerWrp.StartEstimation(epoch - 1)
+		if err != nil {
+			np.log.Warn("can't start container size estimation",
+				zap.Uint64("epoch", epoch),
+				zap.String("error", err.Error()))
+		}
+	}
+
 	np.netmapSnapshot.update(snapshot, epoch)
 	np.handleCleanupTick(netmapCleanupTick{epoch: epoch})
 	np.handleNewAudit(audit.NewAuditStartEvent(epoch))

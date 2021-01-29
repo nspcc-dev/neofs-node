@@ -324,6 +324,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		ActiveState:      server,
 		CleanupEnabled:   cfg.GetBool("netmap_cleaner.enabled"),
 		CleanupThreshold: cfg.GetUint64("netmap_cleaner.threshold"),
+		ContainerWrapper: cnrClient,
 		HandleAudit: server.onlyActiveEventHandler(
 			auditProcessor.StartAuditHandler(),
 		),
@@ -425,8 +426,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
-		nm:            netmapProcessor,
-		epochDuration: cfg.GetUint32("timers.epoch"),
+		l:                  server.log,
+		nm:                 netmapProcessor,
+		cnrWrapper:         cnrClient,
+		epoch:              server,
+		epochDuration:      cfg.GetUint32("timers.epoch"),
+		stopEstimationDMul: cfg.GetUint32("timers.stop_estimation.mul"),
+		stopEstimationDDiv: cfg.GetUint32("timers.stop_estimation.div"),
 	})
 
 	server.addBlockTimer(server.epochTimer)

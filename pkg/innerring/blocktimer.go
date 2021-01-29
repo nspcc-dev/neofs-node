@@ -4,13 +4,26 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
+	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"go.uber.org/zap"
 )
 
 type (
+	epochState interface {
+		EpochCounter() uint64
+	}
+
 	epochTimerArgs struct {
+		l *zap.Logger
+
 		nm *netmap.Processor // to handle new epoch tick
 
-		epochDuration uint32 // in blocks
+		cnrWrapper *container.Wrapper // to invoke stop container estimation
+		epoch      epochState         // to specify which epoch to stop
+
+		epochDuration      uint32 // in blocks
+		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
+		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks
 	}
 
 	emitTimerArgs struct {
@@ -47,6 +60,25 @@ func newEpochTimer(args *epochTimerArgs) *timers.BlockTimer {
 			args.nm.HandleNewEpochTick(timers.NewEpochTick{})
 		},
 	)
+
+	// sub-timer for epoch timer to tick stop container estimation events at
+	// some block in epoch
+	epochTimer.OnDelta(
+		args.stopEstimationDMul,
+		args.stopEstimationDDiv,
+		func() {
+			epochN := args.epoch.EpochCounter()
+			if epochN == 0 { // estimates are invalid in genesis epoch
+				return
+			}
+
+			err := args.cnrWrapper.StopEstimation(epochN - 1)
+			if err != nil {
+				args.l.Warn("can't stop epoch estimation",
+					zap.Uint64("epoch", epochN),
+					zap.String("error", err.Error()))
+			}
+		})
 
 	return epochTimer
 }
