@@ -35,6 +35,8 @@ type auditSettlementDeps struct {
 	balanceClient *balanceClient.Wrapper
 }
 
+type auditSettlementCalculator audit.Calculator
+
 type containerWrapper containerAPI.Container
 
 type nodeInfoWrapper struct {
@@ -193,4 +195,10 @@ func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.I
 	}
 
 	log.Debug("transfer transaction for audit was successfully sent")
+}
+
+func (s *auditSettlementCalculator) ProcessAuditSettlements(epoch uint64) {
+	(*audit.Calculator)(s).Calculate(&audit.CalculatePrm{
+		Epoch: epoch,
+	})
 }
