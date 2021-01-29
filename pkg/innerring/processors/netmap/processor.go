@@ -3,6 +3,7 @@ package netmap
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/panjf2000/ants/v2"
@@ -36,12 +37,13 @@ type (
 		epochTimer     EpochTimerReseter
 		epochState     EpochState
 		activeState    ActiveState
-		morphClient    *client.Client
+
+		morphClient  *client.Client
+		containerWrp *container.Wrapper
 
 		netmapSnapshot cleanupTable
 
-		handleNewAudit event.Handler
-
+		handleNewAudit         event.Handler
 		handleAuditSettlements event.Handler
 	}
 
@@ -56,8 +58,9 @@ type (
 		ActiveState      ActiveState
 		CleanupEnabled   bool
 		CleanupThreshold uint64 // in epochs
-		HandleAudit      event.Handler
+		ContainerWrapper *container.Wrapper
 
+		HandleAudit             event.Handler
 		AuditSettlementsHandler event.Handler
 	}
 )
@@ -85,6 +88,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: audit handler is not set")
 	case p.AuditSettlementsHandler == nil:
 		return nil, errors.New("ir/netmap: audit settlement handler is not set")
+	case p.ContainerWrapper == nil:
+		return nil, errors.New("ir/netmap: container contract wrapper is not set")
 	}
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
@@ -102,6 +107,7 @@ func New(p *Params) (*Processor, error) {
 		epochState:     p.EpochState,
 		activeState:    p.ActiveState,
 		morphClient:    p.MorphClient,
+		containerWrp:   p.ContainerWrapper,
 		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),
 		handleNewAudit: p.HandleAudit,
 
