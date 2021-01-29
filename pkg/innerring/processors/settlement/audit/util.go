@@ -31,7 +31,7 @@ func (t *transferTable) transfer(tx *transferTx) {
 	m, ok := t.txs[from]
 	if !ok {
 		if m, ok = t.txs[to]; ok {
-			from, to = to, from
+			to = from // ignore `from = to` swap because `from` doesn't require
 			tx.amount.Neg(tx.amount)
 		} else {
 			m = make(map[string]*transferTx, 1)

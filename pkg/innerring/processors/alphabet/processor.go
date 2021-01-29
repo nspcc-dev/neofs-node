@@ -79,6 +79,5 @@ func (np *Processor) ListenerHandlers() []event.HandlerInfo {
 
 // TimersHandlers for the 'Timers' event producer.
 func (np *Processor) TimersHandlers() []event.HandlerInfo {
-
 	return nil
 }
