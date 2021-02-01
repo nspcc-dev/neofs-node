@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"strconv"
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -14,9 +15,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
+	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
@@ -75,6 +79,53 @@ func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
 
 func (*morphLoadWriter) Close() error {
 	return nil
+}
+
+type nopLoadWriter struct{}
+
+func (nopLoadWriter) Put(containerSDK.UsedSpaceAnnouncement) error {
+	return nil
+}
+
+func (nopLoadWriter) Close() error {
+	return nil
+}
+
+type remoteLoadAnnounceProvider struct {
+	key *ecdsa.PrivateKey
+
+	loadAddrSrc network.LocalAddressSource
+
+	clientCache *cache.ClientCache
+
+	deadEndProvider loadcontroller.WriterProvider
+}
+
+func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadcontroller.WriterProvider, error) {
+	if srv == nil {
+		return r.deadEndProvider, nil
+	}
+
+	addr := srv.Address()
+
+	if r.loadAddrSrc.LocalAddress().String() == srv.Address() {
+		// if local => return no-op writer
+		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
+	}
+
+	ipAddr, err := network.IPAddrFromMultiaddr(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not convert address to IP format")
+	}
+
+	c, err := r.clientCache.Get(r.key, ipAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not initialize API client")
+	}
+
+	return &remoteLoadAnnounceWriterProvider{
+		client: c,
+	}, nil
 }
 
 type remoteLoadAnnounceWriterProvider struct {
