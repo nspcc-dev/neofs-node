@@ -17,6 +17,8 @@ type ServiceExecutor interface {
 }
 
 type executorSvc struct {
+	container.Service
+
 	exec ServiceExecutor
 }
 

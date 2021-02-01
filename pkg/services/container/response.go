@@ -100,3 +100,16 @@ func (s *responseService) GetExtendedACL(ctx context.Context, req *container.Get
 
 	return resp.(*container.GetExtendedACLResponse), nil
 }
+
+func (s *responseService) AnnounceUsedSpace(ctx context.Context, req *container.AnnounceUsedSpaceRequest) (*container.AnnounceUsedSpaceResponse, error) {
+	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+			return s.svc.AnnounceUsedSpace(ctx, req.(*container.AnnounceUsedSpaceRequest))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*container.AnnounceUsedSpaceResponse), nil
+}

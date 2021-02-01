@@ -124,9 +124,13 @@ func initContainerService(c *cfg) {
 			containerService.NewSignService(
 				c.key,
 				containerService.NewResponseService(
-					containerService.NewExecutionService(
-						containerMorph.NewExecutor(cnrClient),
-					),
+					&usedSpaceService{
+						Service:              containerService.NewExecutionService(containerMorph.NewExecutor(cnrClient)),
+						loadWriterProvider:   loadRouter,
+						loadPlacementBuilder: loadPlacementBuilder,
+						routeBuilder:         routeBuilder,
+						cfg:                  c,
+					},
 					c.respSvc,
 				),
 			),
