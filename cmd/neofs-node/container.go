@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+
+	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -8,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
+	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -65,4 +69,33 @@ func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
 
 func (*morphLoadWriter) Close() error {
 	return nil
+}
+
+type remoteLoadAnnounceWriterProvider struct {
+	client *apiClient.Client
+}
+
+func (p *remoteLoadAnnounceWriterProvider) InitWriter(ctx context.Context) (loadcontroller.Writer, error) {
+	return &remoteLoadAnnounceWriter{
+		ctx:    ctx,
+		client: p.client,
+	}, nil
+}
+
+type remoteLoadAnnounceWriter struct {
+	ctx context.Context
+
+	client *apiClient.Client
+
+	buf []containerSDK.UsedSpaceAnnouncement
+}
+
+func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
+	r.buf = append(r.buf, a)
+
+	return nil
+}
+
+func (r *remoteLoadAnnounceWriter) Close() error {
+	return r.client.AnnounceContainerUsedSpace(r.ctx, r.buf)
 }
