@@ -10,6 +10,7 @@ import (
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -150,4 +151,37 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *containerSDK.ID
 	}
 
 	return cnrNodes, nm, nil
+}
+
+type localStorageLoad struct {
+	log *logger.Logger
+
+	engine *engine.StorageEngine
+}
+
+func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontroller.UsedSpaceHandler) error {
+	idList := engine.ListContainers(d.engine)
+
+	for i := range idList {
+		sz := engine.ContainerSize(d.engine, idList[i])
+
+		d.log.Debug("container size in storage engine calculated successfully",
+			zap.Uint64("size", sz),
+			zap.Stringer("cid", idList[i]),
+		)
+
+		a := containerSDK.NewAnnouncement()
+		a.SetContainerID(idList[i])
+		a.SetUsedSpace(sz)
+
+		if f != nil && !f(*a) {
+			continue
+		}
+
+		if err := h(*a); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
