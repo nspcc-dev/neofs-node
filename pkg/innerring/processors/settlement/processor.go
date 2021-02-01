@@ -2,7 +2,9 @@ package settlement
 
 import (
 	"fmt"
+	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	nodeutil "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
@@ -10,19 +12,35 @@ import (
 	"go.uber.org/zap"
 )
 
-// Processor is an event handler for payments in the system.
-type Processor struct {
-	log *logger.Logger
+type (
+	// ActiveState is a callback interface for inner ring global state
+	ActiveState interface {
+		IsActive() bool
+	}
 
-	pool nodeutil.WorkerPool
+	// Processor is an event handler for payments in the system.
+	Processor struct {
+		log *logger.Logger
 
-	auditProc AuditProcessor
-}
+		state ActiveState
 
-// Prm groups the required parameters of Processor's constructor.
-type Prm struct {
-	AuditProcessor AuditProcessor
-}
+		pool nodeutil.WorkerPool
+
+		auditProc AuditProcessor
+
+		basicIncome BasicIncomeInitializer
+
+		contextMu      sync.Mutex
+		incomeContexts map[uint64]*basic.IncomeSettlementContext
+	}
+
+	// Prm groups the required parameters of Processor's constructor.
+	Prm struct {
+		AuditProcessor AuditProcessor
+		BasicIncome    BasicIncomeInitializer
+		State          ActiveState
+	}
+)
 
 func panicOnPrmValue(n string, v interface{}) {
 	panic(fmt.Sprintf("invalid parameter %s (%T):%v", n, v, v))
@@ -51,8 +69,11 @@ func New(prm Prm, opts ...Option) *Processor {
 	)
 
 	return &Processor{
-		log:       o.log,
-		pool:      pool,
-		auditProc: prm.AuditProcessor,
+		log:            o.log,
+		state:          prm.State,
+		pool:           pool,
+		auditProc:      prm.AuditProcessor,
+		basicIncome:    prm.BasicIncome,
+		incomeContexts: make(map[uint64]*basic.IncomeSettlementContext),
 	}
 }
