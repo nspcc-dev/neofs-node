@@ -1,6 +1,7 @@
 package main
 
 import (
+	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -8,6 +9,8 @@ import (
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 func initContainerService(c *cfg) {
@@ -40,4 +43,26 @@ func initContainerService(c *cfg) {
 			),
 		),
 	)
+}
+
+type morphLoadWriter struct {
+	log *logger.Logger
+
+	cnrMorphClient *wrapper.Wrapper
+
+	key []byte
+}
+
+func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
+	w.log.Debug("save used space announcement in contract",
+		zap.Uint64("epoch", a.Epoch()),
+		zap.Stringer("cid", a.ContainerID()),
+		zap.Uint64("size", a.UsedSpace()),
+	)
+
+	return w.cnrMorphClient.AnnounceLoad(a, w.key)
+}
+
+func (*morphLoadWriter) Close() error {
+	return nil
 }
