@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -21,7 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type auditSettlementDeps struct {
+type settlementDeps struct {
 	log *logger.Logger
 
 	cnrSrc container.Source
@@ -33,6 +34,10 @@ type auditSettlementDeps struct {
 	clientCache *ClientCache
 
 	balanceClient *balanceClient.Wrapper
+}
+
+type auditSettlementDeps struct {
+	*settlementDeps
 }
 
 type auditSettlementCalculator audit.Calculator
@@ -61,8 +66,8 @@ func (c *containerWrapper) Owner() *owner.ID {
 	return (*containerAPI.Container)(c).OwnerID()
 }
 
-func (a auditSettlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, error) {
-	idList, err := a.auditClient.ListAuditResultIDByEpoch(epoch)
+func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, error) {
+	idList, err := s.auditClient.ListAuditResultIDByEpoch(epoch)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list audit results in sidechain")
 	}
@@ -70,7 +75,7 @@ func (a auditSettlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Res
 	res := make([]*auditAPI.Result, 0, len(idList))
 
 	for i := range idList {
-		r, err := a.auditClient.GetAuditResult(idList[i])
+		r, err := s.auditClient.GetAuditResult(idList[i])
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get audit result")
 		}
@@ -81,8 +86,8 @@ func (a auditSettlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Res
 	return res, nil
 }
 
-func (a auditSettlementDeps) ContainerInfo(cid *containerAPI.ID) (audit.ContainerInfo, error) {
-	cnr, err := a.cnrSrc.Get(cid)
+func (s settlementDeps) ContainerInfo(cid *containerAPI.ID) (common.ContainerInfo, error) {
+	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get container from storage")
 	}
@@ -90,23 +95,23 @@ func (a auditSettlementDeps) ContainerInfo(cid *containerAPI.ID) (audit.Containe
 	return (*containerWrapper)(cnr), nil
 }
 
-func (a auditSettlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
+func (s settlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
 	var (
 		nm  *netmapAPI.Netmap
 		err error
 	)
 
 	if e > 0 {
-		nm, err = a.nmSrc.GetNetMapByEpoch(e)
+		nm, err = s.nmSrc.GetNetMapByEpoch(e)
 	} else {
-		nm, err = netmap.GetLatestNetworkMap(a.nmSrc)
+		nm, err = netmap.GetLatestNetworkMap(s.nmSrc)
 	}
 
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get network map from storage")
 	}
 
-	cnr, err := a.cnrSrc.Get(cid)
+	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get container from sidechain")
 	}
@@ -122,14 +127,14 @@ func (a auditSettlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (net
 	return cn, nm, nil
 }
 
-func (a auditSettlementDeps) ContainerNodes(e uint64, cid *containerAPI.ID) ([]audit.NodeInfo, error) {
-	cn, _, err := a.buildContainer(e, cid)
+func (s settlementDeps) ContainerNodes(e uint64, cid *containerAPI.ID) ([]common.NodeInfo, error) {
+	cn, _, err := s.buildContainer(e, cid)
 	if err != nil {
 		return nil, err
 	}
 
 	ns := cn.Flatten()
-	res := make([]audit.NodeInfo, 0, len(ns))
+	res := make([]common.NodeInfo, 0, len(ns))
 
 	for i := range ns {
 		res = append(res, &nodeInfoWrapper{
@@ -140,13 +145,13 @@ func (a auditSettlementDeps) ContainerNodes(e uint64, cid *containerAPI.ID) ([]a
 	return res, nil
 }
 
-func (a auditSettlementDeps) SGInfo(addr *object.Address) (audit.SGInfo, error) {
-	cn, nm, err := a.buildContainer(0, addr.ContainerID())
+func (s settlementDeps) SGInfo(addr *object.Address) (audit.SGInfo, error) {
+	cn, nm, err := s.buildContainer(0, addr.ContainerID())
 	if err != nil {
 		return nil, err
 	}
 
-	sg, err := a.clientCache.getSG(context.Background(), addr, nm, cn)
+	sg, err := s.clientCache.getSG(context.Background(), addr, nm, cn)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +159,7 @@ func (a auditSettlementDeps) SGInfo(addr *object.Address) (audit.SGInfo, error) 
 	return (*sgWrapper)(sg), nil
 }
 
-func (a auditSettlementDeps) ResolveKey(ni audit.NodeInfo) (*owner.ID, error) {
+func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
 	w, err := owner.NEO3WalletFromPublicKey(crypto.UnmarshalPublicKey(ni.PublicKey()))
 	if err != nil {
 		return nil, err
@@ -168,24 +173,24 @@ func (a auditSettlementDeps) ResolveKey(ni audit.NodeInfo) (*owner.ID, error) {
 
 var transferAuditDetails = []byte("settlement-audit")
 
-func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
-	log := a.log.With(
+func (s settlementDeps) transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {
+	log := s.log.With(
 		zap.Stringer("sender", sender),
 		zap.Stringer("recipient", recipient),
 		zap.Stringer("amount (GASe-12)", amount),
 	)
 
 	if !amount.IsInt64() {
-		a.log.Error("amount can not be represented as an int64")
+		s.log.Error("amount can not be represented as an int64")
 
 		return
 	}
 
-	if err := a.balanceClient.TransferX(balanceClient.TransferPrm{
+	if err := s.balanceClient.TransferX(balanceClient.TransferPrm{
 		Amount:  amount.Int64(),
 		From:    sender,
 		To:      recipient,
-		Details: transferAuditDetails,
+		Details: details,
 	}); err != nil {
 		log.Error("could not send transfer transaction for audit",
 			zap.String("error", err.Error()),
@@ -195,6 +200,10 @@ func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.I
 	}
 
 	log.Debug("transfer transaction for audit was successfully sent")
+}
+
+func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
+	a.transfer(sender, recipient, amount, transferAuditDetails)
 }
 
 func (s *auditSettlementCalculator) ProcessAuditSettlements(epoch uint64) {

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -28,13 +29,13 @@ type singleResultCtx struct {
 
 	cid *container.ID
 
-	txTable *transferTable
+	txTable *common.TransferTable
 
-	cnrInfo ContainerInfo
+	cnrInfo common.ContainerInfo
 
-	cnrNodes []NodeInfo
+	cnrNodes []common.NodeInfo
 
-	passNodes map[string]NodeInfo
+	passNodes map[string]common.NodeInfo
 
 	sumSGSize *big.Int
 }
@@ -69,7 +70,7 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 		zap.Int("number", len(auditResults)),
 	)
 
-	table := newTransferTable()
+	table := common.NewTransferTable()
 
 	for i := range auditResults {
 		c.processResult(&singleResultCtx{
@@ -81,20 +82,7 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 
 	log.Debug("processing transfers")
 
-	table.iterate(func(tx *transferTx) {
-		sign := tx.amount.Sign()
-		if sign == 0 {
-			log.Debug("ignore zero transfer")
-			return
-		}
-
-		if sign < 0 {
-			tx.from, tx.to = tx.to, tx.from
-			tx.amount.Neg(tx.amount)
-		}
-
-		c.prm.Exchanger.Transfer(tx.from, tx.to, tx.amount)
-	})
+	common.TransferAssets(c.prm.Exchanger, table)
 }
 
 func (c *Calculator) processResult(ctx *singleResultCtx) {
@@ -168,7 +156,7 @@ func (c *Calculator) buildPlacement(ctx *singleResultCtx) bool {
 }
 
 func (c *Calculator) collectPassNodes(ctx *singleResultCtx) bool {
-	ctx.passNodes = make(map[string]NodeInfo)
+	ctx.passNodes = make(map[string]common.NodeInfo)
 
 loop:
 	for _, cnrNode := range ctx.cnrNodes {
@@ -261,10 +249,10 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 			fee.Add(fee, bigOne)
 		}
 
-		ctx.txTable.transfer(&transferTx{
-			from:   cnrOwner,
-			to:     ownerID,
-			amount: fee,
+		ctx.txTable.Transfer(&common.TransferTx{
+			From:   cnrOwner,
+			To:     ownerID,
+			Amount: fee,
 		})
 	}
 
