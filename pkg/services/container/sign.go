@@ -98,3 +98,16 @@ func (s *signService) GetExtendedACL(ctx context.Context, req *container.GetExte
 
 	return resp.(*container.GetExtendedACLResponse), nil
 }
+
+func (s *signService) AnnounceUsedSpace(ctx context.Context, req *container.AnnounceUsedSpaceRequest) (*container.AnnounceUsedSpaceResponse, error) {
+	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+			return s.svc.AnnounceUsedSpace(ctx, req.(*container.AnnounceUsedSpaceRequest))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*container.AnnounceUsedSpaceResponse), nil
+}
