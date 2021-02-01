@@ -85,3 +85,14 @@ func (s *Server) GetExtendedACL(ctx context.Context, req *containerGRPC.GetExten
 
 	return container.GetExtendedACLResponseToGRPCMessage(resp), nil
 }
+
+// AnnounceUsedSpace converts gRPC AnnounceUsedSpaceRequest message and passes it to internal Container service.
+func (s *Server) AnnounceUsedSpace(ctx context.Context, req *containerGRPC.AnnounceUsedSpaceRequest) (*containerGRPC.AnnounceUsedSpaceResponse, error) {
+	resp, err := s.srv.AnnounceUsedSpace(ctx, container.AnnounceUsedSpaceRequestFromGRPCMessage(req))
+	if err != nil {
+		// TODO: think about how we transport errors through gRPC
+		return nil, err
+	}
+
+	return container.AnnounceUsedSpaceResponseToGRPCMessage(resp), nil
+}
