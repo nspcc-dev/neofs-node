@@ -3,8 +3,10 @@ package innerring
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +26,10 @@ type (
 		epochDuration      uint32 // in blocks
 		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
 		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks
+
+		collectBasicIncome     event.Handler // handle collect basic income
+		collectBasicIncomeDMul uint32        // X: X/Y of epoch in blocks
+		collectBasicIncomeDDiv uint32        // Y: X/Y of epoch in blocks
 	}
 
 	emitTimerArgs struct {
@@ -78,6 +84,18 @@ func newEpochTimer(args *epochTimerArgs) *timers.BlockTimer {
 					zap.Uint64("epoch", epochN),
 					zap.String("error", err.Error()))
 			}
+		})
+
+	epochTimer.OnDelta(
+		args.collectBasicIncomeDMul,
+		args.collectBasicIncomeDDiv,
+		func() {
+			epochN := args.epoch.EpochCounter()
+			if epochN == 0 { // estimates are invalid in genesis epoch
+				return
+			}
+
+			args.collectBasicIncome(settlement.NewBasicIncomeCollectEvent(epochN - 1))
 		})
 
 	return epochTimer
