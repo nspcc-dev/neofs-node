@@ -119,6 +119,7 @@ func listenMorphNotifications(c *cfg) {
 
 	setNetmapNotificationParser(c, newEpochNotification, netmapEvent.ParseNewEpoch)
 	registerNotificationHandlers(c.cfgNetmap.scriptHash, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
+	registerNotificationHandlers(c.cfgContainer.scriptHash, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
 }
 
 func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parsers map[event.Type]event.Parser,
