@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"strconv"
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
+	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -14,6 +18,7 @@ import (
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -98,4 +103,51 @@ func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) err
 
 func (r *remoteLoadAnnounceWriter) Close() error {
 	return r.client.AnnounceContainerUsedSpace(r.ctx, r.buf)
+}
+
+type loadPlacementBuilder struct {
+	log *logger.Logger
+
+	nmSrc netmapCore.Source
+
+	cnrSrc containerCore.Source
+}
+
+func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *containerSDK.ID) ([]netmap.Nodes, error) {
+	cnrNodes, nm, err := l.buildPlacement(epoch, cid)
+	if err != nil {
+		return nil, err
+	}
+
+	const pivotPrefix = "load_announcement_"
+
+	pivot := []byte(
+		pivotPrefix + strconv.FormatUint(epoch, 10),
+	)
+
+	placement, err := nm.GetPlacementVectors(cnrNodes, pivot)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not build placement vectors")
+	}
+
+	return placement, nil
+}
+
+func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *containerSDK.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
+	cnr, err := l.cnrSrc.Get(cid)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nm, err := l.nmSrc.GetNetMapByEpoch(epoch)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get network map")
+	}
+
+	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), cid.ToV2().GetValue())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not build container nodes")
+	}
+
+	return cnrNodes, nm, nil
 }
