@@ -2,6 +2,7 @@ package innerring
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
@@ -14,9 +15,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -38,6 +42,15 @@ type settlementDeps struct {
 
 type auditSettlementDeps struct {
 	*settlementDeps
+}
+
+type basicIncomeSettlementDeps struct {
+	*settlementDeps
+	cnrClient *containerClient.Wrapper
+}
+
+type basicSettlementConstructor struct {
+	dep *basicIncomeSettlementDeps
 }
 
 type auditSettlementCalculator audit.Calculator
@@ -171,7 +184,10 @@ func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
 	return id, nil
 }
 
-var transferAuditDetails = []byte("settlement-audit")
+var (
+	transferAuditDetails    = []byte("settlement-audit")
+	basicIncomeAuditDetails = []byte("settlement-basic-income")
+)
 
 func (s settlementDeps) transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {
 	log := s.log.With(
@@ -206,8 +222,52 @@ func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.I
 	a.transfer(sender, recipient, amount, transferAuditDetails)
 }
 
+func (b basicIncomeSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
+	b.transfer(sender, recipient, amount, basicIncomeAuditDetails)
+}
+
+func (b basicIncomeSettlementDeps) BasicRate() uint64 {
+	return 1_0000_0000 // fixme: read from config and from chain
+}
+
+func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*wrapper.Estimations, error) {
+	estimationIDs, err := b.cnrClient.ListLoadEstimationsByEpoch(epoch)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*wrapper.Estimations, 0, len(estimationIDs))
+
+	for i := range estimationIDs {
+		estimation, err := b.cnrClient.GetUsedSpaceEstimations(estimationIDs[i])
+		if err != nil {
+			b.log.Warn("can't get used space estimation",
+				zap.String("estimation_id", hex.EncodeToString(estimationIDs[i])),
+				zap.String("error", err.Error()))
+
+			continue
+		}
+
+		result = append(result, estimation)
+	}
+
+	return result, nil
+}
+
 func (s *auditSettlementCalculator) ProcessAuditSettlements(epoch uint64) {
 	(*audit.Calculator)(s).Calculate(&audit.CalculatePrm{
 		Epoch: epoch,
+	})
+}
+
+func (b *basicSettlementConstructor) CreateContext(epoch uint64) (*basic.IncomeSettlementContext, error) {
+	return basic.NewIncomeSettlementContext(&basic.IncomeSettlementContextPrms{
+		Log:         b.dep.log,
+		Epoch:       epoch,
+		Rate:        b.dep,
+		Estimations: b.dep,
+		Container:   b.dep,
+		Placement:   b.dep,
+		Exchange:    b.dep,
 	})
 }
