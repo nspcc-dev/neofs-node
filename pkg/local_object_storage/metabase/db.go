@@ -54,21 +54,30 @@ func New(opts ...Option) *DB {
 	return &DB{
 		cfg: c,
 		matchers: map[object.SearchMatchType]func(string, []byte, string) bool{
-			object.MatchUnknown:     unknownMatcher,
-			object.MatchStringEqual: stringEqualMatcher,
+			object.MatchUnknown:        unknownMatcher,
+			object.MatchStringEqual:    stringEqualMatcher,
+			object.MatchStringNotEqual: stringNotEqualMatcher,
 		},
 	}
 }
 
-func stringEqualMatcher(key string, objVal []byte, filterVal string) bool {
+func stringifyValue(key string, objVal []byte) string {
 	switch key {
 	default:
-		return string(objVal) == filterVal
+		return string(objVal)
 	case v2object.FilterHeaderPayloadHash, v2object.FilterHeaderHomomorphicHash:
-		return hex.EncodeToString(objVal) == filterVal
+		return hex.EncodeToString(objVal)
 	case v2object.FilterHeaderCreationEpoch, v2object.FilterHeaderPayloadLength:
-		return strconv.FormatUint(binary.LittleEndian.Uint64(objVal), 10) == filterVal
+		return strconv.FormatUint(binary.LittleEndian.Uint64(objVal), 10)
 	}
+}
+
+func stringEqualMatcher(key string, objVal []byte, filterVal string) bool {
+	return stringifyValue(key, objVal) == filterVal
+}
+
+func stringNotEqualMatcher(key string, objVal []byte, filterVal string) bool {
+	return stringifyValue(key, objVal) != filterVal
 }
 
 func unknownMatcher(_ string, _ []byte, _ string) bool {
