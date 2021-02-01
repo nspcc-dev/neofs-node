@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -232,6 +234,127 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 		if err := h(*a); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+type usedSpaceService struct {
+	containerV2.Service
+
+	loadWriterProvider loadcontroller.WriterProvider
+
+	loadPlacementBuilder *loadPlacementBuilder
+
+	routeBuilder loadroute.Builder
+
+	cfg *cfg
+}
+
+func (c *cfg) PublicKey() []byte {
+	ni := c.localNodeInfo()
+	return ni.PublicKey()
+}
+
+func (c *cfg) Address() string {
+	ni := c.localNodeInfo()
+	return ni.Address()
+}
+
+func (c *usedSpaceService) PublicKey() []byte {
+	ni := c.cfg.localNodeInfo()
+
+	return ni.PublicKey()
+}
+
+func (c *usedSpaceService) Address() string {
+	ni := c.cfg.localNodeInfo()
+
+	return ni.Address()
+}
+
+func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *containerV2.AnnounceUsedSpaceRequest) (*containerV2.AnnounceUsedSpaceResponse, error) {
+	var passedRoute []loadroute.ServerInfo
+
+	for hdr := req.GetVerificationHeader(); hdr != nil; hdr = hdr.GetOrigin() {
+		passedRoute = append(passedRoute, &onlyKeyRemoteServerInfo{
+			key: hdr.GetBodySignature().GetKey(),
+		})
+	}
+
+	for left, right := 0, len(passedRoute)-1; left < right; left, right = left+1, right-1 {
+		passedRoute[left], passedRoute[right] = passedRoute[right], passedRoute[left]
+	}
+
+	passedRoute = append(passedRoute, c)
+
+	w, err := c.loadWriterProvider.InitWriter(loadroute.NewRouteContext(ctx, passedRoute))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not initialize container's used space writer")
+	}
+
+	for _, aV2 := range req.GetBody().GetAnnouncements() {
+		if err := c.processLoadValue(ctx, *containerSDK.NewAnnouncementFromV2(aV2), passedRoute, w); err != nil {
+			return nil, err
+		}
+	}
+
+	respBody := new(containerV2.AnnounceUsedSpaceResponseBody)
+
+	resp := new(containerV2.AnnounceUsedSpaceResponse)
+	resp.SetBody(respBody)
+
+	return resp, nil
+}
+
+var errNodeOutsideContainer = errors.New("node outside the container")
+
+type onlyKeyRemoteServerInfo struct {
+	key []byte
+}
+
+func (i *onlyKeyRemoteServerInfo) PublicKey() []byte {
+	return i.key
+}
+
+func (*onlyKeyRemoteServerInfo) Address() string {
+	return ""
+}
+
+func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *containerSDK.ID, key []byte) (bool, error) {
+	cnrNodes, _, err := l.buildPlacement(epoch, cid)
+	if err != nil {
+		return false, err
+	}
+
+	for _, vector := range cnrNodes.Replicas() {
+		for _, node := range vector {
+			if bytes.Equal(node.PublicKey(), key) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func (c *usedSpaceService) processLoadValue(ctx context.Context, a containerSDK.UsedSpaceAnnouncement,
+	route []loadroute.ServerInfo, w loadcontroller.Writer) error {
+	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), a.ContainerID(), route[0].PublicKey())
+	if err != nil {
+		return errors.Wrap(err, "could not verify that the sender belongs to the container")
+	} else if !fromCnr {
+		return errNodeOutsideContainer
+	}
+
+	err = loadroute.CheckRoute(c.routeBuilder, a, route)
+	if err != nil {
+		return errors.Wrap(err, "wrong route of container's used space value")
+	}
+
+	err = w.Put(a)
+	if err != nil {
+		return errors.Wrap(err, "could not write container's used space value")
 	}
 
 	return nil
