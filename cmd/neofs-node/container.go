@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
@@ -59,6 +60,26 @@ func initContainerService(c *cfg) {
 			),
 		),
 	)
+}
+
+func addContainerNotificationHandler(c *cfg, sTyp string, h event.Handler) {
+	typ := event.TypeFromString(sTyp)
+
+	if c.cfgContainer.subscribers == nil {
+		c.cfgContainer.subscribers = make(map[event.Type][]event.Handler, 1)
+	}
+
+	c.cfgContainer.subscribers[typ] = append(c.cfgContainer.subscribers[typ], h)
+}
+
+func setContainerNotificationParser(c *cfg, sTyp string, p event.Parser) {
+	typ := event.TypeFromString(sTyp)
+
+	if c.cfgContainer.parsers == nil {
+		c.cfgContainer.parsers = make(map[event.Type]event.Parser, 1)
+	}
+
+	c.cfgContainer.parsers[typ] = p
 }
 
 type morphLoadWriter struct {

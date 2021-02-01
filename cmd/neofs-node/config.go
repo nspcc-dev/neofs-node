@@ -219,6 +219,9 @@ type cfgContainer struct {
 	scriptHash util.Uint160
 
 	fee fixedn.Fixed8
+
+	parsers     map[event.Type]event.Parser
+	subscribers map[event.Type][]event.Handler
 }
 
 type cfgNetmap struct {
