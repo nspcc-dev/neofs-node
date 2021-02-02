@@ -279,5 +279,6 @@ func (b *basicSettlementConstructor) CreateContext(epoch uint64) (*basic.IncomeS
 		Container:   b.dep,
 		Placement:   b.dep,
 		Exchange:    b.dep,
+		Accounts:    b.dep,
 	})
 }

@@ -85,3 +85,41 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 		return
 	}
 }
+
+func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
+	ev := e.(BasicIncomeDistributeEvent)
+	epoch := ev.Epoch()
+
+	if !p.state.IsActive() {
+		p.log.Info("passive mode, ignore income distribution event")
+
+		return
+	}
+
+	p.log.Info("start basic income distribution",
+		zap.Uint64("epoch", epoch))
+
+	p.contextMu.Lock()
+	defer p.contextMu.Unlock()
+
+	incomeCtx, ok := p.incomeContexts[epoch]
+	delete(p.incomeContexts, epoch)
+
+	if !ok {
+		p.log.Warn("income context distribution does not exists",
+			zap.Uint64("epoch", epoch))
+
+		return
+	}
+
+	err := p.pool.Submit(func() {
+		incomeCtx.Distribute()
+	})
+	if err != nil {
+		p.log.Warn("could not add handler of basic income distribution to queue",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+}
