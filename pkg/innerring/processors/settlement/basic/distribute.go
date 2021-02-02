@@ -1,12 +1,18 @@
 package basic
 
 import (
+	"encoding/hex"
+	"math/big"
+
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"go.uber.org/zap"
 )
 
 func (inc *IncomeSettlementContext) Distribute() {
 	inc.mu.Lock()
 	defer inc.mu.Unlock()
+
+	txTable := common.NewTransferTable()
 
 	bankBalance, err := inc.balances.Balance(inc.bankOwner)
 	if err != nil {
@@ -16,5 +22,33 @@ func (inc *IncomeSettlementContext) Distribute() {
 		return
 	}
 
-	_ = bankBalance
+	total := inc.distributeTable.Total()
+
+	inc.distributeTable.Iterate(func(key []byte, n *big.Int) {
+		nodeOwner, err := inc.accounts.ResolveKey(nodeInfoWrapper(key))
+		if err != nil {
+			inc.log.Warn("can't transform public key to owner id",
+				zap.String("public_key", hex.EncodeToString(key)),
+				zap.String("error", err.Error()))
+
+			return
+		}
+
+		txTable.Transfer(&common.TransferTx{
+			From:   inc.bankOwner,
+			To:     nodeOwner,
+			Amount: normalizedValue(n, total, bankBalance),
+		})
+	})
+
+	common.TransferAssets(inc.exchange, txTable)
+}
+
+func normalizedValue(n, total, limit *big.Int) *big.Int {
+	if limit.Cmp(bigZero) == 0 {
+		return new(big.Int)
+	}
+
+	n.Mul(n, limit)
+	return n.Div(n, total)
 }

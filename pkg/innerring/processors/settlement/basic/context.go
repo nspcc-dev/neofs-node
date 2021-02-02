@@ -39,9 +39,13 @@ type (
 		container   common.ContainerStorage
 		placement   common.PlacementCalculator
 		exchange    common.Exchanger
+		accounts    common.AccountStorage
 
 		txTable   *common.TransferTable
 		bankOwner *owner.ID
+
+		// this table is not thread safe, make sure you use it with mu.Lock()
+		distributeTable *NodeSizeTable
 	}
 
 	IncomeSettlementContextPrms struct {
@@ -53,6 +57,7 @@ type (
 		Container   common.ContainerStorage
 		Placement   common.PlacementCalculator
 		Exchange    common.Exchanger
+		Accounts    common.AccountStorage
 	}
 )
 
@@ -63,16 +68,18 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettleme
 	}
 
 	return &IncomeSettlementContext{
-		log:         p.Log,
-		epoch:       p.Epoch,
-		rate:        p.Rate,
-		estimations: p.Estimations,
-		balances:    p.Balances,
-		container:   p.Container,
-		placement:   p.Placement,
-		exchange:    p.Exchange,
-		txTable:     common.NewTransferTable(),
-		bankOwner:   bankingAccount,
+		log:             p.Log,
+		epoch:           p.Epoch,
+		rate:            p.Rate,
+		estimations:     p.Estimations,
+		balances:        p.Balances,
+		container:       p.Container,
+		placement:       p.Placement,
+		exchange:        p.Exchange,
+		accounts:        p.Accounts,
+		txTable:         common.NewTransferTable(),
+		bankOwner:       bankingAccount,
+		distributeTable: NewNodeSizeTable(),
 	}, nil
 }
 

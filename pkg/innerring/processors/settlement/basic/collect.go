@@ -56,6 +56,11 @@ func (inc *IncomeSettlementContext) Collect() {
 		avg := inc.avgEstimation(cnrEstimations[i]) // average container size per node
 		total := calculateBasicSum(avg, cachedRate, len(cnrNodes))
 
+		// fill distribute asset table
+		for i := range cnrNodes {
+			inc.distributeTable.Put(cnrNodes[i].PublicKey(), avg)
+		}
+
 		inc.txTable.Transfer(&common.TransferTx{
 			From:   owner.Owner(),
 			To:     inc.bankOwner,
