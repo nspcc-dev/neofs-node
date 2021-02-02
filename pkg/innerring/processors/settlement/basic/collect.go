@@ -18,8 +18,6 @@ func (inc *IncomeSettlementContext) Collect() {
 	inc.mu.Lock()
 	defer inc.mu.Unlock()
 
-	// todo: save state of bank wallet
-
 	cachedRate, err := inc.rate.BasicRate()
 	if err != nil {
 		inc.log.Error("can't get basic income rate",
