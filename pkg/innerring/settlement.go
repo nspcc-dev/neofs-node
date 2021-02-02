@@ -259,6 +259,10 @@ func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*wrapper.Estimat
 	return result, nil
 }
 
+func (b basicIncomeSettlementDeps) Balance(id *owner.ID) (*big.Int, error) {
+	return b.balanceClient.BalanceOf(id)
+}
+
 func (s *auditSettlementCalculator) ProcessAuditSettlements(epoch uint64) {
 	(*audit.Calculator)(s).Calculate(&audit.CalculatePrm{
 		Epoch: epoch,
@@ -271,6 +275,7 @@ func (b *basicSettlementConstructor) CreateContext(epoch uint64) (*basic.IncomeS
 		Epoch:       epoch,
 		Rate:        b.dep,
 		Estimations: b.dep,
+		Balances:    b.dep,
 		Container:   b.dep,
 		Placement:   b.dep,
 		Exchange:    b.dep,

@@ -1,6 +1,7 @@
 package basic
 
 import (
+	"math/big"
 	"sync"
 
 	"github.com/mr-tron/base58"
@@ -21,6 +22,11 @@ type (
 		BasicRate() (uint64, error)
 	}
 
+	// BalanceFetcher uses NEP-17 compatible balance contract
+	BalanceFetcher interface {
+		Balance(id *owner.ID) (*big.Int, error)
+	}
+
 	IncomeSettlementContext struct {
 		mu sync.Mutex // lock to prevent collection and distribution in the same time
 
@@ -29,6 +35,7 @@ type (
 
 		rate        RateFetcher
 		estimations EstimationFetcher
+		balances    BalanceFetcher
 		container   common.ContainerStorage
 		placement   common.PlacementCalculator
 		exchange    common.Exchanger
@@ -42,6 +49,7 @@ type (
 		Epoch       uint64
 		Rate        RateFetcher
 		Estimations EstimationFetcher
+		Balances    BalanceFetcher
 		Container   common.ContainerStorage
 		Placement   common.PlacementCalculator
 		Exchange    common.Exchanger
@@ -59,6 +67,7 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettleme
 		epoch:       p.Epoch,
 		rate:        p.Rate,
 		estimations: p.Estimations,
+		balances:    p.Balances,
 		container:   p.Container,
 		placement:   p.Placement,
 		exchange:    p.Exchange,
