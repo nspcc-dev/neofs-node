@@ -442,16 +442,23 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
-		l:                      server.log,
-		nm:                     netmapProcessor,
-		cnrWrapper:             cnrClient,
-		epoch:                  server,
-		epochDuration:          cfg.GetUint32("timers.epoch"),
-		stopEstimationDMul:     cfg.GetUint32("timers.stop_estimation.mul"),
-		stopEstimationDDiv:     cfg.GetUint32("timers.stop_estimation.div"),
-		collectBasicIncome:     settlementProcessor.HandleIncomeCollectionEvent,
-		collectBasicIncomeDMul: cfg.GetUint32("timers.collect_basic_income.mul"),
-		collectBasicIncomeDDiv: cfg.GetUint32("timers.collect_basic_income.div"),
+		l:                  server.log,
+		nm:                 netmapProcessor,
+		cnrWrapper:         cnrClient,
+		epoch:              server,
+		epochDuration:      cfg.GetUint32("timers.epoch"),
+		stopEstimationDMul: cfg.GetUint32("timers.stop_estimation.mul"),
+		stopEstimationDDiv: cfg.GetUint32("timers.stop_estimation.div"),
+		collectBasicIncome: subEpochEventHandler{
+			handler:     settlementProcessor.HandleIncomeCollectionEvent,
+			durationMul: cfg.GetUint32("timers.collect_basic_income.mul"),
+			durationDiv: cfg.GetUint32("timers.collect_basic_income.div"),
+		},
+		distributeBasicIncome: subEpochEventHandler{
+			handler:     settlementProcessor.HandleIncomeDistributionEvent,
+			durationMul: cfg.GetUint32("timers.distribute_basic_income.mul"),
+			durationDiv: cfg.GetUint32("timers.distribute_basic_income.div"),
+		},
 	})
 
 	server.addBlockTimer(server.epochTimer)
