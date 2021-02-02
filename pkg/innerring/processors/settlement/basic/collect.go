@@ -20,11 +20,17 @@ func (inc *IncomeSettlementContext) Collect() {
 
 	// todo: save state of bank wallet
 
-	cachedRate := inc.rate.BasicRate()
+	cachedRate, err := inc.rate.BasicRate()
+	if err != nil {
+		inc.log.Error("can't get basic income rate",
+			zap.String("error", err.Error()))
+
+		return
+	}
 
 	cnrEstimations, err := inc.estimations.Estimations(inc.epoch)
 	if err != nil {
-		inc.log.Warn("can't fetch container size estimations",
+		inc.log.Error("can't fetch container size estimations",
 			zap.Uint64("epoch", inc.epoch))
 
 		return

@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
@@ -238,6 +239,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	// create global runtime config reader
+	globalConfig := config.NewGlobalConfigReader(cfg, nmClient)
+
 	clientCache := newClientCache(&clientCacheParams{
 		Log:          log,
 		Key:          server.key,
@@ -300,6 +304,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	basicSettlementDeps := &basicIncomeSettlementDeps{
 		settlementDeps: settlementDeps,
 		cnrClient:      cnrClient,
+		cfg:            globalConfig,
 	}
 
 	auditSettlementCalc := auditSettlement.NewCalculator(

@@ -18,7 +18,7 @@ type (
 	}
 
 	RateFetcher interface {
-		BasicRate() uint64
+		BasicRate() (uint64, error)
 	}
 
 	IncomeSettlementContext struct {

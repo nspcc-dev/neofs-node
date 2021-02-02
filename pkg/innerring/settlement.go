@@ -26,6 +26,10 @@ import (
 	"go.uber.org/zap"
 )
 
+type globalConfig interface {
+	BasicIncomeRate() (uint64, error)
+}
+
 type settlementDeps struct {
 	log *logger.Logger
 
@@ -47,6 +51,7 @@ type auditSettlementDeps struct {
 type basicIncomeSettlementDeps struct {
 	*settlementDeps
 	cnrClient *containerClient.Wrapper
+	cfg       globalConfig
 }
 
 type basicSettlementConstructor struct {
@@ -226,8 +231,8 @@ func (b basicIncomeSettlementDeps) Transfer(sender, recipient *owner.ID, amount 
 	b.transfer(sender, recipient, amount, basicIncomeAuditDetails)
 }
 
-func (b basicIncomeSettlementDeps) BasicRate() uint64 {
-	return 1_0000_0000 // fixme: read from config and from chain
+func (b basicIncomeSettlementDeps) BasicRate() (uint64, error) {
+	return b.cfg.BasicIncomeRate()
 }
 
 func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*wrapper.Estimations, error) {
