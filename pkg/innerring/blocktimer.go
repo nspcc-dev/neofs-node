@@ -15,6 +15,12 @@ type (
 		EpochCounter() uint64
 	}
 
+	subEpochEventHandler struct {
+		handler     event.Handler // handle to execute
+		durationMul uint32        // X: X/Y of epoch in blocks
+		durationDiv uint32        // Y: X/Y of epoch in blocks
+	}
+
 	epochTimerArgs struct {
 		l *zap.Logger
 
@@ -27,9 +33,8 @@ type (
 		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
 		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks
 
-		collectBasicIncome     event.Handler // handle collect basic income
-		collectBasicIncomeDMul uint32        // X: X/Y of epoch in blocks
-		collectBasicIncomeDDiv uint32        // Y: X/Y of epoch in blocks
+		collectBasicIncome    subEpochEventHandler
+		distributeBasicIncome subEpochEventHandler
 	}
 
 	emitTimerArgs struct {
@@ -87,15 +92,31 @@ func newEpochTimer(args *epochTimerArgs) *timers.BlockTimer {
 		})
 
 	epochTimer.OnDelta(
-		args.collectBasicIncomeDMul,
-		args.collectBasicIncomeDDiv,
+		args.collectBasicIncome.durationMul,
+		args.collectBasicIncome.durationDiv,
 		func() {
 			epochN := args.epoch.EpochCounter()
 			if epochN == 0 { // estimates are invalid in genesis epoch
 				return
 			}
 
-			args.collectBasicIncome(settlement.NewBasicIncomeCollectEvent(epochN - 1))
+			args.collectBasicIncome.handler(
+				settlement.NewBasicIncomeCollectEvent(epochN - 1),
+			)
+		})
+
+	epochTimer.OnDelta(
+		args.distributeBasicIncome.durationMul,
+		args.distributeBasicIncome.durationDiv,
+		func() {
+			epochN := args.epoch.EpochCounter()
+			if epochN == 0 { // estimates are invalid in genesis epoch
+				return
+			}
+
+			args.distributeBasicIncome.handler(
+				settlement.NewBasicIncomeDistributeEvent(epochN - 1),
+			)
 		})
 
 	return epochTimer

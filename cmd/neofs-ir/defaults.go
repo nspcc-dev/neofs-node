@@ -80,6 +80,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("timers.stop_estimation.div", 1)
 	cfg.SetDefault("timers.collect_basic_income.mul", 1)
 	cfg.SetDefault("timers.collect_basic_income.div", 1)
+	cfg.SetDefault("timers.distribute_basic_income.mul", 1)
+	cfg.SetDefault("timers.distribute_basic_income.div", 1)
 
 	cfg.SetDefault("workers.netmap", "10")
 	cfg.SetDefault("workers.balance", "10")
