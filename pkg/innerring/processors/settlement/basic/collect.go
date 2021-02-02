@@ -34,6 +34,8 @@ func (inc *IncomeSettlementContext) Collect() {
 		return
 	}
 
+	txTable := common.NewTransferTable()
+
 	for i := range cnrEstimations {
 		owner, err := inc.container.ContainerInfo(cnrEstimations[i].ContainerID)
 		if err != nil {
@@ -61,14 +63,14 @@ func (inc *IncomeSettlementContext) Collect() {
 			inc.distributeTable.Put(cnrNodes[i].PublicKey(), avg)
 		}
 
-		inc.txTable.Transfer(&common.TransferTx{
+		txTable.Transfer(&common.TransferTx{
 			From:   owner.Owner(),
 			To:     inc.bankOwner,
 			Amount: total,
 		})
 	}
 
-	common.TransferAssets(inc.exchange, inc.txTable)
+	common.TransferAssets(inc.exchange, txTable)
 }
 
 // avgEstimation returns estimation value for single container. Right now it
