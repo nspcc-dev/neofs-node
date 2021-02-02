@@ -41,7 +41,6 @@ type (
 		exchange    common.Exchanger
 		accounts    common.AccountStorage
 
-		txTable   *common.TransferTable
 		bankOwner *owner.ID
 
 		// this table is not thread safe, make sure you use it with mu.Lock()
@@ -77,7 +76,6 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettleme
 		placement:       p.Placement,
 		exchange:        p.Exchange,
 		accounts:        p.Accounts,
-		txTable:         common.NewTransferTable(),
 		bankOwner:       bankingAccount,
 		distributeTable: NewNodeSizeTable(),
 	}, nil
