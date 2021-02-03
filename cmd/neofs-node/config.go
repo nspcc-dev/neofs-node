@@ -657,27 +657,25 @@ func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
 	return ni.ToV2(), nil
 }
 
+// handleLocalNodeInfo rewrites local node info
 func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 	c.cfgNodeInfo.infoMtx.Lock()
 
-	var nmState netmap.NodeState
-
 	if ni != nil {
 		c.cfgNodeInfo.info = *ni
-		nmState = ni.State()
-	} else {
-		nmState = netmap.NodeStateOffline
-		c.cfgNodeInfo.info.SetState(nmState)
 	}
 
-	switch nmState {
-	default:
-		c.setNetmapStatus(control.NetmapStatus_STATUS_UNDEFINED)
-	case netmap.NodeStateOnline:
-		c.setNetmapStatus(control.NetmapStatus_ONLINE)
-	case netmap.NodeStateOffline:
-		c.setNetmapStatus(control.NetmapStatus_OFFLINE)
-	}
+	c.updateStatusWithoutLock(ni)
+
+	c.cfgNodeInfo.infoMtx.Unlock()
+}
+
+// handleNodeInfoStatus updates node info status without rewriting whole local
+// node info status
+func (c *cfg) handleNodeInfoStatus(ni *netmap.NodeInfo) {
+	c.cfgNodeInfo.infoMtx.Lock()
+
+	c.updateStatusWithoutLock(ni)
 
 	c.cfgNodeInfo.infoMtx.Unlock()
 }
@@ -694,4 +692,24 @@ func (c *cfg) toOnlineLocalNodeInfo() *netmap.NodeInfo {
 	ni.SetState(netmap.NodeStateOnline)
 
 	return &ni
+}
+
+func (c *cfg) updateStatusWithoutLock(ni *netmap.NodeInfo) {
+	var nmState netmap.NodeState
+
+	if ni != nil {
+		nmState = ni.State()
+	} else {
+		nmState = netmap.NodeStateOffline
+		c.cfgNodeInfo.info.SetState(nmState)
+	}
+
+	switch nmState {
+	default:
+		c.setNetmapStatus(control.NetmapStatus_STATUS_UNDEFINED)
+	case netmap.NodeStateOnline:
+		c.setNetmapStatus(control.NetmapStatus_ONLINE)
+	case netmap.NodeStateOffline:
+		c.setNetmapStatus(control.NetmapStatus_OFFLINE)
+	}
 }

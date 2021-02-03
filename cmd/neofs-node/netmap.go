@@ -127,7 +127,7 @@ func initState(c *cfg) {
 	ni, err := c.netmapLocalNodeState(epoch)
 	fatalOnErr(errors.Wrap(err, "could not init network state"))
 
-	c.handleLocalNodeInfo(ni)
+	c.handleNodeInfoStatus(ni)
 
 	c.log.Info("initial network state",
 		zap.Uint64("epoch", epoch),
