@@ -44,10 +44,10 @@ func TestNormalizedValues(t *testing.T) {
 }
 
 func testNormalizedValues(t *testing.T, c normalizedValueCase) {
-	n := new(big.Int).SetUint64(c.n)
-	total := new(big.Int).SetUint64(c.total)
-	limit := new(big.Int).SetUint64(c.limit)
-	exp := new(big.Int).SetUint64(c.expected)
+	n := big.NewInt(0).SetUint64(c.n)
+	total := big.NewInt(0).SetUint64(c.total)
+	limit := big.NewInt(0).SetUint64(c.limit)
+	exp := big.NewInt(0).SetUint64(c.expected)
 
 	got := normalizedValue(n, total, limit)
 	require.Zero(t, exp.Cmp(got), c.name)

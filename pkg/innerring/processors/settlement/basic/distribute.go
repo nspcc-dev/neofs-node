@@ -46,7 +46,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 
 func normalizedValue(n, total, limit *big.Int) *big.Int {
 	if limit.Cmp(bigZero) == 0 {
-		return new(big.Int)
+		return big.NewInt(0)
 	}
 
 	n.Mul(n, limit)
