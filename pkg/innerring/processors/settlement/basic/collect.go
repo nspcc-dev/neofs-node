@@ -93,7 +93,7 @@ func calculateBasicSum(size, rate uint64, ln int) *big.Int {
 
 	total := size * uint64(ln)
 
-	price := new(big.Int).SetUint64(total)
+	price := big.NewInt(0).SetUint64(total)
 	price.Mul(price, bigRate)
 	price.Div(price, bigGB)
 

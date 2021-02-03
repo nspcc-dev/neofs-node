@@ -17,12 +17,12 @@ func (t *NodeSizeTable) Put(id []byte, avg uint64) {
 }
 
 func (t *NodeSizeTable) Total() *big.Int {
-	return new(big.Int).SetUint64(t.total)
+	return big.NewInt(0).SetUint64(t.total)
 }
 
 func (t *NodeSizeTable) Iterate(f func([]byte, *big.Int)) {
 	for k, v := range t.prices {
-		n := new(big.Int).SetUint64(v)
+		n := big.NewInt(0).SetUint64(v)
 		f([]byte(k), n)
 	}
 }
