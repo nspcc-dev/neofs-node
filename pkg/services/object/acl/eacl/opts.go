@@ -35,6 +35,7 @@ func (s *morphStorage) GetEACL(cid *container.ID) (*eacl.Table, error) {
 		func() ([]byte, []byte) {
 			return sig.Key(), sig.Sign()
 		},
+		signature.SignWithRFC6979(),
 	); err != nil {
 		return nil, errors.Wrap(err, "incorrect signature")
 	}
