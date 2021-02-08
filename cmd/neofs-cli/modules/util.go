@@ -14,6 +14,11 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
+	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
+	airportsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/airports"
+	locodebolt "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/boltdb"
+	continentsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/continents/geojson"
+	csvlocode "github.com/nspcc-dev/neofs-node/pkg/util/locode/table/csv"
 	"github.com/spf13/cobra"
 )
 
@@ -54,12 +59,130 @@ var (
 	}
 )
 
+// locode section
+var locodeCmd = &cobra.Command{
+	Use:   "locode",
+	Short: "Working with NeoFS UN/LOCODE database",
+}
+
+const (
+	locodeGenerateInputFlag      = "in"
+	locodeGenerateSubDivFlag     = "subdiv"
+	locodeGenerateAirportsFlag   = "airports"
+	locodeGenerateCountriesFlag  = "countries"
+	locodeGenerateContinentsFlag = "continents"
+	locodeGenerateOutputFlag     = "out"
+)
+
+type namesDB struct {
+	*airportsdb.DB
+	*csvlocode.Table
+}
+
+var (
+	locodeGenerateInPaths        []string
+	locodeGenerateSubDivPath     string
+	locodeGenerateAirportsPath   string
+	locodeGenerateCountriesPath  string
+	locodeGenerateContinentsPath string
+	locodeGenerateOutPath        string
+
+	locodeGenerateCmd = &cobra.Command{
+		Use:   "generate",
+		Short: "generate UN/LOCODE database for NeoFS",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			locodeDB := csvlocode.New(
+				csvlocode.Prm{
+					Path:       locodeGenerateInPaths[0],
+					SubDivPath: locodeGenerateSubDivPath,
+				},
+				csvlocode.WithExtraPaths(locodeGenerateInPaths[1:]...),
+			)
+
+			airportDB := airportsdb.New(airportsdb.Prm{
+				AirportsPath:  locodeGenerateAirportsPath,
+				CountriesPath: locodeGenerateCountriesPath,
+			})
+
+			continentsDB := continentsdb.New(continentsdb.Prm{
+				Path: locodeGenerateContinentsPath,
+			})
+
+			targetDB := locodebolt.New(locodebolt.Prm{
+				Path: locodeGenerateOutPath,
+			})
+
+			err := targetDB.Open()
+			if err != nil {
+				return err
+			}
+
+			defer targetDB.Close()
+
+			names := &namesDB{
+				DB:    airportDB,
+				Table: locodeDB,
+			}
+
+			err = locodedb.FillDatabase(locodeDB, airportDB, continentsDB, names, targetDB)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+)
+
+const (
+	locodeInfoDBFlag   = "db"
+	locodeInfoCodeFlag = "locode"
+)
+
+var (
+	locodeInfoDBPath string
+	locodeInfoCode   string
+
+	locodeInfoCmd = &cobra.Command{
+		Use:   "info",
+		Short: "print information about UN/LOCODE from NeoFS database",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			targetDB := locodebolt.New(locodebolt.Prm{
+				Path: locodeInfoDBPath,
+			})
+
+			err := targetDB.Open()
+			if err != nil {
+				return err
+			}
+
+			record, err := locodedb.LocodeRecord(targetDB, locodeInfoCode)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Country: %s\n", record.CountryName())
+			fmt.Printf("City: %s\n", record.CityName())
+			fmt.Printf("Continent: %s\n", record.Continent())
+			if subDivCode := record.SubDivCode(); subDivCode != "" {
+				fmt.Printf("Subdivision: [%s] %s\n", subDivCode, record.SubDivName())
+			}
+
+			geoPoint := record.GeoPoint()
+			fmt.Printf("Coordinates: %0.2f, %0.2f\n", geoPoint.Latitude(), geoPoint.Longitude())
+
+			return nil
+		},
+	}
+)
+
 func init() {
 	rootCmd.AddCommand(utilCmd)
 
 	utilCmd.AddCommand(signCmd)
 	utilCmd.AddCommand(convertCmd)
 	utilCmd.AddCommand(keyerCmd)
+	utilCmd.AddCommand(locodeCmd)
 
 	signCmd.AddCommand(signBearerCmd)
 	signBearerCmd.Flags().String("from", "", "File with JSON or binary encoded bearer token to sign")
@@ -79,6 +202,42 @@ func init() {
 	keyerCmd.Flags().Bool("hex", false, "print all values in hex encoding")
 	keyerCmd.Flags().BoolP("uncompressed", "u", false, "use uncompressed public key format")
 	keyerCmd.Flags().BoolP("multisig", "m", false, "calculate multisig address from public keys")
+
+	locodeCmd.AddCommand(locodeGenerateCmd)
+
+	locodeGenerateCmd.Flags().StringSliceVar(&locodeGenerateInPaths, locodeGenerateInputFlag, nil,
+		"List of paths to UN/LOCODE tables (csv)")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateInputFlag)
+
+	locodeGenerateCmd.Flags().StringVar(&locodeGenerateSubDivPath, locodeGenerateSubDivFlag, "",
+		"Path to UN/LOCODE subdivision database (csv)")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateSubDivFlag)
+
+	locodeGenerateCmd.Flags().StringVar(&locodeGenerateAirportsPath, locodeGenerateAirportsFlag, "",
+		"Path to OpenFlights airport database (csv)")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateAirportsFlag)
+
+	locodeGenerateCmd.Flags().StringVar(&locodeGenerateCountriesPath, locodeGenerateCountriesFlag, "",
+		"Path to OpenFlights country database (csv)")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateCountriesFlag)
+
+	locodeGenerateCmd.Flags().StringVar(&locodeGenerateContinentsPath, locodeGenerateContinentsFlag, "",
+		"Path to continent polygons (GeoJSON)")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateContinentsFlag)
+
+	locodeGenerateCmd.Flags().StringVar(&locodeGenerateOutPath, locodeGenerateOutputFlag, "",
+		"Target path for generated database")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateOutputFlag)
+
+	locodeCmd.AddCommand(locodeInfoCmd)
+
+	locodeInfoCmd.Flags().StringVar(&locodeInfoDBPath, locodeInfoDBFlag, "",
+		"Path to NeoFS UN/LOCODE database")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeInfoDBFlag)
+
+	locodeInfoCmd.Flags().StringVar(&locodeInfoCode, locodeInfoCodeFlag, "",
+		"UN/LOCODE")
+	_ = locodeGenerateCmd.MarkFlagRequired(locodeInfoCodeFlag)
 }
 
 func signBearerToken(cmd *cobra.Command, _ []string) error {
