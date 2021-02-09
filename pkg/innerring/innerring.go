@@ -3,6 +3,7 @@ package innerring
 import (
 	"context"
 	"crypto/ecdsa"
+	"io"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -62,6 +63,23 @@ type (
 		predefinedValidators []keys.PublicKey
 
 		workers []func(context.Context)
+
+		// Set of local resources that must be
+		// initialized at the very beginning of
+		// Server's work, (e.g. opening files).
+		//
+		// If any starter returns an error, Server's
+		// starting fails immediately.
+		starters []func() error
+
+		// Set of local resources that must be
+		// released at Server's work completion
+		// (e.g closing files).
+		//
+		// Closer's wrong outcome shouldn't be critical.
+		//
+		// Errors are logged.
+		closers []func() error
 	}
 
 	contracts struct {
@@ -93,6 +111,12 @@ const (
 
 // Start runs all event providers.
 func (s *Server) Start(ctx context.Context, intError chan<- error) error {
+	for _, starter := range s.starters {
+		if err := starter(); err != nil {
+			return err
+		}
+	}
+
 	err := s.initConfigFromBlockchain()
 	if err != nil {
 		return err
@@ -152,6 +176,26 @@ func (s *Server) startWorkers(ctx context.Context) {
 func (s *Server) Stop() {
 	go s.morphListener.Stop()
 	go s.mainnetListener.Stop()
+
+	for _, c := range s.closers {
+		if err := c(); err != nil {
+			s.log.Warn("closer error",
+				zap.String("error", err.Error()),
+			)
+		}
+	}
+}
+
+func (s *Server) registerIOCloser(c io.Closer) {
+	s.registerCloser(c.Close)
+}
+
+func (s *Server) registerCloser(f func() error) {
+	s.closers = append(s.closers, f)
+}
+
+func (s *Server) registerStarter(f func() error) {
+	s.starters = append(s.starters, f)
 }
 
 // New creates instance of inner ring sever structure.
