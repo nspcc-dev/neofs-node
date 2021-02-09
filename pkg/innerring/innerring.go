@@ -145,8 +145,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 		}
 	}()
 
-	// BUG: https://github.com/nspcc-dev/neofs-node/issues/346
-	s.mainnetListener.RegisterBlockHandler(func(b *block.Block) {
+	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
 		s.log.Debug("new block",
 			zap.Uint32("index", b.Index),
 		)
