@@ -12,7 +12,9 @@ import (
 func (s *Server) newLocodeValidator(cfg *viper.Viper) (netmap.NodeValidator, error) {
 	locodeDB := locodebolt.New(locodebolt.Prm{
 		Path: cfg.GetString("locode.db.path"),
-	})
+	},
+		locodebolt.ReadOnly(),
+	)
 
 	s.registerStarter(locodeDB.Open)
 	s.registerIOCloser(locodeDB)
