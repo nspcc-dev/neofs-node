@@ -190,7 +190,7 @@ func putSG(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Println("Storage group successfully stored")
-	cmd.Printf("  ID: %s\n", oid)
+	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
 
 	return nil
 }
