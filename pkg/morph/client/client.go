@@ -24,11 +24,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// Client is a wrapper over multiple neo-go clients
-// that provides smart-contract invocation interface.
+// Client is a wrapper over web socket neo-go client
+// that provides smart-contract invocation interface
+// and notification subscription functionality.
 //
-// Each operation accesses all nodes in turn until the first success,
-// and returns the error of the very first client on failure.
+// On connection lost tries establishing new connection
+// to the next RPC (if any). If no RPC node available,
+// switches to inactive mode: any RPC call leads to immediate
+// return with ErrConnectionLost error, notification channel
+// returned from Client.NotificationChannel is closed.
 //
 // Working client must be created via constructor New.
 // Using the Client that has been created with new(Client)
@@ -37,48 +41,55 @@ import (
 type Client struct {
 	cache
 
-	// two mutual exclusive modes, exactly one must be non-nil
-	*singleClient // works with single neo-go client
-
-	*multiClient // creates and caches single clients
-}
-
-type cache struct {
-	// mtx protects primitive values.
-	mtx      sync.RWMutex
-	nnsHash  util.Uint160
-	groupKey *keys.PublicKey
-	// txHeights is a thread-safe LRU cache for transaction heights.
-	txHeights *lru.Cache
-}
-
-type singleClient struct {
 	logger *logger.Logger // logging component
 
-	client *client.Client // neo-go client
+	client *client.WSClient // neo-go websocket client
 
 	acc *wallet.Account // neo account
-
-	waitInterval time.Duration
 
 	signer *transaction.Signer
 
 	notary *notary
+
+	cfg cfg
+
+	endpoints *endpoints
+
+	// switching between rpc endpoint lock
+	switchLock *sync.RWMutex
+
+	// channel for ws notifications
+	notifications chan client.Notification
+
+	// channel for internal stop
+	closeChan chan struct{}
+
+	// cached subscription information
+	subscribedEvents       map[util.Uint160]string
+	subscribedNotaryEvents map[util.Uint160]string
+	subscribedToNewBlocks  bool
+
+	// indicates that Client is not able to
+	// establish connection to any of the
+	// provided RPC endpoints
+	inactive bool
 }
 
-func blankSingleClient(cli *client.Client, w *wallet.Account, cfg *cfg) *singleClient {
-	return &singleClient{
-		logger:       cfg.logger,
-		client:       cli,
-		acc:          w,
-		waitInterval: cfg.waitInterval,
-		signer:       cfg.signer,
-	}
+type cache struct {
+	nnsHash   util.Uint160
+	groupKey  *keys.PublicKey
+	txHeights *lru.Cache
 }
 
-// ErrNilClient is returned by functions that expect
-// a non-nil Client pointer, but received nil.
-var ErrNilClient = errors.New("client is nil")
+var (
+	// ErrNilClient is returned by functions that expect
+	// a non-nil Client pointer, but received nil.
+	ErrNilClient = errors.New("client is nil")
+
+	// ErrConnectionLost is returned when client lost web socket connection
+	// to the RPC node and has not been able to establish a new one since.
+	ErrConnectionLost = errors.New("connection to the RPC node has been lost")
+)
 
 // HaltState returned if TestInvoke function processed without panic.
 const HaltState = "HALT"
@@ -123,10 +134,11 @@ func unwrapNeoFSError(err error) error {
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
 func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.Invoke(contract, fee, method, args...)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	params := make([]sc.Parameter, 0, len(args))
@@ -188,11 +200,11 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 // TestInvoke invokes contract method locally in neo-go node. This method should
 // be used to read data from smart-contract.
 func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interface{}) (res []stackitem.Item, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.TestInvoke(contract, method, args...)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
 	}
 
 	var params = make([]sc.Parameter, 0, len(args))
@@ -227,10 +239,11 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 
 // TransferGas to the receiver from local wallet
 func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.TransferGas(receiver, amount)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
@@ -255,10 +268,11 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 //
 // Returns only connection errors.
 func (c *Client) Wait(ctx context.Context, n uint32) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.Wait(ctx, n)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	var (
@@ -291,17 +305,17 @@ func (c *Client) Wait(ctx context.Context, n uint32) error {
 			return nil
 		}
 
-		time.Sleep(c.waitInterval)
+		time.Sleep(c.cfg.waitInterval)
 	}
 }
 
 // GasBalance returns GAS amount in the client's wallet.
 func (c *Client) GasBalance() (res int64, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.GasBalance()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
 	}
 
 	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
@@ -314,11 +328,11 @@ func (c *Client) GasBalance() (res int64, err error) {
 
 // Committee returns keys of chain committee from neo native contract.
 func (c *Client) Committee() (res keys.PublicKeys, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.Committee()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
 	}
 
 	return c.client.GetCommittee()
@@ -326,11 +340,11 @@ func (c *Client) Committee() (res keys.PublicKeys, err error) {
 
 // TxHalt returns true if transaction has been successfully executed and persisted.
 func (c *Client) TxHalt(h util.Uint256) (res bool, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.TxHalt(h)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return false, ErrConnectionLost
 	}
 
 	trig := trigger.Application
@@ -343,11 +357,11 @@ func (c *Client) TxHalt(h util.Uint256) (res bool, err error) {
 
 // TxHeight returns true if transaction has been successfully executed and persisted.
 func (c *Client) TxHeight(h util.Uint256) (res uint32, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.TxHeight(h)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
 	}
 
 	return c.client.GetTransactionHeight(h)
@@ -357,11 +371,11 @@ func (c *Client) TxHeight(h util.Uint256) (res uint32, err error) {
 // stores alphabet node keys of inner ring there, however side chain stores both
 // alphabet and non alphabet node keys of inner ring.
 func (c *Client) NeoFSAlphabetList() (res keys.PublicKeys, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.NeoFSAlphabetList()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
 	}
 
 	list, err := c.roleList(noderoles.NeoFSAlphabet)
@@ -374,11 +388,11 @@ func (c *Client) NeoFSAlphabetList() (res keys.PublicKeys, err error) {
 
 // GetDesignateHash returns hash of the native `RoleManagement` contract.
 func (c *Client) GetDesignateHash() (res util.Uint160, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.GetDesignateHash()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint160{}, ErrConnectionLost
 	}
 
 	return c.client.GetNativeContractHash(nativenames.Designation)
@@ -457,11 +471,11 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 //
 // Returns 0 in case of connection problems.
 func (c *Client) MagicNumber() (res uint64, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.MagicNumber()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
 	}
 
 	return uint64(c.client.GetNetwork()), nil
@@ -470,11 +484,11 @@ func (c *Client) MagicNumber() (res uint64, err error) {
 // BlockCount returns block count of the network
 // to which the underlying RPC node client is connected.
 func (c *Client) BlockCount() (res uint32, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.BlockCount()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
 	}
 
 	return c.client.GetBlockCount()
@@ -482,11 +496,11 @@ func (c *Client) BlockCount() (res uint32, err error) {
 
 // MsPerBlock returns MillisecondsPerBlock network parameter.
 func (c *Client) MsPerBlock() (res int64, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.MsPerBlock()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
 	}
 
 	v, err := c.client.GetVersion()
@@ -499,11 +513,11 @@ func (c *Client) MsPerBlock() (res int64, err error) {
 
 // IsValidScript returns true if invocation script executes with HALT state.
 func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res bool, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.IsValidScript(script, signers)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return false, ErrConnectionLost
 	}
 
 	result, err := c.client.InvokeScript(script, signers)
@@ -512,4 +526,22 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 	}
 
 	return result.State == vm.HaltState.String(), nil
+}
+
+// NotificationChannel returns channel than receives subscribed
+// notification from the connected RPC node.
+// Channel is closed when connection to the RPC node has been
+// lost without the possibility of recovery.
+func (c *Client) NotificationChannel() <-chan client.Notification {
+	return c.notifications
+}
+
+// inactiveMode switches Client to an inactive mode:
+// - notification channel is closed;
+// - all the new RPC request would return ErrConnectionLost.
+//
+// Note: must be called only with held write switchLock.
+func (c *Client) inactiveMode() {
+	close(c.notifications)
+	c.inactive = true
 }

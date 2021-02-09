@@ -2,12 +2,15 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -30,15 +33,12 @@ type cfg struct {
 
 	extraEndpoints []string
 
-	maxConnPerHost int
-
-	singleCli *client.Client // neo-go client for single client mode
+	singleCli *client.WSClient // neo-go client for single client mode
 }
 
 const (
-	defaultDialTimeout    = 5 * time.Second
-	defaultWaitInterval   = 500 * time.Millisecond
-	defaultMaxConnPerHost = 10
+	defaultDialTimeout  = 5 * time.Second
+	defaultWaitInterval = 500 * time.Millisecond
 )
 
 func defaultConfig() *cfg {
@@ -50,7 +50,6 @@ func defaultConfig() *cfg {
 		signer: &transaction.Signer{
 			Scopes: transaction.Global,
 		},
-		maxConnPerHost: defaultMaxConnPerHost,
 	}
 }
 
@@ -64,6 +63,8 @@ func defaultConfig() *cfg {
 //  * client context: Background;
 //  * dial timeout: 5s;
 //  * blockchain network type: netmode.PrivNet;
+//  * signer with the global scope;
+//  * wait interval: 500ms;
 //  * logger: zap.L().
 //
 // If desired option satisfies the default value, it can be omitted.
@@ -82,27 +83,58 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		opt(cfg)
 	}
 
-	if cfg.singleCli != nil {
-		return &Client{
-			cache:        newClientCache(),
-			singleClient: blankSingleClient(cfg.singleCli, wallet.NewAccountFromPrivateKey(key), cfg),
-		}, nil
+	cli := &Client{
+		cache:                  initClientCache(),
+		logger:                 cfg.logger,
+		acc:                    wallet.NewAccountFromPrivateKey(key),
+		signer:                 cfg.signer,
+		cfg:                    *cfg,
+		switchLock:             &sync.RWMutex{},
+		notifications:          make(chan client.Notification),
+		subscribedEvents:       make(map[util.Uint160]string),
+		subscribedNotaryEvents: make(map[util.Uint160]string),
+		closeChan:              make(chan struct{}),
 	}
 
-	endpoints := append(cfg.extraEndpoints, endpoint)
+	if cfg.singleCli != nil {
+		// return client in single RPC node mode that uses
+		// predefined WS client
+		//
+		// in case of the closing web socket connection:
+		// if extra endpoints were provided via options,
+		// they will be used in switch process, otherwise
+		// inactive mode will be enabled
+		cli.client = cfg.singleCli
+		cli.endpoints = newEndpoints(cfg.extraEndpoints)
+	} else {
+		ws, err := newWSClient(*cfg, endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("could not create morph client: %w", err)
+		}
 
-	return &Client{
-		cache: newClientCache(),
-		multiClient: &multiClient{
-			cfg:       *cfg,
-			account:   wallet.NewAccountFromPrivateKey(key),
-			endpoints: endpoints,
-			clients:   make(map[string]*Client, len(endpoints)),
-		},
-	}, nil
+		err = ws.Init()
+		if err != nil {
+			return nil, fmt.Errorf("could not init morph client: %w", err)
+		}
+
+		cli.client = ws
+		cli.endpoints = newEndpoints(append([]string{endpoint}, cfg.extraEndpoints...))
+	}
+
+	go cli.notificationLoop()
+
+	return cli, nil
 }
 
-func newClientCache() cache {
+func newWSClient(cfg cfg, endpoint string) (*client.WSClient, error) {
+	return client.NewWS(
+		cfg.ctx,
+		endpoint,
+		client.Options{DialTimeout: cfg.dialTimeout},
+	)
+}
+
+func initClientCache() cache {
 	c, _ := lru.New(100) // returns error only if size is negative
 	return cache{
 		txHeights: c,
@@ -169,29 +201,18 @@ func WithSigner(signer *transaction.Signer) Option {
 
 // WithExtraEndpoints returns a client constructor option
 // that specifies additional Neo rpc endpoints.
-//
-// Has no effect if WithSingleClient is provided.
 func WithExtraEndpoints(endpoints []string) Option {
 	return func(c *cfg) {
 		c.extraEndpoints = append(c.extraEndpoints, endpoints...)
 	}
 }
 
-// WithMaxConnectionPerHost returns a client constructor
-// option that specifies Neo client's maximum opened
-// connection per one host.
-func WithMaxConnectionPerHost(m int) Option {
-	return func(c *cfg) {
-		c.maxConnPerHost = m
-	}
-}
-
 // WithSingleClient returns a client constructor option
 // that specifies single neo-go client and forces Client
-// to use it and only it for requests.
+// to use it for requests.
 //
 // Passed client must already be initialized.
-func WithSingleClient(cli *client.Client) Option {
+func WithSingleClient(cli *client.WSClient) Option {
 	return func(c *cfg) {
 		c.singleCli = cli
 	}
