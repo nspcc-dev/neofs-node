@@ -25,6 +25,16 @@ func (np *Processor) processAddPeer(node []byte) {
 		return
 	}
 
+	// validate and update node info
+	err := np.nodeValidator.VerifyAndUpdate(nodeInfo)
+	if err != nil {
+		np.log.Warn("could not verify and update information about network map candidate",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
 	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 
 	exists := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter())

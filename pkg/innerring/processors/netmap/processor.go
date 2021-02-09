@@ -2,6 +2,7 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -28,6 +29,21 @@ type (
 		IsActive() bool
 	}
 
+	// NodeValidator wraps basic method of checking the correctness
+	// of information about the node and its finalization for adding
+	// to the network map.
+	NodeValidator interface {
+		// Must verify and update NodeInfo structure.
+		//
+		// Must return an error if NodeInfo input is invalid.
+		// Must return an error if it is not possible to correctly
+		// change the structure for sending to the network map.
+		//
+		// If no error occurs, the parameter must point to the
+		// ready-made NodeInfo structure.
+		VerifyAndUpdate(*netmap.NodeInfo) error
+	}
+
 	// Processor of events produced by network map contract
 	// and new epoch ticker, because it is related to contract.
 	Processor struct {
@@ -45,6 +61,8 @@ type (
 
 		handleNewAudit         event.Handler
 		handleAuditSettlements event.Handler
+
+		nodeValidator NodeValidator
 	}
 
 	// Params of the processor constructor.
@@ -62,6 +80,8 @@ type (
 
 		HandleAudit             event.Handler
 		AuditSettlementsHandler event.Handler
+
+		NodeValidator NodeValidator
 	}
 )
 
@@ -90,6 +110,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: audit settlement handler is not set")
 	case p.ContainerWrapper == nil:
 		return nil, errors.New("ir/netmap: container contract wrapper is not set")
+	case p.NodeValidator == nil:
+		return nil, errors.New("ir/netmap: node validator is not set")
 	}
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
@@ -112,6 +134,8 @@ func New(p *Params) (*Processor, error) {
 		handleNewAudit: p.HandleAudit,
 
 		handleAuditSettlements: p.AuditSettlementsHandler,
+
+		nodeValidator: p.NodeValidator,
 	}, nil
 }
 
