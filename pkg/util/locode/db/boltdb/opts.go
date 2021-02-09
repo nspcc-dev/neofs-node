@@ -2,6 +2,7 @@ package locodebolt
 
 import (
 	"os"
+	"time"
 
 	"go.etcd.io/bbolt"
 )
@@ -18,5 +19,8 @@ type options struct {
 func defaultOpts() *options {
 	return &options{
 		mode: os.ModePerm, // 0777
+		boltOpts: &bbolt.Options{
+			Timeout: 3 * time.Second,
+		},
 	}
 }
