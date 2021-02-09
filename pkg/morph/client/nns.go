@@ -55,11 +55,11 @@ func NNSAlphabetContractName(index int) string {
 // in NNS contract.
 // If script hash has not been found, returns ErrNNSRecordNotFound.
 func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
-	if c.multiClient != nil {
-		return sh, c.multiClient.iterateClients(func(c *Client) error {
-			sh, err = c.NNSContractAddress(name)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint160{}, ErrConnectionLost
 	}
 
 	nnsHash, err := c.NNSHash()
@@ -76,13 +76,11 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 
 // NNSHash returns NNS contract hash.
 func (c *Client) NNSHash() (util.Uint160, error) {
-	if c.multiClient != nil {
-		var sh util.Uint160
-		return sh, c.multiClient.iterateClients(func(c *Client) error {
-			var err error
-			sh, err = c.NNSHash()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint160{}, ErrConnectionLost
 	}
 
 	c.mtx.RLock()
@@ -101,7 +99,7 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 	return nnsHash, nil
 }
 
-func nnsResolveItem(c *client.Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
+func nnsResolveItem(c *client.WSClient, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
 	found, err := exists(c, nnsHash, domain)
 	if err != nil {
 		return nil, fmt.Errorf("could not check presence in NNS contract for %s: %w", domain, err)
@@ -133,7 +131,7 @@ func nnsResolveItem(c *client.Client, nnsHash util.Uint160, domain string) (stac
 	return result.Stack[0], nil
 }
 
-func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+func nnsResolve(c *client.WSClient, nnsHash util.Uint160, domain string) (util.Uint160, error) {
 	res, err := nnsResolveItem(c, nnsHash, domain)
 	if err != nil {
 		return util.Uint160{}, err
@@ -155,7 +153,7 @@ func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (util.Uin
 	return util.Uint160DecodeStringLE(string(bs))
 }
 
-func exists(c *client.Client, nnsHash util.Uint160, domain string) (bool, error) {
+func exists(c *client.WSClient, nnsHash util.Uint160, domain string) (bool, error) {
 	result, err := c.InvokeFunction(nnsHash, "isAvailable", []smartcontract.Parameter{
 		{
 			Type:  smartcontract.StringType,
@@ -185,10 +183,11 @@ func exists(c *client.Client, nnsHash util.Uint160, domain string) (bool, error)
 // SetGroupSignerScope makes the default signer scope include all NeoFS contracts.
 // Should be called for side-chain client only.
 func (c *Client) SetGroupSignerScope() error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return wrapNeoFSError(c.SetGroupSignerScope())
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	pub, err := c.contractGroupKey()

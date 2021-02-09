@@ -73,6 +73,13 @@ func defaultNotaryConfig(c *Client) *notaryCfg {
 // ability for client to get alphabet keys from committee or provided source
 // and use proxy contract script hash to create tx for notary contract.
 func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
+	}
+
 	cfg := defaultNotaryConfig(c)
 
 	for _, opt := range opts {
@@ -98,56 +105,23 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 
 	var err error
 
-	getNotaryHashFunc := func(c *Client) error {
-		notaryCfg.notary, err = c.client.GetNativeContractHash(nativenames.Notary)
-		if err != nil {
-			return fmt.Errorf("can't get notary contract script hash: %w", err)
-		}
-
-		return nil
+	notaryCfg.notary, err = c.client.GetNativeContractHash(nativenames.Notary)
+	if err != nil {
+		return fmt.Errorf("can't get notary contract script hash: %w", err)
 	}
 
-	if c.multiClient == nil {
-		// single client case
-		err = getNotaryHashFunc(c)
-		if err != nil {
-			return err
-		}
-
-		c.notary = notaryCfg
-
-		return nil
-	}
-
-	// multi client case
-
-	if err = c.iterateClients(getNotaryHashFunc); err != nil {
-		return err
-	}
-
-	c.clientsMtx.Lock()
-
-	c.sharedNotary = notaryCfg
-
-	// update client cache
-	for _, cached := range c.clients {
-		cached.notary = c.sharedNotary
-	}
-
-	c.clientsMtx.Unlock()
+	c.notary = notaryCfg
 
 	return nil
 }
 
 // ProbeNotary checks if native `Notary` contract is presented on chain.
 func (c *Client) ProbeNotary() (res bool) {
-	if c.multiClient != nil {
-		_ = c.multiClient.iterateClients(func(c *Client) error {
-			res = c.ProbeNotary()
-			return nil
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 
-		return
+	if c.inactive {
+		return false
 	}
 
 	_, err := c.client.GetNativeContractHash(nativenames.Notary)
@@ -162,11 +136,11 @@ func (c *Client) ProbeNotary() (res bool) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uint256, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.DepositNotary(amount, delta)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint256{}, ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -219,11 +193,11 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) GetNotaryDeposit() (res int64, err error) {
-	if c.multiClient != nil {
-		return res, c.multiClient.iterateClients(func(c *Client) error {
-			res, err = c.GetNotaryDeposit()
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -271,10 +245,11 @@ func (u *UpdateNotaryListPrm) SetHash(hash util.Uint256) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) UpdateNotaryList(prm UpdateNotaryListPrm) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.UpdateNotaryList(prm)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -318,10 +293,11 @@ func (u *UpdateAlphabetListPrm) SetHash(hash util.Uint256) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.UpdateNeoFSAlphabetList(prm)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -348,10 +324,11 @@ func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 //
 // `nonce` and `vub` are used only if notary is enabled.
 func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...interface{}) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.NotaryInvoke(contract, fee, nonce, vub, method, args...)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -367,10 +344,11 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 //
 // Considered to be used by non-IR nodes.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.NotaryInvokeNotAlpha(contract, fee, method, args...)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -385,10 +363,11 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 // NOTE: does not fallback to simple `Invoke()`. Expected to be used only for
 // TXs retrieved from the received notary requests.
 func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
-	if c.multiClient != nil {
-		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.NotarySignAndInvokeTX(mainTx)
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
 	}
 
 	alphabetList, err := c.notary.alphabetSource()
@@ -865,11 +844,11 @@ func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed
 // CalculateNonceAndVUB calculates nonce and ValidUntilBlock values
 // based on transaction hash. Uses MurmurHash3.
 func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint32, err error) {
-	if c.multiClient != nil {
-		return nonce, vub, c.multiClient.iterateClients(func(c *Client) error {
-			nonce, vub, err = c.CalculateNonceAndVUB(hash)
-			return err
-		})
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, 0, ErrConnectionLost
 	}
 
 	if c.notary == nil {
