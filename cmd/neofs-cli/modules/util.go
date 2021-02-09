@@ -156,6 +156,8 @@ var (
 				return err
 			}
 
+			defer targetDB.Close()
+
 			record, err := locodedb.LocodeRecord(targetDB, locodeInfoCode)
 			if err != nil {
 				return err
