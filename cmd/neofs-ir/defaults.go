@@ -72,7 +72,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.alphabet.jest", "")
 	cfg.SetDefault("contracts.alphabet.zhivete", "")
 	// gas native contract in LE
-	cfg.SetDefault("contracts.gas", "a6a6c15dcdc9b997dac448b6926522d22efeedfb")
+	cfg.SetDefault("contracts.gas", "70e2301955bf1e74cbb31d18c2f96972abadb328")
 
 	cfg.SetDefault("timers.epoch", "0")
 	cfg.SetDefault("timers.emit", "0")
