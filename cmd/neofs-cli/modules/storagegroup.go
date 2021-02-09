@@ -167,7 +167,10 @@ func putSG(cmd *cobra.Command, _ []string) error {
 	oid, err := cli.PutObject(ctx,
 		new(client.PutObjectParams).
 			WithObject(obj.Object()),
-		client.WithSession(tok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+		)...,
+	)
 	if err != nil {
 		return fmt.Errorf("can't put storage group: %w", err)
 	}
@@ -210,7 +213,10 @@ func getSG(cmd *cobra.Command, _ []string) error {
 	obj, err := cli.GetObject(ctx,
 		new(client.GetObjectParams).
 			WithAddress(addr),
-		client.WithSession(tok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+		)...,
+	)
 	if err != nil {
 		return fmt.Errorf("can't get storage group: %w", err)
 	}
@@ -252,7 +258,9 @@ func listSG(cmd *cobra.Command, _ []string) error {
 		new(client.SearchObjectParams).
 			WithContainerID(cid).
 			WithSearchFilters(storagegroup.SearchQuery()),
-		client.WithSession(tok),
+		append(globalCallOptions(),
+			client.WithSession(tok),
+		)...,
 	)
 	if err != nil {
 		return fmt.Errorf("can't search storage groups: %w", err)
@@ -292,7 +300,10 @@ func delSG(cmd *cobra.Command, _ []string) error {
 	tombstone, err := client.DeleteObject(ctx, cli,
 		new(client.DeleteObjectParams).
 			WithAddress(addr),
-		client.WithSession(tok))
+		append(globalCallOptions(),
+			client.WithSession(tok),
+		)...,
+	)
 	if err != nil {
 		return fmt.Errorf("can't get storage group: %w", err)
 	}
