@@ -52,6 +52,7 @@ var sgDelCmd = &cobra.Command{
 const (
 	sgMembersFlag = "members"
 	sgIDFlag      = "id"
+	sgBearerFlag  = "bearer"
 )
 
 var (
@@ -61,6 +62,9 @@ var (
 
 func init() {
 	rootCmd.AddCommand(storagegroupCmd)
+
+	storagegroupCmd.PersistentFlags().String(sgBearerFlag, "",
+		"File with signed JSON or binary encoded bearer token")
 
 	storagegroupCmd.AddCommand(sgPutCmd)
 	sgPutCmd.Flags().String("cid", "", "Container ID")
@@ -115,6 +119,10 @@ func (c *sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
 	}
 }
 
+func sgBearerToken(cmd *cobra.Command) (*token.BearerToken, error) {
+	return getBearerToken(cmd, sgBearerFlag)
+}
+
 func putSG(cmd *cobra.Command, _ []string) error {
 	ownerID, err := getOwnerID()
 	if err != nil {
@@ -135,6 +143,11 @@ func putSG(cmd *cobra.Command, _ []string) error {
 		}
 
 		members = append(members, id)
+	}
+
+	bearerToken, err := sgBearerToken(cmd)
+	if err != nil {
+		return err
 	}
 
 	ctx := context.Background()
@@ -169,6 +182,7 @@ func putSG(cmd *cobra.Command, _ []string) error {
 			WithObject(obj.Object()),
 		append(globalCallOptions(),
 			client.WithSession(tok),
+			client.WithBearer(bearerToken),
 		)...,
 	)
 	if err != nil {
@@ -199,6 +213,11 @@ func getSG(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	bearerToken, err := sgBearerToken(cmd)
+	if err != nil {
+		return err
+	}
+
 	addr := objectSDK.NewAddress()
 	addr.SetContainerID(cid)
 	addr.SetObjectID(id)
@@ -215,6 +234,7 @@ func getSG(cmd *cobra.Command, _ []string) error {
 			WithAddress(addr),
 		append(globalCallOptions(),
 			client.WithSession(tok),
+			client.WithBearer(bearerToken),
 		)...,
 	)
 	if err != nil {
@@ -247,6 +267,11 @@ func listSG(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	bearerToken, err := sgBearerToken(cmd)
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	cli, tok, err := initSession(ctx)
@@ -260,6 +285,7 @@ func listSG(cmd *cobra.Command, _ []string) error {
 			WithSearchFilters(storagegroup.SearchQuery()),
 		append(globalCallOptions(),
 			client.WithSession(tok),
+			client.WithBearer(bearerToken),
 		)...,
 	)
 	if err != nil {
@@ -286,6 +312,11 @@ func delSG(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	bearerToken, err := sgBearerToken(cmd)
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	cli, tok, err := initSession(ctx)
@@ -302,6 +333,7 @@ func delSG(cmd *cobra.Command, _ []string) error {
 			WithAddress(addr),
 		append(globalCallOptions(),
 			client.WithSession(tok),
+			client.WithBearer(bearerToken),
 		)...,
 	)
 	if err != nil {
