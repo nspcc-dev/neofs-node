@@ -373,6 +373,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		settlement.WithLogger(server.log),
 	)
 
+	locodeValidator, err := server.newLocodeValidator(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	// create netmap processor
 	netmapProcessor, err := netmap.New(&netmap.Params{
 		Log:              log,
@@ -391,6 +396,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		AuditSettlementsHandler: server.onlyActiveEventHandler(
 			settlementProcessor.HandleAuditEvent,
 		),
+		NodeValidator: locodeValidator,
 	})
 	if err != nil {
 		return nil, err
