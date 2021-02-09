@@ -24,3 +24,13 @@ func defaultOpts() *options {
 		},
 	}
 }
+
+// ReadOnly enables read-only mode of the DB.
+//
+// Do not call DB.Put method on instances with
+// this option: the behavior is undefined.
+func ReadOnly() Option {
+	return func(o *options) {
+		o.boltOpts.ReadOnly = true
+	}
+}
