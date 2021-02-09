@@ -13,6 +13,8 @@ import (
 // Open opens underlying BoltDB instance.
 //
 // Timeout of BoltDB opening is 3s (only for Linux or Darwin).
+//
+// Opens BoltDB in read-only mode if DB is read-only.
 func (db *DB) Open() error {
 	// copy-paste from metabase:
 	// consider universal Open/Close for BoltDB wrappers
@@ -98,6 +100,7 @@ func recordFromValue(data []byte) (*locodedb.Record, error) {
 // The records are stored in internal binary JSON format.
 //
 // Must not be called before successful Open call.
+// Must not be called in read-only mode: behavior is undefined.
 func (db *DB) Put(key locodedb.Key, rec locodedb.Record) error {
 	return db.bolt.Update(func(tx *bbolt.Tx) error {
 		countryKey, err := countryBucketKey(key.CountryCode())
