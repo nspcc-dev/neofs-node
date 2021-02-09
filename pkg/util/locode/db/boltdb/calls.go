@@ -11,6 +11,8 @@ import (
 )
 
 // Open opens underlying BoltDB instance.
+//
+// Timeout of BoltDB opening is 3s (only for Linux or Darwin).
 func (db *DB) Open() error {
 	// copy-paste from metabase:
 	// consider universal Open/Close for BoltDB wrappers
