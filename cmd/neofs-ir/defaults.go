@@ -108,4 +108,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("audit.por.pool_size", "10")
 
 	cfg.SetDefault("settlement.basic_income_rate", 0)
+
+	cfg.SetDefault("locode.db.path", "")
 }
