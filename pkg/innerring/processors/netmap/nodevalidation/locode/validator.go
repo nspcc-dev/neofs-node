@@ -33,8 +33,8 @@ const (
 	attrKeyCountryCode = "CountryCode"
 	attrKeyCountry     = "Country"
 
-	attrKeyLocationCode = "CityCode"
-	attrKeyLocation     = "City"
+	attrKeyLocationCode = "LocationCode"
+	attrKeyLocation     = "Location"
 
 	attrKeySubDivCode = "SubDivCode"
 	attrKeySubDiv     = "SubDiv"

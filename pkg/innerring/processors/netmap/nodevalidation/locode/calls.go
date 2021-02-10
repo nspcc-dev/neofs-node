@@ -20,8 +20,8 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 // If DB entry R was found w/o errors, then new attributes are:
 //  * CountryCode: R.CountryCode().String();
 //  * Country: R.CountryName();
-//  * CityCode: R.LocationCode().String();
-//  * City: Record.LocationName();
+//  * LocationCode: R.LocationCode().String();
+//  * Location: Record.LocationName();
 //  * SubDivCode: R.SubDivCode();
 //  * SubDiv: R.SubDivName();
 //  * Continent: R.Continent().String().
