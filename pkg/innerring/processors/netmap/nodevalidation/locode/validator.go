@@ -28,7 +28,7 @@ type Validator struct {
 
 // TODO: define constants in API lib.
 const (
-	attrKeyLocode = "Locode"
+	attrKeyLocode = "UN-LOCODE"
 
 	attrKeyCountryCode = "CountryCode"
 	attrKeyCountry     = "Country"
