@@ -10,10 +10,10 @@ var errMissingLocode = errors.New("missing locode attribute")
 
 var errMissingRequiredAttr = errors.New("missing required attribute in DB record")
 
-// VerifyAndUpdate validates LOCODE attribute of n
+// VerifyAndUpdate validates UN-LOCODE attribute of n
 // and adds a group of related attributes.
 //
-// If n does not contain LOCODE attribute or its value does not
+// If n does not contain UN-LOCODE attribute or its value does not
 // match the UN/LOCODE format, an error returns.
 //
 // New attributes are formed from the record of DB instance (Prm).
@@ -26,7 +26,7 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 //  * SubDiv: R.SubDivName();
 //  * Continent: R.Continent().String().
 //
-// LOCODE attribute remains untouched.
+// UN-LOCODE attribute remains untouched.
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	mAttr := uniqueAttributes(n.Attributes())
 
