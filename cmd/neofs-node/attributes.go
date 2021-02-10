@@ -46,14 +46,11 @@ type wellKnownNodeAttrDesc struct {
 	defaultVal string
 }
 
-// TODO: define attribute keys in API lib.
-const attrKeyLocode = "UN-LOCODE"
-
 func listWellKnownAttrDesc() map[string]wellKnownNodeAttrDesc {
 	return map[string]wellKnownNodeAttrDesc{
 		netmap.AttrPrice:    {defaultVal: strconv.FormatUint(defaultPrice, 10)},
 		netmap.AttrCapacity: {defaultVal: strconv.FormatUint(defaultCapacity, 10)},
-		attrKeyLocode:       {explicit: true},
+		netmap.AttrUNLOCODE: {explicit: true},
 	}
 }
 
