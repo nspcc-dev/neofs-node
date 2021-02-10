@@ -64,6 +64,8 @@ var (
 		RunE:    deleteObject,
 	}
 
+	searchFilters []string
+
 	objectSearchCmd = &cobra.Command{
 		Use:   "search",
 		Short: "Search object",
@@ -138,7 +140,8 @@ func init() {
 	objectCmd.AddCommand(objectSearchCmd)
 	objectSearchCmd.Flags().String("cid", "", "Container ID")
 	_ = objectSearchCmd.MarkFlagRequired("cid")
-	objectSearchCmd.Flags().String("filters", "", "Filters in the form hdrName=value,...")
+	objectSearchCmd.Flags().StringSliceVarP(&searchFilters, "filters", "f", nil,
+		"Repeated filter expressions")
 	objectSearchCmd.Flags().Bool("root", false, "Search for user objects")
 	objectSearchCmd.Flags().Bool("phy", false, "Search physically stored objects")
 	objectSearchCmd.Flags().String(searchOIDFlag, "", "Search object by identifier")
@@ -520,16 +523,38 @@ func getOwnerID() (*owner.ID, error) {
 	return ownerID, nil
 }
 
+var searchUnaryOpVocabulary = map[string]object.SearchMatchType{
+	"NOPRESENT": object.MatchNotPresent,
+}
+
+var searchBinaryOpVocabulary = map[string]object.SearchMatchType{
+	"EQ": object.MatchStringEqual,
+	"NE": object.MatchStringNotEqual,
+}
+
 func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 	var fs object.SearchFilters
-	if raw := cmd.Flag("filters").Value.String(); len(raw) != 0 {
-		rawFs := strings.Split(raw, ",")
-		for i := range rawFs {
-			kv := strings.SplitN(rawFs[i], "=", 2)
-			if len(kv) != 2 {
-				return nil, fmt.Errorf("invalid filter format: %s", rawFs[i])
+
+	for i := range searchFilters {
+		words := strings.Fields(searchFilters[i])
+
+		switch len(words) {
+		default:
+			return nil, fmt.Errorf("invalid field number: %d", len(words))
+		case 2:
+			m, ok := searchUnaryOpVocabulary[words[1]]
+			if !ok {
+				return nil, fmt.Errorf("unsupported unary op: %s", words[1])
 			}
-			fs.AddFilter(kv[0], kv[1], object.MatchStringEqual)
+
+			fs.AddFilter(words[0], "", m)
+		case 3:
+			m, ok := searchBinaryOpVocabulary[words[1]]
+			if !ok {
+				return nil, fmt.Errorf("unsupported binary op: %s", words[1])
+			}
+
+			fs.AddFilter(words[0], words[2], m)
 		}
 	}
 
