@@ -33,8 +33,7 @@ const (
 	attrKeyCountryCode = "CountryCode"
 	attrKeyCountry     = "Country"
 
-	attrKeyLocationCode = "LocationCode"
-	attrKeyLocation     = "Location"
+	attrKeyLocation = "Location"
 
 	attrKeySubDivCode = "SubDivCode"
 	attrKeySubDiv     = "SubDiv"
@@ -55,8 +54,7 @@ func New(prm Prm) *Validator {
 			attrKeyCountryCode: {converter: countryCodeValue},
 			attrKeyCountry:     {converter: countryValue},
 
-			attrKeyLocationCode: {converter: locationCodeValue},
-			attrKeyLocation:     {converter: locationValue},
+			attrKeyLocation: {converter: locationValue},
 
 			attrKeySubDivCode: {converter: subDivCodeValue, optional: true},
 			attrKeySubDiv:     {converter: subDivValue, optional: true},
