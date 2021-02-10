@@ -45,7 +45,7 @@ func (k *Key) LocationCode() *LocationCode {
 type Record struct {
 	countryName string
 
-	cityName string
+	locationName string
 
 	subDivName string
 
@@ -71,9 +71,9 @@ func NewRecord(r locode.Record) (*Record, error) {
 	}
 
 	return &Record{
-		cityName:   r.NameWoDiacritics,
-		subDivCode: r.SubDiv,
-		p:          point,
+		locationName: r.NameWoDiacritics,
+		subDivCode:   r.SubDiv,
+		p:            point,
 	}, nil
 }
 
@@ -87,14 +87,14 @@ func (r *Record) SetCountryName(name string) {
 	r.countryName = name
 }
 
-// CityName returns city name.
-func (r *Record) CityName() string {
-	return r.cityName
+// LocationName returns location name.
+func (r *Record) LocationName() string {
+	return r.locationName
 }
 
-// SetCityName sets city name.
-func (r *Record) SetCityName(name string) {
-	r.cityName = name
+// SetLocationName sets location name.
+func (r *Record) SetLocationName(name string) {
+	r.locationName = name
 }
 
 // SubDivCode returns subdivision code.
