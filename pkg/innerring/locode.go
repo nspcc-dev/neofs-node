@@ -30,7 +30,7 @@ type locodeBoltEntryWrapper struct {
 }
 
 func (l *locodeBoltEntryWrapper) LocationName() string {
-	return l.Record.CityName()
+	return l.Record.LocationName()
 }
 
 type locodeBoltDBWrapper locodebolt.DB

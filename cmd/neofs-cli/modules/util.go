@@ -164,7 +164,7 @@ var (
 			}
 
 			fmt.Printf("Country: %s\n", record.CountryName())
-			fmt.Printf("City: %s\n", record.CityName())
+			fmt.Printf("Location: %s\n", record.LocationName())
 			fmt.Printf("Continent: %s\n", record.Continent())
 			if subDivCode := record.SubDivCode(); subDivCode != "" {
 				fmt.Printf("Subdivision: [%s] %s\n", subDivCode, record.SubDivName())

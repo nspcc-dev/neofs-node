@@ -48,26 +48,26 @@ func locationBucketKey(lc *locodedb.LocationCode) ([]byte, error) {
 }
 
 type recordJSON struct {
-	CountryName string
-	CityName    string
-	SubDivName  string
-	SubDivCode  string
-	Latitude    float64
-	Longitude   float64
-	Continent   string
+	CountryName  string
+	LocationName string
+	SubDivName   string
+	SubDivCode   string
+	Latitude     float64
+	Longitude    float64
+	Continent    string
 }
 
 func recordValue(r locodedb.Record) ([]byte, error) {
 	p := r.GeoPoint()
 
 	rj := &recordJSON{
-		CountryName: r.CountryName(),
-		CityName:    r.CityName(),
-		SubDivName:  r.SubDivName(),
-		SubDivCode:  r.SubDivCode(),
-		Latitude:    p.Latitude(),
-		Longitude:   p.Longitude(),
-		Continent:   r.Continent().String(),
+		CountryName:  r.CountryName(),
+		LocationName: r.LocationName(),
+		SubDivName:   r.SubDivName(),
+		SubDivCode:   r.SubDivCode(),
+		Latitude:     p.Latitude(),
+		Longitude:    p.Longitude(),
+		Continent:    r.Continent().String(),
 	}
 
 	return json.Marshal(rj)
@@ -82,7 +82,7 @@ func recordFromValue(data []byte) (*locodedb.Record, error) {
 
 	r := new(locodedb.Record)
 	r.SetCountryName(rj.CountryName)
-	r.SetCityName(rj.CityName)
+	r.SetLocationName(rj.LocationName)
 	r.SetSubDivName(rj.SubDivName)
 	r.SetSubDivCode(rj.SubDivCode)
 	r.SetGeoPoint(locodedb.NewPoint(rj.Latitude, rj.Longitude))
