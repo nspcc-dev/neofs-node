@@ -3,6 +3,7 @@ package csvlocode
 import (
 	"fmt"
 	"os"
+	"sync"
 )
 
 // Prm groups the required parameters of the Table's constructor.
@@ -34,6 +35,10 @@ type Table struct {
 	mode os.FileMode
 
 	subDivPath string
+
+	subDivOnce sync.Once
+
+	mSubDiv map[subDivKey]subDivRecord
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"

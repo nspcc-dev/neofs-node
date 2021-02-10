@@ -44,25 +44,61 @@ func (t *Table) IterateAll(f func(locode.Record) error) error {
 	})
 }
 
-// SubDivName scans table record one-by-one, and returns subdivision name
-// on country and subdivision codes match.
+const (
+	_ = iota - 1
+
+	subDivCountry
+	subDivSubdivision
+	subDivName
+	_ // subDivLevel
+
+	subDivFldNum
+)
+
+type subDivKey struct {
+	countryCode,
+	subDivCode string
+}
+
+type subDivRecord struct {
+	name string
+}
+
+// SubDivName scans table record to in-memory table (once),
+// and returns subdivision name on country and subdivision codes match.
 //
 // Returns locodedb.ErrSubDivNotFound if no entry matches.
-func (t *Table) SubDivName(countryCode *locodedb.CountryCode, name string) (subDiv string, err error) {
-	const wordsPerRecord = 4
-
-	err = t.scanWords([]string{t.subDivPath}, wordsPerRecord, func(words []string) error {
-		if words[0] == countryCode.String() && words[1] == name {
-			subDiv = words[2]
-			return errScanInt
-		}
-
-		return nil
-	})
-
-	if err == nil && subDiv == "" {
-		err = locodedb.ErrSubDivNotFound
+func (t *Table) SubDivName(countryCode *locodedb.CountryCode, code string) (string, error) {
+	if err := t.initSubDiv(); err != nil {
+		return "", err
 	}
+
+	rec, ok := t.mSubDiv[subDivKey{
+		countryCode: countryCode.String(),
+		subDivCode:  code,
+	}]
+	if !ok {
+		return "", locodedb.ErrSubDivNotFound
+	}
+
+	return rec.name, nil
+}
+
+func (t *Table) initSubDiv() (err error) {
+	t.subDivOnce.Do(func() {
+		t.mSubDiv = make(map[subDivKey]subDivRecord)
+
+		err = t.scanWords([]string{t.subDivPath}, subDivFldNum, func(words []string) error {
+			t.mSubDiv[subDivKey{
+				countryCode: words[subDivCountry],
+				subDivCode:  words[subDivSubdivision],
+			}] = subDivRecord{
+				name: words[subDivName],
+			}
+
+			return nil
+		})
+	})
 
 	return
 }
