@@ -30,7 +30,7 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	mAttr := uniqueAttributes(n.Attributes())
 
-	attrLocode, ok := mAttr[attrKeyLocode]
+	attrLocode, ok := mAttr[netmap.AttrUNLOCODE]
 	if !ok {
 		return errMissingLocode
 	}

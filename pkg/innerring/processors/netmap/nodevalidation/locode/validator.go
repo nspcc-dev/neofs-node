@@ -1,5 +1,9 @@
 package locode
 
+import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+)
+
 // Prm groups the required parameters of the Validator's constructor.
 //
 // All values must comply with the requirements imposed on them.
@@ -26,21 +30,6 @@ type Validator struct {
 	mAttr map[string]attrDescriptor
 }
 
-// TODO: define constants in API lib.
-const (
-	attrKeyLocode = "UN-LOCODE"
-
-	attrKeyCountryCode = "CountryCode"
-	attrKeyCountry     = "Country"
-
-	attrKeyLocation = "Location"
-
-	attrKeySubDivCode = "SubDivCode"
-	attrKeySubDiv     = "SubDiv"
-
-	attrKeyContinent = "Continent"
-)
-
 // New creates a new instance of the Validator.
 //
 // Panics if at least one value of the parameters is invalid.
@@ -51,15 +40,15 @@ func New(prm Prm) *Validator {
 	return &Validator{
 		db: prm.DB,
 		mAttr: map[string]attrDescriptor{
-			attrKeyCountryCode: {converter: countryCodeValue},
-			attrKeyCountry:     {converter: countryValue},
+			netmap.AttrCountryCode: {converter: countryCodeValue},
+			netmap.AttrCountry:     {converter: countryValue},
 
-			attrKeyLocation: {converter: locationValue},
+			netmap.AttrLocation: {converter: locationValue},
 
-			attrKeySubDivCode: {converter: subDivCodeValue, optional: true},
-			attrKeySubDiv:     {converter: subDivValue, optional: true},
+			netmap.AttrSubDivCode: {converter: subDivCodeValue, optional: true},
+			netmap.AttrSubDiv:     {converter: subDivValue, optional: true},
 
-			attrKeyContinent: {converter: continentValue},
+			netmap.AttrContinent: {converter: continentValue},
 		},
 	}
 }
