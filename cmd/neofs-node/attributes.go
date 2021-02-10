@@ -51,8 +51,8 @@ const attrKeyLocode = "UN-LOCODE"
 
 func listWellKnownAttrDesc() map[string]wellKnownNodeAttrDesc {
 	return map[string]wellKnownNodeAttrDesc{
-		netmap.PriceAttr:    {defaultVal: strconv.FormatUint(defaultPrice, 10)},
-		netmap.CapacityAttr: {defaultVal: strconv.FormatUint(defaultCapacity, 10)},
+		netmap.AttrPrice:    {defaultVal: strconv.FormatUint(defaultPrice, 10)},
+		netmap.AttrCapacity: {defaultVal: strconv.FormatUint(defaultCapacity, 10)},
 		attrKeyLocode:       {explicit: true},
 	}
 }
