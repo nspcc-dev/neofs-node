@@ -40,68 +40,43 @@ type record struct {
 	lng string
 }
 
-// Get scans records of the OpenFlights Airport table one-by-one, and
-// returns entry that matches passed UN/LOCODE record.
+// Get scans records of the OpenFlights Airport to in-memory table (once),
+// and returns entry that matches passed UN/LOCODE record.
 //
 // Records are matched if they have the same country code and either
 // same IATA code or same city name (location name in UN/LOCODE).
 //
 // Returns locodedb.ErrAirportNotFound if no entry matches.
-func (db *DB) Get(locodeRecord locode.Record) (rec *locodedb.AirportRecord, err error) {
-	err = db.scanWords(db.airports, airportFldNum, func(words []string) error {
-		airportRecord := record{
-			city:    words[airportCity],
-			country: words[airportCountry],
-			iata:    words[airportIATA],
-			lat:     words[airportLatitude],
-			lng:     words[airportLongitude],
+func (db *DB) Get(locodeRecord locode.Record) (*locodedb.AirportRecord, error) {
+	if err := db.initAirports(); err != nil {
+		return nil, err
+	}
+
+	records := db.mAirports[locodeRecord.LOCODE.CountryCode()]
+
+	for i := range records {
+		if locodeRecord.LOCODE.LocationCode() != records[i].iata &&
+			locodeRecord.NameWoDiacritics != records[i].city {
+			continue
 		}
 
-		if related, err := db.isRelated(locodeRecord, airportRecord); err != nil || !related {
-			return err
-		}
-
-		lat, err := strconv.ParseFloat(airportRecord.lat, 64)
+		lat, err := strconv.ParseFloat(records[i].lat, 64)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		lng, err := strconv.ParseFloat(airportRecord.lng, 64)
+		lng, err := strconv.ParseFloat(records[i].lng, 64)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		rec = &locodedb.AirportRecord{
-			CountryName: airportRecord.country,
+		return &locodedb.AirportRecord{
+			CountryName: records[i].country,
 			Point:       locodedb.NewPoint(lat, lng),
-		}
-
-		return errScanInt
-	})
-
-	if err == nil && rec == nil {
-		err = locodedb.ErrAirportNotFound
+		}, nil
 	}
 
-	return
-}
-
-func (db *DB) isRelated(locodeRecord locode.Record, airportRecord record) (bool, error) {
-	countryCode, err := db.countryCode(airportRecord.country)
-	if err != nil {
-		return false, errors.Wrap(err, "could not read country code of airport")
-	}
-
-	sameCountry := locodeRecord.LOCODE.CountryCode() == countryCode
-	sameIATA := locodeRecord.LOCODE.LocationCode() == airportRecord.iata
-
-	if sameCountry && sameIATA {
-		return true, nil
-	}
-
-	sameCity := locodeRecord.Name == airportRecord.city
-
-	return sameCountry && sameCity, nil
+	return nil, locodedb.ErrAirportNotFound
 }
 
 const (
@@ -114,35 +89,67 @@ const (
 	countryFldNum
 )
 
-// CountryName scans records of the OpenFlights Country table, and returns
-// name of the country by code.
+// CountryName scans records of the OpenFlights Country table to in-memory table (once),
+// and returns name of the country by code.
 //
 // Returns locodedb.ErrCountryNotFound if no entry matches.
 func (db *DB) CountryName(code *locodedb.CountryCode) (name string, err error) {
-	err = db.scanWords(db.countries, countryFldNum, func(words []string) error {
-		if words[countryISOCode] == code.String() {
-			name = words[countryName]
-			return errScanInt
+	if err = db.initCountries(); err != nil {
+		return
+	}
+
+	argCode := code.String()
+
+	for cName, cCode := range db.mCountries {
+		if cCode == argCode {
+			name = cName
+			break
 		}
+	}
 
-		return nil
-	})
-
-	if err == nil && name == "" {
+	if name == "" {
 		err = locodedb.ErrCountryNotFound
 	}
 
 	return
 }
 
-func (db *DB) countryCode(country string) (code string, err error) {
-	err = db.scanWords(db.countries, countryFldNum, func(words []string) error {
-		if words[countryName] == country {
-			code = words[countryISOCode]
-			return errScanInt
+func (db *DB) initAirports() (err error) {
+	db.airportsOnce.Do(func() {
+		db.mAirports = make(map[string][]record)
+
+		if err = db.initCountries(); err != nil {
+			return
 		}
 
-		return nil
+		err = db.scanWords(db.airports, airportFldNum, func(words []string) error {
+			countryCode := db.mCountries[words[airportCountry]]
+			if countryCode != "" {
+				db.mAirports[countryCode] = append(db.mAirports[countryCode], record{
+					city:    words[airportCity],
+					country: words[airportCountry],
+					iata:    words[airportIATA],
+					lat:     words[airportLatitude],
+					lng:     words[airportLongitude],
+				})
+			}
+
+			return nil
+		})
+	})
+
+	return
+}
+
+func (db *DB) initCountries() (err error) {
+	db.countriesOnce.Do(func() {
+		db.mCountries = make(map[string]string)
+
+		err = db.scanWords(db.countries, countryFldNum, func(words []string) error {
+			db.mCountries[words[countryName]] = words[countryISOCode]
+
+			return nil
+		})
 	})
 
 	return
