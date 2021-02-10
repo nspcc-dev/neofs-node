@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -40,32 +41,38 @@ func readAttributes(v *viper.Viper) (attrs []string) {
 	return attrs
 }
 
+type wellKnownNodeAttrDesc struct {
+	explicit   bool
+	defaultVal string
+}
+
+func listWellKnownAttrDesc() map[string]wellKnownNodeAttrDesc {
+	return map[string]wellKnownNodeAttrDesc{
+		netmap.PriceAttr:    {defaultVal: strconv.FormatUint(defaultPrice, 10)},
+		netmap.CapacityAttr: {defaultVal: strconv.FormatUint(defaultCapacity, 10)},
+	}
+}
+
 func addWellKnownAttributes(attrs []*netmap.NodeAttribute) []*netmap.NodeAttribute {
-	var hasCapacity, hasPrice bool
+	mWellKnown := listWellKnownAttrDesc()
 
-	// check if user defined capacity and price attributes
+	// check how user defined well-known attributes
 	for i := range attrs {
-		if !hasPrice && attrs[i].Key() == netmap.PriceAttr {
-			hasPrice = true
-		} else if !hasCapacity && attrs[i].Key() == netmap.CapacityAttr {
-			hasCapacity = true
+		delete(mWellKnown, attrs[i].Key())
+	}
+
+	for key, desc := range mWellKnown {
+		// check if required attribute is set
+		if desc.explicit {
+			fatalOnErr(errors.Errorf("missing explicit value of required node attribute %s", key))
 		}
-	}
 
-	// do not override user defined capacity and price attributes
+		// set default value of the attribute
+		a := netmap.NewNodeAttribute()
+		a.SetKey(key)
+		a.SetValue(desc.defaultVal)
 
-	if !hasCapacity {
-		capacity := netmap.NewNodeAttribute()
-		capacity.SetKey(netmap.CapacityAttr)
-		capacity.SetValue(strconv.FormatUint(defaultCapacity, 10))
-		attrs = append(attrs, capacity)
-	}
-
-	if !hasPrice {
-		price := netmap.NewNodeAttribute()
-		price.SetKey(netmap.PriceAttr)
-		price.SetValue(strconv.FormatUint(defaultPrice, 10))
-		attrs = append(attrs, price)
+		attrs = append(attrs, a)
 	}
 
 	return attrs
