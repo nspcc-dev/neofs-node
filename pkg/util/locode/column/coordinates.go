@@ -140,7 +140,7 @@ func (cc *coordinateCode) hemisphere() (h [hemisphereSymbols]uint8) {
 
 // North returns true for the northern hemisphere.
 func (h LatitudeHemisphere) North() bool {
-	return h[0] == 'W'
+	return h[0] == 'N'
 }
 
 // East returns true for the eastern hemisphere.
