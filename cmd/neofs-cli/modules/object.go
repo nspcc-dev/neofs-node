@@ -141,7 +141,7 @@ func init() {
 	objectSearchCmd.Flags().String("cid", "", "Container ID")
 	_ = objectSearchCmd.MarkFlagRequired("cid")
 	objectSearchCmd.Flags().StringSliceVarP(&searchFilters, "filters", "f", nil,
-		"Repeated filter expressions")
+		"Repeated filter expressions or files with protobuf JSON")
 	objectSearchCmd.Flags().Bool("root", false, "Search for user objects")
 	objectSearchCmd.Flags().Bool("phy", false, "Search physically stored objects")
 	objectSearchCmd.Flags().String(searchOIDFlag, "", "Search object by identifier")
@@ -541,6 +541,19 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		switch len(words) {
 		default:
 			return nil, fmt.Errorf("invalid field number: %d", len(words))
+		case 1:
+			data, err := ioutil.ReadFile(words[0])
+			if err != nil {
+				return nil, err
+			}
+
+			subFs := object.NewSearchFilters()
+
+			if err := subFs.UnmarshalJSON(data); err != nil {
+				return nil, err
+			}
+
+			fs = append(fs, subFs...)
 		case 2:
 			m, ok := searchUnaryOpVocabulary[words[1]]
 			if !ok {
