@@ -3,6 +3,7 @@ package airportsdb
 import (
 	"fmt"
 	"os"
+	"sync"
 )
 
 // Prm groups the required parameters of the DB's constructor.
@@ -30,6 +31,12 @@ type Prm struct {
 // The DB is immediately ready to work through API.
 type DB struct {
 	airports, countries pathMode
+
+	airportsOnce, countriesOnce sync.Once
+
+	mCountries map[string]string
+
+	mAirports map[string][]record
 }
 
 type pathMode struct {
