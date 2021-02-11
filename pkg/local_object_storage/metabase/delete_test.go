@@ -3,7 +3,9 @@ package meta_test
 import (
 	"testing"
 
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,4 +64,41 @@ func TestDB_Delete(t *testing.T) {
 	ok, err = meta.Exists(db, parent.Object().Address())
 	require.NoError(t, err)
 	require.False(t, ok)
+}
+
+func TestDeleteAllChildren(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	cid := testCID()
+
+	// generate parent object
+	parent := generateRawObjectWithCID(t, cid)
+
+	// generate 2 children
+	child1 := generateRawObjectWithCID(t, cid)
+	child1.SetParent(parent.Object().SDK())
+	child1.SetParentID(parent.ID())
+
+	child2 := generateRawObjectWithCID(t, cid)
+	child2.SetParent(parent.Object().SDK())
+	child2.SetParentID(parent.ID())
+
+	// put children
+	require.NoError(t, putBig(db, child1.Object()))
+	require.NoError(t, putBig(db, child2.Object()))
+
+	// Exists should return split info for parent
+	_, err := meta.Exists(db, parent.Object().Address())
+	siErr := objectSDK.NewSplitInfoError(nil)
+	require.True(t, errors.As(err, &siErr))
+
+	// remove all children in single call
+	err = meta.Delete(db, child1.Object().Address(), child2.Object().Address())
+	require.NoError(t, err)
+
+	// parent should not be found now
+	ex, err := meta.Exists(db, parent.Object().Address())
+	require.NoError(t, err)
+	require.False(t, ex)
 }
