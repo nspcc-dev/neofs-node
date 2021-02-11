@@ -35,6 +35,14 @@ func (np *Processor) processAddPeer(node []byte) {
 		return
 	}
 
+	// marshal node info back to binary
+	node, err = nodeInfo.Marshal()
+	if err != nil {
+		np.log.Warn("can't marshal approved network map candidate",
+			zap.String("error", err.Error()))
+		return
+	}
+
 	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 
 	exists := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter())
