@@ -2,6 +2,8 @@ package netmap
 
 import (
 	"encoding/hex"
+	"sort"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
@@ -34,6 +36,20 @@ func (np *Processor) processAddPeer(node []byte) {
 
 		return
 	}
+
+	// sort attributes to make it consistent
+	a := nodeInfo.Attributes()
+	sort.Slice(a, func(i, j int) bool {
+		switch strings.Compare(a[i].Key(), a[j].Key()) {
+		case -1:
+			return true
+		case 1:
+			return false
+		default:
+			return a[i].Value() < a[j].Value()
+		}
+	})
+	nodeInfo.SetAttributes(a...)
 
 	// marshal node info back to binary
 	node, err = nodeInfo.Marshal()
