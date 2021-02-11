@@ -34,21 +34,46 @@ func Delete(db *DB, addrs ...*objectSDK.Address) error {
 	return err
 }
 
+type referenceNumber struct {
+	all, cur int
+
+	addr *objectSDK.Address
+
+	obj *object.Object
+}
+
+type referenceCounter map[string]*referenceNumber
+
 // Delete removed object records from metabase indexes.
 func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	return new(DeleteRes), db.boltDB.Update(func(tx *bbolt.Tx) error {
-		for i := range prm.addrs {
-			err := db.delete(tx, prm.addrs[i], false)
+		return db.deleteGroup(tx, prm.addrs)
+	})
+}
+
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*objectSDK.Address) error {
+	refCounter := make(referenceCounter, len(addrs))
+
+	for i := range addrs {
+		err := db.delete(tx, addrs[i], refCounter)
+		if err != nil {
+			return err // maybe log and continue?
+		}
+	}
+
+	for _, refNum := range refCounter {
+		if refNum.cur == refNum.all {
+			err := db.deleteObject(tx, refNum.obj, true)
 			if err != nil {
 				return err // maybe log and continue?
 			}
 		}
+	}
 
-		return nil
-	})
+	return nil
 }
 
-func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, isParent bool) error {
+func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter referenceCounter) error {
 	// unmarshal object, work only with physically stored (raw == true) objects
 	obj, err := db.get(tx, addr, false, true)
 	if err != nil {
@@ -57,16 +82,25 @@ func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, isParent bool) error
 
 	// if object is an only link to a parent, then remove parent
 	if parent := obj.GetParent(); parent != nil {
-		if parentLength(tx, parent.Address()) == 1 {
-			err = db.deleteObject(tx, obj.GetParent(), true)
-			if err != nil {
-				return err
+		parAddr := parent.Address()
+		sParAddr := parAddr.String()
+
+		nRef, ok := refCounter[sParAddr]
+		if !ok {
+			nRef = &referenceNumber{
+				all:  parentLength(tx, parent.Address()),
+				addr: parAddr,
+				obj:  parent,
 			}
+
+			refCounter[sParAddr] = nRef
 		}
+
+		nRef.cur++
 	}
 
 	// remove object
-	return db.deleteObject(tx, obj, isParent)
+	return db.deleteObject(tx, obj, false)
 }
 
 func (db *DB) deleteObject(
@@ -205,6 +239,11 @@ func delUniqueIndexes(obj *object.Object, isParent bool) ([]namedBucketItem, err
 
 		result = append(result, namedBucketItem{
 			name: bucketName,
+			key:  objKey,
+		})
+	} else {
+		result = append(result, namedBucketItem{
+			name: parentBucketName(obj.ContainerID()),
 			key:  objKey,
 		})
 	}
