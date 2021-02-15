@@ -122,7 +122,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 
 // TransferGas to the receiver from local wallet
 func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error {
-	txHash, err := c.client.TransferNEP17(c.acc, receiver, c.gas, int64(amount), 0)
+	txHash, err := c.client.TransferNEP17(c.acc, receiver, c.gas, int64(amount), 0, nil)
 	if err != nil {
 		return err
 	}
