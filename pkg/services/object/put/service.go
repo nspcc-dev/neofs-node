@@ -137,6 +137,7 @@ func WithFormatValidatorOpts(v ...object.FormatValidatorOption) Option {
 func WithNetworkState(v netmap.State) Option {
 	return func(c *cfg) {
 		c.networkState = v
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithNetState(v))
 	}
 }
 
