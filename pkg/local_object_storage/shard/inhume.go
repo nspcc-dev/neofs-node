@@ -17,6 +17,9 @@ type InhumeRes struct{}
 
 // WithTarget sets object address that should be inhumed and tombstone address
 // as the reason for inhume operation.
+//
+// Arguments should not be nil.
+// Should not be called along with MarkAsGarbage.
 func (p *InhumePrm) WithTarget(addr, tombstone *objectSDK.Address) *InhumePrm {
 	if p != nil {
 		p.target = addr
@@ -26,10 +29,30 @@ func (p *InhumePrm) WithTarget(addr, tombstone *objectSDK.Address) *InhumePrm {
 	return p
 }
 
+// MarkAsGarbage marks object to be physically removed from shard.
+//
+// Should not be called along with WithTarget.
+func (p *InhumePrm) MarkAsGarbage(addr *objectSDK.Address) *InhumePrm {
+	if p != nil {
+		p.target = addr
+		p.tombstone = nil
+	}
+
+	return p
+}
+
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from blobStor and metabase until `Delete` operation.
 func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
-	err := meta.Inhume(s.metaBase, prm.target, prm.tombstone)
+	metaPrm := new(meta.InhumePrm).WithAddress(prm.target)
+
+	if prm.tombstone != nil {
+		metaPrm.WithTombstoneAddress(prm.tombstone)
+	} else {
+		metaPrm.WithGCMark()
+	}
+
+	_, err := s.metaBase.Inhume(metaPrm)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.String("error", err.Error()),
