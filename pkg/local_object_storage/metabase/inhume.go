@@ -7,16 +7,18 @@ import (
 
 // InhumePrm encapsulates parameters for Inhume operation.
 type InhumePrm struct {
-	target, tomb *objectSDK.Address
+	tomb *objectSDK.Address
+
+	target []*objectSDK.Address
 }
 
 // InhumeRes encapsulates results of Inhume operation.
 type InhumeRes struct{}
 
-// WithAddress sets object address that should be inhumed.
-func (p *InhumePrm) WithAddress(addr *objectSDK.Address) *InhumePrm {
+// WithAddresses sets list of object addresses that should be inhumed.
+func (p *InhumePrm) WithAddresses(addrs ...*objectSDK.Address) *InhumePrm {
 	if p != nil {
-		p.target = addr
+		p.target = addrs
 	}
 
 	return p
@@ -50,7 +52,7 @@ func (p *InhumePrm) WithGCMark() *InhumePrm {
 // tomb should not be nil.
 func Inhume(db *DB, target, tomb *objectSDK.Address) error {
 	_, err := db.Inhume(new(InhumePrm).
-		WithAddress(target).
+		WithAddresses(target).
 		WithTombstoneAddress(tomb),
 	)
 
@@ -67,31 +69,38 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			return err
 		}
 
-		obj, err := db.get(tx, prm.target, false, true)
+		for i := range prm.target {
+			obj, err := db.get(tx, prm.target[i], false, true)
 
-		// if object is stored and it is regular object then update bucket
-		// with container size estimations
-		if err == nil && obj.Type() == objectSDK.TypeRegular {
-			err := changeContainerSize(
-				tx,
-				obj.ContainerID(),
-				obj.PayloadSize(),
-				false,
-			)
+			// if object is stored and it is regular object then update bucket
+			// with container size estimations
+			if err == nil && obj.Type() == objectSDK.TypeRegular {
+				err := changeContainerSize(
+					tx,
+					obj.ContainerID(),
+					obj.PayloadSize(),
+					false,
+				)
+				if err != nil {
+					return err
+				}
+			}
+
+			var val []byte
+			if prm.tomb != nil {
+				val = addressKey(prm.tomb)
+			} else {
+				val = []byte(inhumeGCMarkValue)
+			}
+
+			// consider checking if target is already in graveyard?
+			err = graveyard.Put(addressKey(prm.target[i]), val)
 			if err != nil {
 				return err
 			}
 		}
 
-		var val []byte
-		if prm.tomb != nil {
-			val = addressKey(prm.tomb)
-		} else {
-			val = []byte(inhumeGCMarkValue)
-		}
-
-		// consider checking if target is already in graveyard?
-		return graveyard.Put(addressKey(prm.target), val)
+		return nil
 	})
 
 	return
