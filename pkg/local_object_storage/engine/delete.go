@@ -25,23 +25,38 @@ func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
 	return p
 }
 
-// Delete removes objects from the shards.
+// Delete marks the objects to be removed.
 func (e *StorageEngine) Delete(prm *DeletePrm) (*DeleteRes, error) {
-	shPrm := new(shard.DeletePrm).
-		WithAddresses(prm.addr...)
+	shPrm := new(shard.InhumePrm)
+	existsPrm := new(shard.ExistsPrm)
 
-	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
-		_, err := sh.Delete(shPrm)
-		if err != nil {
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not delete object from shard",
-				zap.Stringer("shard", sh.ID()),
-				zap.String("error", err.Error()),
-			)
-		}
+	for i := range prm.addr {
+		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh *shard.Shard) (stop bool) {
+			resExists, err := sh.Exists(existsPrm.WithAddress(prm.addr[i]))
+			if err != nil {
+				// TODO: smth wrong with shard, need to be processed
+				e.log.Warn("could not check object existence",
+					zap.Stringer("shard", sh.ID()),
+					zap.String("error", err.Error()),
+				)
 
-		return false
-	})
+				return false
+			} else if !resExists.Exists() {
+				return false
+			}
+
+			_, err = sh.Inhume(shPrm.MarkAsGarbage(prm.addr[i]))
+			if err != nil {
+				// TODO: smth wrong with shard, need to be processed
+				e.log.Warn("could not inhume object in shard",
+					zap.Stringer("shard", sh.ID()),
+					zap.String("error", err.Error()),
+				)
+			}
+
+			return err == nil
+		})
+	}
 
 	return nil, nil
 }
