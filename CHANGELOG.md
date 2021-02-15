@@ -1,6 +1,53 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.15.0] - 2021-02-12 - Seonyudo (선유도, 仙遊島)
+
+NeoFS nodes are now preview5-compatible. 
+
+IR nodes are now engaged in the distribution of funds to the storage nodes:
+for the passed audit and for the amount of stored information. All timers 
+of the IR nodes related to the generation and processing of global system 
+events are decoupled from astronomical time, and are measured in the number 
+of blockchain blocks.
+
+For the geographic positioning of storage nodes, a global NeoFS location
+database is now used, the key in which is a UN/LOCODE, and the base itself 
+is generated on the basis of the UN/LOCODE and OpenFlights databases.
+
+### Added
+- Timers with time in blocks of the chain.
+- Subscriptions to new blocks in blockchain event `Listener`.
+- Tracking the volume of stored information by containers in the 
+  storage engine and an external interface for obtaining this data.
+- `TransferX` operation in sidechain client.
+- Calculators of audit and basic settlements.
+- Distribution of funds to storage nodes for audit and for the amount 
+  of stored information (settlement processors of IR).
+- NeoFS API `Container.AnnounceUsedSpace` RPC service.
+- Exchange of information about container volumes between storage nodes 
+  controlled by IR through sidechain notifications.
+- Support of new search matchers (`STRING_NOT_EQUAL`, `NOT_PRESENT`).
+- Functional for the formation of NeoFS location database.
+- CLI commands for generating and reading the location database.
+- Checking the locode attribute and generating geographic attributes 
+  for candidates for a network map on IR side.
+- Verification of the eACL signature when checking Object ACL rules.
+
+### Fixed
+- Overwriting the local configuration of node attributes when updating 
+  the network map.
+- Ignoring the X-headers CLI `storagegroup` commands.
+- Inability to attach bearer token in CLI `storagegroup` commands.
+
+### Changed
+- Units of epoch and emit IR intervals.
+- Query language in CLI `object search` command.
+
+### Updated
+- neo-go v0.93.0.
+- neofs-api-go v1.23.0.
+
 ## [0.14.3] - 2021-01-27
 
 ### Fixed
@@ -181,6 +228,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.15.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.3...v0.15.0
 [0.14.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.0...v0.14.1
