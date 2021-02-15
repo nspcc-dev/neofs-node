@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -11,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/pkg/errors"
@@ -54,8 +56,22 @@ func blankValidObject(t *testing.T, key *ecdsa.PrivateKey) *RawObject {
 	return obj
 }
 
+type testNetState struct {
+	epoch uint64
+}
+
+func (s testNetState) CurrentEpoch() uint64 {
+	return s.epoch
+}
+
 func TestFormatValidator_Validate(t *testing.T) {
-	v := NewFormatValidator()
+	const curEpoch = 13
+
+	v := NewFormatValidator(
+		WithNetState(testNetState{
+			epoch: curEpoch,
+		}),
+	)
 
 	ownerKey := test.DecodeKey(-1)
 
@@ -155,5 +171,39 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetPayload(data)
 
 		require.NoError(t, v.ValidateContent(obj.Object()))
+	})
+
+	t.Run("expiration", func(t *testing.T) {
+		fn := func(val string) *Object {
+			obj := blankValidObject(t, ownerKey)
+
+			a := object.NewAttribute()
+			a.SetKey(objectV2.SysAttributeExpEpoch)
+			a.SetValue(val)
+
+			obj.SetAttributes(a)
+
+			require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+
+			return obj.Object()
+		}
+
+		t.Run("invalid attribute value", func(t *testing.T) {
+			val := "text"
+			err := v.Validate(fn(val))
+			require.Error(t, err)
+		})
+
+		t.Run("expired object", func(t *testing.T) {
+			val := strconv.FormatUint(curEpoch-1, 10)
+			err := v.Validate(fn(val))
+			require.True(t, errors.Is(err, errExpired))
+		})
+
+		t.Run("alive object", func(t *testing.T) {
+			val := strconv.FormatUint(curEpoch, 10)
+			err := v.Validate(fn(val))
+			require.NoError(t, err)
+		})
 	})
 }

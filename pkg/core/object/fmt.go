@@ -2,11 +2,14 @@ package object
 
 import (
 	"bytes"
+	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/pkg/errors"
 )
 
@@ -20,6 +23,8 @@ type FormatValidatorOption func(*cfg)
 
 type cfg struct {
 	deleteHandler DeleteHandler
+
+	netState netmap.State
 }
 
 // DeleteHandler is an interface of delete queue processor.
@@ -67,6 +72,11 @@ func (v *FormatValidator) Validate(obj *Object) error {
 	for ; obj != nil; obj = obj.GetParent() {
 		if err := v.validateSignatureKey(obj); err != nil {
 			return errors.Wrapf(err, "(%T) could not validate signature key", v)
+		}
+
+		// TODO: combine small checks
+		if err := v.checkExpiration(obj); err != nil {
+			return errors.Wrapf(err, "object did not pass expiration check")
 		}
 
 		if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
@@ -162,6 +172,38 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 	}
 
 	return nil
+}
+
+var errExpired = errors.New("object has expired")
+
+func (v *FormatValidator) checkExpiration(obj *Object) error {
+	for _, a := range obj.Attributes() {
+		if a.Key() != objectV2.SysAttributeExpEpoch {
+			continue
+		}
+
+		exp, err := strconv.ParseUint(a.Value(), 10, 64)
+		if err != nil {
+			return err
+		}
+
+		if exp < v.netState.CurrentEpoch() {
+			return errExpired
+		}
+
+		break
+	}
+
+	return nil
+}
+
+// WithNetState returns options to set network state interface.
+//
+// FIXME: network state is a required parameter.
+func WithNetState(netState netmap.State) FormatValidatorOption {
+	return func(c *cfg) {
+		c.netState = netState
+	}
 }
 
 // WithDeleteHandler returns option to set delete queue processor.
