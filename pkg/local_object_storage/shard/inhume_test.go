@@ -38,7 +38,7 @@ func testShardInhume(t *testing.T, sh *shard.Shard) {
 	putPrm.WithObject(obj.Object())
 
 	inhPrm := new(shard.InhumePrm)
-	inhPrm.WithTarget(obj.Object().Address(), ts.Object().Address())
+	inhPrm.WithTarget(ts.Object().Address(), obj.Object().Address())
 
 	getPrm := new(shard.GetPrm)
 	getPrm.WithAddress(obj.Object().Address())
