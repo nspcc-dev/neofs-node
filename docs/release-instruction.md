@@ -54,3 +54,5 @@ Close corresponding vX.Y.Z github milestone.
 
 Prepare pull-request for 
 [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv).
+
+Rebuild NeoFS LOCODE database via CLI `util locode generate` command (if needed).
