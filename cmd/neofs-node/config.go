@@ -32,6 +32,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
+	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
 	"github.com/panjf2000/ants/v2"
@@ -137,6 +138,10 @@ const (
 	cfgMetaBaseSection = "metabase"
 	cfgMetaBasePath    = "path"
 	cfgMetaBasePerm    = "perm"
+
+	cfgGCSection          = "gc"
+	cfgGCRemoverBatchSize = "remover_batch_size"
+	cfgGCRemoverSleepInt  = "remover_sleep_interval"
 )
 
 const (
@@ -560,6 +565,16 @@ func initShardOptions(c *cfg) {
 
 		fatalOnErr(os.MkdirAll(path.Dir(metaPath), metaPerm))
 
+		gcPrefix := configPath(prefix, cfgGCSection)
+
+		rmBatchSize := c.viper.GetInt(
+			configPath(gcPrefix, cfgGCRemoverBatchSize),
+		)
+
+		rmSleepInterval := c.viper.GetDuration(
+			configPath(gcPrefix, cfgGCRemoverSleepInt),
+		)
+
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithBlobStorOptions(
@@ -588,6 +603,14 @@ func initShardOptions(c *cfg) {
 				blobstor.WithBlobovniczaShallowDepth(0),
 				blobstor.WithBlobovniczaShallowWidth(1),
 			),
+			shard.WithRemoverBatchSize(rmBatchSize),
+			shard.WithGCRemoverSleepInterval(rmSleepInterval),
+			shard.WithGCWorkerPoolInitializer(func(sz int) util2.WorkerPool {
+				pool, err := ants.NewPool(sz)
+				fatalOnErr(err)
+
+				return pool
+			}),
 		})
 
 		c.log.Info("storage shard options",
@@ -600,6 +623,8 @@ func initShardOptions(c *cfg) {
 			zap.Uint64("BLOB small size limit", smallSzLimit),
 			zap.String("metabase path", metaPath),
 			zap.Stringer("metabase permissions", metaPerm),
+			zap.Int("GC remover batch size", rmBatchSize),
+			zap.Duration("GC remover sleep interval", rmSleepInterval),
 		)
 	}
 
