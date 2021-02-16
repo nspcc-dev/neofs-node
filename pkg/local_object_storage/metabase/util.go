@@ -97,6 +97,12 @@ func addressKey(addr *object.Address) []byte {
 	return []byte(addr.String())
 }
 
+// parses object address formed by addressKey.
+func addressFromKey(k []byte) (*object.Address, error) {
+	a := object.NewAddress()
+	return a, a.Parse(string(k))
+}
+
 // objectKey returns key for K-V tables when key is an object id.
 func objectKey(oid *object.ID) []byte {
 	return []byte(oid.String())
