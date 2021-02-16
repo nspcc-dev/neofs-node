@@ -39,6 +39,14 @@ func (s *Shard) Init() error {
 		}
 	}
 
+	gc := &gc{
+		gcCfg:         s.gcCfg,
+		remover:       s.removeGarbage,
+		mEventHandler: map[eventType]*eventHandlers{},
+	}
+
+	gc.init()
+
 	return nil
 }
 
