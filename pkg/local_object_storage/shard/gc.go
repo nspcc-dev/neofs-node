@@ -2,6 +2,7 @@ package shard
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -25,6 +26,8 @@ const (
 type eventHandler func(context.Context, Event)
 
 type eventHandlers struct {
+	prevGroup sync.WaitGroup
+
 	cancelFunc context.CancelFunc
 
 	handlers []eventHandler
@@ -97,18 +100,24 @@ func (gc *gc) listenEvents() {
 		}
 
 		v.cancelFunc()
+		v.prevGroup.Wait()
 
 		var ctx context.Context
 		ctx, v.cancelFunc = context.WithCancel(context.Background())
 
+		v.prevGroup.Add(len(v.handlers))
+
 		for _, h := range v.handlers {
 			err := gc.workerPool.Submit(func() {
 				h(ctx, event)
+				v.prevGroup.Done()
 			})
 			if err != nil {
 				gc.log.Warn("could not submit GC job to worker pool",
 					zap.String("error", err.Error()),
 				)
+
+				v.prevGroup.Done()
 			}
 		}
 	}
