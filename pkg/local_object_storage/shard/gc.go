@@ -186,3 +186,53 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 }
+
+func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
+	epoch := e.(newEpoch).epoch
+
+	var expired []*object.Address
+
+	// collect expired non-tombstone object
+	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
+		select {
+		case <-ctx.Done():
+			return meta.ErrInterruptIterator
+		default:
+		}
+
+		if expiredObject.Type() != object.TypeTombstone {
+			expired = append(expired, expiredObject.Address())
+		}
+
+		return nil
+	})
+	if err != nil {
+		s.log.Warn("iterator over expired objects failed",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	} else if len(expired) == 0 {
+		return
+	}
+
+	// check if context canceled
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	// inhume the collected objects
+	_, err = s.metaBase.Inhume(new(meta.InhumePrm).
+		WithAddresses(expired...).
+		WithGCMark(),
+	)
+	if err != nil {
+		s.log.Warn("could not inhume the objects",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+}
