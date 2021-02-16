@@ -21,7 +21,23 @@ type eventType int
 
 const (
 	_ eventType = iota
+	eventNewEpoch
 )
+
+type newEpoch struct {
+	epoch uint64
+}
+
+func (e newEpoch) typ() eventType {
+	return eventNewEpoch
+}
+
+// EventNewEpoch returns new epoch event.
+func EventNewEpoch(e uint64) Event {
+	return newEpoch{
+		epoch: e,
+	}
+}
 
 type eventHandler func(context.Context, Event)
 
