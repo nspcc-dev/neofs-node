@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -65,6 +66,16 @@ func attributeBucketName(cid *container.ID, attributeKey string) []byte {
 	sb.WriteString(attributeKey)
 
 	return []byte(sb.String())
+}
+
+// returns <CID> from attributeBucketName result, nil otherwise.
+func cidFromAttributeBucket(val []byte, attributeKey string) []byte {
+	suffix := []byte(userAttributePostfix + attributeKey)
+	if !bytes.HasSuffix(val, suffix) {
+		return nil
+	}
+
+	return val[:len(val)-len(suffix)]
 }
 
 // payloadHashBucketName returns <CID>_payloadhash.
