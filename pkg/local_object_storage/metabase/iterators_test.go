@@ -56,3 +56,44 @@ func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uin
 
 	return obj.Address()
 }
+
+func TestDB_IterateCoveredByTombstones(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	ts := generateAddress()
+	protected1 := generateAddress()
+	protected2 := generateAddress()
+	garbage := generateAddress()
+
+	prm := new(meta.InhumePrm)
+
+	var err error
+
+	_, err = db.Inhume(prm.
+		WithTombstoneAddress(ts).
+		WithAddresses(protected1, protected2),
+	)
+	require.NoError(t, err)
+
+	_, err = db.Inhume(prm.
+		WithAddresses(garbage).
+		WithGCMark(),
+	)
+
+	var handled []*object.Address
+
+	tss := map[string]struct{}{
+		ts.String(): {},
+	}
+
+	err = db.IterateCoveredByTombstones(tss, func(addr *object.Address) error {
+		handled = append(handled, addr)
+		return nil
+	})
+	require.NoError(t, err)
+
+	require.Len(t, handled, 2)
+	require.Contains(t, handled, protected1)
+	require.Contains(t, handled, protected2)
+}

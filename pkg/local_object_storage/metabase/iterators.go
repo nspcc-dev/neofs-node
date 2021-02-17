@@ -109,3 +109,44 @@ func objectType(tx *bbolt.Tx, cid *container.ID, oidBytes []byte) object.Type {
 		return object.TypeStorageGroup
 	}
 }
+
+// IterateCoveredByTombstones iterates over all objects in DB which are covered
+// by tombstone with string address from tss.
+//
+// If h returns ErrInterruptIterator, nil returns immediately.
+// Returns other errors of h directly.
+//
+// Does not modify tss.
+func (db *DB) IterateCoveredByTombstones(tss map[string]struct{}, h func(*object.Address) error) error {
+	return db.boltDB.View(func(tx *bbolt.Tx) error {
+		return db.iterateCoveredByTombstones(tx, tss, h)
+	})
+}
+
+func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, h func(*object.Address) error) error {
+	bktGraveyard := tx.Bucket(graveyardBucketName)
+	if bktGraveyard == nil {
+		return nil
+	}
+
+	err := bktGraveyard.ForEach(func(k, v []byte) error {
+		if _, ok := tss[string(v)]; ok {
+			addr := object.NewAddress()
+
+			err := addr.Parse(string(k))
+			if err != nil {
+				return errors.Wrap(err, "could not parse address of the object under tombstone")
+			}
+
+			return h(addr)
+		}
+
+		return nil
+	})
+
+	if errors.Is(err, ErrInterruptIterator) {
+		err = nil
+	}
+
+	return err
+}
