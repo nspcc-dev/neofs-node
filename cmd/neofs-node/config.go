@@ -28,6 +28,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
@@ -610,6 +611,15 @@ func initShardOptions(c *cfg) {
 				fatalOnErr(err)
 
 				return pool
+			}),
+			shard.WithGCEventChannelInitializer(func() <-chan shard.Event {
+				ch := make(chan shard.Event)
+
+				addNewEpochNotificationHandler(c, func(ev event.Event) {
+					ch <- shard.EventNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
+				})
+
+				return ch
 			}),
 		})
 
