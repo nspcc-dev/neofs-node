@@ -47,6 +47,7 @@ func (s *Shard) Init() error {
 				cancelFunc: func() {},
 				handlers: []eventHandler{
 					s.collectExpiredObjects,
+					s.collectExpiredTombstones,
 				},
 			},
 		},

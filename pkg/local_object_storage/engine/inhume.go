@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -79,4 +80,23 @@ func (e *StorageEngine) inhume(addr *objectSDK.Address, prm *shard.InhumePrm, ch
 	})
 
 	return
+}
+
+func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*objectSDK.Address) {
+	tss := make(map[string]struct{}, len(addrs))
+
+	for i := range addrs {
+		tss[addrs[i].String()] = struct{}{}
+	}
+
+	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
+		sh.HandleExpiredTombstones(tss)
+
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	})
 }

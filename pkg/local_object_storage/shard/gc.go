@@ -236,3 +236,77 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 		return
 	}
 }
+
+// TODO: can be unified with Shard.collectExpiredObjects.
+func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
+	epoch := e.(newEpoch).epoch
+
+	var expired []*object.Address
+
+	// collect expired tombstone objects
+	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
+		select {
+		case <-ctx.Done():
+			return meta.ErrInterruptIterator
+		default:
+		}
+
+		if expiredObject.Type() == object.TypeTombstone {
+			expired = append(expired, expiredObject.Address())
+		}
+
+		return nil
+	})
+	if err != nil {
+		s.log.Warn("iterator over expired tombstones failed",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	} else if len(expired) == 0 {
+		return
+	}
+
+	// check if context canceled
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	s.expiredTombstonesCallback(ctx, expired)
+}
+
+// HandleExpiredTombstones mark to be removed all objects that are expired in epoch
+// and protected by tombstone with string address from tss.
+//
+// Does not modify tss.
+func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
+	inhume := make([]*object.Address, 0, len(tss))
+
+	err := s.metaBase.IterateCoveredByTombstones(tss, func(addr *object.Address) error {
+		inhume = append(inhume, addr)
+		return nil
+	})
+	if err != nil {
+		s.log.Warn("iterator over expired objects failed",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	} else if len(inhume) == 0 {
+		return
+	}
+
+	_, err = s.metaBase.Inhume(new(meta.InhumePrm).
+		WithAddresses(inhume...).
+		WithGCMark(),
+	)
+	if err != nil {
+		s.log.Warn("could not inhume objects under the expired tombstone",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+}
