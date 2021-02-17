@@ -29,7 +29,10 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 		return nil, errors.Wrap(err, "could not generate shard ID")
 	}
 
-	e.shards[id.String()] = shard.New(append(opts, shard.WithID(id))...)
+	e.shards[id.String()] = shard.New(append(opts,
+		shard.WithID(id),
+		shard.WithExpiredObjectsCallback(e.processExpiredTombstones),
+	)...)
 
 	return id, nil
 }

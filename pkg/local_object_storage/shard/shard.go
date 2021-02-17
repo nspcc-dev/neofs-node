@@ -1,8 +1,10 @@
 package shard
 
 import (
+	"context"
 	"time"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -27,6 +29,9 @@ type Shard struct {
 // Option represents Shard's constructor option.
 type Option func(*cfg)
 
+// ExpiredObjectsCallback is a callback handling list of expired objects.
+type ExpiredObjectsCallback func(context.Context, []*object.Address)
+
 type cfg struct {
 	rmBatchSize int
 
@@ -43,6 +48,8 @@ type cfg struct {
 	log *logger.Logger
 
 	gcCfg *gcCfg
+
+	expiredTombstonesCallback ExpiredObjectsCallback
 }
 
 func defaultCfg() *cfg {
@@ -155,5 +162,13 @@ func WithGCEventChannelInitializer(chInit func() <-chan Event) Option {
 func WithGCRemoverSleepInterval(dur time.Duration) Option {
 	return func(c *cfg) {
 		c.gcCfg.removerInterval = dur
+	}
+}
+
+// WithExpiredObjectsCallback returns option to specify callback
+// of the expired tombstones handler.
+func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
+	return func(c *cfg) {
+		c.expiredTombstonesCallback = cb
 	}
 }
