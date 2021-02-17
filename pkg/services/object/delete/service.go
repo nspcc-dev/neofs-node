@@ -2,6 +2,7 @@ package deletesvc
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
@@ -16,6 +17,15 @@ type Service struct {
 
 // Option is a Service's constructor option.
 type Option func(*cfg)
+
+// NetworkInfo wraps network state and configurations.
+type NetworkInfo interface {
+	netmap.State
+
+	// Must return the lifespan of the tombstones
+	// in the NeoFS epochs.
+	TombstoneLifetime() (uint64, error)
+}
 
 type cfg struct {
 	log *logger.Logger
@@ -37,6 +47,8 @@ type cfg struct {
 	placer interface {
 		put(*execCtx, bool) (*objectSDK.ID, error)
 	}
+
+	netInfo NetworkInfo
 }
 
 func defaultCfg() *cfg {
@@ -85,5 +97,12 @@ func WithSearchService(s *searchsvc.Service) Option {
 func WithPutService(p *putsvc.Service) Option {
 	return func(c *cfg) {
 		c.placer = (*putSvcWrapper)(p)
+	}
+}
+
+// WithNetworkInfo returns option to set network information source.
+func WithNetworkInfo(netInfo NetworkInfo) Option {
+	return func(c *cfg) {
+		c.netInfo = netInfo
 	}
 }

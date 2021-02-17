@@ -2,9 +2,11 @@ package deletesvc
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -235,6 +237,12 @@ func (exec *execCtx) initTombstoneObject() bool {
 	exec.tombstoneObj.SetOwnerID(exec.commonParameters().SessionToken().OwnerID())
 	exec.tombstoneObj.SetType(objectSDK.TypeTombstone)
 	exec.tombstoneObj.SetPayload(payload)
+
+	a := objectSDK.NewAttribute()
+	a.SetKey(objectV2.SysAttributeExpEpoch)
+	a.SetValue(strconv.FormatUint(exec.tombstone.ExpirationEpoch(), 10))
+
+	exec.tombstoneObj.SetAttributes(a)
 
 	return true
 }
