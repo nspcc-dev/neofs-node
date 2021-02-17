@@ -2,6 +2,7 @@ package deletesvc
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"go.uber.org/zap"
 )
 
 func (exec *execCtx) executeLocal() {
@@ -25,7 +26,22 @@ func (exec *execCtx) executeLocal() {
 }
 
 func (exec *execCtx) formTombstone() (ok bool) {
+	tsLifetime, err := exec.svc.netInfo.TombstoneLifetime()
+	if err != nil {
+		exec.status = statusUndefined
+		exec.err = err
+
+		exec.log.Debug("could not read tombstone lifetime config",
+			zap.String("error", err.Error()),
+		)
+
+		return false
+	}
+
 	exec.tombstone = objectSDK.NewTombstone()
+	exec.tombstone.SetExpirationEpoch(
+		exec.svc.netInfo.CurrentEpoch() + tsLifetime,
+	)
 	exec.addMembers([]*objectSDK.ID{exec.address().ObjectID()})
 
 	exec.log.Debug("forming split info...")
