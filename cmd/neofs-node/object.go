@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -116,6 +117,16 @@ func (r *localObjectInhumer) DeleteObjects(ts *objectSDK.Address, addr ...*objec
 			)
 		}
 	}
+}
+
+type delNetInfo struct {
+	netmap.State
+
+	tsLifetime uint64
+}
+
+func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
+	return i.tsLifetime, nil
 }
 
 func initObjectService(c *cfg) {
@@ -275,6 +286,10 @@ func initObjectService(c *cfg) {
 		deletesvc.WithHeadService(sGet),
 		deletesvc.WithSearchService(sSearch),
 		deletesvc.WithPutService(sPut),
+		deletesvc.WithNetworkInfo(&delNetInfo{
+			State:      c.cfgNetmap.state,
+			tsLifetime: c.viper.GetUint64(cfgTombstoneLifetime),
+		}),
 	)
 
 	sDeleteV2 := deletesvcV2.NewService(
