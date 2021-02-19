@@ -96,6 +96,8 @@ type sgHeadReceiver struct {
 	tok *token.SessionToken
 
 	c *client.Client
+
+	bearerToken *token.BearerToken
 }
 
 func (c *sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
@@ -105,6 +107,7 @@ func (c *sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
 			WithRawFlag(true),
 		client.WithTTL(2),
 		client.WithSession(c.tok),
+		client.WithBearer(c.bearerToken),
 	)
 
 	var errSplitInfo *objectSDK.SplitInfoError
@@ -158,9 +161,10 @@ func putSG(cmd *cobra.Command, _ []string) error {
 	}
 
 	sg, err := storagegroup.CollectMembers(&sgHeadReceiver{
-		ctx: ctx,
-		tok: tok,
-		c:   cli,
+		ctx:         ctx,
+		tok:         tok,
+		c:           cli,
+		bearerToken: bearerToken,
 	}, cid, members)
 	if err != nil {
 		return err
