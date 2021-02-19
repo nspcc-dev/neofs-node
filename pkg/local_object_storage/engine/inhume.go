@@ -11,17 +11,20 @@ import (
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	addr, tombstone *objectSDK.Address
+	tombstone *objectSDK.Address
+	addrs     []*objectSDK.Address
 }
 
 // InhumeRes encapsulates results of inhume operation.
 type InhumeRes struct{}
 
-// WithTarget sets object address that should be inhumed and tombstone address
+// WithTarget sets list of objects that should be inhumed and tombstone address
 // as the reason for inhume operation.
-func (p *InhumePrm) WithTarget(addr, tombstone *objectSDK.Address) *InhumePrm {
+//
+// tombstone should not be nil, addr should not be empty.
+func (p *InhumePrm) WithTarget(tombstone *objectSDK.Address, addrs ...*objectSDK.Address) *InhumePrm {
 	if p != nil {
-		p.addr = addr
+		p.addrs = addrs
 		p.tombstone = tombstone
 	}
 
@@ -33,20 +36,24 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from shard until `Delete` operation.
 func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
-	shPrm := new(shard.InhumePrm).WithTarget(prm.tombstone, prm.addr)
+	shPrm := new(shard.InhumePrm)
 
-	res := e.inhume(prm.addr, shPrm, true)
-	if res == nil {
-		res = e.inhume(prm.addr, shPrm, false)
-		if res == nil {
-			return nil, errInhumeFailure
+	for i := range prm.addrs {
+		shPrm.WithTarget(prm.tombstone, prm.addrs[i])
+
+		ok := e.inhume(prm.addrs[i], shPrm, true)
+		if ok {
+			ok = e.inhume(prm.addrs[i], shPrm, false)
+			if ok {
+				return nil, errInhumeFailure
+			}
 		}
 	}
 
-	return res, nil
+	return new(InhumeRes), nil
 }
 
-func (e *StorageEngine) inhume(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (res *InhumeRes) {
+func (e *StorageEngine) inhume(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
 	e.iterateOverSortedShards(addr, func(_ int, sh *shard.Shard) (stop bool) {
 		if checkExists {
 			exRes, err := sh.Exists(new(shard.ExistsPrm).
@@ -73,7 +80,7 @@ func (e *StorageEngine) inhume(addr *objectSDK.Address, prm *shard.InhumePrm, ch
 				zap.String("error", err.Error()),
 			)
 		} else {
-			res = new(InhumeRes)
+			ok = true
 		}
 
 		return err == nil
