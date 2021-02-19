@@ -108,7 +108,7 @@ func (r *localObjectInhumer) DeleteObjects(ts *objectSDK.Address, addr ...*objec
 	prm := new(engine.InhumePrm)
 
 	for _, a := range addr {
-		prm.WithTarget(a, ts)
+		prm.WithTarget(ts, a)
 
 		if _, err := r.storage.Inhume(prm); err != nil {
 			r.log.Error("could not delete object",
