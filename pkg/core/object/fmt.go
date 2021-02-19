@@ -38,6 +38,10 @@ var errNilID = errors.New("missing identifier")
 
 var errNilCID = errors.New("missing container identifier")
 
+var errNoExpirationEpoch = errors.New("missing expiration epoch attribute")
+
+var errTombstoneExpiration = errors.New("tombstone body and header contain different expiration values")
+
 func defaultCfg() *cfg {
 	return new(cfg)
 }
@@ -132,6 +136,17 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 			return errors.Wrapf(err, "(%T) could not unmarshal tombstone content", v)
 		}
 
+		// check if tombstone has the same expiration in body and header
+		exp, err := expirationEpochAttribute(o)
+		if err != nil {
+			return err
+		}
+
+		if exp != tombstone.ExpirationEpoch() {
+			return errTombstoneExpiration
+		}
+
+		// mark all objects from tombstone body as removed in storage engine
 		cid := o.ContainerID()
 		idList := tombstone.Members()
 		addrList := make([]*object.Address, 0, len(idList))
@@ -177,24 +192,32 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 var errExpired = errors.New("object has expired")
 
 func (v *FormatValidator) checkExpiration(obj *Object) error {
+	exp, err := expirationEpochAttribute(obj)
+	if err != nil {
+		if errors.Is(err, errNoExpirationEpoch) {
+			return nil // objects without expiration attribute are valid
+		}
+
+		return err
+	}
+
+	if exp < v.netState.CurrentEpoch() {
+		return errExpired
+	}
+
+	return nil
+}
+
+func expirationEpochAttribute(obj *Object) (uint64, error) {
 	for _, a := range obj.Attributes() {
 		if a.Key() != objectV2.SysAttributeExpEpoch {
 			continue
 		}
 
-		exp, err := strconv.ParseUint(a.Value(), 10, 64)
-		if err != nil {
-			return err
-		}
-
-		if exp < v.netState.CurrentEpoch() {
-			return errExpired
-		}
-
-		break
+		return strconv.ParseUint(a.Value(), 10, 64)
 	}
 
-	return nil
+	return 0, errNoExpirationEpoch
 }
 
 // WithNetState returns options to set network state interface.
