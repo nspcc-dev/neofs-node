@@ -202,6 +202,14 @@ func initObjectService(c *cfg) {
 			c.viper.GetDuration(cfgPolicerHeadTimeout),
 		),
 		policer.WithReplicator(repl),
+		policer.WithRedundantCopyCallback(func(addr *objectSDK.Address) {
+			_, err := ls.Inhume(new(engine.InhumePrm).MarkAsGarbage(addr))
+			if err != nil {
+				c.log.Warn("could not inhume mark redundant copy as garbage",
+					zap.String("error", err.Error()),
+				)
+			}
+		}),
 	)
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
