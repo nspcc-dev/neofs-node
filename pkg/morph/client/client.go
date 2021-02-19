@@ -166,3 +166,9 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 
 	return result, nil
 }
+
+// MagicNumber returns the magic number of the network
+// to which the underlying RPC node client is connected.
+func (c *Client) MagicNumber() uint64 {
+	return uint64(c.client.GetNetwork())
+}
