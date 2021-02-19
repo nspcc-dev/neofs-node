@@ -131,9 +131,7 @@ func (db *DB) Movable(prm *MovablePrm) (*MovableRes, error) {
 	addrs := make([]*objectSDK.Address, 0, len(strAddrs))
 
 	for i := range strAddrs {
-		addr := objectSDK.NewAddress()
-
-		err = addr.Parse(strAddrs[i])
+		addr, err := addressFromKey([]byte(strAddrs[i]))
 		if err != nil {
 			return nil, fmt.Errorf("can't parse object address %v: %w",
 				strAddrs[i], err)

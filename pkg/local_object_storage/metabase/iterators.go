@@ -131,9 +131,7 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, 
 
 	err := bktGraveyard.ForEach(func(k, v []byte) error {
 		if _, ok := tss[string(v)]; ok {
-			addr := object.NewAddress()
-
-			err := addr.Parse(string(k))
+			addr, err := addressFromKey(k)
 			if err != nil {
 				return errors.Wrap(err, "could not parse address of the object under tombstone")
 			}
