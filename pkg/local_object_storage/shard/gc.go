@@ -158,10 +158,14 @@ func (s *Shard) removeGarbage() {
 	buf := make([]*object.Address, 0, s.rmBatchSize)
 
 	// iterate over metabase graveyard and accumulate
-	// objects with GC mark
+	// objects with GC mark (no more the s.rmBatchSize objects)
 	err := s.metaBase.IterateOverGraveyard(func(g *meta.Grave) error {
 		if g.WithGCMark() {
 			buf = append(buf, g.Address())
+		}
+
+		if len(buf) == s.rmBatchSize {
+			return meta.ErrInterruptIterator
 		}
 
 		return nil
