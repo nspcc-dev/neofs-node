@@ -21,6 +21,7 @@ github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym
 github.com/CityOfZion/neo-go v0.62.1-pre.0.20191114145240-e740fbe708f8/go.mod h1:MJCkWUBhi9pn/CrYO1Q3P687y2KeahrOPS9BD9LDGb0=
 github.com/CityOfZion/neo-go v0.70.1-pre.0.20191209120015-fccb0085941e/go.mod h1:0enZl0az8xA6PVkwzEOwPWVJGqlt/GO4hA4kmQ5Xzig=
 github.com/CityOfZion/neo-go v0.70.1-pre.0.20191212173117-32ac01130d4c/go.mod h1:JtlHfeqLywZLswKIKFnAp+yzezY4Dji9qlfQKB2OD/I=
+github.com/CityOfZion/neo-go v0.71.1-pre.0.20200129171427-f773ec69fb84 h1:gcTXk9aO+PhHudJNPFJ9H4RmKjdzz40Tvv2NE1BwRZ0=
 github.com/CityOfZion/neo-go v0.71.1-pre.0.20200129171427-f773ec69fb84/go.mod h1:FLI526IrRWHmcsO+mHsCbj64pJZhwQFTLJZu+A4PGOA=
 github.com/DataDog/zstd v1.4.1 h1:3oxKN3wbHibqx897utPC2LTQU4J+IHWWJO+glkAkpFM=
 github.com/DataDog/zstd v1.4.1/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
@@ -108,6 +109,7 @@ github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymF
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
+github.com/etcd-io/bbolt v1.3.3 h1:gSJmxrs37LgTqR/oyJBWok6k6SvXEUerFTbltIhXkBM=
 github.com/etcd-io/bbolt v1.3.3/go.mod h1:ZF2nL25h33cCyBtcyWeZ2/I3HQOfTP+0PIEvHjkjCrw=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:rZfgFAXFS/z/lEd6LJmf9HVZ1LkgYiHx5pHhV5DR16M=
@@ -125,6 +127,7 @@ github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V
 github.com/go-redis/redis v6.10.2+incompatible h1:SLbqrO/Ik1nhXA5/cbEs1P5MUBo1Qq4ihlNfGnnipPw=
 github.com/go-redis/redis v6.10.2+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
+github.com/go-yaml/yaml v2.1.0+incompatible h1:RYi2hDdss1u4YE7GwixGzWwVo47T8UQwnTLB6vQiq+o=
 github.com/go-yaml/yaml v2.1.0+incompatible/go.mod h1:w2MrLa16VYP0jy6N7M5kHaCkaLENm+P+Tv+MfurjSw0=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gogo/protobuf v1.2.1 h1:/s5zKNz0uPFCZ5hddgPdo2TK2TVrUNMn0OOX8/aZMTE=
@@ -291,8 +294,8 @@ github.com/nspcc-dev/neo-go v0.73.1-pre.0.20200303142215-f5a1b928ce09/go.mod h1:
 github.com/nspcc-dev/neo-go v0.91.0/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
 github.com/nspcc-dev/neo-go v0.93.0 h1:B20D8z+/dByegXZoKpzLMkztsOtMozBGUnDjfVaI+zE=
 github.com/nspcc-dev/neo-go v0.93.0/go.mod h1:6tixfAd+d8TIm05DA874j6t898G/fyqA2fHVJxkJCXQ=
-github.com/nspcc-dev/neofs-api-go v1.23.0 h1:t4FB5uVY99UkYR0Hiyi1SHjZuqzf4qicw7tf7BBnkHk=
-github.com/nspcc-dev/neofs-api-go v1.23.0/go.mod h1:G7dqincfdjBrAbL5nxVp82emF05fSVEqe59ICsoRDI8=
+github.com/nspcc-dev/neofs-api-go v1.23.1-0.20210219132553-e2b0887be93d h1:Jq2IQ78H8dM+MyseJ+zbPc8ideoKuUsrLCc1r+o22qU=
+github.com/nspcc-dev/neofs-api-go v1.23.1-0.20210219132553-e2b0887be93d/go.mod h1:G7dqincfdjBrAbL5nxVp82emF05fSVEqe59ICsoRDI8=
 github.com/nspcc-dev/neofs-crypto v0.2.0/go.mod h1:F/96fUzPM3wR+UGsPi3faVNmFlA9KAEAUQR7dMxZmNA=
 github.com/nspcc-dev/neofs-crypto v0.2.3/go.mod h1:8w16GEJbH6791ktVqHN9YRNH3s9BEEKYxGhlFnp0cDw=
 github.com/nspcc-dev/neofs-crypto v0.3.0 h1:zlr3pgoxuzrmGCxc5W8dGVfA9Rro8diFvVnBg0L4ifM=

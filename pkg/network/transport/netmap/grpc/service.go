@@ -32,3 +32,14 @@ func (s *Server) LocalNodeInfo(
 
 	return netmap.LocalNodeInfoResponseToGRPCMessage(resp), nil
 }
+
+// NetworkInfo converts gRPC request message and passes it to internal netmap service.
+func (s *Server) NetworkInfo(ctx context.Context, req *netmapGRPC.NetworkInfoRequest) (*netmapGRPC.NetworkInfoResponse, error) {
+	resp, err := s.srv.NetworkInfo(ctx, netmap.NetworkInfoRequestFromGRPCMessage(req))
+	if err != nil {
+		// TODO: think about how we transport errors through gRPC
+		return nil, err
+	}
+
+	return netmap.NetworkInfoResponseToGRPCMessage(resp), nil
+}
