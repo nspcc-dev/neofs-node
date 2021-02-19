@@ -1,7 +1,10 @@
 package meta
 
 import (
+	"bytes"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -61,12 +64,33 @@ func Inhume(db *DB, target, tomb *objectSDK.Address) error {
 
 const inhumeGCMarkValue = "GCMARK"
 
+var errBreakBucketForEach = errors.New("bucket ForEach break")
+
 // Inhume marks objects as removed but not removes it from metabase.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		graveyard, err := tx.CreateBucketIfNotExists(graveyardBucketName)
 		if err != nil {
 			return err
+		}
+
+		var tombKey []byte
+		if prm.tomb != nil {
+			tombKey = addressKey(prm.tomb)
+
+			// it is forbidden to have a tomb-on-tomb in NeoFS,
+			// so graveyard keys must not be addresses of tombstones
+
+			// tombstones can be marked for GC in graveyard, so exclude this case
+			data := graveyard.Get(tombKey)
+			if data != nil && !bytes.Equal(data, []byte(inhumeGCMarkValue)) {
+				err := graveyard.Delete(tombKey)
+				if err != nil {
+					return errors.Wrap(err, "could not remove grave with tombstone key")
+				}
+			}
+		} else {
+			tombKey = []byte(inhumeGCMarkValue)
 		}
 
 		for i := range prm.target {
@@ -86,15 +110,37 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 				}
 			}
 
-			var val []byte
+			targetKey := addressKey(prm.target[i])
+
 			if prm.tomb != nil {
-				val = addressKey(prm.tomb)
-			} else {
-				val = []byte(inhumeGCMarkValue)
+				targetIsTomb := false
+
+				// iterate over graveyard and check if target address
+				// is the address of tombstone in graveyard.
+				err = graveyard.ForEach(func(k, v []byte) error {
+					// check if graveyard has record with key corresponding
+					// to tombstone address (at least one)
+					targetIsTomb = bytes.Equal(v, targetKey)
+
+					if targetIsTomb {
+						// break bucket iterator
+						return errBreakBucketForEach
+					}
+
+					return nil
+				})
+				if err != nil && !errors.Is(err, errBreakBucketForEach) {
+					return err
+				}
+
+				// do not add grave if target is a tombstone
+				if targetIsTomb {
+					continue
+				}
 			}
 
 			// consider checking if target is already in graveyard?
-			err = graveyard.Put(addressKey(prm.target[i]), val)
+			err = graveyard.Put(targetKey, tombKey)
 			if err != nil {
 				return err
 			}
