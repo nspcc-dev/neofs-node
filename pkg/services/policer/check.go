@@ -48,8 +48,9 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 
 func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes netmap.Nodes, shortage uint32) {
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
+	redundantLocalCopy := false
 
-	for i := 0; shortage > 0 && i < len(nodes); i++ {
+	for i := 0; i < len(nodes); i++ {
 		select {
 		case <-ctx.Done():
 			return
@@ -68,8 +69,13 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 		}
 
 		if network.IsLocalAddress(p.localAddrSrc, node) {
-			shortage--
-		} else {
+			if shortage == 0 {
+				redundantLocalCopy = true
+				break
+			} else {
+				shortage--
+			}
+		} else if shortage > 0 {
 			callCtx, cancel := context.WithTimeout(ctx, p.headTimeout)
 
 			_, err = p.remoteHeader.Head(callCtx, prm.WithNodeAddress(node))
@@ -107,5 +113,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 			WithNodes(nodes).
 			WithCopiesNumber(shortage),
 		)
+	} else if redundantLocalCopy {
+		p.cbRedundantCopy(addr)
 	}
 }
