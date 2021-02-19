@@ -128,8 +128,8 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *container.ID, fs object.SearchFil
 			continue // ignore objects with unmatched fast filters
 		}
 
-		addr := object.NewAddress()
-		if err := addr.Parse(a); err != nil {
+		addr, err := addressFromKey([]byte(a))
+		if err != nil {
 			// TODO: storage was broken, so we need to handle it
 			return nil, err
 		}
@@ -435,9 +435,7 @@ func (db *DB) selectObjectID(
 	appendOID := func(oid string) {
 		addrStr := prefix + string(oid)
 
-		addr := object.NewAddress()
-
-		err := addr.Parse(addrStr)
+		addr, err := addressFromKey([]byte(addrStr))
 		if err != nil {
 			db.log.Debug("can't decode object id address",
 				zap.String("addr", addrStr),
