@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -25,6 +26,10 @@ type Policer struct {
 // Option is an option for Policer constructor.
 type Option func(*cfg)
 
+// RedundantCopyCallback is a callback to pass
+// the redundant local copy of the object.
+type RedundantCopyCallback func(*object.Address)
+
 type cfg struct {
 	headTimeout time.Duration
 
@@ -45,6 +50,8 @@ type cfg struct {
 	localAddrSrc network.LocalAddressSource
 
 	replicator *replicator.Replicator
+
+	cbRedundantCopy RedundantCopyCallback
 }
 
 func defaultCfg() *cfg {
@@ -146,5 +153,14 @@ func WithLocalAddressSource(v network.LocalAddressSource) Option {
 func WithReplicator(v *replicator.Replicator) Option {
 	return func(c *cfg) {
 		c.replicator = v
+	}
+}
+
+// WithRedundantCopyCallback returns option to set
+// callback to pass redundant local object copies
+// detected by Policer.
+func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
+	return func(c *cfg) {
+		c.cbRedundantCopy = cb
 	}
 }
