@@ -88,7 +88,6 @@ type (
 		balance   util.Uint160 // in morph
 		container util.Uint160 // in morph
 		audit     util.Uint160 // in morph
-		gas       util.Uint160 // native contract in both chains
 
 		alphabet alphabetContracts // in morph
 	}
@@ -222,7 +221,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		log:  log,
 		cfg:  cfg,
 		key:  server.key,
-		gas:  server.contracts.gas,
 		name: morphPrefix,
 	}
 
@@ -557,7 +555,6 @@ func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeouts")),
-		client.WithGasContract(p.gas),
 	)
 }
 
@@ -570,7 +567,6 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	netmapContractStr := cfg.GetString("contracts.netmap")
 	neofsContractStr := cfg.GetString("contracts.neofs")
 	balanceContractStr := cfg.GetString("contracts.balance")
-	nativeGasContractStr := cfg.GetString("contracts.gas")
 	containerContractStr := cfg.GetString("contracts.container")
 	auditContractStr := cfg.GetString("contracts.audit")
 
@@ -587,11 +583,6 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.balance, err = util.Uint160DecodeStringLE(balanceContractStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't read balance script-hash")
-	}
-
-	result.gas, err = util.Uint160DecodeStringLE(nativeGasContractStr)
-	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read native gas script-hash")
 	}
 
 	result.container, err = util.Uint160DecodeStringLE(containerContractStr)

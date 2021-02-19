@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -35,7 +36,6 @@ func defaultConfig() *cfg {
 		ctx:         context.Background(),
 		dialTimeout: defaultDialTimeout,
 		logger:      zap.L(),
-		gas:         util.Uint160{},
 	}
 }
 
@@ -89,11 +89,16 @@ func New(key *ecdsa.PrivateKey, endpoint string, opts ...Option) (*Client, error
 		return nil, err
 	}
 
+	gas, err := cli.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		logger: cfg.logger,
 		client: cli,
 		acc:    account,
-		gas:    cfg.gas,
+		gas:    gas,
 	}, nil
 }
 
@@ -136,15 +141,5 @@ func WithLogger(logger *logger.Logger) Option {
 		if logger != nil {
 			c.logger = logger
 		}
-	}
-}
-
-// WithGasContract returns a client constructor option
-// that specifies native gas contract script hash.
-//
-// If option not provided, empty script hash is used.
-func WithGasContract(gas util.Uint160) Option {
-	return func(c *cfg) {
-		c.gas = gas
 	}
 }
