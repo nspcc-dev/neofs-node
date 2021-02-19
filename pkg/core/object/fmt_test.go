@@ -125,7 +125,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj := NewRaw()
 		obj.SetType(object.TypeTombstone)
 
-		require.Error(t, v.ValidateContent(obj.Object()))
+		require.Error(t, v.ValidateContent(obj.Object())) // no tombstone content
 
 		content := object.NewTombstone()
 		content.SetMembers([]*object.ID{nil})
@@ -135,7 +135,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj.Object()))
+		require.Error(t, v.ValidateContent(obj.Object())) // no members in tombstone
 
 		content.SetMembers([]*object.ID{testObjectID(t)})
 
@@ -144,7 +144,23 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.NoError(t, v.ValidateContent(obj.Object()))
+		require.Error(t, v.ValidateContent(obj.Object())) // no expiration epoch in tombstone
+
+		expirationAttribute := object.NewAttribute()
+		expirationAttribute.SetKey(objectV2.SysAttributeExpEpoch)
+		expirationAttribute.SetValue(strconv.Itoa(10))
+
+		obj.SetAttributes(expirationAttribute)
+
+		require.Error(t, v.ValidateContent(obj.Object())) // different expiration values
+
+		content.SetExpirationEpoch(10)
+		data, err = content.Marshal()
+		require.NoError(t, err)
+
+		obj.SetPayload(data)
+
+		require.NoError(t, v.ValidateContent(obj.Object())) // all good
 	})
 
 	t.Run("storage group content", func(t *testing.T) {
