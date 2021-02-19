@@ -123,7 +123,9 @@ func (gc *gc) listenEvents() {
 
 		v.prevGroup.Add(len(v.handlers))
 
-		for _, h := range v.handlers {
+		for i := range v.handlers {
+			h := v.handlers[i]
+
 			err := gc.workerPool.Submit(func() {
 				h(ctx, event)
 				v.prevGroup.Done()
