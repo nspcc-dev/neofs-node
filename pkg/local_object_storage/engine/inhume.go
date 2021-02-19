@@ -22,10 +22,23 @@ type InhumeRes struct{}
 // as the reason for inhume operation.
 //
 // tombstone should not be nil, addr should not be empty.
+// Should not be called along with MarkAsGarbage.
 func (p *InhumePrm) WithTarget(tombstone *objectSDK.Address, addrs ...*objectSDK.Address) *InhumePrm {
 	if p != nil {
 		p.addrs = addrs
 		p.tombstone = tombstone
+	}
+
+	return p
+}
+
+// MarkAsGarbage marks object to be physically removed from local storage.
+//
+// Should not be called along with WithTarget.
+func (p *InhumePrm) MarkAsGarbage(addrs ...*objectSDK.Address) *InhumePrm {
+	if p != nil {
+		p.addrs = addrs
+		p.tombstone = nil
 	}
 
 	return p
@@ -39,7 +52,11 @@ func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 	shPrm := new(shard.InhumePrm)
 
 	for i := range prm.addrs {
-		shPrm.WithTarget(prm.tombstone, prm.addrs[i])
+		if prm.tombstone != nil {
+			shPrm.WithTarget(prm.tombstone, prm.addrs[i])
+		} else {
+			shPrm.MarkAsGarbage(prm.addrs[i])
+		}
 
 		ok := e.inhume(prm.addrs[i], shPrm, true)
 		if ok {
