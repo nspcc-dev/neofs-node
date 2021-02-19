@@ -58,14 +58,14 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 				return nil
 			}
 
-			return bktExpired.ForEach(func(idKey, _ []byte) error {
-				expiresAt, err := strconv.ParseUint(string(expKey), 10, 64)
-				if err != nil {
-					return errors.Wrap(err, "could not parse expiration epoch")
-				} else if expiresAt >= epoch {
-					return nil
-				}
+			expiresAt, err := strconv.ParseUint(string(expKey), 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "could not parse expiration epoch")
+			} else if expiresAt >= epoch {
+				return nil
+			}
 
+			return bktExpired.ForEach(func(idKey, _ []byte) error {
 				id := object.NewID()
 
 				err = id.Parse(string(idKey))
