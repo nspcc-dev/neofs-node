@@ -10,6 +10,8 @@ import (
 type executorSvc struct {
 	version *pkg.Version
 	state   NodeState
+
+	netInfo NetworkInfo
 }
 
 // NodeState encapsulates information
@@ -20,8 +22,16 @@ type NodeState interface {
 	LocalNodeInfo() (*netmap.NodeInfo, error)
 }
 
-func NewExecutionService(s NodeState, v *pkg.Version) netmap.Service {
-	if s == nil || v == nil {
+// NetworkInfo encapsulates source of the
+// recent information about the NeoFS network.
+type NetworkInfo interface {
+	// Must return recent network information.
+	// in NeoFS API v2 NetworkInfo structure.
+	Dump() (*netmap.NetworkInfo, error)
+}
+
+func NewExecutionService(s NodeState, v *pkg.Version, netInfo NetworkInfo) netmap.Service {
+	if s == nil || v == nil || netInfo == nil {
 		// this should never happen, otherwise it programmers bug
 		panic("can't create netmap execution service")
 	}
@@ -29,6 +39,7 @@ func NewExecutionService(s NodeState, v *pkg.Version) netmap.Service {
 	return &executorSvc{
 		version: v,
 		state:   s,
+		netInfo: netInfo,
 	}
 }
 
@@ -45,6 +56,23 @@ func (s *executorSvc) LocalNodeInfo(
 	body.SetNodeInfo(ni)
 
 	resp := new(netmap.LocalNodeInfoResponse)
+	resp.SetBody(body)
+
+	return resp, nil
+}
+
+func (s *executorSvc) NetworkInfo(
+	_ context.Context,
+	_ *netmap.NetworkInfoRequest) (*netmap.NetworkInfoResponse, error) {
+	ni, err := s.netInfo.Dump()
+	if err != nil {
+		return nil, err
+	}
+
+	body := new(netmap.NetworkInfoResponseBody)
+	body.SetNetworkInfo(ni)
+
+	resp := new(netmap.NetworkInfoResponse)
 	resp.SetBody(body)
 
 	return resp, nil
