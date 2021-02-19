@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -36,6 +37,7 @@ func init() {
 		getEpochCmd,
 		localNodeInfoCmd,
 		snapshotCmd,
+		netInfoCmd,
 	)
 
 	localNodeInfoCmd.Flags().BoolVar(&nodeInfoJSON, "json", false, "print node info in JSON format")
@@ -122,6 +124,30 @@ var snapshotCmd = &cobra.Command{
 		}
 
 		prettyPrintNetmap(resp.GetBody().GetNetmap(), netmapSnapshotJSON)
+
+		return nil
+	},
+}
+
+var netInfoCmd = &cobra.Command{
+	Use:   "netinfo",
+	Short: "Get information about NeoFS network",
+	Long:  "Get information about NeoFS network",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cli, err := getSDKClient()
+		if err != nil {
+			return err
+		}
+
+		netInfo, err := cli.NetworkInfo(context.Background(), globalCallOptions()...)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
+
+		cmd.Printf("Epoch: %d\n", netInfo.CurrentEpoch())
+
+		magic := netInfo.MagicNumber()
+		cmd.Printf("Network magic: [%s] %d\n", netmode.Magic(magic), magic)
 
 		return nil
 	},
