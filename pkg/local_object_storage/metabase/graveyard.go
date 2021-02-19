@@ -30,7 +30,8 @@ type GraveHandler func(*Grave) error
 
 // IterateOverGraveyard iterates over all graves in DB.
 //
-// Returns errors of h directly.
+// If h returns ErrInterruptIterator, nil returns immediately.
+// Returns other errors of h directly.
 func (db *DB) IterateOverGraveyard(h GraveHandler) error {
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateOverGraveyard(tx, h)
@@ -45,7 +46,7 @@ func (db *DB) iterateOverGraveyard(tx *bbolt.Tx, h GraveHandler) error {
 	}
 
 	// iterate over all graves
-	return bktGraveyard.ForEach(func(k, v []byte) error {
+	err := bktGraveyard.ForEach(func(k, v []byte) error {
 		// parse Grave
 		g, err := graveFromKV(k, v)
 		if err != nil {
@@ -55,6 +56,12 @@ func (db *DB) iterateOverGraveyard(tx *bbolt.Tx, h GraveHandler) error {
 		// handler Grave
 		return h(g)
 	})
+
+	if errors.Is(err, ErrInterruptIterator) {
+		err = nil
+	}
+
+	return err
 }
 
 func graveFromKV(k, v []byte) (*Grave, error) {
