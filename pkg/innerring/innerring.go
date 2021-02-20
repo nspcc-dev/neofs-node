@@ -88,6 +88,7 @@ type (
 		balance   util.Uint160 // in morph
 		container util.Uint160 // in morph
 		audit     util.Uint160 // in morph
+		proxy     util.Uint160 // in morph
 
 		alphabet alphabetContracts // in morph
 	}
@@ -232,6 +233,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create morph client
 	server.morphClient, err = createClient(ctx, morphChain)
+	if err != nil {
+		return nil, err
+	}
+
+	err = server.morphClient.EnableNotarySupport(
+		server.contracts.proxy,
+		server.contracts.netmap,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +578,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	balanceContractStr := cfg.GetString("contracts.balance")
 	containerContractStr := cfg.GetString("contracts.container")
 	auditContractStr := cfg.GetString("contracts.audit")
+	proxyContractStr := cfg.GetString("contracts.proxy")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
@@ -593,6 +603,11 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.audit, err = util.Uint160DecodeStringLE(auditContractStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't read audit script-hash")
+	}
+
+	result.proxy, err = util.Uint160DecodeStringLE(proxyContractStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir: can't read proxy script-hash")
 	}
 
 	result.alphabet, err = parseAlphabetContracts(cfg)

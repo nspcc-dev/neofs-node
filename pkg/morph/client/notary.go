@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
@@ -86,6 +87,41 @@ func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryO
 		roundTime:      cfg.roundTime,
 		fallbackTime:   cfg.fallbackTime,
 	}
+
+	return nil
+}
+
+// DepositNotary calls notary deposit method. Deposit is required to operate
+// with notary contract. It used by notary contract in to produce fallback tx
+// if main tx failed to create. Deposit isn't last forever, so it should
+// be called periodically. Notary support should be enabled in client to
+// use this function.
+func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
+	if c.notary == nil {
+		return errNotaryNotEnabled
+	}
+
+	bc, err := c.client.GetBlockCount()
+	if err != nil {
+		return errors.Wrap(err, "can't get blockchain height")
+	}
+
+	txHash, err := c.client.TransferNEP17(
+		c.acc,
+		c.notary.notary,
+		c.gas,
+		int64(amount),
+		0,
+		[]interface{}{c.acc.PrivateKey().GetScriptHash(), int64(bc + delta)},
+	)
+	if err != nil {
+		return errors.Wrap(err, "can't make notary deposit")
+	}
+
+	c.logger.Debug("notary deposit invoke",
+		zap.Int64("amount", int64(amount)),
+		zap.Uint32("expire_at", bc+delta),
+		zap.Stringer("tx_hash", txHash))
 
 	return nil
 }
