@@ -28,6 +28,8 @@ type Client struct {
 	acc *wallet.Account // neo account
 
 	gas util.Uint160 // native gas script-hash
+
+	notary *notary
 }
 
 // ErrNilClient is returned by functions that expect
