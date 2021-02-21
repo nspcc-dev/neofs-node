@@ -2,6 +2,7 @@ package innerring
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"go.uber.org/zap"
@@ -37,7 +38,7 @@ func (s *Server) InnerRingSize() int {
 
 func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
 	index := s.Index()
-	if index < 0 || index >= alphabetContractsN {
+	if s.contracts.alphabet.indexOutOfRange(index) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
 
 		return nil
@@ -51,14 +52,14 @@ func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
 
 	epoch := s.EpochCounter()
 
-	for i := range s.contracts.alphabet {
-		err := invoke.AlphabetVote(s.morphClient, s.contracts.alphabet[i], epoch, validators)
+	s.contracts.alphabet.iterate(func(letter glagoliticLetter, contract util.Uint160) {
+		err := invoke.AlphabetVote(s.morphClient, contract, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
-				zap.Int("alphabet_index", i),
+				zap.Int8("alphabet_index", int8(letter)),
 				zap.Uint64("epoch", epoch))
 		}
-	}
+	})
 
 	return nil
 }

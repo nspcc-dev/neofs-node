@@ -15,14 +15,17 @@ func (np *Processor) processEmit() {
 		np.log.Info("passive mode, ignore gas emission event")
 
 		return
-	} else if index >= len(np.alphabetContracts) {
+	}
+
+	contract, ok := np.alphabetContracts.GetByIndex(index)
+	if !ok {
 		np.log.Debug("node is out of alphabet range, ignore gas emission event",
 			zap.Int("index", index))
 
 		return
 	}
 
-	err := invoke.AlphabetEmit(np.morphClient, np.alphabetContracts[index])
+	err := invoke.AlphabetEmit(np.morphClient, contract)
 	if err != nil {
 		np.log.Warn("can't invoke alphabet emit method")
 

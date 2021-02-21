@@ -90,7 +90,7 @@ type (
 		audit     util.Uint160 // in morph
 		gas       util.Uint160 // native contract in both chains
 
-		alphabet [alphabetContractsN]util.Uint160 // in morph
+		alphabet alphabetContracts // in morph
 	}
 
 	chainParams struct {
@@ -105,8 +105,6 @@ type (
 const (
 	morphPrefix   = "morph"
 	mainnetPrefix = "mainnet"
-
-	alphabetContractsN = 7 // az, buky, vedi, glagoli, dobro, jest, zhivete
 )
 
 // Start runs all event providers.
@@ -629,20 +627,26 @@ func ParsePublicKeysFromStrings(pubKeys []string) ([]keys.PublicKey, error) {
 	return publicKeys, nil
 }
 
-func parseAlphabetContracts(cfg *viper.Viper) (res [7]util.Uint160, err error) {
-	// list of glagolic script letters that represent alphabet contracts
-	glagolic := []string{"az", "buky", "vedi", "glagoli", "dobro", "jest", "zhivete"}
+func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
+	num := glagoliticLetter(cfg.GetUint("contracts.alphabet.amount"))
+	alpha := newAlphabetContracts()
 
-	for i, letter := range glagolic {
-		contractStr := cfg.GetString("contracts.alphabet." + letter)
-
-		res[i], err = util.Uint160DecodeStringLE(contractStr)
-		if err != nil {
-			return res, errors.Wrapf(err, "ir: can't read alphabet %s contract", letter)
-		}
+	if num > lastLetterNum {
+		return nil, errors.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
 	}
 
-	return res, nil
+	for letter := az; letter < num; letter++ {
+		contractStr := cfg.GetString("contracts.alphabet." + letter.configString())
+
+		contractHash, err := util.Uint160DecodeStringLE(contractStr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid alphabet %s contract: %s", letter.configString(), contractStr)
+		}
+
+		alpha.set(letter, contractHash)
+	}
+
+	return alpha, nil
 }
 
 func (s *Server) initConfigFromBlockchain() error {
