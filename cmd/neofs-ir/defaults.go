@@ -64,6 +64,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.container", "")
 	cfg.SetDefault("contracts.audit", "")
 	// alphabet contracts
+	cfg.SetDefault("contracts.alphabet.amount", 7)
 	cfg.SetDefault("contracts.alphabet.az", "")
 	cfg.SetDefault("contracts.alphabet.buky", "")
 	cfg.SetDefault("contracts.alphabet.vedi", "")
