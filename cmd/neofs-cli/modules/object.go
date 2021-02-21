@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/spf13/cobra"
 )
 
@@ -108,6 +109,10 @@ const (
 	rawFlagDesc = "Set raw request option"
 )
 
+const putExpiresOnFlag = "expires-on"
+
+var putExpiredOn uint64
+
 func init() {
 	rootCmd.AddCommand(objectCmd)
 	objectCmd.PersistentFlags().String("bearer", "", "File with signed JSON or binary encoded bearer token")
@@ -121,6 +126,8 @@ func init() {
 	objectPutCmd.Flags().String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
 	objectPutCmd.Flags().Bool("disable-filename", false, "Do not set well-known filename attribute")
 	objectPutCmd.Flags().Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
+	objectPutCmd.Flags().Uint64VarP(&putExpiredOn, putExpiresOnFlag, "e", 0,
+		"Last epoch in the life of the object")
 
 	objectCmd.AddCommand(objectDelCmd)
 	objectDelCmd.Flags().String("cid", "", "Container ID")
@@ -217,6 +224,26 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	attrs, err := parseObjectAttrs(cmd)
 	if err != nil {
 		return fmt.Errorf("can't parse object attributes: %w", err)
+	}
+
+	expiresOn, _ := cmd.Flags().GetUint64(putExpiresOnFlag)
+	if expiresOn > 0 {
+		var expAttr *object.Attribute
+
+		for _, a := range attrs {
+			if a.Key() == objectV2.SysAttributeExpEpoch {
+				expAttr = a
+				break
+			}
+		}
+
+		if expAttr == nil {
+			expAttr = object.NewAttribute()
+			expAttr.SetKey(objectV2.SysAttributeExpEpoch)
+			attrs = append(attrs, expAttr)
+		}
+
+		expAttr.SetValue(strconv.FormatUint(expiresOn, 10))
 	}
 
 	obj := object.NewRaw()
