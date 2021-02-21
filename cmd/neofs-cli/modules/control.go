@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -47,6 +48,7 @@ func init() {
 	controlCmd.AddCommand(
 		healthCheckCmd,
 		setNetmapStatusCmd,
+		dropObjectsCmd,
 	)
 
 	setNetmapStatusCmd.Flags().StringVarP(&netmapStatus, netmapStatusFlag, "", "",
@@ -57,6 +59,11 @@ func init() {
 	)
 
 	_ = setNetmapStatusCmd.MarkFlagRequired(netmapStatusFlag)
+
+	dropObjectsCmd.Flags().StringSliceVarP(&dropObjectsList, dropObjectsFlag, "o", nil,
+		"List of object addresses to be removed in string format")
+
+	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
 }
 
 func getControlServiceClient() (control.ControlServiceClient, error) {
@@ -167,4 +174,71 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 	cmd.Println("Network status update request successfully sent.")
 
 	return nil
+}
+
+const dropObjectsFlag = "objects"
+
+var dropObjectsList []string
+
+var dropObjectsCmd = &cobra.Command{
+	Use:   "drop-objects",
+	Short: "Drop objects from the node's local storage",
+	Long:  "Drop objects from the node's local storage",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		binAddrList := make([][]byte, 0, len(dropObjectsList))
+
+		for i := range dropObjectsList {
+			a := object.NewAddress()
+
+			err := a.Parse(dropObjectsList[i])
+			if err != nil {
+				return errors.Wrapf(err, "could not parse address #%d", i)
+			}
+
+			binAddr, err := a.Marshal()
+			if err != nil {
+				return errors.Wrap(err, "could not marshal the address")
+			}
+
+			binAddrList = append(binAddrList, binAddr)
+		}
+
+		req := new(control.DropObjectsRequest)
+
+		body := new(control.DropObjectsRequest_Body)
+		req.SetBody(body)
+
+		body.SetAddressList(binAddrList)
+
+		if err := controlSvc.SignMessage(key, req); err != nil {
+			return err
+		}
+
+		cli, err := getControlServiceClient()
+		if err != nil {
+			return err
+		}
+
+		resp, err := cli.DropObjects(context.Background(), req)
+		if err != nil {
+			return err
+		}
+
+		sign := resp.GetSignature()
+
+		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		}); err != nil {
+			return err
+		}
+
+		cmd.Println("Objects were successfully marked to be removed.")
+
+		return nil
+	},
 }
