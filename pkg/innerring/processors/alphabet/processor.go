@@ -12,7 +12,7 @@ import (
 type (
 	// Indexer is a callback interface for inner ring global state.
 	Indexer interface {
-		Index() int32
+		Index() int
 	}
 
 	// Processor of events produced for alphabet contracts in sidechain.
