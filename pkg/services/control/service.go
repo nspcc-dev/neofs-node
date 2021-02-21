@@ -453,3 +453,144 @@ func (x *SetNetmapStatusResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *SetNetmapStatusResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
+
+// SetAddressList sets list of objects to be removed in NeoFS API binary format.
+func (x *DropObjectsRequest_Body) SetAddressList(v [][]byte) {
+	if x != nil {
+		x.AddressList = v
+	}
+}
+
+const (
+	_ = iota
+	addrListReqBodyStatusFNum
+)
+
+// StableMarshal reads binary representation of "Drop objects" request body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *DropObjectsRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	_, err := proto.RepeatedBytesMarshal(addrListReqBodyStatusFNum, buf, x.AddressList)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of "Drop objects" response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *DropObjectsRequest_Body) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.RepeatedBytesSize(addrListReqBodyStatusFNum, x.AddressList)
+
+	return size
+}
+
+// SetBody sets body of the set "Drop objects" request.
+func (x *DropObjectsRequest) SetBody(v *DropObjectsRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the "Drop objects" request body.
+func (x *DropObjectsRequest) SetSignature(body *Signature) {
+	if x != nil {
+		x.Signature = body
+	}
+}
+
+// ReadSignedData reads signed data of "Drop objects" request to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *DropObjectsRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data of "Drop objects" request.
+//
+// Structures with the same field values have the same signed data size.
+func (x *DropObjectsRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// StableMarshal reads binary representation of "Drop objects" response body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *DropObjectsResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+// StableSize returns binary size of "Drop objects" response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *DropObjectsResponse_Body) StableSize() int {
+	return 0
+}
+
+// SetBody sets set body of the "Drop objects" response.
+func (x *DropObjectsResponse) SetBody(v *DropObjectsResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the "Drop objects" response body.
+func (x *DropObjectsResponse) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data of "Drop objects" response to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *DropObjectsResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data of "Drop objects" response.
+//
+// Structures with the same field values have the same signed data size.
+func (x *DropObjectsResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
