@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"net"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/pkg/errors"
@@ -44,6 +46,13 @@ func initControlService(c *cfg) {
 		controlSvc.WithHealthChecker(c),
 		controlSvc.WithNetMapSource(c.cfgNetmap.wrapper),
 		controlSvc.WithNodeState(c),
+		controlSvc.WithDeletedObjectHandler(func(addrList []*object.Address) error {
+			prm := new(engine.DeletePrm).WithAddresses(addrList...)
+
+			_, err := c.cfgObject.cfgLocalStorage.localStorage.Delete(prm)
+
+			return err
+		}),
 	)
 
 	var (

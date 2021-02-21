@@ -47,6 +47,8 @@ type cfg struct {
 	netMapSrc netmap.Source
 
 	nodeState NodeState
+
+	delObjHandler DeletedObjectHandler
 }
 
 func defaultCfg() *cfg {
@@ -101,5 +103,13 @@ func WithNetMapSource(netMapSrc netmap.Source) Option {
 func WithNodeState(state NodeState) Option {
 	return func(c *cfg) {
 		c.nodeState = state
+	}
+}
+
+// WithDeletedObjectHandler returns option to function
+// which is called on the objects being deleted.
+func WithDeletedObjectHandler(h DeletedObjectHandler) Option {
+	return func(c *cfg) {
+		c.delObjHandler = h
 	}
 }
