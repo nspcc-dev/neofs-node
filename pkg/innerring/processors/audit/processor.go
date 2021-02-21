@@ -20,8 +20,8 @@ import (
 type (
 	// Indexer is a callback interface for inner ring global state.
 	Indexer interface {
-		Index() int32
-		InnerRingSize() int32
+		Index() int
+		InnerRingSize() int
 	}
 
 	// NeoFSClientCache is an interface for cache of neofs RPC clients

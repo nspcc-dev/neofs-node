@@ -15,9 +15,9 @@ func (np *Processor) processEmit() {
 		np.log.Info("passive mode, ignore gas emission event")
 
 		return
-	} else if int(index) >= len(np.alphabetContracts) {
+	} else if index >= len(np.alphabetContracts) {
 		np.log.Debug("node is out of alphabet range, ignore gas emission event",
-			zap.Int32("index", index))
+			zap.Int("index", index))
 
 		return
 	}

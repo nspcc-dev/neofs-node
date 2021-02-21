@@ -25,14 +25,14 @@ func (s *Server) IsActive() bool {
 
 // Index is a getter for a global index of node in inner ring list. Negative
 // index means that node is not in the inner ring list.
-func (s *Server) Index() int32 {
-	return s.innerRingIndex.Load()
+func (s *Server) Index() int {
+	return int(s.innerRingIndex.Load())
 }
 
 // InnerRingSize is a getter for a global size of inner ring list. This value
 // paired with inner ring index.
-func (s *Server) InnerRingSize() int32 {
-	return s.innerRingSize.Load()
+func (s *Server) InnerRingSize() int {
+	return int(s.innerRingSize.Load())
 }
 
 func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
