@@ -1,5 +1,7 @@
 package innerring
 
+import "github.com/nspcc-dev/neo-go/pkg/util"
+
 type glagoliticLetter int8
 
 const (
@@ -138,4 +140,34 @@ func (l glagoliticLetter) configString() string {
 	case izhitsa:
 		return "izhitsa"
 	}
+}
+
+type alphabetContracts map[glagoliticLetter]util.Uint160
+
+func newAlphabetContracts() alphabetContracts {
+	return make(map[glagoliticLetter]util.Uint160, lastLetterNum)
+}
+
+func (a alphabetContracts) GetByIndex(ind int) (util.Uint160, bool) {
+	if ind < 0 || ind >= int(lastLetterNum) {
+		return util.Uint160{}, false
+	}
+
+	contract, ok := a[glagoliticLetter(ind)]
+
+	return contract, ok
+}
+
+func (a alphabetContracts) indexOutOfRange(ind int) bool {
+	return ind < 0 && ind >= len(a)
+}
+
+func (a alphabetContracts) iterate(f func(glagoliticLetter, util.Uint160)) {
+	for letter, contract := range a {
+		f(letter, contract)
+	}
+}
+
+func (a *alphabetContracts) set(l glagoliticLetter, h util.Uint160) {
+	(*a)[l] = h
 }
