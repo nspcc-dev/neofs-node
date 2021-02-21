@@ -240,19 +240,27 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	mainnetChain := morphChain
-	mainnetChain.name = mainnetPrefix
+	if cfg.GetBool("without_mainnet") {
+		// This works as long as event Listener starts listening loop once,
+		// otherwise Server.Start will run two similar routines.
+		// This behavior most likely will not change.
+		server.mainnetListener = server.morphListener
+		server.mainnetClient = server.morphClient
+	} else {
+		mainnetChain := morphChain
+		mainnetChain.name = mainnetPrefix
 
-	// create mainnet listener
-	server.mainnetListener, err = createListener(ctx, mainnetChain)
-	if err != nil {
-		return nil, err
-	}
+		// create mainnet listener
+		server.mainnetListener, err = createListener(ctx, mainnetChain)
+		if err != nil {
+			return nil, err
+		}
 
-	// create mainnet client
-	server.mainnetClient, err = createClient(ctx, mainnetChain)
-	if err != nil {
-		return nil, err
+		// create mainnet client
+		server.mainnetClient, err = createClient(ctx, mainnetChain)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	server.pubKey = crypto.MarshalPublicKey(&server.key.PublicKey)
