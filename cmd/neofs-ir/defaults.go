@@ -47,6 +47,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("metrics.address", ":9090")
 	cfg.SetDefault("metrics.shutdown_ttl", "30s")
 
+	cfg.SetDefault("without_mainnet", false)
+
 	cfg.SetDefault("morph.endpoint.client", "")
 	cfg.SetDefault("morph.endpoint.notification", "")
 	cfg.SetDefault("morph.dial_timeout", "10s")
