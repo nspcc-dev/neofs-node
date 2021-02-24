@@ -6,14 +6,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-var errMissingLocode = errors.New("missing locode attribute")
-
 var errMissingRequiredAttr = errors.New("missing required attribute in DB record")
 
 // VerifyAndUpdate validates UN-LOCODE attribute of n
 // and adds a group of related attributes.
 //
-// If n does not contain UN-LOCODE attribute or its value does not
+// If n does not contain UN-LOCODE attribute, nil is returned
+// without any actions. Otherwise, if UN-LOCODE value does not
 // match the UN/LOCODE format, an error returns.
 //
 // New attributes are formed from the record of DB instance (Prm).
@@ -32,7 +31,7 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 
 	attrLocode, ok := mAttr[netmap.AttrUNLOCODE]
 	if !ok {
-		return errMissingLocode
+		return nil
 	}
 
 	lc, err := locode.FromString(attrLocode.Value())
