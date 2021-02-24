@@ -65,13 +65,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.audit", "")
 	// alphabet contracts
 	cfg.SetDefault("contracts.alphabet.amount", 7)
-	cfg.SetDefault("contracts.alphabet.az", "")
-	cfg.SetDefault("contracts.alphabet.buky", "")
-	cfg.SetDefault("contracts.alphabet.vedi", "")
-	cfg.SetDefault("contracts.alphabet.glagoli", "")
-	cfg.SetDefault("contracts.alphabet.dobro", "")
-	cfg.SetDefault("contracts.alphabet.jest", "")
-	cfg.SetDefault("contracts.alphabet.zhivete", "")
 	// gas native contract in LE
 	cfg.SetDefault("contracts.gas", "70e2301955bf1e74cbb31d18c2f96972abadb328")
 
