@@ -42,6 +42,14 @@ type (
 
 		emitDuration uint32 // in blocks
 	}
+
+	notaryDepositArgs struct {
+		l *zap.Logger
+
+		depositor func() error
+
+		notaryDuration uint32 // in blocks
+	}
 )
 
 func (s *Server) addBlockTimer(t *timers.BlockTimer) {
@@ -127,6 +135,19 @@ func newEmissionTimer(args *emitTimerArgs) *timers.BlockTimer {
 		timers.StaticBlockMeter(args.emitDuration),
 		func() {
 			args.ap.HandleGasEmission(timers.NewAlphabetEmitTick{})
+		},
+	)
+}
+
+func newNotaryDepositTimer(args *notaryDepositArgs) *timers.BlockTimer {
+	return timers.NewBlockTimer(
+		timers.StaticBlockMeter(args.notaryDuration),
+		func() {
+			err := args.depositor()
+			if err != nil {
+				args.l.Warn("can't deposit notary contract",
+					zap.String("error", err.Error()))
+			}
 		},
 	)
 }
