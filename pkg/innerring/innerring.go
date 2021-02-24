@@ -56,6 +56,9 @@ type (
 		precision      precision.Fixed8Converter
 		auditClient    *auditWrapper.ClientWrapper
 
+		notaryDepositAmount fixedn.Fixed8
+		notaryDuration      uint32
+
 		// internal variables
 		key                  *ecdsa.PrivateKey
 		pubKey               []byte
@@ -105,6 +108,10 @@ type (
 const (
 	morphPrefix   = "morph"
 	mainnetPrefix = "mainnet"
+
+	// extra blocks to overlap two deposits, we do that to make sure that
+	// there won't be any blocks without deposited assets in notary contract.
+	notaryExtraBlocks = 100
 )
 
 // Start runs all event providers.
@@ -116,6 +123,12 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	}
 
 	err := s.initConfigFromBlockchain()
+	if err != nil {
+		return err
+	}
+
+	// make an initial deposit to notary contract to enable it
+	err = s.depositNotary()
 	if err != nil {
 		return err
 	}
@@ -533,6 +546,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	server.addBlockTimer(emissionTimer)
 
+	// initialize notary deposit timer
+	server.notaryDepositAmount = fixedn.Fixed8(cfg.GetInt64("notary.deposit_amount"))
+	server.notaryDuration = cfg.GetUint32("timers.notary")
+
+	notaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
+		l:              log,
+		depositor:      server.depositNotary,
+		notaryDuration: server.notaryDuration,
+	})
+
+	server.addBlockTimer(notaryTimer)
+
 	return server, nil
 }
 
@@ -706,4 +731,11 @@ func (s *Server) onlyActiveEventHandler(f event.Handler) event.Handler {
 			f(ev)
 		}
 	}
+}
+
+func (s *Server) depositNotary() error {
+	return s.morphClient.DepositNotary(
+		s.notaryDepositAmount,
+		s.notaryDuration+notaryExtraBlocks,
+	)
 }
