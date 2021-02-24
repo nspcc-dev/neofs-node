@@ -70,6 +70,9 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 
 		if network.IsLocalAddress(p.localAddrSrc, node) {
 			if shortage == 0 {
+				// we can call the redundant copy callback
+				// here to slightly improve the performance
+				// instead of readability.
 				redundantLocalCopy = true
 				break
 			} else {
