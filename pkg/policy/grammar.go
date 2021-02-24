@@ -52,7 +52,7 @@ type andChain struct {
 }
 
 type simpleExpr struct {
-	Key string `@Ident`
+	Key string `@(Ident | String)`
 	// We don't use literals here to improve error messages.
 	Op    string `@Ident`
 	Value string `@(Ident | String | Int)`

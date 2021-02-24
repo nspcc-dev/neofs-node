@@ -36,10 +36,13 @@ AndChain ::=
 
 Expr ::=
       '@' Ident		   (* filter reference *)
-    | Ident, Op, Value (* attribute filter *)
+    | Key, Op, Value (* attribute filter *)
 ;
 
 Op ::= 'EQ' | 'NE' | 'GE' | 'GT' | 'LT' | 'LE'
+;
+
+Key ::= Ident | String
 ;
 
 Value ::= Ident | Number | String

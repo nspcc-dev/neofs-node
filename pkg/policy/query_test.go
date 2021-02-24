@@ -235,6 +235,27 @@ func TestValidation(t *testing.T) {
 
 }
 
+func TestFilterStringSymbols(t *testing.T) {
+	q := `REP 1 IN S
+SELECT 1 FROM F AS S
+FILTER "UN-LOCODE" EQ "RU LED" AS F`
+
+	expected := new(netmap.PlacementPolicy)
+	expected.SetReplicas([]*netmap.Replica{
+		newReplica("S", 1),
+	})
+	expected.SetSelectors([]*netmap.Selector{
+		newSelector(1, netmap.UnspecifiedClause, "", "F", "S"),
+	})
+	expected.SetFilters([]*netmap.Filter{
+		newFilter("F", "UN-LOCODE", "RU LED", netmap.EQ),
+	})
+
+	r, err := Parse(q)
+	require.NoError(t, err)
+	require.EqualValues(t, expected, r)
+}
+
 func newFilter(name, key, value string, op netmap.Operation, sub ...*netmap.Filter) *netmap.Filter {
 	f := new(netmap.Filter)
 	f.SetName(name)
