@@ -17,7 +17,7 @@ const (
 	dzelo
 	zemlja
 	izhe
-	iZhei
+	izhei
 	gerv
 	kako
 	ljudi
@@ -77,7 +77,7 @@ func (l glagoliticLetter) configString() string {
 		return "zemlja"
 	case izhe:
 		return "izhe"
-	case iZhei:
+	case izhei:
 		return "izhei"
 	case gerv:
 		return "gerv"
