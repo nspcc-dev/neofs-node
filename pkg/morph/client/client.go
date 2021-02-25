@@ -1,6 +1,9 @@
 package client
 
 import (
+	"context"
+	"time"
+
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
@@ -28,6 +31,8 @@ type Client struct {
 	acc *wallet.Account // neo account
 
 	gas util.Uint160 // native gas script-hash
+
+	waitInterval time.Duration
 
 	notary *notary
 }
@@ -134,6 +139,48 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 		zap.Stringer("tx_hash", txHash))
 
 	return nil
+}
+
+// Wait function blocks routing execution until there
+// are `n` new blocks in the chain.
+func (c *Client) Wait(ctx context.Context, n uint32) {
+	var (
+		err               error
+		height, newHeight uint32
+	)
+
+	height, err = c.client.GetBlockCount()
+	if err != nil {
+		c.logger.Error("can't get blockchain height",
+			zap.String("error", err.Error()))
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		newHeight, err = c.client.GetBlockCount()
+		if err != nil {
+			c.logger.Error("can't get blockchain height",
+				zap.String("error", err.Error()))
+			return
+		}
+
+		if newHeight >= height+n {
+			return
+		}
+
+		time.Sleep(c.waitInterval)
+	}
+}
+
+// GasBalance returns GAS amount in the client's wallet.
+func (c *Client) GasBalance() (int64, error) {
+	return c.client.NEP17BalanceOf(c.gas, c.acc.PrivateKey().GetScriptHash())
 }
 
 func toStackParameter(value interface{}) (sc.Parameter, error) {
