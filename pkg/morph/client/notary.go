@@ -46,12 +46,16 @@ const (
 	defaultNotaryRoundTime    = 100
 	defaultNotaryFallbackTime = 40
 
-	innerRingListMethod = "innerRingList"
+	innerRingListMethod   = "innerRingList"
+	notaryBalanceOfMethod = "balanceOf"
+
+	notaryBalanceErrMsg = "can't fetch notary balance"
 )
 
 var (
 	errNotaryNotEnabled = errors.New("notary support was not enabled on this client")
 	errInvalidIR        = errors.New("invalid inner ring list from netmap contract")
+	errUnexpectedItems  = errors.New("invalid number of NEO VM arguments on stack")
 )
 
 func defaultNotaryConfig() *notaryCfg {
@@ -124,6 +128,32 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 		zap.Stringer("tx_hash", txHash))
 
 	return nil
+}
+
+// GetNotaryDeposit returns deposit of client's account in notary contract.
+// Notary support should be enabled in client to use this function.
+func (c *Client) GetNotaryDeposit() (int64, error) {
+	if c.notary == nil {
+		return 0, errNotaryNotEnabled
+	}
+
+	sh := c.acc.PrivateKey().PublicKey().GetScriptHash()
+
+	items, err := c.TestInvoke(c.notary.notary, notaryBalanceOfMethod, sh)
+	if err != nil {
+		return 0, errors.Wrap(err, notaryBalanceErrMsg)
+	}
+
+	if len(items) != 1 {
+		return 0, errors.Wrap(errUnexpectedItems, notaryBalanceErrMsg)
+	}
+
+	bigIntDeposit, err := items[0].TryInteger()
+	if err != nil {
+		return 0, errors.Wrap(err, notaryBalanceErrMsg)
+	}
+
+	return bigIntDeposit.Int64(), nil
 }
 
 // Invoke invokes contract method by sending tx to notary contract in
