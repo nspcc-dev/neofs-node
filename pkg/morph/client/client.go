@@ -209,6 +209,9 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 		result.Value = arr
 	case string:
 		result.Type = sc.StringType
+	case util.Uint160:
+		result.Type = sc.ByteArrayType
+		result.Value = v.BytesBE()
 	default:
 		return result, errors.Errorf("chain/client: unsupported parameter %v", value)
 	}

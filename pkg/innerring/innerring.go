@@ -112,6 +112,12 @@ const (
 	// extra blocks to overlap two deposits, we do that to make sure that
 	// there won't be any blocks without deposited assets in notary contract.
 	notaryExtraBlocks = 100
+	// amount of tries before notary deposit timeout.
+	notaryDepositTimeout = 100
+)
+
+var (
+	errDepositTimeout = errors.New("notary deposit didn't appeared in the network")
 )
 
 // Start runs all event providers.
@@ -129,6 +135,14 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 
 	// make an initial deposit to notary contract to enable it
 	err = s.depositNotary()
+	if err != nil {
+		return err
+	}
+
+	// wait a bit for notary contract deposit
+	s.log.Info("waiting to accept notary deposit")
+
+	err = s.awaitNotaryDeposit(ctx)
 	if err != nil {
 		return err
 	}
@@ -738,4 +752,28 @@ func (s *Server) depositNotary() error {
 		s.notaryDepositAmount,
 		s.notaryDuration+notaryExtraBlocks,
 	)
+}
+
+func (s *Server) awaitNotaryDeposit(ctx context.Context) error {
+	for i := 0; i < notaryDepositTimeout; i++ {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
+		deposit, err := s.morphClient.GetNotaryDeposit()
+		if err != nil {
+			return errors.Wrap(err, "can't get notary deposit")
+		}
+
+		if deposit > 0 {
+			return nil
+		}
+
+		s.log.Info("empty notary deposit, waiting one more block")
+		s.morphClient.Wait(ctx, 1)
+	}
+
+	return errDepositTimeout
 }
