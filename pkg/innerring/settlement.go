@@ -207,7 +207,7 @@ func (s settlementDeps) transfer(sender, recipient *owner.ID, amount *big.Int, d
 		return
 	}
 
-	if err := s.balanceClient.TransferX(balanceClient.TransferPrm{
+	if err := s.balanceClient.TransferXNotary(balanceClient.TransferPrm{
 		Amount:  amount.Int64(),
 		From:    sender,
 		To:      recipient,

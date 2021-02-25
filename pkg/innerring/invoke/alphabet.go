@@ -32,5 +32,5 @@ func AlphabetVote(cli *client.Client, con util.Uint160, epoch uint64, keys []key
 		binaryKeys = append(binaryKeys, keys[i].Bytes())
 	}
 
-	return cli.Invoke(con, extraFee, voteMethod, int64(epoch), binaryKeys)
+	return cli.NotaryInvoke(con, voteMethod, int64(epoch), binaryKeys)
 }

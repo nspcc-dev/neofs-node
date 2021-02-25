@@ -37,7 +37,7 @@ func Mint(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, mintMethod,
+	return cli.NotaryInvoke(con, mintMethod,
 		p.ScriptHash,
 		p.Amount,
 		p.Comment,
@@ -50,7 +50,7 @@ func Burn(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, burnMethod,
+	return cli.NotaryInvoke(con, burnMethod,
 		p.ScriptHash,
 		p.Amount,
 		p.Comment,
@@ -63,7 +63,7 @@ func LockAsset(cli *client.Client, con util.Uint160, p *LockParams) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, lockMethod,
+	return cli.NotaryInvoke(con, lockMethod,
 		p.ID,
 		p.User.BytesBE(),
 		p.LockAccount.BytesBE(),
