@@ -32,7 +32,7 @@ func RegisterContainer(cli *client.Client, con util.Uint160, p *ContainerParams)
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, 3*extraFee, putContainerMethod,
+	return cli.NotaryInvoke(con, putContainerMethod,
 		p.Container,
 		p.Signature,
 		p.Key.Bytes(),
@@ -45,7 +45,7 @@ func RemoveContainer(cli *client.Client, con util.Uint160, p *RemoveContainerPar
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, deleteContainerMethod,
+	return cli.NotaryInvoke(con, deleteContainerMethod,
 		p.ContainerID,
 		p.Signature,
 	)

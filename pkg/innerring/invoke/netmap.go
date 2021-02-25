@@ -57,7 +57,7 @@ func SetNewEpoch(cli *client.Client, con util.Uint160, epoch uint64) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, setNewEpochMethod, int64(epoch))
+	return cli.NotaryInvoke(con, setNewEpochMethod, int64(epoch))
 }
 
 // ApprovePeer invokes addPeer method.
@@ -66,7 +66,7 @@ func ApprovePeer(cli *client.Client, con util.Uint160, peer []byte) error {
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, approvePeerMethod, peer)
+	return cli.NotaryInvoke(con, approvePeerMethod, peer)
 }
 
 // UpdatePeerState invokes addPeer method.
@@ -75,7 +75,7 @@ func UpdatePeerState(cli *client.Client, con util.Uint160, args *UpdatePeerArgs)
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, updatePeerStateMethod,
+	return cli.NotaryInvoke(con, updatePeerStateMethod,
 		int64(args.Status.ToV2()),
 		args.Key.Bytes(),
 	)
@@ -87,7 +87,7 @@ func SetConfig(cli *client.Client, con util.Uint160, args *SetConfigArgs) error 
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, setConfigMethod,
+	return cli.NotaryInvoke(con, setConfigMethod,
 		args.ID,
 		args.Key,
 		args.Value,
@@ -105,7 +105,7 @@ func UpdateInnerRing(cli *client.Client, con util.Uint160, list []*keys.PublicKe
 		rawKeys = append(rawKeys, list[i].Bytes())
 	}
 
-	return cli.Invoke(con, extraFee, updateInnerRingMethod, rawKeys)
+	return cli.NotaryInvoke(con, updateInnerRingMethod, rawKeys)
 }
 
 // NetmapSnapshot returns current netmap node infos.
