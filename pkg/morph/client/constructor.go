@@ -27,15 +27,21 @@ type cfg struct {
 	logger *logger.Logger // logging component
 
 	gas util.Uint160 // native gas script-hash
+
+	waitInterval time.Duration
 }
 
-const defaultDialTimeout = 5 * time.Second
+const (
+	defaultDialTimeout  = 5 * time.Second
+	defaultWaitInterval = 500 * time.Millisecond
+)
 
 func defaultConfig() *cfg {
 	return &cfg{
-		ctx:         context.Background(),
-		dialTimeout: defaultDialTimeout,
-		logger:      zap.L(),
+		ctx:          context.Background(),
+		dialTimeout:  defaultDialTimeout,
+		logger:       zap.L(),
+		waitInterval: defaultWaitInterval,
 	}
 }
 
@@ -95,10 +101,11 @@ func New(key *ecdsa.PrivateKey, endpoint string, opts ...Option) (*Client, error
 	}
 
 	return &Client{
-		logger: cfg.logger,
-		client: cli,
-		acc:    account,
-		gas:    gas,
+		logger:       cfg.logger,
+		client:       cli,
+		acc:          account,
+		gas:          gas,
+		waitInterval: cfg.waitInterval,
 	}, nil
 }
 
