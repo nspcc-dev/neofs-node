@@ -40,10 +40,25 @@ func (t *TransferXArgs) SetDetails(v []byte) {
 	t.details = v
 }
 
-// TransferX invokes the call of "transferX" method
+// TransferX directly invokes the call of "transferX" method
 // of NeoFS Balance contract.
 func (c *Client) TransferX(args TransferXArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	return c.transferX(false, args)
+}
+
+// TransferXNotary invokes the call of "transferX" method
+// of NeoFS Balance contract via notary contract.
+func (c *Client) TransferXNotary(args TransferXArgs) error {
+	return c.transferX(true, args)
+}
+
+func (c *Client) transferX(notary bool, args TransferXArgs) error {
+	f := c.client.Invoke
+	if notary {
+		f = c.client.NotaryInvoke
+	}
+
+	return errors.Wrapf(f(
 		c.transferXMethod,
 		args.sender,
 		args.recipient,
