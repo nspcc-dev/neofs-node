@@ -1,6 +1,39 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.16.0] - 2021-02-26 - Ganghwado (강화도, 江華島)
+
+Garbage collector is now running inside storage engine. It is accessed
+via Control API, from `policer` component and through object expiration
+scrubbers. 
+
+Inner ring configuration now supports single chain mode with any number of
+alphabet contracts.
+
+Storage node now supports NetworkInfo method in netmap service.
+
+### Fixed
+- Storage engine now inhumes object only in single shard.
+- Metabase correctly removes parent data at batched children delete.
+- Metabase does not accept tombstone on tombstone records in graveyard anymore.
+- Object service now rejects expired objects.
+- CLI now correctly attaches bearer token in storage group operations.
+- Container policy parser now works with strings in filter key.
+- Policer component now removes redundant objects locally.
+
+### Added
+- GC job that monitors expired objects.
+- GC job that removes marked objects from physical storage.
+- Batch inhume operations in metabase, shard and engine.
+- `control.DropObjects` RPC method.
+- Support of `netmap.NetworkInfo` RPC method.
+- Single chain inner ring configuration.
+
+### Changed
+- `UN-LOCODE` node attribute now optional.
+- `engine.Delete` method now marks object to be removed by GC.
+- Inner ring node supports any number of alphabet contracts from 1 up to 40.
+
 ## [0.15.0] - 2021-02-12 - Seonyudo (선유도, 仙遊島)
 
 NeoFS nodes are now preview5-compatible. 
@@ -228,6 +261,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.16.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.3...v0.15.0
 [0.14.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.1...v0.14.2
