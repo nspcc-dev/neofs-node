@@ -43,6 +43,11 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 
 	iter := ctx.I()
 
+	log := c.opts.log.With(
+		zap.Uint64("epoch", ctx.Epoch()),
+		zap.Uint32("iteration", iter),
+	)
+
 	if iter == 0 {
 		c.sendInitialValues(ctx)
 		return
@@ -54,7 +59,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 
 	consumersIter, err := c.prm.DaughterTrustSource.InitConsumersIterator(ctx)
 	if err != nil {
-		c.opts.log.Debug("consumers trust iterator's init failure",
+		log.Debug("consumers trust iterator's init failure",
 			zap.String("error", err.Error()),
 		)
 
@@ -74,7 +79,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 			})
 		})
 		if err != nil {
-			c.opts.log.Debug("worker pool submit failure",
+			log.Debug("worker pool submit failure",
 				zap.String("error", err.Error()),
 			)
 		}
@@ -83,7 +88,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 		return nil
 	})
 	if err != nil {
-		c.opts.log.Debug("iterate daughters failed",
+		log.Debug("iterate daughter's consumers failed",
 			zap.String("error", err.Error()),
 		)
 	}
@@ -156,7 +161,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	if p.lastIter {
 		finalWriter, err := c.prm.FinalResultTarget.InitIntermediateWriter(p.ctx)
 		if err != nil {
-			c.opts.log.Debug("init intermediate writer failure",
+			c.opts.log.Debug("init writer failure",
 				zap.String("error", err.Error()),
 			)
 
@@ -176,7 +181,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	} else {
 		intermediateWriter, err := c.prm.IntermediateValueTarget.InitWriter(p.ctx)
 		if err != nil {
-			c.opts.log.Debug("init intermediate writer failure",
+			c.opts.log.Debug("init writer failure",
 				zap.String("error", err.Error()),
 			)
 
@@ -197,7 +202,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 
 			err := intermediateWriter.Write(trust)
 			if err != nil {
-				c.opts.log.Debug("write intermediate value failure",
+				c.opts.log.Debug("write value failure",
 					zap.String("error", err.Error()),
 				)
 			}
@@ -213,7 +218,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		err = intermediateWriter.Close()
 		if err != nil {
 			c.opts.log.Error(
-				"could not close intermediate writer",
+				"could not close writer",
 				zap.String("error", err.Error()),
 			)
 		}
@@ -232,7 +237,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 
 	intermediateWriter, err := c.prm.IntermediateValueTarget.InitWriter(ctx)
 	if err != nil {
-		c.opts.log.Debug("init intermediate writer failure",
+		c.opts.log.Debug("init writer failure",
 			zap.String("error", err.Error()),
 		)
 
@@ -259,7 +264,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 
 			err = intermediateWriter.Write(trust)
 			if err != nil {
-				c.opts.log.Debug("write intermediate value failure",
+				c.opts.log.Debug("write value failure",
 					zap.String("error", err.Error()),
 				)
 
@@ -277,7 +282,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 
 	err = intermediateWriter.Close()
 	if err != nil {
-		c.opts.log.Debug("could not close intermediate writer",
+		c.opts.log.Debug("could not close writer",
 			zap.String("error", err.Error()),
 		)
 	}

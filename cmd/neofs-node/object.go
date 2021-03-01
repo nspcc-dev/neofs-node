@@ -443,9 +443,18 @@ type reputationClient struct {
 }
 
 func (c *reputationClient) submitResult(err error) {
+	currEpoch := c.cons.netState.CurrentEpoch()
+	sat := err == nil
+
+	c.cons.log.Debug(
+		"writing local reputation values",
+		zap.Uint64("epoch", currEpoch),
+		zap.Bool("satisfactory", sat),
+	)
+
 	prm := c.prm
-	prm.SetSatisfactory(err == nil)
-	prm.SetEpoch(c.cons.netState.CurrentEpoch())
+	prm.SetSatisfactory(sat)
+	prm.SetEpoch(currEpoch)
 
 	c.cons.trustStorage.Update(prm)
 }

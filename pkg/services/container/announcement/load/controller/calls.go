@@ -108,7 +108,7 @@ func (c *announceContext) announce() {
 		return
 	}
 
-	c.log.Debug("announcement successfully finished")
+	c.log.Debug("trust announcement successfully finished")
 }
 
 func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
@@ -163,9 +163,9 @@ func (c *commonContext) freeAnnouncement() {
 	c.ctrl.announceMtx.Unlock()
 
 	if stopped {
-		c.log.Debug("announcement successfully interrupted")
+		c.log.Debug("trust announcement successfully interrupted")
 	} else {
-		c.log.Debug("announcement is not started or already interrupted")
+		c.log.Debug("trust announcement is not started or already interrupted")
 	}
 }
 
@@ -254,9 +254,9 @@ func (c *commonContext) freeReport() {
 	c.ctrl.reportMtx.Unlock()
 
 	if stopped {
-		c.log.Debug("announcement successfully interrupted")
+		c.log.Debug("trust announcement successfully interrupted")
 	} else {
-		c.log.Debug("announcement is not started or already interrupted")
+		c.log.Debug("trust announcement is not started or already interrupted")
 	}
 }
 

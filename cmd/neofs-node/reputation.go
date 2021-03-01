@@ -59,8 +59,11 @@ func initReputationService(c *cfg) {
 		Storage: consumerStorage,
 	}
 
+	localTrustLogger := c.log.With(zap.String("trust_type", "local"))
+	intermediateTrustLogger := c.log.With(zap.String("trust_type", "intermediate"))
+
 	localTrustStorage := &localreputation.TrustStorage{
-		Log:      c.log,
+		Log:      localTrustLogger,
 		Storage:  c.cfgReputation.localTrustStorage,
 		NmSrc:    nmSrc,
 		LocalKey: localKey,
@@ -76,12 +79,14 @@ func initReputationService(c *cfg) {
 	localRouteBuilder := localroutes.New(
 		localroutes.Prm{
 			ManagerBuilder: managerBuilder,
+			Log:            localTrustLogger,
 		},
 	)
 
 	intermediateRouteBuilder := intermediateroutes.New(
 		intermediateroutes.Prm{
 			ManagerBuilder: managerBuilder,
+			Log:            intermediateTrustLogger,
 		},
 	)
 
@@ -93,8 +98,10 @@ func initReputationService(c *cfg) {
 			WriterProvider: localreputation.NewRemoteProvider(
 				localreputation.RemoteProviderPrm{
 					Key: &c.key.PrivateKey,
+					Log: localTrustLogger,
 				},
 			),
+			Log: localTrustLogger,
 		},
 	)
 
@@ -106,8 +113,10 @@ func initReputationService(c *cfg) {
 			WriterProvider: intermediatereputation.NewRemoteProvider(
 				intermediatereputation.RemoteProviderPrm{
 					Key: &c.key.PrivateKey,
+					Log: intermediateTrustLogger,
 				},
 			),
+			Log: intermediateTrustLogger,
 		},
 	)
 
@@ -117,7 +126,7 @@ func initReputationService(c *cfg) {
 			RemoteWriterProvider: remoteLocalTrustProvider,
 			Builder:              localRouteBuilder,
 		},
-	)
+		reputationrouter.WithLogger(localTrustLogger))
 
 	intermediateTrustRouter := reputationrouter.New(
 		reputationrouter.Prm{
@@ -125,6 +134,7 @@ func initReputationService(c *cfg) {
 			RemoteWriterProvider: remoteIntermediateTrustProvider,
 			Builder:              intermediateRouteBuilder,
 		},
+		reputationrouter.WithLogger(intermediateTrustLogger),
 	)
 
 	eigenTrustCalculator := eigentrustcalc.New(
@@ -159,6 +169,7 @@ func initReputationService(c *cfg) {
 			IterationsProvider: c.cfgNetmap.wrapper,
 			WorkerPool:         c.cfgReputation.workerPool,
 		},
+		eigentrustctrl.WithLogger(c.log),
 	)
 
 	c.cfgReputation.localTrustCtrl = localtrustcontroller.New(
@@ -166,11 +177,14 @@ func initReputationService(c *cfg) {
 			LocalTrustSource: localTrustStorage,
 			LocalTrustTarget: localTrustRouter,
 		},
+		localtrustcontroller.WithLogger(c.log),
 	)
 
 	addNewEpochAsyncNotificationHandler(
 		c,
 		func(ev event.Event) {
+			c.log.Debug("start reporting reputation on new epoch event")
+
 			var reportPrm localtrustcontroller.ReportPrm
 
 			// report collected values from previous epoch
@@ -282,7 +296,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	w, err := s.intermediateRouter.InitWriter(reputationrouter.NewRouteContext(eiCtx, passedRoute))
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize intermediate trust writer: %w", err)
+		return nil, fmt.Errorf("could not initialize trust writer: %w", err)
 	}
 
 	v2Trust := body.GetTrust()
@@ -291,7 +305,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	err = w.Write(trust)
 	if err != nil {
-		return nil, fmt.Errorf("could not write intermediate trust: %w", err)
+		return nil, fmt.Errorf("could not write trust: %w", err)
 	}
 
 	resp := new(v2reputation.AnnounceIntermediateResultResponse)

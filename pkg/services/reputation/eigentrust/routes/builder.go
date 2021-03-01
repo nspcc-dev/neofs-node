@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Prm groups the required parameters of the Builder's constructor.
@@ -16,6 +17,8 @@ type Prm struct {
 	//
 	// Must not be nil.
 	ManagerBuilder common.ManagerBuilder
+
+	Log *logger.Logger
 }
 
 // Builder represents component that routes node to its managers.
@@ -26,6 +29,7 @@ type Prm struct {
 // the Builder is immediately ready to work through API.
 type Builder struct {
 	managerBuilder common.ManagerBuilder
+	log            *logger.Logger
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"
@@ -44,9 +48,12 @@ func New(prm Prm) *Builder {
 	switch {
 	case prm.ManagerBuilder == nil:
 		panicOnPrmValue("ManagerBuilder", prm.ManagerBuilder)
+	case prm.Log == nil:
+		panicOnPrmValue("Logger", prm.Log)
 	}
 
 	return &Builder{
 		managerBuilder: prm.ManagerBuilder,
+		log:            prm.Log,
 	}
 }

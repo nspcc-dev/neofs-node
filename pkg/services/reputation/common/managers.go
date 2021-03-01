@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/nspcc-dev/hrw"
@@ -58,6 +59,11 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) ManagerBuilder {
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
 func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]ServerInfo, error) {
+	mb.log.Debug("start building managers",
+		zap.Uint64("epoch", epoch),
+		zap.String("peer", hex.EncodeToString(p.Bytes())),
+	)
+
 	nm, err := mb.nmSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
 		return nil, err

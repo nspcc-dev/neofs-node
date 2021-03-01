@@ -10,6 +10,7 @@ import (
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 type TrustStorage struct {
@@ -23,7 +24,13 @@ type TrustStorage struct {
 }
 
 func (s *TrustStorage) InitIterator(ctx reputationcommon.Context) (trustcontroller.Iterator, error) {
-	epochStorage, err := s.Storage.DataForEpoch(ctx.Epoch())
+	epoch := ctx.Epoch()
+
+	s.Log.Debug("initializing iterator over trusts",
+		zap.Uint64("epoch", epoch),
+	)
+
+	epochStorage, err := s.Storage.DataForEpoch(epoch)
 	if err != nil && !errors.Is(err, truststorage.ErrNoPositiveTrust) {
 		return nil, err
 	}
