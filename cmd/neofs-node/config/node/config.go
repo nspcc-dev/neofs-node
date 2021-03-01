@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -32,6 +33,9 @@ const (
 
 	// PersistentStatePathDefault is a default path for persistent state file.
 	PersistentStatePathDefault = ".neofs-storage-state"
+
+	// NotificationTimeoutDefault is a default timeout for object notification operation.
+	NotificationTimeoutDefault = 5 * time.Second
 )
 
 // Key returns value of "key" config parameter
@@ -202,4 +206,49 @@ func (n NotificationConfig) Enabled() bool {
 // Returns empty string if value is not presented.
 func (n NotificationConfig) DefaultTopic() string {
 	return config.StringSafe(n.cfg, "default_topic")
+}
+
+// Endpoint returns value of "endpoint" config parameter from "notification"
+// subsection of "node" section.
+//
+// Returns empty string if value is not presented.
+func (n NotificationConfig) Endpoint() string {
+	return config.StringSafe(n.cfg, "endpoint")
+}
+
+// Timeout returns value of "timeout" config parameter from "notification"
+// subsection of "node" section.
+//
+// Returns NotificationTimeoutDefault if value is not positive.
+func (n NotificationConfig) Timeout() time.Duration {
+	v := config.DurationSafe(n.cfg, "timeout")
+	if v > 0 {
+		return v
+	}
+
+	return NotificationTimeoutDefault
+}
+
+// CertPath returns value of "certificate_path" config parameter from "notification"
+// subsection of "node" section.
+//
+// Returns empty string if value is not presented.
+func (n NotificationConfig) CertPath() string {
+	return config.StringSafe(n.cfg, "certificate")
+}
+
+// KeyPath returns value of "key_path" config parameter from
+// "notification" subsection of "node" section.
+//
+// Returns empty string if value is not presented.
+func (n NotificationConfig) KeyPath() string {
+	return config.StringSafe(n.cfg, "key")
+}
+
+// CAPath returns value of "ca_path" config parameter from
+// "notification" subsection of "node" section.
+//
+// Returns empty string if value is not presented.
+func (n NotificationConfig) CAPath() string {
+	return config.StringSafe(n.cfg, "ca")
 }
