@@ -8,6 +8,7 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 type clientCache interface {
@@ -31,6 +32,7 @@ type remoteTrustProvider struct {
 	deadEndProvider reputationcommon.WriterProvider
 	clientCache     clientCache
 	remoteProvider  clientKeyRemoteProvider
+	log             *logger.Logger
 }
 
 // RemoteProviderPrm groups the required parameters of the remoteTrustProvider's constructor.
@@ -43,6 +45,7 @@ type RemoteProviderPrm struct {
 	DeadEndProvider reputationcommon.WriterProvider
 	ClientCache     clientCache
 	WriterProvider  clientKeyRemoteProvider
+	Log             *logger.Logger
 }
 
 func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriterProvider {
@@ -55,6 +58,8 @@ func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriter
 		PanicOnPrmValue("ClientCache", prm.ClientCache)
 	case prm.WriterProvider == nil:
 		PanicOnPrmValue("WriterProvider", prm.WriterProvider)
+	case prm.Log == nil:
+		PanicOnPrmValue("Logger", prm.Log)
 	}
 
 	return &remoteTrustProvider{
@@ -62,16 +67,21 @@ func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriter
 		deadEndProvider: prm.DeadEndProvider,
 		clientCache:     prm.ClientCache,
 		remoteProvider:  prm.WriterProvider,
+		log:             prm.Log,
 	}
 }
 
 func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (reputationcommon.WriterProvider, error) {
+	rtp.log.Debug("initializing remote writer provider")
+
 	if srv == nil {
+		rtp.log.Debug("route has reached dead-end provider")
 		return rtp.deadEndProvider, nil
 	}
 
 	if rtp.netmapKeys.IsLocalKey(srv.PublicKey()) {
 		// if local => return no-op writer
+		rtp.log.Debug("initializing no-op writer provider")
 		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 

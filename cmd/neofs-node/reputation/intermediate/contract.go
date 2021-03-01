@@ -2,6 +2,7 @@ package intermediate
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
@@ -70,6 +71,8 @@ type FinalWriter struct {
 }
 
 func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error {
+	fw.l.Debug("start writing global trusts to contract")
+
 	args := repClient.PutPrm{}
 
 	var trustedPublicKey [33]byte
@@ -120,6 +123,7 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 		"sent global trust to contract",
 		zap.Uint64("epoch", t.Epoch()),
 		zap.Float64("value", t.Value().Float64()),
+		zap.String("peer", hex.EncodeToString(t.Peer().Bytes())),
 	)
 
 	return nil

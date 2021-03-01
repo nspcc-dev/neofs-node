@@ -8,7 +8,9 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"go.uber.org/zap"
 )
 
 // RemoteProviderPrm groups the required parameters of the RemoteProvider's constructor.
@@ -18,6 +20,7 @@ import (
 // failure (error or panic depending on the implementation).
 type RemoteProviderPrm struct {
 	Key *ecdsa.PrivateKey
+	Log *logger.Logger
 }
 
 // NewRemoteProvider creates a new instance of the RemoteProvider.
@@ -30,28 +33,34 @@ func NewRemoteProvider(prm RemoteProviderPrm) *RemoteProvider {
 	switch {
 	case prm.Key == nil:
 		common.PanicOnPrmValue("NetMapSource", prm.Key)
+	case prm.Log == nil:
+		common.PanicOnPrmValue("Logger", prm.Log)
 	}
 
 	return &RemoteProvider{
 		key: prm.Key,
+		log: prm.Log,
 	}
 }
 
 // RemoteProvider is an implementation of the clientKeyRemoteProvider interface.
 type RemoteProvider struct {
 	key *ecdsa.PrivateKey
+	log *logger.Logger
 }
 
 func (rp RemoteProvider) WithClient(c coreclient.Client) reputationcommon.WriterProvider {
 	return &TrustWriterProvider{
 		client: c,
 		key:    rp.key,
+		log:    rp.log,
 	}
 }
 
 type TrustWriterProvider struct {
 	client coreclient.Client
 	key    *ecdsa.PrivateKey
+	log    *logger.Logger
 }
 
 func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputationcommon.Writer, error) {
@@ -59,6 +68,7 @@ func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputa
 		ctx:    ctx,
 		client: twp.client,
 		key:    twp.key,
+		log:    twp.log,
 	}, nil
 }
 
@@ -66,6 +76,7 @@ type RemoteTrustWriter struct {
 	ctx    reputationcommon.Context
 	client coreclient.Client
 	key    *ecdsa.PrivateKey
+	log    *logger.Logger
 
 	buf []reputationapi.Trust
 }
@@ -85,11 +96,17 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 }
 
 func (rtp *RemoteTrustWriter) Close() error {
+	epoch := rtp.ctx.Epoch()
+
+	rtp.log.Debug("announcing trusts",
+		zap.Uint64("epoch", epoch),
+	)
+
 	var prm internalclient.AnnounceLocalPrm
 
 	prm.SetContext(rtp.ctx)
 	prm.SetClient(rtp.client)
-	prm.SetEpoch(rtp.ctx.Epoch())
+	prm.SetEpoch(epoch)
 	prm.SetTrusts(rtp.buf)
 
 	_, err := internalclient.AnnounceLocal(prm)
