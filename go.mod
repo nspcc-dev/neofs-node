@@ -8,10 +8,12 @@ require (
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/klauspost/compress v1.13.1
+	github.com/klauspost/compress v1.13.4
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.4.0
+	github.com/nats-io/nats-server/v2 v2.7.2 // indirect
+	github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.98.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.12.0
