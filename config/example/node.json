@@ -39,7 +39,12 @@
     },
     "notification": {
       "enabled": true,
-      "default_topic": "topic"
+      "endpoint": "tls://localhost:4222",
+      "timeout": "6s",
+      "default_topic": "topic",
+      "certificate": "/cert/path",
+      "key": "/key/path",
+      "ca": "/ca/path"
     }
   },
   "grpc": {
