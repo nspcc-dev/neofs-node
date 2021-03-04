@@ -53,7 +53,7 @@ func initContainerService(c *cfg) {
 	wrap, err := wrapper.New(cnrClient)
 	fatalOnErr(err)
 
-	c.cfgObject.cnrStorage = wrap // use RPC node as source of containers
+	c.cfgObject.cnrStorage = newCachedContainerStorage(wrap) // use RPC node as source of containers (with caching)
 	c.cfgObject.cnrClient = wrap
 
 	localMetrics := &localStorageLoad{
