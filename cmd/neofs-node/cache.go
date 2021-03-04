@@ -5,8 +5,10 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 )
 
 type netValueReader func(interface{}) (interface{}, error)
@@ -107,4 +109,35 @@ func (s *ttlContainerStorage) Get(cid *containerSDK.ID) (*containerSDK.Container
 	}
 
 	return val.(*containerSDK.Container), nil
+}
+
+type ttlEACLStorage ttlNetCache
+
+func newCachedEACLStorage(v eacl.Storage) eacl.Storage {
+	const (
+		eaclCacheSize = 100
+		eaclCacheTTL  = 30 * time.Second
+	)
+
+	lruCnrCache := newNetworkTTLCache(eaclCacheSize, eaclCacheTTL, func(key interface{}) (interface{}, error) {
+		cid := containerSDK.NewID()
+
+		err := cid.Parse(key.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		return v.GetEACL(cid)
+	})
+
+	return (*ttlEACLStorage)(lruCnrCache)
+}
+
+func (s *ttlEACLStorage) GetEACL(cid *containerSDK.ID) (*eaclSDK.Table, error) {
+	val, err := (*ttlNetCache)(s).get(cid.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return val.(*eaclSDK.Table), nil
 }
