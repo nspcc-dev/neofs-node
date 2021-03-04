@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 
+	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
@@ -32,6 +36,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -338,11 +343,47 @@ func initObjectService(c *cfg) {
 				),
 				acl.WithLocalStorage(ls),
 				acl.WithEACLValidatorOptions(
-					eacl.WithMorphClient(c.cfgObject.cnrClient),
+					eacl.WithEACLStorage(&morphEACLStorage{
+						w: c.cfgObject.cnrClient,
+					}),
 					eacl.WithLogger(c.log),
 				),
 				acl.WithNetmapState(c.cfgNetmap.state),
 			),
 		),
 	)
+}
+
+type morphEACLStorage struct {
+	w *wrapper.Wrapper
+}
+
+type signedEACLTable eaclSDK.Table
+
+func (s *signedEACLTable) ReadSignedData(buf []byte) ([]byte, error) {
+	return (*eaclSDK.Table)(s).Marshal(buf)
+}
+
+func (s *signedEACLTable) SignedDataSize() int {
+	// TODO: add eacl.Table.Size method
+	return (*eaclSDK.Table)(s).ToV2().StableSize()
+}
+
+func (s *morphEACLStorage) GetEACL(cid *container.ID) (*eaclSDK.Table, error) {
+	table, sig, err := s.w.GetEACL(cid)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := signature.VerifyDataWithSource(
+		(*signedEACLTable)(table),
+		func() ([]byte, []byte) {
+			return sig.Key(), sig.Sign()
+		},
+		signature.SignWithRFC6979(),
+	); err != nil {
+		return nil, errors.Wrap(err, "incorrect signature")
+	}
+
+	return table, nil
 }
