@@ -343,9 +343,9 @@ func initObjectService(c *cfg) {
 				),
 				acl.WithLocalStorage(ls),
 				acl.WithEACLValidatorOptions(
-					eacl.WithEACLStorage(&morphEACLStorage{
+					eacl.WithEACLStorage(newCachedEACLStorage(&morphEACLStorage{
 						w: c.cfgObject.cnrClient,
-					}),
+					})),
 					eacl.WithLogger(c.log),
 				),
 				acl.WithNetmapState(c.cfgNetmap.state),
