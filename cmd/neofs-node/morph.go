@@ -65,7 +65,7 @@ func initMorphComponents(c *cfg) {
 	wrap, err := wrapper.New(cli)
 	fatalOnErr(err)
 
-	c.cfgObject.netMapStorage = wrap
+	c.cfgObject.netMapStorage = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
 	c.cfgNetmap.wrapper = wrap
 }
 
