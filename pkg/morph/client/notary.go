@@ -157,6 +157,14 @@ func (c *Client) GetNotaryDeposit() (int64, error) {
 //
 // Supported args types: int64, string, util.Uint160, []byte and bool.
 func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...interface{}) error {
+	return c.notaryInvoke(false, contract, method, args...)
+}
+
+func (c *Client) notaryInvokeAsCommittee(contract util.Uint160, method string, args ...interface{}) error {
+	return c.notaryInvoke(true, contract, method, args...)
+}
+
+func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method string, args ...interface{}) error {
 	if c.notary == nil {
 		return errNotaryNotEnabled
 	}
@@ -168,10 +176,10 @@ func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...inte
 		return err
 	}
 
-	_, n := mn(irList)
+	_, n := mn(irList, committee)
 	u8n := uint8(n)
 
-	cosigners, err := c.notaryCosigners(irList)
+	cosigners, err := c.notaryCosigners(irList, committee)
 	if err != nil {
 		return err
 	}
@@ -194,7 +202,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...inte
 
 	// after test invocation we build main multisig transaction
 
-	multiaddrAccount, err := c.notaryMultisigAccount(irList)
+	multiaddrAccount, err := c.notaryMultisigAccount(irList, committee)
 	if err != nil {
 		return err
 	}
@@ -256,7 +264,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...inte
 	return nil
 }
 
-func (c *Client) notaryCosigners(ir []*keys.PublicKey) ([]transaction.Signer, error) {
+func (c *Client) notaryCosigners(ir []*keys.PublicKey, committee bool) ([]transaction.Signer, error) {
 	s := make([]transaction.Signer, 0, 3)
 
 	// first we have proxy contract signature, as it will pay for the execution
@@ -266,7 +274,7 @@ func (c *Client) notaryCosigners(ir []*keys.PublicKey) ([]transaction.Signer, er
 	})
 
 	// then we have inner ring multiaddress signature
-	m, _ := mn(ir)
+	m, _ := mn(ir, committee)
 
 	multisigScript, err := sc.CreateMultiSigRedeemScript(m, ir)
 	if err != nil {
@@ -389,8 +397,8 @@ func (c *Client) notaryInnerRingList() ([]*keys.PublicKey, error) {
 	return res, nil
 }
 
-func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey) (*wallet.Account, error) {
-	m, _ := mn(ir)
+func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee bool) (*wallet.Account, error) {
+	m, _ := mn(ir, committee)
 
 	multisigAccount := wallet.NewAccountFromPrivateKey(c.acc.PrivateKey())
 
@@ -430,10 +438,16 @@ func invocationParams(args ...interface{}) ([]sc.Parameter, error) {
 }
 
 // mn returns M and N multi signature numbers. For NeoFS N is a length of
-// inner ring list, and M is a 2/3+1 of it (like in dBFT).
-func mn(ir []*keys.PublicKey) (m int, n int) {
+// inner ring list, and M is a 2/3+1 of it (like in dBFT). If committee is
+// true, returns M as N/2+1.
+func mn(ir []*keys.PublicKey, committee bool) (m int, n int) {
 	n = len(ir)
-	m = n*2/3 + 1
+
+	if committee {
+		m = n/2 + 1
+	} else {
+		m = n*2/3 + 1
+	}
 
 	return
 }
