@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
@@ -219,6 +220,9 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 	case util.Uint160:
 		result.Type = sc.ByteArrayType
 		result.Value = v.BytesBE()
+	case native.Role:
+		result.Type = sc.IntegerType
+		result.Value = int64(v)
 	default:
 		return result, errors.Errorf("chain/client: unsupported parameter %v", value)
 	}
