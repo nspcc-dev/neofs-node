@@ -2,10 +2,12 @@ package client
 
 import (
 	"context"
+	"crypto/elliptic"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -33,6 +35,8 @@ type Client struct {
 
 	gas util.Uint160 // native gas script-hash
 
+	neo util.Uint160 // native neo script-hash
+
 	waitInterval time.Duration
 
 	notary *notary
@@ -44,6 +48,10 @@ var ErrNilClient = errors.New("client is nil")
 
 // HaltState returned if TestInvoke function processed without panic.
 const HaltState = "HALT"
+
+const (
+	committeeList = "getCommittee"
+)
 
 var errEmptyInvocationScript = errors.New("got empty invocation script from neo node")
 
@@ -191,6 +199,21 @@ func (c *Client) GasBalance() (int64, error) {
 	return c.client.NEP17BalanceOf(c.gas, c.acc.PrivateKey().GetScriptHash())
 }
 
+// Committee returns keys of chain committee from neo native contract.
+func (c *Client) Committee() (keys.PublicKeys, error) {
+	items, err := c.TestInvoke(c.neo, committeeList)
+	if err != nil {
+		return nil, err
+	}
+
+	roleKeys, err := keysFromStack(items)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get committee keys")
+	}
+
+	return roleKeys, nil
+}
+
 func toStackParameter(value interface{}) (sc.Parameter, error) {
 	var result = sc.Parameter{
 		Value: value,
@@ -235,6 +258,34 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 	}
 
 	return result, nil
+}
+
+func keysFromStack(data []stackitem.Item) (keys.PublicKeys, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	arr, err := ArrayFromStackItem(data[0])
+	if err != nil {
+		return nil, errors.Wrap(err, "non array element on stack")
+	}
+
+	res := make([]*keys.PublicKey, 0, len(arr))
+	for i := range arr {
+		rawKey, err := BytesFromStackItem(arr[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "key is not slice of bytes")
+		}
+
+		key, err := keys.NewPublicKeyFromBytes(rawKey, elliptic.P256())
+		if err != nil {
+			return nil, errors.Wrap(err, "can't parse key")
+		}
+
+		res = append(res, key)
+	}
+
+	return res, nil
 }
 
 // MagicNumber returns the magic number of the network
