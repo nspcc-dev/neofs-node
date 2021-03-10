@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/elliptic"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -45,6 +46,7 @@ const (
 
 	innerRingListMethod   = "innerRingList"
 	notaryBalanceOfMethod = "balanceOf"
+	setDesignateMethod    = "designateAsRole"
 
 	notaryBalanceErrMsg = "can't fetch notary balance"
 )
@@ -149,6 +151,20 @@ func (c *Client) GetNotaryDeposit() (int64, error) {
 	}
 
 	return bigIntDeposit.Int64(), nil
+}
+
+// UpdateNotaryList updates list of notary nodes in designate contract. Requires
+// committee multi signature.
+func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
+	if c.notary == nil {
+		return errNotaryNotEnabled
+	}
+
+	return c.notaryInvokeAsCommittee(c.designate,
+		setDesignateMethod,
+		native.RoleP2PNotary,
+		list,
+	)
 }
 
 // Invoke invokes contract method by sending tx to notary contract in
