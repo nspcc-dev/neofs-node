@@ -1,8 +1,6 @@
 package client
 
 import (
-	"crypto/elliptic"
-
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -44,7 +42,6 @@ const (
 	defaultNotaryRoundTime    = 100
 	defaultNotaryFallbackTime = 40
 
-	innerRingListMethod   = "innerRingList"
 	notaryBalanceOfMethod = "balanceOf"
 	setDesignateMethod    = "designateAsRole"
 
@@ -202,15 +199,15 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 
 	// prepare arguments for test invocation
 
-	irList, err := c.notaryInnerRingList()
+	alphabetList, err := c.Committee()
 	if err != nil {
 		return err
 	}
 
-	_, n := mn(irList, committee)
+	_, n := mn(alphabetList, committee)
 	u8n := uint8(n)
 
-	cosigners, err := c.notaryCosigners(irList, committee)
+	cosigners, err := c.notaryCosigners(alphabetList, committee)
 	if err != nil {
 		return err
 	}
@@ -233,7 +230,7 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 
 	// after test invocation we build main multisig transaction
 
-	multiaddrAccount, err := c.notaryMultisigAccount(irList, committee)
+	multiaddrAccount, err := c.notaryMultisigAccount(alphabetList, committee)
 	if err != nil {
 		return err
 	}
@@ -384,48 +381,6 @@ func (c *Client) notaryWitnesses(multiaddr *wallet.Account, tx *transaction.Tran
 	})
 
 	return w
-}
-
-func (c *Client) notaryInnerRingList() ([]*keys.PublicKey, error) {
-	data, err := c.TestInvoke(c.notary.netmap, innerRingListMethod)
-	if err != nil {
-		return nil, errors.Wrap(err, "test invoke error")
-	}
-
-	if len(data) == 0 {
-		return nil, errors.Wrap(errInvalidIR, "test invoke returned empty stack")
-	}
-
-	prms, err := ArrayFromStackItem(data[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "test invoke returned non array element")
-	}
-
-	res := make([]*keys.PublicKey, 0, len(prms))
-	for i := range prms {
-		nodePrms, err := ArrayFromStackItem(prms[i])
-		if err != nil {
-			return nil, errors.Wrap(err, "inner ring node structure is not an array")
-		}
-
-		if len(nodePrms) == 0 {
-			return nil, errors.Wrap(errInvalidIR, "inner ring node structure is empty array")
-		}
-
-		rawKey, err := BytesFromStackItem(nodePrms[0])
-		if err != nil {
-			return nil, errors.Wrap(err, "inner ring public key is not slice of bytes")
-		}
-
-		key, err := keys.NewPublicKeyFromBytes(rawKey, elliptic.P256())
-		if err != nil {
-			return nil, errors.Wrap(err, "can't parse inner ring public key bytes")
-		}
-
-		res = append(res, key)
-	}
-
-	return res, nil
 }
 
 func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee bool) (*wallet.Account, error) {
