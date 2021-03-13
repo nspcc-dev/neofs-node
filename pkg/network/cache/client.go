@@ -12,19 +12,22 @@ type (
 	ClientCache struct {
 		mu      *sync.RWMutex
 		clients map[string]*client.Client
+		opts    []client.Option
 	}
 )
 
 // NewSDKClientCache creates instance of client cache.
-func NewSDKClientCache() *ClientCache {
+// `opts` are used for new client creation.
+func NewSDKClientCache(opts ...client.Option) *ClientCache {
 	return &ClientCache{
 		mu:      new(sync.RWMutex),
 		clients: make(map[string]*client.Client),
+		opts:    opts,
 	}
 }
 
 // Get function returns existing client or creates a new one.
-func (c *ClientCache) Get(address string, opts ...client.Option) (*client.Client, error) {
+func (c *ClientCache) Get(address string) (*client.Client, error) {
 	c.mu.RLock()
 	if cli, ok := c.clients[address]; ok {
 		// todo: check underlying connection neofs-api-go#196
@@ -44,7 +47,7 @@ func (c *ClientCache) Get(address string, opts ...client.Option) (*client.Client
 		return cli, nil
 	}
 
-	cli, err := client.New(nil, append(opts, client.WithAddress(address))...)
+	cli, err := client.New(nil, append(c.opts, client.WithAddress(address))...)
 	if err != nil {
 		return nil, err
 	}

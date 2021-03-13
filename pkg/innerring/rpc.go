@@ -46,10 +46,10 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 	}
 }
 
-func (c *ClientCache) Get(address string, opts ...client.Option) (*client.Client, error) {
+func (c *ClientCache) Get(address string) (*client.Client, error) {
 	// Because cache is used by `ClientCache` exclusively,
 	// client will always have valid key.
-	return c.cache.Get(address, opts...)
+	return c.cache.Get(address)
 }
 
 // GetSG polls the container from audit task to get the object by id.

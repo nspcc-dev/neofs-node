@@ -144,7 +144,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				commonPrm:   prm.common,
 				addr:        addr,
 				clientCache: p.clientCache,
-				clientOpts:  p.clientOpts,
 			}
 		},
 		fmt: p.fmtValidator,

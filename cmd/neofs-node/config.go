@@ -67,6 +67,7 @@ const (
 	cfgListenAddress  = "grpc.endpoint"
 	cfgMaxMsgSize     = "grpc.maxmessagesize"
 	cfgReflectService = "grpc.enable_reflect_service"
+	cfgDialTimeout    = "grpc.dial_timeout"
 
 	// config keys for cfgMorph
 	cfgMorphRPCAddress = "morph.rpc_endpoint"
@@ -93,10 +94,8 @@ const (
 	cfgPolicerWorkScope   = "policer.work_scope"
 	cfgPolicerExpRate     = "policer.expansion_rate"
 	cfgPolicerHeadTimeout = "policer.head_timeout"
-	cfgPolicerDialTimeout = "policer.dial_timeout"
 
-	cfgReplicatorPutTimeout  = "replicator.put_timeout"
-	cfgReplicatorDialTimeout = "replicator.dial_timeout"
+	cfgReplicatorPutTimeout = "replicator.put_timeout"
 
 	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
 	cfgReBootstrapInterval = "bootstrap.periodic.interval"
@@ -107,13 +106,6 @@ const (
 	cfgObjectSearchPoolSize    = "pool.object.search.size"
 	cfgObjectRangePoolSize     = "pool.object.range.size"
 	cfgObjectRangeHashPoolSize = "pool.object.rangehash.size"
-
-	cfgObjectPutDialTimeout       = "object.put.dial_timeout"
-	cfgObjectHeadDialTimeout      = "object.head.dial_timeout"
-	cfgObjectRangeDialTimeout     = "object.range.dial_timeout"
-	cfgObjectRangeHashDialTimeout = "object.rangehash.dial_timeout"
-	cfgObjectSearchDialTimeout    = "object.search.dial_timeout"
-	cfgObjectGetDialTimeout       = "object.get.dial_timeout"
 )
 
 const (
@@ -401,6 +393,7 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
 	v.SetDefault(cfgMaxMsgSize, 4<<20)                // transport msg limit 4 MiB
 	v.SetDefault(cfgReflectService, false)
+	v.SetDefault(cfgDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
 	v.SetDefault(cfgAccountingFee, "1")
@@ -428,10 +421,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgPolicerWorkScope, 100)
 	v.SetDefault(cfgPolicerExpRate, 10) // in %
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
-	v.SetDefault(cfgPolicerDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
-	v.SetDefault(cfgReplicatorDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReBootstrapEnabled, false) // in epochs
 	v.SetDefault(cfgReBootstrapInterval, 2)    // in epochs

@@ -144,7 +144,8 @@ func initObjectService(c *cfg) {
 
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
-	clientCache := cache.NewSDKClientCache()
+	clientCache := cache.NewSDKClientCache(
+		client.WithDialTimeout(c.viper.GetDuration(cfgDialTimeout)))
 
 	objRemover := &localObjectRemover{
 		storage: ls,
@@ -173,9 +174,7 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, clientCache,
-				client.WithDialTimeout(c.viper.GetDuration(cfgReplicatorDialTimeout)),
-			),
+			putsvc.NewRemoteSender(keyStorage, clientCache),
 		),
 	)
 
@@ -198,9 +197,7 @@ func initObjectService(c *cfg) {
 		),
 		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
-			headsvc.NewRemoteHeader(keyStorage, clientCache,
-				client.WithDialTimeout(c.viper.GetDuration(cfgPolicerDialTimeout)),
-			),
+			headsvc.NewRemoteHeader(keyStorage, clientCache),
 		),
 		policer.WithLocalAddressSource(c),
 		policer.WithHeadTimeout(
@@ -245,9 +242,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPool(c.cfgObject.pool.put),
 		putsvc.WithLogger(c.log),
-		putsvc.WithClientOptions(
-			client.WithDialTimeout(c.viper.GetDuration(cfgObjectPutDialTimeout)),
-		),
 	)
 
 	sPutV2 := putsvcV2.NewService(
@@ -258,9 +252,6 @@ func initObjectService(c *cfg) {
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientCache(clientCache),
-		searchsvc.WithClientOptions(
-			client.WithDialTimeout(c.viper.GetDuration(cfgObjectSearchDialTimeout)),
-		),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.WithoutSuccessTracking(),
@@ -278,9 +269,6 @@ func initObjectService(c *cfg) {
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientCache(clientCache),
-		getsvc.WithClientOptions(
-			client.WithDialTimeout(c.viper.GetDuration(cfgObjectGetDialTimeout)),
-		),
 		getsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.SuccessAfter(1),
