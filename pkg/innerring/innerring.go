@@ -580,7 +580,7 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 	sub, err := subscriber.New(ctx, &subscriber.Params{
 		Log:         p.log,
 		Endpoint:    p.cfg.GetString(p.name + ".endpoint.notification"),
-		DialTimeout: p.cfg.GetDuration(p.name + ".dial_timeouts"),
+		DialTimeout: p.cfg.GetDuration(p.name + ".dial_timeout"),
 	})
 	if err != nil {
 		return nil, err
@@ -603,7 +603,7 @@ func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 		p.cfg.GetString(p.name+".endpoint.client"),
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
-		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeouts")),
+		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
 	)
 }
 
