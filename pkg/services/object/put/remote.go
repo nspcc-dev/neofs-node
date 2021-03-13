@@ -64,7 +64,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, err
 	}
 
-	c, err := t.clientCache.Get(key, addr, t.clientOpts...)
+	c, err := t.clientCache.Get(addr, t.clientOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", t, addr)
 	}
@@ -76,6 +76,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		append(
 			t.commonPrm.RemoteCallOptions(),
 			client.WithTTL(1), // FIXME: use constant
+			client.WithKey(key),
 		)...,
 	)
 	if err != nil {

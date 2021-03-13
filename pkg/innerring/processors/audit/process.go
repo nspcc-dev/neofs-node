@@ -136,7 +136,7 @@ func (ap *Processor) findStorageGroups(cid *container.ID, shuffled netmap.Nodes)
 		sgSearchParams.WithSearchFilters(sgFilter)
 
 		ctx, cancel := context.WithTimeout(context.Background(), ap.searchTimeout)
-		result, err := cli.SearchObject(ctx, sgSearchParams)
+		result, err := cli.SearchObject(ctx, sgSearchParams, client.WithKey(ap.key))
 		cancel()
 
 		if err != nil {

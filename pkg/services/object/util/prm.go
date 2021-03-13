@@ -116,6 +116,13 @@ func WithNetmapEpoch(v uint64) DynamicCallOption {
 	}
 }
 
+// WithKey sets key to use for the request.
+func WithKey(key *ecdsa.PrivateKey) DynamicCallOption {
+	return func(o *remoteCallOpts) {
+		o.opts = append(o.opts, client.WithKey(key))
+	}
+}
+
 func (p *CommonPrm) SessionToken() *token.SessionToken {
 	if p != nil {
 		return p.token

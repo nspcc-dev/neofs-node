@@ -2,7 +2,6 @@ package searchsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
@@ -83,7 +82,7 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 	return res, nil
 }
 
-func (c *testClientCache) get(_ *ecdsa.PrivateKey, addr string) (searchClient, error) {
+func (c *testClientCache) get(addr string) (searchClient, error) {
 	v, ok := c.clients[addr]
 	if !ok {
 		return nil, errors.New("could not construct client")

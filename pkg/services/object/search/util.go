@@ -1,7 +1,6 @@
 package searchsvc
 
 import (
-	"crypto/ecdsa"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -71,8 +70,8 @@ func (w *uniqueIDWriter) WriteIDs(list []*objectSDK.ID) error {
 	return w.writer.WriteIDs(list)
 }
 
-func (c *clientCacheWrapper) get(key *ecdsa.PrivateKey, addr string) (searchClient, error) {
-	clt, err := c.cache.Get(key, addr, c.opts...)
+func (c *clientCacheWrapper) get(addr string) (searchClient, error) {
+	clt, err := c.cache.Get(addr, c.opts...)
 
 	return &clientWrapper{
 		client: clt,

@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -46,6 +47,7 @@ type (
 		morphClient       *client.Client
 		irList            Indexer
 		clientCache       NeoFSClientCache
+		key               *ecdsa.PrivateKey
 		searchTimeout     time.Duration
 
 		containerClient *wrapContainer.Wrapper
@@ -68,6 +70,7 @@ type (
 		RPCSearchTimeout  time.Duration
 		TaskManager       TaskManager
 		Reporter          audit.Reporter
+		Key               *ecdsa.PrivateKey
 	}
 )
 
@@ -97,6 +100,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/audit: audit task manager is not set")
 	case p.Reporter == nil:
 		return nil, errors.New("ir/audit: audit result reporter is not set")
+	case p.Key == nil:
+		return nil, errors.New("ir/audit: signing key is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -124,6 +129,7 @@ func New(p *Params) (*Processor, error) {
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
 		clientCache:       p.ClientCache,
+		key:               p.Key,
 		searchTimeout:     p.RPCSearchTimeout,
 		containerClient:   containerClient,
 		netmapClient:      netmapClient,

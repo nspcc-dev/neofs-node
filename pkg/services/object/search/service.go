@@ -1,8 +1,6 @@
 package searchsvc
 
 import (
-	"crypto/ecdsa"
-
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -36,7 +34,7 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(*ecdsa.PrivateKey, string) (searchClient, error)
+		get(string) (searchClient, error)
 	}
 
 	traverserGenerator interface {

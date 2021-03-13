@@ -2,7 +2,6 @@ package getsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
@@ -81,7 +80,7 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 	return vs, nil
 }
 
-func (c *testClientCache) get(_ *ecdsa.PrivateKey, addr string) (getClient, error) {
+func (c *testClientCache) get(addr string) (getClient, error) {
 	v, ok := c.clients[addr]
 	if !ok {
 		return nil, errors.New("could not construct client")

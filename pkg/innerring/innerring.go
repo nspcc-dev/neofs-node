@@ -362,6 +362,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		MorphClient:       server.morphClient,
 		IRList:            server,
 		ClientCache:       clientCache,
+		Key:               server.key,
 		RPCSearchTimeout:  cfg.GetDuration("audit.timeout.search"),
 		TaskManager:       auditTaskManager,
 		Reporter:          server,
