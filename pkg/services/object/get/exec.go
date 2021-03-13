@@ -111,7 +111,7 @@ func (exec execCtx) key() *ecdsa.PrivateKey {
 func (exec execCtx) callOptions() []client.CallOption {
 	return exec.prm.common.RemoteCallOptions(
 		util.WithNetmapEpoch(exec.curProcEpoch),
-	)
+		util.WithKey(exec.key()))
 }
 
 func (exec execCtx) remotePrm() *client.GetObjectParams {
@@ -276,7 +276,7 @@ func (exec execCtx) remoteClient(node *network.Address) (getClient, bool) {
 
 		log.Debug("could not calculate node IP address")
 	case err == nil:
-		c, err := exec.svc.clientCache.get(exec.key(), ipAddr)
+		c, err := exec.svc.clientCache.get(ipAddr)
 
 		switch {
 		default:

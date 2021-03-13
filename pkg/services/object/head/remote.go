@@ -70,7 +70,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, err
 	}
 
-	c, err := h.clientCache.Get(key, addr, h.clientOpts...)
+	c, err := h.clientCache.Get(addr, h.clientOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", h, addr)
 	}
@@ -87,6 +87,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		client.WithTTL(1), // FIXME: use constant
 		client.WithSession(prm.commonHeadPrm.common.SessionToken()),
 		client.WithBearer(prm.commonHeadPrm.common.BearerToken()),
+		client.WithKey(key),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not head object in %s", h, addr)

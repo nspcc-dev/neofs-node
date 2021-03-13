@@ -47,7 +47,9 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 }
 
 func (c *ClientCache) Get(address string, opts ...client.Option) (*client.Client, error) {
-	return c.cache.Get(c.key, address, opts...)
+	// Because cache is used by `ClientCache` exclusively,
+	// client will always have valid key.
+	return c.cache.Get(address, opts...)
 }
 
 // GetSG polls the container from audit task to get the object by id.
@@ -89,7 +91,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 		}
 
 		cctx, cancel := context.WithTimeout(ctx, c.sgTimeout)
-		obj, err := cli.GetObject(cctx, getParams)
+		obj, err := cli.GetObject(cctx, getParams, client.WithKey(c.key))
 
 		cancel()
 
@@ -143,7 +145,9 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.headTimeout)
-	head, err := cli.GetObjectHeader(cctx, headParams, client.WithTTL(ttl))
+	head, err := cli.GetObjectHeader(cctx, headParams,
+		client.WithTTL(ttl),
+		client.WithKey(c.key))
 
 	cancel()
 
@@ -177,7 +181,9 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.rangeTimeout)
-	result, err := cli.ObjectPayloadRangeTZ(cctx, rangeParams, client.WithTTL(1))
+	result, err := cli.ObjectPayloadRangeTZ(cctx, rangeParams,
+		client.WithTTL(1),
+		client.WithKey(c.key))
 
 	cancel()
 

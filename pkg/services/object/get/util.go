@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"crypto/ecdsa"
 	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -75,8 +74,8 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj.Object()
 }
 
-func (c *clientCacheWrapper) get(key *ecdsa.PrivateKey, addr string) (getClient, error) {
-	clt, err := c.cache.Get(key, addr, c.opts...)
+func (c *clientCacheWrapper) get(addr string) (getClient, error) {
+	clt, err := c.cache.Get(addr, c.opts...)
 
 	return &clientWrapper{
 		client: clt,

@@ -1,8 +1,6 @@
 package getsvc
 
 import (
-	"crypto/ecdsa"
-
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -37,7 +35,7 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(*ecdsa.PrivateKey, string) (getClient, error)
+		get(string) (getClient, error)
 	}
 
 	traverserGenerator interface {

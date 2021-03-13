@@ -217,24 +217,27 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return nil, errors.Wrap(err, "could not convert address to IP format")
 	}
 
-	c, err := r.clientCache.Get(r.key, ipAddr)
+	c, err := r.clientCache.Get(ipAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize API client")
 	}
 
 	return &remoteLoadAnnounceWriterProvider{
 		client: c,
+		key:    r.key,
 	}, nil
 }
 
 type remoteLoadAnnounceWriterProvider struct {
 	client *apiClient.Client
+	key    *ecdsa.PrivateKey
 }
 
 func (p *remoteLoadAnnounceWriterProvider) InitWriter(ctx context.Context) (loadcontroller.Writer, error) {
 	return &remoteLoadAnnounceWriter{
 		ctx:    ctx,
 		client: p.client,
+		key:    p.key,
 	}, nil
 }
 
@@ -242,6 +245,7 @@ type remoteLoadAnnounceWriter struct {
 	ctx context.Context
 
 	client *apiClient.Client
+	key    *ecdsa.PrivateKey
 
 	buf []containerSDK.UsedSpaceAnnouncement
 }
@@ -253,7 +257,7 @@ func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) err
 }
 
 func (r *remoteLoadAnnounceWriter) Close() error {
-	return r.client.AnnounceContainerUsedSpace(r.ctx, r.buf)
+	return r.client.AnnounceContainerUsedSpace(r.ctx, r.buf, apiClient.WithKey(r.key))
 }
 
 type loadPlacementBuilder struct {
