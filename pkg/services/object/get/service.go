@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -96,13 +95,6 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 func WithClientCache(v *cache.ClientCache) Option {
 	return func(c *cfg) {
 		c.clientCache.(*clientCacheWrapper).cache = v
-	}
-}
-
-// WithClientOptions returns option to specify options of remote node clients.
-func WithClientOptions(opts ...client.Option) Option {
-	return func(c *cfg) {
-		c.clientCache.(*clientCacheWrapper).opts = opts
 	}
 }
 

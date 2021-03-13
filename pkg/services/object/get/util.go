@@ -19,8 +19,6 @@ type SimpleObjectWriter struct {
 
 type clientCacheWrapper struct {
 	cache *cache.ClientCache
-
-	opts []client.Option
 }
 
 type clientWrapper struct {
@@ -75,7 +73,7 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 }
 
 func (c *clientCacheWrapper) get(addr string) (getClient, error) {
-	clt, err := c.cache.Get(addr, c.opts...)
+	clt, err := c.cache.Get(addr)
 
 	return &clientWrapper{
 		client: clt,

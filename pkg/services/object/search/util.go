@@ -23,8 +23,6 @@ type uniqueIDWriter struct {
 
 type clientCacheWrapper struct {
 	cache *cache.ClientCache
-
-	opts []client.Option
 }
 
 type clientWrapper struct {
@@ -71,7 +69,7 @@ func (w *uniqueIDWriter) WriteIDs(list []*objectSDK.ID) error {
 }
 
 func (c *clientCacheWrapper) get(addr string) (searchClient, error) {
-	clt, err := c.cache.Get(addr, c.opts...)
+	clt, err := c.cache.Get(addr)
 
 	return &clientWrapper{
 		client: clt,
