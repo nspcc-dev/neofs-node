@@ -30,6 +30,10 @@ func (e *StorageEngine) Init() error {
 		}
 	}
 
+	if e.enableMetrics {
+		registerMetrics()
+	}
+
 	return nil
 }
 
