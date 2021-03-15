@@ -23,11 +23,16 @@ func New(c sessionsvc.Server) *Server {
 
 // Create converts gRPC CreateRequest message and passes it to internal Session service.
 func (s *Server) Create(ctx context.Context, req *sessionGRPC.CreateRequest) (*sessionGRPC.CreateResponse, error) {
-	resp, err := s.srv.Create(ctx, session.CreateRequestFromGRPCMessage(req))
+	createReq := new(session.CreateRequest)
+	if err := createReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.Create(ctx, createReq)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return session.CreateResponseToGRPCMessage(resp), nil
+	return resp.ToGRPCMessage().(*sessionGRPC.CreateResponse), nil
 }
