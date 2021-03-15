@@ -310,47 +310,54 @@ func initObjectService(c *cfg) {
 		deletesvcV2.WithKeyStorage(keyStorage),
 	)
 
-	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
-		objectTransportGRPC.New(
-			acl.New(
-				acl.WithSenderClassifier(
-					acl.NewSenderClassifier(
-						c.log,
-						c.cfgNetmap.wrapper,
-						c.cfgNetmap.wrapper,
-					),
-				),
-				acl.WithContainerSource(
-					c.cfgObject.cnrStorage,
-				),
-				acl.WithNextService(
-					objectService.NewSignService(
-						c.key,
-						objectService.NewResponseService(
-							objectService.NewTransportSplitter(
-								c.cfgGRPC.maxChunkSize,
-								c.cfgGRPC.maxAddrAmount,
-								&objectSvc{
-									put:    sPutV2,
-									search: sSearchV2,
-									get:    sGetV2,
-									delete: sDeleteV2,
-								},
-							),
-							c.respSvc,
-						),
-					),
-				),
-				acl.WithLocalStorage(ls),
-				acl.WithEACLValidatorOptions(
-					eacl.WithEACLStorage(newCachedEACLStorage(&morphEACLStorage{
-						w: c.cfgObject.cnrClient,
-					})),
-					eacl.WithLogger(c.log),
-				),
-				acl.WithNetmapState(c.cfgNetmap.state),
+	// build service pipeline
+	// grpc | acl | signature | response | split
+
+	splitSvc := objectService.NewTransportSplitter(
+		c.cfgGRPC.maxChunkSize,
+		c.cfgGRPC.maxAddrAmount,
+		&objectSvc{
+			put:    sPutV2,
+			search: sSearchV2,
+			get:    sGetV2,
+			delete: sDeleteV2,
+		},
+	)
+
+	respSvc := objectService.NewResponseService(
+		splitSvc,
+		c.respSvc,
+	)
+
+	signSvc := objectService.NewSignService(
+		c.key,
+		respSvc,
+	)
+
+	aclSvc := acl.New(
+		acl.WithSenderClassifier(
+			acl.NewSenderClassifier(
+				c.log,
+				c.cfgNetmap.wrapper,
+				c.cfgNetmap.wrapper,
 			),
 		),
+		acl.WithContainerSource(
+			c.cfgObject.cnrStorage,
+		),
+		acl.WithNextService(signSvc),
+		acl.WithLocalStorage(ls),
+		acl.WithEACLValidatorOptions(
+			eacl.WithEACLStorage(newCachedEACLStorage(&morphEACLStorage{
+				w: c.cfgObject.cnrClient,
+			})),
+			eacl.WithLogger(c.log),
+		),
+		acl.WithNetmapState(c.cfgNetmap.state),
+	)
+
+	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
+		objectTransportGRPC.New(aclSvc),
 	)
 }
 
