@@ -47,7 +47,7 @@ func (c *ClientCache) Get(address string) (*client.Client, error) {
 		return cli, nil
 	}
 
-	cli, err := client.New(nil, append(c.opts, client.WithAddress(address))...)
+	cli, err := client.New(append(c.opts, client.WithAddress(address))...)
 	if err != nil {
 		return nil, err
 	}
