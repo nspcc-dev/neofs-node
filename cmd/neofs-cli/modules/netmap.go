@@ -56,12 +56,12 @@ var getEpochCmd = &cobra.Command{
 			return err
 		}
 
-		e, err := cli.Epoch(context.Background(), globalCallOptions()...)
+		netInfo, err := cli.NetworkInfo(context.Background(), globalCallOptions()...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		fmt.Println(e)
+		fmt.Println(netInfo.CurrentEpoch())
 
 		return nil
 	},
@@ -82,7 +82,7 @@ var localNodeInfoCmd = &cobra.Command{
 			return fmt.Errorf("rpc error: %w", err)
 		}
 
-		prettyPrintNodeInfo(nodeInfo, nodeInfoJSON)
+		prettyPrintNodeInfo(nodeInfo.NodeInfo(), nodeInfoJSON)
 
 		return nil
 	},
@@ -105,12 +105,12 @@ var snapshotCmd = &cobra.Command{
 			return err
 		}
 
-		cli, err := getControlServiceClient()
+		cli, err := getSDKClient()
 		if err != nil {
 			return err
 		}
 
-		resp, err := cli.NetmapSnapshot(context.Background(), req)
+		resp, err := control.NetmapSnapshot(cli.Raw(), req)
 		if err != nil {
 			return err
 		}

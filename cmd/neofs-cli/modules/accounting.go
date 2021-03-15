@@ -39,18 +39,26 @@ var accountingBalanceCmd = &cobra.Command{
 			return err
 		}
 
-		switch balanceOwner {
-		case "":
-			response, err = cli.GetSelfBalance(ctx, globalCallOptions()...)
-		default:
-			oid, err = ownerFromString(balanceOwner)
+		if balanceOwner == "" {
+			key, err := getKey()
 			if err != nil {
 				return err
 			}
 
-			response, err = cli.GetBalance(ctx, oid, globalCallOptions()...)
+			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
+			if err != nil {
+				return err
+			}
+
+			oid = owner.NewIDFromNeo3Wallet(wallet)
+		} else {
+			oid, err = ownerFromString(balanceOwner)
+			if err != nil {
+				return err
+			}
 		}
 
+		response, err = cli.GetBalance(ctx, oid, globalCallOptions()...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}

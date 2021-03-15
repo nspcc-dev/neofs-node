@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
-	"github.com/nspcc-dev/neofs-api-go/v2/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/pkg/errors"
@@ -66,27 +64,6 @@ func init() {
 	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
 }
 
-func getControlServiceClient() (control.ControlServiceClient, error) {
-	netAddr, err := getEndpointAddress()
-	if err != nil {
-		return nil, err
-	}
-
-	ipAddr, err := netAddr.IPAddrString()
-	if err != nil {
-		return nil, errInvalidEndpoint
-	}
-
-	con, err := client.NewGRPCClientConn(
-		client.WithNetworkAddress(ipAddr),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return control.NewControlServiceClient(con), nil
-}
-
 func healthCheck(cmd *cobra.Command, _ []string) error {
 	key, err := getKey()
 	if err != nil {
@@ -101,12 +78,12 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cli, err := getControlServiceClient()
+	cli, err := getSDKClient()
 	if err != nil {
 		return err
 	}
 
-	resp, err := cli.HealthCheck(context.Background(), req)
+	resp, err := control.HealthCheck(cli.Raw(), req)
 	if err != nil {
 		return err
 	}
@@ -153,12 +130,12 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cli, err := getControlServiceClient()
+	cli, err := getSDKClient()
 	if err != nil {
 		return err
 	}
 
-	resp, err := cli.SetNetmapStatus(context.Background(), req)
+	resp, err := control.SetNetmapStatus(cli.Raw(), req)
 	if err != nil {
 		return err
 	}
@@ -219,12 +196,12 @@ var dropObjectsCmd = &cobra.Command{
 			return err
 		}
 
-		cli, err := getControlServiceClient()
+		cli, err := getSDKClient()
 		if err != nil {
 			return err
 		}
 
-		resp, err := cli.DropObjects(context.Background(), req)
+		resp, err := control.DropObjects(cli.Raw(), req)
 		if err != nil {
 			return err
 		}

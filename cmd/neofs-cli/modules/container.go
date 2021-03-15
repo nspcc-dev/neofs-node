@@ -78,18 +78,26 @@ var listContainersCmd = &cobra.Command{
 			return err
 		}
 
-		switch containerOwner {
-		case "":
-			response, err = cli.ListSelfContainers(ctx, globalCallOptions()...)
-		default:
-			oid, err = ownerFromString(containerOwner)
+		if containerOwner == "" {
+			key, err := getKey()
 			if err != nil {
 				return err
 			}
 
-			response, err = cli.ListContainers(ctx, oid, globalCallOptions()...)
+			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
+			if err != nil {
+				return err
+			}
+
+			oid = owner.NewIDFromNeo3Wallet(wallet)
+		} else {
+			oid, err = ownerFromString(containerOwner)
+			if err != nil {
+				return err
+			}
 		}
 
+		response, err = cli.ListContainers(ctx, oid, globalCallOptions()...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -343,7 +351,7 @@ var getExtendedACLCmd = &cobra.Command{
 			return err
 		}
 
-		res, err := cli.GetEACLWithSignature(ctx, id, globalCallOptions()...)
+		res, err := cli.GetEACL(ctx, id, globalCallOptions()...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -425,10 +433,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				table, err := cli.GetEACL(ctx, id, globalCallOptions()...)
+				tableSig, err := cli.GetEACL(ctx, id, globalCallOptions()...)
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					got, err := table.Marshal()
+					got, err := tableSig.EACL().Marshal()
 					if err != nil {
 						continue
 					}
