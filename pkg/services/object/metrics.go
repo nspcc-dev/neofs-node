@@ -5,12 +5,22 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type (
 	MetricCollector struct {
 		next ServiceServer
+	}
+
+	getStreamMetric struct {
+		util.ServerStream
+		stream GetObjectStream
+	}
+
+	putStreamMetric struct {
+		stream object.PutObjectStreamer
 	}
 )
 
@@ -124,6 +134,23 @@ var (
 	})
 )
 
+// Object payload metrics.
+var (
+	putPayload = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "put_payload",
+		Help:      "Accumulated payload size at object put method",
+	})
+
+	getPayload = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "get_payload",
+		Help:      "Accumulated payload size at object get method",
+	})
+)
+
 func registerMetrics() {
 	prometheus.MustRegister(getCounter) // todo: replace with for loop over map
 	prometheus.MustRegister(putCounter)
@@ -140,6 +167,9 @@ func registerMetrics() {
 	prometheus.MustRegister(deleteDuration)
 	prometheus.MustRegister(rangeDuration)
 	prometheus.MustRegister(rangeHashDuration)
+
+	prometheus.MustRegister(putPayload)
+	prometheus.MustRegister(getPayload)
 }
 
 func NewMetricCollector(next ServiceServer) *MetricCollector {
@@ -157,7 +187,10 @@ func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) err
 		getDuration.Add(float64(time.Since(t)))
 	}()
 
-	return m.next.Get(req, stream)
+	return m.next.Get(req, &getStreamMetric{
+		ServerStream: stream,
+		stream:       stream,
+	})
 }
 
 func (m MetricCollector) Put(ctx context.Context) (object.PutObjectStreamer, error) {
@@ -167,7 +200,12 @@ func (m MetricCollector) Put(ctx context.Context) (object.PutObjectStreamer, err
 		putDuration.Add(float64(time.Since(t)))
 	}()
 
-	return m.next.Put(ctx)
+	stream, err := m.next.Put(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &putStreamMetric{stream: stream}, nil
 }
 
 func (m MetricCollector) Head(ctx context.Context, request *object.HeadRequest) (*object.HeadResponse, error) {
@@ -218,4 +256,28 @@ func (m MetricCollector) GetRangeHash(ctx context.Context, request *object.GetRa
 	}()
 
 	return m.next.GetRangeHash(ctx, request)
+}
+
+func (s getStreamMetric) Send(resp *object.GetResponse) error {
+	chunk, ok := resp.GetBody().GetObjectPart().(*object.GetObjectPartChunk)
+	if ok {
+		ln := len(chunk.GetChunk())
+		getPayload.Add(float64(ln))
+	}
+
+	return s.stream.Send(resp)
+}
+
+func (s putStreamMetric) Send(req *object.PutRequest) error {
+	chunk, ok := req.GetBody().GetObjectPart().(*object.PutObjectPartChunk)
+	if ok {
+		ln := len(chunk.GetChunk())
+		putPayload.Add(float64(ln))
+	}
+
+	return s.stream.Send(req)
+}
+
+func (s putStreamMetric) CloseAndRecv() (*object.PutResponse, error) {
+	return s.stream.CloseAndRecv()
 }
