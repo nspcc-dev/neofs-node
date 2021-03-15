@@ -49,8 +49,6 @@ func testObject(sz uint64) *object.Object {
 		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
 	}
 
-	raw.SetAttributes() // for require.Equal
-
 	return raw.Object()
 }
 
