@@ -299,7 +299,7 @@ func initObjectService(c *cfg) {
 	)
 
 	// build service pipeline
-	// grpc | acl | signature | response | split
+	// grpc | <metrics> | acl | signature | response | split
 
 	splitSvc := objectService.NewTransportSplitter(
 		c.cfgGRPC.maxChunkSize,
@@ -344,8 +344,13 @@ func initObjectService(c *cfg) {
 		acl.WithNetmapState(c.cfgNetmap.state),
 	)
 
+	var firstSvc objectService.ServiceServer = aclSvc
+	if c.viper.GetBool(cfgMetricsEnable) {
+		firstSvc = objectService.NewMetricCollector(aclSvc)
+	}
+
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
-		objectTransportGRPC.New(aclSvc),
+		objectTransportGRPC.New(firstSvc),
 	)
 }
 
