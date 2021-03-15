@@ -11,16 +11,21 @@ type searchStreamerV2 struct {
 
 func (s *searchStreamerV2) Send(resp *object.SearchResponse) error {
 	return s.ObjectService_SearchServer.Send(
-		object.SearchResponseToGRPCMessage(resp),
+		resp.ToGRPCMessage().(*objectGRPC.SearchResponse),
 	)
 }
 
 // Search converts gRPC SearchRequest message and server-side stream and overtakes its data
 // to gRPC stream.
 func (s *Server) Search(req *objectGRPC.SearchRequest, gStream objectGRPC.ObjectService_SearchServer) error {
+	searchReq := new(object.SearchRequest)
+	if err := searchReq.FromGRPCMessage(req); err != nil {
+		return err
+	}
+
 	// TODO: think about how we transport errors through gRPC
 	return s.srv.Search(
-		object.SearchRequestFromGRPCMessage(req),
+		searchReq,
 		&searchStreamerV2{
 			ObjectService_SearchServer: gStream,
 		},

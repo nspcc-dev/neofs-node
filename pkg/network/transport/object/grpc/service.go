@@ -40,13 +40,18 @@ func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 					return err
 				}
 
-				return gStream.SendAndClose(object.PutResponseToGRPCMessage(resp))
+				return gStream.SendAndClose(resp.ToGRPCMessage().(*objectGRPC.PutResponse))
 			}
 
 			return err
 		}
 
-		if err := stream.Send(object.PutRequestFromGRPCMessage(req)); err != nil {
+		putReq := new(object.PutRequest)
+		if err := putReq.FromGRPCMessage(req); err != nil {
+			return err
+		}
+
+		if err := stream.Send(putReq); err != nil {
 			return err
 		}
 	}
@@ -54,33 +59,48 @@ func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 
 // Delete converts gRPC DeleteRequest message and passes it to internal Object service.
 func (s *Server) Delete(ctx context.Context, req *objectGRPC.DeleteRequest) (*objectGRPC.DeleteResponse, error) {
-	resp, err := s.srv.Delete(ctx, object.DeleteRequestFromGRPCMessage(req))
+	delReq := new(object.DeleteRequest)
+	if err := delReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.Delete(ctx, delReq)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return object.DeleteResponseToGRPCMessage(resp), nil
+	return resp.ToGRPCMessage().(*objectGRPC.DeleteResponse), nil
 }
 
 // Head converts gRPC HeadRequest message and passes it to internal Object service.
 func (s *Server) Head(ctx context.Context, req *objectGRPC.HeadRequest) (*objectGRPC.HeadResponse, error) {
-	resp, err := s.srv.Head(ctx, object.HeadRequestFromGRPCMessage(req))
+	searchReq := new(object.HeadRequest)
+	if err := searchReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.Head(ctx, searchReq)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return object.HeadResponseToGRPCMessage(resp), nil
+	return resp.ToGRPCMessage().(*objectGRPC.HeadResponse), nil
 }
 
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
 func (s *Server) GetRangeHash(ctx context.Context, req *objectGRPC.GetRangeHashRequest) (*objectGRPC.GetRangeHashResponse, error) {
-	resp, err := s.srv.GetRangeHash(ctx, object.GetRangeHashRequestFromGRPCMessage(req))
+	hashRngReq := new(object.GetRangeHashRequest)
+	if err := hashRngReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return object.GetRangeHashResponseToGRPCMessage(resp), nil
+	return resp.ToGRPCMessage().(*objectGRPC.GetRangeHashResponse), nil
 }

@@ -23,11 +23,16 @@ func New(c accountingsvc.Server) *Server {
 
 // Balance converts gRPC BalanceRequest message and passes it to internal Accounting service.
 func (s *Server) Balance(ctx context.Context, req *accountingGRPC.BalanceRequest) (*accountingGRPC.BalanceResponse, error) {
-	resp, err := s.srv.Balance(ctx, accounting.BalanceRequestFromGRPCMessage(req))
+	balReq := new(accounting.BalanceRequest)
+	if err := balReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.Balance(ctx, balReq)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return accounting.BalanceResponseToGRPCMessage(resp), nil
+	return resp.ToGRPCMessage().(*accountingGRPC.BalanceResponse), nil
 }
