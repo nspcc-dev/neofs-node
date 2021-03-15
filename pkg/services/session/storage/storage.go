@@ -14,7 +14,7 @@ type key struct {
 }
 
 type TokenStore struct {
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
 	tokens map[key]*PrivateToken
 }
@@ -26,7 +26,6 @@ var ErrNotFound = errors.New("private token not found")
 // The elements of the instance are stored in the map.
 func New() *TokenStore {
 	return &TokenStore{
-		mtx:    new(sync.RWMutex),
 		tokens: make(map[key]*PrivateToken),
 	}
 }

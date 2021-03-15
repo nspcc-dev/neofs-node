@@ -24,7 +24,7 @@ type (
 	}
 
 	subscriber struct {
-		*sync.RWMutex
+		sync.RWMutex
 		log    *zap.Logger
 		client *client.WSClient
 
@@ -172,7 +172,6 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 	}
 
 	sub := &subscriber{
-		RWMutex:   new(sync.RWMutex),
 		log:       p.Log,
 		client:    wsClient,
 		notify:    make(chan *state.NotificationEvent),

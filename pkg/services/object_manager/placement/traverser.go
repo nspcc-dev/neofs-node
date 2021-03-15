@@ -27,7 +27,7 @@ type Option func(*cfg)
 // Traverser represents utility for controlling
 // traversal of object placement vectors.
 type Traverser struct {
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
 	vectors []netmap.Nodes
 
@@ -98,7 +98,6 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 	}
 
 	return &Traverser{
-		mtx:     new(sync.RWMutex),
 		rem:     rem,
 		vectors: ns,
 	}, nil

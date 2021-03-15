@@ -62,9 +62,9 @@ type ListenerParams struct {
 }
 
 type listener struct {
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
-	once *sync.Once
+	once sync.Once
 
 	started bool
 
@@ -92,7 +92,7 @@ var (
 // Executes once, all subsequent calls do nothing.
 //
 // Returns an error if listener was already started.
-func (s listener) Listen(ctx context.Context) {
+func (s *listener) Listen(ctx context.Context) {
 	s.once.Do(func() {
 		if err := s.listen(ctx, nil); err != nil {
 			s.log.Error("could not start listen to events",
@@ -108,7 +108,7 @@ func (s listener) Listen(ctx context.Context) {
 // Executes once, all subsequent calls do nothing.
 //
 // Returns an error if listener was already started.
-func (s listener) ListenWithError(ctx context.Context, intError chan<- error) {
+func (s *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	s.once.Do(func() {
 		if err := s.listen(ctx, intError); err != nil {
 			s.log.Error("could not start listen to events",
@@ -119,7 +119,7 @@ func (s listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	})
 }
 
-func (s listener) listen(ctx context.Context, intError chan<- error) error {
+func (s *listener) listen(ctx context.Context, intError chan<- error) error {
 	// create the list of listening contract hashes
 	hashes := make([]util.Uint160, 0)
 
@@ -153,7 +153,7 @@ func (s listener) listen(ctx context.Context, intError chan<- error) error {
 	return nil
 }
 
-func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
+func (s *listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
 	var blockChan <-chan *block.Block
 
 	if len(s.blockHandlers) > 0 {
@@ -216,7 +216,7 @@ loop:
 	}
 }
 
-func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
+func (s *listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 	log := s.log.With(
 		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
@@ -288,7 +288,7 @@ func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 //
 // Ignores nil and already set parsers.
 // Ignores the parser if listener is started.
-func (s listener) SetParser(p ParserInfo) {
+func (s *listener) SetParser(p ParserInfo) {
 	log := s.log.With(
 		zap.String("script hash LE", p.ScriptHash().StringLE()),
 		zap.Stringer("event type", p.getType()),
@@ -321,7 +321,7 @@ func (s listener) SetParser(p ParserInfo) {
 //
 // Ignores nil handlers.
 // Ignores handlers of event without parser.
-func (s listener) RegisterHandler(p HandlerInfo) {
+func (s *listener) RegisterHandler(p HandlerInfo) {
 	log := s.log.With(
 		zap.String("script hash LE", p.ScriptHash().StringLE()),
 		zap.Stringer("event type", p.GetType()),
@@ -355,7 +355,7 @@ func (s listener) RegisterHandler(p HandlerInfo) {
 }
 
 // Stop closes subscription channel with remote neo node.
-func (s listener) Stop() {
+func (s *listener) Stop() {
 	s.subscriber.Close()
 }
 
@@ -378,8 +378,6 @@ func NewListener(p ListenerParams) (Listener, error) {
 	}
 
 	return &listener{
-		mtx:        new(sync.RWMutex),
-		once:       new(sync.Once),
 		parsers:    make(map[scriptHashWithType]Parser),
 		handlers:   make(map[scriptHashWithType][]Handler),
 		log:        p.Logger,

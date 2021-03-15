@@ -10,7 +10,7 @@ type (
 	// ClientCache is a structure around neofs-api-go/pkg/client to reuse
 	// already created clients.
 	ClientCache struct {
-		mu      *sync.RWMutex
+		mu      sync.RWMutex
 		clients map[string]client.Client
 		opts    []client.Option
 	}
@@ -20,7 +20,6 @@ type (
 // `opts` are used for new client creation.
 func NewSDKClientCache(opts ...client.Option) *ClientCache {
 	return &ClientCache{
-		mu:      new(sync.RWMutex),
 		clients: make(map[string]client.Client),
 		opts:    opts,
 	}

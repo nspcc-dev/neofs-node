@@ -17,7 +17,7 @@ type BlockTickHandler func()
 type BlockTimer struct {
 	rolledBack bool
 
-	mtx *sync.Mutex
+	mtx sync.Mutex
 
 	dur BlockMeter
 
@@ -61,7 +61,6 @@ func StaticBlockMeter(d uint32) BlockMeter {
 // Reset should be called before timer ticking.
 func NewBlockTimer(dur BlockMeter, h BlockTickHandler) *BlockTimer {
 	return &BlockTimer{
-		mtx: new(sync.Mutex),
 		dur: dur,
 		mul: 1,
 		div: 1,

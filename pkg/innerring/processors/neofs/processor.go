@@ -41,7 +41,7 @@ type (
 		epochState          EpochState
 		activeState         ActiveState
 		converter           PrecisionConverter
-		mintEmitLock        *sync.Mutex
+		mintEmitLock        sync.Mutex
 		mintEmitCache       *lru.Cache
 		mintEmitThreshold   uint64
 		mintEmitValue       fixedn.Fixed8
@@ -111,7 +111,6 @@ func New(p *Params) (*Processor, error) {
 		epochState:          p.EpochState,
 		activeState:         p.ActiveState,
 		converter:           p.Converter,
-		mintEmitLock:        new(sync.Mutex),
 		mintEmitCache:       lruCache,
 		mintEmitThreshold:   p.MintEmitThreshold,
 		mintEmitValue:       p.MintEmitValue,

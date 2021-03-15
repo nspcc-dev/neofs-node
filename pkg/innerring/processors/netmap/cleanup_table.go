@@ -9,7 +9,7 @@ import (
 
 type (
 	cleanupTable struct {
-		*sync.RWMutex
+		sync.RWMutex
 		enabled    bool
 		threshold  uint64
 		lastAccess map[string]epochStamp
@@ -23,7 +23,6 @@ type (
 
 func newCleanupTable(enabled bool, threshold uint64) cleanupTable {
 	return cleanupTable{
-		RWMutex:    new(sync.RWMutex),
 		enabled:    enabled,
 		threshold:  threshold,
 		lastAccess: make(map[string]epochStamp),

@@ -12,7 +12,7 @@ import (
 type StorageEngine struct {
 	*cfg
 
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
 	shards map[string]*shard.Shard
 }
@@ -42,7 +42,6 @@ func New(opts ...Option) *StorageEngine {
 
 	return &StorageEngine{
 		cfg:    c,
-		mtx:    new(sync.RWMutex),
 		shards: make(map[string]*shard.Shard),
 	}
 }
