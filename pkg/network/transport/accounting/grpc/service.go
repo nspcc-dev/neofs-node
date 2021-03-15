@@ -5,16 +5,17 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
 	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
+	accountingsvc "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 )
 
 // Server wraps NeoFS API Accounting service and
 // provides gRPC Accounting service server interface.
 type Server struct {
-	srv accounting.Service
+	srv accountingsvc.Server
 }
 
 // New creates, initializes and returns Server instance.
-func New(c accounting.Service) *Server {
+func New(c accountingsvc.Server) *Server {
 	return &Server{
 		srv: c,
 	}

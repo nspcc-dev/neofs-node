@@ -16,7 +16,7 @@ type executorSvc struct {
 }
 
 // NewExecutionService wraps ServiceExecutor and returns Accounting Service interface.
-func NewExecutionService(exec ServiceExecutor) accounting.Service {
+func NewExecutionService(exec ServiceExecutor) Server {
 	return &executorSvc{
 		exec: exec,
 	}

@@ -5,16 +5,17 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
+	containersvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 )
 
 // Server wraps NeoFS API Container service and
 // provides gRPC Container service server interface.
 type Server struct {
-	srv container.Service
+	srv containersvc.Server
 }
 
 // New creates, initializes and returns Server instance.
-func New(c container.Service) *Server {
+func New(c containersvc.Server) *Server {
 	return &Server{
 		srv: c,
 	}

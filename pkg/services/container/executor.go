@@ -17,13 +17,13 @@ type ServiceExecutor interface {
 }
 
 type executorSvc struct {
-	container.Service
+	Server
 
 	exec ServiceExecutor
 }
 
 // NewExecutionService wraps ServiceExecutor and returns Container Service interface.
-func NewExecutionService(exec ServiceExecutor) container.Service {
+func NewExecutionService(exec ServiceExecutor) Server {
 	return &executorSvc{
 		exec: exec,
 	}

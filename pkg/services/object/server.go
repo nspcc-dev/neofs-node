@@ -25,11 +25,17 @@ type SearchStream interface {
 	Send(*object.SearchResponse) error
 }
 
+// PutObjectStream is an interface of NeoFS API v2 compatible client's object streamer.
+type PutObjectStream interface {
+	Send(*object.PutRequest) error
+	CloseAndRecv() (*object.PutResponse, error)
+}
+
 // ServiceServer is an interface of utility
 // serving v2 Object service.
 type ServiceServer interface {
 	Get(*object.GetRequest, GetObjectStream) error
-	Put(context.Context) (object.PutObjectStreamer, error)
+	Put(context.Context) (PutObjectStream, error)
 	Head(context.Context, *object.HeadRequest) (*object.HeadResponse, error)
 	Search(*object.SearchRequest, SearchStream) error
 	Delete(context.Context, *object.DeleteRequest) (*object.DeleteResponse, error)

@@ -5,16 +5,17 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	netmapsvc "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 )
 
 // Server wraps NeoFS API Netmap service and
 // provides gRPC Netmap service server interface.
 type Server struct {
-	srv netmap.Service
+	srv netmapsvc.Server
 }
 
 // New creates, initializes and returns Server instance.
-func New(c netmap.Service) *Server {
+func New(c netmapsvc.Server) *Server {
 	return &Server{
 		srv: c,
 	}

@@ -11,12 +11,12 @@ import (
 type responseService struct {
 	respSvc *response.Service
 
-	svc session.Service
+	svc Server
 }
 
 // NewResponseService returns session service instance that passes internal service
 // call to response service.
-func NewResponseService(ssSvc session.Service, respSvc *response.Service) session.Service {
+func NewResponseService(ssSvc Server, respSvc *response.Service) Server {
 	return &responseService{
 		respSvc: respSvc,
 		svc:     ssSvc,

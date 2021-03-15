@@ -34,7 +34,7 @@ type (
 
 	putStreamBasicChecker struct {
 		source *Service
-		next   object.PutObjectStreamer
+		next   objectSvc.PutObjectStream
 
 		*eACLCfg
 	}
@@ -174,7 +174,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 	})
 }
 
-func (b Service) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (b Service) Put(ctx context.Context) (objectSvc.PutObjectStream, error) {
 	streamer, err := b.next.Put(ctx)
 
 	return putStreamBasicChecker{

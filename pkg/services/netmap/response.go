@@ -11,12 +11,12 @@ import (
 type responseService struct {
 	respSvc *response.Service
 
-	svc netmap.Service
+	svc Server
 }
 
 // NewResponseService returns netmap service instance that passes internal service
 // call to response service.
-func NewResponseService(nmSvc netmap.Service, respSvc *response.Service) netmap.Service {
+func NewResponseService(nmSvc Server, respSvc *response.Service) Server {
 	return &responseService{
 		respSvc: respSvc,
 		svc:     nmSvc,

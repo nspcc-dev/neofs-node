@@ -80,7 +80,7 @@ func (s *putStreamSigner) CloseAndRecv() (*object.PutResponse, error) {
 	return r.(*object.PutResponse), nil
 }
 
-func (s *SignService) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (s *SignService) Put(ctx context.Context) (PutObjectStream, error) {
 	stream, err := s.svc.Put(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create Put object streamer")

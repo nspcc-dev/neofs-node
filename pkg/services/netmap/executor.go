@@ -30,7 +30,7 @@ type NetworkInfo interface {
 	Dump() (*netmap.NetworkInfo, error)
 }
 
-func NewExecutionService(s NodeState, v *pkg.Version, netInfo NetworkInfo) netmap.Service {
+func NewExecutionService(s NodeState, v *pkg.Version, netInfo NetworkInfo) Server {
 	if s == nil || v == nil || netInfo == nil {
 		// this should never happen, otherwise it programmers bug
 		panic("can't create netmap execution service")
