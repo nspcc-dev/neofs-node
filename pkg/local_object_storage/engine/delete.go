@@ -27,6 +27,10 @@ func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
 
 // Delete marks the objects to be removed.
 func (e *StorageEngine) Delete(prm *DeletePrm) (*DeleteRes, error) {
+	if e.enableMetrics {
+		defer elapsed(deleteDuration)()
+	}
+
 	shPrm := new(shard.InhumePrm)
 	existsPrm := new(shard.ExistsPrm)
 

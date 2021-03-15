@@ -56,6 +56,10 @@ func (r *HeadRes) Header() *object.Object {
 // Returns object.ErrNotFound if requested object is missing in local storage.
 // Returns object.ErrAlreadyRemoved if requested object was inhumed.
 func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
+	if e.enableMetrics {
+		defer elapsed(headDuration)()
+	}
+
 	var (
 		head  *object.Object
 		siErr *objectSDK.SplitInfoError
