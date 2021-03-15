@@ -177,7 +177,7 @@ func getSDKClient() (*client.Client, error) {
 		return nil, errInvalidEndpoint
 	}
 
-	return client.New(key, client.WithAddress(ipAddr))
+	return client.New(client.WithAddress(ipAddr), client.WithDefaultPrivateKey(key))
 }
 
 func getTTL() uint32 {
