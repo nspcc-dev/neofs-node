@@ -11,10 +11,10 @@ import (
 type signService struct {
 	sigSvc *util.SignService
 
-	svc container.Service
+	svc Server
 }
 
-func NewSignService(key *ecdsa.PrivateKey, svc container.Service) container.Service {
+func NewSignService(key *ecdsa.PrivateKey, svc Server) Server {
 	return &signService{
 		sigSvc: util.NewUnarySignService(key),
 		svc:    svc,

@@ -5,16 +5,17 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	sessionsvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
 )
 
 // Server wraps NeoFS API Session service and
 // provides gRPC Session service server interface.
 type Server struct {
-	srv session.Service
+	srv sessionsvc.Server
 }
 
 // New creates, initializes and returns Server instance.
-func New(c session.Service) *Server {
+func New(c sessionsvc.Server) *Server {
 	return &Server{
 		srv: c,
 	}

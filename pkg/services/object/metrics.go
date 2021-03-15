@@ -21,7 +21,7 @@ type (
 	}
 
 	putStreamMetric struct {
-		stream  object.PutObjectStreamer
+		stream  PutObjectStream
 		metrics MetricRegister
 		start   time.Time
 	}
@@ -69,7 +69,7 @@ func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) err
 	})
 }
 
-func (m MetricCollector) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (m MetricCollector) Put(ctx context.Context) (PutObjectStream, error) {
 	t := time.Now()
 	defer func() {
 		m.metrics.IncPutReqCounter()

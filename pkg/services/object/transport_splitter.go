@@ -87,7 +87,7 @@ func (c *TransportSplitter) Get(req *object.GetRequest, stream GetObjectStream) 
 	})
 }
 
-func (c TransportSplitter) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (c TransportSplitter) Put(ctx context.Context) (PutObjectStream, error) {
 	return c.next.Put(ctx)
 }
 

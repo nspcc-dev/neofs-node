@@ -61,7 +61,7 @@ func (c *cfg) MaxObjectSize() uint64 {
 	return sz
 }
 
-func (s *objectSvc) Put(ctx context.Context) (object.PutObjectStreamer, error) {
+func (s *objectSvc) Put(ctx context.Context) (objectService.PutObjectStream, error) {
 	return s.put.Put(ctx)
 }
 

@@ -125,7 +125,7 @@ func initContainerService(c *cfg) {
 				c.key,
 				containerService.NewResponseService(
 					&usedSpaceService{
-						Service:              containerService.NewExecutionService(containerMorph.NewExecutor(cnrClient)),
+						Server:               containerService.NewExecutionService(containerMorph.NewExecutor(cnrClient)),
 						loadWriterProvider:   loadRouter,
 						loadPlacementBuilder: loadPlacementBuilder,
 						routeBuilder:         routeBuilder,
@@ -341,7 +341,7 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 }
 
 type usedSpaceService struct {
-	containerV2.Service
+	containerService.Server
 
 	loadWriterProvider loadcontroller.WriterProvider
 

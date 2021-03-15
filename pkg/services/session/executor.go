@@ -16,7 +16,7 @@ type executorSvc struct {
 }
 
 // NewExecutionService wraps ServiceExecutor and returns Session Service interface.
-func NewExecutionService(exec ServiceExecutor) session.Service {
+func NewExecutionService(exec ServiceExecutor) Server {
 	return &executorSvc{
 		exec: exec,
 	}
