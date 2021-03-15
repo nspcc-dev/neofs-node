@@ -58,6 +58,10 @@ const (
 	cfgProfilerAddr   = "pprof.address"
 	cfgProfilerTTL    = "pprof.shutdown_ttl"
 
+	// metrics keys
+	cfgMetricsEnable = "metrics.enabled"
+	cfgMetricsAddr   = "metrics.address"
+
 	// config keys for cfgNodeInfo
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
@@ -187,6 +191,8 @@ type cfg struct {
 	cfgObject cfgObject
 
 	profiler profiler.Profiler
+
+	metrics profiler.Metrics
 
 	workers []worker
 
@@ -421,6 +427,9 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgProfilerAddr, ":6060")
 	v.SetDefault(cfgProfilerTTL, "30s")
 
+	v.SetDefault(cfgMetricsEnable, false)
+	v.SetDefault(cfgMetricsAddr, ":9090")
+
 	v.SetDefault(cfgGCQueueSize, 1000)
 	v.SetDefault(cfgGCQueueTick, "5s")
 	v.SetDefault(cfgGCTimeout, "5s")
@@ -457,6 +466,7 @@ func initLocalStorage(c *cfg) {
 
 	ls := engine.New(
 		engine.WithLogger(c.log),
+		engine.WithMetrics(c.viper.GetBool(cfgMetricsEnable)),
 	)
 
 	for _, opts := range c.cfgObject.cfgLocalStorage.shardOpts {

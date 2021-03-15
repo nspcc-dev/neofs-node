@@ -48,6 +48,7 @@ func initApp(c *cfg) {
 	initSessionService(c)
 	initObjectService(c)
 	initProfiler(c)
+	initMetrics(c)
 	initControlService(c)
 
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
@@ -61,6 +62,7 @@ func bootUp(c *cfg) {
 	serveGRPC(c)
 	bootstrapNode(c)
 	startWorkers(c)
+	serveMetrics(c)
 }
 
 func wait(c *cfg) {
