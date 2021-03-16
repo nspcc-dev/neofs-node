@@ -23,6 +23,7 @@ type (
 	putStreamMetric struct {
 		stream  object.PutObjectStreamer
 		metrics MetricRegister
+		start   time.Time
 	}
 
 	MetricRegister interface {
@@ -72,7 +73,6 @@ func (m MetricCollector) Put(ctx context.Context) (object.PutObjectStreamer, err
 	t := time.Now()
 	defer func() {
 		m.metrics.IncPutReqCounter()
-		m.metrics.AddPutReqDuration(time.Since(t))
 	}()
 
 	stream, err := m.next.Put(ctx)
@@ -83,6 +83,7 @@ func (m MetricCollector) Put(ctx context.Context) (object.PutObjectStreamer, err
 	return &putStreamMetric{
 		stream:  stream,
 		metrics: m.metrics,
+		start:   t,
 	}, nil
 }
 
@@ -155,5 +156,9 @@ func (s putStreamMetric) Send(req *object.PutRequest) error {
 }
 
 func (s putStreamMetric) CloseAndRecv() (*object.PutResponse, error) {
+	defer func() {
+		s.metrics.AddPutReqDuration(time.Since(s.start))
+	}()
+
 	return s.stream.CloseAndRecv()
 }
