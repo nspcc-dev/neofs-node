@@ -49,8 +49,8 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from shard until `Delete` operation.
 func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
-	if e.enableMetrics {
-		defer elapsed(inhumeDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
 
 	shPrm := new(shard.InhumePrm)

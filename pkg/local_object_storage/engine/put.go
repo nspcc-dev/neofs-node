@@ -34,8 +34,8 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
-	if e.enableMetrics {
-		defer elapsed(putDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
 	_, err := e.exists(prm.obj.Address()) // todo: make this check parallel

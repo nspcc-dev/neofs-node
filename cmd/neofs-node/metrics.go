@@ -5,11 +5,13 @@ import (
 )
 
 func initMetrics(c *cfg) {
-	c.metrics = profiler.NewMetrics(c.log, c.viper)
+	if c.metricsCollector != nil {
+		c.metricsServer = profiler.NewMetrics(c.log, c.viper)
+	}
 }
 
 func serveMetrics(c *cfg) {
-	if c.metrics != nil {
-		c.metrics.Start(c.ctx)
+	if c.metricsServer != nil {
+		c.metricsServer.Start(c.ctx)
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -184,7 +185,9 @@ type cfg struct {
 
 	profiler profiler.Profiler
 
-	metrics profiler.Metrics
+	metricsServer profiler.Metrics
+
+	metricsCollector *metrics.StorageMetrics
 
 	workers []worker
 
@@ -362,6 +365,10 @@ func initCfg(path string) *cfg {
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 	}
 
+	if viperCfg.GetBool(cfgMetricsEnable) {
+		c.metricsCollector = metrics.NewStorageMetrics()
+	}
+
 	initLocalStorage(c)
 
 	return c
@@ -457,7 +464,7 @@ func initLocalStorage(c *cfg) {
 
 	ls := engine.New(
 		engine.WithLogger(c.log),
-		engine.WithMetrics(c.viper.GetBool(cfgMetricsEnable)),
+		engine.WithMetrics(c.metricsCollector),
 	)
 
 	for _, opts := range c.cfgObject.cfgLocalStorage.shardOpts {

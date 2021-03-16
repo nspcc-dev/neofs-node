@@ -48,8 +48,8 @@ func (r *SelectRes) AddressList() []*object.Address {
 //
 // Returns any error encountered that did not allow to completely select the objects.
 func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
-	if e.enableMetrics {
-		defer elapsed(searchDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddSearchDuration)()
 	}
 
 	addrList := make([]*object.Address, 0)
@@ -98,8 +98,8 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 // List returns `limit` available physically storage object addresses in engine.
 // If limit is zero, then returns all available object addresses.
 func (e *StorageEngine) List(limit uint64) (*SelectRes, error) {
-	if e.enableMetrics {
-		defer elapsed(listObjectsDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
 	addrList := make([]*object.Address, limit)

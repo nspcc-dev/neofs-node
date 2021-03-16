@@ -42,8 +42,8 @@ func (r *GetRes) Object() *object.Object {
 //
 // Returns ErrNotFound if requested object is missing in local storage.
 func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
-	if e.enableMetrics {
-		defer elapsed(getDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddGetDuration)()
 	}
 
 	var (
