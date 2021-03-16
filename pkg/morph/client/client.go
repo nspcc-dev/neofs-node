@@ -69,6 +69,13 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 		},
 	}
 
+	cosignerAcc := []client.SignerAccount{
+		{
+			Signer:  cosigner[0],
+			Account: c.acc,
+		},
+	}
+
 	resp, err := c.client.InvokeFunction(contract, method, params, cosigner)
 	if err != nil {
 		return err
@@ -82,7 +89,7 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 
 	sysFee := resp.GasConsumed + int64(fee) // consumed gas + extra fee
 
-	txHash, err := c.client.SignAndPushInvocationTx(script, c.acc, sysFee, 0, cosigner)
+	txHash, err := c.client.SignAndPushInvocationTx(script, c.acc, sysFee, 0, cosignerAcc)
 	if err != nil {
 		return err
 	}
