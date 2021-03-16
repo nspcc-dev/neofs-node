@@ -471,10 +471,12 @@ func (c *cfg) LocalAddress() *network.Address {
 func initLocalStorage(c *cfg) {
 	initShardOptions(c)
 
-	ls := engine.New(
-		engine.WithLogger(c.log),
-		engine.WithMetrics(c.metricsCollector),
-	)
+	engineOpts := []engine.Option{engine.WithLogger(c.log)}
+	if c.metricsCollector != nil {
+		engineOpts = append(engineOpts, engine.WithMetrics(c.metricsCollector))
+	}
+
+	ls := engine.New(engineOpts...)
 
 	for _, opts := range c.cfgObject.cfgLocalStorage.shardOpts {
 		id, err := ls.AddShard(opts...)
