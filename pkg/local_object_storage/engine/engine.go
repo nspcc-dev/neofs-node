@@ -23,7 +23,7 @@ type Option func(*cfg)
 type cfg struct {
 	log *logger.Logger
 
-	enableMetrics bool
+	metrics MetricRegister
 }
 
 func defaultCfg() *cfg {
@@ -54,8 +54,8 @@ func WithLogger(l *logger.Logger) Option {
 	}
 }
 
-func WithMetrics(v bool) Option {
+func WithMetrics(v MetricRegister) Option {
 	return func(c *cfg) {
-		c.enableMetrics = v
+		c.metrics = v
 	}
 }

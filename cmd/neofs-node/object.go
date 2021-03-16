@@ -357,8 +357,8 @@ func initObjectService(c *cfg) {
 	)
 
 	var firstSvc objectService.ServiceServer = aclSvc
-	if c.viper.GetBool(cfgMetricsEnable) {
-		firstSvc = objectService.NewMetricCollector(aclSvc)
+	if c.metricsCollector != nil {
+		firstSvc = objectService.NewMetricCollector(aclSvc, c.metricsCollector)
 	}
 
 	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,

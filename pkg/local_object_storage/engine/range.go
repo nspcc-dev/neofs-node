@@ -60,8 +60,8 @@ func (r *RngRes) Object() *object.Object {
 // Returns ErrAlreadyRemoved if requested object is inhumed.
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
-	if e.enableMetrics {
-		defer elapsed(rangeDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddRangeDuration)()
 	}
 
 	var (

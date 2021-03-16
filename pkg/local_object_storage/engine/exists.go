@@ -38,8 +38,8 @@ func (p *ExistsRes) Exists() bool {
 // Returns any error encountered that does not allow to
 // unambiguously determine the presence of an object.
 func (e *StorageEngine) Exists(prm *ExistsPrm) (*ExistsRes, error) {
-	if e.enableMetrics {
-		defer elapsed(existsDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddExistsDuration)()
 	}
 
 	exists, err := e.exists(prm.addr)

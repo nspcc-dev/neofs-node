@@ -38,8 +38,8 @@ func (r *ListContainersRes) Containers() []*container.ID {
 
 // ContainerSize returns sum of estimation container sizes among all shards.
 func (e *StorageEngine) ContainerSize(prm *ContainerSizePrm) *ContainerSizeRes {
-	if e.enableMetrics {
-		defer elapsed(estimateContainerSizeDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
 
 	return &ContainerSizeRes{
@@ -74,8 +74,8 @@ func (e *StorageEngine) containerSize(id *container.ID) (total uint64) {
 
 // ListContainers returns unique container IDs presented in the engine objects.
 func (e *StorageEngine) ListContainers(_ *ListContainersPrm) *ListContainersRes {
-	if e.enableMetrics {
-		defer elapsed(listContainersDuration)()
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
 
 	return &ListContainersRes{
