@@ -82,7 +82,10 @@ image-%:
 # Build all Docker images
 images: image-storage image-ir image-cli
 
-# Run all code formaters
+# Build dirty local Docker images
+dirty-images: image-dirty-storage image-dirty-ir image-dirty-cli
+
+# Run all code formatters
 fmts: fmt imports
 
 # Reformat code
