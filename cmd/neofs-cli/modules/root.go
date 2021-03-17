@@ -161,7 +161,7 @@ func getEndpointAddress() (*network.Address, error) {
 
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
-func getSDKClient() (*client.Client, error) {
+func getSDKClient() (client.Client, error) {
 	key, err := getKey()
 	if err != nil {
 		return nil, err

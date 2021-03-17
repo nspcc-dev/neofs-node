@@ -95,7 +95,7 @@ type sgHeadReceiver struct {
 
 	tok *token.SessionToken
 
-	c *client.Client
+	c client.Client
 
 	bearerToken *token.BearerToken
 }

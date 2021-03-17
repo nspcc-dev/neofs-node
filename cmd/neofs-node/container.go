@@ -229,7 +229,7 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 }
 
 type remoteLoadAnnounceWriterProvider struct {
-	client *apiClient.Client
+	client apiClient.Client
 	key    *ecdsa.PrivateKey
 }
 
@@ -244,7 +244,7 @@ func (p *remoteLoadAnnounceWriterProvider) InitWriter(ctx context.Context) (load
 type remoteLoadAnnounceWriter struct {
 	ctx context.Context
 
-	client *apiClient.Client
+	client apiClient.Client
 	key    *ecdsa.PrivateKey
 
 	buf []containerSDK.UsedSpaceAnnouncement

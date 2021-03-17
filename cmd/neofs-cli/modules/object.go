@@ -193,7 +193,7 @@ func init() {
 	// objectCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func initSession(ctx context.Context) (*client.Client, *token.SessionToken, error) {
+func initSession(ctx context.Context) (client.Client, *token.SessionToken, error) {
 	cli, err := getSDKClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't create client: %w", err)
