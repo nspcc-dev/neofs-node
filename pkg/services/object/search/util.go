@@ -26,7 +26,7 @@ type clientCacheWrapper struct {
 }
 
 type clientWrapper struct {
-	client *client.Client
+	client client.Client
 }
 
 type storageEngineWrapper engine.StorageEngine
