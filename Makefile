@@ -24,15 +24,18 @@ BINS = $(addprefix $(BIN)/, $(CMDS))
 # Just `make` will build all possible binaries
 all: $(DIRS) $(BINS)
 
-$(BINS): $(DIRS) dep
+$(BINS): $(DIRS) dep $(CMDS)
+
+$(CMDS):
 	@echo "⇒ Build $@"
 	CGO_ENABLED=0 \
 	GO111MODULE=on \
 	go build -v -trimpath \
+	-mod=vendor \
 	-ldflags "-X $(REPO)/misc.Version=$(VERSION) \
 	-X $(REPO)/misc.Build=$(BUILD) \
 	-X $(REPO)/misc.Debug=$(DEBUG)" \
-	-o $@ ./cmd/$(notdir $@)
+	-o ./bin/$@ ./cmd/$@
 
 $(DIRS):
 	@echo "⇒ Ensure dir: $@"
@@ -48,6 +51,8 @@ dep:
 	CGO_ENABLED=0 \
 	GO111MODULE=on \
 	go mod download && echo OK
+	@printf "⇒ Vendoring: "
+	go mod vendor && echo OK
 
 test_dep:
 	@printf "⇒ Install test requirements: "
@@ -70,7 +75,7 @@ protoc:
 	rm -rf vendor
 
 # Build NeoFS Storage Node docker image
-image-%:
+image-%: dep
 	@echo "⇒ Build NeoFS $* docker image "
 	@docker build \
 		--build-arg REPO=$(REPO) \

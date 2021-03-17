@@ -8,7 +8,7 @@ ARG REPO=repository
 WORKDIR /src
 COPY . /src
 
-RUN make bin/neofs-ir
+RUN make neofs-ir
 
 # Executable image
 FROM alpine AS neofs-ir
