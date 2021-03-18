@@ -32,35 +32,37 @@ type (
 
 	// Processor of events produced by neofs contract in main net.
 	Processor struct {
-		log               *zap.Logger
-		pool              *ants.Pool
-		neofsContract     util.Uint160
-		balanceContract   util.Uint160
-		netmapContract    util.Uint160
-		morphClient       *client.Client
-		epochState        EpochState
-		activeState       ActiveState
-		converter         PrecisionConverter
-		mintEmitLock      *sync.Mutex
-		mintEmitCache     *lru.Cache
-		mintEmitThreshold uint64
-		mintEmitValue     fixedn.Fixed8
+		log                 *zap.Logger
+		pool                *ants.Pool
+		neofsContract       util.Uint160
+		balanceContract     util.Uint160
+		netmapContract      util.Uint160
+		morphClient         *client.Client
+		epochState          EpochState
+		activeState         ActiveState
+		converter           PrecisionConverter
+		mintEmitLock        *sync.Mutex
+		mintEmitCache       *lru.Cache
+		mintEmitThreshold   uint64
+		mintEmitValue       fixedn.Fixed8
+		gasBalanceThreshold int64
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log               *zap.Logger
-		PoolSize          int
-		NeoFSContract     util.Uint160
-		BalanceContract   util.Uint160
-		NetmapContract    util.Uint160
-		MorphClient       *client.Client
-		EpochState        EpochState
-		ActiveState       ActiveState
-		Converter         PrecisionConverter
-		MintEmitCacheSize int
-		MintEmitThreshold uint64 // in epochs
-		MintEmitValue     fixedn.Fixed8
+		Log                 *zap.Logger
+		PoolSize            int
+		NeoFSContract       util.Uint160
+		BalanceContract     util.Uint160
+		NetmapContract      util.Uint160
+		MorphClient         *client.Client
+		EpochState          EpochState
+		ActiveState         ActiveState
+		Converter           PrecisionConverter
+		MintEmitCacheSize   int
+		MintEmitThreshold   uint64 // in epochs
+		MintEmitValue       fixedn.Fixed8
+		GasBalanceThreshold int64
 	}
 )
 
@@ -100,19 +102,20 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:               p.Log,
-		pool:              pool,
-		neofsContract:     p.NeoFSContract,
-		balanceContract:   p.BalanceContract,
-		netmapContract:    p.NetmapContract,
-		morphClient:       p.MorphClient,
-		epochState:        p.EpochState,
-		activeState:       p.ActiveState,
-		converter:         p.Converter,
-		mintEmitLock:      new(sync.Mutex),
-		mintEmitCache:     lruCache,
-		mintEmitThreshold: p.MintEmitThreshold,
-		mintEmitValue:     p.MintEmitValue,
+		log:                 p.Log,
+		pool:                pool,
+		neofsContract:       p.NeoFSContract,
+		balanceContract:     p.BalanceContract,
+		netmapContract:      p.NetmapContract,
+		morphClient:         p.MorphClient,
+		epochState:          p.EpochState,
+		activeState:         p.ActiveState,
+		converter:           p.Converter,
+		mintEmitLock:        new(sync.Mutex),
+		mintEmitCache:       lruCache,
+		mintEmitThreshold:   p.MintEmitThreshold,
+		mintEmitValue:       p.MintEmitValue,
+		gasBalanceThreshold: p.GasBalanceThreshold,
 	}, nil
 }
 
