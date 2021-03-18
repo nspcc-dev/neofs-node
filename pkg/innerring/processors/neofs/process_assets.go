@@ -53,6 +53,22 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 		return
 	}
 
+	// get gas balance of the node
+	// before gas transfer check if the balance is greater than threshold
+	balance, err := np.morphClient.GasBalance()
+	if err != nil {
+		np.log.Error("can't get gas balance of the node", zap.Error(err))
+		return
+	}
+
+	if balance < np.gasBalanceThreshold {
+		np.log.Warn("gas balance threshold has been reached",
+			zap.Int64("balance", balance),
+			zap.Int64("threshold", np.gasBalanceThreshold))
+
+		return
+	}
+
 	err = np.morphClient.TransferGas(receiver, np.mintEmitValue)
 	if err != nil {
 		np.log.Error("can't transfer native gas to receiver",

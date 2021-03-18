@@ -94,6 +94,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("emit.mint.cache_size", 1000)
 	cfg.SetDefault("emit.mint.threshold", 1)
 	cfg.SetDefault("emit.mint.value", 20000000) // 0.2 Fixed8
+	cfg.SetDefault("emit.gas.balance_threshold", 0)
 
 	cfg.SetDefault("audit.task.exec_pool_size", 10)
 	cfg.SetDefault("audit.task.queue_capacity", 100)
