@@ -32,8 +32,6 @@ type (
 	}
 
 	notaryCfg struct {
-		extraVerifyFee int64
-
 		txValidTime, roundTime, fallbackTime uint32
 	}
 
@@ -41,7 +39,6 @@ type (
 )
 
 const (
-	defaultNotaryExtraFee     = 1000_0000
 	defaultNotaryValidTime    = 50
 	defaultNotaryRoundTime    = 100
 	defaultNotaryFallbackTime = 40
@@ -60,10 +57,9 @@ var (
 
 func defaultNotaryConfig() *notaryCfg {
 	return &notaryCfg{
-		extraVerifyFee: defaultNotaryExtraFee,
-		txValidTime:    defaultNotaryValidTime,
-		roundTime:      defaultNotaryRoundTime,
-		fallbackTime:   defaultNotaryFallbackTime,
+		txValidTime:  defaultNotaryValidTime,
+		roundTime:    defaultNotaryRoundTime,
+		fallbackTime: defaultNotaryFallbackTime,
 	}
 }
 
@@ -83,13 +79,12 @@ func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryO
 	}
 
 	c.notary = &notary{
-		notary:         notaryContract,
-		proxy:          proxy,
-		netmap:         netmap,
-		extraVerifyFee: cfg.extraVerifyFee,
-		txValidTime:    cfg.txValidTime,
-		roundTime:      cfg.roundTime,
-		fallbackTime:   cfg.fallbackTime,
+		notary:       notaryContract,
+		proxy:        proxy,
+		netmap:       netmap,
+		txValidTime:  cfg.txValidTime,
+		roundTime:    cfg.roundTime,
+		fallbackTime: cfg.fallbackTime,
 	}
 
 	return nil
@@ -234,7 +229,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...inte
 	// add network fee for cosigners
 	err = c.client.AddNetworkFee(
 		mainTx,
-		notaryFee+c.notary.extraVerifyFee,
+		notaryFee,
 		c.notaryAccounts(multiaddrAccount)...,
 	)
 	if err != nil {
@@ -441,14 +436,6 @@ func mn(ir []*keys.PublicKey) (m int, n int) {
 	m = n*2/3 + 1
 
 	return
-}
-
-// WithExtraVerifyFee returns a notary support option for client
-// that specifies extra fee to check witness of proxy contract.
-func WithExtraVerifyFee(fee int64) NotaryOption {
-	return func(c *notaryCfg) {
-		c.extraVerifyFee = fee
-	}
 }
 
 // WithTxValidTime returns a notary support option for client
