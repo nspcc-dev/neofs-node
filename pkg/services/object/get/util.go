@@ -16,14 +16,6 @@ type SimpleObjectWriter struct {
 	pld []byte
 }
 
-type clientCacheWrapper struct {
-	cache ClientConstructor
-}
-
-type clientWrapper struct {
-	client client.Client
-}
-
 type storageEngineWrapper struct {
 	engine *engine.StorageEngine
 }
@@ -71,17 +63,9 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj.Object()
 }
 
-func (c *clientCacheWrapper) get(addr string) (getClient, error) {
-	clt, err := c.cache.Get(addr)
-
-	return &clientWrapper{
-		client: clt,
-	}, err
-}
-
-func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
+func getObject(exec *execCtx, c client.Client) (*objectSDK.Object, error) {
 	if exec.headOnly() {
-		return c.client.GetObjectHeader(exec.context(),
+		return c.GetObjectHeader(exec.context(),
 			new(client.ObjectHeaderParams).
 				WithAddress(exec.address()).
 				WithRawFlag(exec.isRaw()),
@@ -91,7 +75,7 @@ func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
 	// we don't specify payload writer because we accumulate
 	// the object locally (even huge).
 	if rng := exec.ctxRange(); rng != nil {
-		data, err := c.client.ObjectPayloadRangeData(exec.context(),
+		data, err := c.ObjectPayloadRangeData(exec.context(),
 			new(client.RangeDataParams).
 				WithAddress(exec.address()).
 				WithRange(rng).
@@ -105,7 +89,7 @@ func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
 		return payloadOnlyObject(data), nil
 	}
 
-	return c.client.GetObject(exec.context(),
+	return c.GetObject(exec.context(),
 		exec.remotePrm(),
 		exec.callOptions()...,
 	)

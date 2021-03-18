@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -42,6 +43,7 @@ type testClientCache struct {
 }
 
 type testClient struct {
+	client.Client
 	results map[string]struct {
 		obj *object.RawObject
 		err error
@@ -80,7 +82,7 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 	return vs, nil
 }
 
-func (c *testClientCache) get(addr string) (getClient, error) {
+func (c *testClientCache) Get(addr string) (client.Client, error) {
 	v, ok := c.clients[addr]
 	if !ok {
 		return nil, errors.New("could not construct client")
@@ -98,16 +100,40 @@ func newTestClient() *testClient {
 	}
 }
 
+func (c *testClient) get(addr string) (*objectSDK.Object, error) {
+	v, ok := c.results[addr]
+	if !ok {
+		return nil, object.ErrNotFound
+	} else if v.err != nil {
+		return nil, v.err
+	}
+	return v.obj.Object().SDK(), nil
+}
+
+func (c *testClient) GetObject(_ context.Context, ps *client.GetObjectParams, _ ...client.CallOption) (*objectSDK.Object, error) {
+	return c.get(ps.Address().String())
+}
+func (c *testClient) GetObjectHeader(_ context.Context, ps *client.ObjectHeaderParams, opts ...client.CallOption) (*objectSDK.Object, error) {
+	return c.get(ps.Address().String())
+}
+func (c *testClient) ObjectPayloadRangeData(_ context.Context, ps *client.RangeDataParams, _ ...client.CallOption) ([]byte, error) {
+	v, ok := c.results[ps.Address().String()]
+	if !ok {
+		return nil, object.ErrNotFound
+	} else if v.err != nil {
+		return nil, v.err
+	}
+	return cutToRange(v.obj.Object(), ps.Range()).Payload(), nil
+}
+
 func (c *testClient) getObject(exec *execCtx) (*objectSDK.Object, error) {
 	v, ok := c.results[exec.address().String()]
 	if !ok {
 		return nil, object.ErrNotFound
 	}
-
 	if v.err != nil {
 		return nil, v.err
 	}
-
 	return cutToRange(v.obj.Object(), exec.ctxRange()).SDK(), nil
 }
 

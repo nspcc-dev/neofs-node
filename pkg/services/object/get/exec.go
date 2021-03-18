@@ -264,7 +264,7 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 	}
 }
 
-func (exec execCtx) remoteClient(node *network.Address) (getClient, bool) {
+func (exec execCtx) remoteClient(node *network.Address) (client.Client, bool) {
 	ipAddr, err := node.IPAddrString()
 
 	log := exec.log.With(zap.Stringer("node", node))
@@ -276,7 +276,7 @@ func (exec execCtx) remoteClient(node *network.Address) (getClient, bool) {
 
 		log.Debug("could not calculate node IP address")
 	case err == nil:
-		c, err := exec.svc.clientCache.get(ipAddr)
+		c, err := exec.svc.clientCache.Get(ipAddr)
 
 		switch {
 		default:

@@ -20,10 +20,6 @@ type Service struct {
 // Option is a Service's constructor option.
 type Option func(*cfg)
 
-type getClient interface {
-	getObject(*execCtx) (*objectSDK.Object, error)
-}
-
 type cfg struct {
 	assembly bool
 
@@ -34,7 +30,7 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(string) (getClient, error)
+		Get(string) (client.Client, error)
 	}
 
 	traverserGenerator interface {
@@ -51,7 +47,6 @@ func defaultCfg() *cfg {
 		assembly:     true,
 		log:          zap.L(),
 		localStorage: new(storageEngineWrapper),
-		clientCache:  new(clientCacheWrapper),
 	}
 }
 
@@ -98,7 +93,7 @@ type ClientConstructor interface {
 // WithClientConstructor returns option to set constructor of remote node clients.
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
-		c.clientCache.(*clientCacheWrapper).cache = v
+		c.clientCache = v
 	}
 }
 
