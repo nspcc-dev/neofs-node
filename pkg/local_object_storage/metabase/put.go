@@ -1,11 +1,10 @@
 package meta
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
@@ -348,15 +347,15 @@ func putListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.
 func encodeList(lst [][]byte) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := gob.NewEncoder(buf)
-
-	// consider using protobuf encoding instead of glob
-	if err := encoder.Encode(lst); err != nil {
-		return nil, err
+	w := io.NewBufBinWriter()
+	w.WriteVarUint(uint64(len(lst)))
+	for i := range lst {
+		w.WriteVarBytes(lst[i])
 	}
-
-	return buf.Bytes(), nil
+	if w.Err != nil {
+		return nil, w.Err
+	}
+	return w.Bytes(), nil
 }
 
 // decodeList decodes blob into the list of bytes from list bucket index.
@@ -364,12 +363,15 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-
-	decoder := gob.NewDecoder(bytes.NewReader(data))
-	if err := decoder.Decode(&lst); err != nil {
-		return nil, err
+	r := io.NewBinReaderFromBuf(data)
+	l := r.ReadVarUint()
+	lst = make([][]byte, l)
+	for i := range lst {
+		lst[i] = r.ReadVarBytes()
 	}
-
+	if r.Err != nil {
+		return nil, r.Err
+	}
 	return lst, nil
 }
 
