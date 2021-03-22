@@ -95,6 +95,7 @@ func generateRawObjectWithCID(t *testing.T, cid *container.ID) *object.RawObject
 	obj.SetVersion(version)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)
+	obj.SetPayload([]byte{1, 2, 3, 4, 5})
 
 	return obj
 }
