@@ -1,6 +1,23 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.17.0] - 2021-03-22 - Jebudo (제부도, 濟扶島)
+
+Notary contract support, updated neofs-api-go with raw client, some performance 
+tweaks with extra caches and enhanced metrics.
+
+### Added
+- Notary contract support.
+- Cache for morph client.
+- Metrics for object service and storage engine.
+- Makefile target for fast and dirty docker images.
+- GAS threshold value in inner ring GAS transfers.
+
+### Changed
+- RPC client cache now re-used per address instead of (address+key) tuple.
+- Updated neofs-api-go version to v1.25.0 with raw client support.
+- Updated neo-go to testnet compatible v0.94.0 version.
+
 ## [0.16.0] - 2021-02-26 - Ganghwado (강화도, 江華島)
 
 Garbage collector is now running inside storage engine. It is accessed
@@ -261,6 +278,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.17.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.3...v0.15.0
 [0.14.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.2...v0.14.3
