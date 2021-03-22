@@ -271,14 +271,13 @@ github.com/nspcc-dev/dbft v0.0.0-20191209120240-0d6b7568d9ae/go.mod h1:3FjXOoHmA
 github.com/nspcc-dev/dbft v0.0.0-20200117124306-478e5cfbf03a/go.mod h1:/YFK+XOxxg0Bfm6P92lY5eDSLYfp06XOdL8KAVgXjVk=
 github.com/nspcc-dev/dbft v0.0.0-20200219114139-199d286ed6c1/go.mod h1:O0qtn62prQSqizzoagHmuuKoz8QMkU3SzBoKdEvm3aQ=
 github.com/nspcc-dev/dbft v0.0.0-20200711144034-c526ccc6f570/go.mod h1:1FYQXSbb6/9HQIkoF8XO7W/S8N7AZRkBsgwbcXRvk0E=
-github.com/nspcc-dev/dbft v0.0.0-20210302103605-cc75991b7cfb h1:UJRsgW5V0Td5oFLumYH3DepidjmH6Ek1uxWEkhe9RI8=
 github.com/nspcc-dev/dbft v0.0.0-20210302103605-cc75991b7cfb/go.mod h1:U8MSnEShH+o5hexfWJdze6uMFJteP0ko7J2frO7Yu1Y=
 github.com/nspcc-dev/hrw v1.0.9 h1:17VcAuTtrstmFppBjfRiia4K2wA/ukXZhLFS8Y8rz5Y=
 github.com/nspcc-dev/hrw v1.0.9/go.mod h1:l/W2vx83vMQo6aStyx2AuZrJ+07lGv2JQGlVkPG06MU=
 github.com/nspcc-dev/neo-go v0.73.1-pre.0.20200303142215-f5a1b928ce09/go.mod h1:pPYwPZ2ks+uMnlRLUyXOpLieaDQSEaf4NM3zHVbRjmg=
 github.com/nspcc-dev/neo-go v0.91.0/go.mod h1:G6HdOWvzQ6tlvFdvFSN/PgCzLPN/X/X4d5hTjFRUDcc=
-github.com/nspcc-dev/neo-go v0.94.0-pre.0.20210312122023-f7d74190f53d h1:Bbfz5Mz4ntBoz0UDYbBe8eaAkJDqTaTi7DnYuJSK61I=
-github.com/nspcc-dev/neo-go v0.94.0-pre.0.20210312122023-f7d74190f53d/go.mod h1:IrBT/UG3/Slhqgjge8r6zni5tNRsWmwwG9OnVdASheI=
+github.com/nspcc-dev/neo-go v0.94.0 h1:2eafoyEnueqEMGDZF06HZJQN0MHgYxFzlcre5YUOP1M=
+github.com/nspcc-dev/neo-go v0.94.0/go.mod h1:IrBT/UG3/Slhqgjge8r6zni5tNRsWmwwG9OnVdASheI=
 github.com/nspcc-dev/neofs-api-go v1.24.0/go.mod h1:G7dqincfdjBrAbL5nxVp82emF05fSVEqe59ICsoRDI8=
 github.com/nspcc-dev/neofs-api-go v1.24.1-0.20210317113002-2fcb6d961335 h1:X+Yreqs5sWV0RPcPG5AhiTfDFW+hK8MPdVRPpdO7jO8=
 github.com/nspcc-dev/neofs-api-go v1.24.1-0.20210317113002-2fcb6d961335/go.mod h1:G7dqincfdjBrAbL5nxVp82emF05fSVEqe59ICsoRDI8=
@@ -574,7 +573,6 @@ google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60/go.mod h1:cfTl7dwQ
 google.golang.org/protobuf v1.20.1-0.20200309200217-e05f789c0967/go.mod h1:A+miEFZTKqfCUM6K7xSMQL9OKL/b6hQv+e19PK+JZNE=
 google.golang.org/protobuf v1.21.0/go.mod h1:47Nbq4nVaFHyn7ilMalzfO3qCViNmqZ2kzikPIcrTAo=
 google.golang.org/protobuf v1.22.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
-google.golang.org/protobuf v1.23.0 h1:4MY060fB1DLGMB/7MBTLnwQUY6+F09GEiz6SsrNqyzM=
 google.golang.org/protobuf v1.23.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
 google.golang.org/protobuf v1.23.1-0.20200526195155-81db48ad09cc/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
 google.golang.org/protobuf v1.25.0 h1:Ejskq+SyPohKW+1uil0JJMtmHCgJPJ/qWTxr8qp+R4c=
