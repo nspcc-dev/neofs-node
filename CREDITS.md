@@ -17,6 +17,7 @@ In alphabetical order:
 # Contributors
 
 In chronological order:
+- Pavel Karpy
 
 # Special Thanks
 
