@@ -196,7 +196,7 @@ func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.
 			return nil, ErrUnknownObjectType
 		}
 
-		rawObject, err := obj.Marshal()
+		rawObject, err := object.NewRawFromObject(obj).CutPayload().Marshal()
 		if err != nil {
 			return nil, fmt.Errorf("can't marshal object header: %w", err)
 		}
