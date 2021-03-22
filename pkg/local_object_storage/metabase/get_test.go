@@ -31,7 +31,7 @@ func TestDB_Get(t *testing.T) {
 
 		newObj, err := meta.Get(db, raw.Object().Address())
 		require.NoError(t, err)
-		require.Equal(t, raw.Object(), newObj)
+		require.Equal(t, raw.CutPayload().Object(), newObj)
 	})
 
 	t.Run("put tombstone object", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestDB_Get(t *testing.T) {
 
 		newObj, err := meta.Get(db, raw.Object().Address())
 		require.NoError(t, err)
-		require.Equal(t, raw.Object(), newObj)
+		require.Equal(t, raw.CutPayload().Object(), newObj)
 	})
 
 	t.Run("put storage group object", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestDB_Get(t *testing.T) {
 
 		newObj, err := meta.Get(db, raw.Object().Address())
 		require.NoError(t, err)
-		require.Equal(t, raw.Object(), newObj)
+		require.Equal(t, raw.CutPayload().Object(), newObj)
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
@@ -87,11 +87,11 @@ func TestDB_Get(t *testing.T) {
 
 		newParent, err := meta.GetRaw(db, parent.Object().Address(), false)
 		require.NoError(t, err)
-		require.True(t, binaryEqual(parent.Object(), newParent))
+		require.True(t, binaryEqual(parent.CutPayload().Object(), newParent))
 
 		newChild, err := meta.GetRaw(db, child.Object().Address(), true)
 		require.NoError(t, err)
-		require.True(t, binaryEqual(child.Object(), newChild))
+		require.True(t, binaryEqual(child.CutPayload().Object(), newChild))
 	})
 }
 
