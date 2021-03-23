@@ -12,7 +12,7 @@ import (
 type (
 	// Indexer is a callback interface for inner ring global state.
 	Indexer interface {
-		InnerRingIndex() int
+		AlphabetIndex() int
 	}
 
 	// Contracts is an interface of the storage

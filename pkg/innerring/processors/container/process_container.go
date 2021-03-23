@@ -11,8 +11,8 @@ import (
 // Process new container from the user by checking container sanity
 // and sending approve tx back to morph.
 func (cp *Processor) processContainerPut(put *containerEvent.Put) {
-	if !cp.activeState.IsActive() {
-		cp.log.Info("passive mode, ignore container put")
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Info("non alphabet mode, ignore container put")
 		return
 	}
 
@@ -51,8 +51,8 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 // Process delete container operation from the user by checking container sanity
 // and sending approve tx back to morph.
 func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
-	if !cp.activeState.IsActive() {
-		cp.log.Info("passive mode, ignore container put")
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Info("non alphabet mode, ignore container delete")
 		return
 	}
 

@@ -9,8 +9,8 @@ import (
 // Process config event by setting configuration value from main chain in
 // side chain.
 func (np *Processor) processConfig(config *neofsEvent.Config) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore deposit")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore config")
 		return
 	}
 

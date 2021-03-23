@@ -45,8 +45,8 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 	ev := e.(BasicIncomeCollectEvent)
 	epoch := ev.Epoch()
 
-	if !p.state.IsActive() {
-		p.log.Info("passive mode, ignore income collection event")
+	if !p.state.IsAlphabet() {
+		p.log.Info("non alphabet mode, ignore income collection event")
 
 		return
 	}
@@ -90,8 +90,8 @@ func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
 	ev := e.(BasicIncomeDistributeEvent)
 	epoch := ev.Epoch()
 
-	if !p.state.IsActive() {
-		p.log.Info("passive mode, ignore income distribution event")
+	if !p.state.IsAlphabet() {
+		p.log.Info("non alphabet mode, ignore income distribution event")
 
 		return
 	}

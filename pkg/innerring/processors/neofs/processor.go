@@ -20,9 +20,9 @@ type (
 		EpochCounter() uint64
 	}
 
-	// ActiveState is a callback interface for inner ring global state
-	ActiveState interface {
-		IsActive() bool
+	// AlphabetState is a callback interface for inner ring global state
+	AlphabetState interface {
+		IsAlphabet() bool
 	}
 
 	// PrecisionConverter converts balance amount values.
@@ -39,7 +39,7 @@ type (
 		netmapContract      util.Uint160
 		morphClient         *client.Client
 		epochState          EpochState
-		activeState         ActiveState
+		alphabetState       AlphabetState
 		converter           PrecisionConverter
 		mintEmitLock        *sync.Mutex
 		mintEmitCache       *lru.Cache
@@ -57,7 +57,7 @@ type (
 		NetmapContract      util.Uint160
 		MorphClient         *client.Client
 		EpochState          EpochState
-		ActiveState         ActiveState
+		AlphabetState       AlphabetState
 		Converter           PrecisionConverter
 		MintEmitCacheSize   int
 		MintEmitThreshold   uint64 // in epochs
@@ -83,7 +83,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/neofs: neo:morph client is not set")
 	case p.EpochState == nil:
 		return nil, errors.New("ir/neofs: global state is not set")
-	case p.ActiveState == nil:
+	case p.AlphabetState == nil:
 		return nil, errors.New("ir/neofs: global state is not set")
 	case p.Converter == nil:
 		return nil, errors.New("ir/neofs: balance precision converter is not set")
@@ -109,7 +109,7 @@ func New(p *Params) (*Processor, error) {
 		netmapContract:      p.NetmapContract,
 		morphClient:         p.MorphClient,
 		epochState:          p.EpochState,
-		activeState:         p.ActiveState,
+		alphabetState:       p.AlphabetState,
 		converter:           p.Converter,
 		mintEmitLock:        new(sync.Mutex),
 		mintEmitCache:       lruCache,

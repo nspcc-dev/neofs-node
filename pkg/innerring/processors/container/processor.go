@@ -11,9 +11,9 @@ import (
 )
 
 type (
-	// ActiveState is a callback interface for inner ring global state.
-	ActiveState interface {
-		IsActive() bool
+	// AlphabetState is a callback interface for inner ring global state.
+	AlphabetState interface {
+		IsAlphabet() bool
 	}
 
 	// Processor of events produced by container contract in morph chain.
@@ -22,7 +22,7 @@ type (
 		pool              *ants.Pool
 		containerContract util.Uint160
 		morphClient       *client.Client
-		activeState       ActiveState
+		alphabetState     AlphabetState
 	}
 
 	// Params of the processor constructor.
@@ -31,7 +31,7 @@ type (
 		PoolSize          int
 		ContainerContract util.Uint160
 		MorphClient       *client.Client
-		ActiveState       ActiveState
+		AlphabetState     AlphabetState
 	}
 )
 
@@ -47,7 +47,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: logger is not set")
 	case p.MorphClient == nil:
 		return nil, errors.New("ir/container: neo:morph client is not set")
-	case p.ActiveState == nil:
+	case p.AlphabetState == nil:
 		return nil, errors.New("ir/container: global state is not set")
 	}
 
@@ -63,7 +63,7 @@ func New(p *Params) (*Processor, error) {
 		pool:              pool,
 		containerContract: p.ContainerContract,
 		morphClient:       p.MorphClient,
-		activeState:       p.ActiveState,
+		alphabetState:     p.AlphabetState,
 	}, nil
 }
 
