@@ -48,13 +48,12 @@ type (
 		epochTimer      *timers.BlockTimer
 
 		// global state
-		morphClient    *client.Client
-		mainnetClient  *client.Client
-		epochCounter   atomic.Uint64
-		innerRingIndex atomic.Int32
-		innerRingSize  atomic.Int32
-		precision      precision.Fixed8Converter
-		auditClient    *auditWrapper.ClientWrapper
+		morphClient   *client.Client
+		mainnetClient *client.Client
+		epochCounter  atomic.Uint64
+		statusIndex   *innerRingIndexer
+		precision     precision.Fixed8Converter
+		auditClient   *auditWrapper.ClientWrapper
 
 		notaryDepositAmount fixedn.Fixed8
 		notaryDuration      uint32
@@ -296,6 +295,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	server.pubKey = crypto.MarshalPublicKey(&server.key.PublicKey)
+
+	server.statusIndex = newInnerRingIndexer(
+		server.morphClient,
+		&server.key.PublicKey,
+		cfg.GetDuration("indexer.cache_timeout"),
+	)
 
 	auditPool, err := ants.NewPool(cfg.GetInt("audit.task.exec_pool_size"))
 	if err != nil {
@@ -711,14 +716,6 @@ func (s *Server) initConfigFromBlockchain() error {
 		return errors.Wrap(err, "can't read epoch")
 	}
 
-	key := &s.key.PublicKey
-
-	// check if node inside inner ring list and what index it has
-	index, size, err := invoke.InnerRingIndex(s.mainnetClient, key)
-	if err != nil {
-		return errors.Wrap(err, "can't read inner ring list")
-	}
-
 	// get balance precision
 	balancePrecision, err := invoke.BalancePrecision(s.morphClient, s.contracts.balance)
 	if err != nil {
@@ -726,8 +723,6 @@ func (s *Server) initConfigFromBlockchain() error {
 	}
 
 	s.epochCounter.Store(uint64(epoch))
-	s.innerRingSize.Store(size)
-	s.innerRingIndex.Store(index)
 	s.precision.SetBalancePrecision(balancePrecision)
 
 	s.log.Debug("read config from blockchain",

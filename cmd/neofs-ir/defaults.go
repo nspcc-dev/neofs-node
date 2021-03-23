@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/spf13/viper"
@@ -107,6 +108,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("audit.por.pool_size", "10")
 
 	cfg.SetDefault("settlement.basic_income_rate", 0)
+
+	cfg.SetDefault("indexer.cache_timeout", 15*time.Second)
 
 	cfg.SetDefault("locode.db.path", "")
 }
