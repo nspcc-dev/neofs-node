@@ -105,12 +105,18 @@ func New(key *ecdsa.PrivateKey, endpoint string, opts ...Option) (*Client, error
 		return nil, err
 	}
 
+	designate, err := cli.GetNativeContractHash(nativenames.Designation)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		logger:       cfg.logger,
 		client:       cli,
 		acc:          account,
 		gas:          gas,
 		neo:          neo,
+		designate:    designate,
 		waitInterval: cfg.waitInterval,
 	}, nil
 }
