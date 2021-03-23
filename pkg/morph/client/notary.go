@@ -167,6 +167,21 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 	)
 }
 
+// UpdateNeoFSAlphabetList updates list of alphabet nodes in designate contract.
+// As for side chain list should contain all inner ring nodes.
+// Requires committee multi signature.
+func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
+	if c.notary == nil {
+		return errNotaryNotEnabled
+	}
+
+	return c.notaryInvokeAsCommittee(c.designate,
+		setDesignateMethod,
+		native.RoleNeoFSAlphabet,
+		list,
+	)
+}
+
 // Invoke invokes contract method by sending tx to notary contract in
 // blockchain. Fallback tx is a `RET`. Notary support should be enabled
 // in client to use this function.
