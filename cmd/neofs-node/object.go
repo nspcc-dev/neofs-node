@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -138,6 +139,24 @@ func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
 	return i.tsLifetime, nil
 }
 
+type innerRingFetcher struct {
+	sidechain *morphClient.Client
+}
+
+func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
+	keys, err := n.sidechain.NeoFSAlphabetList()
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get inner ring keys")
+	}
+
+	result := make([][]byte, 0, len(keys))
+	for i := range keys {
+		result = append(result, keys[i].Bytes())
+	}
+
+	return result, nil
+}
+
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(c.key, c.privateTokenStore)
@@ -157,6 +176,10 @@ func initObjectService(c *cfg) {
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
 		basicConstructor: clientCache,
+	}
+
+	irFetcher := &innerRingFetcher{
+		sidechain: c.cfgMorph.client,
 	}
 
 	objRemover := &localObjectRemover{
@@ -338,7 +361,7 @@ func initObjectService(c *cfg) {
 		acl.WithSenderClassifier(
 			acl.NewSenderClassifier(
 				c.log,
-				c.cfgNetmap.wrapper,
+				irFetcher,
 				c.cfgNetmap.wrapper,
 			),
 		),
