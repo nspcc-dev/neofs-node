@@ -195,7 +195,9 @@ type remoteLoadAnnounceProvider struct {
 
 	loadAddrSrc network.LocalAddressSource
 
-	clientCache *cache.ClientCache
+	clientCache interface {
+		Get(string) (apiClient.Client, error)
+	}
 
 	deadEndProvider loadcontroller.WriterProvider
 }

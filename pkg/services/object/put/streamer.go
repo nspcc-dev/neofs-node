@@ -139,11 +139,11 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 			}
 
 			return &remoteTarget{
-				ctx:         p.ctx,
-				keyStorage:  p.keyStorage,
-				commonPrm:   prm.common,
-				addr:        addr,
-				clientCache: p.clientCache,
+				ctx:               p.ctx,
+				keyStorage:        p.keyStorage,
+				commonPrm:         prm.common,
+				addr:              addr,
+				clientConstructor: p.clientConstructor,
 			}
 		},
 		fmt: p.fmtValidator,

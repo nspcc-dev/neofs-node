@@ -230,7 +230,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithClientCache(clientCache),
+		putsvc.WithClientConstructor(clientCache),
 		putsvc.WithMaxSizeSource(c),
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrStorage),
@@ -251,7 +251,7 @@ func initObjectService(c *cfg) {
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
-		searchsvc.WithClientCache(clientCache),
+		searchsvc.WithClientConstructor(clientCache),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.WithoutSuccessTracking(),
@@ -268,7 +268,7 @@ func initObjectService(c *cfg) {
 	sGet := getsvc.New(
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
-		getsvc.WithClientCache(clientCache),
+		getsvc.WithClientConstructor(clientCache),
 		getsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.SuccessAfter(1),

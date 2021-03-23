@@ -1,11 +1,11 @@
 package searchsvc
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -25,6 +25,10 @@ type searchClient interface {
 	searchObjects(*execCtx) ([]*object.ID, error)
 }
 
+type ClientConstructor interface {
+	Get(string) (client.Client, error)
+}
+
 type cfg struct {
 	log *logger.Logger
 
@@ -32,7 +36,7 @@ type cfg struct {
 		search(*execCtx) ([]*object.ID, error)
 	}
 
-	clientCache interface {
+	clientConstructor interface {
 		get(string) (searchClient, error)
 	}
 
@@ -47,8 +51,8 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:         zap.L(),
-		clientCache: new(clientCacheWrapper),
+		log:               zap.L(),
+		clientConstructor: new(clientConstructorWrapper),
 	}
 }
 
@@ -81,10 +85,10 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 	}
 }
 
-// WithClientCache returns option to set cache of remote node clients.
-func WithClientCache(v *cache.ClientCache) Option {
+// WithClientConstructor returns option to set constructor of remote node clients.
+func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
-		c.clientCache.(*clientCacheWrapper).cache = v
+		c.clientConstructor.(*clientConstructorWrapper).constructor = v
 	}
 }
 
