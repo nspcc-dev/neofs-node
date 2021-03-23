@@ -37,6 +37,8 @@ type Client struct {
 
 	neo util.Uint160 // native neo script-hash
 
+	designate util.Uint160 // native designate script-hash
+
 	waitInterval time.Duration
 
 	notary *notary
@@ -51,6 +53,7 @@ const HaltState = "HALT"
 
 const (
 	committeeList = "getCommittee"
+	designateList = "getDesignatedByRole"
 )
 
 var errEmptyInvocationScript = errors.New("got empty invocation script from neo node")
@@ -209,6 +212,25 @@ func (c *Client) Committee() (keys.PublicKeys, error) {
 	roleKeys, err := keysFromStack(items)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get committee keys")
+	}
+
+	return roleKeys, nil
+}
+
+func (c *Client) roleList(r native.Role) (keys.PublicKeys, error) {
+	height, err := c.client.GetBlockCount()
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get chain height")
+	}
+
+	items, err := c.TestInvoke(c.designate, designateList, r, int64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	roleKeys, err := keysFromStack(items)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get role keys")
 	}
 
 	return roleKeys, nil
