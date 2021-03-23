@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/pkg/errors"
@@ -25,7 +24,7 @@ type remoteTarget struct {
 
 	obj *object.Object
 
-	clientCache *cache.ClientCache
+	clientConstructor ClientConstructor
 }
 
 // RemoteSender represents utility for
@@ -33,7 +32,7 @@ type remoteTarget struct {
 type RemoteSender struct {
 	keyStorage *util.KeyStorage
 
-	clientCache *cache.ClientCache
+	clientConstructor ClientConstructor
 }
 
 // RemotePutPrm groups remote put operation parameters.
@@ -60,7 +59,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, err
 	}
 
-	c, err := t.clientCache.Get(addr)
+	c, err := t.clientConstructor.Get(addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", t, addr)
 	}
@@ -84,10 +83,10 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.
-func NewRemoteSender(keyStorage *util.KeyStorage, cache *cache.ClientCache) *RemoteSender {
+func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *RemoteSender {
 	return &RemoteSender{
-		keyStorage:  keyStorage,
-		clientCache: cache,
+		keyStorage:        keyStorage,
+		clientConstructor: cons,
 	}
 }
 
@@ -112,10 +111,10 @@ func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
 // PutObject sends object to remote node.
 func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	t := &remoteTarget{
-		ctx:         ctx,
-		keyStorage:  s.keyStorage,
-		addr:        p.node,
-		clientCache: s.clientCache,
+		ctx:               ctx,
+		keyStorage:        s.keyStorage,
+		addr:              p.node,
+		clientConstructor: s.clientConstructor,
 	}
 
 	if err := t.WriteHeader(object.NewRawFromObject(p.obj)); err != nil {

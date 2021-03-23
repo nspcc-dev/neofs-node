@@ -257,7 +257,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				curEpoch: b,
 			},
 		}
-		svc.clientCache = c
+		svc.clientConstructor = c
 		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 		return svc
@@ -376,7 +376,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 		},
 	}
 
-	svc.clientCache = &testClientCache{
+	svc.clientConstructor = &testClientCache{
 		clients: map[string]*testStorage{
 			as[0][0]: c11,
 			as[0][1]: c12,

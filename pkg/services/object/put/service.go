@@ -3,12 +3,12 @@ package putsvc
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -28,6 +28,10 @@ type Service struct {
 }
 
 type Option func(*cfg)
+
+type ClientConstructor interface {
+	Get(string) (client.Client, error)
+}
 
 type cfg struct {
 	keyStorage *objutil.KeyStorage
@@ -50,7 +54,7 @@ type cfg struct {
 
 	networkState netmap.State
 
-	clientCache *cache.ClientCache
+	clientConstructor ClientConstructor
 
 	log *logger.Logger
 }
@@ -138,9 +142,9 @@ func WithNetworkState(v netmap.State) Option {
 	}
 }
 
-func WithClientCache(v *cache.ClientCache) Option {
+func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
-		c.clientCache = v
+		c.clientConstructor = v
 	}
 }
 

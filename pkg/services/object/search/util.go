@@ -8,7 +8,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 )
@@ -21,8 +20,8 @@ type uniqueIDWriter struct {
 	writer IDListWriter
 }
 
-type clientCacheWrapper struct {
-	cache *cache.ClientCache
+type clientConstructorWrapper struct {
+	constructor ClientConstructor
 }
 
 type clientWrapper struct {
@@ -68,8 +67,8 @@ func (w *uniqueIDWriter) WriteIDs(list []*objectSDK.ID) error {
 	return w.writer.WriteIDs(list)
 }
 
-func (c *clientCacheWrapper) get(addr string) (searchClient, error) {
-	clt, err := c.cache.Get(addr)
+func (c *clientConstructorWrapper) get(addr string) (searchClient, error) {
+	clt, err := c.constructor.Get(addr)
 
 	return &clientWrapper{
 		client: clt,

@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 )
 
 type SimpleObjectWriter struct {
@@ -18,7 +17,7 @@ type SimpleObjectWriter struct {
 }
 
 type clientCacheWrapper struct {
-	cache *cache.ClientCache
+	cache ClientConstructor
 }
 
 type clientWrapper struct {

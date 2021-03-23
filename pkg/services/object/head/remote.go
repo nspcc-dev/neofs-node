@@ -7,17 +7,20 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/pkg/errors"
 )
+
+type ClientConstructor interface {
+	Get(string) (client.Client, error)
+}
 
 // RemoteHeader represents utility for getting
 // the object header from a remote host.
 type RemoteHeader struct {
 	keyStorage *util.KeyStorage
 
-	clientCache *cache.ClientCache
+	clientCache ClientConstructor
 }
 
 // RemoteHeadPrm groups remote header operation parameters.
@@ -30,7 +33,7 @@ type RemoteHeadPrm struct {
 var ErrNotFound = errors.New("object header not found")
 
 // NewRemoteHeader creates, initializes and returns new RemoteHeader instance.
-func NewRemoteHeader(keyStorage *util.KeyStorage, cache *cache.ClientCache) *RemoteHeader {
+func NewRemoteHeader(keyStorage *util.KeyStorage, cache ClientConstructor) *RemoteHeader {
 	return &RemoteHeader{
 		keyStorage:  keyStorage,
 		clientCache: cache,

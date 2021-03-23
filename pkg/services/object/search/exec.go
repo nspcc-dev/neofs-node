@@ -147,7 +147,7 @@ func (exec execCtx) remoteClient(node *network.Address) (searchClient, bool) {
 
 		log.Debug("could not calculate node IP address")
 	case err == nil:
-		c, err := exec.svc.clientCache.get(ipAddr)
+		c, err := exec.svc.clientConstructor.get(ipAddr)
 
 		switch {
 		default:

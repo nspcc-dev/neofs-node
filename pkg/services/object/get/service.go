@@ -1,11 +1,11 @@
 package getsvc
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -91,8 +91,12 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 	}
 }
 
-// WithClientCache returns option to set cache of remote node clients.
-func WithClientCache(v *cache.ClientCache) Option {
+type ClientConstructor interface {
+	Get(string) (client.Client, error)
+}
+
+// WithClientConstructor returns option to set constructor of remote node clients.
+func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientCache.(*clientCacheWrapper).cache = v
 	}
