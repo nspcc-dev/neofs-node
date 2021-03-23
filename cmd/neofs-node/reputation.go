@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 
+	crypto "github.com/nspcc-dev/neofs-crypto"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
@@ -116,4 +119,33 @@ func (l *localTrustLogger) Write(t reputation.Trust) error {
 
 func (*localTrustLogger) Close() error {
 	return nil
+}
+
+func initReputationService(c *cfg) {
+	// consider sharing this between application components
+	nmSrc := newCachedNetmapStorage(c.cfgNetmap.state, c.cfgNetmap.wrapper)
+
+	c.cfgReputation.localTrustStorage = truststorage.New(truststorage.Prm{})
+
+	trustStorage := &localTrustStorage{
+		log:      c.log,
+		storage:  c.cfgReputation.localTrustStorage,
+		nmSrc:    nmSrc,
+		localKey: crypto.MarshalPublicKey(&c.key.PublicKey),
+	}
+
+	c.cfgReputation.localTrustCtrl = trustcontroller.New(trustcontroller.Prm{
+		LocalTrustSource: trustStorage,
+		LocalTrustTarget: trustStorage,
+	})
+
+	addNewEpochNotificationHandler(c, func(ev event.Event) {
+		var reportPrm trustcontroller.ReportPrm
+
+		// report collected values from previous epoch
+		reportPrm.SetEpoch(ev.(netmap.NewEpoch).EpochNumber() - 1)
+
+		// TODO: implement and use worker pool [neofs-node#440]
+		go c.cfgReputation.localTrustCtrl.Report(reportPrm)
+	})
 }

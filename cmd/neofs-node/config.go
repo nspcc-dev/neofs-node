@@ -32,6 +32,8 @@ import (
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
+	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
@@ -200,6 +202,8 @@ type cfg struct {
 	healthStatus *atomic.Int32
 
 	closers []func()
+
+	cfgReputation cfgReputation
 }
 
 type cfgGRPC struct {
@@ -285,6 +289,12 @@ type cfgObjectRoutines struct {
 
 type cfgControlService struct {
 	server *grpc.Server
+}
+
+type cfgReputation struct {
+	localTrustStorage *truststorage.Storage
+
+	localTrustCtrl *trustcontroller.Controller
 }
 
 const (
