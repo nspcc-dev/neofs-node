@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
@@ -9,6 +10,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type localTrustStorage struct {
@@ -86,5 +88,32 @@ func (it *localTrustIterator) Iterate(h reputation.TrustHandler) error {
 		}
 	}
 
+	return nil
+}
+
+func (s *localTrustStorage) InitWriter(ctx trustcontroller.Context) (trustcontroller.Writer, error) {
+	return &localTrustLogger{
+		ctx: ctx,
+		log: s.log,
+	}, nil
+}
+
+type localTrustLogger struct {
+	ctx trustcontroller.Context
+
+	log *logger.Logger
+}
+
+func (l *localTrustLogger) Write(t reputation.Trust) error {
+	l.log.Info("new local trust",
+		zap.Uint64("epoch", l.ctx.Epoch()),
+		zap.String("peer", hex.EncodeToString(t.Peer().Bytes())),
+		zap.Stringer("value", t.Value()),
+	)
+
+	return nil
+}
+
+func (*localTrustLogger) Close() error {
 	return nil
 }
