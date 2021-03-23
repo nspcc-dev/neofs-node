@@ -37,20 +37,18 @@ type cfg struct {
 	snapshotMethod, // get network map snapshot method name
 	epochSnapshotMethod, // get network map snapshot by epoch method name
 	updateStateMethod, // update state method name for invocation
-	innerRingListMethod, // IR list method name for invocation
 	epochMethod, // get epoch number method name
 	configMethod string // get config value method name
 }
 
 const (
-	defaultAddPeerMethod       = "addPeer"       // default add peer method name
-	defaultNewEpochMethod      = "newEpoch"      // default new epoch method name
-	defaultNetMapMethod        = "netmap"        // default get network map method name
-	defaultSnapshotMethod      = "snapshot"      // default get network map snapshot method name
-	defaultUpdateStateMethod   = "updateState"   // default update state method name
-	defaultInnerRIngListMethod = "innerRingList" // default IR list method name
-	defaultEpochMethod         = "epoch"         // default get epoch number method name
-	defaultConfigMethod        = "config"        // default get config value method name
+	defaultAddPeerMethod     = "addPeer"     // default add peer method name
+	defaultNewEpochMethod    = "newEpoch"    // default new epoch method name
+	defaultNetMapMethod      = "netmap"      // default get network map method name
+	defaultSnapshotMethod    = "snapshot"    // default get network map snapshot method name
+	defaultUpdateStateMethod = "updateState" // default update state method name
+	defaultEpochMethod       = "epoch"       // default get epoch number method name
+	defaultConfigMethod      = "config"      // default get config value method name
 
 	defaultEpochSnapshotMethod = "snapshotByEpoch" // default get network map snapshot by epoch method name
 )
@@ -63,7 +61,6 @@ func defaultConfig() *cfg {
 		snapshotMethod:      defaultSnapshotMethod,
 		epochSnapshotMethod: defaultEpochSnapshotMethod,
 		updateStateMethod:   defaultUpdateStateMethod,
-		innerRingListMethod: defaultInnerRIngListMethod,
 		epochMethod:         defaultEpochMethod,
 		configMethod:        defaultConfigMethod,
 	}
@@ -78,7 +75,6 @@ func defaultConfig() *cfg {
 //  * new epoch method name: NewEpoch;
 //  * get network map method name: Netmap;
 //  * update state method name: UpdateState;
-//  * inner ring list method name: InnerRingList.
 //
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
@@ -153,20 +149,6 @@ func WithUpdateStateMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.updateStateMethod = n
-		}
-	}
-}
-
-// WithInnerRingListMethod returns a client constructor option that
-// specifies the method name of inner ring listing operation.
-//
-// Ignores empty value.
-//
-// If option not provided, "InnerRingList" is used.
-func WithInnerRingListMethod(n string) Option {
-	return func(c *cfg) {
-		if n != "" {
-			c.innerRingListMethod = n
 		}
 	}
 }
