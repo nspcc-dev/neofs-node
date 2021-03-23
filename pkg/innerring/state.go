@@ -21,12 +21,12 @@ func (s *Server) SetEpochCounter(val uint64) {
 
 // IsActive is a getter for a global active flag state.
 func (s *Server) IsActive() bool {
-	return s.Index() >= 0
+	return s.InnerRingIndex() >= 0
 }
 
-// Index is a getter for a global index of node in inner ring list. Negative
+// InnerRingIndex is a getter for a global index of node in inner ring list. Negative
 // index means that node is not in the inner ring list.
-func (s *Server) Index() int {
+func (s *Server) InnerRingIndex() int {
 	index, err := s.statusIndex.InnerRingIndex()
 	if err != nil {
 		s.log.Error("can't get inner ring index", zap.String("error", err.Error()))
@@ -49,7 +49,7 @@ func (s *Server) InnerRingSize() int {
 }
 
 func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
-	index := s.Index()
+	index := s.InnerRingIndex()
 	if s.contracts.alphabet.indexOutOfRange(index) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
 

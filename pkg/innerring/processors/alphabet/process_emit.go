@@ -10,7 +10,7 @@ import (
 )
 
 func (np *Processor) processEmit() {
-	index := np.irList.Index()
+	index := np.irList.InnerRingIndex()
 	if index < 0 {
 		np.log.Info("passive mode, ignore gas emission event")
 

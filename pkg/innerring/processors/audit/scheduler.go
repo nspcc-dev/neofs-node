@@ -27,7 +27,7 @@ func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*container.ID, err
 		return strings.Compare(containers[i].String(), containers[j].String()) < 0
 	})
 
-	ind := ap.irList.Index()
+	ind := ap.irList.InnerRingIndex()
 	irSize := ap.irList.InnerRingSize()
 
 	if ind < 0 || ind >= irSize {
