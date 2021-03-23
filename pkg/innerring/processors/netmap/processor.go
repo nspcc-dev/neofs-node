@@ -24,9 +24,9 @@ type (
 		EpochCounter() uint64
 	}
 
-	// ActiveState is a callback interface for inner ring global state.
-	ActiveState interface {
-		IsActive() bool
+	// AlphabetState is a callback interface for inner ring global state.
+	AlphabetState interface {
+		IsAlphabet() bool
 	}
 
 	// NodeValidator wraps basic method of checking the correctness
@@ -52,7 +52,7 @@ type (
 		netmapContract util.Uint160
 		epochTimer     EpochTimerReseter
 		epochState     EpochState
-		activeState    ActiveState
+		alphabetState  AlphabetState
 
 		morphClient  *client.Client
 		containerWrp *container.Wrapper
@@ -73,7 +73,7 @@ type (
 		EpochTimer       EpochTimerReseter
 		MorphClient      *client.Client
 		EpochState       EpochState
-		ActiveState      ActiveState
+		AlphabetState    AlphabetState
 		CleanupEnabled   bool
 		CleanupThreshold uint64 // in epochs
 		ContainerWrapper *container.Wrapper
@@ -102,7 +102,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: epoch itmer is not set")
 	case p.EpochState == nil:
 		return nil, errors.New("ir/netmap: global state is not set")
-	case p.ActiveState == nil:
+	case p.AlphabetState == nil:
 		return nil, errors.New("ir/netmap: global state is not set")
 	case p.HandleAudit == nil:
 		return nil, errors.New("ir/netmap: audit handler is not set")
@@ -127,7 +127,7 @@ func New(p *Params) (*Processor, error) {
 		netmapContract: p.NetmapContract,
 		epochTimer:     p.EpochTimer,
 		epochState:     p.EpochState,
-		activeState:    p.ActiveState,
+		alphabetState:  p.AlphabetState,
 		morphClient:    p.MorphClient,
 		containerWrp:   p.ContainerWrapper,
 		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),

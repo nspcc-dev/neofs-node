@@ -8,8 +8,8 @@ import (
 )
 
 func (np *Processor) processNetmapCleanupTick(epoch uint64) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore new netmap cleanup tick")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore new netmap cleanup tick")
 
 		return
 	}

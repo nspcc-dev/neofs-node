@@ -42,8 +42,8 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 
 // Process new epoch tick by invoking new epoch method in network map contract.
 func (np *Processor) processNewEpochTick() {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore new epoch tick")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore new epoch tick")
 		return
 	}
 

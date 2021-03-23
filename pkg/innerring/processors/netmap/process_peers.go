@@ -14,8 +14,8 @@ import (
 // Process add peer notification by sanity check of new node
 // local epoch timer.
 func (np *Processor) processAddPeer(node []byte) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore new peer notification")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore new peer notification")
 		return
 	}
 
@@ -74,8 +74,8 @@ func (np *Processor) processAddPeer(node []byte) {
 
 // Process update peer notification by sending approval tx to the smart contract.
 func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore new epoch tick")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore update peer notification")
 		return
 	}
 

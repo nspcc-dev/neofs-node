@@ -9,8 +9,8 @@ import (
 // Process lock event by invoking Cheque method in main net to send assets
 // back to the withdraw issuer.
 func (bp *Processor) processLock(lock *balanceEvent.Lock) {
-	if !bp.activeState.IsActive() {
-		bp.log.Info("passive mode, ignore balance lock")
+	if !bp.alphabetState.IsAlphabet() {
+		bp.log.Info("non alphabet mode, ignore balance lock")
 		return
 	}
 

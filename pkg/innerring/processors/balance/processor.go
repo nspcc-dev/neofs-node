@@ -11,9 +11,9 @@ import (
 )
 
 type (
-	// ActiveState is a callback interface for inner ring global state
-	ActiveState interface {
-		IsActive() bool
+	// AlphabetState is a callback interface for inner ring global state
+	AlphabetState interface {
+		IsAlphabet() bool
 	}
 
 	// PrecisionConverter converts balance amount values.
@@ -28,7 +28,7 @@ type (
 		neofsContract   util.Uint160
 		balanceContract util.Uint160
 		mainnetClient   *client.Client
-		activeState     ActiveState
+		alphabetState   AlphabetState
 		converter       PrecisionConverter
 	}
 
@@ -39,7 +39,7 @@ type (
 		NeoFSContract   util.Uint160
 		BalanceContract util.Uint160
 		MainnetClient   *client.Client
-		ActiveState     ActiveState
+		AlphabetState   AlphabetState
 		Converter       PrecisionConverter
 	}
 )
@@ -55,7 +55,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/balance: logger is not set")
 	case p.MainnetClient == nil:
 		return nil, errors.New("ir/balance: neo:mainnet client is not set")
-	case p.ActiveState == nil:
+	case p.AlphabetState == nil:
 		return nil, errors.New("ir/balance: global state is not set")
 	case p.Converter == nil:
 		return nil, errors.New("ir/balance: balance precision converter is not set")
@@ -74,7 +74,7 @@ func New(p *Params) (*Processor, error) {
 		neofsContract:   p.NeoFSContract,
 		balanceContract: p.BalanceContract,
 		mainnetClient:   p.MainnetClient,
-		activeState:     p.ActiveState,
+		alphabetState:   p.AlphabetState,
 		converter:       p.Converter,
 	}, nil
 }

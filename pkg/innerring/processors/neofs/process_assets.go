@@ -18,8 +18,8 @@ const (
 // Process deposit event by invoking balance contract and sending native
 // gas in morph chain.
 func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore deposit")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore deposit")
 		return
 	}
 
@@ -82,8 +82,8 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 
 // Process withdraw event by locking assets in balance account.
 func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore withdraw")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore withdraw")
 		return
 	}
 
@@ -118,8 +118,8 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 // Process cheque event by transferring assets from lock account back to
 // reserve account.
 func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore cheque")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore cheque")
 		return
 	}
 

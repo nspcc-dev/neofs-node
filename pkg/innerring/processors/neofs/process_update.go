@@ -9,8 +9,8 @@ import (
 // Process update inner ring event by setting inner ring list value from
 // main chain in side chain.
 func (np *Processor) processUpdateInnerRing(list *neofsEvent.UpdateInnerRing) {
-	if !np.activeState.IsActive() {
-		np.log.Info("passive mode, ignore deposit")
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore inner ring update")
 		return
 	}
 

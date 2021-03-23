@@ -431,14 +431,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		EpochTimer:       server,
 		MorphClient:      server.morphClient,
 		EpochState:       server,
-		ActiveState:      server,
+		AlphabetState:    server,
 		CleanupEnabled:   cfg.GetBool("netmap_cleaner.enabled"),
 		CleanupThreshold: cfg.GetUint64("netmap_cleaner.threshold"),
 		ContainerWrapper: cnrClient,
 		HandleAudit: server.onlyActiveEventHandler(
 			auditProcessor.StartAuditHandler(),
 		),
-		AuditSettlementsHandler: server.onlyActiveEventHandler(
+		AuditSettlementsHandler: server.onlyAlphabetEventHandler(
 			settlementProcessor.HandleAuditEvent,
 		),
 		NodeValidator: locodeValidator,
@@ -458,7 +458,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		PoolSize:          cfg.GetInt("workers.container"),
 		ContainerContract: server.contracts.container,
 		MorphClient:       server.morphClient,
-		ActiveState:       server,
+		AlphabetState:     server,
 	})
 	if err != nil {
 		return nil, err
@@ -476,7 +476,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		NeoFSContract:   server.contracts.neofs,
 		BalanceContract: server.contracts.balance,
 		MainnetClient:   server.mainnetClient,
-		ActiveState:     server,
+		AlphabetState:   server,
 		Converter:       &server.precision,
 	})
 	if err != nil {
@@ -499,7 +499,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		NetmapContract:      server.contracts.netmap,
 		MorphClient:         server.morphClient,
 		EpochState:          server,
-		ActiveState:         server,
+		AlphabetState:       server,
 		Converter:           &server.precision,
 		MintEmitCacheSize:   cfg.GetInt("emit.mint.cache_size"),
 		MintEmitThreshold:   cfg.GetUint64("emit.mint.threshold"),
@@ -727,6 +727,7 @@ func (s *Server) initConfigFromBlockchain() error {
 
 	s.log.Debug("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
+		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Int64("epoch", epoch),
 		zap.Uint32("precision", balancePrecision),
 	)
@@ -739,6 +740,16 @@ func (s *Server) initConfigFromBlockchain() error {
 func (s *Server) onlyActiveEventHandler(f event.Handler) event.Handler {
 	return func(ev event.Event) {
 		if s.IsActive() {
+			f(ev)
+		}
+	}
+}
+
+// onlyAlphabet wrapper around event handler that executes it
+// only if inner ring node is alphabet node.
+func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
+	return func(ev event.Event) {
+		if s.IsAlphabet() {
 			f(ev)
 		}
 	}

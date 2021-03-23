@@ -13,16 +13,16 @@ import (
 )
 
 type (
-	// ActiveState is a callback interface for inner ring global state
-	ActiveState interface {
-		IsActive() bool
+	// AlphabetState is a callback interface for inner ring global state
+	AlphabetState interface {
+		IsAlphabet() bool
 	}
 
 	// Processor is an event handler for payments in the system.
 	Processor struct {
 		log *logger.Logger
 
-		state ActiveState
+		state AlphabetState
 
 		pool nodeutil.WorkerPool
 
@@ -38,7 +38,7 @@ type (
 	Prm struct {
 		AuditProcessor AuditProcessor
 		BasicIncome    BasicIncomeInitializer
-		State          ActiveState
+		State          AlphabetState
 	}
 )
 

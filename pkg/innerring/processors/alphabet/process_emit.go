@@ -10,9 +10,9 @@ import (
 )
 
 func (np *Processor) processEmit() {
-	index := np.irList.InnerRingIndex()
+	index := np.irList.AlphabetIndex()
 	if index < 0 {
-		np.log.Info("passive mode, ignore gas emission event")
+		np.log.Info("non alphabet mode, ignore gas emission event")
 
 		return
 	}
