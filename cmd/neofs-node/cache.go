@@ -60,7 +60,6 @@ func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
 		valWithTime := val.(*valueWithTime)
 
 		if time.Since(valWithTime.t) < c.ttl {
-			valWithTime.t = time.Now()
 			return valWithTime.v, nil
 		}
 
