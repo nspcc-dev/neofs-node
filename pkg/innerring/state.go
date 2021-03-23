@@ -24,6 +24,11 @@ func (s *Server) IsActive() bool {
 	return s.InnerRingIndex() >= 0
 }
 
+// IsAlphabet is a getter for a global alphabet flag state.
+func (s *Server) IsAlphabet() bool {
+	return s.AlphabetIndex() >= 0
+}
+
 // InnerRingIndex is a getter for a global index of node in inner ring list. Negative
 // index means that node is not in the inner ring list.
 func (s *Server) InnerRingIndex() int {
@@ -46,6 +51,18 @@ func (s *Server) InnerRingSize() int {
 	}
 
 	return int(size)
+}
+
+// AlphabetIndex is a getter for a global index of node in alphabet list.
+// Negative index means that node is not in the alphabet list.
+func (s *Server) AlphabetIndex() int {
+	index, err := s.statusIndex.AlphabetIndex()
+	if err != nil {
+		s.log.Error("can't get alphabet index", zap.String("error", err.Error()))
+		return -1
+	}
+
+	return int(index)
 }
 
 func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
