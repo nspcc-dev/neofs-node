@@ -217,6 +217,18 @@ func (c *Client) Committee() (keys.PublicKeys, error) {
 	return roleKeys, nil
 }
 
+// NeoFSAlphabetList returns keys that stored in NeoFS Alphabet role. Main chain
+// stores alphabet node keys of inner ring there, however side chain stores both
+// alphabet and non alphabet node keys of inner ring.
+func (c *Client) NeoFSAlphabetList() (keys.PublicKeys, error) {
+	list, err := c.roleList(native.RoleNeoFSAlphabet)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get alphabet nodes role list")
+	}
+
+	return list, nil
+}
+
 func (c *Client) roleList(r native.Role) (keys.PublicKeys, error) {
 	height, err := c.client.GetBlockCount()
 	if err != nil {
