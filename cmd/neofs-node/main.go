@@ -46,6 +46,7 @@ func initApp(c *cfg) {
 	initAccountingService(c)
 	initContainerService(c)
 	initSessionService(c)
+	initReputationService(c)
 	initObjectService(c)
 	initProfiler(c)
 	initMetrics(c)
