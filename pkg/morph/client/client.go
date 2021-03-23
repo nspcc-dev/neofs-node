@@ -223,6 +223,13 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 	case native.Role:
 		result.Type = sc.IntegerType
 		result.Value = int64(v)
+	case keys.PublicKeys:
+		arr := make([][]byte, 0, len(v))
+		for i := range v {
+			arr = append(arr, v[i].Bytes())
+		}
+
+		return toStackParameter(arr)
 	default:
 		return result, errors.Errorf("chain/client: unsupported parameter %v", value)
 	}
