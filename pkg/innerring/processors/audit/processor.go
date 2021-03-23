@@ -21,7 +21,7 @@ import (
 type (
 	// Indexer is a callback interface for inner ring global state.
 	Indexer interface {
-		Index() int
+		InnerRingIndex() int
 		InnerRingSize() int
 	}
 
