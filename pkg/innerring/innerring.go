@@ -714,7 +714,7 @@ func (s *Server) initConfigFromBlockchain() error {
 	key := &s.key.PublicKey
 
 	// check if node inside inner ring list and what index it has
-	index, size, err := invoke.InnerRingIndex(s.mainnetClient, s.contracts.neofs, key)
+	index, size, err := invoke.InnerRingIndex(s.mainnetClient, key)
 	if err != nil {
 		return errors.Wrap(err, "can't read inner ring list")
 	}
