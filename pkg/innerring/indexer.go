@@ -18,6 +18,7 @@ type innerRingIndexer struct {
 	timeout time.Duration
 
 	innerRingIndex, innerRingSize int32
+	alphabetIndex                 int32
 
 	lastAccess time.Time
 }
@@ -52,6 +53,11 @@ func (s *innerRingIndexer) update() (err error) {
 		return err
 	}
 
+	s.alphabetIndex, err = invoke.AlphabetIndex(s.cli, s.key)
+	if err != nil {
+		return err
+	}
+
 	s.lastAccess = time.Now()
 
 	return nil
@@ -77,4 +83,15 @@ func (s *innerRingIndexer) InnerRingSize() (int32, error) {
 	defer s.RUnlock()
 
 	return s.innerRingSize, nil
+}
+
+func (s *innerRingIndexer) AlphabetIndex() (int32, error) {
+	if err := s.update(); err != nil {
+		return 0, errors.Wrap(err, "can't update index state")
+	}
+
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.alphabetIndex, nil
 }

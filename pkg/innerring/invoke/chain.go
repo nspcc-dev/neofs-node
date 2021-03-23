@@ -25,6 +25,21 @@ func InnerRingIndex(cli *client.Client, key *ecdsa.PublicKey) (int32, int32, err
 	return keyPosition(key, innerRing), int32(len(innerRing)), nil
 }
 
+// AlphabetIndex returns index of the `key` in the alphabet key list from sidechain
+// If key is not in the inner ring list, then returns `-1` as index.
+func AlphabetIndex(cli *client.Client, key *ecdsa.PublicKey) (int32, error) {
+	if cli == nil {
+		return 0, client.ErrNilClient
+	}
+
+	alphabet, err := cli.Committee()
+	if err != nil {
+		return 0, err
+	}
+
+	return keyPosition(key, alphabet), nil
+}
+
 // keyPosition returns "-1" if key is not found in the list, otherwise returns
 // index of the key.
 func keyPosition(key *ecdsa.PublicKey, list keys.PublicKeys) (result int32) {
