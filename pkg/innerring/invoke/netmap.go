@@ -28,7 +28,6 @@ const (
 	approvePeerMethod       = "addPeer"
 	updatePeerStateMethod   = "updateState"
 	setConfigMethod         = "setConfigMethod"
-	updateInnerRingMethod   = "updateInnerRingMethod"
 	getNetmapSnapshotMethod = "netmap"
 )
 
@@ -92,20 +91,6 @@ func SetConfig(cli *client.Client, con util.Uint160, args *SetConfigArgs) error 
 		args.Key,
 		args.Value,
 	)
-}
-
-// UpdateInnerRing invokes updateInnerRing method.
-func UpdateInnerRing(cli *client.Client, con util.Uint160, list []*keys.PublicKey) error {
-	if cli == nil {
-		return client.ErrNilClient
-	}
-
-	rawKeys := make([][]byte, 0, len(list))
-	for i := range list {
-		rawKeys = append(rawKeys, list[i].Bytes())
-	}
-
-	return cli.NotaryInvoke(con, updateInnerRingMethod, rawKeys)
 }
 
 // NetmapSnapshot returns current netmap node infos.
