@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/pkg/errors"
 )
 
@@ -72,6 +73,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 			t.commonPrm.RemoteCallOptions(),
 			client.WithTTL(1), // FIXME: use constant
 			client.WithKey(key),
+			client.WithUnmarshalPublic(keycache.UnmarshalPublicKey),
 		)...,
 	)
 	if err != nil {

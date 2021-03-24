@@ -15,6 +15,7 @@ import (
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -197,17 +198,16 @@ func lookupKeyInContainer(
 
 func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, error) {
 	// 1. First check signature of session token.
+	tokenSignature := token.GetSignature()
 	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
-	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
-		tokenSignature := token.GetSignature()
-		return tokenSignature.GetKey(), tokenSignature.GetSign()
-	}); err != nil {
+	if err := signature.VerifyData(signWrapper, tokenSignature.GetKey(), tokenSignature.GetSign(),
+		signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid session token signature")
 	}
 
 	// 2. Then check if session token owner issued the session token
-	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
 	tokenOwner := owner.NewIDFromV2(token.GetBody().GetOwnerID())
+	tokenIssuerKey := keycache.UnmarshalPublicKey(tokenSignature.GetKey())
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
 		// todo: in this case we can issue all owner keys from neofs.id and check once again

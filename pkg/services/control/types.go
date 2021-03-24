@@ -95,6 +95,41 @@ func (x *NodeInfo_Attribute) StableMarshal(buf []byte) ([]byte, error) {
 
 	return buf, nil
 }
+func (x *NodeInfo_Attribute) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = s.StringMarshal(nodeAttrKeyFNum, x.Key)
+	if err != nil {
+		return offset + n, err
+	}
+
+	offset += n
+
+	n, err = s.StringMarshal(nodeAttrValueFNum, x.Value)
+	if err != nil {
+		return offset + n, err
+	}
+
+	offset += n
+
+	for i := range x.Parents {
+		n, err = s.StringMarshal(nodeAttrParentsFNum, x.Parents[i])
+		if err != nil {
+			return offset + n, err
+		}
+
+		offset += n
+	}
+
+	return offset, nil
+}
 
 // StableSize returns binary size of node attribute
 // in protobuf binary format.
@@ -208,6 +243,43 @@ func (x *NodeInfo) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
+func (x *NodeInfo) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = s.BytesMarshal(nodePubKeyFNum, x.PublicKey)
+	if err != nil {
+		return offset + n, err
+	}
+
+	offset += n
+
+	n, err = s.StringMarshal(nodeAddrFNum, x.Address)
+	if err != nil {
+		return offset + n, err
+	}
+
+	offset += n
+
+	for i := range x.Attributes {
+		n, err = s.NestedStructureMarshal(nodeAttrsFNum, x.Attributes[i])
+		if err != nil {
+			return offset + n, err
+		}
+
+		offset += n
+	}
+
+	n, err = s.EnumMarshal(nodeStateFNum, int32(x.State))
+	return offset + n, err
+}
+
 // StableSize returns binary size of node information
 // in protobuf binary format.
 //
@@ -290,6 +362,35 @@ func (x *Netmap) StableMarshal(buf []byte) ([]byte, error) {
 	}
 
 	return buf, nil
+}
+
+func (x *Netmap) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = s.UInt64Marshal(netmapEpochFNum, x.Epoch)
+	if err != nil {
+		return n, err
+	}
+
+	offset += n
+
+	for i := range x.Nodes {
+		n, err = s.NestedStructureMarshal(netmapNodesFNum, x.Nodes[i])
+		if err != nil {
+			return offset + n, err
+		}
+
+		offset += n
+	}
+
+	return offset, nil
 }
 
 // StableSize returns binary size of netmap  in protobuf binary format.

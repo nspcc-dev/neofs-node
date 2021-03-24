@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 )
 
 // SignedMessage is an interface of Control service message.
@@ -37,9 +38,8 @@ func (s *Server) isValidRequest(req SignedMessage) error {
 	}
 
 	// verify signature
-	return signature.VerifyDataWithSource(req, func() ([]byte, []byte) {
-		return key, sign.GetSign()
-	})
+	return signature.VerifyData(req, key, sign.GetSign(),
+		signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey))
 }
 
 // SignMessage signs Control service message with private key.

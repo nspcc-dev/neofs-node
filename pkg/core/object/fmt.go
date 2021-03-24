@@ -7,9 +7,10 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
+	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/pkg/errors"
 )
 
@@ -83,7 +84,8 @@ func (v *FormatValidator) Validate(obj *Object) error {
 			return errors.Wrapf(err, "object did not pass expiration check")
 		}
 
-		if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
+		if err := object.CheckHeaderVerificationFields(obj.SDK(),
+			signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 			return errors.Wrapf(err, "(%T) could not validate header fields", v)
 		}
 	}
@@ -105,7 +107,7 @@ func (v *FormatValidator) validateSignatureKey(obj *Object) error {
 }
 
 func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
-	wallet, err := owner.NEO3WalletFromPublicKey(crypto.UnmarshalPublicKey(key))
+	wallet, err := owner.NEO3WalletFromPublicKey(keycache.UnmarshalPublicKey(key))
 	if err != nil {
 		// TODO: check via NeoFSID
 		return err

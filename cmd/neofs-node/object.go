@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"io"
 
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/util/proto"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
@@ -39,6 +41,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -372,8 +375,8 @@ type morphEACLStorage struct {
 
 type signedEACLTable eaclSDK.Table
 
-func (s *signedEACLTable) ReadSignedData(buf []byte) ([]byte, error) {
-	return (*eaclSDK.Table)(s).Marshal(buf)
+func (s *signedEACLTable) WriteSignedDataTo(w io.Writer) (int, error) {
+	return (*eaclSDK.Table)(s).ToV2().MarshalStream(proto.NewStream(w))
 }
 
 func (s *signedEACLTable) SignedDataSize() int {
@@ -387,12 +390,12 @@ func (s *morphEACLStorage) GetEACL(cid *container.ID) (*eaclSDK.Table, error) {
 		return nil, err
 	}
 
-	if err := signature.VerifyDataWithSource(
+	if err := signature.VerifyData(
 		(*signedEACLTable)(table),
-		func() ([]byte, []byte) {
-			return sig.Key(), sig.Sign()
-		},
+		sig.Key(),
+		sig.Sign(),
 		signature.SignWithRFC6979(),
+		signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey),
 	); err != nil {
 		return nil, errors.Wrap(err, "incorrect signature")
 	}

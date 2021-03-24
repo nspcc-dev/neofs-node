@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -90,9 +91,8 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 
 	sign := resp.GetSignature()
 
-	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-		return sign.GetKey(), sign.GetSign()
-	}); err != nil {
+	if err := signature.VerifyData(resp, sign.GetKey(), sign.GetSign(),
+		signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 		return err
 	}
 
@@ -142,9 +142,8 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 
 	sign := resp.GetSignature()
 
-	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-		return sign.GetKey(), sign.GetSign()
-	}); err != nil {
+	if err := signature.VerifyData(resp, sign.GetKey(), sign.GetSign(),
+		signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 		return err
 	}
 
@@ -208,9 +207,8 @@ var dropObjectsCmd = &cobra.Command{
 
 		sign := resp.GetSignature()
 
-		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		}); err != nil {
+		if err := signature.VerifyData(resp, sign.GetKey(), sign.GetSign(),
+			signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 			return err
 		}
 

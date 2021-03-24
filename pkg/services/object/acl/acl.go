@@ -23,6 +23,7 @@ import (
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/pkg/errors"
 )
 
@@ -719,10 +720,10 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 
 	// 2. Then check if bearer token is signed correctly.
 	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
-	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
-		tokenSignature := token.GetSignature()
-		return tokenSignature.GetKey(), tokenSignature.GetSign()
-	}); err != nil {
+	tokenSignature := token.GetSignature()
+
+	if err := signature.VerifyData(signWrapper, tokenSignature.GetKey(), tokenSignature.GetSign(),
+		signature.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 		return false // invalid signature
 	}
 

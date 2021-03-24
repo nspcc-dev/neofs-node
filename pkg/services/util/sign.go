@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	signer "github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-node/pkg/util/keycache"
 	"github.com/pkg/errors"
 )
 
@@ -53,7 +55,8 @@ func NewUnarySignService(key *ecdsa.PrivateKey) *SignService {
 
 func (s *RequestMessageStreamer) Send(req interface{}) error {
 	// verify request signatures
-	if err := signature.VerifyServiceMessage(req); err != nil {
+	if err := signature.VerifyServiceMessage(req,
+		signer.WithUnmarshalPublicKey(keycache.UnmarshalPublicKey)); err != nil {
 		return errors.Wrap(err, "could not verify request")
 	}
 

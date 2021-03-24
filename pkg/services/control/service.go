@@ -1,6 +1,8 @@
 package control
 
 import (
+	"io"
+
 	"github.com/nspcc-dev/neofs-api-go/util/proto"
 )
 
@@ -15,6 +17,10 @@ import (
 // Structures with the same field values have the same binary format.
 func (x *HealthCheckRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
+}
+
+func (x *HealthCheckRequest_Body) MarshalStream(s proto.Stream) (int, error) {
+	return 0, nil
 }
 
 // StableSize returns binary size of health check request body
@@ -39,7 +45,7 @@ func (x *HealthCheckRequest) SetSignature(body *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of health check request to buf.
+// WriteSignedDataTo reads signed data of health check request to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -47,8 +53,8 @@ func (x *HealthCheckRequest) SetSignature(body *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *HealthCheckRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *HealthCheckRequest) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -117,6 +123,27 @@ func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
+func (x *HealthCheckResponse_Body) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = s.EnumMarshal(healthRespBodyStatusFNum, int32(x.NetmapStatus))
+	if err != nil {
+		return offset + n, err
+	}
+
+	offset += n
+
+	n, err = s.EnumMarshal(healthRespBodyHealthStatusFNum, int32(x.HealthStatus))
+	return offset + n, err
+}
+
 // StableSize returns binary size of health check response body
 // in protobuf binary format.
 //
@@ -148,7 +175,7 @@ func (x *HealthCheckResponse) SetSignature(v *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of health check response to buf.
+// WriteSignedDataTo reads signed data of health check response to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -156,8 +183,8 @@ func (x *HealthCheckResponse) SetSignature(v *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *HealthCheckResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *HealthCheckResponse) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -179,6 +206,10 @@ func (x *HealthCheckResponse) SignedDataSize() int {
 // Structures with the same field values have the same binary format.
 func (x *NetmapSnapshotRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
+}
+
+func (x *NetmapSnapshotRequest_Body) MarshalStream(s proto.Stream) (int, error) {
+	return 0, nil
 }
 
 // StableSize returns binary size of netmap snapshot request body
@@ -203,7 +234,7 @@ func (x *NetmapSnapshotRequest) SetSignature(body *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of netmap snapshot request to buf.
+// WriteSignedDataTo reads signed data of netmap snapshot request to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -211,8 +242,8 @@ func (x *NetmapSnapshotRequest) SetSignature(body *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *NetmapSnapshotRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *NetmapSnapshotRequest) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -261,6 +292,14 @@ func (x *NetmapSnapshotResponse_Body) StableMarshal(buf []byte) ([]byte, error) 
 	return buf, nil
 }
 
+func (x *NetmapSnapshotResponse_Body) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	return s.NestedStructureMarshal(snapshotRespBodyNetmapFNum, x.Netmap)
+}
+
 // StableSize returns binary size of netmap snapshot response body
 // in protobuf binary format.
 //
@@ -291,7 +330,7 @@ func (x *NetmapSnapshotResponse) SetSignature(v *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of netmap snapshot response to buf.
+// WriteSignedDataTo reads signed data of netmap snapshot response to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -299,8 +338,8 @@ func (x *NetmapSnapshotResponse) SetSignature(v *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *NetmapSnapshotResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *NetmapSnapshotResponse) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -349,6 +388,14 @@ func (x *SetNetmapStatusRequest_Body) StableMarshal(buf []byte) ([]byte, error) 
 	return buf, nil
 }
 
+func (x *SetNetmapStatusRequest_Body) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	return s.EnumMarshal(setNetmapStatusReqBodyStatusFNum, int32(x.Status))
+}
+
 // StableSize returns binary size of health check response body
 // in protobuf binary format.
 //
@@ -379,7 +426,7 @@ func (x *SetNetmapStatusRequest) SetSignature(body *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of set netmap status request to buf.
+// WriteSignedDataTo reads signed data of set netmap status request to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -387,8 +434,8 @@ func (x *SetNetmapStatusRequest) SetSignature(body *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *SetNetmapStatusRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *SetNetmapStatusRequest) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -410,6 +457,10 @@ func (x *SetNetmapStatusRequest) SignedDataSize() int {
 // Structures with the same field values have the same binary format.
 func (x *SetNetmapStatusResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
+}
+
+func (x *SetNetmapStatusResponse_Body) MarshalStream(proto.Stream) (int, error) {
+	return 0, nil
 }
 
 // StableSize returns binary size of set netmap status response body
@@ -434,7 +485,7 @@ func (x *SetNetmapStatusResponse) SetSignature(v *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of set netmap status response to buf.
+// WriteSignedDataTo reads signed data of set netmap status response to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -442,8 +493,8 @@ func (x *SetNetmapStatusResponse) SetSignature(v *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *SetNetmapStatusResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *SetNetmapStatusResponse) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -492,6 +543,14 @@ func (x *DropObjectsRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
+func (x *DropObjectsRequest_Body) MarshalStream(s proto.Stream) (int, error) {
+	if x == nil {
+		return 0, nil
+	}
+
+	return s.RepeatedBytesMarshal(addrListReqBodyStatusFNum, x.AddressList)
+}
+
 // StableSize returns binary size of "Drop objects" response body
 // in protobuf binary format.
 //
@@ -522,7 +581,7 @@ func (x *DropObjectsRequest) SetSignature(body *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of "Drop objects" request to buf.
+// WriteSignedDataTo reads signed data of "Drop objects" request to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -530,8 +589,8 @@ func (x *DropObjectsRequest) SetSignature(body *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *DropObjectsRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *DropObjectsRequest) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data of "Drop objects" request.
@@ -552,6 +611,10 @@ func (x *DropObjectsRequest) SignedDataSize() int {
 // Structures with the same field values have the same binary format.
 func (x *DropObjectsResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
+}
+
+func (x *DropObjectsResponse_Body) MarshalStream(proto.Stream) (int, error) {
+	return 0, nil
 }
 
 // StableSize returns binary size of "Drop objects" response body
@@ -576,7 +639,7 @@ func (x *DropObjectsResponse) SetSignature(v *Signature) {
 	}
 }
 
-// ReadSignedData reads signed data of "Drop objects" response to buf.
+// WriteSignedDataTo reads signed data of "Drop objects" response to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -584,8 +647,8 @@ func (x *DropObjectsResponse) SetSignature(v *Signature) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *DropObjectsResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+func (x *DropObjectsResponse) WriteSignedDataTo(w io.Writer) (int, error) {
+	return x.GetBody().MarshalStream(proto.NewStream(w))
 }
 
 // SignedDataSize returns binary size of the signed data of "Drop objects" response.

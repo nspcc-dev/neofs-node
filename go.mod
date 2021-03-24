@@ -10,14 +10,14 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/compress v1.11.3
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mr-tron/base58 v1.1.3
+	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/multiformats/go-multiaddr-net v0.1.2 // v0.1.1 => v0.1.2
 	github.com/multiformats/go-multihash v0.0.13 // indirect
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.94.0
 	github.com/nspcc-dev/neofs-api-go v1.25.0
-	github.com/nspcc-dev/neofs-crypto v0.3.0
+	github.com/nspcc-dev/neofs-crypto v0.3.1-0.20210323101142-225b24f7f42d
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.3.0
 	github.com/paulmach/orb v0.2.1
@@ -26,7 +26,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/atomic v1.5.1
 	go.uber.org/multierr v1.4.0 // indirect
@@ -41,3 +41,5 @@ require (
 
 // Used for debug reasons
 // replace github.com/nspcc-dev/neofs-api-go => ../neofs-api-go
+
+replace github.com/nspcc-dev/neofs-api-go => github.com/fyrchik/neofs-api-go 8c4a79cec202b632c768a7c32a1b967525540799
