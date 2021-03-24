@@ -52,6 +52,56 @@ func TestNewAlphabetList(t *testing.T) {
 	})
 }
 
+func TestUpdateInnerRing(t *testing.T) {
+	k, err := generateKeys(6)
+	require.NoError(t, err)
+
+	t.Run("same keys", func(t *testing.T) {
+		ir := k[:3]
+		before := k[1:3]
+		after := keys.PublicKeys{k[2], k[1]}
+
+		list, err := updateInnerRing(ir, before, after)
+		require.NoError(t, err)
+
+		sort.Sort(ir)
+		sort.Sort(list)
+		require.True(t, equalPublicKeyLists(ir, list))
+	})
+
+	t.Run("unknown keys", func(t *testing.T) {
+		ir := k[:3]
+		before := k[3:4]
+		after := k[4:5]
+
+		list, err := updateInnerRing(ir, before, after)
+		require.NoError(t, err)
+
+		require.True(t, equalPublicKeyLists(ir, list))
+	})
+
+	t.Run("different size", func(t *testing.T) {
+		ir := k[:3]
+		before := k[1:3]
+		after := k[4:5]
+
+		_, err = updateInnerRing(ir, before, after)
+		require.Error(t, err)
+	})
+
+	t.Run("new list", func(t *testing.T) {
+		ir := k[:3]
+		before := k[1:3]
+		after := k[4:6]
+		exp := keys.PublicKeys{k[0], k[4], k[5]}
+
+		list, err := updateInnerRing(ir, before, after)
+		require.NoError(t, err)
+
+		require.True(t, equalPublicKeyLists(exp, list))
+	})
+}
+
 func generateKeys(n int) (keys.PublicKeys, error) {
 	pubKeys := make(keys.PublicKeys, 0, n)
 
