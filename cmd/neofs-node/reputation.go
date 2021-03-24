@@ -2,15 +2,20 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 
+	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
+	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
+	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -148,4 +153,40 @@ func initReputationService(c *cfg) {
 		// TODO: implement and use worker pool [neofs-node#440]
 		go c.cfgReputation.localTrustCtrl.Report(reportPrm)
 	})
+
+	v2reputationgrpc.RegisterReputationServiceServer(c.cfgGRPC.server,
+		grpcreputation.New(
+			reputationrpc.NewSignService(
+				c.key,
+				reputationrpc.NewResponseService(
+					&loggingReputationServer{
+						log: c.log,
+					},
+					c.respSvc,
+				),
+			),
+		),
+	)
+}
+
+type loggingReputationServer struct {
+	log *logger.Logger
+}
+
+func (s *loggingReputationServer) SendLocalTrust(_ context.Context, req *v2reputation.SendLocalTrustRequest) (*v2reputation.SendLocalTrustResponse, error) {
+	body := req.GetBody()
+
+	log := s.log.With(zap.Uint64("epoch", body.GetEpoch()))
+
+	for _, t := range body.GetTrusts() {
+		log.Info("local trust received",
+			zap.String("peer", hex.EncodeToString(t.GetPeer())),
+			zap.Float64("value", t.GetValue()),
+		)
+	}
+
+	resp := new(v2reputation.SendLocalTrustResponse)
+	resp.SetBody(new(v2reputation.SendLocalTrustResponseBody))
+
+	return resp, nil
 }
