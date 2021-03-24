@@ -1,6 +1,7 @@
 package invoke
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
@@ -25,7 +26,8 @@ const (
 	// execution stage. Otherwise invocation will fail due to gas limit.
 	extraFee = 2_0000_0000 // 2.0 Fixed8 gas
 
-	chequeMethod = "cheque"
+	chequeMethod         = "cheque"
+	alphabetUpdateMethod = "alphabetUpdate"
 )
 
 // CashOutCheque invokes Cheque method.
@@ -40,4 +42,13 @@ func CashOutCheque(cli *client.Client, con util.Uint160, p *ChequeParams) error 
 		p.Amount,
 		p.LockAccount.BytesBE(),
 	)
+}
+
+// AlphabetUpdate invokes alphabetUpdate method.
+func AlphabetUpdate(cli *client.Client, con util.Uint160, id []byte, list keys.PublicKeys) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	return cli.Invoke(con, extraFee, alphabetUpdateMethod, id, list)
 }
