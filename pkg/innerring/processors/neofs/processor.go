@@ -71,7 +71,6 @@ const (
 	withdrawNotification = "Withdraw"
 	chequeNotification   = "Cheque"
 	configNotification   = "SetConfig"
-	updateIRNotification = "InnerRingUpdate"
 )
 
 // New creates neofs mainnet contract processor instance.
@@ -151,13 +150,6 @@ func (np *Processor) ListenerParsers() []event.ParserInfo {
 	config.SetParser(neofsEvent.ParseConfig)
 	parsers = append(parsers, config)
 
-	// update inner ring event
-	updateIR := event.ParserInfo{}
-	updateIR.SetType(updateIRNotification)
-	updateIR.SetScriptHash(np.neofsContract)
-	updateIR.SetParser(neofsEvent.ParseUpdateInnerRing)
-	parsers = append(parsers, updateIR)
-
 	return parsers
 }
 
@@ -192,13 +184,6 @@ func (np *Processor) ListenerHandlers() []event.HandlerInfo {
 	config.SetScriptHash(np.neofsContract)
 	config.SetHandler(np.handleConfig)
 	handlers = append(handlers, config)
-
-	// updateIR handler
-	updateIR := event.HandlerInfo{}
-	updateIR.SetType(updateIRNotification)
-	updateIR.SetScriptHash(np.neofsContract)
-	updateIR.SetHandler(np.handleUpdateInnerRing)
-	handlers = append(handlers, updateIR)
 
 	return handlers
 }
