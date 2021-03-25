@@ -14,6 +14,11 @@ func TestNewAlphabetList(t *testing.T) {
 
 	orig := keys.PublicKeys{k[0], k[1], k[2], k[3], k[4], k[5], k[6]}
 
+	t.Run("no sidechain keys", func(t *testing.T) {
+		_, err := newAlphabetList(nil, orig)
+		require.Error(t, err)
+	})
+
 	t.Run("same keys", func(t *testing.T) {
 		list, err := newAlphabetList(orig, orig)
 		require.NoError(t, err)
