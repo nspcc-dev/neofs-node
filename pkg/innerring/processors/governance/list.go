@@ -8,16 +8,22 @@ import (
 )
 
 var (
-	errNotEnoughKeys = errors.New("alphabet list in mainnet is too short")
-	errNotEqualLen   = errors.New("old and new alphabet lists have different length")
+	errNotEnoughKeys  = errors.New("alphabet list in mainnet is too short")
+	errNotEqualLen    = errors.New("old and new alphabet lists have different length")
+	errEmptySidechain = errors.New("sidechain list is empty")
 )
 
 // newAlphabetList returns updated list of sidechain keys with no more than 1\3
-// of new keys from mainnet list. Function returns `errNotEnoughKeys` if
-// mainnet list contains less keys than sidechain list. Function returns
-// (nil, nil) if mainnet list contains all keys from sidechain list.
+// of new keys from mainnet list. Function returns `errEmptySidechain` if
+// sidechain list is empty. Function returns `errNotEnoughKeys` if mainnet
+// list contains less keys than sidechain list. Function returns (nil, nil) if
+// mainnet list contains all keys from sidechain list.
 func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error) {
 	ln := len(sidechain)
+	if ln == 0 {
+		return nil, errEmptySidechain
+	}
+
 	if len(mainnet) < ln {
 		return nil, errors.Wrapf(errNotEnoughKeys, "expecting %d keys", ln)
 	}
