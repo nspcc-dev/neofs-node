@@ -1,6 +1,8 @@
 package innerring
 
 import (
+	"sort"
+
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
@@ -95,13 +97,20 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 
 // InitAndVoteForSidechainValidator is a public function to use outside of
 // inner ring daemon execution. It initialize inner ring structure with data
-// from blockchain and then calls vote method on corresponding alphabet contract.
+// from blockchain and then calls vote method on alphabet contracts.
 func (s *Server) InitAndVoteForSidechainValidator(validators keys.PublicKeys) error {
 	err := s.initConfigFromBlockchain()
 	if err != nil {
 		return err
 	}
 
+	return s.VoteForSidechainValidator(validators)
+}
+
+// VoteForSidechainValidator calls vote method on alphabet contracts with
+// provided list of keys.
+func (s *Server) VoteForSidechainValidator(validators keys.PublicKeys) error {
+	sort.Sort(validators)
 	return s.voteForSidechainValidator(validators)
 }
 
