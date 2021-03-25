@@ -62,7 +62,7 @@ type (
 		key                  *ecdsa.PrivateKey
 		pubKey               []byte
 		contracts            *contracts
-		predefinedValidators []keys.PublicKey
+		predefinedValidators keys.PublicKeys
 
 		workers []func(context.Context)
 
@@ -664,7 +664,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	return result, nil
 }
 
-func parsePredefinedValidators(cfg *viper.Viper) ([]keys.PublicKey, error) {
+func parsePredefinedValidators(cfg *viper.Viper) (keys.PublicKeys, error) {
 	publicKeyStrings := cfg.GetStringSlice("morph.validators")
 
 	return ParsePublicKeysFromStrings(publicKeyStrings)
@@ -672,8 +672,8 @@ func parsePredefinedValidators(cfg *viper.Viper) ([]keys.PublicKey, error) {
 
 // ParsePublicKeysFromStrings returns slice of neo public keys from slice
 // of hex encoded strings.
-func ParsePublicKeysFromStrings(pubKeys []string) ([]keys.PublicKey, error) {
-	publicKeys := make([]keys.PublicKey, 0, len(pubKeys))
+func ParsePublicKeysFromStrings(pubKeys []string) (keys.PublicKeys, error) {
+	publicKeys := make(keys.PublicKeys, 0, len(pubKeys))
 
 	for i := range pubKeys {
 		key, err := keys.NewPublicKeyFromString(pubKeys[i])
@@ -681,7 +681,7 @@ func ParsePublicKeysFromStrings(pubKeys []string) ([]keys.PublicKey, error) {
 			return nil, errors.Wrap(err, "can't decode public key")
 		}
 
-		publicKeys = append(publicKeys, *key)
+		publicKeys = append(publicKeys, key)
 	}
 
 	return publicKeys, nil
