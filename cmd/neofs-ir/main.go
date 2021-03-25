@@ -100,7 +100,7 @@ func main() {
 	log.Info("application stopped")
 }
 
-func parsePublicKeysFromString(argument string) ([]keys.PublicKey, error) {
+func parsePublicKeysFromString(argument string) (keys.PublicKeys, error) {
 	publicKeysString := strings.Split(argument, ",")
 
 	return innerring.ParsePublicKeysFromStrings(publicKeysString)

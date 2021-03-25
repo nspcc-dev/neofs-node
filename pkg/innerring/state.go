@@ -65,7 +65,7 @@ func (s *Server) AlphabetIndex() int {
 	return int(index)
 }
 
-func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
+func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 	index := s.InnerRingIndex()
 	if s.contracts.alphabet.indexOutOfRange(index) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
@@ -96,7 +96,7 @@ func (s *Server) voteForSidechainValidator(validators []keys.PublicKey) error {
 // InitAndVoteForSidechainValidator is a public function to use outside of
 // inner ring daemon execution. It initialize inner ring structure with data
 // from blockchain and then calls vote method on corresponding alphabet contract.
-func (s *Server) InitAndVoteForSidechainValidator(validators []keys.PublicKey) error {
+func (s *Server) InitAndVoteForSidechainValidator(validators keys.PublicKeys) error {
 	err := s.initConfigFromBlockchain()
 	if err != nil {
 		return err
