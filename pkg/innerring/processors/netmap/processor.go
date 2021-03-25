@@ -61,6 +61,7 @@ type (
 
 		handleNewAudit         event.Handler
 		handleAuditSettlements event.Handler
+		handleAlphabetSync     event.Handler
 
 		nodeValidator NodeValidator
 	}
@@ -80,6 +81,7 @@ type (
 
 		HandleAudit             event.Handler
 		AuditSettlementsHandler event.Handler
+		AlphabetSyncHandler     event.Handler
 
 		NodeValidator NodeValidator
 	}
@@ -108,6 +110,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: audit handler is not set")
 	case p.AuditSettlementsHandler == nil:
 		return nil, errors.New("ir/netmap: audit settlement handler is not set")
+	case p.AlphabetSyncHandler == nil:
+		return nil, errors.New("ir/netmap: alphabet sync handler is not set")
 	case p.ContainerWrapper == nil:
 		return nil, errors.New("ir/netmap: container contract wrapper is not set")
 	case p.NodeValidator == nil:
@@ -134,6 +138,8 @@ func New(p *Params) (*Processor, error) {
 		handleNewAudit: p.HandleAudit,
 
 		handleAuditSettlements: p.AuditSettlementsHandler,
+
+		handleAlphabetSync: p.AlphabetSyncHandler,
 
 		nodeValidator: p.NodeValidator,
 	}, nil

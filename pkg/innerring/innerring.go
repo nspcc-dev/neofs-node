@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
@@ -423,6 +424,20 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	// create governance processor
+	governanceProcessor, err := governance.New(&governance.Params{
+		Log:           log,
+		NeoFSContract: server.contracts.neofs,
+		AlphabetState: server,
+		EpochState:    server,
+		Voter:         server,
+		MorphClient:   server.morphClient,
+		MainnetClient: server.mainnetClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	// create netmap processor
 	netmapProcessor, err := netmap.New(&netmap.Params{
 		Log:              log,
@@ -441,7 +456,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		AuditSettlementsHandler: server.onlyAlphabetEventHandler(
 			settlementProcessor.HandleAuditEvent,
 		),
-		NodeValidator: locodeValidator,
+		AlphabetSyncHandler: governanceProcessor.HandleAlphabetSync,
+		NodeValidator:       locodeValidator,
 	})
 	if err != nil {
 		return nil, err
