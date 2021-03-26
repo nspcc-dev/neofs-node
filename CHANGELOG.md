@@ -1,6 +1,25 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.18.0] - 2021-03-26 - Yeongheungdo (영흥도, 靈興島)
+
+NeoFS operates with updated governance model. Alphabet keys and inner ring keys
+are accessed from side chain committee and `RoleManagement` contract. Each epoch
+alphabet keys are synchronized with main chain.
+
+### Fixed
+- Metabase does not store object payloads anymore.
+- TTLNetCache now always evict data after a timeout.
+- NeoFS CLI keyer could misinterpret hex value as base58. 
+
+### Added
+- Local trust controller in storage node.
+- Governance processor in inner ring that synchronizes list of alphabet keys.
+
+### Changed
+- Inner ring keys and alphabet keys are managed separately by inner ring and
+  gathered from committee and `RoleManagement` contract.
+
 ## [0.17.0] - 2021-03-22 - Jebudo (제부도, 濟扶島)
 
 Notary contract support, updated neofs-api-go with raw client, some performance 
@@ -278,6 +297,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.18.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.14.3...v0.15.0
