@@ -10,18 +10,24 @@ import (
 	"github.com/pkg/errors"
 )
 
-type innerRingIndexer struct {
-	sync.RWMutex
+type (
+	innerRingIndexer struct {
+		sync.RWMutex
 
-	cli     *client.Client
-	key     *ecdsa.PublicKey
-	timeout time.Duration
+		cli     *client.Client
+		key     *ecdsa.PublicKey
+		timeout time.Duration
 
-	innerRingIndex, innerRingSize int32
-	alphabetIndex                 int32
+		ind indexes
 
-	lastAccess time.Time
-}
+		lastAccess time.Time
+	}
+
+	indexes struct {
+		innerRingIndex, innerRingSize int32
+		alphabetIndex                 int32
+	}
+)
 
 func newInnerRingIndexer(cli *client.Client, key *ecdsa.PublicKey, to time.Duration) *innerRingIndexer {
 	return &innerRingIndexer{
@@ -31,12 +37,12 @@ func newInnerRingIndexer(cli *client.Client, key *ecdsa.PublicKey, to time.Durat
 	}
 }
 
-func (s *innerRingIndexer) update() (err error) {
+func (s *innerRingIndexer) update() (ind indexes, err error) {
 	s.RLock()
 
 	if time.Since(s.lastAccess) < s.timeout {
 		s.RUnlock()
-		return nil
+		return s.ind, nil
 	}
 
 	s.RUnlock()
@@ -45,53 +51,47 @@ func (s *innerRingIndexer) update() (err error) {
 	defer s.Unlock()
 
 	if time.Since(s.lastAccess) < s.timeout {
-		return nil
+		return s.ind, nil
 	}
 
-	s.innerRingIndex, s.innerRingSize, err = invoke.InnerRingIndex(s.cli, s.key)
+	s.ind.innerRingIndex, s.ind.innerRingSize, err = invoke.InnerRingIndex(s.cli, s.key)
 	if err != nil {
-		return err
+		return indexes{}, err
 	}
 
-	s.alphabetIndex, err = invoke.AlphabetIndex(s.cli, s.key)
+	s.ind.alphabetIndex, err = invoke.AlphabetIndex(s.cli, s.key)
 	if err != nil {
-		return err
+		return indexes{}, err
 	}
 
 	s.lastAccess = time.Now()
 
-	return nil
+	return s.ind, nil
 }
 
 func (s *innerRingIndexer) InnerRingIndex() (int32, error) {
-	if err := s.update(); err != nil {
+	ind, err := s.update()
+	if err != nil {
 		return 0, errors.Wrap(err, "can't update index state")
 	}
 
-	s.RLock()
-	defer s.RUnlock()
-
-	return s.innerRingIndex, nil
+	return ind.innerRingIndex, nil
 }
 
 func (s *innerRingIndexer) InnerRingSize() (int32, error) {
-	if err := s.update(); err != nil {
+	ind, err := s.update()
+	if err != nil {
 		return 0, errors.Wrap(err, "can't update index state")
 	}
 
-	s.RLock()
-	defer s.RUnlock()
-
-	return s.innerRingSize, nil
+	return ind.innerRingSize, nil
 }
 
 func (s *innerRingIndexer) AlphabetIndex() (int32, error) {
-	if err := s.update(); err != nil {
+	ind, err := s.update()
+	if err != nil {
 		return 0, errors.Wrap(err, "can't update index state")
 	}
 
-	s.RLock()
-	defer s.RUnlock()
-
-	return s.alphabetIndex, nil
+	return ind.alphabetIndex, nil
 }
