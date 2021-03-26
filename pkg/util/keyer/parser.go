@@ -36,9 +36,9 @@ func (d *Dashboard) ParseString(data string) error {
 	)
 
 	// data could be encoded in base58 or hex formats, try both
-	rawData, err = base58.Decode(data)
+	rawData, err = hex.DecodeString(data)
 	if err != nil {
-		rawData, err = hex.DecodeString(data)
+		rawData, err = base58.Decode(data)
 		if err != nil {
 			return fmt.Errorf("data is not hex or base58 encoded: %w", err)
 		}
