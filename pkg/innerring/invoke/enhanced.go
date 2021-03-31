@@ -13,6 +13,8 @@ import (
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	morphNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
+	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/pkg/errors"
 )
 
@@ -69,4 +71,19 @@ func NewBalanceClient(cli *client.Client, contract util.Uint160) (*balanceWrappe
 	}
 
 	return balanceWrapper.New(enhancedBalanceClient)
+}
+
+// NewReputationClient creates wrapper to work with reputation contract.
+func NewReputationClient(cli *client.Client, contract util.Uint160) (*reputationWrapper.ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create static client of reputation contract")
+	}
+
+	enhancedRepurationClient, err := reputation.New(staticClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create reputation contract client")
+	}
+
+	return reputationWrapper.WrapClient(enhancedRepurationClient), nil
 }

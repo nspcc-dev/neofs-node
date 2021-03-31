@@ -67,6 +67,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.container", "")
 	cfg.SetDefault("contracts.audit", "")
 	cfg.SetDefault("contracts.proxy", "")
+	cfg.SetDefault("contracts.reputation", "")
 	// alphabet contracts
 	cfg.SetDefault("contracts.alphabet.amount", 7)
 
@@ -87,6 +88,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("workers.neofs", "10")
 	cfg.SetDefault("workers.container", "10")
 	cfg.SetDefault("workers.alphabet", "10")
+	cfg.SetDefault("workers.reputation", "10")
 
 	cfg.SetDefault("netmap_cleaner.enabled", false)
 	cfg.SetDefault("netmap_cleaner.threshold", 3)
