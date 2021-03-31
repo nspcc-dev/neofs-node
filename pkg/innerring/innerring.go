@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
@@ -86,12 +87,13 @@ type (
 	}
 
 	contracts struct {
-		neofs     util.Uint160 // in mainnet
-		netmap    util.Uint160 // in morph
-		balance   util.Uint160 // in morph
-		container util.Uint160 // in morph
-		audit     util.Uint160 // in morph
-		proxy     util.Uint160 // in morph
+		neofs      util.Uint160 // in mainnet
+		netmap     util.Uint160 // in morph
+		balance    util.Uint160 // in morph
+		container  util.Uint160 // in morph
+		audit      util.Uint160 // in morph
+		proxy      util.Uint160 // in morph
+		reputation util.Uint160 // in morph
 
 		alphabet alphabetContracts // in morph
 	}
@@ -329,6 +331,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	repClient, err := invoke.NewReputationClient(server.morphClient, server.contracts.reputation)
+	if err != nil {
+		return nil, err
+	}
+
 	// create global runtime config reader
 	globalConfig := config.NewGlobalConfigReader(cfg, nmClient)
 
@@ -551,6 +558,24 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	// create reputation processor
+	reputationProcessor, err := reputation.New(&reputation.Params{
+		Log:                log,
+		PoolSize:           cfg.GetInt("workers.reputation"),
+		ReputationContract: server.contracts.reputation,
+		EpochState:         server,
+		AlphabetState:      server,
+		ReputationWrapper:  repClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = bindMorphProcessor(reputationProcessor, server)
+	if err != nil {
+		return nil, err
+	}
+
 	// todo: create vivid id component
 
 	// initialize epoch timers
@@ -642,6 +667,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	containerContractStr := cfg.GetString("contracts.container")
 	auditContractStr := cfg.GetString("contracts.audit")
 	proxyContractStr := cfg.GetString("contracts.proxy")
+	reputationContractStr := cfg.GetString("contracts.reputation")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
@@ -671,6 +697,11 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.proxy, err = util.Uint160DecodeStringLE(proxyContractStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't read proxy script-hash")
+	}
+
+	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir: can't read reputation script-hash")
 	}
 
 	result.alphabet, err = parseAlphabetContracts(cfg)
