@@ -3,21 +3,21 @@ logger:
 
 morph:
   rpc_endpoint:
-    - http://rpc1-morph.preview4.nspcc.ru:24333
-    - http://rpc2-morph.preview4.nspcc.ru:24333
-    - http://rpc3-morph.preview4.nspcc.ru:24333
-    - http://rpc4-morph.preview4.nspcc.ru:24333
-    - http://rpc5-morph.preview4.nspcc.ru:24333
-    - http://rpc6-morph.preview4.nspcc.ru:24333
-    - http://rpc7-morph.preview4.nspcc.ru:24333
+    - https://rpc1.morph.fs.neo.org:40341
+    - https://rpc2.morph.fs.neo.org:40341
+    - https://rpc3.morph.fs.neo.org:40341
+    - https://rpc4.morph.fs.neo.org:40341
+    - https://rpc5.morph.fs.neo.org:40341
+    - https://rpc6.morph.fs.neo.org:40341
+    - https://rpc7.morph.fs.neo.org:40341
   notification_endpoint:
-    - ws://rpc1-morph.preview4.nspcc.ru:24333/ws
-    - ws://rpc2-morph.preview4.nspcc.ru:24333/ws
-    - ws://rpc3-morph.preview4.nspcc.ru:24333/ws
-    - ws://rpc4-morph.preview4.nspcc.ru:24333/ws
-    - ws://rpc5-morph.preview4.nspcc.ru:24333/ws
-    - ws://rpc6-morph.preview4.nspcc.ru:24333/ws
-    - ws://rpc7-morph.preview4.nspcc.ru:24333/ws
+    - wss://rpc1.morph.fs.neo.org:40341/ws
+    - wss://rpc2.morph.fs.neo.org:40341/ws
+    - wss://rpc3.morph.fs.neo.org:40341/ws
+    - wss://rpc4.morph.fs.neo.org:40341/ws
+    - wss://rpc5.morph.fs.neo.org:40341/ws
+    - wss://rpc6.morph.fs.neo.org:40341/ws
+    - wss://rpc7.morph.fs.neo.org:40341/ws
   dial_timeout: 20s
 
 bootstrap:
@@ -25,15 +25,14 @@ bootstrap:
     enabled: true
 
 accounting:
-  scripthash: b9af268168b1546d8b1e0c25dece3faa31153058
+  scripthash: 2835a2d2a28ffc8866840df7aafda5780c7514a3
 container:
-  scripthash: 31761cba924830bfce2662a39fc7f830b90adbef
+  scripthash: 08ebc0b968cdce2851f1a1d2fe9340e77b1f0f6c
 netmap:
-  scripthash: 7b383bc5a385859469f366b08b04b4fcd9a41f55
+  scripthash: 600270a6fd666dc137fa3e62c9d2606b75aeb298
 node:
   key: /node.key
-  attribute:
-    0: /external:true
+  attribute_0: Deployed:SelfHosted
 
 storage:
   shard:
@@ -49,3 +48,6 @@ storage:
           opened_cache_size: 32
           shallow_depth: 1
           shallow_width: 1
+      gc:
+        remover_batch_size: 100
+        remover_sleep_interval: 1m
