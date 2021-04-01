@@ -1,47 +1,52 @@
-# NEO testnet-preview4 storage node configuration
+# N3 testnet RC1 storage node configuration
 
 There is a prepared configuration for NeoFS storage node deployment in
-NEO testnet-preview4. The Easiest way to deploy storage node is to use prepared
+N3 testnet RC1. The easiest way to deploy storage node is to use prepared
 docker image of storage node and run it with docker-compose.
 
 ## Build image
 
-To build custom neofs-storage node image for NEO testnet-preview4:
+Prepared neofs-storage-testnet image is available at docker hub. 
+However, if you need to rebuild it for some reason, run 
+`make image-storage-testnet` command:
 
 ```
-neofs-node$ make image-storage-testnet
+$ make image-storage-testnet
 ...
 Successfully built 80ef4e3c488d
-Successfully tagged nspccdev/neofs-storage-testnet:0.14.1-dirty
-$
+Successfully tagged nspccdev/neofs-storage-testnet:0.18.0-dirty
 ```
 
 ## Deploy node
 
-To run storage node in NEO testnet-preview4 environment you should deposit
-GAS assets, update docker-compose file and run it.
+To run storage node in N3 testnet RC1 environment you should deposit GAS assets, 
+update docker-compose file and start the node.
 
 ### Deposit
 
 Storage node holder should deposit assets because it generates a bit of 
-sidechain GAS for node's wallet. Sidechain GAS used to send bootstrap tx. 
+side chain GAS in node's wallet. Side chain GAS used to send bootstrap tx. 
 
-To make a deposit invoke `deposit` method of NeoFS contract in testnet-preview4.
-There are three arguments in this method:
+First obtain GAS in N3 testnet RC1 chain. You can do that with
+[faucet](https://neowish.ngd.network/neo3/) service.
+
+
+Then make a deposit by invoking `deposit` method of NeoFS contract in N3 testnet
+RC1. There are three arguments in this method:
 - scripthash of the wallet
 - amount of GAS (in decimal)
 - scripthash of the storage node wallet.
 
 
-NeoFS contract scripthash in NEO testnet-preview4 is `121da848e5239d24353c7b567a719d27e0fe7c06`
+NeoFS contract scripthash in NEO testnet RC1 is `37a32e1bf20ed5141bc5748892a82f14e75a8e22`
 
 Last argument can be empty if you want to use
 wallet key as storage node key. See a deposit example with `neo-go`:
 
 ```
-neo-go contract invokefunction -r http://neo3-preview.go.nspcc.ru:20332 \
+neo-go contract invokefunction -r https://rpc1.n3.nspcc.ru:20331 \
 -w wallet.json -a NcrE6C1mvScQpAnFctK1Mw7P7i1buLCKav \
-121da848e5239d24353c7b567a719d27e0fe7c06 \
+37a32e1bf20ed5141bc5748892a82f14e75a8e22 \
 deposit \
 0cbd9d3c3e3a3d12ff5b8bd0d3a0548c6eeac4b9 \
 int:1 \
@@ -58,6 +63,29 @@ should contain your public IP.
      environment:
        - NEOFS_NODE_ADDRESS=192.168.140.1:36512
        - NEOFS_GRPC_ENDPOINT=192.168.140.1:36512
+```
+
+Also set up your [UN/LOCODE](https://unece.org/trade/cefact/unlocode-code-list-country-and-territory) 
+attribute.
+
+```yaml
+     environment:
+       - NEOFS_NODE_ADDRESS=192.168.140.1:36512
+       - NEOFS_GRPC_ENDPOINT=192.168.140.1:36512
+       - NEOFS_NODE_ATTRIBUTE_1=UN-LOCODE:RU LED
+```
+
+You can check validity of your UN/LOCODE attribute in 
+[NeoFS LOCODE database](https://github.com/nspcc-dev/neofs-locode-db/releases/tag/v0.1.0)
+with neofs-cli.
+
+```
+$ neofs-cli util locode info --db ./locode_db --locode 'RU LED'
+Country: Russia
+Location: Saint Petersburg (ex Leningrad)
+Continent: Europe
+Subdivision: [SPE] Sankt-Peterburg
+Coordinates: 59.53, 30.15
 ```
 
 It is recommended to pass node's key as a file. To do so convert your wallet 

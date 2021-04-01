@@ -3,7 +3,7 @@
 version: "2.4"
 services:
   storage01:
-    image: nspccdev/neofs-storage-testnet:0.14.3
+    image: nspccdev/neofs-storage-testnet:0.18.0
     container_name: neofs-testnet
     network_mode: host
     restart: always
@@ -14,6 +14,8 @@ services:
     environment:
       - NEOFS_NODE_ADDRESS=<ANNOUNCE_ADDRESS>
       - NEOFS_GRPC_ENDPOINT=<BIND_ADDRESS>
+      - <NEOFS_NODE_ATTRIBUTE_1>=UN-LOCODE:<XX YYY>
+      - NEOFS_NODE_ATTRIBUTE_2=Price:100000
 
 volumes:
   neofs_storage:
