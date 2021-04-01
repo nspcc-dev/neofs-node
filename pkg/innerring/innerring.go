@@ -110,8 +110,9 @@ const (
 	mainnetPrefix = "mainnet"
 
 	// extra blocks to overlap two deposits, we do that to make sure that
-	// there won't be any blocks without deposited assets in notary contract.
-	notaryExtraBlocks = 100
+	// there won't be any blocks without deposited assets in notary contract;
+	// make sure it is bigger than any extra rounding value in notary client.
+	notaryExtraBlocks = 300
 	// amount of tries before notary deposit timeout.
 	notaryDepositTimeout = 100
 )
