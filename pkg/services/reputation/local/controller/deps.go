@@ -28,7 +28,7 @@ type Writer interface {
 	// physical target. Implementations can cache values before
 	// Close operation.
 	//
-	// Put must not be called after Close.
+	// Write must not be called after Close.
 	Write(reputation.Trust) error
 
 	// Close exits with method-providing Writer.

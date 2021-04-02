@@ -36,7 +36,7 @@ func (c *Controller) Report(prm ReportPrm) {
 	// report local trust values
 	reportCtx.report()
 
-	// finally stop and free the announcement
+	// finally stop and free the report
 	c.freeReport(prm.epoch, reportCtx.log)
 }
 
