@@ -155,7 +155,7 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 
 	c.logger.Debug("native gas transfer invoke",
 		zap.String("to", receiver.StringLE()),
-		zap.Stringer("tx_hash", txHash))
+		zap.Stringer("tx_hash", txHash.Reverse()))
 
 	return nil
 }

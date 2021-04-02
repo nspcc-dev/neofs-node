@@ -119,7 +119,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 	c.logger.Debug("notary deposit invoke",
 		zap.Int64("amount", int64(amount)),
 		zap.Uint32("expire_at", bc+delta),
-		zap.Stringer("tx_hash", txHash))
+		zap.Stringer("tx_hash", txHash.Reverse()))
 
 	return nil
 }
