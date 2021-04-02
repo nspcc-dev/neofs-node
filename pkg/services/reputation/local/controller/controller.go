@@ -19,7 +19,7 @@ type Prm struct {
 	LocalTrustSource IteratorProvider
 
 	// Place of recording the local values of
-	// the used space of containers.
+	// trust to other nodes.
 	//
 	// Must not be nil.
 	LocalTrustTarget WriterProvider

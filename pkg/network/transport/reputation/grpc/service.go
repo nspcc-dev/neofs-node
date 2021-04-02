@@ -8,8 +8,8 @@ import (
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 )
 
-// Server wraps NeoFS API v2 Container service server
-// and provides gRPC Container service server interface.
+// Server wraps NeoFS API v2 Reputation service server
+// and provides gRPC Reputation service server interface.
 type Server struct {
 	srv reputationrpc.Server
 }

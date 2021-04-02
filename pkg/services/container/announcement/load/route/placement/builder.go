@@ -36,11 +36,11 @@ func panicOnPrmValue(n string, v interface{}) {
 // Panics if at least one value of the parameters is invalid.
 //
 // The created Builder does not require additional
-// initialization and is completely ready for work
+// initialization and is completely ready for work.
 func New(prm Prm) *Builder {
 	switch {
 	case prm.PlacementBuilder == nil:
-		panicOnPrmValue("RemoteWriterProvider", prm.PlacementBuilder)
+		panicOnPrmValue("PlacementBuilder", prm.PlacementBuilder)
 	}
 
 	return &Builder{
