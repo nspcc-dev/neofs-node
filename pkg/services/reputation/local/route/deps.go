@@ -1,6 +1,7 @@
 package reputationroute
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 )
 
@@ -16,6 +17,18 @@ type ServerInfo interface {
 	//
 	// Can be empty.
 	Address() string
+}
+
+// Builder groups methods to route values in the network.
+type Builder interface {
+	// NextStage must return next group of route points
+	// for passed epoch and PeerID of the current route point.
+	// Implementation must take into account already passed route points.
+	//
+	// Empty passed list means being at the starting point of the route.
+	//
+	// Must return empty list and no error if the endpoint of the route is reached.
+	NextStage(epoch uint64, p reputation.PeerID, passed []ServerInfo) ([]ServerInfo, error)
 }
 
 // RemoteWriterProvider describes the component

@@ -65,11 +65,13 @@ func (r *Router) InitWriter(ctx reputationcontroller.Context) (reputationcontrol
 	}, nil
 }
 
-func (w *trustWriter) Write(a reputation.Trust) error {
+func (w *trustWriter) Write(t reputation.Trust) error {
 	w.routeMtx.Lock()
 	defer w.routeMtx.Unlock()
 
-	route, err := w.router.routeBuilder.NextStage(w.ctx.Epoch(), w.ctx.passedRoute)
+	localPeerID := reputation.PeerIDFromBytes(w.router.localSrvInfo.PublicKey())
+
+	route, err := w.router.routeBuilder.NextStage(w.ctx.Epoch(), localPeerID, w.ctx.passedRoute)
 	if err != nil {
 		return err
 	} else if len(route) == 0 {
@@ -106,7 +108,7 @@ func (w *trustWriter) Write(a reputation.Trust) error {
 			w.mServers[endpoint] = remoteWriter
 		}
 
-		err := remoteWriter.Write(a)
+		err := remoteWriter.Write(t)
 		if err != nil {
 			w.router.log.Debug("could not write the value",
 				zap.String("error", err.Error()),
