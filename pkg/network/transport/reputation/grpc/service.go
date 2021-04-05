@@ -35,3 +35,18 @@ func (s *Server) SendLocalTrust(ctx context.Context, r *reputation2.SendLocalTru
 
 	return resp.ToGRPCMessage().(*reputation2.SendLocalTrustResponse), nil
 }
+
+func (s *Server) SendIntermediateResult(ctx context.Context, r *reputation2.SendIntermediateResultRequest) (*reputation2.SendIntermediateResultResponse, error) {
+	req := new(reputation.SendIntermediateResultRequest)
+	if err := req.FromGRPCMessage(r); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.SendIntermediateResult(ctx, req)
+	if err != nil {
+		// TODO: think about how we transport errors through gRPC
+		return nil, err
+	}
+
+	return resp.ToGRPCMessage().(*reputation2.SendIntermediateResultResponse), nil
+}

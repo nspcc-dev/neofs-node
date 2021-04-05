@@ -180,13 +180,21 @@ func (s *loggingReputationServer) SendLocalTrust(_ context.Context, req *v2reput
 
 	for _, t := range body.GetTrusts() {
 		log.Info("local trust received",
-			zap.String("peer", hex.EncodeToString(t.GetPeer())),
+			zap.String("peer", hex.EncodeToString(t.GetPeer().GetValue())),
 			zap.Float64("value", t.GetValue()),
 		)
 	}
 
 	resp := new(v2reputation.SendLocalTrustResponse)
 	resp.SetBody(new(v2reputation.SendLocalTrustResponseBody))
+
+	return resp, nil
+}
+
+func (s *loggingReputationServer) SendIntermediateResult(_ context.Context, req *v2reputation.SendIntermediateResultRequest) (*v2reputation.SendIntermediateResultResponse, error) {
+	resp := new(v2reputation.SendIntermediateResultResponse)
+
+	// todo: implement me
 
 	return resp, nil
 }

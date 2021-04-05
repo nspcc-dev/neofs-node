@@ -35,3 +35,16 @@ func (s *responseService) SendLocalTrust(ctx context.Context, req *reputation.Se
 
 	return resp.(*reputation.SendLocalTrustResponse), nil
 }
+
+func (s *responseService) SendIntermediateResult(ctx context.Context, req *reputation.SendIntermediateResultRequest) (*reputation.SendIntermediateResultResponse, error) {
+	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+			return s.svc.SendIntermediateResult(ctx, req.(*reputation.SendIntermediateResultRequest))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*reputation.SendIntermediateResultResponse), nil
+}
