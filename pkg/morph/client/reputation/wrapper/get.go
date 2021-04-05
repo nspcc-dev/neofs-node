@@ -1,8 +1,9 @@
 package wrapper
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	reputationClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/pkg/errors"
 )
 
 type (
@@ -21,7 +22,7 @@ type (
 	// GetResults groups the result of "get reputation value" and
 	// "get reputation value by reputation id" test invocations.
 	GetResult struct {
-		reputations [][]byte // todo: replace with the slice of structures
+		reputations []reputation.GlobalTrust
 	}
 )
 
@@ -41,7 +42,7 @@ func (g *GetByIDArgs) SetID(v ReputationID) {
 }
 
 // Reputations returns slice of reputation values.
-func (g GetResult) Reputations() [][]byte {
+func (g GetResult) Reputations() []reputation.GlobalTrust {
 	return g.reputations
 }
 
@@ -49,7 +50,7 @@ func (g GetResult) Reputations() [][]byte {
 func (w *ClientWrapper) Get(v GetArgs) (*GetResult, error) {
 	args := reputationClient.GetArgs{}
 	args.SetEpoch(v.epoch)
-	args.SetPeerID(v.peerID.Bytes())
+	args.SetPeerID(v.peerID.ToV2().GetValue())
 
 	data, err := (*reputationClient.Client)(w).Get(args)
 	if err != nil {
@@ -75,10 +76,20 @@ func (w *ClientWrapper) GetByID(v GetByIDArgs) (*GetResult, error) {
 
 func parseGetResult(data *reputationClient.GetResult) (*GetResult, error) {
 	rawReputations := data.Reputations()
+	reputations := make([]reputation.GlobalTrust, 0, len(rawReputations))
 
-	// todo: unmarshal all reputation values into structure
+	for i := range rawReputations {
+		r := reputation.GlobalTrust{}
+
+		err := r.Unmarshal(rawReputations[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "can't unmarshal global trust value")
+		}
+
+		reputations = append(reputations, r)
+	}
 
 	return &GetResult{
-		reputations: rawReputations,
+		reputations: reputations,
 	}, nil
 }

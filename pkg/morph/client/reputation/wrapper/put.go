@@ -1,8 +1,9 @@
 package wrapper
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	reputationClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/pkg/errors"
 )
 
 type (
@@ -10,7 +11,7 @@ type (
 	PutArgs struct {
 		epoch  uint64
 		peerID reputation.PeerID
-		value  []byte // todo: replace with struct
+		value  reputation.GlobalTrust
 	}
 )
 
@@ -25,16 +26,16 @@ func (p *PutArgs) SetPeerID(v reputation.PeerID) {
 }
 
 // SetValue sets reputation value.
-func (p *PutArgs) SetValue(v []byte) {
+func (p *PutArgs) SetValue(v reputation.GlobalTrust) {
 	p.value = v
 }
 
 // Put invokes direct call of "put reputation value" method of reputation contract.
 func (w *ClientWrapper) Put(v PutArgs) error {
-	args := reputationClient.PutArgs{}
-	args.SetEpoch(v.epoch)
-	args.SetPeerID(v.peerID.Bytes())
-	args.SetValue(v.value) // todo: marshal reputation value to `value` bytes there
+	args, err := preparePutArgs(v)
+	if err != nil {
+		return err
+	}
 
 	return (*reputationClient.Client)(w).Put(args)
 }
@@ -42,10 +43,25 @@ func (w *ClientWrapper) Put(v PutArgs) error {
 // PutViaNotary invokes notary call of "put reputation value" method of
 // reputation contract.
 func (w *ClientWrapper) PutViaNotary(v PutArgs) error {
-	args := reputationClient.PutArgs{}
-	args.SetEpoch(v.epoch)
-	args.SetPeerID(v.peerID.Bytes())
-	args.SetValue(v.value) // todo: marshal reputation value to `value` bytes there
+	args, err := preparePutArgs(v)
+	if err != nil {
+		return err
+	}
 
 	return (*reputationClient.Client)(w).PutViaNotary(args)
+}
+
+func preparePutArgs(v PutArgs) (reputationClient.PutArgs, error) {
+	args := reputationClient.PutArgs{}
+
+	data, err := v.value.Marshal()
+	if err != nil {
+		return args, errors.Wrap(err, "can't marshal global trust value")
+	}
+
+	args.SetEpoch(v.epoch)
+	args.SetPeerID(v.peerID.ToV2().GetValue())
+	args.SetValue(data)
+
+	return args, nil
 }
