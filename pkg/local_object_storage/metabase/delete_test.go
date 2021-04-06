@@ -102,3 +102,16 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ex)
 }
+
+func TestGraveOnlyDelete(t *testing.T) {
+	db := newDB(t)
+	defer releaseDB(db)
+
+	addr := generateAddress()
+
+	// inhume non-existent object by address
+	require.NoError(t, meta.Inhume(db, addr, nil))
+
+	// delete the object data
+	require.NoError(t, meta.Delete(db, addr))
+}
