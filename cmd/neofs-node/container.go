@@ -380,7 +380,7 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *container
 	var passedRoute []loadroute.ServerInfo
 
 	for hdr := req.GetVerificationHeader(); hdr != nil; hdr = hdr.GetOrigin() {
-		passedRoute = append(passedRoute, &onlyKeyRemoteServerInfo{
+		passedRoute = append(passedRoute, &containerOnlyKeyRemoteServerInfo{
 			key: hdr.GetBodySignature().GetKey(),
 		})
 	}
@@ -412,15 +412,15 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *container
 
 var errNodeOutsideContainer = errors.New("node outside the container")
 
-type onlyKeyRemoteServerInfo struct {
+type containerOnlyKeyRemoteServerInfo struct {
 	key []byte
 }
 
-func (i *onlyKeyRemoteServerInfo) PublicKey() []byte {
+func (i *containerOnlyKeyRemoteServerInfo) PublicKey() []byte {
 	return i.key
 }
 
-func (*onlyKeyRemoteServerInfo) Address() string {
+func (*containerOnlyKeyRemoteServerInfo) Address() string {
 	return ""
 }
 
