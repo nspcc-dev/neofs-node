@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 // storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
@@ -89,19 +91,16 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher)
 	)
 
 	if s.hasWriteCache() {
-		res, err = small(s.writeCache, nil)
+		res, err = s.writeCache.Get(addr)
 		if err == nil {
 			return res, nil
 		}
 
-		s.log.Debug("miss in writeCache blobovnicza")
-
-		res, err = big(s.writeCache, nil)
-		if err == nil {
-			return res, nil
+		if errors.Is(err, object.ErrNotFound) {
+			s.log.Debug("object is missing in write-cache")
+		} else {
+			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
 		}
-
-		s.log.Debug("miss in writeCache shallow dir")
 	}
 
 	exists, err := meta.Exists(s.metaBase, addr)

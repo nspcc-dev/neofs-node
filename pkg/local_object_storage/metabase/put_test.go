@@ -42,8 +42,5 @@ func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 		fetchedBlobovniczaID, err := meta.IsSmall(db, raw2.Object().Address())
 		require.NoError(t, err)
 		require.Nil(t, fetchedBlobovniczaID)
-
-		err = meta.Put(db, raw2.Object(), &blobovniczaID)
-		require.Error(t, err)
 	})
 }

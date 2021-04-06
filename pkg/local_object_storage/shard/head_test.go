@@ -3,31 +3,28 @@ package shard_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/stretchr/testify/require"
 )
 
 func TestShard_Head(t *testing.T) {
-	sh := newShard(t, false)
-	shWC := newShard(t, true)
-
-	defer func() {
-		releaseShard(sh, t)
-		releaseShard(shWC, t)
-	}()
-
 	t.Run("without write cache", func(t *testing.T) {
-		testShardHead(t, sh)
+		testShardHead(t, false)
 	})
 
 	t.Run("with write cache", func(t *testing.T) {
-		testShardHead(t, shWC)
+		testShardHead(t, true)
 	})
 }
 
-func testShardHead(t *testing.T, sh *shard.Shard) {
+func testShardHead(t *testing.T, hasWriteCache bool) {
+	sh := newShard(t, hasWriteCache)
+	defer releaseShard(sh, t)
+
 	putPrm := new(shard.PutPrm)
 	headPrm := new(shard.HeadPrm)
 
@@ -42,7 +39,7 @@ func testShardHead(t *testing.T, sh *shard.Shard) {
 
 		headPrm.WithAddress(obj.Object().Address())
 
-		res, err := sh.Head(headPrm)
+		res, err := testHead(t, sh, headPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj.Object(), res.Object())
 	})
@@ -69,7 +66,7 @@ func testShardHead(t *testing.T, sh *shard.Shard) {
 
 		var siErr *objectSDK.SplitInfoError
 
-		_, err = sh.Head(headPrm)
+		_, err = testHead(t, sh, headPrm, hasWriteCache)
 		require.True(t, errors.As(err, &siErr))
 
 		headPrm.WithAddress(parent.Object().Address())
@@ -79,4 +76,17 @@ func testShardHead(t *testing.T, sh *shard.Shard) {
 		require.NoError(t, err)
 		require.Equal(t, parent.Object(), head.Object())
 	})
+}
+
+func testHead(t *testing.T, sh *shard.Shard, headPrm *shard.HeadPrm, hasWriteCache bool) (*shard.HeadRes, error) {
+	res, err := sh.Head(headPrm)
+	if hasWriteCache {
+		require.Eventually(t, func() bool {
+			if errors.Is(err, object.ErrNotFound) {
+				res, err = sh.Head(headPrm)
+			}
+			return !errors.Is(err, object.ErrNotFound)
+		}, time.Second, time.Millisecond*100)
+	}
+	return res, err
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+	"time"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -12,31 +13,25 @@ import (
 )
 
 func TestShard_Get(t *testing.T) {
-	sh := newShard(t, false)
-	shWC := newShard(t, true)
-
-	defer func() {
-		releaseShard(sh, t)
-		releaseShard(shWC, t)
-	}()
-
 	t.Run("without write cache", func(t *testing.T) {
-		testShardGet(t, sh)
+		testShardGet(t, false)
 	})
 
 	t.Run("with write cache", func(t *testing.T) {
-		testShardGet(t, shWC)
+		testShardGet(t, true)
 	})
 }
 
-func testShardGet(t *testing.T, sh *shard.Shard) {
-	obj := generateRawObject(t)
-	addAttribute(obj, "foo", "bar")
+func testShardGet(t *testing.T, hasWriteCache bool) {
+	sh := newShard(t, hasWriteCache)
+	defer releaseShard(sh, t)
 
 	putPrm := new(shard.PutPrm)
 	getPrm := new(shard.GetPrm)
 
 	t.Run("small object", func(t *testing.T) {
+		obj := generateRawObject(t)
+		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
 		putPrm.WithObject(obj.Object())
@@ -46,12 +41,14 @@ func testShardGet(t *testing.T, sh *shard.Shard) {
 
 		getPrm.WithAddress(obj.Object().Address())
 
-		res, err := sh.Get(getPrm)
+		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj.Object(), res.Object())
 	})
 
 	t.Run("big object", func(t *testing.T) {
+		obj := generateRawObject(t)
+		addAttribute(obj, "foo", "bar")
 		obj.SetID(generateOID())
 		addPayload(obj, 1<<20) // big obj
 
@@ -62,12 +59,14 @@ func testShardGet(t *testing.T, sh *shard.Shard) {
 
 		getPrm.WithAddress(obj.Object().Address())
 
-		res, err := sh.Get(getPrm)
+		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj.Object(), res.Object())
 	})
 
 	t.Run("parent object", func(t *testing.T) {
+		obj := generateRawObject(t)
+		addAttribute(obj, "foo", "bar")
 		cid := generateCID()
 		splitID := objectSDK.NewSplitID()
 
@@ -87,13 +86,13 @@ func testShardGet(t *testing.T, sh *shard.Shard) {
 
 		getPrm.WithAddress(child.Object().Address())
 
-		res, err := sh.Get(getPrm)
+		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child.Object(), res.Object()))
 
 		getPrm.WithAddress(parent.Object().Address())
 
-		_, err = sh.Get(getPrm)
+		_, err = testGet(t, sh, getPrm, hasWriteCache)
 
 		var expectedErr *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &expectedErr))
@@ -104,6 +103,19 @@ func testShardGet(t *testing.T, sh *shard.Shard) {
 		require.Equal(t, child.ID(), si.SplitInfo().LastPart())
 		require.Equal(t, splitID, si.SplitInfo().SplitID())
 	})
+}
+
+func testGet(t *testing.T, sh *shard.Shard, getPrm *shard.GetPrm, hasWriteCache bool) (*shard.GetRes, error) {
+	res, err := sh.Get(getPrm)
+	if hasWriteCache {
+		require.Eventually(t, func() bool {
+			if errors.Is(err, object.ErrNotFound) {
+				res, err = sh.Get(getPrm)
+			}
+			return !errors.Is(err, object.ErrNotFound)
+		}, time.Second, time.Millisecond*100)
+	}
+	return res, err
 }
 
 // binary equal is used when object contains empty lists in the structure and
