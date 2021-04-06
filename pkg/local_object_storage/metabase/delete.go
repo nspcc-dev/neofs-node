@@ -6,6 +6,7 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -74,9 +75,22 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*objectSDK.Address) error {
 }
 
 func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter referenceCounter) error {
+	// remove record from graveyard
+	graveyard := tx.Bucket(graveyardBucketName)
+	if graveyard != nil {
+		err := graveyard.Delete(addressKey(addr))
+		if err != nil {
+			return errors.Wrap(err, "could not remove from graveyard")
+		}
+	}
+
 	// unmarshal object, work only with physically stored (raw == true) objects
 	obj, err := db.get(tx, addr, false, true)
 	if err != nil {
+		if errors.Is(err, object.ErrNotFound) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -256,10 +270,6 @@ func delUniqueIndexes(obj *object.Object, isParent bool) ([]namedBucketItem, err
 		namedBucketItem{ // remove from root index
 			name: rootBucketName(addr.ContainerID()),
 			key:  objKey,
-		},
-		namedBucketItem{ // remove from graveyard index
-			name: graveyardBucketName,
-			key:  addrKey,
 		},
 		namedBucketItem{ // remove from ToMoveIt index
 			name: toMoveItBucketName,
