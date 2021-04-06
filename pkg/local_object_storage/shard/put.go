@@ -5,6 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -34,26 +35,24 @@ func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
+	if s.hasWriteCache() {
+		err := s.writeCache.Put(prm.obj)
+		if err == nil {
+			return nil, nil
+		}
+
+		s.log.Debug("can't put message to writeCache, trying to blobStor",
+			zap.String("err", err.Error()))
+	}
 
 	var (
 		err error
 		res *blobstor.PutRes
 	)
 
-	if s.hasWriteCache() {
-		res, err = s.writeCache.Put(putPrm)
-		if err != nil {
-			s.log.Debug("can't put message to writeCache, trying to blobStor")
-
-			res = nil // just in case
-		}
-	}
-
 	// res == nil if there is no writeCache or writeCache.Put has been failed
-	if res == nil {
-		if res, err = s.blobStor.Put(putPrm); err != nil {
-			return nil, errors.Wrap(err, "could not put object to BLOB storage")
-		}
+	if res, err = s.blobStor.Put(putPrm); err != nil {
+		return nil, errors.Wrap(err, "could not put object to BLOB storage")
 	}
 
 	// put to metabase

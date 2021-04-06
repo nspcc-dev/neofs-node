@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
@@ -42,6 +43,52 @@ func stringifyAddress(addr *objectSDK.Address) string {
 	h := sha256.Sum256([]byte(addr.String()))
 
 	return hex.EncodeToString(h[:])
+}
+
+// Iterate iterates over all stored objects.
+func (t *FSTree) Iterate(f func(addr *objectSDK.Address, data []byte) error) error {
+	return t.iterate(0, []string{t.RootPath}, f)
+}
+
+func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address, []byte) error) error {
+	curName := strings.Join(curPath[1:], "")
+	des, err := ioutil.ReadDir(curName)
+	if err != nil {
+		return err
+	}
+
+	isLast := depth >= t.Depth
+	l := len(curPath)
+	curPath = append(curPath, "")
+
+	for i := range des {
+		curPath[l] = des[i].Name()
+
+		if !isLast && des[i].IsDir() {
+			err := t.iterate(depth+1, curPath, f)
+			if err != nil {
+				return err
+			}
+		}
+
+		addr := objectSDK.NewAddress()
+		err := addr.Parse(curName + des[i].Name())
+		if err != nil {
+			continue
+		}
+
+		curPath = append(curPath, des[i].Name())
+		data, err := ioutil.ReadFile(path.Join(curPath...))
+		if err != nil {
+			return err
+		}
+
+		if err := f(addr, data); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t *FSTree) treePath(addr *objectSDK.Address) string {

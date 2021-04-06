@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -130,6 +131,11 @@ const (
 
 	cfgBlobStorSection      = "blobstor"
 	cfgWriteCacheSection    = "writecache"
+	cfgWriteCacheMemSize    = "mem_size"
+	cfgWriteCacheDBSize     = "db_size"
+	cfgWriteCacheSmallSize  = "small_size"
+	cfgWriteCacheMaxSize    = "max_size"
+	cfgWriteCacheWrkCount   = "workers_count"
 	cfgBlobStorCompress     = "compress"
 	cfgBlobStorShallowDepth = "shallow_depth"
 	cfgBlobStorTreePath     = "path"
@@ -557,6 +563,11 @@ func initShardOptions(c *cfg) {
 			c.log.Warn("incorrect writeCache path, ignore shard")
 			break
 		}
+		writeCacheMemSize := c.viper.GetUint64(configPath(writeCachePrefix, cfgWriteCacheMemSize))
+		writeCacheDBSize := c.viper.GetUint64(configPath(writeCachePrefix, cfgWriteCacheDBSize))
+		writeCacheSmallSize := c.viper.GetUint64(configPath(writeCachePrefix, cfgWriteCacheSmallSize))
+		writeCacheMaxSize := c.viper.GetUint64(configPath(writeCachePrefix, cfgWriteCacheMaxSize))
+		writeCacheWrkCount := c.viper.GetInt(configPath(writeCachePrefix, cfgWriteCacheWrkCount))
 
 		blobPrefix := configPath(prefix, cfgBlobStorSection)
 
@@ -585,6 +596,9 @@ func initShardOptions(c *cfg) {
 		)
 		if smallSzLimit == 0 {
 			smallSzLimit = 1 << 20 // 1MB
+		}
+		if writeCacheMaxSize <= 0 {
+			writeCacheSmallSize = smallSzLimit
 		}
 
 		blzPrefix := configPath(blobPrefix, cfgBlobStorBlzSection)
@@ -654,9 +668,13 @@ func initShardOptions(c *cfg) {
 			),
 			shard.WithWriteCache(useCache),
 			shard.WithWriteCacheOptions(
-				blobstor.WithRootPath(writeCachePath),
-				blobstor.WithBlobovniczaShallowDepth(0),
-				blobstor.WithBlobovniczaShallowWidth(1),
+				writecache.WithPath(writeCachePath),
+				writecache.WithLogger(c.log),
+				writecache.WithMaxMemSize(writeCacheMemSize),
+				writecache.WithMaxObjectSize(writeCacheMaxSize),
+				writecache.WithSmallObjectSize(writeCacheSmallSize),
+				writecache.WithMaxDBSize(writeCacheDBSize),
+				writecache.WithFlushWorkersCount(writeCacheWrkCount),
 			),
 			shard.WithRemoverBatchSize(rmBatchSize),
 			shard.WithGCRemoverSleepInterval(rmSleepInterval),

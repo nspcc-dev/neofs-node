@@ -9,24 +9,19 @@ import (
 )
 
 func TestShard_Inhume(t *testing.T) {
-	sh := newShard(t, false)
-	shWC := newShard(t, true)
-
-	defer func() {
-		releaseShard(sh, t)
-		releaseShard(shWC, t)
-	}()
-
 	t.Run("without write cache", func(t *testing.T) {
-		testShardInhume(t, sh)
+		testShardInhume(t, false)
 	})
 
 	t.Run("with write cache", func(t *testing.T) {
-		testShardInhume(t, shWC)
+		testShardInhume(t, true)
 	})
 }
 
-func testShardInhume(t *testing.T, sh *shard.Shard) {
+func testShardInhume(t *testing.T, hasWriteCache bool) {
+	sh := newShard(t, hasWriteCache)
+	defer releaseShard(sh, t)
+
 	cid := generateCID()
 
 	obj := generateRawObjectWithCID(t, cid)
@@ -46,7 +41,7 @@ func testShardInhume(t *testing.T, sh *shard.Shard) {
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 
-	_, err = sh.Get(getPrm)
+	_, err = testGet(t, sh, getPrm, hasWriteCache)
 	require.NoError(t, err)
 
 	_, err = sh.Inhume(inhPrm)

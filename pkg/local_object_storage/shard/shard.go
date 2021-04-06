@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/atomic"
@@ -19,7 +20,7 @@ type Shard struct {
 
 	mode *atomic.Uint32
 
-	writeCache *blobstor.BlobStor
+	writeCache writecache.Cache
 
 	blobStor *blobstor.BlobStor
 
@@ -43,7 +44,7 @@ type cfg struct {
 
 	metaOpts []meta.Option
 
-	writeCacheOpts []blobstor.Option
+	writeCacheOpts []writecache.Option
 
 	log *logger.Logger
 
@@ -68,19 +69,22 @@ func New(opts ...Option) *Shard {
 		opts[i](c)
 	}
 
-	var writeCache *blobstor.BlobStor
+	bs := blobstor.New(c.blobOpts...)
+	mb := meta.New(c.metaOpts...)
 
+	var writeCache writecache.Cache
 	if c.useWriteCache {
-		writeCache = blobstor.New(
-			append(c.blobOpts, c.writeCacheOpts...)...,
-		)
+		writeCache = writecache.New(
+			append(c.writeCacheOpts,
+				writecache.WithBlobstor(bs),
+				writecache.WithMetabase(mb))...)
 	}
 
 	return &Shard{
 		cfg:        c,
 		mode:       atomic.NewUint32(0), // TODO: init with particular mode
-		blobStor:   blobstor.New(c.blobOpts...),
-		metaBase:   meta.New(c.metaOpts...),
+		blobStor:   bs,
+		metaBase:   mb,
 		writeCache: writeCache,
 	}
 }
@@ -107,7 +111,7 @@ func WithMetaBaseOptions(opts ...meta.Option) Option {
 }
 
 // WithMetaBaseOptions returns option to set internal metabase options.
-func WithWriteCacheOptions(opts ...blobstor.Option) Option {
+func WithWriteCacheOptions(opts ...writecache.Option) Option {
 	return func(c *cfg) {
 		c.writeCacheOpts = opts
 	}

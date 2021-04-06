@@ -47,10 +47,9 @@ func (p *PutPrm) WithBlobovniczaID(id *blobovnicza.ID) *PutPrm {
 }
 
 var (
-	ErrUnknownObjectType          = errors.New("unknown object type")
-	ErrIncorrectBlobovniczaUpdate = errors.New("updating blobovnicza id on object without it")
-	ErrIncorrectSplitInfoUpdate   = errors.New("updating split info on object without it")
-	ErrIncorrectRootObject        = errors.New("invalid root object")
+	ErrUnknownObjectType        = errors.New("unknown object type")
+	ErrIncorrectSplitInfoUpdate = errors.New("updating split info on object without it")
+	ErrIncorrectRootObject      = errors.New("invalid root object")
 )
 
 // Put saves the object in DB.
@@ -379,20 +378,12 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 // updateBlobovniczaID for existing objects if they were moved from from
 // one blobovnicza to another.
 func updateBlobovniczaID(tx *bbolt.Tx, addr *objectSDK.Address, id *blobovnicza.ID) error {
-	bkt := tx.Bucket(smallBucketName(addr.ContainerID()))
-	if bkt == nil {
-		// if object exists, don't have blobovniczaID and we want to update it
-		// then ignore, this should never happen
-		return ErrIncorrectBlobovniczaUpdate
+	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.ContainerID()))
+	if err != nil {
+		return err
 	}
 
-	objectKey := objectKey(addr.ObjectID())
-
-	if len(bkt.Get(objectKey)) == 0 {
-		return ErrIncorrectBlobovniczaUpdate
-	}
-
-	return bkt.Put(objectKey, *id)
+	return bkt.Put(objectKey(addr.ObjectID()), *id)
 }
 
 // updateSpliInfo for existing objects if storage filled with extra information

@@ -44,6 +44,12 @@ func (p *InhumePrm) MarkAsGarbage(addr ...*objectSDK.Address) *InhumePrm {
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from blobStor and metabase until `Delete` operation.
 func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
+	if s.hasWriteCache() {
+		for i := range prm.target {
+			_ = s.writeCache.Delete(prm.target[i])
+		}
+	}
+
 	metaPrm := new(meta.InhumePrm).WithAddresses(prm.target...)
 
 	if prm.tombstone != nil {

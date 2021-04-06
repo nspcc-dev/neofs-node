@@ -9,24 +9,19 @@ import (
 )
 
 func TestShard_Delete(t *testing.T) {
-	sh := newShard(t, false)
-	shWC := newShard(t, true)
-
-	defer func() {
-		releaseShard(sh, t)
-		releaseShard(shWC, t)
-	}()
-
 	t.Run("without write cache", func(t *testing.T) {
-		testShardDelete(t, sh)
+		testShardDelete(t, false)
 	})
 
 	t.Run("with write cache", func(t *testing.T) {
-		testShardDelete(t, shWC)
+		testShardDelete(t, true)
 	})
 }
 
-func testShardDelete(t *testing.T, sh *shard.Shard) {
+func testShardDelete(t *testing.T, hasWriteCache bool) {
+	sh := newShard(t, hasWriteCache)
+	defer releaseShard(sh, t)
+
 	cid := generateCID()
 
 	obj := generateRawObjectWithCID(t, cid)
@@ -47,7 +42,7 @@ func testShardDelete(t *testing.T, sh *shard.Shard) {
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 
 		_, err = sh.Delete(delPrm)

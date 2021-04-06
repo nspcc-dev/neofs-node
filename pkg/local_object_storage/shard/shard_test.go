@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
@@ -41,9 +42,8 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 		),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
-			blobstor.WithRootPath(path.Join(rootPath, "wcache")),
-			blobstor.WithBlobovniczaShallowWidth(1),
-			blobstor.WithBlobovniczaShallowDepth(0),
+			writecache.WithMaxMemSize(0), // disable memory batches
+			writecache.WithPath(path.Join(rootPath, "wcache")),
 		),
 	}
 
