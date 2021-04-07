@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -38,6 +40,8 @@ type singleResultCtx struct {
 	passNodes map[string]common.NodeInfo
 
 	sumSGSize *big.Int
+
+	auditFee *big.Int
 }
 
 var (
@@ -53,6 +57,11 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 		zap.Uint64("current epoch", p.Epoch),
 	)
 
+	if p.Epoch == 0 {
+		log.Info("settlements are ignored for zero epoch")
+		return
+	}
+
 	log.Info("calculate audit settlements")
 
 	log.Debug("getting results for the previous epoch")
@@ -66,6 +75,13 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 		return
 	}
 
+	auditFee, err := c.prm.AuditFeeFetcher.AuditFee()
+	if err != nil {
+		log.Warn("can't fetch audit fee from network config",
+			zap.String("error", err.Error()))
+		auditFee = 0
+	}
+
 	log.Debug("processing audit results",
 		zap.Int("number", len(auditResults)),
 	)
@@ -77,6 +93,7 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 			log:         log,
 			auditResult: auditResults[i],
 			txTable:     table,
+			auditFee:    big.NewInt(0).SetUint64(auditFee),
 		})
 	}
 
@@ -224,6 +241,7 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 	cnrOwner := ctx.cnrInfo.Owner()
 
+	// add txs to pay for storage node
 	for k, info := range ctx.passNodes {
 		ownerID, err := c.prm.AccountStorage.ResolveKey(info)
 		if err != nil {
@@ -256,6 +274,23 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 		})
 	}
 
+	// add txs to pay inner ring node for audit result
+	auditIR, err := ownerFromKey(ctx.auditResult.PublicKey())
+	if err != nil {
+		ctx.log.Error("could not parse public key of the inner ring node",
+			zap.String("error", err.Error()),
+			zap.String("key", hex.EncodeToString(ctx.auditResult.PublicKey())),
+		)
+
+		return false
+	}
+
+	ctx.txTable.Transfer(&common.TransferTx{
+		From:   cnrOwner,
+		To:     auditIR,
+		Amount: ctx.auditFee,
+	})
+
 	return false
 }
 
@@ -273,4 +308,18 @@ func (c *singleResultCtx) auditEpoch() uint64 {
 	}
 
 	return c.eAudit
+}
+
+func ownerFromKey(key []byte) (*owner.ID, error) {
+	pubKey := crypto.UnmarshalPublicKey(key)
+
+	n3wallet, err := owner.NEO3WalletFromPublicKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	o := owner.NewID()
+	o.SetNeo3Wallet(n3wallet)
+
+	return o, nil
 }

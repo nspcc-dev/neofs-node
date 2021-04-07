@@ -19,6 +19,8 @@ type CalculatorPrm struct {
 	AccountStorage common.AccountStorage
 
 	Exchanger common.Exchanger
+
+	AuditFeeFetcher FeeFetcher
 }
 
 // ResultStorage is an interface of storage of the audit results.
@@ -38,4 +40,10 @@ type SGInfo interface {
 type SGStorage interface {
 	// Must return information about the storage group by address.
 	SGInfo(*object.Address) (SGInfo, error)
+}
+
+// FeeFetcher wraps AuditFee method that returns audit fee price from
+// the network configuration.
+type FeeFetcher interface {
+	AuditFee() (uint64, error)
 }
