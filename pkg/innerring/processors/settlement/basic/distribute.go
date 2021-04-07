@@ -41,7 +41,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 		})
 	})
 
-	common.TransferAssets(inc.exchange, txTable)
+	common.TransferAssets(inc.exchange, txTable, common.BasicIncomeDistributionDetails(inc.epoch))
 }
 
 func normalizedValue(n, total, limit *big.Int) *big.Int {

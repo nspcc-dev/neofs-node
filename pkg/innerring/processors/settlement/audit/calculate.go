@@ -65,8 +65,9 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 	log.Info("calculate audit settlements")
 
 	log.Debug("getting results for the previous epoch")
+	prevEpoch := p.Epoch - 1
 
-	auditResults, err := c.prm.ResultStorage.AuditResultsForEpoch(p.Epoch - 1)
+	auditResults, err := c.prm.ResultStorage.AuditResultsForEpoch(prevEpoch)
 	if err != nil {
 		log.Error("could not collect audit results")
 		return
@@ -99,7 +100,7 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 
 	log.Debug("processing transfers")
 
-	common.TransferAssets(c.prm.Exchanger, table)
+	common.TransferAssets(c.prm.Exchanger, table, common.AuditSettlementDetails(prevEpoch))
 }
 
 func (c *Calculator) processResult(ctx *singleResultCtx) {

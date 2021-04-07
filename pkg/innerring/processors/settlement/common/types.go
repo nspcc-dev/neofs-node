@@ -50,5 +50,5 @@ type Exchanger interface {
 	// Must transfer amount of GASe-12 from sender to recipient.
 	//
 	// Amount must be positive.
-	Transfer(sender, recipient *owner.ID, amount *big.Int)
+	Transfer(sender, recipient *owner.ID, amount *big.Int, details []byte)
 }

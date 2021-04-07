@@ -32,6 +32,8 @@ type globalConfig interface {
 }
 
 type settlementDeps struct {
+	globalConfig
+
 	log *logger.Logger
 
 	cnrSrc container.Source
@@ -43,8 +45,6 @@ type settlementDeps struct {
 	clientCache *ClientCache
 
 	balanceClient *balanceClient.Wrapper
-
-	cfg globalConfig
 }
 
 type auditSettlementDeps struct {
@@ -191,16 +191,12 @@ func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
 	return id, nil
 }
 
-var (
-	transferAuditDetails    = []byte("settlement-audit")
-	basicIncomeAuditDetails = []byte("settlement-basic-income")
-)
-
-func (s settlementDeps) transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {
+func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {
 	log := s.log.With(
 		zap.Stringer("sender", sender),
 		zap.Stringer("recipient", recipient),
 		zap.Stringer("amount (GASe-12)", amount),
+		zap.String("details", hex.EncodeToString(details)),
 	)
 
 	if !amount.IsInt64() {
@@ -225,20 +221,8 @@ func (s settlementDeps) transfer(sender, recipient *owner.ID, amount *big.Int, d
 	log.Debug("transfer transaction for audit was successfully sent")
 }
 
-func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
-	a.transfer(sender, recipient, amount, transferAuditDetails)
-}
-
-func (a auditSettlementDeps) AuditFee() (uint64, error) {
-	return a.cfg.AuditFee()
-}
-
-func (b basicIncomeSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
-	b.transfer(sender, recipient, amount, basicIncomeAuditDetails)
-}
-
 func (b basicIncomeSettlementDeps) BasicRate() (uint64, error) {
-	return b.cfg.BasicIncomeRate()
+	return b.BasicIncomeRate()
 }
 
 func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*wrapper.Estimations, error) {

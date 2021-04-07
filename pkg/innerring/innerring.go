@@ -387,13 +387,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create settlement processor dependencies
 	settlementDeps := &settlementDeps{
+		globalConfig:  globalConfig,
 		log:           server.log,
 		cnrSrc:        cnrClient,
 		auditClient:   server.auditClient,
 		nmSrc:         nmClient,
 		clientCache:   clientCache,
 		balanceClient: balClient,
-		cfg:           globalConfig,
 	}
 
 	auditCalcDeps := &auditSettlementDeps{

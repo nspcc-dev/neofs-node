@@ -56,7 +56,7 @@ func (t *TransferTable) Iterate(f func(*TransferTx)) {
 	}
 }
 
-func TransferAssets(e Exchanger, t *TransferTable) {
+func TransferAssets(e Exchanger, t *TransferTable, details []byte) {
 	t.Iterate(func(tx *TransferTx) {
 		sign := tx.Amount.Sign()
 		if sign == 0 {
@@ -68,6 +68,6 @@ func TransferAssets(e Exchanger, t *TransferTable) {
 			tx.Amount.Neg(tx.Amount)
 		}
 
-		e.Transfer(tx.From, tx.To, tx.Amount)
+		e.Transfer(tx.From, tx.To, tx.Amount, details)
 	})
 }
