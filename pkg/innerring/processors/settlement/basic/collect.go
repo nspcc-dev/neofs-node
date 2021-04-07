@@ -70,7 +70,7 @@ func (inc *IncomeSettlementContext) Collect() {
 		})
 	}
 
-	common.TransferAssets(inc.exchange, txTable)
+	common.TransferAssets(inc.exchange, txTable, common.BasicIncomeCollectionDetails(inc.epoch))
 }
 
 // avgEstimation returns estimation value for single container. Right now it
