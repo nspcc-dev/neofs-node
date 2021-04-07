@@ -8,6 +8,7 @@ import (
 const (
 	maxObjectSizeConfig   = "MaxObjectSize"
 	basicIncomeRateConfig = "BasicIncomeRate"
+	auditFee              = "AuditFee"
 )
 
 // MaxObjectSize receives max object size configuration
@@ -30,6 +31,17 @@ func (w *Wrapper) BasinIncomeRate() (uint64, error) {
 	}
 
 	return rate, nil
+}
+
+// AuditFee returns audit fee configuration value from network
+// config in netmap contract.
+func (w *Wrapper) AuditFee() (uint64, error) {
+	fee, err := w.readUInt64Config(auditFee)
+	if err != nil {
+		return 0, errors.Wrapf(err, "(%T) could not get audit fee", w)
+	}
+
+	return fee, nil
 }
 
 func (w *Wrapper) readUInt64Config(key string) (uint64, error) {
