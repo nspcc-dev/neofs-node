@@ -28,6 +28,7 @@ import (
 
 type globalConfig interface {
 	BasicIncomeRate() (uint64, error)
+	AuditFee() (uint64, error)
 }
 
 type settlementDeps struct {
@@ -42,6 +43,8 @@ type settlementDeps struct {
 	clientCache *ClientCache
 
 	balanceClient *balanceClient.Wrapper
+
+	cfg globalConfig
 }
 
 type auditSettlementDeps struct {
@@ -51,7 +54,6 @@ type auditSettlementDeps struct {
 type basicIncomeSettlementDeps struct {
 	*settlementDeps
 	cnrClient *containerClient.Wrapper
-	cfg       globalConfig
 }
 
 type basicSettlementConstructor struct {
@@ -225,6 +227,10 @@ func (s settlementDeps) transfer(sender, recipient *owner.ID, amount *big.Int, d
 
 func (a auditSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {
 	a.transfer(sender, recipient, amount, transferAuditDetails)
+}
+
+func (a auditSettlementDeps) AuditFee() (uint64, error) {
+	return a.cfg.AuditFee()
 }
 
 func (b basicIncomeSettlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int) {

@@ -393,6 +393,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		nmSrc:         nmClient,
 		clientCache:   clientCache,
 		balanceClient: balClient,
+		cfg:           globalConfig,
 	}
 
 	auditCalcDeps := &auditSettlementDeps{
@@ -402,7 +403,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	basicSettlementDeps := &basicIncomeSettlementDeps{
 		settlementDeps: settlementDeps,
 		cnrClient:      cnrClient,
-		cfg:            globalConfig,
 	}
 
 	auditSettlementCalc := auditSettlement.NewCalculator(
@@ -413,6 +413,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 			SGStorage:           auditCalcDeps,
 			AccountStorage:      auditCalcDeps,
 			Exchanger:           auditCalcDeps,
+			AuditFeeFetcher:     auditCalcDeps,
 		},
 		auditSettlement.WithLogger(server.log),
 	)

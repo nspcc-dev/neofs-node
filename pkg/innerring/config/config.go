@@ -37,3 +37,12 @@ func (c *GlobalConfig) BasicIncomeRate() (uint64, error) {
 
 	return c.nm.BasinIncomeRate()
 }
+
+func (c *GlobalConfig) AuditFee() (uint64, error) {
+	value := c.cfg.GetUint64("settlement.audit_fee")
+	if value != 0 {
+		return value, nil
+	}
+
+	return c.nm.AuditFee()
+}
