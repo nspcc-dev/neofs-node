@@ -73,6 +73,8 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 // if at least one object is locked.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		garbageBKT := tx.Bucket(garbageBucketName)
+
 		var (
 			// target bucket of the operation, one of the:
 			//	1. Graveyard if Inhume was called with a Tombstone
@@ -101,11 +103,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 
 			value = tombKey
 		} else {
-			bkt, err = tx.CreateBucketIfNotExists(garbageBucketName)
-			if err != nil {
-				return err
-			}
-
+			bkt = garbageBKT
 			value = zeroValue
 		}
 
@@ -157,6 +155,13 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 				// do not add grave if target is a tombstone
 				if targetIsTomb {
 					continue
+				}
+
+				// if tombstone appears object must be
+				// additionally marked with GC
+				err = garbageBKT.Put(targetKey, zeroValue)
+				if err != nil {
+					return err
 				}
 			} else {
 				// garbage object can probably lock some objects, so they should become
