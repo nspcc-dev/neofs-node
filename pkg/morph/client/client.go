@@ -2,10 +2,9 @@ package client
 
 import (
 	"context"
-	"crypto/elliptic"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
@@ -35,8 +34,6 @@ type Client struct {
 
 	gas util.Uint160 // native gas script-hash
 
-	neo util.Uint160 // native neo script-hash
-
 	designate util.Uint160 // native designate script-hash
 
 	waitInterval time.Duration
@@ -50,11 +47,6 @@ var ErrNilClient = errors.New("client is nil")
 
 // HaltState returned if TestInvoke function processed without panic.
 const HaltState = "HALT"
-
-const (
-	committeeList = "getCommittee"
-	designateList = "getDesignatedByRole"
-)
 
 var errEmptyInvocationScript = errors.New("got empty invocation script from neo node")
 
@@ -204,24 +196,14 @@ func (c *Client) GasBalance() (int64, error) {
 
 // Committee returns keys of chain committee from neo native contract.
 func (c *Client) Committee() (keys.PublicKeys, error) {
-	items, err := c.TestInvoke(c.neo, committeeList)
-	if err != nil {
-		return nil, err
-	}
-
-	roleKeys, err := keysFromStack(items)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't get committee keys")
-	}
-
-	return roleKeys, nil
+	return c.client.GetCommittee()
 }
 
 // NeoFSAlphabetList returns keys that stored in NeoFS Alphabet role. Main chain
 // stores alphabet node keys of inner ring there, however side chain stores both
 // alphabet and non alphabet node keys of inner ring.
 func (c *Client) NeoFSAlphabetList() (keys.PublicKeys, error) {
-	list, err := c.roleList(native.RoleNeoFSAlphabet)
+	list, err := c.roleList(noderoles.NeoFSAlphabet)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get alphabet nodes role list")
 	}
@@ -229,23 +211,13 @@ func (c *Client) NeoFSAlphabetList() (keys.PublicKeys, error) {
 	return list, nil
 }
 
-func (c *Client) roleList(r native.Role) (keys.PublicKeys, error) {
+func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 	height, err := c.client.GetBlockCount()
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get chain height")
 	}
 
-	items, err := c.TestInvoke(c.designate, designateList, r, int64(height))
-	if err != nil {
-		return nil, err
-	}
-
-	roleKeys, err := keysFromStack(items)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't get role keys")
-	}
-
-	return roleKeys, nil
+	return c.client.GetDesignatedByRole(r, height)
 }
 
 func toStackParameter(value interface{}) (sc.Parameter, error) {
@@ -277,7 +249,7 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 	case util.Uint160:
 		result.Type = sc.ByteArrayType
 		result.Value = v.BytesBE()
-	case native.Role:
+	case noderoles.Role:
 		result.Type = sc.IntegerType
 		result.Value = int64(v)
 	case keys.PublicKeys:
@@ -292,34 +264,6 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 	}
 
 	return result, nil
-}
-
-func keysFromStack(data []stackitem.Item) (keys.PublicKeys, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-
-	arr, err := ArrayFromStackItem(data[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "non array element on stack")
-	}
-
-	res := make([]*keys.PublicKey, 0, len(arr))
-	for i := range arr {
-		rawKey, err := BytesFromStackItem(arr[i])
-		if err != nil {
-			return nil, errors.Wrap(err, "key is not slice of bytes")
-		}
-
-		key, err := keys.NewPublicKeyFromBytes(rawKey, elliptic.P256())
-		if err != nil {
-			return nil, errors.Wrap(err, "can't parse key")
-		}
-
-		res = append(res, key)
-	}
-
-	return res, nil
 }
 
 // MagicNumber returns the magic number of the network
