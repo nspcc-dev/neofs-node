@@ -1,10 +1,8 @@
 package blobstor
 
 import (
-	"os"
-
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/pkg/errors"
 )
 
@@ -23,19 +21,10 @@ type DeleteBigRes struct{}
 //
 // Returns ErrNotFound if there is no object to delete.
 func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
-	err := b.fsTree.delete(prm.addr)
-	if errors.Is(err, errFileNotFound) {
+	err := b.fsTree.Delete(prm.addr)
+	if errors.Is(err, fstree.ErrFileNotFound) {
 		err = object.ErrNotFound
 	}
 
 	return nil, err
-}
-
-func (t *fsTree) delete(addr *objectSDK.Address) error {
-	p, err := t.exists(addr)
-	if err != nil {
-		return err
-	}
-
-	return os.Remove(p)
 }

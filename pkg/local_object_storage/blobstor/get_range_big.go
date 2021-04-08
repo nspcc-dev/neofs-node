@@ -24,7 +24,7 @@ type GetRangeBigRes struct {
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data
-	data, err := b.fsTree.get(prm.addr)
+	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read object from fs tree")
 	}

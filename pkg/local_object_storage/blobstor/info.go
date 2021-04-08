@@ -1,19 +1,8 @@
 package blobstor
 
-import (
-	"os"
-)
-
-// Info groups the information about BlobStor.
-type Info struct {
-	// Permission bits of the root directory.
-	Permissions os.FileMode
-
-	// Full path to the root directory.
-	RootPath string
-}
+import "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 
 // DumpInfo returns information about the BlobStor.
-func (b *BlobStor) DumpInfo() Info {
+func (b *BlobStor) DumpInfo() fstree.Info {
 	return b.fsTree.Info
 }

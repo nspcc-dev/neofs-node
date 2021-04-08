@@ -1,11 +1,8 @@
 package blobstor
 
 import (
-	"io/ioutil"
-	"os"
-
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/pkg/errors"
 )
 
@@ -28,9 +25,9 @@ type GetBigRes struct {
 // presented in shallow dir.
 func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	// get compressed object data
-	data, err := b.fsTree.get(prm.addr)
+	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
-		if errors.Is(err, errFileNotFound) {
+		if errors.Is(err, fstree.ErrFileNotFound) {
 			return nil, object.ErrNotFound
 		}
 
@@ -53,14 +50,4 @@ func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 			obj: obj,
 		},
 	}, nil
-}
-
-func (t *fsTree) get(addr *objectSDK.Address) ([]byte, error) {
-	p := t.treePath(addr)
-
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return nil, errFileNotFound
-	}
-
-	return ioutil.ReadFile(p)
 }
