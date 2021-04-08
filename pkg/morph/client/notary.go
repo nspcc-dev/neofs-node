@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -50,7 +50,6 @@ const (
 
 var (
 	errNotaryNotEnabled = errors.New("notary support was not enabled on this client")
-	errInvalidIR        = errors.New("invalid inner ring list from netmap contract")
 	errUnexpectedItems  = errors.New("invalid number of NEO VM arguments on stack")
 )
 
@@ -159,7 +158,7 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 
 	return c.notaryInvokeAsCommittee(c.designate,
 		setDesignateMethod,
-		native.RoleP2PNotary,
+		noderoles.P2PNotary,
 		list,
 	)
 }
@@ -174,7 +173,7 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 
 	return c.notaryInvokeAsCommittee(c.designate,
 		setDesignateMethod,
-		native.RoleNeoFSAlphabet,
+		noderoles.NeoFSAlphabet,
 		list,
 	)
 }
@@ -253,7 +252,6 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 			},
 		},
 		Signers: cosigners,
-		Network: c.client.GetNetwork(),
 	}
 
 	// calculate notary fee
@@ -366,7 +364,7 @@ func (c *Client) notaryWitnesses(multiaddr *wallet.Account, tx *transaction.Tran
 	w = append(w, transaction.Witness{
 		InvocationScript: append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
-			multiaddr.PrivateKey().Sign(tx.GetSignedPart())...,
+			multiaddr.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), tx)...,
 		),
 		VerificationScript: multiaddr.GetVerificationScript(),
 	})
