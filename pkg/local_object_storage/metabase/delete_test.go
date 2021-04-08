@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
@@ -45,9 +46,6 @@ func TestDB_Delete(t *testing.T) {
 	err = meta.Inhume(db, object.AddressOf(child), object.AddressOf(ts))
 	require.NoError(t, err)
 
-	err = meta.Inhume(db, object.AddressOf(child), object.AddressOf(ts))
-	require.NoError(t, err)
-
 	// delete object
 	err = meta.Delete(db, object.AddressOf(child))
 	require.NoError(t, err)
@@ -57,13 +55,14 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, l, 0)
 
-	// check if they removed from graveyard
+	// check if they marked as already removed
+
 	ok, err := meta.Exists(db, object.AddressOf(child))
-	require.NoError(t, err)
+	require.Error(t, apistatus.ObjectAlreadyRemoved{})
 	require.False(t, ok)
 
 	ok, err = meta.Exists(db, object.AddressOf(parent))
-	require.NoError(t, err)
+	require.Error(t, apistatus.ObjectAlreadyRemoved{})
 	require.False(t, ok)
 }
 

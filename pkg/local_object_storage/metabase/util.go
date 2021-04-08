@@ -21,7 +21,14 @@ bytes. Check it later.
 const invalidBase58String = "_"
 
 var (
-	graveyardBucketName       = []byte(invalidBase58String + "Graveyard")
+	// graveyardBucketName stores rows with the objects that have been
+	// covered with Tombstone objects. That objects should not be returned
+	// from the node and should not be accepted by the node from other
+	// nodes.
+	graveyardBucketName = []byte(invalidBase58String + "Graveyard")
+	// garbageBucketName stores rows with the objects that should be physically
+	// deleted by the node (Garbage Collector routine).
+	garbageBucketName         = []byte(invalidBase58String + "Garbage")
 	toMoveItBucketName        = []byte(invalidBase58String + "ToMoveIt")
 	containerVolumeBucketName = []byte(invalidBase58String + "ContainerSize")
 

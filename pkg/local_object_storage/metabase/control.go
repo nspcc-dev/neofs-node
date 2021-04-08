@@ -49,6 +49,7 @@ func (db *DB) init(reset bool) error {
 		string(containerVolumeBucketName): {},
 		string(graveyardBucketName):       {},
 		string(toMoveItBucketName):        {},
+		string(garbageBucketName):         {},
 	}
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

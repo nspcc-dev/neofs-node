@@ -166,7 +166,7 @@ func (gc *gc) stop() {
 	})
 }
 
-// iterates over metabase graveyard and deletes objects
+// iterates over metabase and deletes objects
 // with GC-marked graves.
 // Does nothing if shard is in "read-only" mode.
 func (s *Shard) removeGarbage() {
@@ -176,12 +176,10 @@ func (s *Shard) removeGarbage() {
 
 	buf := make([]*addressSDK.Address, 0, s.rmBatchSize)
 
-	// iterate over metabase graveyard and accumulate
-	// objects with GC mark (no more the s.rmBatchSize objects)
-	err := s.metaBase.IterateOverGraveyard(func(g *meta.Grave) error {
-		if g.WithGCMark() {
-			buf = append(buf, g.Address())
-		}
+	// iterate over metabase's objects with GC mark
+	// (no more than s.rmBatchSize objects)
+	err := s.metaBase.IterateOverGarbage(func(g *meta.DeletedObject) error {
+		buf = append(buf, g.Address())
 
 		if len(buf) == s.rmBatchSize {
 			return meta.ErrInterruptIterator
