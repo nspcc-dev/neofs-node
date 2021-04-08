@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -17,11 +18,13 @@ type BlobStor struct {
 	blobovniczas *blobovniczas
 }
 
+type Info = fstree.Info
+
 // Option represents BlobStor's constructor option.
 type Option func(*cfg)
 
 type cfg struct {
-	fsTree fsTree
+	fsTree fstree.FSTree
 
 	compressor func([]byte) []byte
 
@@ -54,9 +57,9 @@ const blobovniczaDir = "blobovnicza"
 
 func defaultCfg() *cfg {
 	return &cfg{
-		fsTree: fsTree{
-			depth:      defaultShallowDepth,
-			dirNameLen: hex.EncodedLen(dirNameLen),
+		fsTree: fstree.FSTree{
+			Depth:      defaultShallowDepth,
+			DirNameLen: hex.EncodedLen(fstree.DirNameLen),
 			Info: Info{
 				Permissions: defaultPerm,
 				RootPath:    "./",
@@ -92,11 +95,11 @@ func New(opts ...Option) *BlobStor {
 // Depth is reduced to maximum value in case of overflow.
 func WithShallowDepth(depth int) Option {
 	return func(c *cfg) {
-		if depth > maxDepth {
-			depth = maxDepth
+		if depth > fstree.MaxDepth {
+			depth = fstree.MaxDepth
 		}
 
-		c.fsTree.depth = depth
+		c.fsTree.Depth = depth
 	}
 }
 

@@ -1,10 +1,8 @@
 package blobstor
 
 import (
-	"os"
-
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/pkg/errors"
 )
 
@@ -48,8 +46,8 @@ func (b *BlobStor) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 
 // checks if object is presented in shallow dir.
 func (b *BlobStor) existsBig(addr *object.Address) (bool, error) {
-	_, err := b.fsTree.exists(addr)
-	if errors.Is(err, errFileNotFound) {
+	_, err := b.fsTree.Exists(addr)
+	if errors.Is(err, fstree.ErrFileNotFound) {
 		return false, nil
 	}
 
@@ -60,15 +58,4 @@ func (b *BlobStor) existsBig(addr *object.Address) (bool, error) {
 func (b *BlobStor) existsSmall(addr *object.Address) (bool, error) {
 	// TODO: implement
 	return false, nil
-}
-
-func (t *fsTree) exists(addr *objectSDK.Address) (string, error) {
-	p := t.treePath(addr)
-
-	_, err := os.Stat(p)
-	if os.IsNotExist(err) {
-		err = errFileNotFound
-	}
-
-	return p, err
 }

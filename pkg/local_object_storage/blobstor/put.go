@@ -1,11 +1,6 @@
 package blobstor
 
 import (
-	"io/ioutil"
-	"os"
-	"path"
-
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/pkg/errors"
 )
 
@@ -41,7 +36,7 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 
 	if big {
 		// save object in shallow dir
-		return new(PutRes), b.fsTree.put(prm.obj.Address(), data)
+		return new(PutRes), b.fsTree.Put(prm.obj.Address(), data)
 	}
 
 	// save object in blobovnicza
@@ -55,16 +50,6 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 			blobovniczaID: res,
 		},
 	}, nil
-}
-
-func (t *fsTree) put(addr *objectSDK.Address, data []byte) error {
-	p := t.treePath(addr)
-
-	if err := os.MkdirAll(path.Dir(p), t.Permissions); err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(p, data, t.Permissions)
 }
 
 // checks if object is "big".
