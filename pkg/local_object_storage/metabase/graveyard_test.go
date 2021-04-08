@@ -70,9 +70,20 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 
 	require.NoError(t, err)
 
-	require.Equal(t, 4, counterAll)
-	require.True(t, equalAddresses([]*addressSDK.Address{object.AddressOf(obj1), object.AddressOf(obj2)}, buriedTS))
-	require.True(t, equalAddresses([]*addressSDK.Address{object.AddressOf(obj3), object.AddressOf(obj4)}, buriedGC))
+	// objects covered with a tombstone
+	// also receive GS mark
+	garbageExpected := []*addressSDK.Address{
+		object.AddressOf(obj1), object.AddressOf(obj2),
+		object.AddressOf(obj3), object.AddressOf(obj4),
+	}
+
+	graveyardExpected := []*addressSDK.Address{
+		object.AddressOf(obj1), object.AddressOf(obj2),
+	}
+
+	require.Equal(t, len(garbageExpected)+len(graveyardExpected), counterAll)
+	require.True(t, equalAddresses(graveyardExpected, buriedTS))
+	require.True(t, equalAddresses(garbageExpected, buriedGC))
 }
 
 func equalAddresses(aa1 []*addressSDK.Address, aa2 []*addressSDK.Address) bool {
