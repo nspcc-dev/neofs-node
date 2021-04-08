@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
@@ -101,24 +100,37 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 }
 
 // inGraveyard returns:
-//  * 0 if object is not in graveyard;
-//  * 1 if object is in graveyard with GC mark;
-//  * 2 if object is in graveyard with tombstone.
+//  * 0 if object is not marked for deletion;
+//  * 1 if object with GC mark;
+//  * 2 if object is covered with tombstone.
 func inGraveyard(tx *bbolt.Tx, addr *addressSDK.Address) uint8 {
 	graveyard := tx.Bucket(graveyardBucketName)
 	if graveyard == nil {
+		// incorrect metabase state, does not make
+		// sense to check garbage bucket
 		return 0
 	}
 
 	val := graveyard.Get(addressKey(addr))
 	if val == nil {
+		garbageBCK := tx.Bucket(garbageBucketName)
+		if garbageBCK == nil {
+			// incorrect node state
+			return 0
+		}
+
+		val = garbageBCK.Get(addressKey(addr))
+		if val != nil {
+			// object has been marked with GC
+			return 1
+		}
+
+		// neither in the graveyard
+		// nor was marked with GC mark
 		return 0
 	}
 
-	if bytes.Equal(val, []byte(inhumeGCMarkValue)) {
-		return 1
-	}
-
+	// object in the graveyard
 	return 2
 }
 

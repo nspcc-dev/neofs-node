@@ -86,12 +86,12 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*addressSDK.Address) error {
 }
 
 func (db *DB) delete(tx *bbolt.Tx, addr *addressSDK.Address, refCounter referenceCounter) error {
-	// remove record from graveyard
-	graveyard := tx.Bucket(graveyardBucketName)
-	if graveyard != nil {
-		err := graveyard.Delete(addressKey(addr))
+	// remove record from the garbage bucket
+	garbageBKT := tx.Bucket(garbageBucketName)
+	if garbageBKT != nil {
+		err := garbageBKT.Delete(addressKey(addr))
 		if err != nil {
-			return fmt.Errorf("could not remove from graveyard: %w", err)
+			return fmt.Errorf("could not remove from garbage bucket: %w", err)
 		}
 	}
 

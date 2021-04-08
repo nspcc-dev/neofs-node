@@ -9,12 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDB_IterateOverGraveyard(t *testing.T) {
+func TestDB_IterateDeletedObjects(t *testing.T) {
 	db := newDB(t)
 
 	// generate and put 2 objects
 	obj1 := generateObject(t)
 	obj2 := generateObject(t)
+	obj3 := generateObject(t)
+	obj4 := generateObject(t)
 
 	var err error
 
@@ -24,20 +26,26 @@ func TestDB_IterateOverGraveyard(t *testing.T) {
 	err = putBig(db, obj2)
 	require.NoError(t, err)
 
+	err = putBig(db, obj3)
+	require.NoError(t, err)
+
+	err = putBig(db, obj4)
+	require.NoError(t, err)
+
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
 	addrTombstone := generateAddress()
 
 	_, err = db.Inhume(inhumePrm.
-		WithAddresses(object.AddressOf(obj1)).
+		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2)).
 		WithTombstoneAddress(addrTombstone),
 	)
 	require.NoError(t, err)
 
 	// inhume with GC mark
 	_, err = db.Inhume(inhumePrm.
-		WithAddresses(object.AddressOf(obj2)).
+		WithAddresses(object.AddressOf(obj3), object.AddressOf(obj4)).
 		WithGCMark(),
 	)
 
@@ -46,13 +54,15 @@ func TestDB_IterateOverGraveyard(t *testing.T) {
 		buriedTS, buriedGC []*addressSDK.Address
 	)
 
-	err = db.IterateOverGraveyard(func(g *meta.Grave) error {
-		if g.WithGCMark() {
-			buriedGC = append(buriedGC, g.Address())
-		} else {
-			buriedTS = append(buriedTS, g.Address())
-		}
+	err = db.IterateOverGraveyard(func(deletedObject *meta.DeletedObject) error {
+		buriedTS = append(buriedTS, deletedObject.Address())
+		counterAll++
 
+		return nil
+	})
+
+	err = db.IterateOverGarbage(func(deletedObject *meta.DeletedObject) error {
+		buriedGC = append(buriedGC, deletedObject.Address())
 		counterAll++
 
 		return nil
@@ -60,7 +70,30 @@ func TestDB_IterateOverGraveyard(t *testing.T) {
 
 	require.NoError(t, err)
 
-	require.Equal(t, 2, counterAll)
-	require.Equal(t, []*addressSDK.Address{object.AddressOf(obj1)}, buriedTS)
-	require.Equal(t, []*addressSDK.Address{object.AddressOf(obj2)}, buriedGC)
+	require.Equal(t, 4, counterAll)
+	require.True(t, equalAddresses([]*addressSDK.Address{object.AddressOf(obj1), object.AddressOf(obj2)}, buriedTS))
+	require.True(t, equalAddresses([]*addressSDK.Address{object.AddressOf(obj3), object.AddressOf(obj4)}, buriedGC))
+}
+
+func equalAddresses(aa1 []*addressSDK.Address, aa2 []*addressSDK.Address) bool {
+	if len(aa1) != len(aa2) {
+		return false
+	}
+
+	for _, a1 := range aa1 {
+		found := false
+
+		for _, a2 := range aa2 {
+			if a1.String() == a2.String() {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }

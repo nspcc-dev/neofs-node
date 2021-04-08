@@ -65,8 +65,6 @@ func Inhume(db *DB, target, tomb *addressSDK.Address) error {
 	return err
 }
 
-const inhumeGCMarkValue = "GCMARK"
-
 var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // Inhume marks objects as removed but not removes it from metabase.
@@ -75,28 +73,40 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 // if at least one object is locked.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		graveyard, err := tx.CreateBucketIfNotExists(graveyardBucketName)
-		if err != nil {
-			return err
-		}
+		var (
+			// target bucket of the operation, one of the:
+			//	1. Graveyard if Inhume was called with a Tombstone
+			//	2. Garbage if Inhume was called with a GC mark
+			bkt *bbolt.Bucket
+			// value that will be put in the bucket, one of the:
+			// 1. tombstone address if Inhume was called with
+			//    a Tombstone
+			// 2. zeroValue if Inhume was called with a GC mark
+			value []byte
+		)
 
-		var tombKey []byte
 		if prm.tomb != nil {
-			tombKey = addressKey(prm.tomb)
+			bkt = tx.Bucket(graveyardBucketName)
+			tombKey := addressKey(prm.tomb)
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
-
-			// tombstones can be marked for GC in graveyard, so exclude this case
-			data := graveyard.Get(tombKey)
-			if data != nil && !bytes.Equal(data, []byte(inhumeGCMarkValue)) {
-				err := graveyard.Delete(tombKey)
+			data := bkt.Get(tombKey)
+			if data != nil {
+				err := bkt.Delete(tombKey)
 				if err != nil {
 					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
 				}
 			}
+
+			value = tombKey
 		} else {
-			tombKey = []byte(inhumeGCMarkValue)
+			bkt, err = tx.CreateBucketIfNotExists(garbageBucketName)
+			if err != nil {
+				return err
+			}
+
+			value = zeroValue
 		}
 
 		for i := range prm.target {
@@ -128,7 +138,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 
 				// iterate over graveyard and check if target address
 				// is the address of tombstone in graveyard.
-				err = graveyard.ForEach(func(k, v []byte) error {
+				err = bkt.ForEach(func(k, v []byte) error {
 					// check if graveyard has record with key corresponding
 					// to tombstone address (at least one)
 					targetIsTomb = bytes.Equal(v, targetKey)
@@ -158,7 +168,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			}
 
 			// consider checking if target is already in graveyard?
-			err = graveyard.Put(targetKey, tombKey)
+			err = bkt.Put(targetKey, value)
 			if err != nil {
 				return err
 			}
