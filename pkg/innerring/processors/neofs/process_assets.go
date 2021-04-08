@@ -8,9 +8,6 @@ import (
 )
 
 const (
-	// txLogPrefix used for balance transfer comments in balance contract.
-	txLogPrefix = "mainnet:"
-
 	// lockAccountLifeTime defines amount of epochs when lock account is valid.
 	lockAccountLifetime uint64 = 20
 )
@@ -28,7 +25,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 		&invoke.MintBurnParams{
 			ScriptHash: deposit.To().BytesBE(),
 			Amount:     np.converter.ToBalancePrecision(deposit.Amount()),
-			Comment:    append([]byte(txLogPrefix), deposit.ID()...),
+			Comment:    deposit.ID(),
 		})
 	if err != nil {
 		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
@@ -87,11 +84,6 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 		return
 	}
 
-	if len(withdraw.ID()) < util.Uint160Size {
-		np.log.Error("tx id size is less than script hash size")
-		return
-	}
-
 	// create lock account
 	// fixme: check collision there, consider reversed script hash
 	lock, err := util.Uint160DecodeBytesBE(withdraw.ID()[:util.Uint160Size])
@@ -127,7 +119,7 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		&invoke.MintBurnParams{
 			ScriptHash: cheque.LockAccount().BytesBE(),
 			Amount:     np.converter.ToBalancePrecision(cheque.Amount()),
-			Comment:    append([]byte(txLogPrefix), cheque.ID()...),
+			Comment:    cheque.ID(),
 		})
 	if err != nil {
 		np.log.Error("can't transfer assets to fed contract", zap.Error(err))
