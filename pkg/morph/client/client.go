@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
@@ -47,6 +48,18 @@ var ErrNilClient = errors.New("client is nil")
 
 // HaltState returned if TestInvoke function processed without panic.
 const HaltState = "HALT"
+
+type NotHaltStateError struct {
+	state, exception string
+}
+
+func (e *NotHaltStateError) Error() string {
+	return fmt.Sprintf(
+		"chain/client: contract execution finished with state %s; exception: %s",
+		e.state,
+		e.exception,
+	)
+}
 
 var errEmptyInvocationScript = errors.New("got empty invocation script from neo node")
 
@@ -132,7 +145,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 	}
 
 	if val.State != HaltState {
-		return nil, errors.Errorf("chain/client: contract execution finished with state %s", val.State)
+		return nil, &NotHaltStateError{state: val.State, exception: val.FaultException}
 	}
 
 	return val.Stack, nil
