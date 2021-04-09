@@ -51,7 +51,7 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, errNilAddress
 	}
 
-	err := b.boltDB.Update(func(tx *bbolt.Tx) error {
+	err := b.boltDB.Batch(func(tx *bbolt.Tx) error {
 		if b.full() {
 			return ErrFull
 		}

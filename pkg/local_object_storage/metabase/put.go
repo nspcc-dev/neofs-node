@@ -67,7 +67,7 @@ func Put(db *DB, obj *object.Object, id *blobovnicza.ID) error {
 // Put saves object header in metabase. Object payload expected to be cut.
 // Big objects have nil blobovniczaID.
 func (db *DB) Put(prm *PutPrm) (res *PutRes, err error) {
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		return db.put(tx, prm.obj, prm.id, nil)
 	})
 
