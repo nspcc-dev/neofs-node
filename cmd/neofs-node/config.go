@@ -107,6 +107,8 @@ const (
 	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
 	cfgReBootstrapInterval = "bootstrap.periodic.interval"
 
+	cfgShutdownOfflineEnabled = "shutdown.offline.enabled"
+
 	cfgObjectPutPoolSize       = "pool.object.put.size"
 	cfgObjectGetPoolSize       = "pool.object.get.size"
 	cfgObjectHeadPoolSize      = "pool.object.head.size"
@@ -251,6 +253,8 @@ type cfgNetmap struct {
 
 	reBootstrapEnabled  bool
 	reBootstrapInterval uint64 // in epochs
+
+	goOfflineEnabled bool // send `UpdateState(offline)` tx at shutdown
 }
 
 type BootstrapType uint32
@@ -354,6 +358,7 @@ func initCfg(path string) *cfg {
 			state:               state,
 			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
 			reBootstrapEnabled:  viperCfg.GetBool(cfgReBootstrapEnabled),
+			goOfflineEnabled:    viperCfg.GetBool(cfgShutdownOfflineEnabled),
 		},
 		cfgNodeInfo: cfgNodeInfo{
 			bootType:   StorageNode,
