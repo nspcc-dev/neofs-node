@@ -7,8 +7,13 @@ import (
 // TrustValue represents the numeric value of the node's trust.
 type TrustValue float64
 
-// TrustOne is a trust value equal to one.
-const TrustOne = TrustValue(1)
+const (
+	// TrustOne is a trust value equal to one.
+	TrustOne = TrustValue(1)
+
+	// TrustZero is a trust value equal to zero.
+	TrustZero = TrustValue(0)
+)
 
 // TrustValueFromFloat64 converts float64 to TrustValue.
 func TrustValueFromFloat64(v float64) TrustValue {
@@ -39,6 +44,11 @@ func (v TrustValue) Div(v2 TrustValue) TrustValue {
 	return v / v2
 }
 
+// Mul multiplies v by v2.
+func (v *TrustValue) Mul(v2 TrustValue) {
+	*v *= v2
+}
+
 // IsZero returns true if v equal to zero.
 func (v TrustValue) IsZero() bool {
 	return v == 0
@@ -46,7 +56,7 @@ func (v TrustValue) IsZero() bool {
 
 // Trust represents peer's trust (reputation).
 type Trust struct {
-	peer PeerID
+	trusting, peer PeerID
 
 	val TrustValue
 }
@@ -77,4 +87,14 @@ func (t Trust) Peer() PeerID {
 // SetPeer sets trusted peer ID.
 func (t *Trust) SetPeer(id PeerID) {
 	t.peer = id
+}
+
+// TrustingPeer returns trusting peer ID.
+func (t Trust) TrustingPeer() PeerID {
+	return t.trusting
+}
+
+// SetTrustingPeer sets trusting peer ID.
+func (t *Trust) SetTrustingPeer(id PeerID) {
+	t.trusting = id
 }
