@@ -1,6 +1,8 @@
 package client
 
 import (
+	"strings"
+
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -279,7 +281,7 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 		0,
 		c.notary.fallbackTime,
 		c.acc)
-	if err != nil {
+	if err != nil && !alreadyOnChainError(err) {
 		return err
 	}
 
@@ -460,4 +462,16 @@ func WithFallbackTime(t uint32) NotaryOption {
 	return func(c *notaryCfg) {
 		c.fallbackTime = t
 	}
+}
+
+const alreadyOnChainErrorMessage = "already on chain"
+
+// Neo RPC node can return `core.ErrInvalidAttribute` error with
+// `conflicting transaction <> is already on chain` message. This
+// error is expected and ignored. As soon as main tx persisted on
+// chain everything is fine. This happens because notary contract
+// requires 5 out of 7 signatures to send main tx, thus last two
+// notary requests may be processed after main tx appeared on chain.
+func alreadyOnChainError(err error) bool {
+	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)
 }
