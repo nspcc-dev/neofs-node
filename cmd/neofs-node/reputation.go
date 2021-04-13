@@ -309,15 +309,17 @@ func initReputationService(c *cfg) {
 		LocalTrustTarget: router,
 	})
 
-	addNewEpochNotificationHandler(c, func(ev event.Event) {
-		var reportPrm trustcontroller.ReportPrm
+	addNewEpochAsyncNotificationHandler(
+		c,
+		func(ev event.Event) {
+			var reportPrm trustcontroller.ReportPrm
 
-		// report collected values from previous epoch
-		reportPrm.SetEpoch(ev.(netmap.NewEpoch).EpochNumber() - 1)
+			// report collected values from previous epoch
+			reportPrm.SetEpoch(ev.(netmap.NewEpoch).EpochNumber() - 1)
 
-		// TODO: implement and use worker pool [neofs-node#440]
-		go c.cfgReputation.localTrustCtrl.Report(reportPrm)
-	})
+			c.cfgReputation.localTrustCtrl.Report(reportPrm)
+		},
+	)
 
 	v2reputationgrpc.RegisterReputationServiceServer(c.cfgGRPC.server,
 		grpcreputation.New(

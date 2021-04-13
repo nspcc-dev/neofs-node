@@ -167,8 +167,22 @@ func (c *cfg) localNodeInfoFromNetmap(nm *netmapSDK.Netmap) *netmapSDK.NodeInfo 
 	return nil
 }
 
+// addNewEpochNotificationHandler adds handler that will be executed synchronously
 func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
 	addNetmapNotificationHandler(c, newEpochNotification, h)
+}
+
+// addNewEpochAsyncNotificationHandler adds handler that will be executed asynchronously via netmap workerPool
+func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
+	addNetmapNotificationHandler(
+		c,
+		newEpochNotification,
+		event.WorkerPoolHandler(
+			c.cfgNetmap.workerPool,
+			h,
+			c.log,
+		),
+	)
 }
 
 func goOffline(c *cfg) {
