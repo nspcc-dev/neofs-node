@@ -24,7 +24,7 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
 
-	id, err := e.generateShardID()
+	id, err := generateShardID()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate shard ID")
 	}
@@ -37,7 +37,7 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	return id, nil
 }
 
-func (e *StorageEngine) generateShardID() (*shard.ID, error) {
+func generateShardID() (*shard.ID, error) {
 	uid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
