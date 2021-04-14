@@ -5,6 +5,7 @@ import (
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -50,6 +51,7 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 		obj   *object.Object
 		siErr *objectSDK.SplitInfoError
 
+		outSI    *objectSDK.SplitInfo
 		outError = object.ErrNotFound
 	)
 
@@ -62,9 +64,22 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
-			case
-				errors.Is(err, object.ErrAlreadyRemoved),
-				errors.As(err, &siErr):
+			case errors.As(err, &siErr):
+				siErr = err.(*objectSDK.SplitInfoError)
+
+				if outSI == nil {
+					outSI = objectSDK.NewSplitInfo()
+				}
+
+				meta.MergeSplitInfo(siErr.SplitInfo(), outSI)
+
+				// stop iterating over shards if SplitInfo structure is complete
+				if outSI.Link() != nil && outSI.LastPart() != nil {
+					return true
+				}
+
+				return false
+			case errors.Is(err, object.ErrAlreadyRemoved):
 				outError = err
 
 				return true // stop, return it back
@@ -84,6 +99,10 @@ func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
 
 		return true
 	})
+
+	if outSI != nil {
+		return nil, objectSDK.NewSplitInfoError(outSI)
+	}
 
 	if obj == nil {
 		return nil, outError
