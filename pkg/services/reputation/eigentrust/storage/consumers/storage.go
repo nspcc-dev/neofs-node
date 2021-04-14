@@ -13,7 +13,7 @@ import (
 // The component is not parameterizable at the moment.
 type Prm struct{}
 
-// Storage represents in-memory storage that of the trusts
+// Storage represents in-memory storage of the trusts
 // of the consumer peers.
 //
 // It maps epoch numbers to the repositories of intermediate
