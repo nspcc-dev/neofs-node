@@ -31,7 +31,7 @@ func (x *Storage) Put(trust eigentrust.IterationTrust) {
 	s.put(trust)
 }
 
-// Consumers returns the storage of trusts of the consumers of the daugher peers
+// Consumers returns the storage of trusts of the consumers of the daughter peers
 // for particular iteration of EigenTrust calculation for particular epoch.
 //
 // Returns false if there is no data for the epoch and iter.

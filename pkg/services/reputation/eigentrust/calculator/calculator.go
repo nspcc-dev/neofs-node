@@ -13,7 +13,7 @@ import (
 // Passing incorrect parameter values will result in constructor
 // failure (error or panic depending on the implementation).
 type Prm struct {
-	// Alpha parameter from origin EigenTrust algortihm
+	// Alpha parameter from origin EigenTrust algorithm
 	// http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Ch.5.1.
 	//
 	// Must be in range (0, 1).
