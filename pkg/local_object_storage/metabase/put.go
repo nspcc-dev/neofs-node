@@ -416,7 +416,7 @@ func updateSplitInfo(tx *bbolt.Tx, addr *objectSDK.Address, from *objectSDK.Spli
 		return fmt.Errorf("can't unmarshal split info from root index: %w", err)
 	}
 
-	result := mergeSplitInfo(from, to)
+	result := MergeSplitInfo(from, to)
 
 	rawSplitInfo, err = result.Marshal()
 	if err != nil {
@@ -448,9 +448,9 @@ func splitInfoFromObject(obj *object.Object) (*objectSDK.SplitInfo, error) {
 	return info, nil
 }
 
-// mergeSplitInfo ignores conflicts and rewrites `to` with non empty values
+// MergeSplitInfo ignores conflicts and rewrites `to` with non empty values
 // from `from`.
-func mergeSplitInfo(from, to *objectSDK.SplitInfo) *objectSDK.SplitInfo {
+func MergeSplitInfo(from, to *objectSDK.SplitInfo) *objectSDK.SplitInfo {
 	to.SetSplitID(from.SplitID()) // overwrite SplitID and ignore conflicts
 
 	if lp := from.LastPart(); lp != nil {
