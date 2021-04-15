@@ -106,14 +106,14 @@ func initContainerService(c *cfg) {
 	)
 
 	setContainerNotificationParser(c, startEstimationNotifyEvent, containerEvent.ParseStartEstimation)
-	addContainerNotificationHandler(c, startEstimationNotifyEvent, func(ev event.Event) {
+	addContainerAsyncNotificationHandler(c, startEstimationNotifyEvent, func(ev event.Event) {
 		ctrl.Start(loadcontroller.StartPrm{
 			Epoch: ev.(containerEvent.StartEstimation).Epoch(),
 		})
 	})
 
 	setContainerNotificationParser(c, stopEstimationNotifyEvent, containerEvent.ParseStopEstimation)
-	addContainerNotificationHandler(c, stopEstimationNotifyEvent, func(ev event.Event) {
+	addContainerAsyncNotificationHandler(c, stopEstimationNotifyEvent, func(ev event.Event) {
 		ctrl.Stop(loadcontroller.StopPrm{
 			Epoch: ev.(containerEvent.StopEstimation).Epoch(),
 		})
