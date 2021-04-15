@@ -1,4 +1,4 @@
-package timers
+package timer
 
 import (
 	"sync"

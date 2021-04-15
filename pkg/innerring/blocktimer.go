@@ -4,9 +4,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
+	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"go.uber.org/zap"
 )
 
@@ -29,9 +30,9 @@ type (
 		cnrWrapper *container.Wrapper // to invoke stop container estimation
 		epoch      epochState         // to specify which epoch to stop
 
-		epochDuration      timers.BlockMeter // in blocks
-		stopEstimationDMul uint32            // X: X/Y of epoch in blocks
-		stopEstimationDDiv uint32            // Y: X/Y of epoch in blocks
+		epochDuration      timer.BlockMeter // in blocks
+		stopEstimationDMul uint32           // X: X/Y of epoch in blocks
+		stopEstimationDDiv uint32           // Y: X/Y of epoch in blocks
 
 		collectBasicIncome    subEpochEventHandler
 		distributeBasicIncome subEpochEventHandler
@@ -52,7 +53,7 @@ type (
 	}
 )
 
-func (s *Server) addBlockTimer(t *timers.BlockTimer) {
+func (s *Server) addBlockTimer(t *timer.BlockTimer) {
 	s.blockTimers = append(s.blockTimers, t)
 }
 
@@ -72,11 +73,11 @@ func (s *Server) tickTimers() {
 	}
 }
 
-func newEpochTimer(args *epochTimerArgs) *timers.BlockTimer {
-	epochTimer := timers.NewBlockTimer(
+func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
+	epochTimer := timer.NewBlockTimer(
 		args.epochDuration,
 		func() {
-			args.nm.HandleNewEpochTick(timers.NewEpochTick{})
+			args.nm.HandleNewEpochTick(timerEvent.NewEpochTick{})
 		},
 	)
 
@@ -130,18 +131,18 @@ func newEpochTimer(args *epochTimerArgs) *timers.BlockTimer {
 	return epochTimer
 }
 
-func newEmissionTimer(args *emitTimerArgs) *timers.BlockTimer {
-	return timers.NewBlockTimer(
-		timers.StaticBlockMeter(args.emitDuration),
+func newEmissionTimer(args *emitTimerArgs) *timer.BlockTimer {
+	return timer.NewBlockTimer(
+		timer.StaticBlockMeter(args.emitDuration),
 		func() {
-			args.ap.HandleGasEmission(timers.NewAlphabetEmitTick{})
+			args.ap.HandleGasEmission(timerEvent.NewAlphabetEmitTick{})
 		},
 	)
 }
 
-func newNotaryDepositTimer(args *notaryDepositArgs) *timers.BlockTimer {
-	return timers.NewBlockTimer(
-		timers.StaticBlockMeter(args.notaryDuration),
+func newNotaryDepositTimer(args *notaryDepositArgs) *timer.BlockTimer {
+	return timer.NewBlockTimer(
+		timer.StaticBlockMeter(args.notaryDuration),
 		func() {
 			err := args.depositor()
 			if err != nil {
