@@ -22,11 +22,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
@@ -46,8 +46,8 @@ type (
 		// event producers
 		morphListener   event.Listener
 		mainnetListener event.Listener
-		blockTimers     []*timers.BlockTimer
-		epochTimer      *timers.BlockTimer
+		blockTimers     []*timer.BlockTimer
+		epochTimer      *timer.BlockTimer
 
 		// global state
 		morphClient   *client.Client

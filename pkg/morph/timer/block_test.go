@@ -1,13 +1,13 @@
-package timers_test
+package timer_test
 
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/stretchr/testify/require"
 )
 
-func tickN(t *timers.BlockTimer, n uint32) {
+func tickN(t *timer.BlockTimer, n uint32) {
 	for i := uint32(0); i < n; i++ {
 		t.Tick()
 	}
@@ -17,7 +17,7 @@ func TestBlockTimer(t *testing.T) {
 	blockDur := uint32(10)
 	baseCallCounter := uint32(0)
 
-	bt := timers.NewBlockTimer(timers.StaticBlockMeter(blockDur), func() {
+	bt := timer.NewBlockTimer(timer.StaticBlockMeter(blockDur), func() {
 		baseCallCounter++
 	})
 
@@ -59,7 +59,7 @@ func TestDeltaPulse(t *testing.T) {
 	blockDur := uint32(9)
 	baseCallCounter := uint32(0)
 
-	bt := timers.NewBlockTimer(timers.StaticBlockMeter(blockDur), func() {
+	bt := timer.NewBlockTimer(timer.StaticBlockMeter(blockDur), func() {
 		baseCallCounter++
 	})
 
@@ -69,7 +69,7 @@ func TestDeltaPulse(t *testing.T) {
 
 	bt.OnDelta(1, div, func() {
 		deltaCallCounter++
-	}, timers.WithPulse())
+	}, timer.WithPulse())
 
 	require.NoError(t, bt.Reset())
 
@@ -85,7 +85,7 @@ func TestDeltaReset(t *testing.T) {
 	blockDur := uint32(6)
 	baseCallCounter := 0
 
-	bt := timers.NewBlockTimer(timers.StaticBlockMeter(blockDur), func() {
+	bt := timer.NewBlockTimer(timer.StaticBlockMeter(blockDur), func() {
 		baseCallCounter++
 	})
 
