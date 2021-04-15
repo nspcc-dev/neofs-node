@@ -27,7 +27,7 @@ const (
 	setNewEpochMethod       = "newEpoch"
 	approvePeerMethod       = "addPeer"
 	updatePeerStateMethod   = "updateState"
-	setConfigMethod         = "setConfigMethod"
+	setConfigMethod         = "setConfig"
 	getNetmapSnapshotMethod = "netmap"
 )
 
