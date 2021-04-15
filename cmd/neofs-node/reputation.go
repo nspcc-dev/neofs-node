@@ -337,6 +337,26 @@ func initReputationService(c *cfg) {
 			),
 		),
 	)
+
+	// initialize eigen trust block timer
+	durationMeter := NewEigenTrustDuration(c.cfgNetmap.wrapper)
+
+	newEigenTrustIterTimer(c, durationMeter, func() {
+		c.log.Debug("todo: start next EigenTrust iteration round")
+	})
+
+	addNewEpochAsyncNotificationHandler(
+		c,
+		func(e event.Event) {
+			durationMeter.Update() // recalculate duration of one iteration round
+
+			err := c.cfgMorph.eigenTrustTimer.Reset() // start iteration rounds again
+			if err != nil {
+				c.log.Warn("can't reset block timer to start eigen trust calculations again",
+					zap.String("error", err.Error()))
+			}
+		},
+	)
 }
 
 type reputationServer struct {

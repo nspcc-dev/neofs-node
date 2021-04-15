@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -120,6 +121,11 @@ func listenMorphNotifications(c *cfg) {
 	setNetmapNotificationParser(c, newEpochNotification, netmapEvent.ParseNewEpoch)
 	registerNotificationHandlers(c.cfgNetmap.scriptHash, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
 	registerNotificationHandlers(c.cfgContainer.scriptHash, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
+
+	registerBlockHandler(lis, func(block *block.Block) {
+		c.log.Debug("new block", zap.Uint32("index", block.Index))
+		tickBlockTimers(c)
+	})
 }
 
 func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parsers map[event.Type]event.Parser,
@@ -147,4 +153,8 @@ func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parse
 			lis.RegisterHandler(hi)
 		}
 	}
+}
+
+func registerBlockHandler(lis event.Listener, handler event.BlockHandler) {
+	lis.RegisterBlockHandler(handler)
 }

@@ -30,6 +30,7 @@ import (
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
@@ -226,6 +227,9 @@ type cfgGRPC struct {
 
 type cfgMorph struct {
 	client *client.Client
+
+	blockTimers     []*timer.BlockTimer // all combined timers
+	eigenTrustTimer *timer.BlockTimer   // timer for EigenTrust iterations
 }
 
 type cfgAccounting struct {
