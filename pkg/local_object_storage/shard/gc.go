@@ -176,9 +176,11 @@ func (s *Shard) removeGarbage() {
 
 	buf := make([]*addressSDK.Address, 0, s.rmBatchSize)
 
+	iterPrm := new(meta.GarbageIterationPrm)
+
 	// iterate over metabase's objects with GC mark
 	// (no more than s.rmBatchSize objects)
-	err := s.metaBase.IterateOverGarbage(func(g *meta.DeletedObject) error {
+	err := s.metaBase.IterateOverGarbage(iterPrm.SetHandler(func(g meta.GarbageObject) error {
 		buf = append(buf, g.Address())
 
 		if len(buf) == s.rmBatchSize {
@@ -186,7 +188,7 @@ func (s *Shard) removeGarbage() {
 		}
 
 		return nil
-	})
+	}))
 	if err != nil {
 		s.log.Warn("iterator over metabase graveyard failed",
 			zap.String("error", err.Error()),
