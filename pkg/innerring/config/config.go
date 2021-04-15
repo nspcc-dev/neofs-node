@@ -35,7 +35,7 @@ func (c *GlobalConfig) BasicIncomeRate() (uint64, error) {
 		return value, nil
 	}
 
-	return c.nm.BasinIncomeRate()
+	return c.nm.BasicIncomeRate()
 }
 
 func (c *GlobalConfig) AuditFee() (uint64, error) {
