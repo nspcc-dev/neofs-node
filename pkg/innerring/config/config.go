@@ -46,3 +46,17 @@ func (c *GlobalConfig) AuditFee() (uint64, error) {
 
 	return c.nm.AuditFee()
 }
+
+func (c *GlobalConfig) EpochDuration() (uint32, error) {
+	value := c.cfg.GetUint32("timers.epoch")
+	if value != 0 {
+		return value, nil
+	}
+
+	epochDuration, err := c.nm.EpochDuration()
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(epochDuration), nil
+}

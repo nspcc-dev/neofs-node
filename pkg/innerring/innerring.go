@@ -585,7 +585,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		nm:                 netmapProcessor,
 		cnrWrapper:         cnrClient,
 		epoch:              server,
-		epochDuration:      cfg.GetUint32("timers.epoch"),
+		epochDuration:      globalConfig.EpochDuration,
 		stopEstimationDMul: cfg.GetUint32("timers.stop_estimation.mul"),
 		stopEstimationDDiv: cfg.GetUint32("timers.stop_estimation.div"),
 		collectBasicIncome: subEpochEventHandler{

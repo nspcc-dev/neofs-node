@@ -29,9 +29,9 @@ type (
 		cnrWrapper *container.Wrapper // to invoke stop container estimation
 		epoch      epochState         // to specify which epoch to stop
 
-		epochDuration      uint32 // in blocks
-		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
-		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks
+		epochDuration      timers.BlockMeter // in blocks
+		stopEstimationDMul uint32            // X: X/Y of epoch in blocks
+		stopEstimationDDiv uint32            // Y: X/Y of epoch in blocks
 
 		collectBasicIncome    subEpochEventHandler
 		distributeBasicIncome subEpochEventHandler
@@ -74,7 +74,7 @@ func (s *Server) tickTimers() {
 
 func newEpochTimer(args *epochTimerArgs) *timers.BlockTimer {
 	epochTimer := timers.NewBlockTimer(
-		timers.StaticBlockMeter(args.epochDuration),
+		args.epochDuration,
 		func() {
 			args.nm.HandleNewEpochTick(timers.NewEpochTick{})
 		},
