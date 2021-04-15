@@ -74,7 +74,7 @@ func initNetmapService(c *cfg) {
 	})
 
 	if c.cfgNetmap.reBootstrapEnabled {
-		addNewEpochNotificationHandler(c, func(ev event.Event) {
+		addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 			n := ev.(netmapEvent.NewEpoch).EpochNumber()
 
 			if n%c.cfgNetmap.reBootstrapInterval == 0 {
@@ -86,7 +86,7 @@ func initNetmapService(c *cfg) {
 		})
 	}
 
-	addNewEpochNotificationHandler(c, func(ev event.Event) {
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		e := ev.(netmapEvent.NewEpoch).EpochNumber()
 
 		ni, err := c.netmapLocalNodeState(e)
