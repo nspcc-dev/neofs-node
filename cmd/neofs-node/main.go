@@ -63,6 +63,7 @@ func bootUp(c *cfg) {
 	serveGRPC(c)
 	bootstrapNode(c)
 	startWorkers(c)
+	startBlockTimers(c)
 	serveMetrics(c)
 }
 
