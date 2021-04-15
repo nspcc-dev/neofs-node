@@ -48,6 +48,13 @@ func BytesFromStackItem(param stackitem.Item) ([]byte, error) {
 	switch param.Type() {
 	case stackitem.BufferT, stackitem.ByteArrayT:
 		return param.TryBytes()
+	case stackitem.IntegerT:
+		n, err := param.TryInteger()
+		if err != nil {
+			return nil, errors.Wrap(err, "can't parse integer bytes")
+		}
+
+		return n.Bytes(), nil
 	case stackitem.AnyT:
 		if param.Value() == nil {
 			return nil, nil

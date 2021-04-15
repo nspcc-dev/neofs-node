@@ -74,6 +74,10 @@ func TestBytesFromStackItem(t *testing.T) {
 		val, err := BytesFromStackItem(stringByteItem)
 		require.NoError(t, err)
 		require.Equal(t, stringByteItem.Value().([]byte), val)
+
+		val, err = BytesFromStackItem(intItem)
+		require.NoError(t, err)
+		require.Equal(t, intItem.Value().(*big.Int).Bytes(), val)
 	})
 
 	t.Run("incorrect assert", func(t *testing.T) {
