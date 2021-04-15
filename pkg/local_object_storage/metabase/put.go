@@ -9,6 +9,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"go.etcd.io/bbolt"
 )
 
@@ -416,7 +417,7 @@ func updateSplitInfo(tx *bbolt.Tx, addr *objectSDK.Address, from *objectSDK.Spli
 		return fmt.Errorf("can't unmarshal split info from root index: %w", err)
 	}
 
-	result := MergeSplitInfo(from, to)
+	result := util.MergeSplitInfo(from, to)
 
 	rawSplitInfo, err = result.Marshal()
 	if err != nil {
@@ -446,22 +447,6 @@ func splitInfoFromObject(obj *object.Object) (*objectSDK.SplitInfo, error) {
 	}
 
 	return info, nil
-}
-
-// MergeSplitInfo ignores conflicts and rewrites `to` with non empty values
-// from `from`.
-func MergeSplitInfo(from, to *objectSDK.SplitInfo) *objectSDK.SplitInfo {
-	to.SetSplitID(from.SplitID()) // overwrite SplitID and ignore conflicts
-
-	if lp := from.LastPart(); lp != nil {
-		to.SetLastPart(lp)
-	}
-
-	if link := from.Link(); link != nil {
-		to.SetLink(link)
-	}
-
-	return to
 }
 
 // isLinkObject returns true if object contains parent header and list

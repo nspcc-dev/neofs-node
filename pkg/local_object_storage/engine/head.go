@@ -3,8 +3,8 @@ package engine
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -86,7 +86,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
 					outSI = objectSDK.NewSplitInfo()
 				}
 
-				meta.MergeSplitInfo(siErr.SplitInfo(), outSI)
+				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
 
 				// stop iterating over shards if SplitInfo structure is complete
 				if outSI.Link() != nil && outSI.LastPart() != nil {
