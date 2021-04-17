@@ -20,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	reputationroute "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/route"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/route/managers"
@@ -41,7 +42,7 @@ type localTrustStorage struct {
 }
 
 type localTrustIterator struct {
-	ctx trustcontroller.Context
+	ctx reputationcommon.Context
 
 	storage *localTrustStorage
 
@@ -55,7 +56,7 @@ type managerBuilder struct {
 
 type remoteLocalTrustProvider struct {
 	localAddrSrc    network.LocalAddressSource
-	deadEndProvider trustcontroller.WriterProvider
+	deadEndProvider reputationcommon.WriterProvider
 	key             *ecdsa.PrivateKey
 
 	clientCache interface {
@@ -74,7 +75,7 @@ func (nopReputationWriter) Close() error {
 }
 
 type remoteLocalTrustWriter struct {
-	ctx    trustcontroller.Context
+	ctx    reputationcommon.Context
 	client apiClient.Client
 	key    *ecdsa.PrivateKey
 
@@ -116,7 +117,7 @@ type remoteLocalTrustWriterProvider struct {
 }
 
 type localTrustLogger struct {
-	ctx trustcontroller.Context
+	ctx reputationcommon.Context
 
 	log *logger.Logger
 }
@@ -135,7 +136,7 @@ func (*localTrustLogger) Close() error {
 	return nil
 }
 
-func (rtwp *remoteLocalTrustWriterProvider) InitWriter(ctx trustcontroller.Context) (trustcontroller.Writer, error) {
+func (rtwp *remoteLocalTrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputationcommon.Writer, error) {
 	return &remoteLocalTrustWriter{
 		ctx:    ctx,
 		client: rtwp.client,
@@ -143,7 +144,7 @@ func (rtwp *remoteLocalTrustWriterProvider) InitWriter(ctx trustcontroller.Conte
 	}, nil
 }
 
-func (rtp *remoteLocalTrustProvider) InitRemote(srv reputationroute.ServerInfo) (trustcontroller.WriterProvider, error) {
+func (rtp *remoteLocalTrustProvider) InitRemote(srv reputationroute.ServerInfo) (reputationcommon.WriterProvider, error) {
 	if srv == nil {
 		return rtp.deadEndProvider, nil
 	}
@@ -201,7 +202,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]re
 	return nil, nil
 }
 
-func (s *localTrustStorage) InitIterator(ctx trustcontroller.Context) (trustcontroller.Iterator, error) {
+func (s *localTrustStorage) InitIterator(ctx reputationcommon.Context) (trustcontroller.Iterator, error) {
 	epochStorage, err := s.storage.DataForEpoch(ctx.Epoch())
 	if err != nil && !errors.Is(err, truststorage.ErrNoPositiveTrust) {
 		return nil, err
@@ -214,7 +215,7 @@ func (s *localTrustStorage) InitIterator(ctx trustcontroller.Context) (trustcont
 	}, nil
 }
 
-func (s *localTrustStorage) InitWriter(ctx trustcontroller.Context) (trustcontroller.Writer, error) {
+func (s *localTrustStorage) InitWriter(ctx reputationcommon.Context) (reputationcommon.Writer, error) {
 	return &localTrustLogger{
 		ctx: ctx,
 		log: s.log,
@@ -342,7 +343,7 @@ func initReputationService(c *cfg) {
 type reputationServer struct {
 	*cfg
 	log          *logger.Logger
-	router       trustcontroller.WriterProvider
+	router       reputationcommon.WriterProvider
 	routeBuilder reputationroute.Builder
 }
 
@@ -427,7 +428,7 @@ func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trus
 }
 
 func (s *reputationServer) processTrust(epoch uint64, t reputation.Trust,
-	passedRoute []reputationroute.ServerInfo, w trustcontroller.Writer) error {
+	passedRoute []reputationroute.ServerInfo, w reputationcommon.Writer) error {
 	err := reputationroute.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
 		return errors.Wrap(err, "wrong route of reputation trust value")

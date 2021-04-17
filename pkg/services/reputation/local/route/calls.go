@@ -4,18 +4,18 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	reputationcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"go.uber.org/zap"
 )
 
 type routeContext struct {
-	reputationcontroller.Context
+	common.Context
 
 	passedRoute []ServerInfo
 }
 
 // NewRouteContext wraps the main context of value passing with its traversal route and epoch.
-func NewRouteContext(ctx reputationcontroller.Context, passed []ServerInfo) reputationcontroller.Context {
+func NewRouteContext(ctx common.Context, passed []ServerInfo) common.Context {
 	return &routeContext{
 		Context:     ctx,
 		passedRoute: passed,
@@ -28,7 +28,7 @@ type trustWriter struct {
 	ctx *routeContext
 
 	routeMtx sync.RWMutex
-	mServers map[string]reputationcontroller.Writer
+	mServers map[string]common.Writer
 }
 
 // InitWriter initializes and returns Writer that sends each value to its next route point.
@@ -45,7 +45,7 @@ type trustWriter struct {
 // runtime and never returns an error.
 //
 // Always returns nil error.
-func (r *Router) InitWriter(ctx reputationcontroller.Context) (reputationcontroller.Writer, error) {
+func (r *Router) InitWriter(ctx common.Context) (common.Writer, error) {
 	var (
 		routeCtx *routeContext
 		ok       bool
@@ -61,7 +61,7 @@ func (r *Router) InitWriter(ctx reputationcontroller.Context) (reputationcontrol
 	return &trustWriter{
 		router:   r,
 		ctx:      routeCtx,
-		mServers: make(map[string]reputationcontroller.Writer),
+		mServers: make(map[string]common.Writer),
 	}, nil
 }
 
