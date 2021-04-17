@@ -1,4 +1,4 @@
-package reputationroute
+package router
 
 import (
 	"fmt"

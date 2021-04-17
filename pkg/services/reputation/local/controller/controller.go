@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 )
 
 // Prm groups the required parameters of the Controller's constructor.
@@ -24,7 +24,7 @@ type Prm struct {
 	// trust to other nodes.
 	//
 	// Must not be nil.
-	LocalTrustTarget common.WriterProvider
+	LocalTrustTarget reputationcommon.WriterProvider
 }
 
 // Controller represents main handler for starting
