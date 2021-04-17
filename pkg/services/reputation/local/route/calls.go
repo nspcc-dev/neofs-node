@@ -69,9 +69,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 	w.routeMtx.Lock()
 	defer w.routeMtx.Unlock()
 
-	localPeerID := reputation.PeerIDFromBytes(w.router.localSrvInfo.PublicKey())
-
-	route, err := w.router.routeBuilder.NextStage(w.ctx.Epoch(), localPeerID, w.ctx.passedRoute)
+	route, err := w.router.routeBuilder.NextStage(w.ctx.Epoch(), t, w.ctx.passedRoute)
 	if err != nil {
 		return err
 	} else if len(route) == 0 {
