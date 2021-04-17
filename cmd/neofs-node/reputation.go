@@ -21,9 +21,9 @@ import (
 	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
-	reputationroute "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/route"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/route/managers"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/managers"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -144,7 +144,7 @@ func (rtwp *remoteLocalTrustWriterProvider) InitWriter(ctx reputationcommon.Cont
 	}, nil
 }
 
-func (rtp *remoteLocalTrustProvider) InitRemote(srv reputationroute.ServerInfo) (reputationcommon.WriterProvider, error) {
+func (rtp *remoteLocalTrustProvider) InitRemote(srv reputationrouter.ServerInfo) (reputationcommon.WriterProvider, error) {
 	if srv == nil {
 		return rtp.deadEndProvider, nil
 	}
@@ -174,7 +174,7 @@ func (rtp *remoteLocalTrustProvider) InitRemote(srv reputationroute.ServerInfo) 
 
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
-func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]reputationroute.ServerInfo, error) {
+func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]reputationrouter.ServerInfo, error) {
 	nm, err := mb.nmSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]re
 				managerIndex = 0
 			}
 
-			return []reputationroute.ServerInfo{nodes[managerIndex]}, nil
+			return []reputationrouter.ServerInfo{nodes[managerIndex]}, nil
 		}
 	}
 
@@ -298,8 +298,8 @@ func initReputationService(c *cfg) {
 		key:             c.key,
 	}
 
-	router := reputationroute.New(
-		reputationroute.Prm{
+	router := reputationrouter.New(
+		reputationrouter.Prm{
 			LocalServerInfo:      c,
 			RemoteWriterProvider: remoteLocalTrustProvider,
 			Builder:              routeBuilder,
@@ -344,7 +344,7 @@ type reputationServer struct {
 	*cfg
 	log          *logger.Logger
 	router       reputationcommon.WriterProvider
-	routeBuilder reputationroute.Builder
+	routeBuilder reputationrouter.Builder
 }
 
 type epochContext struct {
@@ -369,7 +369,7 @@ func (*reputationOnlyKeyRemoteServerInfo) Address() string {
 }
 
 func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation.SendLocalTrustRequest) (*v2reputation.SendLocalTrustResponse, error) {
-	var passedRoute []reputationroute.ServerInfo
+	var passedRoute []reputationrouter.ServerInfo
 
 	for hdr := req.GetVerificationHeader(); hdr != nil; hdr = hdr.GetOrigin() {
 		passedRoute = append(passedRoute, &reputationOnlyKeyRemoteServerInfo{
@@ -390,7 +390,7 @@ func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation
 		epoch:   body.GetEpoch(),
 	}
 
-	w, err := s.router.InitWriter(reputationroute.NewRouteContext(eCtx, passedRoute))
+	w, err := s.router.InitWriter(reputationrouter.NewRouteContext(eCtx, passedRoute))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize local trust writer")
 	}
@@ -428,8 +428,8 @@ func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trus
 }
 
 func (s *reputationServer) processTrust(epoch uint64, t reputation.Trust,
-	passedRoute []reputationroute.ServerInfo, w reputationcommon.Writer) error {
-	err := reputationroute.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
+	passedRoute []reputationrouter.ServerInfo, w reputationcommon.Writer) error {
+	err := reputationrouter.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
 		return errors.Wrap(err, "wrong route of reputation trust value")
 	}

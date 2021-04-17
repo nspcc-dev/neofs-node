@@ -2,7 +2,7 @@ package managers
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	reputationroute "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/route"
+	reputationroute "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	"github.com/pkg/errors"
 )
 

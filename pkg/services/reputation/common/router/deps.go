@@ -1,4 +1,4 @@
-package reputationroute
+package router
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
