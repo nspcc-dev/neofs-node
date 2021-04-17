@@ -415,7 +415,8 @@ func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation
 	}
 
 	for _, trust := range body.GetTrusts() {
-		if err = s.processTrust(body.GetEpoch(), apiToLocalTrust(trust), passedRoute, w); err != nil {
+		err = s.processTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0].PublicKey()), passedRoute, w)
+		if err != nil {
 			return nil, errors.Wrap(err, "could not write one of trusts")
 		}
 	}
@@ -434,18 +435,20 @@ func (s *reputationServer) SendIntermediateResult(_ context.Context, req *v2repu
 	return resp, nil
 }
 
-func apiToLocalTrust(t *v2reputation.Trust) reputation.Trust {
+// apiToLocalTrust converts v2 Trust to local reputation.Trust, adding trustingPeer.
+func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trust {
 	localTrust := reputation.Trust{}
 
 	localTrust.SetValue(reputation.TrustValueFromFloat64(t.GetValue()))
 	localTrust.SetPeer(reputation.PeerIDFromBytes(t.GetPeer().GetValue()))
+	localTrust.SetTrustingPeer(reputation.PeerIDFromBytes(trustingPeer))
 
 	return localTrust
 }
 
 func (s *reputationServer) processTrust(epoch uint64, t reputation.Trust,
 	passedRoute []reputationroute.ServerInfo, w trustcontroller.Writer) error {
-	err := reputationroute.CheckRoute(s.routeBuilder, epoch, reputation.PeerIDFromBytes(passedRoute[0].PublicKey()), passedRoute)
+	err := reputationroute.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
 		return errors.Wrap(err, "wrong route of reputation trust value")
 	}
