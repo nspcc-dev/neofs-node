@@ -2,7 +2,7 @@ package reputationroute
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	reputationcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 )
 
 // ServerInfo describes a set of
@@ -38,5 +38,5 @@ type RemoteWriterProvider interface {
 	// corresponding to info.
 	//
 	// Nil info matches the end of the route.
-	InitRemote(info ServerInfo) (reputationcontroller.WriterProvider, error)
+	InitRemote(info ServerInfo) (common.WriterProvider, error)
 }
