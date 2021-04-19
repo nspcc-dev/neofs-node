@@ -1,6 +1,7 @@
 package blobstor
 
 import (
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/pkg/errors"
 )
 
@@ -29,6 +30,11 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, errors.Wrap(err, "could not marshal the object")
 	}
 
+	return b.PutRaw(prm.obj.Address(), data)
+}
+
+// PutRaw saves already marshaled object in BLOB storage.
+func (b *BlobStor) PutRaw(addr *objectSDK.Address, data []byte) (*PutRes, error) {
 	big := b.isBig(data)
 
 	// compress object data
@@ -36,11 +42,11 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 
 	if big {
 		// save object in shallow dir
-		return new(PutRes), b.fsTree.Put(prm.obj.Address(), data)
+		return new(PutRes), b.fsTree.Put(addr, data)
 	}
 
 	// save object in blobovnicza
-	res, err := b.blobovniczas.put(prm.obj.Address(), data)
+	res, err := b.blobovniczas.put(addr, data)
 	if err != nil {
 		return nil, err
 	}
