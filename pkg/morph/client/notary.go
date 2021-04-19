@@ -47,13 +47,11 @@ const (
 	notaryBalanceOfMethod = "balanceOf"
 	setDesignateMethod    = "designateAsRole"
 
-	notaryBalanceErrMsg = "can't fetch notary balance"
+	notaryBalanceErrMsg      = "can't fetch notary balance"
+	notaryNotEnabledPanicMsg = "notary support was not enabled on this client"
 )
 
-var (
-	errNotaryNotEnabled = errors.New("notary support was not enabled on this client")
-	errUnexpectedItems  = errors.New("invalid number of NEO VM arguments on stack")
-)
+var errUnexpectedItems = errors.New("invalid number of NEO VM arguments on stack")
 
 func defaultNotaryConfig() *notaryCfg {
 	return &notaryCfg{
@@ -95,9 +93,12 @@ func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryO
 // if main tx failed to create. Deposit isn't last forever, so it should
 // be called periodically. Notary support should be enabled in client to
 // use this function.
+//
+// This function must be invoked after `EnableNotarySupport()` otherwise it
+// throws panic.
 func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 	if c.notary == nil {
-		return errNotaryNotEnabled
+		panic(notaryNotEnabledPanicMsg)
 	}
 
 	bc, err := c.client.GetBlockCount()
@@ -127,9 +128,12 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 
 // GetNotaryDeposit returns deposit of client's account in notary contract.
 // Notary support should be enabled in client to use this function.
+//
+// This function must be invoked after `EnableNotarySupport()` otherwise it
+// throws panic.
 func (c *Client) GetNotaryDeposit() (int64, error) {
 	if c.notary == nil {
-		return 0, errNotaryNotEnabled
+		panic(notaryNotEnabledPanicMsg)
 	}
 
 	sh := c.acc.PrivateKey().PublicKey().GetScriptHash()
@@ -153,9 +157,12 @@ func (c *Client) GetNotaryDeposit() (int64, error) {
 
 // UpdateNotaryList updates list of notary nodes in designate contract. Requires
 // committee multi signature.
+//
+// This function must be invoked after `EnableNotarySupport()` otherwise it
+// throws panic.
 func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 	if c.notary == nil {
-		return errNotaryNotEnabled
+		panic(notaryNotEnabledPanicMsg)
 	}
 
 	return c.notaryInvokeAsCommittee(c.designate,
@@ -168,9 +175,12 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 // UpdateNeoFSAlphabetList updates list of alphabet nodes in designate contract.
 // As for side chain list should contain all inner ring nodes.
 // Requires committee multi signature.
+//
+// This function must be invoked after `EnableNotarySupport()` otherwise it
+// throws panic.
 func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 	if c.notary == nil {
-		return errNotaryNotEnabled
+		panic(notaryNotEnabledPanicMsg)
 	}
 
 	return c.notaryInvokeAsCommittee(c.designate,
@@ -180,12 +190,17 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 	)
 }
 
-// Invoke invokes contract method by sending tx to notary contract in
+// NotaryInvoke invokes contract method by sending tx to notary contract in
 // blockchain. Fallback tx is a `RET`. Notary support should be enabled
 // in client to use this function.
 //
-// Supported args types: int64, string, util.Uint160, []byte and bool.
+// This function must be invoked after `EnableNotarySupport()` otherwise it
+// throws panic.
 func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...interface{}) error {
+	if c.notary == nil {
+		panic(notaryNotEnabledPanicMsg)
+	}
+
 	return c.notaryInvoke(false, contract, method, args...)
 }
 
@@ -194,13 +209,7 @@ func (c *Client) notaryInvokeAsCommittee(contract util.Uint160, method string, a
 }
 
 func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method string, args ...interface{}) error {
-	if c.notary == nil {
-		return errNotaryNotEnabled
-	}
-
-	// prepare arguments for test invocation
-
-	alphabetList, err := c.Committee()
+	alphabetList, err := c.Committee() // prepare arguments for test invocation
 	if err != nil {
 		return err
 	}
