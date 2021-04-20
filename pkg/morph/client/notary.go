@@ -23,14 +23,19 @@ type (
 		roundTime    uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
 		fallbackTime uint32 // amount of blocks before fallbackTx will be sent
 
+		alphabetSource AlphabetKeys // source of alphabet node keys to prepare witness
+
 		notary util.Uint160
 		proxy  util.Uint160
 	}
 
 	notaryCfg struct {
 		txValidTime, roundTime, fallbackTime uint32
+
+		alphabetSource AlphabetKeys
 	}
 
+	AlphabetKeys func() (keys.PublicKeys, error)
 	NotaryOption func(*notaryCfg)
 )
 
@@ -48,19 +53,20 @@ const (
 
 var errUnexpectedItems = errors.New("invalid number of NEO VM arguments on stack")
 
-func defaultNotaryConfig() *notaryCfg {
+func defaultNotaryConfig(c *Client) *notaryCfg {
 	return &notaryCfg{
-		txValidTime:  defaultNotaryValidTime,
-		roundTime:    defaultNotaryRoundTime,
-		fallbackTime: defaultNotaryFallbackTime,
+		txValidTime:    defaultNotaryValidTime,
+		roundTime:      defaultNotaryRoundTime,
+		fallbackTime:   defaultNotaryFallbackTime,
+		alphabetSource: c.Committee,
 	}
 }
 
 // EnableNotarySupport creates notary structure in client that provides
-// ability for client to get inner ring list from netmap contract and
-// use proxy contract script hash to create tx for notary contract.
-func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryOption) error {
-	cfg := defaultNotaryConfig()
+// ability for client to get alphabet keys from committee or provided source
+// and use proxy contract script hash to create tx for notary contract.
+func (c *Client) EnableNotarySupport(proxy util.Uint160, opts ...NotaryOption) error {
+	cfg := defaultNotaryConfig(c)
 
 	for _, opt := range opts {
 		opt(cfg)
@@ -72,11 +78,12 @@ func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryO
 	}
 
 	c.notary = &notary{
-		notary:       notaryContract,
-		proxy:        proxy,
-		txValidTime:  cfg.txValidTime,
-		roundTime:    cfg.roundTime,
-		fallbackTime: cfg.fallbackTime,
+		notary:         notaryContract,
+		proxy:          proxy,
+		txValidTime:    cfg.txValidTime,
+		roundTime:      cfg.roundTime,
+		fallbackTime:   cfg.fallbackTime,
+		alphabetSource: cfg.alphabetSource,
 	}
 
 	return nil
@@ -203,7 +210,7 @@ func (c *Client) notaryInvokeAsCommittee(contract util.Uint160, method string, a
 }
 
 func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method string, args ...interface{}) error {
-	alphabetList, err := c.Committee() // prepare arguments for test invocation
+	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err
 	}
@@ -469,6 +476,16 @@ func WithRoundTime(t uint32) NotaryOption {
 func WithFallbackTime(t uint32) NotaryOption {
 	return func(c *notaryCfg) {
 		c.fallbackTime = t
+	}
+}
+
+// WithAlphabetSource returns a notary support option for client
+// that specifies function to return list of alphabet node keys.
+// By default notary subsystem uses committee as a source. This is
+// valid for side chain but notary in main chain should override it.
+func WithAlphabetSource(t AlphabetKeys) NotaryOption {
+	return func(c *notaryCfg) {
+		c.alphabetSource = t
 	}
 }
 
