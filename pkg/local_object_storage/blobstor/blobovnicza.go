@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/nspcc-dev/hrw"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -59,7 +59,13 @@ type blobovniczas struct {
 	*cfg
 
 	// cache of opened filled blobovniczas
-	opened *lru.Cache
+	opened *simplelru.LRU
+	// lruMtx protects opened cache.
+	// It isn't RWMutex because `Get` calls must
+	// lock this mutex on write, as LRU info is updated.
+	// It must be taken after activeMtx in case when eviction is possible
+	// i.e. `Add`, `Purge` and `Remove` calls.
+	lruMtx sync.Mutex
 
 	// mutex to exclude parallel bbolt.Open() calls
 	// bbolt.Open() deadlocks if it tries to open already opened file
@@ -79,10 +85,7 @@ type blobovniczaWithIndex struct {
 var errPutFailed = errors.New("could not save the object in any blobovnicza")
 
 func newBlobovniczaTree(c *cfg) (blz *blobovniczas) {
-	cache, err := lru.NewWithEvict(c.openedCacheSize, func(key interface{}, value interface{}) {
-		blz.activeMtx.RLock()
-		defer blz.activeMtx.RUnlock()
-
+	cache, err := simplelru.NewLRU(c.openedCacheSize, func(key interface{}, value interface{}) {
 		if _, ok := blz.active[path.Dir(key.(string))]; ok {
 			return
 		} else if err := value.(*blobovnicza.Blobovnicza).Close(); err != nil {
@@ -356,7 +359,9 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	)
 
 	// try to remove from blobovnicza if it is opened
+	b.lruMtx.Lock()
 	v, ok := b.opened.Get(blzPath)
+	b.lruMtx.Unlock()
 	if ok {
 		if res, err := b.deleteObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
 			return res, err
@@ -415,7 +420,9 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 	)
 
 	// try to read from blobovnicza if it is opened
+	b.lruMtx.Lock()
 	v, ok := b.opened.Get(blzPath)
+	b.lruMtx.Unlock()
 	if ok {
 		if res, err := b.getObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
 			return res, err
@@ -475,7 +482,9 @@ func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, 
 	)
 
 	// try to read from blobovnicza if it is opened
+	b.lruMtx.Lock()
 	v, ok := b.opened.Get(blzPath)
+	b.lruMtx.Unlock()
 	if ok {
 		res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm)
 		switch {
@@ -736,7 +745,9 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	}
 
 	// remove from opened cache (active blobovnicza should always be opened)
+	b.lruMtx.Lock()
 	b.opened.Remove(p)
+	b.lruMtx.Unlock()
 	b.active[p] = active
 
 	b.log.Debug("blobovnicza succesfully activated",
@@ -770,9 +781,11 @@ func (b *blobovniczas) init() error {
 
 // closes blobovnicza tree.
 func (b *blobovniczas) close() error {
-	b.opened.Purge()
-
 	b.activeMtx.Lock()
+
+	b.lruMtx.Lock()
+	b.opened.Purge()
+	b.lruMtx.Unlock()
 
 	for p, v := range b.active {
 		if err := v.blz.Close(); err != nil {
@@ -797,7 +810,9 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 	b.openMtx.Lock()
 	defer b.openMtx.Unlock()
 
+	b.lruMtx.Lock()
 	v, ok := b.opened.Get(p)
+	b.lruMtx.Unlock()
 	if ok {
 		// blobovnicza should be opened in cache
 		return v.(*blobovnicza.Blobovnicza), nil
@@ -811,7 +826,13 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 		return nil, errors.Wrapf(err, "could not open blobovnicza %s", p)
 	}
 
+	b.activeMtx.Lock()
+	b.lruMtx.Lock()
+
 	b.opened.Add(p, blz)
+
+	b.lruMtx.Unlock()
+	b.activeMtx.Unlock()
 
 	return blz, nil
 }
