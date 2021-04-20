@@ -59,6 +59,7 @@ type (
 
 		notaryDepositAmount fixedn.Fixed8
 		notaryDuration      uint32
+		notaryMainDeposit   bool
 
 		// internal variables
 		key                  *ecdsa.PrivateKey
@@ -93,6 +94,7 @@ type (
 		container  util.Uint160 // in morph
 		audit      util.Uint160 // in morph
 		proxy      util.Uint160 // in morph
+		processing util.Uint160 // in mainnet
 		reputation util.Uint160 // in morph
 
 		alphabet alphabetContracts // in morph
@@ -138,7 +140,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	}
 
 	// make an initial deposit to notary contract to enable it
-	txHash, err := s.depositNotary()
+	mainTx, sideTx, err := s.depositNotary()
 	if err != nil {
 		return err
 	}
@@ -146,7 +148,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	// wait a bit for notary contract deposit
 	s.log.Info("waiting to accept notary deposit")
 
-	err = s.awaitNotaryDeposit(ctx, txHash)
+	err = s.awaitNotaryDeposit(ctx, mainTx, sideTx)
 	if err != nil {
 		return err
 	}
@@ -268,10 +270,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	err = server.morphClient.EnableNotarySupport(
-		server.contracts.proxy,
-		server.contracts.netmap,
-	)
+	// enable notary support in the client
+	err = server.morphClient.EnableNotarySupport(server.contracts.proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -296,6 +296,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 		// create mainnet client
 		server.mainnetClient, err = createClient(ctx, mainnetChain)
+		if err != nil {
+			return nil, err
+		}
+
+		// enable notary support in the client
+		err = server.mainnetClient.EnableNotarySupport(
+			server.contracts.processing,
+			client.WithAlphabetSource(server.morphClient.Committee),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -626,6 +635,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// initialize notary deposit timer
 	server.notaryDepositAmount = fixedn.Fixed8(cfg.GetInt64("notary.deposit_amount"))
 	server.notaryDuration = cfg.GetUint32("timers.notary")
+	server.notaryMainDeposit = cfg.GetBool("mainnet.notary_deposit")
 
 	notaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
 		l:              log,
@@ -681,6 +691,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	containerContractStr := cfg.GetString("contracts.container")
 	auditContractStr := cfg.GetString("contracts.audit")
 	proxyContractStr := cfg.GetString("contracts.proxy")
+	processingContractStr := cfg.GetString("contracts.processing")
 	reputationContractStr := cfg.GetString("contracts.reputation")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
@@ -711,6 +722,11 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.proxy, err = util.Uint160DecodeStringLE(proxyContractStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "ir: can't read proxy script-hash")
+	}
+
+	result.processing, err = util.Uint160DecodeStringLE(processingContractStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "ir: can't read processing script-hash")
 	}
 
 	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
@@ -817,14 +833,37 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 	}
 }
 
-func (s *Server) depositNotary() (util.Uint256, error) {
-	return s.morphClient.DepositNotary(
+func (s *Server) depositNotary() (mainTx, sideTx util.Uint256, err error) {
+	if s.notaryMainDeposit {
+		mainTx, err = s.mainnetClient.DepositNotary(
+			s.notaryDepositAmount,
+			s.notaryDuration+notaryExtraBlocks,
+		)
+		if err != nil {
+			return
+		}
+	}
+
+	sideTx, err = s.morphClient.DepositNotary(
 		s.notaryDepositAmount,
 		s.notaryDuration+notaryExtraBlocks,
 	)
+
+	return
 }
 
-func (s *Server) awaitNotaryDeposit(ctx context.Context, txHash util.Uint256) error {
+func (s *Server) awaitNotaryDeposit(ctx context.Context, mainTx, sideTx util.Uint256) error {
+	if s.notaryMainDeposit {
+		err := awaitNotaryDepositInClient(ctx, s.mainnetClient, mainTx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return awaitNotaryDepositInClient(ctx, s.morphClient, sideTx)
+}
+
+func awaitNotaryDepositInClient(ctx context.Context, cli *client.Client, txHash util.Uint256) error {
 	for i := 0; i < notaryDepositTimeout; i++ {
 		select {
 		case <-ctx.Done():
@@ -832,7 +871,7 @@ func (s *Server) awaitNotaryDeposit(ctx context.Context, txHash util.Uint256) er
 		default:
 		}
 
-		ok, err := s.morphClient.TxHalt(txHash)
+		ok, err := cli.TxHalt(txHash)
 		if err == nil {
 			if ok {
 				return nil
@@ -840,8 +879,7 @@ func (s *Server) awaitNotaryDeposit(ctx context.Context, txHash util.Uint256) er
 			return errDepositFail
 		}
 
-		s.log.Info("notary tx is not yet persisted, waiting one more block")
-		s.morphClient.Wait(ctx, 1)
+		cli.Wait(ctx, 1)
 	}
 
 	return errDepositTimeout

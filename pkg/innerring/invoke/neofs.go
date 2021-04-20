@@ -36,7 +36,7 @@ func CashOutCheque(cli *client.Client, con util.Uint160, p *ChequeParams) error 
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, chequeMethod,
+	return cli.NotaryInvoke(con, chequeMethod,
 		p.ID,
 		p.User.BytesBE(),
 		p.Amount,
@@ -50,5 +50,5 @@ func AlphabetUpdate(cli *client.Client, con util.Uint160, id []byte, list keys.P
 		return client.ErrNilClient
 	}
 
-	return cli.Invoke(con, extraFee, alphabetUpdateMethod, id, list)
+	return cli.NotaryInvoke(con, alphabetUpdateMethod, id, list)
 }
