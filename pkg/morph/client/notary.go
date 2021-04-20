@@ -19,17 +19,12 @@ import (
 
 type (
 	notary struct {
-		// extra fee to check witness of proxy contract
-		// neo-go does not have an option to calculate it exactly right now
-		extraVerifyFee int64
-
 		txValidTime  uint32 // minimum amount of blocks when mainTx will be valid
 		roundTime    uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
 		fallbackTime uint32 // amount of blocks before fallbackTx will be sent
 
 		notary util.Uint160
 		proxy  util.Uint160
-		netmap util.Uint160
 	}
 
 	notaryCfg struct {
@@ -79,7 +74,6 @@ func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryO
 	c.notary = &notary{
 		notary:       notaryContract,
 		proxy:        proxy,
-		netmap:       netmap,
 		txValidTime:  cfg.txValidTime,
 		roundTime:    cfg.roundTime,
 		fallbackTime: cfg.fallbackTime,
