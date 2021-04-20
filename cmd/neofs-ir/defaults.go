@@ -58,6 +58,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("mainnet.endpoint.client", "")
 	cfg.SetDefault("mainnet.endpoint.notification", "")
 	cfg.SetDefault("mainnet.dial_timeout", "10s")
+	cfg.SetDefault("mainnet.notary_deposit", true)
 
 	cfg.SetDefault("key", "") // inner ring node key
 
@@ -67,6 +68,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.container", "")
 	cfg.SetDefault("contracts.audit", "")
 	cfg.SetDefault("contracts.proxy", "")
+	cfg.SetDefault("contracts.processing", "")
 	cfg.SetDefault("contracts.reputation", "")
 	// alphabet contracts
 	cfg.SetDefault("contracts.alphabet.amount", 7)
