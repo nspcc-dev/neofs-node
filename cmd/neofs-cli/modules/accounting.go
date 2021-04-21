@@ -34,17 +34,17 @@ var accountingBalanceCmd = &cobra.Command{
 			ctx = context.Background()
 		)
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
 
 		if balanceOwner == "" {
-			key, err := getKey()
-			if err != nil {
-				return err
-			}
-
 			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
 			if err != nil {
 				return err

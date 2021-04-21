@@ -194,7 +194,11 @@ func init() {
 }
 
 func initSession(ctx context.Context) (client.Client, *token.SessionToken, error) {
-	cli, err := getSDKClient()
+	key, err := getKey()
+	if err != nil {
+		return nil, nil, fmt.Errorf("can't fetch private key: %w", err)
+	}
+	cli, err := getSDKClient(key)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't create client: %w", err)
 	}
