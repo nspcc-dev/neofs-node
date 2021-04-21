@@ -75,6 +75,10 @@ func initNetmapService(c *cfg) {
 
 	if c.cfgNetmap.reBootstrapEnabled {
 		addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+			if c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
+				return
+			}
+
 			n := ev.(netmapEvent.NewEpoch).EpochNumber()
 
 			if n%c.cfgNetmap.reBootstrapInterval == 0 {
@@ -202,6 +206,7 @@ func goOffline(c *cfg) {
 
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	if st == control.NetmapStatus_ONLINE {
+		c.cfgNetmap.reBoostrapTurnedOff.Store(false)
 		return c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
 	}
 
@@ -210,6 +215,8 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	if st == control.NetmapStatus_OFFLINE {
 		apiState = netmapSDK.NodeStateOffline
 	}
+
+	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
 	return c.cfgNetmap.wrapper.UpdatePeerState(
 		crypto.MarshalPublicKey(&c.key.PublicKey),
