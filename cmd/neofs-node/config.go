@@ -99,6 +99,11 @@ const (
 	cfgContainerWorkerPoolEnabled = "container.async_worker.enabled"
 	cfgContainerWorkerPoolSize    = "container.async_worker.size"
 
+	// config keys for cfgReputation
+	cfgReputationAlpha             = "reputation.alpha"
+	cfgReputationWorkerPoolEnabled = "reputation.async_worker.enabled"
+	cfgReputationWorkerPoolSize    = "reputation.async_worker.size"
+
 	cfgGCQueueSize = "gc.queuesize"
 	cfgGCQueueTick = "gc.duration.sleep"
 	cfgGCTimeout   = "gc.duration.timeout"
@@ -308,6 +313,11 @@ type cfgControlService struct {
 }
 
 type cfgReputation struct {
+	// Alpha parameter from origin EigenTrust algorithm
+	// http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Ch.5.1.
+	alpha      float64
+	workerPool util2.WorkerPool // pool for EigenTrust algorithm's iterations
+
 	localTrustStorage *truststorage.Storage
 
 	localTrustCtrl *trustcontroller.Controller
@@ -353,6 +363,9 @@ func initCfg(path string) *cfg {
 	fatalOnErr(err)
 
 	netmapWorkerPool, err := initNetmapWorkerPool(viperCfg)
+	fatalOnErr(err)
+
+	reputationWorkerPool, err := initReputationWorkerPool(viperCfg)
 	fatalOnErr(err)
 
 	relayOnly := viperCfg.GetBool(cfgReBootstrapRelay)
@@ -402,6 +415,10 @@ func initCfg(path string) *cfg {
 		},
 		netStatus:    atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
+		cfgReputation: cfgReputation{
+			alpha:      viper.GetFloat64(cfgReputationAlpha),
+			workerPool: reputationWorkerPool,
+		},
 	}
 
 	if viperCfg.GetBool(cfgMetricsEnable) {
@@ -454,6 +471,10 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgContainerFee, "1")
 	v.SetDefault(cfgContainerWorkerPoolEnabled, true)
 	v.SetDefault(cfgContainerWorkerPoolSize, 10)
+
+	v.SetDefault(cfgReputationAlpha, 0.5)
+	v.SetDefault(cfgReputationWorkerPoolEnabled, true)
+	v.SetDefault(cfgReputationWorkerPoolSize, 10)
 
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
 	v.SetDefault(cfgNetmapFee, "1")
@@ -758,6 +779,16 @@ func initContainerWorkerPool(v *viper.Viper) (util2.WorkerPool, error) {
 	if v.GetBool(cfgContainerWorkerPoolEnabled) {
 		// return async worker pool
 		return ants.NewPool(v.GetInt(cfgContainerWorkerPoolSize))
+	}
+
+	// return sync worker pool
+	return util2.SyncWorkerPool{}, nil
+}
+
+func initReputationWorkerPool(v *viper.Viper) (util2.WorkerPool, error) {
+	if v.GetBool(cfgReputationWorkerPoolEnabled) {
+		// return async worker pool
+		return ants.NewPool(v.GetInt(cfgReputationWorkerPoolSize))
 	}
 
 	// return sync worker pool
