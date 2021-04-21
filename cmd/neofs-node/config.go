@@ -262,7 +262,8 @@ type cfgNetmap struct {
 	state *networkState
 
 	reBootstrapEnabled  bool
-	reBootstrapInterval uint64 // in epochs
+	reBoostrapTurnedOff *atomic.Bool // managed by control service in runtime
+	reBootstrapInterval uint64       // in epochs
 
 	goOfflineEnabled bool // send `UpdateState(offline)` tx at shutdown
 }
@@ -377,6 +378,7 @@ func initCfg(path string) *cfg {
 			workerPool:          netmapWorkerPool,
 			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
 			reBootstrapEnabled:  viperCfg.GetBool(cfgReBootstrapEnabled),
+			reBoostrapTurnedOff: atomic.NewBool(false),
 			goOfflineEnabled:    viperCfg.GetBool(cfgShutdownOfflineEnabled),
 		},
 		cfgNodeInfo: cfgNodeInfo{
