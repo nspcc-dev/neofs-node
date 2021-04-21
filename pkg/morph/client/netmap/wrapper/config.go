@@ -12,6 +12,8 @@ const (
 	epochDurationConfig   = "EpochDuration"
 	containerFeeConfig    = "ContainerFee"
 	etIterationsConfig    = "EigenTrustIterations"
+	irCandidateFeeConfig  = "InnerRingCandidateFee"
+	withdrawFeeConfig     = "WithdrawFee"
 )
 
 // MaxObjectSize receives max object size configuration
@@ -77,6 +79,28 @@ func (w *Wrapper) EigenTrustIterations() (uint64, error) {
 	}
 
 	return iterations, nil
+}
+
+// InnerRingCandidateFee returns global configuration value of fee payed by
+// node to be in inner ring candidates list.
+func (w *Wrapper) InnerRingCandidateFee() (uint64, error) {
+	fee, err := w.readUInt64Config(irCandidateFeeConfig)
+	if err != nil {
+		return 0, errors.Wrapf(err, "(%T) could not get inner ring candidate fee", w)
+	}
+
+	return fee, nil
+}
+
+// WithdrawFee returns global configuration value of fee payed by user to
+// withdraw assets from NeoFS contract.
+func (w *Wrapper) WithdrawFee() (uint64, error) {
+	fee, err := w.readUInt64Config(withdrawFeeConfig)
+	if err != nil {
+		return 0, errors.Wrapf(err, "(%T) could not get withdraw fee", w)
+	}
+
+	return fee, nil
 }
 
 func (w *Wrapper) readUInt64Config(key string) (uint64, error) {
