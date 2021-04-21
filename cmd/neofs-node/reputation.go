@@ -6,6 +6,7 @@ import (
 	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
 	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -14,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/managers"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
@@ -27,7 +29,14 @@ func initReputationService(c *cfg) {
 	// consider sharing this between application components
 	nmSrc := newCachedNetmapStorage(c.cfgNetmap.state, c.cfgNetmap.wrapper)
 
+	// storing calculated trusts as a daughter
 	c.cfgReputation.localTrustStorage = truststorage.New(truststorage.Prm{})
+
+	// storing received trusts as a manager
+	daughterStorage := &intermediate.DaughterStorage{
+		Log:     c.log,
+		Storage: daughters.New(daughters.Prm{}),
+	}
 
 	trustStorage := &localreputation.TrustStorage{
 		Log:      c.log,
@@ -50,7 +59,7 @@ func initReputationService(c *cfg) {
 	remoteLocalTrustProvider := localreputation.NewRemoteTrustProvider(
 		localreputation.RemoteProviderPrm{
 			LocalAddrSrc:    c,
-			DeadEndProvider: trustStorage,
+			DeadEndProvider: daughterStorage,
 			ClientCache:     cache.NewSDKClientCache(),
 			Key:             c.key,
 		},
@@ -191,5 +200,5 @@ func (s *reputationServer) processTrust(epoch uint64, t reputation.Trust,
 		return errors.Wrap(err, "wrong route of reputation trust value")
 	}
 
-	return w.Write(t)
+	return w.Write(&localreputation.EpochContext{E: epoch}, t)
 }
