@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 )
 
 // Put saves daughter peer's trust to its provider for the epoch.
@@ -52,11 +53,42 @@ func (x *Storage) DaughterTrusts(epoch uint64, daughter reputation.PeerID) (*Dau
 	return s.daughterTrusts(daughter)
 }
 
+// AllDaughterTrusts returns daughter iterator for the epoch.
+//
+// Returns false if there is no data for the epoch and daughter.
+func (x *Storage) AllDaughterTrusts(epoch uint64) (*daughterStorage, bool) {
+	x.mtx.RLock()
+	defer x.mtx.RUnlock()
+
+	s, ok := x.mItems[epoch]
+
+	return s, ok
+}
+
 // maps IDs of daughter peers to repositories of the local trusts to their providers.
 type daughterStorage struct {
 	mtx sync.RWMutex
 
 	mItems map[reputation.PeerID]*DaughterTrusts
+}
+
+// Iterate passes IDs of the daughter peers with their trusts to h.
+//
+// Returns errors from h directly.
+func (x *daughterStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err error) {
+	x.mtx.RLock()
+
+	{
+		for daughter, daughterTrusts := range x.mItems {
+			if err = h(daughter, daughterTrusts); err != nil {
+				break
+			}
+		}
+	}
+
+	x.mtx.RUnlock()
+
+	return
 }
 
 func (x *daughterStorage) put(trust reputation.Trust) {
