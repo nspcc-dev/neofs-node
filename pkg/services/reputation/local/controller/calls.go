@@ -126,7 +126,7 @@ func (c *reportContext) report() {
 				return err
 			}
 
-			return targetWriter.Write(t)
+			return targetWriter.Write(c.ctx, t)
 		},
 	)
 	if err != nil && !errors.Is(err, context.Canceled) {

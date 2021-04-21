@@ -65,7 +65,7 @@ func (r *Router) InitWriter(ctx common.Context) (common.Writer, error) {
 	}, nil
 }
 
-func (w *trustWriter) Write(t reputation.Trust) error {
+func (w *trustWriter) Write(ctx common.Context, t reputation.Trust) error {
 	w.routeMtx.Lock()
 	defer w.routeMtx.Unlock()
 
@@ -106,7 +106,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 			w.mServers[endpoint] = remoteWriter
 		}
 
-		err := remoteWriter.Write(t)
+		err := remoteWriter.Write(ctx, t)
 		if err != nil {
 			w.router.log.Debug("could not write the value",
 				zap.String("error", err.Error()),

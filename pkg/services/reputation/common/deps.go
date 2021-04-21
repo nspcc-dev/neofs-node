@@ -29,7 +29,7 @@ type Writer interface {
 	// Close operation.
 	//
 	// Write must not be called after Close.
-	Write(reputation.Trust) error
+	Write(Context, reputation.Trust) error
 
 	// Close exits with method-providing Writer.
 	//
