@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
+	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 )
 
 // Put saves intermediate trust of the consumer to daughter peer.
@@ -135,7 +136,7 @@ func (x *ConsumersStorage) put(trust eigentrust.IterationTrust) {
 // Iterate passes IDs of the daughter peers with the trusts of their consumers to h.
 //
 // Returns errors from h directly.
-func (x *ConsumersStorage) Iterate(h func(trusted reputation.PeerID, consumerTrusts *ConsumersTrusts) error) (err error) {
+func (x *ConsumersStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err error) {
 	x.mtx.RLock()
 
 	{
