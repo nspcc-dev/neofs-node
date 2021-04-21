@@ -51,7 +51,12 @@ var getEpochCmd = &cobra.Command{
 	Short: "Get current epoch number",
 	Long:  "Get current epoch number",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -72,7 +77,12 @@ var localNodeInfoCmd = &cobra.Command{
 	Short: "Get local node info",
 	Long:  `Get local node info`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -105,7 +115,7 @@ var snapshotCmd = &cobra.Command{
 			return err
 		}
 
-		cli, err := getSDKClient()
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -134,7 +144,12 @@ var netInfoCmd = &cobra.Command{
 	Short: "Get information about NeoFS network",
 	Long:  "Get information about NeoFS network",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}

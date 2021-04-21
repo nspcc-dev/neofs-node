@@ -10,6 +10,10 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/nspcc-dev/neo-go/cli/flags"
+	"github.com/nspcc-dev/neo-go/cli/input"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
@@ -53,6 +57,8 @@ var (
 	errInvalidKey      = errors.New("provided key is incorrect")
 	errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 	errCantGenerateKey = errors.New("can't generate new private key")
+	errInvalidAddress  = errors.New("--address option must be specified and valid")
+	errInvalidPassword = errors.New("invalid password for the encrypted key")
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -75,8 +81,11 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
 
-	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF or filepath (use `--key new` to generate key for request)")
+	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF, NEP-2 or filepath (use `--key new` to generate key for request)")
 	_ = viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
+
+	rootCmd.PersistentFlags().StringP("address", "", "", "address of wallet account")
+	_ = viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 
 	rootCmd.PersistentFlags().StringP("rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
 	_ = viper.BindPFlag("rpc", rootCmd.PersistentFlags().Lookup("rpc-endpoint"))
@@ -122,6 +131,8 @@ func initConfig() {
 	}
 }
 
+const nep2Base58Length = 58
+
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
 	privateKey := viper.GetString("key")
@@ -139,11 +150,68 @@ func getKey() (*ecdsa.PrivateKey, error) {
 	}
 
 	key, err := crypto.LoadPrivateKey(privateKey)
-	if err != nil {
-		return nil, errInvalidKey
+	if err == nil {
+		return key, nil
 	}
 
-	return key, nil
+	w, err := wallet.NewWalletFromFile(privateKey)
+	if err == nil {
+		return getKeyFromWallet(w, viper.GetString("address"))
+	}
+
+	if len(privateKey) == nep2Base58Length {
+		return getKeyFromNEP2(privateKey)
+	}
+
+	return nil, errInvalidKey
+}
+
+func getKeyFromNEP2(encryptedWif string) (*ecdsa.PrivateKey, error) {
+	pass, err := input.ReadPassword("Enter password > ")
+	if err != nil {
+		printVerbose("Can't read password: %v", err)
+		return nil, errInvalidPassword
+	}
+
+	k, err := keys.NEP2Decrypt(encryptedWif, pass)
+	if err != nil {
+		printVerbose("Invalid key or password: %v", err)
+		return nil, errInvalidPassword
+	}
+
+	return &k.PrivateKey, nil
+}
+
+func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, error) {
+	if addrStr == "" {
+		printVerbose("Address is empty")
+		return nil, errInvalidAddress
+	}
+
+	addr, err := flags.ParseAddress(addrStr)
+	if err != nil {
+		printVerbose("Can't parse address: %s", addrStr)
+		return nil, errInvalidAddress
+	}
+
+	acc := w.GetAccount(addr)
+	if acc == nil {
+		printVerbose("Can't find wallet account for %s", addrStr)
+		return nil, errInvalidAddress
+	}
+
+	pass, err := input.ReadPassword("Enter password > ")
+	if err != nil {
+		printVerbose("Can't read password: %v", err)
+		return nil, errInvalidPassword
+	}
+
+	if err := acc.Decrypt(pass); err != nil {
+		printVerbose("Can't decrypt account: %v", err)
+		return nil, errInvalidPassword
+	}
+
+	return &acc.PrivateKey().PrivateKey, nil
 }
 
 // getEndpointAddress returns network address structure that stores multiaddr
@@ -161,12 +229,7 @@ func getEndpointAddress() (*network.Address, error) {
 
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
-func getSDKClient() (client.Client, error) {
-	key, err := getKey()
-	if err != nil {
-		return nil, err
-	}
-
+func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 	netAddr, err := getEndpointAddress()
 	if err != nil {
 		return nil, err
@@ -177,7 +240,8 @@ func getSDKClient() (client.Client, error) {
 		return nil, errInvalidEndpoint
 	}
 
-	return client.New(client.WithAddress(ipAddr), client.WithDefaultPrivateKey(key))
+	c, err := client.New(client.WithAddress(ipAddr), client.WithDefaultPrivateKey(key))
+	return c, err
 }
 
 func getTTL() uint32 {

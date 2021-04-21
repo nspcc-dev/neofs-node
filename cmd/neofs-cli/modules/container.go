@@ -73,17 +73,17 @@ var listContainersCmd = &cobra.Command{
 			ctx = context.Background()
 		)
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
 
 		if containerOwner == "" {
-			key, err := getKey()
-			if err != nil {
-				return err
-			}
-
 			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
 			if err != nil {
 				return err
@@ -117,7 +117,12 @@ It will be stored in sidechain when inner ring will accepts it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -183,7 +188,12 @@ Only owner of the container has a permission to remove container.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -227,7 +237,12 @@ var listContainerObjectsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -288,7 +303,12 @@ var getContainerInfoCmd = &cobra.Command{
 				return errors.Wrap(err, "can't unmarshal container")
 			}
 		} else {
-			cli, err := getSDKClient()
+			key, err := getKey()
+			if err != nil {
+				return err
+			}
+
+			cli, err := getSDKClient(key)
 			if err != nil {
 				return err
 			}
@@ -341,7 +361,12 @@ var getExtendedACLCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
@@ -400,7 +425,12 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		cli, err := getSDKClient()
+		key, err := getKey()
+		if err != nil {
+			return err
+		}
+
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}

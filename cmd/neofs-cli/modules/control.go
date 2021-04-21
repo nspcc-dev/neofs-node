@@ -78,7 +78,7 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cli, err := getSDKClient()
+	cli, err := getSDKClient(key)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cli, err := getSDKClient()
+	cli, err := getSDKClient(key)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ var dropObjectsCmd = &cobra.Command{
 			return err
 		}
 
-		cli, err := getSDKClient()
+		cli, err := getSDKClient(key)
 		if err != nil {
 			return err
 		}
