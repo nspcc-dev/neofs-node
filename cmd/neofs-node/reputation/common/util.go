@@ -1,4 +1,4 @@
-package local
+package common
 
 import (
 	"context"
@@ -41,6 +41,6 @@ func (*OnlyKeyRemoteServerInfo) Address() string {
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"
 
-func panicOnPrmValue(n string, v interface{}) {
+func PanicOnPrmValue(n string, v interface{}) {
 	panic(fmt.Sprintf(invalidPrmValFmt, n, v, v))
 }

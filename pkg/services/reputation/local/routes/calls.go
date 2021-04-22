@@ -1,4 +1,4 @@
-package managers
+package routes
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NextStage builds Manager list for node and returns it directly.
+// NextStage builds Manager list for trusting node and returns it directly.
 //
 // If passed route has more than one point, then endpoint of the route is reached.
 func (b *Builder) NextStage(epoch uint64, t reputation.Trust, passed []reputationroute.ServerInfo) ([]reputationroute.ServerInfo, error) {

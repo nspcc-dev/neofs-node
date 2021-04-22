@@ -1,6 +1,10 @@
-package managers
+package routes
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+)
 
 // Prm groups the required parameters of the Builder's constructor.
 //
@@ -11,7 +15,7 @@ type Prm struct {
 	// Manager builder for current node.
 	//
 	// Must not be nil.
-	ManagerBuilder ManagerBuilder
+	ManagerBuilder common.ManagerBuilder
 }
 
 // Builder represents component that routes node to its managers.
@@ -21,7 +25,7 @@ type Prm struct {
 // and optional components. After successful creation,
 // the Builder is immediately ready to work through API.
 type Builder struct {
-	managerBuilder ManagerBuilder
+	managerBuilder common.ManagerBuilder
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"

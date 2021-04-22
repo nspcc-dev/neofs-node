@@ -1,4 +1,4 @@
-package local
+package common
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	apiNetmap "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/managers"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -36,10 +36,10 @@ type ManagersPrm struct {
 //
 // The created managerBuilder does not require additional
 // initialization and is completely ready for work.
-func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) managers.ManagerBuilder {
+func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) common.ManagerBuilder {
 	switch {
 	case prm.NetMapSource == nil:
-		panicOnPrmValue("NetMapSource", prm.NetMapSource)
+		PanicOnPrmValue("NetMapSource", prm.NetMapSource)
 	}
 
 	o := defaultMngOpts()

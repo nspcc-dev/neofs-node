@@ -5,6 +5,7 @@ import (
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	reputationapi "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
+	reputationutil "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
@@ -41,13 +42,13 @@ type RemoteProviderPrm struct {
 func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriterProvider {
 	switch {
 	case prm.LocalAddrSrc == nil:
-		panicOnPrmValue("LocalAddrSrc", prm.LocalAddrSrc)
+		reputationutil.PanicOnPrmValue("LocalAddrSrc", prm.LocalAddrSrc)
 	case prm.DeadEndProvider == nil:
-		panicOnPrmValue("DeadEndProvider", prm.DeadEndProvider)
+		reputationutil.PanicOnPrmValue("DeadEndProvider", prm.DeadEndProvider)
 	case prm.Key == nil:
-		panicOnPrmValue("Key", prm.Key)
+		reputationutil.PanicOnPrmValue("Key", prm.Key)
 	case prm.ClientCache == nil:
-		panicOnPrmValue("ClientCache", prm.ClientCache)
+		reputationutil.PanicOnPrmValue("ClientCache", prm.ClientCache)
 	}
 
 	return &remoteTrustProvider{
@@ -67,7 +68,7 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationrouter.ServerInfo) (rep
 
 	if rtp.localAddrSrc.LocalAddress().String() == srv.Address() {
 		// if local => return no-op writer
-		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
+		return trustcontroller.SimpleWriterProvider(new(reputationutil.NopReputationWriter)), nil
 	}
 
 	ipAddr, err := network.IPAddrFromMultiaddr(addr)
