@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 )
 
 // Context wraps stdlib context
@@ -52,4 +53,12 @@ type WriterProvider interface {
 	// Implementations can have different logic for different
 	// contexts, so specific ones may document their own behavior.
 	InitWriter(Context) (Writer, error)
+}
+
+// ManagerBuilder defines an interface for providing a list
+// of Managers for specific epoch. Implementation depends on trust value.
+type ManagerBuilder interface {
+	// BuildManagers must compose list of managers. It depends on
+	// particular epoch and PeerID of the current route point.
+	BuildManagers(epoch uint64, p reputation.PeerID) ([]router.ServerInfo, error)
 }
