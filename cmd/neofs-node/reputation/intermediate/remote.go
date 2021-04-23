@@ -1,13 +1,13 @@
-package local
+package intermediate
 
 import (
 	"crypto/ecdsa"
-
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	reputationapi "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 )
 
 // RemoteProviderPrm groups the required parameters of the RemoteProvider's constructor.
@@ -66,34 +66,55 @@ type RemoteTrustWriter struct {
 	client apiClient.Client
 	key    *ecdsa.PrivateKey
 
-	buf []*reputationapi.Trust
+	buf []*apiClient.SendIntermediateTrustPrm
 }
 
-func (rtp *RemoteTrustWriter) Write(_ reputationcommon.Context, t reputation.Trust) error {
+// Write check if passed context contains required
+// data(returns ErrIncorrectContext if not) and
+// caches passed trusts(as SendIntermediateTrustPrm structs).
+func (rtp *RemoteTrustWriter) Write(ctx reputationcommon.Context, t reputation.Trust) error {
+	eiContext, ok := ctx.(eigentrustcalc.Context)
+	if !ok {
+		return ErrIncorrectContext
+	}
+
+	apiTrustingPeer := reputationapi.NewPeerID()
+	apiTrustingPeer.SetPublicKey(t.TrustingPeer())
+
+	apiTrustedPeer := reputationapi.NewPeerID()
+	apiTrustedPeer.SetPublicKey(t.Peer())
+
 	apiTrust := reputationapi.NewTrust()
-
-	apiPeer := reputationapi.NewPeerID()
-	apiPeer.SetPublicKey(t.Peer())
-
 	apiTrust.SetValue(t.Value().Float64())
-	apiTrust.SetPeer(apiPeer)
+	apiTrust.SetPeer(apiTrustedPeer)
 
-	rtp.buf = append(rtp.buf, apiTrust)
+	apiPeerToPeerTrust := reputationapi.NewPeerToPeerTrust()
+	apiPeerToPeerTrust.SetTrustingPeer(apiTrustingPeer)
+	apiPeerToPeerTrust.SetTrust(apiTrust)
+
+	p := &apiClient.SendIntermediateTrustPrm{}
+	p.SetEpoch(eiContext.Epoch())
+	p.SetIteration(eiContext.I())
+	p.SetTrust(apiPeerToPeerTrust)
+
+	rtp.buf = append(rtp.buf, p)
 
 	return nil
 }
 
-func (rtp *RemoteTrustWriter) Close() error {
-	prm := apiClient.SendLocalTrustPrm{}
+// Close sends all cached intermediate trusts.
+// If error occurs, returns in immediately and stops iteration.
+func (rtp *RemoteTrustWriter) Close() (err error) {
+	for _, prm := range rtp.buf {
+		_, err = rtp.client.SendIntermediateTrust(
+			rtp.ctx,
+			*prm,
+			apiClient.WithKey(rtp.key),
+		)
+		if err != nil {
+			return
+		}
+	}
 
-	prm.SetEpoch(rtp.ctx.Epoch())
-	prm.SetTrusts(rtp.buf)
-
-	_, err := rtp.client.SendLocalTrust(
-		rtp.ctx,
-		prm,
-		apiClient.WithKey(rtp.key),
-	)
-
-	return err
+	return
 }
