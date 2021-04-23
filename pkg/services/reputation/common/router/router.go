@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
@@ -15,7 +16,7 @@ type Prm struct {
 	// Characteristics of the local node's server.
 	//
 	// Must not be nil.
-	LocalServerInfo ServerInfo
+	LocalServerInfo common.ServerInfo
 
 	// Component for sending values to a fixed route point.
 	//
@@ -46,7 +47,7 @@ type Router struct {
 
 	routeBuilder Builder
 
-	localSrvInfo ServerInfo
+	localSrvInfo common.ServerInfo
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"

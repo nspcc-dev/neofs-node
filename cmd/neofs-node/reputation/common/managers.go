@@ -8,7 +8,6 @@ import (
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -56,7 +55,7 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) common.ManagerBuilder
 
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
-func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]reputationrouter.ServerInfo, error) {
+func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]common.ServerInfo, error) {
 	nm, err := mb.nmSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
 		return nil, err
@@ -77,7 +76,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]re
 				managerIndex = 0
 			}
 
-			return []reputationrouter.ServerInfo{nodes[managerIndex]}, nil
+			return []common.ServerInfo{nodes[managerIndex]}, nil
 		}
 	}
 
