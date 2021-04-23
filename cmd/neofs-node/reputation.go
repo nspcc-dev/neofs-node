@@ -6,7 +6,9 @@ import (
 	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
 	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
+	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -15,9 +17,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
+	intermediateroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/routes"
+	consumerstorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/consumers"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/managers"
+	localroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/routes"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -32,10 +36,15 @@ func initReputationService(c *cfg) {
 	// storing calculated trusts as a daughter
 	c.cfgReputation.localTrustStorage = truststorage.New(truststorage.Prm{})
 
-	// storing received trusts as a manager
-	daughterStorage := &intermediate.DaughterStorage{
+	// storing received daughter(of current node) trusts as a manager
+	daughterStorageWriterProvider := &intermediate.DaughterStorageWriterProvider{
 		Log:     c.log,
 		Storage: daughters.New(daughters.Prm{}),
+	}
+
+	consumerStorageWriterProvider := &intermediate.ConsumerStorageWriterProvider{
+		Log:     c.log,
+		Storage: consumerstorage.New(consumerstorage.Prm{}),
 	}
 
 	trustStorage := &localreputation.TrustStorage{
@@ -45,37 +54,75 @@ func initReputationService(c *cfg) {
 		LocalKey: crypto.MarshalPublicKey(&c.key.PublicKey),
 	}
 
-	managerBuilder := localreputation.NewManagerBuilder(
-		localreputation.ManagersPrm{
+	managerBuilder := common.NewManagerBuilder(
+		common.ManagersPrm{
 			NetMapSource: nmSrc,
 		},
-		localreputation.WithLogger(c.log),
+		common.WithLogger(c.log),
 	)
 
-	routeBuilder := managers.New(managers.Prm{
-		ManagerBuilder: managerBuilder,
-	})
-
-	remoteLocalTrustProvider := localreputation.NewRemoteTrustProvider(
-		localreputation.RemoteProviderPrm{
-			LocalAddrSrc:    c,
-			DeadEndProvider: daughterStorage,
-			ClientCache:     cache.NewSDKClientCache(),
-			Key:             c.key,
+	localRouteBuilder := localroutes.New(
+		localroutes.Prm{
+			ManagerBuilder: managerBuilder,
 		},
 	)
 
-	router := reputationrouter.New(
+	intermediateRouteBuilder := intermediateroutes.New(
+		intermediateroutes.Prm{
+			ManagerBuilder: managerBuilder,
+		},
+	)
+
+	apiClientCache := cache.NewSDKClientCache()
+
+	remoteLocalTrustProvider := common.NewRemoteTrustProvider(
+		common.RemoteProviderPrm{
+			LocalAddrSrc:    c,
+			DeadEndProvider: daughterStorageWriterProvider,
+			ClientCache:     apiClientCache,
+			WriterProvider: localreputation.NewRemoteProvider(
+				localreputation.RemoteProviderPrm{
+					Key: c.key,
+				},
+			),
+		},
+	)
+
+	remoteIntermediateTrustProvider := common.NewRemoteTrustProvider(
+		common.RemoteProviderPrm{
+			LocalAddrSrc:    c,
+			DeadEndProvider: consumerStorageWriterProvider,
+			ClientCache:     apiClientCache,
+			WriterProvider: intermediatereputation.NewRemoteProvider(
+				intermediatereputation.RemoteProviderPrm{
+					Key: c.key,
+				},
+			),
+		},
+	)
+
+	localTrustRouter := reputationrouter.New(
 		reputationrouter.Prm{
 			LocalServerInfo:      c,
 			RemoteWriterProvider: remoteLocalTrustProvider,
-			Builder:              routeBuilder,
-		})
+			Builder:              localRouteBuilder,
+		},
+	)
 
-	c.cfgReputation.localTrustCtrl = trustcontroller.New(trustcontroller.Prm{
-		LocalTrustSource: trustStorage,
-		LocalTrustTarget: router,
-	})
+	_ = reputationrouter.New( // intermediateTrustRouter
+		reputationrouter.Prm{
+			LocalServerInfo:      c,
+			RemoteWriterProvider: remoteIntermediateTrustProvider,
+			Builder:              intermediateRouteBuilder,
+		},
+	)
+
+	c.cfgReputation.localTrustCtrl = trustcontroller.New(
+		trustcontroller.Prm{
+			LocalTrustSource: trustStorage,
+			LocalTrustTarget: localTrustRouter,
+		},
+	)
 
 	addNewEpochAsyncNotificationHandler(
 		c,
@@ -97,8 +144,8 @@ func initReputationService(c *cfg) {
 					&reputationServer{
 						cfg:          c,
 						log:          c.log,
-						router:       router,
-						routeBuilder: routeBuilder,
+						router:       localTrustRouter,
+						routeBuilder: localRouteBuilder,
 					},
 					c.respSvc,
 				),
@@ -135,10 +182,10 @@ type reputationServer struct {
 }
 
 func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation.SendLocalTrustRequest) (*v2reputation.SendLocalTrustResponse, error) {
-	var passedRoute []reputationrouter.ServerInfo
+	var passedRoute []reputationcommon.ServerInfo
 
 	for hdr := req.GetVerificationHeader(); hdr != nil; hdr = hdr.GetOrigin() {
-		passedRoute = append(passedRoute, &localreputation.OnlyKeyRemoteServerInfo{
+		passedRoute = append(passedRoute, &common.OnlyKeyRemoteServerInfo{
 			Key: hdr.GetBodySignature().GetKey(),
 		})
 	}
@@ -151,7 +198,7 @@ func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation
 
 	body := req.GetBody()
 
-	eCtx := &localreputation.EpochContext{
+	eCtx := &common.EpochContext{
 		Context: ctx,
 		E:       body.GetEpoch(),
 	}
@@ -194,11 +241,11 @@ func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trus
 }
 
 func (s *reputationServer) processTrust(epoch uint64, t reputation.Trust,
-	passedRoute []reputationrouter.ServerInfo, w reputationcommon.Writer) error {
+	passedRoute []reputationcommon.ServerInfo, w reputationcommon.Writer) error {
 	err := reputationrouter.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
 		return errors.Wrap(err, "wrong route of reputation trust value")
 	}
 
-	return w.Write(&localreputation.EpochContext{E: epoch}, t)
+	return w.Write(&common.EpochContext{E: epoch}, t)
 }
