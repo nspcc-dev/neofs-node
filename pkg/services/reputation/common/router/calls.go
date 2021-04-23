@@ -11,11 +11,11 @@ import (
 type routeContext struct {
 	common.Context
 
-	passedRoute []ServerInfo
+	passedRoute []common.ServerInfo
 }
 
 // NewRouteContext wraps the main context of value passing with its traversal route and epoch.
-func NewRouteContext(ctx common.Context, passed []ServerInfo) common.Context {
+func NewRouteContext(ctx common.Context, passed []common.ServerInfo) common.Context {
 	return &routeContext{
 		Context:     ctx,
 		passedRoute: passed,
@@ -54,7 +54,7 @@ func (r *Router) InitWriter(ctx common.Context) (common.Writer, error) {
 	if routeCtx, ok = ctx.(*routeContext); !ok {
 		routeCtx = &routeContext{
 			Context:     ctx,
-			passedRoute: []ServerInfo{r.localSrvInfo},
+			passedRoute: []common.ServerInfo{r.localSrvInfo},
 		}
 	}
 
@@ -73,7 +73,7 @@ func (w *trustWriter) Write(ctx common.Context, t reputation.Trust) error {
 	if err != nil {
 		return err
 	} else if len(route) == 0 {
-		route = []ServerInfo{nil}
+		route = []common.ServerInfo{nil}
 	}
 
 	for _, remoteInfo := range route {

@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 )
 
 // Context wraps stdlib context
@@ -60,5 +59,19 @@ type WriterProvider interface {
 type ManagerBuilder interface {
 	// BuildManagers must compose list of managers. It depends on
 	// particular epoch and PeerID of the current route point.
-	BuildManagers(epoch uint64, p reputation.PeerID) ([]router.ServerInfo, error)
+	BuildManagers(epoch uint64, p reputation.PeerID) ([]ServerInfo, error)
+}
+
+// ServerInfo describes a set of
+// characteristics of a point in a route.
+type ServerInfo interface {
+	// PublicKey returns public key of the node
+	// from the route in a binary representation.
+	PublicKey() []byte
+
+	// Returns network address of the node
+	// in the route.
+	//
+	// Can be empty.
+	Address() string
 }
