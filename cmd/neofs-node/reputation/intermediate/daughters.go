@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
-type DaughterStorage struct {
+type DaughterStorageWriterProvider struct {
 	Log     *logger.Logger
 	Storage *daughters.Storage
 }
@@ -27,7 +27,7 @@ func (w *DaughterTrustWriter) Close() error {
 	return nil
 }
 
-func (s *DaughterStorage) InitWriter(_ reputationcommon.Context) (reputationcommon.Writer, error) {
+func (s *DaughterStorageWriterProvider) InitWriter(_ reputationcommon.Context) (reputationcommon.Writer, error) {
 	return &DaughterTrustWriter{
 		log:     s.Log,
 		storage: s.Storage,
