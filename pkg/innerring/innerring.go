@@ -121,6 +121,7 @@ const (
 
 var (
 	errDepositTimeout = errors.New("notary deposit didn't appeared in the network")
+	errDepositFail    = errors.New("notary tx has faulted")
 )
 
 // Start runs all event providers.
@@ -137,7 +138,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	}
 
 	// make an initial deposit to notary contract to enable it
-	err = s.depositNotary()
+	txHash, err := s.depositNotary()
 	if err != nil {
 		return err
 	}
@@ -145,7 +146,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	// wait a bit for notary contract deposit
 	s.log.Info("waiting to accept notary deposit")
 
-	err = s.awaitNotaryDeposit(ctx)
+	err = s.awaitNotaryDeposit(ctx, txHash)
 	if err != nil {
 		return err
 	}
@@ -804,14 +805,14 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 	}
 }
 
-func (s *Server) depositNotary() error {
+func (s *Server) depositNotary() (util.Uint256, error) {
 	return s.morphClient.DepositNotary(
 		s.notaryDepositAmount,
 		s.notaryDuration+notaryExtraBlocks,
 	)
 }
 
-func (s *Server) awaitNotaryDeposit(ctx context.Context) error {
+func (s *Server) awaitNotaryDeposit(ctx context.Context, txHash util.Uint256) error {
 	for i := 0; i < notaryDepositTimeout; i++ {
 		select {
 		case <-ctx.Done():
@@ -819,16 +820,15 @@ func (s *Server) awaitNotaryDeposit(ctx context.Context) error {
 		default:
 		}
 
-		deposit, err := s.morphClient.GetNotaryDeposit()
-		if err != nil {
-			return errors.Wrap(err, "can't get notary deposit")
+		ok, err := s.morphClient.TxHalt(txHash)
+		if err == nil {
+			if ok {
+				return nil
+			}
+			return errDepositFail
 		}
 
-		if deposit > 0 {
-			return nil
-		}
-
-		s.log.Info("empty notary deposit, waiting one more block")
+		s.log.Info("notary tx is not yet persisted, waiting one more block")
 		s.morphClient.Wait(ctx, 1)
 	}
 

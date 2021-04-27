@@ -11,7 +11,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -210,6 +212,16 @@ func (c *Client) GasBalance() (int64, error) {
 // Committee returns keys of chain committee from neo native contract.
 func (c *Client) Committee() (keys.PublicKeys, error) {
 	return c.client.GetCommittee()
+}
+
+// TxHalt returns true if transaction has been successfully executed and persisted.
+func (c *Client) TxHalt(h util.Uint256) (bool, error) {
+	trig := trigger.Application
+	aer, err := c.client.GetApplicationLog(h, &trig)
+	if err != nil {
+		return false, err
+	}
+	return len(aer.Executions) > 0 && aer.Executions[0].VMState.HasFlag(vm.HaltState), nil
 }
 
 // NeoFSAlphabetList returns keys that stored in NeoFS Alphabet role. Main chain

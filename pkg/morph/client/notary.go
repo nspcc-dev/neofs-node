@@ -96,14 +96,14 @@ func (c *Client) EnableNotarySupport(proxy, netmap util.Uint160, opts ...NotaryO
 //
 // This function must be invoked after `EnableNotarySupport()` otherwise it
 // throws panic.
-func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
+func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (util.Uint256, error) {
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
 	bc, err := c.client.GetBlockCount()
 	if err != nil {
-		return errors.Wrap(err, "can't get blockchain height")
+		return util.Uint256{}, errors.Wrap(err, "can't get blockchain height")
 	}
 
 	txHash, err := c.client.TransferNEP17(
@@ -115,7 +115,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 		[]interface{}{c.acc.PrivateKey().GetScriptHash(), int64(bc + delta)},
 	)
 	if err != nil {
-		return errors.Wrap(err, "can't make notary deposit")
+		return util.Uint256{}, errors.Wrap(err, "can't make notary deposit")
 	}
 
 	c.logger.Debug("notary deposit invoke",
@@ -123,7 +123,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 		zap.Uint32("expire_at", bc+delta),
 		zap.Stringer("tx_hash", txHash.Reverse()))
 
-	return nil
+	return txHash, nil
 }
 
 // GetNotaryDeposit returns deposit of client's account in notary contract.
