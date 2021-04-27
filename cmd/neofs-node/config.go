@@ -109,6 +109,7 @@ const (
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
 
+	cfgReBootstrapRelay    = "bootstrap.relay_only"
 	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
 	cfgReBootstrapInterval = "bootstrap.periodic.interval"
 
@@ -354,6 +355,8 @@ func initCfg(path string) *cfg {
 	netmapWorkerPool, err := initNetmapWorkerPool(viperCfg)
 	fatalOnErr(err)
 
+	relayOnly := viperCfg.GetBool(cfgReBootstrapRelay)
+
 	c := &cfg{
 		ctx:         context.Background(),
 		internalErr: make(chan error),
@@ -377,8 +380,8 @@ func initCfg(path string) *cfg {
 			state:               state,
 			workerPool:          netmapWorkerPool,
 			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
-			reBootstrapEnabled:  viperCfg.GetBool(cfgReBootstrapEnabled),
-			reBoostrapTurnedOff: atomic.NewBool(false),
+			reBootstrapEnabled:  !relayOnly && viperCfg.GetBool(cfgReBootstrapEnabled),
+			reBoostrapTurnedOff: atomic.NewBool(relayOnly),
 			goOfflineEnabled:    viperCfg.GetBool(cfgShutdownOfflineEnabled),
 		},
 		cfgNodeInfo: cfgNodeInfo{
