@@ -47,7 +47,7 @@ type EpochTrustValueStorage struct {
 
 func newTrustValueStorage() *EpochTrustValueStorage {
 	return &EpochTrustValueStorage{
-		mItems: make(map[string]*trustValue, 1),
+		mItems:     make(map[string]*trustValue, 1),
 	}
 }
 

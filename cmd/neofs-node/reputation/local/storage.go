@@ -81,6 +81,7 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 		trust := reputation.Trust{}
 		trust.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 		trust.SetValue(p)
+		trust.SetTrustingPeer(reputation.PeerIDFromBytes(it.storage.LocalKey))
 
 		if err := h(trust); err != nil {
 			return err
