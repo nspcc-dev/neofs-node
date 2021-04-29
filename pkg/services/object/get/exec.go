@@ -41,6 +41,12 @@ type execCtx struct {
 	head bool
 
 	curProcEpoch uint64
+
+	// true when the processing of the initial request
+	// is turned to assembling stage. When false,
+	// initial request can be forwarded during network
+	// communication.
+	assembling bool
 }
 
 type execOption func(*execCtx)

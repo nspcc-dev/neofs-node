@@ -12,6 +12,8 @@ func (exec *execCtx) assemble() {
 		return
 	}
 
+	exec.assembling = true
+
 	exec.log.Debug("trying to assemble the object...")
 
 	splitInfo := exec.splitInfo()
