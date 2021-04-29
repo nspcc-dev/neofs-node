@@ -15,17 +15,16 @@ type CalculatePrm struct {
 	ei eigentrust.EpochIteration
 }
 
+func (p *CalculatePrm) SetLast(last bool) {
+	p.last = last
+}
+
 func (p *CalculatePrm) SetEpochIteration(ei eigentrust.EpochIteration) {
 	p.ei = ei
 }
 
-type iterContext struct {
-	context.Context
-	eigentrust.EpochIteration
-}
-
 func (c *Calculator) Calculate(prm CalculatePrm) {
-	ctx := iterContext{
+	ctx := eigentrust.IterContext{
 		Context:        context.Background(),
 		EpochIteration: prm.ei,
 	}
@@ -139,7 +138,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	var intermediateTrust eigentrust.IterationTrust
 
 	intermediateTrust.SetEpoch(p.ctx.Epoch())
-	intermediateTrust.SetTrustingPeer(p.id)
+	intermediateTrust.SetPeer(p.id)
 	intermediateTrust.SetI(p.ctx.I())
 
 	if p.lastIter {
@@ -163,7 +162,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 			return
 		}
 	} else {
-		intermediateWriter, err := c.prm.IntermediateValueTarget.InitIntermediateWriter(p.ctx)
+		intermediateWriter, err := c.prm.IntermediateValueTarget.InitWriter(p.ctx)
 		if err != nil {
 			c.opts.log.Debug("init intermediate writer failure",
 				zap.String("error", err.Error()),
@@ -184,10 +183,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 
 			trust.SetValue(val)
 
-			intermediateTrust.SetPeer(trust.Peer())
-			intermediateTrust.SetValue(val)
-
-			err := intermediateWriter.WriteIntermediateTrust(intermediateTrust)
+			err := intermediateWriter.Write(p.ctx, trust)
 			if err != nil {
 				c.opts.log.Debug("write intermediate value failure",
 					zap.String("error", err.Error()),
@@ -198,6 +194,14 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		})
 		if err != nil {
 			c.opts.log.Debug("iterate daughter trusts failure",
+				zap.String("error", err.Error()),
+			)
+		}
+
+		err = intermediateWriter.Close()
+		if err != nil {
+			c.opts.log.Error(
+				"could not close intermediate writer",
 				zap.String("error", err.Error()),
 			)
 		}
@@ -214,7 +218,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 		return
 	}
 
-	intermediateWriter, err := c.prm.IntermediateValueTarget.InitIntermediateWriter(ctx)
+	intermediateWriter, err := c.prm.IntermediateValueTarget.InitWriter(ctx)
 	if err != nil {
 		c.opts.log.Debug("init intermediate writer failure",
 			zap.String("error", err.Error()),
@@ -223,14 +227,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 		return
 	}
 
-	var intermediateTrust eigentrust.IterationTrust
-
-	intermediateTrust.SetEpoch(ctx.Epoch())
-	intermediateTrust.SetI(ctx.I())
-
 	err = daughterIter.Iterate(func(daughter reputation.PeerID, iterator TrustIterator) error {
-		intermediateTrust.SetTrustingPeer(daughter)
-
 		return iterator.Iterate(func(trust reputation.Trust) error {
 			trusted := trust.Peer()
 
@@ -245,12 +242,10 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 				return nil
 			}
 
-			intermediateTrust.SetPeer(trusted)
-
 			initTrust.Mul(trust.Value())
-			intermediateTrust.SetValue(initTrust)
+			trust.SetValue(initTrust)
 
-			err = intermediateWriter.WriteIntermediateTrust(intermediateTrust)
+			err = intermediateWriter.Write(ctx, trust)
 			if err != nil {
 				c.opts.log.Debug("write intermediate value failure",
 					zap.String("error", err.Error()),
@@ -264,6 +259,13 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 	})
 	if err != nil {
 		c.opts.log.Debug("iterate over all daughters failure",
+			zap.String("error", err.Error()),
+		)
+	}
+
+	err = intermediateWriter.Close()
+	if err != nil {
+		c.opts.log.Debug("could not close intermediate writer",
 			zap.String("error", err.Error()),
 		)
 	}

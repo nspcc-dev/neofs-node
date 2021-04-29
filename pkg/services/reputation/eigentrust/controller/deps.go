@@ -33,3 +33,9 @@ type DaughtersTrustCalculator interface {
 	// Execution should be interrupted if ctx.Last().
 	Calculate(ctx IterationContext)
 }
+
+// IterationsProvider must provides information about numbers
+// of iterations for algorithm.
+type IterationsProvider interface {
+	EigenTrustIterations() (uint64, error)
+}
