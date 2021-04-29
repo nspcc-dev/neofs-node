@@ -3,6 +3,7 @@ package netmap
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -64,6 +65,9 @@ type (
 		handleAlphabetSync     event.Handler
 
 		nodeValidator NodeValidator
+
+		notaryDisabled bool
+		feeProvider    *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
@@ -84,6 +88,9 @@ type (
 		AlphabetSyncHandler     event.Handler
 
 		NodeValidator NodeValidator
+
+		NotaryDisabled bool
+		FeeProvider    *config.FeeConfig
 	}
 )
 
@@ -116,6 +123,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: container contract wrapper is not set")
 	case p.NodeValidator == nil:
 		return nil, errors.New("ir/netmap: node validator is not set")
+	case p.FeeProvider == nil:
+		return nil, errors.New("ir/netmap: fee provider is not set")
 	}
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
@@ -142,6 +151,9 @@ func New(p *Params) (*Processor, error) {
 		handleAlphabetSync: p.AlphabetSyncHandler,
 
 		nodeValidator: p.NodeValidator,
+
+		notaryDisabled: p.NotaryDisabled,
+		feeProvider:    p.FeeProvider,
 	}, nil
 }
 

@@ -2,6 +2,7 @@ package container
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -23,6 +24,7 @@ type (
 		containerContract util.Uint160
 		morphClient       *client.Client
 		alphabetState     AlphabetState
+		feeProvider       *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
@@ -32,6 +34,7 @@ type (
 		ContainerContract util.Uint160
 		MorphClient       *client.Client
 		AlphabetState     AlphabetState
+		FeeProvider       *config.FeeConfig
 	}
 )
 
@@ -49,6 +52,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: neo:morph client is not set")
 	case p.AlphabetState == nil:
 		return nil, errors.New("ir/container: global state is not set")
+	case p.FeeProvider == nil:
+		return nil, errors.New("ir/container: fee provider is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -64,6 +69,7 @@ func New(p *Params) (*Processor, error) {
 		containerContract: p.ContainerContract,
 		morphClient:       p.MorphClient,
 		alphabetState:     p.AlphabetState,
+		feeProvider:       p.FeeProvider,
 	}, nil
 }
 

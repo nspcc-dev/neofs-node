@@ -14,7 +14,7 @@ func (bp *Processor) processLock(lock *balanceEvent.Lock) {
 		return
 	}
 
-	err := invoke.CashOutCheque(bp.mainnetClient, bp.neofsContract,
+	err := invoke.CashOutCheque(bp.mainnetClient, bp.neofsContract, bp.feeProvider,
 		&invoke.ChequeParams{
 			ID:          lock.ID(),
 			Amount:      bp.converter.ToFixed8(lock.Amount()),

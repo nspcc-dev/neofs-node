@@ -26,6 +26,8 @@ type (
 		log  *zap.Logger
 		pool *ants.Pool
 
+		notaryDisabled bool
+
 		reputationContract util.Uint160
 
 		epochState    EpochState
@@ -38,6 +40,7 @@ type (
 	Params struct {
 		Log                *zap.Logger
 		PoolSize           int
+		NotaryDisabled     bool
 		ReputationContract util.Uint160
 		EpochState         EpochState
 		AlphabetState      AlphabetState
@@ -72,6 +75,7 @@ func New(p *Params) (*Processor, error) {
 	return &Processor{
 		log:                p.Log,
 		pool:               pool,
+		notaryDisabled:     p.NotaryDisabled,
 		reputationContract: p.ReputationContract,
 		epochState:         p.EpochState,
 		alphabetState:      p.AlphabetState,

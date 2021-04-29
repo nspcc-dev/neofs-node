@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -66,6 +67,7 @@ type (
 		AuditContract     util.Uint160
 		MorphClient       *client.Client
 		IRList            Indexer
+		FeeProvider       *config.FeeConfig
 		ClientCache       NeoFSClientCache
 		RPCSearchTimeout  time.Duration
 		TaskManager       TaskManager
@@ -94,6 +96,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/audit: neo:morph client is not set")
 	case p.IRList == nil:
 		return nil, errors.New("ir/audit: global state is not set")
+	case p.FeeProvider == nil:
+		return nil, errors.New("ir/audit: fee provider is not set")
 	case p.ClientCache == nil:
 		return nil, errors.New("ir/audit: neofs RPC client cache is not set")
 	case p.TaskManager == nil:
@@ -110,13 +114,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	// creating enhanced client for getting network map
-	netmapClient, err := invoke.NewNetmapClient(p.MorphClient, p.NetmapContract)
+	netmapClient, err := invoke.NewNetmapClient(p.MorphClient, p.NetmapContract, p.FeeProvider)
 	if err != nil {
 		return nil, err
 	}
 
 	// creating enhanced client for getting containers
-	containerClient, err := invoke.NewContainerClient(p.MorphClient, p.ContainerContract)
+	containerClient, err := invoke.NewContainerClient(p.MorphClient, p.ContainerContract, p.FeeProvider)
 	if err != nil {
 		return nil, err
 	}

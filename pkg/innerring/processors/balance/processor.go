@@ -2,6 +2,7 @@ package balance
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
@@ -30,6 +31,7 @@ type (
 		mainnetClient   *client.Client
 		alphabetState   AlphabetState
 		converter       PrecisionConverter
+		feeProvider     *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
@@ -41,6 +43,7 @@ type (
 		MainnetClient   *client.Client
 		AlphabetState   AlphabetState
 		Converter       PrecisionConverter
+		FeeProvider     *config.FeeConfig
 	}
 )
 
@@ -59,6 +62,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/balance: global state is not set")
 	case p.Converter == nil:
 		return nil, errors.New("ir/balance: balance precision converter is not set")
+	case p.FeeProvider == nil:
+		return nil, errors.New("ir/balance: fee provider is not set")
 	}
 
 	p.Log.Debug("balance worker pool", zap.Int("size", p.PoolSize))
@@ -76,6 +81,7 @@ func New(p *Params) (*Processor, error) {
 		mainnetClient:   p.MainnetClient,
 		alphabetState:   p.AlphabetState,
 		converter:       p.Converter,
+		feeProvider:     p.FeeProvider,
 	}, nil
 }
 
