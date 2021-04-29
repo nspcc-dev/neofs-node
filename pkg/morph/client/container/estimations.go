@@ -21,6 +21,13 @@ func (e *StopEstimation) SetEpoch(v int64) {
 }
 
 func (c *Client) StartEstimation(args StartEstimation) error {
+	return errors.Wrapf(c.client.Invoke(
+		c.startEstimation,
+		args.epoch,
+	), "could not invoke method (%s)", c.startEstimation)
+}
+
+func (c *Client) StartEstimationNotary(args StartEstimation) error {
 	return errors.Wrapf(c.client.NotaryInvoke(
 		c.startEstimation,
 		args.epoch,
@@ -28,6 +35,13 @@ func (c *Client) StartEstimation(args StartEstimation) error {
 }
 
 func (c *Client) StopEstimation(args StopEstimation) error {
+	return errors.Wrapf(c.client.Invoke(
+		c.stopEstimation,
+		args.epoch,
+	), "could not invoke method (%s)", c.stopEstimation)
+}
+
+func (c *Client) StopEstimationNotary(args StopEstimation) error {
 	return errors.Wrapf(c.client.NotaryInvoke(
 		c.stopEstimation,
 		args.epoch,
