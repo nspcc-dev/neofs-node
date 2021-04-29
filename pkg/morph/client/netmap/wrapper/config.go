@@ -81,7 +81,7 @@ func (w *Wrapper) EigenTrustIterations() (uint64, error) {
 	return iterations, nil
 }
 
-// InnerRingCandidateFee returns global configuration value of fee payed by
+// InnerRingCandidateFee returns global configuration value of fee paid by
 // node to be in inner ring candidates list.
 func (w *Wrapper) InnerRingCandidateFee() (uint64, error) {
 	fee, err := w.readUInt64Config(irCandidateFeeConfig)
@@ -92,7 +92,7 @@ func (w *Wrapper) InnerRingCandidateFee() (uint64, error) {
 	return fee, nil
 }
 
-// WithdrawFee returns global configuration value of fee payed by user to
+// WithdrawFee returns global configuration value of fee paid by user to
 // withdraw assets from NeoFS contract.
 func (w *Wrapper) WithdrawFee() (uint64, error) {
 	fee, err := w.readUInt64Config(withdrawFeeConfig)
