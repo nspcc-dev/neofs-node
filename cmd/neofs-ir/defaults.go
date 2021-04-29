@@ -49,6 +49,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("metrics.shutdown_ttl", "30s")
 
 	cfg.SetDefault("without_mainnet", false)
+	cfg.SetDefault("without_notary", false)
 
 	cfg.SetDefault("morph.endpoint.client", "")
 	cfg.SetDefault("morph.endpoint.notification", "")
@@ -58,7 +59,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("mainnet.endpoint.client", "")
 	cfg.SetDefault("mainnet.endpoint.notification", "")
 	cfg.SetDefault("mainnet.dial_timeout", "10s")
-	cfg.SetDefault("mainnet.notary_deposit", true)
 
 	cfg.SetDefault("key", "") // inner ring node key
 

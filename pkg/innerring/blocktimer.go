@@ -26,6 +26,8 @@ type (
 	epochTimerArgs struct {
 		l *zap.Logger
 
+		notaryDisabled bool
+
 		nm *netmap.Processor // to handle new epoch tick
 
 		cnrWrapper *container.Wrapper // to invoke stop container estimation
@@ -93,7 +95,14 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 				return
 			}
 
-			err := args.cnrWrapper.StopEstimationNotary(epochN - 1)
+			var err error
+
+			if args.notaryDisabled {
+				err = args.cnrWrapper.StopEstimation(epochN - 1)
+			} else {
+				err = args.cnrWrapper.StopEstimationNotary(epochN - 1)
+			}
+
 			if err != nil {
 				args.l.Warn("can't stop epoch estimation",
 					zap.Uint64("epoch", epochN),
