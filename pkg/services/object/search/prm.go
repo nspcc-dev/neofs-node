@@ -13,6 +13,8 @@ type Prm struct {
 	common *util.CommonPrm
 
 	client.SearchObjectParams
+
+	forwarder RequestForwarder
 }
 
 // IDListWriter is an interface of target component
@@ -20,6 +22,10 @@ type Prm struct {
 type IDListWriter interface {
 	WriteIDs([]*objectSDK.ID) error
 }
+
+// RequestForwarder is a callback for forwarding of the
+// original Search requests.
+type RequestForwarder func(client.Client) ([]*objectSDK.ID, error)
 
 // SetCommonParameters sets common parameters of the operation.
 func (p *Prm) SetCommonParameters(common *util.CommonPrm) {
@@ -29,4 +35,10 @@ func (p *Prm) SetCommonParameters(common *util.CommonPrm) {
 // SetWriter sets target component to write list of object identifiers.
 func (p *Prm) SetWriter(w IDListWriter) {
 	p.writer = w
+}
+
+// SetRequestForwarder sets callback for forwarding
+// of the original request.
+func (p *Prm) SetRequestForwarder(f RequestForwarder) {
+	p.forwarder = f
 }
