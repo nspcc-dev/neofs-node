@@ -31,9 +31,18 @@ const (
 )
 
 // CashOutCheque invokes Cheque method.
-func CashOutCheque(cli *client.Client, con util.Uint160, p *ChequeParams) error {
+func CashOutCheque(cli *client.Client, con util.Uint160, fee MainFeeProvider, p *ChequeParams) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.MainChainFee(), chequeMethod,
+			p.ID,
+			p.User.BytesBE(),
+			p.Amount,
+			p.LockAccount.BytesBE(),
+		)
 	}
 
 	return cli.NotaryInvoke(con, chequeMethod,
@@ -45,9 +54,13 @@ func CashOutCheque(cli *client.Client, con util.Uint160, p *ChequeParams) error 
 }
 
 // AlphabetUpdate invokes alphabetUpdate method.
-func AlphabetUpdate(cli *client.Client, con util.Uint160, id []byte, list keys.PublicKeys) error {
+func AlphabetUpdate(cli *client.Client, con util.Uint160, fee MainFeeProvider, id []byte, list keys.PublicKeys) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.MainChainFee(), alphabetUpdateMethod, id, list)
 	}
 
 	return cli.NotaryInvoke(con, alphabetUpdateMethod, id, list)

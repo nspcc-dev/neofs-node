@@ -28,6 +28,7 @@ const (
 	approvePeerMethod       = "addPeer"
 	updatePeerStateMethod   = "updateState"
 	setConfigMethod         = "setConfig"
+	setInnerRingMethod      = "updateInnerRing"
 	getNetmapSnapshotMethod = "netmap"
 )
 
@@ -51,27 +52,42 @@ func Epoch(cli *client.Client, con util.Uint160) (int64, error) {
 }
 
 // SetNewEpoch invokes newEpoch method.
-func SetNewEpoch(cli *client.Client, con util.Uint160, epoch uint64) error {
+func SetNewEpoch(cli *client.Client, con util.Uint160, fee SideFeeProvider, epoch uint64) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), setNewEpochMethod, int64(epoch))
 	}
 
 	return cli.NotaryInvoke(con, setNewEpochMethod, int64(epoch))
 }
 
 // ApprovePeer invokes addPeer method.
-func ApprovePeer(cli *client.Client, con util.Uint160, peer []byte) error {
+func ApprovePeer(cli *client.Client, con util.Uint160, fee SideFeeProvider, peer []byte) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), approvePeerMethod, peer)
 	}
 
 	return cli.NotaryInvoke(con, approvePeerMethod, peer)
 }
 
 // UpdatePeerState invokes addPeer method.
-func UpdatePeerState(cli *client.Client, con util.Uint160, args *UpdatePeerArgs) error {
+func UpdatePeerState(cli *client.Client, con util.Uint160, fee SideFeeProvider, args *UpdatePeerArgs) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), updatePeerStateMethod,
+			int64(args.Status.ToV2()),
+			args.Key.Bytes(),
+		)
 	}
 
 	return cli.NotaryInvoke(con, updatePeerStateMethod,
@@ -81,9 +97,17 @@ func UpdatePeerState(cli *client.Client, con util.Uint160, args *UpdatePeerArgs)
 }
 
 // SetConfig invokes setConfig method.
-func SetConfig(cli *client.Client, con util.Uint160, args *SetConfigArgs) error {
+func SetConfig(cli *client.Client, con util.Uint160, fee SideFeeProvider, args *SetConfigArgs) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), setConfigMethod,
+			args.ID,
+			args.Key,
+			args.Value,
+		)
 	}
 
 	return cli.NotaryInvoke(con, setConfigMethod,
@@ -91,6 +115,20 @@ func SetConfig(cli *client.Client, con util.Uint160, args *SetConfigArgs) error 
 		args.Key,
 		args.Value,
 	)
+}
+
+// SetInnerRing invokes update inner ring method. This should be used only
+// without notary support.
+func SetInnerRing(cli *client.Client, con util.Uint160, fee SideFeeProvider, list keys.PublicKeys) error {
+	if cli == nil {
+		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), setInnerRingMethod, list)
+	}
+
+	return cli.NotaryInvoke(con, setInnerRingMethod, list)
 }
 
 // NetmapSnapshot returns current netmap node infos.

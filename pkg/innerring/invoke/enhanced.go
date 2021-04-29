@@ -19,8 +19,8 @@ import (
 )
 
 // NewContainerClient creates wrapper to access data from container contract.
-func NewContainerClient(cli *client.Client, contract util.Uint160) (*wrapContainer.Wrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, extraFee)
+func NewContainerClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*wrapContainer.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
 		return nil, fmt.Errorf("can't create container static client: %w", err)
 	}
@@ -34,8 +34,8 @@ func NewContainerClient(cli *client.Client, contract util.Uint160) (*wrapContain
 }
 
 // NewNetmapClient creates wrapper to access data from netmap contract.
-func NewNetmapClient(cli *client.Client, contract util.Uint160) (*wrapNetmap.Wrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, extraFee)
+func NewNetmapClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*wrapNetmap.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
 		return nil, fmt.Errorf("can't create netmap static client: %w", err)
 	}
@@ -49,8 +49,8 @@ func NewNetmapClient(cli *client.Client, contract util.Uint160) (*wrapNetmap.Wra
 }
 
 // NewAuditClient creates wrapper to work with Audit contract.
-func NewAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapper.ClientWrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, extraFee)
+func NewAuditClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*auditWrapper.ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +59,8 @@ func NewAuditClient(cli *client.Client, contract util.Uint160) (*auditWrapper.Cl
 }
 
 // NewBalanceClient creates wrapper to work with Balance contract.
-func NewBalanceClient(cli *client.Client, contract util.Uint160) (*balanceWrapper.Wrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, extraFee)
+func NewBalanceClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*balanceWrapper.Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create static client of Balance contract")
 	}
@@ -74,8 +74,8 @@ func NewBalanceClient(cli *client.Client, contract util.Uint160) (*balanceWrappe
 }
 
 // NewReputationClient creates wrapper to work with reputation contract.
-func NewReputationClient(cli *client.Client, contract util.Uint160) (*reputationWrapper.ClientWrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, 0)
+func NewReputationClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*reputationWrapper.ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create static client of reputation contract")
 	}

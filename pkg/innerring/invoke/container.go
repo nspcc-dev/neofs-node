@@ -14,7 +14,7 @@ type (
 		Signature []byte
 	}
 
-	// ContainerParams for container put invocation.
+	// RemoveContainerParams for container delete invocation.
 	RemoveContainerParams struct {
 		ContainerID []byte
 		Signature   []byte
@@ -27,9 +27,17 @@ const (
 )
 
 // RegisterContainer invokes Put method.
-func RegisterContainer(cli *client.Client, con util.Uint160, p *ContainerParams) error {
+func RegisterContainer(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *ContainerParams) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), putContainerMethod,
+			p.Container,
+			p.Signature,
+			p.Key.Bytes(),
+		)
 	}
 
 	return cli.NotaryInvoke(con, putContainerMethod,
@@ -39,10 +47,17 @@ func RegisterContainer(cli *client.Client, con util.Uint160, p *ContainerParams)
 	)
 }
 
-// RegisterContainer invokes Delete method.
-func RemoveContainer(cli *client.Client, con util.Uint160, p *RemoveContainerParams) error {
+// RemoveContainer invokes Delete method.
+func RemoveContainer(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *RemoveContainerParams) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), deleteContainerMethod,
+			p.ContainerID,
+			p.Signature,
+		)
 	}
 
 	return cli.NotaryInvoke(con, deleteContainerMethod,
