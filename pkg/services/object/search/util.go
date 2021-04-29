@@ -76,9 +76,7 @@ func (c *clientConstructorWrapper) get(addr string) (searchClient, error) {
 }
 
 func (c *clientWrapper) searchObjects(exec *execCtx) ([]*objectSDK.ID, error) {
-	return c.client.SearchObject(exec.context(),
-		exec.remotePrm(),
-		exec.callOptions()...)
+	return exec.prm.forwarder(c.client)
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]*objectSDK.ID, error) {
