@@ -3,6 +3,7 @@ package governance
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/panjf2000/ants/v2"
@@ -33,9 +34,10 @@ type (
 
 	// Processor of events related to governance in the network.
 	Processor struct {
-		log           *zap.Logger
-		pool          *ants.Pool
-		neofsContract util.Uint160
+		log            *zap.Logger
+		pool           *ants.Pool
+		neofsContract  util.Uint160
+		netmapContract util.Uint160
 
 		alphabetState AlphabetState
 		epochState    EpochState
@@ -43,12 +45,16 @@ type (
 
 		mainnetClient *client.Client
 		morphClient   *client.Client
+
+		notaryDisabled bool
+		feeProvider    *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log           *zap.Logger
-		NeoFSContract util.Uint160
+		Log            *zap.Logger
+		NeoFSContract  util.Uint160
+		NetmapContract util.Uint160
 
 		AlphabetState AlphabetState
 		EpochState    EpochState
@@ -56,6 +62,9 @@ type (
 
 		MorphClient   *client.Client
 		MainnetClient *client.Client
+
+		NotaryDisabled bool
+		FeeProvider    *config.FeeConfig
 	}
 )
 
@@ -74,6 +83,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/governance: global state is not set")
 	case p.Voter == nil:
 		return nil, errors.New("ir/governance: global state is not set")
+	case p.FeeProvider == nil:
+		return nil, errors.New("ir/governance: fee provider is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -82,14 +93,17 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:           p.Log,
-		pool:          pool,
-		neofsContract: p.NeoFSContract,
-		alphabetState: p.AlphabetState,
-		epochState:    p.EpochState,
-		voter:         p.Voter,
-		mainnetClient: p.MainnetClient,
-		morphClient:   p.MorphClient,
+		log:            p.Log,
+		pool:           pool,
+		neofsContract:  p.NeoFSContract,
+		netmapContract: p.NetmapContract,
+		alphabetState:  p.AlphabetState,
+		epochState:     p.EpochState,
+		voter:          p.Voter,
+		mainnetClient:  p.MainnetClient,
+		morphClient:    p.MorphClient,
+		notaryDisabled: p.NotaryDisabled,
+		feeProvider:    p.FeeProvider,
 	}, nil
 }
 

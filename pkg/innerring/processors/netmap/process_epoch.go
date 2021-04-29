@@ -27,7 +27,12 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 	}
 
 	if epoch > 0 { // estimates are invalid in genesis epoch
-		err = np.containerWrp.StartEstimationNotary(epoch - 1)
+		if np.notaryDisabled {
+			err = np.containerWrp.StartEstimation(epoch - 1)
+		} else {
+			err = np.containerWrp.StartEstimationNotary(epoch - 1)
+		}
+
 		if err != nil {
 			np.log.Warn("can't start container size estimation",
 				zap.Uint64("epoch", epoch),
@@ -52,7 +57,7 @@ func (np *Processor) processNewEpochTick() {
 	nextEpoch := np.epochState.EpochCounter() + 1
 	np.log.Debug("next epoch", zap.Uint64("value", nextEpoch))
 
-	err := invoke.SetNewEpoch(np.morphClient, np.netmapContract, nextEpoch)
+	err := invoke.SetNewEpoch(np.morphClient, np.netmapContract, np.feeProvider, nextEpoch)
 	if err != nil {
 		np.log.Error("can't invoke netmap.NewEpoch", zap.Error(err))
 	}

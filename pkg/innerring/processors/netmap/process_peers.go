@@ -66,7 +66,8 @@ func (np *Processor) processAddPeer(node []byte) {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
-		if err := invoke.ApprovePeer(np.morphClient, np.netmapContract, node); err != nil {
+		err := invoke.ApprovePeer(np.morphClient, np.netmapContract, np.feeProvider, node)
+		if err != nil {
 			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
 		}
 	}
@@ -92,7 +93,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	// again before new epoch will tick
 	np.netmapSnapshot.flag(hex.EncodeToString(ev.PublicKey().Bytes()))
 
-	err := invoke.UpdatePeerState(np.morphClient, np.netmapContract,
+	err := invoke.UpdatePeerState(np.morphClient, np.netmapContract, np.feeProvider,
 		&invoke.UpdatePeerArgs{
 			Key:    ev.PublicKey(),
 			Status: ev.Status(),

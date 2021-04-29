@@ -21,7 +21,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	}
 
 	// send transferX to balance contract
-	err := invoke.Mint(np.morphClient, np.balanceContract,
+	err := invoke.Mint(np.morphClient, np.balanceContract, np.feeProvider,
 		&invoke.MintBurnParams{
 			ScriptHash: deposit.To().BytesBE(),
 			Amount:     np.converter.ToBalancePrecision(deposit.Amount()),
@@ -94,7 +94,7 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 
 	curEpoch := np.epochState.EpochCounter()
 
-	err = invoke.LockAsset(np.morphClient, np.balanceContract,
+	err = invoke.LockAsset(np.morphClient, np.balanceContract, np.feeProvider,
 		&invoke.LockParams{
 			ID:          withdraw.ID(),
 			User:        withdraw.User(),
@@ -115,7 +115,7 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		return
 	}
 
-	err := invoke.Burn(np.morphClient, np.balanceContract,
+	err := invoke.Burn(np.morphClient, np.balanceContract, np.feeProvider,
 		&invoke.MintBurnParams{
 			ScriptHash: cheque.LockAccount().BytesBE(),
 			Amount:     np.converter.ToBalancePrecision(cheque.Amount()),

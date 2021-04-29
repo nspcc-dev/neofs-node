@@ -25,10 +25,11 @@ func (np *Processor) processNetmapCleanupTick(epoch uint64) {
 
 		np.log.Info("vote to remove node from netmap", zap.String("key", s))
 
-		err = invoke.UpdatePeerState(np.morphClient, np.netmapContract, &invoke.UpdatePeerArgs{
-			Key:    key,
-			Status: netmap.NodeStateOffline,
-		})
+		err = invoke.UpdatePeerState(np.morphClient, np.netmapContract, np.feeProvider,
+			&invoke.UpdatePeerArgs{
+				Key:    key,
+				Status: netmap.NodeStateOffline,
+			})
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
 		}

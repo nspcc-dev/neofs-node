@@ -37,7 +37,7 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 		return
 	}
 
-	err := invoke.RegisterContainer(cp.morphClient, cp.containerContract,
+	err := invoke.RegisterContainer(cp.morphClient, cp.containerContract, cp.feeProvider,
 		&invoke.ContainerParams{
 			Key:       put.PublicKey(),
 			Container: cnrData,
@@ -56,7 +56,7 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 		return
 	}
 
-	err := invoke.RemoveContainer(cp.morphClient, cp.containerContract,
+	err := invoke.RemoveContainer(cp.morphClient, cp.containerContract, cp.feeProvider,
 		&invoke.RemoveContainerParams{
 			ContainerID: delete.ContainerID(),
 			Signature:   delete.Signature(),
