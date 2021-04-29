@@ -27,7 +27,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -101,6 +101,7 @@ const (
 	cfgContainerWorkerPoolSize    = "container.async_worker.size"
 
 	// config keys for cfgReputation
+	cfgReputationContract          = "reputation.scripthash"
 	cfgReputationAlpha             = "reputation.alpha"
 	cfgReputationWorkerPoolEnabled = "reputation.async_worker.enabled"
 	cfgReputationWorkerPoolSize    = "reputation.async_worker.size"
@@ -297,7 +298,7 @@ type cfgObject struct {
 
 	cnrStorage container.Source
 
-	cnrClient *wrapper.Wrapper
+	cnrClient *cntwrapper.Wrapper
 
 	pool cfgObjectRoutines
 
@@ -327,6 +328,8 @@ type cfgReputation struct {
 	localTrustStorage *truststorage.Storage
 
 	localTrustCtrl *trustcontroller.Controller
+
+	scriptHash util.Uint160
 }
 
 const (
@@ -351,6 +354,10 @@ func initCfg(path string) *cfg {
 
 	u160Container, err := util.Uint160DecodeStringLE(
 		viperCfg.GetString(cfgContainerContract))
+	fatalOnErr(err)
+
+	u160Reputation, err := util.Uint160DecodeStringLE(
+		viperCfg.GetString(cfgReputationContract))
 	fatalOnErr(err)
 
 	log, err := logger.NewLogger(viperCfg)
@@ -422,6 +429,7 @@ func initCfg(path string) *cfg {
 		netStatus:    atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 		cfgReputation: cfgReputation{
+			scriptHash: u160Reputation,
 			alpha:      viper.GetFloat64(cfgReputationAlpha),
 			workerPool: reputationWorkerPool,
 		},
