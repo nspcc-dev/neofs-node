@@ -59,3 +59,9 @@ type IntermediateWriter interface {
 type IntermediateWriterProvider interface {
 	InitIntermediateWriter(Context) (IntermediateWriter, error)
 }
+
+// AlphaProvider must provide information about required
+// alpha parameter for eigen trust algorithm.
+type AlphaProvider interface {
+	EigenTrustAlpha() (float64, error)
+}

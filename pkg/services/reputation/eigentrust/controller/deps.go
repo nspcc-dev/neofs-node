@@ -34,7 +34,7 @@ type DaughtersTrustCalculator interface {
 	Calculate(ctx IterationContext)
 }
 
-// IterationsProvider must provides information about numbers
+// IterationsProvider must provide information about numbers
 // of iterations for algorithm.
 type IterationsProvider interface {
 	EigenTrustIterations() (uint64, error)

@@ -18,7 +18,7 @@ type Prm struct {
 	// http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Ch.5.1.
 	//
 	// Must be in range (0, 1).
-	Alpha float64
+	AlphaProvider AlphaProvider
 
 	// Source of initial node trust values
 	//
@@ -63,8 +63,8 @@ func panicOnPrmValue(n string, v interface{}) {
 // initialization and is completely ready for work.
 func New(prm Prm, opts ...Option) *Calculator {
 	switch {
-	case prm.Alpha <= 0 || prm.Alpha >= 1:
-		panicOnPrmValue("Alpha", prm.Alpha)
+	case prm.AlphaProvider == nil:
+		panicOnPrmValue("AlphaProvider", prm.AlphaProvider)
 	case prm.InitialTrustSource == nil:
 		panicOnPrmValue("InitialTrustSource", prm.InitialTrustSource)
 	case prm.DaughterTrustSource == nil:
@@ -84,9 +84,7 @@ func New(prm Prm, opts ...Option) *Calculator {
 	}
 
 	return &Calculator{
-		alpha: reputation.TrustValueFromFloat64(prm.Alpha),
-		beta:  reputation.TrustValueFromFloat64(1 - prm.Alpha),
-		prm:   prm,
-		opts:  o,
+		prm:  prm,
+		opts: o,
 	}
 }
