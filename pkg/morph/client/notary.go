@@ -89,6 +89,12 @@ func (c *Client) EnableNotarySupport(proxy util.Uint160, opts ...NotaryOption) e
 	return nil
 }
 
+// NotaryEnabled returns true if notary support was enabled in this instance
+// of client by calling `EnableNotarySupport()`. Otherwise returns false.
+func (c *Client) NotaryEnabled() bool {
+	return c.notary != nil
+}
+
 // DepositNotary calls notary deposit method. Deposit is required to operate
 // with notary contract. It used by notary contract in to produce fallback tx
 // if main tx failed to create. Deposit isn't last forever, so it should
