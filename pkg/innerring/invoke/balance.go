@@ -32,9 +32,17 @@ const (
 )
 
 // Mint assets in contract.
-func Mint(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
+func Mint(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *MintBurnParams) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), mintMethod,
+			p.ScriptHash,
+			p.Amount,
+			p.Comment,
+		)
 	}
 
 	return cli.NotaryInvoke(con, mintMethod,
@@ -45,9 +53,17 @@ func Mint(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
 }
 
 // Burn minted assets.
-func Burn(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
+func Burn(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *MintBurnParams) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), burnMethod,
+			p.ScriptHash,
+			p.Amount,
+			p.Comment,
+		)
 	}
 
 	return cli.NotaryInvoke(con, burnMethod,
@@ -58,9 +74,19 @@ func Burn(cli *client.Client, con util.Uint160, p *MintBurnParams) error {
 }
 
 // LockAsset invokes Lock method.
-func LockAsset(cli *client.Client, con util.Uint160, p *LockParams) error {
+func LockAsset(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *LockParams) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), lockMethod,
+			p.ID,
+			p.User.BytesBE(),
+			p.LockAccount.BytesBE(),
+			p.Amount,
+			int64(p.Until),
+		)
 	}
 
 	return cli.NotaryInvoke(con, lockMethod,

@@ -22,9 +22,13 @@ func AlphabetEmit(cli *client.Client, con util.Uint160) error {
 }
 
 // AlphabetVote invokes vote method on alphabet contract.
-func AlphabetVote(cli *client.Client, con util.Uint160, epoch uint64, keys keys.PublicKeys) error {
+func AlphabetVote(cli *client.Client, con util.Uint160, fee SideFeeProvider, epoch uint64, keys keys.PublicKeys) error {
 	if cli == nil {
 		return client.ErrNilClient
+	}
+
+	if !cli.NotaryEnabled() {
+		return cli.Invoke(con, fee.SideChainFee(), voteMethod, int64(epoch), keys)
 	}
 
 	return cli.NotaryInvoke(con, voteMethod, int64(epoch), keys)
