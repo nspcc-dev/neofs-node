@@ -96,7 +96,7 @@ func (s *Service) Head(ctx context.Context, req *objectV2.HeadRequest) (*objectV
 	resp := new(objectV2.HeadResponse)
 	resp.SetBody(new(objectV2.HeadResponseBody))
 
-	p, err := s.toHeadPrm(req, resp)
+	p, err := s.toHeadPrm(ctx, req, resp)
 	if err != nil {
 		return nil, err
 	}

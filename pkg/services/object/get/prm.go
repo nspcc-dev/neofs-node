@@ -32,6 +32,8 @@ type RangeHashPrm struct {
 	salt []byte
 }
 
+type RequestForwarder func(client.Client) (*objectSDK.Object, error)
+
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
 	commonPrm
@@ -43,6 +45,8 @@ type commonPrm struct {
 	common *util.CommonPrm
 
 	client.GetObjectParams
+
+	forwarder RequestForwarder
 }
 
 // ChunkWriter is an interface of target component
@@ -98,6 +102,10 @@ func (p *RangeHashPrm) SetSalt(salt []byte) {
 // SetCommonParameters sets common parameters of the operation.
 func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
 	p.common = common
+}
+
+func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
+	p.forwarder = f
 }
 
 // SetHeaderWriter sets target component to write the object header.

@@ -80,6 +80,10 @@ func (c *clientCacheWrapper) get(addr string) (getClient, error) {
 }
 
 func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
+	if !exec.assembling {
+		return exec.prm.forwarder(c.client)
+	}
+
 	if exec.headOnly() {
 		return c.client.GetObjectHeader(exec.context(),
 			new(client.ObjectHeaderParams).
