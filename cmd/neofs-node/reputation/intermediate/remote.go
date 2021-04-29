@@ -2,6 +2,7 @@ package intermediate
 
 import (
 	"crypto/ecdsa"
+
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	reputationapi "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"

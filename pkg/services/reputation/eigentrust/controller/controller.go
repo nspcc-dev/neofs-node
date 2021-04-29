@@ -13,13 +13,14 @@ import (
 // Passing incorrect parameter values will result in constructor
 // failure (error or panic depending on the implementation).
 type Prm struct {
-	// Number of iterations
-	IterationNumber uint32
-
 	// Component of computing iteration of EigenTrust algorithm.
 	//
 	// Must not be nil.
 	DaughtersTrustCalculator DaughtersTrustCalculator
+
+	// IterationsProvider provides information about numbers
+	// of iterations for algorithm.
+	IterationsProvider IterationsProvider
 
 	// Routine execution pool for single epoch iteration.
 	WorkerPool util.WorkerPool
@@ -45,6 +46,9 @@ type Controller struct {
 
 	opts *options
 
+	// Number of iterations
+	iterationNumber uint32
+
 	mtx  sync.Mutex
 	mCtx map[uint64]*iterContextCancel
 }
@@ -63,12 +67,17 @@ func panicOnPrmValue(n string, v interface{}) {
 // initialization and is completely ready for work.
 func New(prm Prm, opts ...Option) *Controller {
 	switch {
-	case prm.IterationNumber == 0:
-		panicOnPrmValue("IterationNumber", prm.IterationNumber)
+	case prm.IterationsProvider == nil:
+		panicOnPrmValue("IterationNumber", prm.IterationsProvider)
 	case prm.WorkerPool == nil:
 		panicOnPrmValue("WorkerPool", prm.WorkerPool)
 	case prm.DaughtersTrustCalculator == nil:
 		panicOnPrmValue("DaughtersTrustCalculator", prm.DaughtersTrustCalculator)
+	}
+
+	iterations, err := prm.IterationsProvider.EigenTrustIterations()
+	if err != nil {
+		panic(fmt.Errorf("could not init EigenTrust controller: could not get num of iterations: %w", err))
 	}
 
 	o := defaultOpts()
@@ -78,8 +87,9 @@ func New(prm Prm, opts ...Option) *Controller {
 	}
 
 	return &Controller{
-		prm:  prm,
-		opts: o,
-		mCtx: make(map[uint64]*iterContextCancel),
+		iterationNumber: uint32(iterations),
+		prm:             prm,
+		opts:            o,
+		mCtx:            make(map[uint64]*iterContextCancel),
 	}
 }

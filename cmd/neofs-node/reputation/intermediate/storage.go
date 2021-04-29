@@ -21,8 +21,8 @@ func (i InitialTrustSource) InitialTrust(reputation.PeerID) (reputation.TrustVal
 // DaughterTrustIteratorProvider is implementation of the
 // reputation/eigentrust/calculator's DaughterTrustIteratorProvider interface.
 type DaughterTrustIteratorProvider struct {
-	daughterStorage *daughters.Storage
-	consumerStorage *consumerstorage.Storage
+	DaughterStorage *daughters.Storage
+	ConsumerStorage *consumerstorage.Storage
 }
 
 type ErrNoData struct {
@@ -46,7 +46,7 @@ func (e *ErrNoData) Error() string {
 // specified epoch and daughter's PeerId.
 func (ip *DaughterTrustIteratorProvider) InitDaughterIterator(ctx eigentrustcalc.Context,
 	p reputation.PeerID) (eigentrustcalc.TrustIterator, error) {
-	daughterIterator, ok := ip.daughterStorage.DaughterTrusts(ctx.Epoch(), p)
+	daughterIterator, ok := ip.DaughterStorage.DaughterTrusts(ctx.Epoch(), p)
 	if !ok {
 		return nil, &ErrNoData{
 			daughter:    p,
@@ -66,7 +66,7 @@ func (ip *DaughterTrustIteratorProvider) InitDaughterIterator(ctx eigentrustcalc
 // specified epoch.
 func (ip *DaughterTrustIteratorProvider) InitAllDaughtersIterator(
 	ctx eigentrustcalc.Context) (eigentrustcalc.PeerTrustsIterator, error) {
-	iter, ok := ip.daughterStorage.AllDaughterTrusts(ctx.Epoch())
+	iter, ok := ip.DaughterStorage.AllDaughterTrusts(ctx.Epoch())
 	if !ok {
 		return nil, &ErrNoData{epoch: ctx.Epoch()}
 	}
@@ -83,7 +83,7 @@ func (ip *DaughterTrustIteratorProvider) InitAllDaughtersIterator(
 // specified epoch and iteration.
 func (ip *DaughterTrustIteratorProvider) InitConsumersIterator(
 	ctx eigentrustcalc.Context) (eigentrustcalc.PeerTrustsIterator, error) {
-	consumerIterator, ok := ip.consumerStorage.Consumers(ctx.Epoch(), ctx.I())
+	consumerIterator, ok := ip.ConsumerStorage.Consumers(ctx.Epoch(), ctx.I())
 	if !ok {
 		return nil, &ErrNoData{epoch: ctx.Epoch()}
 	}

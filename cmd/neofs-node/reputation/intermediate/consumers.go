@@ -2,7 +2,6 @@ package intermediate
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
@@ -36,7 +35,6 @@ func (w *ConsumerTrustWriter) Write(ctx common.Context, t reputation.Trust) erro
 	trust.SetEpoch(eiCtx.Epoch())
 	trust.SetI(eiCtx.I())
 
-	fmt.Println("decided to save consumers trusts to storage for epoch and iteration: ", eiCtx.Epoch(), eiCtx.I())
 	w.storage.Put(trust)
 	return nil
 }

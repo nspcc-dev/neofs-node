@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
@@ -26,7 +27,7 @@ type Prm struct {
 
 	DaughterTrustSource DaughterTrustIteratorProvider
 
-	IntermediateValueTarget IntermediateWriterProvider
+	IntermediateValueTarget common.WriterProvider
 
 	FinalResultTarget IntermediateWriterProvider
 

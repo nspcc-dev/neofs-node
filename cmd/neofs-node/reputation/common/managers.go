@@ -18,6 +18,7 @@ import (
 type managerBuilder struct {
 	log   *logger.Logger
 	nmSrc netmapcore.Source
+	opts  *mngOptions
 }
 
 // ManagersPrm groups the required parameters of the managerBuilder's constructor.
@@ -50,6 +51,7 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) common.ManagerBuilder
 	return &managerBuilder{
 		log:   o.log,
 		nmSrc: prm.NetMapSource,
+		opts:  o,
 	}
 }
 
