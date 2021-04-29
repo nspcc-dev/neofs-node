@@ -84,7 +84,7 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 	epoch := s.EpochCounter()
 
 	s.contracts.alphabet.iterate(func(letter glagoliticLetter, contract util.Uint160) {
-		err := invoke.AlphabetVote(s.morphClient, contract, epoch, validators)
+		err := invoke.AlphabetVote(s.morphClient, contract, s.feeConfig, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),

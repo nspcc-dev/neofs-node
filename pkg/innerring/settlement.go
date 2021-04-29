@@ -45,6 +45,8 @@ type settlementDeps struct {
 	clientCache *ClientCache
 
 	balanceClient *balanceClient.Wrapper
+
+	notaryDisabled bool
 }
 
 type auditSettlementDeps struct {
@@ -205,12 +207,22 @@ func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, d
 		return
 	}
 
-	if err := s.balanceClient.TransferXNotary(balanceClient.TransferPrm{
+	params := balanceClient.TransferPrm{
 		Amount:  amount.Int64(),
 		From:    sender,
 		To:      recipient,
 		Details: details,
-	}); err != nil {
+	}
+
+	var err error
+
+	if s.notaryDisabled {
+		err = s.balanceClient.TransferX(params)
+	} else {
+		err = s.balanceClient.TransferXNotary(params)
+	}
+
+	if err != nil {
 		log.Error("could not send transfer transaction for audit",
 			zap.String("error", err.Error()),
 		)
