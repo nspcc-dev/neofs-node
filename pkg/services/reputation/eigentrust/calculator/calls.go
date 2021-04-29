@@ -24,6 +24,18 @@ func (p *CalculatePrm) SetEpochIteration(ei eigentrust.EpochIteration) {
 }
 
 func (c *Calculator) Calculate(prm CalculatePrm) {
+	alpha, err := c.prm.AlphaProvider.EigenTrustAlpha()
+	if err != nil {
+		c.opts.log.Debug(
+			"failed to get alpha param",
+			zap.Error(err),
+		)
+		return
+	}
+
+	c.alpha = reputation.TrustValueFromFloat64(alpha)
+	c.beta = reputation.TrustValueFromFloat64(1 - alpha)
+
 	ctx := eigentrust.IterContext{
 		Context:        context.Background(),
 		EpochIteration: prm.ei,

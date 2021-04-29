@@ -101,7 +101,6 @@ const (
 
 	// config keys for cfgReputation
 	cfgReputationContract          = "reputation.scripthash"
-	cfgReputationAlpha             = "reputation.alpha"
 	cfgReputationWorkerPoolEnabled = "reputation.async_worker.enabled"
 	cfgReputationWorkerPoolSize    = "reputation.async_worker.size"
 
@@ -314,9 +313,6 @@ type cfgControlService struct {
 }
 
 type cfgReputation struct {
-	// Alpha parameter from origin EigenTrust algorithm
-	// http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Ch.5.1.
-	alpha      float64
 	workerPool util2.WorkerPool // pool for EigenTrust algorithm's iterations
 
 	localTrustStorage *truststorage.Storage
@@ -424,7 +420,6 @@ func initCfg(path string) *cfg {
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 		cfgReputation: cfgReputation{
 			scriptHash: u160Reputation,
-			alpha:      viper.GetFloat64(cfgReputationAlpha),
 			workerPool: reputationWorkerPool,
 		},
 	}
@@ -480,7 +475,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgContainerWorkerPoolEnabled, true)
 	v.SetDefault(cfgContainerWorkerPoolSize, 10)
 
-	v.SetDefault(cfgReputationAlpha, 0.5)
 	v.SetDefault(cfgReputationWorkerPoolEnabled, true)
 	v.SetDefault(cfgReputationWorkerPoolSize, 10)
 

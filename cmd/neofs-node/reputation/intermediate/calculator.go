@@ -25,3 +25,13 @@ func (c *DaughtersTrustCalculator) Calculate(ctx eigentrustctrl.IterationContext
 
 	c.Calculator.Calculate(calcPrm)
 }
+
+// AlphaProvider provides required alpha parameter of eigen trust algorithm.
+// TODO: decide if `Alpha` should be dynamically read from global config. #497
+type AlphaProvider struct {
+	Alpha float64
+}
+
+func (ap AlphaProvider) EigenTrustAlpha() (float64, error) {
+	return ap.Alpha, nil
+}
