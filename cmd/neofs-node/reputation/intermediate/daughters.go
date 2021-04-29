@@ -8,11 +8,16 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
+// DaughterStorageWriterProvider is implementation of reputation.WriterProvider
+// interface that provides DaughterTrustWriter writer.
 type DaughterStorageWriterProvider struct {
 	Log     *logger.Logger
 	Storage *daughters.Storage
 }
 
+// DaughterTrustWriter is implementation of reputation.Writer interface
+// that writes passed daughter's Trust values to Daughter storage. After writing
+// that values can be used in eigenTrust algorithm's iterations.
 type DaughterTrustWriter struct {
 	log     *logger.Logger
 	storage *daughters.Storage

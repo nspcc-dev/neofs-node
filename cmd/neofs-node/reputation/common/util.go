@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 )
 
+// EpochContext is a std context extended with epoch data.
 type EpochContext struct {
 	context.Context
 	E uint64
@@ -27,6 +28,8 @@ func (NopReputationWriter) Close() error {
 	return nil
 }
 
+// OnlyKeyRemoteServerInfo if implementation of reputation.ServerInfo
+// interface but with only public key data.
 type OnlyKeyRemoteServerInfo struct {
 	Key []byte
 }

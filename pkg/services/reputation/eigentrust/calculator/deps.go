@@ -18,10 +18,15 @@ type Context interface {
 	I() uint32
 }
 
+// InitialTrustSource must provide initial(non-calculated)
+// trusts to current node's daughter. Realization may depends
+// on daughter.
 type InitialTrustSource interface {
 	InitialTrust(reputation.PeerID) (reputation.TrustValue, error)
 }
 
+// TrustIterator must iterate over all retrieved(or calculated) trusts
+// and call passed TrustHandler on them.
 type TrustIterator interface {
 	Iterate(reputation.TrustHandler) error
 }
@@ -52,10 +57,15 @@ type DaughterTrustIteratorProvider interface {
 	InitConsumersIterator(Context) (PeerTrustsIterator, error)
 }
 
+// IntermediateWriter must write intermediate result to contract.
+// It may depends on realization either trust is sent directly to contract
+// or via redirecting to other node.
 type IntermediateWriter interface {
 	WriteIntermediateTrust(eigentrust.IterationTrust) error
 }
 
+// IntermediateWriterProvider must provide ready-to-work
+// IntermediateWriter.
 type IntermediateWriterProvider interface {
 	InitIntermediateWriter(Context) (IntermediateWriter, error)
 }
