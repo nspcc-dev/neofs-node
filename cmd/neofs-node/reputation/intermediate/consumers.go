@@ -14,11 +14,16 @@ import (
 
 var ErrIncorrectContext = errors.New("could not write intermediate trust: passed context incorrect")
 
+// ConsumerStorageWriterProvider is implementation of reputation.WriterProvider
+// interface that provides ConsumerTrustWriter writer.
 type ConsumerStorageWriterProvider struct {
 	Log     *logger.Logger
 	Storage *consumerstorage.Storage
 }
 
+// ConsumerTrustWriter is implementation of reputation.Writer interface
+// that writes passed consumer's Trust values to Consumer storage. After writing
+// that values can be used in eigenTrust algorithm's iterations.
 type ConsumerTrustWriter struct {
 	log     *logger.Logger
 	storage *consumerstorage.Storage

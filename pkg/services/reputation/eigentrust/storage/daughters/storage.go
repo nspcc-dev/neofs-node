@@ -24,7 +24,7 @@ type Prm struct{}
 type Storage struct {
 	mtx sync.RWMutex
 
-	mItems map[uint64]*daughterStorage
+	mItems map[uint64]*DaughterStorage
 }
 
 // New creates a new instance of the Storage.
@@ -33,6 +33,6 @@ type Storage struct {
 // initialization and is completely ready for work.
 func New(_ Prm) *Storage {
 	return &Storage{
-		mItems: make(map[uint64]*daughterStorage),
+		mItems: make(map[uint64]*DaughterStorage),
 	}
 }

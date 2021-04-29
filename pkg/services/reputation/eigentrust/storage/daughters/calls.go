@@ -9,14 +9,14 @@ import (
 
 // Put saves daughter peer's trust to its provider for the epoch.
 func (x *Storage) Put(epoch uint64, trust reputation.Trust) {
-	var s *daughterStorage
+	var s *DaughterStorage
 
 	x.mtx.Lock()
 
 	{
 		s = x.mItems[epoch]
 		if s == nil {
-			s = &daughterStorage{
+			s = &DaughterStorage{
 				mItems: make(map[reputation.PeerID]*DaughterTrusts, 1),
 			}
 
@@ -34,7 +34,7 @@ func (x *Storage) Put(epoch uint64, trust reputation.Trust) {
 // Returns false if there is no data for the epoch and daughter.
 func (x *Storage) DaughterTrusts(epoch uint64, daughter reputation.PeerID) (*DaughterTrusts, bool) {
 	var (
-		s  *daughterStorage
+		s  *DaughterStorage
 		ok bool
 	)
 
@@ -56,7 +56,7 @@ func (x *Storage) DaughterTrusts(epoch uint64, daughter reputation.PeerID) (*Dau
 // AllDaughterTrusts returns daughter iterator for the epoch.
 //
 // Returns false if there is no data for the epoch and daughter.
-func (x *Storage) AllDaughterTrusts(epoch uint64) (*daughterStorage, bool) {
+func (x *Storage) AllDaughterTrusts(epoch uint64) (*DaughterStorage, bool) {
 	x.mtx.RLock()
 	defer x.mtx.RUnlock()
 
@@ -66,7 +66,7 @@ func (x *Storage) AllDaughterTrusts(epoch uint64) (*daughterStorage, bool) {
 }
 
 // maps IDs of daughter peers to repositories of the local trusts to their providers.
-type daughterStorage struct {
+type DaughterStorage struct {
 	mtx sync.RWMutex
 
 	mItems map[reputation.PeerID]*DaughterTrusts
@@ -75,7 +75,7 @@ type daughterStorage struct {
 // Iterate passes IDs of the daughter peers with their trusts to h.
 //
 // Returns errors from h directly.
-func (x *daughterStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err error) {
+func (x *DaughterStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err error) {
 	x.mtx.RLock()
 
 	{
@@ -91,7 +91,7 @@ func (x *daughterStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err error
 	return
 }
 
-func (x *daughterStorage) put(trust reputation.Trust) {
+func (x *DaughterStorage) put(trust reputation.Trust) {
 	var dt *DaughterTrusts
 
 	x.mtx.Lock()
@@ -114,7 +114,7 @@ func (x *daughterStorage) put(trust reputation.Trust) {
 	dt.put(trust)
 }
 
-func (x *daughterStorage) daughterTrusts(id reputation.PeerID) (dt *DaughterTrusts, ok bool) {
+func (x *DaughterStorage) daughterTrusts(id reputation.PeerID) (dt *DaughterTrusts, ok bool) {
 	x.mtx.RLock()
 
 	{

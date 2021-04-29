@@ -33,7 +33,7 @@ type ErrNoData struct {
 
 func (e *ErrNoData) Error() string {
 	if e.hasDaughter {
-		return fmt.Sprintf("no data in %d epoch for peer: %s", e.epoch, e.daughter)
+		return fmt.Sprintf("no data in %d epoch for peer: %s", e.epoch, string(e.daughter.Bytes()))
 	}
 
 	return fmt.Sprintf("no daughter data in %d epoch", e.epoch)
@@ -72,7 +72,6 @@ func (ip *DaughterTrustIteratorProvider) InitAllDaughtersIterator(
 	}
 
 	return iter, nil
-
 }
 
 // InitConsumersIterator returns iterator over all daughters
