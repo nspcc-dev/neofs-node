@@ -2,13 +2,10 @@ package searchsvc
 
 import (
 	"context"
-	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -60,21 +57,6 @@ func (exec execCtx) context() context.Context {
 
 func (exec execCtx) isLocal() bool {
 	return exec.prm.common.LocalOnly()
-}
-
-func (exec execCtx) key() *ecdsa.PrivateKey {
-	return exec.prm.common.PrivateKey()
-}
-
-func (exec execCtx) callOptions() []client.CallOption {
-	return exec.prm.common.RemoteCallOptions(
-		util.WithNetmapEpoch(exec.curProcEpoch),
-		util.WithKey(exec.key()),
-	)
-}
-
-func (exec execCtx) remotePrm() *client.SearchObjectParams {
-	return &exec.prm.SearchObjectParams
 }
 
 func (exec *execCtx) containerID() *container.ID {
