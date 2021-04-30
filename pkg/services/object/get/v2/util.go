@@ -204,7 +204,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				return nil, errors.Wrap(err, "could not create Get payload range stream")
 			}
 
-			payload := make([]byte, body.GetRange().GetLength())
+			payload := make([]byte, 0, body.GetRange().GetLength())
 
 			resp := new(objectV2.GetRangeResponse)
 
