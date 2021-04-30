@@ -11,11 +11,9 @@ func nextRandUint64(n uint64, exclude map[uint64]struct{}) uint64 {
 
 	ind := randUint64(n - ln)
 
-	for i := uint64(0); ; i++ {
-		if i >= ind {
-			if _, ok := exclude[i]; !ok {
-				return i
-			}
+	for i := ind; ; i++ {
+		if _, ok := exclude[i]; !ok {
+			return i
 		}
 	}
 }
