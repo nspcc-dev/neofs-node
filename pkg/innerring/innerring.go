@@ -57,10 +57,10 @@ type (
 		precision     precision.Fixed8Converter
 		auditClient   *auditWrapper.ClientWrapper
 
-		notaryDisabled      bool
-		feeConfig           *config.FeeConfig
-		notaryDepositAmount fixedn.Fixed8
-		notaryDuration      uint32
+		// notary configuration
+		feeConfig        *config.FeeConfig
+		mainNotaryConfig *notaryConfig
+		sideNotaryConfig *notaryConfig
 
 		// internal variables
 		key                  *ecdsa.PrivateKey
@@ -140,17 +140,23 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 		return err
 	}
 
-	if !s.notaryDisabled {
-		// make an initial deposit to notary contract to enable it
-		mainTx, sideTx, err := s.depositNotary()
+	if !s.mainNotaryConfig.disabled {
+		err = s.initNotary(ctx,
+			s.depositMainNotary,
+			s.awaitMainNotaryDeposit,
+			"waiting to accept main notary deposit",
+		)
 		if err != nil {
 			return err
 		}
+	}
 
-		// wait a bit for notary contract deposit
-		s.log.Info("waiting to accept notary deposit")
-
-		err = s.awaitNotaryDeposit(ctx, mainTx, sideTx)
+	if !s.sideNotaryConfig.disabled {
+		err = s.initNotary(ctx,
+			s.depositSideNotary,
+			s.awaitSideNotaryDeposit,
+			"waiting to accept side notary deposit",
+		)
 		if err != nil {
 			return err
 		}
@@ -237,10 +243,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	server := &Server{log: log}
 
 	// parse notary support
-	server.notaryDisabled = cfg.GetBool("without_notary")
-	if server.notaryDisabled {
-		server.feeConfig = config.NewFeeConfig(cfg)
-	}
+	server.feeConfig = config.NewFeeConfig(cfg)
+	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(cfg)
 
 	// prepare inner ring node private key
 	server.key, err = crypto.LoadPrivateKey(cfg.GetString("key"))
@@ -280,7 +284,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	// enable notary support in the client
-	if !server.notaryDisabled {
+	if !server.sideNotaryConfig.disabled {
 		err = server.morphClient.EnableNotarySupport(server.contracts.proxy)
 		if err != nil {
 			return nil, err
@@ -312,7 +316,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		}
 
 		// enable notary support in the client
-		if !server.notaryDisabled {
+		if !server.mainNotaryConfig.disabled {
 			err = server.mainnetClient.EnableNotarySupport(
 				server.contracts.processing,
 				client.WithAlphabetSource(server.morphClient.Committee),
@@ -420,7 +424,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		nmSrc:          nmClient,
 		clientCache:    clientCache,
 		balanceClient:  balClient,
-		notaryDisabled: server.notaryDisabled,
+		notaryDisabled: server.sideNotaryConfig.disabled,
 	}
 
 	auditCalcDeps := &auditSettlementDeps{
@@ -470,7 +474,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Voter:          server,
 		MorphClient:    server.morphClient,
 		MainnetClient:  server.mainnetClient,
-		NotaryDisabled: server.notaryDisabled,
+		NotaryDisabled: server.sideNotaryConfig.disabled,
 		FeeProvider:    server.feeConfig,
 	})
 	if err != nil {
@@ -507,7 +511,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		),
 		AlphabetSyncHandler: alphaSync,
 		NodeValidator:       locodeValidator,
-		NotaryDisabled:      server.notaryDisabled,
+		NotaryDisabled:      server.sideNotaryConfig.disabled,
 		FeeProvider:         server.feeConfig,
 	})
 	if err != nil {
@@ -608,7 +612,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	reputationProcessor, err := reputation.New(&reputation.Params{
 		Log:                log,
 		PoolSize:           cfg.GetInt("workers.reputation"),
-		NotaryDisabled:     server.notaryDisabled,
+		NotaryDisabled:     server.sideNotaryConfig.disabled,
 		ReputationContract: server.contracts.reputation,
 		EpochState:         server,
 		AlphabetState:      server,
@@ -628,7 +632,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
 		l:                  server.log,
-		notaryDisabled:     server.notaryDisabled,
+		notaryDisabled:     server.sideNotaryConfig.disabled,
 		nm:                 netmapProcessor,
 		cnrWrapper:         cnrClient,
 		epoch:              server,
@@ -657,18 +661,25 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	server.addBlockTimer(emissionTimer)
 
-	if !server.notaryDisabled {
-		// initialize notary deposit timer
-		server.notaryDepositAmount = fixedn.Fixed8(cfg.GetInt64("notary.deposit_amount"))
-		server.notaryDuration = cfg.GetUint32("timers.notary")
-
-		notaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
+	// initialize notary timers
+	if !server.mainNotaryConfig.disabled {
+		mainNotaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
 			l:              log,
-			depositor:      server.depositNotary,
-			notaryDuration: server.notaryDuration,
+			depositor:      server.depositMainNotary,
+			notaryDuration: server.mainNotaryConfig.duration,
 		})
 
-		server.addBlockTimer(notaryTimer)
+		server.addBlockTimer(mainNotaryTimer)
+	}
+
+	if !server.sideNotaryConfig.disabled {
+		sideNotaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
+			l:              log,
+			depositor:      server.depositSideNotary,
+			notaryDuration: server.sideNotaryConfig.duration,
+		})
+
+		server.addBlockTimer(sideNotaryTimer)
 	}
 
 	return server, nil
@@ -857,52 +868,4 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 			f(ev)
 		}
 	}
-}
-
-func (s *Server) depositNotary() (mainTx, sideTx util.Uint256, err error) {
-	mainTx, err = s.mainnetClient.DepositNotary(
-		s.notaryDepositAmount,
-		s.notaryDuration+notaryExtraBlocks,
-	)
-	if err != nil {
-		return
-	}
-
-	sideTx, err = s.morphClient.DepositNotary(
-		s.notaryDepositAmount,
-		s.notaryDuration+notaryExtraBlocks,
-	)
-
-	return
-}
-
-func (s *Server) awaitNotaryDeposit(ctx context.Context, mainTx, sideTx util.Uint256) error {
-	err := awaitNotaryDepositInClient(ctx, s.mainnetClient, mainTx)
-	if err != nil {
-		return err
-	}
-
-	return awaitNotaryDepositInClient(ctx, s.morphClient, sideTx)
-}
-
-func awaitNotaryDepositInClient(ctx context.Context, cli *client.Client, txHash util.Uint256) error {
-	for i := 0; i < notaryDepositTimeout; i++ {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		ok, err := cli.TxHalt(txHash)
-		if err == nil {
-			if ok {
-				return nil
-			}
-			return errDepositFail
-		}
-
-		cli.Wait(ctx, 1)
-	}
-
-	return errDepositTimeout
 }

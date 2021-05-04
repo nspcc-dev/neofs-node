@@ -1,6 +1,8 @@
 package innerring
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
@@ -47,10 +49,13 @@ type (
 		emitDuration uint32 // in blocks
 	}
 
+	depositor func() (util.Uint256, error)
+	awaiter   func(context.Context, util.Uint256) error
+
 	notaryDepositArgs struct {
 		l *zap.Logger
 
-		depositor func() (util.Uint256, util.Uint256, error)
+		depositor depositor
 
 		notaryDuration uint32 // in blocks
 	}
@@ -154,7 +159,7 @@ func newNotaryDepositTimer(args *notaryDepositArgs) *timer.BlockTimer {
 	return timer.NewBlockTimer(
 		timer.StaticBlockMeter(args.notaryDuration),
 		func() {
-			_, _, err := args.depositor()
+			_, err := args.depositor()
 			if err != nil {
 				args.l.Warn("can't deposit notary contract",
 					zap.String("error", err.Error()))
