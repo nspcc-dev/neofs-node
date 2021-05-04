@@ -8,6 +8,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// routeContext wraps context with additional passed
+// route data. It is only used inside Router and is
+// not passed in any external methods.
 type routeContext struct {
 	common.Context
 
@@ -25,7 +28,7 @@ func NewRouteContext(ctx common.Context, passed []common.ServerInfo) common.Cont
 type trustWriter struct {
 	router *Router
 
-	ctx *routeContext
+	routeCtx *routeContext
 
 	routeMtx sync.RWMutex
 	mServers map[string]common.Writer
@@ -60,7 +63,7 @@ func (r *Router) InitWriter(ctx common.Context) (common.Writer, error) {
 
 	return &trustWriter{
 		router:   r,
-		ctx:      routeCtx,
+		routeCtx: routeCtx,
 		mServers: make(map[string]common.Writer),
 	}, nil
 }
@@ -69,7 +72,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 	w.routeMtx.Lock()
 	defer w.routeMtx.Unlock()
 
-	route, err := w.router.routeBuilder.NextStage(w.ctx.Epoch(), t, w.ctx.passedRoute)
+	route, err := w.router.routeBuilder.NextStage(w.routeCtx.Epoch(), t, w.routeCtx.passedRoute)
 	if err != nil {
 		return err
 	} else if len(route) == 0 {
@@ -94,7 +97,8 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 				continue
 			}
 
-			remoteWriter, err = provider.InitWriter(w.ctx.Context)
+			// init writer with original context wrapped in routeContext
+			remoteWriter, err = provider.InitWriter(w.routeCtx.Context)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer",
 					zap.String("error", err.Error()),
