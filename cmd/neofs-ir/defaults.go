@@ -50,6 +50,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("without_mainnet", false)
 	cfg.SetDefault("without_notary", false)
+	cfg.SetDefault("without_main_notary", false)
 
 	cfg.SetDefault("morph.endpoint.client", "")
 	cfg.SetDefault("morph.endpoint.notification", "")
@@ -75,7 +76,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("timers.epoch", "0")
 	cfg.SetDefault("timers.emit", "0")
-	cfg.SetDefault("timers.notary", "1000")
+	cfg.SetDefault("timers.main_notary", "1000")
+	cfg.SetDefault("timers.side_notary", "1000")
 	cfg.SetDefault("timers.stop_estimation.mul", 1)
 	cfg.SetDefault("timers.stop_estimation.div", 1)
 	cfg.SetDefault("timers.collect_basic_income.mul", 1)
@@ -83,7 +85,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("timers.distribute_basic_income.mul", 1)
 	cfg.SetDefault("timers.distribute_basic_income.div", 1)
 
-	cfg.SetDefault("notary.deposit_amount", 1_0000_0000) // 1.0 Fixed8
+	cfg.SetDefault("notary.side.deposit_amount", 1_0000_0000) // 1.0 Fixed8
+	cfg.SetDefault("notary.main.deposit_amount", 2000_0000)   // 0.2 Fixed8
 
 	cfg.SetDefault("workers.netmap", "10")
 	cfg.SetDefault("workers.balance", "10")
