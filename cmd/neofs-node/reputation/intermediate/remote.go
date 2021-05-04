@@ -55,15 +55,20 @@ type TrustWriterProvider struct {
 }
 
 func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputationcommon.Writer, error) {
+	eiContext, ok := ctx.(eigentrustcalc.Context)
+	if !ok {
+		panic(ErrIncorrectContextPanicMsg)
+	}
+
 	return &RemoteTrustWriter{
-		ctx:    ctx,
+		eiCtx:  eiContext,
 		client: twp.client,
 		key:    twp.key,
 	}, nil
 }
 
 type RemoteTrustWriter struct {
-	ctx    reputationcommon.Context
+	eiCtx  eigentrustcalc.Context
 	client apiClient.Client
 	key    *ecdsa.PrivateKey
 
@@ -73,12 +78,7 @@ type RemoteTrustWriter struct {
 // Write check if passed context contains required
 // data(returns ErrIncorrectContext if not) and
 // caches passed trusts(as SendIntermediateTrustPrm structs).
-func (rtp *RemoteTrustWriter) Write(ctx reputationcommon.Context, t reputation.Trust) error {
-	eiContext, ok := ctx.(eigentrustcalc.Context)
-	if !ok {
-		return ErrIncorrectContext
-	}
-
+func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	apiTrustingPeer := reputationapi.NewPeerID()
 	apiTrustingPeer.SetPublicKey(t.TrustingPeer())
 
@@ -94,8 +94,8 @@ func (rtp *RemoteTrustWriter) Write(ctx reputationcommon.Context, t reputation.T
 	apiPeerToPeerTrust.SetTrust(apiTrust)
 
 	p := &apiClient.SendIntermediateTrustPrm{}
-	p.SetEpoch(eiContext.Epoch())
-	p.SetIteration(eiContext.I())
+	p.SetEpoch(rtp.eiCtx.Epoch())
+	p.SetIteration(rtp.eiCtx.I())
 	p.SetTrust(apiPeerToPeerTrust)
 
 	rtp.buf = append(rtp.buf, p)
@@ -108,7 +108,7 @@ func (rtp *RemoteTrustWriter) Write(ctx reputationcommon.Context, t reputation.T
 func (rtp *RemoteTrustWriter) Close() (err error) {
 	for _, prm := range rtp.buf {
 		_, err = rtp.client.SendIntermediateTrust(
-			rtp.ctx,
+			rtp.eiCtx,
 			*prm,
 			apiClient.WithKey(rtp.key),
 		)

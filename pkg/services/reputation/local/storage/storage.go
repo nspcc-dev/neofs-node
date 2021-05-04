@@ -9,7 +9,7 @@ import (
 // All values must comply with the requirements imposed on them.
 // Passing incorrect parameter values will result in constructor
 // failure (error or panic depending on the implementation).
-type Prm struct {}
+type Prm struct{}
 
 // Storage represents in-memory storage of
 // local reputation values.
