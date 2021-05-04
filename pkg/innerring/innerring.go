@@ -276,7 +276,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	if cfg.GetBool("without_mainnet") {
+	withoutMainNet := cfg.GetBool("without_mainnet")
+
+	if withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
 		// otherwise Server.Start will run two similar routines.
 		// This behavior most likely will not change.
@@ -448,6 +450,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	var alphaSync event.Handler
+
+	if withoutMainNet {
+		alphaSync = func(event.Event) {
+			log.Debug("alphabet keys sync is disabled")
+		}
+	} else {
+		alphaSync = governanceProcessor.HandleAlphabetSync
+	}
+
 	// create netmap processor
 	netmapProcessor, err := netmap.New(&netmap.Params{
 		Log:              log,
@@ -466,7 +478,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		AuditSettlementsHandler: server.onlyAlphabetEventHandler(
 			settlementProcessor.HandleAuditEvent,
 		),
-		AlphabetSyncHandler: governanceProcessor.HandleAlphabetSync,
+		AlphabetSyncHandler: alphaSync,
 		NodeValidator:       locodeValidator,
 	})
 	if err != nil {
