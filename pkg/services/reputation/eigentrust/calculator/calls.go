@@ -195,7 +195,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 
 			trust.SetValue(val)
 
-			err := intermediateWriter.Write(p.ctx, trust)
+			err := intermediateWriter.Write(trust)
 			if err != nil {
 				c.opts.log.Debug("write intermediate value failure",
 					zap.String("error", err.Error()),
@@ -257,7 +257,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 			initTrust.Mul(trust.Value())
 			trust.SetValue(initTrust)
 
-			err = intermediateWriter.Write(ctx, trust)
+			err = intermediateWriter.Write(trust)
 			if err != nil {
 				c.opts.log.Debug("write intermediate value failure",
 					zap.String("error", err.Error()),

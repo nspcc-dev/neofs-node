@@ -9,15 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
 )
 
-// InitialTrustSource is implementation of the
-// reputation/eigentrust/calculator's InitialTrustSource interface.
-type InitialTrustSource struct{}
-
-// InitialTrust returns `1` as initial trust value.
-func (i InitialTrustSource) InitialTrust(reputation.PeerID) (reputation.TrustValue, error) {
-	return reputation.TrustOne, nil
-}
-
 // DaughterTrustIteratorProvider is implementation of the
 // reputation/eigentrust/calculator's DaughterTrustIteratorProvider interface.
 type DaughterTrustIteratorProvider struct {

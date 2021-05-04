@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 )
@@ -20,7 +19,7 @@ func (ctx *EpochContext) Epoch() uint64 {
 
 type NopReputationWriter struct{}
 
-func (NopReputationWriter) Write(common.Context, reputation.Trust) error {
+func (NopReputationWriter) Write(reputation.Trust) error {
 	return nil
 }
 

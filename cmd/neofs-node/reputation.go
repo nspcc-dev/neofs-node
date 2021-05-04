@@ -37,7 +37,8 @@ import (
 	"go.uber.org/zap"
 )
 
-const EigenTrustAlpha = 0.5
+const EigenTrustAlpha = 0.1
+const EigenTrustInitialTrust = 0.5
 
 func initReputationService(c *cfg) {
 	staticClient, err := client.NewStatic(
@@ -60,9 +61,7 @@ func initReputationService(c *cfg) {
 
 	// storing calculated trusts as a daughter
 	c.cfgReputation.localTrustStorage = truststorage.New(
-		truststorage.Prm{
-			LocalServer: c,
-		},
+		truststorage.Prm{},
 	)
 
 	daughterStorage := daughters.New(daughters.Prm{})
@@ -154,7 +153,9 @@ func initReputationService(c *cfg) {
 			AlphaProvider: intermediate.AlphaProvider{
 				Alpha: EigenTrustAlpha,
 			},
-			InitialTrustSource:      intermediatereputation.InitialTrustSource{},
+			InitialTrustSource: intermediatereputation.InitialTrustSource{
+				Trust: reputation.TrustValueFromFloat64(EigenTrustInitialTrust),
+			},
 			IntermediateValueTarget: intermediateTrustRouter,
 			WorkerPool:              c.cfgReputation.workerPool,
 			FinalResultTarget: intermediate.NewFinalWriterProvider(
@@ -298,12 +299,9 @@ func (s *reputationServer) SendIntermediateResult(ctx context.Context, req *v2re
 
 	body := req.GetBody()
 
-	eCtx := &common.EpochContext{
-		Context: ctx,
-		E:       body.GetEpoch(),
-	}
+	eiCtx := eigentrust.NewIterContext(ctx, body.GetEpoch(), body.GetIteration())
 
-	w, err := s.intermediateRouter.InitWriter(reputationrouter.NewRouteContext(eCtx, passedRoute))
+	w, err := s.intermediateRouter.InitWriter(reputationrouter.NewRouteContext(eiCtx, passedRoute))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize intermediate trust writer")
 	}
@@ -312,9 +310,7 @@ func (s *reputationServer) SendIntermediateResult(ctx context.Context, req *v2re
 
 	trust := apiToLocalTrust(v2Trust.GetTrust(), v2Trust.GetTrustingPeer().GetValue())
 
-	eiCtx := eigentrust.NewIterContext(ctx, body.GetEpoch(), body.GetIteration())
-
-	err = w.Write(eiCtx, trust)
+	err = w.Write(trust)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not write intermediate trust")
 	}
@@ -332,7 +328,7 @@ func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
 		return errors.Wrap(err, "wrong route of reputation trust value")
 	}
 
-	return w.Write(&common.EpochContext{E: epoch}, t)
+	return w.Write(t)
 }
 
 // apiToLocalTrust converts v2 Trust to local reputation.Trust, adding trustingPeer.

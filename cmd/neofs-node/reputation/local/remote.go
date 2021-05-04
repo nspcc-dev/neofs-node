@@ -69,7 +69,7 @@ type RemoteTrustWriter struct {
 	buf []*reputationapi.Trust
 }
 
-func (rtp *RemoteTrustWriter) Write(_ reputationcommon.Context, t reputation.Trust) error {
+func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	apiTrust := reputationapi.NewTrust()
 
 	apiPeer := reputationapi.NewPeerID()
