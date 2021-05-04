@@ -38,7 +38,6 @@ import (
 )
 
 const EigenTrustAlpha = 0.1
-const EigenTrustInitialTrust = 0.5
 
 func initReputationService(c *cfg) {
 	staticClient, err := client.NewStatic(
@@ -154,7 +153,7 @@ func initReputationService(c *cfg) {
 				Alpha: EigenTrustAlpha,
 			},
 			InitialTrustSource: intermediatereputation.InitialTrustSource{
-				Trust: reputation.TrustValueFromFloat64(EigenTrustInitialTrust),
+				NetMap: nmSrc,
 			},
 			IntermediateValueTarget: intermediateTrustRouter,
 			WorkerPool:              c.cfgReputation.workerPool,
