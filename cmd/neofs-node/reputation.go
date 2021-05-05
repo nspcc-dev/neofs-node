@@ -37,8 +37,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const EigenTrustAlpha = 0.1
-
 func initReputationService(c *cfg) {
 	staticClient, err := client.NewStatic(
 		c.cfgMorph.client,
@@ -149,9 +147,7 @@ func initReputationService(c *cfg) {
 
 	eigenTrustCalculator := eigentrustcalc.New(
 		eigentrustcalc.Prm{
-			AlphaProvider: intermediate.AlphaProvider{
-				Alpha: EigenTrustAlpha,
-			},
+			AlphaProvider: c.cfgNetmap.wrapper,
 			InitialTrustSource: intermediatereputation.InitialTrustSource{
 				NetMap: nmSrc,
 			},
