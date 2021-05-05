@@ -87,7 +87,7 @@ func ArrayFromStackItem(param stackitem.Item) ([]stackitem.Item, error) {
 // StringFromStackItem receives string value from the value of a smart contract parameter.
 func StringFromStackItem(param stackitem.Item) (string, error) {
 	if param.Type() != stackitem.ByteArrayT {
-		return "", errors.Errorf("chain/client: %s is not an integer type", param.Type())
+		return "", errors.Errorf("chain/client: %s is not an string type", param.Type())
 	}
 
 	return stackitem.ToString(param)
