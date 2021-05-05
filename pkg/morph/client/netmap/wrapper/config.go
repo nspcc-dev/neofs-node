@@ -1,6 +1,8 @@
 package wrapper
 
 import (
+	"strconv"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/pkg/errors"
 )
@@ -12,6 +14,7 @@ const (
 	epochDurationConfig   = "EpochDuration"
 	containerFeeConfig    = "ContainerFee"
 	etIterationsConfig    = "EigenTrustIterations"
+	etAlphaConfig         = "EigenTrustAlpha"
 	irCandidateFeeConfig  = "InnerRingCandidateFee"
 	withdrawFeeConfig     = "WithdrawFee"
 )
@@ -81,6 +84,17 @@ func (w *Wrapper) EigenTrustIterations() (uint64, error) {
 	return iterations, nil
 }
 
+// EigenTrustAlpha returns global configuration value of alpha parameter.
+// It receives the alpha as a string and tries to convert it to float.
+func (w *Wrapper) EigenTrustAlpha() (float64, error) {
+	strAlpha, err := w.readStringConfig(etAlphaConfig)
+	if err != nil {
+		return 0, errors.Wrapf(err, "(%T) could not get eigen trust alpha", w)
+	}
+
+	return strconv.ParseFloat(strAlpha, 64)
+}
+
 // InnerRingCandidateFee returns global configuration value of fee paid by
 // node to be in inner ring candidates list.
 func (w *Wrapper) InnerRingCandidateFee() (uint64, error) {
@@ -114,10 +128,29 @@ func (w *Wrapper) readUInt64Config(key string) (uint64, error) {
 
 	v := vals.Value()
 
-	sz, ok := v.(int64)
+	numeric, ok := v.(int64)
 	if !ok {
 		return 0, errors.Errorf("(%T) invalid value type %T", w, v)
 	}
 
-	return uint64(sz), nil
+	return uint64(numeric), nil
+}
+
+func (w *Wrapper) readStringConfig(key string) (string, error) {
+	args := netmap.ConfigArgs{}
+	args.SetKey([]byte(key))
+
+	vals, err := w.client.Config(args, netmap.StringAssert)
+	if err != nil {
+		return "", err
+	}
+
+	v := vals.Value()
+
+	str, ok := v.(string)
+	if !ok {
+		return "", errors.Errorf("(%T) invalid value type %T", w, v)
+	}
+
+	return str, nil
 }

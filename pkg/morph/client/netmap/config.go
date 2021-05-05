@@ -59,3 +59,7 @@ func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{
 func IntegerAssert(item stackitem.Item) (interface{}, error) {
 	return client.IntFromStackItem(item)
 }
+
+func StringAssert(item stackitem.Item) (interface{}, error) {
+	return client.StringFromStackItem(item)
+}
