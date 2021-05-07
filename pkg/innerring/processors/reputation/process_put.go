@@ -51,7 +51,7 @@ func (rp *Processor) processPut(epoch uint64, id reputation.PeerID, value reputa
 
 	if err != nil {
 		rp.log.Warn("can't send approval tx for reputation value",
-			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetValue())),
+			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetPublicKey())),
 			zap.String("error", err.Error()))
 	}
 }

@@ -14,7 +14,7 @@ func (rp *Processor) handlePutReputation(ev event.Event) {
 
 	rp.log.Info("notification",
 		zap.String("type", "reputation put"),
-		zap.String("peer_id", hex.EncodeToString(peerID.ToV2().GetValue())))
+		zap.String("peer_id", hex.EncodeToString(peerID.ToV2().GetPublicKey())))
 
 	// send event to the worker pool
 

@@ -21,32 +21,32 @@ func New(srv reputationrpc.Server) *Server {
 	}
 }
 
-func (s *Server) SendLocalTrust(ctx context.Context, r *reputation2.SendLocalTrustRequest) (*reputation2.SendLocalTrustResponse, error) {
-	req := new(reputation.SendLocalTrustRequest)
+func (s *Server) AnnounceLocalTrust(ctx context.Context, r *reputation2.AnnounceLocalTrustRequest) (*reputation2.AnnounceLocalTrustResponse, error) {
+	req := new(reputation.AnnounceLocalTrustRequest)
 	if err := req.FromGRPCMessage(r); err != nil {
 		return nil, err
 	}
 
-	resp, err := s.srv.SendLocalTrust(ctx, req)
+	resp, err := s.srv.AnnounceLocalTrust(ctx, req)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return resp.ToGRPCMessage().(*reputation2.SendLocalTrustResponse), nil
+	return resp.ToGRPCMessage().(*reputation2.AnnounceLocalTrustResponse), nil
 }
 
-func (s *Server) SendIntermediateResult(ctx context.Context, r *reputation2.SendIntermediateResultRequest) (*reputation2.SendIntermediateResultResponse, error) {
-	req := new(reputation.SendIntermediateResultRequest)
+func (s *Server) AnnounceIntermediateResult(ctx context.Context, r *reputation2.AnnounceIntermediateResultRequest) (*reputation2.AnnounceIntermediateResultResponse, error) {
+	req := new(reputation.AnnounceIntermediateResultRequest)
 	if err := req.FromGRPCMessage(r); err != nil {
 		return nil, err
 	}
 
-	resp, err := s.srv.SendIntermediateResult(ctx, req)
+	resp, err := s.srv.AnnounceIntermediateResult(ctx, req)
 	if err != nil {
 		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
-	return resp.ToGRPCMessage().(*reputation2.SendIntermediateResultResponse), nil
+	return resp.ToGRPCMessage().(*reputation2.AnnounceIntermediateResultResponse), nil
 }

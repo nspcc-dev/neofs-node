@@ -60,7 +60,7 @@ func preparePutArgs(v PutArgs) (reputationClient.PutArgs, error) {
 	}
 
 	args.SetEpoch(v.epoch)
-	args.SetPeerID(v.peerID.ToV2().GetValue())
+	args.SetPeerID(v.peerID.ToV2().GetPublicKey())
 	args.SetValue(data)
 
 	return args, nil
