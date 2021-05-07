@@ -73,7 +73,7 @@ type RemoteTrustWriter struct {
 	client apiClient.Client
 	key    *ecdsa.PrivateKey
 
-	buf []*apiClient.SendIntermediateTrustPrm
+	buf []*apiClient.AnnounceIntermediateTrustPrm
 }
 
 // Write check if passed context contains required
@@ -94,7 +94,7 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	apiPeerToPeerTrust.SetTrustingPeer(apiTrustingPeer)
 	apiPeerToPeerTrust.SetTrust(apiTrust)
 
-	p := &apiClient.SendIntermediateTrustPrm{}
+	p := &apiClient.AnnounceIntermediateTrustPrm{}
 	p.SetEpoch(rtp.eiCtx.Epoch())
 	p.SetIteration(rtp.eiCtx.I())
 	p.SetTrust(apiPeerToPeerTrust)
@@ -108,7 +108,7 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 // If error occurs, returns in immediately and stops iteration.
 func (rtp *RemoteTrustWriter) Close() (err error) {
 	for _, prm := range rtp.buf {
-		_, err = rtp.client.SendIntermediateTrust(
+		_, err = rtp.client.AnnounceIntermediateTrust(
 			rtp.eiCtx,
 			*prm,
 			apiClient.WithKey(rtp.key),

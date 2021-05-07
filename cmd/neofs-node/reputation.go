@@ -259,7 +259,7 @@ type reputationServer struct {
 	routeBuilder       reputationrouter.Builder
 }
 
-func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation.SendLocalTrustRequest) (*v2reputation.SendLocalTrustResponse, error) {
+func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *v2reputation.AnnounceLocalTrustRequest) (*v2reputation.AnnounceLocalTrustResponse, error) {
 	passedRoute := reverseRoute(req.GetVerificationHeader())
 	passedRoute = append(passedRoute, s)
 
@@ -282,13 +282,13 @@ func (s *reputationServer) SendLocalTrust(ctx context.Context, req *v2reputation
 		}
 	}
 
-	resp := new(v2reputation.SendLocalTrustResponse)
-	resp.SetBody(new(v2reputation.SendLocalTrustResponseBody))
+	resp := new(v2reputation.AnnounceLocalTrustResponse)
+	resp.SetBody(new(v2reputation.AnnounceLocalTrustResponseBody))
 
 	return resp, nil
 }
 
-func (s *reputationServer) SendIntermediateResult(ctx context.Context, req *v2reputation.SendIntermediateResultRequest) (*v2reputation.SendIntermediateResultResponse, error) {
+func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *v2reputation.AnnounceIntermediateResultRequest) (*v2reputation.AnnounceIntermediateResultResponse, error) {
 	passedRoute := reverseRoute(req.GetVerificationHeader())
 	passedRoute = append(passedRoute, s)
 
@@ -303,15 +303,15 @@ func (s *reputationServer) SendIntermediateResult(ctx context.Context, req *v2re
 
 	v2Trust := body.GetTrust()
 
-	trust := apiToLocalTrust(v2Trust.GetTrust(), v2Trust.GetTrustingPeer().GetValue())
+	trust := apiToLocalTrust(v2Trust.GetTrust(), v2Trust.GetTrustingPeer().GetPublicKey())
 
 	err = w.Write(trust)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not write intermediate trust")
 	}
 
-	resp := new(v2reputation.SendIntermediateResultResponse)
-	resp.SetBody(new(v2reputation.SendIntermediateResultResponseBody))
+	resp := new(v2reputation.AnnounceIntermediateResultResponse)
+	resp.SetBody(new(v2reputation.AnnounceIntermediateResultResponseBody))
 
 	return resp, nil
 }
@@ -331,7 +331,7 @@ func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trus
 	localTrust := reputation.Trust{}
 
 	localTrust.SetValue(reputation.TrustValueFromFloat64(t.GetValue()))
-	localTrust.SetPeer(reputation.PeerIDFromBytes(t.GetPeer().GetValue()))
+	localTrust.SetPeer(reputation.PeerIDFromBytes(t.GetPeer().GetPublicKey()))
 	localTrust.SetTrustingPeer(reputation.PeerIDFromBytes(trustingPeer))
 
 	return localTrust

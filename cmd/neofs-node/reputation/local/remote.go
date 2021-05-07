@@ -84,12 +84,12 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 }
 
 func (rtp *RemoteTrustWriter) Close() error {
-	prm := apiClient.SendLocalTrustPrm{}
+	prm := apiClient.AnnounceLocalTrustPrm{}
 
 	prm.SetEpoch(rtp.ctx.Epoch())
 	prm.SetTrusts(rtp.buf)
 
-	_, err := rtp.client.SendLocalTrust(
+	_, err := rtp.client.AnnounceLocalTrust(
 		rtp.ctx,
 		prm,
 		apiClient.WithKey(rtp.key),

@@ -50,7 +50,7 @@ func (g GetResult) Reputations() []reputation.GlobalTrust {
 func (w *ClientWrapper) Get(v GetArgs) (*GetResult, error) {
 	args := reputationClient.GetArgs{}
 	args.SetEpoch(v.epoch)
-	args.SetPeerID(v.peerID.ToV2().GetValue())
+	args.SetPeerID(v.peerID.ToV2().GetPublicKey())
 
 	data, err := (*reputationClient.Client)(w).Get(args)
 	if err != nil {
