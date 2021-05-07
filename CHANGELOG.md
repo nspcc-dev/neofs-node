@@ -1,6 +1,40 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.19.0] - 2021-05-07 - Daecheongdo (대청도, 大靑島)
+
+Storage nodes exchange, calculate, aggregate and store reputation information
+in reputation contract. Inner ring nodes support workflows with and without
+notary subsystem in chains. 
+
+### Fixed
+- Build with go1.16.
+- Notary deposits last more blocks. 
+- TX hashes now prints in little endian in logs.
+- Metabase deletes graves regardless of the presence of objects.
+- SplitInfo error created from all shards instead of first matched shard.
+- Possible deadlock at cache eviction in blobovnicza.
+- Storage node does not send rebootstrap messages after it went offline.
+
+### Added
+- Reputation subsystem that includes reputation collection, exchange, 
+calculation and storage components.
+- Notary and non notary workflows in inner ring.
+- Audit fee transfer for inner ring nodes that performed audit.
+- Unified encoding for all side chain payment details.
+- New write cache implementation for storage engine.
+- NEP-2 and NEP-6 key formats in CLI.
+
+### Changed
+- Metabase puts data in batches.
+- Network related new epoch handlers in storage node executed asynchronously. 
+- Storage node gets epoch duration from global config.
+- Storage node resign and resend Search, Range, Head, Get requests of object
+service without modification.
+- Inner ring does not sync side chain validators in single chain deployment.
+- neo-go updated to v0.94.1
+- neofs-api-go updated to v1.26.0
+
 ## [0.18.0] - 2021-03-26 - Yeongheungdo (영흥도, 靈興島)
 
 NeoFS operates with updated governance model. Alphabet keys and inner ring keys
@@ -297,6 +331,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.19.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.15.0...v0.16.0
