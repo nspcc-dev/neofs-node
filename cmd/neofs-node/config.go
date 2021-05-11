@@ -52,11 +52,7 @@ import (
 
 const (
 	// logger keys
-	cfgLogLevel              = "logger.level"
-	cfgLogFormat             = "logger.format"
-	cfgLogTrace              = "logger.trace_level"
-	cfgLogInitSampling       = "logger.sampling.initial"
-	cfgLogThereafterSampling = "logger.sampling.thereafter"
+	cfgLogLevel = "logger.level"
 
 	// pprof keys
 	cfgProfilerEnable = "pprof.enabled"
@@ -490,10 +486,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgNetmapWorkerPoolSize, 10)
 
 	v.SetDefault(cfgLogLevel, "info")
-	v.SetDefault(cfgLogFormat, "console")
-	v.SetDefault(cfgLogTrace, "fatal")
-	v.SetDefault(cfgLogInitSampling, 1000)
-	v.SetDefault(cfgLogThereafterSampling, 1000)
 
 	v.SetDefault(cfgProfilerEnable, false)
 	v.SetDefault(cfgProfilerAddr, ":6060")

@@ -34,11 +34,6 @@ func newConfig(path string) (*viper.Viper, error) {
 
 func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("logger.level", "info")
-	cfg.SetDefault("logger.format", "console")
-	cfg.SetDefault("logger.trace_level", "fatal")
-	cfg.SetDefault("logger.no_disclaimer", false)
-	cfg.SetDefault("logger.sampling.initial", 1000)
-	cfg.SetDefault("logger.sampling.thereafter", 1000)
 
 	cfg.SetDefault("pprof.enabled", false)
 	cfg.SetDefault("pprof.address", ":6060")
