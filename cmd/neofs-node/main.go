@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	"go.uber.org/zap"
@@ -68,7 +69,11 @@ func bootUp(c *cfg) {
 }
 
 func wait(c *cfg) {
-	c.log.Info("application started")
+	c.log.Info("application started",
+		zap.String("build time", misc.Build),
+		zap.String("version", misc.Version),
+		zap.String("debug", misc.Debug),
+	)
 
 	select {
 	case <-c.ctx.Done(): // graceful shutdown
