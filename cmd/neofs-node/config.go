@@ -40,7 +40,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
 	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -55,13 +54,12 @@ const (
 	cfgLogLevel = "logger.level"
 
 	// pprof keys
-	cfgProfilerEnable = "pprof.enabled"
-	cfgProfilerAddr   = "pprof.address"
-	cfgProfilerTTL    = "pprof.shutdown_ttl"
+	cfgProfilerAddr            = "profiler.address"
+	cfgProfilerShutdownTimeout = "profiler.shutdown_timeout"
 
 	// metrics keys
-	cfgMetricsEnable = "metrics.enabled"
-	cfgMetricsAddr   = "metrics.address"
+	cfgMetricsAddr            = "metrics.address"
+	cfgMetricsShutdownTimeout = "metrics.shutdown_timeout"
 
 	// config keys for cfgNodeInfo
 	cfgNodeKey             = "node.key"
@@ -202,10 +200,6 @@ type cfg struct {
 	localAddr *network.Address
 
 	cfgObject cfgObject
-
-	profiler profiler.Profiler
-
-	metricsServer profiler.Metrics
 
 	metricsCollector *metrics.StorageMetrics
 
@@ -438,7 +432,7 @@ func initCfg(path string) *cfg {
 		},
 	}
 
-	if viperCfg.GetBool(cfgMetricsEnable) {
+	if c.viper.GetString(cfgMetricsAddr) != "" {
 		c.metricsCollector = metrics.NewStorageMetrics()
 	}
 
@@ -496,12 +490,9 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgLogLevel, "info")
 
-	v.SetDefault(cfgProfilerEnable, false)
-	v.SetDefault(cfgProfilerAddr, ":6060")
-	v.SetDefault(cfgProfilerTTL, "30s")
+	v.SetDefault(cfgProfilerShutdownTimeout, "30s")
 
-	v.SetDefault(cfgMetricsEnable, false)
-	v.SetDefault(cfgMetricsAddr, ":9090")
+	v.SetDefault(cfgMetricsShutdownTimeout, "30s")
 
 	v.SetDefault(cfgGCQueueSize, 1000)
 	v.SetDefault(cfgGCQueueTick, "5s")

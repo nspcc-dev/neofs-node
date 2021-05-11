@@ -60,12 +60,10 @@ func initApp(c *cfg) {
 }
 
 func bootUp(c *cfg) {
-	serveProfiler(c)
 	serveGRPC(c)
 	bootstrapNode(c)
 	startWorkers(c)
 	startBlockTimers(c)
-	serveMetrics(c)
 }
 
 func wait(c *cfg) {
