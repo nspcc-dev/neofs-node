@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -10,8 +11,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
+	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/nspcc-dev/neofs-node/pkg/util/profiler"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -57,8 +59,33 @@ func main() {
 	ctx := grace.NewGracefulContext(log)
 	intErr := make(chan error) // internal inner ring errors
 
-	pprof := profiler.NewProfiler(log, cfg)
-	prometheus := profiler.NewMetrics(log, cfg)
+	var httpServers []*httputil.Server
+
+	for _, item := range []struct {
+		cfgPrefix string
+		handler   func() http.Handler
+	}{
+		{"profiler", httputil.Handler},
+		{"metrics", promhttp.Handler},
+	} {
+		addr := cfg.GetString(item.cfgPrefix + ".address")
+		if addr == "" {
+			continue
+		}
+
+		var prm httputil.Prm
+
+		prm.Address = addr
+		prm.Handler = item.handler()
+
+		httpServers = append(httpServers,
+			httputil.New(prm,
+				httputil.WithShutdownTimeout(
+					cfg.GetDuration(item.cfgPrefix+".shutdown_timeout"),
+				),
+			),
+		)
+	}
 
 	innerRing, err := innerring.New(ctx, log, cfg)
 	if err != nil {
@@ -75,16 +102,12 @@ func main() {
 		return
 	}
 
-	// start pprof if enabled
-	if pprof != nil {
-		pprof.Start(ctx)
-		defer pprof.Stop()
-	}
-
-	// start prometheus if enabled
-	if prometheus != nil {
-		prometheus.Start(ctx)
-		defer prometheus.Stop()
+	// start HTTP servers
+	for i := range httpServers {
+		srv := httpServers[i]
+		go func() {
+			exitErr(srv.Serve())
+		}()
 	}
 
 	// start inner ring
@@ -107,6 +130,20 @@ func main() {
 	}
 
 	innerRing.Stop()
+
+	// shut down HTTP servers
+	for i := range httpServers {
+		srv := httpServers[i]
+
+		go func() {
+			err := srv.Shutdown()
+			if err != nil {
+				log.Debug("could not shutdown HTTP server",
+					zap.String("error", err.Error()),
+				)
+			}
+		}()
+	}
 
 	log.Info("application stopped")
 }
