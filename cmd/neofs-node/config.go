@@ -80,6 +80,9 @@ const (
 	cfgMorphNotifyRPCAddress  = "morph.notification_endpoint"
 	cfgMorphNotifyDialTimeout = "morph.dial_timeout"
 
+	cfgMainChainRPCAddress  = "mainchain.rpc_endpoint"
+	cfgMainChainDialTimeout = "mainchain.dial_timeout"
+
 	// config keys for cfgAccounting
 	cfgAccountingContract = "accounting.scripthash"
 	cfgAccountingFee      = "accounting.fee"
@@ -219,6 +222,8 @@ type cfg struct {
 	closers []func()
 
 	cfgReputation cfgReputation
+
+	mainChainClient *client.Client
 }
 
 type cfgGRPC struct {

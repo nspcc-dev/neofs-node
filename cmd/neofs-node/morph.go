@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -27,31 +28,51 @@ var (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	addresses := c.viper.GetStringSlice(cfgMorphRPCAddress)
-	if len(addresses) == 0 {
-		fatalOnErr(errNoRPCEndpoints)
-	}
-
-	crand := rand.New() // math/rand with cryptographic source
-	crand.Shuffle(len(addresses), func(i, j int) {
-		addresses[i], addresses[j] = addresses[j], addresses[i]
-	})
-
-	for i := range addresses {
-		c.cfgMorph.client, err = client.New(c.key, addresses[i])
-		if err == nil {
-			c.log.Info("neo RPC connection established",
-				zap.String("endpoint", addresses[i]))
-
-			break
+	fn := func(endpointCfg, dialTOCfg string, handler func(*client.Client)) {
+		addresses := c.viper.GetStringSlice(endpointCfg)
+		if len(addresses) == 0 {
+			fatalOnErr(errNoRPCEndpoints)
 		}
 
-		c.log.Info("failed to establish neo RPC connection, trying another",
-			zap.String("endpoint", addresses[i]),
-			zap.String("error", err.Error()))
+		crand := rand.New() // math/rand with cryptographic source
+		crand.Shuffle(len(addresses), func(i, j int) {
+			addresses[i], addresses[j] = addresses[j], addresses[i]
+		})
+
+		var dialTimeout time.Duration
+
+		if dialTOCfg != "" {
+			dialTimeout = c.viper.GetDuration(dialTOCfg)
+		}
+
+		for i := range addresses {
+			cli, err := client.New(c.key, addresses[i], client.WithDialTimeout(dialTimeout))
+			if err == nil {
+				c.log.Info("neo RPC connection established",
+					zap.String("endpoint", addresses[i]))
+
+				handler(cli)
+
+				break
+			}
+
+			c.log.Info("failed to establish neo RPC connection, trying another",
+				zap.String("endpoint", addresses[i]),
+				zap.String("error", err.Error()))
+		}
+
+		fatalOnErr(err)
 	}
 
-	fatalOnErr(err)
+	// replace to a separate initialing block during refactoring
+	// since current function initializes sidechain components
+	fn(cfgMainChainRPCAddress, cfgMainChainDialTimeout, func(cli *client.Client) {
+		c.mainChainClient = cli
+	})
+
+	fn(cfgMorphRPCAddress, "", func(cli *client.Client) {
+		c.cfgMorph.client = cli
+	})
 
 	staticClient, err := client.NewStatic(
 		c.cfgMorph.client,
