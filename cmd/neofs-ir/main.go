@@ -55,7 +55,6 @@ func main() {
 	exitErr(err)
 
 	log = log.With(
-		zap.String("app_name", misc.InnerRingName),
 		zap.String("app_version", misc.Version),
 	)
 
