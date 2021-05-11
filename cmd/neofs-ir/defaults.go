@@ -18,9 +18,6 @@ func newConfig(path string) (*viper.Viper, error) {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	v.SetDefault("app.name", misc.InnerRingName)
-	v.SetDefault("app.version", misc.Version)
-
 	defaultConfiguration(v)
 
 	if path != "" {

@@ -355,6 +355,11 @@ func initCfg(path string) *cfg {
 	log, err := logger.NewLogger(viperCfg)
 	fatalOnErr(err)
 
+	log = log.With(
+		zap.String("app_name", misc.NodeName),
+		zap.String("app_version", misc.Version),
+	)
+
 	netAddr, err := network.AddressFromString(viperCfg.GetString(cfgBootstrapAddress))
 	fatalOnErr(err)
 
@@ -441,9 +446,6 @@ func initViper(path string) *viper.Viper {
 	v.SetEnvPrefix(misc.Prefix)
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	v.SetDefault("app.name", misc.NodeName)
-	v.SetDefault("app.version", misc.Version)
 
 	defaultConfiguration(v)
 

@@ -47,6 +47,11 @@ func main() {
 	log, err := logger.NewLogger(cfg)
 	exitErr(err)
 
+	log = log.With(
+		zap.String("app_name", misc.InnerRingName),
+		zap.String("app_version", misc.Version),
+	)
+
 	ctx := grace.NewGracefulContext(log)
 	intErr := make(chan error) // internal inner ring errors
 

@@ -27,20 +27,10 @@ func NewLogger(v *viper.Viper) (*Logger, error) {
 	c.Encoding = "console"
 	c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	l, err := c.Build(
+	return c.Build(
 		// record a stack trace for all messages at or above fatal level
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	name := v.GetString("app.name")
-	version := v.GetString("app.version")
-
-	return l.With(
-		zap.String("app_name", name),
-		zap.String("app_version", version)), nil
 }
 
 func safeLevel(lvl string) zap.AtomicLevel {
