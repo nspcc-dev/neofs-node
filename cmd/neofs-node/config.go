@@ -352,7 +352,14 @@ func initCfg(path string) *cfg {
 		viperCfg.GetString(cfgReputationContract))
 	fatalOnErr(err)
 
-	log, err := logger.NewLogger(viperCfg)
+	var logPrm logger.Prm
+
+	err = logPrm.SetLevelString(
+		viperCfg.GetString(cfgLogLevel),
+	)
+	fatalOnErr(err)
+
+	log, err := logger.NewLogger(logPrm)
 	fatalOnErr(err)
 
 	log = log.With(
