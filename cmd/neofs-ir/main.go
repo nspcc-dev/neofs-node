@@ -44,7 +44,14 @@ func main() {
 	cfg, err := newConfig(*configFile)
 	exitErr(err)
 
-	log, err := logger.NewLogger(cfg)
+	var logPrm logger.Prm
+
+	err = logPrm.SetLevelString(
+		cfg.GetString("logger.level"),
+	)
+	exitErr(err)
+
+	log, err := logger.NewLogger(logPrm)
 	exitErr(err)
 
 	log = log.With(
