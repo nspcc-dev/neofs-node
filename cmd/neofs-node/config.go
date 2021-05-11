@@ -363,7 +363,6 @@ func initCfg(path string) *cfg {
 	fatalOnErr(err)
 
 	log = log.With(
-		zap.String("app_name", misc.NodeName),
 		zap.String("app_version", misc.Version),
 	)
 
