@@ -362,10 +362,6 @@ func initCfg(path string) *cfg {
 	log, err := logger.NewLogger(logPrm)
 	fatalOnErr(err)
 
-	log = log.With(
-		zap.String("app_version", misc.Version),
-	)
-
 	netAddr, err := network.AddressFromString(viperCfg.GetString(cfgBootstrapAddress))
 	fatalOnErr(err)
 

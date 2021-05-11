@@ -54,10 +54,6 @@ func main() {
 	log, err := logger.NewLogger(logPrm)
 	exitErr(err)
 
-	log = log.With(
-		zap.String("app_version", misc.Version),
-	)
-
 	ctx := grace.NewGracefulContext(log)
 	intErr := make(chan error) // internal inner ring errors
 
@@ -97,7 +93,11 @@ func main() {
 		exitErr(err)
 	}
 
-	log.Info("application started")
+	log.Info("application started",
+		zap.String("build time", misc.Build),
+		zap.String("version", misc.Version),
+		zap.String("debug", misc.Debug),
+	)
 
 	select {
 	case <-ctx.Done():
