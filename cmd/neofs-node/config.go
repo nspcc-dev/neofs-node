@@ -92,8 +92,6 @@ const (
 	// config keys for cfgReputation
 	cfgReputationContract = "reputation.scripthash"
 
-	cfgPolicerWorkScope   = "policer.work_scope"
-	cfgPolicerExpRate     = "policer.expansion_rate"
 	cfgPolicerHeadTimeout = "policer.head_timeout"
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
@@ -462,8 +460,6 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgMetricsShutdownTimeout, "30s")
 
-	v.SetDefault(cfgPolicerWorkScope, 100)
-	v.SetDefault(cfgPolicerExpRate, 10) // in %
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)

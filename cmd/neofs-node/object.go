@@ -194,12 +194,8 @@ func initObjectService(c *cfg) {
 		policer.WithPlacementBuilder(
 			placement.NewNetworkMapSourceBuilder(c.cfgObject.netMapStorage),
 		),
-		policer.WithWorkScope(
-			c.viper.GetInt(cfgPolicerWorkScope),
-		),
-		policer.WithExpansionRate(
-			c.viper.GetInt(cfgPolicerExpRate),
-		),
+		policer.WithWorkScope(100),
+		policer.WithExpansionRate(10),
 		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
