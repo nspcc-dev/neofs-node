@@ -64,6 +64,7 @@ const (
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
 	cfgNodeAttributePrefix = "node.attribute"
+	cfgNodeRelay           = "node.relay"
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
@@ -95,8 +96,6 @@ const (
 	cfgPolicerHeadTimeout = "policer.head_timeout"
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
-
-	cfgReBootstrapRelay = "bootstrap.relay_only"
 
 	cfgObjectPutPoolSize       = "pool.object.put.size"
 	cfgObjectGetPoolSize       = "pool.object.get.size"
@@ -354,7 +353,7 @@ func initCfg(path string) *cfg {
 	reputationWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
-	relayOnly := viperCfg.GetBool(cfgReBootstrapRelay)
+	relayOnly := viperCfg.GetBool(cfgNodeRelay)
 
 	c := &cfg{
 		ctx:         context.Background(),
@@ -431,6 +430,7 @@ func initViper(path string) *viper.Viper {
 func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgNodeKey, "")          // node key
 	v.SetDefault(cfgBootstrapAddress, "") // announced address of the node
+	v.SetDefault(cfgNodeRelay, false)
 
 	v.SetDefault(cfgMorphRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyRPCAddress, []string{})
