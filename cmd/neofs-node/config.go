@@ -139,8 +139,6 @@ const (
 	cfgGCRemoverSleepInt  = "remover_sleep_interval"
 )
 
-const cfgTombstoneLifetime = "tombstone_lifetime"
-
 const (
 	addressSize = 72 // 32 bytes oid, 32 bytes cid, 8 bytes protobuf encoding
 )
@@ -464,8 +462,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgObjectRangeHashPoolSize, 10)
 
 	v.SetDefault(cfgCtrlSvcAuthorizedKeys, []string{})
-
-	v.SetDefault(cfgTombstoneLifetime, 5)
 }
 
 func (c *cfg) LocalAddress() *network.Address {

@@ -290,7 +290,7 @@ func initObjectService(c *cfg) {
 		deletesvc.WithPutService(sPut),
 		deletesvc.WithNetworkInfo(&delNetInfo{
 			State:      c.cfgNetmap.state,
-			tsLifetime: c.viper.GetUint64(cfgTombstoneLifetime),
+			tsLifetime: 5,
 		}),
 	)
 
