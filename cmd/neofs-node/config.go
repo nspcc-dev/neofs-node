@@ -68,7 +68,9 @@ const (
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
-	cfgDialTimeout   = "grpc.dial_timeout"
+
+	// config keys for API client cache
+	cfgAPIClientDialTimeout = "apiclient.dial_timeout"
 
 	// config keys for cfgMorph
 	cfgMorphRPCAddress = "morph.rpc_endpoint"
@@ -465,7 +467,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
-	v.SetDefault(cfgDialTimeout, 5*time.Second)
+
+	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
 	v.SetDefault(cfgAccountingFee, "1")

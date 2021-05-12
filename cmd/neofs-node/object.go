@@ -168,7 +168,7 @@ func initObjectService(c *cfg) {
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
 	clientCache := cache.NewSDKClientCache(
-		client.WithDialTimeout(c.viper.GetDuration(cfgDialTimeout)))
+		client.WithDialTimeout(c.viper.GetDuration(cfgAPIClientDialTimeout)))
 
 	clientConstructor := &reputationClientConstructor{
 		log:              c.log,
