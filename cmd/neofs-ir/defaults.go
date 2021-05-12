@@ -32,8 +32,10 @@ func newConfig(path string) (*viper.Viper, error) {
 func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("logger.level", "info")
 
+	cfg.SetDefault("profiler.address", "")
 	cfg.SetDefault("profiler.shutdown_timeout", "30s")
 
+	cfg.SetDefault("metrics.address", "")
 	cfg.SetDefault("metrics.shutdown_timeout", "30s")
 
 	cfg.SetDefault("without_mainnet", false)
