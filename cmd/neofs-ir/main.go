@@ -130,15 +130,17 @@ func parsePublicKeysFromString(argument string) (keys.PublicKeys, error) {
 }
 
 func initHTTPServers(cfg *viper.Viper) []*httputil.Server {
-	var httpServers []*httputil.Server
-
-	for _, item := range []struct {
+	items := []struct {
 		cfgPrefix string
 		handler   func() http.Handler
 	}{
 		{"profiler", httputil.Handler},
 		{"metrics", promhttp.Handler},
-	} {
+	}
+
+	httpServers := make([]*httputil.Server, 0, len(items))
+
+	for _, item := range items {
 		addr := cfg.GetString(item.cfgPrefix + ".address")
 		if addr == "" {
 			continue
