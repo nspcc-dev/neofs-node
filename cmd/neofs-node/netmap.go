@@ -189,21 +189,6 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 	)
 }
 
-func goOffline(c *cfg) {
-	err := c.cfgNetmap.wrapper.UpdatePeerState(
-		crypto.MarshalPublicKey(&c.key.PublicKey),
-		netmapSDK.NodeStateOffline,
-	)
-
-	if err != nil {
-		c.log.Error("could not go offline",
-			zap.String("error", err.Error()),
-		)
-	} else {
-		c.log.Info("request to go offline successfully sent")
-	}
-}
-
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	if st == control.NetmapStatus_ONLINE {
 		c.cfgNetmap.reBoostrapTurnedOff.Store(false)
