@@ -14,6 +14,7 @@ import (
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -59,33 +60,7 @@ func main() {
 	ctx := grace.NewGracefulContext(log)
 	intErr := make(chan error) // internal inner ring errors
 
-	var httpServers []*httputil.Server
-
-	for _, item := range []struct {
-		cfgPrefix string
-		handler   func() http.Handler
-	}{
-		{"profiler", httputil.Handler},
-		{"metrics", promhttp.Handler},
-	} {
-		addr := cfg.GetString(item.cfgPrefix + ".address")
-		if addr == "" {
-			continue
-		}
-
-		var prm httputil.Prm
-
-		prm.Address = addr
-		prm.Handler = item.handler()
-
-		httpServers = append(httpServers,
-			httputil.New(prm,
-				httputil.WithShutdownTimeout(
-					cfg.GetDuration(item.cfgPrefix+".shutdown_timeout"),
-				),
-			),
-		)
-	}
+	httpServers := initHTTPServers(cfg)
 
 	innerRing, err := innerring.New(ctx, log, cfg)
 	if err != nil {
@@ -152,4 +127,36 @@ func parsePublicKeysFromString(argument string) (keys.PublicKeys, error) {
 	publicKeysString := strings.Split(argument, ",")
 
 	return innerring.ParsePublicKeysFromStrings(publicKeysString)
+}
+
+func initHTTPServers(cfg *viper.Viper) []*httputil.Server {
+	var httpServers []*httputil.Server
+
+	for _, item := range []struct {
+		cfgPrefix string
+		handler   func() http.Handler
+	}{
+		{"profiler", httputil.Handler},
+		{"metrics", promhttp.Handler},
+	} {
+		addr := cfg.GetString(item.cfgPrefix + ".address")
+		if addr == "" {
+			continue
+		}
+
+		var prm httputil.Prm
+
+		prm.Address = addr
+		prm.Handler = item.handler()
+
+		httpServers = append(httpServers,
+			httputil.New(prm,
+				httputil.WithShutdownTimeout(
+					cfg.GetDuration(item.cfgPrefix+".shutdown_timeout"),
+				),
+			),
+		)
+	}
+
+	return httpServers
 }
