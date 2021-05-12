@@ -89,10 +89,6 @@ func shutdown(c *cfg) {
 		closer()
 	}
 
-	if c.cfgNetmap.goOfflineEnabled {
-		goOffline(c)
-	}
-
 	c.wg.Wait()
 }
 
