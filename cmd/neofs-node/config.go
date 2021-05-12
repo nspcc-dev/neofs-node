@@ -92,10 +92,6 @@ const (
 	// config keys for cfgReputation
 	cfgReputationContract = "reputation.scripthash"
 
-	cfgGCQueueSize = "gc.queuesize"
-	cfgGCQueueTick = "gc.duration.sleep"
-	cfgGCTimeout   = "gc.duration.timeout"
-
 	cfgPolicerWorkScope   = "policer.work_scope"
 	cfgPolicerExpRate     = "policer.expansion_rate"
 	cfgPolicerHeadTimeout = "policer.head_timeout"
@@ -465,10 +461,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgProfilerShutdownTimeout, "30s")
 
 	v.SetDefault(cfgMetricsShutdownTimeout, "30s")
-
-	v.SetDefault(cfgGCQueueSize, 1000)
-	v.SetDefault(cfgGCQueueTick, "5s")
-	v.SetDefault(cfgGCTimeout, "5s")
 
 	v.SetDefault(cfgPolicerWorkScope, 100)
 	v.SetDefault(cfgPolicerExpRate, 10) // in %

@@ -34,7 +34,6 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/gc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -94,24 +93,10 @@ func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRe
 	return s.get.GetRangeHash(ctx, req)
 }
 
-type localObjectRemover struct {
-	storage *engine.StorageEngine
-
-	log *logger.Logger
-}
-
 type localObjectInhumer struct {
 	storage *engine.StorageEngine
 
 	log *logger.Logger
-}
-
-func (r *localObjectRemover) Delete(addr ...*objectSDK.Address) error {
-	_, err := r.storage.Delete(new(engine.DeletePrm).
-		WithAddresses(addr...),
-	)
-
-	return err
 }
 
 func (r *localObjectInhumer) DeleteObjects(ts *objectSDK.Address, addr ...*objectSDK.Address) {
@@ -182,25 +167,10 @@ func initObjectService(c *cfg) {
 		sidechain: c.cfgMorph.client,
 	}
 
-	objRemover := &localObjectRemover{
-		storage: ls,
-		log:     c.log,
-	}
-
 	objInhumer := &localObjectInhumer{
 		storage: ls,
 		log:     c.log,
 	}
-
-	objGC := gc.New(
-		gc.WithLogger(c.log),
-		gc.WithRemover(objRemover),
-		gc.WithQueueCapacity(c.viper.GetUint32(cfgGCQueueSize)),
-		gc.WithSleepInterval(c.viper.GetDuration(cfgGCQueueTick)),
-		gc.WithWorkingInterval(c.viper.GetDuration(cfgGCTimeout)),
-	)
-
-	c.workers = append(c.workers, objGC)
 
 	repl := replicator.New(
 		replicator.WithLogger(c.log),
