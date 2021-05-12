@@ -67,10 +67,8 @@ const (
 	cfgNodeAttributePrefix = "node.attribute"
 
 	// config keys for cfgGRPC
-	cfgListenAddress  = "grpc.endpoint"
-	cfgMaxMsgSize     = "grpc.maxmessagesize"
-	cfgReflectService = "grpc.enable_reflect_service"
-	cfgDialTimeout    = "grpc.dial_timeout"
+	cfgListenAddress = "grpc.endpoint"
+	cfgDialTimeout   = "grpc.dial_timeout"
 
 	// config keys for cfgMorph
 	cfgMorphRPCAddress = "morph.rpc_endpoint"
@@ -166,6 +164,8 @@ const (
 	addressSize = 72 // 32 bytes oid, 32 bytes cid, 8 bytes protobuf encoding
 )
 
+const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
+
 type cfg struct {
 	ctx context.Context
 
@@ -228,8 +228,6 @@ type cfgGRPC struct {
 	maxChunkSize uint64
 
 	maxAddrAmount uint64
-
-	enableReflectService bool
 }
 
 type cfgMorph struct {
@@ -364,8 +362,8 @@ func initCfg(path string) *cfg {
 	netAddr, err := network.AddressFromString(viperCfg.GetString(cfgBootstrapAddress))
 	fatalOnErr(err)
 
-	maxChunkSize := viperCfg.GetUint64(cfgMaxMsgSize) * 3 / 4 // 25% to meta, 75% to payload
-	maxAddrAmount := maxChunkSize / addressSize               // each address is about 72 bytes
+	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
+	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
 
 	state := newNetworkState()
 
@@ -413,9 +411,8 @@ func initCfg(path string) *cfg {
 			attributes: parseAttributes(viperCfg),
 		},
 		cfgGRPC: cfgGRPC{
-			maxChunkSize:         maxChunkSize,
-			maxAddrAmount:        maxAddrAmount,
-			enableReflectService: viperCfg.GetBool(cfgReflectService),
+			maxChunkSize:  maxChunkSize,
+			maxAddrAmount: maxAddrAmount,
 		},
 		localAddr: netAddr,
 		respSvc: response.NewService(
@@ -468,8 +465,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
-	v.SetDefault(cfgMaxMsgSize, 4<<20)                // transport msg limit 4 MiB
-	v.SetDefault(cfgReflectService, false)
 	v.SetDefault(cfgDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")

@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func initGRPC(c *cfg) {
@@ -17,7 +16,7 @@ func initGRPC(c *cfg) {
 	fatalOnErr(err)
 
 	c.cfgGRPC.server = grpc.NewServer(
-		grpc.MaxSendMsgSize(c.viper.GetInt(cfgMaxMsgSize)),
+		grpc.MaxSendMsgSize(maxMsgSize),
 	)
 
 	c.onShutdown(func() {
@@ -32,12 +31,6 @@ func serveGRPC(c *cfg) {
 		defer func() {
 			c.wg.Done()
 		}()
-
-		// read more about reflect service at
-		// https://github.com/grpc/grpc-go/blob/master/Documentation/server-reflection-tutorial.md
-		if c.cfgGRPC.enableReflectService {
-			reflection.Register(c.cfgGRPC.server)
-		}
 
 		if err := c.cfgGRPC.server.Serve(c.cfgGRPC.listener); err != nil {
 			fmt.Println("gRPC server error", err)
