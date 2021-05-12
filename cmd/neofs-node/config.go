@@ -84,19 +84,13 @@ const (
 	cfgAccountingContract = "accounting.scripthash"
 
 	// config keys for cfgNetmap
-	cfgNetmapContract          = "netmap.scripthash"
-	cfgNetmapWorkerPoolEnabled = "netmap.async_worker.enabled"
-	cfgNetmapWorkerPoolSize    = "netmap.async_worker.size"
+	cfgNetmapContract = "netmap.scripthash"
 
 	// config keys for cfgContainer
-	cfgContainerContract          = "container.scripthash"
-	cfgContainerWorkerPoolEnabled = "container.async_worker.enabled"
-	cfgContainerWorkerPoolSize    = "container.async_worker.size"
+	cfgContainerContract = "container.scripthash"
 
 	// config keys for cfgReputation
-	cfgReputationContract          = "reputation.scripthash"
-	cfgReputationWorkerPoolEnabled = "reputation.async_worker.enabled"
-	cfgReputationWorkerPoolSize    = "reputation.async_worker.size"
+	cfgReputationContract = "reputation.scripthash"
 
 	cfgGCQueueSize = "gc.queuesize"
 	cfgGCQueueTick = "gc.duration.sleep"
@@ -163,6 +157,10 @@ const (
 )
 
 const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
+
+// capacity of the pools of the morph notification handlers
+// for each contract listener.
+const notificationHandlerPoolSize = 10
 
 type cfg struct {
 	ctx context.Context
@@ -359,14 +357,13 @@ func initCfg(path string) *cfg {
 
 	state := newNetworkState()
 
-	// initialize async workers if it is configured so
-	containerWorkerPool, err := initContainerWorkerPool(viperCfg)
+	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
-	netmapWorkerPool, err := initNetmapWorkerPool(viperCfg)
+	netmapWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
-	reputationWorkerPool, err := initReputationWorkerPool(viperCfg)
+	reputationWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
 	relayOnly := viperCfg.GetBool(cfgReBootstrapRelay)
@@ -460,15 +457,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
 
 	v.SetDefault(cfgContainerContract, "9d2ca84d7fb88213c4baced5a6ed4dc402309039")
-	v.SetDefault(cfgContainerWorkerPoolEnabled, true)
-	v.SetDefault(cfgContainerWorkerPoolSize, 10)
-
-	v.SetDefault(cfgReputationWorkerPoolEnabled, true)
-	v.SetDefault(cfgReputationWorkerPoolSize, 10)
 
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
-	v.SetDefault(cfgNetmapWorkerPoolEnabled, true)
-	v.SetDefault(cfgNetmapWorkerPoolSize, 10)
 
 	v.SetDefault(cfgLogLevel, "info")
 
@@ -757,36 +747,6 @@ func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
 	}
 
 	return pool
-}
-
-func initNetmapWorkerPool(v *viper.Viper) (util2.WorkerPool, error) {
-	if v.GetBool(cfgNetmapWorkerPoolEnabled) {
-		// return async worker pool
-		return ants.NewPool(v.GetInt(cfgNetmapWorkerPoolSize))
-	}
-
-	// return sync worker pool
-	return util2.SyncWorkerPool{}, nil
-}
-
-func initContainerWorkerPool(v *viper.Viper) (util2.WorkerPool, error) {
-	if v.GetBool(cfgContainerWorkerPoolEnabled) {
-		// return async worker pool
-		return ants.NewPool(v.GetInt(cfgContainerWorkerPoolSize))
-	}
-
-	// return sync worker pool
-	return util2.SyncWorkerPool{}, nil
-}
-
-func initReputationWorkerPool(v *viper.Viper) (util2.WorkerPool, error) {
-	if v.GetBool(cfgReputationWorkerPoolEnabled) {
-		// return async worker pool
-		return ants.NewPool(v.GetInt(cfgReputationWorkerPoolSize))
-	}
-
-	// return sync worker pool
-	return util2.SyncWorkerPool{}, nil
 }
 
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
