@@ -43,7 +43,7 @@ func initContainerService(c *cfg) {
 	staticClient, err := client.NewStatic(
 		c.cfgMorph.client,
 		c.cfgContainer.scriptHash,
-		c.cfgContainer.fee,
+		0,
 	)
 	fatalOnErr(err)
 

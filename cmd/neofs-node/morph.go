@@ -77,7 +77,7 @@ func initMorphComponents(c *cfg) {
 	staticClient, err := client.NewStatic(
 		c.cfgMorph.client,
 		c.cfgNetmap.scriptHash,
-		c.cfgContainer.fee,
+		0,
 	)
 	fatalOnErr(err)
 
