@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -83,17 +82,14 @@ const (
 
 	// config keys for cfgAccounting
 	cfgAccountingContract = "accounting.scripthash"
-	cfgAccountingFee      = "accounting.fee"
 
 	// config keys for cfgNetmap
 	cfgNetmapContract          = "netmap.scripthash"
-	cfgNetmapFee               = "netmap.fee"
 	cfgNetmapWorkerPoolEnabled = "netmap.async_worker.enabled"
 	cfgNetmapWorkerPoolSize    = "netmap.async_worker.size"
 
 	// config keys for cfgContainer
 	cfgContainerContract          = "container.scripthash"
-	cfgContainerFee               = "container.fee"
 	cfgContainerWorkerPoolEnabled = "container.async_worker.enabled"
 	cfgContainerWorkerPoolSize    = "container.async_worker.size"
 
@@ -241,14 +237,10 @@ type cfgMorph struct {
 
 type cfgAccounting struct {
 	scriptHash util.Uint160
-
-	fee fixedn.Fixed8
 }
 
 type cfgContainer struct {
 	scriptHash util.Uint160
-
-	fee fixedn.Fixed8
 
 	parsers     map[event.Type]event.Parser
 	subscribers map[event.Type][]event.Handler
@@ -258,8 +250,6 @@ type cfgContainer struct {
 type cfgNetmap struct {
 	scriptHash util.Uint160
 	wrapper    *nmwrapper.Wrapper
-
-	fee fixedn.Fixed8
 
 	parsers map[event.Type]event.Parser
 
@@ -391,16 +381,13 @@ func initCfg(path string) *cfg {
 		apiVersion:  pkg.SDKVersion(),
 		cfgAccounting: cfgAccounting{
 			scriptHash: u160Accounting,
-			fee:        fixedn.Fixed8(viperCfg.GetInt(cfgAccountingFee)),
 		},
 		cfgContainer: cfgContainer{
 			scriptHash: u160Container,
-			fee:        fixedn.Fixed8(viperCfg.GetInt(cfgContainerFee)),
 			workerPool: containerWorkerPool,
 		},
 		cfgNetmap: cfgNetmap{
 			scriptHash:          u160Netmap,
-			fee:                 fixedn.Fixed8(viperCfg.GetInt(cfgNetmapFee)),
 			state:               state,
 			workerPool:          netmapWorkerPool,
 			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
@@ -471,10 +458,8 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
-	v.SetDefault(cfgAccountingFee, "1")
 
 	v.SetDefault(cfgContainerContract, "9d2ca84d7fb88213c4baced5a6ed4dc402309039")
-	v.SetDefault(cfgContainerFee, "1")
 	v.SetDefault(cfgContainerWorkerPoolEnabled, true)
 	v.SetDefault(cfgContainerWorkerPoolSize, 10)
 
@@ -482,7 +467,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgReputationWorkerPoolSize, 10)
 
 	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
-	v.SetDefault(cfgNetmapFee, "1")
 	v.SetDefault(cfgNetmapWorkerPoolEnabled, true)
 	v.SetDefault(cfgNetmapWorkerPoolSize, 10)
 

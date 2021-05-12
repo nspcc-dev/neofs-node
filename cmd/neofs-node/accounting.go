@@ -18,7 +18,7 @@ func initAccountingService(c *cfg) {
 	staticClient, err := client.NewStatic(
 		c.cfgMorph.client,
 		c.cfgAccounting.scriptHash,
-		c.cfgAccounting.fee,
+		0,
 	)
 	fatalOnErr(err)
 
