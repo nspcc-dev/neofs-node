@@ -96,9 +96,7 @@ const (
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
 
-	cfgReBootstrapRelay    = "bootstrap.relay_only"
-	cfgReBootstrapEnabled  = "bootstrap.periodic.enabled"
-	cfgReBootstrapInterval = "bootstrap.periodic.interval"
+	cfgReBootstrapRelay = "bootstrap.relay_only"
 
 	cfgObjectPutPoolSize       = "pool.object.put.size"
 	cfgObjectGetPoolSize       = "pool.object.get.size"
@@ -250,7 +248,7 @@ type cfgNetmap struct {
 
 	reBootstrapEnabled  bool
 	reBoostrapTurnedOff *atomic.Bool // managed by control service in runtime
-	reBootstrapInterval uint64       // in epochs
+	startEpoch          uint64       // epoch number when application is started
 }
 
 type BootstrapType uint32
@@ -377,8 +375,7 @@ func initCfg(path string) *cfg {
 			scriptHash:          u160Netmap,
 			state:               state,
 			workerPool:          netmapWorkerPool,
-			reBootstrapInterval: viperCfg.GetUint64(cfgReBootstrapInterval),
-			reBootstrapEnabled:  !relayOnly && viperCfg.GetBool(cfgReBootstrapEnabled),
+			reBootstrapEnabled:  !relayOnly,
 			reBoostrapTurnedOff: atomic.NewBool(relayOnly),
 		},
 		cfgNodeInfo: cfgNodeInfo{
@@ -458,9 +455,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
 
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
-
-	v.SetDefault(cfgReBootstrapEnabled, false) // in epochs
-	v.SetDefault(cfgReBootstrapInterval, 2)    // in epochs
 
 	v.SetDefault(cfgObjectGetPoolSize, 10)
 	v.SetDefault(cfgObjectHeadPoolSize, 10)

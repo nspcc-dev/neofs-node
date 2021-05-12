@@ -73,22 +73,22 @@ func initNetmapService(c *cfg) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
 	})
 
-	if c.cfgNetmap.reBootstrapEnabled {
-		addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-			if c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
-				return
-			}
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		if c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
+			return
+		}
 
-			n := ev.(netmapEvent.NewEpoch).EpochNumber()
+		n := ev.(netmapEvent.NewEpoch).EpochNumber()
 
-			if n%c.cfgNetmap.reBootstrapInterval == 0 {
-				err := c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
-				if err != nil {
-					c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
-				}
+		const reBootstrapInterval = 2
+
+		if (n-c.cfgNetmap.startEpoch)%reBootstrapInterval == 0 {
+			err := c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
+			if err != nil {
+				c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
 			}
-		})
-	}
+		}
+	})
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		e := ev.(netmapEvent.NewEpoch).EpochNumber()
@@ -149,6 +149,7 @@ func initState(c *cfg) {
 	)
 
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
+	c.cfgNetmap.startEpoch = epoch
 }
 
 func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
