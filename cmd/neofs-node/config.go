@@ -97,12 +97,7 @@ const (
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
 
-	cfgObjectPutPoolSize       = "object.put.pool_size"
-	cfgObjectGetPoolSize       = "object.get.pool_size"
-	cfgObjectHeadPoolSize      = "object.head.pool_size"
-	cfgObjectSearchPoolSize    = "object.search.pool_size"
-	cfgObjectRangePoolSize     = "object.range.pool_size"
-	cfgObjectRangeHashPoolSize = "object.rangehash.pool_size"
+	cfgObjectPutPoolSize = "object.put.pool_size"
 )
 
 const (
@@ -279,7 +274,7 @@ type cfgLocalStorage struct {
 }
 
 type cfgObjectRoutines struct {
-	get, head, put, search, rng, rngHash *ants.Pool
+	put *ants.Pool
 }
 
 type cfgControlService struct {
@@ -454,12 +449,7 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
 
-	v.SetDefault(cfgObjectGetPoolSize, 10)
-	v.SetDefault(cfgObjectHeadPoolSize, 10)
 	v.SetDefault(cfgObjectPutPoolSize, 10)
-	v.SetDefault(cfgObjectSearchPoolSize, 10)
-	v.SetDefault(cfgObjectRangePoolSize, 10)
-	v.SetDefault(cfgObjectRangeHashPoolSize, 10)
 
 	v.SetDefault(cfgCtrlSvcAuthorizedKeys, []string{})
 }
@@ -689,32 +679,7 @@ func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
 
 	optNonBlocking := ants.WithNonblocking(true)
 
-	pool.get, err = ants.NewPool(cfg.GetInt(cfgObjectGetPoolSize), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
-
-	pool.head, err = ants.NewPool(cfg.GetInt(cfgObjectHeadPoolSize), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
-
-	pool.search, err = ants.NewPool(cfg.GetInt(cfgObjectSearchPoolSize), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
-
 	pool.put, err = ants.NewPool(cfg.GetInt(cfgObjectPutPoolSize), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
-
-	pool.rng, err = ants.NewPool(cfg.GetInt(cfgObjectRangePoolSize), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
-
-	pool.rngHash, err = ants.NewPool(cfg.GetInt(cfgObjectRangeHashPoolSize), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
