@@ -97,12 +97,12 @@ const (
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
 
-	cfgObjectPutPoolSize       = "pool.object.put.size"
-	cfgObjectGetPoolSize       = "pool.object.get.size"
-	cfgObjectHeadPoolSize      = "pool.object.head.size"
-	cfgObjectSearchPoolSize    = "pool.object.search.size"
-	cfgObjectRangePoolSize     = "pool.object.range.size"
-	cfgObjectRangeHashPoolSize = "pool.object.rangehash.size"
+	cfgObjectPutPoolSize       = "object.put.pool_size"
+	cfgObjectGetPoolSize       = "object.get.pool_size"
+	cfgObjectHeadPoolSize      = "object.head.pool_size"
+	cfgObjectSearchPoolSize    = "object.search.pool_size"
+	cfgObjectRangePoolSize     = "object.range.pool_size"
+	cfgObjectRangeHashPoolSize = "object.rangehash.pool_size"
 )
 
 const (
