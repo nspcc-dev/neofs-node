@@ -62,6 +62,7 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 	for i := range nm.Nodes {
 		if bytes.Equal(nm.Nodes[i].PublicKey(), it.storage.LocalKey) {
 			localIndex = i
+			break
 		}
 	}
 
