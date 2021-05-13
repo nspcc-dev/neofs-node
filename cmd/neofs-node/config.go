@@ -438,11 +438,11 @@ func defaultConfiguration(v *viper.Viper) {
 
 	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
 
-	v.SetDefault(cfgAccountingContract, "1aeefe1d0dfade49740fff779c02cd4a0538ffb1")
+	v.SetDefault(cfgAccountingContract, "")
 
-	v.SetDefault(cfgContainerContract, "9d2ca84d7fb88213c4baced5a6ed4dc402309039")
+	v.SetDefault(cfgContainerContract, "")
 
-	v.SetDefault(cfgNetmapContract, "75194459637323ea8837d2afe8225ec74a5658c3")
+	v.SetDefault(cfgNetmapContract, "")
 
 	v.SetDefault(cfgLogLevel, "info")
 
