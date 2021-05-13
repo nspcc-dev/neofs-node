@@ -120,6 +120,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (util.Uint256
 		int64(amount),
 		0,
 		[]interface{}{c.acc.PrivateKey().GetScriptHash(), int64(bc + delta)},
+		nil,
 	)
 	if err != nil {
 		return util.Uint256{}, errors.Wrap(err, "can't make notary deposit")
