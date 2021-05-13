@@ -158,7 +158,7 @@ func (s *EpochTrustValueStorage) Iterate(h reputation.TrustHandler) (err error) 
 				t := reputation.Trust{}
 
 				t.SetPeer(peerIDFromString(strID))
-				t.SetValue(val)
+				t.SetValue(val.Div(sum))
 
 				if err = h(t); err != nil {
 					break
