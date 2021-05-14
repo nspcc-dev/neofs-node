@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func initGRPC(c *cfg) {
@@ -15,9 +16,20 @@ func initGRPC(c *cfg) {
 	c.cfgGRPC.listener, err = net.Listen("tcp", c.viper.GetString(cfgListenAddress))
 	fatalOnErr(err)
 
-	c.cfgGRPC.server = grpc.NewServer(
+	serverOpts := []grpc.ServerOption{
 		grpc.MaxSendMsgSize(maxMsgSize),
-	)
+	}
+
+	if c.cfgGRPC.tlsEnabled {
+		creds, err := credentials.NewServerTLSFromFile(c.cfgGRPC.tlsCertFile, c.cfgGRPC.tlsKeyFile)
+		if err != nil {
+			fatalOnErr(fmt.Errorf("could not read credentionals from file: %w", err))
+		}
+
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+
+	c.cfgGRPC.server = grpc.NewServer(serverOpts...)
 
 	c.onShutdown(func() {
 		stopGRPC("NeoFS Public API", c.cfgGRPC.server, c.log)
