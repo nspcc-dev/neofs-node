@@ -68,6 +68,9 @@ const (
 
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
+	cfgTLSEnabled    = "grpc.tls.enabled"
+	cfgTLSCertFile   = "grpc.tls.certificate"
+	cfgTLSKeyFile    = "grpc.tls.key"
 
 	// config keys for API client cache
 	cfgAPIClientDialTimeout = "apiclient.dial_timeout"
@@ -206,6 +209,10 @@ type cfgGRPC struct {
 	maxChunkSize uint64
 
 	maxAddrAmount uint64
+
+	tlsEnabled  bool
+	tlsCertFile string
+	tlsKeyFile  string
 }
 
 type cfgMorph struct {
@@ -335,6 +342,18 @@ func initCfg(path string) *cfg {
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
 
+	var (
+		tlsEnabled  bool
+		tlsCertFile string
+		tlsKeyFile  string
+	)
+
+	if viperCfg.GetBool(cfgTLSEnabled) {
+		tlsEnabled = true
+		tlsCertFile = viperCfg.GetString(cfgTLSCertFile)
+		tlsKeyFile = viperCfg.GetString(cfgTLSKeyFile)
+	}
+
 	state := newNetworkState()
 
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
@@ -377,6 +396,9 @@ func initCfg(path string) *cfg {
 		cfgGRPC: cfgGRPC{
 			maxChunkSize:  maxChunkSize,
 			maxAddrAmount: maxAddrAmount,
+			tlsEnabled:    tlsEnabled,
+			tlsCertFile:   tlsCertFile,
+			tlsKeyFile:    tlsKeyFile,
 		},
 		localAddr: netAddr,
 		respSvc: response.NewService(
@@ -430,6 +452,9 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
+	v.SetDefault(cfgTLSEnabled, false)
+	v.SetDefault(cfgTLSCertFile, "")
+	v.SetDefault(cfgTLSKeyFile, "")
 
 	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
 
