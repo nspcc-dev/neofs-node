@@ -28,9 +28,9 @@ var (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	fn := func(endpointCfg, dialTOCfg string, handler func(*client.Client)) {
+	fn := func(endpointCfg, dialTOCfg string, handler func(*client.Client), required bool) {
 		addresses := c.viper.GetStringSlice(endpointCfg)
-		if len(addresses) == 0 {
+		if required && len(addresses) == 0 {
 			fatalOnErr(errNoRPCEndpoints)
 		}
 
@@ -68,11 +68,11 @@ func initMorphComponents(c *cfg) {
 	// since current function initializes sidechain components
 	fn(cfgMainChainRPCAddress, cfgMainChainDialTimeout, func(cli *client.Client) {
 		c.mainChainClient = cli
-	})
+	}, false)
 
 	fn(cfgMorphRPCAddress, "", func(cli *client.Client) {
 		c.cfgMorph.client = cli
-	})
+	}, true)
 
 	staticClient, err := client.NewStatic(
 		c.cfgMorph.client,
