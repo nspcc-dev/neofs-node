@@ -28,3 +28,42 @@ func TestAddress_NetAddr(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ip+":"+port, netAddr)
 }
+
+func TestAddress_HostAddrString(t *testing.T) {
+	t.Run("valid addresses", func(t *testing.T) {
+		testcases := []struct {
+			ma  multiaddr.Multiaddr
+			exp string
+		}{
+			{buildMultiaddr("/dns4/neofs.bigcorp.com/tcp/8080", t), "neofs.bigcorp.com:8080"},
+			{buildMultiaddr("/ip4/172.16.14.1/tcp/8080", t), "172.16.14.1:8080"},
+		}
+
+		for _, testcase := range testcases {
+			addr := Address{testcase.ma}
+
+			got, err := addr.HostAddrString()
+			require.NoError(t, err)
+
+			require.Equal(t, testcase.exp, got)
+		}
+	})
+
+	t.Run("invalid addresses", func(t *testing.T) {
+		testcases := []multiaddr.Multiaddr{
+			buildMultiaddr("/tcp/8080", t),
+		}
+
+		for _, testcase := range testcases {
+			addr := Address{testcase}
+			_, err := addr.HostAddrString()
+			require.Error(t, err)
+		}
+	})
+}
+
+func buildMultiaddr(s string, t *testing.T) multiaddr.Multiaddr {
+	ma, err := multiaddr.NewMultiaddr(s)
+	require.NoError(t, err)
+	return ma
+}
