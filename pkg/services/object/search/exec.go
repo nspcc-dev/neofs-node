@@ -118,7 +118,7 @@ func (exec *execCtx) generateTraverser(cid *container.ID) (*placement.Traverser,
 }
 
 func (exec execCtx) remoteClient(node *network.Address) (searchClient, bool) {
-	ipAddr, err := node.IPAddrString()
+	hostAddr, err := node.HostAddrString()
 
 	log := exec.log.With(zap.Stringer("node", node))
 
@@ -129,7 +129,7 @@ func (exec execCtx) remoteClient(node *network.Address) (searchClient, bool) {
 
 		log.Debug("could not calculate node IP address")
 	case err == nil:
-		c, err := exec.svc.clientConstructor.get(ipAddr)
+		c, err := exec.svc.clientConstructor.get(hostAddr)
 
 		switch {
 		default:

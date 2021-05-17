@@ -76,12 +76,12 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
-	ipAddr, err := network.IPAddrFromMultiaddr(addr)
+	hostAddr, err := network.HostAddrFromMultiaddr(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert address to IP format")
 	}
 
-	c, err := rtp.clientCache.Get(ipAddr)
+	c, err := rtp.clientCache.Get(hostAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize API client")
 	}

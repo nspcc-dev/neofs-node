@@ -106,12 +106,12 @@ func IsLocalAddress(src LocalAddressSource, addr *Address) bool {
 	return src.LocalAddress().ma.Equal(addr.ma)
 }
 
-// IPAddrFromMultiaddr converts "/dns4/localhost/tcp/8080" to "192.168.0.1:8080".
-func IPAddrFromMultiaddr(multiaddr string) (string, error) {
+// HostAddrFromMultiaddr converts "/dns4/localhost/tcp/8080" to "localhost:8080".
+func HostAddrFromMultiaddr(multiaddr string) (string, error) {
 	address, err := AddressFromString(multiaddr)
 	if err != nil {
 		return "", err
 	}
 
-	return address.IPAddrString()
+	return address.HostAddrString()
 }

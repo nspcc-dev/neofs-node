@@ -74,7 +74,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 	getParams.WithAddress(addr)
 
 	for _, node := range placement.FlattenNodes(nodes) {
-		addr, err := network.IPAddrFromMultiaddr(node.Address())
+		addr, err := network.HostAddrFromMultiaddr(node.Address())
 		if err != nil {
 			c.log.Warn("can't parse remote address",
 				zap.String("address", node.Address()),
@@ -136,7 +136,7 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 	headParams.WithMainFields()
 	headParams.WithAddress(objAddress)
 
-	addr, err := network.IPAddrFromMultiaddr(node.Address())
+	addr, err := network.HostAddrFromMultiaddr(node.Address())
 	if err != nil {
 		return nil, fmt.Errorf("can't parse remote address %s: %w", node.Address(), err)
 	}
@@ -172,7 +172,7 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 	rangeParams.WithRangeList(rng)
 	rangeParams.WithSalt(nil) // it MUST be nil for correct hash concatenation in PDP game
 
-	addr, err := network.IPAddrFromMultiaddr(node.Address())
+	addr, err := network.HostAddrFromMultiaddr(node.Address())
 	if err != nil {
 		return nil, fmt.Errorf("can't parse remote address %s: %w", node.Address(), err)
 	}
