@@ -46,6 +46,16 @@ func (a Address) IPAddrString() (string, error) {
 	return ip.String(), nil
 }
 
+// HostAddrString returns host address in string format.
+func (a Address) HostAddrString() (string, error) {
+	_, host, err := manet.DialArgs(a.ma)
+	if err != nil {
+		return "", errors.Wrap(err, "could not get host addr")
+	}
+
+	return host, nil
+}
+
 // AddressFromString restores address from a multiaddr string representation.
 func AddressFromString(s string) (*Address, error) {
 	ma, err := multiaddr.NewMultiaddr(s)
