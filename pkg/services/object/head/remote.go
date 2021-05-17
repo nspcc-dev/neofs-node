@@ -65,7 +65,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, errors.Wrapf(err, "(%T) could not receive private key", h)
 	}
 
-	addr, err := prm.node.IPAddrString()
+	addr, err := prm.node.HostAddrString()
 	if err != nil {
 		return nil, err
 	}

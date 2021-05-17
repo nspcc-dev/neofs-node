@@ -228,12 +228,12 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
-	ipAddr, err := network.IPAddrFromMultiaddr(addr)
+	hostAddr, err := network.HostAddrFromMultiaddr(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert address to IP format")
 	}
 
-	c, err := r.clientCache.Get(ipAddr)
+	c, err := r.clientCache.Get(hostAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize API client")
 	}

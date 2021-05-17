@@ -235,12 +235,12 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 		return nil, err
 	}
 
-	ipAddr, err := netAddr.IPAddrString()
+	hostAddr, err := netAddr.HostAddrString()
 	if err != nil {
 		return nil, errInvalidEndpoint
 	}
 
-	c, err := client.New(client.WithAddress(ipAddr), client.WithDefaultPrivateKey(key))
+	c, err := client.New(client.WithAddress(hostAddr), client.WithDefaultPrivateKey(key))
 	return c, err
 }
 

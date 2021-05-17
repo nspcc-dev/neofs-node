@@ -209,7 +209,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 			na, err := network.AddressFromString(a)
 			require.NoError(t, err)
 
-			as[j], err = na.IPAddrString()
+			as[j], err = na.HostAddrString()
 			require.NoError(t, err)
 
 			ni := netmap.NewNodeInfo()

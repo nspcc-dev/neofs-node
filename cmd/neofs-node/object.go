@@ -492,9 +492,9 @@ func (c *reputationClientConstructor) Get(addr string) (client.Client, error) {
 	nm, err := netmap.GetLatestNetworkMap(c.nmSrc)
 	if err == nil {
 		for i := range nm.Nodes {
-			ipAddr, err := network.IPAddrFromMultiaddr(nm.Nodes[i].Address())
+			hostAddr, err := network.HostAddrFromMultiaddr(nm.Nodes[i].Address())
 			if err == nil {
-				if ipAddr == addr {
+				if hostAddr == addr {
 					prm := truststorage.UpdatePrm{}
 					prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 
