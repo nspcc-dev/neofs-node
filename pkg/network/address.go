@@ -83,6 +83,13 @@ func multiaddrStringFromHostAddr(host string) (string, error) {
 		return "", err
 	}
 
+	// Empty address in host `:8080` generates `/dns4//tcp/8080` multiaddr
+	// which is invalid. It could be `/tcp/8080` but this breaks
+	// `manet.DialArgs`. The solution is to manually parse it as 0.0.0.0
+	if endpoint == "" {
+		return "/ip4/0.0.0.0/tcp/" + port, nil
+	}
+
 	var (
 		prefix = "/dns4"
 		addr   = endpoint
