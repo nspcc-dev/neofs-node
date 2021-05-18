@@ -13,7 +13,7 @@ require (
 	github.com/mr-tron/base58 v1.1.3
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/nspcc-dev/hrw v1.0.9
-	github.com/nspcc-dev/neo-go v0.94.2-pre.0.20210514140956-2cb878cb7a0f
+	github.com/nspcc-dev/neo-go v0.95.0
 	github.com/nspcc-dev/neofs-api-go v1.26.0
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/tzhash v1.4.0
