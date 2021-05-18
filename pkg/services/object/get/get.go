@@ -15,7 +15,11 @@ func (s *Service) Get(ctx context.Context, prm Prm) error {
 
 // GetRange serves a request to get an object by address, and returns Streamer instance.
 func (s *Service) GetRange(ctx context.Context, prm RangePrm) error {
-	return s.get(ctx, prm.commonPrm, withPayloadRange(prm.rng)).err
+	return s.getRange(ctx, prm)
+}
+
+func (s *Service) getRange(ctx context.Context, prm RangePrm, opts ...execOption) error {
+	return s.get(ctx, prm.commonPrm, append(opts, withPayloadRange(prm.rng))...).err
 }
 
 func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHashRes, error) {
@@ -37,7 +41,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			hash: util.NewSaltingWriter(h, prm.salt),
 		})
 
-		if err := s.GetRange(ctx, rngPrm); err != nil {
+		if err := s.getRange(ctx, rngPrm, hashOnly()); err != nil {
 			return nil, err
 		}
 
