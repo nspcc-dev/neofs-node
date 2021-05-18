@@ -38,7 +38,7 @@ type execCtx struct {
 
 	curOff uint64
 
-	head bool
+	head, hash bool
 
 	curProcEpoch uint64
 
@@ -68,6 +68,12 @@ func headOnly() execOption {
 func withPayloadRange(r *objectSDK.Range) execOption {
 	return func(c *execCtx) {
 		c.prm.rng = r
+	}
+}
+
+func hashOnly() execOption {
+	return func(c *execCtx) {
+		c.hash = true
 	}
 }
 
@@ -144,6 +150,10 @@ func (exec *execCtx) ctxRange() *objectSDK.Range {
 
 func (exec *execCtx) headOnly() bool {
 	return exec.head
+}
+
+func (exec *execCtx) hashOnly() bool {
+	return exec.hash
 }
 
 func (exec *execCtx) netmapEpoch() uint64 {
