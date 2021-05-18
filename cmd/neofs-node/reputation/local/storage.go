@@ -2,6 +2,7 @@ package local
 
 import (
 	"bytes"
+	"errors"
 
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
@@ -9,7 +10,6 @@ import (
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 )
 
 type TrustStorage struct {

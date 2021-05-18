@@ -1,13 +1,14 @@
 package util
 
 import (
+	"fmt"
+
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/pkg/errors"
 )
 
 type localPlacement struct {
@@ -44,7 +45,7 @@ func NewLocalPlacement(b placement.Builder, s network.LocalAddressSource) placem
 func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	vs, err := p.builder.BuildPlacement(addr, policy)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not build object placement", p)
+		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
 	}
 
 	for i := range vs {
@@ -61,7 +62,7 @@ func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.
 		}
 	}
 
-	return nil, errors.Errorf("(%T) local node is outside of object placement", p)
+	return nil, fmt.Errorf("(%T) local node is outside of object placement", p)
 }
 
 // NewRemotePlacementBuilder creates, initializes and returns placement builder that
@@ -76,7 +77,7 @@ func NewRemotePlacementBuilder(b placement.Builder, s network.LocalAddressSource
 func (p *remotePlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	vs, err := p.builder.BuildPlacement(addr, policy)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not build object placement", p)
+		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
 	}
 
 	for i := range vs {
@@ -122,13 +123,13 @@ func (g *TraverserGenerator) GenerateTraverser(addr *object.Address, epoch uint6
 	// get network map by epoch
 	nm, err := g.netMapSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get network map #%d", epoch)
+		return nil, fmt.Errorf("could not get network map #%d: %w", epoch, err)
 	}
 
 	// get container related container
 	cnr, err := g.cnrSrc.Get(addr.ContainerID())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get container")
+		return nil, fmt.Errorf("could not get container: %w", err)
 	}
 
 	// allocate placement traverser options

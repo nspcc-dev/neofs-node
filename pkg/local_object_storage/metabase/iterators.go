@@ -1,12 +1,13 @@
 package meta
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -60,7 +61,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 
 			expiresAt, err := strconv.ParseUint(string(expKey), 10, 64)
 			if err != nil {
-				return errors.Wrap(err, "could not parse expiration epoch")
+				return fmt.Errorf("could not parse expiration epoch: %w", err)
 			} else if expiresAt >= epoch {
 				return nil
 			}
@@ -70,14 +71,14 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 
 				err = id.Parse(string(idKey))
 				if err != nil {
-					return errors.Wrap(err, "could not parse ID of expired object")
+					return fmt.Errorf("could not parse ID of expired object: %w", err)
 				}
 
 				cid := container.NewID()
 
 				err = cid.Parse(string(cidBytes))
 				if err != nil {
-					return errors.Wrap(err, "could not parse container ID of expired bucket")
+					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
 				}
 
 				addr := object.NewAddress()
@@ -133,7 +134,7 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, 
 		if _, ok := tss[string(v)]; ok {
 			addr, err := addressFromKey(k)
 			if err != nil {
-				return errors.Wrap(err, "could not parse address of the object under tombstone")
+				return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
 			}
 
 			return h(addr)

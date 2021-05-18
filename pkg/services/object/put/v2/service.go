@@ -2,10 +2,10 @@ package putsvc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	"github.com/pkg/errors"
 )
 
 // Service implements Put operation of Object service v2.
@@ -37,7 +37,7 @@ func NewService(opts ...Option) *Service {
 func (s *Service) Put(ctx context.Context) (object.PutObjectStream, error) {
 	stream, err := s.svc.Put(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not open object put stream", s)
+		return nil, fmt.Errorf("(%T) could not open object put stream: %w", s, err)
 	}
 
 	return &streamer{

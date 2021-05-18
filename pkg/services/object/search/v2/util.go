@@ -1,6 +1,8 @@
 package searchsvc
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"sync"
 
@@ -16,7 +18,6 @@ import (
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/pkg/errors"
 )
 
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
@@ -80,16 +81,16 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				// receive message from server stream
 				err := stream.Read(resp)
 				if err != nil {
-					if errors.Is(errors.Cause(err), io.EOF) {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 
-					return nil, errors.Wrap(err, "reading the response failed")
+					return nil, fmt.Errorf("reading the response failed: %w", err)
 				}
 
 				// verify response structure
 				if err := signature.VerifyServiceMessage(resp); err != nil {
-					return nil, errors.Wrapf(err, "could not verify %T", resp)
+					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 				}
 
 				chunk := resp.GetBody().GetIDList()

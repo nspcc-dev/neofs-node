@@ -1,8 +1,9 @@
 package event
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/pkg/errors"
 )
 
 // Parser is a function that constructs Event
@@ -31,7 +32,7 @@ func WrongNumberOfParameters(exp, act int) error {
 }
 
 func (s wrongPrmNumber) Error() string {
-	return errors.Errorf("wrong parameter count: expected %d, has %d", s.exp, s.act).Error()
+	return fmt.Errorf("wrong parameter count: expected %d, has %d", s.exp, s.act).Error()
 }
 
 // SetParser is an event parser setter.

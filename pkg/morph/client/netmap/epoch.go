@@ -1,8 +1,9 @@
 package netmap
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // EpochArgs groups the arguments
@@ -28,19 +29,18 @@ func (c *Client) Epoch(_ EpochArgs) (*EpochValues, error) {
 		c.epochMethod,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"could not perform test invocation (%s)",
-			c.epochMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			c.epochMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d",
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
 			c.epochMethod, ln)
 	}
 
 	num, err := client.IntFromStackItem(items[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get number from stack item (%s)", c.epochMethod)
+		return nil, fmt.Errorf("could not get number from stack item (%s): %w", c.epochMethod, err)
 	}
 
 	return &EpochValues{

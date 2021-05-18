@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"strconv"
 	"testing"
 
@@ -15,7 +16,6 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

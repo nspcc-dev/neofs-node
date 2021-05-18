@@ -1,8 +1,9 @@
 package response
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	"github.com/pkg/errors"
 )
 
 // ClientMessageStreamer represents client-side message streamer
@@ -17,9 +18,10 @@ type ClientMessageStreamer struct {
 
 // Recv calls send method of internal streamer.
 func (s *ClientMessageStreamer) Send(req interface{}) error {
-	return errors.Wrapf(
-		s.send(req),
-		"(%T) could not send the request", s)
+	if err := s.send(req); err != nil {
+		return fmt.Errorf("(%T) could not send the request: %w", s, err)
+	}
+	return nil
 }
 
 // CloseAndRecv closes internal stream, receivers the response,
@@ -27,7 +29,7 @@ func (s *ClientMessageStreamer) Send(req interface{}) error {
 func (s *ClientMessageStreamer) CloseAndRecv() (util.ResponseMessage, error) {
 	resp, err := s.close()
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not close stream and receive response", s)
+		return nil, fmt.Errorf("(%T) could not close stream and receive response: %w", s, err)
 	}
 
 	setMeta(resp, s.cfg)

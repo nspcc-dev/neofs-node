@@ -1,11 +1,12 @@
 package audit
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -14,7 +15,7 @@ var ErrInvalidIRNode = errors.New("node is not in the inner ring list")
 func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*container.ID, error) {
 	containers, err := ap.containerClient.List(nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't get list of containers to start audit")
+		return nil, fmt.Errorf("can't get list of containers to start audit: %w", err)
 	}
 
 	// consider getting extra information about container complexity from

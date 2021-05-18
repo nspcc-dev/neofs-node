@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"net"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -10,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
 
@@ -34,7 +34,7 @@ func initControlService(c *cfg) {
 		fatalOnErr(err)
 
 		if crypto.UnmarshalPublicKey(key) == nil {
-			fatalOnErr(errors.Errorf("invalid permitted key for Control service %s", strKeys[i]))
+			fatalOnErr(fmt.Errorf("invalid permitted key for Control service %s", strKeys[i]))
 		}
 
 		keys = append(keys, key)

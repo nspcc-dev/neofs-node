@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +47,7 @@ func (s *Shard) List() (*SelectRes, error) {
 func (s *Shard) ListContainers(_ *ListContainersPrm) (*ListContainersRes, error) {
 	containers, err := s.metaBase.Containers()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get list of containers")
+		return nil, fmt.Errorf("could not get list of containers: %w", err)
 	}
 
 	return &ListContainersRes{

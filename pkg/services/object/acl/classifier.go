@@ -3,6 +3,7 @@ package acl
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
@@ -15,7 +16,6 @@ import (
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -52,7 +52,7 @@ func (c SenderClassifier) Classify(
 	cid *container.ID,
 	cnr *container.Container) (role acl.Role, isIR bool, key []byte, err error) {
 	if cid == nil {
-		return 0, false, nil, errors.Wrap(ErrMalformedRequest, "container id is not set")
+		return 0, false, nil, fmt.Errorf("%w: container id is not set", ErrMalformedRequest)
 	}
 
 	ownerID, ownerKey, err := requestOwner(req)
@@ -95,7 +95,7 @@ func (c SenderClassifier) Classify(
 
 func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
 	if req.vheader == nil {
-		return nil, nil, errors.Wrap(ErrMalformedRequest, "nil verification header")
+		return nil, nil, fmt.Errorf("%w: nil verification header", ErrMalformedRequest)
 	}
 
 	// if session token is presented, use it as truth source
@@ -107,13 +107,13 @@ func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
 	// otherwise get original body signature
 	bodySignature := originalBodySignature(req.vheader)
 	if bodySignature == nil {
-		return nil, nil, errors.Wrap(ErrMalformedRequest, "nil at body signature")
+		return nil, nil, fmt.Errorf("%w: nil at body signature", ErrMalformedRequest)
 	}
 
 	key := crypto.UnmarshalPublicKey(bodySignature.Key())
 	neo3wallet, err := owner.NEO3WalletFromPublicKey(key)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "can't create neo3 wallet")
+		return nil, nil, fmt.Errorf("can't create neo3 wallet: %w", err)
 	}
 
 	// form user from public key
@@ -202,7 +202,7 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, e
 		tokenSignature := token.GetSignature()
 		return tokenSignature.GetKey(), tokenSignature.GetSign()
 	}); err != nil {
-		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid session token signature")
+		return nil, nil, fmt.Errorf("%w: invalid session token signature", ErrMalformedRequest)
 	}
 
 	// 2. Then check if session token owner issued the session token
@@ -211,7 +211,7 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, e
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
 		// todo: in this case we can issue all owner keys from neofs.id and check once again
-		return nil, nil, errors.Wrap(ErrMalformedRequest, "invalid session token owner")
+		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
 	}
 
 	return tokenOwner, tokenIssuerKey, nil

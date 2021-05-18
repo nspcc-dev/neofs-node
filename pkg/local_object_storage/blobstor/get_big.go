@@ -1,9 +1,11 @@
 package blobstor
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/pkg/errors"
 )
 
 // GetBigPrm groups the parameters of GetBig operation.
@@ -31,18 +33,18 @@ func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 			return nil, object.ErrNotFound
 		}
 
-		return nil, errors.Wrap(err, "could not read object from fs tree")
+		return nil, fmt.Errorf("could not read object from fs tree: %w", err)
 	}
 
 	data, err = b.decompressor(data)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not decompress object data")
+		return nil, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := object.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal the object")
+		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
 	return &GetBigRes{

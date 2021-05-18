@@ -1,9 +1,10 @@
 package netmap
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // GetNetMapArgs groups the arguments
@@ -61,9 +62,8 @@ func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
 		c.netMapMethod,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"could not perform test invocation (%s)",
-			c.netMapMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			c.netMapMethod, err)
 	}
 
 	return peersFromStackItems(prms, c.netMapMethod)
@@ -78,9 +78,8 @@ func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
 		int64(a.diff),
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"could not perform test invocation (%s)",
-			c.netMapMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			c.netMapMethod, err)
 	}
 
 	return peersFromStackItems(prms, c.snapshotMethod)
@@ -94,9 +93,8 @@ func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, er
 		int64(args.epoch),
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"could not perform test invocation (%s)",
-			c.epochSnapshotMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			c.epochSnapshotMethod, err)
 	}
 
 	nmVals, err := peersFromStackItems(prms, c.epochSnapshotMethod)
@@ -111,15 +109,14 @@ func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, er
 
 func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValues, error) {
 	if ln := len(stack); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d",
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
 			method, ln)
 	}
 
 	peers, err := client.ArrayFromStackItem(stack[0])
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"could not get stack item array from stack item (%s)",
-			method)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w",
+			method, err)
 	}
 
 	res := &GetNetMapValues{
@@ -129,8 +126,7 @@ func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValue
 	for i := range peers {
 		peer, err := peerInfoFromStackItem(peers[i])
 		if err != nil {
-			return nil, errors.Wrapf(err,
-				"could not parse stack item (Peer #%d)", i)
+			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
 		}
 
 		res.peers = append(res.peers, peer)
@@ -142,9 +138,9 @@ func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValue
 func peerInfoFromStackItem(prm stackitem.Item) ([]byte, error) {
 	prms, err := client.ArrayFromStackItem(prm)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get stack item array (PeerInfo)")
+		return nil, fmt.Errorf("could not get stack item array (PeerInfo): %w", err)
 	} else if ln := len(prms); ln != nodeInfoFixedPrmNumber {
-		return nil, errors.Errorf("unexpected stack item count (PeerInfo): expected %d, has %d", 1, ln)
+		return nil, fmt.Errorf("unexpected stack item count (PeerInfo): expected %d, has %d", 1, ln)
 	}
 
 	return client.BytesFromStackItem(prms[0])

@@ -1,9 +1,10 @@
 package wrapper
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	reputationClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -56,7 +57,7 @@ func preparePutArgs(v PutArgs) (reputationClient.PutArgs, error) {
 
 	data, err := v.value.Marshal()
 	if err != nil {
-		return args, errors.Wrap(err, "can't marshal global trust value")
+		return args, fmt.Errorf("can't marshal global trust value: %w", err)
 	}
 
 	args.SetEpoch(v.epoch)

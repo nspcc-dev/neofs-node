@@ -1,9 +1,10 @@
 package blobstor
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/pkg/errors"
 )
 
 // DeleteBigPrm groups the parameters of DeleteBig operation.

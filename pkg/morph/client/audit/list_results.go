@@ -1,9 +1,10 @@
 package audit
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // ListResultsArgs groups the arguments
@@ -66,7 +67,7 @@ func (c *Client) ListAuditResults(args ListResultsArgs) (*ListResultsValues, err
 		c.listResultsMethod,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.listResultsMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listResultsMethod, err)
 	}
 
 	return parseAuditResults(items, c.listResultsMethod)
@@ -80,7 +81,7 @@ func (c *Client) ListAuditResultsByEpoch(args ListResultsByEpochArgs) (*ListResu
 		args.epoch,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.listByEpochResultsMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByEpochResultsMethod, err)
 	}
 
 	return parseAuditResults(items, c.listByEpochResultsMethod)
@@ -95,7 +96,7 @@ func (c *Client) ListAuditResultsByCID(args ListResultsByCIDArgs) (*ListResultsV
 		args.cid,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.listByCIDResultsMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByCIDResultsMethod, err)
 	}
 
 	return parseAuditResults(items, c.listByCIDResultsMethod)
@@ -111,7 +112,7 @@ func (c *Client) ListAuditResultsByNode(args ListResultsByNodeArgs) (*ListResult
 		args.nodeKey,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.listByNodeResultsMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByNodeResultsMethod, err)
 	}
 
 	return parseAuditResults(items, c.listByNodeResultsMethod)
@@ -119,12 +120,12 @@ func (c *Client) ListAuditResultsByNode(args ListResultsByNodeArgs) (*ListResult
 
 func parseAuditResults(items []stackitem.Item, method string) (*ListResultsValues, error) {
 	if ln := len(items); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", method, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
 	items, err := client.ArrayFromStackItem(items[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", method)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", method, err)
 	}
 
 	res := &ListResultsValues{
@@ -134,7 +135,7 @@ func parseAuditResults(items []stackitem.Item, method string) (*ListResultsValue
 	for i := range items {
 		rawRes, err := client.BytesFromStackItem(items[i])
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", method)
+			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", method, err)
 		}
 
 		res.rawResults = append(res.rawResults, rawRes)

@@ -1,9 +1,10 @@
 package wrapper
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	contract "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/pkg/errors"
 )
 
 // UpdatePeerState changes peer status through Netmap contract
@@ -14,10 +15,8 @@ func (w *Wrapper) UpdatePeerState(key []byte, state netmap.NodeState) error {
 	args.SetState(int64(state.ToV2()))
 
 	// invoke smart contract call
-	//
-	// Note: errors.Wrap returns nil on nil error arg.
-	return errors.Wrap(
-		w.client.UpdateState(args),
-		"could not invoke smart contract",
-	)
+	if err := w.client.UpdateState(args); err != nil {
+		return fmt.Errorf("could not invoke smart contract: %w", err)
+	}
+	return nil
 }

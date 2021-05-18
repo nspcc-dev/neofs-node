@@ -1,9 +1,10 @@
 package putsvc
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	"github.com/pkg/errors"
 )
 
 type streamer struct {
@@ -21,14 +22,14 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 		}
 
 		if err = s.stream.Init(initPrm); err != nil {
-			err = errors.Wrapf(err, "(%T) could not init object put stream", s)
+			err = fmt.Errorf("(%T) could not init object put stream: %w", s, err)
 		}
 	case *object.PutObjectPartChunk:
 		if err = s.stream.SendChunk(toChunkPrm(v)); err != nil {
-			err = errors.Wrapf(err, "(%T) could not send payload chunk", s)
+			err = fmt.Errorf("(%T) could not send payload chunk: %w", s, err)
 		}
 	default:
-		err = errors.Errorf("(%T) invalid object put stream part type %T", s, v)
+		err = fmt.Errorf("(%T) invalid object put stream part type %T", s, v)
 	}
 
 	return
@@ -37,7 +38,7 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	resp, err := s.stream.Close()
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not object put stream", s)
+		return nil, fmt.Errorf("(%T) could not object put stream: %w", s, err)
 	}
 
 	return fromPutResponse(resp), nil

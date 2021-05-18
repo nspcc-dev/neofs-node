@@ -2,13 +2,13 @@ package putsvc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
-	"github.com/pkg/errors"
 )
 
 type remoteTarget struct {
@@ -51,7 +51,7 @@ func (t *remoteTarget) WriteHeader(obj *object.RawObject) error {
 func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 	key, err := t.keyStorage.GetKey(t.commonPrm.SessionToken())
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not receive private key", t)
+		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
 	addr, err := t.addr.HostAddrString()
@@ -61,7 +61,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 	c, err := t.clientConstructor.Get(addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", t, addr)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, addr, err)
 	}
 
 	id, err := c.PutObject(t.ctx, new(client.PutObjectParams).
@@ -75,7 +75,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		)...,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not put object to %s", t, addr)
+		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, addr, err)
 	}
 
 	return new(transformer.AccessIdentifiers).
@@ -118,9 +118,9 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	}
 
 	if err := t.WriteHeader(object.NewRawFromObject(p.obj)); err != nil {
-		return errors.Wrapf(err, "(%T) could not send object header", s)
+		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
-		return errors.Wrapf(err, "(%T) could not send object", s)
+		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
 
 	return nil

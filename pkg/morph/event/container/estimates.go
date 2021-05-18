@@ -1,10 +1,11 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // StartEstimation structure of container.StartEstimation notification from
@@ -59,7 +60,7 @@ func parseEstimation(params []stackitem.Item) (uint64, error) {
 	// parse container
 	epoch, err := client.IntFromStackItem(params[0])
 	if err != nil {
-		return 0, errors.Wrap(err, "could not get estimation epoch")
+		return 0, fmt.Errorf("could not get estimation epoch: %w", err)
 	}
 
 	return uint64(epoch), nil

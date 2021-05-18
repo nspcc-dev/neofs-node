@@ -1,7 +1,8 @@
 package blobovnicza
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"go.etcd.io/bbolt"
 )
 
@@ -12,7 +13,7 @@ func (b *Blobovnicza) iterateBuckets(tx *bbolt.Tx, f func(uint64, uint64, *bbolt
 			// expected to happen:
 			//  - before initialization step (incorrect usage by design)
 			//  - if DB is corrupted (in future this case should be handled)
-			return false, errors.Errorf("(%T) could not get bucket %s", b, stringifyBounds(lower, upper))
+			return false, fmt.Errorf("(%T) could not get bucket %s", b, stringifyBounds(lower, upper))
 		}
 
 		return f(lower, upper, buck)

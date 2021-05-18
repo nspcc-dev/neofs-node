@@ -2,9 +2,9 @@ package container
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
-	"github.com/pkg/errors"
 )
 
 type ServiceExecutor interface {
@@ -32,7 +32,7 @@ func NewExecutionService(exec ServiceExecutor) Server {
 func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
 	respBody, err := s.exec.Put(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Put request")
+		return nil, fmt.Errorf("could not execute Put request: %w", err)
 	}
 
 	resp := new(container.PutResponse)
@@ -44,7 +44,7 @@ func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*cont
 func (s *executorSvc) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
 	respBody, err := s.exec.Delete(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Delete request")
+		return nil, fmt.Errorf("could not execute Delete request: %w", err)
 	}
 
 	resp := new(container.DeleteResponse)
@@ -56,7 +56,7 @@ func (s *executorSvc) Delete(ctx context.Context, req *container.DeleteRequest) 
 func (s *executorSvc) Get(ctx context.Context, req *container.GetRequest) (*container.GetResponse, error) {
 	respBody, err := s.exec.Get(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Get request")
+		return nil, fmt.Errorf("could not execute Get request: %w", err)
 	}
 
 	resp := new(container.GetResponse)
@@ -68,7 +68,7 @@ func (s *executorSvc) Get(ctx context.Context, req *container.GetRequest) (*cont
 func (s *executorSvc) List(ctx context.Context, req *container.ListRequest) (*container.ListResponse, error) {
 	respBody, err := s.exec.List(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute List request")
+		return nil, fmt.Errorf("could not execute List request: %w", err)
 	}
 
 	resp := new(container.ListResponse)
@@ -80,7 +80,7 @@ func (s *executorSvc) List(ctx context.Context, req *container.ListRequest) (*co
 func (s *executorSvc) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
 	respBody, err := s.exec.SetExtendedACL(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute SetEACL request")
+		return nil, fmt.Errorf("could not execute SetEACL request: %w", err)
 	}
 
 	resp := new(container.SetExtendedACLResponse)
@@ -92,7 +92,7 @@ func (s *executorSvc) SetExtendedACL(ctx context.Context, req *container.SetExte
 func (s *executorSvc) GetExtendedACL(ctx context.Context, req *container.GetExtendedACLRequest) (*container.GetExtendedACLResponse, error) {
 	respBody, err := s.exec.GetExtendedACL(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute GetEACL request")
+		return nil, fmt.Errorf("could not execute GetEACL request: %w", err)
 	}
 
 	resp := new(container.GetExtendedACLResponse)

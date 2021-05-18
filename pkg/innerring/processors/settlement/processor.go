@@ -8,7 +8,6 @@ import (
 	nodeutil "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +60,7 @@ func New(prm Prm, opts ...Option) *Processor {
 
 	pool, err := ants.NewPool(o.poolSize, ants.WithNonblocking(true))
 	if err != nil {
-		panic(errors.Wrap(err, "could not create worker pool"))
+		panic(fmt.Errorf("could not create worker pool: %w", err))
 	}
 
 	o.log.Debug("worker pool for settlement processor successfully initialized",

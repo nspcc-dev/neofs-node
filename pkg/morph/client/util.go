@@ -1,10 +1,10 @@
 package client
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/pkg/errors"
 )
 
 /*
@@ -19,7 +19,7 @@ func BoolFromStackItem(param stackitem.Item) (bool, error) {
 	case stackitem.BooleanT, stackitem.IntegerT, stackitem.ByteArrayT:
 		return param.TryBool()
 	default:
-		return false, errors.Errorf("chain/client: %s is not a bool type", param.Type())
+		return false, fmt.Errorf("chain/client: %s is not a bool type", param.Type())
 	}
 }
 
@@ -34,7 +34,7 @@ func IntFromStackItem(param stackitem.Item) (int64, error) {
 
 		return i.Int64(), nil
 	default:
-		return 0, errors.Errorf("chain/client: %s is not an integer type", param.Type())
+		return 0, fmt.Errorf("chain/client: %s is not an integer type", param.Type())
 	}
 }
 
@@ -51,7 +51,7 @@ func BytesFromStackItem(param stackitem.Item) ([]byte, error) {
 	case stackitem.IntegerT:
 		n, err := param.TryInteger()
 		if err != nil {
-			return nil, errors.Wrap(err, "can't parse integer bytes")
+			return nil, fmt.Errorf("can't parse integer bytes: %w", err)
 		}
 
 		return n.Bytes(), nil
@@ -61,7 +61,7 @@ func BytesFromStackItem(param stackitem.Item) ([]byte, error) {
 		}
 		fallthrough
 	default:
-		return nil, errors.Errorf("chain/client: %s is not a byte array type", param.Type())
+		return nil, fmt.Errorf("chain/client: %s is not a byte array type", param.Type())
 	}
 }
 
@@ -75,19 +75,19 @@ func ArrayFromStackItem(param stackitem.Item) ([]stackitem.Item, error) {
 	case stackitem.ArrayT, stackitem.StructT:
 		items, ok := param.Value().([]stackitem.Item)
 		if !ok {
-			return nil, errors.Errorf("chain/client: can't convert %T to parameter slice", param.Value())
+			return nil, fmt.Errorf("chain/client: can't convert %T to parameter slice", param.Value())
 		}
 
 		return items, nil
 	default:
-		return nil, errors.Errorf("chain/client: %s is not an array type", param.Type())
+		return nil, fmt.Errorf("chain/client: %s is not an array type", param.Type())
 	}
 }
 
 // StringFromStackItem receives string value from the value of a smart contract parameter.
 func StringFromStackItem(param stackitem.Item) (string, error) {
 	if param.Type() != stackitem.ByteArrayT {
-		return "", errors.Errorf("chain/client: %s is not an string type", param.Type())
+		return "", fmt.Errorf("chain/client: %s is not an string type", param.Type())
 	}
 
 	return stackitem.ToString(param)

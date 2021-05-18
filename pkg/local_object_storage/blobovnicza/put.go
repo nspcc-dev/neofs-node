@@ -1,8 +1,10 @@
 package blobovnicza
 
 import (
+	"errors"
+	"fmt"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -65,12 +67,12 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 			// expected to happen:
 			//  - before initialization step (incorrect usage by design)
 			//  - if DB is corrupted (in future this case should be handled)
-			return errors.Errorf("(%T) bucket for size %d not created", b, sz)
+			return fmt.Errorf("(%T) bucket for size %d not created", b, sz)
 		}
 
 		// save the object in bucket
 		if err := buck.Put(addressKey(addr), prm.objData); err != nil {
-			return errors.Wrapf(err, "(%T) could not save object in bucket", b)
+			return fmt.Errorf("(%T) could not save object in bucket: %w", b, err)
 		}
 
 		// increase fullness counter

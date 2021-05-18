@@ -1,8 +1,9 @@
 package locodedb
 
 import (
+	"fmt"
+
 	locodecolumn "github.com/nspcc-dev/neofs-node/pkg/util/locode/column"
-	"github.com/pkg/errors"
 )
 
 // CountryCode represents country code for
@@ -14,7 +15,7 @@ type CountryCode locodecolumn.CountryCode
 func CountryCodeFromString(s string) (*CountryCode, error) {
 	cc, err := locodecolumn.CountryCodeFromString(s)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse country code")
+		return nil, fmt.Errorf("could not parse country code: %w", err)
 	}
 
 	return CountryFromColumn(cc)

@@ -1,9 +1,11 @@
 package locodedb
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
 	locodecolumn "github.com/nspcc-dev/neofs-node/pkg/util/locode/column"
-	"github.com/pkg/errors"
 )
 
 // Key represents the key in NeoFS location database.
@@ -17,12 +19,12 @@ type Key struct {
 func NewKey(lc locode.LOCODE) (*Key, error) {
 	country, err := CountryCodeFromString(lc.CountryCode())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse country")
+		return nil, fmt.Errorf("could not parse country: %w", err)
 	}
 
 	location, err := LocationCodeFromString(lc.LocationCode())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse location")
+		return nil, fmt.Errorf("could not parse location: %w", err)
 	}
 
 	return &Key{
@@ -62,12 +64,12 @@ var errParseCoordinates = errors.New("invalid coordinates")
 func NewRecord(r locode.Record) (*Record, error) {
 	crd, err := locodecolumn.CoordinatesFromString(r.Coordinates)
 	if err != nil {
-		return nil, errors.Wrap(errParseCoordinates, err.Error())
+		return nil, fmt.Errorf("%w: %v", errParseCoordinates, err)
 	}
 
 	point, err := PointFromCoordinates(crd)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse geo point")
+		return nil, fmt.Errorf("could not parse geo point: %w", err)
 	}
 
 	return &Record{

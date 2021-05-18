@@ -1,10 +1,11 @@
 package neofs
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 type Config struct {
@@ -35,19 +36,19 @@ func ParseConfig(params []stackitem.Item) (event.Event, error) {
 	// parse id
 	ev.id, err = client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get config update id")
+		return nil, fmt.Errorf("could not get config update id: %w", err)
 	}
 
 	// parse key
 	ev.key, err = client.BytesFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get config key")
+		return nil, fmt.Errorf("could not get config key: %w", err)
 	}
 
 	// parse value
 	ev.value, err = client.BytesFromStackItem(params[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get config value")
+		return nil, fmt.Errorf("could not get config value: %w", err)
 	}
 
 	return ev, nil

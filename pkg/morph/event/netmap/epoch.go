@@ -1,10 +1,11 @@
 package netmap
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // NewEpoch is a new epoch Neo:Morph event.
@@ -30,7 +31,7 @@ func ParseNewEpoch(prms []stackitem.Item) (event.Event, error) {
 
 	prmEpochNum, err := client.IntFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get integer epoch number")
+		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
 	}
 
 	return NewEpoch{

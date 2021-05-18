@@ -2,6 +2,8 @@ package event
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -9,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -160,7 +161,7 @@ func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.Notifica
 		var err error
 		if blockChan, err = s.subscriber.BlockNotifications(); err != nil {
 			if intErr != nil {
-				intErr <- errors.Wrap(err, "could not open block notifications channel")
+				intErr <- fmt.Errorf("could not open block notifications channel: %w", err)
 			} else {
 				s.log.Debug("could not open block notifications channel",
 					zap.String("error", err.Error()),
@@ -372,9 +373,9 @@ func (s *listener) RegisterBlockHandler(handler BlockHandler) {
 func NewListener(p ListenerParams) (Listener, error) {
 	switch {
 	case p.Logger == nil:
-		return nil, errors.Wrap(errNilLogger, newListenerFailMsg)
+		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilLogger)
 	case p.Subscriber == nil:
-		return nil, errors.Wrap(errNilSubscriber, newListenerFailMsg)
+		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilSubscriber)
 	}
 
 	return &listener{

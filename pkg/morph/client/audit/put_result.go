@@ -1,7 +1,7 @@
 package audit
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // PutAuditResultArgs groups the arguments
@@ -19,8 +19,13 @@ func (g *PutAuditResultArgs) SetRawResult(v []byte) {
 // PutAuditResult invokes the call of "put audit result" method
 // of NeoFS Audit contract.
 func (c *Client) PutAuditResult(args PutAuditResultArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	err := c.client.Invoke(
 		c.putResultMethod,
 		args.rawResult,
-	), "could not invoke method (%s)", c.putResultMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.putResultMethod, err)
+	}
+	return nil
 }

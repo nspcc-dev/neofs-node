@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -22,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/policy"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -307,7 +307,7 @@ var getContainerInfoCmd = &cobra.Command{
 
 			cnr = container.New()
 			if err := cnr.Unmarshal(data); err != nil {
-				return errors.Wrap(err, "can't unmarshal container")
+				return fmt.Errorf("can't unmarshal container: %w", err)
 			}
 		} else {
 			key, err := getKey()

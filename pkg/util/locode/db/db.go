@@ -1,8 +1,10 @@
 package locodedb
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
-	"github.com/pkg/errors"
 )
 
 // SourceTable is an interface of the UN/LOCODE table.
@@ -139,7 +141,7 @@ func FillDatabase(table SourceTable, airports AirportDB, continents ContinentsDB
 
 		continent, err := continents.PointContinent(geoPoint)
 		if err != nil {
-			return errors.Wrap(err, "could not calculate continent geo point")
+			return fmt.Errorf("could not calculate continent geo point: %w", err)
 		} else if continent.Is(ContinentUnknown) {
 			return nil
 		}
@@ -155,7 +157,7 @@ func FillDatabase(table SourceTable, airports AirportDB, continents ContinentsDB
 func LocodeRecord(db DB, sLocode string) (*Record, error) {
 	lc, err := locode.FromString(sLocode)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse locode")
+		return nil, fmt.Errorf("could not parse locode: %w", err)
 	}
 
 	key, err := NewKey(*lc)

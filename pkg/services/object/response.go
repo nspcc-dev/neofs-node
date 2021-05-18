@@ -2,11 +2,11 @@ package object
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
-	"github.com/pkg/errors"
 )
 
 type ResponseService struct {
@@ -66,7 +66,7 @@ func (s *putStreamResponser) Send(req *object.PutRequest) error {
 func (s *putStreamResponser) CloseAndRecv() (*object.PutResponse, error) {
 	r, err := s.stream.CloseAndRecv()
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not receive response", s)
+		return nil, fmt.Errorf("(%T) could not receive response: %w", s, err)
 	}
 
 	return r.(*object.PutResponse), nil
@@ -75,7 +75,7 @@ func (s *putStreamResponser) CloseAndRecv() (*object.PutResponse, error) {
 func (s *ResponseService) Put(ctx context.Context) (PutObjectStream, error) {
 	stream, err := s.svc.Put(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create Put object streamer")
+		return nil, fmt.Errorf("could not create Put object streamer: %w", err)
 	}
 
 	return &putStreamResponser{

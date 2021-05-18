@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -40,7 +41,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -131,7 +131,7 @@ type innerRingFetcher struct {
 func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
 	keys, err := n.sidechain.NeoFSAlphabetList()
 	if err != nil {
-		return nil, errors.Wrap(err, "can't get inner ring keys")
+		return nil, fmt.Errorf("can't get inner ring keys: %w", err)
 	}
 
 	result := make([][]byte, 0, len(keys))
@@ -383,7 +383,7 @@ func (s *morphEACLStorage) GetEACL(cid *container.ID) (*eaclSDK.Table, error) {
 		},
 		signature.SignWithRFC6979(),
 	); err != nil {
-		return nil, errors.Wrap(err, "incorrect signature")
+		return nil, fmt.Errorf("incorrect signature: %w", err)
 	}
 
 	return table, nil

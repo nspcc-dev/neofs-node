@@ -1,6 +1,8 @@
 package putsvc
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -10,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 )
 
 type distributedTarget struct {
@@ -48,7 +49,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 		append(t.traverseOpts, placement.ForObject(t.obj.ID()))...,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not create object placement traverser", t)
+		return nil, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
 	}
 
 	sz := 0
@@ -66,7 +67,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	t.obj.SetPayload(payload)
 
 	if err := t.fmt.ValidateContent(t.obj.Object()); err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not validate payload content", t)
+		return nil, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 	}
 
 loop:
@@ -90,12 +91,12 @@ loop:
 
 				if err := target.WriteHeader(t.obj); err != nil {
 					svcutil.LogServiceError(t.log, "PUT", addr,
-						errors.Wrap(err, "could not write header"))
+						fmt.Errorf("could not write header: %w", err))
 
 					return
 				} else if _, err := target.Close(); err != nil {
 					svcutil.LogServiceError(t.log, "PUT", addr,
-						errors.Wrap(err, "could not close object stream"))
+						fmt.Errorf("could not close object stream: %w", err))
 
 					return
 				}

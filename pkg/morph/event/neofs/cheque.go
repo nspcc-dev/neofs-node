@@ -1,11 +1,12 @@
 package neofs
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Cheque structure of neofs.Cheque notification from mainnet chain.
@@ -45,35 +46,35 @@ func ParseCheque(params []stackitem.Item) (event.Event, error) {
 	// parse id
 	ev.id, err = client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get cheque id")
+		return nil, fmt.Errorf("could not get cheque id: %w", err)
 	}
 
 	// parse user
 	user, err := client.BytesFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get cheque user")
+		return nil, fmt.Errorf("could not get cheque user: %w", err)
 	}
 
 	ev.user, err = util.Uint160DecodeBytesBE(user)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert cheque user to uint160")
+		return nil, fmt.Errorf("could not convert cheque user to uint160: %w", err)
 	}
 
 	// parse amount
 	ev.amount, err = client.IntFromStackItem(params[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get cheque amount")
+		return nil, fmt.Errorf("could not get cheque amount: %w", err)
 	}
 
 	// parse lock account
 	lock, err := client.BytesFromStackItem(params[3])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get cheque lock account")
+		return nil, fmt.Errorf("could not get cheque lock account: %w", err)
 	}
 
 	ev.lock, err = util.Uint160DecodeBytesBE(lock)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert cheque lock account to uint160")
+		return nil, fmt.Errorf("could not convert cheque lock account to uint160: %w", err)
 	}
 
 	return ev, nil

@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"fmt"
 
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -11,7 +12,6 @@ import (
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
-	"github.com/pkg/errors"
 )
 
 type morphExecutor struct {
@@ -33,7 +33,7 @@ func NewExecutor(client *containerMorph.Client) containerSvc.ServiceExecutor {
 func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody) (*container.PutResponseBody, error) {
 	cnr, err := containerSDK.NewVerifiedFromV2(body.GetContainer())
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid format of the container structure")
+		return nil, fmt.Errorf("invalid format of the container structure: %w", err)
 	}
 
 	sig := body.GetSignature()

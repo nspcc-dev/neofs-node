@@ -1,8 +1,9 @@
 package balance
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // DecimalsArgs groups the arguments
@@ -28,14 +29,14 @@ func (c *Client) Decimals(args DecimalsArgs) (*DecimalsValues, error) {
 		c.decimalsMethod,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.decimalsMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.decimalsMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.decimalsMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.decimalsMethod, ln)
 	}
 
 	decimals, err := client.IntFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get integer stack item from stack item (%s)", c.decimalsMethod)
+		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", c.decimalsMethod, err)
 	}
 
 	return &DecimalsValues{

@@ -1,10 +1,10 @@
 package balance
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // GetBalanceOfArgs groups the arguments
@@ -38,14 +38,14 @@ func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
 		args.wallet,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.balanceOfMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.balanceOfMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.balanceOfMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.balanceOfMethod, ln)
 	}
 
 	amount, err := client.BigIntFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get integer stack item from stack item (%s)", c.balanceOfMethod)
+		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", c.balanceOfMethod, err)
 	}
 
 	return &GetBalanceOfValues{

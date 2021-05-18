@@ -1,7 +1,7 @@
 package shard
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // Open opens all Shard's components.
@@ -16,7 +16,7 @@ func (s *Shard) Open() error {
 
 	for _, component := range components {
 		if err := component.Open(); err != nil {
-			return errors.Wrapf(err, "could not open %T", component)
+			return fmt.Errorf("could not open %T: %w", component, err)
 		}
 	}
 
@@ -35,7 +35,7 @@ func (s *Shard) Init() error {
 
 	for _, component := range components {
 		if err := component.Init(); err != nil {
-			return errors.Wrapf(err, "could not initialize %T", component)
+			return fmt.Errorf("could not initialize %T: %w", component, err)
 		}
 	}
 
@@ -70,7 +70,7 @@ func (s *Shard) Close() error {
 
 	for _, component := range components {
 		if err := component.Close(); err != nil {
-			return errors.Wrapf(err, "could not close %s", component)
+			return fmt.Errorf("could not close %s: %w", component, err)
 		}
 	}
 

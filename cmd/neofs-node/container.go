@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"errors"
+	"fmt"
 	"strconv"
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -30,7 +32,6 @@ import (
 	loadstorage "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/storage"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -230,12 +231,12 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 
 	hostAddr, err := network.HostAddrFromMultiaddr(addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert address to IP format")
+		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
 	c, err := r.clientCache.Get(hostAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not initialize API client")
+		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}
 
 	return &remoteLoadAnnounceWriterProvider{
@@ -298,7 +299,7 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *containerSDK.ID
 
 	placement, err := nm.GetPlacementVectors(cnrNodes, pivot)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not build placement vectors")
+		return nil, fmt.Errorf("could not build placement vectors: %w", err)
 	}
 
 	return placement, nil
@@ -312,12 +313,12 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *containerSDK.ID
 
 	nm, err := l.nmSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get network map")
+		return nil, nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
 	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), cid.ToV2().GetValue())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not build container nodes")
+		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}
 
 	return cnrNodes, nm, nil
@@ -407,7 +408,7 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *container
 
 	w, err := c.loadWriterProvider.InitWriter(loadroute.NewRouteContext(ctx, passedRoute))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not initialize container's used space writer")
+		return nil, fmt.Errorf("could not initialize container's used space writer: %w", err)
 	}
 
 	for _, aV2 := range req.GetBody().GetAnnouncements() {
@@ -459,19 +460,19 @@ func (c *usedSpaceService) processLoadValue(ctx context.Context, a containerSDK.
 	route []loadroute.ServerInfo, w loadcontroller.Writer) error {
 	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), a.ContainerID(), route[0].PublicKey())
 	if err != nil {
-		return errors.Wrap(err, "could not verify that the sender belongs to the container")
+		return fmt.Errorf("could not verify that the sender belongs to the container: %w", err)
 	} else if !fromCnr {
 		return errNodeOutsideContainer
 	}
 
 	err = loadroute.CheckRoute(c.routeBuilder, a, route)
 	if err != nil {
-		return errors.Wrap(err, "wrong route of container's used space value")
+		return fmt.Errorf("wrong route of container's used space value: %w", err)
 	}
 
 	err = w.Put(a)
 	if err != nil {
-		return errors.Wrap(err, "could not write container's used space value")
+		return fmt.Errorf("could not write container's used space value: %w", err)
 	}
 
 	return nil

@@ -1,11 +1,12 @@
 package neofs
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Deposit structure of neofs.Deposit notification from mainnet chain.
@@ -42,35 +43,35 @@ func ParseDeposit(params []stackitem.Item) (event.Event, error) {
 	// parse from
 	from, err := client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get deposit sender")
+		return nil, fmt.Errorf("could not get deposit sender: %w", err)
 	}
 
 	ev.from, err = util.Uint160DecodeBytesBE(from)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert deposit sender to uint160")
+		return nil, fmt.Errorf("could not convert deposit sender to uint160: %w", err)
 	}
 
 	// parse amount
 	ev.amount, err = client.IntFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get deposit amount")
+		return nil, fmt.Errorf("could not get deposit amount: %w", err)
 	}
 
 	// parse to
 	to, err := client.BytesFromStackItem(params[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get deposit receiver")
+		return nil, fmt.Errorf("could not get deposit receiver: %w", err)
 	}
 
 	ev.to, err = util.Uint160DecodeBytesBE(to)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert deposit receiver to uint160")
+		return nil, fmt.Errorf("could not convert deposit receiver to uint160: %w", err)
 	}
 
 	// parse id
 	ev.id, err = client.BytesFromStackItem(params[3])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get deposit id")
+		return nil, fmt.Errorf("could not get deposit id: %w", err)
 	}
 
 	return ev, nil

@@ -1,8 +1,9 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // GetArgs groups the arguments
@@ -37,14 +38,14 @@ func (c *Client) Get(args GetArgs) (*GetValues, error) {
 		args.cid,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.getMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.getMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.getMethod, ln)
 	}
 
 	cnrBytes, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.getMethod)
+		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.getMethod, err)
 	}
 
 	return &GetValues{

@@ -2,12 +2,12 @@ package object
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
-	"github.com/pkg/errors"
 )
 
 // Server wraps NeoFS API Object service and
@@ -34,7 +34,7 @@ func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 	for {
 		req, err := gStream.Recv()
 		if err != nil {
-			if errors.Is(errors.Cause(err), io.EOF) {
+			if errors.Is(err, io.EOF) {
 				resp, err := stream.CloseAndRecv()
 				if err != nil {
 					return err

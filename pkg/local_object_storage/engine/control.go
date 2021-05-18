@@ -1,7 +1,8 @@
 package engine
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"go.uber.org/zap"
 )
 
@@ -12,7 +13,7 @@ func (e *StorageEngine) Open() error {
 
 	for id, sh := range e.shards {
 		if err := sh.Open(); err != nil {
-			return errors.Wrapf(err, "could not open shard %s", id)
+			return fmt.Errorf("could not open shard %s: %w", id, err)
 		}
 	}
 
@@ -26,7 +27,7 @@ func (e *StorageEngine) Init() error {
 
 	for id, sh := range e.shards {
 		if err := sh.Init(); err != nil {
-			return errors.Wrapf(err, "could not initialize shard %s", id)
+			return fmt.Errorf("could not initialize shard %s: %w", id, err)
 		}
 	}
 

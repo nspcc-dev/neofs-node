@@ -1,12 +1,13 @@
 package common
 
 import (
+	"fmt"
+
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
-	"github.com/pkg/errors"
 )
 
 type clientCache interface {
@@ -78,12 +79,12 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 
 	hostAddr, err := network.HostAddrFromMultiaddr(addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert address to IP format")
+		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
 	c, err := rtp.clientCache.Get(hostAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not initialize API client")
+		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}
 
 	return rtp.remoteProvider.WithClient(c), nil

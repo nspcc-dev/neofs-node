@@ -2,6 +2,8 @@ package object
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -10,7 +12,6 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/pkg/errors"
 )
 
 // FormatValidator represents object format validator.
@@ -75,16 +76,16 @@ func (v *FormatValidator) Validate(obj *Object) error {
 
 	for ; obj != nil; obj = obj.GetParent() {
 		if err := v.validateSignatureKey(obj); err != nil {
-			return errors.Wrapf(err, "(%T) could not validate signature key", v)
+			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
 		}
 
 		// TODO: combine small checks
 		if err := v.checkExpiration(obj); err != nil {
-			return errors.Wrapf(err, "object did not pass expiration check")
+			return fmt.Errorf("object did not pass expiration ch: %weck", err)
 		}
 
 		if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
-			return errors.Wrapf(err, "(%T) could not validate header fields", v)
+			return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
 		}
 	}
 
@@ -116,7 +117,7 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 
 	// FIXME: implement Equal method
 	if s1, s2 := id.String(), id2.String(); s1 != s2 {
-		return errors.Errorf("(%T) different owner identifiers %s/%s", v, s1, s2)
+		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, s1, s2)
 	}
 
 	return nil
@@ -127,13 +128,13 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 	switch o.Type() {
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
-			return errors.Errorf("(%T) empty payload in tombstone", v)
+			return fmt.Errorf("(%T) empty payload in tombstone", v)
 		}
 
 		tombstone := object.NewTombstone()
 
 		if err := tombstone.Unmarshal(o.Payload()); err != nil {
-			return errors.Wrapf(err, "(%T) could not unmarshal tombstone content", v)
+			return fmt.Errorf("(%T) could not unmarshal tombstone content: %w", v, err)
 		}
 
 		// check if tombstone has the same expiration in body and header
@@ -153,7 +154,7 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 
 		for _, id := range idList {
 			if id == nil {
-				return errors.Errorf("(%T) empty member in tombstone", v)
+				return fmt.Errorf("(%T) empty member in tombstone", v)
 			}
 
 			a := object.NewAddress()
@@ -168,18 +169,18 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 		}
 	case object.TypeStorageGroup:
 		if len(o.Payload()) == 0 {
-			return errors.Errorf("(%T) empty payload in SG", v)
+			return fmt.Errorf("(%T) empty payload in SG", v)
 		}
 
 		sg := storagegroup.New()
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
-			return errors.Wrapf(err, "(%T) could not unmarshal SG content", v)
+			return fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
 		}
 
 		for _, id := range sg.Members() {
 			if id == nil {
-				return errors.Errorf("(%T) empty member in SG", v)
+				return fmt.Errorf("(%T) empty member in SG", v)
 			}
 		}
 	default:

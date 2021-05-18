@@ -1,6 +1,7 @@
 package blobstor
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -101,7 +101,7 @@ func newBlobovniczaTree(c *cfg) (blz *blobovniczas) {
 	})
 	if err != nil {
 		// occurs only if the size is not positive
-		panic(errors.Wrapf(err, "could not create LRU cache of size %d", c.openedCacheSize))
+		panic(fmt.Errorf("could not create LRU cache of size %d: %w", c.openedCacheSize, err))
 	}
 
 	cp := uint64(1)
@@ -563,13 +563,13 @@ func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.
 	// decompress the data
 	data, err := b.decompressor(res.Object())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not decompress object data")
+		return nil, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := object.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal the object")
+		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
 	return &GetSmallRes{
@@ -596,13 +596,13 @@ func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *GetRang
 	// decompress the data
 	data, err := b.decompressor(res.Object())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not decompress object data")
+		return nil, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := object.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal the object")
+		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
 	from := prm.rng.GetOffset()
@@ -766,9 +766,9 @@ func (b *blobovniczas) init() error {
 	return b.iterateLeaves(func(p string) (bool, error) {
 		blz, err := b.openBlobovnicza(p)
 		if err != nil {
-			return false, errors.Wrapf(err, "could not open blobovnicza %s", p)
+			return false, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
 		} else if err := blz.Init(); err != nil {
-			return false, errors.Wrapf(err, "could not initialize blobovnicza structure %s", p)
+			return false, fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
 		}
 
 		log := b.log.With(zap.String("id", p))
@@ -831,7 +831,7 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 	)...)
 
 	if err := blz.Open(); err != nil {
-		return nil, errors.Wrapf(err, "could not open blobovnicza %s", p)
+		return nil, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
 	}
 
 	b.activeMtx.Lock()

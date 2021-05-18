@@ -2,11 +2,11 @@ package meta
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -80,7 +80,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter reference
 	if graveyard != nil {
 		err := graveyard.Delete(addressKey(addr))
 		if err != nil {
-			return errors.Wrap(err, "could not remove from graveyard")
+			return fmt.Errorf("could not remove from graveyard: %w", err)
 		}
 	}
 

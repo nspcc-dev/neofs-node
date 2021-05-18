@@ -1,12 +1,14 @@
 package invoke
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -157,7 +159,7 @@ func NetmapSnapshot(cli *client.Client, con util.Uint160) (*netmap.Netmap, error
 	for i := range rawNodeInfos {
 		nodeInfo, err := peerInfoFromStackItem(rawNodeInfos[i])
 		if err != nil {
-			return nil, errors.Wrap(err, "invalid RPC response")
+			return nil, fmt.Errorf("invalid RPC response: %w", err)
 		}
 
 		result = append(result, *nodeInfo)

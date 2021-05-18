@@ -1,8 +1,9 @@
 package audit
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // GetAuditResultArgs groups the arguments
@@ -35,14 +36,14 @@ func (c *Client) GetAuditResult(args GetAuditResultArgs) (*GetAuditResultValue, 
 		args.id,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.getResultMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getResultMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.getResultMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.getResultMethod, ln)
 	}
 
 	resultBytes, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.getResultMethod)
+		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.getResultMethod, err)
 	}
 
 	return &GetAuditResultValue{

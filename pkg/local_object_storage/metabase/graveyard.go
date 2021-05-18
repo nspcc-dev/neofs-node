@@ -2,9 +2,10 @@ package meta
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -50,7 +51,7 @@ func (db *DB) iterateOverGraveyard(tx *bbolt.Tx, h GraveHandler) error {
 		// parse Grave
 		g, err := graveFromKV(k, v)
 		if err != nil {
-			return errors.Wrap(err, "could not parse Grave")
+			return fmt.Errorf("could not parse Grave: %w", err)
 		}
 
 		// handler Grave
@@ -67,7 +68,7 @@ func (db *DB) iterateOverGraveyard(tx *bbolt.Tx, h GraveHandler) error {
 func graveFromKV(k, v []byte) (*Grave, error) {
 	addr, err := addressFromKey(k)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse address")
+		return nil, fmt.Errorf("could not parse address: %w", err)
 	}
 
 	return &Grave{

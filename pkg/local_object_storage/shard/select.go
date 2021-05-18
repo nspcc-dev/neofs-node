@@ -1,10 +1,11 @@
 package shard
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/pkg/errors"
 )
 
 // SelectPrm groups the parameters of Select operation.
@@ -48,7 +49,7 @@ func (r *SelectRes) AddressList() []*objectSDK.Address {
 func (s *Shard) Select(prm *SelectPrm) (*SelectRes, error) {
 	addrList, err := meta.Select(s.metaBase, prm.cid, prm.filters)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not select objects from metabase")
+		return nil, fmt.Errorf("could not select objects from metabase: %w", err)
 	}
 
 	return &SelectRes{

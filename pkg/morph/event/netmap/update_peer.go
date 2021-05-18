@@ -2,6 +2,7 @@ package netmap
 
 import (
 	"crypto/elliptic"
+	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -9,7 +10,6 @@ import (
 	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 type UpdatePeer struct {
@@ -41,18 +41,18 @@ func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 	// parse public key
 	key, err := client.BytesFromStackItem(prms[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get public key")
+		return nil, fmt.Errorf("could not get public key: %w", err)
 	}
 
 	ev.publicKey, err = keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse public key")
+		return nil, fmt.Errorf("could not parse public key: %w", err)
 	}
 
 	// parse node status
 	st, err := client.IntFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get node status")
+		return nil, fmt.Errorf("could not get node status: %w", err)
 	}
 
 	ev.status = netmap.NodeStateFromV2(v2netmap.NodeState(st))

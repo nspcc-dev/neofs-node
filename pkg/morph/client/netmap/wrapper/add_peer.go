@@ -1,8 +1,10 @@
 package wrapper
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/pkg/errors"
 )
 
 // AddPeer registers peer in NeoFS network through
@@ -20,8 +22,8 @@ func (w *Wrapper) AddPeer(nodeInfo *netmap.NodeInfo) error {
 	args := netmap.AddPeerArgs{}
 	args.SetInfo(rawNodeInfo)
 
-	return errors.Wrap(
-		w.client.AddPeer(args),
-		"could not invoke smart contract",
-	)
+	if err := w.client.AddPeer(args); err != nil {
+		return fmt.Errorf("could not invoke smart contract: %w", err)
+	}
+	return nil
 }

@@ -1,8 +1,9 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // ListArgs groups the arguments
@@ -41,14 +42,14 @@ func (c *Client) List(args ListArgs) (*ListValues, error) {
 		invokeArgs...,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.listMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.listMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.listMethod, ln)
 	}
 
 	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", c.listMethod)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", c.listMethod, err)
 	}
 
 	res := &ListValues{
@@ -58,7 +59,7 @@ func (c *Client) List(args ListArgs) (*ListValues, error) {
 	for i := range prms {
 		cid, err := client.BytesFromStackItem(prms[i])
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", c.listMethod)
+			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.listMethod, err)
 		}
 
 		res.cidList = append(res.cidList, cid)

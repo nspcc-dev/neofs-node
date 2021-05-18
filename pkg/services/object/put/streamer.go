@@ -2,13 +2,14 @@ package putsvc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
-	"github.com/pkg/errors"
 )
 
 type Streamer struct {
@@ -26,13 +27,13 @@ var errInitRecall = errors.New("init recall")
 func (p *Streamer) Init(prm *PutInitPrm) error {
 	// initialize destination target
 	if err := p.initTarget(prm); err != nil {
-		return errors.Wrapf(err, "(%T) could not initialize object target", p)
+		return fmt.Errorf("(%T) could not initialize object target: %w", p, err)
 	}
 
-	return errors.Wrapf(
-		p.target.WriteHeader(prm.hdr),
-		"(%T) could not write header to target", p,
-	)
+	if err := p.target.WriteHeader(prm.hdr); err != nil {
+		return fmt.Errorf("(%T) could not write header to target: %w", p, err)
+	}
+	return nil
 }
 
 func (p *Streamer) initTarget(prm *PutInitPrm) error {
@@ -43,7 +44,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 	// prepare needed put parameters
 	if err := p.preparePrm(prm); err != nil {
-		return errors.Wrapf(err, "(%T) could not prepare put parameters", p)
+		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
 	}
 
 	if prm.hdr.Signature() != nil {
@@ -63,12 +64,12 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// get private token from local storage
 	sessionKey, err := p.keyStorage.GetKey(sToken)
 	if err != nil {
-		return errors.Wrapf(err, "(%T) could not receive session key", p)
+		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
 	}
 
 	maxSz := p.maxSizeSrc.MaxObjectSize()
 	if maxSz == 0 {
-		return errors.Errorf("(%T) could not obtain max object size parameter", p)
+		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
 	}
 
 	p.target = transformer.NewPayloadSizeLimiter(
@@ -92,13 +93,13 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	// get latest network map
 	nm, err := netmap.GetLatestNetworkMap(p.netMapSrc)
 	if err != nil {
-		return errors.Wrapf(err, "(%T) could not get latest network map", p)
+		return fmt.Errorf("(%T) could not get latest network map: %w", p, err)
 	}
 
 	// get container to store the object
 	cnr, err := p.cnrSrc.Get(prm.hdr.ContainerID())
 	if err != nil {
-		return errors.Wrapf(err, "(%T) could not get container by ID", p)
+		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
 
 	// add common options
@@ -158,7 +159,7 @@ func (p *Streamer) SendChunk(prm *PutChunkPrm) error {
 
 	_, err := p.target.Write(prm.chunk)
 
-	return errors.Wrapf(err, "(%T) could not write payload chunk to target", p)
+	return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
 }
 
 func (p *Streamer) Close() (*PutResponse, error) {
@@ -168,7 +169,7 @@ func (p *Streamer) Close() (*PutResponse, error) {
 
 	ids, err := p.target.Close()
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not close object target", p)
+		return nil, fmt.Errorf("(%T) could not close object target: %w", p, err)
 	}
 
 	id := ids.ParentID()

@@ -1,9 +1,8 @@
 package locode
 
 import (
+	"errors"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // LOCODE represents code from UN/LOCODE coding scheme.

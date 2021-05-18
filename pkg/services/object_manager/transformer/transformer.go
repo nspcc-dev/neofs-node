@@ -10,7 +10,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/tzhash/tz"
-	"github.com/pkg/errors"
 )
 
 type payloadSizeLimiter struct {
@@ -183,12 +182,12 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 
 	// release current, get its id
 	if err := s.target.WriteHeader(s.current); err != nil {
-		return nil, errors.Wrap(err, "could not write header")
+		return nil, fmt.Errorf("could not write header: %w", err)
 	}
 
 	ids, err := s.target.Close()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not close target")
+		return nil, fmt.Errorf("could not close target: %w", err)
 	}
 
 	// save identifier of the released object
@@ -200,7 +199,7 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 		s.initializeCurrent()
 
 		if _, err := s.release(false); err != nil {
-			return nil, errors.Wrap(err, "could not release linking object")
+			return nil, fmt.Errorf("could not release linking object: %w", err)
 		}
 	}
 
@@ -229,7 +228,7 @@ func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
 
 		// we need to release current object
 		if _, err := s.release(false); err != nil {
-			return errors.Wrap(err, "could not release object")
+			return fmt.Errorf("could not release object: %w", err)
 		}
 
 		// initialize another object
@@ -248,7 +247,7 @@ func (s *payloadSizeLimiter) writeChunk(chunk []byte) error {
 	}
 
 	if _, err := s.chunkWriter.Write(chunk[:cut]); err != nil {
-		return errors.Wrap(err, "could not write chunk to target")
+		return fmt.Errorf("could not write chunk to target: %w", err)
 	}
 
 	// increase written bytes counter

@@ -1,6 +1,8 @@
 package container
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+)
 
 // SetEACLArgs groups the arguments
 // of set eACL invocation call.
@@ -25,9 +27,14 @@ func (p *SetEACLArgs) SetSignature(v []byte) {
 // SetEACL invokes the call of set eACL method
 // of NeoFS Container contract.
 func (c *Client) SetEACL(args SetEACLArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	err := c.client.Invoke(
 		c.setEACLMethod,
 		args.eacl,
 		args.sig,
-	), "could not invoke method (%s)", c.setEACLMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.setEACLMethod, err)
+	}
+	return nil
 }

@@ -1,13 +1,13 @@
 package continentsdb
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/planar"
-	"github.com/pkg/errors"
 )
 
 const continentProperty = "Continent"
@@ -55,12 +55,12 @@ func (db *DB) PointContinent(point *locodedb.Point) (*locodedb.Continent, error)
 func (db *DB) init() error {
 	data, err := ioutil.ReadFile(db.path)
 	if err != nil {
-		return errors.Wrap(err, "could not read data file")
+		return fmt.Errorf("could not read data file: %w", err)
 	}
 
 	features, err := geojson.UnmarshalFeatureCollection(data)
 	if err != nil {
-		return errors.Wrap(err, "could not unmarshal GeoJSON feature collection")
+		return fmt.Errorf("could not unmarshal GeoJSON feature collection: %w", err)
 	}
 
 	db.features = features.Features

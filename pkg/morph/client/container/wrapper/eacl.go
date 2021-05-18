@@ -1,12 +1,13 @@
 package wrapper
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/pkg/errors"
 )
 
 // GetEACL reads the extended ACL table from NeoFS system
@@ -65,7 +66,7 @@ func (w *Wrapper) PutEACL(table *eacl.Table, signature []byte) error {
 
 	data, err := table.Marshal()
 	if err != nil {
-		return errors.Wrap(err, "can't marshal eacl table")
+		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
 
 	args.SetEACL(data)

@@ -1,6 +1,8 @@
 package client
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -13,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -74,7 +75,7 @@ func (c *Client) EnableNotarySupport(proxy util.Uint160, opts ...NotaryOption) e
 
 	notaryContract, err := c.client.GetNativeContractHash(nativenames.Notary)
 	if err != nil {
-		return errors.Wrap(err, "can't get notary contract script hash")
+		return fmt.Errorf("can't get notary contract script hash: %w", err)
 	}
 
 	c.notary = &notary{
@@ -110,7 +111,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (util.Uint256
 
 	bc, err := c.client.GetBlockCount()
 	if err != nil {
-		return util.Uint256{}, errors.Wrap(err, "can't get blockchain height")
+		return util.Uint256{}, fmt.Errorf("can't get blockchain height: %w", err)
 	}
 
 	txHash, err := c.client.TransferNEP17(
@@ -123,7 +124,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (util.Uint256
 		nil,
 	)
 	if err != nil {
-		return util.Uint256{}, errors.Wrap(err, "can't make notary deposit")
+		return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
 	}
 
 	c.logger.Debug("notary deposit invoke",
@@ -148,16 +149,16 @@ func (c *Client) GetNotaryDeposit() (int64, error) {
 
 	items, err := c.TestInvoke(c.notary.notary, notaryBalanceOfMethod, sh)
 	if err != nil {
-		return 0, errors.Wrap(err, notaryBalanceErrMsg)
+		return 0, fmt.Errorf("%v: %w", notaryBalanceErrMsg, err)
 	}
 
 	if len(items) != 1 {
-		return 0, errors.Wrap(errUnexpectedItems, notaryBalanceErrMsg)
+		return 0, fmt.Errorf("%v: %w", notaryBalanceErrMsg, errUnexpectedItems)
 	}
 
 	bigIntDeposit, err := items[0].TryInteger()
 	if err != nil {
-		return 0, errors.Wrap(err, notaryBalanceErrMsg)
+		return 0, fmt.Errorf("%v: %w", notaryBalanceErrMsg, err)
 	}
 
 	return bigIntDeposit.Int64(), nil
@@ -328,7 +329,7 @@ func (c *Client) notaryCosigners(ir []*keys.PublicKey, committee bool) ([]transa
 
 	multisigScript, err := sc.CreateMultiSigRedeemScript(m, ir)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't create ir multisig redeem script")
+		return nil, fmt.Errorf("can't create ir multisig redeem script: %w", err)
 	}
 
 	s = append(s, transaction.Signer{
@@ -412,7 +413,7 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee bool) (*w
 
 	err := multisigAccount.ConvertMultisig(m, ir)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't make inner ring multisig wallet")
+		return nil, fmt.Errorf("can't make inner ring multisig wallet: %w", err)
 	}
 
 	return multisigAccount, nil
@@ -421,7 +422,7 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee bool) (*w
 func (c *Client) notaryTxValidationLimit() (uint32, error) {
 	bc, err := c.client.GetBlockCount()
 	if err != nil {
-		return 0, errors.Wrap(err, "can't get current blockchain height")
+		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
 	}
 
 	min := bc + c.notary.txValidTime

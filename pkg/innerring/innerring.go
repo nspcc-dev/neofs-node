@@ -3,6 +3,8 @@ package innerring
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
+	"fmt"
 	"io"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -31,7 +33,6 @@ import (
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -179,9 +180,9 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 		case <-ctx.Done():
 			return
 		case err := <-morphErr:
-			intError <- errors.Wrap(err, "sidechain")
+			intError <- fmt.Errorf("sidechain: %w", err)
 		case err := <-mainnnetErr:
-			intError <- errors.Wrap(err, "mainnet")
+			intError <- fmt.Errorf("mainnet: %w", err)
 		}
 	}()
 
@@ -197,7 +198,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) error {
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
 	if err := s.startBlockTimers(); err != nil {
-		return errors.Wrap(err, "could not start block timers")
+		return fmt.Errorf("could not start block timers: %w", err)
 	}
 
 	s.startWorkers(ctx)
@@ -249,7 +250,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// prepare inner ring node private key
 	server.key, err = crypto.LoadPrivateKey(cfg.GetString("key"))
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't create private key")
+		return nil, fmt.Errorf("ir: can't create private key: %w", err)
 	}
 
 	// get all script hashes of contracts
@@ -261,7 +262,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// parse default validators
 	server.predefinedValidators, err = parsePredefinedValidators(cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't parse predefined validators list")
+		return nil, fmt.Errorf("ir: can't parse predefined validators list: %w", err)
 	}
 
 	morphChain := &chainParams{
@@ -733,42 +734,42 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read netmap script-hash")
+		return nil, fmt.Errorf("ir: can't read netmap script-hash: %w", err)
 	}
 
 	result.neofs, err = util.Uint160DecodeStringLE(neofsContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read neofs script-hash")
+		return nil, fmt.Errorf("ir: can't read neofs script-hash: %w", err)
 	}
 
 	result.balance, err = util.Uint160DecodeStringLE(balanceContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read balance script-hash")
+		return nil, fmt.Errorf("ir: can't read balance script-hash: %w", err)
 	}
 
 	result.container, err = util.Uint160DecodeStringLE(containerContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read container script-hash")
+		return nil, fmt.Errorf("ir: can't read container script-hash: %w", err)
 	}
 
 	result.audit, err = util.Uint160DecodeStringLE(auditContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read audit script-hash")
+		return nil, fmt.Errorf("ir: can't read audit script-hash: %w", err)
 	}
 
 	result.proxy, err = util.Uint160DecodeStringLE(proxyContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read proxy script-hash")
+		return nil, fmt.Errorf("ir: can't read proxy script-hash: %w", err)
 	}
 
 	result.processing, err = util.Uint160DecodeStringLE(processingContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read processing script-hash")
+		return nil, fmt.Errorf("ir: can't read processing script-hash: %w", err)
 	}
 
 	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir: can't read reputation script-hash")
+		return nil, fmt.Errorf("ir: can't read reputation script-hash: %w", err)
 	}
 
 	result.alphabet, err = parseAlphabetContracts(cfg)
@@ -793,7 +794,7 @@ func ParsePublicKeysFromStrings(pubKeys []string) (keys.PublicKeys, error) {
 	for i := range pubKeys {
 		key, err := keys.NewPublicKeyFromString(pubKeys[i])
 		if err != nil {
-			return nil, errors.Wrap(err, "can't decode public key")
+			return nil, fmt.Errorf("can't decode public key: %w", err)
 		}
 
 		publicKeys = append(publicKeys, key)
@@ -807,7 +808,7 @@ func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
 	alpha := newAlphabetContracts()
 
 	if num > lastLetterNum {
-		return nil, errors.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
+		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
 	}
 
 	for letter := az; letter < num; letter++ {
@@ -815,7 +816,7 @@ func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
 
 		contractHash, err := util.Uint160DecodeStringLE(contractStr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid alphabet %s contract: %s", letter.configString(), contractStr)
+			return nil, fmt.Errorf("invalid alphabet %s contract: %s: %w", letter.configString(), contractStr, err)
 		}
 
 		alpha.set(letter, contractHash)
@@ -828,13 +829,13 @@ func (s *Server) initConfigFromBlockchain() error {
 	// get current epoch
 	epoch, err := invoke.Epoch(s.morphClient, s.contracts.netmap)
 	if err != nil {
-		return errors.Wrap(err, "can't read epoch")
+		return fmt.Errorf("can't read epoch: %w", err)
 	}
 
 	// get balance precision
 	balancePrecision, err := invoke.BalancePrecision(s.morphClient, s.contracts.balance)
 	if err != nil {
-		return errors.Wrap(err, "can't read balance contract precision")
+		return fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
 	s.epochCounter.Store(uint64(epoch))

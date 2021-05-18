@@ -1,11 +1,12 @@
 package balance
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Lock structure of balance.Lock notification from morph chain.
@@ -49,41 +50,41 @@ func ParseLock(params []stackitem.Item) (event.Event, error) {
 	// parse id
 	ev.id, err = client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get lock id")
+		return nil, fmt.Errorf("could not get lock id: %w", err)
 	}
 
 	// parse user
 	user, err := client.BytesFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get lock user value")
+		return nil, fmt.Errorf("could not get lock user value: %w", err)
 	}
 
 	ev.user, err = util.Uint160DecodeBytesBE(user)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert lock user value to uint160")
+		return nil, fmt.Errorf("could not convert lock user value to uint160: %w", err)
 	}
 
 	// parse lock account
 	lock, err := client.BytesFromStackItem(params[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get lock account value")
+		return nil, fmt.Errorf("could not get lock account value: %w", err)
 	}
 
 	ev.lock, err = util.Uint160DecodeBytesBE(lock)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert lock account value to uint160")
+		return nil, fmt.Errorf("could not convert lock account value to uint160: %w", err)
 	}
 
 	// parse amount
 	ev.amount, err = client.IntFromStackItem(params[3])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get lock amount")
+		return nil, fmt.Errorf("could not get lock amount: %w", err)
 	}
 
 	// parse until deadline
 	ev.until, err = client.IntFromStackItem(params[4])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get lock deadline")
+		return nil, fmt.Errorf("could not get lock deadline: %w", err)
 	}
 
 	return ev, nil

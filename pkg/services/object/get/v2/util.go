@@ -3,6 +3,8 @@ package getsvc
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"sync"
@@ -22,7 +24,6 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/tzhash/tz"
-	"github.com/pkg/errors"
 )
 
 var errWrongMessageSeq = errors.New("incorrect message sequence")
@@ -79,7 +80,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 			// open stream
 			stream, err := rpc.GetObject(c.Raw(), req, rpcclient.WithContext(stream.Context()))
 			if err != nil {
-				return nil, errors.Wrap(err, "stream opening failed")
+				return nil, fmt.Errorf("stream opening failed: %w", err)
 			}
 
 			var (
@@ -93,7 +94,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 				// receive message from server stream
 				err := stream.Read(resp)
 				if err != nil {
-					if errors.Is(errors.Cause(err), io.EOF) {
+					if errors.Is(err, io.EOF) {
 						if !headWas {
 							return nil, io.ErrUnexpectedEOF
 						}
@@ -101,17 +102,17 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 						break
 					}
 
-					return nil, errors.Wrap(err, "reading the response failed")
+					return nil, fmt.Errorf("reading the response failed: %w", err)
 				}
 
 				// verify response structure
 				if err := signature.VerifyServiceMessage(resp); err != nil {
-					return nil, errors.Wrap(err, "response verification failed")
+					return nil, fmt.Errorf("response verification failed: %w", err)
 				}
 
 				switch v := resp.GetBody().GetObjectPart().(type) {
 				default:
-					return nil, errors.Errorf("unexpected object part %T", v)
+					return nil, fmt.Errorf("unexpected object part %T", v)
 				case *objectV2.GetObjectPartInit:
 					if headWas {
 						return nil, errWrongMessageSeq
@@ -201,7 +202,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			// open stream
 			stream, err := rpc.GetObjectRange(c.Raw(), req, rpcclient.WithContext(stream.Context()))
 			if err != nil {
-				return nil, errors.Wrap(err, "could not create Get payload range stream")
+				return nil, fmt.Errorf("could not create Get payload range stream: %w", err)
 			}
 
 			payload := make([]byte, 0, body.GetRange().GetLength())
@@ -212,21 +213,21 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				// receive message from server stream
 				err := stream.Read(resp)
 				if err != nil {
-					if errors.Is(errors.Cause(err), io.EOF) {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 
-					return nil, errors.Wrap(err, "reading the response failed")
+					return nil, fmt.Errorf("reading the response failed: %w", err)
 				}
 
 				// verify response structure
 				if err := signature.VerifyServiceMessage(resp); err != nil {
-					return nil, errors.Wrapf(err, "could not verify %T", resp)
+					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 				}
 
 				switch v := resp.GetBody().GetRangePart().(type) {
 				case nil:
-					return nil, errors.Errorf("unexpected range type %T", v)
+					return nil, fmt.Errorf("unexpected range type %T", v)
 				case *objectV2.GetRangePartChunk:
 					payload = append(payload, v.GetChunk()...)
 				case *objectV2.SplitInfo:
@@ -279,7 +280,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 
 	switch t := body.GetType(); t {
 	default:
-		return nil, errors.Errorf("unknown checksum type %v", t)
+		return nil, fmt.Errorf("unknown checksum type %v", t)
 	case refs.SHA256:
 		p.SetHashGenerator(func() hash.Hash {
 			return sha256.New()
@@ -364,12 +365,12 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			// send Head request
 			resp, err := rpc.HeadObject(c.Raw(), req, rpcclient.WithContext(ctx))
 			if err != nil {
-				return nil, errors.Wrap(err, "sending the request failed")
+				return nil, fmt.Errorf("sending the request failed: %w", err)
 			}
 
 			// verify response structure
 			if err := signature.VerifyServiceMessage(resp); err != nil {
-				return nil, errors.Wrap(err, "response verification failed")
+				return nil, fmt.Errorf("response verification failed: %w", err)
 			}
 
 			var (
@@ -379,10 +380,10 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 			switch v := resp.GetBody().GetHeaderPart().(type) {
 			case nil:
-				return nil, errors.Errorf("unexpected header type %T", v)
+				return nil, fmt.Errorf("unexpected header type %T", v)
 			case *objectV2.ShortHeader:
 				if !body.GetMainOnly() {
-					return nil, errors.Errorf("wrong header part type: expected %T, received %T",
+					return nil, fmt.Errorf("wrong header part type: expected %T, received %T",
 						(*objectV2.ShortHeader)(nil), (*objectV2.HeaderWithSignature)(nil),
 					)
 				}
@@ -399,7 +400,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				hdr.SetHomomorphicHash(h.GetHomomorphicHash())
 			case *objectV2.HeaderWithSignature:
 				if body.GetMainOnly() {
-					return nil, errors.Errorf("wrong header part type: expected %T, received %T",
+					return nil, fmt.Errorf("wrong header part type: expected %T, received %T",
 						(*objectV2.HeaderWithSignature)(nil), (*objectV2.ShortHeader)(nil),
 					)
 				}
@@ -420,7 +421,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 						return idSig.GetKey(), idSig.GetSign()
 					},
 				); err != nil {
-					return nil, errors.Wrap(err, "incorrect object header signature")
+					return nil, fmt.Errorf("incorrect object header signature: %w", err)
 				}
 			case *objectV2.SplitInfo:
 				si := objectSDK.NewSplitInfoFromV2(v)

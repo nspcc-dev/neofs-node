@@ -2,13 +2,13 @@ package csvlocode
 
 import (
 	"encoding/csv"
+	"errors"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
-	"github.com/pkg/errors"
 )
 
 var errInvalidRecord = errors.New("invalid table record")

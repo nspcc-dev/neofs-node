@@ -1,8 +1,9 @@
 package blobstor
 
 import (
+	"fmt"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/pkg/errors"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -27,7 +28,7 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 	// marshal object
 	data, err := prm.obj.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal the object")
+		return nil, fmt.Errorf("could not marshal the object: %w", err)
 	}
 
 	return b.PutRaw(prm.obj.Address(), data)

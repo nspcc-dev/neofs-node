@@ -1,7 +1,7 @@
 package container
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 type StartEstimation struct {
@@ -21,29 +21,29 @@ func (e *StopEstimation) SetEpoch(v int64) {
 }
 
 func (c *Client) StartEstimation(args StartEstimation) error {
-	return errors.Wrapf(c.client.Invoke(
-		c.startEstimation,
-		args.epoch,
-	), "could not invoke method (%s)", c.startEstimation)
+	if err := c.client.Invoke(c.startEstimation, args.epoch); err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.startEstimation, err)
+	}
+	return nil
 }
 
 func (c *Client) StartEstimationNotary(args StartEstimation) error {
-	return errors.Wrapf(c.client.NotaryInvoke(
-		c.startEstimation,
-		args.epoch,
-	), "could not invoke method (%s)", c.startEstimation)
+	if err := c.client.NotaryInvoke(c.startEstimation, args.epoch); err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.startEstimation, err)
+	}
+	return nil
 }
 
 func (c *Client) StopEstimation(args StopEstimation) error {
-	return errors.Wrapf(c.client.Invoke(
-		c.stopEstimation,
-		args.epoch,
-	), "could not invoke method (%s)", c.stopEstimation)
+	if err := c.client.Invoke(c.stopEstimation, args.epoch); err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.stopEstimation, err)
+	}
+	return nil
 }
 
 func (c *Client) StopEstimationNotary(args StopEstimation) error {
-	return errors.Wrapf(c.client.NotaryInvoke(
-		c.stopEstimation,
-		args.epoch,
-	), "could not invoke method (%s)", c.stopEstimation)
+	if err := c.client.NotaryInvoke(c.stopEstimation, args.epoch); err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.stopEstimation, err)
+	}
+	return nil
 }

@@ -1,10 +1,12 @@
 package container
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/pkg/errors"
 )
 
 var errNilPolicy = errors.New("placement policy is nil")
@@ -19,15 +21,15 @@ func CheckFormat(c *container.Container) error {
 	}
 
 	if err := pkg.IsSupportedVersion(c.Version()); err != nil {
-		return errors.Wrap(err, "incorrect version")
+		return fmt.Errorf("incorrect version: %w", err)
 	}
 
 	if ln := len(c.OwnerID().ToV2().GetValue()); ln != owner.NEO3WalletSize {
-		return errors.Errorf("incorrect owner identifier: expected length %d != %d", owner.NEO3WalletSize, ln)
+		return fmt.Errorf("incorrect owner identifier: expected length %d != %d", owner.NEO3WalletSize, ln)
 	}
 
 	if _, err := c.NonceUUID(); err != nil {
-		return errors.Wrap(err, "incorrect nonce")
+		return fmt.Errorf("incorrect nonce: %w", err)
 	}
 
 	return nil
