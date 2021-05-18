@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
@@ -33,7 +34,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -272,13 +272,13 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *v2reputa
 
 	w, err := s.localRouter.InitWriter(reputationrouter.NewRouteContext(eCtx, passedRoute))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not initialize local trust writer")
+		return nil, fmt.Errorf("could not initialize local trust writer: %w", err)
 	}
 
 	for _, trust := range body.GetTrusts() {
 		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0].PublicKey()), passedRoute, w)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not write one of local trusts")
+			return nil, fmt.Errorf("could not write one of local trusts: %w", err)
 		}
 	}
 
@@ -298,7 +298,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	w, err := s.intermediateRouter.InitWriter(reputationrouter.NewRouteContext(eiCtx, passedRoute))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not initialize intermediate trust writer")
+		return nil, fmt.Errorf("could not initialize intermediate trust writer: %w", err)
 	}
 
 	v2Trust := body.GetTrust()
@@ -307,7 +307,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	err = w.Write(trust)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not write intermediate trust")
+		return nil, fmt.Errorf("could not write intermediate trust: %w", err)
 	}
 
 	resp := new(v2reputation.AnnounceIntermediateResultResponse)
@@ -320,7 +320,7 @@ func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
 	passedRoute []reputationcommon.ServerInfo, w reputationcommon.Writer) error {
 	err := reputationrouter.CheckRoute(s.routeBuilder, epoch, t, passedRoute)
 	if err != nil {
-		return errors.Wrap(err, "wrong route of reputation trust value")
+		return fmt.Errorf("wrong route of reputation trust value: %w", err)
 	}
 
 	return w.Write(t)

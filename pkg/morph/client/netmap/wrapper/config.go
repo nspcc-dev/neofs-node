@@ -1,10 +1,10 @@
 package wrapper
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 func (w *Wrapper) MaxObjectSize() (uint64, error) {
 	objectSize, err := w.readUInt64Config(maxObjectSizeConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get epoch number", w)
+		return 0, fmt.Errorf("(%T) could not get epoch number: %w", w, err)
 	}
 
 	return objectSize, nil
@@ -35,7 +35,7 @@ func (w *Wrapper) MaxObjectSize() (uint64, error) {
 func (w *Wrapper) BasicIncomeRate() (uint64, error) {
 	rate, err := w.readUInt64Config(basicIncomeRateConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get basic income rate", w)
+		return 0, fmt.Errorf("(%T) could not get basic income rate: %w", w, err)
 	}
 
 	return rate, nil
@@ -46,7 +46,7 @@ func (w *Wrapper) BasicIncomeRate() (uint64, error) {
 func (w *Wrapper) AuditFee() (uint64, error) {
 	fee, err := w.readUInt64Config(auditFeeConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get audit fee", w)
+		return 0, fmt.Errorf("(%T) could not get audit fee: %w", w, err)
 	}
 
 	return fee, nil
@@ -56,7 +56,7 @@ func (w *Wrapper) AuditFee() (uint64, error) {
 func (w *Wrapper) EpochDuration() (uint64, error) {
 	epochDuration, err := w.readUInt64Config(epochDurationConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get epoch duration", w)
+		return 0, fmt.Errorf("(%T) could not get epoch duration: %w", w, err)
 	}
 
 	return epochDuration, nil
@@ -67,7 +67,7 @@ func (w *Wrapper) EpochDuration() (uint64, error) {
 func (w *Wrapper) ContainerFee() (uint64, error) {
 	fee, err := w.readUInt64Config(containerFeeConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get container fee", w)
+		return 0, fmt.Errorf("(%T) could not get container fee: %w", w, err)
 	}
 
 	return fee, nil
@@ -78,7 +78,7 @@ func (w *Wrapper) ContainerFee() (uint64, error) {
 func (w *Wrapper) EigenTrustIterations() (uint64, error) {
 	iterations, err := w.readUInt64Config(etIterationsConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get eigen trust iterations", w)
+		return 0, fmt.Errorf("(%T) could not get eigen trust iterations: %w", w, err)
 	}
 
 	return iterations, nil
@@ -89,7 +89,7 @@ func (w *Wrapper) EigenTrustIterations() (uint64, error) {
 func (w *Wrapper) EigenTrustAlpha() (float64, error) {
 	strAlpha, err := w.readStringConfig(etAlphaConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get eigen trust alpha", w)
+		return 0, fmt.Errorf("(%T) could not get eigen trust alpha: %w", w, err)
 	}
 
 	return strconv.ParseFloat(strAlpha, 64)
@@ -100,7 +100,7 @@ func (w *Wrapper) EigenTrustAlpha() (float64, error) {
 func (w *Wrapper) InnerRingCandidateFee() (uint64, error) {
 	fee, err := w.readUInt64Config(irCandidateFeeConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get inner ring candidate fee", w)
+		return 0, fmt.Errorf("(%T) could not get inner ring candidate fee: %w", w, err)
 	}
 
 	return fee, nil
@@ -111,7 +111,7 @@ func (w *Wrapper) InnerRingCandidateFee() (uint64, error) {
 func (w *Wrapper) WithdrawFee() (uint64, error) {
 	fee, err := w.readUInt64Config(withdrawFeeConfig)
 	if err != nil {
-		return 0, errors.Wrapf(err, "(%T) could not get withdraw fee", w)
+		return 0, fmt.Errorf("(%T) could not get withdraw fee: %w", w, err)
 	}
 
 	return fee, nil
@@ -130,7 +130,7 @@ func (w *Wrapper) readUInt64Config(key string) (uint64, error) {
 
 	numeric, ok := v.(int64)
 	if !ok {
-		return 0, errors.Errorf("(%T) invalid value type %T", w, v)
+		return 0, fmt.Errorf("(%T) invalid value type %T", w, v)
 	}
 
 	return uint64(numeric), nil
@@ -149,7 +149,7 @@ func (w *Wrapper) readStringConfig(key string) (string, error) {
 
 	str, ok := v.(string)
 	if !ok {
-		return "", errors.Errorf("(%T) invalid value type %T", w, v)
+		return "", fmt.Errorf("(%T) invalid value type %T", w, v)
 	}
 
 	return str, nil

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -65,7 +65,7 @@ func addWellKnownAttributes(attrs []*netmap.NodeAttribute) []*netmap.NodeAttribu
 	for key, desc := range mWellKnown {
 		// check if required attribute is set
 		if desc.explicit {
-			fatalOnErr(errors.Errorf("missing explicit value of required node attribute %s", key))
+			fatalOnErr(fmt.Errorf("missing explicit value of required node attribute %s", key))
 		}
 
 		// set default value of the attribute

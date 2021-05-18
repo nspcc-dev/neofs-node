@@ -1,11 +1,12 @@
 package reputation
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Put structure of reputation.reputationPut notification from
@@ -50,7 +51,7 @@ func ParsePut(prms []stackitem.Item) (event.Event, error) {
 	// parse epoch number
 	epoch, err := client.IntFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get integer epoch number")
+		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
 	}
 
 	ev.epoch = uint64(epoch)
@@ -58,11 +59,11 @@ func ParsePut(prms []stackitem.Item) (event.Event, error) {
 	// parse peer ID value
 	peerID, err := client.BytesFromStackItem(prms[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get peer ID value")
+		return nil, fmt.Errorf("could not get peer ID value: %w", err)
 	}
 
 	if ln := len(peerID); ln != peerIDLength {
-		return nil, errors.Errorf("peer ID is %d byte long, expected %d", ln, peerIDLength)
+		return nil, fmt.Errorf("peer ID is %d byte long, expected %d", ln, peerIDLength)
 	}
 
 	var publicKey [33]byte
@@ -72,12 +73,12 @@ func ParsePut(prms []stackitem.Item) (event.Event, error) {
 	// parse global trust value
 	rawValue, err := client.BytesFromStackItem(prms[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get global trust value")
+		return nil, fmt.Errorf("could not get global trust value: %w", err)
 	}
 
 	err = ev.value.Unmarshal(rawValue)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse global trust value")
+		return nil, fmt.Errorf("could not parse global trust value: %w", err)
 	}
 
 	return ev, nil

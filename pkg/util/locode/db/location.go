@@ -1,8 +1,9 @@
 package locodedb
 
 import (
+	"fmt"
+
 	locodecolumn "github.com/nspcc-dev/neofs-node/pkg/util/locode/column"
-	"github.com/pkg/errors"
 )
 
 // LocationCode represents location code for
@@ -14,7 +15,7 @@ type LocationCode locodecolumn.LocationCode
 func LocationCodeFromString(s string) (*LocationCode, error) {
 	lc, err := locodecolumn.LocationCodeFromString(s)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse location code")
+		return nil, fmt.Errorf("could not parse location code: %w", err)
 	}
 
 	return LocationFromColumn(lc)

@@ -3,6 +3,8 @@ package audit
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -15,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -110,7 +111,7 @@ func New(p *Params) (*Processor, error) {
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
 	if err != nil {
-		return nil, errors.Wrap(err, "ir/audit: can't create worker pool")
+		return nil, fmt.Errorf("ir/audit: can't create worker pool: %w", err)
 	}
 
 	// creating enhanced client for getting network map

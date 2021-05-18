@@ -2,12 +2,12 @@ package container
 
 import (
 	"crypto/elliptic"
+	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Put structure of container.Put notification from morph chain.
@@ -43,24 +43,24 @@ func ParsePut(params []stackitem.Item) (event.Event, error) {
 	// parse container
 	ev.rawContainer, err = client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get container")
+		return nil, fmt.Errorf("could not get container: %w", err)
 	}
 
 	// parse signature
 	ev.signature, err = client.BytesFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get signature")
+		return nil, fmt.Errorf("could not get signature: %w", err)
 	}
 
 	// parse public key
 	key, err := client.BytesFromStackItem(params[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get public key")
+		return nil, fmt.Errorf("could not get public key: %w", err)
 	}
 
 	ev.publicKey, err = keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse public key")
+		return nil, fmt.Errorf("could not parse public key: %w", err)
 	}
 
 	return ev, nil

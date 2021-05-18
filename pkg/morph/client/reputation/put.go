@@ -1,7 +1,7 @@
 package reputation
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // PutArgs groups the arguments of "put reputation value" invocation call.
@@ -28,21 +28,31 @@ func (p *PutArgs) SetValue(v []byte) {
 
 // Put invokes direct call of "put reputation value" method of reputation contract.
 func (c *Client) Put(args PutArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	err := c.client.Invoke(
 		c.putMethod,
 		int64(args.epoch),
 		args.peerID,
 		args.value,
-	), "could not invoke method (%s)", c.putMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)
+	}
+	return nil
 }
 
 // PutViaNotary invokes notary call of "put reputation value" method of
 // reputation contract.
 func (c *Client) PutViaNotary(args PutArgs) error {
-	return errors.Wrapf(c.client.NotaryInvoke(
+	err := c.client.NotaryInvoke(
 		c.putMethod,
 		int64(args.epoch),
 		args.peerID,
 		args.value,
-	), "could not invoke method (%s)", c.putMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)
+	}
+	return err
 }

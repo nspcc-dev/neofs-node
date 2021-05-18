@@ -1,9 +1,10 @@
 package placementrouter
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
-	"github.com/pkg/errors"
 )
 
 // NextStage composes container nodes for the container and epoch from a,
@@ -19,7 +20,7 @@ func (b *Builder) NextStage(a container.UsedSpaceAnnouncement, passed []loadrout
 
 	placement, err := b.placementBuilder.BuildPlacement(a.Epoch(), a.ContainerID())
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not build placement %s", a.ContainerID())
+		return nil, fmt.Errorf("could not build placement %s: %w", a.ContainerID(), err)
 	}
 
 	res := make([]loadroute.ServerInfo, 0, len(placement))

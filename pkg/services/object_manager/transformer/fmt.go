@@ -2,13 +2,13 @@ package transformer
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/pkg/errors"
 )
 
 type formatter struct {
@@ -81,7 +81,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		rawPar.SetCreationEpoch(curEpoch)
 
 		if err := objectSDK.SetIDWithSignature(f.prm.Key, rawPar); err != nil {
-			return nil, errors.Wrap(err, "could not finalize parent object")
+			return nil, fmt.Errorf("could not finalize parent object: %w", err)
 		}
 
 		parID = rawPar.ID()
@@ -91,15 +91,15 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	}
 
 	if err := objectSDK.SetIDWithSignature(f.prm.Key, f.obj.SDK()); err != nil {
-		return nil, errors.Wrap(err, "could not finalize object")
+		return nil, fmt.Errorf("could not finalize object: %w", err)
 	}
 
 	if err := f.prm.NextTarget.WriteHeader(f.obj); err != nil {
-		return nil, errors.Wrap(err, "could not write header to next target")
+		return nil, fmt.Errorf("could not write header to next target: %w", err)
 	}
 
 	if _, err := f.prm.NextTarget.Close(); err != nil {
-		return nil, errors.Wrap(err, "could not close next target")
+		return nil, fmt.Errorf("could not close next target: %w", err)
 	}
 
 	return new(AccessIdentifiers).

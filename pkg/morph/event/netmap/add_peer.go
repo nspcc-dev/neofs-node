@@ -1,10 +1,11 @@
 package netmap
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 type AddPeer struct {
@@ -30,7 +31,7 @@ func ParseAddPeer(prms []stackitem.Item) (event.Event, error) {
 
 	ev.node, err = client.BytesFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get integer epoch number")
+		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
 	}
 
 	return ev, nil

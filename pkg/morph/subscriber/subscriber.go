@@ -2,6 +2,8 @@ package subscriber
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -105,7 +106,7 @@ func (s *subscriber) Close() {
 
 func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
 	if _, err := s.client.SubscribeForNewBlocks(nil); err != nil {
-		return nil, errors.Wrap(err, "could not subscribe for new block events")
+		return nil, fmt.Errorf("could not subscribe for new block events: %w", err)
 	}
 
 	return s.blockChan, nil
@@ -168,7 +169,7 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 	}
 
 	if err := wsClient.Init(); err != nil {
-		return nil, errors.Wrap(err, "could not init ws client")
+		return nil, fmt.Errorf("could not init ws client: %w", err)
 	}
 
 	sub := &subscriber{

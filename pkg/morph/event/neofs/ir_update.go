@@ -2,12 +2,12 @@ package neofs
 
 import (
 	"crypto/elliptic"
+	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 type UpdateInnerRing struct {
@@ -32,19 +32,19 @@ func ParseUpdateInnerRing(params []stackitem.Item) (event.Event, error) {
 	// parse keys
 	irKeys, err := client.ArrayFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get updated inner ring keys")
+		return nil, fmt.Errorf("could not get updated inner ring keys: %w", err)
 	}
 
 	ev.keys = make([]*keys.PublicKey, 0, len(irKeys))
 	for i := range irKeys {
 		rawKey, err := client.BytesFromStackItem(irKeys[i])
 		if err != nil {
-			return nil, errors.Wrap(err, "could not get updated inner ring public key")
+			return nil, fmt.Errorf("could not get updated inner ring public key: %w", err)
 		}
 
 		key, err := keys.NewPublicKeyFromBytes(rawKey, elliptic.P256())
 		if err != nil {
-			return nil, errors.Wrap(err, "could not parse updated inner ring public key")
+			return nil, fmt.Errorf("could not parse updated inner ring public key: %w", err)
 		}
 
 		ev.keys = append(ev.keys, key)

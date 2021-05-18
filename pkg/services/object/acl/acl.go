@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
@@ -23,7 +24,6 @@ import (
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
-	"github.com/pkg/errors"
 )
 
 type (

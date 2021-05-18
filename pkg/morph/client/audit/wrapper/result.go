@@ -1,10 +1,12 @@
 package audit
 
 import (
+	"errors"
+	"fmt"
+
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
-	"github.com/pkg/errors"
 )
 
 // ResultID is an identity of audit result inside audit contract.
@@ -19,7 +21,7 @@ var errUnsupported = errors.New("unsupported structure version")
 func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
 	rawResult, err := result.Marshal()
 	if err != nil {
-		return errors.Wrap(err, "could not marshal audit result")
+		return fmt.Errorf("could not marshal audit result: %w", err)
 	}
 
 	args := audit.PutAuditResultArgs{}
@@ -121,7 +123,7 @@ func (w *ClientWrapper) GetAuditResult(id ResultID) (*auditAPI.Result, error) {
 
 	auditRes := auditAPI.NewResult()
 	if err := auditRes.Unmarshal(value.Result()); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal audit result structure")
+		return nil, fmt.Errorf("could not unmarshal audit result structure: %w", err)
 	}
 
 	return auditRes, nil

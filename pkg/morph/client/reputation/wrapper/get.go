@@ -1,9 +1,10 @@
 package wrapper
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	reputationClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -83,7 +84,7 @@ func parseGetResult(data *reputationClient.GetResult) (*GetResult, error) {
 
 		err := r.Unmarshal(rawReputations[i])
 		if err != nil {
-			return nil, errors.Wrap(err, "can't unmarshal global trust value")
+			return nil, fmt.Errorf("can't unmarshal global trust value: %w", err)
 		}
 
 		reputations = append(reputations, r)

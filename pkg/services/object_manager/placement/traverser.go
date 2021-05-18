@@ -1,13 +1,14 @@
 package placement
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/pkg/errors"
 )
 
 // Builder is an interface of the
@@ -70,14 +71,14 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 	}
 
 	if cfg.builder == nil {
-		return nil, errors.Wrap(errNilBuilder, invalidOptsMsg)
+		return nil, fmt.Errorf("%s: %w", invalidOptsMsg, errNilBuilder)
 	} else if cfg.policy == nil {
-		return nil, errors.Wrap(errNilPolicy, invalidOptsMsg)
+		return nil, fmt.Errorf("%s: %w", invalidOptsMsg, errNilPolicy)
 	}
 
 	ns, err := cfg.builder.BuildPlacement(cfg.addr, cfg.policy)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not build placement")
+		return nil, fmt.Errorf("could not build placement: %w", err)
 	}
 
 	var rem []int

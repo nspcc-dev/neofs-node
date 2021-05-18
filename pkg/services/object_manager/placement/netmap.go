@@ -1,10 +1,11 @@
 package placement
 
 import (
+	"fmt"
+
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/pkg/errors"
 )
 
 type netMapBuilder struct {
@@ -36,12 +37,12 @@ func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
 func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get network map")
+		return nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
 	cn, err := nm.GetContainerNodes(p, a.ContainerID().ToV2().GetValue())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get container nodes")
+		return nil, fmt.Errorf("could not get container nodes: %w", err)
 	}
 
 	return BuildObjectPlacement(nm, cn, a.ObjectID())
@@ -55,7 +56,7 @@ func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNode
 
 	on, err := nm.GetPlacementVectors(cnrNodes, objectID.GetValue())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get placement vectors for object")
+		return nil, fmt.Errorf("could not get placement vectors for object: %w", err)
 	}
 
 	return on, nil

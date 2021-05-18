@@ -1,9 +1,10 @@
 package getsvc
 
 import (
+	"errors"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 

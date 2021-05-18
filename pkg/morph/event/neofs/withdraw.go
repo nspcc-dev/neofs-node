@@ -1,11 +1,12 @@
 package neofs
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Withdraw structure of neofs.Withdraw notification from mainnet chain.
@@ -38,24 +39,24 @@ func ParseWithdraw(params []stackitem.Item) (event.Event, error) {
 	// parse user
 	user, err := client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get withdraw user")
+		return nil, fmt.Errorf("could not get withdraw user: %w", err)
 	}
 
 	ev.user, err = util.Uint160DecodeBytesBE(user)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert withdraw user to uint160")
+		return nil, fmt.Errorf("could not convert withdraw user to uint160: %w", err)
 	}
 
 	// parse amount
 	ev.amount, err = client.IntFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get withdraw amount")
+		return nil, fmt.Errorf("could not get withdraw amount: %w", err)
 	}
 
 	// parse id
 	ev.id, err = client.BytesFromStackItem(params[2])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get withdraw id")
+		return nil, fmt.Errorf("could not get withdraw id: %w", err)
 	}
 
 	return ev, nil

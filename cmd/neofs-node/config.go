@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"net"
 	"os"
 	"path"
@@ -40,7 +41,6 @@ import (
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"

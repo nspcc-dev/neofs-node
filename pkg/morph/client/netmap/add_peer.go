@@ -1,7 +1,7 @@
 package netmap
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // AddPeerArgs groups the arguments
@@ -18,10 +18,8 @@ func (a *AddPeerArgs) SetInfo(v []byte) {
 // AddPeer invokes the call of add peer method
 // of NeoFS Netmap contract.
 func (c *Client) AddPeer(args AddPeerArgs) error {
-	info := args.info
-
-	return errors.Wrapf(c.client.Invoke(
-		c.addPeerMethod,
-		info,
-	), "could not invoke method (%s)", c.addPeerMethod)
+	if err := c.client.Invoke(c.addPeerMethod, args.info); err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.addPeerMethod, err)
+	}
+	return nil
 }

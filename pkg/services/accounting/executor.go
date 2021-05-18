@@ -2,9 +2,9 @@ package accounting
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
-	"github.com/pkg/errors"
 )
 
 type ServiceExecutor interface {
@@ -25,7 +25,7 @@ func NewExecutionService(exec ServiceExecutor) Server {
 func (s *executorSvc) Balance(ctx context.Context, req *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
 	respBody, err := s.exec.Balance(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Balance request")
+		return nil, fmt.Errorf("could not execute Balance request: %w", err)
 	}
 
 	resp := new(accounting.BalanceResponse)

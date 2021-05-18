@@ -1,9 +1,10 @@
 package routes
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"github.com/pkg/errors"
 )
 
 // NextStage builds Manager list for trusted node and returns it directly.
@@ -16,7 +17,7 @@ func (b *Builder) NextStage(epoch uint64, t reputation.Trust, passed []common.Se
 
 	route, err := b.managerBuilder.BuildManagers(epoch, t.Peer())
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not build managers for epoch: %d", epoch)
+		return nil, fmt.Errorf("could not build managers for epoch: %d: %w", epoch, err)
 	}
 
 	return route, nil

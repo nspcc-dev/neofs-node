@@ -3,10 +3,10 @@ package util
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	"github.com/pkg/errors"
 )
 
 // ResponseMessage is an interface of NeoFS response message.
@@ -54,7 +54,7 @@ func NewUnarySignService(key *ecdsa.PrivateKey) *SignService {
 func (s *RequestMessageStreamer) Send(req interface{}) error {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
-		return errors.Wrap(err, "could not verify request")
+		return fmt.Errorf("could not verify request: %w", err)
 	}
 
 	return s.send(req)
@@ -63,11 +63,11 @@ func (s *RequestMessageStreamer) Send(req interface{}) error {
 func (s *RequestMessageStreamer) CloseAndRecv() (ResponseMessage, error) {
 	resp, err := s.close()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not close stream and receive response")
+		return nil, fmt.Errorf("could not close stream and receive response: %w", err)
 	}
 
 	if err := signature.SignServiceMessage(s.key, resp); err != nil {
-		return nil, errors.Wrap(err, "could not sign response")
+		return nil, fmt.Errorf("could not sign response: %w", err)
 	}
 
 	return resp, nil
@@ -84,11 +84,11 @@ func (s *SignService) CreateRequestStreamer(sender RequestMessageWriter, closer 
 func (s *ResponseMessageStreamer) Recv() (ResponseMessage, error) {
 	m, err := s.recv()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not receive response message for signing")
+		return nil, fmt.Errorf("could not receive response message for signing: %w", err)
 	}
 
 	if err := signature.SignServiceMessage(s.key, m); err != nil {
-		return nil, errors.Wrap(err, "could not sign response message")
+		return nil, fmt.Errorf("could not sign response message: %w", err)
 	}
 
 	return m, nil
@@ -97,12 +97,12 @@ func (s *ResponseMessageStreamer) Recv() (ResponseMessage, error) {
 func (s *SignService) HandleServerStreamRequest(req interface{}, respWriter ResponseMessageWriter) (ResponseMessageWriter, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
-		return nil, errors.Wrap(err, "could not verify request")
+		return nil, fmt.Errorf("could not verify request: %w", err)
 	}
 
 	return func(resp ResponseMessage) error {
 		if err := signature.SignServiceMessage(s.key, resp); err != nil {
-			return errors.Wrap(err, "could not sign response message")
+			return fmt.Errorf("could not sign response message: %w", err)
 		}
 
 		return respWriter(resp)
@@ -112,18 +112,18 @@ func (s *SignService) HandleServerStreamRequest(req interface{}, respWriter Resp
 func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler) (ResponseMessage, error) {
 	// verify request signatures
 	if err := signature.VerifyServiceMessage(req); err != nil {
-		return nil, errors.Wrap(err, "could not verify request")
+		return nil, fmt.Errorf("could not verify request: %w", err)
 	}
 
 	// process request
 	resp, err := handler(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not handle request")
+		return nil, fmt.Errorf("could not handle request: %w", err)
 	}
 
 	// sign the response
 	if err := signature.SignServiceMessage(s.key, resp); err != nil {
-		return nil, errors.Wrap(err, "could not sign response")
+		return nil, fmt.Errorf("could not sign response: %w", err)
 	}
 
 	return resp, nil

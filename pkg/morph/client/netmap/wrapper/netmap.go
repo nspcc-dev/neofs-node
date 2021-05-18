@@ -1,9 +1,10 @@
 package wrapper
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/pkg/errors"
 )
 
 // GetNetMap receives information list about storage nodes
@@ -43,7 +44,7 @@ func unmarshalNetmap(rawPeers [][]byte) (*netmap.Netmap, error) {
 	for _, peer := range rawPeers {
 		nodeInfo := netmap.NewNodeInfo()
 		if err := nodeInfo.Unmarshal(peer); err != nil {
-			return nil, errors.Wrap(err, "can't unmarshal peer info")
+			return nil, fmt.Errorf("can't unmarshal peer info: %w", err)
 		}
 
 		infos = append(infos, *nodeInfo)

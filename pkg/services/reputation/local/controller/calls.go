@@ -2,11 +2,11 @@ package trustcontroller
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 

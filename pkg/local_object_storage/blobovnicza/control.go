@@ -1,10 +1,11 @@
 package blobovnicza
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path"
 
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -58,8 +59,11 @@ func (b *Blobovnicza) Init() error {
 				return true, b.syncFullnessCounter()
 			}
 
-			return false, errors.Wrapf(err,
-				"(%T) could not create bucket for bounds [%d:%d]", b, lower, upper)
+			if err != nil {
+				return false, fmt.Errorf("(%T) could not create bucket for bounds [%d:%d]: %w",
+					b, lower, upper, err)
+			}
+			return false, nil
 		})
 	})
 }

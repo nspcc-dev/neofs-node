@@ -1,7 +1,7 @@
 package netmap
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // UpdateStateArgs groups the arguments
@@ -26,9 +26,15 @@ func (u *UpdateStateArgs) SetState(v int64) {
 // UpdateState invokes the call of update state method
 // of NeoFS Netmap contract.
 func (c *Client) UpdateState(args UpdateStateArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	err := c.client.Invoke(
 		c.updateStateMethod,
 		args.state,
 		args.key,
-	), "could not invoke method (%s)", c.updateStateMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.updateStateMethod, err)
+	}
+
+	return nil
 }

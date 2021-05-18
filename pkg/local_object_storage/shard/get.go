@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -8,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 

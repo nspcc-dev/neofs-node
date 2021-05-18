@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -230,7 +230,7 @@ func (c *Client) TxHalt(h util.Uint256) (bool, error) {
 func (c *Client) NeoFSAlphabetList() (keys.PublicKeys, error) {
 	list, err := c.roleList(noderoles.NeoFSAlphabet)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't get alphabet nodes role list")
+		return nil, fmt.Errorf("can't get alphabet nodes role list: %w", err)
 	}
 
 	return list, nil
@@ -239,7 +239,7 @@ func (c *Client) NeoFSAlphabetList() (keys.PublicKeys, error) {
 func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 	height, err := c.client.GetBlockCount()
 	if err != nil {
-		return nil, errors.Wrap(err, "can't get chain height")
+		return nil, fmt.Errorf("can't get chain height: %w", err)
 	}
 
 	return c.client.GetDesignatedByRole(r, height)
@@ -285,7 +285,7 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 
 		return toStackParameter(arr)
 	default:
-		return result, errors.Errorf("chain/client: unsupported parameter %v", value)
+		return result, fmt.Errorf("chain/client: unsupported parameter %v", value)
 	}
 
 	return result, nil

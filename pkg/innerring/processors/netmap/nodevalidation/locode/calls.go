@@ -1,9 +1,11 @@
 package locode
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
-	"github.com/pkg/errors"
 )
 
 var errMissingRequiredAttr = errors.New("missing required attribute in DB record")
@@ -36,12 +38,12 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 
 	lc, err := locode.FromString(attrLocode.Value())
 	if err != nil {
-		return errors.Wrap(err, "invalid locode value")
+		return fmt.Errorf("invalid locode value: %w", err)
 	}
 
 	record, err := v.db.Get(lc)
 	if err != nil {
-		return errors.Wrap(err, "could not get locode record from DB")
+		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
 
 	for attrKey, attrDesc := range v.mAttr {

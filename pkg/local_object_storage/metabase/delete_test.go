@@ -1,11 +1,11 @@
 package meta_test
 
 import (
+	"errors"
 	"testing"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

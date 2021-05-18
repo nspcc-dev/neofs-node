@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/bytefmt"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -54,13 +53,13 @@ func (b *Blobovnicza) full() bool {
 }
 
 func (b *Blobovnicza) syncFullnessCounter() error {
-	return errors.Wrap(b.boltDB.View(func(tx *bbolt.Tx) error {
+	err := b.boltDB.View(func(tx *bbolt.Tx) error {
 		sz := uint64(0)
 
 		if err := b.iterateBucketKeys(func(lower, upper uint64, key []byte) (bool, error) {
 			buck := tx.Bucket(key)
 			if buck == nil {
-				return false, errors.Errorf("bucket not found %s", stringifyBounds(lower, upper))
+				return false, fmt.Errorf("bucket not found %s", stringifyBounds(lower, upper))
 			}
 
 			sz += uint64(buck.Stats().KeyN) * (upper - lower)
@@ -73,5 +72,9 @@ func (b *Blobovnicza) syncFullnessCounter() error {
 		b.filled.Store(sz)
 
 		return nil
-	}), "(%T) could not sync fullness counter")
+	})
+	if err != nil {
+		return fmt.Errorf("could not sync fullness counter: %w", err)
+	}
+	return nil
 }

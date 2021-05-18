@@ -1,8 +1,9 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // EACLArgs groups the arguments
@@ -51,33 +52,33 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		args.cid,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.eaclMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.eaclMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", c.eaclMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.eaclMethod, ln)
 	}
 
 	arr, err := client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get item array of eACL (%s)", c.eaclMethod)
+		return nil, fmt.Errorf("could not get item array of eACL (%s): %w", c.eaclMethod, err)
 	}
 
 	if len(arr) != 3 {
-		return nil, errors.Errorf("unexpected eacl stack item count (%s): %d", c.eaclMethod, len(arr))
+		return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", c.eaclMethod, len(arr))
 	}
 
 	eacl, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get byte array of eACL (%s)", c.eaclMethod)
+		return nil, fmt.Errorf("could not get byte array of eACL (%s): %w", c.eaclMethod, err)
 	}
 
 	sig, err := client.BytesFromStackItem(arr[1])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get byte array of eACL signature (%s)", c.eaclMethod)
+		return nil, fmt.Errorf("could not get byte array of eACL signature (%s): %w", c.eaclMethod, err)
 	}
 
 	pub, err := client.BytesFromStackItem(arr[2])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get byte array of eACL public key (%s)", c.eaclMethod)
+		return nil, fmt.Errorf("could not get byte array of eACL public key (%s): %w", c.eaclMethod, err)
 	}
 
 	return &EACLValues{

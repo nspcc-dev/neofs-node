@@ -1,8 +1,9 @@
 package response
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	"github.com/pkg/errors"
 )
 
 // ServerMessageStreamer represents server-side message streamer
@@ -18,7 +19,7 @@ type ServerMessageStreamer struct {
 func (s *ServerMessageStreamer) Recv() (util.ResponseMessage, error) {
 	m, err := s.recv()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not receive response message for signing")
+		return nil, fmt.Errorf("could not receive response message for signing: %w", err)
 	}
 
 	setMeta(m, s.cfg)

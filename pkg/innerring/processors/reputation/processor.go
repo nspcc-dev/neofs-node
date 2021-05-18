@@ -1,12 +1,14 @@
 package reputation
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -69,7 +71,7 @@ func New(p *Params) (*Processor, error) {
 
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {
-		return nil, errors.Wrap(err, "ir/reputation: can't create worker pool")
+		return nil, fmt.Errorf("ir/reputation: can't create worker pool: %w", err)
 	}
 
 	return &Processor{

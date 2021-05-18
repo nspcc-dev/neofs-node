@@ -3,13 +3,13 @@ package putsvc
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"hash"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/tzhash/tz"
-	"github.com/pkg/errors"
 )
 
 type validatingTarget struct {
@@ -26,7 +26,7 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 	cs := obj.PayloadChecksum()
 	switch typ := cs.Type(); typ {
 	default:
-		return errors.Errorf("(%T) unsupported payload checksum type %v", t, typ)
+		return fmt.Errorf("(%T) unsupported payload checksum type %v", t, typ)
 	case pkg.ChecksumSHA256:
 		t.hash = sha256.New()
 	case pkg.ChecksumTZ:
@@ -36,7 +36,7 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 	t.checksum = cs.Sum()
 
 	if err := t.fmt.Validate(obj.Object()); err != nil {
-		return errors.Wrapf(err, "(%T) coult not validate object format", t)
+		return fmt.Errorf("(%T) coult not validate object format: %w", t, err)
 	}
 
 	return t.nextTarget.WriteHeader(obj)
@@ -53,7 +53,7 @@ func (t *validatingTarget) Write(p []byte) (n int, err error) {
 
 func (t *validatingTarget) Close() (*transformer.AccessIdentifiers, error) {
 	if !bytes.Equal(t.hash.Sum(nil), t.checksum) {
-		return nil, errors.Errorf("(%T) incorrect payload checksum", t)
+		return nil, fmt.Errorf("(%T) incorrect payload checksum", t)
 	}
 
 	return t.nextTarget.Close()

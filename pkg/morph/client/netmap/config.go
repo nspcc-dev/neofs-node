@@ -1,9 +1,10 @@
 package netmap
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // ConfigArgs groups the arguments
@@ -36,19 +37,18 @@ func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{
 		args.key,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"could not perform test invocation (%s)",
-			c.configMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			c.configMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d",
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
 			c.configMethod, ln)
 	}
 
 	val, err := assert(items[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "value type assertion failed")
+		return nil, fmt.Errorf("value type assertion failed: %w", err)
 	}
 
 	return &ConfigValues{

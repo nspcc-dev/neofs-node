@@ -2,12 +2,12 @@ package innerring
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -72,7 +72,7 @@ func (s *innerRingIndexer) update() (ind indexes, err error) {
 func (s *innerRingIndexer) InnerRingIndex() (int32, error) {
 	ind, err := s.update()
 	if err != nil {
-		return 0, errors.Wrap(err, "can't update index state")
+		return 0, fmt.Errorf("can't update index state: %w", err)
 	}
 
 	return ind.innerRingIndex, nil
@@ -81,7 +81,7 @@ func (s *innerRingIndexer) InnerRingIndex() (int32, error) {
 func (s *innerRingIndexer) InnerRingSize() (int32, error) {
 	ind, err := s.update()
 	if err != nil {
-		return 0, errors.Wrap(err, "can't update index state")
+		return 0, fmt.Errorf("can't update index state: %w", err)
 	}
 
 	return ind.innerRingSize, nil
@@ -90,7 +90,7 @@ func (s *innerRingIndexer) InnerRingSize() (int32, error) {
 func (s *innerRingIndexer) AlphabetIndex() (int32, error) {
 	ind, err := s.update()
 	if err != nil {
-		return 0, errors.Wrap(err, "can't update index state")
+		return 0, fmt.Errorf("can't update index state: %w", err)
 	}
 
 	return ind.alphabetIndex, nil

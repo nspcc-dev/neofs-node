@@ -1,8 +1,9 @@
 package shard
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	"github.com/pkg/errors"
 )
 
 type ContainerSizePrm struct {
@@ -28,7 +29,7 @@ func (r *ContainerSizeRes) Size() uint64 {
 func (s *Shard) ContainerSize(prm *ContainerSizePrm) (*ContainerSizeRes, error) {
 	size, err := s.metaBase.ContainerSize(prm.cid)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get container size")
+		return nil, fmt.Errorf("could not get container size: %w", err)
 	}
 
 	return &ContainerSizeRes{

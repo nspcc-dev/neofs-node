@@ -1,6 +1,8 @@
 package container
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+)
 
 // DeleteArgs groups the arguments
 // of delete container invocation call.
@@ -25,9 +27,14 @@ func (p *DeleteArgs) SetSignature(v []byte) {
 // Delete invokes the call of delete container
 // method of NeoFS Container contract.
 func (c *Client) Delete(args DeleteArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	err := c.client.Invoke(
 		c.deleteMethod,
 		args.cid,
 		args.sig,
-	), "could not invoke method (%s)", c.deleteMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.deleteMethod, err)
+	}
+	return nil
 }

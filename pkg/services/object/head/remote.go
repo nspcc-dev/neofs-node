@@ -2,13 +2,14 @@ package headsvc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/pkg/errors"
 )
 
 type ClientConstructor interface {
@@ -62,7 +63,7 @@ func (p *RemoteHeadPrm) WithObjectAddress(v *objectSDK.Address) *RemoteHeadPrm {
 func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Object, error) {
 	key, err := h.keyStorage.GetKey(prm.commonHeadPrm.common.SessionToken())
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not receive private key", h)
+		return nil, fmt.Errorf("(%T) could not receive private key: %w", h, err)
 	}
 
 	addr, err := prm.node.HostAddrString()
@@ -72,7 +73,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	c, err := h.clientCache.Get(addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not create SDK client %s", h, addr)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, addr, err)
 	}
 
 	p := new(client.ObjectHeaderParams).
@@ -90,7 +91,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		client.WithKey(key),
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "(%T) could not head object in %s", h, addr)
+		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, addr, err)
 	}
 
 	return object.NewFromSDK(hdr), nil

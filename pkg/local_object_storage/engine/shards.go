@@ -1,13 +1,13 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/pkg/errors"
 )
 
 var errShardNotFound = errors.New("shard not found")
@@ -26,7 +26,7 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 
 	id, err := generateShardID()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not generate shard ID")
+		return nil, fmt.Errorf("could not generate shard ID: %w", err)
 	}
 
 	e.shards[id.String()] = shard.New(append(opts,

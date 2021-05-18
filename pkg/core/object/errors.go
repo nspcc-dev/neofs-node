@@ -1,6 +1,6 @@
 package object
 
-import "github.com/pkg/errors"
+import "errors"
 
 // ErrNotFound is a basic "not found" error returned by
 // object read functions.

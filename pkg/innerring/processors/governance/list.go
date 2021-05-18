@@ -1,10 +1,11 @@
 package governance
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -25,7 +26,7 @@ func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error
 	}
 
 	if len(mainnet) < ln {
-		return nil, errors.Wrapf(errNotEnoughKeys, "expecting %d keys", ln)
+		return nil, fmt.Errorf("%w: expecting %d keys", errNotEnoughKeys, ln)
 	}
 
 	hmap := make(map[string]bool, ln)

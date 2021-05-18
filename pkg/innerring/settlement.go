@@ -3,6 +3,7 @@ package innerring
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
@@ -22,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -91,7 +91,7 @@ func (c *containerWrapper) Owner() *owner.ID {
 func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, error) {
 	idList, err := s.auditClient.ListAuditResultIDByEpoch(epoch)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not list audit results in sidechain")
+		return nil, fmt.Errorf("could not list audit results in sidechain: %w", err)
 	}
 
 	res := make([]*auditAPI.Result, 0, len(idList))
@@ -99,7 +99,7 @@ func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, 
 	for i := range idList {
 		r, err := s.auditClient.GetAuditResult(idList[i])
 		if err != nil {
-			return nil, errors.Wrap(err, "could not get audit result")
+			return nil, fmt.Errorf("could not get audit result: %w", err)
 		}
 
 		res = append(res, r)
@@ -111,7 +111,7 @@ func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, 
 func (s settlementDeps) ContainerInfo(cid *containerAPI.ID) (common.ContainerInfo, error) {
 	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get container from storage")
+		return nil, fmt.Errorf("could not get container from storage: %w", err)
 	}
 
 	return (*containerWrapper)(cnr), nil
@@ -130,12 +130,12 @@ func (s settlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (netmapAP
 	}
 
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get network map from storage")
+		return nil, nil, fmt.Errorf("could not get network map from storage: %w", err)
 	}
 
 	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get container from sidechain")
+		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
 	}
 
 	cn, err := nm.GetContainerNodes(
@@ -143,7 +143,7 @@ func (s settlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (netmapAP
 		cid.ToV2().GetValue(), // may be replace pivot calculation to neofs-api-go
 	)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not calculate container nodes")
+		return nil, nil, fmt.Errorf("could not calculate container nodes: %w", err)
 	}
 
 	return cn, nm, nil

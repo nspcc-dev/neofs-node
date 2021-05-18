@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -10,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 

@@ -1,13 +1,15 @@
 package balance
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -70,7 +72,7 @@ func New(p *Params) (*Processor, error) {
 
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {
-		return nil, errors.Wrap(err, "ir/balance: can't create worker pool")
+		return nil, fmt.Errorf("ir/balance: can't create worker pool: %w", err)
 	}
 
 	return &Processor{

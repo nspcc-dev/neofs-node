@@ -1,7 +1,7 @@
 package balance
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // TransferXArgs groups the arguments
@@ -58,11 +58,16 @@ func (c *Client) transferX(notary bool, args TransferXArgs) error {
 		f = c.client.NotaryInvoke
 	}
 
-	return errors.Wrapf(f(
+	err := f(
 		c.transferXMethod,
 		args.sender,
 		args.recipient,
 		args.amount,
 		args.details,
-	), "could not invoke method (%s)", c.transferXMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.transferXMethod, err)
+	}
+	return nil
 }

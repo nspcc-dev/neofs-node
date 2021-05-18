@@ -1,10 +1,10 @@
 package locodecolumn
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -178,12 +178,12 @@ func CoordinatesFromString(s string) (*Coordinates, error) {
 
 	lat, err := LatitudeFromString(strs[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse latitude")
+		return nil, fmt.Errorf("could not parse latitude: %w", err)
 	}
 
 	lng, err := LongitudeFromString(strs[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse longitude")
+		return nil, fmt.Errorf("could not parse longitude: %w", err)
 	}
 
 	return &Coordinates{

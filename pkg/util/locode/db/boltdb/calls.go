@@ -2,11 +2,12 @@ package locodebolt
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path"
 
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -21,12 +22,12 @@ func (db *DB) Open() error {
 
 	err := os.MkdirAll(path.Dir(db.path), db.mode)
 	if err != nil {
-		return errors.Wrap(err, "could not create dir for BoltDB")
+		return fmt.Errorf("could not create dir for BoltDB: %w", err)
 	}
 
 	db.bolt, err = bbolt.Open(db.path, db.mode, db.boltOpts)
 	if err != nil {
-		return errors.Wrap(err, "could not open BoltDB")
+		return fmt.Errorf("could not open BoltDB: %w", err)
 	}
 
 	return nil
@@ -110,7 +111,7 @@ func (db *DB) Put(key locodedb.Key, rec locodedb.Record) error {
 
 		bktCountry, err := tx.CreateBucketIfNotExists(countryKey)
 		if err != nil {
-			return errors.Wrap(err, "could not create country bucket")
+			return fmt.Errorf("could not create country bucket: %w", err)
 		}
 
 		// TODO: write country name once in Country bucket

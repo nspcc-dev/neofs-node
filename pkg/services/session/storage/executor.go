@@ -5,13 +5,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	crypto "github.com/nspcc-dev/neofs-crypto"
-	"github.com/pkg/errors"
 )
 
 func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
@@ -22,12 +22,12 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 
 	uid, err := uuid.NewRandom()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not generate token ID")
+		return nil, fmt.Errorf("could not generate token ID: %w", err)
 	}
 
 	uidBytes, err := uid.MarshalBinary()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal token ID")
+		return nil, fmt.Errorf("could not marshal token ID: %w", err)
 	}
 
 	sk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

@@ -1,7 +1,7 @@
 package container
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 // PutArgs groups the arguments
@@ -35,10 +35,15 @@ func (p *PutArgs) SetSignature(v []byte) {
 // Put invokes the call of put container method
 // of NeoFS Container contract.
 func (c *Client) Put(args PutArgs) error {
-	return errors.Wrapf(c.client.Invoke(
+	err := c.client.Invoke(
 		c.putMethod,
 		args.cnr,
 		args.sig,
 		args.publicKey,
-	), "could not invoke method (%s)", c.putMethod)
+	)
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)
+	}
+	return nil
 }

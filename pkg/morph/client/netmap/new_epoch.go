@@ -1,6 +1,8 @@
 package netmap
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+)
 
 // NewEpochArgs groups the arguments
 // of new epoch invocation call.
@@ -16,8 +18,8 @@ func (a *NewEpochArgs) SetEpochNumber(v int64) {
 // NewEpoch invokes the call of new epoch method
 // of NeoFS Netmap contract.
 func (c *Client) NewEpoch(args NewEpochArgs) error {
-	return errors.Wrapf(c.client.Invoke(
-		c.addPeerMethod,
-		args.number,
-	), "could not invoke method (%s)", c.newEpochMethod)
+	if err := c.client.Invoke(c.addPeerMethod, args.number); err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", c.newEpochMethod, err)
+	}
+	return nil
 }

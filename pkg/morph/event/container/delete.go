@@ -1,10 +1,11 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/pkg/errors"
 )
 
 // Delete structure of container.Delete notification from morph chain.
@@ -36,13 +37,13 @@ func ParseDelete(params []stackitem.Item) (event.Event, error) {
 	// parse container
 	ev.containerID, err = client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get container")
+		return nil, fmt.Errorf("could not get container: %w", err)
 	}
 
 	// parse signature
 	ev.signature, err = client.BytesFromStackItem(params[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get signature")
+		return nil, fmt.Errorf("could not get signature: %w", err)
 	}
 
 	return ev, nil

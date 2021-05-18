@@ -2,13 +2,14 @@ package airportsdb
 
 import (
 	"encoding/csv"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -177,7 +178,7 @@ func (db *DB) scanWords(pm pathMode, num int, wordsHandler func([]string) error)
 
 			return err
 		} else if ln := len(words); ln != num {
-			return errors.Errorf("unexpected number of words %d", ln)
+			return fmt.Errorf("unexpected number of words %d", ln)
 		}
 
 		if err := wordsHandler(words); err != nil {

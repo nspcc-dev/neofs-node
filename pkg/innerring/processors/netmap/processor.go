@@ -1,6 +1,9 @@
 package netmap
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
@@ -9,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -131,7 +133,7 @@ func New(p *Params) (*Processor, error) {
 
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {
-		return nil, errors.Wrap(err, "ir/netmap: can't create worker pool")
+		return nil, fmt.Errorf("ir/netmap: can't create worker pool: %w", err)
 	}
 
 	return &Processor{

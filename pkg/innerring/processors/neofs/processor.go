@@ -1,6 +1,8 @@
 package neofs
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -11,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"github.com/panjf2000/ants/v2"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -97,12 +98,12 @@ func New(p *Params) (*Processor, error) {
 
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {
-		return nil, errors.Wrap(err, "ir/neofs: can't create worker pool")
+		return nil, fmt.Errorf("ir/neofs: can't create worker pool: %w", err)
 	}
 
 	lruCache, err := lru.New(p.MintEmitCacheSize)
 	if err != nil {
-		return nil, errors.Wrap(err, "ir/neofs: can't create LRU cache for gas emission")
+		return nil, fmt.Errorf("ir/neofs: can't create LRU cache for gas emission: %w", err)
 	}
 
 	return &Processor{

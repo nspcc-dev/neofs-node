@@ -1,8 +1,9 @@
 package blobstor
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/pkg/errors"
 )
 
 // GetRangeBigPrm groups the parameters of GetRangeBig operation.
@@ -26,18 +27,18 @@ func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not read object from fs tree")
+		return nil, fmt.Errorf("could not read object from fs tree: %w", err)
 	}
 
 	data, err = b.decompressor(data)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not decompress object data")
+		return nil, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := object.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal the object")
+		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
 	payload := obj.Payload()

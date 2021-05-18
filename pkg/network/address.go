@@ -1,12 +1,12 @@
 package network
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
-	"github.com/pkg/errors"
 )
 
 /*
@@ -40,7 +40,7 @@ func (a Address) String() string {
 func (a Address) IPAddrString() (string, error) {
 	ip, err := manet.ToNetAddr(a.ma)
 	if err != nil {
-		return "", errors.Wrap(err, "could not get net addr")
+		return "", fmt.Errorf("could not get net addr: %w", err)
 	}
 
 	return ip.String(), nil
@@ -50,7 +50,7 @@ func (a Address) IPAddrString() (string, error) {
 func (a Address) HostAddrString() (string, error) {
 	_, host, err := manet.DialArgs(a.ma)
 	if err != nil {
-		return "", errors.Wrap(err, "could not get host addr")
+		return "", fmt.Errorf("could not get host addr: %w", err)
 	}
 
 	return host, nil

@@ -2,9 +2,10 @@ package meta
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
@@ -86,7 +87,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			if data != nil && !bytes.Equal(data, []byte(inhumeGCMarkValue)) {
 				err := graveyard.Delete(tombKey)
 				if err != nil {
-					return errors.Wrap(err, "could not remove grave with tombstone key")
+					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
 				}
 			}
 		} else {

@@ -1,9 +1,10 @@
 package reputation
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/pkg/errors"
 )
 
 // GetArgs groups the arguments of "get reputation value" test invocation.
@@ -52,7 +53,7 @@ func (c *Client) Get(args GetArgs) (*GetResult, error) {
 		args.peerID,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.getMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getMethod, err)
 	}
 
 	return parseReputations(prms, c.getMethod)
@@ -66,7 +67,7 @@ func (c *Client) GetByID(args GetByIDArgs) (*GetResult, error) {
 		args.id,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not perform test invocation (%s)", c.getByIDMethod)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getByIDMethod, err)
 	}
 
 	return parseReputations(prms, c.getByIDMethod)
@@ -74,12 +75,12 @@ func (c *Client) GetByID(args GetByIDArgs) (*GetResult, error) {
 
 func parseReputations(items []stackitem.Item, method string) (*GetResult, error) {
 	if ln := len(items); ln != 1 {
-		return nil, errors.Errorf("unexpected stack item count (%s): %d", method, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
 	items, err := client.ArrayFromStackItem(items[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get stack item array from stack item (%s)", method)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", method, err)
 	}
 
 	res := &GetResult{
@@ -89,7 +90,7 @@ func parseReputations(items []stackitem.Item, method string) (*GetResult, error)
 	for i := range items {
 		rawReputation, err := client.BytesFromStackItem(items[i])
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get byte array from stack item (%s)", method)
+			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", method, err)
 		}
 
 		res.reputations = append(res.reputations, rawReputation)

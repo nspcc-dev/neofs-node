@@ -1,9 +1,10 @@
 package wrapper
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
-	"github.com/pkg/errors"
 )
 
 // TransferPrm groups parameters of TransferX method.
@@ -30,12 +31,12 @@ func (w *Wrapper) TransferXNotary(p TransferPrm) error {
 func (w *Wrapper) transferX(notary bool, p TransferPrm) error {
 	from, err := owner.ScriptHashBE(p.From)
 	if err != nil {
-		return errors.Wrap(err, "invalid sender")
+		return fmt.Errorf("invalid sender: %w", err)
 	}
 
 	to, err := owner.ScriptHashBE(p.To)
 	if err != nil {
-		return errors.Wrap(err, "invalid recipient")
+		return fmt.Errorf("invalid recipient: %w", err)
 	}
 
 	// prepare invocation arguments

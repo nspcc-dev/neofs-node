@@ -15,7 +15,6 @@ import (
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
-	"github.com/pkg/errors"
 )
 
 // NewContainerClient creates wrapper to access data from container contract.
@@ -62,12 +61,12 @@ func NewAuditClient(cli *client.Client, contract util.Uint160, fee SideFeeProvid
 func NewBalanceClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*balanceWrapper.Wrapper, error) {
 	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create static client of Balance contract")
+		return nil, fmt.Errorf("could not create static client of Balance contract: %w", err)
 	}
 
 	enhancedBalanceClient, err := balance.New(staticClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create Balance contract client")
+		return nil, fmt.Errorf("could not create Balance contract client: %w", err)
 	}
 
 	return balanceWrapper.New(enhancedBalanceClient)
@@ -77,12 +76,12 @@ func NewBalanceClient(cli *client.Client, contract util.Uint160, fee SideFeeProv
 func NewReputationClient(cli *client.Client, contract util.Uint160, fee SideFeeProvider) (*reputationWrapper.ClientWrapper, error) {
 	staticClient, err := client.NewStatic(cli, contract, fee.SideChainFee())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create static client of reputation contract")
+		return nil, fmt.Errorf("could not create static client of reputation contract: %w", err)
 	}
 
 	enhancedRepurationClient, err := reputation.New(staticClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create reputation contract client")
+		return nil, fmt.Errorf("could not create reputation contract client: %w", err)
 	}
 
 	return reputationWrapper.WrapClient(enhancedRepurationClient), nil

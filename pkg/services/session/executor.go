@@ -2,9 +2,9 @@ package session
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	"github.com/pkg/errors"
 )
 
 type ServiceExecutor interface {
@@ -25,7 +25,7 @@ func NewExecutionService(exec ServiceExecutor) Server {
 func (s *executorSvc) Create(ctx context.Context, req *session.CreateRequest) (*session.CreateResponse, error) {
 	respBody, err := s.exec.Create(ctx, req.GetBody())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute Create request")
+		return nil, fmt.Errorf("could not execute Create request: %w", err)
 	}
 
 	resp := new(session.CreateResponse)

@@ -3,10 +3,10 @@ package object
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	"github.com/pkg/errors"
 )
 
 type SignService struct {
@@ -74,7 +74,7 @@ func (s *putStreamSigner) Send(req *object.PutRequest) error {
 func (s *putStreamSigner) CloseAndRecv() (*object.PutResponse, error) {
 	r, err := s.stream.CloseAndRecv()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not receive response")
+		return nil, fmt.Errorf("could not receive response: %w", err)
 	}
 
 	return r.(*object.PutResponse), nil
@@ -83,7 +83,7 @@ func (s *putStreamSigner) CloseAndRecv() (*object.PutResponse, error) {
 func (s *SignService) Put(ctx context.Context) (PutObjectStream, error) {
 	stream, err := s.svc.Put(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create Put object streamer")
+		return nil, fmt.Errorf("could not create Put object streamer: %w", err)
 	}
 
 	return &putStreamSigner{

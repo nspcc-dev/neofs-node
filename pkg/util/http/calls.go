@@ -2,9 +2,8 @@ package httputil
 
 import (
 	"context"
+	"errors"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
 // Serve listens and serves internal HTTP server.

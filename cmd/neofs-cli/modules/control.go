@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -112,7 +111,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 
 	switch netmapStatus {
 	default:
-		return errors.Errorf("unsupported status %s", netmapStatus)
+		return fmt.Errorf("unsupported status %s", netmapStatus)
 	case netmapStatusOnline:
 		status = control.NetmapStatus_ONLINE
 	case netmapStatusOffline:
@@ -174,12 +173,12 @@ var dropObjectsCmd = &cobra.Command{
 
 			err := a.Parse(dropObjectsList[i])
 			if err != nil {
-				return errors.Wrapf(err, "could not parse address #%d", i)
+				return fmt.Errorf("could not parse address #%d: %w", i, err)
 			}
 
 			binAddr, err := a.Marshal()
 			if err != nil {
-				return errors.Wrap(err, "could not marshal the address")
+				return fmt.Errorf("could not marshal the address: %w", err)
 			}
 
 			binAddrList = append(binAddrList, binAddr)

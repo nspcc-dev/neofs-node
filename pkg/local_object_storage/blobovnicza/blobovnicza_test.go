@@ -2,6 +2,7 @@ package blobovnicza
 
 import (
 	"crypto/sha256"
+	"errors"
 	"math/rand"
 	"os"
 	"testing"
@@ -10,7 +11,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

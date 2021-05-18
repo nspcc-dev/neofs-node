@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -15,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 

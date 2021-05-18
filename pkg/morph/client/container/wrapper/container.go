@@ -2,13 +2,14 @@ package wrapper
 
 import (
 	"crypto/sha256"
+	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -34,7 +35,7 @@ func (w *Wrapper) Put(cnr *container.Container, pubKey, signature []byte) (*cont
 
 	data, err := cnr.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "can't marshal container")
+		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
 	id.SetSHA256(sha256.Sum256(data))
@@ -79,7 +80,7 @@ func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
 	cnr := container.New()
 	if err := cnr.Unmarshal(rpcAnswer.Container()); err != nil {
 		// use other major version if there any
-		return nil, errors.Wrap(err, "can't unmarshal container")
+		return nil, fmt.Errorf("can't unmarshal container: %w", err)
 	}
 
 	return cnr, nil

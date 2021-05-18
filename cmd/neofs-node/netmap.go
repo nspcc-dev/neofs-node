@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
@@ -13,7 +14,6 @@ import (
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
-	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -111,7 +111,7 @@ func bootstrapNode(c *cfg) {
 	initState(c)
 
 	err := c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
-	fatalOnErr(errors.Wrap(err, "bootstrap error"))
+	fatalOnErr(fmt.Errorf("bootstrap error: %w", err))
 }
 
 func addNetmapNotificationHandler(c *cfg, sTyp string, h event.Handler) {
@@ -136,10 +136,10 @@ func setNetmapNotificationParser(c *cfg, sTyp string, p event.Parser) {
 
 func initState(c *cfg) {
 	epoch, err := c.cfgNetmap.wrapper.Epoch()
-	fatalOnErr(errors.Wrap(err, "could not initialize current epoch number"))
+	fatalOnErr(fmt.Errorf("could not initialize current epoch number: %w", err))
 
 	ni, err := c.netmapLocalNodeState(epoch)
-	fatalOnErr(errors.Wrap(err, "could not init network state"))
+	fatalOnErr(fmt.Errorf("could not init network state: %w", err))
 
 	c.handleNodeInfoStatus(ni)
 
