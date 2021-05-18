@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr-net"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 )
 
