@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"crypto/tls"
 	"fmt"
 	"sync"
 
@@ -30,13 +31,13 @@ func NewSDKClientCache(opts ...client.Option) *ClientCache {
 
 // Get function returns existing client or creates a new one.
 func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
-	hostAddr, err := netAddr.HostAddrString()
-	if err != nil {
-		return nil, fmt.Errorf("could not parse address as a string: %w", err)
-	}
+	// multiaddr is used as a key in client cache since
+	// same host may have different connections(with tls or not),
+	// therefore, host+port pair is not unique
+	mAddr := netAddr.String()
 
 	c.mu.RLock()
-	if cli, ok := c.clients[hostAddr]; ok {
+	if cli, ok := c.clients[mAddr]; ok {
 		// todo: check underlying connection neofs-api-go#196
 		c.mu.RUnlock()
 
@@ -50,18 +51,27 @@ func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
 
 	// check once again if client is missing in cache, concurrent routine could
 	// create client while this routine was locked on `c.mu.Lock()`.
-	if cli, ok := c.clients[hostAddr]; ok {
+	if cli, ok := c.clients[mAddr]; ok {
 		return cli, nil
 	}
 
+	hostAddr, err := netAddr.HostAddrString()
+	if err != nil {
+		return nil, fmt.Errorf("could not parse address as a string: %w", err)
+	}
+
 	opts := append(c.opts, client.WithAddress(hostAddr))
+
+	if netAddr.TLSEnabled() {
+		opts = append(opts, client.WithTLSConfig(&tls.Config{}))
+	}
 
 	cli, err := client.New(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	c.clients[hostAddr] = cli
+	c.clients[mAddr] = cli
 
 	return cli, nil
 }
