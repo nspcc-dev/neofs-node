@@ -490,6 +490,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		}
 	} else {
 		alphaSync = governanceProcessor.HandleAlphabetSync
+		err = bindMainnetProcessor(governanceProcessor, server)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// create netmap processor

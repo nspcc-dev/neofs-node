@@ -236,6 +236,11 @@ func (c *Client) NeoFSAlphabetList() (keys.PublicKeys, error) {
 	return list, nil
 }
 
+// GetDesignateHash returns hash of the native `RoleManagement` contract.
+func (c *Client) GetDesignateHash() util.Uint160 {
+	return c.designate
+}
+
 func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 	height, err := c.client.GetBlockCount()
 	if err != nil {
