@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -111,12 +113,20 @@ func New(p *Params) (*Processor, error) {
 
 // ListenerParsers for the 'event.Listener' event producer.
 func (gp *Processor) ListenerParsers() []event.ParserInfo {
-	return nil
+	var pi event.ParserInfo
+	pi.SetScriptHash(gp.mainnetClient.GetDesignateHash())
+	pi.SetType(event.TypeFromString(native.DesignationEventName))
+	pi.SetParser(rolemanagement.ParseDesignate)
+	return []event.ParserInfo{pi}
 }
 
 // ListenerHandlers for the 'event.Listener' event producer.
 func (gp *Processor) ListenerHandlers() []event.HandlerInfo {
-	return nil
+	var hi event.HandlerInfo
+	hi.SetScriptHash(gp.mainnetClient.GetDesignateHash())
+	hi.SetType(event.TypeFromString(native.DesignationEventName))
+	hi.SetHandler(gp.HandleAlphabetSync)
+	return []event.HandlerInfo{hi}
 }
 
 // TimersHandlers for the 'Timers' event producer.
