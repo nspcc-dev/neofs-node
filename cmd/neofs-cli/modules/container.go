@@ -32,6 +32,13 @@ const (
 	awaitTimeout = 120 // in seconds
 )
 
+// keywords of predefined basic ACL values
+const (
+	basicACLPrivate  = "private"
+	basicACLReadOnly = "readonly"
+	basicACLPublic   = "public"
+)
+
 var (
 	containerOwner string
 
@@ -509,8 +516,8 @@ func init() {
 	listContainersCmd.Flags().StringVar(&containerOwner, "owner", "", "owner of containers (omit to use owner from private key)")
 
 	// container create
-	createContainerCmd.Flags().StringVar(&containerACL, "basic-acl", "private",
-		"hex encoded basic ACL value or keywords 'public', 'private', 'readonly'")
+	createContainerCmd.Flags().StringVar(&containerACL, "basic-acl", basicACLPrivate,
+		fmt.Sprintf("hex encoded basic ACL value or keywords '%s', '%s', '%s'", basicACLPublic, basicACLPrivate, basicACLReadOnly))
 	createContainerCmd.Flags().StringVarP(&containerPolicy, "policy", "p", "",
 		"QL-encoded or JSON-encoded placement policy or path to file with it")
 	createContainerCmd.Flags().StringSliceVarP(&containerAttributes, "attributes", "a", nil,
@@ -615,11 +622,11 @@ func parseAttributes(attributes []string) ([]*container.Attribute, error) {
 
 func parseBasicACL(basicACL string) (uint32, error) {
 	switch basicACL {
-	case "public":
+	case basicACLPublic:
 		return acl.PublicBasicRule, nil
-	case "private":
+	case basicACLPrivate:
 		return acl.PrivateBasicRule, nil
-	case "readonly":
+	case basicACLReadOnly:
 		return acl.ReadOnlyBasicRule, nil
 	default:
 		basicACL = strings.Trim(strings.ToLower(basicACL), "0x")
@@ -692,11 +699,11 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 	fmt.Printf("basic ACL: %s", strconv.FormatUint(uint64(basicACL), 16))
 	switch basicACL {
 	case acl.PublicBasicRule:
-		fmt.Println(" (public)")
+		fmt.Printf(" (%s)\n", basicACLPublic)
 	case acl.PrivateBasicRule:
-		fmt.Println(" (private)")
+		fmt.Printf(" (%s)\n", basicACLPrivate)
 	case acl.ReadOnlyBasicRule:
-		fmt.Println(" (readonly)")
+		fmt.Printf(" (%s)\n", basicACLReadOnly)
 	default:
 		fmt.Println()
 	}
