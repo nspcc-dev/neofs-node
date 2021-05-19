@@ -96,7 +96,31 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 }
 
 func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
-	return nil
+	cid := e.ContainerID()
+
+	// receive owner of the related container
+	cnr, err := cp.cnrClient.Get(cid)
+	if err != nil {
+		return fmt.Errorf("could not receive the container: %w", err)
+	}
+
+	// receive all owner keys
+	ownerKeys, err := cp.idClient.AccountKeys(cnr.OwnerID())
+	if err != nil {
+		return fmt.Errorf("could not received owner keys %s: %w", cnr.OwnerID(), err)
+	}
+
+	// verify signature
+	cidHash := sha256.Sum256(cid)
+	sig := e.Signature()
+
+	for _, ownerKey := range ownerKeys {
+		if ownerKey.Verify(sig, cidHash[:]) {
+			return nil
+		}
+	}
+
+	return errors.New("signature verification failed on all owner keys ")
 }
 
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
