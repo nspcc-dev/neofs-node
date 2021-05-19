@@ -10,6 +10,8 @@ type SetEACLArgs struct {
 	eacl []byte // extended ACL table
 
 	sig []byte // eACL table signature
+
+	pubkey []byte // binary public key
 }
 
 // SetEACL sets the extended ACL table
@@ -24,6 +26,12 @@ func (p *SetEACLArgs) SetSignature(v []byte) {
 	p.sig = v
 }
 
+// SetPublicKey sets public key related to
+// table signature.
+func (p *SetEACLArgs) SetPublicKey(v []byte) {
+	p.pubkey = v
+}
+
 // SetEACL invokes the call of set eACL method
 // of NeoFS Container contract.
 func (c *Client) SetEACL(args SetEACLArgs) error {
@@ -31,6 +39,7 @@ func (c *Client) SetEACL(args SetEACLArgs) error {
 		c.setEACLMethod,
 		args.eacl,
 		args.sig,
+		args.pubkey,
 	)
 
 	if err != nil {
