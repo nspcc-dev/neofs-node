@@ -61,7 +61,7 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 		return fmt.Errorf("incorrect container format: %w", err)
 	}
 
-	return nil
+	return cp.checkKeyOwnership(cnr, key)
 }
 
 func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
