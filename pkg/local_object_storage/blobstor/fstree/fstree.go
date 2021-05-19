@@ -2,13 +2,13 @@ package fstree
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
 
@@ -40,9 +40,30 @@ const (
 var ErrFileNotFound = errors.New("file not found")
 
 func stringifyAddress(addr *objectSDK.Address) string {
-	h := sha256.Sum256([]byte(addr.String()))
+	return addr.ObjectID().String() + "." + addr.ContainerID().String()
+}
 
-	return hex.EncodeToString(h[:])
+func addressFromString(s string) (*objectSDK.Address, error) {
+	ss := strings.SplitN(s, ".", 2)
+	if len(ss) != 2 {
+		return nil, errors.New("invalid address")
+	}
+
+	oid := objectSDK.NewID()
+	if err := oid.Parse(ss[0]); err != nil {
+		return nil, err
+	}
+
+	cid := container.NewID()
+	if err := cid.Parse(ss[1]); err != nil {
+		return nil, err
+	}
+
+	addr := objectSDK.NewAddress()
+	addr.SetObjectID(oid)
+	addr.SetContainerID(cid)
+
+	return addr, nil
 }
 
 // Iterate iterates over all stored objects.
@@ -52,7 +73,7 @@ func (t *FSTree) Iterate(f func(addr *objectSDK.Address, data []byte) error) err
 
 func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address, []byte) error) error {
 	curName := strings.Join(curPath[1:], "")
-	des, err := ioutil.ReadDir(curName)
+	des, err := ioutil.ReadDir(path.Join(curPath...))
 	if err != nil {
 		return err
 	}
@@ -71,13 +92,15 @@ func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address,
 			}
 		}
 
-		addr := objectSDK.NewAddress()
-		err := addr.Parse(curName + des[i].Name())
+		if depth != t.Depth {
+			continue
+		}
+
+		addr, err := addressFromString(curName + des[i].Name())
 		if err != nil {
 			continue
 		}
 
-		curPath = append(curPath, des[i].Name())
 		data, err := ioutil.ReadFile(path.Join(curPath...))
 		if err != nil {
 			return err
