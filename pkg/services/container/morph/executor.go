@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
@@ -88,8 +89,9 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 
 func (s *morphExecutor) SetExtendedACL(ctx context.Context, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
 	table := eaclSDK.NewTableFromV2(body.GetEACL())
+	sign := pkg.NewSignatureFromV2(body.GetSignature())
 
-	err := s.wrapper.PutEACL(table, body.GetSignature().GetSign())
+	err := wrapper.PutEACL(s.wrapper, table, sign)
 
 	return new(container.SetExtendedACLResponseBody), err
 }
