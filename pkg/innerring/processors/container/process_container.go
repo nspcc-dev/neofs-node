@@ -11,7 +11,6 @@ import (
 
 const (
 	deleteContainerMethod = "delete"
-	putContainerMethod    = "put"
 )
 
 // Process new container from the user by checking container sanity
@@ -53,10 +52,9 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 }
 
 func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
-	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), putContainerMethod,
-		e.Container(),
-		e.Signature(),
-		e.PublicKey())
+	// FIXME: here we should try notary invoke
+	// FIXME: here we should bind key to owner if needed
+	err := cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature())
 	if err != nil {
 		cp.log.Error("could not approve put container",
 			zap.String("error", err.Error()),
