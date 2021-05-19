@@ -111,7 +111,9 @@ func bootstrapNode(c *cfg) {
 	initState(c)
 
 	err := c.cfgNetmap.wrapper.AddPeer(c.toOnlineLocalNodeInfo())
-	fatalOnErr(fmt.Errorf("bootstrap error: %w", err))
+	if err != nil {
+		fatalOnErr(fmt.Errorf("bootstrap error: %w", err))
+	}
 }
 
 func addNetmapNotificationHandler(c *cfg, sTyp string, h event.Handler) {
@@ -136,10 +138,14 @@ func setNetmapNotificationParser(c *cfg, sTyp string, p event.Parser) {
 
 func initState(c *cfg) {
 	epoch, err := c.cfgNetmap.wrapper.Epoch()
-	fatalOnErr(fmt.Errorf("could not initialize current epoch number: %w", err))
+	if err != nil {
+		fatalOnErr(fmt.Errorf("could not initialize current epoch number: %w", err))
+	}
 
 	ni, err := c.netmapLocalNodeState(epoch)
-	fatalOnErr(fmt.Errorf("could not init network state: %w", err))
+	if err != nil {
+		fatalOnErr(fmt.Errorf("could not init network state: %w", err))
+	}
 
 	c.handleNodeInfoStatus(ni)
 

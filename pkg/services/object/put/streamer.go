@@ -157,9 +157,11 @@ func (p *Streamer) SendChunk(prm *PutChunkPrm) error {
 		return errNotInit
 	}
 
-	_, err := p.target.Write(prm.chunk)
+	if _, err := p.target.Write(prm.chunk); err != nil {
+		return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
+	}
 
-	return fmt.Errorf("(%T) could not write payload chunk to target: %w", p, err)
+	return nil
 }
 
 func (p *Streamer) Close() (*PutResponse, error) {

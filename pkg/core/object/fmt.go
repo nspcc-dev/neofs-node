@@ -81,7 +81,7 @@ func (v *FormatValidator) Validate(obj *Object) error {
 
 		// TODO: combine small checks
 		if err := v.checkExpiration(obj); err != nil {
-			return fmt.Errorf("object did not pass expiration ch: %weck", err)
+			return fmt.Errorf("object did not pass expiration check: %w", err)
 		}
 
 		if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
