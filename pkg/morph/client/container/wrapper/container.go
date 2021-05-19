@@ -109,25 +109,32 @@ func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
 	return cnr, nil
 }
 
+// Delete marshals container ID, and passes it to Wrapper's Delete method
+// along with sig.Key() and sig.Sign().
+//
+// Returns error if cid is nil.
+func Delete(w *Wrapper, cid *container.ID, sig *pkg.Signature) error {
+	if cid == nil {
+		return errNilArgument
+	}
+
+	return w.Delete(cid.ToV2().GetValue(), sig.Sign())
+}
+
 // Delete removes the container from NeoFS system
 // through Container contract call.
 //
 // Returns any error encountered that caused
 // the removal to interrupt.
-func (w *Wrapper) Delete(cid *container.ID, signature []byte) error {
-	if cid == nil || len(signature) == 0 {
+func (w *Wrapper) Delete(cid, signature []byte) error {
+	if len(signature) == 0 {
 		return errNilArgument
 	}
 
-	args := client.DeleteArgs{}
+	var args client.DeleteArgs
+
 	args.SetSignature(signature)
-
-	v2 := cid.ToV2()
-	if v2 == nil {
-		return errUnsupported // use other major version if there any
-	}
-
-	args.SetCID(v2.GetValue())
+	args.SetCID(cid)
 
 	return w.client.Delete(args)
 }
