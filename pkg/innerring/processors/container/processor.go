@@ -81,41 +81,46 @@ func New(p *Params) (*Processor, error) {
 
 // ListenerParsers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerParsers() []event.ParserInfo {
-	var parsers []event.ParserInfo
+	var (
+		parsers = make([]event.ParserInfo, 0, 2)
 
-	// container put event
-	put := event.ParserInfo{}
-	put.SetType(putNotification)
-	put.SetScriptHash(cp.containerContract)
-	put.SetParser(containerEvent.ParsePut)
-	parsers = append(parsers, put)
+		p event.ParserInfo
+	)
 
-	// container del event
-	del := event.ParserInfo{}
-	del.SetType(deleteNotification)
-	del.SetScriptHash(cp.containerContract)
-	del.SetParser(containerEvent.ParseDelete)
-	parsers = append(parsers, del)
+	p.SetScriptHash(cp.containerContract)
+
+	// container put
+	p.SetType(event.TypeFromString(putNotification))
+	p.SetParser(containerEvent.ParsePut)
+	parsers = append(parsers, p)
+
+	// container delete
+	p.SetType(event.TypeFromString(deleteNotification))
+	p.SetParser(containerEvent.ParseDelete)
+	parsers = append(parsers, p)
 
 	return parsers
 }
 
 // ListenerHandlers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerHandlers() []event.HandlerInfo {
-	var handlers []event.HandlerInfo
+	var (
+		handlers = make([]event.HandlerInfo, 0, 2)
 
-	// container put handler
-	put := event.HandlerInfo{}
-	put.SetType(putNotification)
-	put.SetScriptHash(cp.containerContract)
-	put.SetHandler(cp.handlePut)
-	handlers = append(handlers, put)
+		h event.HandlerInfo
+	)
 
-	del := event.HandlerInfo{}
-	del.SetType(deleteNotification)
-	del.SetScriptHash(cp.containerContract)
-	del.SetHandler(cp.handleDelete)
-	handlers = append(handlers, del)
+	h.SetScriptHash(cp.containerContract)
+
+	// container put
+	h.SetType(event.TypeFromString(putNotification))
+	h.SetHandler(cp.handlePut)
+	handlers = append(handlers, h)
+
+	// container delete
+	h.SetType(event.TypeFromString(deleteNotification))
+	h.SetHandler(cp.handleDelete)
+	handlers = append(handlers, h)
 
 	return handlers
 }
