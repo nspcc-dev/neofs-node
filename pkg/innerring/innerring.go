@@ -436,7 +436,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	settlementDeps := &settlementDeps{
 		globalConfig:   globalConfig,
 		log:            server.log,
-		cnrSrc:         cnrClient,
+		cnrSrc:         cntWrapper.AsContainerSource(cnrClient),
 		auditClient:    server.auditClient,
 		nmSrc:          nmClient,
 		clientCache:    clientCache,

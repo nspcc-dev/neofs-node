@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"go.uber.org/zap"
 )
@@ -58,7 +59,7 @@ func (cp *Processor) checkEACLOwnership(binTable []byte, key *keys.PublicKey) er
 	}
 
 	// receive owner of the related container
-	cnr, err := cp.cnrClient.Get(table.CID())
+	cnr, err := wrapper.Get(cp.cnrClient, table.CID())
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
