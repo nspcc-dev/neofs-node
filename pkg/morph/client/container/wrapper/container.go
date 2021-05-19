@@ -32,7 +32,15 @@ func Put(w *Wrapper, cnr *container.Container, sig *pkg.Signature) (*container.I
 		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
-	return w.Put(data, sig.Key(), sig.Sign())
+	err = w.Put(data, sig.Key(), sig.Sign())
+	if err != nil {
+		return nil, err
+	}
+
+	id := container.NewID()
+	id.SetSHA256(sha256.Sum256(data))
+
+	return id, nil
 }
 
 // Put saves binary container with its key and signature
@@ -40,9 +48,9 @@ func Put(w *Wrapper, cnr *container.Container, sig *pkg.Signature) (*container.I
 //
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
-func (w *Wrapper) Put(cnr, key, sig []byte) (*container.ID, error) {
+func (w *Wrapper) Put(cnr, key, sig []byte) error {
 	if len(sig) == 0 || len(key) == 0 {
-		return nil, errNilArgument
+		return errNilArgument
 	}
 
 	var args client.PutArgs
@@ -53,13 +61,10 @@ func (w *Wrapper) Put(cnr, key, sig []byte) (*container.ID, error) {
 
 	err := w.client.Put(args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	id := container.NewID()
-	id.SetSHA256(sha256.Sum256(cnr))
-
-	return id, nil
+	return nil
 }
 
 // Get reads the container from NeoFS system by identifier
