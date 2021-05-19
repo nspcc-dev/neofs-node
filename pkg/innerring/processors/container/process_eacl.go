@@ -63,21 +63,8 @@ func (cp *Processor) checkEACLOwnership(binTable []byte, key *keys.PublicKey) er
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	ownerID := cnr.OwnerID()
-
 	// check key ownership
-	ownerKeys, err := cp.idClient.AccountKeys(ownerID)
-	if err != nil {
-		return fmt.Errorf("could not received owner keys %s: %w", ownerID, err)
-	}
-
-	for _, ownerKey := range ownerKeys {
-		if ownerKey.Equal(key) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("key %s is not tied to the owner of the container", key)
+	return cp.checkKeyOwnership(cnr, key)
 }
 
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
