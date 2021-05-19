@@ -1,6 +1,12 @@
 package container
 
 import (
+	"crypto/elliptic"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"go.uber.org/zap"
 )
@@ -24,6 +30,21 @@ func (cp *Processor) processSetEACL(e container.SetEACL) {
 }
 
 func (cp *Processor) checkSetEACL(e container.SetEACL) error {
+	// verify signature
+	key, err := keys.NewPublicKeyFromBytes(e.PublicKey(), elliptic.P256())
+	if err != nil {
+		return fmt.Errorf("invalid key: %w", err)
+	}
+
+	table := e.Table()
+	tableHash := sha256.Sum256(table)
+
+	if !key.Verify(e.Signature(), tableHash[:]) {
+		return errors.New("invalid signature")
+	}
+
+	// TODO: check key ownership
+
 	return nil
 }
 
