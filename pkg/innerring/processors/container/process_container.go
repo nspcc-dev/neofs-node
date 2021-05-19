@@ -9,10 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	deleteContainerMethod = "delete"
-)
-
 // Process new container from the user by checking container sanity
 // and sending approve tx back to morph.
 func (cp *Processor) processContainerPut(put *containerEvent.Put) {
@@ -87,9 +83,8 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 }
 
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
-	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), deleteContainerMethod,
-		e.ContainerID(),
-		e.Signature())
+	// FIXME: here we should try notary invoke
+	err := cp.cnrClient.Delete(e.ContainerID(), e.Signature())
 	if err != nil {
 		cp.log.Error("could not approve delete container",
 			zap.String("error", err.Error()),
