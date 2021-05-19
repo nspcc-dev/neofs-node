@@ -44,7 +44,7 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), putContainerMethod,
 		cnrData,
 		put.Signature(),
-		put.PublicKey().Bytes())
+		put.PublicKey())
 	if err != nil {
 		cp.log.Error("can't invoke new container", zap.Error(err))
 	}

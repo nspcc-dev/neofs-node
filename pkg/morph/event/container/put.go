@@ -1,10 +1,8 @@
 package container
 
 import (
-	"crypto/elliptic"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -14,7 +12,7 @@ import (
 type Put struct {
 	rawContainer []byte
 	signature    []byte
-	publicKey    *keys.PublicKey
+	publicKey    []byte
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -27,7 +25,7 @@ func (p Put) Container() []byte { return p.rawContainer }
 func (p Put) Signature() []byte { return p.signature }
 
 // PublicKey of container owner.
-func (p Put) PublicKey() *keys.PublicKey { return p.publicKey }
+func (p Put) PublicKey() []byte { return p.publicKey }
 
 // ParsePut from notification into container event structure.
 func ParsePut(params []stackitem.Item) (event.Event, error) {
@@ -53,14 +51,9 @@ func ParsePut(params []stackitem.Item) (event.Event, error) {
 	}
 
 	// parse public key
-	key, err := client.BytesFromStackItem(params[2])
+	ev.publicKey, err = client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, fmt.Errorf("could not get public key: %w", err)
-	}
-
-	ev.publicKey, err = keys.NewPublicKeyFromBytes(key, elliptic.P256())
-	if err != nil {
-		return nil, fmt.Errorf("could not parse public key: %w", err)
 	}
 
 	return ev, nil
