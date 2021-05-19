@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/panjf2000/ants/v2"
@@ -27,6 +28,7 @@ type (
 		morphClient       *client.Client
 		alphabetState     AlphabetState
 		feeProvider       *config.FeeConfig
+		cnrClient         *wrapper.Wrapper
 	}
 
 	// Params of the processor constructor.

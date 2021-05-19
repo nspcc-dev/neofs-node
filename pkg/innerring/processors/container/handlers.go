@@ -42,3 +42,22 @@ func (cp *Processor) handleDelete(ev event.Event) {
 			zap.Int("capacity", cp.pool.Cap()))
 	}
 }
+
+func (cp *Processor) handleSetEACL(ev event.Event) {
+	e := ev.(containerEvent.SetEACL)
+
+	cp.log.Info("notification",
+		zap.String("type", "set EACL"),
+	)
+
+	// send event to the worker pool
+
+	err := cp.pool.Submit(func() {
+		cp.processSetEACL(e)
+	})
+	if err != nil {
+		// there system can be moved into controlled degradation stage
+		cp.log.Warn("container processor worker pool drained",
+			zap.Int("capacity", cp.pool.Cap()))
+	}
+}
