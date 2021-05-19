@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -17,31 +18,48 @@ var (
 	errUnsupported = errors.New("unsupported structure version")
 )
 
-// Put saves passed container structure in NeoFS system
-// through Container contract call.
+// Put marshals container, and passes it to Wrapper's Put method
+// along with sig.Key() and sig.Sign().
 //
-// Returns calculated container identifier and any error
-// encountered that caused the saving to interrupt.
-func (w *Wrapper) Put(cnr *container.Container, pubKey, signature []byte) (*container.ID, error) {
-	if cnr == nil || len(pubKey) == 0 || len(signature) == 0 {
+// Returns error if container is nil.
+func Put(w *Wrapper, cnr *container.Container, sig *pkg.Signature) (*container.ID, error) {
+	if cnr == nil {
 		return nil, errNilArgument
 	}
-
-	args := client.PutArgs{}
-	args.SetPublicKey(pubKey)
-	args.SetSignature(signature)
-
-	id := container.NewID()
 
 	data, err := cnr.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
-	id.SetSHA256(sha256.Sum256(data))
-	args.SetContainer(data)
+	return w.Put(data, sig.Key(), sig.Sign())
+}
 
-	return id, w.client.Put(args)
+// Put saves binary container with its key and signature
+// in NeoFS system through Container contract call.
+//
+// Returns calculated container identifier and any error
+// encountered that caused the saving to interrupt.
+func (w *Wrapper) Put(cnr, key, sig []byte) (*container.ID, error) {
+	if len(sig) == 0 || len(key) == 0 {
+		return nil, errNilArgument
+	}
+
+	var args client.PutArgs
+
+	args.SetContainer(cnr)
+	args.SetSignature(sig)
+	args.SetPublicKey(key)
+
+	err := w.client.Put(args)
+	if err != nil {
+		return nil, err
+	}
+
+	id := container.NewID()
+	id.SetSHA256(sha256.Sum256(cnr))
+
+	return id, nil
 }
 
 // Get reads the container from NeoFS system by identifier

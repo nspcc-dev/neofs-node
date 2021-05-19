@@ -32,7 +32,7 @@ func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody)
 
 	sig := body.GetSignature()
 
-	cid, err := s.wrapper.Put(cnr, sig.GetKey(), sig.GetSign())
+	cid, err := wrapper.Put(s.wrapper, cnr, pkg.NewSignatureFromV2(sig))
 	if err != nil {
 		return nil, err
 	}
