@@ -1,8 +1,12 @@
 package container
 
 import (
+	"crypto/elliptic"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -30,10 +34,23 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 }
 
 func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
+	// verify signature
+	key, err := keys.NewPublicKeyFromBytes(e.PublicKey(), elliptic.P256())
+	if err != nil {
+		return fmt.Errorf("invalid key: %w", err)
+	}
+
+	binCnr := e.Container()
+	tableHash := sha256.Sum256(binCnr)
+
+	if !key.Verify(e.Signature(), tableHash[:]) {
+		return errors.New("invalid signature")
+	}
+
 	// unmarshal container structure
 	cnr := containerSDK.New()
 
-	err := cnr.Unmarshal(e.Container())
+	err = cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
 	}
