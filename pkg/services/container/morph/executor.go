@@ -45,8 +45,9 @@ func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody)
 
 func (s *morphExecutor) Delete(ctx context.Context, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
 	cid := containerSDK.NewIDFromV2(body.GetContainerID())
+	sig := pkg.NewSignatureFromV2(body.GetSignature())
 
-	err := s.wrapper.Delete(cid, body.GetSignature().GetSign())
+	err := wrapper.Delete(s.wrapper, cid, sig)
 	if err != nil {
 		return nil, err
 	}
