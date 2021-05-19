@@ -1,6 +1,11 @@
 package neofsid
 
 import (
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 )
 
@@ -11,13 +16,12 @@ import (
 // Working ClientWrapper must be created via Wrap.
 type ClientWrapper neofsid.Client
 
-// Wrap creates, initializes and returns the ClientWrapper instance.
-//
-// If c is nil, panic occurs.
-func Wrap(c *neofsid.Client) *ClientWrapper {
-	if c == nil {
-		panic("neofs ID client is nil")
+// NewFromMorph wraps client to work with NeoFS ID contract.
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
+	sc, err := client.NewStatic(cli, contract, fee)
+	if err != nil {
+		return nil, fmt.Errorf("could not create client of NeoFS ID contract: %w", err)
 	}
 
-	return (*ClientWrapper)(c)
+	return (*ClientWrapper)(neofsid.New(sc)), nil
 }

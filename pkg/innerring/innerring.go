@@ -27,6 +27,7 @@ import (
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -101,6 +102,7 @@ type (
 		proxy      util.Uint160 // in morph
 		processing util.Uint160 // in mainnet
 		reputation util.Uint160 // in morph
+		neofsID    util.Uint160 // in morph
 
 		alphabet alphabetContracts // in morph
 	}
@@ -375,6 +377,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, fee)
+	if err != nil {
+		return nil, err
+	}
+
 	// create global runtime config reader
 	globalConfig := config.NewGlobalConfigReader(cfg, nmClient)
 
@@ -545,6 +552,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		MorphClient:       server.morphClient,
 		AlphabetState:     server,
 		FeeProvider:       server.feeConfig,
+		ContainerClient:   cnrClient,
+		NeoFSIDClient:     neofsIDClient,
 	})
 	if err != nil {
 		return nil, err
@@ -744,6 +753,7 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	proxyContractStr := cfg.GetString("contracts.proxy")
 	processingContractStr := cfg.GetString("contracts.processing")
 	reputationContractStr := cfg.GetString("contracts.reputation")
+	neofsIDContractStr := cfg.GetString("contracts.neofsid")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
@@ -783,6 +793,11 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
 	if err != nil {
 		return nil, fmt.Errorf("ir: can't read reputation script-hash: %w", err)
+	}
+
+	result.neofsID, err = util.Uint160DecodeStringLE(neofsIDContractStr)
+	if err != nil {
+		return nil, fmt.Errorf("ir: can't read NeoFS ID script-hash: %w", err)
 	}
 
 	result.alphabet, err = parseAlphabetContracts(cfg)
