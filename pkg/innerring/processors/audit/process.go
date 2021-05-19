@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
@@ -49,7 +50,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
 
 	for i := range containers {
-		cnr, err := ap.containerClient.Get(containers[i]) // get container structure
+		cnr, err := wrapper.Get(ap.containerClient, containers[i]) // get container structure
 		if err != nil {
 			log.Error("can't get container info, ignore",
 				zap.Stringer("cid", containers[i]),

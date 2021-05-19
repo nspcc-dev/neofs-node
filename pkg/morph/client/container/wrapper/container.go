@@ -67,24 +67,34 @@ func (w *Wrapper) Put(cnr, key, sig []byte) error {
 	return nil
 }
 
-// Get reads the container from NeoFS system by identifier
+type containerSource Wrapper
+
+func (x *containerSource) Get(cid *container.ID) (*container.Container, error) {
+	return Get((*Wrapper)(x), cid)
+}
+
+// AsContainerSource provides container Source interface
+// from Wrapper instance.
+func AsContainerSource(w *Wrapper) core.Source {
+	return (*containerSource)(w)
+}
+
+// Get marshals container ID, and passes it to Wrapper's Get method.
+//
+// Returns error if cid is nil.
+func Get(w *Wrapper, cid *container.ID) (*container.Container, error) {
+	return w.Get(cid.ToV2().GetValue())
+}
+
+// Get reads the container from NeoFS system by binary identifier
 // through Container contract call.
 //
 // If an empty slice is returned for the requested identifier,
 // storage.ErrNotFound error is returned.
-func (w *Wrapper) Get(cid *container.ID) (*container.Container, error) {
-	if cid == nil {
-		return nil, errNilArgument
-	}
+func (w *Wrapper) Get(cid []byte) (*container.Container, error) {
+	var args client.GetArgs
 
-	args := client.GetArgs{}
-
-	v2 := cid.ToV2()
-	if v2 == nil {
-		return nil, errUnsupported // use other major version if there any
-	}
-
-	args.SetCID(v2.GetValue())
+	args.SetCID(cid)
 
 	// ask RPC neo node to get serialized container
 	rpcAnswer, err := w.client.Get(args)

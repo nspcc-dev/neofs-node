@@ -42,7 +42,9 @@ func initContainerService(c *cfg) {
 	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
-	c.cfgObject.cnrStorage = newCachedContainerStorage(wrap) // use RPC node as source of containers (with caching)
+	cnrSrc := wrapper.AsContainerSource(wrap)
+
+	c.cfgObject.cnrStorage = newCachedContainerStorage(cnrSrc) // use RPC node as source of containers (with caching)
 	c.cfgObject.cnrClient = wrap
 
 	localMetrics := &localStorageLoad{
@@ -63,7 +65,7 @@ func initContainerService(c *cfg) {
 	loadPlacementBuilder := &loadPlacementBuilder{
 		log:    c.log,
 		nmSrc:  c.cfgNetmap.wrapper,
-		cnrSrc: wrap,
+		cnrSrc: cnrSrc,
 	}
 
 	routeBuilder := placementrouter.New(placementrouter.Prm{

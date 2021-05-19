@@ -58,7 +58,7 @@ func (s *morphExecutor) Delete(ctx context.Context, body *container.DeleteReques
 func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
 	cid := containerSDK.NewIDFromV2(body.GetContainerID())
 
-	cnr, err := s.wrapper.Get(cid)
+	cnr, err := wrapper.Get(s.wrapper, cid)
 	if err != nil {
 		return nil, err
 	}
