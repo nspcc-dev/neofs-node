@@ -52,24 +52,36 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, *pkg.Signature, er
 	return table, tableSignature, nil
 }
 
-// PutEACL saves the extended ACL table in NeoFS system
-// through Container contract call.
+// PutEACL marshals table, and passes it to Wrapper's PutEACLBinary method
+// along with sig.Key() and sig.Sign().
 //
-// Returns any error encountered that caused the saving to interrupt.
-func (w *Wrapper) PutEACL(table *eacl.Table, signature []byte) error {
-	if table == nil || len(signature) == 0 {
+// Returns error if table is nil.
+func PutEACL(w *Wrapper, table *eacl.Table, sig *pkg.Signature) error {
+	if table == nil {
 		return errNilArgument
 	}
-
-	args := client.SetEACLArgs{}
-	args.SetSignature(signature)
 
 	data, err := table.Marshal()
 	if err != nil {
 		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
 
-	args.SetEACL(data)
+	return w.PutEACLBinary(data, sig.Key(), sig.Sign())
+}
+
+// PutEACLBinary save binary eACL table with its key and signature
+// in NeoFS system through Container contract call.
+//
+// Returns any error encountered that caused the saving to interrupt.
+func (w *Wrapper) PutEACLBinary(table, key, sig []byte) error {
+	if len(sig) == 0 || len(key) == 0 {
+		return errNilArgument
+	}
+
+	args := client.SetEACLArgs{}
+	args.SetSignature(table)
+	args.SetPublicKey(key)
+	args.SetEACL(sig)
 
 	return w.client.SetEACL(args)
 }
