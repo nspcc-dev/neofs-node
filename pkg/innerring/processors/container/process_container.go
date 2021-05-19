@@ -1,6 +1,8 @@
 package container
 
 import (
+	"fmt"
+
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -20,33 +22,45 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 		return
 	}
 
-	cnrData := put.Container()
-
-	// unmarshal container structure
-	cnr := containerSDK.New()
-	if err := cnr.Unmarshal(cnrData); err != nil {
-		cp.log.Info("could not unmarshal container structure",
+	err := cp.checkPutContainer(put)
+	if err != nil {
+		cp.log.Error("put container check failed",
 			zap.String("error", err.Error()),
 		)
 
 		return
+	}
+
+	cp.approvePutContainer(put)
+}
+
+func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
+	// unmarshal container structure
+	cnr := containerSDK.New()
+
+	err := cnr.Unmarshal(e.Container())
+	if err != nil {
+		return fmt.Errorf("invalid binary container: %w", err)
 	}
 
 	// perform format check
-	if err := container.CheckFormat(cnr); err != nil {
-		cp.log.Info("container with incorrect format detected",
-			zap.String("error", err.Error()),
-		)
-
-		return
+	err = container.CheckFormat(cnr)
+	if err != nil {
+		return fmt.Errorf("incorrect container format: %w", err)
 	}
 
+	return nil
+}
+
+func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
 	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), putContainerMethod,
-		cnrData,
-		put.Signature(),
-		put.PublicKey())
+		e.Container(),
+		e.Signature(),
+		e.PublicKey())
 	if err != nil {
-		cp.log.Error("can't invoke new container", zap.Error(err))
+		cp.log.Error("could not approve put container",
+			zap.String("error", err.Error()),
+		)
 	}
 }
 
@@ -58,10 +72,29 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 		return
 	}
 
-	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), deleteContainerMethod,
-		delete.ContainerID(),
-		delete.Signature())
+	err := cp.checkDeleteContainer(delete)
 	if err != nil {
-		cp.log.Error("can't invoke delete container", zap.Error(err))
+		cp.log.Error("delete container check failed",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	cp.approveDeleteContainer(delete)
+}
+
+func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
+	return nil
+}
+
+func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
+	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), deleteContainerMethod,
+		e.ContainerID(),
+		e.Signature())
+	if err != nil {
+		cp.log.Error("could not approve delete container",
+			zap.String("error", err.Error()),
+		)
 	}
 }
