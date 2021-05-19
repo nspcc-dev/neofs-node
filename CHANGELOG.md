@@ -1,6 +1,35 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.20.0] - 2021-05-21 - Dolsando (돌산도, 突山島)
+
+NeoFS is N3 RC2 compatible. 
+
+### Fixed
+- Calculations in EigenTrust algorithm (#527).
+- NPE at object service request forwarding (#532, #543, #544).
+- FSTree iterations in blobstor (#541).
+- Inhume operation in storage engine (#546).
+
+### Added
+- Optional endpoint to main chain in storage app.
+- Client for NeoFSID contract.
+
+### Changed
+- Reorganized and removed plenty of application configuration records 
+  (#510, #511, #512, #514).
+- Nodes do not resolve remote addresses manually.
+- Presets for basic ACL in CLI are `private` ,`public-read` and
+  `public-read-write` now.
+- Updated neo-go to v0.95.0 release.
+- Updated neofs-api-go to v1.26.1 release.
+- Updated go-multiaddr to v0.3.1 release.
+
+### Removed
+- Unused external GC workers (GC is part of the shard in storage engine now).
+- Unused worker pools for object service in storage app.
+- `pkg/errors` dependency (stdlib errors used instead).
+
 ## [0.19.0] - 2021-05-07 - Daecheongdo (대청도, 大靑島)
 
 Storage nodes exchange, calculate, aggregate and store reputation information
@@ -331,6 +360,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.20.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.16.0...v0.17.0
