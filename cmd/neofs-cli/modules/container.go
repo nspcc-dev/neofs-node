@@ -35,8 +35,8 @@ const (
 // keywords of predefined basic ACL values
 const (
 	basicACLPrivate  = "private"
-	basicACLReadOnly = "readonly"
-	basicACLPublic   = "public"
+	basicACLReadOnly = "public-read"
+	basicACLPublic   = "public-read-write"
 )
 
 var (
