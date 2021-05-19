@@ -41,12 +41,16 @@ type (
 		MorphClient       *client.Client
 		AlphabetState     AlphabetState
 		FeeProvider       *config.FeeConfig
+		ContainerClient   *wrapper.Wrapper
+		NeoFSIDClient     *neofsid.ClientWrapper
 	}
 )
 
 const (
 	putNotification    = "containerPut"
 	deleteNotification = "containerDelete"
+
+	setEACLNotification = "setEACL"
 )
 
 // New creates container contract processor instance.
@@ -60,6 +64,10 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: global state is not set")
 	case p.FeeProvider == nil:
 		return nil, errors.New("ir/container: fee provider is not set")
+	case p.ContainerClient == nil:
+		return nil, errors.New("ir/container: Container client is not set")
+	case p.NeoFSIDClient == nil:
+		return nil, errors.New("ir/container: NeoFS ID client is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -76,13 +84,15 @@ func New(p *Params) (*Processor, error) {
 		morphClient:       p.MorphClient,
 		alphabetState:     p.AlphabetState,
 		feeProvider:       p.FeeProvider,
+		cnrClient:         p.ContainerClient,
+		idClient:          p.NeoFSIDClient,
 	}, nil
 }
 
 // ListenerParsers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerParsers() []event.ParserInfo {
 	var (
-		parsers = make([]event.ParserInfo, 0, 2)
+		parsers = make([]event.ParserInfo, 0, 3)
 
 		p event.ParserInfo
 	)
@@ -99,13 +109,18 @@ func (cp *Processor) ListenerParsers() []event.ParserInfo {
 	p.SetParser(containerEvent.ParseDelete)
 	parsers = append(parsers, p)
 
+	// set eACL
+	p.SetType(event.TypeFromString(setEACLNotification))
+	p.SetParser(containerEvent.ParseSetEACL)
+	parsers = append(parsers, p)
+
 	return parsers
 }
 
 // ListenerHandlers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerHandlers() []event.HandlerInfo {
 	var (
-		handlers = make([]event.HandlerInfo, 0, 2)
+		handlers = make([]event.HandlerInfo, 0, 3)
 
 		h event.HandlerInfo
 	)
@@ -120,6 +135,11 @@ func (cp *Processor) ListenerHandlers() []event.HandlerInfo {
 	// container delete
 	h.SetType(event.TypeFromString(deleteNotification))
 	h.SetHandler(cp.handleDelete)
+	handlers = append(handlers, h)
+
+	// set eACL
+	h.SetType(event.TypeFromString(setEACLNotification))
+	h.SetHandler(cp.handleSetEACL)
 	handlers = append(handlers, h)
 
 	return handlers
