@@ -54,14 +54,9 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
-	addr, err := t.addr.HostAddrString()
+	c, err := t.clientConstructor.Get(t.addr)
 	if err != nil {
-		return nil, err
-	}
-
-	c, err := t.clientConstructor.Get(addr)
-	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, addr, err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.addr, err)
 	}
 
 	id, err := c.PutObject(t.ctx, new(client.PutObjectParams).
@@ -75,7 +70,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		)...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, addr, err)
+		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.addr, err)
 	}
 
 	return new(transformer.AccessIdentifiers).

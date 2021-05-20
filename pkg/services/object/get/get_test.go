@@ -80,8 +80,13 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 	return vs, nil
 }
 
-func (c *testClientCache) get(addr string) (getClient, error) {
-	v, ok := c.clients[addr]
+func (c *testClientCache) get(mAddr *network.Address) (getClient, error) {
+	hostAddr, err := mAddr.HostAddrString()
+	if err != nil {
+		return nil, err
+	}
+
+	v, ok := c.clients[hostAddr]
 	if !ok {
 		return nil, errors.New("could not construct client")
 	}

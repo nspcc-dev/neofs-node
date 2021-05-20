@@ -13,7 +13,7 @@ import (
 )
 
 type ClientConstructor interface {
-	Get(string) (client.Client, error)
+	Get(*network.Address) (client.Client, error)
 }
 
 // RemoteHeader represents utility for getting
@@ -66,14 +66,9 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", h, err)
 	}
 
-	addr, err := prm.node.HostAddrString()
+	c, err := h.clientCache.Get(prm.node)
 	if err != nil {
-		return nil, err
-	}
-
-	c, err := h.clientCache.Get(addr)
-	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, addr, err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, prm.node, err)
 	}
 
 	p := new(client.ObjectHeaderParams).
@@ -91,7 +86,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		client.WithKey(key),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, addr, err)
+		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, prm.node, err)
 	}
 
 	return object.NewFromSDK(hdr), nil
