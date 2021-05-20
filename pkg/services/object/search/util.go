@@ -76,7 +76,16 @@ func (c *clientConstructorWrapper) get(addr string) (searchClient, error) {
 }
 
 func (c *clientWrapper) searchObjects(exec *execCtx) ([]*objectSDK.ID, error) {
-	return exec.prm.forwarder(c.client)
+	if exec.prm.forwarder != nil {
+		return exec.prm.forwarder(c.client)
+	}
+
+	return c.client.SearchObject(exec.context(),
+		&exec.prm.SearchObjectParams,
+		exec.prm.common.RemoteCallOptions(
+			util.WithNetmapEpoch(exec.curProcEpoch),
+			util.WithKey(exec.prm.common.PrivateKey()),
+		)...)
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]*objectSDK.ID, error) {
