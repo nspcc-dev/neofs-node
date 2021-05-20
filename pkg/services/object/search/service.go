@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -26,7 +27,7 @@ type searchClient interface {
 }
 
 type ClientConstructor interface {
-	Get(string) (client.Client, error)
+	Get(*network.Address) (client.Client, error)
 }
 
 type cfg struct {
@@ -37,7 +38,7 @@ type cfg struct {
 	}
 
 	clientConstructor interface {
-		get(string) (searchClient, error)
+		get(*network.Address) (searchClient, error)
 	}
 
 	traverserGenerator interface {

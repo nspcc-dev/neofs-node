@@ -36,6 +36,11 @@ func (a Address) String() string {
 	return a.ma.String()
 }
 
+// Equal compares Address's.
+func (a Address) Equal(addr *Address) bool {
+	return a.ma.Equal(addr.ma)
+}
+
 // IPAddrString returns network endpoint address in string format.
 func (a Address) IPAddrString() (string, error) {
 	ip, err := manet.ToNetAddr(a.ma)

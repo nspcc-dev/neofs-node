@@ -14,6 +14,7 @@ import (
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -28,7 +29,7 @@ type (
 
 	// NeoFSClientCache is an interface for cache of neofs RPC clients
 	NeoFSClientCache interface {
-		Get(address string) (SDKClient.Client, error)
+		Get(address *network.Address) (SDKClient.Client, error)
 	}
 
 	TaskManager interface {

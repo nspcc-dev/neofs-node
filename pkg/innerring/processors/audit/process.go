@@ -118,14 +118,14 @@ func (ap *Processor) findStorageGroups(cid *container.ID, shuffled netmap.Nodes)
 			zap.Int("total_tries", ln),
 		)
 
-		addr, err := network.HostAddrFromMultiaddr(shuffled[i].Address())
+		netAddr, err := network.AddressFromString(shuffled[i].Address())
 		if err != nil {
 			log.Warn("can't parse remote address", zap.String("error", err.Error()))
 
 			continue
 		}
 
-		cli, err := ap.clientCache.Get(addr)
+		cli, err := ap.clientCache.Get(netAddr)
 		if err != nil {
 			log.Warn("can't setup remote connection", zap.String("error", err.Error()))
 

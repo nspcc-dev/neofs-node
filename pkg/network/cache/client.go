@@ -1,9 +1,11 @@
 package cache
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 )
 
 type (
@@ -27,9 +29,14 @@ func NewSDKClientCache(opts ...client.Option) *ClientCache {
 }
 
 // Get function returns existing client or creates a new one.
-func (c *ClientCache) Get(address string) (client.Client, error) {
+func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
+	hostAddr, err := netAddr.HostAddrString()
+	if err != nil {
+		return nil, fmt.Errorf("could not parse address as a string: %w", err)
+	}
+
 	c.mu.RLock()
-	if cli, ok := c.clients[address]; ok {
+	if cli, ok := c.clients[hostAddr]; ok {
 		// todo: check underlying connection neofs-api-go#196
 		c.mu.RUnlock()
 
@@ -43,16 +50,18 @@ func (c *ClientCache) Get(address string) (client.Client, error) {
 
 	// check once again if client is missing in cache, concurrent routine could
 	// create client while this routine was locked on `c.mu.Lock()`.
-	if cli, ok := c.clients[address]; ok {
+	if cli, ok := c.clients[hostAddr]; ok {
 		return cli, nil
 	}
 
-	cli, err := client.New(append(c.opts, client.WithAddress(address))...)
+	opts := append(c.opts, client.WithAddress(hostAddr))
+
+	cli, err := client.New(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	c.clients[address] = cli
+	c.clients[hostAddr] = cli
 
 	return cli, nil
 }

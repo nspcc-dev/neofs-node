@@ -8,6 +8,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 )
@@ -67,7 +68,7 @@ func (w *uniqueIDWriter) WriteIDs(list []*objectSDK.ID) error {
 	return w.writer.WriteIDs(list)
 }
 
-func (c *clientConstructorWrapper) get(addr string) (searchClient, error) {
+func (c *clientConstructorWrapper) get(addr *network.Address) (searchClient, error) {
 	clt, err := c.constructor.Get(addr)
 
 	return &clientWrapper{

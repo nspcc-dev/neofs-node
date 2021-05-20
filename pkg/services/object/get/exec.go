@@ -271,28 +271,18 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 }
 
 func (exec execCtx) remoteClient(node *network.Address) (getClient, bool) {
-	hostAddr, err := node.HostAddrString()
-
 	log := exec.log.With(zap.Stringer("node", node))
+
+	c, err := exec.svc.clientCache.get(node)
 
 	switch {
 	default:
 		exec.status = statusUndefined
 		exec.err = err
 
-		log.Debug("could not calculate node IP address")
+		log.Debug("could not construct remote node client")
 	case err == nil:
-		c, err := exec.svc.clientCache.get(hostAddr)
-
-		switch {
-		default:
-			exec.status = statusUndefined
-			exec.err = err
-
-			log.Debug("could not construct remote node client")
-		case err == nil:
-			return c, true
-		}
+		return c, true
 	}
 
 	return nil, false

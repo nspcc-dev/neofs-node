@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 )
 
 type SimpleObjectWriter struct {
@@ -71,7 +72,7 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj.Object()
 }
 
-func (c *clientCacheWrapper) get(addr string) (getClient, error) {
+func (c *clientCacheWrapper) get(addr *network.Address) (getClient, error) {
 	clt, err := c.cache.Get(addr)
 
 	return &clientWrapper{
