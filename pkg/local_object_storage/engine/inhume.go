@@ -63,9 +63,9 @@ func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 		}
 
 		ok := e.inhume(prm.addrs[i], shPrm, true)
-		if ok {
+		if !ok {
 			ok = e.inhume(prm.addrs[i], shPrm, false)
-			if ok {
+			if !ok {
 				return nil, errInhumeFailure
 			}
 		}
