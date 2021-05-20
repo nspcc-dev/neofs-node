@@ -80,7 +80,7 @@ func (c *clientCacheWrapper) get(addr string) (getClient, error) {
 }
 
 func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
-	if !exec.assembling && !exec.hashOnly() {
+	if !exec.assembling && exec.prm.forwarder != nil {
 		return exec.prm.forwarder(c.client)
 	}
 
