@@ -41,7 +41,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			hash: util.NewSaltingWriter(h, prm.salt),
 		})
 
-		if err := s.getRange(ctx, rngPrm, hashOnly()); err != nil {
+		if err := s.getRange(ctx, rngPrm); err != nil {
 			return nil, err
 		}
 
