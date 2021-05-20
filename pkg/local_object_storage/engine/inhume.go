@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
@@ -75,19 +76,40 @@ func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 }
 
 func (e *StorageEngine) inhume(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
+	root := false
+
 	e.iterateOverSortedShards(addr, func(_ int, sh *shard.Shard) (stop bool) {
+		defer func() {
+			// if object is root we continue since information about it
+			// can be presented in other shards
+			if checkExists && root {
+				stop = false
+			}
+		}()
+
 		if checkExists {
 			exRes, err := sh.Exists(new(shard.ExistsPrm).
 				WithAddress(addr),
 			)
 			if err != nil {
-				// TODO: smth wrong with shard, need to be processed
-				e.log.Warn("could not check for presents in shard",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
+				if errors.Is(err, object.ErrAlreadyRemoved) {
+					// inhumed once - no need to be inhumed again
+					ok = true
+					return true
+				}
 
-				return
+				var siErr *objectSDK.SplitInfoError
+				if !errors.As(err, &siErr) {
+					// TODO: smth wrong with shard, need to be processed
+					e.log.Warn("could not check for presents in shard",
+						zap.Stringer("shard", sh.ID()),
+						zap.String("error", err.Error()),
+					)
+
+					return
+				}
+
+				root = true
 			} else if !exRes.Exists() {
 				return
 			}
