@@ -17,8 +17,6 @@ import (
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -41,17 +39,7 @@ const (
 )
 
 func initContainerService(c *cfg) {
-	staticClient, err := client.NewStatic(
-		c.cfgMorph.client,
-		c.cfgContainer.scriptHash,
-		0,
-	)
-	fatalOnErr(err)
-
-	cnrClient, err := container.New(staticClient)
-	fatalOnErr(err)
-
-	wrap, err := wrapper.New(cnrClient)
+	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
 	c.cfgObject.cnrStorage = newCachedContainerStorage(wrap) // use RPC node as source of containers (with caching)
@@ -126,7 +114,7 @@ func initContainerService(c *cfg) {
 				c.key,
 				containerService.NewResponseService(
 					&usedSpaceService{
-						Server:               containerService.NewExecutionService(containerMorph.NewExecutor(cnrClient)),
+						Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap)),
 						loadWriterProvider:   loadRouter,
 						loadPlacementBuilder: loadPlacementBuilder,
 						routeBuilder:         routeBuilder,

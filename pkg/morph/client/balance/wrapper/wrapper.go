@@ -33,19 +33,6 @@ type Wrapper struct {
 // a non-nil Wrapper pointer, but received nil.
 var ErrNilWrapper = errors.New("balance contract client wrapper is nil")
 
-// New creates, initializes and returns the Wrapper instance.
-//
-// If Client is nil, balance.ErrNilClient is returned.
-func New(c *Client) (*Wrapper, error) {
-	if c == nil {
-		return nil, balance.ErrNilClient
-	}
-
-	return &Wrapper{
-		client: c,
-	}, nil
-}
-
 // NewFromMorph returns the wrapper instance from the raw morph client.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*Wrapper, error) {
 	staticClient, err := client.NewStatic(cli, contract, fee)
@@ -58,5 +45,5 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) 
 		return nil, fmt.Errorf("could not create Balance contract client: %w", err)
 	}
 
-	return New(enhancedBalanceClient)
+	return &Wrapper{client: enhancedBalanceClient}, nil
 }

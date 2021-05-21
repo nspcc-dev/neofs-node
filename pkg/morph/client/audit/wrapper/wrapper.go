@@ -11,11 +11,6 @@ import (
 // client which implements storage of audit results.
 type ClientWrapper audit.Client
 
-// WrapClient wraps Audit contract client and returns ClientWrapper instance.
-func WrapClient(c *audit.Client) *ClientWrapper {
-	return (*ClientWrapper)(c)
-}
-
 // NewFromMorph returns the wrapper instance from the raw morph client.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
 	staticClient, err := client.NewStatic(cli, contract, fee)
@@ -23,5 +18,5 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) 
 		return nil, err
 	}
 
-	return WrapClient(audit.New(staticClient)), nil
+	return (*ClientWrapper)(audit.New(staticClient)), nil
 }

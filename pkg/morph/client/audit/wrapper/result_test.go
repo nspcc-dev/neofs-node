@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/stretchr/testify/require"
 )
@@ -34,12 +33,8 @@ func TestAuditResults(t *testing.T) {
 	morphClient, err := client.New(key, endpoint)
 	require.NoError(t, err)
 
-	auditContractClient, err := client.NewStatic(morphClient, auditHash, 0)
+	auditClientWrapper, err := auditWrapper.NewFromMorph(morphClient, auditHash, 0)
 	require.NoError(t, err)
-
-	auditClient := audit.New(auditContractClient)
-
-	auditClientWrapper := auditWrapper.WrapClient(auditClient)
 
 	cid := container.NewID()
 	cid.SetSHA256([sha256.Size]byte{1, 2, 3})

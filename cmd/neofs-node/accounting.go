@@ -2,8 +2,6 @@ package main
 
 import (
 	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
@@ -15,17 +13,7 @@ func initAccountingService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	staticClient, err := client.NewStatic(
-		c.cfgMorph.client,
-		c.cfgAccounting.scriptHash,
-		0,
-	)
-	fatalOnErr(err)
-
-	balanceClient, err := balance.New(staticClient)
-	fatalOnErr(err)
-
-	balanceMorphWrapper, err := wrapper.New(balanceClient)
+	balanceMorphWrapper, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgAccounting.scriptHash, 0)
 	fatalOnErr(err)
 
 	accountingGRPC.RegisterAccountingServiceServer(c.cfgGRPC.server,

@@ -33,19 +33,6 @@ type Wrapper struct {
 // a non-nil Wrapper pointer, but received nil.
 var ErrNilWrapper = errors.New("netmap contract client wrapper is nil")
 
-// New creates, initializes and returns the Wrapper instance.
-//
-// If Client is nil, netmap.ErrNilClient is returned.
-func New(c *Client) (*Wrapper, error) {
-	if c == nil {
-		return nil, netmap.ErrNilClient
-	}
-
-	return &Wrapper{
-		client: c,
-	}, nil
-}
-
 // NewFromMorph returns the wrapper instance from the raw morph client.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*Wrapper, error) {
 	staticClient, err := client.NewStatic(cli, contract, fee)
@@ -58,5 +45,5 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) 
 		return nil, fmt.Errorf("can't create netmap morph client: %w", err)
 	}
 
-	return New(enhancedNetmapClient)
+	return &Wrapper{client: enhancedNetmapClient}, nil
 }

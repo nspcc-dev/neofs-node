@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	containerMorph "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 )
@@ -18,13 +17,7 @@ type morphExecutor struct {
 	wrapper *wrapper.Wrapper
 }
 
-func NewExecutor(client *containerMorph.Client) containerSvc.ServiceExecutor {
-	w, err := wrapper.New(client)
-	if err != nil {
-		// log there, maybe panic?
-		return nil
-	}
-
+func NewExecutor(w *wrapper.Wrapper) containerSvc.ServiceExecutor {
 	return &morphExecutor{
 		wrapper: w,
 	}
