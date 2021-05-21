@@ -36,16 +36,7 @@ func CashOutCheque(cli *client.Client, con util.Uint160, fee MainFeeProvider, p 
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.MainChainFee(), chequeMethod,
-			p.ID,
-			p.User.BytesBE(),
-			p.Amount,
-			p.LockAccount.BytesBE(),
-		)
-	}
-
-	return cli.NotaryInvoke(con, chequeMethod,
+	return cli.NotaryInvoke(con, fee.MainChainFee(), chequeMethod,
 		p.ID,
 		p.User.BytesBE(),
 		p.Amount,
@@ -59,9 +50,5 @@ func AlphabetUpdate(cli *client.Client, con util.Uint160, fee MainFeeProvider, i
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.MainChainFee(), alphabetUpdateMethod, id, list)
-	}
-
-	return cli.NotaryInvoke(con, alphabetUpdateMethod, id, list)
+	return cli.NotaryInvoke(con, fee.MainChainFee(), alphabetUpdateMethod, id, list)
 }

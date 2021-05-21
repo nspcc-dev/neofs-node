@@ -59,11 +59,7 @@ func SetNewEpoch(cli *client.Client, con util.Uint160, fee SideFeeProvider, epoc
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), setNewEpochMethod, int64(epoch))
-	}
-
-	return cli.NotaryInvoke(con, setNewEpochMethod, int64(epoch))
+	return cli.NotaryInvoke(con, fee.SideChainFee(), setNewEpochMethod, int64(epoch))
 }
 
 // ApprovePeer invokes addPeer method.
@@ -72,11 +68,7 @@ func ApprovePeer(cli *client.Client, con util.Uint160, fee SideFeeProvider, peer
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), approvePeerMethod, peer)
-	}
-
-	return cli.NotaryInvoke(con, approvePeerMethod, peer)
+	return cli.NotaryInvoke(con, fee.SideChainFee(), approvePeerMethod, peer)
 }
 
 // UpdatePeerState invokes addPeer method.
@@ -85,14 +77,7 @@ func UpdatePeerState(cli *client.Client, con util.Uint160, fee SideFeeProvider, 
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), updatePeerStateMethod,
-			int64(args.Status.ToV2()),
-			args.Key.Bytes(),
-		)
-	}
-
-	return cli.NotaryInvoke(con, updatePeerStateMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), updatePeerStateMethod,
 		int64(args.Status.ToV2()),
 		args.Key.Bytes(),
 	)
@@ -104,15 +89,7 @@ func SetConfig(cli *client.Client, con util.Uint160, fee SideFeeProvider, args *
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), setConfigMethod,
-			args.ID,
-			args.Key,
-			args.Value,
-		)
-	}
-
-	return cli.NotaryInvoke(con, setConfigMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), setConfigMethod,
 		args.ID,
 		args.Key,
 		args.Value,
@@ -126,11 +103,7 @@ func SetInnerRing(cli *client.Client, con util.Uint160, fee SideFeeProvider, lis
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), setInnerRingMethod, list)
-	}
-
-	return cli.NotaryInvoke(con, setInnerRingMethod, list)
+	return cli.NotaryInvoke(con, fee.SideChainFee(), setInnerRingMethod, list)
 }
 
 // NetmapSnapshot returns current netmap node infos.

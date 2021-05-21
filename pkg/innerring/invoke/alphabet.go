@@ -27,9 +27,5 @@ func AlphabetVote(cli *client.Client, con util.Uint160, fee SideFeeProvider, epo
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), voteMethod, int64(epoch), keys)
-	}
-
-	return cli.NotaryInvoke(con, voteMethod, int64(epoch), keys)
+	return cli.NotaryInvoke(con, fee.SideChainFee(), voteMethod, int64(epoch), keys)
 }

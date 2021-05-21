@@ -200,14 +200,14 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 }
 
 // NotaryInvoke invokes contract method by sending tx to notary contract in
-// blockchain. Fallback tx is a `RET`. Notary support should be enabled
-// in client to use this function.
+// blockchain. Fallback tx is a `RET`. If Notary support is not enabled
+// it fallbacks to a simple `Invoke()`.
 //
 // This function must be invoked after `EnableNotarySupport()` otherwise it
 // throws panic.
-func (c *Client) NotaryInvoke(contract util.Uint160, method string, args ...interface{}) error {
+func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
 	if c.notary == nil {
-		panic(notaryNotEnabledPanicMsg)
+		return c.Invoke(contract, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, contract, method, args...)
