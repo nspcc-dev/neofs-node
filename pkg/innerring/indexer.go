@@ -1,12 +1,14 @@
 package innerring
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -54,16 +56,20 @@ func (s *innerRingIndexer) update() (ind indexes, err error) {
 		return s.ind, nil
 	}
 
-	s.ind.innerRingIndex, s.ind.innerRingSize, err = invoke.InnerRingIndex(s.cli, s.key)
+	innerRing, err := s.cli.NeoFSAlphabetList()
 	if err != nil {
 		return indexes{}, err
 	}
 
-	s.ind.alphabetIndex, err = invoke.AlphabetIndex(s.cli, s.key)
+	s.ind.innerRingIndex = keyPosition(s.key, innerRing)
+	s.ind.innerRingSize = int32(len(innerRing))
+
+	alphabet, err := s.cli.Committee()
 	if err != nil {
 		return indexes{}, err
 	}
 
+	s.ind.alphabetIndex = keyPosition(s.key, alphabet)
 	s.lastAccess = time.Now()
 
 	return s.ind, nil
@@ -94,4 +100,20 @@ func (s *innerRingIndexer) AlphabetIndex() (int32, error) {
 	}
 
 	return ind.alphabetIndex, nil
+}
+
+// keyPosition returns "-1" if key is not found in the list, otherwise returns
+// index of the key.
+func keyPosition(key *ecdsa.PublicKey, list keys.PublicKeys) (result int32) {
+	result = -1
+	rawBytes := crypto.MarshalPublicKey(key)
+
+	for i := range list {
+		if bytes.Equal(list[i].Bytes(), rawBytes) {
+			result = int32(i)
+			break
+		}
+	}
+
+	return result
 }

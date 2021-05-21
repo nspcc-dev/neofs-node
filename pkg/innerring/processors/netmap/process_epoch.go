@@ -1,12 +1,14 @@
 package netmap
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/snapshot"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	"go.uber.org/zap"
 )
+
+const setNewEpochMethod = "newEpoch"
 
 // Process new epoch notification by setting global epoch value and resetting
 // local epoch timer.
@@ -18,7 +20,7 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 	}
 
 	// get new netmap snapshot
-	snapshot, err := invoke.NetmapSnapshot(np.morphClient, np.netmapContract)
+	networkMap, err := snapshot.Fetch(np.morphClient, np.netmapContract)
 	if err != nil {
 		np.log.Warn("can't get netmap snapshot to perform cleanup",
 			zap.String("error", err.Error()))
@@ -40,7 +42,7 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 		}
 	}
 
-	np.netmapSnapshot.update(snapshot, epoch)
+	np.netmapSnapshot.update(networkMap, epoch)
 	np.handleCleanupTick(netmapCleanupTick{epoch: epoch})
 	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
 	np.handleAuditSettlements(settlement.NewAuditEvent(epoch))
@@ -57,7 +59,7 @@ func (np *Processor) processNewEpochTick() {
 	nextEpoch := np.epochState.EpochCounter() + 1
 	np.log.Debug("next epoch", zap.Uint64("value", nextEpoch))
 
-	err := invoke.SetNewEpoch(np.morphClient, np.netmapContract, np.feeProvider, nextEpoch)
+	err := np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), setNewEpochMethod, int64(nextEpoch))
 	if err != nil {
 		np.log.Error("can't invoke netmap.NewEpoch", zap.Error(err))
 	}

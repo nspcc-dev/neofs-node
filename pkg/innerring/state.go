@@ -5,10 +5,11 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"go.uber.org/zap"
 )
+
+const voteMethod = "vote"
 
 // EpochCounter is a getter for a global epoch counter.
 func (s *Server) EpochCounter() uint64 {
@@ -84,7 +85,7 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 	epoch := s.EpochCounter()
 
 	s.contracts.alphabet.iterate(func(letter glagoliticLetter, contract util.Uint160) {
-		err := invoke.AlphabetVote(s.morphClient, contract, s.feeConfig, epoch, validators)
+		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), voteMethod, int64(epoch), validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),

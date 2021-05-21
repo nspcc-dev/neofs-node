@@ -3,9 +3,10 @@ package netmap
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"go.uber.org/zap"
 )
+
+const updatePeerStateMethod = "updateState"
 
 func (np *Processor) processNetmapCleanupTick(epoch uint64) {
 	if !np.alphabetState.IsAlphabet() {
@@ -25,11 +26,9 @@ func (np *Processor) processNetmapCleanupTick(epoch uint64) {
 
 		np.log.Info("vote to remove node from netmap", zap.String("key", s))
 
-		err = invoke.UpdatePeerState(np.morphClient, np.netmapContract, np.feeProvider,
-			&invoke.UpdatePeerArgs{
-				Key:    key,
-				Status: netmap.NodeStateOffline,
-			})
+		err = np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), updatePeerStateMethod,
+			int64(netmap.NodeStateOffline.ToV2()),
+			key.Bytes())
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
 		}
