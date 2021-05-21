@@ -1,6 +1,11 @@
 package wrapper
 
 import (
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 )
 
@@ -33,4 +38,19 @@ func New(c *Client) (*Wrapper, error) {
 	return &Wrapper{
 		client: c,
 	}, nil
+}
+
+// NewFromMorph returns the wrapper instance from the raw morph client.
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*Wrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee)
+	if err != nil {
+		return nil, fmt.Errorf("can't create container static client: %w", err)
+	}
+
+	enhancedContainerClient, err := container.New(staticClient)
+	if err != nil {
+		return nil, fmt.Errorf("can't create container morph client: %w", err)
+	}
+
+	return New(enhancedContainerClient)
 }
