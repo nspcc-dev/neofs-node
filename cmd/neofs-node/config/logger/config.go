@@ -4,27 +4,21 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 )
 
-// LoggerSection represents config section
-// for logging component.
-type LoggerSection config.Config
-
 // config defaults
 const (
 	// LevelDefault is a default logger level
 	LevelDefault = "info"
 )
 
-// Init initializes LoggerSection from
-// "logger" subsection of config.
-func Init(root *config.Config) *LoggerSection {
-	return (*LoggerSection)(root.Sub("logger"))
-}
-
-// Level returns configuration value with name "level".
+// Level returns value of "level" config parameter
+// from "logger" section.
 //
 // Returns LevelDefault if value is not a non-empty string.
-func (x *LoggerSection) Level() string {
-	v := config.StringSafe((*config.Config)(x), "level")
+func Level(c *config.Config) string {
+	v := config.StringSafe(
+		c.Sub("logger"),
+		"level",
+	)
 	if v != "" {
 		return v
 	}
