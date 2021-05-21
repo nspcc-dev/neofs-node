@@ -12,20 +12,13 @@ import (
 )
 
 func TestLoggerSection_Level(t *testing.T) {
-	checkLevel := func(c *loggerconfig.LoggerSection, expected string) {
-		lvl := c.Level()
-		require.Equal(t, expected, lvl)
-	}
-
 	configtest.ForEachFileType("../../../../config/example/node", func(c *config.Config) {
-		cfg := loggerconfig.Init(c)
-
-		checkLevel(cfg, "debug")
+		v := loggerconfig.Level(c)
+		require.Equal(t, "debug", v)
 	})
 
-	empty := loggerconfig.Init(configtest.EmptyConfig())
-
-	checkLevel(empty, loggerconfig.LevelDefault)
+	v := loggerconfig.Level(configtest.EmptyConfig())
+	require.Equal(t, loggerconfig.LevelDefault, v)
 
 	t.Run("ENV", func(t *testing.T) {
 		// TODO: read from file
@@ -35,8 +28,7 @@ func TestLoggerSection_Level(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		empty = loggerconfig.Init(configtest.EmptyConfig())
-
-		checkLevel(empty, "debug")
+		v := loggerconfig.Level(configtest.EmptyConfig())
+		require.Equal(t, "debug", v)
 	})
 }
