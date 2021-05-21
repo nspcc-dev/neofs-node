@@ -32,15 +32,7 @@ func RegisterContainer(cli *client.Client, con util.Uint160, fee SideFeeProvider
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), putContainerMethod,
-			p.Container,
-			p.Signature,
-			p.Key.Bytes(),
-		)
-	}
-
-	return cli.NotaryInvoke(con, putContainerMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), putContainerMethod,
 		p.Container,
 		p.Signature,
 		p.Key.Bytes(),
@@ -53,14 +45,7 @@ func RemoveContainer(cli *client.Client, con util.Uint160, fee SideFeeProvider, 
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), deleteContainerMethod,
-			p.ContainerID,
-			p.Signature,
-		)
-	}
-
-	return cli.NotaryInvoke(con, deleteContainerMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), deleteContainerMethod,
 		p.ContainerID,
 		p.Signature,
 	)

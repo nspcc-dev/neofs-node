@@ -63,10 +63,14 @@ func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackite
 }
 
 // NotaryInvoke calls NotaryInvoke method of Client with static internal
-// script hash. Returns error if notary support was not enabled in underlying
+// script hash. Panics if notary support was not enabled in underlying
 // moprh client.
 func (s StaticClient) NotaryInvoke(method string, args ...interface{}) error {
-	return s.client.NotaryInvoke(
+	if s.client.notary == nil {
+		panic(notaryNotEnabledPanicMsg)
+	}
+	return s.client.notaryInvoke(
+		false,
 		s.scScriptHash,
 		method,
 		args...,

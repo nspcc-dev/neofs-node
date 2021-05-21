@@ -37,15 +37,7 @@ func Mint(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *MintBurn
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), mintMethod,
-			p.ScriptHash,
-			p.Amount,
-			p.Comment,
-		)
-	}
-
-	return cli.NotaryInvoke(con, mintMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), mintMethod,
 		p.ScriptHash,
 		p.Amount,
 		p.Comment,
@@ -58,15 +50,7 @@ func Burn(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *MintBurn
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), burnMethod,
-			p.ScriptHash,
-			p.Amount,
-			p.Comment,
-		)
-	}
-
-	return cli.NotaryInvoke(con, burnMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), burnMethod,
 		p.ScriptHash,
 		p.Amount,
 		p.Comment,
@@ -79,17 +63,7 @@ func LockAsset(cli *client.Client, con util.Uint160, fee SideFeeProvider, p *Loc
 		return client.ErrNilClient
 	}
 
-	if !cli.NotaryEnabled() {
-		return cli.Invoke(con, fee.SideChainFee(), lockMethod,
-			p.ID,
-			p.User.BytesBE(),
-			p.LockAccount.BytesBE(),
-			p.Amount,
-			int64(p.Until),
-		)
-	}
-
-	return cli.NotaryInvoke(con, lockMethod,
+	return cli.NotaryInvoke(con, fee.SideChainFee(), lockMethod,
 		p.ID,
 		p.User.BytesBE(),
 		p.LockAccount.BytesBE(),
