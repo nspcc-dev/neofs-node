@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal"
 	"github.com/spf13/viper"
 )
 
@@ -19,11 +20,7 @@ type Config struct {
 	path []string
 }
 
-const (
-	separator    = "."
-	envPrefix    = "neofs"
-	envSeparator = "_"
-)
+const separator = "."
 
 // Prm groups required parameters of the Config.
 type Prm struct{}
@@ -36,9 +33,9 @@ type Prm struct{}
 func New(_ Prm, opts ...Option) *Config {
 	v := viper.New()
 
-	v.SetEnvPrefix(EnvPrefix)
+	v.SetEnvPrefix(internal.EnvPrefix)
 	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(separator, EnvSeparator))
+	v.SetEnvKeyReplacer(strings.NewReplacer(separator, internal.EnvSeparator))
 
 	o := defaultOpts()
 	for i := range opts {
