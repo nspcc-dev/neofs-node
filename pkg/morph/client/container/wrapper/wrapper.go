@@ -9,12 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 )
 
-// Client represents the Container contract client.
-//
-// It is a type alias of
-// github.com/nspcc-dev/neofs-node/pkg/morph/client/container.Client.
-type Client = container.Client
-
 // Wrapper is a wrapper over container contract
 // client which implements container storage and
 // eACL storage methods.
@@ -24,7 +18,7 @@ type Client = container.Client
 // expression (or just declaring a Wrapper variable) is unsafe
 // and can lead to panic.
 type Wrapper struct {
-	client *Client
+	client *container.Client
 }
 
 // NewFromMorph returns the wrapper instance from the raw morph client.

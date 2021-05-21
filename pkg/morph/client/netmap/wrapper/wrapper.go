@@ -1,7 +1,6 @@
 package wrapper
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
@@ -9,12 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 )
-
-// Client represents the Netmap contract client.
-//
-// It is a type alias of
-// github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap.Client.
-type Client = netmap.Client
 
 // Wrapper is a wrapper over netmap contract
 // client which implements:
@@ -26,12 +19,8 @@ type Client = netmap.Client
 // expression (or just declaring a Wrapper variable) is unsafe
 // and can lead to panic.
 type Wrapper struct {
-	client *Client
+	client *netmap.Client
 }
-
-// ErrNilWrapper is returned by functions that expect
-// a non-nil Wrapper pointer, but received nil.
-var ErrNilWrapper = errors.New("netmap contract client wrapper is nil")
 
 // NewFromMorph returns the wrapper instance from the raw morph client.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*Wrapper, error) {
