@@ -1,14 +1,17 @@
 package config
 
 import (
-	"github.com/spf13/viper"
+	"strings"
 )
 
-// Sub returns sub-section of the Config by name.
+// Sub returns subsection of the Config by name.
+//
+// Returns nil if subsection if missing.
 func (x *Config) Sub(name string) *Config {
-	return (*Config)(
-		(*viper.Viper)(x).Sub(name),
-	)
+	return &Config{
+		v:    x.v,
+		path: append(x.path, name),
+	}
 }
 
 // Value returns configuration value by name.
@@ -20,9 +23,5 @@ func (x *Config) Sub(name string) *Config {
 //
 // Returns nil if config is nil.
 func (x *Config) Value(name string) interface{} {
-	if x != nil {
-		return (*viper.Viper)(x).Get(name)
-	}
-
-	return nil
+	return x.v.Get(strings.Join(append(x.path, name), separator))
 }
