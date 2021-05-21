@@ -20,6 +20,7 @@ require (
 	github.com/panjf2000/ants/v2 v2.3.0
 	github.com/paulmach/orb v0.2.1
 	github.com/prometheus/client_golang v1.6.0
+	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.0

@@ -1,0 +1,13 @@
+value: some value
+
+section:
+  any: thing
+
+string_slice:
+  empty: []
+
+  filled:
+    - string1
+    - string2
+
+  incorrect:
