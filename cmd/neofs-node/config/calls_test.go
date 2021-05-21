@@ -21,9 +21,6 @@ func TestConfigCommon(t *testing.T) {
 
 		const nonExistentSub = "non-existent sub-section"
 
-		sub = c.Sub(nonExistentSub)
-		require.Nil(t, sub)
-
 		val = c.Sub(nonExistentSub).Value("value")
 		require.Nil(t, val)
 	})

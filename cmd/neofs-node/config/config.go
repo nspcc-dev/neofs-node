@@ -13,7 +13,11 @@ import (
 // Sub-trees are named configuration sub-sections,
 // leaves are named configuration values.
 // Names are of string type.
-type Config viper.Viper
+type Config struct {
+	v *viper.Viper
+
+	path []string
+}
 
 const (
 	separator    = "."
@@ -49,5 +53,7 @@ func New(_ Prm, opts ...Option) *Config {
 		}
 	}
 
-	return (*Config)(v)
+	return &Config{
+		v: v,
+	}
 }
