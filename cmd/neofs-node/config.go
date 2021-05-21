@@ -17,6 +17,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -305,6 +307,12 @@ const (
 )
 
 func initCfg(path string) *cfg {
+	var p config.Prm
+
+	appCfg := config.New(p,
+		config.WithConfigFile(path),
+	)
+
 	viperCfg := initViper(path)
 
 	key, err := crypto.LoadPrivateKey(viperCfg.GetString(cfgNodeKey))
@@ -329,7 +337,7 @@ func initCfg(path string) *cfg {
 	var logPrm logger.Prm
 
 	err = logPrm.SetLevelString(
-		viperCfg.GetString(cfgLogLevel),
+		loggerconfig.Level(appCfg),
 	)
 	fatalOnErr(err)
 
