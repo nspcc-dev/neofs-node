@@ -36,15 +36,16 @@ type Prm struct{}
 func New(_ Prm, opts ...Option) *Config {
 	v := viper.New()
 
+	v.SetEnvPrefix(EnvPrefix)
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(separator, EnvSeparator))
+
 	o := defaultOpts()
 	for i := range opts {
 		opts[i](o)
 	}
 
 	if o.path != "" {
-		v.SetEnvPrefix(envPrefix)
-		v.AutomaticEnv()
-		v.SetEnvKeyReplacer(strings.NewReplacer(separator, envSeparator))
 		v.SetConfigFile(o.path)
 
 		err := v.ReadInConfig()
