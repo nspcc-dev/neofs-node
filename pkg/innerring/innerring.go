@@ -121,6 +121,10 @@ const (
 	notaryExtraBlocks = 300
 	// amount of tries before notary deposit timeout.
 	notaryDepositTimeout = 100
+
+	precisionMethod = "decimals"
+	// netmap
+	getEpochMethod = "epoch"
 )
 
 var (
@@ -827,25 +831,35 @@ func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
 
 func (s *Server) initConfigFromBlockchain() error {
 	// get current epoch
-	epoch, err := invoke.Epoch(s.morphClient, s.contracts.netmap)
+	val, err := s.morphClient.TestInvoke(s.contracts.netmap, getEpochMethod)
 	if err != nil {
 		return fmt.Errorf("can't read epoch: %w", err)
 	}
 
+	epoch, err := client.IntFromStackItem(val[0])
+	if err != nil {
+		return fmt.Errorf("can't parse epoch: %w", err)
+	}
+
 	// get balance precision
-	balancePrecision, err := invoke.BalancePrecision(s.morphClient, s.contracts.balance)
+	v, err := s.morphClient.TestInvoke(s.contracts.balance, precisionMethod)
 	if err != nil {
 		return fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
+	balancePrecision, err := client.IntFromStackItem(v[0])
+	if err != nil {
+		return fmt.Errorf("can't parse balance contract precision: %w", err)
+	}
+
 	s.epochCounter.Store(uint64(epoch))
-	s.precision.SetBalancePrecision(balancePrecision)
+	s.precision.SetBalancePrecision(uint32(balancePrecision))
 
 	s.log.Debug("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
 		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Int64("epoch", epoch),
-		zap.Uint32("precision", balancePrecision),
+		zap.Uint32("precision", uint32(balancePrecision)),
 	)
 
 	return nil

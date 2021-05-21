@@ -1,10 +1,11 @@
 package neofs
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
+
+const setConfigMethod = "setConfig"
 
 // Process config event by setting configuration value from main chain in
 // side chain.
@@ -14,13 +15,8 @@ func (np *Processor) processConfig(config *neofsEvent.Config) {
 		return
 	}
 
-	err := invoke.SetConfig(np.morphClient, np.netmapContract, np.feeProvider,
-		&invoke.SetConfigArgs{
-			ID:    config.ID(),
-			Key:   config.Key(),
-			Value: config.Value(),
-		},
-	)
+	err := np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), setConfigMethod,
+		config.ID(), config.Key(), config.Value())
 	if err != nil {
 		np.log.Error("can't relay set config event", zap.Error(err))
 	}

@@ -4,11 +4,15 @@ import (
 	"encoding/binary"
 	"sort"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"go.uber.org/zap"
 )
 
-const alphabetUpdateIDPrefix = "AlphabetUpdate"
+const (
+	alphabetUpdateIDPrefix = "AlphabetUpdate"
+
+	alphabetUpdateMethod = "alphabetUpdate"
+	setInnerRingMethod   = "updateInnerRing"
+)
 
 func (gp *Processor) processAlphabetSync() {
 	if !gp.alphabetState.IsAlphabet() {
@@ -66,7 +70,8 @@ func (gp *Processor) processAlphabetSync() {
 			sort.Sort(newInnerRing)
 
 			if gp.notaryDisabled {
-				err = invoke.SetInnerRing(gp.morphClient, gp.netmapContract, gp.feeProvider, newInnerRing)
+				err = gp.morphClient.NotaryInvoke(gp.netmapContract, gp.feeProvider.SideChainFee(), setInnerRingMethod,
+					newInnerRing)
 			} else {
 				err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing)
 			}
@@ -95,7 +100,8 @@ func (gp *Processor) processAlphabetSync() {
 
 	id := append([]byte(alphabetUpdateIDPrefix), buf...)
 
-	err = invoke.AlphabetUpdate(gp.mainnetClient, gp.neofsContract, gp.feeProvider, id, newAlphabet)
+	err = gp.mainnetClient.NotaryInvoke(gp.neofsContract, gp.feeProvider.MainChainFee(), alphabetUpdateMethod,
+		id, newAlphabet)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
 			zap.String("error", err.Error()))

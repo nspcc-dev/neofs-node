@@ -2,7 +2,6 @@ package neofs
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
@@ -10,6 +9,10 @@ import (
 const (
 	// lockAccountLifeTime defines amount of epochs when lock account is valid.
 	lockAccountLifetime uint64 = 20
+
+	burnMethod = "burn"
+	lockMethod = "lock"
+	mintMethod = "mint"
 )
 
 // Process deposit event by invoking balance contract and sending native
@@ -21,12 +24,10 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	}
 
 	// send transferX to balance contract
-	err := invoke.Mint(np.morphClient, np.balanceContract, np.feeProvider,
-		&invoke.MintBurnParams{
-			ScriptHash: deposit.To().BytesBE(),
-			Amount:     np.converter.ToBalancePrecision(deposit.Amount()),
-			Comment:    deposit.ID(),
-		})
+	err := np.morphClient.NotaryInvoke(np.balanceContract, np.feeProvider.SideChainFee(), mintMethod,
+		deposit.To().BytesBE(),
+		np.converter.ToBalancePrecision(deposit.Amount()),
+		deposit.ID())
 	if err != nil {
 		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
 	}
@@ -94,14 +95,12 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 
 	curEpoch := np.epochState.EpochCounter()
 
-	err = invoke.LockAsset(np.morphClient, np.balanceContract, np.feeProvider,
-		&invoke.LockParams{
-			ID:          withdraw.ID(),
-			User:        withdraw.User(),
-			LockAccount: lock,
-			Amount:      np.converter.ToBalancePrecision(withdraw.Amount()),
-			Until:       curEpoch + lockAccountLifetime,
-		})
+	err = np.morphClient.NotaryInvoke(np.balanceContract, np.feeProvider.SideChainFee(), lockMethod,
+		withdraw.ID(),
+		withdraw.User(),
+		lock,
+		np.converter.ToBalancePrecision(withdraw.Amount()),
+		int64(curEpoch+lockAccountLifetime))
 	if err != nil {
 		np.log.Error("can't lock assets for withdraw", zap.Error(err))
 	}
@@ -115,12 +114,10 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		return
 	}
 
-	err := invoke.Burn(np.morphClient, np.balanceContract, np.feeProvider,
-		&invoke.MintBurnParams{
-			ScriptHash: cheque.LockAccount().BytesBE(),
-			Amount:     np.converter.ToBalancePrecision(cheque.Amount()),
-			Comment:    cheque.ID(),
-		})
+	err := np.morphClient.NotaryInvoke(np.balanceContract, np.feeProvider.SideChainFee(), burnMethod,
+		cheque.LockAccount().BytesBE(),
+		np.converter.ToBalancePrecision(cheque.Amount()),
+		cheque.ID())
 	if err != nil {
 		np.log.Error("can't transfer assets to fed contract", zap.Error(err))
 	}

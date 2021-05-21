@@ -3,9 +3,13 @@ package container
 import (
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"go.uber.org/zap"
+)
+
+const (
+	deleteContainerMethod = "delete"
+	putContainerMethod    = "put"
 )
 
 // Process new container from the user by checking container sanity
@@ -37,12 +41,10 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 		return
 	}
 
-	err := invoke.RegisterContainer(cp.morphClient, cp.containerContract, cp.feeProvider,
-		&invoke.ContainerParams{
-			Key:       put.PublicKey(),
-			Container: cnrData,
-			Signature: put.Signature(),
-		})
+	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), putContainerMethod,
+		cnrData,
+		put.Signature(),
+		put.PublicKey().Bytes())
 	if err != nil {
 		cp.log.Error("can't invoke new container", zap.Error(err))
 	}
@@ -56,11 +58,9 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 		return
 	}
 
-	err := invoke.RemoveContainer(cp.morphClient, cp.containerContract, cp.feeProvider,
-		&invoke.RemoveContainerParams{
-			ContainerID: delete.ContainerID(),
-			Signature:   delete.Signature(),
-		})
+	err := cp.morphClient.NotaryInvoke(cp.containerContract, cp.feeProvider.SideChainFee(), deleteContainerMethod,
+		delete.ContainerID(),
+		delete.Signature())
 	if err != nil {
 		cp.log.Error("can't invoke delete container", zap.Error(err))
 	}

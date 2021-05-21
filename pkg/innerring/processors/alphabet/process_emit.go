@@ -5,9 +5,11 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/snapshot"
 	"go.uber.org/zap"
 )
+
+const emitMethod = "emit"
 
 func (np *Processor) processEmit() {
 	index := np.irList.AlphabetIndex()
@@ -25,7 +27,8 @@ func (np *Processor) processEmit() {
 		return
 	}
 
-	err := invoke.AlphabetEmit(np.morphClient, contract)
+	// there is no signature collecting, so we don't need extra fee
+	err := np.morphClient.Invoke(contract, 0, emitMethod)
 	if err != nil {
 		np.log.Warn("can't invoke alphabet emit method")
 
@@ -38,7 +41,7 @@ func (np *Processor) processEmit() {
 		return
 	}
 
-	networkMap, err := invoke.NetmapSnapshot(np.morphClient, np.netmapContract)
+	networkMap, err := snapshot.Fetch(np.morphClient, np.netmapContract)
 	if err != nil {
 		np.log.Warn("can't get netmap snapshot to emit gas to storage nodes",
 			zap.String("error", err.Error()))
