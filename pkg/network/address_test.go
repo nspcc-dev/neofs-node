@@ -82,6 +82,66 @@ func TestAddress_HostAddrString(t *testing.T) {
 	})
 }
 
+func TestAddress_Encapsulate(t *testing.T) {
+	ma1, ma2 := "/dns4/neofs.bigcorp.com/tcp/8080", "/tls"
+
+	testcases := []struct {
+		ma1  multiaddr.Multiaddr
+		ma2  multiaddr.Multiaddr
+		want string
+	}{
+		{
+			buildMultiaddr(ma1, t),
+			buildMultiaddr(ma2, t),
+			ma1 + ma2,
+		},
+		{
+			buildMultiaddr(ma2, t),
+			buildMultiaddr(ma1, t),
+			ma2 + ma1,
+		},
+	}
+
+	for _, testcase := range testcases {
+		addr1 := &Address{testcase.ma1}
+		addr2 := &Address{testcase.ma2}
+
+		addr1.Encapsulate(addr2)
+
+		require.Equal(t, addr1.String(), testcase.want)
+	}
+}
+
+func TestAddress_Decapsulate(t *testing.T) {
+	ma1, ma2 := "/dns4/neofs.bigcorp.com/tcp/8080", "/tls"
+
+	testcases := []struct {
+		ma1  multiaddr.Multiaddr
+		ma2  multiaddr.Multiaddr
+		want string
+	}{
+		{
+			buildMultiaddr(ma1+ma2, t),
+			buildMultiaddr(ma2, t),
+			ma1,
+		},
+		{
+			buildMultiaddr(ma2+ma1, t),
+			buildMultiaddr(ma1, t),
+			ma2,
+		},
+	}
+
+	for _, testcase := range testcases {
+		addr1 := &Address{testcase.ma1}
+		addr2 := &Address{testcase.ma2}
+
+		addr1.Decapsulate(addr2)
+
+		require.Equal(t, addr1.String(), testcase.want)
+	}
+}
+
 func buildMultiaddr(s string, t *testing.T) multiaddr.Multiaddr {
 	ma, err := multiaddr.NewMultiaddr(s)
 	require.NoError(t, err)

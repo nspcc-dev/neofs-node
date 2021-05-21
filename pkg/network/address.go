@@ -31,6 +31,22 @@ type LocalAddressSource interface {
 	LocalAddress() *Address
 }
 
+// Encapsulate wraps this Address around another. For example:
+//
+//		/ip4/1.2.3.4 encapsulate /tcp/80 = /ip4/1.2.3.4/tcp/80
+//
+func (a *Address) Encapsulate(addr *Address) {
+	a.ma = a.ma.Encapsulate(addr.ma)
+}
+
+// Decapsulate removes an Address wrapping. For example:
+//
+//		/ip4/1.2.3.4/tcp/80 decapsulate /ip4/1.2.3.4 = /tcp/80
+//
+func (a *Address) Decapsulate(addr *Address) {
+	a.ma = a.ma.Decapsulate(addr.ma)
+}
+
 // String returns multiaddr string
 func (a Address) String() string {
 	return a.ma.String()
