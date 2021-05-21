@@ -28,3 +28,19 @@ func TestStringSlice(t *testing.T) {
 		require.Nil(t, val)
 	})
 }
+
+func TestString(t *testing.T) {
+	forEachFileType("test/config", func(c *config.Config) {
+		c = c.Sub("string")
+
+		val := config.String(c, "correct")
+		require.Equal(t, "some string", val)
+
+		require.Panics(t, func() {
+			config.String(c, "incorrect")
+		})
+
+		val = config.StringSafe(c, "incorrect")
+		require.Empty(t, val)
+	})
+}

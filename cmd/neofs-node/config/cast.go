@@ -28,3 +28,22 @@ func StringSlice(c *Config, name string) []string {
 func StringSliceSafe(c *Config, name string) []string {
 	return cast.ToStringSlice(c.Value(name))
 }
+
+// String reads configuration value
+// from c by name and casts it to string.
+//
+// Panics if value can not be casted.
+func String(c *Config, name string) string {
+	x, err := cast.ToStringE(c.Value(name))
+	panicOnErr(err)
+
+	return x
+}
+
+// StringSafe reads configuration value
+// from c by name and casts it to string.
+//
+// Returns "" if value can not be casted.
+func StringSafe(c *Config, name string) string {
+	return cast.ToString(c.Value(name))
+}

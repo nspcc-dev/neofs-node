@@ -11,3 +11,8 @@ string_slice:
     - string2
 
   incorrect:
+
+string:
+  correct: some string
+
+  incorrect: []
