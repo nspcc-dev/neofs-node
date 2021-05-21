@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
 	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -13,8 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	rptclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	rtpwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -38,17 +35,7 @@ import (
 )
 
 func initReputationService(c *cfg) {
-	staticClient, err := client.NewStatic(
-		c.cfgMorph.client,
-		c.cfgReputation.scriptHash,
-		fixedn.Fixed8(0),
-	)
-	fatalOnErr(err)
-
-	rptClient, err := rptclient.New(staticClient)
-	fatalOnErr(err)
-
-	wrap := rtpwrapper.WrapClient(rptClient)
+	wrap, err := rtpwrapper.NewFromMorph(c.cfgMorph.client, c.cfgReputation.scriptHash, 0)
 	fatalOnErr(err)
 
 	localKey := crypto.MarshalPublicKey(&c.key.PublicKey)

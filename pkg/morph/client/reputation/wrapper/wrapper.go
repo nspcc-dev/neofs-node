@@ -13,11 +13,6 @@ import (
 // client which implements storage of reputation values.
 type ClientWrapper reputation.Client
 
-// WrapClient wraps reputation contract client and returns ClientWrapper instance.
-func WrapClient(c *reputation.Client) *ClientWrapper {
-	return (*ClientWrapper)(c)
-}
-
 // NewFromMorph returns the wrapper instance from the raw morph client.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
 	staticClient, err := client.NewStatic(cli, contract, fee)
@@ -30,5 +25,5 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) 
 		return nil, fmt.Errorf("could not create reputation contract client: %w", err)
 	}
 
-	return WrapClient(enhancedRepurationClient), nil
+	return (*ClientWrapper)(enhancedRepurationClient), nil
 }

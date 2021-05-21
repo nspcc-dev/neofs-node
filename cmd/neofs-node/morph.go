@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -74,17 +73,7 @@ func initMorphComponents(c *cfg) {
 		c.cfgMorph.client = cli
 	}, true)
 
-	staticClient, err := client.NewStatic(
-		c.cfgMorph.client,
-		c.cfgNetmap.scriptHash,
-		0,
-	)
-	fatalOnErr(err)
-
-	cli, err := netmap.New(staticClient)
-	fatalOnErr(err)
-
-	wrap, err := wrapper.New(cli)
+	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0)
 	fatalOnErr(err)
 
 	c.cfgObject.netMapStorage = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
