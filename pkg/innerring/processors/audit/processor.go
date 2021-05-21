@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -115,13 +114,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	// creating enhanced client for getting network map
-	netmapClient, err := invoke.NewNetmapClient(p.MorphClient, p.NetmapContract, p.FeeProvider)
+	netmapClient, err := wrapNetmap.NewFromMorph(p.MorphClient, p.NetmapContract, p.FeeProvider.SideChainFee())
 	if err != nil {
 		return nil, err
 	}
 
 	// creating enhanced client for getting containers
-	containerClient, err := invoke.NewContainerClient(p.MorphClient, p.ContainerContract, p.FeeProvider)
+	containerClient, err := wrapContainer.NewFromMorph(p.MorphClient, p.ContainerContract, p.FeeProvider.SideChainFee())
 	if err != nil {
 		return nil, err
 	}

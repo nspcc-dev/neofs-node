@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/invoke"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
@@ -26,6 +25,10 @@ import (
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
@@ -345,27 +348,29 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	server.auditClient, err = invoke.NewAuditClient(server.morphClient, server.contracts.audit, server.feeConfig)
+	fee := server.feeConfig.SideChainFee()
+
+	server.auditClient, err = auditWrapper.NewFromMorph(server.morphClient, server.contracts.audit, fee)
 	if err != nil {
 		return nil, err
 	}
 
-	cnrClient, err := invoke.NewContainerClient(server.morphClient, server.contracts.container, server.feeConfig)
+	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee)
 	if err != nil {
 		return nil, err
 	}
 
-	nmClient, err := invoke.NewNetmapClient(server.morphClient, server.contracts.netmap, server.feeConfig)
+	nmClient, err := nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee)
 	if err != nil {
 		return nil, err
 	}
 
-	balClient, err := invoke.NewBalanceClient(server.morphClient, server.contracts.balance, server.feeConfig)
+	balClient, err := balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee)
 	if err != nil {
 		return nil, err
 	}
 
-	repClient, err := invoke.NewReputationClient(server.morphClient, server.contracts.reputation, server.feeConfig)
+	repClient, err := repWrapper.NewFromMorph(server.morphClient, server.contracts.reputation, fee)
 	if err != nil {
 		return nil, err
 	}

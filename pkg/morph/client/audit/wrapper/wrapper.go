@@ -1,6 +1,9 @@
 package audit
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 )
 
@@ -11,4 +14,14 @@ type ClientWrapper audit.Client
 // WrapClient wraps Audit contract client and returns ClientWrapper instance.
 func WrapClient(c *audit.Client) *ClientWrapper {
 	return (*ClientWrapper)(c)
+}
+
+// NewFromMorph returns the wrapper instance from the raw morph client.
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee)
+	if err != nil {
+		return nil, err
+	}
+
+	return WrapClient(audit.New(staticClient)), nil
 }
