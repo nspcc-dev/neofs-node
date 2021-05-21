@@ -22,7 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-node/pkg/policy"
+	"github.com/nspcc-dev/neofs-sdk-go/pkg/policy"
 	"github.com/spf13/cobra"
 )
 
