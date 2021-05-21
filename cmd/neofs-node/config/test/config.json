@@ -10,5 +10,9 @@
       "string2"
     ],
     "incorrect": null
+  },
+  "string": {
+    "correct": "some string",
+    "incorrect": []
   }
 }
