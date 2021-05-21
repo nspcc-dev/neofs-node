@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
-	github.com/alecthomas/participle v0.6.0
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
@@ -16,6 +15,7 @@ require (
 	github.com/nspcc-dev/neo-go v0.95.0
 	github.com/nspcc-dev/neofs-api-go v1.26.1
 	github.com/nspcc-dev/neofs-crypto v0.3.0
+	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20210520210714-9dee13f0d556
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.3.0
 	github.com/paulmach/orb v0.2.1
