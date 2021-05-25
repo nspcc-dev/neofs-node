@@ -34,6 +34,13 @@ func (p *SetEACLArgs) SetPublicKey(v []byte) {
 	p.pubkey = v
 }
 
+// SetSessionToken sets token of the session
+// within which the eACL table was set
+// in a binary format.
+func (p *SetEACLArgs) SetSessionToken(v []byte) {
+	p.token = v
+}
+
 // SetEACL invokes the call of set eACL method
 // of NeoFS Container contract.
 func (c *Client) SetEACL(args SetEACLArgs) error {
