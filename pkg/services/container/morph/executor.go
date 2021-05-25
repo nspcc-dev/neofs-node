@@ -30,9 +30,11 @@ func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody)
 		return nil, fmt.Errorf("invalid format of the container structure: %w", err)
 	}
 
-	sig := body.GetSignature()
+	cnr.SetSignature(
+		pkg.NewSignatureFromV2(body.GetSignature()),
+	)
 
-	cid, err := wrapper.Put(s.wrapper, cnr, pkg.NewSignatureFromV2(sig))
+	cid, err := wrapper.Put(s.wrapper, cnr)
 	if err != nil {
 		return nil, err
 	}
