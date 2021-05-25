@@ -68,14 +68,14 @@ func PutEACL(w *Wrapper, table *eacl.Table, sig *pkg.Signature) error {
 		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
 
-	return w.PutEACLBinary(data, sig.Key(), sig.Sign())
+	return w.PutEACL(data, sig.Key(), sig.Sign())
 }
 
-// PutEACLBinary save binary eACL table with its key and signature
+// PutEACL saves binary eACL table with its key and signature
 // in NeoFS system through Container contract call.
 //
 // Returns any error encountered that caused the saving to interrupt.
-func (w *Wrapper) PutEACLBinary(table, key, sig []byte) error {
+func (w *Wrapper) PutEACL(table, key, sig []byte) error {
 	if len(sig) == 0 || len(key) == 0 {
 		return errNilArgument
 	}

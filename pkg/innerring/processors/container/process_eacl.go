@@ -69,7 +69,7 @@ func (cp *Processor) checkEACLOwnership(binTable []byte, key *keys.PublicKey) er
 }
 
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
-	err := cp.cnrClient.PutEACLBinary(e.Table(), e.PublicKey(), e.Signature())
+	err := cp.cnrClient.PutEACL(e.Table(), e.PublicKey(), e.Signature())
 	if err != nil {
 		cp.log.Error("could not approve set EACL",
 			zap.String("error", err.Error()),
