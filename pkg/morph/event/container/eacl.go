@@ -38,14 +38,18 @@ func (x SetEACL) PublicKey() []byte {
 }
 
 // ParseSetEACL parses SetEACL notification event from list of stack items.
+//
+// Expects 4 stack items.
 func ParseSetEACL(items []stackitem.Item) (event.Event, error) {
 	var (
 		ev  SetEACL
 		err error
 	)
 
-	if ln := len(items); ln != 3 {
-		return nil, event.WrongNumberOfParameters(3, ln)
+	const expectedItemNumEACL = 4
+
+	if ln := len(items); ln != expectedItemNumEACL {
+		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, ln)
 	}
 
 	// parse table
