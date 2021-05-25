@@ -81,9 +81,9 @@ func (w *Wrapper) PutEACLBinary(table, key, sig []byte) error {
 	}
 
 	args := client.SetEACLArgs{}
-	args.SetSignature(table)
+	args.SetSignature(sig)
 	args.SetPublicKey(key)
-	args.SetEACL(sig)
+	args.SetEACL(table)
 
 	return w.client.SetEACL(args)
 }
