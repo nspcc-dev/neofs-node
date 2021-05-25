@@ -14,6 +14,7 @@ func TestParseEACL(t *testing.T) {
 		binaryTable = []byte("table")
 		signature   = []byte("signature")
 		publicKey   = []byte("pubkey")
+		token       = []byte("token")
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
@@ -55,12 +56,23 @@ func TestParseEACL(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("wrong session token parameter", func(t *testing.T) {
+		_, err := container.ParseSetEACL([]stackitem.Item{
+			stackitem.NewByteArray(binaryTable),
+			stackitem.NewByteArray(signature),
+			stackitem.NewByteArray(publicKey),
+			stackitem.NewMap(),
+		})
+
+		require.Error(t, err)
+	})
+
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := container.ParseSetEACL([]stackitem.Item{
 			stackitem.NewByteArray(binaryTable),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(publicKey),
-			stackitem.NewMap(),
+			stackitem.NewByteArray(token),
 		})
 		require.NoError(t, err)
 
@@ -69,5 +81,6 @@ func TestParseEACL(t *testing.T) {
 		require.Equal(t, binaryTable, e.Table())
 		require.Equal(t, signature, e.Signature())
 		require.Equal(t, publicKey, e.PublicKey())
+		require.Equal(t, token, e.SessionToken())
 	})
 }
