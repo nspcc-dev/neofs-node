@@ -96,7 +96,9 @@ func (s *morphExecutor) SetExtendedACL(ctx context.Context, body *container.SetE
 	table := eaclSDK.NewTableFromV2(body.GetEACL())
 	sign := pkg.NewSignatureFromV2(body.GetSignature())
 
-	err := wrapper.PutEACL(s.wrapper, table, sign)
+	table.SetSignature(sign)
+
+	err := wrapper.PutEACL(s.wrapper, table)
 
 	return new(container.SetExtendedACLResponseBody), err
 }

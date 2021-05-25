@@ -5,14 +5,14 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 )
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, error) {
+func (w *Wrapper) GetEACL(cid *cid.ID) (*eacl.Table, error) {
 	if cid == nil {
 		return nil, errNilArgument
 	}
@@ -60,7 +60,7 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, error) {
 // Returns error if table is nil.
 //
 // If TryNotary is provided, calls notary contract.
-func PutEACL(w *Wrapper, table *eacl.Table, sig *pkg.Signature) error {
+func PutEACL(w *Wrapper, table *eacl.Table) error {
 	if table == nil {
 		return errNilArgument
 	}
@@ -69,6 +69,8 @@ func PutEACL(w *Wrapper, table *eacl.Table, sig *pkg.Signature) error {
 	if err != nil {
 		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
+
+	sig := table.Signature()
 
 	return w.PutEACL(data, sig.Key(), sig.Sign())
 }
