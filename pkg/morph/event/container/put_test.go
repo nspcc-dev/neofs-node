@@ -22,7 +22,7 @@ func TestParsePut(t *testing.T) {
 		}
 
 		_, err := ParsePut(prms)
-		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
+		require.EqualError(t, err, event.WrongNumberOfParameters(expectedItemNumPut, len(prms)).Error())
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
@@ -57,6 +57,7 @@ func TestParsePut(t *testing.T) {
 			stackitem.NewByteArray(containerData),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(publicKey),
+			stackitem.NewMap(),
 		})
 		require.NoError(t, err)
 
