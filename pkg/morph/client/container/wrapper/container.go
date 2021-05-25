@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -126,6 +127,24 @@ func (w *Wrapper) Get(cid []byte) (*container.Container, error) {
 		// use other major version if there any
 		return nil, fmt.Errorf("can't unmarshal container: %w", err)
 	}
+
+	binToken := rpcAnswer.SessionToken()
+	if len(binToken) > 0 {
+		tok := session.NewToken()
+
+		err = tok.Unmarshal(binToken)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
+		}
+
+		cnr.SetSessionToken(tok)
+	}
+
+	sig := pkg.NewSignature()
+	sig.SetKey(rpcAnswer.PublicKey())
+	sig.SetSign(rpcAnswer.Signature())
+
+	cnr.SetSignature(sig)
 
 	return cnr, nil
 }
