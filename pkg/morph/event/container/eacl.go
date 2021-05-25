@@ -16,6 +16,8 @@ type SetEACL struct {
 	signature []byte
 
 	publicKey []byte
+
+	token []byte
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -35,6 +37,12 @@ func (x SetEACL) Signature() []byte {
 // owner in a binary format.
 func (x SetEACL) PublicKey() []byte {
 	return x.publicKey
+}
+
+// Session token returns binary token of the session
+// within which the eACL was set.
+func (x SetEACL) SessionToken() []byte {
+	return x.token
 }
 
 // ParseSetEACL parses SetEACL notification event from list of stack items.
@@ -68,6 +76,12 @@ func ParseSetEACL(items []stackitem.Item) (event.Event, error) {
 	ev.publicKey, err = client.BytesFromStackItem(items[2])
 	if err != nil {
 		return nil, fmt.Errorf("could not parse binary public key: %w", err)
+	}
+
+	// parse session token
+	ev.token, err = client.BytesFromStackItem(items[3])
+	if err != nil {
+		return nil, fmt.Errorf("could not get sesison token: %w", err)
 	}
 
 	return ev, nil
