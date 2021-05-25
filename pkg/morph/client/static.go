@@ -16,11 +16,33 @@ import (
 // expression (or just declaring a StaticClient variable) is unsafe
 // and can lead to panic.
 type StaticClient struct {
+	tryNotary bool
+
 	client *Client // neo-go client instance
 
 	scScriptHash util.Uint160 // contract script-hash
 
 	fee fixedn.Fixed8 // invocation fee
+}
+
+type staticOpts struct {
+	tryNotary bool
+}
+
+// StaticClientOption allows to set an optional
+// parameter of StaticClient.
+type StaticClientOption func(*staticOpts)
+
+func defaultStaticOpts() *staticOpts {
+	return new(staticOpts)
+}
+
+// TryNotaryInvoke returns option to enable
+// notary invocation tries.
+func TryNotary() StaticClientOption {
+	return func(o *staticOpts) {
+		o.tryNotary = true
+	}
 }
 
 // ErrNilStaticClient is returned by functions that expect
@@ -30,12 +52,19 @@ var ErrNilStaticClient = errors.New("static client is nil")
 // NewStatic creates, initializes and returns the StaticClient instance.
 //
 // If provided Client instance is nil, ErrNilClient is returned.
-func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8) (*StaticClient, error) {
+func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts ...StaticClientOption) (*StaticClient, error) {
 	if client == nil {
 		return nil, ErrNilClient
 	}
 
+	o := defaultStaticOpts()
+
+	for i := range opts {
+		opts[i](o)
+	}
+
 	return &StaticClient{
+		tryNotary:    o.tryNotary,
 		client:       client,
 		scScriptHash: scriptHash,
 		fee:          fee,
@@ -44,7 +73,13 @@ func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8) (*Sta
 
 // Invoke calls Invoke method of Client with static internal script hash and fee.
 // Supported args types are the same as in Client.
+//
+// If TryNotary is provided, calls NotaryInvoke on Client.
 func (s StaticClient) Invoke(method string, args ...interface{}) error {
+	if s.tryNotary {
+		return s.client.NotaryInvoke(s.scScriptHash, s.fee, method, args...)
+	}
+
 	return s.client.Invoke(
 		s.scScriptHash,
 		s.fee,
@@ -65,6 +100,8 @@ func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackite
 // NotaryInvoke calls NotaryInvoke method of Client with static internal
 // script hash. Panics if notary support was not enabled in underlying
 // moprh client.
+//
+// Deprecated: provide TryNotary() option to NewStatic and use Invoke.
 func (s StaticClient) NotaryInvoke(method string, args ...interface{}) error {
 	if s.client.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
