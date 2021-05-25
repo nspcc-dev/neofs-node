@@ -65,7 +65,6 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 }
 
 func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
-	// FIXME: here we should try notary invoke
 	// FIXME: here we should bind key to owner if needed
 	err := cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature())
 	if err != nil {
