@@ -29,7 +29,7 @@ type (
 		morphClient       *client.Client
 		alphabetState     AlphabetState
 		feeProvider       *config.FeeConfig
-		cnrClient         *wrapper.Wrapper
+		cnrClient         *wrapper.Wrapper // notary must be enabled
 		idClient          *neofsid.ClientWrapper
 	}
 

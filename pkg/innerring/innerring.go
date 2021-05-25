@@ -357,7 +357,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee)
+	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee, cntWrapper.TryNotary())
 	if err != nil {
 		return nil, err
 	}
