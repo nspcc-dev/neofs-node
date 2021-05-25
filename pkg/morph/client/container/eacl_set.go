@@ -12,6 +12,8 @@ type SetEACLArgs struct {
 	sig []byte // eACL table signature
 
 	pubkey []byte // binary public key
+
+	token []byte // binary session token
 }
 
 // SetEACL sets the extended ACL table
@@ -40,6 +42,7 @@ func (c *Client) SetEACL(args SetEACLArgs) error {
 		args.eacl,
 		args.sig,
 		args.pubkey,
+		args.token,
 	)
 
 	if err != nil {
