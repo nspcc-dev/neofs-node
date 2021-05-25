@@ -23,7 +23,7 @@ func TestParseEACL(t *testing.T) {
 		}
 
 		_, err := container.ParseSetEACL(items)
-		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(items)).Error())
+		require.EqualError(t, err, event.WrongNumberOfParameters(4, len(items)).Error())
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
@@ -60,6 +60,7 @@ func TestParseEACL(t *testing.T) {
 			stackitem.NewByteArray(binaryTable),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(publicKey),
+			stackitem.NewMap(),
 		})
 		require.NoError(t, err)
 
