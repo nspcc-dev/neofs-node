@@ -33,9 +33,14 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
+	binToken, err := cnr.SessionToken().Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal session token: %w", err)
+	}
+
 	sig := cnr.Signature()
 
-	err = w.Put(data, sig.Key(), sig.Sign())
+	err = w.Put(data, sig.Key(), sig.Sign(), binToken)
 	if err != nil {
 		return nil, err
 	}
@@ -46,14 +51,14 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 	return id, nil
 }
 
-// Put saves binary container with its key and signature
+// Put saves binary container with its session token, key and signature
 // in NeoFS system through Container contract call.
 //
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
 //
 // If TryNotary is provided, call notary contract.
-func (w *Wrapper) Put(cnr, key, sig []byte) error {
+func (w *Wrapper) Put(cnr, key, sig, token []byte) error {
 	if len(sig) == 0 || len(key) == 0 {
 		return errNilArgument
 	}
@@ -63,6 +68,7 @@ func (w *Wrapper) Put(cnr, key, sig []byte) error {
 	args.SetContainer(cnr)
 	args.SetSignature(sig)
 	args.SetPublicKey(key)
+	args.SetSessionToken(token)
 
 	err := w.client.Put(args)
 	if err != nil {
