@@ -20,6 +20,8 @@ type EACLValues struct {
 	signature []byte // RFC-6979 signature of extended ACL table
 
 	publicKey []byte // public key of the extended ACL table signer
+
+	token []byte // token of the session within which the eACL table was set
 }
 
 // SetCID sets the container identifier
@@ -42,6 +44,12 @@ func (g *EACLValues) Signature() []byte {
 // PublicKey of the signature.
 func (g *EACLValues) PublicKey() []byte {
 	return g.publicKey
+}
+
+// SessionToken returns token of the session within which
+// the eACl table was set in a NeoFS API binary format.
+func (g *EACLValues) SessionToken() []byte {
+	return g.token
 }
 
 // EACL performs the test invoke of get eACL
@@ -81,9 +89,15 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		return nil, fmt.Errorf("could not get byte array of eACL public key (%s): %w", c.eaclMethod, err)
 	}
 
+	tok, err := client.BytesFromStackItem(arr[3])
+	if err != nil {
+		return nil, fmt.Errorf("could not get byte array of eACL session token (%s): %w", c.eaclMethod, err)
+	}
+
 	return &EACLValues{
 		eacl:      eacl,
 		signature: sig,
 		publicKey: pub,
+		token:     tok,
 	}, nil
 }
