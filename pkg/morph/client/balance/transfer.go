@@ -48,6 +48,9 @@ func (c *Client) TransferX(args TransferXArgs) error {
 
 // TransferXNotary invokes the call of "transferX" method
 // of NeoFS Balance contract via notary contract.
+//
+// Deprecated: construct underlying StaticClient with TryNotary() option
+// and use TransferX.
 func (c *Client) TransferXNotary(args TransferXArgs) error {
 	return c.transferX(true, args)
 }
