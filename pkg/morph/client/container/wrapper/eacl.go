@@ -56,6 +56,8 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, *pkg.Signature, er
 // along with sig.Key() and sig.Sign().
 //
 // Returns error if table is nil.
+//
+// If TryNotary is provided, calls notary contract.
 func PutEACL(w *Wrapper, table *eacl.Table, sig *pkg.Signature) error {
 	if table == nil {
 		return errNilArgument

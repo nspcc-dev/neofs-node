@@ -48,6 +48,8 @@ func Put(w *Wrapper, cnr *container.Container, sig *pkg.Signature) (*container.I
 //
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
+//
+// If TryNotary is provided, call notary contract.
 func (w *Wrapper) Put(cnr, key, sig []byte) error {
 	if len(sig) == 0 || len(key) == 0 {
 		return errNilArgument
@@ -136,6 +138,8 @@ func Delete(w *Wrapper, cid *container.ID, sig *pkg.Signature) error {
 //
 // Returns any error encountered that caused
 // the removal to interrupt.
+//
+// If TryNotary is provided, calls notary contract.
 func (w *Wrapper) Delete(cid, signature []byte) error {
 	if len(signature) == 0 {
 		return errNilArgument
