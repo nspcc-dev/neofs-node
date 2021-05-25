@@ -43,9 +43,18 @@ func (c *Client) Get(args GetArgs) (*GetValues, error) {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.getMethod, ln)
 	}
 
-	cnrBytes, err := client.BytesFromStackItem(prms[0])
+	arr, err := client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not get item array of container (%s): %w", c.getMethod, err)
+	}
+
+	if len(arr) != 4 {
+		return nil, fmt.Errorf("unexpected container stack item count (%s): %d", c.getMethod, len(arr))
+	}
+
+	cnrBytes, err := client.BytesFromStackItem(arr[0])
+	if err != nil {
+		return nil, fmt.Errorf("could not get byte array of container (%s): %w", c.getMethod, err)
 	}
 
 	return &GetValues{
