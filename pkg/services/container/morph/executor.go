@@ -97,11 +97,15 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 	return res, nil
 }
 
-func (s *morphExecutor) SetExtendedACL(ctx context.Context, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
+func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
 	table := eaclSDK.NewTableFromV2(body.GetEACL())
 	sign := pkg.NewSignatureFromV2(body.GetSignature())
 
 	table.SetSignature(sign)
+
+	table.SetSessionToken(
+		session.NewTokenFromV2(ctx.SessionToken),
+	)
 
 	err := wrapper.PutEACL(s.wrapper, table)
 
