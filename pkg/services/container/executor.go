@@ -20,7 +20,7 @@ type ServiceExecutor interface {
 	Delete(context.Context, *container.DeleteRequestBody) (*container.DeleteResponseBody, error)
 	Get(context.Context, *container.GetRequestBody) (*container.GetResponseBody, error)
 	List(context.Context, *container.ListRequestBody) (*container.ListResponseBody, error)
-	SetExtendedACL(context.Context, *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error)
+	SetExtendedACL(ContextWithToken, *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error)
 	GetExtendedACL(context.Context, *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error)
 }
 
@@ -101,7 +101,7 @@ func (s *executorSvc) List(ctx context.Context, req *container.ListRequest) (*co
 }
 
 func (s *executorSvc) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
-	respBody, err := s.exec.SetExtendedACL(ctx, req.GetBody())
+	respBody, err := s.exec.SetExtendedACL(contextWithTokenFromRequest(ctx, req), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute SetEACL request: %w", err)
 	}
