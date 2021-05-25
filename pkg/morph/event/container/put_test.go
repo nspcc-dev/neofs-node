@@ -13,6 +13,7 @@ func TestParsePut(t *testing.T) {
 		containerData = []byte("containerData")
 		signature     = []byte("signature")
 		publicKey     = []byte("pubkey")
+		token         = []byte("token")
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
@@ -52,12 +53,23 @@ func TestParsePut(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("wrong session token parameter", func(t *testing.T) {
+		_, err := ParsePut([]stackitem.Item{
+			stackitem.NewByteArray(containerData),
+			stackitem.NewByteArray(signature),
+			stackitem.NewByteArray(publicKey),
+			stackitem.NewMap(),
+		})
+
+		require.Error(t, err)
+	})
+
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParsePut([]stackitem.Item{
 			stackitem.NewByteArray(containerData),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(publicKey),
-			stackitem.NewMap(),
+			stackitem.NewByteArray(token),
 		})
 		require.NoError(t, err)
 
@@ -65,6 +77,7 @@ func TestParsePut(t *testing.T) {
 			rawContainer: containerData,
 			signature:    signature,
 			publicKey:    publicKey,
+			token:        token,
 		}, ev)
 	})
 }
