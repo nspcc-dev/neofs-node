@@ -70,16 +70,21 @@ func PutEACL(w *Wrapper, table *eacl.Table) error {
 		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
 
+	binToken, err := table.SessionToken().Marshal()
+	if err != nil {
+		return fmt.Errorf("could not marshal session token: %w", err)
+	}
+
 	sig := table.Signature()
 
-	return w.PutEACL(data, sig.Key(), sig.Sign())
+	return w.PutEACL(data, sig.Key(), sig.Sign(), binToken)
 }
 
-// PutEACL saves binary eACL table with its key and signature
+// PutEACL saves binary eACL table with its session token, key and signature
 // in NeoFS system through Container contract call.
 //
 // Returns any error encountered that caused the saving to interrupt.
-func (w *Wrapper) PutEACL(table, key, sig []byte) error {
+func (w *Wrapper) PutEACL(table, key, sig, token []byte) error {
 	if len(sig) == 0 || len(key) == 0 {
 		return errNilArgument
 	}
@@ -88,6 +93,7 @@ func (w *Wrapper) PutEACL(table, key, sig []byte) error {
 	args.SetSignature(sig)
 	args.SetPublicKey(key)
 	args.SetEACL(table)
+	args.SetSessionToken(token)
 
 	return w.client.SetEACL(args)
 }
