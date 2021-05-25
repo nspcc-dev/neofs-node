@@ -110,6 +110,7 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetE
 	res := new(container.GetExtendedACLResponseBody)
 	res.SetEACL(table.ToV2())
 	res.SetSignature(signature.ToV2())
+	res.SetSessionToken(table.SessionToken().ToV2())
 
 	return res, nil
 }
