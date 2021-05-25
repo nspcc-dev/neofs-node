@@ -65,6 +65,8 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 
 	res := new(container.GetResponseBody)
 	res.SetContainer(cnr.ToV2())
+	res.SetSignature(cnr.Signature().ToV2())
+	res.SetSessionToken(cnr.SessionToken().ToV2())
 
 	return res, nil
 }
