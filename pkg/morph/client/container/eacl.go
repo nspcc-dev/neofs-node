@@ -62,7 +62,7 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		return nil, fmt.Errorf("could not get item array of eACL (%s): %w", c.eaclMethod, err)
 	}
 
-	if len(arr) != 3 {
+	if len(arr) != 4 {
 		return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", c.eaclMethod, len(arr))
 	}
 
