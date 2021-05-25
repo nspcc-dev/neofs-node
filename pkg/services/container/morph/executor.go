@@ -8,6 +8,7 @@ import (
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -24,7 +25,7 @@ func NewExecutor(w *wrapper.Wrapper) containerSvc.ServiceExecutor {
 	}
 }
 
-func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody) (*container.PutResponseBody, error) {
+func (s *morphExecutor) Put(ctx containerSvc.PutContext, body *container.PutRequestBody) (*container.PutResponseBody, error) {
 	cnr, err := containerSDK.NewVerifiedFromV2(body.GetContainer())
 	if err != nil {
 		return nil, fmt.Errorf("invalid format of the container structure: %w", err)
@@ -32,6 +33,10 @@ func (s *morphExecutor) Put(ctx context.Context, body *container.PutRequestBody)
 
 	cnr.SetSignature(
 		pkg.NewSignatureFromV2(body.GetSignature()),
+	)
+
+	cnr.SetSessionToken(
+		session.NewTokenFromV2(ctx.SessionToken),
 	)
 
 	cid, err := wrapper.Put(s.wrapper, cnr)
