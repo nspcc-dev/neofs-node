@@ -25,7 +25,7 @@ func NewExecutor(w *wrapper.Wrapper) containerSvc.ServiceExecutor {
 	}
 }
 
-func (s *morphExecutor) Put(ctx containerSvc.PutContext, body *container.PutRequestBody) (*container.PutResponseBody, error) {
+func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.PutRequestBody) (*container.PutResponseBody, error) {
 	cnr, err := containerSDK.NewVerifiedFromV2(body.GetContainer())
 	if err != nil {
 		return nil, fmt.Errorf("invalid format of the container structure: %w", err)

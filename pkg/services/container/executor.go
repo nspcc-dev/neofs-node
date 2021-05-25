@@ -9,14 +9,14 @@ import (
 )
 
 // FIXME: (temp solution) we need to pass session token from header
-type PutContext struct {
+type ContextWithToken struct {
 	context.Context
 
 	SessionToken *session.SessionToken
 }
 
 type ServiceExecutor interface {
-	Put(PutContext, *container.PutRequestBody) (*container.PutResponseBody, error)
+	Put(ContextWithToken, *container.PutRequestBody) (*container.PutResponseBody, error)
 	Delete(context.Context, *container.DeleteRequestBody) (*container.DeleteResponseBody, error)
 	Get(context.Context, *container.GetRequestBody) (*container.GetResponseBody, error)
 	List(context.Context, *container.ListRequestBody) (*container.ListResponseBody, error)
@@ -37,17 +37,23 @@ func NewExecutionService(exec ServiceExecutor) Server {
 	}
 }
 
-func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
+func contextWithTokenFromRequest(ctx context.Context, req interface {
+	GetMetaHeader() *session.RequestMetaHeader
+}) ContextWithToken {
 	var tok *session.SessionToken
 
 	for meta := req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		tok = meta.GetSessionToken()
 	}
 
-	respBody, err := s.exec.Put(PutContext{
+	return ContextWithToken{
 		Context:      ctx,
 		SessionToken: tok,
-	}, req.GetBody())
+	}
+}
+
+func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
+	respBody, err := s.exec.Put(contextWithTokenFromRequest(ctx, req), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute Put request: %w", err)
 	}
