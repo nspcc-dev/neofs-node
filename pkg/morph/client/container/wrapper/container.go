@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -22,7 +23,7 @@ var (
 // along with sig.Key() and sig.Sign().
 //
 // Returns error if container is nil.
-func Put(w *Wrapper, cnr *container.Container, sig *pkg.Signature) (*container.ID, error) {
+func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 	if cnr == nil {
 		return nil, errNilArgument
 	}
@@ -32,12 +33,14 @@ func Put(w *Wrapper, cnr *container.Container, sig *pkg.Signature) (*container.I
 		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
+	sig := cnr.Signature()
+
 	err = w.Put(data, sig.Key(), sig.Sign())
 	if err != nil {
 		return nil, err
 	}
 
-	id := container.NewID()
+	id := cid.New()
 	id.SetSHA256(sha256.Sum256(data))
 
 	return id, nil
