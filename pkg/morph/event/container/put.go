@@ -15,6 +15,8 @@ type Put struct {
 	publicKey    []byte
 }
 
+const expectedItemNumPut = 4
+
 // MorphEvent implements Neo:Morph Event interface.
 func (Put) MorphEvent() {}
 
@@ -34,8 +36,8 @@ func ParsePut(params []stackitem.Item) (event.Event, error) {
 		err error
 	)
 
-	if ln := len(params); ln != 3 {
-		return nil, event.WrongNumberOfParameters(3, ln)
+	if ln := len(params); ln != expectedItemNumPut {
+		return nil, event.WrongNumberOfParameters(expectedItemNumPut, ln)
 	}
 
 	// parse container
