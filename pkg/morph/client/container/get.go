@@ -16,6 +16,12 @@ type GetArgs struct {
 // returned by get container test invoke.
 type GetValues struct {
 	cnr []byte // container in a binary form
+
+	signature []byte // RFC-6979 signature of container
+
+	publicKey []byte // public key of the container signer
+
+	token []byte // token of the session within which the container was created
 }
 
 // SetCID sets the container identifier
@@ -28,6 +34,22 @@ func (g *GetArgs) SetCID(v []byte) {
 // in a binary format.
 func (g *GetValues) Container() []byte {
 	return g.cnr
+}
+
+// Signature returns RFC-6979 signature of the container.
+func (g *GetValues) Signature() []byte {
+	return g.signature
+}
+
+// PublicKey returns public key related to signature.
+func (g *GetValues) PublicKey() []byte {
+	return g.publicKey
+}
+
+// SessionToken returns token of the session within which
+// the container was created in a NeoFS API binary format.
+func (g *GetValues) SessionToken() []byte {
+	return g.token
 }
 
 // Get performs the test invoke of get container
@@ -57,7 +79,25 @@ func (c *Client) Get(args GetArgs) (*GetValues, error) {
 		return nil, fmt.Errorf("could not get byte array of container (%s): %w", c.getMethod, err)
 	}
 
+	sig, err := client.BytesFromStackItem(arr[1])
+	if err != nil {
+		return nil, fmt.Errorf("could not get byte array of container signature (%s): %w", c.getMethod, err)
+	}
+
+	pub, err := client.BytesFromStackItem(arr[2])
+	if err != nil {
+		return nil, fmt.Errorf("could not get byte array of public key (%s): %w", c.getMethod, err)
+	}
+
+	tok, err := client.BytesFromStackItem(arr[3])
+	if err != nil {
+		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", c.getMethod, err)
+	}
+
 	return &GetValues{
-		cnr: cnrBytes,
+		cnr:       cnrBytes,
+		signature: sig,
+		publicKey: pub,
+		token:     tok,
 	}, nil
 }
