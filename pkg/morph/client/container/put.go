@@ -36,6 +36,13 @@ func (p *PutArgs) SetSignature(v []byte) {
 	p.sig = v
 }
 
+// SetSessionToken sets token of the session
+// within which the container was created
+// in a binary format.
+func (p *PutArgs) SetSessionToken(v []byte) {
+	p.token = v
+}
+
 // Put invokes the call of put container method
 // of NeoFS Container contract.
 func (c *Client) Put(args PutArgs) error {
