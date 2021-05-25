@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 )
@@ -39,15 +40,27 @@ func (w *Wrapper) GetEACL(cid *cid.ID) (*eacl.Table, error) {
 		return nil, container.ErrEACLNotFound
 	}
 
-	tableSignature := pkg.NewSignature()
-	tableSignature.SetKey(rpcAnswer.PublicKey())
-	tableSignature.SetSign(sig)
-
 	table := eacl.NewTable()
 	if err = table.Unmarshal(rpcAnswer.EACL()); err != nil {
 		// use other major version if there any
 		return nil, err
 	}
+
+	binToken := rpcAnswer.SessionToken()
+	if len(binToken) > 0 {
+		tok := session.NewToken()
+
+		err = tok.Unmarshal(binToken)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
+		}
+
+		table.SetSessionToken(tok)
+	}
+
+	tableSignature := pkg.NewSignature()
+	tableSignature.SetKey(rpcAnswer.PublicKey())
+	tableSignature.SetSign(sig)
 
 	table.SetSignature(tableSignature)
 
