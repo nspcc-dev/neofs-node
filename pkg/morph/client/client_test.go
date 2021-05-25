@@ -11,6 +11,7 @@ func TestToStackParameter(t *testing.T) {
 	items := []struct {
 		value   interface{}
 		expType sc.ParamType
+		expVal  interface{}
 	}{
 		{
 			value:   []byte{1, 2, 3},
@@ -24,6 +25,16 @@ func TestToStackParameter(t *testing.T) {
 			value:   "hello world",
 			expType: sc.StringType,
 		},
+		{
+			value:   false,
+			expType: sc.IntegerType,
+			expVal:  int64(0),
+		},
+		{
+			value:   true,
+			expType: sc.IntegerType,
+			expVal:  int64(1),
+		},
 	}
 
 	for _, item := range items {
@@ -31,7 +42,11 @@ func TestToStackParameter(t *testing.T) {
 			res, err := toStackParameter(item.value)
 			require.NoError(t, err)
 			require.Equal(t, item.expType, res.Type)
-			require.Equal(t, item.value, res.Value)
+			if item.expVal != nil {
+				require.Equal(t, item.expVal, res.Value)
+			} else {
+				require.Equal(t, item.value, res.Value)
+			}
 		})
 	}
 }
