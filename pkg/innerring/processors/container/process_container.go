@@ -66,7 +66,7 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 
 func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
 	// FIXME: here we should bind key to owner if needed
-	err := cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), nil)
+	err := cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), e.SessionToken())
 	if err != nil {
 		cp.log.Error("could not approve put container",
 			zap.String("error", err.Error()),
