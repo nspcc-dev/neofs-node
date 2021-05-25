@@ -12,23 +12,23 @@ import (
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, *pkg.Signature, error) {
+func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, error) {
 	if cid == nil {
-		return nil, nil, errNilArgument
+		return nil, errNilArgument
 	}
 
 	args := client.EACLArgs{}
 
 	v2 := cid.ToV2()
 	if v2 == nil {
-		return nil, nil, errUnsupported // use other major version if there any
+		return nil, errUnsupported // use other major version if there any
 	}
 
 	args.SetCID(v2.GetValue())
 
 	rpcAnswer, err := w.client.EACL(args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Client may not return errors if the table is missing, so check this case additionally.
@@ -36,7 +36,7 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, *pkg.Signature, er
 	// since unsigned table cannot be approved in the storage by design.
 	sig := rpcAnswer.Signature()
 	if len(sig) == 0 {
-		return nil, nil, container.ErrEACLNotFound
+		return nil, container.ErrEACLNotFound
 	}
 
 	tableSignature := pkg.NewSignature()
@@ -46,10 +46,12 @@ func (w *Wrapper) GetEACL(cid *containerSDK.ID) (*eacl.Table, *pkg.Signature, er
 	table := eacl.NewTable()
 	if err = table.Unmarshal(rpcAnswer.EACL()); err != nil {
 		// use other major version if there any
-		return nil, nil, err
+		return nil, err
 	}
 
-	return table, tableSignature, nil
+	table.SetSignature(tableSignature)
+
+	return table, nil
 }
 
 // PutEACL marshals table, and passes it to Wrapper's PutEACLBinary method
