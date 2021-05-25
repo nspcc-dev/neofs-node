@@ -102,14 +102,14 @@ func (s *morphExecutor) SetExtendedACL(ctx context.Context, body *container.SetE
 func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
 	cid := containerSDK.NewIDFromV2(body.GetContainerID())
 
-	table, signature, err := s.wrapper.GetEACL(cid)
+	table, err := s.wrapper.GetEACL(cid)
 	if err != nil {
 		return nil, err
 	}
 
 	res := new(container.GetExtendedACLResponseBody)
 	res.SetEACL(table.ToV2())
-	res.SetSignature(signature.ToV2())
+	res.SetSignature(table.Signature().ToV2())
 	res.SetSessionToken(table.SessionToken().ToV2())
 
 	return res, nil

@@ -371,10 +371,12 @@ func (s *signedEACLTable) SignedDataSize() int {
 }
 
 func (s *morphEACLStorage) GetEACL(cid *container.ID) (*eaclSDK.Table, error) {
-	table, sig, err := s.w.GetEACL(cid)
+	table, err := s.w.GetEACL(cid)
 	if err != nil {
 		return nil, err
 	}
+
+	sig := table.Signature()
 
 	if err := signature.VerifyDataWithSource(
 		(*signedEACLTable)(table),
