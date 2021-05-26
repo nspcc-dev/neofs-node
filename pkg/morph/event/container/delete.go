@@ -12,6 +12,7 @@ import (
 type Delete struct {
 	containerID []byte
 	signature   []byte
+	token       []byte
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -23,15 +24,25 @@ func (d Delete) ContainerID() []byte { return d.containerID }
 // Signature of marshalled container by container owner.
 func (d Delete) Signature() []byte { return d.signature }
 
+// SessionToken returns binary token of the session
+// within which the eACL was set.
+func (d Delete) SessionToken() []byte {
+	return d.token
+}
+
 // ParseDelete from notification into container event structure.
+//
+// Expects 3 stack items.
 func ParseDelete(params []stackitem.Item) (event.Event, error) {
 	var (
 		ev  Delete
 		err error
 	)
 
-	if ln := len(params); ln != 2 {
-		return nil, event.WrongNumberOfParameters(2, ln)
+	const expectedItemNumEACL = 3
+
+	if ln := len(params); ln != expectedItemNumEACL {
+		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, ln)
 	}
 
 	// parse container
@@ -44,6 +55,12 @@ func ParseDelete(params []stackitem.Item) (event.Event, error) {
 	ev.signature, err = client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, fmt.Errorf("could not get signature: %w", err)
+	}
+
+	// parse session token
+	ev.token, err = client.BytesFromStackItem(params[2])
+	if err != nil {
+		return nil, fmt.Errorf("could not get session token: %w", err)
 	}
 
 	return ev, nil

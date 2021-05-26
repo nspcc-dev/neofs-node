@@ -12,6 +12,7 @@ func TestParseDelete(t *testing.T) {
 	var (
 		containerID = []byte("containreID")
 		signature   = []byte("signature")
+		token       = []byte("token")
 	)
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
@@ -20,7 +21,7 @@ func TestParseDelete(t *testing.T) {
 		}
 
 		_, err := ParseDelete(prms)
-		require.EqualError(t, err, event.WrongNumberOfParameters(2, len(prms)).Error())
+		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
@@ -40,10 +41,21 @@ func TestParseDelete(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("wrong session token parameter", func(t *testing.T) {
+		_, err := ParseDelete([]stackitem.Item{
+			stackitem.NewByteArray(containerID),
+			stackitem.NewByteArray(signature),
+			stackitem.NewMap(),
+		})
+
+		require.Error(t, err)
+	})
+
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParseDelete([]stackitem.Item{
 			stackitem.NewByteArray(containerID),
 			stackitem.NewByteArray(signature),
+			stackitem.NewByteArray(token),
 		})
 
 		require.NoError(t, err)
@@ -51,6 +63,7 @@ func TestParseDelete(t *testing.T) {
 		require.Equal(t, Delete{
 			containerID: containerID,
 			signature:   signature,
+			token:       token,
 		}, ev)
 	})
 }
