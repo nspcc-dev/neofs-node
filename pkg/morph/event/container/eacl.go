@@ -81,7 +81,7 @@ func ParseSetEACL(items []stackitem.Item) (event.Event, error) {
 	// parse session token
 	ev.token, err = client.BytesFromStackItem(items[3])
 	if err != nil {
-		return nil, fmt.Errorf("could not get sesison token: %w", err)
+		return nil, fmt.Errorf("could not get session token: %w", err)
 	}
 
 	return ev, nil
