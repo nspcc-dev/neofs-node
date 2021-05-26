@@ -17,7 +17,7 @@ type ContextWithToken struct {
 
 type ServiceExecutor interface {
 	Put(ContextWithToken, *container.PutRequestBody) (*container.PutResponseBody, error)
-	Delete(context.Context, *container.DeleteRequestBody) (*container.DeleteResponseBody, error)
+	Delete(ContextWithToken, *container.DeleteRequestBody) (*container.DeleteResponseBody, error)
 	Get(context.Context, *container.GetRequestBody) (*container.GetResponseBody, error)
 	List(context.Context, *container.ListRequestBody) (*container.ListResponseBody, error)
 	SetExtendedACL(ContextWithToken, *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error)
@@ -65,7 +65,7 @@ func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*cont
 }
 
 func (s *executorSvc) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
-	respBody, err := s.exec.Delete(ctx, req.GetBody())
+	respBody, err := s.exec.Delete(contextWithTokenFromRequest(ctx, req), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute Delete request: %w", err)
 	}

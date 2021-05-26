@@ -51,14 +51,16 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 	return res, nil
 }
 
-func (s *morphExecutor) Delete(ctx context.Context, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
+func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
 	cid := containerSDK.NewIDFromV2(body.GetContainerID())
 	sig := body.GetSignature().GetSign()
+	tok := session.NewTokenFromV2(ctx.SessionToken)
 
 	var rmWitness containercore.RemovalWitness
 
 	rmWitness.SetContainerID(cid)
 	rmWitness.SetSignature(sig)
+	rmWitness.SetSessionToken(tok)
 
 	err := wrapper.Delete(s.wrapper, rmWitness)
 	if err != nil {
