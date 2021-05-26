@@ -26,6 +26,13 @@ func (p *DeleteArgs) SetSignature(v []byte) {
 	p.sig = v
 }
 
+// SetSessionToken sets token of the session
+// within which the container was removed
+// in a NeoFS API binary format.
+func (p *DeleteArgs) SetSessionToken(v []byte) {
+	p.token = v
+}
+
 // Delete invokes the call of delete container
 // method of NeoFS Container contract.
 func (c *Client) Delete(args DeleteArgs) error {

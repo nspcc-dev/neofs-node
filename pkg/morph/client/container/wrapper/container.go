@@ -150,7 +150,7 @@ func (w *Wrapper) Get(cid []byte) (*container.Container, error) {
 }
 
 // Delete marshals container ID, and passes it to Wrapper's Delete method
-// along with signature.
+// along with signature and session token.
 //
 // Returns error if container ID is nil.
 func Delete(w *Wrapper, witness core.RemovalWitness) error {
@@ -159,7 +159,12 @@ func Delete(w *Wrapper, witness core.RemovalWitness) error {
 		return errNilArgument
 	}
 
-	return w.Delete(id.ToV2().GetValue(), witness.Signature())
+	binToken, err := witness.SessionToken().Marshal()
+	if err != nil {
+		return fmt.Errorf("could not marshal session token: %w", err)
+	}
+
+	return w.Delete(id.ToV2().GetValue(), witness.Signature(), binToken)
 }
 
 // Delete removes the container from NeoFS system
@@ -169,7 +174,7 @@ func Delete(w *Wrapper, witness core.RemovalWitness) error {
 // the removal to interrupt.
 //
 // If TryNotary is provided, calls notary contract.
-func (w *Wrapper) Delete(cid, signature []byte) error {
+func (w *Wrapper) Delete(cid, signature, token []byte) error {
 	if len(signature) == 0 {
 		return errNilArgument
 	}
@@ -178,6 +183,7 @@ func (w *Wrapper) Delete(cid, signature []byte) error {
 
 	args.SetSignature(signature)
 	args.SetCID(cid)
+	args.SetSessionToken(token)
 
 	return w.client.Delete(args)
 }
