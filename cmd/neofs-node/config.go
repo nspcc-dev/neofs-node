@@ -354,6 +354,10 @@ func initCfg(path string) *cfg {
 		tlsKeyFile = viperCfg.GetString(cfgTLSKeyFile)
 	}
 
+	if tlsEnabled {
+		netAddr.AddTLS()
+	}
+
 	state := newNetworkState()
 
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
