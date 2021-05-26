@@ -124,7 +124,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	// FIXME: here we should try notary invoke
-	err := cp.cnrClient.Delete(e.ContainerID(), e.Signature(), nil)
+	err := cp.cnrClient.Delete(e.ContainerID(), e.Signature(), e.SessionToken())
 	if err != nil {
 		cp.log.Error("could not approve delete container",
 			zap.String("error", err.Error()),
