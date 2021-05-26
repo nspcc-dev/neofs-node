@@ -144,7 +144,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 		return err
 	}
 
-	sTok := request.GetMetaHeader().GetSessionToken()
+	sTok := originalSessionToken(request.GetMetaHeader())
 
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -192,7 +192,7 @@ func (b Service) Head(
 		return nil, err
 	}
 
-	sTok := request.GetMetaHeader().GetSessionToken()
+	sTok := originalSessionToken(request.GetMetaHeader())
 
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -235,7 +235,7 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   request.GetMetaHeader().GetSessionToken(),
+		token:   originalSessionToken(request.GetMetaHeader()),
 		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
@@ -268,7 +268,7 @@ func (b Service) Delete(
 		return nil, err
 	}
 
-	sTok := request.GetMetaHeader().GetSessionToken()
+	sTok := originalSessionToken(request.GetMetaHeader())
 
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -300,7 +300,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 		return err
 	}
 
-	sTok := request.GetMetaHeader().GetSessionToken()
+	sTok := originalSessionToken(request.GetMetaHeader())
 
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -338,7 +338,7 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
-	sTok := request.GetMetaHeader().GetSessionToken()
+	sTok := originalSessionToken(request.GetMetaHeader())
 
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -780,4 +780,14 @@ func originalBearerToken(header *session.RequestMetaHeader) *bearer.BearerToken 
 	}
 
 	return header.GetBearerToken()
+}
+
+// originalSessionToken goes down to original request meta header and fetches
+// session token from there.
+func originalSessionToken(header *session.RequestMetaHeader) *session.SessionToken {
+	for header.GetOrigin() != nil {
+		header = header.GetOrigin()
+	}
+
+	return header.GetSessionToken()
 }
