@@ -2,6 +2,7 @@ package container
 
 import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 )
 
 // RemovalWitness groups the information required
@@ -10,6 +11,8 @@ type RemovalWitness struct {
 	cid *cid.ID
 
 	sig []byte
+
+	token *session.Token
 }
 
 // ContainerID returns identifier of the container
@@ -32,4 +35,16 @@ func (x RemovalWitness) Signature() []byte {
 // SetSignature sets signature of the container identifier.
 func (x *RemovalWitness) SetSignature(sig []byte) {
 	x.sig = sig
+}
+
+// SessionToken returns token of the session within
+// which container was removed.
+func (x RemovalWitness) SessionToken() *session.Token {
+	return x.token
+}
+
+// SetSessionToken sets token of the session within
+// which container was removed.
+func (x *RemovalWitness) SetSessionToken(tok *session.Token) {
+	x.token = tok
 }
