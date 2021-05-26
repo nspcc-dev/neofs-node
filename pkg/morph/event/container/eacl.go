@@ -39,7 +39,7 @@ func (x SetEACL) PublicKey() []byte {
 	return x.publicKey
 }
 
-// Session token returns binary token of the session
+// SessionToken returns binary token of the session
 // within which the eACL was set.
 func (x SetEACL) SessionToken() []byte {
 	return x.token

@@ -30,7 +30,7 @@ func (p Put) Signature() []byte { return p.signature }
 // PublicKey of container owner.
 func (p Put) PublicKey() []byte { return p.publicKey }
 
-// Session token returns binary token of the session
+// SessionToken returns binary token of the session
 // within which the container was created.
 func (p Put) SessionToken() []byte {
 	return p.token
