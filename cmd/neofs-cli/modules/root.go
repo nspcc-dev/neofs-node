@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -240,7 +241,17 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 		return nil, errInvalidEndpoint
 	}
 
-	c, err := client.New(client.WithAddress(hostAddr), client.WithDefaultPrivateKey(key))
+	options := []client.Option{
+		client.WithAddress(hostAddr),
+		client.WithDefaultPrivateKey(key),
+	}
+
+	if netAddr.TLSEnabled() {
+		options = append(options, client.WithTLSConfig(&tls.Config{}))
+	}
+
+	c, err := client.New(options...)
+
 	return c, err
 }
 
