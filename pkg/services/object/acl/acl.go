@@ -149,7 +149,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  request.GetMetaHeader().GetBearerToken(),
+		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
 
@@ -197,7 +197,7 @@ func (b Service) Head(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  request.GetMetaHeader().GetBearerToken(),
+		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
 
@@ -236,7 +236,7 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   request.GetMetaHeader().GetSessionToken(),
-		bearer:  request.GetMetaHeader().GetBearerToken(),
+		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
 
@@ -273,7 +273,7 @@ func (b Service) Delete(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  request.GetMetaHeader().GetBearerToken(),
+		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
 
@@ -305,7 +305,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  request.GetMetaHeader().GetBearerToken(),
+		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
 
@@ -343,7 +343,7 @@ func (b Service) GetRangeHash(
 	req := metaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  request.GetMetaHeader().GetBearerToken(),
+		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
 
@@ -387,7 +387,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 		req := metaWithToken{
 			vheader: request.GetVerificationHeader(),
 			token:   sTok,
-			bearer:  request.GetMetaHeader().GetBearerToken(),
+			bearer:  originalBearerToken(request.GetMetaHeader()),
 			src:     request,
 		}
 
@@ -770,4 +770,14 @@ func isOwnerFromKey(id *owner.ID, key *ecdsa.PublicKey) bool {
 	// we can compare .String() version of owners but don't think it is good idea
 	// binary comparison is better but MarshalBinary is more expensive
 	return bytes.Equal(id.ToV2().GetValue(), wallet.Bytes())
+}
+
+// originalBearerToken goes down to original request meta header and fetches
+// bearer token from there.
+func originalBearerToken(header *session.RequestMetaHeader) *bearer.BearerToken {
+	for header.GetOrigin() != nil {
+		header = header.GetOrigin()
+	}
+
+	return header.GetBearerToken()
 }
