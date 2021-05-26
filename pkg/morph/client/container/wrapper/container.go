@@ -150,15 +150,16 @@ func (w *Wrapper) Get(cid []byte) (*container.Container, error) {
 }
 
 // Delete marshals container ID, and passes it to Wrapper's Delete method
-// along with sig.Key() and sig.Sign().
+// along with signature.
 //
-// Returns error if cid is nil.
-func Delete(w *Wrapper, cid *container.ID, sig *pkg.Signature) error {
-	if cid == nil {
+// Returns error if container ID is nil.
+func Delete(w *Wrapper, witness core.RemovalWitness) error {
+	id := witness.ContainerID()
+	if id == nil {
 		return errNilArgument
 	}
 
-	return w.Delete(cid.ToV2().GetValue(), sig.Sign())
+	return w.Delete(id.ToV2().GetValue(), witness.Signature())
 }
 
 // Delete removes the container from NeoFS system

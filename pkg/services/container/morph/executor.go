@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 )
@@ -52,9 +53,14 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 
 func (s *morphExecutor) Delete(ctx context.Context, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
 	cid := containerSDK.NewIDFromV2(body.GetContainerID())
-	sig := pkg.NewSignatureFromV2(body.GetSignature())
+	sig := body.GetSignature().GetSign()
 
-	err := wrapper.Delete(s.wrapper, cid, sig)
+	var rmWitness containercore.RemovalWitness
+
+	rmWitness.SetContainerID(cid)
+	rmWitness.SetSignature(sig)
+
+	err := wrapper.Delete(s.wrapper, rmWitness)
 	if err != nil {
 		return nil, err
 	}
