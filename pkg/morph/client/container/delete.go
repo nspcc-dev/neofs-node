@@ -10,6 +10,8 @@ type DeleteArgs struct {
 	cid []byte // container identifier
 
 	sig []byte // container identifier signature
+
+	token []byte // binary session token
 }
 
 // SetCID sets the container identifier
@@ -31,6 +33,7 @@ func (c *Client) Delete(args DeleteArgs) error {
 		c.deleteMethod,
 		args.cid,
 		args.sig,
+		args.token,
 	)
 
 	if err != nil {
