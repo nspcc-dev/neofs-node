@@ -14,8 +14,6 @@ type PutArgs struct {
 	publicKey []byte // public key of container owner
 
 	token []byte // binary session token
-
-	bindKey bool // bind key to account or not
 }
 
 // SetPublicKey sets the public key of container owner
@@ -52,7 +50,6 @@ func (c *Client) Put(args PutArgs) error {
 		args.sig,
 		args.publicKey,
 		args.token,
-		args.bindKey,
 	)
 
 	if err != nil {
