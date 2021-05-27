@@ -61,6 +61,16 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 		return fmt.Errorf("incorrect container format: %w", err)
 	}
 
+	// unmarshal session token if presented
+	tok, err := tokenFromEvent(e)
+	if err != nil {
+		return err
+	}
+
+	// TODO: check verb and CID
+
+	cnr.SetSessionToken(tok)
+
 	return cp.checkKeyOwnership(cnr, key)
 }
 
@@ -102,18 +112,42 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	// receive all owner keys
-	ownerKeys, err := cp.idClient.AccountKeys(cnr.OwnerID())
+	token, err := tokenFromEvent(e)
 	if err != nil {
-		return fmt.Errorf("could not received owner keys %s: %w", cnr.OwnerID(), err)
+		return err
+	}
+
+	var checkKeys keys.PublicKeys
+
+	if token != nil {
+		key, err := keys.NewPublicKeyFromBytes(token.SessionKey(), elliptic.P256())
+		if err != nil {
+			return fmt.Errorf("invalid session key: %w", err)
+		}
+
+		// TODO: check verb and container ID
+
+		// check token ownership
+		err = cp.checkKeyOwnershipWithToken(cnr, key, token)
+		if err != nil {
+			return err
+		}
+
+		checkKeys = keys.PublicKeys{key}
+	} else {
+		// receive all owner keys from NeoFS ID contract
+		checkKeys, err = cp.idClient.AccountKeys(cnr.OwnerID())
+		if err != nil {
+			return fmt.Errorf("could not received owner keys %s: %w", cnr.OwnerID(), err)
+		}
 	}
 
 	// verify signature
 	cidHash := sha256.Sum256(cid)
 	sig := e.Signature()
 
-	for _, ownerKey := range ownerKeys {
-		if ownerKey.Verify(sig, cidHash[:]) {
+	for _, key := range checkKeys {
+		if key.Verify(sig, cidHash[:]) {
 			return nil
 		}
 	}
