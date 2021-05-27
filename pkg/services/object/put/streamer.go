@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -18,6 +19,8 @@ type Streamer struct {
 	ctx context.Context
 
 	target transformer.ObjectTarget
+
+	relay func(client.Client) error
 }
 
 var errNotInit = errors.New("stream not initialized")
@@ -48,6 +51,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	}
 
 	if prm.hdr.Signature() != nil {
+		p.relay = prm.relay
+
 		// prepare untrusted-Put object target
 		p.target = &validatingTarget{
 			nextTarget: p.newCommonTarget(prm),
@@ -128,7 +133,25 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	return nil
 }
 
+var errLocalAddress = errors.New("can't relay to local address")
+
 func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
+	var relay func(*network.Address) error
+	if p.relay != nil {
+		relay = func(addr *network.Address) error {
+			if network.IsLocalAddress(p.localAddrSrc, addr) {
+				return errLocalAddress
+			}
+
+			c, err := p.clientConstructor.Get(addr)
+			if err != nil {
+				return fmt.Errorf("could not create SDK client %s: %w", addr, err)
+			}
+
+			return p.relay(c)
+		}
+	}
+
 	return &distributedTarget{
 		traverseOpts: prm.traverseOpts,
 		workerPool:   p.workerPool,
@@ -147,8 +170,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				clientConstructor: p.clientConstructor,
 			}
 		},
-		fmt: p.fmtValidator,
-		log: p.log,
+		relay: relay,
+		fmt:   p.fmtValidator,
+		log:   p.log,
 	}
 }
 
