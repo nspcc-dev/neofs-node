@@ -38,22 +38,19 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("invalid key: %w", err)
 	}
 
-	table := e.Table()
-	tableHash := sha256.Sum256(table)
+	binTable := e.Table()
+	tableHash := sha256.Sum256(binTable)
 
 	if !key.Verify(e.Signature(), tableHash[:]) {
 		return errors.New("invalid signature")
 	}
 
 	// verify the identity of the container owner
-	return cp.checkEACLOwnership(table, key)
-}
 
-func (cp *Processor) checkEACLOwnership(binTable []byte, key *keys.PublicKey) error {
 	// unmarshal table
 	table := eacl.NewTable()
 
-	err := table.Unmarshal(binTable)
+	err = table.Unmarshal(binTable)
 	if err != nil {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
@@ -64,8 +61,16 @@ func (cp *Processor) checkEACLOwnership(binTable []byte, key *keys.PublicKey) er
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
+	// unmarshal session token if presented
+	tok, err := tokenFromEvent(e)
+	if err != nil {
+		return err
+	}
+
+	// TODO: check verb and container ID
+
 	// check key ownership
-	return cp.checkKeyOwnership(cnr, key)
+	return cp.checkKeyOwnershipWithToken(cnr, key, tok)
 }
 
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
