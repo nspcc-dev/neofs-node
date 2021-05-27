@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -12,6 +13,8 @@ type PutInitPrm struct {
 	hdr *object.RawObject
 
 	traverseOpts []placement.Option
+
+	relay func(client.Client) error
 }
 
 type PutChunkPrm struct {
@@ -37,6 +40,14 @@ func (p *PutInitPrm) WithTraverseOption(opt placement.Option) *PutInitPrm {
 func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
 	if p != nil {
 		p.hdr = v
+	}
+
+	return p
+}
+
+func (p *PutInitPrm) WithRelay(f func(client.Client) error) *PutInitPrm {
+	if p != nil {
+		p.relay = f
 	}
 
 	return p

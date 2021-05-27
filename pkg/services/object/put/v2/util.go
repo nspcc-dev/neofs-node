@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
-func toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) (*putsvc.PutInitPrm, error) {
+func (s *streamer) toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) (*putsvc.PutInitPrm, error) {
 	oV2 := new(objectV2.Object)
 	oV2.SetObjectID(part.GetObjectID())
 	oV2.SetSignature(part.GetSignature())
@@ -22,6 +22,7 @@ func toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) (*put
 		WithObject(
 			object.NewRawFromV2(oV2),
 		).
+		WithRelay(s.relayRequest).
 		WithCommonPrm(commonPrm), nil
 }
 

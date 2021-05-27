@@ -3,12 +3,18 @@ package putsvc
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 )
 
 type streamer struct {
-	stream *putsvc.Streamer
+	stream     *putsvc.Streamer
+	saveChunks bool
+	init       *object.PutRequest
+	chunks     []*object.PutRequest
 }
 
 func (s *streamer) Send(req *object.PutRequest) (err error) {
@@ -16,7 +22,7 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 	case *object.PutObjectPartInit:
 		var initPrm *putsvc.PutInitPrm
 
-		initPrm, err = toInitPrm(v, req)
+		initPrm, err = s.toInitPrm(v, req)
 		if err != nil {
 			return err
 		}
@@ -24,9 +30,18 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 		if err = s.stream.Init(initPrm); err != nil {
 			err = fmt.Errorf("(%T) could not init object put stream: %w", s, err)
 		}
+
+		s.saveChunks = v.GetSignature() != nil
+		if s.saveChunks {
+			s.init = req
+		}
 	case *object.PutObjectPartChunk:
 		if err = s.stream.SendChunk(toChunkPrm(v)); err != nil {
 			err = fmt.Errorf("(%T) could not send payload chunk: %w", s, err)
+		}
+
+		if s.saveChunks {
+			s.chunks = append(s.chunks, req)
 		}
 	default:
 		err = fmt.Errorf("(%T) invalid object put stream part type %T", s, v)
@@ -42,4 +57,38 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	}
 
 	return fromPutResponse(resp), nil
+}
+
+func (s *streamer) relayRequest(c client.Client) error {
+	// open stream
+	resp := new(object.PutResponse)
+
+	stream, err := rpc.PutObject(c.Raw(), resp)
+	if err != nil {
+		return fmt.Errorf("stream opening failed: %w", err)
+	}
+
+	// send init part
+	err = stream.Write(s.init)
+	if err != nil {
+		return fmt.Errorf("sending the initial message to stream failed: %w", err)
+	}
+
+	for i := range s.chunks {
+		if err := stream.Write(s.chunks[i]); err != nil {
+			return fmt.Errorf("sending the chunk %d failed: %w", i, err)
+		}
+	}
+
+	// close object stream and receive response from remote node
+	err = stream.Close()
+	if err != nil {
+		return fmt.Errorf("closing the stream failed: %w", err)
+	}
+
+	// verify response structure
+	if err := signature.VerifyServiceMessage(resp); err != nil {
+		return fmt.Errorf("response verification failed: %w", err)
+	}
+	return nil
 }

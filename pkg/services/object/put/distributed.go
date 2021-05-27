@@ -25,6 +25,8 @@ type distributedTarget struct {
 
 	nodeTargetInitializer func(*network.Address) transformer.ObjectTarget
 
+	relay func(*network.Address) error
+
 	fmt *object.FormatValidator
 
 	log *logger.Logger
@@ -67,6 +69,13 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 }
 
 func (t *distributedTarget) sendObject(addr *network.Address) error {
+	if t.relay != nil {
+		err := t.relay(addr)
+		if err == nil || !errors.Is(err, errLocalAddress) {
+			return err
+		}
+	}
+
 	target := t.nodeTargetInitializer(addr)
 
 	if err := target.WriteHeader(t.obj); err != nil {
