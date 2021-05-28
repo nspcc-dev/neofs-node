@@ -13,7 +13,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.95.0
-	github.com/nspcc-dev/neofs-api-go v1.26.2-0.20210526092458-25de451a2f7e
+	github.com/nspcc-dev/neofs-api-go v1.26.2-0.20210528133202-6cd349738889
 	github.com/nspcc-dev/neofs-crypto v0.3.0
 	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20210520210714-9dee13f0d556
 	github.com/nspcc-dev/tzhash v1.4.0
