@@ -60,8 +60,7 @@ func (cp *Processor) checkKeyOwnership(ownerIDSrc ownerIDSource, key *keys.Publi
 		return err
 	}
 
-	// TODO: need Equal method on owner.ID
-	if ownerIDSrc.OwnerID().String() == owner.NewIDFromNeo3Wallet(w).String() {
+	if ownerIDSrc.OwnerID().Equal(owner.NewIDFromNeo3Wallet(w)) {
 		return nil
 	}
 
@@ -89,8 +88,7 @@ func (cp *Processor) checkKeyOwnershipWithToken(ownerIDSrc ownerIDSource, key *k
 	}
 
 	// check owner
-	// TODO: need Equal method on owner.ID
-	if token.OwnerID().String() != ownerIDSrc.OwnerID().String() {
+	if !token.OwnerID().Equal(ownerIDSrc.OwnerID()) {
 		return errors.New("owner differs with token owner")
 	}
 
