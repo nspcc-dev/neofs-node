@@ -8,6 +8,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"go.uber.org/zap"
@@ -67,7 +70,15 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 		return err
 	}
 
-	// TODO: check verb and CID
+	if tok != nil {
+		// check token context
+		err = checkTokenContext(tok, func(c *session.ContainerContext) bool {
+			return c.IsForPut()
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	cnr.SetSessionToken(tok)
 
@@ -104,10 +115,10 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 }
 
 func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
-	cid := e.ContainerID()
+	binCID := e.ContainerID()
 
 	// receive owner of the related container
-	cnr, err := cp.cnrClient.Get(cid)
+	cnr, err := cp.cnrClient.Get(binCID)
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
@@ -120,12 +131,24 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 	var checkKeys keys.PublicKeys
 
 	if token != nil {
+		// check token context
+		// TODO: think how to avoid version casts
+		idV2 := new(refs.ContainerID)
+		idV2.SetValue(binCID)
+
+		id := cid.NewFromV2(idV2)
+
+		err = checkTokenContextWithCID(token, id, func(c *session.ContainerContext) bool {
+			return c.IsForDelete()
+		})
+		if err != nil {
+			return err
+		}
+
 		key, err := keys.NewPublicKeyFromBytes(token.SessionKey(), elliptic.P256())
 		if err != nil {
 			return fmt.Errorf("invalid session key: %w", err)
 		}
-
-		// TODO: check verb and container ID
 
 		// check token ownership
 		err = cp.checkKeyOwnershipWithToken(cnr, key, token)
@@ -143,7 +166,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 	}
 
 	// verify signature
-	cidHash := sha256.Sum256(cid)
+	cidHash := sha256.Sum256(binCID)
 	sig := e.Signature()
 
 	for _, key := range checkKeys {

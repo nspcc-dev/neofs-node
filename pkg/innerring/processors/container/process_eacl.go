@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"go.uber.org/zap"
@@ -67,9 +68,15 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return err
 	}
 
-	cnr.SetSessionToken(tok)
-
-	// TODO: check verb and container ID
+	if tok != nil {
+		// check token context
+		err = checkTokenContextWithCID(tok, table.CID(), func(c *session.ContainerContext) bool {
+			return c.IsForSetEACL()
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	// check key ownership
 	return cp.checkKeyOwnership(cnr, key)

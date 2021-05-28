@@ -8,10 +8,17 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	signature2 "github.com/nspcc-dev/neofs-api-go/v2/signature"
+)
+
+var (
+	errWrongSessionContext = errors.New("wrong session context")
+	errWrongSessionVerb    = errors.New("wrong token verb")
+	errWrongCID            = errors.New("wrong container ID")
 )
 
 type ownerIDSource interface {
@@ -124,4 +131,38 @@ func (cp *Processor) checkSessionToken(token *session.Token) error {
 	}
 
 	return cp.checkKeyOwnership(token, key)
+}
+
+type verbAssert func(*session.ContainerContext) bool
+
+func contextWithVerifiedVerb(tok *session.Token, verbAssert verbAssert) (*session.ContainerContext, error) {
+	c := session.GetContainerContext(tok)
+	if c == nil {
+		return nil, errWrongSessionContext
+	}
+
+	if !verbAssert(c) {
+		return nil, errWrongSessionVerb
+	}
+
+	return c, nil
+}
+
+func checkTokenContext(tok *session.Token, verbAssert verbAssert) error {
+	_, err := contextWithVerifiedVerb(tok, verbAssert)
+	return err
+}
+
+func checkTokenContextWithCID(tok *session.Token, id *cid.ID, verbAssert verbAssert) error {
+	c, err := contextWithVerifiedVerb(tok, verbAssert)
+	if err != nil {
+		return err
+	}
+
+	tokCID := c.Container()
+	if tokCID != nil && !tokCID.Equal(id) {
+		return errWrongCID
+	}
+
+	return nil
 }
