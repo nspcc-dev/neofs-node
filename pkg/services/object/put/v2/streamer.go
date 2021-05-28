@@ -4,14 +4,18 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
+	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type streamer struct {
 	stream     *putsvc.Streamer
+	keyStorage *util.KeyStorage
 	saveChunks bool
 	init       *object.PutRequest
 	chunks     []*object.PutRequest
@@ -47,7 +51,23 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 		err = fmt.Errorf("(%T) invalid object put stream part type %T", s, v)
 	}
 
-	return
+	if err != nil || !s.saveChunks {
+		return
+	}
+
+	metaHdr := new(sessionV2.RequestMetaHeader)
+	meta := req.GetMetaHeader()
+	st := session.NewTokenFromV2(meta.GetSessionToken())
+
+	metaHdr.SetTTL(meta.GetTTL() - 1)
+	metaHdr.SetOrigin(meta)
+	req.SetMetaHeader(metaHdr)
+
+	key, err := s.keyStorage.GetKey(st)
+	if err != nil {
+		return err
+	}
+	return signature.SignServiceMessage(key, req)
 }
 
 func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
