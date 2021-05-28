@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-sdk-go/pkg/policy"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,11 @@ const (
 	basicACLReadOnly = "public-read"
 	basicACLPublic   = "public-read-write"
 )
+
+const sessionTokenFlag = "session"
+
+// path to a file with encoded session token
+var sessionTokenPath string
 
 var (
 	containerOwner string
@@ -154,11 +160,18 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			return err
 		}
 
+		tok, err := containerSessionToken()
+		if err != nil {
+			return err
+		}
+
 		cnr := container.New()
 		cnr.SetPlacementPolicy(placementPolicy)
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
 		cnr.SetNonceUUID(nonce)
+		cnr.SetSessionToken(tok)
+		cnr.SetOwnerID(tok.OwnerID())
 
 		id, err := cli.PutContainer(ctx, cnr, globalCallOptions()...)
 		if err != nil {
@@ -210,7 +223,18 @@ Only owner of the container has a permission to remove container.`,
 			return err
 		}
 
-		err = cli.DeleteContainer(ctx, id, globalCallOptions()...)
+		tok, err := containerSessionToken()
+		if err != nil {
+			return err
+		}
+
+		callOpts := globalCallOptions()
+
+		if tok != nil {
+			callOpts = append(callOpts, client.WithSession(tok))
+		}
+
+		err = cli.DeleteContainer(ctx, id, callOpts...)
 		if err != nil {
 			return fmt.Errorf("rpc error: %w", err)
 		}
@@ -452,7 +476,13 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			return err
 		}
 
+		tok, err := containerSessionToken()
+		if err != nil {
+			return err
+		}
+
 		eaclTable.SetCID(id)
+		eaclTable.SetSessionToken(tok)
 
 		err = cli.SetEACL(ctx, eaclTable, globalCallOptions()...)
 		if err != nil {
@@ -549,6 +579,38 @@ func init() {
 	setExtendedACLCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
 	setExtendedACLCmd.Flags().StringVar(&eaclPathFrom, "table", "", "path to file with JSON or binary encoded EACL table")
 	setExtendedACLCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
+
+	for _, cmd := range []*cobra.Command{
+		createContainerCmd,
+		deleteContainerCmd,
+		setExtendedACLCmd,
+	} {
+		cmd.Flags().StringVar(
+			&sessionTokenPath,
+			sessionTokenFlag,
+			"",
+			"path to a JSON-encoded container session token",
+		)
+	}
+}
+
+func containerSessionToken() (*session.Token, error) {
+	// try to read session token from file
+	var tok *session.Token
+
+	if sessionTokenPath != "" {
+		data, err := ioutil.ReadFile(sessionTokenPath)
+		if err != nil {
+			return nil, err
+		}
+
+		tok = session.NewToken()
+		if err = tok.UnmarshalJSON(data); err != nil {
+			return nil, err
+		}
+	}
+
+	return tok, nil
 }
 
 func prettyPrintContainerList(list []*container.ID) {
