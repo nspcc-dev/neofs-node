@@ -67,10 +67,12 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return err
 	}
 
+	cnr.SetSessionToken(tok)
+
 	// TODO: check verb and container ID
 
 	// check key ownership
-	return cp.checkKeyOwnershipWithToken(cnr, key, tok)
+	return cp.checkKeyOwnership(cnr, key)
 }
 
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
