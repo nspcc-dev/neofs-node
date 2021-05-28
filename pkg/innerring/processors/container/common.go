@@ -11,8 +11,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
-	"github.com/nspcc-dev/neofs-api-go/util/signature"
-	signature2 "github.com/nspcc-dev/neofs-api-go/v2/signature"
 )
 
 var (
@@ -106,20 +104,7 @@ func (cp *Processor) checkKeyOwnershipWithToken(ownerIDSrc ownerIDSource, key *k
 
 func (cp *Processor) checkSessionToken(token *session.Token) error {
 	// verify signature
-
-	// TODO: need more convenient way to do this
-	//  e.g. provide VerifySignature method from Token
-
-	// FIXME: do all so as not to deepen in the version
-	tokenV2 := token.ToV2()
-
-	signWrapper := signature2.StableMarshalerWrapper{
-		SM: tokenV2.GetBody(),
-	}
-	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
-		tokenSignature := tokenV2.GetSignature()
-		return tokenSignature.GetKey(), tokenSignature.GetSign()
-	}); err != nil {
+	if !token.VerifySignature() {
 		return errors.New("invalid signature")
 	}
 
