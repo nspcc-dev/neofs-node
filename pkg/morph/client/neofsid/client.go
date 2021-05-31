@@ -22,15 +22,21 @@ type Client struct {
 type Option func(*cfg)
 
 type cfg struct {
+	addKeysMethod,
+	removeKeysMethod,
 	keyListingMethod string
 }
 
 const (
 	defaultKeyListingMethod = "key" // default key listing method name
+	defaultAddKeysMethod    = "addKey"
+	defaultRemoveKeysMethod = "removeKey"
 )
 
 func defaultConfig() *cfg {
 	return &cfg{
+		addKeysMethod:    defaultAddKeysMethod,
+		removeKeysMethod: defaultRemoveKeysMethod,
 		keyListingMethod: defaultKeyListingMethod,
 	}
 }
@@ -73,6 +79,34 @@ func WithKeyListingMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.keyListingMethod = n
+		}
+	}
+}
+
+// WithAddKeysMethod returns a client constructor option that
+// specifies the method name of adding key operation.
+//
+// Ignores empty value.
+//
+// If option not provided, "addKey" is used.
+func WithAddKeysMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.addKeysMethod = n
+		}
+	}
+}
+
+// WithRemoveKeysMethod returns a client constructor option that
+// specifies the method name of removing key operation.
+//
+// Ignores empty value.
+//
+// If option not provided, "removeKey" is used.
+func WithRemoveKeysMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.removeKeysMethod = n
 		}
 	}
 }
