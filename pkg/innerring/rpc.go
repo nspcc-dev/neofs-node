@@ -23,6 +23,7 @@ type (
 		log   *zap.Logger
 		cache interface {
 			Get(address *network.Address) (client.Client, error)
+			CloseAll()
 		}
 		key *ecdsa.PrivateKey
 

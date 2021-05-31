@@ -235,6 +235,13 @@ func (s *Server) Stop() {
 	}
 }
 
+func (s *Server) registerNoErrCloser(c func()) {
+	s.registerCloser(func() error {
+		c()
+		return nil
+	})
+}
+
 func (s *Server) registerIOCloser(c io.Closer) {
 	s.registerCloser(c.Close)
 }
@@ -392,6 +399,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		HeadTimeout:  cfg.GetDuration("audit.timeout.head"),
 		RangeTimeout: cfg.GetDuration("audit.timeout.rangehash"),
 	})
+
+	server.registerNoErrCloser(clientCache.cache.CloseAll)
 
 	pdpPoolSize := cfg.GetInt("audit.pdp.pairs_pool_size")
 	porPoolSize := cfg.GetInt("audit.por.pool_size")
