@@ -2,13 +2,11 @@ package innerring
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -17,7 +15,7 @@ type (
 		sync.RWMutex
 
 		cli     *client.Client
-		key     *ecdsa.PublicKey
+		key     *keys.PublicKey
 		timeout time.Duration
 
 		ind indexes
@@ -31,7 +29,7 @@ type (
 	}
 )
 
-func newInnerRingIndexer(cli *client.Client, key *ecdsa.PublicKey, to time.Duration) *innerRingIndexer {
+func newInnerRingIndexer(cli *client.Client, key *keys.PublicKey, to time.Duration) *innerRingIndexer {
 	return &innerRingIndexer{
 		cli:     cli,
 		key:     key,
@@ -104,9 +102,9 @@ func (s *innerRingIndexer) AlphabetIndex() (int32, error) {
 
 // keyPosition returns "-1" if key is not found in the list, otherwise returns
 // index of the key.
-func keyPosition(key *ecdsa.PublicKey, list keys.PublicKeys) (result int32) {
+func keyPosition(key *keys.PublicKey, list keys.PublicKeys) (result int32) {
 	result = -1
-	rawBytes := crypto.MarshalPublicKey(key)
+	rawBytes := key.Bytes()
 
 	for i := range list {
 		if bytes.Equal(list[i].Bytes(), rawBytes) {

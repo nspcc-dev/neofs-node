@@ -2,14 +2,16 @@ package audit
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -312,9 +314,12 @@ func (c *singleResultCtx) auditEpoch() uint64 {
 }
 
 func ownerFromKey(key []byte) (*owner.ID, error) {
-	pubKey := crypto.UnmarshalPublicKey(key)
+	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
+	if err != nil {
+		return nil, err
+	}
 
-	n3wallet, err := owner.NEO3WalletFromPublicKey(pubKey)
+	n3wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(pubKey))
 	if err != nil {
 		return nil, err
 	}

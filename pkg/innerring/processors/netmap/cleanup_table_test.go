@@ -1,21 +1,25 @@
 package netmap
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	crypto "github.com/nspcc-dev/neofs-crypto"
-	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
 )
 
+func genKey(t *testing.T) *keys.PrivateKey {
+	priv, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+	return priv
+}
+
 func TestCleanupTable(t *testing.T) {
 	infos := []netmap.NodeInfo{
-		newNodeInfo(&test.DecodeKey(1).PublicKey),
-		newNodeInfo(&test.DecodeKey(2).PublicKey),
-		newNodeInfo(&test.DecodeKey(3).PublicKey),
+		newNodeInfo(genKey(t).PublicKey()),
+		newNodeInfo(genKey(t).PublicKey()),
+		newNodeInfo(genKey(t).PublicKey()),
 	}
 
 	networkMap, err := netmap.NewNetmap(netmap.NodesFromInfo(infos))
@@ -117,7 +121,7 @@ func TestCleanupTable(t *testing.T) {
 	})
 }
 
-func newNodeInfo(key *ecdsa.PublicKey) (n netmap.NodeInfo) {
-	n.SetPublicKey(crypto.MarshalPublicKey(key))
+func newNodeInfo(key *keys.PublicKey) (n netmap.NodeInfo) {
+	n.SetPublicKey(key.Bytes())
 	return n
 }
