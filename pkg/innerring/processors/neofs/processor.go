@@ -10,7 +10,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"github.com/panjf2000/ants/v2"
@@ -38,9 +40,9 @@ type (
 		log                 *zap.Logger
 		pool                *ants.Pool
 		neofsContract       util.Uint160
-		balanceContract     util.Uint160
-		netmapContract      util.Uint160
 		neofsIDContract     util.Uint160
+		balanceClient       *balanceWrapper.Wrapper
+		netmapClient        *nmWrapper.Wrapper
 		morphClient         *client.Client
 		epochState          EpochState
 		alphabetState       AlphabetState
@@ -60,9 +62,9 @@ type (
 		Log                 *zap.Logger
 		PoolSize            int
 		NeoFSContract       util.Uint160
-		BalanceContract     util.Uint160
-		NetmapContract      util.Uint160
-		NeoFSIDContract     util.Uint160
+		NeoFSIDClient       *neofsid.ClientWrapper
+		BalanceClient       *balanceWrapper.Wrapper
+		NetmapClient        *nmWrapper.Wrapper
 		MorphClient         *client.Client
 		EpochState          EpochState
 		AlphabetState       AlphabetState
@@ -113,17 +115,12 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/neofs: can't create LRU cache for gas emission: %w", err)
 	}
 
-	clientWrapper, err := neofsid.NewFromMorph(p.MorphClient, p.NeoFSIDContract, p.FeeProvider.SideChainFee())
-	if err != nil {
-		return nil, fmt.Errorf("could not create NeoFS ID client wrapper: %w", err)
-	}
-
 	return &Processor{
 		log:                 p.Log,
 		pool:                pool,
 		neofsContract:       p.NeoFSContract,
-		balanceContract:     p.BalanceContract,
-		netmapContract:      p.NetmapContract,
+		balanceClient:       p.BalanceClient,
+		netmapClient:        p.NetmapClient,
 		morphClient:         p.MorphClient,
 		epochState:          p.EpochState,
 		alphabetState:       p.AlphabetState,
@@ -135,7 +132,7 @@ func New(p *Params) (*Processor, error) {
 		mintEmitValue:       p.MintEmitValue,
 		gasBalanceThreshold: p.GasBalanceThreshold,
 
-		neofsIDClient: clientWrapper,
+		neofsIDClient: p.NeoFSIDClient,
 	}, nil
 }
 

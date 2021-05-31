@@ -1,11 +1,12 @@
 package wrapper
 
-// Epoch represents the NeoFS epoch.
-// FIXME: correct the definition.
-type Epoch struct{}
+import "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 
 // NewEpoch updates NeoFS epoch number through
 // Netmap contract call.
-func (w *Wrapper) NewEpoch(e Epoch) error {
-	panic("implement me")
+func (w *Wrapper) NewEpoch(e uint64) error {
+	var args netmap.NewEpochArgs
+	args.SetEpochNumber(int64(e))
+
+	return w.client.NewEpoch(args)
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/snapshot"
 	"go.uber.org/zap"
 )
 
@@ -41,7 +40,7 @@ func (np *Processor) processEmit() {
 		return
 	}
 
-	networkMap, err := snapshot.Fetch(np.morphClient, np.netmapContract)
+	networkMap, err := np.netmapClient.Snapshot()
 	if err != nil {
 		np.log.Warn("can't get netmap snapshot to emit gas to storage nodes",
 			zap.String("error", err.Error()))

@@ -3,12 +3,9 @@ package netmap
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/snapshot"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	"go.uber.org/zap"
 )
-
-const setNewEpochMethod = "newEpoch"
 
 // Process new epoch notification by setting global epoch value and resetting
 // local epoch timer.
@@ -20,7 +17,7 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 	}
 
 	// get new netmap snapshot
-	networkMap, err := snapshot.Fetch(np.morphClient, np.netmapContract)
+	networkMap, err := np.netmapClient.Snapshot()
 	if err != nil {
 		np.log.Warn("can't get netmap snapshot to perform cleanup",
 			zap.String("error", err.Error()))
@@ -55,7 +52,7 @@ func (np *Processor) processNewEpochTick() {
 	nextEpoch := np.epochState.EpochCounter() + 1
 	np.log.Debug("next epoch", zap.Uint64("value", nextEpoch))
 
-	err := np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), setNewEpochMethod, int64(nextEpoch))
+	err := np.netmapClient.NewEpoch(nextEpoch)
 	if err != nil {
 		np.log.Error("can't invoke netmap.NewEpoch", zap.Error(err))
 	}

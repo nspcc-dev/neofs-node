@@ -154,3 +154,8 @@ func (w *Wrapper) readStringConfig(key string) (string, error) {
 
 	return str, nil
 }
+
+// SetConfig sets config field.
+func (w *Wrapper) SetConfig(id, key []byte, value interface{}) error {
+	return w.client.SetConfig(id, key, value)
+}

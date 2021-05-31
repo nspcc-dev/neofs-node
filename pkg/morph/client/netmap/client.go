@@ -38,17 +38,21 @@ type cfg struct {
 	epochSnapshotMethod, // get network map snapshot by epoch method name
 	updateStateMethod, // update state method name for invocation
 	epochMethod, // get epoch number method name
+	setInnerRing, // set inner ring method name
+	setConfigMethod, // set config method name
 	configMethod string // get config value method name
 }
 
 const (
-	defaultAddPeerMethod     = "addPeer"     // default add peer method name
-	defaultNewEpochMethod    = "newEpoch"    // default new epoch method name
-	defaultNetMapMethod      = "netmap"      // default get network map method name
-	defaultSnapshotMethod    = "snapshot"    // default get network map snapshot method name
-	defaultUpdateStateMethod = "updateState" // default update state method name
-	defaultEpochMethod       = "epoch"       // default get epoch number method name
-	defaultConfigMethod      = "config"      // default get config value method name
+	defaultAddPeerMethod      = "addPeer"         // default add peer method name
+	defaultNewEpochMethod     = "newEpoch"        // default new epoch method name
+	defaultNetMapMethod       = "netmap"          // default get network map method name
+	defaultSnapshotMethod     = "snapshot"        // default get network map snapshot method name
+	defaultUpdateStateMethod  = "updateState"     // default update state method name
+	defaultEpochMethod        = "epoch"           // default get epoch number method name
+	defaultSetInnerRingMethod = "updateInnerRing" // default set innerring method name
+	defaultSetConfigMethod    = "setConfig"       // default get config value method name
+	defaultConfigMethod       = "config"          // default get config value method name
 
 	defaultEpochSnapshotMethod = "snapshotByEpoch" // default get network map snapshot by epoch method name
 )
@@ -62,6 +66,7 @@ func defaultConfig() *cfg {
 		epochSnapshotMethod: defaultEpochSnapshotMethod,
 		updateStateMethod:   defaultUpdateStateMethod,
 		epochMethod:         defaultEpochMethod,
+		setConfigMethod:     defaultSetConfigMethod,
 		configMethod:        defaultConfigMethod,
 	}
 }

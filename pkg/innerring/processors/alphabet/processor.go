@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -34,7 +35,7 @@ type (
 		log               *zap.Logger
 		pool              *ants.Pool
 		alphabetContracts Contracts
-		netmapContract    util.Uint160
+		netmapClient      *nmWrapper.Wrapper
 		morphClient       *client.Client
 		irList            Indexer
 		storageEmission   uint64
@@ -45,7 +46,7 @@ type (
 		Log               *zap.Logger
 		PoolSize          int
 		AlphabetContracts Contracts
-		NetmapContract    util.Uint160
+		NetmapClient      *nmWrapper.Wrapper
 		MorphClient       *client.Client
 		IRList            Indexer
 		StorageEmission   uint64
@@ -74,7 +75,7 @@ func New(p *Params) (*Processor, error) {
 		log:               p.Log,
 		pool:              pool,
 		alphabetContracts: p.AlphabetContracts,
-		netmapContract:    p.NetmapContract,
+		netmapClient:      p.NetmapClient,
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
 		storageEmission:   p.StorageEmission,

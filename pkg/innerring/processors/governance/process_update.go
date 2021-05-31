@@ -11,7 +11,6 @@ const (
 	alphabetUpdateIDPrefix = "AlphabetUpdate"
 
 	alphabetUpdateMethod = "alphabetUpdate"
-	setInnerRingMethod   = "updateInnerRing"
 )
 
 func (gp *Processor) processAlphabetSync() {
@@ -70,8 +69,7 @@ func (gp *Processor) processAlphabetSync() {
 			sort.Sort(newInnerRing)
 
 			if gp.notaryDisabled {
-				err = gp.morphClient.NotaryInvoke(gp.netmapContract, gp.feeProvider.SideChainFee(), setInnerRingMethod,
-					newInnerRing)
+				err = gp.netmapClient.SetInnerRing(newInnerRing)
 			} else {
 				err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing)
 			}
