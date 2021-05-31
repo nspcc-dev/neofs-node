@@ -8,7 +8,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
@@ -40,14 +39,12 @@ type (
 		log                 *zap.Logger
 		pool                *ants.Pool
 		neofsContract       util.Uint160
-		neofsIDContract     util.Uint160
 		balanceClient       *balanceWrapper.Wrapper
 		netmapClient        *nmWrapper.Wrapper
 		morphClient         *client.Client
 		epochState          EpochState
 		alphabetState       AlphabetState
 		converter           PrecisionConverter
-		feeProvider         *config.FeeConfig
 		mintEmitLock        *sync.Mutex
 		mintEmitCache       *lru.Cache
 		mintEmitThreshold   uint64
@@ -69,7 +66,6 @@ type (
 		EpochState          EpochState
 		AlphabetState       AlphabetState
 		Converter           PrecisionConverter
-		FeeProvider         *config.FeeConfig
 		MintEmitCacheSize   int
 		MintEmitThreshold   uint64 // in epochs
 		MintEmitValue       fixedn.Fixed8
@@ -99,8 +95,6 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/neofs: global state is not set")
 	case p.Converter == nil:
 		return nil, errors.New("ir/neofs: balance precision converter is not set")
-	case p.FeeProvider == nil:
-		return nil, errors.New("ir/neofs: fee provider is not set")
 	}
 
 	p.Log.Debug("neofs worker pool", zap.Int("size", p.PoolSize))
@@ -125,7 +119,6 @@ func New(p *Params) (*Processor, error) {
 		epochState:          p.EpochState,
 		alphabetState:       p.AlphabetState,
 		converter:           p.Converter,
-		feeProvider:         p.FeeProvider,
 		mintEmitLock:        new(sync.Mutex),
 		mintEmitCache:       lruCache,
 		mintEmitThreshold:   p.MintEmitThreshold,

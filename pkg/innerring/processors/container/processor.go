@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -26,9 +24,7 @@ type (
 		log               *zap.Logger
 		pool              *ants.Pool
 		containerContract util.Uint160
-		morphClient       *client.Client
 		alphabetState     AlphabetState
-		feeProvider       *config.FeeConfig
 		cnrClient         *wrapper.Wrapper // notary must be enabled
 		idClient          *neofsid.ClientWrapper
 		netState          NetworkState
@@ -39,9 +35,7 @@ type (
 		Log               *zap.Logger
 		PoolSize          int
 		ContainerContract util.Uint160
-		MorphClient       *client.Client
 		AlphabetState     AlphabetState
-		FeeProvider       *config.FeeConfig
 		ContainerClient   *wrapper.Wrapper
 		NeoFSIDClient     *neofsid.ClientWrapper
 		NetworkState      NetworkState
@@ -70,12 +64,8 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/container: logger is not set")
-	case p.MorphClient == nil:
-		return nil, errors.New("ir/container: neo:morph client is not set")
 	case p.AlphabetState == nil:
 		return nil, errors.New("ir/container: global state is not set")
-	case p.FeeProvider == nil:
-		return nil, errors.New("ir/container: fee provider is not set")
 	case p.ContainerClient == nil:
 		return nil, errors.New("ir/container: Container client is not set")
 	case p.NeoFSIDClient == nil:
@@ -95,9 +85,7 @@ func New(p *Params) (*Processor, error) {
 		log:               p.Log,
 		pool:              pool,
 		containerContract: p.ContainerContract,
-		morphClient:       p.MorphClient,
 		alphabetState:     p.AlphabetState,
-		feeProvider:       p.FeeProvider,
 		cnrClient:         p.ContainerClient,
 		idClient:          p.NeoFSIDClient,
 		netState:          p.NetworkState,
