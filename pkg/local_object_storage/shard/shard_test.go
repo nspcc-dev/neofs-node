@@ -12,6 +12,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	ownertest "github.com/nspcc-dev/neofs-api-go/pkg/owner/test"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -73,9 +74,6 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	w, err := owner.NEO3WalletFromPublicKey(&test.DecodeKey(-1).PublicKey)
 	require.NoError(t, err)
 
-	ownerID := owner.NewID()
-	ownerID.SetNeo3Wallet(w)
-
 	csum := new(pkg.Checksum)
 	csum.SetSHA256(sha256.Sum256(w.Bytes()))
 
@@ -84,7 +82,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 
 	obj := object.NewRaw()
 	obj.SetID(generateOID())
-	obj.SetOwnerID(ownerID)
+	obj.SetOwnerID(ownertest.Generate())
 	obj.SetContainerID(cid)
 	obj.SetVersion(version)
 	obj.SetPayloadChecksum(csum)
