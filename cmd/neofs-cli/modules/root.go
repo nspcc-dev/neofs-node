@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
 	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -18,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -138,21 +135,11 @@ const nep2Base58Length = 58
 func getKey() (*ecdsa.PrivateKey, error) {
 	privateKey := viper.GetString("key")
 	if privateKey == generateKeyConst {
-		buf := make([]byte, crypto.PrivateKeyCompressedSize)
-
-		_, err := rand.Read(buf)
+		priv, err := keys.NewPrivateKey()
 		if err != nil {
 			return nil, errCantGenerateKey
 		}
-
-		printVerbose("Generating private key:", hex.EncodeToString(buf))
-
-		return crypto.UnmarshalPrivateKey(buf)
-	}
-
-	key, err := crypto.LoadPrivateKey(privateKey)
-	if err == nil {
-		return key, nil
+		return &priv.PrivateKey, nil
 	}
 
 	w, err := wallet.NewWalletFromFile(privateKey)
