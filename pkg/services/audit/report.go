@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
 
@@ -21,7 +21,7 @@ type Reporter interface {
 }
 
 // NewReport creates and returns blank Report instance.
-func NewReport(cid *container.ID) *Report {
+func NewReport(cid *cid.ID) *Report {
 	rep := &Report{
 		res: audit.NewResult(),
 	}

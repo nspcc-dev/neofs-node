@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 )
 
 // Source is an interface that wraps
@@ -17,7 +18,7 @@ type Source interface {
 	//
 	// Implementations must not retain the container pointer and modify
 	// the container through it.
-	Get(*container.ID) (*container.Container, error)
+	Get(*cid.ID) (*container.Container, error)
 }
 
 // ErrNotFound is the error returned when container was not found in storage.

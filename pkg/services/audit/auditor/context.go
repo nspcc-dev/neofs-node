@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
@@ -150,7 +150,7 @@ func (c *Context) WithPoRWorkerPool(pool util.WorkerPool) *Context {
 	return c
 }
 
-func (c *Context) containerID() *container.ID {
+func (c *Context) containerID() *cid.ID {
 	return c.task.ContainerID()
 }
 

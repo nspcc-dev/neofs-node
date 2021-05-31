@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 )
 
@@ -59,7 +59,7 @@ func (w *ClientWrapper) ListAuditResultIDByEpoch(epoch uint64) ([]ResultID, erro
 
 // ListAuditResultIDByCID returns a list of audit result IDs inside audit
 // contract for specific epoch number and container ID.
-func (w *ClientWrapper) ListAuditResultIDByCID(epoch uint64, cid *container.ID) ([]ResultID, error) {
+func (w *ClientWrapper) ListAuditResultIDByCID(epoch uint64, cid *cid.ID) ([]ResultID, error) {
 	args := audit.ListResultsByCIDArgs{}
 	args.SetEpoch(int64(epoch))
 
@@ -80,7 +80,7 @@ func (w *ClientWrapper) ListAuditResultIDByCID(epoch uint64, cid *container.ID) 
 
 // ListAuditResultIDByNode returns a list of audit result IDs inside audit
 // contract for specific epoch number, container ID and inner ring public key.
-func (w *ClientWrapper) ListAuditResultIDByNode(epoch uint64, cid *container.ID, key []byte) ([]ResultID, error) {
+func (w *ClientWrapper) ListAuditResultIDByNode(epoch uint64, cid *cid.ID, key []byte) ([]ResultID, error) {
 	args := audit.ListResultsByNodeArgs{}
 	args.SetEpoch(int64(epoch))
 	args.SetNodeKey(key)

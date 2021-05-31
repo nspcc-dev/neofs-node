@@ -1,13 +1,13 @@
 package engine
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
 
 type ContainerSizePrm struct {
-	cid *container.ID
+	cid *cid.ID
 }
 
 type ContainerSizeRes struct {
@@ -17,10 +17,10 @@ type ContainerSizeRes struct {
 type ListContainersPrm struct{}
 
 type ListContainersRes struct {
-	containers []*container.ID
+	containers []*cid.ID
 }
 
-func (p *ContainerSizePrm) WithContainerID(cid *container.ID) *ContainerSizePrm {
+func (p *ContainerSizePrm) WithContainerID(cid *cid.ID) *ContainerSizePrm {
 	if p != nil {
 		p.cid = cid
 	}
@@ -32,7 +32,7 @@ func (r *ContainerSizeRes) Size() uint64 {
 	return r.size
 }
 
-func (r *ListContainersRes) Containers() []*container.ID {
+func (r *ListContainersRes) Containers() []*cid.ID {
 	return r.containers
 }
 
@@ -48,11 +48,11 @@ func (e *StorageEngine) ContainerSize(prm *ContainerSizePrm) *ContainerSizeRes {
 }
 
 // ContainerSize returns sum of estimation container sizes among all shards.
-func ContainerSize(e *StorageEngine, id *container.ID) uint64 {
+func ContainerSize(e *StorageEngine, id *cid.ID) uint64 {
 	return e.ContainerSize(&ContainerSizePrm{cid: id}).Size()
 }
 
-func (e *StorageEngine) containerSize(id *container.ID) (total uint64) {
+func (e *StorageEngine) containerSize(id *cid.ID) (total uint64) {
 	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
 		size, err := shard.ContainerSize(s, id)
 		if err != nil {
@@ -84,12 +84,12 @@ func (e *StorageEngine) ListContainers(_ *ListContainersPrm) *ListContainersRes 
 }
 
 // ListContainers returns unique container IDs presented in the engine objects.
-func ListContainers(e *StorageEngine) []*container.ID {
+func ListContainers(e *StorageEngine) []*cid.ID {
 	return e.ListContainers(&ListContainersPrm{}).Containers()
 }
 
-func (e *StorageEngine) listContainers() []*container.ID {
-	uniqueIDs := make(map[string]*container.ID)
+func (e *StorageEngine) listContainers() []*cid.ID {
+	uniqueIDs := make(map[string]*cid.ID)
 
 	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
 		cnrs, err := shard.ListContainers(s)
@@ -111,7 +111,7 @@ func (e *StorageEngine) listContainers() []*container.ID {
 		return false
 	})
 
-	result := make([]*container.ID, 0, len(uniqueIDs))
+	result := make([]*cid.ID, 0, len(uniqueIDs))
 	for _, v := range uniqueIDs {
 		result = append(result, v)
 	}

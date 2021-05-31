@@ -2,7 +2,7 @@ package deletesvc
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -15,7 +15,7 @@ type tombstoneBodyWriter struct {
 func (s *Service) toPrm(req *objectV2.DeleteRequest, respBody *objectV2.DeleteResponseBody) (*deletesvc.Prm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	key, err := s.keyStorage.GetKey(session.NewTokenFromV2(meta.GetSessionToken()))
 	if err != nil {
 		return nil, err
 	}

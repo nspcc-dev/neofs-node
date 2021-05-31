@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -63,7 +63,7 @@ func (exec *execCtx) address() *objectSDK.Address {
 	return exec.prm.Address()
 }
 
-func (exec *execCtx) containerID() *container.ID {
+func (exec *execCtx) containerID() *cid.ID {
 	return exec.prm.Address().ContainerID()
 }
 

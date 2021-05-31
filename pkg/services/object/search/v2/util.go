@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
 	rpcclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
@@ -23,7 +23,7 @@ import (
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	}
 
 	body := req.GetBody()
-	p.WithContainerID(container.NewIDFromV2(body.GetContainerID()))
+	p.WithContainerID(cid.NewFromV2(body.GetContainerID()))
 	p.WithSearchFilters(objectSDK.NewSearchFiltersFromV2(body.GetFilters()))
 
 	return p, nil

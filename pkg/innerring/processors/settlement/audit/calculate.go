@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	crypto "github.com/nspcc-dev/neofs-crypto"
@@ -29,7 +29,7 @@ type singleResultCtx struct {
 
 	log *logger.Logger
 
-	cid *container.ID
+	cid *cid.ID
 
 	txTable *common.TransferTable
 
@@ -295,7 +295,7 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 	return false
 }
 
-func (c *singleResultCtx) containerID() *container.ID {
+func (c *singleResultCtx) containerID() *cid.ID {
 	if c.cid == nil {
 		c.cid = c.auditResult.ContainerID()
 	}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
@@ -36,19 +36,19 @@ func TestAuditResults(t *testing.T) {
 	auditClientWrapper, err := auditWrapper.NewFromMorph(morphClient, auditHash, 0)
 	require.NoError(t, err)
 
-	cid := container.NewID()
-	cid.SetSHA256([sha256.Size]byte{1, 2, 3})
+	id := cid.New()
+	id.SetSHA256([sha256.Size]byte{1, 2, 3})
 
 	auditRes := auditAPI.NewResult()
 	auditRes.SetAuditEpoch(epoch)
 	auditRes.SetPublicKey(pubKey)
-	auditRes.SetContainerID(cid)
+	auditRes.SetContainerID(id)
 
 	require.NoError(t, auditClientWrapper.PutAuditResult(auditRes))
 
 	time.Sleep(5 * time.Second)
 
-	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, cid)
+	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, id)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 

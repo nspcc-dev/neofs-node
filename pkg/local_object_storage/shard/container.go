@@ -3,18 +3,18 @@ package shard
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 )
 
 type ContainerSizePrm struct {
-	cid *container.ID
+	cid *cid.ID
 }
 
 type ContainerSizeRes struct {
 	size uint64
 }
 
-func (p *ContainerSizePrm) WithContainerID(cid *container.ID) *ContainerSizePrm {
+func (p *ContainerSizePrm) WithContainerID(cid *cid.ID) *ContainerSizePrm {
 	if p != nil {
 		p.cid = cid
 	}
@@ -37,7 +37,7 @@ func (s *Shard) ContainerSize(prm *ContainerSizePrm) (*ContainerSizeRes, error) 
 	}, nil
 }
 
-func ContainerSize(s *Shard, cid *container.ID) (uint64, error) {
+func ContainerSize(s *Shard, cid *cid.ID) (uint64, error) {
 	res, err := s.ContainerSize(&ContainerSizePrm{cid: cid})
 	if err != nil {
 		return 0, err

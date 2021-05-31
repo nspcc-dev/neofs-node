@@ -6,13 +6,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"go.uber.org/zap"
 )
 
 var ErrInvalidIRNode = errors.New("node is not in the inner ring list")
 
-func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*container.ID, error) {
+func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*cid.ID, error) {
 	containers, err := ap.containerClient.List(nil)
 	if err != nil {
 		return nil, fmt.Errorf("can't get list of containers to start audit: %w", err)
@@ -38,7 +38,7 @@ func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*container.ID, err
 	return Select(containers, epoch, uint64(ind), uint64(irSize)), nil
 }
 
-func Select(ids []*container.ID, epoch, index, size uint64) []*container.ID {
+func Select(ids []*cid.ID, epoch, index, size uint64) []*cid.ID {
 	if index >= size {
 		return nil
 	}

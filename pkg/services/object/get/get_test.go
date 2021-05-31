@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -191,10 +192,10 @@ func generateAddress() *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(generateID())
 
-	cid := container.NewID()
-	cid.SetSHA256(testSHA256())
+	id := cid.New()
+	id.SetSHA256(testSHA256())
 
-	addr.SetContainerID(cid)
+	addr.SetContainerID(id)
 
 	return addr
 }
@@ -432,7 +433,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 	return mNodes, mAddr
 }
 
-func generateChain(ln int, cid *container.ID) ([]*object.RawObject, []*objectSDK.ID, []byte) {
+func generateChain(ln int, cid *cid.ID) ([]*object.RawObject, []*objectSDK.ID, []byte) {
 	curID := generateID()
 	var prevID *objectSDK.ID
 

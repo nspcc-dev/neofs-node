@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/stretchr/testify/require"
 )
@@ -76,23 +76,23 @@ func TestSelect(t *testing.T) {
 	})
 }
 
-func generateContainers(n int) []*container.ID {
+func generateContainers(n int) []*cid.ID {
 	var buf [sha256.Size]byte
-	result := make([]*container.ID, 0, n)
+	result := make([]*cid.ID, 0, n)
 
 	for i := 0; i < n; i++ {
 		_, _ = rand.Read(buf[:])
 
-		cid := container.NewID()
-		cid.SetSHA256(buf)
+		id := cid.New()
+		id.SetSHA256(buf)
 
-		result = append(result, cid)
+		result = append(result, id)
 	}
 
 	return result
 }
 
-func hitMap(ids []*container.ID) map[string]int {
+func hitMap(ids []*cid.ID) map[string]int {
 	result := make(map[string]int, len(ids))
 
 	for _, id := range ids {

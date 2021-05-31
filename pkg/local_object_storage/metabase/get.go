@@ -3,7 +3,7 @@ package meta
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
@@ -120,7 +120,7 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte, raw bool) (*object.Object, error) {
+func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*object.Object, error) {
 	if raw {
 		return nil, getSplitInfoError(tx, cid, key)
 	}
@@ -159,7 +159,7 @@ func getVirtualObject(tx *bbolt.Tx, cid *container.ID, key []byte, raw bool) (*o
 	return child.GetParent(), nil
 }
 
-func getSplitInfoError(tx *bbolt.Tx, cid *container.ID, key []byte) error {
+func getSplitInfoError(tx *bbolt.Tx, cid *cid.ID, key []byte) error {
 	splitInfo, err := getSplitInfo(tx, cid, key)
 	if err == nil {
 		return objectSDK.NewSplitInfoError(splitInfo)

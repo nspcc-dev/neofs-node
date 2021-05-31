@@ -15,9 +15,10 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/spf13/cobra"
@@ -193,7 +194,7 @@ func init() {
 	// objectCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func initSession(ctx context.Context) (client.Client, *token.SessionToken, error) {
+func initSession(ctx context.Context) (client.Client, *session.Token, error) {
 	key, err := getKey()
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't fetch private key: %w", err)
@@ -665,11 +666,11 @@ func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
 	return attrs, nil
 }
 
-func getCID(cmd *cobra.Command) (*container.ID, error) {
-	cid := container.NewID()
-	err := cid.Parse(cmd.Flag("cid").Value.String())
+func getCID(cmd *cobra.Command) (*cid.ID, error) {
+	id := cid.New()
+	err := id.Parse(cmd.Flag("cid").Value.String())
 
-	return cid, err
+	return id, err
 }
 
 func getOID(cmd *cobra.Command) (*object.ID, error) {

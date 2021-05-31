@@ -2,7 +2,7 @@ package eacl
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 )
 
@@ -16,7 +16,7 @@ type Storage interface {
 	//
 	// Must return pkg/core/container.ErrEACLNotFound if requested
 	// eACL table is is not in storage.
-	GetEACL(*container.ID) (*eacl.Table, error)
+	GetEACL(*cid.ID) (*eacl.Table, error)
 }
 
 // Header is an interface of string key-value header.
@@ -38,7 +38,7 @@ type TypedHeaderSource interface {
 
 // ValidationUnit represents unit of check for Validator.
 type ValidationUnit struct {
-	cid *container.ID
+	cid *cid.ID
 
 	role eacl.Role
 
@@ -51,7 +51,7 @@ type ValidationUnit struct {
 	bearer *bearer.BearerToken
 }
 
-func (u *ValidationUnit) WithContainerID(v *container.ID) *ValidationUnit {
+func (u *ValidationUnit) WithContainerID(v *cid.ID) *ValidationUnit {
 	if u != nil {
 		u.cid = v
 	}

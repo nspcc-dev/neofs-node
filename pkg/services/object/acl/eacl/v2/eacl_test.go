@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -28,12 +28,12 @@ type testLocalStorage struct {
 type testEACLStorage struct {
 	t *testing.T
 
-	expCID *container.ID
+	expCID *cid.ID
 
 	table *eacl.Table
 }
 
-func (s *testEACLStorage) GetEACL(id *container.ID) (*eacl.Table, error) {
+func (s *testEACLStorage) GetEACL(id *cid.ID) (*eacl.Table, error) {
 	require.True(s.t, s.expCID.Equal(id))
 
 	return s.table, nil
@@ -57,13 +57,13 @@ func testID(t *testing.T) *objectSDK.ID {
 	return id
 }
 
-func testCID(t *testing.T) *container.ID {
+func testCID(t *testing.T) *cid.ID {
 	cs := [sha256.Size]byte{}
 
 	_, err := rand.Read(cs[:])
 	require.NoError(t, err)
 
-	id := container.NewID()
+	id := cid.New()
 	id.SetSHA256(cs)
 
 	return id

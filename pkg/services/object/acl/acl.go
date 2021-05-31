@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
@@ -69,7 +69,7 @@ type (
 		operation   acl.Operation // put, get, head, etc.
 		cnrOwner    *owner.ID     // container owner
 
-		cid *container.ID
+		cid *cid.ID
 
 		oid *objectSDK.ID
 
@@ -225,9 +225,9 @@ func (b Service) Head(
 }
 
 func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchStream) error {
-	var cid *container.ID
+	var id *cid.ID
 
-	cid, err := getContainerIDFromRequest(request)
+	id, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationSearch)
+	reqInfo, err := b.findRequestInfo(req, id, acl.OperationSearch)
 	if err != nil {
 		return err
 	}
@@ -440,7 +440,7 @@ func (g *searchStreamBasicChecker) Send(resp *object.SearchResponse) error {
 
 func (b Service) findRequestInfo(
 	req metaWithToken,
-	cid *container.ID,
+	cid *cid.ID,
 	op acl.Operation) (info requestInfo, err error) {
 	cnr, err := b.containers.Get(cid) // fetch actual container
 	if err != nil || cnr.OwnerID() == nil {
@@ -480,27 +480,27 @@ func (b Service) findRequestInfo(
 	return info, nil
 }
 
-func getContainerIDFromRequest(req interface{}) (id *container.ID, err error) {
+func getContainerIDFromRequest(req interface{}) (id *cid.ID, err error) {
 	switch v := req.(type) {
 	case *object.GetRequest:
-		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		return cid.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.PutRequest:
 		objPart := v.GetBody().GetObjectPart()
 		if part, ok := objPart.(*object.PutObjectPartInit); ok {
-			return container.NewIDFromV2(part.GetHeader().GetContainerID()), nil
+			return cid.NewFromV2(part.GetHeader().GetContainerID()), nil
 		}
 
 		return nil, errors.New("can't get cid in chunk")
 	case *object.HeadRequest:
-		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		return cid.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.SearchRequest:
-		return container.NewIDFromV2(v.GetBody().GetContainerID()), nil
+		return cid.NewFromV2(v.GetBody().GetContainerID()), nil
 	case *object.DeleteRequest:
-		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		return cid.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.GetRangeRequest:
-		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		return cid.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	case *object.GetRangeHashRequest:
-		return container.NewIDFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		return cid.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
 	default:
 		return nil, errors.New("unknown request type")
 	}

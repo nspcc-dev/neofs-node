@@ -2,7 +2,7 @@ package searchsvc
 
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -42,7 +42,7 @@ type cfg struct {
 	}
 
 	traverserGenerator interface {
-		generateTraverser(*container.ID, uint64) (*placement.Traverser, error)
+		generateTraverser(*cid.ID, uint64) (*placement.Traverser, error)
 	}
 
 	currentEpochReceiver interface {

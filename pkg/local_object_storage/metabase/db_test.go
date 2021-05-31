@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -22,7 +22,7 @@ func putBig(db *meta.DB, obj *object.Object) error {
 	return meta.Put(db, obj, nil)
 }
 
-func testSelect(t *testing.T, db *meta.DB, cid *container.ID, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
+func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
 	res, err := meta.Select(db, cid, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
@@ -32,11 +32,11 @@ func testSelect(t *testing.T, db *meta.DB, cid *container.ID, fs objectSDK.Searc
 	}
 }
 
-func testCID() *container.ID {
+func testCID() *cid.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])
 
-	id := container.NewID()
+	id := cid.New()
 	id.SetSHA256(cs)
 
 	return id
@@ -71,7 +71,7 @@ func generateRawObject(t *testing.T) *object.RawObject {
 	return generateRawObjectWithCID(t, testCID())
 }
 
-func generateRawObjectWithCID(t *testing.T, cid *container.ID) *object.RawObject {
+func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	version := pkg.NewVersion()
 	version.SetMajor(2)
 	version.SetMinor(1)

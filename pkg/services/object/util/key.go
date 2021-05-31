@@ -3,7 +3,7 @@ package util
 import (
 	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 )
 
@@ -26,7 +26,7 @@ func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore *storage.TokenStore) *
 //
 // If token is not nil, session private key is returned.
 // Otherwise, node private key is returned.
-func (s *KeyStorage) GetKey(token *token.SessionToken) (*ecdsa.PrivateKey, error) {
+func (s *KeyStorage) GetKey(token *session.Token) (*ecdsa.PrivateKey, error) {
 	if token != nil {
 		pToken := s.tokenStore.Get(token.OwnerID(), token.ID())
 		if pToken != nil {

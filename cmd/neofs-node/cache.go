@@ -7,6 +7,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -134,20 +135,20 @@ func newCachedContainerStorage(v container.Source) container.Source {
 	)
 
 	lruCnrCache := newNetworkTTLCache(containerCacheSize, containerCacheTTL, func(key interface{}) (interface{}, error) {
-		cid := containerSDK.NewID()
+		id := cid.New()
 
-		err := cid.Parse(key.(string))
+		err := id.Parse(key.(string))
 		if err != nil {
 			return nil, err
 		}
 
-		return v.Get(cid)
+		return v.Get(id)
 	})
 
 	return (*ttlContainerStorage)(lruCnrCache)
 }
 
-func (s *ttlContainerStorage) Get(cid *containerSDK.ID) (*containerSDK.Container, error) {
+func (s *ttlContainerStorage) Get(cid *cid.ID) (*containerSDK.Container, error) {
 	val, err := (*ttlNetCache)(s).get(cid.String())
 	if err != nil {
 		return nil, err
@@ -165,20 +166,20 @@ func newCachedEACLStorage(v eacl.Storage) eacl.Storage {
 	)
 
 	lruCnrCache := newNetworkTTLCache(eaclCacheSize, eaclCacheTTL, func(key interface{}) (interface{}, error) {
-		cid := containerSDK.NewID()
+		id := cid.New()
 
-		err := cid.Parse(key.(string))
+		err := id.Parse(key.(string))
 		if err != nil {
 			return nil, err
 		}
 
-		return v.GetEACL(cid)
+		return v.GetEACL(id)
 	})
 
 	return (*ttlEACLStorage)(lruCnrCache)
 }
 
-func (s *ttlEACLStorage) GetEACL(cid *containerSDK.ID) (*eaclSDK.Table, error) {
+func (s *ttlEACLStorage) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 	val, err := (*ttlNetCache)(s).get(cid.String())
 	if err != nil {
 		return nil, err

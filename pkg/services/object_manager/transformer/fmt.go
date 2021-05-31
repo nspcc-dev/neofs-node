@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 )
@@ -25,7 +25,7 @@ type FormatterParams struct {
 
 	NextTarget ObjectTarget
 
-	SessionToken *token.SessionToken
+	SessionToken *session.Token
 
 	NetworkState netmap.State
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
@@ -52,13 +53,13 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 }
 
 func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
-	cid := containerSDK.NewIDFromV2(body.GetContainerID())
+	id := cid.NewFromV2(body.GetContainerID())
 	sig := body.GetSignature().GetSign()
 	tok := session.NewTokenFromV2(ctx.SessionToken)
 
 	var rmWitness containercore.RemovalWitness
 
-	rmWitness.SetContainerID(cid)
+	rmWitness.SetContainerID(id)
 	rmWitness.SetSignature(sig)
 	rmWitness.SetSessionToken(tok)
 
@@ -71,9 +72,9 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 }
 
 func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
-	cid := containerSDK.NewIDFromV2(body.GetContainerID())
+	id := cid.NewFromV2(body.GetContainerID())
 
-	cnr, err := wrapper.Get(s.wrapper, cid)
+	cnr, err := wrapper.Get(s.wrapper, id)
 	if err != nil {
 		return nil, err
 	}
@@ -121,9 +122,9 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 }
 
 func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
-	cid := containerSDK.NewIDFromV2(body.GetContainerID())
+	id := cid.NewFromV2(body.GetContainerID())
 
-	table, err := s.wrapper.GetEACL(cid)
+	table, err := s.wrapper.GetEACL(id)
 	if err != nil {
 		return nil, err
 	}

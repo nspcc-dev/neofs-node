@@ -3,7 +3,7 @@ package v2
 import (
 	"strconv"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
@@ -27,7 +27,7 @@ func idValue(id *objectSDK.ID) string {
 	return id.String()
 }
 
-func cidValue(id *container.ID) string {
+func cidValue(id *cid.ID) string {
 	return id.String()
 }
 

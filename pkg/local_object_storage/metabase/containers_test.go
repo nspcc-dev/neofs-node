@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
@@ -80,8 +80,8 @@ func TestDB_ContainerSize(t *testing.T) {
 		N = 5
 	)
 
-	cids := make(map[*container.ID]int, C)
-	objs := make(map[*container.ID][]*object.RawObject, C*N)
+	cids := make(map[*cid.ID]int, C)
+	objs := make(map[*cid.ID][]*object.RawObject, C*N)
 
 	for i := 0; i < C; i++ {
 		cid := testCID()

@@ -81,7 +81,7 @@ func (w *Wrapper) Put(cnr, key, sig, token []byte) error {
 
 type containerSource Wrapper
 
-func (x *containerSource) Get(cid *container.ID) (*container.Container, error) {
+func (x *containerSource) Get(cid *cid.ID) (*container.Container, error) {
 	return Get((*Wrapper)(x), cid)
 }
 
@@ -94,7 +94,7 @@ func AsContainerSource(w *Wrapper) core.Source {
 // Get marshals container ID, and passes it to Wrapper's Get method.
 //
 // Returns error if cid is nil.
-func Get(w *Wrapper, cid *container.ID) (*container.Container, error) {
+func Get(w *Wrapper, cid *cid.ID) (*container.Container, error) {
 	return w.Get(cid.ToV2().GetValue())
 }
 
@@ -194,7 +194,7 @@ func (w *Wrapper) Delete(cid, signature, token []byte) error {
 //
 // Returns the identifiers of all NeoFS containers if pointer
 // to owner identifier is nil.
-func (w *Wrapper) List(ownerID *owner.ID) ([]*container.ID, error) {
+func (w *Wrapper) List(ownerID *owner.ID) ([]*cid.ID, error) {
 	args := client.ListArgs{}
 
 	if ownerID == nil {
@@ -212,15 +212,15 @@ func (w *Wrapper) List(ownerID *owner.ID) ([]*container.ID, error) {
 	}
 
 	rawIDs := rpcAnswer.CIDList()
-	result := make([]*container.ID, 0, len(rawIDs))
+	result := make([]*cid.ID, 0, len(rawIDs))
 
 	for i := range rawIDs {
 		v2 := new(v2refs.ContainerID)
 		v2.SetValue(rawIDs[i])
 
-		cid := container.NewIDFromV2(v2)
+		id := cid.NewFromV2(v2)
 
-		result = append(result, cid)
+		result = append(result, id)
 	}
 
 	return result, nil
@@ -280,7 +280,7 @@ type Estimation struct {
 
 // Estimation is a structure of grouped container load estimation inside Container contract.
 type Estimations struct {
-	ContainerID *container.ID
+	ContainerID *cid.ID
 
 	Values []Estimation
 }
@@ -302,7 +302,7 @@ func (w *Wrapper) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error)
 	v2.SetValue(es.ContainerID)
 
 	res := &Estimations{
-		ContainerID: container.NewIDFromV2(v2),
+		ContainerID: cid.NewFromV2(v2),
 		Values:      make([]Estimation, 0, len(es.Estimations)),
 	}
 
