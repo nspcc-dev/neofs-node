@@ -6,7 +6,6 @@ import (
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -75,7 +74,7 @@ func nodeAddressFromNetmap(c *cfg) string {
 
 func initNetmapService(c *cfg) {
 	c.cfgNodeInfo.localInfo.SetAddress(c.localAddr.String())
-	c.cfgNodeInfo.localInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
+	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
 	c.cfgNodeInfo.localInfo.SetAttributes(parseAttributes(c.appCfg)...)
 	c.cfgNodeInfo.localInfo.SetState(netmapSDK.NodeStateOffline)
 
@@ -86,7 +85,7 @@ func initNetmapService(c *cfg) {
 	netmapGRPC.RegisterNetmapServiceServer(c.cfgGRPC.server,
 		netmapTransportGRPC.New(
 			netmapService.NewSignService(
-				c.key,
+				&c.key.PrivateKey,
 				netmapService.NewResponseService(
 					netmapService.NewExecutionService(
 						c,
@@ -196,7 +195,7 @@ func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
 
 func (c *cfg) localNodeInfoFromNetmap(nm *netmapSDK.Netmap) *netmapSDK.NodeInfo {
 	for _, n := range nm.Nodes {
-		if bytes.Equal(n.PublicKey(), crypto.MarshalPublicKey(&c.key.PublicKey)) {
+		if bytes.Equal(n.PublicKey(), c.key.PublicKey().Bytes()) {
 			return n.NodeInfo
 		}
 	}
@@ -237,7 +236,7 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
 	return c.cfgNetmap.wrapper.UpdatePeerState(
-		crypto.MarshalPublicKey(&c.key.PublicKey),
+		c.key.PublicKey().Bytes(),
 		apiState,
 	)
 }

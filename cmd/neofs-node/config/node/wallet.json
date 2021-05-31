@@ -1,0 +1,30 @@
+{
+  "version": "3.0",
+  "accounts": [
+    {
+      "address": "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz",
+      "key": "6PYXFRFUfoMNjWd2UmaaEjwHSWpifcLLTbEfhkwXdiSZ2n2WLfr75JpxmJ",
+      "label": "testacc",
+      "contract": {
+        "script": "DCECaeaVhKFa+ENNUpRJLz6BRmRbkIaoN+xZt3VHzlzkHJZBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false
+    }
+  ],
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "extra": {
+    "Tokens": null
+  }
+}

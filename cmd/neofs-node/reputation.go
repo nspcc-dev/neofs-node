@@ -7,7 +7,6 @@ import (
 	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
 	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
@@ -38,7 +37,7 @@ func initReputationService(c *cfg) {
 	wrap, err := rtpwrapper.NewFromMorph(c.cfgMorph.client, c.cfgReputation.scriptHash, 0)
 	fatalOnErr(err)
 
-	localKey := crypto.MarshalPublicKey(&c.key.PublicKey)
+	localKey := c.key.PublicKey().Bytes()
 
 	// consider sharing this between application components
 	nmSrc := newCachedNetmapStorage(c.cfgNetmap.state, c.cfgNetmap.wrapper)
@@ -99,7 +98,7 @@ func initReputationService(c *cfg) {
 			ClientCache:     apiClientCache,
 			WriterProvider: localreputation.NewRemoteProvider(
 				localreputation.RemoteProviderPrm{
-					Key: c.key,
+					Key: &c.key.PrivateKey,
 				},
 			),
 		},
@@ -112,7 +111,7 @@ func initReputationService(c *cfg) {
 			ClientCache:     apiClientCache,
 			WriterProvider: intermediatereputation.NewRemoteProvider(
 				intermediatereputation.RemoteProviderPrm{
-					Key: c.key,
+					Key: &c.key.PrivateKey,
 				},
 			),
 		},
@@ -144,7 +143,7 @@ func initReputationService(c *cfg) {
 			WorkerPool:              c.cfgReputation.workerPool,
 			FinalResultTarget: intermediate.NewFinalWriterProvider(
 				intermediate.FinalWriterProviderPrm{
-					PrivatKey: c.key,
+					PrivatKey: &c.key.PrivateKey,
 					PubKey:    localKey,
 					Client:    wrap,
 				},
@@ -190,7 +189,7 @@ func initReputationService(c *cfg) {
 	v2reputationgrpc.RegisterReputationServiceServer(c.cfgGRPC.server,
 		grpcreputation.New(
 			reputationrpc.NewSignService(
-				c.key,
+				&c.key.PrivateKey,
 				reputationrpc.NewResponseService(
 					&reputationServer{
 						cfg:                c,

@@ -13,7 +13,7 @@ func initSessionService(c *cfg) {
 	sessionGRPC.RegisterSessionServiceServer(c.cfgGRPC.server,
 		sessionTransportGRPC.New(
 			sessionSvc.NewSignService(
-				c.key,
+				&c.key.PrivateKey,
 				sessionSvc.NewResponseService(
 					sessionSvc.NewExecutionService(
 						c.privateTokenStore,

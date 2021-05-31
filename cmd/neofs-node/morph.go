@@ -30,7 +30,7 @@ func initMorphComponents(c *cfg) {
 		})
 
 		for i := range addresses {
-			cli, err := client.New(c.key, addresses[i], client.WithDialTimeout(dialTimeout))
+			cli, err := client.New(&c.key.PrivateKey, addresses[i], client.WithDialTimeout(dialTimeout))
 			if err == nil {
 				c.log.Info("neo RPC connection established",
 					zap.String("endpoint", addresses[i]))

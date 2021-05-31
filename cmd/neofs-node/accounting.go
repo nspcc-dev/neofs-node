@@ -19,7 +19,7 @@ func initAccountingService(c *cfg) {
 	accountingGRPC.RegisterAccountingServiceServer(c.cfgGRPC.server,
 		accountingTransportGRPC.New(
 			accountingService.NewSignService(
-				c.key,
+				&c.key.PrivateKey,
 				accountingService.NewResponseService(
 					accountingService.NewExecutionService(
 						accounting.NewExecutor(balanceMorphWrapper),

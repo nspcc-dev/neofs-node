@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -53,7 +52,7 @@ func initContainerService(c *cfg) {
 		engine: c.cfgObject.cfgLocalStorage.localStorage,
 	}
 
-	pubKey := crypto.MarshalPublicKey(&c.key.PublicKey)
+	pubKey := c.key.PublicKey().Bytes()
 
 	resultWriter := &morphLoadWriter{
 		log:            c.log,
@@ -79,7 +78,7 @@ func initContainerService(c *cfg) {
 		loadroute.Prm{
 			LocalServerInfo: c,
 			RemoteWriterProvider: &remoteLoadAnnounceProvider{
-				key:             c.key,
+				key:             &c.key.PrivateKey,
 				loadAddrSrc:     c,
 				clientCache:     clientCache,
 				deadEndProvider: loadcontroller.SimpleWriterProvider(loadAccumulator),
@@ -118,7 +117,7 @@ func initContainerService(c *cfg) {
 	containerGRPC.RegisterContainerServiceServer(c.cfgGRPC.server,
 		containerTransportGRPC.New(
 			containerService.NewSignService(
-				c.key,
+				&c.key.PrivateKey,
 				containerService.NewResponseService(
 					&usedSpaceService{
 						Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap)),
