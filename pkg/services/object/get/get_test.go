@@ -11,6 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -192,10 +193,7 @@ func generateAddress() *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(generateID())
 
-	id := cid.New()
-	id.SetSHA256(testSHA256())
-
-	addr.SetContainerID(id)
+	addr.SetContainerID(cidtest.Generate())
 
 	return addr
 }

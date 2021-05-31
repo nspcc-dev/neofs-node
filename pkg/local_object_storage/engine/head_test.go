@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 func TestHeadRaw(t *testing.T) {
 	defer os.RemoveAll(t.Name())
 
-	cid := testCID()
+	cid := cidtest.Generate()
 	splitID := objectSDK.NewSplitID()
 
 	parent := generateRawObjectWithCID(t, cid)

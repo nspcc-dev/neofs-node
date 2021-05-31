@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
@@ -55,7 +56,7 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
-		cid := testCID()
+		cid := cidtest.Generate()
 		parent := generateRawObjectWithCID(t, cid)
 
 		child := generateRawObjectWithCID(t, cid)
@@ -72,7 +73,7 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("merge split info", func(t *testing.T) {
-		cid := testCID()
+		cid := cidtest.Generate()
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateRawObjectWithCID(t, cid)

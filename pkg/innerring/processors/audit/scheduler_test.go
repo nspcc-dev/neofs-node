@@ -1,11 +1,10 @@
 package audit_test
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
 	"testing"
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/stretchr/testify/require"
 )
@@ -77,16 +76,10 @@ func TestSelect(t *testing.T) {
 }
 
 func generateContainers(n int) []*cid.ID {
-	var buf [sha256.Size]byte
 	result := make([]*cid.ID, 0, n)
 
 	for i := 0; i < n; i++ {
-		_, _ = rand.Read(buf[:])
-
-		id := cid.New()
-		id.SetSHA256(buf)
-
-		result = append(result, id)
+		result = append(result, cidtest.Generate())
 	}
 
 	return result

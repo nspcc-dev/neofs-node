@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
@@ -28,13 +28,6 @@ func testSHA(t *testing.T) [sha256.Size]byte {
 	return cs
 }
 
-func testContainerID(t *testing.T) *cid.ID {
-	id := cid.New()
-	id.SetSHA256(testSHA(t))
-
-	return id
-}
-
 func testObjectID(t *testing.T) *object.ID {
 	id := object.NewID()
 	id.SetSHA256(testSHA(t))
@@ -50,7 +43,7 @@ func blankValidObject(t *testing.T, key *ecdsa.PrivateKey) *RawObject {
 	ownerID.SetNeo3Wallet(wallet)
 
 	obj := NewRaw()
-	obj.SetContainerID(testContainerID(t))
+	obj.SetContainerID(cidtest.Generate())
 	obj.SetOwnerID(ownerID)
 
 	return obj
@@ -94,7 +87,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("unsigned object", func(t *testing.T) {
 		obj := NewRaw()
-		obj.SetContainerID(testContainerID(t))
+		obj.SetContainerID(cidtest.Generate())
 		obj.SetID(testObjectID(t))
 
 		require.Error(t, v.Validate(obj.Object()))
@@ -105,7 +98,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		tok.SetSessionKey(crypto.MarshalPublicKey(&ownerKey.PublicKey))
 
 		obj := NewRaw()
-		obj.SetContainerID(testContainerID(t))
+		obj.SetContainerID(cidtest.Generate())
 		obj.SetSessionToken(tok)
 
 		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))

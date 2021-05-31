@@ -3,6 +3,7 @@ package shard_test
 import (
 	"testing"
 
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +34,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	putPrm := new(shard.PutPrm)
 
 	for i := 0; i < C; i++ {
-		cid := generateCID()
+		cid := cidtest.Generate()
 
 		for j := 0; j < N; j++ {
 			obj := generateRawObjectWithCID(t, cid)

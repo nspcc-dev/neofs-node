@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -45,7 +46,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
-		cid := generateCID()
+		cid := cidtest.Generate()
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateRawObjectWithCID(t, cid)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -30,16 +31,6 @@ func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs objectSDK.SearchFilte
 	for i := range exp {
 		require.Contains(t, res, exp[i])
 	}
-}
-
-func testCID() *cid.ID {
-	cs := [sha256.Size]byte{}
-	_, _ = rand.Read(cs[:])
-
-	id := cid.New()
-	id.SetSHA256(cs)
-
-	return id
 }
 
 func testOID() *objectSDK.ID {
@@ -68,7 +59,7 @@ func releaseDB(db *meta.DB) {
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {
-	return generateRawObjectWithCID(t, testCID())
+	return generateRawObjectWithCID(t, cidtest.Generate())
 }
 
 func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
@@ -102,7 +93,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 
 func generateAddress() *objectSDK.Address {
 	addr := objectSDK.NewAddress()
-	addr.SetContainerID(testCID())
+	addr.SetContainerID(cidtest.Generate())
 	addr.SetObjectID(testOID())
 
 	return addr

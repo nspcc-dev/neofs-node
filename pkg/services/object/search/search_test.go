@@ -11,6 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -127,13 +128,6 @@ func testSHA256() (cs [sha256.Size]byte) {
 	return cs
 }
 
-func generateCID() *cid.ID {
-	id := cid.New()
-	id.SetSHA256(testSHA256())
-
-	return id
-}
-
 func generateIDs(num int) []*objectSDK.ID {
 	res := make([]*objectSDK.ID, num)
 
@@ -169,7 +163,7 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := generateCID()
+		cid := cidtest.Generate()
 		ids := generateIDs(10)
 		storage.addResult(cid, ids, nil)
 
@@ -185,7 +179,7 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := generateCID()
+		cid := cidtest.Generate()
 		testErr := errors.New("any error")
 		storage.addResult(cid, nil, testErr)
 
