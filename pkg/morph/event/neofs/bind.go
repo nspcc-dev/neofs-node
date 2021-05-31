@@ -1,27 +1,28 @@
 package neofs
 
 import (
-	"crypto/elliptic"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
 type Bind struct {
-	user util.Uint160
-	keys []*keys.PublicKey
+	bindCommon
+}
+
+type bindCommon struct {
+	user []byte
+	keys [][]byte
 }
 
 // MorphEvent implements Neo:Morph Event interface.
-func (Bind) MorphEvent() {}
+func (bindCommon) MorphEvent() {}
 
-func (b Bind) Keys() []*keys.PublicKey { return b.keys }
+func (b bindCommon) Keys() [][]byte { return b.keys }
 
-func (b Bind) User() util.Uint160 { return b.user }
+func (b bindCommon) User() []byte { return b.user }
 
 func ParseBind(params []stackitem.Item) (event.Event, error) {
 	var (
@@ -29,41 +30,43 @@ func ParseBind(params []stackitem.Item) (event.Event, error) {
 		err error
 	)
 
-	if ln := len(params); ln != 2 {
-		return nil, event.WrongNumberOfParameters(2, ln)
+	err = parseBind(&ev.bindCommon, params)
+	if err != nil {
+		return nil, err
 	}
+
+	return ev, nil
+}
+
+func parseBind(dst *bindCommon, params []stackitem.Item) error {
+	if ln := len(params); ln != 2 {
+		return event.WrongNumberOfParameters(2, ln)
+	}
+
+	var err error
 
 	// parse user
-	user, err := client.BytesFromStackItem(params[0])
+	dst.user, err = client.BytesFromStackItem(params[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get bind user: %w", err)
-	}
-
-	ev.user, err = util.Uint160DecodeBytesBE(user)
-	if err != nil {
-		return nil, fmt.Errorf("could not convert bind user to uint160: %w", err)
+		return fmt.Errorf("could not get bind user: %w", err)
 	}
 
 	// parse keys
 	bindKeys, err := client.ArrayFromStackItem(params[1])
 	if err != nil {
-		return nil, fmt.Errorf("could not get bind keys: %w", err)
+		return fmt.Errorf("could not get bind keys: %w", err)
 	}
 
-	ev.keys = make([]*keys.PublicKey, 0, len(bindKeys))
+	dst.keys = make([][]byte, 0, len(bindKeys))
+
 	for i := range bindKeys {
 		rawKey, err := client.BytesFromStackItem(bindKeys[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get bind public key: %w", err)
+			return fmt.Errorf("could not get bind public key: %w", err)
 		}
 
-		key, err := keys.NewPublicKeyFromBytes(rawKey, elliptic.P256())
-		if err != nil {
-			return nil, fmt.Errorf("could not parse bind public key: %w", err)
-		}
-
-		ev.keys = append(ev.keys, key)
+		dst.keys = append(dst.keys, rawKey)
 	}
 
-	return ev, nil
+	return nil
 }
