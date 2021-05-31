@@ -72,19 +72,23 @@ func initContainerService(c *cfg) {
 		PlacementBuilder: loadPlacementBuilder,
 	})
 
+	clientCache := cache.NewSDKClientCache() // FIXME: use shared cache
+
 	loadRouter := loadroute.New(
 		loadroute.Prm{
 			LocalServerInfo: c,
 			RemoteWriterProvider: &remoteLoadAnnounceProvider{
 				key:             c.key,
 				loadAddrSrc:     c,
-				clientCache:     cache.NewSDKClientCache(), // FIXME: use shared cache
+				clientCache:     clientCache,
 				deadEndProvider: loadcontroller.SimpleWriterProvider(loadAccumulator),
 			},
 			Builder: routeBuilder,
 		},
 		loadroute.WithLogger(c.log),
 	)
+
+	c.onShutdown(clientCache.CloseAll)
 
 	ctrl := loadcontroller.New(
 		loadcontroller.Prm{

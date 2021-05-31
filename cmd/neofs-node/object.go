@@ -155,6 +155,8 @@ func initObjectService(c *cfg) {
 	clientCache := cache.NewSDKClientCache(
 		client.WithDialTimeout(c.viper.GetDuration(cfgAPIClientDialTimeout)))
 
+	c.onShutdown(clientCache.CloseAll)
+
 	clientConstructor := &reputationClientConstructor{
 		log:              c.log,
 		nmSrc:            c.cfgObject.netMapStorage,
