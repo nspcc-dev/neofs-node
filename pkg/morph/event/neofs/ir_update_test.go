@@ -1,24 +1,26 @@
 package neofs
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	crypto "github.com/nspcc-dev/neofs-crypto"
-	"github.com/nspcc-dev/neofs-crypto/test"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
 
+func genKey(t *testing.T) *keys.PrivateKey {
+	priv, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+	return priv
+}
+
 func TestParseUpdateInnerRing(t *testing.T) {
 	var (
-		publicKeys = []*ecdsa.PublicKey{
-			&test.DecodeKey(1).PublicKey,
-			&test.DecodeKey(2).PublicKey,
-			&test.DecodeKey(3).PublicKey,
+		publicKeys = []*keys.PublicKey{
+			genKey(t).PublicKey(),
+			genKey(t).PublicKey(),
+			genKey(t).PublicKey(),
 		}
 	)
 
@@ -43,22 +45,15 @@ func TestParseUpdateInnerRing(t *testing.T) {
 	t.Run("correct", func(t *testing.T) {
 		ev, err := ParseUpdateInnerRing([]stackitem.Item{
 			stackitem.NewArray([]stackitem.Item{
-				stackitem.NewByteArray(crypto.MarshalPublicKey(publicKeys[0])),
-				stackitem.NewByteArray(crypto.MarshalPublicKey(publicKeys[1])),
-				stackitem.NewByteArray(crypto.MarshalPublicKey(publicKeys[2])),
+				stackitem.NewByteArray(publicKeys[0].Bytes()),
+				stackitem.NewByteArray(publicKeys[1].Bytes()),
+				stackitem.NewByteArray(publicKeys[2].Bytes()),
 			}),
 		})
 		require.NoError(t, err)
 
-		expKeys := make([]*keys.PublicKey, len(publicKeys))
-		for i := range publicKeys {
-			expKeys[i], err = keys.NewPublicKeyFromBytes(
-				crypto.MarshalPublicKey(publicKeys[i]), elliptic.P256())
-			require.NoError(t, err)
-		}
-
 		require.Equal(t, UpdateInnerRing{
-			keys: expKeys,
+			keys: publicKeys,
 		}, ev)
 	})
 }
