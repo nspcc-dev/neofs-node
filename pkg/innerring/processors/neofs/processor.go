@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"github.com/panjf2000/ants/v2"
@@ -39,6 +40,7 @@ type (
 		neofsContract       util.Uint160
 		balanceContract     util.Uint160
 		netmapContract      util.Uint160
+		neofsIDContract     util.Uint160
 		morphClient         *client.Client
 		epochState          EpochState
 		alphabetState       AlphabetState
@@ -49,6 +51,8 @@ type (
 		mintEmitThreshold   uint64
 		mintEmitValue       fixedn.Fixed8
 		gasBalanceThreshold int64
+
+		neofsIDClient *neofsid.ClientWrapper
 	}
 
 	// Params of the processor constructor.
@@ -58,6 +62,7 @@ type (
 		NeoFSContract       util.Uint160
 		BalanceContract     util.Uint160
 		NetmapContract      util.Uint160
+		NeoFSIDContract     util.Uint160
 		MorphClient         *client.Client
 		EpochState          EpochState
 		AlphabetState       AlphabetState
@@ -75,6 +80,8 @@ const (
 	withdrawNotification = "Withdraw"
 	chequeNotification   = "Cheque"
 	configNotification   = "SetConfig"
+	bindNotification     = "Bind"
+	unbindNotification   = "Unbind"
 )
 
 // New creates neofs mainnet contract processor instance.
@@ -106,6 +113,11 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/neofs: can't create LRU cache for gas emission: %w", err)
 	}
 
+	clientWrapper, err := neofsid.NewFromMorph(p.MorphClient, p.NeoFSIDContract, p.FeeProvider.SideChainFee())
+	if err != nil {
+		return nil, fmt.Errorf("could not create NeoFS ID client wrapper: %w", err)
+	}
+
 	return &Processor{
 		log:                 p.Log,
 		pool:                pool,
@@ -122,75 +134,93 @@ func New(p *Params) (*Processor, error) {
 		mintEmitThreshold:   p.MintEmitThreshold,
 		mintEmitValue:       p.MintEmitValue,
 		gasBalanceThreshold: p.GasBalanceThreshold,
+
+		neofsIDClient: clientWrapper,
 	}, nil
 }
 
 // ListenerParsers for the 'event.Listener' event producer.
 func (np *Processor) ListenerParsers() []event.ParserInfo {
-	var parsers []event.ParserInfo
+	var (
+		parsers = make([]event.ParserInfo, 0, 6)
+
+		p event.ParserInfo
+	)
+
+	p.SetScriptHash(np.neofsContract)
 
 	// deposit event
-	deposit := event.ParserInfo{}
-	deposit.SetType(depositNotification)
-	deposit.SetScriptHash(np.neofsContract)
-	deposit.SetParser(neofsEvent.ParseDeposit)
-	parsers = append(parsers, deposit)
+	p.SetType(event.TypeFromString(depositNotification))
+	p.SetParser(neofsEvent.ParseDeposit)
+	parsers = append(parsers, p)
 
 	// withdraw event
-	withdraw := event.ParserInfo{}
-	withdraw.SetType(withdrawNotification)
-	withdraw.SetScriptHash(np.neofsContract)
-	withdraw.SetParser(neofsEvent.ParseWithdraw)
-	parsers = append(parsers, withdraw)
+	p.SetType(event.TypeFromString(withdrawNotification))
+	p.SetParser(neofsEvent.ParseWithdraw)
+	parsers = append(parsers, p)
 
 	// cheque event
-	cheque := event.ParserInfo{}
-	cheque.SetType(chequeNotification)
-	cheque.SetScriptHash(np.neofsContract)
-	cheque.SetParser(neofsEvent.ParseCheque)
-	parsers = append(parsers, cheque)
+	p.SetType(event.TypeFromString(chequeNotification))
+	p.SetParser(neofsEvent.ParseCheque)
+	parsers = append(parsers, p)
 
 	// config event
-	config := event.ParserInfo{}
-	config.SetType(configNotification)
-	config.SetScriptHash(np.neofsContract)
-	config.SetParser(neofsEvent.ParseConfig)
-	parsers = append(parsers, config)
+	p.SetType(event.TypeFromString(configNotification))
+	p.SetParser(neofsEvent.ParseConfig)
+	parsers = append(parsers, p)
+
+	// bind event
+	p.SetType(event.TypeFromString(bindNotification))
+	p.SetParser(neofsEvent.ParseBind)
+	parsers = append(parsers, p)
+
+	// unbind event
+	p.SetType(event.TypeFromString(unbindNotification))
+	p.SetParser(neofsEvent.ParseUnbind)
+	parsers = append(parsers, p)
 
 	return parsers
 }
 
 // ListenerHandlers for the 'event.Listener' event producer.
 func (np *Processor) ListenerHandlers() []event.HandlerInfo {
-	var handlers []event.HandlerInfo
+	var (
+		handlers = make([]event.HandlerInfo, 0, 6)
+
+		h event.HandlerInfo
+	)
+
+	h.SetScriptHash(np.neofsContract)
 
 	// deposit handler
-	deposit := event.HandlerInfo{}
-	deposit.SetType(depositNotification)
-	deposit.SetScriptHash(np.neofsContract)
-	deposit.SetHandler(np.handleDeposit)
-	handlers = append(handlers, deposit)
+	h.SetType(event.TypeFromString(depositNotification))
+	h.SetHandler(np.handleDeposit)
+	handlers = append(handlers, h)
 
 	// withdraw handler
-	withdraw := event.HandlerInfo{}
-	withdraw.SetType(withdrawNotification)
-	withdraw.SetScriptHash(np.neofsContract)
-	withdraw.SetHandler(np.handleWithdraw)
-	handlers = append(handlers, withdraw)
+	h.SetType(event.TypeFromString(withdrawNotification))
+	h.SetHandler(np.handleWithdraw)
+	handlers = append(handlers, h)
 
 	// cheque handler
-	cheque := event.HandlerInfo{}
-	cheque.SetType(chequeNotification)
-	cheque.SetScriptHash(np.neofsContract)
-	cheque.SetHandler(np.handleCheque)
-	handlers = append(handlers, cheque)
+	h.SetType(event.TypeFromString(chequeNotification))
+	h.SetHandler(np.handleCheque)
+	handlers = append(handlers, h)
 
 	// config handler
-	config := event.HandlerInfo{}
-	config.SetType(configNotification)
-	config.SetScriptHash(np.neofsContract)
-	config.SetHandler(np.handleConfig)
-	handlers = append(handlers, config)
+	h.SetType(event.TypeFromString(configNotification))
+	h.SetHandler(np.handleConfig)
+	handlers = append(handlers, h)
+
+	// bind handler
+	h.SetType(event.TypeFromString(bindNotification))
+	h.SetHandler(np.handleBind)
+	handlers = append(handlers, h)
+
+	// unbind handler
+	h.SetType(event.TypeFromString(unbindNotification))
+	h.SetHandler(np.handleUnbind)
+	handlers = append(handlers, h)
 
 	return handlers
 }

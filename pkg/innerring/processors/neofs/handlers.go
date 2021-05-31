@@ -72,3 +72,35 @@ func (np *Processor) handleConfig(ev event.Event) {
 			zap.Int("capacity", np.pool.Cap()))
 	}
 }
+
+func (np *Processor) handleBind(ev event.Event) {
+	e := ev.(neofsEvent.Bind)
+	np.log.Info("notification",
+		zap.String("type", "bind"),
+	)
+
+	// send event to the worker pool
+
+	err := np.pool.Submit(func() { np.processBind(e) })
+	if err != nil {
+		// there system can be moved into controlled degradation stage
+		np.log.Warn("neofs processor worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
+
+func (np *Processor) handleUnbind(ev event.Event) {
+	e := ev.(neofsEvent.Unbind)
+	np.log.Info("notification",
+		zap.String("type", "unbind"),
+	)
+
+	// send event to the worker pool
+
+	err := np.pool.Submit(func() { np.processBind(e) })
+	if err != nil {
+		// there system can be moved into controlled degradation stage
+		np.log.Warn("neofs processor worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}

@@ -602,6 +602,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		NeoFSContract:       server.contracts.neofs,
 		BalanceContract:     server.contracts.balance,
 		NetmapContract:      server.contracts.netmap,
+		NeoFSIDContract:     server.contracts.neofsID,
 		MorphClient:         server.morphClient,
 		EpochState:          server,
 		AlphabetState:       server,
