@@ -75,3 +75,21 @@ func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
 
 	return cli, nil
 }
+
+// CloseAll closes underlying connections of all cached clients.
+//
+// Ignores closing errors.
+func (c *ClientCache) CloseAll() {
+	c.mu.RLock()
+
+	{
+		for _, cl := range c.clients {
+			con := cl.Conn()
+			if con != nil {
+				_ = con.Close()
+			}
+		}
+	}
+
+	c.mu.RUnlock()
+}
