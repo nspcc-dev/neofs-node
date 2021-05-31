@@ -90,6 +90,8 @@ func initReputationService(c *cfg) {
 
 	apiClientCache := cache.NewSDKClientCache()
 
+	c.onShutdown(apiClientCache.CloseAll)
+
 	remoteLocalTrustProvider := common.NewRemoteTrustProvider(
 		common.RemoteProviderPrm{
 			LocalAddrSrc:    c,
