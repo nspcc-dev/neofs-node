@@ -63,9 +63,7 @@ func main() {
 	httpServers := initHTTPServers(cfg)
 
 	innerRing, err := innerring.New(ctx, log, cfg)
-	if err != nil {
-		exitErr(err)
-	}
+	exitErr(err)
 
 	if len(*validators) != 0 {
 		validatorKeys, err := parsePublicKeysFromString(*validators)
@@ -87,9 +85,7 @@ func main() {
 
 	// start inner ring
 	err = innerRing.Start(ctx, intErr)
-	if err != nil {
-		exitErr(err)
-	}
+	exitErr(err)
 
 	log.Info("application started",
 		zap.String("build time", misc.Build),
