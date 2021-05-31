@@ -42,15 +42,14 @@ type (
 
 	// Processor of events related with data audit.
 	Processor struct {
-		log               *zap.Logger
-		pool              *ants.Pool
-		containerContract util.Uint160
-		auditContract     util.Uint160
-		morphClient       *client.Client
-		irList            Indexer
-		clientCache       NeoFSClientCache
-		key               *ecdsa.PrivateKey
-		searchTimeout     time.Duration
+		log           *zap.Logger
+		pool          *ants.Pool
+		auditContract util.Uint160
+		morphClient   *client.Client
+		irList        Indexer
+		clientCache   NeoFSClientCache
+		key           *ecdsa.PrivateKey
+		searchTimeout time.Duration
 
 		containerClient *wrapContainer.Wrapper
 		netmapClient    *wrapNetmap.Wrapper
@@ -62,18 +61,18 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log               *zap.Logger
-		NetmapContract    util.Uint160
-		ContainerContract util.Uint160
-		AuditContract     util.Uint160
-		MorphClient       *client.Client
-		IRList            Indexer
-		FeeProvider       *config.FeeConfig
-		ClientCache       NeoFSClientCache
-		RPCSearchTimeout  time.Duration
-		TaskManager       TaskManager
-		Reporter          audit.Reporter
-		Key               *ecdsa.PrivateKey
+		Log              *zap.Logger
+		NetmapClient     *wrapNetmap.Wrapper
+		ContainerClient  *wrapContainer.Wrapper
+		AuditContract    util.Uint160
+		MorphClient      *client.Client
+		IRList           Indexer
+		FeeProvider      *config.FeeConfig
+		ClientCache      NeoFSClientCache
+		RPCSearchTimeout time.Duration
+		TaskManager      TaskManager
+		Reporter         audit.Reporter
+		Key              *ecdsa.PrivateKey
 	}
 )
 
@@ -114,30 +113,17 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/audit: can't create worker pool: %w", err)
 	}
 
-	// creating enhanced client for getting network map
-	netmapClient, err := wrapNetmap.NewFromMorph(p.MorphClient, p.NetmapContract, p.FeeProvider.SideChainFee())
-	if err != nil {
-		return nil, err
-	}
-
-	// creating enhanced client for getting containers
-	containerClient, err := wrapContainer.NewFromMorph(p.MorphClient, p.ContainerContract, p.FeeProvider.SideChainFee())
-	if err != nil {
-		return nil, err
-	}
-
 	return &Processor{
 		log:               p.Log,
 		pool:              pool,
-		containerContract: p.ContainerContract,
+		containerClient:   p.ContainerClient,
 		auditContract:     p.AuditContract,
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,
 		clientCache:       p.ClientCache,
 		key:               p.Key,
 		searchTimeout:     p.RPCSearchTimeout,
-		containerClient:   containerClient,
-		netmapClient:      netmapClient,
+		netmapClient:      p.NetmapClient,
 		taskManager:       p.TaskManager,
 		reporter:          p.Reporter,
 		prevAuditCanceler: func() {},

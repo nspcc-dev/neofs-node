@@ -29,12 +29,18 @@ type Option func(*cfg)
 
 type cfg struct {
 	transferXMethod, // transferX method name for invocation
+	mintMethod,
+	burnMethod,
+	lockMethod,
 	balanceOfMethod, // balanceOf method name for invocation
 	decimalsMethod string // decimals method name for invocation
 }
 
 const (
 	defaultTransferXMethod = "transferX" // default "transferX" method name
+	defaultMintMethod      = "mint"      // default "mint" method name
+	defaultBurnMethod      = "burn"      // default "burn" method name
+	defaultLockMethod      = "lock"      // default "lock" method name
 	defaultBalanceOfMethod = "balanceOf" // default "balance of" method name
 	defaultDecimalsMethod  = "decimals"  // default decimals method name
 )
@@ -42,6 +48,9 @@ const (
 func defaultConfig() *cfg {
 	return &cfg{
 		transferXMethod: defaultTransferXMethod,
+		mintMethod:      defaultMintMethod,
+		burnMethod:      defaultBurnMethod,
+		lockMethod:      defaultLockMethod,
 		balanceOfMethod: defaultBalanceOfMethod,
 		decimalsMethod:  defaultDecimalsMethod,
 	}

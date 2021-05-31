@@ -56,3 +56,18 @@ func (c *Client) TransferX(args TransferXArgs) error {
 
 	return nil
 }
+
+// Mint invokes `mint` method of the balance contract.
+func (c *Client) Mint(to []byte, amount int64, id []byte) error {
+	return c.client.Invoke(c.mintMethod, to, amount, id)
+}
+
+// Burn invokes `burn` method of the balance contract.
+func (c *Client) Burn(to []byte, amount int64, id []byte) error {
+	return c.client.Invoke(c.burnMethod, to, amount, id)
+}
+
+// Lock invokes `lock` method of the balance contract.
+func (c *Client) Lock(id, user, lock []byte, amount, dueEpoch int64) error {
+	return c.client.Invoke(c.lockMethod, id, user, lock, amount, dueEpoch)
+}

@@ -10,8 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const approvePeerMethod = "addPeer"
-
 // Process add peer notification by sanity check of new node
 // local epoch timer.
 func (np *Processor) processAddPeer(node []byte) {
@@ -52,14 +50,6 @@ func (np *Processor) processAddPeer(node []byte) {
 	})
 	nodeInfo.SetAttributes(a...)
 
-	// marshal node info back to binary
-	node, err = nodeInfo.Marshal()
-	if err != nil {
-		np.log.Warn("can't marshal approved network map candidate",
-			zap.String("error", err.Error()))
-		return
-	}
-
 	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 
 	exists := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter())
@@ -67,7 +57,7 @@ func (np *Processor) processAddPeer(node []byte) {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
-		err := np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), approvePeerMethod, node)
+		err := np.netmapClient.AddPeer(nodeInfo)
 		if err != nil {
 			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
 		}
@@ -94,9 +84,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	// again before new epoch will tick
 	np.netmapSnapshot.flag(hex.EncodeToString(ev.PublicKey().Bytes()))
 
-	err := np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), updatePeerStateMethod,
-		int64(ev.Status().ToV2()),
-		ev.PublicKey().Bytes())
+	err := np.netmapClient.UpdatePeerState(ev.PublicKey().Bytes(), ev.Status())
 	if err != nil {
 		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))
 	}

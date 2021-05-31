@@ -67,6 +67,8 @@ type (
 		precision     precision.Fixed8Converter
 		auditClient   *auditWrapper.ClientWrapper
 		healthStatus  atomic.Value
+		balanceClient *balanceWrapper.Wrapper
+		netmapClient  *nmWrapper.Wrapper
 
 		// notary configuration
 		feeConfig        *config.FeeConfig
@@ -139,10 +141,6 @@ const (
 	notaryExtraBlocks = 300
 	// amount of tries before notary deposit timeout.
 	notaryDepositTimeout = 100
-
-	precisionMethod = "decimals"
-	// netmap
-	getEpochMethod = "epoch"
 )
 
 var (
@@ -404,12 +402,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	nmClient, err := nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee)
+	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee)
 	if err != nil {
 		return nil, err
 	}
 
-	balClient, err := balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceWrapper.TryNotary())
+	server.balanceClient, err = balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceWrapper.TryNotary())
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +423,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	// create global runtime config reader
-	globalConfig := config.NewGlobalConfigReader(cfg, nmClient)
+	globalConfig := config.NewGlobalConfigReader(cfg, server.netmapClient)
 
 	clientCache := newClientCache(&clientCacheParams{
 		Log:          log,
@@ -459,18 +457,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create audit processor
 	auditProcessor, err := audit.New(&audit.Params{
-		Log:               log,
-		NetmapContract:    server.contracts.netmap,
-		ContainerContract: server.contracts.container,
-		AuditContract:     server.contracts.audit,
-		MorphClient:       server.morphClient,
-		IRList:            server,
-		FeeProvider:       server.feeConfig,
-		ClientCache:       clientCache,
-		Key:               &server.key.PrivateKey,
-		RPCSearchTimeout:  cfg.GetDuration("audit.timeout.search"),
-		TaskManager:       auditTaskManager,
-		Reporter:          server,
+		Log:              log,
+		NetmapClient:     server.netmapClient,
+		ContainerClient:  cnrClient,
+		AuditContract:    server.contracts.audit,
+		MorphClient:      server.morphClient,
+		IRList:           server,
+		FeeProvider:      server.feeConfig,
+		ClientCache:      clientCache,
+		Key:              &server.key.PrivateKey,
+		RPCSearchTimeout: cfg.GetDuration("audit.timeout.search"),
+		TaskManager:      auditTaskManager,
+		Reporter:         server,
 	})
 	if err != nil {
 		return nil, err
@@ -482,9 +480,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		log:           server.log,
 		cnrSrc:        cntWrapper.AsContainerSource(cnrClient),
 		auditClient:   server.auditClient,
-		nmSrc:         nmClient,
+		nmSrc:         server.netmapClient,
 		clientCache:   clientCache,
-		balanceClient: balClient,
+		balanceClient: server.balanceClient,
 	}
 
 	auditCalcDeps := &auditSettlementDeps{
@@ -528,7 +526,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	governanceProcessor, err := governance.New(&governance.Params{
 		Log:            log,
 		NeoFSContract:  server.contracts.neofs,
-		NetmapContract: server.contracts.netmap,
+		NetmapClient:   server.netmapClient,
 		AlphabetState:  server,
 		EpochState:     server,
 		Voter:          server,
@@ -560,8 +558,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Log:              log,
 		PoolSize:         cfg.GetInt("workers.netmap"),
 		NetmapContract:   server.contracts.netmap,
+		NetmapClient:     server.netmapClient,
 		EpochTimer:       server,
-		MorphClient:      server.morphClient,
 		EpochState:       server,
 		AlphabetState:    server,
 		CleanupEnabled:   cfg.GetBool("netmap_cleaner.enabled"),
@@ -596,7 +594,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		FeeProvider:       server.feeConfig,
 		ContainerClient:   cnrClient,
 		NeoFSIDClient:     neofsIDClient,
-		NetworkState:      nmClient,
+		NetworkState:      server.netmapClient,
 	})
 	if err != nil {
 		return nil, err
@@ -632,9 +630,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Log:                 log,
 		PoolSize:            cfg.GetInt("workers.neofs"),
 		NeoFSContract:       server.contracts.neofs,
-		BalanceContract:     server.contracts.balance,
-		NetmapContract:      server.contracts.netmap,
-		NeoFSIDContract:     server.contracts.neofsID,
+		NeoFSIDClient:       neofsIDClient,
+		BalanceClient:       server.balanceClient,
+		NetmapClient:        server.netmapClient,
 		MorphClient:         server.morphClient,
 		EpochState:          server,
 		AlphabetState:       server,
@@ -659,7 +657,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Log:               log,
 		PoolSize:          cfg.GetInt("workers.alphabet"),
 		AlphabetContracts: server.contracts.alphabet,
-		NetmapContract:    server.contracts.netmap,
+		NetmapClient:      server.netmapClient,
 		MorphClient:       server.morphClient,
 		IRList:            server,
 		StorageEmission:   cfg.GetUint64("emit.storage.amount"),
@@ -683,7 +681,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		ReputationWrapper:  repClient,
 		ManagerBuilder: reputationcommon.NewManagerBuilder(
 			reputationcommon.ManagersPrm{
-				NetMapSource: nmClient,
+				NetMapSource: server.netmapClient,
 			},
 		),
 	})
@@ -946,35 +944,25 @@ func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
 
 func (s *Server) initConfigFromBlockchain() error {
 	// get current epoch
-	val, err := s.morphClient.TestInvoke(s.contracts.netmap, getEpochMethod)
-	if err != nil {
-		return fmt.Errorf("can't read epoch: %w", err)
-	}
-
-	epoch, err := client.IntFromStackItem(val[0])
+	epoch, err := s.netmapClient.Epoch()
 	if err != nil {
 		return fmt.Errorf("can't parse epoch: %w", err)
 	}
 
 	// get balance precision
-	v, err := s.morphClient.TestInvoke(s.contracts.balance, precisionMethod)
+	balancePrecision, err := s.balanceClient.Decimals()
 	if err != nil {
 		return fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
-	balancePrecision, err := client.IntFromStackItem(v[0])
-	if err != nil {
-		return fmt.Errorf("can't parse balance contract precision: %w", err)
-	}
-
-	s.epochCounter.Store(uint64(epoch))
-	s.precision.SetBalancePrecision(uint32(balancePrecision))
+	s.epochCounter.Store(epoch)
+	s.precision.SetBalancePrecision(balancePrecision)
 
 	s.log.Debug("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
 		zap.Bool("alphabet", s.IsAlphabet()),
-		zap.Int64("epoch", epoch),
-		zap.Uint32("precision", uint32(balancePrecision)),
+		zap.Uint64("epoch", epoch),
+		zap.Uint32("precision", balancePrecision),
 	)
 
 	return nil

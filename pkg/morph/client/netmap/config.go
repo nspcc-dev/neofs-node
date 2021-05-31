@@ -56,6 +56,11 @@ func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{
 	}, nil
 }
 
+// SetConfig invokes `setConfig` method of NeoFS Netmap contract.
+func (c *Client) SetConfig(id, key []byte, value interface{}) error {
+	return c.client.Invoke(c.setConfigMethod, id, key, value)
+}
+
 func IntegerAssert(item stackitem.Item) (interface{}, error) {
 	return client.IntFromStackItem(item)
 }

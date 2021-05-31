@@ -6,8 +6,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const updatePeerStateMethod = "updateState"
-
 func (np *Processor) processNetmapCleanupTick(epoch uint64) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore new netmap cleanup tick")
@@ -26,9 +24,7 @@ func (np *Processor) processNetmapCleanupTick(epoch uint64) {
 
 		np.log.Info("vote to remove node from netmap", zap.String("key", s))
 
-		err = np.morphClient.NotaryInvoke(np.netmapContract, np.feeProvider.SideChainFee(), updatePeerStateMethod,
-			int64(netmap.NodeStateOffline.ToV2()),
-			key.Bytes())
+		err = np.netmapClient.UpdatePeerState(key.Bytes(), netmap.NodeStateOffline)
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
 		}

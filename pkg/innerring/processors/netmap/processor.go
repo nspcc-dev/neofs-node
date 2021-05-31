@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/panjf2000/ants/v2"
@@ -57,7 +57,7 @@ type (
 		epochState     EpochState
 		alphabetState  AlphabetState
 
-		morphClient  *client.Client
+		netmapClient *nmWrapper.Wrapper
 		containerWrp *container.Wrapper
 
 		netmapSnapshot cleanupTable
@@ -73,11 +73,12 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log              *zap.Logger
-		PoolSize         int
+		Log      *zap.Logger
+		PoolSize int
+		// TODO(@fyrchik): add `ContractHash` method to the NetmapClient and remove this parameter.
 		NetmapContract   util.Uint160
+		NetmapClient     *nmWrapper.Wrapper
 		EpochTimer       EpochTimerReseter
-		MorphClient      *client.Client
 		EpochState       EpochState
 		AlphabetState    AlphabetState
 		CleanupEnabled   bool
@@ -105,8 +106,6 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/netmap: logger is not set")
-	case p.MorphClient == nil:
-		return nil, errors.New("ir/netmap: morph client is not set")
 	case p.EpochTimer == nil:
 		return nil, errors.New("ir/netmap: epoch itmer is not set")
 	case p.EpochState == nil:
@@ -141,7 +140,7 @@ func New(p *Params) (*Processor, error) {
 		epochTimer:     p.EpochTimer,
 		epochState:     p.EpochState,
 		alphabetState:  p.AlphabetState,
-		morphClient:    p.MorphClient,
+		netmapClient:   p.NetmapClient,
 		containerWrp:   p.ContainerWrapper,
 		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),
 		handleNewAudit: p.HandleAudit,

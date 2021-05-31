@@ -9,10 +9,6 @@ import (
 const (
 	// lockAccountLifeTime defines amount of epochs when lock account is valid.
 	lockAccountLifetime uint64 = 20
-
-	burnMethod = "burn"
-	lockMethod = "lock"
-	mintMethod = "mint"
 )
 
 // Process deposit event by invoking balance contract and sending native
@@ -24,8 +20,8 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	}
 
 	// send transferX to balance contract
-	err := np.morphClient.NotaryInvoke(np.balanceContract, np.feeProvider.SideChainFee(), mintMethod,
-		deposit.To().BytesBE(),
+	err := np.balanceClient.Mint(
+		deposit.To(),
 		np.converter.ToBalancePrecision(deposit.Amount()),
 		deposit.ID())
 	if err != nil {
@@ -95,7 +91,7 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 
 	curEpoch := np.epochState.EpochCounter()
 
-	err = np.morphClient.NotaryInvoke(np.balanceContract, np.feeProvider.SideChainFee(), lockMethod,
+	err = np.balanceClient.Lock(
 		withdraw.ID(),
 		withdraw.User(),
 		lock,
@@ -114,8 +110,8 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		return
 	}
 
-	err := np.morphClient.NotaryInvoke(np.balanceContract, np.feeProvider.SideChainFee(), burnMethod,
-		cheque.LockAccount().BytesBE(),
+	err := np.balanceClient.Burn(
+		cheque.LockAccount(),
 		np.converter.ToBalancePrecision(cheque.Amount()),
 		cheque.ID())
 	if err != nil {

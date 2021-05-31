@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
 	"github.com/panjf2000/ants/v2"
@@ -38,10 +39,10 @@ type (
 
 	// Processor of events related to governance in the network.
 	Processor struct {
-		log            *zap.Logger
-		pool           *ants.Pool
-		neofsContract  util.Uint160
-		netmapContract util.Uint160
+		log           *zap.Logger
+		pool          *ants.Pool
+		neofsContract util.Uint160
+		netmapClient  *nmWrapper.Wrapper
 
 		alphabetState AlphabetState
 		epochState    EpochState
@@ -56,9 +57,8 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log            *zap.Logger
-		NeoFSContract  util.Uint160
-		NetmapContract util.Uint160
+		Log           *zap.Logger
+		NeoFSContract util.Uint160
 
 		AlphabetState AlphabetState
 		EpochState    EpochState
@@ -66,6 +66,7 @@ type (
 
 		MorphClient   *client.Client
 		MainnetClient *client.Client
+		NetmapClient  *nmWrapper.Wrapper
 
 		NotaryDisabled bool
 		FeeProvider    *config.FeeConfig
@@ -100,7 +101,7 @@ func New(p *Params) (*Processor, error) {
 		log:            p.Log,
 		pool:           pool,
 		neofsContract:  p.NeoFSContract,
-		netmapContract: p.NetmapContract,
+		netmapClient:   p.NetmapClient,
 		alphabetState:  p.AlphabetState,
 		epochState:     p.EpochState,
 		voter:          p.Voter,
