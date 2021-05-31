@@ -36,3 +36,33 @@ func (x *ClientWrapper) AccountKeys(id *owner.ID) (keys.PublicKeys, error) {
 
 	return ks, nil
 }
+
+// ManageKeys adds/removes list of public keys to/from NeoFS account.
+func (x *ClientWrapper) ManageKeys(ownerID []byte, ks [][]byte, add bool) error {
+	type args interface {
+		SetOwnerID([]byte)
+		SetKeys([][]byte)
+	}
+
+	var (
+		a    args
+		call func(args) error
+	)
+
+	if add {
+		a = new(neofsid.AddKeysArgs)
+		call = func(a args) error {
+			return (*neofsid.Client)(x).AddKeys(*a.(*neofsid.AddKeysArgs))
+		}
+	} else {
+		a = new(neofsid.RemoveKeysArgs)
+		call = func(a args) error {
+			return (*neofsid.Client)(x).RemoveKeys(*a.(*neofsid.RemoveKeysArgs))
+		}
+	}
+
+	a.SetOwnerID(ownerID)
+	a.SetKeys(ks)
+
+	return call(a)
+}
