@@ -460,10 +460,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Log:              log,
 		NetmapClient:     server.netmapClient,
 		ContainerClient:  cnrClient,
-		AuditContract:    server.contracts.audit,
-		MorphClient:      server.morphClient,
 		IRList:           server,
-		FeeProvider:      server.feeConfig,
 		ClientCache:      clientCache,
 		Key:              &server.key.PrivateKey,
 		RPCSearchTimeout: cfg.GetDuration("audit.timeout.search"),
@@ -573,7 +570,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		),
 		AlphabetSyncHandler: alphaSync,
 		NodeValidator:       locodeValidator,
-		FeeProvider:         server.feeConfig,
 	})
 	if err != nil {
 		return nil, err
@@ -589,9 +585,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		Log:               log,
 		PoolSize:          cfg.GetInt("workers.container"),
 		ContainerContract: server.contracts.container,
-		MorphClient:       server.morphClient,
 		AlphabetState:     server,
-		FeeProvider:       server.feeConfig,
 		ContainerClient:   cnrClient,
 		NeoFSIDClient:     neofsIDClient,
 		NetworkState:      server.netmapClient,
@@ -637,7 +631,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		EpochState:          server,
 		AlphabetState:       server,
 		Converter:           &server.precision,
-		FeeProvider:         server.feeConfig,
 		MintEmitCacheSize:   cfg.GetInt("emit.mint.cache_size"),
 		MintEmitThreshold:   cfg.GetUint64("emit.mint.threshold"),
 		MintEmitValue:       fixedn.Fixed8(cfg.GetInt64("emit.mint.value")),

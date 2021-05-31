@@ -7,10 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -44,8 +41,6 @@ type (
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
-		auditContract util.Uint160
-		morphClient   *client.Client
 		irList        Indexer
 		clientCache   NeoFSClientCache
 		key           *ecdsa.PrivateKey
@@ -64,10 +59,7 @@ type (
 		Log              *zap.Logger
 		NetmapClient     *wrapNetmap.Wrapper
 		ContainerClient  *wrapContainer.Wrapper
-		AuditContract    util.Uint160
-		MorphClient      *client.Client
 		IRList           Indexer
-		FeeProvider      *config.FeeConfig
 		ClientCache      NeoFSClientCache
 		RPCSearchTimeout time.Duration
 		TaskManager      TaskManager
@@ -92,12 +84,8 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/audit: logger is not set")
-	case p.MorphClient == nil:
-		return nil, errors.New("ir/audit: neo:morph client is not set")
 	case p.IRList == nil:
 		return nil, errors.New("ir/audit: global state is not set")
-	case p.FeeProvider == nil:
-		return nil, errors.New("ir/audit: fee provider is not set")
 	case p.ClientCache == nil:
 		return nil, errors.New("ir/audit: neofs RPC client cache is not set")
 	case p.TaskManager == nil:
@@ -117,8 +105,6 @@ func New(p *Params) (*Processor, error) {
 		log:               p.Log,
 		pool:              pool,
 		containerClient:   p.ContainerClient,
-		auditContract:     p.AuditContract,
-		morphClient:       p.MorphClient,
 		irList:            p.IRList,
 		clientCache:       p.ClientCache,
 		key:               p.Key,
