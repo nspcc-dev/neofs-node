@@ -23,10 +23,11 @@ func NewTransferTable() *TransferTable {
 }
 
 func (t *TransferTable) Transfer(tx *TransferTx) {
-	from, to := tx.From.String(), tx.To.String()
-	if from == to {
+	if tx.From.Equal(tx.To) {
 		return
 	}
+
+	from, to := tx.From.String(), tx.To.String()
 
 	m, ok := t.txs[from]
 	if !ok {

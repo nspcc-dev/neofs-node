@@ -1,7 +1,6 @@
 package acl
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -765,11 +764,7 @@ func isOwnerFromKey(id *owner.ID, key *ecdsa.PublicKey) bool {
 		return false
 	}
 
-	// here we compare `owner.ID -> wallet` with `wallet <- publicKey`
-	// consider making equal method on owner.ID structure
-	// we can compare .String() version of owners but don't think it is good idea
-	// binary comparison is better but MarshalBinary is more expensive
-	return bytes.Equal(id.ToV2().GetValue(), wallet.Bytes())
+	return id.Equal(owner.NewIDFromNeo3Wallet(wallet))
 }
 
 // originalBearerToken goes down to original request meta header and fetches
