@@ -2,10 +2,13 @@ package innerring
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	containerAPI "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
@@ -13,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -181,7 +183,12 @@ func (s settlementDeps) SGInfo(addr *object.Address) (audit.SGInfo, error) {
 }
 
 func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
-	w, err := owner.NEO3WalletFromPublicKey(crypto.UnmarshalPublicKey(ni.PublicKey()))
+	pub, err := keys.NewPublicKeyFromBytes(ni.PublicKey(), elliptic.P256())
+	if err != nil {
+		return nil, err
+	}
+
+	w, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(pub))
 	if err != nil {
 		return nil, err
 	}

@@ -52,7 +52,9 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("mainnet.endpoint.notification", "")
 	cfg.SetDefault("mainnet.dial_timeout", "10s")
 
-	cfg.SetDefault("key", "") // inner ring node key
+	cfg.SetDefault("wallet.path", "")     // inner ring node NEP-6 wallet
+	cfg.SetDefault("wallet.address", "")  // account address
+	cfg.SetDefault("wallet.password", "") // password
 
 	cfg.SetDefault("contracts.netmap", "")
 	cfg.SetDefault("contracts.neofs", "")

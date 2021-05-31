@@ -2,7 +2,6 @@ package innerring
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
@@ -35,6 +33,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
+	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/viper"
@@ -68,7 +67,7 @@ type (
 		sideNotaryConfig *notaryConfig
 
 		// internal variables
-		key                  *ecdsa.PrivateKey
+		key                  *keys.PrivateKey
 		pubKey               []byte
 		contracts            *contracts
 		predefinedValidators keys.PublicKeys
@@ -110,7 +109,7 @@ type (
 	chainParams struct {
 		log  *zap.Logger
 		cfg  *viper.Viper
-		key  *ecdsa.PrivateKey
+		key  *keys.PrivateKey
 		name string
 		gas  util.Uint160
 	}
@@ -264,10 +263,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(cfg)
 
 	// prepare inner ring node private key
-	server.key, err = crypto.LoadPrivateKey(cfg.GetString("key"))
+	acc, err := utilConfig.LoadAccount(
+		cfg.GetString("wallet.path"),
+		cfg.GetString("wallet.address"),
+		cfg.GetString("wallet.password"))
 	if err != nil {
-		return nil, fmt.Errorf("ir: can't create private key: %w", err)
+		return nil, fmt.Errorf("ir: %w", err)
 	}
+
+	server.key = acc.PrivateKey()
 
 	// get all script hashes of contracts
 	server.contracts, err = parseContracts(cfg)
@@ -344,11 +348,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		}
 	}
 
-	server.pubKey = crypto.MarshalPublicKey(&server.key.PublicKey)
+	server.pubKey = server.key.PublicKey().Bytes()
 
 	server.statusIndex = newInnerRingIndexer(
 		server.morphClient,
-		&server.key.PublicKey,
+		server.key.PublicKey(),
 		cfg.GetDuration("indexer.cache_timeout"),
 	)
 
@@ -394,7 +398,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	clientCache := newClientCache(&clientCacheParams{
 		Log:          log,
-		Key:          server.key,
+		Key:          &server.key.PrivateKey,
 		SGTimeout:    cfg.GetDuration("audit.timeout.get"),
 		HeadTimeout:  cfg.GetDuration("audit.timeout.head"),
 		RangeTimeout: cfg.GetDuration("audit.timeout.rangehash"),
@@ -432,7 +436,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		IRList:            server,
 		FeeProvider:       server.feeConfig,
 		ClientCache:       clientCache,
-		Key:               server.key,
+		Key:               &server.key.PrivateKey,
 		RPCSearchTimeout:  cfg.GetDuration("audit.timeout.search"),
 		TaskManager:       auditTaskManager,
 		Reporter:          server,
@@ -738,7 +742,7 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 
 func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 	return client.New(
-		p.key,
+		&p.key.PrivateKey,
 		p.cfg.GetString(p.name+".endpoint.client"),
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
