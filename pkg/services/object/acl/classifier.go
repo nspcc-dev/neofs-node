@@ -3,8 +3,10 @@ package acl
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -15,7 +17,6 @@ import (
 	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"go.uber.org/zap"
 )
@@ -61,7 +62,7 @@ func (c SenderClassifier) Classify(
 		return 0, false, nil, err
 	}
 
-	ownerKeyInBytes := crypto.MarshalPublicKey(ownerKey)
+	ownerKeyInBytes := ownerKey.Bytes()
 
 	// todo: get owner from neofs.id if present
 
@@ -94,7 +95,7 @@ func (c SenderClassifier) Classify(
 	return acl.RoleOthers, false, ownerKeyInBytes, nil
 }
 
-func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
+func requestOwner(req metaWithToken) (*owner.ID, *keys.PublicKey, error) {
 	if req.vheader == nil {
 		return nil, nil, fmt.Errorf("%w: nil verification header", ErrMalformedRequest)
 	}
@@ -111,8 +112,8 @@ func requestOwner(req metaWithToken) (*owner.ID, *ecdsa.PublicKey, error) {
 		return nil, nil, fmt.Errorf("%w: nil at body signature", ErrMalformedRequest)
 	}
 
-	key := crypto.UnmarshalPublicKey(bodySignature.Key())
-	neo3wallet, err := owner.NEO3WalletFromPublicKey(key)
+	key := unmarshalPublicKey(bodySignature.Key())
+	neo3wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(key))
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't create neo3 wallet: %w", err)
 	}
@@ -196,7 +197,7 @@ func lookupKeyInContainer(
 	return false, nil
 }
 
-func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, error) {
+func ownerFromToken(token *session.SessionToken) (*owner.ID, *keys.PublicKey, error) {
 	// 1. First check signature of session token.
 	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
 	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
@@ -207,7 +208,7 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, e
 	}
 
 	// 2. Then check if session token owner issued the session token
-	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
+	tokenIssuerKey := unmarshalPublicKey(token.GetSignature().GetKey())
 	tokenOwner := owner.NewIDFromV2(token.GetBody().GetOwnerID())
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
@@ -216,4 +217,12 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *ecdsa.PublicKey, e
 	}
 
 	return tokenOwner, tokenIssuerKey, nil
+}
+
+func unmarshalPublicKey(bs []byte) *keys.PublicKey {
+	pub, err := keys.NewPublicKeyFromBytes(bs, elliptic.P256())
+	if err != nil {
+		return nil
+	}
+	return pub
 }

@@ -1,20 +1,20 @@
 package v2
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	eacl2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
-	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -111,14 +111,16 @@ func TestHeadRequest(t *testing.T) {
 
 	table := new(eacl.Table)
 
-	senderKey := test.DecodeKey(-1).PublicKey
+	priv, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+	senderKey := priv.PublicKey()
 
 	r := eacl.NewRecord()
 	r.SetOperation(eacl.OperationHead)
 	r.SetAction(eacl.ActionDeny)
 	r.AddFilter(eacl.HeaderFromObject, eacl.MatchStringEqual, attrKey, attrVal)
 	r.AddFilter(eacl.HeaderFromRequest, eacl.MatchStringEqual, xKey, xVal)
-	eacl.AddFormedTarget(r, eacl.RoleUnknown, senderKey)
+	eacl.AddFormedTarget(r, eacl.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
 
 	table.AddRecord(r)
 
@@ -132,7 +134,7 @@ func TestHeadRequest(t *testing.T) {
 	unit := new(eacl2.ValidationUnit).
 		WithContainerID(cid).
 		WithOperation(eacl.OperationHead).
-		WithSenderKey(crypto.MarshalPublicKey(&senderKey)).
+		WithSenderKey(senderKey.Bytes()).
 		WithHeaderSource(
 			NewMessageHeaderSource(
 				WithObjectStorage(lStorage),

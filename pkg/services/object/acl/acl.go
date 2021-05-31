@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -16,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -589,7 +589,7 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 		return true
 	}
 
-	requestSenderKey := crypto.UnmarshalPublicKey(info.senderKey)
+	requestSenderKey := unmarshalPublicKey(info.senderKey)
 
 	return isOwnerFromKey(owner, requestSenderKey)
 }
@@ -726,7 +726,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 	}
 
 	// 3. Then check if container owner signed this token.
-	tokenIssuerKey := crypto.UnmarshalPublicKey(token.GetSignature().GetKey())
+	tokenIssuerKey := unmarshalPublicKey(token.GetSignature().GetKey())
 	if !isOwnerFromKey(reqInfo.cnrOwner, tokenIssuerKey) {
 		// todo: in this case we can issue all owner keys from neofs.id and check once again
 		return false
@@ -735,7 +735,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 	// 4. Then check if request sender has rights to use this token.
 	tokenOwnerField := owner.NewIDFromV2(token.GetBody().GetOwnerID())
 	if tokenOwnerField != nil { // see bearer token owner field description
-		requestSenderKey := crypto.UnmarshalPublicKey(reqInfo.senderKey)
+		requestSenderKey := unmarshalPublicKey(reqInfo.senderKey)
 		if !isOwnerFromKey(tokenOwnerField, requestSenderKey) {
 			// todo: in this case we can issue all owner keys from neofs.id and check once again
 			return false
@@ -754,12 +754,12 @@ func isValidLifetime(lifetime *bearer.TokenLifetime, epoch uint64) bool {
 	return epoch >= lifetime.GetNbf() && epoch <= lifetime.GetExp()
 }
 
-func isOwnerFromKey(id *owner.ID, key *ecdsa.PublicKey) bool {
+func isOwnerFromKey(id *owner.ID, key *keys.PublicKey) bool {
 	if id == nil || key == nil {
 		return false
 	}
 
-	wallet, err := owner.NEO3WalletFromPublicKey(key)
+	wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(key))
 	if err != nil {
 		return false
 	}
