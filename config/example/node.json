@@ -12,6 +12,11 @@
   },
   "node": {
     "key": "path/hex/WIF",
+    "wallet": {
+      "path": "./wallet.json",
+      "address": "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz",
+      "password": "password"
+    },
     "address": "s01.neofs.devenv:8080",
     "attribute_0": "Price:11",
     "attribute_1": "UN-LOCODE:RU MSK",

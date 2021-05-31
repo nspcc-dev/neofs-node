@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"net"
 	"os"
 	"path"
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
@@ -73,7 +72,7 @@ type cfg struct {
 
 	wg *sync.WaitGroup
 
-	key *ecdsa.PrivateKey
+	key *keys.PrivateKey
 
 	apiVersion *pkg.Version
 
@@ -209,12 +208,11 @@ func initCfg(path string) *cfg {
 		config.WithConfigFile(path),
 	)
 
-	key, err := crypto.LoadPrivateKey(nodeconfig.Key(appCfg))
-	fatalOnErr(err)
+	key := nodeconfig.Wallet(appCfg)
 
 	var logPrm logger.Prm
 
-	err = logPrm.SetLevelString(
+	err := logPrm.SetLevelString(
 		loggerconfig.Level(appCfg),
 	)
 	fatalOnErr(err)

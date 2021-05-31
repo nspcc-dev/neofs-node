@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 )
 
 const (
@@ -34,6 +36,20 @@ func Key(c *config.Config) string {
 	// after https://github.com/nspcc-dev/neofs-node/pull/569.
 
 	return v
+}
+
+// Wallet returns value of node private key from "node" section.
+func Wallet(c *config.Config) *keys.PrivateKey {
+	v := c.Sub(subsection).Sub("wallet")
+	acc, err := utilConfig.LoadAccount(
+		config.String(v, "path"),
+		config.String(v, "address"),
+		config.String(v, "password"))
+	if err != nil {
+		panic(fmt.Errorf("invalid wallet config: %w", err))
+	}
+
+	return acc.PrivateKey()
 }
 
 // BootstrapAddress returns value of "address" config parameter

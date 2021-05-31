@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"fmt"
 
@@ -147,10 +148,10 @@ func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
 
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
-	keyStorage := util.NewKeyStorage(c.key, c.privateTokenStore)
+	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore)
 	nodeOwner := owner.NewID()
 
-	neo3Wallet, err := owner.NEO3WalletFromPublicKey(&c.key.PublicKey)
+	neo3Wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(c.key.PublicKey()))
 	fatalOnErr(err)
 
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
@@ -325,7 +326,7 @@ func initObjectService(c *cfg) {
 	)
 
 	signSvc := objectService.NewSignService(
-		c.key,
+		&c.key.PrivateKey,
 		respSvc,
 	)
 

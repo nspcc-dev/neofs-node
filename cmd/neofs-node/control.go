@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
-	"fmt"
 	"net"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -17,25 +14,18 @@ import (
 )
 
 func initControlService(c *cfg) {
-	strKeys := controlconfig.AuthorizedKeysString(c.appCfg)
-	keys := make([][]byte, 0, len(strKeys)+1) // +1 for node key
+	pubs := controlconfig.AuthorizedKeys(c.appCfg)
+	rawPubs := make([][]byte, 0, len(pubs)+1) // +1 for node key
 
-	keys = append(keys, crypto.MarshalPublicKey(&c.key.PublicKey))
+	rawPubs = append(rawPubs, c.key.PublicKey().Bytes())
 
-	for i := range strKeys {
-		key, err := hex.DecodeString(strKeys[i])
-		fatalOnErr(err)
-
-		if crypto.UnmarshalPublicKey(key) == nil {
-			fatalOnErr(fmt.Errorf("invalid permitted key for Control service %s", strKeys[i]))
-		}
-
-		keys = append(keys, key)
+	for i := range pubs {
+		rawPubs = append(rawPubs, pubs[i].Bytes())
 	}
 
 	ctlSvc := controlSvc.New(
-		controlSvc.WithKey(c.key),
-		controlSvc.WithAuthorizedKeys(keys),
+		controlSvc.WithKey(&c.key.PrivateKey),
+		controlSvc.WithAuthorizedKeys(rawPubs),
 		controlSvc.WithHealthChecker(c),
 		controlSvc.WithNetMapSource(c.cfgNetmap.wrapper),
 		controlSvc.WithNodeState(c),
