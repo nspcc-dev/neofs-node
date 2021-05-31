@@ -115,9 +115,8 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 	id2 := owner.NewID()
 	id2.SetNeo3Wallet(wallet)
 
-	// FIXME: implement Equal method
-	if s1, s2 := id.String(), id2.String(); s1 != s2 {
-		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, s1, s2)
+	if !id.Equal(id2) {
+		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, id, id2)
 	}
 
 	return nil

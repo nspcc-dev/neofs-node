@@ -65,7 +65,7 @@ func (c SenderClassifier) Classify(
 	// todo: get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
-	if bytes.Equal(cnr.OwnerID().ToV2().GetValue(), ownerID.ToV2().GetValue()) {
+	if ownerID.Equal(cnr.OwnerID()) {
 		return acl.RoleUser, false, ownerKeyInBytes, nil
 	}
 
