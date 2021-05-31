@@ -2,13 +2,12 @@ package loadcontroller_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"math/rand"
 	"sync"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
 	"github.com/stretchr/testify/require"
 )
@@ -74,20 +73,9 @@ func (s *testAnnouncementStorage) Close() error {
 	return nil
 }
 
-func randCID() *cid.ID {
-	h := [sha256.Size]byte{}
-
-	rand.Read(h[:])
-
-	id := cid.New()
-	id.SetSHA256(h)
-
-	return id
-}
-
 func randAnnouncement() container.UsedSpaceAnnouncement {
 	a := container.NewAnnouncement()
-	a.SetContainerID(randCID())
+	a.SetContainerID(cidtest.Generate())
 	a.SetUsedSpace(rand.Uint64())
 
 	return *a

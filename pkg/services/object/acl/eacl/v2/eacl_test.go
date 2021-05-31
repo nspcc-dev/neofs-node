@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -57,22 +58,10 @@ func testID(t *testing.T) *objectSDK.ID {
 	return id
 }
 
-func testCID(t *testing.T) *cid.ID {
-	cs := [sha256.Size]byte{}
-
-	_, err := rand.Read(cs[:])
-	require.NoError(t, err)
-
-	id := cid.New()
-	id.SetSHA256(cs)
-
-	return id
-}
-
 func testAddress(t *testing.T) *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(testID(t))
-	addr.SetContainerID(testCID(t))
+	addr.SetContainerID(cidtest.Generate())
 
 	return addr
 }

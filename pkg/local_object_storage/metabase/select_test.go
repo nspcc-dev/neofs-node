@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -15,7 +16,7 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	addAttribute(raw1, "foo", "bar")
@@ -88,7 +89,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	// prepare
 
@@ -256,7 +257,7 @@ func TestDB_SelectInhume(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, raw1.Object())
@@ -289,7 +290,7 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, raw1.Object())
@@ -325,7 +326,7 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	v20 := new(pkg.Version)
 	v20.SetMajor(2)
@@ -424,7 +425,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	// prepare
 
@@ -533,7 +534,7 @@ func TestDB_SelectSplitID(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	child1 := generateRawObjectWithCID(t, cid)
 	child2 := generateRawObjectWithCID(t, cid)
@@ -588,7 +589,7 @@ func TestDB_SelectContainerID(t *testing.T) {
 	db := newDB(t)
 	defer releaseDB(db)
 
-	cid := testCID()
+	cid := cidtest.Generate()
 
 	obj1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, obj1.Object())
@@ -622,7 +623,7 @@ func TestDB_SelectContainerID(t *testing.T) {
 	})
 
 	t.Run("not same cid", func(t *testing.T) {
-		newCID := testCID()
+		newCID := cidtest.Generate()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, newCID)

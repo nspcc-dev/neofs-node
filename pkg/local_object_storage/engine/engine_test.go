@@ -61,16 +61,6 @@ func testNewShard(t *testing.T, id int) *shard.Shard {
 	return s
 }
 
-func testCID() *cid.ID {
-	cs := [sha256.Size]byte{}
-	_, _ = rand.Read(cs[:])
-
-	id := cid.New()
-	id.SetSHA256(cs)
-
-	return id
-}
-
 func testOID() *objectSDK.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])

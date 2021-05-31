@@ -1,31 +1,19 @@
 package loadstorage
 
 import (
-	"crypto/sha256"
 	"math/rand"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/stretchr/testify/require"
 )
-
-func randCID() *cid.ID {
-	h := [sha256.Size]byte{}
-
-	rand.Read(h[:])
-
-	id := cid.New()
-	id.SetSHA256(h)
-
-	return id
-}
 
 func TestStorage(t *testing.T) {
 	const epoch uint64 = 13
 
 	a := container.NewAnnouncement()
-	a.SetContainerID(randCID())
+	a.SetContainerID(cidtest.Generate())
 	a.SetEpoch(epoch)
 
 	const opinionsNum = 100
