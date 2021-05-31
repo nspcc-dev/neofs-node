@@ -11,10 +11,9 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
+	sessiontest "github.com/nspcc-dev/neofs-api-go/pkg/session/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
 )
@@ -94,12 +93,16 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		tok := session.NewToken()
-		tok.SetSessionKey(crypto.MarshalPublicKey(&ownerKey.PublicKey))
+		w, err := owner.NEO3WalletFromPublicKey(&ownerKey.PublicKey)
+		require.NoError(t, err)
+
+		tok := sessiontest.Generate()
+		tok.SetOwnerID(owner.NewIDFromNeo3Wallet(w))
 
 		obj := NewRaw()
 		obj.SetContainerID(cidtest.Generate())
-		obj.SetSessionToken(tok)
+		obj.SetSessionToken(sessiontest.Generate())
+		obj.SetOwnerID(tok.OwnerID())
 
 		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
 
