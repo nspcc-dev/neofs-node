@@ -22,9 +22,7 @@ func initGRPC(c *cfg) {
 
 	if c.cfgGRPC.tlsEnabled {
 		creds, err := credentials.NewServerTLSFromFile(c.cfgGRPC.tlsCertFile, c.cfgGRPC.tlsKeyFile)
-		if err != nil {
-			fatalOnErr(fmt.Errorf("could not read credentionals from file: %w", err))
-		}
+		fatalOnErrDetails("could not read credentials from file", err)
 
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}

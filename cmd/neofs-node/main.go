@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -11,9 +12,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// prints err to standard logger and calls os.Exit(1).
 func fatalOnErr(err error) {
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+// prints err with details to standard logger and calls os.Exit(1).
+func fatalOnErrDetails(details string, err error) {
+	if err != nil {
+		log.Fatal(fmt.Errorf("%s: %w", details, err))
 	}
 }
 
