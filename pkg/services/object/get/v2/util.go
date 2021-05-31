@@ -11,7 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
 	rpcclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	signature2 "github.com/nspcc-dev/neofs-api-go/util/signature"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -31,7 +31,7 @@ var errWrongMessageSeq = errors.New("incorrect message sequence")
 func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStream) (*getsvc.Prm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.GetObjectRangeStream) (*getsvc.RangePrm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.RangeHashPrm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (w *headResponseWriter) WriteHeader(hdr *object.Object) error {
 func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp *objectV2.HeadResponse) (*getsvc.HeadPrm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(token.NewSessionTokenFromV2(meta.GetSessionToken()))
+	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
 	if err != nil {
 		return nil, err
 	}

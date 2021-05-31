@@ -3,14 +3,14 @@ package shard
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 )
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
-	cid     *container.ID
+	cid     *cid.ID
 	filters objectSDK.SearchFilters
 }
 
@@ -20,7 +20,7 @@ type SelectRes struct {
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cid *container.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
 	if p != nil {
 		p.cid = cid
 	}

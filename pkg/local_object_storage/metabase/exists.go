@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
@@ -119,7 +119,7 @@ func inBucket(tx *bbolt.Tx, name, key []byte) bool {
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(tx *bbolt.Tx, cid *container.ID, key []byte) (*objectSDK.SplitInfo, error) {
+func getSplitInfo(tx *bbolt.Tx, cid *cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
 	rawSplitInfo := getFromBucket(tx, rootBucketName(cid), key)
 	if len(rawSplitInfo) == 0 {
 		return nil, ErrLackSplitInfo

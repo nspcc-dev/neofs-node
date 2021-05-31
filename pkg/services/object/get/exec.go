@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -134,7 +134,7 @@ func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
 	return exec.infoSplit
 }
 
-func (exec *execCtx) containerID() *container.ID {
+func (exec *execCtx) containerID() *cid.ID {
 	return exec.address().ContainerID()
 }
 

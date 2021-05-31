@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"go.etcd.io/bbolt"
@@ -19,7 +19,7 @@ type (
 	// objects, and slow filters, that applied after fast filters created
 	// smaller set of objects to check.
 	filterGroup struct {
-		cid         *container.ID
+		cid         *cid.ID
 		fastFilters object.SearchFilters
 		slowFilters object.SearchFilters
 	}
@@ -27,7 +27,7 @@ type (
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
-	cid     *container.ID
+	cid     *cid.ID
 	filters object.SearchFilters
 }
 
@@ -37,7 +37,7 @@ type SelectRes struct {
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cid *container.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
 	if p != nil {
 		p.cid = cid
 	}
@@ -62,7 +62,7 @@ func (r *SelectRes) AddressList() []*object.Address {
 var ErrMissingContainerID = errors.New("missing container id field")
 
 // Select selects the objects from DB with filtering.
-func Select(db *DB, cid *container.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func Select(db *DB, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
 	r, err := db.Select(new(SelectPrm).WithFilters(fs).WithContainerID(cid))
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	return res, err
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, cid *container.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
 	if cid == nil {
 		return nil, ErrMissingContainerID
 	}
@@ -149,7 +149,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *container.ID, fs object.SearchFil
 }
 
 // selectAll adds to resulting cache all available objects in metabase.
-func (db *DB) selectAll(tx *bbolt.Tx, cid *container.ID, to map[string]int) {
+func (db *DB) selectAll(tx *bbolt.Tx, cid *cid.ID, to map[string]int) {
 	prefix := cid.String() + "/"
 
 	selectAllFromBucket(tx, primaryBucketName(cid), prefix, to, 0)
@@ -178,7 +178,7 @@ func selectAllFromBucket(tx *bbolt.Tx, name []byte, prefix string, to map[string
 // looking through user attribute buckets otherwise.
 func (db *DB) selectFastFilter(
 	tx *bbolt.Tx,
-	cid *container.ID, // container we search on
+	cid *cid.ID, // container we search on
 	f object.SearchFilter, // fast filter
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
@@ -222,13 +222,13 @@ func (db *DB) selectFastFilter(
 }
 
 // TODO: move to DB struct
-var mBucketNaming = map[string][]func(*container.ID) []byte{
+var mBucketNaming = map[string][]func(*cid.ID) []byte{
 	v2object.TypeRegular.String():      {primaryBucketName, parentBucketName},
 	v2object.TypeTombstone.String():    {tombstoneBucketName},
 	v2object.TypeStorageGroup.String(): {storageGroupBucketName},
 }
 
-func allBucketNames(cid *container.ID) (names [][]byte) {
+func allBucketNames(cid *cid.ID) (names [][]byte) {
 	for _, fns := range mBucketNaming {
 		for _, fn := range fns {
 			names = append(names, fn(cid))
@@ -238,7 +238,7 @@ func allBucketNames(cid *container.ID) (names [][]byte) {
 	return
 }
 
-func bucketNamesForType(cid *container.ID, mType object.SearchMatchType, typeVal string) (names [][]byte) {
+func bucketNamesForType(cid *cid.ID, mType object.SearchMatchType, typeVal string) (names [][]byte) {
 	appendNames := func(key string) {
 		fns, ok := mBucketNaming[key]
 		if ok {
@@ -426,7 +426,7 @@ func (db *DB) selectFromList(
 func (db *DB) selectObjectID(
 	tx *bbolt.Tx,
 	f object.SearchFilter,
-	cid *container.ID,
+	cid *cid.ID,
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) {
@@ -540,7 +540,7 @@ func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
 	for i := range filters {
 		switch filters[i].Header() {
 		case v2object.FilterHeaderContainerID: // support deprecated field
-			res.cid = container.NewID()
+			res.cid = cid.New()
 
 			err := res.cid.Parse(filters[i].Value())
 			if err != nil {

@@ -3,7 +3,7 @@ package common
 import (
 	"math/big"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 )
 
@@ -28,14 +28,14 @@ type ContainerInfo interface {
 // storage of the NeoFS containers.
 type ContainerStorage interface {
 	// Must return information about the container by ID.
-	ContainerInfo(*container.ID) (ContainerInfo, error)
+	ContainerInfo(*cid.ID) (ContainerInfo, error)
 }
 
 // PlacementCalculator is a component interface
 // that builds placement vectors.
 type PlacementCalculator interface {
 	// Must return information about the nodes from container cid of the epoch e.
-	ContainerNodes(e uint64, cid *container.ID) ([]NodeInfo, error)
+	ContainerNodes(e uint64, cid *cid.ID) ([]NodeInfo, error)
 }
 
 // AccountStorage is an network member accounts interface.

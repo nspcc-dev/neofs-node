@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
@@ -21,15 +21,15 @@ func testSHA256() (h [sha256.Size]byte) {
 }
 
 func testAddress() *objectSDK.Address {
-	cid := container.NewID()
-	cid.SetSHA256(testSHA256())
+	id := cid.New()
+	id.SetSHA256(testSHA256())
 
 	oid := objectSDK.NewID()
 	oid.SetSHA256(testSHA256())
 
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(oid)
-	addr.SetContainerID(cid)
+	addr.SetContainerID(id)
 
 	return addr
 }

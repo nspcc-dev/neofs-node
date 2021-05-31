@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
 
@@ -54,14 +54,14 @@ func addressFromString(s string) (*objectSDK.Address, error) {
 		return nil, err
 	}
 
-	cid := container.NewID()
-	if err := cid.Parse(ss[1]); err != nil {
+	id := cid.New()
+	if err := id.Parse(ss[1]); err != nil {
 		return nil, err
 	}
 
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(oid)
-	addr.SetContainerID(cid)
+	addr.SetContainerID(id)
 
 	return addr, nil
 }

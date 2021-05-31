@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -62,7 +63,7 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) generateTraverser(_ *container.ID, epoch uint64) (*placement.Traverser, error) {
+func (g *testTraverserGenerator) generateTraverser(_ *cid.ID, epoch uint64) (*placement.Traverser, error) {
 	return placement.NewTraverser(
 		placement.ForContainer(g.c),
 		placement.UseBuilder(g.b[epoch]),
@@ -114,7 +115,7 @@ func (c *testStorage) searchObjects(exec *execCtx) ([]*objectSDK.ID, error) {
 	return v.ids, v.err
 }
 
-func (c *testStorage) addResult(addr *container.ID, ids []*objectSDK.ID, err error) {
+func (c *testStorage) addResult(addr *cid.ID, ids []*objectSDK.ID, err error) {
 	c.items[addr.String()] = idsErr{
 		ids: ids,
 		err: err,
@@ -126,11 +127,11 @@ func testSHA256() (cs [sha256.Size]byte) {
 	return cs
 }
 
-func generateCID() *container.ID {
-	cid := container.NewID()
-	cid.SetSHA256(testSHA256())
+func generateCID() *cid.ID {
+	id := cid.New()
+	id.SetSHA256(testSHA256())
 
-	return cid
+	return id
 }
 
 func generateIDs(num int) []*objectSDK.ID {
@@ -155,7 +156,7 @@ func TestGetLocalOnly(t *testing.T) {
 		return svc
 	}
 
-	newPrm := func(cid *container.ID, w IDListWriter) Prm {
+	newPrm := func(cid *cid.ID, w IDListWriter) Prm {
 		p := Prm{}
 		p.WithContainerID(cid)
 		p.SetWriter(w)
@@ -247,7 +248,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	pp.SetReplicas(rs...)
 
 	cnr := container.New(container.WithPolicy(pp))
-	cid := container.CalculateID(cnr)
+	id := container.CalculateID(cnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -268,9 +269,9 @@ func TestGetRemoteSmall(t *testing.T) {
 		return svc
 	}
 
-	newPrm := func(cid *container.ID, w IDListWriter) Prm {
+	newPrm := func(id *cid.ID, w IDListWriter) Prm {
 		p := Prm{}
-		p.WithContainerID(cid)
+		p.WithContainerID(id)
 		p.SetWriter(w)
 		p.common = new(util.CommonPrm).WithLocalOnly(false)
 
@@ -279,7 +280,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	t.Run("OK", func(t *testing.T) {
 		addr := objectSDK.NewAddress()
-		addr.SetContainerID(cid)
+		addr.SetContainerID(id)
 
 		ns, as := testNodeMatrix(t, placementDim)
 
@@ -291,11 +292,11 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		c1 := newTestStorage()
 		ids1 := generateIDs(10)
-		c1.addResult(cid, ids1, nil)
+		c1.addResult(id, ids1, nil)
 
 		c2 := newTestStorage()
 		ids2 := generateIDs(10)
-		c2.addResult(cid, ids2, nil)
+		c2.addResult(id, ids2, nil)
 
 		svc := newSvc(builder, &testClientCache{
 			clients: map[string]*testStorage{
@@ -306,7 +307,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		w := new(simpleIDWriter)
 
-		p := newPrm(cid, w)
+		p := newPrm(id, w)
 
 		err := svc.Search(ctx, p)
 		require.NoError(t, err)

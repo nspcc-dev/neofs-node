@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -105,7 +105,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	}
 }
 
-func (ap *Processor) findStorageGroups(cid *container.ID, shuffled netmap.Nodes) []*object.ID {
+func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*object.ID {
 	var sg []*object.ID
 
 	ln := len(shuffled)

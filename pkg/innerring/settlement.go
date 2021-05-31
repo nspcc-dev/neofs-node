@@ -8,6 +8,7 @@ import (
 
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	containerAPI "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	netmapAPI "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
@@ -108,7 +109,7 @@ func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, 
 	return res, nil
 }
 
-func (s settlementDeps) ContainerInfo(cid *containerAPI.ID) (common.ContainerInfo, error) {
+func (s settlementDeps) ContainerInfo(cid *cid.ID) (common.ContainerInfo, error) {
 	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container from storage: %w", err)
@@ -117,7 +118,7 @@ func (s settlementDeps) ContainerInfo(cid *containerAPI.ID) (common.ContainerInf
 	return (*containerWrapper)(cnr), nil
 }
 
-func (s settlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
+func (s settlementDeps) buildContainer(e uint64, cid *cid.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
 	var (
 		nm  *netmapAPI.Netmap
 		err error
@@ -149,7 +150,7 @@ func (s settlementDeps) buildContainer(e uint64, cid *containerAPI.ID) (netmapAP
 	return cn, nm, nil
 }
 
-func (s settlementDeps) ContainerNodes(e uint64, cid *containerAPI.ID) ([]common.NodeInfo, error) {
+func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo, error) {
 	cn, _, err := s.buildContainer(e, cid)
 	if err != nil {
 		return nil, err

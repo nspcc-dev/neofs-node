@@ -8,16 +8,16 @@ import (
 	"path"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/stretchr/testify/require"
 )
 
-func testCID() *container.ID {
+func testCID() *cid.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])
 
-	id := container.NewID()
+	id := cid.New()
 	id.SetSHA256(cs)
 
 	return id

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
@@ -14,7 +15,7 @@ type Task struct {
 
 	auditContext context.Context
 
-	cid *container.ID
+	cid *cid.ID
 
 	cnr *container.Container
 
@@ -54,7 +55,7 @@ func (t *Task) AuditContext() context.Context {
 }
 
 // WithContainerID sets identifier of the container under audit.
-func (t *Task) WithContainerID(cid *container.ID) *Task {
+func (t *Task) WithContainerID(cid *cid.ID) *Task {
 	if t != nil {
 		t.cid = cid
 	}
@@ -63,7 +64,7 @@ func (t *Task) WithContainerID(cid *container.ID) *Task {
 }
 
 // ContainerID returns identifier of the container under audit.
-func (t *Task) ContainerID() *container.ID {
+func (t *Task) ContainerID() *cid.ID {
 	return t.cid
 }
 

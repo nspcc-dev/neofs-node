@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -110,7 +110,7 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 
 				if addr == nil {
 					addr = objectSDK.NewAddress()
-					addr.SetContainerID(container.NewIDFromV2(v.GetHeader().GetContainerID()))
+					addr.SetContainerID(cid.NewFromV2(v.GetHeader().GetContainerID()))
 					addr.SetObjectID(objectSDK.NewIDFromV2(v.GetObjectID()))
 				}
 
@@ -120,7 +120,7 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 			}
 		case *objectV2.SearchRequest:
 			return []eacl.Header{cidHeader(
-				container.NewIDFromV2(
+				cid.NewFromV2(
 					req.GetBody().GetContainerID()),
 			)}, true
 		}
@@ -176,7 +176,7 @@ func (h *headerSource) localObjectHeaders(addrV2 *refs.Address) ([]eacl.Header, 
 	return addressHeaders(addr), false
 }
 
-func cidHeader(cid *container.ID) eacl.Header {
+func cidHeader(cid *cid.ID) eacl.Header {
 	return &sysObjHdr{
 		k: acl.FilterObjectContainerID,
 		v: cidValue(cid),

@@ -3,7 +3,7 @@ package engine
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -12,7 +12,7 @@ import (
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
-	cid     *container.ID
+	cid     *cid.ID
 	filters object.SearchFilters
 }
 
@@ -22,7 +22,7 @@ type SelectRes struct {
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cid *container.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
 	if p != nil {
 		p.cid = cid
 	}
@@ -138,7 +138,7 @@ func (e *StorageEngine) List(limit uint64) (*SelectRes, error) {
 }
 
 // Select selects objects from local storage using provided filters.
-func Select(storage *StorageEngine, cid *container.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func Select(storage *StorageEngine, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
 	res, err := storage.Select(new(SelectPrm).
 		WithContainerID(cid).
 		WithFilters(fs),

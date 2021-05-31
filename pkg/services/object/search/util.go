@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -111,7 +111,7 @@ func idsFromAddresses(addrs []*objectSDK.Address) []*objectSDK.ID {
 	return ids
 }
 
-func (e *traverseGeneratorWrapper) generateTraverser(cid *container.ID, epoch uint64) (*placement.Traverser, error) {
+func (e *traverseGeneratorWrapper) generateTraverser(cid *cid.ID, epoch uint64) (*placement.Traverser, error) {
 	a := objectSDK.NewAddress()
 	a.SetContainerID(cid)
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -61,11 +61,11 @@ func testNewShard(t *testing.T, id int) *shard.Shard {
 	return s
 }
 
-func testCID() *container.ID {
+func testCID() *cid.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])
 
-	id := container.NewID()
+	id := cid.New()
 	id.SetSHA256(cs)
 
 	return id
@@ -81,7 +81,7 @@ func testOID() *objectSDK.ID {
 	return id
 }
 
-func generateRawObjectWithCID(t *testing.T, cid *container.ID) *object.RawObject {
+func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	version := pkg.NewVersion()
 	version.SetMajor(2)
 	version.SetMinor(1)

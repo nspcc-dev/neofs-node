@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
@@ -49,7 +50,7 @@ func NewSenderClassifier(l *zap.Logger, ir InnerRingFetcher, nm core.Source) Sen
 
 func (c SenderClassifier) Classify(
 	req metaWithToken,
-	cid *container.ID,
+	cid *cid.ID,
 	cnr *container.Container) (role acl.Role, isIR bool, key []byte, err error) {
 	if cid == nil {
 		return 0, false, nil, fmt.Errorf("%w: container id is not set", ErrMalformedRequest)

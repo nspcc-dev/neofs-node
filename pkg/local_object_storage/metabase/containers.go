@@ -4,11 +4,11 @@ import (
 	"encoding/binary"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"go.etcd.io/bbolt"
 )
 
-func (db *DB) Containers() (list []*container.ID, err error) {
+func (db *DB) Containers() (list []*cid.ID, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		list, err = db.containers(tx)
 
@@ -18,8 +18,8 @@ func (db *DB) Containers() (list []*container.ID, err error) {
 	return list, err
 }
 
-func (db *DB) containers(tx *bbolt.Tx) ([]*container.ID, error) {
-	result := make([]*container.ID, 0)
+func (db *DB) containers(tx *bbolt.Tx) ([]*cid.ID, error) {
+	result := make([]*cid.ID, 0)
 
 	err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
 		id, err := parseContainerID(name)
@@ -37,7 +37,7 @@ func (db *DB) containers(tx *bbolt.Tx) ([]*container.ID, error) {
 	return result, err
 }
 
-func (db *DB) ContainerSize(id *container.ID) (size uint64, err error) {
+func (db *DB) ContainerSize(id *cid.ID) (size uint64, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		size, err = db.containerSize(tx, id)
 
@@ -47,7 +47,7 @@ func (db *DB) ContainerSize(id *container.ID) (size uint64, err error) {
 	return size, err
 }
 
-func (db *DB) containerSize(tx *bbolt.Tx, id *container.ID) (uint64, error) {
+func (db *DB) containerSize(tx *bbolt.Tx, id *cid.ID) (uint64, error) {
 	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
 	if err != nil {
 		return 0, err
@@ -58,14 +58,14 @@ func (db *DB) containerSize(tx *bbolt.Tx, id *container.ID) (uint64, error) {
 	return parseContainerSize(containerVolume.Get(key)), nil
 }
 
-func parseContainerID(name []byte) (*container.ID, error) {
+func parseContainerID(name []byte) (*cid.ID, error) {
 	strName := string(name)
 
 	if strings.Contains(strName, invalidBase58String) {
 		return nil, nil
 	}
 
-	id := container.NewID()
+	id := cid.New()
 
 	return id, id.Parse(strName)
 }
@@ -78,7 +78,7 @@ func parseContainerSize(v []byte) uint64 {
 	return binary.LittleEndian.Uint64(v)
 }
 
-func changeContainerSize(tx *bbolt.Tx, id *container.ID, delta uint64, increase bool) error {
+func changeContainerSize(tx *bbolt.Tx, id *cid.ID, delta uint64, increase bool) error {
 	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
 	if err != nil {
 		return err

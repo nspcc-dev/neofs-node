@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
@@ -28,8 +28,8 @@ func testSHA(t *testing.T) [sha256.Size]byte {
 	return cs
 }
 
-func testContainerID(t *testing.T) *container.ID {
-	id := container.NewID()
+func testContainerID(t *testing.T) *cid.ID {
+	id := cid.New()
 	id.SetSHA256(testSHA(t))
 
 	return id
@@ -101,7 +101,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		tok := token.NewSessionToken()
+		tok := session.NewToken()
 		tok.SetSessionKey(crypto.MarshalPublicKey(&ownerKey.PublicKey))
 
 		obj := NewRaw()

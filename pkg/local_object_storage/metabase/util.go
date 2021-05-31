@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
 
@@ -39,27 +39,27 @@ var (
 )
 
 // primaryBucketName returns <CID>.
-func primaryBucketName(cid *container.ID) []byte {
+func primaryBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String())
 }
 
 // tombstoneBucketName returns <CID>_TS.
-func tombstoneBucketName(cid *container.ID) []byte {
+func tombstoneBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + tombstonePostfix)
 }
 
 // storageGroupBucketName returns <CID>_SG.
-func storageGroupBucketName(cid *container.ID) []byte {
+func storageGroupBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + storageGroupPostfix)
 }
 
 // smallBucketName returns <CID>_small.
-func smallBucketName(cid *container.ID) []byte {
+func smallBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + smallPostfix) // consider caching output values
 }
 
 // attributeBucketName returns <CID>_attr_<attributeKey>.
-func attributeBucketName(cid *container.ID, attributeKey string) []byte {
+func attributeBucketName(cid *cid.ID, attributeKey string) []byte {
 	sb := strings.Builder{} // consider getting string builders from sync.Pool
 	sb.WriteString(cid.String())
 	sb.WriteString(userAttributePostfix)
@@ -79,27 +79,27 @@ func cidFromAttributeBucket(val []byte, attributeKey string) []byte {
 }
 
 // payloadHashBucketName returns <CID>_payloadhash.
-func payloadHashBucketName(cid *container.ID) []byte {
+func payloadHashBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + payloadHashPostfix)
 }
 
 // rootBucketName returns <CID>_root.
-func rootBucketName(cid *container.ID) []byte {
+func rootBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + rootPostfix)
 }
 
 // ownerBucketName returns <CID>_ownerid.
-func ownerBucketName(cid *container.ID) []byte {
+func ownerBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + ownerPostfix)
 }
 
 // parentBucketName returns <CID>_parent.
-func parentBucketName(cid *container.ID) []byte {
+func parentBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + parentPostfix)
 }
 
 // splitBucketName returns <CID>_splitid.
-func splitBucketName(cid *container.ID) []byte {
+func splitBucketName(cid *cid.ID) []byte {
 	return []byte(cid.String() + splitPostfix)
 }
 

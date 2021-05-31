@@ -7,7 +7,7 @@ import (
 
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
@@ -372,7 +372,7 @@ func (s *signedEACLTable) SignedDataSize() int {
 	return (*eaclSDK.Table)(s).ToV2().StableSize()
 }
 
-func (s *morphEACLStorage) GetEACL(cid *container.ID) (*eaclSDK.Table, error) {
+func (s *morphEACLStorage) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 	table, err := s.w.GetEACL(cid)
 	if err != nil {
 		return nil, err

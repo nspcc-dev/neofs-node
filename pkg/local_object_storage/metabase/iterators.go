@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"go.etcd.io/bbolt"
@@ -74,19 +74,19 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 					return fmt.Errorf("could not parse ID of expired object: %w", err)
 				}
 
-				cid := container.NewID()
+				cnrID := cid.New()
 
-				err = cid.Parse(string(cidBytes))
+				err = cnrID.Parse(string(cidBytes))
 				if err != nil {
 					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
 				}
 
 				addr := object.NewAddress()
-				addr.SetContainerID(cid)
+				addr.SetContainerID(cnrID)
 				addr.SetObjectID(id)
 
 				return h(&ExpiredObject{
-					typ:  objectType(tx, cid, idKey),
+					typ:  objectType(tx, cnrID, idKey),
 					addr: addr,
 				})
 			})
@@ -100,7 +100,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 	return err
 }
 
-func objectType(tx *bbolt.Tx, cid *container.ID, oidBytes []byte) object.Type {
+func objectType(tx *bbolt.Tx, cid *cid.ID, oidBytes []byte) object.Type {
 	switch {
 	default:
 		return object.TypeRegular

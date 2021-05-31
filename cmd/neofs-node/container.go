@@ -10,6 +10,7 @@ import (
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
@@ -279,7 +280,7 @@ type loadPlacementBuilder struct {
 	cnrSrc containerCore.Source
 }
 
-func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *containerSDK.ID) ([]netmap.Nodes, error) {
+func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *cid.ID) ([]netmap.Nodes, error) {
 	cnrNodes, nm, err := l.buildPlacement(epoch, cid)
 	if err != nil {
 		return nil, err
@@ -299,7 +300,7 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *containerSDK.ID
 	return placement, nil
 }
 
-func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *containerSDK.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
+func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *cid.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
 	cnr, err := l.cnrSrc.Get(cid)
 	if err != nil {
 		return nil, nil, err
@@ -433,7 +434,7 @@ func (*containerOnlyKeyRemoteServerInfo) Address() string {
 	return ""
 }
 
-func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *containerSDK.ID, key []byte) (bool, error) {
+func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *cid.ID, key []byte) (bool, error) {
 	cnrNodes, _, err := l.buildPlacement(epoch, cid)
 	if err != nil {
 		return false, err

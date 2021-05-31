@@ -3,7 +3,7 @@ package searchsvc
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -59,7 +59,7 @@ func (exec execCtx) isLocal() bool {
 	return exec.prm.common.LocalOnly()
 }
 
-func (exec *execCtx) containerID() *container.ID {
+func (exec *execCtx) containerID() *cid.ID {
 	return exec.prm.ContainerID()
 }
 
@@ -99,7 +99,7 @@ func (exec *execCtx) initEpoch() bool {
 	}
 }
 
-func (exec *execCtx) generateTraverser(cid *container.ID) (*placement.Traverser, bool) {
+func (exec *execCtx) generateTraverser(cid *cid.ID) (*placement.Traverser, bool) {
 	t, err := exec.svc.traverserGenerator.generateTraverser(cid, exec.curProcEpoch)
 
 	switch {

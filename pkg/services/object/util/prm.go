@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 )
@@ -15,7 +16,7 @@ type CommonPrm struct {
 
 	netmapEpoch, netmapLookupDepth uint64
 
-	token *token.SessionToken
+	token *sessionsdk.Token
 
 	bearer *token.BearerToken
 
@@ -46,7 +47,7 @@ func (p *CommonPrm) LocalOnly() bool {
 	return false
 }
 
-func (p *CommonPrm) WithSessionToken(token *token.SessionToken) *CommonPrm {
+func (p *CommonPrm) WithSessionToken(token *sessionsdk.Token) *CommonPrm {
 	if p != nil {
 		p.token = token
 	}
@@ -123,7 +124,7 @@ func WithKey(key *ecdsa.PrivateKey) DynamicCallOption {
 	}
 }
 
-func (p *CommonPrm) SessionToken() *token.SessionToken {
+func (p *CommonPrm) SessionToken() *sessionsdk.Token {
 	if p != nil {
 		return p.token
 	}
@@ -180,7 +181,7 @@ func CommonPrmFromV2(req interface {
 	prm.callOpts = append(prm.callOpts, client.WithTTL(meta.GetTTL()-1))
 
 	if tok := meta.GetSessionToken(); tok != nil {
-		prm.token = token.NewSessionTokenFromV2(tok)
+		prm.token = sessionsdk.NewTokenFromV2(tok)
 		prm.callOpts = append(prm.callOpts, client.WithSession(prm.token))
 	}
 

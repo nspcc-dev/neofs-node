@@ -3,7 +3,7 @@ package shard
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"go.uber.org/zap"
@@ -12,10 +12,10 @@ import (
 type ListContainersPrm struct{}
 
 type ListContainersRes struct {
-	containers []*container.ID
+	containers []*cid.ID
 }
 
-func (r *ListContainersRes) Containers() []*container.ID {
+func (r *ListContainersRes) Containers() []*cid.ID {
 	return r.containers
 }
 
@@ -55,7 +55,7 @@ func (s *Shard) ListContainers(_ *ListContainersPrm) (*ListContainersRes, error)
 	}, nil
 }
 
-func ListContainers(s *Shard) ([]*container.ID, error) {
+func ListContainers(s *Shard) ([]*cid.ID, error) {
 	res, err := s.ListContainers(&ListContainersPrm{})
 	if err != nil {
 		return nil, err

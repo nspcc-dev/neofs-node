@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	storagegroupAPI "github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -93,7 +94,7 @@ func init() {
 type sgHeadReceiver struct {
 	ctx context.Context
 
-	tok *token.SessionToken
+	tok *session.Token
 
 	c client.Client
 

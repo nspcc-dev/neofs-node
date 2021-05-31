@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
@@ -79,7 +80,7 @@ var listContainersCmd = &cobra.Command{
 	Long:  "List all created containers",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
-			response []*container.ID
+			response []*cid.ID
 			oid      *owner.ID
 			err      error
 
@@ -413,7 +414,7 @@ var getExtendedACLCmd = &cobra.Command{
 		}
 
 		eaclTable := res.EACL()
-		sig := res.Signature()
+		sig := eaclTable.Signature()
 
 		if containerPathTo == "" {
 			fmt.Println("eACL: ")
@@ -613,7 +614,7 @@ func containerSessionToken() (*session.Token, error) {
 	return tok, nil
 }
 
-func prettyPrintContainerList(list []*container.ID) {
+func prettyPrintContainerList(list []*cid.ID) {
 	for i := range list {
 		fmt.Println(list[i])
 	}
@@ -713,14 +714,14 @@ func parseNonce(nonce string) (uuid.UUID, error) {
 	return uuid.Parse(nonce)
 }
 
-func parseContainerID(cid string) (*container.ID, error) {
-	if cid == "" {
+func parseContainerID(idStr string) (*cid.ID, error) {
+	if idStr == "" {
 		return nil, errors.New("container ID is not set")
 	}
 
-	id := container.NewID()
+	id := cid.New()
 
-	err := id.Parse(cid)
+	err := id.Parse(idStr)
 	if err != nil {
 		return nil, errors.New("can't decode container ID value")
 	}

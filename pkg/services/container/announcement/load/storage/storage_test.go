@@ -6,15 +6,16 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/stretchr/testify/require"
 )
 
-func randCID() *container.ID {
+func randCID() *cid.ID {
 	h := [sha256.Size]byte{}
 
 	rand.Read(h[:])
 
-	id := container.NewID()
+	id := cid.New()
 	id.SetSHA256(h)
 
 	return id
