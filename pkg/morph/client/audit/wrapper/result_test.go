@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/stretchr/testify/require"
@@ -21,10 +21,8 @@ func TestAuditResults(t *testing.T) {
 	sAuditHash := "cdfb3dab86e6d60e8a143d9e2ecb0b188f3dc2eb"
 	irKeyWIF := "L3o221BojgcCPYgdbXsm6jn7ayTZ72xwREvBHXKknR8VJ3G4WmjB"
 
-	key, err := crypto.WIFDecode(irKeyWIF)
+	key, err := keys.NewPrivateKeyFromWIF(irKeyWIF)
 	require.NoError(t, err)
-
-	pubKey := crypto.MarshalPublicKey(&key.PublicKey)
 
 	auditHash, err := util.Uint160DecodeStringLE(sAuditHash)
 	require.NoError(t, err)
@@ -39,7 +37,7 @@ func TestAuditResults(t *testing.T) {
 
 	auditRes := auditAPI.NewResult()
 	auditRes.SetAuditEpoch(epoch)
-	auditRes.SetPublicKey(pubKey)
+	auditRes.SetPublicKey(key.PublicKey().Bytes())
 	auditRes.SetContainerID(id)
 
 	require.NoError(t, auditClientWrapper.PutAuditResult(auditRes))

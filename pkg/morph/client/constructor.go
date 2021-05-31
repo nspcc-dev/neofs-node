@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -10,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -47,7 +45,7 @@ func defaultConfig() *cfg {
 
 // New creates, initializes and returns the Client instance.
 //
-// If private key is nil, crypto.ErrEmptyPrivateKey is returned.
+// If private key is nil, it panics.
 //
 // Other values are set according to provided options, or by default:
 //  * client context: Background;
@@ -58,22 +56,12 @@ func defaultConfig() *cfg {
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
 // the option with the highest index in the arguments will be used.
-func New(key *ecdsa.PrivateKey, endpoint string, opts ...Option) (*Client, error) {
+func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error) {
 	if key == nil {
-		return nil, crypto.ErrEmptyPrivateKey
+		panic("empty private key")
 	}
 
-	privKeyBytes := crypto.MarshalPrivateKey(key)
-
-	wif, err := keys.WIFEncode(privKeyBytes, keys.WIFVersion, true)
-	if err != nil {
-		return nil, err
-	}
-
-	account, err := wallet.NewAccountFromWIF(wif)
-	if err != nil {
-		return nil, err
-	}
+	account := wallet.NewAccountFromPrivateKey(key)
 
 	// build default configuration
 	cfg := defaultConfig()

@@ -742,7 +742,7 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 
 func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 	return client.New(
-		&p.key.PrivateKey,
+		p.key,
 		p.cfg.GetString(p.name+".endpoint.client"),
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
