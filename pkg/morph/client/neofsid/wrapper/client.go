@@ -18,7 +18,7 @@ type ClientWrapper neofsid.Client
 
 // NewFromMorph wraps client to work with NeoFS ID contract.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
-	sc, err := client.NewStatic(cli, contract, fee)
+	sc, err := client.NewStatic(cli, contract, fee, client.TryNotary())
 	if err != nil {
 		return nil, fmt.Errorf("could not create client of NeoFS ID contract: %w", err)
 	}
