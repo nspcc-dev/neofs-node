@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	sessiontest "github.com/nspcc-dev/neofs-api-go/pkg/session/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,7 +65,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		}),
 	)
 
-	ownerKey := test.DecodeKey(-1)
+	ownerKey, err := keys.NewPrivateKey()
+	require.NoError(t, err)
 
 	t.Run("nil input", func(t *testing.T) {
 		require.Error(t, v.Validate(nil))
@@ -93,7 +94,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		w, err := owner.NEO3WalletFromPublicKey(&ownerKey.PublicKey)
+		w, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(ownerKey.PublicKey()))
 		require.NoError(t, err)
 
 		tok := sessiontest.Generate()
@@ -104,15 +105,15 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetSessionToken(sessiontest.Generate())
 		obj.SetOwnerID(tok.OwnerID())
 
-		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
 
 		require.NoError(t, v.Validate(obj.Object()))
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {
-		obj := blankValidObject(t, ownerKey)
+		obj := blankValidObject(t, &ownerKey.PrivateKey)
 
-		require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
 
 		require.NoError(t, v.Validate(obj.Object()))
 	})
@@ -187,7 +188,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("expiration", func(t *testing.T) {
 		fn := func(val string) *Object {
-			obj := blankValidObject(t, ownerKey)
+			obj := blankValidObject(t, &ownerKey.PrivateKey)
 
 			a := object.NewAttribute()
 			a.SetKey(objectV2.SysAttributeExpEpoch)
@@ -195,7 +196,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			obj.SetAttributes(a)
 
-			require.NoError(t, object.SetIDWithSignature(ownerKey, obj.SDK()))
+			require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
 
 			return obj.Object()
 		}

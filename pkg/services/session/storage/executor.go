@@ -2,16 +2,13 @@ package storage
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	crypto "github.com/nspcc-dev/neofs-crypto"
 )
 
 func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
@@ -30,7 +27,7 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 		return nil, fmt.Errorf("could not marshal token ID: %w", err)
 	}
 
-	sk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	sk, err := keys.NewPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -40,16 +37,14 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 		tokenID: base58.Encode(uidBytes),
 		ownerID: base58.Encode(ownerBytes),
 	}] = &PrivateToken{
-		sessionKey: sk,
+		sessionKey: &sk.PrivateKey,
 		exp:        body.GetExpiration(),
 	}
 	s.mtx.Unlock()
 
 	res := new(session.CreateResponseBody)
 	res.SetID(uidBytes)
-	res.SetSessionKey(
-		crypto.MarshalPublicKey(&sk.PublicKey),
-	)
+	res.SetSessionKey(sk.PublicKey().Bytes())
 
 	return res, nil
 }
