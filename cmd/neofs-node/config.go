@@ -51,9 +51,6 @@ import (
 )
 
 const (
-	// logger keys
-	cfgLogLevel = "logger.level"
-
 	// pprof keys
 	cfgProfilerAddr            = "profiler.address"
 	cfgProfilerShutdownTimeout = "profiler.shutdown_timeout"
@@ -446,8 +443,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgContainerContract, "")
 
 	v.SetDefault(cfgNetmapContract, "")
-
-	v.SetDefault(cfgLogLevel, "info")
 
 	v.SetDefault(cfgProfilerShutdownTimeout, "30s")
 
