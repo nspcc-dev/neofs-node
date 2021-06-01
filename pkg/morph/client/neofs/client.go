@@ -22,19 +22,25 @@ type Client struct {
 type Option func(*cfg)
 
 type cfg struct {
+	alphabetUpdateMethod,
+	chequeMethod,
 	bindKeysMethod,
 	unbindKeysMethod string
 }
 
 func defaultConfig() *cfg {
 	const (
-		defaultBindKeysMethod   = "bind"
-		defaultUnbindKeysMethod = "unbind"
+		defaultBindKeysMethod       = "bind"
+		defaultUnbindKeysMethod     = "unbind"
+		defaultAlphabetUpdateMethod = "alphabetUpdate"
+		defaultChequeMethod         = "cheque"
 	)
 
 	return &cfg{
-		bindKeysMethod:   defaultBindKeysMethod,
-		unbindKeysMethod: defaultUnbindKeysMethod,
+		alphabetUpdateMethod: defaultAlphabetUpdateMethod,
+		chequeMethod:         defaultChequeMethod,
+		bindKeysMethod:       defaultBindKeysMethod,
+		unbindKeysMethod:     defaultUnbindKeysMethod,
 	}
 }
 

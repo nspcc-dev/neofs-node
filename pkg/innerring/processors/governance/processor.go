@@ -6,9 +6,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
@@ -39,10 +38,10 @@ type (
 
 	// Processor of events related to governance in the network.
 	Processor struct {
-		log           *zap.Logger
-		pool          *ants.Pool
-		neofsContract util.Uint160
-		netmapClient  *nmWrapper.Wrapper
+		log          *zap.Logger
+		pool         *ants.Pool
+		neofsClient  *neofscontract.ClientWrapper
+		netmapClient *nmWrapper.Wrapper
 
 		alphabetState AlphabetState
 		epochState    EpochState
@@ -52,13 +51,11 @@ type (
 		morphClient   *client.Client
 
 		notaryDisabled bool
-		feeProvider    *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log           *zap.Logger
-		NeoFSContract util.Uint160
+		Log *zap.Logger
 
 		AlphabetState AlphabetState
 		EpochState    EpochState
@@ -66,10 +63,10 @@ type (
 
 		MorphClient   *client.Client
 		MainnetClient *client.Client
+		NeoFSClient   *neofscontract.ClientWrapper
 		NetmapClient  *nmWrapper.Wrapper
 
 		NotaryDisabled bool
-		FeeProvider    *config.FeeConfig
 	}
 )
 
@@ -88,8 +85,6 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/governance: global state is not set")
 	case p.Voter == nil:
 		return nil, errors.New("ir/governance: global state is not set")
-	case p.FeeProvider == nil:
-		return nil, errors.New("ir/governance: fee provider is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -100,7 +95,7 @@ func New(p *Params) (*Processor, error) {
 	return &Processor{
 		log:            p.Log,
 		pool:           pool,
-		neofsContract:  p.NeoFSContract,
+		neofsClient:    p.NeoFSClient,
 		netmapClient:   p.NetmapClient,
 		alphabetState:  p.AlphabetState,
 		epochState:     p.EpochState,
@@ -108,7 +103,6 @@ func New(p *Params) (*Processor, error) {
 		mainnetClient:  p.MainnetClient,
 		morphClient:    p.MorphClient,
 		notaryDisabled: p.NotaryDisabled,
-		feeProvider:    p.FeeProvider,
 	}, nil
 }
 
