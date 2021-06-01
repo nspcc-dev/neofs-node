@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
@@ -43,5 +44,21 @@ func TestString(t *testing.T) {
 
 		val = config.StringSafe(c, "incorrect")
 		require.Empty(t, val)
+	})
+}
+
+func TestDuration(t *testing.T) {
+	configtest.ForEachFileType("test/config", func(c *config.Config) {
+		c = c.Sub("duration")
+
+		val := config.Duration(c, "correct")
+		require.Equal(t, 15*time.Minute, val)
+
+		require.Panics(t, func() {
+			config.Duration(c, "incorrect")
+		})
+
+		val = config.DurationSafe(c, "incorrect")
+		require.Equal(t, time.Duration(0), val)
 	})
 }
