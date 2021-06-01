@@ -1,7 +1,18 @@
 {
   "value": "some value",
+
   "section": {
-    "any": "thing"
+    "any": "thing",
+    "sub": {
+      "sub": {
+        "sub1": {
+          "key": "val1"
+        },
+        "sub2": {
+          "key": "val2"
+        }
+      }
+    }
   },
 
   "string_slice": {

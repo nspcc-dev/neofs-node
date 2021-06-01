@@ -42,3 +42,21 @@ func TestConfigEnv(t *testing.T) {
 
 	require.Equal(t, value, c.Sub(section).Value(name))
 }
+
+func TestConfig_SubValue(t *testing.T) {
+	configtest.ForEachFileType("test/config", func(c *config.Config) {
+		c = c.
+			Sub("section").
+			Sub("sub").
+			Sub("sub")
+
+		// get subsection 1
+		sub := c.Sub("sub1")
+
+		// get subsection 2
+		c.Sub("sub2")
+
+		// sub should not be corrupted
+		require.Equal(t, "val1", sub.Value("key"))
+	})
+}
