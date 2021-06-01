@@ -45,6 +45,12 @@ morph:
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
 
+mainchain:
+  dial_timeout: 30s
+  rpc_endpoint:
+    - https://rpc1.n3.nspcc.ru:30341
+    - https://rpc2.n3.nspcc.ru:30341
+
 storage:
   shard_num: 2
   shard:
