@@ -327,18 +327,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	// create morph client
-	server.morphClient, err = createClient(ctx, morphChain)
-	if err != nil {
-		return nil, err
+	// enable notary support in the client
+	var morphNotaryOpts []client.NotaryOption
+	if !server.sideNotaryConfig.disabled {
+		morphNotaryOpts = append(morphNotaryOpts, client.WithProxyContract(server.contracts.proxy))
 	}
 
-	// enable notary support in the client
-	if !server.sideNotaryConfig.disabled {
-		err = server.morphClient.EnableNotarySupport(server.contracts.proxy)
-		if err != nil {
-			return nil, err
-		}
+	// create morph client
+	server.morphClient, err = createClient(ctx, morphChain, morphNotaryOpts...)
+	if err != nil {
+		return nil, err
 	}
 
 	withoutMainNet := cfg.GetBool("without_mainnet")
@@ -359,21 +357,18 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 			return nil, err
 		}
 
-		// create mainnet client
-		server.mainnetClient, err = createClient(ctx, mainnetChain)
-		if err != nil {
-			return nil, err
+		// enable notary support in the client
+		var mainnetNotaryOpts []client.NotaryOption
+		if !server.mainNotaryConfig.disabled {
+			mainnetNotaryOpts = append(mainnetNotaryOpts,
+				client.WithProxyContract(server.contracts.processing),
+				client.WithAlphabetSource(server.morphClient.Committee))
 		}
 
-		// enable notary support in the client
-		if !server.mainNotaryConfig.disabled {
-			err = server.mainnetClient.EnableNotarySupport(
-				server.contracts.processing,
-				client.WithAlphabetSource(server.morphClient.Committee),
-			)
-			if err != nil {
-				return nil, err
-			}
+		// create mainnet client
+		server.mainnetClient, err = createClient(ctx, mainnetChain, mainnetNotaryOpts...)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -392,7 +387,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	fee := server.feeConfig.SideChainFee()
 
-	server.auditClient, err = auditWrapper.NewFromMorph(server.morphClient, server.contracts.audit, fee)
+	server.auditClient, err = auditWrapper.NewFromMorph(server.morphClient, server.contracts.audit, fee, client.TryNotary())
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +397,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee)
+	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee, client.TryNotary())
 	if err != nil {
 		return nil, err
 	}
@@ -811,13 +806,14 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 	return listener, err
 }
 
-func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
+func createClient(ctx context.Context, p *chainParams, notaryOpts ...client.NotaryOption) (*client.Client, error) {
 	return client.New(
 		p.key,
 		p.cfg.GetString(p.name+".endpoint.client"),
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
+		client.WithNotaryOptions(notaryOpts...),
 	)
 }
 
