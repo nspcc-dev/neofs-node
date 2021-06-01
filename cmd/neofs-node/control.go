@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
@@ -61,7 +62,7 @@ func initControlService(c *cfg) {
 		endpoint = c.viper.GetString(cfgCtrlGRPCEndpoint)
 	)
 
-	if endpoint == "" || endpoint == c.viper.GetString(cfgListenAddress) {
+	if endpoint == "" || endpoint == grpcconfig.Endpoint(c.appCfg) {
 		lis = c.cfgGRPC.listener
 		c.cfgControlService.server = c.cfgGRPC.server
 	} else {

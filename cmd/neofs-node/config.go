@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
+	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
@@ -53,12 +54,6 @@ import (
 )
 
 const (
-	// config keys for cfgGRPC
-	cfgListenAddress = "grpc.endpoint"
-	cfgTLSEnabled    = "grpc.tls.enabled"
-	cfgTLSCertFile   = "grpc.tls.certificate"
-	cfgTLSKeyFile    = "grpc.tls.key"
-
 	// config keys for API client cache
 	cfgAPIClientDialTimeout = "apiclient.dial_timeout"
 
@@ -306,12 +301,14 @@ func initCfg(path string) *cfg {
 		tlsEnabled  bool
 		tlsCertFile string
 		tlsKeyFile  string
+
+		tlsConfig = grpcconfig.TLS(appCfg)
 	)
 
-	if viperCfg.GetBool(cfgTLSEnabled) {
+	if tlsConfig.Enabled() {
 		tlsEnabled = true
-		tlsCertFile = viperCfg.GetString(cfgTLSCertFile)
-		tlsKeyFile = viperCfg.GetString(cfgTLSKeyFile)
+		tlsCertFile = tlsConfig.CertificateFile()
+		tlsKeyFile = tlsConfig.KeyFile()
 	}
 
 	if tlsEnabled {
@@ -411,11 +408,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgMorphRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
-
-	v.SetDefault(cfgListenAddress, "127.0.0.1:50501") // listen address
-	v.SetDefault(cfgTLSEnabled, false)
-	v.SetDefault(cfgTLSCertFile, "")
-	v.SetDefault(cfgTLSKeyFile, "")
 
 	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
 
