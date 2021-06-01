@@ -16,6 +16,13 @@ node:
   attribute_1: UN-LOCODE:RU MSK
   relay: true
 
+grpc:
+  endpoint: s01.neofs.devenv:8080
+  tls:
+    enabled: true
+    certificate: /path/to/cert
+    key: /path/to/key
+
 storage:
   shard_num: 2
   shard:
