@@ -9,5 +9,74 @@
   "metrics": {
     "address": "127.0.0.1:9090",
     "shutdown_timeout": "15s"
+  },
+  "storage": {
+    "shard_num": 2,
+    "shard": {
+      "0": {
+        "use_write_cache": false,
+        "writecache": {
+          "path": "tmp/0/cache",
+          "mem_size": 111,
+          "db_size": 222,
+          "small_size": 333,
+          "max_size": 444,
+          "workers_number": 555
+        },
+        "metabase": {
+          "path": "tmp/0/meta",
+          "perm": "0700"
+        },
+        "blobstor": {
+          "path": "tmp/0/blob",
+          "perm": "0666",
+          "shallow_depth": 5,
+          "compress": true,
+          "small_size_limit": 77,
+          "blobovnicza": {
+            "size": 1024,
+            "shallow_depth": 10,
+            "shallow_width": 20,
+            "opened_cache_size": 88
+          }
+        },
+        "gc": {
+          "remover_batch_size": 123,
+          "remover_sleep_interval": "3h"
+        }
+      },
+      "1": {
+        "use_write_cache": true,
+        "writecache": {
+          "path": "tmp/1/cache",
+          "mem_size": 112,
+          "db_size": 223,
+          "small_size": 334,
+          "max_size": 445,
+          "workers_number": 556
+        },
+        "metabase": {
+          "path": "tmp/1/meta",
+          "perm": "0701"
+        },
+        "blobstor": {
+          "path": "tmp/1/blob",
+          "perm": "0667",
+          "shallow_depth": 6,
+          "compress": false,
+          "small_size_limit": 78,
+          "blobovnicza": {
+            "size": 1025,
+            "shallow_depth": 11,
+            "shallow_width": 21,
+            "opened_cache_size": 89
+          }
+        },
+        "gc": {
+          "remover_batch_size": 124,
+          "remover_sleep_interval": "3h1s"
+        }
+      }
+    }
   }
 }
