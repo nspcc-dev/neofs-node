@@ -3,6 +3,7 @@
   "section": {
     "any": "thing"
   },
+
   "string_slice": {
     "empty": [],
     "filled": [
@@ -17,6 +18,13 @@
   },
   "duration": {
     "correct": "15m",
+    "incorrect": "some string"
+  },
+  "number": {
+    "int_pos": 1,
+    "int_neg": -1,
+    "fract_pos": 2.5,
+    "fract_neg": -2.5,
     "incorrect": "some string"
   }
 }
