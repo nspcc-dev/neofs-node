@@ -16,3 +16,7 @@ string:
   correct: some string
 
   incorrect: []
+
+duration:
+  correct: 15m
+  incorrect: some string
