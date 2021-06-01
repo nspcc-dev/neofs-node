@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -13,7 +14,7 @@ import (
 func initGRPC(c *cfg) {
 	var err error
 
-	c.cfgGRPC.listener, err = net.Listen("tcp", c.viper.GetString(cfgListenAddress))
+	c.cfgGRPC.listener, err = net.Listen("tcp", grpcconfig.Endpoint(c.appCfg))
 	fatalOnErr(err)
 
 	serverOpts := []grpc.ServerOption{
