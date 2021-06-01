@@ -62,3 +62,37 @@ func TestDuration(t *testing.T) {
 		require.Equal(t, time.Duration(0), val)
 	})
 }
+
+func TestNumbers(t *testing.T) {
+	configtest.ForEachFileType("test/config", func(c *config.Config) {
+		c = c.Sub("number")
+
+		const (
+			intPos = "int_pos"
+			intNeg = "int_neg"
+
+			fractPos = "fract_pos"
+			fractNeg = "fract_neg"
+
+			incorrect = "incorrect"
+		)
+
+		require.EqualValues(t, 1, config.Int(c, intPos))
+		require.EqualValues(t, 1, config.Uint(c, intPos))
+
+		require.EqualValues(t, -1, config.Int(c, intNeg))
+		require.Panics(t, func() { config.Uint(c, intNeg) })
+
+		require.EqualValues(t, 2, config.Int(c, fractPos))
+		require.EqualValues(t, 2, config.Uint(c, fractPos))
+
+		require.EqualValues(t, -2, config.Int(c, fractNeg))
+		require.Panics(t, func() { config.Uint(c, fractNeg) })
+
+		require.Panics(t, func() { config.Int(c, incorrect) })
+		require.Panics(t, func() { config.Uint(c, incorrect) })
+
+		require.Zero(t, config.IntSafe(c, incorrect))
+		require.Zero(t, config.UintSafe(c, incorrect))
+	})
+}
