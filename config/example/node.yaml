@@ -3,3 +3,6 @@ logger:
 profiler:
   address: 127.0.0.1:6060
   shutdown_timeout: 15s
+metrics:
+  address: 127.0.0.1:9090
+  shutdown_timeout: 15s
