@@ -5,8 +5,9 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -15,8 +16,8 @@ const (
 	defaultPrice    = 0
 )
 
-func parseAttributes(v *viper.Viper) []*netmap.NodeAttribute {
-	stringAttributes := readAttributes(v)
+func parseAttributes(c *config.Config) []*netmap.NodeAttribute {
+	stringAttributes := nodeconfig.Attributes(c)
 
 	attrs, err := attributes.ParseV2Attributes(stringAttributes, nil)
 	if err != nil {
@@ -24,21 +25,6 @@ func parseAttributes(v *viper.Viper) []*netmap.NodeAttribute {
 	}
 
 	return addWellKnownAttributes(attrs)
-}
-
-func readAttributes(v *viper.Viper) (attrs []string) {
-	const maxAttributes = 100
-
-	for i := 0; i < maxAttributes; i++ {
-		attr := v.GetString(cfgNodeAttributePrefix + "_" + strconv.Itoa(i))
-		if attr == "" {
-			return
-		}
-
-		attrs = append(attrs, attr)
-	}
-
-	return attrs
 }
 
 type wellKnownNodeAttrDesc struct {
