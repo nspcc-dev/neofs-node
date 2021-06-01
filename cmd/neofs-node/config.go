@@ -51,10 +51,6 @@ import (
 )
 
 const (
-	// pprof keys
-	cfgProfilerAddr            = "profiler.address"
-	cfgProfilerShutdownTimeout = "profiler.shutdown_timeout"
-
 	// metrics keys
 	cfgMetricsAddr            = "metrics.address"
 	cfgMetricsShutdownTimeout = "metrics.shutdown_timeout"
@@ -148,6 +144,8 @@ const notificationHandlerPoolSize = 10
 
 type cfg struct {
 	ctx context.Context
+
+	appCfg *config.Config
 
 	ctxCancel func()
 
@@ -378,6 +376,7 @@ func initCfg(path string) *cfg {
 
 	c := &cfg{
 		ctx:         context.Background(),
+		appCfg:      appCfg,
 		internalErr: make(chan error),
 		viper:       viperCfg,
 		log:         log,
@@ -472,8 +471,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgContainerContract, "")
 
 	v.SetDefault(cfgNetmapContract, "")
-
-	v.SetDefault(cfgProfilerShutdownTimeout, "30s")
 
 	v.SetDefault(cfgMetricsShutdownTimeout, "30s")
 

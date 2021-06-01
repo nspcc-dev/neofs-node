@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 
+	profilerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/profiler"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"go.uber.org/zap"
 )
 
 func initProfiler(c *cfg) {
-	addr := c.viper.GetString(cfgProfilerAddr)
+	addr := profilerconfig.Address(c.appCfg)
 	if addr == "" {
 		return
 	}
@@ -20,7 +21,7 @@ func initProfiler(c *cfg) {
 
 	srv := httputil.New(prm,
 		httputil.WithShutdownTimeout(
-			c.viper.GetDuration(cfgProfilerShutdownTimeout),
+			profilerconfig.ShutdownTimeout(c.appCfg),
 		),
 	)
 
