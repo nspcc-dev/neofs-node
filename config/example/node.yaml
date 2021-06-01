@@ -9,6 +9,13 @@ metrics:
   address: 127.0.0.1:9090
   shutdown_timeout: 15s
 
+node:
+  key: path/hex/WIF
+  address: s01.neofs.devenv:8080
+  attribute_0: "Price:11"
+  attribute_1: UN-LOCODE:RU MSK
+  relay: true
+
 storage:
   shard_num: 2
   shard:
