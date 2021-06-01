@@ -58,15 +58,6 @@ const (
 	// config keys for API client cache
 	cfgAPIClientDialTimeout = "apiclient.dial_timeout"
 
-	// config keys for cfgMorph
-	cfgMorphRPCAddress = "morph.rpc_endpoint"
-
-	cfgMorphNotifyRPCAddress  = "morph.notification_endpoint"
-	cfgMorphNotifyDialTimeout = "morph.dial_timeout"
-
-	cfgMainChainRPCAddress  = "mainchain.rpc_endpoint"
-	cfgMainChainDialTimeout = "mainchain.dial_timeout"
-
 	cfgPolicerHeadTimeout = "policer.head_timeout"
 
 	cfgReplicatorPutTimeout = "replicator.put_timeout"
@@ -378,10 +369,6 @@ func initViper(path string) *viper.Viper {
 }
 
 func defaultConfiguration(v *viper.Viper) {
-	v.SetDefault(cfgMorphRPCAddress, []string{})
-	v.SetDefault(cfgMorphNotifyRPCAddress, []string{})
-	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
-
 	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
