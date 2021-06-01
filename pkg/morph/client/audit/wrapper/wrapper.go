@@ -12,8 +12,8 @@ import (
 type ClientWrapper audit.Client
 
 // NewFromMorph returns the wrapper instance from the raw morph client.
-func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
-	staticClient, err := client.NewStatic(cli, contract, fee)
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...client.StaticClientOption) (*ClientWrapper, error) {
+	staticClient, err := client.NewStatic(cli, contract, fee, opts...)
 	if err != nil {
 		return nil, err
 	}
