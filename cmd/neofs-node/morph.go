@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	mainchainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/mainchain"
+	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -19,30 +20,14 @@ import (
 
 const newEpochNotification = "NewEpoch"
 
-var (
-	errNoRPCEndpoints = errors.New("NEO RPC endpoints are not specified in config")
-	errNoWSEndpoints  = errors.New("websocket NEO listener endpoints are not specified in config")
-)
-
 func initMorphComponents(c *cfg) {
 	var err error
 
-	fn := func(endpointCfg, dialTOCfg string, handler func(*client.Client), required bool) {
-		addresses := c.viper.GetStringSlice(endpointCfg)
-		if required && len(addresses) == 0 {
-			fatalOnErr(errNoRPCEndpoints)
-		}
-
+	fn := func(addresses []string, dialTimeout time.Duration, handler func(*client.Client)) {
 		crand := rand.New() // math/rand with cryptographic source
 		crand.Shuffle(len(addresses), func(i, j int) {
 			addresses[i], addresses[j] = addresses[j], addresses[i]
 		})
-
-		var dialTimeout time.Duration
-
-		if dialTOCfg != "" {
-			dialTimeout = c.viper.GetDuration(dialTOCfg)
-		}
 
 		for i := range addresses {
 			cli, err := client.New(c.key, addresses[i], client.WithDialTimeout(dialTimeout))
@@ -65,13 +50,13 @@ func initMorphComponents(c *cfg) {
 
 	// replace to a separate initialing block during refactoring
 	// since current function initializes sidechain components
-	fn(cfgMainChainRPCAddress, cfgMainChainDialTimeout, func(cli *client.Client) {
+	fn(mainchainconfig.RPCEndpoint(c.appCfg), mainchainconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
 		c.mainChainClient = cli
-	}, false)
+	})
 
-	fn(cfgMorphRPCAddress, "", func(cli *client.Client) {
+	fn(morphconfig.RPCEndpoint(c.appCfg), morphconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
 		c.cfgMorph.client = cli
-	}, true)
+	})
 
 	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0)
 	fatalOnErr(err)
@@ -86,12 +71,8 @@ func listenMorphNotifications(c *cfg) {
 		subs subscriber.Subscriber
 	)
 
-	endpoints := c.viper.GetStringSlice(cfgMorphNotifyRPCAddress)
-	if len(endpoints) == 0 {
-		fatalOnErr(errNoWSEndpoints)
-	}
-
-	timeout := c.viper.GetDuration(cfgMorphNotifyDialTimeout)
+	endpoints := morphconfig.NotificationEndpoint(c.appCfg)
+	timeout := morphconfig.DialTimeout(c.appCfg)
 
 	crand := rand.New() // math/rand with cryptographic source
 	crand.Shuffle(len(endpoints), func(i, j int) {
