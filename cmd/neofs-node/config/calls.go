@@ -8,9 +8,16 @@ import (
 //
 // Returns nil if subsection if missing.
 func (x *Config) Sub(name string) *Config {
+	// copy path in order to prevent consequent violations
+	ln := len(x.path)
+
+	path := make([]string, ln, ln+1)
+
+	copy(path, x.path)
+
 	return &Config{
 		v:    x.v,
-		path: append(x.path, name),
+		path: append(path, name),
 	}
 }
 
