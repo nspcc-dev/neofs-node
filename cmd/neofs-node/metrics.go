@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 
+	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
 func initMetrics(c *cfg) {
-	addr := c.viper.GetString(cfgMetricsAddr)
+	addr := metricsconfig.Address(c.appCfg)
 	if addr == "" {
 		return
 	}
@@ -21,7 +22,7 @@ func initMetrics(c *cfg) {
 
 	srv := httputil.New(prm,
 		httputil.WithShutdownTimeout(
-			c.viper.GetDuration(cfgMetricsShutdownTimeout),
+			metricsconfig.ShutdownTimeout(c.appCfg),
 		),
 	)
 

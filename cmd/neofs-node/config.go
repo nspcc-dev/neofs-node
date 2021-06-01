@@ -19,6 +19,7 @@ import (
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
+	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -51,10 +52,6 @@ import (
 )
 
 const (
-	// metrics keys
-	cfgMetricsAddr            = "metrics.address"
-	cfgMetricsShutdownTimeout = "metrics.shutdown_timeout"
-
 	// config keys for cfgNodeInfo
 	cfgNodeKey             = "node.key"
 	cfgBootstrapAddress    = "node.address"
@@ -423,7 +420,7 @@ func initCfg(path string) *cfg {
 		},
 	}
 
-	if c.viper.GetString(cfgMetricsAddr) != "" {
+	if metricsconfig.Address(c.appCfg) != "" {
 		c.metricsCollector = metrics.NewStorageMetrics()
 	}
 
@@ -471,8 +468,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgContainerContract, "")
 
 	v.SetDefault(cfgNetmapContract, "")
-
-	v.SetDefault(cfgMetricsShutdownTimeout, "30s")
 
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
 
