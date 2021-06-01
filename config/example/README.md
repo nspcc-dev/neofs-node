@@ -11,3 +11,7 @@ It is not recommended to transfer these configs for real application launches.
 - Storage node
   - JSON: `node.json`
   - YAML: `node.yaml`
+  
+## Environment variables
+
+- Storage node: `node.env`
