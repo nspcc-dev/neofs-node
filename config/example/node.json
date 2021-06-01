@@ -1,5 +1,9 @@
 {
   "logger": {
     "level": "debug"
+  },
+  "profiler": {
+    "address": "127.0.0.1:6060",
+    "shutdown_timeout": "15s"
   }
 }
