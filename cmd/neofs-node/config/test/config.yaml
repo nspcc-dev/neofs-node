@@ -35,3 +35,8 @@ number:
   fract_pos: 2.5
   fract_neg: -2.5
   incorrect: some string
+
+bool:
+  correct: true
+  correct_string: "true"
+  incorrect: not true

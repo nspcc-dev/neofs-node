@@ -63,6 +63,25 @@ func TestDuration(t *testing.T) {
 	})
 }
 
+func TestBool(t *testing.T) {
+	configtest.ForEachFileType("test/config", func(c *config.Config) {
+		c = c.Sub("bool")
+
+		val := config.Bool(c, "correct")
+		require.Equal(t, true, val)
+
+		val = config.Bool(c, "correct_string")
+		require.Equal(t, true, val)
+
+		require.Panics(t, func() {
+			config.Bool(c, "incorrect")
+		})
+
+		val = config.BoolSafe(c, "incorrect")
+		require.Equal(t, false, val)
+	})
+}
+
 func TestNumbers(t *testing.T) {
 	configtest.ForEachFileType("test/config", func(c *config.Config) {
 		c = c.Sub("number")
