@@ -16,6 +16,7 @@ import (
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	crypto "github.com/nspcc-dev/neofs-crypto"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
@@ -65,18 +66,6 @@ const (
 
 	cfgMainChainRPCAddress  = "mainchain.rpc_endpoint"
 	cfgMainChainDialTimeout = "mainchain.dial_timeout"
-
-	// config keys for cfgAccounting
-	cfgAccountingContract = "accounting.scripthash"
-
-	// config keys for cfgNetmap
-	cfgNetmapContract = "netmap.scripthash"
-
-	// config keys for cfgContainer
-	cfgContainerContract = "container.scripthash"
-
-	// config keys for cfgReputation
-	cfgReputationContract = "reputation.scripthash"
 
 	cfgPolicerHeadTimeout = "policer.head_timeout"
 
@@ -266,22 +255,6 @@ func initCfg(path string) *cfg {
 	key, err := crypto.LoadPrivateKey(nodeconfig.Key(appCfg))
 	fatalOnErr(err)
 
-	u160Accounting, err := util.Uint160DecodeStringLE(
-		viperCfg.GetString(cfgAccountingContract))
-	fatalOnErr(err)
-
-	u160Netmap, err := util.Uint160DecodeStringLE(
-		viperCfg.GetString(cfgNetmapContract))
-	fatalOnErr(err)
-
-	u160Container, err := util.Uint160DecodeStringLE(
-		viperCfg.GetString(cfgContainerContract))
-	fatalOnErr(err)
-
-	u160Reputation, err := util.Uint160DecodeStringLE(
-		viperCfg.GetString(cfgReputationContract))
-	fatalOnErr(err)
-
 	var logPrm logger.Prm
 
 	err = logPrm.SetLevelString(
@@ -338,14 +311,14 @@ func initCfg(path string) *cfg {
 		key:         key,
 		apiVersion:  pkg.SDKVersion(),
 		cfgAccounting: cfgAccounting{
-			scriptHash: u160Accounting,
+			scriptHash: contractsconfig.Balance(appCfg),
 		},
 		cfgContainer: cfgContainer{
-			scriptHash: u160Container,
+			scriptHash: contractsconfig.Container(appCfg),
 			workerPool: containerWorkerPool,
 		},
 		cfgNetmap: cfgNetmap{
-			scriptHash:          u160Netmap,
+			scriptHash:          contractsconfig.Netmap(appCfg),
 			state:               state,
 			workerPool:          netmapWorkerPool,
 			reBootstrapEnabled:  !relayOnly,
@@ -372,7 +345,7 @@ func initCfg(path string) *cfg {
 		netStatus:    atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 		cfgReputation: cfgReputation{
-			scriptHash: u160Reputation,
+			scriptHash: contractsconfig.Reputation(appCfg),
 			workerPool: reputationWorkerPool,
 		},
 	}
@@ -410,12 +383,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
 
 	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
-
-	v.SetDefault(cfgAccountingContract, "")
-
-	v.SetDefault(cfgContainerContract, "")
-
-	v.SetDefault(cfgNetmapContract, "")
 
 	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
 
