@@ -20,6 +20,7 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
+	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -52,12 +53,6 @@ import (
 )
 
 const (
-	// config keys for cfgNodeInfo
-	cfgNodeKey             = "node.key"
-	cfgBootstrapAddress    = "node.address"
-	cfgNodeAttributePrefix = "node.attribute"
-	cfgNodeRelay           = "node.relay"
-
 	// config keys for cfgGRPC
 	cfgListenAddress = "grpc.endpoint"
 	cfgTLSEnabled    = "grpc.tls.enabled"
@@ -273,7 +268,7 @@ func initCfg(path string) *cfg {
 
 	viperCfg := initViper(path)
 
-	key, err := crypto.LoadPrivateKey(viperCfg.GetString(cfgNodeKey))
+	key, err := crypto.LoadPrivateKey(nodeconfig.Key(appCfg))
 	fatalOnErr(err)
 
 	u160Accounting, err := util.Uint160DecodeStringLE(
@@ -302,8 +297,7 @@ func initCfg(path string) *cfg {
 	log, err := logger.NewLogger(logPrm)
 	fatalOnErr(err)
 
-	netAddr, err := network.AddressFromString(viperCfg.GetString(cfgBootstrapAddress))
-	fatalOnErr(err)
+	netAddr := nodeconfig.BootstrapAddress(appCfg)
 
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
@@ -335,7 +329,7 @@ func initCfg(path string) *cfg {
 	reputationWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
-	relayOnly := viperCfg.GetBool(cfgNodeRelay)
+	relayOnly := nodeconfig.Relay(appCfg)
 
 	c := &cfg{
 		ctx:         context.Background(),
@@ -362,7 +356,7 @@ func initCfg(path string) *cfg {
 		},
 		cfgNodeInfo: cfgNodeInfo{
 			bootType:   StorageNode,
-			attributes: parseAttributes(viperCfg),
+			attributes: parseAttributes(appCfg),
 		},
 		cfgGRPC: cfgGRPC{
 			maxChunkSize:  maxChunkSize,
@@ -414,10 +408,6 @@ func initViper(path string) *viper.Viper {
 }
 
 func defaultConfiguration(v *viper.Viper) {
-	v.SetDefault(cfgNodeKey, "")          // node key
-	v.SetDefault(cfgBootstrapAddress, "") // announced address of the node
-	v.SetDefault(cfgNodeRelay, false)
-
 	v.SetDefault(cfgMorphRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyRPCAddress, []string{})
 	v.SetDefault(cfgMorphNotifyDialTimeout, 5*time.Second)
