@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	"github.com/panjf2000/ants/v2"
@@ -28,24 +27,20 @@ type (
 	Processor struct {
 		log             *zap.Logger
 		pool            *ants.Pool
-		neofsContract   util.Uint160
+		neofsClient     *neofscontract.ClientWrapper
 		balanceContract util.Uint160
-		mainnetClient   *client.Client
 		alphabetState   AlphabetState
 		converter       PrecisionConverter
-		feeProvider     *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
 	Params struct {
 		Log             *zap.Logger
 		PoolSize        int
-		NeoFSContract   util.Uint160
+		NeoFSClient     *neofscontract.ClientWrapper
 		BalanceContract util.Uint160
-		MainnetClient   *client.Client
 		AlphabetState   AlphabetState
 		Converter       PrecisionConverter
-		FeeProvider     *config.FeeConfig
 	}
 )
 
@@ -58,14 +53,10 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/balance: logger is not set")
-	case p.MainnetClient == nil:
-		return nil, errors.New("ir/balance: neo:mainnet client is not set")
 	case p.AlphabetState == nil:
 		return nil, errors.New("ir/balance: global state is not set")
 	case p.Converter == nil:
 		return nil, errors.New("ir/balance: balance precision converter is not set")
-	case p.FeeProvider == nil:
-		return nil, errors.New("ir/balance: fee provider is not set")
 	}
 
 	p.Log.Debug("balance worker pool", zap.Int("size", p.PoolSize))
@@ -78,12 +69,10 @@ func New(p *Params) (*Processor, error) {
 	return &Processor{
 		log:             p.Log,
 		pool:            pool,
-		neofsContract:   p.NeoFSContract,
+		neofsClient:     p.NeoFSClient,
 		balanceContract: p.BalanceContract,
-		mainnetClient:   p.MainnetClient,
 		alphabetState:   p.AlphabetState,
 		converter:       p.Converter,
-		feeProvider:     p.FeeProvider,
 	}, nil
 }
 

@@ -5,8 +5,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const chequeMethod = "cheque"
-
 // Process lock event by invoking Cheque method in main net to send assets
 // back to the withdraw issuer.
 func (bp *Processor) processLock(lock *balanceEvent.Lock) {
@@ -15,7 +13,7 @@ func (bp *Processor) processLock(lock *balanceEvent.Lock) {
 		return
 	}
 
-	err := bp.mainnetClient.NotaryInvoke(bp.neofsContract, bp.feeProvider.MainChainFee(), chequeMethod,
+	err := bp.neofsClient.Cheque(
 		lock.ID(),
 		lock.User(),
 		bp.converter.ToFixed8(lock.Amount()),

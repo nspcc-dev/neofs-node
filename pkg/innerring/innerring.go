@@ -27,6 +27,7 @@ import (
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	neofsWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
@@ -417,6 +418,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	neofsClient, err := neofsWrapper.NewFromMorph(server.mainnetClient, server.contracts.neofs,
+		server.feeConfig.MainChainFee())
+	if err != nil {
+		return nil, err
+	}
+
 	// create global runtime config reader
 	globalConfig := config.NewGlobalConfigReader(cfg, server.netmapClient)
 
@@ -517,7 +524,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// create governance processor
 	governanceProcessor, err := governance.New(&governance.Params{
 		Log:            log,
-		NeoFSContract:  server.contracts.neofs,
+		NeoFSClient:    neofsClient,
 		NetmapClient:   server.netmapClient,
 		AlphabetState:  server,
 		EpochState:     server,
@@ -525,7 +532,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		MorphClient:    server.morphClient,
 		MainnetClient:  server.mainnetClient,
 		NotaryDisabled: server.sideNotaryConfig.disabled,
-		FeeProvider:    server.feeConfig,
 	})
 	if err != nil {
 		return nil, err
@@ -598,12 +604,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	balanceProcessor, err := balance.New(&balance.Params{
 		Log:             log,
 		PoolSize:        cfg.GetInt("workers.balance"),
-		NeoFSContract:   server.contracts.neofs,
+		NeoFSClient:     neofsClient,
 		BalanceContract: server.contracts.balance,
-		MainnetClient:   server.mainnetClient,
 		AlphabetState:   server,
 		Converter:       &server.precision,
-		FeeProvider:     server.feeConfig,
 	})
 	if err != nil {
 		return nil, err

@@ -9,8 +9,6 @@ import (
 
 const (
 	alphabetUpdateIDPrefix = "AlphabetUpdate"
-
-	alphabetUpdateMethod = "alphabetUpdate"
 )
 
 func (gp *Processor) processAlphabetSync() {
@@ -98,8 +96,7 @@ func (gp *Processor) processAlphabetSync() {
 
 	id := append([]byte(alphabetUpdateIDPrefix), buf...)
 
-	err = gp.mainnetClient.NotaryInvoke(gp.neofsContract, gp.feeProvider.MainChainFee(), alphabetUpdateMethod,
-		id, newAlphabet)
+	err = gp.neofsClient.AlphabetUpdate(id, newAlphabet)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
 			zap.String("error", err.Error()))
