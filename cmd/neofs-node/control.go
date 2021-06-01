@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	crypto "github.com/nspcc-dev/neofs-crypto"
+	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -15,17 +16,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	cfgCtrlSvcSection = "control"
-
-	cfgCtrlSvcAuthorizedKeys = cfgCtrlSvcSection + ".authorized_keys"
-
-	cfgCtrlSvcGRPCSection = cfgCtrlSvcSection + ".grpc"
-	cfgCtrlGRPCEndpoint   = cfgCtrlSvcGRPCSection + ".endpoint"
-)
-
 func initControlService(c *cfg) {
-	strKeys := c.viper.GetStringSlice(cfgCtrlSvcAuthorizedKeys)
+	strKeys := controlconfig.AuthorizedKeysString(c.appCfg)
 	keys := make([][]byte, 0, len(strKeys)+1) // +1 for node key
 
 	keys = append(keys, crypto.MarshalPublicKey(&c.key.PublicKey))
@@ -59,7 +51,7 @@ func initControlService(c *cfg) {
 	var (
 		err      error
 		lis      net.Listener
-		endpoint = c.viper.GetString(cfgCtrlGRPCEndpoint)
+		endpoint = controlconfig.GRPC(c.appCfg).Endpoint()
 	)
 
 	if endpoint == "" || endpoint == grpcconfig.Endpoint(c.appCfg) {

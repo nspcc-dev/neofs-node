@@ -389,8 +389,6 @@ func defaultConfiguration(v *viper.Viper) {
 	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
 
 	v.SetDefault(cfgObjectPutPoolSize, 10)
-
-	v.SetDefault(cfgCtrlSvcAuthorizedKeys, []string{})
 }
 
 func (c *cfg) LocalAddress() *network.Address {
