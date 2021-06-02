@@ -58,6 +58,9 @@
       "https://rpc2.n3.nspcc.ru:30341"
     ]
   },
+  "apiclient": {
+    "dial_timeout": "15s"
+  },
   "storage": {
     "shard_num": 2,
     "shard": {
