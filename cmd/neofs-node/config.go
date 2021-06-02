@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +22,7 @@ import (
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
-	"github.com/nspcc-dev/neofs-node/misc"
+	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -47,27 +46,13 @@ import (
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"github.com/spf13/viper"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
-const (
-	// config keys for API client cache
-	cfgAPIClientDialTimeout = "apiclient.dial_timeout"
-
-	cfgPolicerHeadTimeout = "policer.head_timeout"
-
-	cfgReplicatorPutTimeout = "replicator.put_timeout"
-
-	cfgObjectPutPoolSize = "object.put.pool_size"
-)
-
-const (
-	addressSize = 72 // 32 bytes oid, 32 bytes cid, 8 bytes protobuf encoding
-)
+const addressSize = 72 // 32 bytes oid, 32 bytes cid, 8 bytes protobuf encoding
 
 const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
 
@@ -83,8 +68,6 @@ type cfg struct {
 	ctxCancel func()
 
 	internalErr chan error // channel for internal application errors at runtime
-
-	viper *viper.Viper
 
 	log *zap.Logger
 
@@ -241,8 +224,6 @@ func initCfg(path string) *cfg {
 		config.WithConfigFile(path),
 	)
 
-	viperCfg := initViper(path)
-
 	key, err := crypto.LoadPrivateKey(nodeconfig.Key(appCfg))
 	fatalOnErr(err)
 
@@ -296,7 +277,6 @@ func initCfg(path string) *cfg {
 		ctx:         context.Background(),
 		appCfg:      appCfg,
 		internalErr: make(chan error),
-		viper:       viperCfg,
 		log:         log,
 		wg:          new(sync.WaitGroup),
 		key:         key,
@@ -331,7 +311,7 @@ func initCfg(path string) *cfg {
 			response.WithNetworkState(state),
 		),
 		cfgObject: cfgObject{
-			pool: initObjectPool(viperCfg),
+			pool: initObjectPool(appCfg),
 		},
 		netStatus:    atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
@@ -348,34 +328,6 @@ func initCfg(path string) *cfg {
 	initLocalStorage(c)
 
 	return c
-}
-
-func initViper(path string) *viper.Viper {
-	v := viper.New()
-
-	v.SetEnvPrefix(misc.Prefix)
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	defaultConfiguration(v)
-
-	if path != "" {
-		v.SetConfigFile(path)
-		v.SetConfigType("yml")
-		fatalOnErr(v.ReadInConfig())
-	}
-
-	return v
-}
-
-func defaultConfiguration(v *viper.Viper) {
-	v.SetDefault(cfgAPIClientDialTimeout, 5*time.Second)
-
-	v.SetDefault(cfgPolicerHeadTimeout, 5*time.Second)
-
-	v.SetDefault(cfgReplicatorPutTimeout, 5*time.Second)
-
-	v.SetDefault(cfgObjectPutPoolSize, 10)
 }
 
 func (c *cfg) LocalAddress() *network.Address {
@@ -494,12 +446,12 @@ func initShardOptions(c *cfg) {
 	c.cfgObject.cfgLocalStorage.shardOpts = opts
 }
 
-func initObjectPool(cfg *viper.Viper) (pool cfgObjectRoutines) {
+func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	var err error
 
 	optNonBlocking := ants.WithNonblocking(true)
 
-	pool.put, err = ants.NewPool(cfg.GetInt(cfgObjectPutPoolSize), optNonBlocking)
+	pool.put, err = ants.NewPool(objectconfig.Put(cfg).PoolSize(), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}

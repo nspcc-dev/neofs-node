@@ -13,6 +13,9 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
+	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
+	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -153,7 +156,7 @@ func initObjectService(c *cfg) {
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
 	clientCache := cache.NewSDKClientCache(
-		client.WithDialTimeout(c.viper.GetDuration(cfgAPIClientDialTimeout)))
+		client.WithDialTimeout(apiclientconfig.DialTimeout(c.appCfg)))
 
 	c.onShutdown(clientCache.CloseAll)
 
@@ -177,7 +180,7 @@ func initObjectService(c *cfg) {
 	repl := replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
-			c.viper.GetDuration(cfgReplicatorPutTimeout),
+			replicatorconfig.PutTimeout(c.appCfg),
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
@@ -204,7 +207,7 @@ func initObjectService(c *cfg) {
 		),
 		policer.WithLocalAddressSource(c),
 		policer.WithHeadTimeout(
-			c.viper.GetDuration(cfgPolicerHeadTimeout),
+			policerconfig.HeadTimeout(c.appCfg),
 		),
 		policer.WithReplicator(repl),
 		policer.WithRedundantCopyCallback(func(addr *objectSDK.Address) {
