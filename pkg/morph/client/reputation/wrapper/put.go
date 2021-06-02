@@ -43,17 +43,6 @@ func (w *ClientWrapper) Put(v PutArgs) error {
 	return (*reputationClient.Client)(w).Put(args)
 }
 
-// PutViaNotary invokes notary call of "put reputation value" method of
-// reputation contract.
-func (w *ClientWrapper) PutViaNotary(v PutArgs) error {
-	args, err := preparePutArgs(v)
-	if err != nil {
-		return err
-	}
-
-	return (*reputationClient.Client)(w).PutViaNotary(args)
-}
-
 func preparePutArgs(v PutArgs) (reputationClient.PutArgs, error) {
 	args := reputationClient.PutArgs{}
 

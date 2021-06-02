@@ -40,22 +40,3 @@ func (c *Client) Put(args PutArgs) error {
 	}
 	return nil
 }
-
-// PutViaNotary invokes notary call of "put reputation value" method of
-// reputation contract.
-//
-// Deprecated: construct underlying StaticClient with TryNotary() option
-// and use Put.
-func (c *Client) PutViaNotary(args PutArgs) error {
-	err := c.client.NotaryInvoke(
-		c.putMethod,
-		int64(args.epoch),
-		args.peerID,
-		args.value,
-	)
-
-	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)
-	}
-	return err
-}
