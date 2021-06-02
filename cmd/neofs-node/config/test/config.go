@@ -22,6 +22,7 @@ func fromEnvFile(path string) *config.Config {
 	var p config.Prm
 
 	loadEnv(path) // github.com/joho/godotenv can do that as well
+
 	return config.New(p)
 }
 

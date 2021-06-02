@@ -6,7 +6,7 @@ import (
 
 // config defaults
 const (
-	// LevelDefault is a default logger level
+	// LevelDefault is a default logger level.
 	LevelDefault = "info"
 )
 

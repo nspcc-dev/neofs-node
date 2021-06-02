@@ -46,7 +46,7 @@ func NotificationEndpoint(c *config.Config) []string {
 // Returns DialTimeoutDefault if value is not positive duration.
 func DialTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "dial_timeout")
-	if v != 0 {
+	if v > 0 {
 		return v
 	}
 

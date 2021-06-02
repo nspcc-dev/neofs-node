@@ -47,7 +47,7 @@ func New(_ Prm, opts ...Option) *Config {
 
 		err := v.ReadInConfig()
 		if err != nil {
-			panic(fmt.Errorf("failed to read config: %v", err))
+			panic(fmt.Errorf("failed to read config: %w", err))
 		}
 	}
 

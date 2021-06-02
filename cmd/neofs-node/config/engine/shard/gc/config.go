@@ -15,7 +15,7 @@ const (
 	// RemoverBatchSizeDefault is a default batch size for Shard GC's remover.
 	RemoverBatchSizeDefault = 100
 
-	// RemoverSleepInterval is a default sleep interval of Shard GC's remover.
+	// RemoverSleepIntervalDefault is a default sleep interval of Shard GC's remover.
 	RemoverSleepIntervalDefault = time.Minute
 )
 

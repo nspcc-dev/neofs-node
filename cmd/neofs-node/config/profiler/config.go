@@ -9,17 +9,20 @@ import (
 const (
 	subsection = "profiler"
 
+	// ShutdownTimeoutDefault is a default value for profiler HTTP service timeout.
 	ShutdownTimeoutDefault = 30 * time.Second
-	AddressDefault         = ""
+
+	// AddressDefault is a default value for profiler HTTP service endpoint.
+	AddressDefault = ""
 )
 
 // ShutdownTimeout returns value of "shutdown_timeout" config parameter
 // from "profiler" section.
 //
-// Returns ShutdownTimeoutDefault if value is not set.
+// Returns ShutdownTimeoutDefault if value is not positive duration.
 func ShutdownTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "shutdown_timeout")
-	if v != 0 {
+	if v > 0 {
 		return v
 	}
 
