@@ -32,6 +32,8 @@ func (p *PutArgs) SetValue(v reputation.GlobalTrust) {
 }
 
 // Put invokes direct call of "put reputation value" method of reputation contract.
+//
+// If TryNotary is provided, calls notary contract.
 func (w *ClientWrapper) Put(v PutArgs) error {
 	args, err := preparePutArgs(v)
 	if err != nil {

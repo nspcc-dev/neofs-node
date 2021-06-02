@@ -41,14 +41,7 @@ func (rp *Processor) processPut(epoch uint64, id reputation.PeerID, value reputa
 	args.SetPeerID(id)
 	args.SetValue(value)
 
-	var err error
-
-	if rp.notaryDisabled {
-		err = rp.reputationWrp.Put(args)
-	} else {
-		err = rp.reputationWrp.PutViaNotary(args)
-	}
-
+	err := rp.reputationWrp.Put(args)
 	if err != nil {
 		rp.log.Warn("can't send approval tx for reputation value",
 			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetPublicKey())),

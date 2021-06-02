@@ -99,7 +99,7 @@ func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackite
 
 // NotaryInvoke calls NotaryInvoke method of Client with static internal
 // script hash. Panics if notary support was not enabled in underlying
-// moprh client.
+// morph client.
 //
 // Deprecated: provide TryNotary() option to NewStatic and use Invoke.
 func (s StaticClient) NotaryInvoke(method string, args ...interface{}) error {

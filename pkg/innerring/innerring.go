@@ -374,12 +374,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	balClient, err := balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee)
+	balClient, err := balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceWrapper.TryNotary())
 	if err != nil {
 		return nil, err
 	}
 
-	repClient, err := repWrapper.NewFromMorph(server.morphClient, server.contracts.reputation, fee)
+	repClient, err := repWrapper.NewFromMorph(server.morphClient, server.contracts.reputation, fee, repWrapper.TryNotary())
 	if err != nil {
 		return nil, err
 	}

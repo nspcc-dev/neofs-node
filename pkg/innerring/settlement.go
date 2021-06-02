@@ -215,14 +215,7 @@ func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, d
 		Details: details,
 	}
 
-	var err error
-
-	if s.notaryDisabled {
-		err = s.balanceClient.TransferX(params)
-	} else {
-		err = s.balanceClient.TransferXNotary(params)
-	}
-
+	err := s.balanceClient.TransferX(params)
 	if err != nil {
 		log.Error("could not send transfer transaction for audit",
 			zap.String("error", err.Error()),
