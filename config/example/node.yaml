@@ -57,6 +57,9 @@ apiclient:
 policer:
   head_timeout: 15s
 
+replicator:
+  put_timeout: 15s
+
 storage:
   shard_num: 2
   shard:
