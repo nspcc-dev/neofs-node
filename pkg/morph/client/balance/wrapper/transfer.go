@@ -21,16 +21,6 @@ type TransferPrm struct {
 //
 // If TryNotary is provided, calls notary contract.
 func (w *Wrapper) TransferX(p TransferPrm) error {
-	return w.transferX(false, p)
-}
-
-// TransferXNotary transfers p.Amount of GASe-12 from p.From to p.To
-// with details p.Details via notary contract.
-func (w *Wrapper) TransferXNotary(p TransferPrm) error {
-	return w.transferX(true, p)
-}
-
-func (w *Wrapper) transferX(notary bool, p TransferPrm) error {
 	from, err := owner.ScriptHashBE(p.From)
 	if err != nil {
 		return fmt.Errorf("invalid sender: %w", err)

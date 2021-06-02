@@ -68,7 +68,6 @@ type (
 
 		nodeValidator NodeValidator
 
-		notaryDisabled bool
 		feeProvider    *config.FeeConfig
 	}
 
@@ -91,7 +90,6 @@ type (
 
 		NodeValidator NodeValidator
 
-		NotaryDisabled bool
 		FeeProvider    *config.FeeConfig
 	}
 )
@@ -154,7 +152,6 @@ func New(p *Params) (*Processor, error) {
 
 		nodeValidator: p.NodeValidator,
 
-		notaryDisabled: p.NotaryDisabled,
 		feeProvider:    p.FeeProvider,
 	}, nil
 }

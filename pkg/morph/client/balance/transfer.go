@@ -43,34 +43,16 @@ func (t *TransferXArgs) SetDetails(v []byte) {
 // TransferX directly invokes the call of "transferX" method
 // of NeoFS Balance contract.
 func (c *Client) TransferX(args TransferXArgs) error {
-	return c.transferX(false, args)
-}
-
-// TransferXNotary invokes the call of "transferX" method
-// of NeoFS Balance contract via notary contract.
-//
-// Deprecated: construct underlying StaticClient with TryNotary() option
-// and use TransferX.
-func (c *Client) TransferXNotary(args TransferXArgs) error {
-	return c.transferX(true, args)
-}
-
-func (c *Client) transferX(notary bool, args TransferXArgs) error {
-	f := c.client.Invoke
-	if notary {
-		f = c.client.NotaryInvoke
-	}
-
-	err := f(
+	err := c.client.Invoke(
 		c.transferXMethod,
 		args.sender,
 		args.recipient,
 		args.amount,
 		args.details,
 	)
-
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.transferXMethod, err)
 	}
+
 	return nil
 }

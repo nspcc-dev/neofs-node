@@ -28,8 +28,6 @@ type (
 	epochTimerArgs struct {
 		l *zap.Logger
 
-		notaryDisabled bool
-
 		nm *netmap.Processor // to handle new epoch tick
 
 		cnrWrapper *container.Wrapper // to invoke stop container estimation

@@ -450,7 +450,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		nmSrc:          nmClient,
 		clientCache:    clientCache,
 		balanceClient:  balClient,
-		notaryDisabled: server.sideNotaryConfig.disabled,
 	}
 
 	auditCalcDeps := &auditSettlementDeps{
@@ -541,7 +540,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		),
 		AlphabetSyncHandler: alphaSync,
 		NodeValidator:       locodeValidator,
-		NotaryDisabled:      server.sideNotaryConfig.disabled,
 		FeeProvider:         server.feeConfig,
 	})
 	if err != nil {
@@ -645,7 +643,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	reputationProcessor, err := reputation.New(&reputation.Params{
 		Log:                log,
 		PoolSize:           cfg.GetInt("workers.reputation"),
-		NotaryDisabled:     server.sideNotaryConfig.disabled,
 		ReputationContract: server.contracts.reputation,
 		EpochState:         server,
 		AlphabetState:      server,
@@ -665,7 +662,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
 		l:                  server.log,
-		notaryDisabled:     server.sideNotaryConfig.disabled,
 		nm:                 netmapProcessor,
 		cnrWrapper:         cnrClient,
 		epoch:              server,

@@ -46,8 +46,6 @@ type settlementDeps struct {
 	clientCache *ClientCache
 
 	balanceClient *balanceClient.Wrapper
-
-	notaryDisabled bool
 }
 
 type auditSettlementDeps struct {
