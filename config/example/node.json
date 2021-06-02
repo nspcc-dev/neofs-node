@@ -67,6 +67,11 @@
   "replicator": {
     "put_timeout": "15s"
   },
+  "object": {
+    "put": {
+      "pool_size": 100
+    }
+  },
   "storage": {
     "shard_num": 2,
     "shard": {
