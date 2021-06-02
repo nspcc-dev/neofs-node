@@ -58,7 +58,7 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
 //
-// If TryNotary is provided, call notary contract.
+// If TryNotary is provided, calls notary contract.
 func (w *Wrapper) Put(cnr, key, sig, token []byte) error {
 	if len(sig) == 0 || len(key) == 0 {
 		return errNilArgument

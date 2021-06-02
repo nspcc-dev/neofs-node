@@ -29,11 +29,7 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 	}
 
 	if epoch > 0 { // estimates are invalid in genesis epoch
-		if np.notaryDisabled {
-			err = np.containerWrp.StartEstimation(epoch - 1)
-		} else {
-			err = np.containerWrp.StartEstimationNotary(epoch - 1)
-		}
+		err = np.containerWrp.StartEstimation(epoch - 1)
 
 		if err != nil {
 			np.log.Warn("can't start container size estimation",

@@ -100,14 +100,7 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 				return
 			}
 
-			var err error
-
-			if args.notaryDisabled {
-				err = args.cnrWrapper.StopEstimation(epochN - 1)
-			} else {
-				err = args.cnrWrapper.StopEstimationNotary(epochN - 1)
-			}
-
+			err := args.cnrWrapper.StopEstimation(epochN - 1)
 			if err != nil {
 				args.l.Warn("can't stop epoch estimation",
 					zap.Uint64("epoch", epochN),

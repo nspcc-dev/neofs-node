@@ -18,6 +18,8 @@ type TransferPrm struct {
 
 // TransferX transfers p.Amount of GASe-12 from p.From to p.To
 // with details p.Details through direct smart contract call.
+//
+// If TryNotary is provided, calls notary contract.
 func (w *Wrapper) TransferX(p TransferPrm) error {
 	return w.transferX(false, p)
 }
@@ -46,11 +48,5 @@ func (w *Wrapper) transferX(notary bool, p TransferPrm) error {
 	args.SetAmount(p.Amount)
 	args.SetDetails(p.Details)
 
-	// invoke smart contract call
-	f := w.client.TransferX
-	if notary {
-		f = w.client.TransferXNotary
-	}
-
-	return f(args)
+	return w.client.TransferX(args)
 }
