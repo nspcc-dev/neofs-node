@@ -9,17 +9,20 @@ import (
 const (
 	subsection = "metrics"
 
+	// ShutdownTimeoutDefault is a default value for metrics HTTP service timeout.
 	ShutdownTimeoutDefault = 30 * time.Second
-	AddressDefault         = ""
+
+	// AddressDefault is a default value for metrics HTTP service endpoint.
+	AddressDefault = ""
 )
 
 // ShutdownTimeout returns value of "shutdown_timeout" config parameter
 // from "metrics" section.
 //
-// Returns ShutdownTimeoutDefault if value is not set.
+// Returns ShutdownTimeoutDefault if value is not positive duration.
 func ShutdownTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "shutdown_timeout")
-	if v != 0 {
+	if v > 0 {
 		return v
 	}
 
