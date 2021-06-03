@@ -49,7 +49,7 @@ func TestNodeSection(t *testing.T) {
 		expectedAddr, err := network.AddressFromString("s01.neofs.devenv:8080")
 		require.NoError(t, err)
 
-		require.Equal(t, "path/hex/WIF", key)
+		require.Equal(t, "NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM", key.Address())
 		require.Equal(t, true, addr.Equal(expectedAddr))
 		require.Equal(t, true, relay)
 
