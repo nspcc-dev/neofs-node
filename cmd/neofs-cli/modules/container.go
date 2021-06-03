@@ -161,7 +161,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			return err
 		}
 
-		tok, err := containerSessionToken()
+		tok, err := getSessionToken(sessionTokenPath)
 		if err != nil {
 			return err
 		}
@@ -224,7 +224,7 @@ Only owner of the container has a permission to remove container.`,
 			return err
 		}
 
-		tok, err := containerSessionToken()
+		tok, err := getSessionToken(sessionTokenPath)
 		if err != nil {
 			return err
 		}
@@ -477,7 +477,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			return err
 		}
 
-		tok, err := containerSessionToken()
+		tok, err := getSessionToken(sessionTokenPath)
 		if err != nil {
 			return err
 		}
@@ -595,12 +595,13 @@ func init() {
 	}
 }
 
-func containerSessionToken() (*session.Token, error) {
+// getSessionToken reads `<path>` as JSON file with session token and parses it.
+func getSessionToken(path string) (*session.Token, error) {
 	// try to read session token from file
 	var tok *session.Token
 
-	if sessionTokenPath != "" {
-		data, err := ioutil.ReadFile(sessionTokenPath)
+	if path != "" {
+		data, err := ioutil.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
