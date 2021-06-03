@@ -41,6 +41,12 @@ var (
 		RunE:  signBearerToken,
 	}
 
+	signSessionCmd = &cobra.Command{
+		Use:   "session-token",
+		Short: "sign session token to use it in requests",
+		RunE:  signSessionToken,
+	}
+
 	convertCmd = &cobra.Command{
 		Use:   "convert",
 		Short: "convert representation of NeoFS structures",
@@ -193,6 +199,12 @@ func init() {
 	signBearerCmd.Flags().String("to", "", "File to dump signed bearer token (default: binary encoded)")
 	signBearerCmd.Flags().Bool("json", false, "Dump bearer token in JSON encoding")
 
+	signCmd.AddCommand(signSessionCmd)
+	signSessionCmd.Flags().String("from", "", "File with JSON encoded session token to sign")
+	_ = signSessionCmd.MarkFlagFilename("from")
+	_ = signSessionCmd.MarkFlagRequired("from")
+	signSessionCmd.Flags().String("to", "", "File to save signed session token (optional)")
+
 	convertCmd.AddCommand(convertEACLCmd)
 	convertEACLCmd.Flags().String("from", "", "File with JSON or binary encoded extended ACL table")
 	_ = convertEACLCmd.MarkFlagFilename("from")
@@ -291,6 +303,48 @@ func signBearerToken(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Printf("signed bearer token was successfully dumped to %s\n", to)
+
+	return nil
+}
+
+func signSessionToken(cmd *cobra.Command, _ []string) error {
+	path, err := cmd.Flags().GetString("from")
+	if err != nil {
+		return err
+	}
+
+	stok, err := getSessionToken(path)
+	if err != nil {
+		return fmt.Errorf("can't read session token from %s: %w", path, err)
+	}
+
+	key, err := getKey()
+	if err != nil {
+		return fmt.Errorf("can't get private key, make sure it is provided: %w", err)
+	}
+
+	err = stok.Sign(key)
+	if err != nil {
+		return fmt.Errorf("can't sign token: %w", err)
+	}
+
+	data, err := stok.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("can't encode session token: %w", err)
+	}
+
+	to := cmd.Flag("to").Value.String()
+	if len(to) == 0 {
+		prettyPrintJSON(cmd, data)
+		return nil
+	}
+
+	err = ioutil.WriteFile(to, data, 0644)
+	if err != nil {
+		return fmt.Errorf("can't write signed session token to %s: %w", to, err)
+	}
+
+	fmt.Printf("signed session token saved in %s\n", to)
 
 	return nil
 }
