@@ -17,6 +17,9 @@ describing the most significant changes done in this release. Add
 and changes. Describe each change in detail with a reference to github issues if
 possible. 
 
+Update supported version of neofs-contract in `README.md` if there were 
+changes between releases.
+
 ## Tag the release
 
 Use `vX.Y.Z` tag for releases and `vX.Y.Z-rc.N` for release candidates
