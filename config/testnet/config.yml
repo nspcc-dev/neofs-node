@@ -20,20 +20,18 @@ morph:
     - wss://rpc7.morph.fs.neo.org:40341/ws
   dial_timeout: 20s
 
-accounting:
-  scripthash: 0fc02c693d59a7cde9926c7fc4bec6af310bda65
-container:
-  scripthash: 16d1dd8b2eaf3bed5c6f469a8748de95a10ee1ed
-netmap:
-  scripthash: 5283a843ee68f8fa9ee664df6b495054be5738d4
-reputation:
-  scripthash: 3a5e05bae28049d8c1b8f218b0324e63816713c9
+contracts:
+  balance: 0fc02c693d59a7cde9926c7fc4bec6af310bda65
+  container: 16d1dd8b2eaf3bed5c6f469a8748de95a10ee1ed
+  netmap: 5283a843ee68f8fa9ee664df6b495054be5738d4
+  reputation: 3a5e05bae28049d8c1b8f218b0324e63816713c9
 
 node:
   key: /node.key
   attribute_0: Deployed:SelfHosted
 
 storage:
+  shard_num: 1
   shard:
     0:
       use_write_cache: false
