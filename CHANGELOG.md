@@ -1,6 +1,40 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.21.0] - 2021-06-03 - Seongmodo (석모도, 席毛島)
+
+Session token support in container service, refactored config in storage node,
+TLS support on gRPC servers.
+
+### Fixed
+- ACL service traverses over all RequestMetaHeader chain to find 
+  bearer and session tokens (#548).
+- Object service correctly resends complete objects without attached
+  session token (#501).
+- Inner ring processes `neofs.Bind` and `neofs.Unbind` notifications (#556).
+- Client cache now gracefully closes all available connections (#567).
+
+### Added
+- Session token support in container service for `container.Put`, 
+  `container.Delete` and `container.SetEACL` operations.
+- Session token support in container and sign command of NeoFS CLI.
+- TLS encryption support of gRPC service in storage node.
+
+### Changed
+- Inner ring listens RoleManagement contract notifications to start governance
+  update earlier.
+- Inner ring processes extended ACL changes.
+- Inner ring makes signature checks of containers and extended ACLs.
+- Refactored config of storage node. 
+- Static clients from `morph/client` do not process notary invocations 
+  explicitly anymore. Now notary support specified at static client creation.
+- Updated neo-go to v0.95.1 release.
+- Updated neofs-api-go to v1.27.0 release.
+
+### Removed
+- Container policy parser moved to neofs-sdk-go repository.
+- Invoke package from inner ring.
+
 ## [0.20.0] - 2021-05-21 - Dolsando (돌산도, 突山島)
 
 NeoFS is N3 RC2 compatible. 
@@ -360,6 +394,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.21.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.17.0...v0.18.0
