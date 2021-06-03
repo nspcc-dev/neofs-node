@@ -68,7 +68,7 @@ type (
 
 		nodeValidator NodeValidator
 
-		feeProvider    *config.FeeConfig
+		feeProvider *config.FeeConfig
 	}
 
 	// Params of the processor constructor.
@@ -90,7 +90,7 @@ type (
 
 		NodeValidator NodeValidator
 
-		FeeProvider    *config.FeeConfig
+		FeeProvider *config.FeeConfig
 	}
 )
 
@@ -152,7 +152,7 @@ func New(p *Params) (*Processor, error) {
 
 		nodeValidator: p.NodeValidator,
 
-		feeProvider:    p.FeeProvider,
+		feeProvider: p.FeeProvider,
 	}, nil
 }
 
