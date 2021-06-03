@@ -3,6 +3,7 @@ package nodeconfig
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -26,16 +27,26 @@ var (
 // from "node" section.
 //
 // Panics if value is not a non-empty string.
-func Key(c *config.Config) string {
+func Key(c *config.Config) *keys.PrivateKey {
 	v := config.StringSafe(c.Sub(subsection), "key")
 	if v == "" {
 		panic(errKeyNotSet)
 	}
 
-	// TODO: add string -> `ecdsa.PrivateKey` parsing logic
-	// after https://github.com/nspcc-dev/neofs-node/pull/569.
+	var (
+		key  *keys.PrivateKey
+		err  error
+		data []byte
+	)
+	if data, err = ioutil.ReadFile(v); err == nil {
+		key, err = keys.NewPrivateKeyFromBytes(data)
+	}
 
-	return v
+	if err != nil {
+		panic(fmt.Errorf("can't read key: %w", err))
+	}
+
+	return key
 }
 
 // Wallet returns value of node private key from "node" section.
