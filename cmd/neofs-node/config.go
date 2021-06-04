@@ -208,7 +208,7 @@ func initCfg(path string) *cfg {
 		config.WithConfigFile(path),
 	)
 
-	key := nodeconfig.Wallet(appCfg)
+	key := nodeconfig.Key(appCfg)
 
 	var logPrm logger.Prm
 
