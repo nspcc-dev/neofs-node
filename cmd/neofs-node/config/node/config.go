@@ -43,7 +43,7 @@ func Key(c *config.Config) *keys.PrivateKey {
 	}
 
 	if err != nil {
-		panic(fmt.Errorf("can't read key: %w", err))
+		return Wallet(c)
 	}
 
 	return key
