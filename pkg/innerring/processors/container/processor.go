@@ -31,6 +31,7 @@ type (
 		feeProvider       *config.FeeConfig
 		cnrClient         *wrapper.Wrapper // notary must be enabled
 		idClient          *neofsid.ClientWrapper
+		netState          NetworkState
 	}
 
 	// Params of the processor constructor.
@@ -43,8 +44,19 @@ type (
 		FeeProvider       *config.FeeConfig
 		ContainerClient   *wrapper.Wrapper
 		NeoFSIDClient     *neofsid.ClientWrapper
+		NetworkState      NetworkState
 	}
 )
+
+// NetworkState is an interface of a component
+// that provides access to network state.
+type NetworkState interface {
+	// Epoch must return number of the current epoch.
+	//
+	// Must return any error encountered
+	// which did not allow reading the value.
+	Epoch() (uint64, error)
+}
 
 const (
 	putNotification    = "containerPut"
@@ -68,6 +80,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: Container client is not set")
 	case p.NeoFSIDClient == nil:
 		return nil, errors.New("ir/container: NeoFS ID client is not set")
+	case p.NetworkState == nil:
+		return nil, errors.New("ir/container: network state is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -86,6 +100,7 @@ func New(p *Params) (*Processor, error) {
 		feeProvider:       p.FeeProvider,
 		cnrClient:         p.ContainerClient,
 		idClient:          p.NeoFSIDClient,
+		netState:          p.NetworkState,
 	}, nil
 }
 
