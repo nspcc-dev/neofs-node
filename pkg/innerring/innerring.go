@@ -561,6 +561,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		FeeProvider:       server.feeConfig,
 		ContainerClient:   cnrClient,
 		NeoFSIDClient:     neofsIDClient,
+		NetworkState:      nmClient,
 	})
 	if err != nil {
 		return nil, err
