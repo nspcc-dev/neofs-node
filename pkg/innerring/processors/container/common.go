@@ -106,6 +106,12 @@ func (cp *Processor) checkSessionToken(token *session.Token) error {
 		return errors.New("invalid signature")
 	}
 
+	// check lifetime
+	err := cp.checkTokenLifetime(token)
+	if err != nil {
+		return err
+	}
+
 	// check token owner's key ownership
 
 	key, err := keys.NewPublicKeyFromBytes(token.Signature().Key(), elliptic.P256())
@@ -145,6 +151,30 @@ func checkTokenContextWithCID(tok *session.Token, id *cid.ID, verbAssert verbAss
 	tokCID := c.Container()
 	if tokCID != nil && !tokCID.Equal(id) {
 		return errWrongCID
+	}
+
+	return nil
+}
+
+func (cp *Processor) checkTokenLifetime(token *session.Token) error {
+	curEpoch, err := cp.netState.Epoch()
+	if err != nil {
+		return fmt.Errorf("could not read current epoch: %w", err)
+	}
+
+	nbf := token.Nbf()
+	if curEpoch < nbf {
+		return fmt.Errorf("token is not valid yet: nbf %d, cur %d", nbf, curEpoch)
+	}
+
+	iat := token.Iat()
+	if curEpoch < iat {
+		return fmt.Errorf("token is issued in future: iat %d, cur %d", iat, curEpoch)
+	}
+
+	exp := token.Exp()
+	if curEpoch >= exp {
+		return fmt.Errorf("token is expired: exp %d, cur %d", exp, curEpoch)
 	}
 
 	return nil
