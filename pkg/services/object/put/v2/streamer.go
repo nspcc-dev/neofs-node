@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -19,7 +20,24 @@ type streamer struct {
 	saveChunks bool
 	init       *object.PutRequest
 	chunks     []*object.PutRequest
+
+	*sizes // only for relay streams
 }
+
+type sizes struct {
+	payloadSz uint64 // value from the header
+
+	writtenPayload uint64 // sum size of already cached chunks
+}
+
+// TODO: errors are copy-pasted from putsvc package
+//  consider replacing to core library
+
+// errors related to invalid payload size
+var (
+	errExceedingMaxSize = errors.New("payload size is greater than the limit")
+	errWrongPayloadSize = errors.New("wrong payload size")
+)
 
 func (s *streamer) Send(req *object.PutRequest) (err error) {
 	switch v := req.GetBody().GetObjectPart().(type) {
@@ -37,9 +55,29 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 
 		s.saveChunks = v.GetSignature() != nil
 		if s.saveChunks {
+			maxSz := s.stream.MaxObjectSize()
+
+			s.sizes = &sizes{
+				payloadSz: uint64(v.GetHeader().GetPayloadLength()),
+			}
+
+			// check payload size limit overflow
+			if s.payloadSz > maxSz {
+				return errExceedingMaxSize
+			}
+
 			s.init = req
 		}
 	case *object.PutObjectPartChunk:
+		if s.saveChunks {
+			s.writtenPayload += uint64(len(v.GetChunk()))
+
+			// check payload size overflow
+			if s.writtenPayload > s.payloadSz {
+				return errWrongPayloadSize
+			}
+		}
+
 		if err = s.stream.SendChunk(toChunkPrm(v)); err != nil {
 			err = fmt.Errorf("(%T) could not send payload chunk: %w", s, err)
 		}
@@ -71,6 +109,13 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 }
 
 func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
+	if s.saveChunks {
+		// check payload size correctness
+		if s.writtenPayload != s.payloadSz {
+			return nil, errWrongPayloadSize
+		}
+	}
+
 	resp, err := s.stream.Close()
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not object put stream: %w", s, err)
