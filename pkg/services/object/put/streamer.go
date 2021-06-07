@@ -21,6 +21,8 @@ type Streamer struct {
 	target transformer.ObjectTarget
 
 	relay func(client.Client) error
+
+	maxPayloadSz uint64 // network config
 }
 
 var errNotInit = errors.New("stream not initialized")
@@ -39,6 +41,13 @@ func (p *Streamer) Init(prm *PutInitPrm) error {
 	return nil
 }
 
+// MaxObjectSize returns maximum payload size for the streaming session.
+//
+// Must be called after the successful Init.
+func (p *Streamer) MaxObjectSize() uint64 {
+	return p.maxPayloadSz
+}
+
 func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// prevent re-calling
 	if p.target != nil {
@@ -50,6 +59,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not prepare put parameters: %w", p, err)
 	}
 
+	p.maxPayloadSz = p.maxSizeSrc.MaxObjectSize()
+	if p.maxPayloadSz == 0 {
+		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
+	}
+
 	if prm.hdr.Signature() != nil {
 		p.relay = prm.relay
 
@@ -57,6 +71,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		p.target = &validatingTarget{
 			nextTarget: p.newCommonTarget(prm),
 			fmt:        p.fmtValidator,
+
+			maxPayloadSz: p.maxPayloadSz,
 		}
 
 		return nil
@@ -72,13 +88,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
 	}
 
-	maxSz := p.maxSizeSrc.MaxObjectSize()
-	if maxSz == 0 {
-		return fmt.Errorf("(%T) could not obtain max object size parameter", p)
-	}
-
 	p.target = transformer.NewPayloadSizeLimiter(
-		maxSz,
+		p.maxPayloadSz,
 		func() transformer.ObjectTarget {
 			return transformer.NewFormatTarget(&transformer.FormatterParams{
 				Key:          sessionKey,
