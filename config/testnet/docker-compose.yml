@@ -17,5 +17,16 @@ services:
       - <NEOFS_NODE_ATTRIBUTE_1>=UN-LOCODE:<XX YYY>
       - NEOFS_NODE_ATTRIBUTE_2=Price:100000
 
+  vmagent:
+    image: victoriametrics/vmagent:v1.61.0
+    container_name: vmagent
+    command:
+      - '--promscrape.config=/configs/prometheus.yml'
+      - '--remoteWrite.url=https://collector.fs.neo.org:8429/api/v1/write'
+    network_mode: host
+    restart: always
+    volumes:
+      - ./prometheus.yml:/configs/prometheus.yml
+
 volumes:
   neofs_storage:
