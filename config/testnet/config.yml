@@ -30,6 +30,10 @@ node:
   key: /node.key
   attribute_0: Deployed:SelfHosted
 
+metrics:
+  address: 127.0.0.1:9090
+  shutdown_timeout: 15s
+
 storage:
   shard_num: 1
   shard:
