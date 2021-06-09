@@ -13,6 +13,7 @@ Implemented as a part of https://github.com/nspcc-dev/neofs-node/issues/363
 */
 
 import (
+	"github.com/nspcc-dev/neofs-node/misc"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/spf13/viper"
 )
@@ -30,27 +31,33 @@ func NewGlobalConfigReader(cfg *viper.Viper, nm *netmapClient.Wrapper) *GlobalCo
 }
 
 func (c *GlobalConfig) BasicIncomeRate() (uint64, error) {
-	value := c.cfg.GetUint64("settlement.basic_income_rate")
-	if value != 0 {
-		return value, nil
+	if isDebug() {
+		value := c.cfg.GetUint64("settlement.basic_income_rate")
+		if value != 0 {
+			return value, nil
+		}
 	}
 
 	return c.nm.BasicIncomeRate()
 }
 
 func (c *GlobalConfig) AuditFee() (uint64, error) {
-	value := c.cfg.GetUint64("settlement.audit_fee")
-	if value != 0 {
-		return value, nil
+	if isDebug() {
+		value := c.cfg.GetUint64("settlement.audit_fee")
+		if value != 0 {
+			return value, nil
+		}
 	}
 
 	return c.nm.AuditFee()
 }
 
 func (c *GlobalConfig) EpochDuration() (uint32, error) {
-	value := c.cfg.GetUint32("timers.epoch")
-	if value != 0 {
-		return value, nil
+	if isDebug() {
+		value := c.cfg.GetUint32("timers.epoch")
+		if value != 0 {
+			return value, nil
+		}
 	}
 
 	epochDuration, err := c.nm.EpochDuration()
@@ -59,4 +66,8 @@ func (c *GlobalConfig) EpochDuration() (uint32, error) {
 	}
 
 	return uint32(epochDuration), nil
+}
+
+func isDebug() bool {
+	return misc.Debug == "true"
 }
