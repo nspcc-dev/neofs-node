@@ -2,9 +2,11 @@ package innerring
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -32,6 +34,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
+	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
@@ -39,6 +43,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type (
@@ -91,6 +96,13 @@ type (
 		//
 		// Errors are logged.
 		closers []func() error
+
+		// Set of component runners which
+		// should report start errors
+		// to the application.
+		//
+		// TODO: unify with workers.
+		runners []func(chan<- error)
 	}
 
 	contracts struct {
@@ -152,7 +164,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		}
 	}
 
-	err := s.initConfigFromBlockchain()
+	err = s.initConfigFromBlockchain()
 	if err != nil {
 		return err
 	}
@@ -209,6 +221,10 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 
 		s.tickTimers()
 	})
+
+	for _, runner := range s.runners {
+		runner(intError)
+	}
 
 	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
@@ -284,6 +300,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	server.key = acc.PrivateKey()
+
+	fmt.Println(hex.EncodeToString(server.key.PublicKey().Bytes()))
 
 	// get all script hashes of contracts
 	server.contracts, err = parseContracts(cfg)
@@ -726,6 +744,52 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		})
 
 		server.addBlockTimer(sideNotaryTimer)
+	}
+
+	controlSvcEndpoint := cfg.GetString("control.grpc.endpoint")
+	if controlSvcEndpoint != "" {
+		authKeysStr := cfg.GetStringSlice("control.authorized_keys")
+		authKeys := make([][]byte, 0, len(authKeysStr))
+
+		for i := range authKeysStr {
+			key, err := hex.DecodeString(authKeysStr[i])
+			if err != nil {
+				return nil, fmt.Errorf("could not parse Control authorized key %s: %w",
+					authKeysStr[i],
+					err,
+				)
+			}
+
+			authKeys = append(authKeys, key)
+		}
+
+		var p controlsrv.Prm
+
+		p.SetPrivateKey(*server.key)
+		p.SetHealthChecker(server)
+
+		controlSvc := controlsrv.New(p,
+			controlsrv.WithAllowedKeys(authKeys),
+		)
+
+		grpcControlSrv := grpc.NewServer()
+		control.RegisterControlServiceServer(grpcControlSrv, controlSvc)
+
+		server.runners = append(server.runners, func(ch chan<- error) {
+			lis, err := net.Listen("tcp", controlSvcEndpoint)
+			if err != nil {
+				ch <- err
+				return
+			}
+
+			go func() {
+				ch <- grpcControlSrv.Serve(lis)
+			}()
+		})
+
+		server.registerNoErrCloser(grpcControlSrv.GracefulStop)
+	} else {
+		log.Info("no Control server endpoint specified, service is disabled")
 	}
 
 	return server, nil

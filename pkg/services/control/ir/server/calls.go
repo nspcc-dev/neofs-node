@@ -26,7 +26,7 @@ func (s *Server) HealthCheck(_ context.Context, req *control.HealthCheckRequest)
 	body.SetHealthStatus(s.prm.healthChecker.HealthStatus())
 
 	// sign the response
-	if err := SignMessage(s.prm.key, resp); err != nil {
+	if err := SignMessage(&s.prm.key.PrivateKey, resp); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
