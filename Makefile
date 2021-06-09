@@ -49,12 +49,6 @@ dep:
 	GO111MODULE=on \
 	go mod tidy -v && echo OK
 
-test_dep:
-	@printf "⇒ Install test requirements: "
-	CGO_ENABLED=0 \
-	GO111MODULE=on \
-	go test -i ./... && echo OK
-
 # Regenerate proto files:
 protoc:
 	@GOPRIVATE=github.com/nspcc-dev go mod vendor
@@ -99,7 +93,7 @@ imports:
 	@GO111MODULE=on goimports -w cmd/ pkg/ misc/
 
 # Run Unit Test with go test
-test: test_dep
+test:
 	@echo "⇒ Running go test"
 	@GO111MODULE=on go test ./...
 

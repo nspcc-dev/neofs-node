@@ -35,9 +35,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go }}-
 
-      - name: Get test dependencies
-        run: make test_dep
-
       - name: Run go test
         run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
