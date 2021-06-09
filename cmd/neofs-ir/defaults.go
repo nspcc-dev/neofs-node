@@ -4,17 +4,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/spf13/viper"
 )
 
 func newConfig(path string) (*viper.Viper, error) {
+	const innerRingPrefix = "neofs_ir"
+
 	var (
 		err error
 		v   = viper.New()
 	)
 
-	v.SetEnvPrefix(misc.InnerRingPrefix)
+	v.SetEnvPrefix(innerRingPrefix)
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
