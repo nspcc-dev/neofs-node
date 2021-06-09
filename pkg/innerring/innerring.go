@@ -138,7 +138,14 @@ var (
 )
 
 // Start runs all event providers.
-func (s *Server) Start(ctx context.Context, intError chan<- error) error {
+func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
+	s.setHealthStatus(control.HealthStatus_STARTING)
+	defer func() {
+		if err == nil {
+			s.setHealthStatus(control.HealthStatus_READY)
+		}
+	}()
+
 	for _, starter := range s.starters {
 		if err := starter(); err != nil {
 			return err
@@ -223,6 +230,8 @@ func (s *Server) startWorkers(ctx context.Context) {
 
 // Stop closes all subscription channels.
 func (s *Server) Stop() {
+	s.setHealthStatus(control.HealthStatus_SHUTTING_DOWN)
+
 	go s.morphListener.Stop()
 	go s.mainnetListener.Stop()
 
@@ -258,6 +267,8 @@ func (s *Server) registerStarter(f func() error) {
 func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error) {
 	var err error
 	server := &Server{log: log}
+
+	server.setHealthStatus(control.HealthStatus_HEALTH_STATUS_UNDEFINED)
 
 	// parse notary support
 	server.feeConfig = config.NewFeeConfig(cfg)
