@@ -1,13 +1,5 @@
 package misc
 
-const (
-	// Prefix is a neofs node application prefix.
-	Prefix = "neofs"
-
-	// InnerRingPrefix is an inner ring application prefix.
-	InnerRingPrefix = "neofs_ir"
-)
-
 // These variables are changed in compile time.
 var (
 	// Build is an application build time.
