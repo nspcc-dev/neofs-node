@@ -1,19 +1,19 @@
 package control
 
 import (
-	"crypto/ecdsa"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 )
 
 // Prm groups required parameters of
 // Server's constructor.
 type Prm struct {
-	key *ecdsa.PrivateKey
+	key keys.PrivateKey
 
 	healthChecker HealthChecker
 }
 
 // SetPrivateKey sets private key to sign responses.
-func (x *Prm) SetPrivateKey(key *ecdsa.PrivateKey) {
+func (x *Prm) SetPrivateKey(key keys.PrivateKey) {
 	x.key = key
 }
 

@@ -2,8 +2,6 @@ package control
 
 import (
 	"fmt"
-
-	crypto "github.com/nspcc-dev/neofs-crypto"
 )
 
 // Server is an entity that serves
@@ -34,8 +32,6 @@ func panicOnPrmValue(n string, v interface{}) {
 func New(prm Prm, opts ...Option) *Server {
 	// verify required parameters
 	switch {
-	case prm.key == nil:
-		panicOnPrmValue("key", prm.key)
 	case prm.healthChecker == nil:
 		panicOnPrmValue("health checker", prm.healthChecker)
 	}
@@ -50,6 +46,6 @@ func New(prm Prm, opts ...Option) *Server {
 	return &Server{
 		prm: prm,
 
-		allowedKeys: append(o.allowedKeys, crypto.MarshalPublicKey(&prm.key.PublicKey)),
+		allowedKeys: append(o.allowedKeys, prm.key.PublicKey().Bytes()),
 	}
 }
