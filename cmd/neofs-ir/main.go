@@ -40,7 +40,8 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Println("version:", misc.Version)
+		fmt.Println("neofs-ir", misc.Version)
+		fmt.Println("debug:", misc.Debug)
 		os.Exit(SuccessReturnCode)
 	}
 
