@@ -13,8 +13,10 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 // VerifyAndUpdate validates UN-LOCODE attribute of n
 // and adds a group of related attributes.
 //
-// If n does not contain UN-LOCODE attribute, nil is returned
-// without any actions. Otherwise, if UN-LOCODE value does not
+// If n contains at least one of the LOCODE-derived attributes,
+// an error returns.
+//
+// If n contains UN-LOCODE attribute and its value does not
 // match the UN/LOCODE format, an error returns.
 //
 // New attributes are formed from the record of DB instance (Prm).
@@ -29,6 +31,16 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 // UN-LOCODE attribute remains untouched.
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	mAttr := uniqueAttributes(n.Attributes())
+
+	// check if derived attributes are presented
+	for attrKey := range v.mAttr {
+		if _, ok := mAttr[attrKey]; ok {
+			return fmt.Errorf("attribute derived from %s is presented: %s",
+				netmap.AttrUNLOCODE,
+				attrKey,
+			)
+		}
+	}
 
 	attrLocode, ok := mAttr[netmap.AttrUNLOCODE]
 	if !ok {
