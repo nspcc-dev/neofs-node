@@ -60,6 +60,7 @@ type (
 		statusIndex   *innerRingIndexer
 		precision     precision.Fixed8Converter
 		auditClient   *auditWrapper.ClientWrapper
+		healthStatus  atomic.Value
 
 		// notary configuration
 		feeConfig        *config.FeeConfig
