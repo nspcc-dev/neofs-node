@@ -70,11 +70,11 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("timers.main_notary", "1000")
 	cfg.SetDefault("timers.side_notary", "1000")
 	cfg.SetDefault("timers.stop_estimation.mul", 1)
-	cfg.SetDefault("timers.stop_estimation.div", 1)
+	cfg.SetDefault("timers.stop_estimation.div", 4)
 	cfg.SetDefault("timers.collect_basic_income.mul", 1)
-	cfg.SetDefault("timers.collect_basic_income.div", 1)
-	cfg.SetDefault("timers.distribute_basic_income.mul", 1)
-	cfg.SetDefault("timers.distribute_basic_income.div", 1)
+	cfg.SetDefault("timers.collect_basic_income.div", 2)
+	cfg.SetDefault("timers.distribute_basic_income.mul", 3)
+	cfg.SetDefault("timers.distribute_basic_income.div", 4)
 
 	cfg.SetDefault("notary.side.deposit_amount", 1_0000_0000) // 1.0 Fixed8
 	cfg.SetDefault("notary.main.deposit_amount", 2000_0000)   // 0.2 Fixed8
@@ -86,7 +86,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("workers.alphabet", "10")
 	cfg.SetDefault("workers.reputation", "10")
 
-	cfg.SetDefault("netmap_cleaner.enabled", false)
+	cfg.SetDefault("netmap_cleaner.enabled", true)
 	cfg.SetDefault("netmap_cleaner.threshold", 3)
 
 	cfg.SetDefault("emit.storage.amount", 0)
