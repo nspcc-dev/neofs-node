@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package ircontrol;
+
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/ir/control";
+
+// Signature of some message.
+message Signature {
+    // Public key used for signing.
+    bytes key = 1 [json_name = "key"];
+
+    // Binary signature.
+    bytes sign = 2 [json_name = "signature"];
+}
+
+// Health status of the IR application.
+enum HealthStatus {
+    // Undefined status, default value.
+    HEALTH_STATUS_UNDEFINED = 0;
+
+    // IR application is starting.
+    STARTING = 1;
+
+    // IR application is started and serves all services.
+    READY = 2;
+
+    // IR application is shutting down.
+    SHUTTING_DOWN = 3;
+}

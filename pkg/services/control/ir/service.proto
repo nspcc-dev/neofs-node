@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package ircontrol;
+
+import "pkg/services/control/ir/types.proto";
+
+option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/ir/control";
+
+// `ControlService` provides an interface for internal work with the Inner Ring node.
+service ControlService {
+    // Performs health check of the IR node.
+    rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Health check request.
+message HealthCheckRequest {
+    // Health check request body.
+    message Body {
+    }
+
+    // Body of health check request message.
+    Body body = 1;
+
+    // Body signature.
+    // Should be signed by node key or one of
+    // the keys configured by the node.
+    Signature signature = 2;
+}
+
+// Health check response.
+message HealthCheckResponse {
+    // Health check response body
+    message Body {
+        // Health status of IR node application.
+        HealthStatus health_status = 1;
+    }
+
+    // Body of health check response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
