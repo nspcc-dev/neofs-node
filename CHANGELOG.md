@@ -1,6 +1,18 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.21.1] - 2021-06-10
+
+### Fixed
+- Session token lifetime check (#589).
+- Payload size check on the relayed objects (#580).
+
+### Added
+- VMagent to collect metrics from testnet storage image
+
+### Changed
+- Updated neofs-api-go to v1.27.1 release.
+
 ## [0.21.0] - 2021-06-03 - Seongmodo (석모도, 席毛島)
 
 Session token support in container service, refactored config in storage node,
@@ -394,6 +406,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.21.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.18.0...v0.19.0
