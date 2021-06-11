@@ -40,7 +40,7 @@ func initNetmapService(c *cfg) {
 	peerInfo := new(netmapSDK.NodeInfo)
 	peerInfo.SetAddress(c.localAddr.String())
 	peerInfo.SetPublicKey(crypto.MarshalPublicKey(&c.key.PublicKey))
-	peerInfo.SetAttributes(c.cfgNodeInfo.attributes...)
+	peerInfo.SetAttributes(parseAttributes(c.appCfg)...)
 	peerInfo.SetState(netmapSDK.NodeStateOffline)
 
 	c.handleLocalNodeInfo(peerInfo)
