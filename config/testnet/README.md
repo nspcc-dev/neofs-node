@@ -1,43 +1,43 @@
-# N3 testnet RC2 storage node configuration
+# N3 testnet RC3 storage node configuration
 
-There is a prepared configuration for NeoFS storage node deployment in
-N3 testnet RC2. The easiest way to deploy storage node is to use prepared
-docker image of storage node and run it with docker-compose.
+There is a prepared configuration for NeoFS Storage Node deployment in
+N3 testnet RC3. The easiest way to deploy Storage Node is to use prepared
+docker image and run it with docker-compose.
 
 ## Build image
 
-Prepared neofs-storage-testnet image is available at docker hub. 
+Prepared neofs-storage-testnet image is available at Docker Hub. 
 However, if you need to rebuild it for some reason, run 
-`make image-storage-testnet` command:
+`make image-storage-testnet` command.
 
 ```
 $ make image-storage-testnet
 ...
-Successfully built 80ef4e3c488d
-Successfully tagged nspccdev/neofs-storage-testnet:0.20.0-dirty
+Successfully built ab0557117b02
+Successfully tagged nspccdev/neofs-storage-testnet:0.21.1
 ```
 
 ## Deploy node
 
-To run storage node in N3 testnet RC2 environment you should deposit GAS assets, 
+To run storage node in N3 testnet RC3 environment you should deposit GAS assets, 
 update docker-compose file and start the node.
 
 ### Deposit
 
-Storage node holder should deposit assets because it generates a bit of 
-side chain GAS in node's wallet. Side chain GAS used to send bootstrap tx. 
+Storage Node owner should deposit GAS to NeoFS smart contract. It generates a 
+bit of side chain GAS in node's wallet. Side chain GAS used to send bootstrap tx. 
 
-First obtain GAS in N3 testnet RC2 chain. You can do that with
+First obtain GAS in N3 testnet RC3 chain. You can do that with
 [faucet](https://neowish.ngd.network) service.
 
-Then make a deposit by transferring GAS to NeoFS contract in N3 testnet RC2.
+Then make a deposit by transferring GAS to NeoFS contract in N3 testnet RC3.
 You can provide scripthash in the `data` argument of transfer tx to make a
-deposit to specified account. Otherwise deposit is made to tx sender.
+deposit to specified account. Otherwise, deposit is made to tx sender.
 
-NeoFS contract scripthash in NEO testnet RC2 is `088c76a08c7b4546582fe95df1ba58f61f165645`, 
+NeoFS contract scripthash in NEO testnet RC3 is `088c76a08c7b4546582fe95df1ba58f61f165645`, 
 so the address is `NSEawP75SPnnH9sRtk18xJbjYGHu2q5m1W`
 
-See a deposit example with `neo-go`:
+See a deposit example with `neo-go`.
 
 ```
 neo-go wallet nep17 transfer -w wallet.json -r https://rpc1.n3.nspcc.ru:20331 \
@@ -49,7 +49,7 @@ neo-go wallet nep17 transfer -w wallet.json -r https://rpc1.n3.nspcc.ru:20331 \
 
 ### Configure
 
-Then configure docker-compose.yml file. Change endpoints values. Both of them
+Then configure docker-compose.yml file. Change endpoints values. Both
 should contain your **public** IP.
 
 ```yaml
@@ -105,9 +105,15 @@ Then specify path to this file in docker-compose
       - ./my_wallet.key:/node.key
 ```
 
-Another way is to provide WIF directly with env in docker-compose.
-```
-NEOFS_NODE_KEY=Kwp4Q933QujZLUCcn39tzY94itNQJS4EjTp28oAMzuxMwabm3p1s
+
+NeoFS objects will be stored on your machine. By default, docker-compose 
+configured to store objects in named docker volume `neofs_storage`. You can 
+specify directory on the filesystem to store objects there.
+
+```yaml
+     volumes:
+       - /home/username/neofs/rc3/storage:/storage
+       - ./my_wallet.key:/node.key
 ```
 
 ### Start
