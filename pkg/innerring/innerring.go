@@ -36,6 +36,7 @@ import (
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
+	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
@@ -626,8 +627,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	// todo: create reputation processor
-
 	// create mainnnet neofs processor
 	neofsProcessor, err := neofs.New(&neofs.Params{
 		Log:                 log,
@@ -682,6 +681,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		EpochState:         server,
 		AlphabetState:      server,
 		ReputationWrapper:  repClient,
+		ManagerBuilder: reputationcommon.NewManagerBuilder(
+			reputationcommon.ManagersPrm{
+				NetMapSource: nmClient,
+			},
+		),
 	})
 	if err != nil {
 		return nil, err
