@@ -68,11 +68,11 @@ func initReputationService(c *cfg) {
 		LocalKey: localKey,
 	}
 
-	managerBuilder := common.NewManagerBuilder(
-		common.ManagersPrm{
+	managerBuilder := reputationcommon.NewManagerBuilder(
+		reputationcommon.ManagersPrm{
 			NetMapSource: nmSrc,
 		},
-		common.WithLogger(c.log),
+		reputationcommon.WithLogger(c.log),
 	)
 
 	localRouteBuilder := localroutes.New(
