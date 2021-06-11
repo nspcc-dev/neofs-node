@@ -103,8 +103,6 @@ type cfg struct {
 
 	cfgControlService cfgControlService
 
-	netStatus *atomic.Int32
-
 	healthStatus *atomic.Int32
 
 	closers []func()
@@ -167,10 +165,7 @@ type BootstrapType uint32
 
 type cfgNodeInfo struct {
 	// values from config
-
-	// values at runtime
-	infoMtx sync.RWMutex
-	info    netmap.NodeInfo
+	localInfo netmap.NodeInfo
 }
 
 type cfgObject struct {
@@ -307,7 +302,6 @@ func initCfg(path string) *cfg {
 		cfgObject: cfgObject{
 			pool: initObjectPool(appCfg),
 		},
-		netStatus:    atomic.NewInt32(int32(control.NetmapStatus_STATUS_UNDEFINED)),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 		cfgReputation: cfgReputation{
 			scriptHash: contractsconfig.Reputation(appCfg),
@@ -454,63 +448,22 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 }
 
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
-	ni := c.localNodeInfo()
-	return ni.ToV2(), nil
-}
-
-// handleLocalNodeInfo rewrites local node info
-func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
-	c.cfgNodeInfo.infoMtx.Lock()
-
+	ni := c.cfgNetmap.state.getNodeInfo()
 	if ni != nil {
-		c.cfgNodeInfo.info = *ni
+		return ni.ToV2(), nil
 	}
 
-	c.updateStatusWithoutLock(ni)
-
-	c.cfgNodeInfo.infoMtx.Unlock()
+	return c.cfgNodeInfo.localInfo.ToV2(), nil
 }
 
-// handleNodeInfoStatus updates node info status without rewriting whole local
-// node info status
-func (c *cfg) handleNodeInfoStatus(ni *netmap.NodeInfo) {
-	c.cfgNodeInfo.infoMtx.Lock()
-
-	c.updateStatusWithoutLock(ni)
-
-	c.cfgNodeInfo.infoMtx.Unlock()
+// handleLocalNodeInfo rewrites local node info from netmap
+func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
+	c.cfgNetmap.state.setNodeInfo(ni)
 }
 
-func (c *cfg) localNodeInfo() netmap.NodeInfo {
-	c.cfgNodeInfo.infoMtx.RLock()
-	defer c.cfgNodeInfo.infoMtx.RUnlock()
-
-	return c.cfgNodeInfo.info
-}
-
-func (c *cfg) toOnlineLocalNodeInfo() *netmap.NodeInfo {
-	ni := c.localNodeInfo()
+func (c *cfg) bootstrap() error {
+	ni := c.cfgNodeInfo.localInfo
 	ni.SetState(netmap.NodeStateOnline)
 
-	return &ni
-}
-
-func (c *cfg) updateStatusWithoutLock(ni *netmap.NodeInfo) {
-	var nmState netmap.NodeState
-
-	if ni != nil {
-		nmState = ni.State()
-	} else {
-		nmState = netmap.NodeStateOffline
-		c.cfgNodeInfo.info.SetState(nmState)
-	}
-
-	switch nmState {
-	default:
-		c.setNetmapStatus(control.NetmapStatus_STATUS_UNDEFINED)
-	case netmap.NodeStateOnline:
-		c.setNetmapStatus(control.NetmapStatus_ONLINE)
-	case netmap.NodeStateOffline:
-		c.setNetmapStatus(control.NetmapStatus_OFFLINE)
-	}
+	return c.cfgNetmap.wrapper.AddPeer(&ni)
 }
