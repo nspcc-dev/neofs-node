@@ -2,12 +2,12 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/nspcc-dev/hrw"
 	apiNetmap "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -36,10 +36,10 @@ type ManagersPrm struct {
 //
 // The created managerBuilder does not require additional
 // initialization and is completely ready for work.
-func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) common.ManagerBuilder {
+func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) ManagerBuilder {
 	switch {
 	case prm.NetMapSource == nil:
-		PanicOnPrmValue("NetMapSource", prm.NetMapSource)
+		panic(fmt.Sprintf("invalid NetMapSource (%T):%v", prm.NetMapSource, prm.NetMapSource))
 	}
 
 	o := defaultMngOpts()
@@ -57,7 +57,7 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) common.ManagerBuilder
 
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
-func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]common.ServerInfo, error) {
+func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]ServerInfo, error) {
 	nm, err := mb.nmSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]co
 				managerIndex = 0
 			}
 
-			return []common.ServerInfo{nodes[managerIndex]}, nil
+			return []ServerInfo{nodes[managerIndex]}, nil
 		}
 	}
 
