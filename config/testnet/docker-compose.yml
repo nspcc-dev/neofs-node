@@ -20,6 +20,8 @@ services:
   vmagent:
     image: victoriametrics/vmagent:v1.61.0
     container_name: vmagent
+    depends_on:
+      - storage01
     command:
       - '--promscrape.config=/configs/prometheus.yml'
       - '--remoteWrite.url=https://collector.fs.neo.org:8429/api/v1/write'
