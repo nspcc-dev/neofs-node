@@ -8,6 +8,7 @@ import (
 	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -34,6 +35,8 @@ type (
 		alphabetState AlphabetState
 
 		reputationWrp *reputationWrapper.ClientWrapper
+
+		mngBuilder common.ManagerBuilder
 	}
 
 	// Params of the processor constructor.
@@ -44,6 +47,7 @@ type (
 		EpochState         EpochState
 		AlphabetState      AlphabetState
 		ReputationWrapper  *reputationWrapper.ClientWrapper
+		ManagerBuilder     common.ManagerBuilder
 	}
 )
 
@@ -62,6 +66,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/reputation: global state is not set")
 	case p.ReputationWrapper == nil:
 		return nil, errors.New("ir/reputation: reputation contract wrapper is not set")
+	case p.ManagerBuilder == nil:
+		return nil, errors.New("ir/reputation: manager builder is not set")
 	}
 
 	p.Log.Debug("reputation worker pool", zap.Int("size", p.PoolSize))
@@ -78,6 +84,7 @@ func New(p *Params) (*Processor, error) {
 		epochState:         p.EpochState,
 		alphabetState:      p.AlphabetState,
 		reputationWrp:      p.ReputationWrapper,
+		mngBuilder:         p.ManagerBuilder,
 	}, nil
 }
 
