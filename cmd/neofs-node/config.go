@@ -161,8 +161,6 @@ type cfgNetmap struct {
 	startEpoch          uint64       // epoch number when application is started
 }
 
-type BootstrapType uint32
-
 type cfgNodeInfo struct {
 	// values from config
 	localInfo netmap.NodeInfo
@@ -203,12 +201,6 @@ type cfgReputation struct {
 
 	scriptHash util.Uint160
 }
-
-const (
-	_ BootstrapType = iota
-	StorageNode
-	RelayNode
-)
 
 func initCfg(path string) *cfg {
 	var p config.Prm
