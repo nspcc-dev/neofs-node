@@ -167,7 +167,6 @@ type BootstrapType uint32
 
 type cfgNodeInfo struct {
 	// values from config
-	attributes []*netmap.NodeAttribute
 
 	// values at runtime
 	infoMtx sync.RWMutex
@@ -293,9 +292,6 @@ func initCfg(path string) *cfg {
 			workerPool:          netmapWorkerPool,
 			reBootstrapEnabled:  !relayOnly,
 			reBoostrapTurnedOff: atomic.NewBool(relayOnly),
-		},
-		cfgNodeInfo: cfgNodeInfo{
-			attributes: parseAttributes(appCfg),
 		},
 		cfgGRPC: cfgGRPC{
 			maxChunkSize:  maxChunkSize,
