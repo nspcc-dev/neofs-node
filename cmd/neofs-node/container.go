@@ -365,25 +365,19 @@ type usedSpaceService struct {
 }
 
 func (c *cfg) PublicKey() []byte {
-	ni := c.localNodeInfo()
-	return ni.PublicKey()
+	return nodeKeyFromNetmap(c)
 }
 
 func (c *cfg) Address() string {
-	ni := c.localNodeInfo()
-	return ni.Address()
+	return nodeAddressFromNetmap(c)
 }
 
 func (c *usedSpaceService) PublicKey() []byte {
-	ni := c.cfg.localNodeInfo()
-
-	return ni.PublicKey()
+	return nodeKeyFromNetmap(c.cfg)
 }
 
 func (c *usedSpaceService) Address() string {
-	ni := c.cfg.localNodeInfo()
-
-	return ni.Address()
+	return nodeAddressFromNetmap(c.cfg)
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *containerV2.AnnounceUsedSpaceRequest) (*containerV2.AnnounceUsedSpaceResponse, error) {

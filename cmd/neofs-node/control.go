@@ -75,12 +75,8 @@ func initControlService(c *cfg) {
 	}))
 }
 
-func (c *cfg) setNetmapStatus(st control.NetmapStatus) {
-	c.netStatus.Store(int32(st))
-}
-
 func (c *cfg) NetmapStatus() control.NetmapStatus {
-	return control.NetmapStatus(c.netStatus.Load())
+	return c.cfgNetmap.state.controlNetmapStatus()
 }
 
 func (c *cfg) setHealthStatus(st control.HealthStatus) {
