@@ -167,7 +167,6 @@ type BootstrapType uint32
 
 type cfgNodeInfo struct {
 	// values from config
-	bootType   BootstrapType
 	attributes []*netmap.NodeAttribute
 
 	// values at runtime
@@ -296,7 +295,6 @@ func initCfg(path string) *cfg {
 			reBoostrapTurnedOff: atomic.NewBool(relayOnly),
 		},
 		cfgNodeInfo: cfgNodeInfo{
-			bootType:   StorageNode,
 			attributes: parseAttributes(appCfg),
 		},
 		cfgGRPC: cfgGRPC{
