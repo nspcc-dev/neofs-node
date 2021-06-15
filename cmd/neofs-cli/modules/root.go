@@ -85,8 +85,8 @@ func init() {
 	rootCmd.PersistentFlags().StringP("binary-key", "", "", "path to the raw private key file")
 	_ = viper.BindPFlag("binary-key", rootCmd.PersistentFlags().Lookup("binary-key"))
 
-	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF, NEP-2 or filepath")
-	_ = viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
+	rootCmd.PersistentFlags().StringP("wif", "", "", "WIF or NEP-2")
+	_ = viper.BindPFlag("wif", rootCmd.PersistentFlags().Lookup("wif"))
 
 	rootCmd.PersistentFlags().StringP("wallet", "w", "", "path to the wallet")
 	_ = viper.BindPFlag("wallet", rootCmd.PersistentFlags().Lookup("wallet"))
@@ -161,12 +161,17 @@ func getKey() (*ecdsa.PrivateKey, error) {
 		return getKeyFromWallet(w, viper.GetString("address"))
 	}
 
-	privateKey := viper.GetString("key")
-	if len(privateKey) == nep2Base58Length {
-		return getKeyFromNEP2(privateKey)
+	wif := viper.GetString("wif")
+	if len(wif) == nep2Base58Length {
+		return getKeyFromNEP2(wif)
 	}
 
-	return nil, errInvalidKey
+	priv, err := keys.NewPrivateKeyFromWIF(wif)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
+	}
+
+	return &priv.PrivateKey, nil
 }
 
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
