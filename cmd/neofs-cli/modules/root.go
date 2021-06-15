@@ -24,8 +24,6 @@ import (
 const (
 	envPrefix = "NEOFS_CLI"
 
-	generateKeyConst = "new"
-
 	ttlDefaultValue = 2
 )
 
@@ -79,7 +77,11 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
 
-	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF, NEP-2 or filepath (use `--key new` to generate key for request)")
+	// Key options.
+	rootCmd.PersistentFlags().BoolP("generate-key", "", false, "generate new private key")
+	_ = viper.BindPFlag("generate-key", rootCmd.PersistentFlags().Lookup("generate-key"))
+
+	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF, NEP-2 or filepath")
 	_ = viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 
 	rootCmd.PersistentFlags().StringP("address", "", "", "address of wallet account")
@@ -133,8 +135,7 @@ const nep2Base58Length = 58
 
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
-	privateKey := viper.GetString("key")
-	if privateKey == generateKeyConst {
+	if viper.GetBool("generate-key") {
 		priv, err := keys.NewPrivateKey()
 		if err != nil {
 			return nil, errCantGenerateKey
@@ -142,6 +143,7 @@ func getKey() (*ecdsa.PrivateKey, error) {
 		return &priv.PrivateKey, nil
 	}
 
+	privateKey := viper.GetString("key")
 	w, err := wallet.NewWalletFromFile(privateKey)
 	if err == nil {
 		return getKeyFromWallet(w, viper.GetString("address"))
