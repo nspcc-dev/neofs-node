@@ -244,7 +244,7 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 
 	// check invocation state
 	if test.State != HaltState {
-		return &NotHaltStateError{state: test.State, exception: test.FaultException}
+		return &notHaltStateError{state: test.State, exception: test.FaultException}
 	}
 
 	// if test invocation failed, then return error
