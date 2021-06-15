@@ -100,6 +100,10 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 		return err
 	}
 
+	if resp.State != HaltState {
+		return &NotHaltStateError{state: resp.State, exception: resp.FaultException}
+	}
+
 	if len(resp.Script) == 0 {
 		return errEmptyInvocationScript
 	}
