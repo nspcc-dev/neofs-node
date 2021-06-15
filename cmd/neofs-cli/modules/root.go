@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -81,6 +82,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("generate-key", "", false, "generate new private key")
 	_ = viper.BindPFlag("generate-key", rootCmd.PersistentFlags().Lookup("generate-key"))
 
+	rootCmd.PersistentFlags().StringP("binary-key", "", "", "path to the raw private key file")
+	_ = viper.BindPFlag("binary-key", rootCmd.PersistentFlags().Lookup("binary-key"))
+
 	rootCmd.PersistentFlags().StringP("key", "k", "", "private key in hex, WIF, NEP-2 or filepath")
 	_ = viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 
@@ -145,6 +149,10 @@ func getKey() (*ecdsa.PrivateKey, error) {
 		return &priv.PrivateKey, nil
 	}
 
+	if keyPath := viper.GetString("binary-key"); keyPath != "" {
+		return getKeyFromFile(keyPath)
+	}
+
 	if walletPath := viper.GetString("wallet"); walletPath != "" {
 		w, err := wallet.NewWalletFromFile(walletPath)
 		if err != nil {
@@ -159,6 +167,20 @@ func getKey() (*ecdsa.PrivateKey, error) {
 	}
 
 	return nil, errInvalidKey
+}
+
+func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
+	data, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
+	}
+
+	priv, err := keys.NewPrivateKeyFromBytes(data)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
+	}
+
+	return &priv.PrivateKey, nil
 }
 
 func getKeyFromNEP2(encryptedWif string) (*ecdsa.PrivateKey, error) {
