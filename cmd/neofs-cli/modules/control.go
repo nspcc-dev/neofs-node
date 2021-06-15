@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
 )
@@ -37,6 +41,16 @@ const (
 	netmapStatusOffline = "offline"
 )
 
+// control healthcheck flags
+const (
+	healthcheckIRFlag = "ir"
+)
+
+// control healthcheck vars
+var (
+	healthCheckIRVar bool
+)
+
 var netmapStatus string
 
 func init() {
@@ -61,6 +75,8 @@ func init() {
 		"List of object addresses to be removed in string format")
 
 	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
+
+	healthCheckCmd.Flags().BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) error {
@@ -69,16 +85,21 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	cli, err := getSDKClient(key)
+	if err != nil {
+		return err
+	}
+
+	if healthCheckIRVar {
+		healthCheckIR(cmd, key, cli)
+		return nil
+	}
+
 	req := new(control.HealthCheckRequest)
 
 	req.SetBody(new(control.HealthCheckRequest_Body))
 
 	if err := controlSvc.SignMessage(key, req); err != nil {
-		return err
-	}
-
-	cli, err := getSDKClient(key)
-	if err != nil {
 		return err
 	}
 
@@ -99,6 +120,34 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 
 	return nil
+}
+
+func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c client.Client) {
+	req := new(ircontrol.HealthCheckRequest)
+
+	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
+
+	if err := ircontrolsrv.SignMessage(key, req); err != nil {
+		cmd.PrintErrln(fmt.Errorf("could not sign request: %w", err))
+		return
+	}
+
+	resp, err := ircontrol.HealthCheck(c.Raw(), req)
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("rpc failure: %w", err))
+		return
+	}
+
+	sign := resp.GetSignature()
+
+	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
+		return sign.GetKey(), sign.GetSign()
+	}); err != nil {
+		cmd.PrintErrln(fmt.Errorf("invalid response signature: %w", err))
+		return
+	}
+
+	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 }
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) error {
