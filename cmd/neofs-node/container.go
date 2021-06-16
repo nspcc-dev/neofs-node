@@ -218,14 +218,14 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 
 	addr := srv.Address()
 
-	if r.loadAddrSrc.LocalAddress().String() == srv.Address() {
-		// if local => return no-op writer
-		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
-	}
-
 	netAddr, err := network.AddressFromString(addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
+	}
+
+	if network.IsLocalAddress(r.loadAddrSrc, *netAddr) {
+		// if local => return no-op writer
+		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
 	c, err := r.clientCache.Get(netAddr)

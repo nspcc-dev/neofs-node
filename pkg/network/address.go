@@ -27,7 +27,7 @@ type LocalAddressSource interface {
 	LocalAddress() *Address
 }
 
-// String returns multiaddr string
+// String returns multiaddr string.
 func (a Address) String() string {
 	return a.ma.String()
 }

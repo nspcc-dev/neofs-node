@@ -72,14 +72,14 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 
 	addr := srv.Address()
 
-	if rtp.localAddrSrc.LocalAddress().String() == srv.Address() {
-		// if local => return no-op writer
-		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
-	}
-
 	netAddr, err := network.AddressFromString(addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
+	}
+
+	if network.IsLocalAddress(rtp.localAddrSrc, *netAddr) {
+		// if local => return no-op writer
+		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
 	c, err := rtp.clientCache.Get(netAddr)
