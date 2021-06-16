@@ -131,13 +131,3 @@ func multiaddrStringFromHostAddr(host string) (string, error) {
 func IsLocalAddress(src LocalAddressSource, addr Address) bool {
 	return src.LocalAddress().Equal(addr)
 }
-
-// HostAddrFromMultiaddr converts "/dns4/localhost/tcp/8080" to "localhost:8080".
-func HostAddrFromMultiaddr(multiaddr string) (string, error) {
-	address, err := AddressFromString(multiaddr)
-	if err != nil {
-		return "", err
-	}
-
-	return address.HostAddrString()
-}
