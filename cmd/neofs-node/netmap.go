@@ -73,7 +73,7 @@ func nodeAddressFromNetmap(c *cfg) string {
 }
 
 func initNetmapService(c *cfg) {
-	c.cfgNodeInfo.localInfo.SetAddress(c.localAddr.String())
+	c.localAddr.WriteToNodeInfo(&c.cfgNodeInfo.localInfo)
 	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
 	c.cfgNodeInfo.localInfo.SetAttributes(parseAttributes(c.appCfg)...)
 	c.cfgNodeInfo.localInfo.SetState(netmapSDK.NodeStateOffline)
