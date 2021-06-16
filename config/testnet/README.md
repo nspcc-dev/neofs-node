@@ -6,7 +6,7 @@ docker image and run it with docker-compose.
 
 ## Build image
 
-Prepared neofs-storage-testnet image is available at Docker Hub. 
+Prepared **neofs-storage-testnet** image is available at Docker Hub. 
 However, if you need to rebuild it for some reason, run 
 `make image-storage-testnet` command.
 
@@ -49,23 +49,21 @@ neo-go wallet nep17 transfer -w wallet.json -r https://rpc1.n3.nspcc.ru:20331 \
 
 ### Configure
 
-Then configure docker-compose.yml file. Change endpoints values. Both
+Then configure `node_config.env` file. Change endpoints values. Both
 should contain your **public** IP.
 
-```yaml
-     environment:
-       - NEOFS_NODE_ADDRESS=65.52.183.157:36512
-       - NEOFS_GRPC_ENDPOINT=65.52.183.157:36512
+```
+NEOFS_NODE_ADDRESS=65.52.183.157:36512
+NEOFS_GRPC_ENDPOINT=65.52.183.157:36512
 ```
 
 Set up your [UN/LOCODE](https://unece.org/trade/cefact/unlocode-code-list-country-and-territory) 
 attribute.
 
-```yaml
-     environment:
-       - NEOFS_NODE_ADDRESS=65.52.183.157:36512
-       - NEOFS_GRPC_ENDPOINT=65.52.183.157:36512
-       - NEOFS_NODE_ATTRIBUTE_1=UN-LOCODE:RU LED
+```
+NEOFS_NODE_ADDRESS=65.52.183.157:36512
+NEOFS_GRPC_ENDPOINT=65.52.183.157:36512
+NEOFS_NODE_ATTRIBUTE_1=UN-LOCODE:RU LED
 ```
 
 You can validate UN/LOCODE attribute in 
@@ -98,7 +96,7 @@ ScriptHash3.0BE dc4b0b44d01c16667880062e2fd4508f9939fedf
 $ echo '11ab917cd99170cb8d0d48e78fca317564e6b3aaff7f7058952d6175cdca0f56' | xxd -r -p > my_wallet.key
 ```
 
-Then specify path to this file in docker-compose
+Then specify path to this file in `docker-compose.yml`
 ```yaml
      volumes:
       - neofs_storage:/storage
