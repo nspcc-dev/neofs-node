@@ -2,7 +2,6 @@ package cache
 
 import (
 	"crypto/tls"
-	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -55,12 +54,7 @@ func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
 		return cli, nil
 	}
 
-	hostAddr, err := netAddr.HostAddrString()
-	if err != nil {
-		return nil, fmt.Errorf("could not parse address as a string: %w", err)
-	}
-
-	opts := append(c.opts, client.WithAddress(hostAddr))
+	opts := append(c.opts, client.WithAddress(netAddr.HostAddrString()))
 
 	if netAddr.TLSEnabled() {
 		opts = append(opts, client.WithTLSConfig(&tls.Config{}))
