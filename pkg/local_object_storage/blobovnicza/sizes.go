@@ -3,8 +3,8 @@ package blobovnicza
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
 
-	"code.cloudfoundry.org/bytefmt"
 	"go.etcd.io/bbolt"
 )
 
@@ -18,7 +18,7 @@ func stringifyBounds(lower, upper uint64) string {
 }
 
 func stringifyByteSize(sz uint64) string {
-	return bytefmt.ByteSize(sz)
+	return strconv.FormatUint(sz, 10)
 }
 
 func bucketKeyFromBounds(upperBound uint64) []byte {

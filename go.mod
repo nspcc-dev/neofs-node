@@ -3,7 +3,6 @@ module github.com/nspcc-dev/neofs-node
 go 1.14
 
 require (
-	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
