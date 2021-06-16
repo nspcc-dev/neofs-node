@@ -63,10 +63,10 @@ func (a Address) IPAddrString() (string, error) {
 	return ip.String(), nil
 }
 
-// HostAddrString returns host address in string format.
+// HostAddr returns host address in string format.
 //
 // Panics if host address cannot be fetched from Address.
-func (a Address) HostAddrString() string {
+func (a Address) HostAddr() string {
 	_, host, err := manet.DialArgs(a.ma)
 	if err != nil {
 		// the only correct way to construct Address is AddressFromString

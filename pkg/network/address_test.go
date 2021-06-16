@@ -62,7 +62,7 @@ func TestAddress_HostAddrString(t *testing.T) {
 		for _, testcase := range testcases {
 			addr := Address{testcase.ma}
 
-			got := addr.HostAddrString()
+			got := addr.HostAddr()
 
 			require.Equal(t, testcase.exp, got)
 		}
@@ -75,7 +75,7 @@ func TestAddress_HostAddrString(t *testing.T) {
 
 		for _, testcase := range testcases {
 			addr := Address{testcase}
-			require.Panics(t, func() { addr.HostAddrString() })
+			require.Panics(t, func() { addr.HostAddr() })
 		}
 	})
 }

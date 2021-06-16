@@ -224,7 +224,7 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 	}
 
 	options := []client.Option{
-		client.WithAddress(netAddr.HostAddrString()),
+		client.WithAddress(netAddr.HostAddr()),
 		client.WithDefaultPrivateKey(key),
 	}
 

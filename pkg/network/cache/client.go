@@ -54,7 +54,7 @@ func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
 		return cli, nil
 	}
 
-	opts := append(c.opts, client.WithAddress(netAddr.HostAddrString()))
+	opts := append(c.opts, client.WithAddress(netAddr.HostAddr()))
 
 	if netAddr.TLSEnabled() {
 		opts = append(opts, client.WithTLSConfig(&tls.Config{}))
