@@ -50,7 +50,7 @@ func TestNodeSection(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, "NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM", key.Address())
-		require.Equal(t, true, addr.Equal(expectedAddr))
+		require.Equal(t, true, addr.Equal(*expectedAddr))
 		require.Equal(t, true, relay)
 
 		require.Len(t, attributes, 2)

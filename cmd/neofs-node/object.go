@@ -503,7 +503,7 @@ func (c *reputationClientConstructor) Get(addr *network.Address) (client.Client,
 		for i := range nm.Nodes {
 			netAddr, err := network.AddressFromString(nm.Nodes[i].Address())
 			if err == nil {
-				if netAddr.Equal(addr) {
+				if netAddr.Equal(*addr) {
 					prm := truststorage.UpdatePrm{}
 					prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 
