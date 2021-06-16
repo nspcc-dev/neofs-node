@@ -15,10 +15,6 @@ import (
 	IPAddr strings:		"192.168.0.1:8080"
 */
 
-const (
-	L4Protocol = "tcp"
-)
-
 // Address represents the NeoFS node
 // network address.
 type Address struct {
@@ -125,7 +121,9 @@ func multiaddrStringFromHostAddr(host string) (string, error) {
 		}
 	}
 
-	return strings.Join([]string{prefix, addr, L4Protocol, port}, "/"), nil
+	const l4Protocol = "tcp"
+
+	return strings.Join([]string{prefix, addr, l4Protocol, port}, "/"), nil
 }
 
 // IsLocalAddress returns true if network endpoint from local address
