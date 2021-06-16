@@ -56,7 +56,7 @@ func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.
 				continue
 			}
 
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if network.IsLocalAddress(p.localAddrSrc, *addr) {
 				return []netmapSDK.Nodes{{vs[i][j]}}, nil
 			}
 		}
@@ -88,7 +88,7 @@ func (p *remotePlacement) BuildPlacement(addr *object.Address, policy *netmapSDK
 				continue
 			}
 
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if network.IsLocalAddress(p.localAddrSrc, *addr) {
 				vs[i] = append(vs[i][:j], vs[i][j+1:]...)
 				j--
 			}

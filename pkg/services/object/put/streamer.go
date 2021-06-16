@@ -150,7 +150,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 	var relay func(*network.Address) error
 	if p.relay != nil {
 		relay = func(addr *network.Address) error {
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if network.IsLocalAddress(p.localAddrSrc, *addr) {
 				return errLocalAddress
 			}
 
@@ -167,7 +167,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 		traverseOpts: prm.traverseOpts,
 		workerPool:   p.workerPool,
 		nodeTargetInitializer: func(addr *network.Address) transformer.ObjectTarget {
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if network.IsLocalAddress(p.localAddrSrc, *addr) {
 				return &localTarget{
 					storage: p.localStore,
 				}
