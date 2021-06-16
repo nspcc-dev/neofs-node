@@ -5,26 +5,23 @@ services:
   storage01:
     image: nspccdev/neofs-storage-testnet:0.21.1
     container_name: neofs-testnet
+    env_file: node_config.env
     network_mode: host
     restart: always
     volumes:
       - neofs_storage:/storage
       - <NEOFS_NODE_KEY>:/node.key
     stop_signal: SIGINT
-    environment:
-      - NEOFS_NODE_ADDRESS=<ANNOUNCE_ADDRESS>
-      - NEOFS_GRPC_ENDPOINT=<BIND_ADDRESS>
-      - <NEOFS_NODE_ATTRIBUTE_1>=UN-LOCODE:<XX YYY>
-      - NEOFS_NODE_ATTRIBUTE_2=Price:100000
 
   vmagent:
     image: victoriametrics/vmagent:v1.61.0
     container_name: vmagent
     depends_on:
       - storage01
+    env_file: node_config.env
     command:
-      - '--promscrape.config=/configs/prometheus.yml'
-      - '--remoteWrite.url=https://collector.fs.neo.org:8429/api/v1/write'
+      - '-promscrape.config=/configs/prometheus.yml'
+      - '-remoteWrite.url=https://collector.fs.neo.org:8429/api/v1/write'
     network_mode: host
     restart: always
     volumes:
