@@ -27,22 +27,6 @@ type LocalAddressSource interface {
 	LocalAddress() *Address
 }
 
-// Encapsulate wraps this Address around another. For example:
-//
-//		/ip4/1.2.3.4 encapsulate /tcp/80 = /ip4/1.2.3.4/tcp/80
-//
-func (a *Address) Encapsulate(addr *Address) {
-	a.ma = a.ma.Encapsulate(addr.ma)
-}
-
-// Decapsulate removes an Address wrapping. For example:
-//
-//		/ip4/1.2.3.4/tcp/80 decapsulate /ip4/1.2.3.4 = /tcp/80
-//
-func (a *Address) Decapsulate(addr *Address) {
-	a.ma = a.ma.Decapsulate(addr.ma)
-}
-
 // String returns multiaddr string
 func (a Address) String() string {
 	return a.ma.String()
@@ -51,16 +35,6 @@ func (a Address) String() string {
 // Equal compares Address's.
 func (a Address) Equal(addr Address) bool {
 	return a.ma.Equal(addr.ma)
-}
-
-// IPAddrString returns network endpoint address in string format.
-func (a Address) IPAddrString() (string, error) {
-	ip, err := manet.ToNetAddr(a.ma)
-	if err != nil {
-		return "", fmt.Errorf("could not get net addr: %w", err)
-	}
-
-	return ip.String(), nil
 }
 
 // HostAddr returns host address in string format.
