@@ -49,7 +49,7 @@ func (a Address) String() string {
 }
 
 // Equal compares Address's.
-func (a Address) Equal(addr *Address) bool {
+func (a Address) Equal(addr Address) bool {
 	return a.ma.Equal(addr.ma)
 }
 
@@ -129,7 +129,7 @@ func multiaddrStringFromHostAddr(host string) (string, error) {
 // IsLocalAddress returns true if network endpoint from local address
 // source is equal to network endpoint of passed address.
 func IsLocalAddress(src LocalAddressSource, addr *Address) bool {
-	return src.LocalAddress().Equal(addr)
+	return src.LocalAddress().Equal(*addr)
 }
 
 // HostAddrFromMultiaddr converts "/dns4/localhost/tcp/8080" to "localhost:8080".
