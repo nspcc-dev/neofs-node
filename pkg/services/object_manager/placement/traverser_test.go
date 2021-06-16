@@ -65,6 +65,12 @@ func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Conta
 	return nodes, container.New(container.WithPolicy(policy))
 }
 
+func assertSameAddress(t *testing.T, ni *netmap.NodeInfo, addr *network.Address) {
+	netAddr, err := network.AddressFromString(ni.Address())
+	require.NoError(t, err)
+	require.True(t, netAddr.Equal(*addr))
+}
+
 func TestTraverserObjectScenarios(t *testing.T) {
 	t.Run("search scenario", func(t *testing.T) {
 		selectors := []int{2, 3}
@@ -87,7 +93,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 			require.Len(t, addrs, len(nodes[i]))
 
 			for j, n := range nodes[i] {
-				require.Equal(t, n.Address(), addrs[j].String())
+				assertSameAddress(t, n.NodeInfo, addrs[j])
 			}
 		}
 
@@ -142,7 +148,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 				require.Len(t, addrs, replicas[curVector])
 
 				for j := range addrs {
-					require.Equal(t, nodes[curVector][i+j].Address(), addrs[j].String())
+					assertSameAddress(t, nodes[curVector][i+j].NodeInfo, addrs[j])
 				}
 			}
 

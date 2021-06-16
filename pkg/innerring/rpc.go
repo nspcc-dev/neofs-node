@@ -87,7 +87,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 		cli, err := c.Get(netAddr)
 		if err != nil {
 			c.log.Warn("can't setup remote connection",
-				zap.String("address", netAddr.String()),
+				zap.Stringer("address", netAddr),
 				zap.String("error", err.Error()))
 
 			continue
