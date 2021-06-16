@@ -73,7 +73,9 @@ func (a Address) HostAddrString() (string, error) {
 	return host, nil
 }
 
-// AddressFromString restores address from a multiaddr string representation.
+// AddressFromString restores address from a string representation.
+//
+// Supports MultiAddr and HostAddr strings.
 func AddressFromString(s string) (*Address, error) {
 	ma, err := multiaddr.NewMultiaddr(s)
 	if err != nil {
