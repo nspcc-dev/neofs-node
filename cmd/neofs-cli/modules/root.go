@@ -223,13 +223,8 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 		return nil, err
 	}
 
-	hostAddr, err := netAddr.HostAddrString()
-	if err != nil {
-		return nil, errInvalidEndpoint
-	}
-
 	options := []client.Option{
-		client.WithAddress(hostAddr),
+		client.WithAddress(netAddr.HostAddrString()),
 		client.WithDefaultPrivateKey(key),
 	}
 

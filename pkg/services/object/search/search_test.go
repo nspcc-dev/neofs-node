@@ -85,12 +85,7 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 }
 
 func (c *testClientCache) get(mAddr *network.Address) (searchClient, error) {
-	hostAddr, err := mAddr.HostAddrString()
-	if err != nil {
-		return nil, err
-	}
-
-	v, ok := c.clients[hostAddr]
+	v, ok := c.clients[mAddr.HostAddrString()]
 	if !ok {
 		return nil, errors.New("could not construct client")
 	}
@@ -209,8 +204,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 			na, err := network.AddressFromString(a)
 			require.NoError(t, err)
 
-			as[j], err = na.HostAddrString()
-			require.NoError(t, err)
+			as[j] = na.HostAddrString()
 
 			ni := netmap.NewNodeInfo()
 			ni.SetAddress(a)
