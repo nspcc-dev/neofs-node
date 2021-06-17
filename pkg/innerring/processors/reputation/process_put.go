@@ -56,6 +56,7 @@ func (rp *Processor) processPut(epoch uint64, id apireputation.PeerID, value api
 
 	err := rp.reputationWrp.Put(args)
 	if err != nil {
+		// FIXME: do not use `ToV2` method outside neofs-api-go library
 		rp.log.Warn("can't send approval tx for reputation value",
 			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetPublicKey())),
 			zap.String("error", err.Error()))
@@ -69,6 +70,7 @@ func (rp *Processor) checkManagers(e uint64, mng apireputation.PeerID, peer apir
 	}
 
 	for _, m := range mm {
+		// FIXME: do not use `ToV2` method outside neofs-api-go library
 		if bytes.Equal(mng.ToV2().GetPublicKey(), m.PublicKey()) {
 			return nil
 		}
