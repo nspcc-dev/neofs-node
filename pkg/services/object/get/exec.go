@@ -270,7 +270,7 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 	}
 }
 
-func (exec execCtx) remoteClient(node *network.Address) (getClient, bool) {
+func (exec execCtx) remoteClient(node network.Address) (getClient, bool) {
 	log := exec.log.With(zap.Stringer("node", node))
 
 	c, err := exec.svc.clientCache.get(node)

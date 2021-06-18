@@ -67,13 +67,13 @@ func Wallet(c *config.Config) *keys.PrivateKey {
 // from "node" section as network.Address.
 //
 // Panics if value is not a valid NeoFS network address
-func BootstrapAddress(c *config.Config) *network.Address {
+func BootstrapAddress(c *config.Config) (addr network.Address) {
 	v := config.StringSafe(c.Sub(subsection), "address")
 	if v == "" {
 		panic(errAddressNotSet)
 	}
 
-	addr, err := network.AddressFromString(v)
+	err := addr.FromString(v)
 	if err != nil {
 		panic(fmt.Errorf("could not convert bootstrap address %s to %T: %w", v, addr, err))
 	}

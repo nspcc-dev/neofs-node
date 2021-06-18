@@ -43,7 +43,9 @@ func TestAddress_AddTLS(t *testing.T) {
 
 		addr.AddTLS()
 
-		netAddr, err := AddressFromString(test.want)
+		var netAddr Address
+
+		err := netAddr.FromString(test.want)
 		require.NoError(t, err)
 
 		require.True(t, netAddr.Equal(addr), test.input)

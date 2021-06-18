@@ -72,7 +72,7 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj.Object()
 }
 
-func (c *clientCacheWrapper) get(addr *network.Address) (getClient, error) {
+func (c *clientCacheWrapper) get(addr network.Address) (getClient, error) {
 	clt, err := c.cache.Get(addr)
 
 	return &clientWrapper{

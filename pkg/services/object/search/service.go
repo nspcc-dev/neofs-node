@@ -27,7 +27,7 @@ type searchClient interface {
 }
 
 type ClientConstructor interface {
-	Get(*network.Address) (client.Client, error)
+	Get(network.Address) (client.Client, error)
 }
 
 type cfg struct {
@@ -38,7 +38,7 @@ type cfg struct {
 	}
 
 	clientConstructor interface {
-		get(*network.Address) (searchClient, error)
+		get(network.Address) (searchClient, error)
 	}
 
 	traverserGenerator interface {

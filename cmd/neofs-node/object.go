@@ -408,7 +408,7 @@ type reputationClientConstructor struct {
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(*network.Address) (client.Client, error)
+		Get(network.Address) (client.Client, error)
 	}
 }
 
@@ -492,7 +492,7 @@ func (c *reputationClient) SearchObject(ctx context.Context, prm *client.SearchO
 	return ids, err
 }
 
-func (c *reputationClientConstructor) Get(addr *network.Address) (client.Client, error) {
+func (c *reputationClientConstructor) Get(addr network.Address) (client.Client, error) {
 	cl, err := c.basicConstructor.Get(addr)
 	if err != nil {
 		return nil, err
@@ -501,9 +501,11 @@ func (c *reputationClientConstructor) Get(addr *network.Address) (client.Client,
 	nm, err := netmap.GetLatestNetworkMap(c.nmSrc)
 	if err == nil {
 		for i := range nm.Nodes {
-			netAddr, err := network.AddressFromString(nm.Nodes[i].Address())
+			var netAddr network.Address
+
+			err := netAddr.FromString(nm.Nodes[i].Address())
 			if err == nil {
-				if netAddr.Equal(*addr) {
+				if netAddr.Equal(addr) {
 					prm := truststorage.UpdatePrm{}
 					prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 

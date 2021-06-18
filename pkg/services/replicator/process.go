@@ -70,7 +70,9 @@ func (p *Replicator) handleTask(ctx context.Context, task *Task) {
 
 		log := p.log.With(zap.String("node", netAddr))
 
-		node, err := network.AddressFromString(netAddr)
+		var node network.Address
+
+		err := node.FromString(netAddr)
 		if err != nil {
 			log.Error("could not parse network address")
 

@@ -117,7 +117,7 @@ func (exec *execCtx) generateTraverser(cid *cid.ID) (*placement.Traverser, bool)
 	}
 }
 
-func (exec execCtx) remoteClient(node *network.Address) (searchClient, bool) {
+func (exec execCtx) remoteClient(node network.Address) (searchClient, bool) {
 	log := exec.log.With(zap.Stringer("node", node))
 
 	c, err := exec.svc.clientConstructor.get(node)

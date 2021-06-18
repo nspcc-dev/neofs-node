@@ -46,11 +46,13 @@ func TestNodeSection(t *testing.T) {
 		relay := Relay(c)
 		wKey := Wallet(c)
 
-		expectedAddr, err := network.AddressFromString("s01.neofs.devenv:8080")
+		var expectedAddr network.Address
+
+		err := expectedAddr.FromString("s01.neofs.devenv:8080")
 		require.NoError(t, err)
 
 		require.Equal(t, "NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM", key.Address())
-		require.Equal(t, true, addr.Equal(*expectedAddr))
+		require.Equal(t, true, addr.Equal(expectedAddr))
 		require.Equal(t, true, relay)
 
 		require.Len(t, attributes, 2)

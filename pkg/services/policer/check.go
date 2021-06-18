@@ -61,14 +61,16 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 
 		log := p.log.With(zap.String("node", netAddr))
 
-		node, err := network.AddressFromString(netAddr)
+		var node network.Address
+
+		err := node.FromString(netAddr)
 		if err != nil {
 			log.Error("could not parse network address")
 
 			continue
 		}
 
-		if network.IsLocalAddress(p.localAddrSrc, *node) {
+		if network.IsLocalAddress(p.localAddrSrc, node) {
 			if shortage == 0 {
 				// we can call the redundant copy callback
 				// here to slightly improve the performance

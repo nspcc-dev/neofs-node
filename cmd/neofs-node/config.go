@@ -90,7 +90,7 @@ type cfg struct {
 
 	cfgNodeInfo cfgNodeInfo
 
-	localAddr *network.Address
+	localAddr network.Address
 
 	cfgObject cfgObject
 
@@ -308,7 +308,7 @@ func initCfg(path string) *cfg {
 	return c
 }
 
-func (c *cfg) LocalAddress() *network.Address {
+func (c *cfg) LocalAddress() network.Address {
 	return c.localAddr
 }
 
