@@ -32,35 +32,35 @@ var (
 
 	signCmd = &cobra.Command{
 		Use:   "sign",
-		Short: "sign NeoFS structure",
+		Short: "Sign NeoFS structure",
 	}
 
 	signBearerCmd = &cobra.Command{
 		Use:   "bearer-token",
-		Short: "sign bearer token to use it in requests",
+		Short: "Sign bearer token to use it in requests",
 		RunE:  signBearerToken,
 	}
 
 	signSessionCmd = &cobra.Command{
 		Use:   "session-token",
-		Short: "sign session token to use it in requests",
+		Short: "Sign session token to use it in requests",
 		RunE:  signSessionToken,
 	}
 
 	convertCmd = &cobra.Command{
 		Use:   "convert",
-		Short: "convert representation of NeoFS structures",
+		Short: "Convert representation of NeoFS structures",
 	}
 
 	convertEACLCmd = &cobra.Command{
 		Use:   "eacl",
-		Short: "convert representation of extended ACL table",
+		Short: "Convert representation of extended ACL table",
 		RunE:  convertEACLTable,
 	}
 
 	keyerCmd = &cobra.Command{
 		Use:   "keyer",
-		Short: "generate or print information about keys",
+		Short: "Generate or print information about keys",
 		RunE:  processKeyer,
 	}
 )
