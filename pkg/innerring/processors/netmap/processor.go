@@ -35,7 +35,7 @@ type (
 	// of information about the node and its finalization for adding
 	// to the network map.
 	NodeValidator interface {
-		// Must verify and update NodeInfo structure.
+		// Must verify and optionally update NodeInfo structure.
 		//
 		// Must return an error if NodeInfo input is invalid.
 		// Must return an error if it is not possible to correctly
