@@ -25,9 +25,6 @@ var netmapCmd = &cobra.Command{
 	Use:   "netmap",
 	Short: "Operations with Network Map",
 	Long:  `Operations with Network Map`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("netmap called")
-	},
 }
 
 func init() {
