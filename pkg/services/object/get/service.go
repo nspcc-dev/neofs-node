@@ -35,7 +35,7 @@ type cfg struct {
 	}
 
 	clientCache interface {
-		get(*network.Address) (getClient, error)
+		get(network.Address) (getClient, error)
 	}
 
 	traverserGenerator interface {
@@ -93,7 +93,7 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 }
 
 type ClientConstructor interface {
-	Get(*network.Address) (client.Client, error)
+	Get(network.Address) (client.Client, error)
 }
 
 // WithClientConstructor returns option to set constructor of remote node clients.

@@ -20,7 +20,7 @@ type remoteTarget struct {
 
 	commonPrm *util.CommonPrm
 
-	addr *network.Address
+	addr network.Address
 
 	obj *object.Object
 
@@ -37,7 +37,7 @@ type RemoteSender struct {
 
 // RemotePutPrm groups remote put operation parameters.
 type RemotePutPrm struct {
-	node *network.Address
+	node network.Address
 
 	obj *object.Object
 }
@@ -86,7 +86,7 @@ func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *Remot
 }
 
 // WithNodeAddress sets network address of the remote node.
-func (p *RemotePutPrm) WithNodeAddress(v *network.Address) *RemotePutPrm {
+func (p *RemotePutPrm) WithNodeAddress(v network.Address) *RemotePutPrm {
 	if p != nil {
 		p.node = v
 	}

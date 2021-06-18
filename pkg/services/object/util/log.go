@@ -7,7 +7,7 @@ import (
 )
 
 // LogServiceError writes debug error message of object service to provided logger.
-func LogServiceError(l *logger.Logger, req string, node *network.Address, err error) {
+func LogServiceError(l *logger.Logger, req string, node network.Address, err error) {
 	l.Debug("object service error",
 		zap.Stringer("node", node),
 		zap.String("request", req),

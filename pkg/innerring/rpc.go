@@ -22,7 +22,7 @@ type (
 	ClientCache struct {
 		log   *zap.Logger
 		cache interface {
-			Get(address *network.Address) (client.Client, error)
+			Get(address network.Address) (client.Client, error)
 			CloseAll()
 		}
 		key *ecdsa.PrivateKey
@@ -49,7 +49,7 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 	}
 }
 
-func (c *ClientCache) Get(address *network.Address) (client.Client, error) {
+func (c *ClientCache) Get(address network.Address) (client.Client, error) {
 	// Because cache is used by `ClientCache` exclusively,
 	// client will always have valid key.
 	return c.cache.Get(address)
@@ -75,7 +75,9 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 	getParams.WithAddress(addr)
 
 	for _, node := range placement.FlattenNodes(nodes) {
-		netAddr, err := network.AddressFromString(node.Address())
+		var netAddr network.Address
+
+		err := netAddr.FromString(node.Address())
 		if err != nil {
 			c.log.Warn("can't parse remote address",
 				zap.String("address", node.Address()),
@@ -137,7 +139,9 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 	headParams.WithMainFields()
 	headParams.WithAddress(objAddress)
 
-	netAddr, err := network.AddressFromString(node.Address())
+	var netAddr network.Address
+
+	err := netAddr.FromString(node.Address())
 	if err != nil {
 		return nil, fmt.Errorf("can't parse remote address %s: %w", node.Address(), err)
 	}
@@ -173,7 +177,9 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 	rangeParams.WithRangeList(rng)
 	rangeParams.WithSalt(nil) // it MUST be nil for correct hash concatenation in PDP game
 
-	netAddr, err := network.AddressFromString(node.Address())
+	var netAddr network.Address
+
+	err := netAddr.FromString(node.Address())
 	if err != nil {
 		return nil, fmt.Errorf("can't parse remote address %s: %w", node.Address(), err)
 	}

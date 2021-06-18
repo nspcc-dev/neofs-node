@@ -205,7 +205,7 @@ type remoteLoadAnnounceProvider struct {
 	loadAddrSrc network.LocalAddressSource
 
 	clientCache interface {
-		Get(*network.Address) (apiClient.Client, error)
+		Get(network.Address) (apiClient.Client, error)
 	}
 
 	deadEndProvider loadcontroller.WriterProvider
@@ -218,12 +218,14 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 
 	addr := srv.Address()
 
-	netAddr, err := network.AddressFromString(addr)
+	var netAddr network.Address
+
+	err := netAddr.FromString(addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
-	if network.IsLocalAddress(r.loadAddrSrc, *netAddr) {
+	if network.IsLocalAddress(r.loadAddrSrc, netAddr) {
 		// if local => return no-op writer
 		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}

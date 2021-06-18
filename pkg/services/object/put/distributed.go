@@ -23,9 +23,9 @@ type distributedTarget struct {
 
 	chunks [][]byte
 
-	nodeTargetInitializer func(*network.Address) transformer.ObjectTarget
+	nodeTargetInitializer func(network.Address) transformer.ObjectTarget
 
-	relay func(*network.Address) error
+	relay func(network.Address) error
 
 	fmt *object.FormatValidator
 
@@ -68,7 +68,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	return t.iteratePlacement(t.sendObject)
 }
 
-func (t *distributedTarget) sendObject(addr *network.Address) error {
+func (t *distributedTarget) sendObject(addr network.Address) error {
 	if t.relay != nil {
 		err := t.relay(addr)
 		if err == nil || !errors.Is(err, errLocalAddress) {
@@ -86,7 +86,7 @@ func (t *distributedTarget) sendObject(addr *network.Address) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(*network.Address) error) (*transformer.AccessIdentifiers, error) {
+func (t *distributedTarget) iteratePlacement(f func(network.Address) error) (*transformer.AccessIdentifiers, error) {
 	traverser, err := placement.NewTraverser(
 		append(t.traverseOpts, placement.ForObject(t.obj.ID()))...,
 	)

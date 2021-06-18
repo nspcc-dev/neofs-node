@@ -29,7 +29,7 @@ func NewSDKClientCache(opts ...client.Option) *ClientCache {
 }
 
 // Get function returns existing client or creates a new one.
-func (c *ClientCache) Get(netAddr *network.Address) (client.Client, error) {
+func (c *ClientCache) Get(netAddr network.Address) (client.Client, error) {
 	// multiaddr is used as a key in client cache since
 	// same host may have different connections(with tls or not),
 	// therefore, host+port pair is not unique

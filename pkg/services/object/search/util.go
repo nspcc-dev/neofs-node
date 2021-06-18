@@ -68,7 +68,7 @@ func (w *uniqueIDWriter) WriteIDs(list []*objectSDK.ID) error {
 	return w.writer.WriteIDs(list)
 }
 
-func (c *clientConstructorWrapper) get(addr *network.Address) (searchClient, error) {
+func (c *clientConstructorWrapper) get(addr network.Address) (searchClient, error) {
 	clt, err := c.constructor.Get(addr)
 
 	return &clientWrapper{

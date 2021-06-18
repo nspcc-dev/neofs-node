@@ -25,7 +25,7 @@ type Address struct {
 // LocalAddressSource is an interface of local
 // network address container with read access.
 type LocalAddressSource interface {
-	LocalAddress() *Address
+	LocalAddress() Address
 }
 
 // String returns multiaddr string.
@@ -57,26 +57,21 @@ func (a Address) HostAddr() string {
 	return host
 }
 
-// AddressFromString restores address from a string representation.
+// FromString restores Address from a string representation.
 //
 // Supports MultiAddr and HostAddr strings.
-func AddressFromString(s string) (*Address, error) {
-	ma, err := multiaddr.NewMultiaddr(s)
+func (a *Address) FromString(s string) error {
+	var err error
+
+	a.ma, err = multiaddr.NewMultiaddr(s)
 	if err != nil {
 		s, err = multiaddrStringFromHostAddr(s)
-		if err != nil {
-			return nil, err
-		}
-
-		ma, err = multiaddr.NewMultiaddr(s) // don't want recursion there
-		if err != nil {
-			return nil, err
+		if err == nil {
+			a.ma, err = multiaddr.NewMultiaddr(s)
 		}
 	}
 
-	return &Address{
-		ma: ma,
-	}, nil
+	return err
 }
 
 // multiaddrStringFromHostAddr converts "localhost:8080" to "/dns4/localhost/tcp/8080"

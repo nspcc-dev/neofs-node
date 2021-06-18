@@ -20,8 +20,10 @@ func TestAddressFromString(t *testing.T) {
 			{"[2004:eb1::1]:8080", buildMultiaddr("/ip6/2004:eb1::1/tcp/8080", t)},
 		}
 
+		var addr Address
+
 		for _, testcase := range testcases {
-			addr, err := AddressFromString(testcase.inp)
+			err := addr.FromString(testcase.inp)
 			require.NoError(t, err)
 			require.Equal(t, testcase.exp, addr.ma, testcase.inp)
 		}
@@ -68,14 +70,18 @@ func buildMultiaddr(s string, t *testing.T) multiaddr.Multiaddr {
 func TestAddress_WriteToNodeInfo(t *testing.T) {
 	a := "127.0.0.1:8080"
 
-	addr, err := AddressFromString(a)
+	var addr Address
+
+	err := addr.FromString(a)
 	require.NoError(t, err)
 
 	var ni netmap.NodeInfo
 
 	addr.WriteToNodeInfo(&ni)
 
-	restored, err := AddressFromString(ni.Address())
+	var restored Address
+
+	err = restored.FromString(ni.Address())
 	require.NoError(t, err)
-	require.True(t, restored.Equal(*addr))
+	require.True(t, restored.Equal(addr))
 }
