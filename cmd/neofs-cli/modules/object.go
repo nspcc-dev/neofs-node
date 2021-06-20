@@ -48,14 +48,14 @@ var (
 		Use:   "put",
 		Short: "Put object to NeoFS",
 		Long:  "Put object to NeoFS",
-		RunE:  putObject,
+		Run:   putObject,
 	}
 
 	objectGetCmd = &cobra.Command{
 		Use:   "get",
 		Short: "Get object from NeoFS",
 		Long:  "Get object from NeoFS",
-		RunE:  getObject,
+		Run:   getObject,
 	}
 
 	objectDelCmd = &cobra.Command{
@@ -63,7 +63,7 @@ var (
 		Aliases: []string{"del"},
 		Short:   "Delete object from NeoFS",
 		Long:    "Delete object from NeoFS",
-		RunE:    deleteObject,
+		Run:     deleteObject,
 	}
 
 	searchFilters []string
@@ -72,28 +72,28 @@ var (
 		Use:   "search",
 		Short: "Search object",
 		Long:  "Search object",
-		RunE:  searchObject,
+		Run:   searchObject,
 	}
 
 	objectHeadCmd = &cobra.Command{
 		Use:   "head",
 		Short: "Get object header",
 		Long:  "Get object header",
-		RunE:  getObjectHeader,
+		Run:   getObjectHeader,
 	}
 
 	objectHashCmd = &cobra.Command{
 		Use:   "hash",
 		Short: "Get object hash",
 		Long:  "Get object hash",
-		RunE:  getObjectHash,
+		Run:   getObjectHash,
 	}
 
 	objectRangeCmd = &cobra.Command{
 		Use:   getRangeCmdUse,
 		Short: getRangeCmdShortDesc,
 		Long:  getRangeCmdLongDesc,
-		RunE:  getObjectRange,
+		Run:   getObjectRange,
 	}
 )
 
@@ -210,25 +210,29 @@ func initSession(ctx context.Context) (client.Client, *session.Token, error) {
 	return cli, tok, nil
 }
 
-func putObject(cmd *cobra.Command, _ []string) error {
+func putObject(cmd *cobra.Command, _ []string) {
 	ownerID, err := getOwnerID()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	cid, err := getCID(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	filename := cmd.Flag("file").Value.String()
 	f, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("can't open file '%s': %w", filename, err)
+		cmd.PrintErrln(fmt.Errorf("can't open file '%s': %w", filename, err))
+		return
 	}
 
 	attrs, err := parseObjectAttrs(cmd)
 	if err != nil {
-		return fmt.Errorf("can't parse object attributes: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't parse object attributes: %w", err))
+		return
 	}
 
 	expiresOn, _ := cmd.Flags().GetUint64(putExpiresOnFlag)
@@ -259,11 +263,13 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	btok, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	oid, err := cli.PutObject(ctx,
 		new(client.PutObjectParams).
@@ -275,28 +281,31 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't put object: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't put object: %w", err))
+		return
 	}
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
 	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
-	return nil
 }
 
-func deleteObject(cmd *cobra.Command, _ []string) error {
+func deleteObject(cmd *cobra.Command, _ []string) {
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	btok, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	tombstoneAddr, err := client.DeleteObject(ctx, cli,
@@ -307,18 +316,19 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cmd.Println("Object removed successfully.")
 	cmd.Printf("  ID: %s\n  CID: %s\n", tombstoneAddr.ObjectID(), tombstoneAddr.ContainerID())
-	return nil
 }
 
-func getObject(cmd *cobra.Command, _ []string) error {
+func getObject(cmd *cobra.Command, _ []string) {
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	var out io.Writer
@@ -328,7 +338,8 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	} else {
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("can't open file '%s': %w", filename, err)
+			cmd.PrintErrln(fmt.Errorf("can't open file '%s': %w", filename, err))
+			return
 		}
 		defer f.Close()
 		out = f
@@ -337,11 +348,13 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	btok, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
@@ -358,10 +371,11 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
-			return nil
+			return
 		}
 
-		return fmt.Errorf("can't get object: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't get object: %w", err))
+		return
 	}
 
 	if filename != "" {
@@ -371,25 +385,30 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	// Print header only if file is not streamed to stdout.
 	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" || hdrFile != "" {
-		return saveAndPrintHeader(cmd, obj, hdrFile)
+		if err = saveAndPrintHeader(cmd, obj, hdrFile); err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
 	}
-	return nil
 }
 
-func getObjectHeader(cmd *cobra.Command, _ []string) error {
+func getObjectHeader(cmd *cobra.Command, _ []string) {
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	btok, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	ps := new(client.ObjectHeaderParams).WithAddress(objAddr)
 	if ok, _ := cmd.Flags().GetBool("main-only"); ok {
@@ -407,34 +426,42 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
-			return nil
+			return
 		}
 
-		return fmt.Errorf("can't get object header: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't get object header: %w", err))
+		return
 	}
 
-	return saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String())
+	if err = saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String()); err != nil {
+		cmd.PrintErrln(err)
+		return
+	}
 }
 
-func searchObject(cmd *cobra.Command, _ []string) error {
+func searchObject(cmd *cobra.Command, _ []string) {
 	cid, err := getCID(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	sf, err := parseSearchFilters(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	btok, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	ps := new(client.SearchObjectParams).WithContainerID(cid).WithSearchFilters(sf)
 	ids, err := cli.SearchObject(ctx, ps,
@@ -444,44 +471,50 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't search object: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't search object: %w", err))
+		return
 	}
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for _, id := range ids {
 		cmd.Println(id)
 	}
-	return nil
 }
 
-func getObjectHash(cmd *cobra.Command, _ []string) error {
+func getObjectHash(cmd *cobra.Command, _ []string) {
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	ranges, err := getRangeList(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	typ, err := getHashType(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	strSalt := strings.TrimPrefix(cmd.Flag(getRangeHashSaltFlag).Value.String(), "0x")
 
 	salt, err := hex.DecodeString(strSalt)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	btok, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 	if len(ranges) == 0 { // hash of full payload
 		obj, err := cli.GetObjectHeader(ctx,
@@ -492,7 +525,8 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 			)...,
 		)
 		if err != nil {
-			return fmt.Errorf("can't get object header: %w", err)
+			cmd.PrintErrln(fmt.Errorf("can't get object header: %w", err))
+			return
 		}
 		switch typ {
 		case hashSha256:
@@ -500,7 +534,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 		case hashTz:
 			cmd.Println(hex.EncodeToString(obj.PayloadHomomorphicHash().Sum()))
 		}
-		return nil
+		return
 	}
 
 	ps := new(client.RangeChecksumParams).
@@ -517,7 +551,8 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 			)...,
 		)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 		for i := range res {
 			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
@@ -531,14 +566,14 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 			)...,
 		)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 		for i := range res {
 			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
 				hex.EncodeToString(res[i][:]))
 		}
 	}
-	return nil
 }
 
 func getOwnerID() (*owner.ID, error) {
@@ -861,17 +896,20 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 	return tok, nil
 }
 
-func getObjectRange(cmd *cobra.Command, _ []string) error {
+func getObjectRange(cmd *cobra.Command, _ []string) {
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ranges, err := getRangeList(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	} else if len(ranges) != 1 {
-		return errors.New("exactly one range must be specified")
+		cmd.PrintErrln(err)
+		return
 	}
 
 	var out io.Writer
@@ -882,7 +920,8 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 	} else {
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("can't open file '%s': %w", filename, err)
+			cmd.PrintErrln(fmt.Errorf("can't open file '%s': %w", filename, err))
+			return
 		}
 
 		defer f.Close()
@@ -894,12 +933,14 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 
 	c, sessionToken, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	bearerToken, err := getBearerToken(cmd, "bearer")
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
@@ -917,17 +958,16 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 	)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
-			return nil
+			return
 		}
 
-		return fmt.Errorf("can't get object payload range: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't get object payload range: %w", err))
+		return
 	}
 
 	if filename != "" {
 		cmd.Printf("[%s] Payload successfully saved\n", filename)
 	}
-
-	return nil
 }
 
 func printSplitInfoErr(cmd *cobra.Command, err error) bool {

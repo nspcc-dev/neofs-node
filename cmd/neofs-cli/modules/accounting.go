@@ -25,48 +25,50 @@ var accountingBalanceCmd = &cobra.Command{
 	Use:   "balance",
 	Short: "Get internal balance of NeoFS account",
 	Long:  `Get internal balance of NeoFS account`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			response *accounting.Decimal
 			oid      *owner.ID
-			err      error
 
 			ctx = context.Background()
 		)
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		if balanceOwner == "" {
 			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 
 			oid = owner.NewIDFromNeo3Wallet(wallet)
 		} else {
 			oid, err = ownerFromString(balanceOwner)
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 		}
 
 		response, err = cli.GetBalance(ctx, oid, globalCallOptions()...)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
 		// print to stdout
-		prettyPrintDecimal(response)
-
-		return nil
+		prettyPrintDecimal(cmd, response)
 	},
 }
 
@@ -87,14 +89,14 @@ func init() {
 	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
 }
 
-func prettyPrintDecimal(decimal *accounting.Decimal) {
+func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
 	if decimal == nil {
 		return
 	}
 
 	if verbose {
-		fmt.Println("value:", decimal.Value())
-		fmt.Println("precision:", decimal.Precision())
+		cmd.Println("value:", decimal.Value())
+		cmd.Println("precision:", decimal.Precision())
 	} else {
 		// divider = 10^{precision}; v:365, p:2 => 365 / 10^2 = 3.65
 		divider := math.Pow(10, float64(decimal.Precision()))
@@ -102,6 +104,6 @@ func prettyPrintDecimal(decimal *accounting.Decimal) {
 		// %0.8f\n for precision 8
 		format := fmt.Sprintf("%%0.%df\n", decimal.Precision())
 
-		fmt.Printf(format, float64(decimal.Value())/divider)
+		cmd.Printf(format, float64(decimal.Value())/divider)
 	}
 }

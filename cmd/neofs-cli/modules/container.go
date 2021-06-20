@@ -78,48 +78,50 @@ var listContainersCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all created containers",
 	Long:  "List all created containers",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			response []*cid.ID
 			oid      *owner.ID
-			err      error
 
 			ctx = context.Background()
 		)
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		if containerOwner == "" {
 			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 
 			oid = owner.NewIDFromNeo3Wallet(wallet)
 		} else {
 			oid, err = ownerFromString(containerOwner)
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 		}
 
 		response, err = cli.ListContainers(ctx, oid, globalCallOptions()...)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
 		// print to stdout
-		prettyPrintContainerList(response)
-
-		return nil
+		prettyPrintContainerList(cmd, response)
 	},
 }
 
@@ -128,42 +130,49 @@ var createContainerCmd = &cobra.Command{
 	Short: "Create new container",
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		attributes, err := parseAttributes(containerAttributes)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		basicACL, err := parseBasicACL(containerACL)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		nonce, err := parseNonce(containerNonce)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		tok, err := getSessionToken(sessionTokenPath)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cnr := container.New()
@@ -176,28 +185,27 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 		id, err := cli.PutContainer(ctx, cnr, globalCallOptions()...)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
-		fmt.Println("container ID:", id)
+		cmd.Println("container ID:", id)
 
 		if containerAwait {
-			fmt.Println("awaiting...")
+			cmd.Println("awaiting...")
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
 				_, err := cli.GetContainer(ctx, id, globalCallOptions()...)
 				if err == nil {
-					fmt.Println("container has been persisted on sidechain")
-					return nil
+					cmd.Println("container has been persisted on sidechain")
+					return
 				}
 			}
 
-			return errors.New("timeout: container has not been persisted on sidechain")
+			cmd.PrintErrln("timeout: container has not been persisted on sidechain")
 		}
-
-		return nil
 	},
 }
 
@@ -206,27 +214,31 @@ var deleteContainerCmd = &cobra.Command{
 	Short: "Delete existing container",
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		id, err := parseContainerID(containerID)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		tok, err := getSessionToken(sessionTokenPath)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		callOpts := globalCallOptions()
@@ -237,28 +249,27 @@ Only owner of the container has a permission to remove container.`,
 
 		err = cli.DeleteContainer(ctx, id, callOpts...)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
-		fmt.Println("container delete method invoked")
+		cmd.Println("container delete method invoked")
 
 		if containerAwait {
-			fmt.Println("awaiting...")
+			cmd.Println("awaiting...")
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
 				_, err := cli.GetContainer(ctx, id, globalCallOptions()...)
 				if err != nil {
-					fmt.Println("container has been removed:", containerID)
-					return nil
+					cmd.Println("container has been removed:", containerID)
+					return
 				}
 			}
 
-			return errors.New("timeout: container has not been removed from sidechain")
+			cmd.PrintErrln("timeout: container has not been removed from sidechain")
 		}
-
-		return nil
 	},
 }
 
@@ -266,27 +277,31 @@ var listContainerObjectsCmd = &cobra.Command{
 	Use:   "list-objects",
 	Short: "List existing objects in container",
 	Long:  `List existing objects in container`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		id, err := parseContainerID(containerID)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		sessionToken, err := cli.CreateSession(ctx, math.MaxUint64)
 		if err != nil {
-			return fmt.Errorf("can't create session token: %w", err)
+			cmd.PrintErrln(fmt.Errorf("can't create session token: %w", err))
+			return
 		}
 
 		filters := new(object.SearchFilters)
@@ -302,14 +317,13 @@ var listContainerObjectsCmd = &cobra.Command{
 			)...,
 		)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
 		for i := range objectIDs {
-			fmt.Println(objectIDs[i])
+			cmd.Println(objectIDs[i])
 		}
-
-		return nil
 	},
 }
 
@@ -317,7 +331,7 @@ var getContainerInfoCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get container field info",
 	Long:  `Get container field info`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			cnr *container.Container
 
@@ -327,36 +341,42 @@ var getContainerInfoCmd = &cobra.Command{
 		if containerPathFrom != "" {
 			data, err := ioutil.ReadFile(containerPathFrom)
 			if err != nil {
-				return fmt.Errorf("can't read file: %w", err)
+				cmd.PrintErrln(fmt.Errorf("can't read file: %w", err))
+				return
 			}
 
 			cnr = container.New()
 			if err := cnr.Unmarshal(data); err != nil {
-				return fmt.Errorf("can't unmarshal container: %w", err)
+				cmd.PrintErrln(fmt.Errorf("can't unmarshal container: %w", err))
+				return
 			}
 		} else {
 			key, err := getKey()
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 
 			cli, err := getSDKClient(key)
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 
 			id, err := parseContainerID(containerID)
 			if err != nil {
-				return err
+				cmd.PrintErrln(err)
+				return
 			}
 
 			cnr, err = cli.GetContainer(ctx, id, globalCallOptions()...)
 			if err != nil {
-				return fmt.Errorf("rpc error: %w", err)
+				cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+				return
 			}
 		}
 
-		prettyPrintContainer(cnr, containerJSON)
+		prettyPrintContainer(cmd, cnr, containerJSON)
 
 		if containerPathTo != "" {
 			var (
@@ -367,22 +387,23 @@ var getContainerInfoCmd = &cobra.Command{
 			if containerJSON {
 				data, err = cnr.MarshalJSON()
 				if err != nil {
-					return fmt.Errorf("can't JSON encode container: %w", err)
+					cmd.PrintErrln(fmt.Errorf("can't JSON encode container: %w", err))
+					return
 				}
 			} else {
 				data, err = cnr.Marshal()
 				if err != nil {
-					return fmt.Errorf("can't binary encode container: %w", err)
+					cmd.PrintErrln(fmt.Errorf("can't binary encode container: %w", err))
+					return
 				}
 			}
 
 			err = ioutil.WriteFile(containerPathTo, data, 0644)
 			if err != nil {
-				return fmt.Errorf("can't write container to file: %w", err)
+				cmd.PrintErrln(fmt.Errorf("can't write container to file: %w", err))
+				return
 			}
 		}
-
-		return nil
 	},
 }
 
@@ -390,40 +411,44 @@ var getExtendedACLCmd = &cobra.Command{
 	Use:   "get-eacl",
 	Short: "Get extended ACL table of container",
 	Long:  `Get extended ACL talbe of container`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		id, err := parseContainerID(containerID)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		res, err := cli.GetEACL(ctx, id, globalCallOptions()...)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
 		eaclTable := res.EACL()
 		sig := eaclTable.Signature()
 
 		if containerPathTo == "" {
-			fmt.Println("eACL: ")
-			prettyPrintEACL(eaclTable)
+			cmd.Println("eACL: ")
+			prettyPrintEACL(cmd, eaclTable)
 
-			fmt.Println("Signature:")
-			printJSONMarshaler(sig, "signature")
+			cmd.Println("Signature:")
+			printJSONMarshaler(cmd, sig, "signature")
 
-			return nil
+			return
 		}
 
 		var data []byte
@@ -431,21 +456,25 @@ var getExtendedACLCmd = &cobra.Command{
 		if containerJSON {
 			data, err = eaclTable.MarshalJSON()
 			if err != nil {
-				return fmt.Errorf("can't enode to JSON: %w", err)
+				cmd.PrintErrln(fmt.Errorf("can't enode to JSON: %w", err))
+				return
 			}
 		} else {
 			data, err = eaclTable.Marshal()
 			if err != nil {
-				return fmt.Errorf("can't enode to binary: %w", err)
+				cmd.PrintErrln(fmt.Errorf("can't enode to binary: %w", err))
+				return
 			}
 		}
 
-		fmt.Println("dumping data to file:", containerPathTo)
+		cmd.Println("dumping data to file:", containerPathTo)
 
-		fmt.Println("Signature:")
-		printJSONMarshaler(sig, "signature")
+		cmd.Println("Signature:")
+		printJSONMarshaler(cmd, sig, "signature")
 
-		return ioutil.WriteFile(containerPathTo, data, 0644)
+		if err = ioutil.WriteFile(containerPathTo, data, 0644); err != nil {
+			cmd.PrintErrln(err)
+		}
 	},
 }
 
@@ -454,32 +483,37 @@ var setExtendedACLCmd = &cobra.Command{
 	Short: "Set new extended ACL table for container",
 	Long: `Set new extended ACL table for container.
 Container ID in EACL table will be substituted with ID from the CLI.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		id, err := parseContainerID(containerID)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		eaclTable, err := parseEACL(eaclPathFrom)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		tok, err := getSessionToken(sessionTokenPath)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		eaclTable.SetCID(id)
@@ -487,16 +521,18 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		err = cli.SetEACL(ctx, eaclTable, globalCallOptions()...)
 		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
+			return
 		}
 
 		if containerAwait {
 			exp, err := eaclTable.Marshal()
 			if err != nil {
-				return errors.New("broken EACL table")
+				cmd.PrintErrln("broken EACL table")
+				return
 			}
 
-			fmt.Println("awaiting...")
+			cmd.Println("awaiting...")
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
@@ -510,16 +546,15 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 					}
 
 					if bytes.Equal(exp, got) {
-						fmt.Println("EACL has been persisted on sidechain")
-						return nil
+						cmd.Println("EACL has been persisted on sidechain")
+						return
 					}
 				}
 			}
 
-			return errors.New("timeout: EACL has not been persisted on sidechain")
+			cmd.PrintErrln("timeout: EACL has not been persisted on sidechain")
+			return
 		}
-
-		return nil
 	},
 }
 
@@ -615,9 +650,9 @@ func getSessionToken(path string) (*session.Token, error) {
 	return tok, nil
 }
 
-func prettyPrintContainerList(list []*cid.ID) {
+func prettyPrintContainerList(cmd *cobra.Command, list []*cid.ID) {
 	for i := range list {
-		fmt.Println(list[i])
+		cmd.Println(list[i])
 	}
 }
 
@@ -730,7 +765,7 @@ func parseContainerID(idStr string) (*cid.ID, error) {
 	return id, nil
 }
 
-func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
+func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEncoding bool) {
 	if cnr == nil {
 		return
 	}
@@ -746,35 +781,35 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 			printVerbose("Can't pretty print json: %w", err)
 		}
 
-		fmt.Println(buf)
+		cmd.Println(buf)
 
 		return
 	}
 
 	id := container.CalculateID(cnr)
-	fmt.Println("container ID:", id)
+	cmd.Println("container ID:", id)
 
 	version := cnr.Version()
-	fmt.Printf("version: %d.%d\n", version.Major(), version.Minor())
+	cmd.Printf("version: %d.%d\n", version.Major(), version.Minor())
 
-	fmt.Println("owner ID:", cnr.OwnerID())
+	cmd.Println("owner ID:", cnr.OwnerID())
 
 	basicACL := cnr.BasicACL()
-	fmt.Printf("basic ACL: %s", strconv.FormatUint(uint64(basicACL), 16))
+	cmd.Printf("basic ACL: %s", strconv.FormatUint(uint64(basicACL), 16))
 	switch basicACL {
 	case acl.PublicBasicRule:
-		fmt.Printf(" (%s)\n", basicACLPublic)
+		cmd.Printf(" (%s)\n", basicACLPublic)
 	case acl.PrivateBasicRule:
-		fmt.Printf(" (%s)\n", basicACLPrivate)
+		cmd.Printf(" (%s)\n", basicACLPrivate)
 	case acl.ReadOnlyBasicRule:
-		fmt.Printf(" (%s)\n", basicACLReadOnly)
+		cmd.Printf(" (%s)\n", basicACLReadOnly)
 	default:
-		fmt.Println()
+		cmd.Println()
 	}
 
 	for _, attribute := range cnr.Attributes() {
 		if attribute.Key() == container.AttributeTimestamp {
-			fmt.Printf("attribute: %s=%s (%s)\n",
+			cmd.Printf("attribute: %s=%s (%s)\n",
 				attribute.Key(),
 				attribute.Value(),
 				prettyPrintUnixTime(attribute.Value()))
@@ -782,18 +817,18 @@ func prettyPrintContainer(cnr *container.Container, jsonEncoding bool) {
 			continue
 		}
 
-		fmt.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
+		cmd.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
 	}
 
 	nonce, err := cnr.NonceUUID()
 	if err == nil {
-		fmt.Println("nonce:", nonce)
+		cmd.Println("nonce:", nonce)
 	} else {
-		fmt.Println("invalid nonce:", err)
+		cmd.Println("invalid nonce:", err)
 	}
 
-	fmt.Println("placement policy:")
-	fmt.Println(strings.Join(policy.Encode(cnr.PlacementPolicy()), "\n"))
+	cmd.Println("placement policy:")
+	cmd.Println(strings.Join(policy.Encode(cnr.PlacementPolicy()), "\n"))
 }
 
 func parseEACL(eaclPath string) (*eacl.Table, error) {
@@ -823,11 +858,11 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 	return nil, fmt.Errorf("can't parse EACL table: %w", err)
 }
 
-func prettyPrintEACL(table *eacl.Table) {
-	printJSONMarshaler(table, "eACL")
+func prettyPrintEACL(cmd *cobra.Command, table *eacl.Table) {
+	printJSONMarshaler(cmd, table, "eACL")
 }
 
-func printJSONMarshaler(j json.Marshaler, entity string) {
+func printJSONMarshaler(cmd *cobra.Command, j json.Marshaler, entity string) {
 	data, err := j.MarshalJSON()
 	if err != nil {
 		printVerbose("Can't convert %s to json: %w", entity, err)
@@ -838,5 +873,5 @@ func printJSONMarshaler(j json.Marshaler, entity string) {
 		printVerbose("Can't pretty print json: %w", err)
 		return
 	}
-	fmt.Println(buf)
+	cmd.Println(buf)
 }

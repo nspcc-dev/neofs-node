@@ -24,14 +24,14 @@ var healthCheckCmd = &cobra.Command{
 	Use:   "healthcheck",
 	Short: "Health check of the storage node",
 	Long:  "Health check of the storage node",
-	RunE:  healthCheck,
+	Run:   healthCheck,
 }
 
 var setNetmapStatusCmd = &cobra.Command{
 	Use:   "set-status",
 	Short: "Set status of the storage node in NeoFS network map",
 	Long:  "Set status of the storage node in NeoFS network map",
-	RunE:  setNetmapStatus,
+	Run:   setNetmapStatus,
 }
 
 const (
@@ -79,20 +79,22 @@ func init() {
 	healthCheckCmd.Flags().BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
 }
 
-func healthCheck(cmd *cobra.Command, _ []string) error {
+func healthCheck(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cli, err := getSDKClient(key)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	if healthCheckIRVar {
 		healthCheckIR(cmd, key, cli)
-		return nil
+		return
 	}
 
 	req := new(control.HealthCheckRequest)
@@ -100,12 +102,14 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 	req.SetBody(new(control.HealthCheckRequest_Body))
 
 	if err := controlSvc.SignMessage(key, req); err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	resp, err := control.HealthCheck(cli.Raw(), req)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	sign := resp.GetSignature()
@@ -113,13 +117,12 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
 		return sign.GetKey(), sign.GetSign()
 	}); err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cmd.Printf("Network status: %s\n", resp.GetBody().GetNetmapStatus())
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
-
-	return nil
 }
 
 func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c client.Client) {
@@ -150,17 +153,19 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c client.Client) {
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 }
 
-func setNetmapStatus(cmd *cobra.Command, _ []string) error {
+func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	var status control.NetmapStatus
 
 	switch netmapStatus {
 	default:
-		return fmt.Errorf("unsupported status %s", netmapStatus)
+		cmd.PrintErrln(fmt.Errorf("unsupported status %s", netmapStatus))
+		return
 	case netmapStatusOnline:
 		status = control.NetmapStatus_ONLINE
 	case netmapStatusOffline:
@@ -175,17 +180,20 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 	body.SetStatus(status)
 
 	if err := controlSvc.SignMessage(key, req); err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cli, err := getSDKClient(key)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	resp, err := control.SetNetmapStatus(cli.Raw(), req)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	sign := resp.GetSignature()
@@ -193,12 +201,11 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
 		return sign.GetKey(), sign.GetSign()
 	}); err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cmd.Println("Network status update request successfully sent.")
-
-	return nil
 }
 
 const dropObjectsFlag = "objects"
@@ -209,10 +216,11 @@ var dropObjectsCmd = &cobra.Command{
 	Use:   "drop-objects",
 	Short: "Drop objects from the node's local storage",
 	Long:  "Drop objects from the node's local storage",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKey()
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		binAddrList := make([][]byte, 0, len(dropObjectsList))
@@ -222,12 +230,14 @@ var dropObjectsCmd = &cobra.Command{
 
 			err := a.Parse(dropObjectsList[i])
 			if err != nil {
-				return fmt.Errorf("could not parse address #%d: %w", i, err)
+				cmd.PrintErrln(fmt.Errorf("could not parse address #%d: %w", i, err))
+				return
 			}
 
 			binAddr, err := a.Marshal()
 			if err != nil {
-				return fmt.Errorf("could not marshal the address: %w", err)
+				cmd.PrintErrln(fmt.Errorf("could not marshal the address: %w", err))
+				return
 			}
 
 			binAddrList = append(binAddrList, binAddr)
@@ -241,17 +251,20 @@ var dropObjectsCmd = &cobra.Command{
 		body.SetAddressList(binAddrList)
 
 		if err := controlSvc.SignMessage(key, req); err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cli, err := getSDKClient(key)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		resp, err := control.DropObjects(cli.Raw(), req)
 		if err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		sign := resp.GetSignature()
@@ -259,11 +272,10 @@ var dropObjectsCmd = &cobra.Command{
 		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
 			return sign.GetKey(), sign.GetSign()
 		}); err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		cmd.Println("Objects were successfully marked to be removed.")
-
-		return nil
 	},
 }
