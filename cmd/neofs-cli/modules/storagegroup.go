@@ -26,28 +26,28 @@ var sgPutCmd = &cobra.Command{
 	Use:   "put",
 	Short: "Put storage group to NeoFS",
 	Long:  "Put storage group to NeoFS",
-	RunE:  putSG,
+	Run:   putSG,
 }
 
 var sgGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get storage group from NeoFS",
 	Long:  "Get storage group from NeoFS",
-	RunE:  getSG,
+	Run:   getSG,
 }
 
 var sgListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List storage groups in NeoFS container",
 	Long:  "List storage groups in NeoFS container",
-	RunE:  listSG,
+	Run:   listSG,
 }
 
 var sgDelCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete storage group from NeoFS",
 	Long:  "Delete storage group from NeoFS",
-	RunE:  delSG,
+	Run:   delSG,
 }
 
 const (
@@ -127,15 +127,17 @@ func sgBearerToken(cmd *cobra.Command) (*token.BearerToken, error) {
 	return getBearerToken(cmd, sgBearerFlag)
 }
 
-func putSG(cmd *cobra.Command, _ []string) error {
+func putSG(cmd *cobra.Command, _ []string) {
 	ownerID, err := getOwnerID()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cid, err := getCID(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	members := make([]*objectSDK.ID, 0, len(sgMembers))
@@ -143,7 +145,8 @@ func putSG(cmd *cobra.Command, _ []string) error {
 	for i := range sgMembers {
 		id := objectSDK.NewID()
 		if err := id.Parse(sgMembers[i]); err != nil {
-			return err
+			cmd.PrintErrln(err)
+			return
 		}
 
 		members = append(members, id)
@@ -151,14 +154,16 @@ func putSG(cmd *cobra.Command, _ []string) error {
 
 	bearerToken, err := sgBearerToken(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	sg, err := storagegroup.CollectMembers(&sgHeadReceiver{
@@ -168,12 +173,14 @@ func putSG(cmd *cobra.Command, _ []string) error {
 		bearerToken: bearerToken,
 	}, cid, members)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	sgContent, err := sg.Marshal()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	obj := objectSDK.NewRaw()
@@ -191,13 +198,12 @@ func putSG(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't put storage group: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't put storage group: %w", err))
+		return
 	}
 
 	cmd.Println("Storage group successfully stored")
 	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
-
-	return nil
 }
 
 func getSGID() (*objectSDK.ID, error) {
@@ -207,20 +213,23 @@ func getSGID() (*objectSDK.ID, error) {
 	return oid, err
 }
 
-func getSG(cmd *cobra.Command, _ []string) error {
+func getSG(cmd *cobra.Command, _ []string) {
 	cid, err := getCID(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	id, err := getSGID()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	bearerToken, err := sgBearerToken(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	addr := objectSDK.NewAddress()
@@ -231,7 +240,8 @@ func getSG(cmd *cobra.Command, _ []string) error {
 
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	obj, err := cli.GetObject(ctx,
@@ -243,12 +253,14 @@ func getSG(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't get storage group: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't get storage group: %w", err))
+		return
 	}
 
 	sg := storagegroupAPI.New()
 	if err := sg.Unmarshal(obj.Payload()); err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
@@ -262,26 +274,27 @@ func getSG(cmd *cobra.Command, _ []string) error {
 			cmd.Printf("\t%s\n", members[i])
 		}
 	}
-
-	return nil
 }
 
-func listSG(cmd *cobra.Command, _ []string) error {
+func listSG(cmd *cobra.Command, _ []string) {
 	cid, err := getCID(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	bearerToken, err := sgBearerToken(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ids, err := cli.SearchObject(ctx,
@@ -294,7 +307,8 @@ func listSG(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't search storage groups: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't search storage groups: %w", err))
+		return
 	}
 
 	cmd.Printf("Found %d storage groups.\n", len(ids))
@@ -302,31 +316,33 @@ func listSG(cmd *cobra.Command, _ []string) error {
 	for _, id := range ids {
 		cmd.Println(id)
 	}
-
-	return nil
 }
 
-func delSG(cmd *cobra.Command, _ []string) error {
+func delSG(cmd *cobra.Command, _ []string) {
 	cid, err := getCID(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	id, err := getSGID()
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	bearerToken, err := sgBearerToken(cmd)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	ctx := context.Background()
 
 	cli, tok, err := initSession(ctx)
 	if err != nil {
-		return err
+		cmd.PrintErrln(err)
+		return
 	}
 
 	addr := objectSDK.NewAddress()
@@ -342,11 +358,10 @@ func delSG(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't get storage group: %w", err)
+		cmd.PrintErrln(fmt.Errorf("can't get storage group: %w", err))
+		return
 	}
 
 	cmd.Println("Storage group removed successfully.")
 	cmd.Printf("  Tombstone: %s\n", tombstone.ObjectID())
-
-	return nil
 }
