@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,6 +49,7 @@ It contains commands for interaction with NeoFS nodes using different versions
 of neofs-api and some useful utilities for compiling ACL rules from JSON
 notation, managing container access through protocol gates, querying network map
 and much more!`,
+	Run: entryPoint,
 }
 
 var (
@@ -107,7 +109,23 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().Bool("version", false, "Application version and NeoFS API compatibility")
+}
+
+func entryPoint(cmd *cobra.Command, _ []string) {
+	printVersion, _ := cmd.Flags().GetBool("version")
+	if printVersion {
+		cmd.Printf(
+			"Version: %s \nBuild: %s \nDebug: %s\n",
+			misc.Version,
+			misc.Build,
+			misc.Debug,
+		)
+
+		return
+	}
+
+	_ = cmd.Usage()
 }
 
 // initConfig reads in config file and ENV variables if set.
