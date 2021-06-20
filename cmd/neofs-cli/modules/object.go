@@ -361,7 +361,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 			return nil
 		}
 
-		return fmt.Errorf("can't put object: %w", err)
+		return fmt.Errorf("can't get object: %w", err)
 	}
 
 	if filename != "" {
@@ -410,7 +410,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 			return nil
 		}
 
-		return fmt.Errorf("can't put object: %w", err)
+		return fmt.Errorf("can't get object header: %w", err)
 	}
 
 	return saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String())
@@ -444,7 +444,7 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("can't put object: %w", err)
+		return fmt.Errorf("can't search object: %w", err)
 	}
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for _, id := range ids {
@@ -492,7 +492,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 			)...,
 		)
 		if err != nil {
-			return fmt.Errorf("can't get object: %w", err)
+			return fmt.Errorf("can't get object header: %w", err)
 		}
 		switch typ {
 		case hashSha256:
