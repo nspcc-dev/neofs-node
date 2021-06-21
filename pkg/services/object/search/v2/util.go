@@ -6,7 +6,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
@@ -15,6 +14,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -45,7 +46,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(func(c client.Client) ([]*objectSDK.ID, error) {
+		p.SetRequestForwarder(func(addr network.Address, c client.Client) ([]*objectSDK.ID, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -65,7 +66,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				return nil, err
 			}
 
-			stream, err := rpc.SearchObjects(c.Raw(), req, rpcclient.WithContext(stream.Context()))
+			stream, err := rpc.SearchObjects(c.RawForAddress(addr), req, rpcclient.WithContext(stream.Context()))
 			if err != nil {
 				return nil, err
 			}

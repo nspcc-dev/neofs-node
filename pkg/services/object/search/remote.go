@@ -17,7 +17,7 @@ func (exec *execCtx) processNode(ctx context.Context, addr network.Address) {
 		return
 	}
 
-	ids, err := client.searchObjects(exec)
+	ids, err := client.searchObjects(exec, addr)
 
 	if err != nil {
 		exec.log.Debug("local operation failed",

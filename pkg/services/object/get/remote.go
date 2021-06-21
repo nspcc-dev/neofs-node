@@ -20,7 +20,7 @@ func (exec *execCtx) processNode(ctx context.Context, addr network.Address) bool
 		return true
 	}
 
-	obj, err := client.getObject(exec)
+	obj, err := client.getObject(exec, addr)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 

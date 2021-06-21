@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -22,7 +23,7 @@ type clientCacheWrapper struct {
 }
 
 type clientWrapper struct {
-	client client.Client
+	client coreclient.Client
 }
 
 type storageEngineWrapper struct {
@@ -80,9 +81,9 @@ func (c *clientCacheWrapper) get(addr network.Address) (getClient, error) {
 	}, err
 }
 
-func (c *clientWrapper) getObject(exec *execCtx) (*objectSDK.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx, addr network.Address) (*objectSDK.Object, error) {
 	if !exec.assembling && exec.prm.forwarder != nil {
-		return exec.prm.forwarder(c.client)
+		return exec.prm.forwarder(addr, c.client)
 	}
 
 	if exec.headOnly() {

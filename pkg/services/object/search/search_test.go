@@ -102,7 +102,7 @@ func (s *testStorage) search(exec *execCtx) ([]*objectSDK.ID, error) {
 	return v.ids, v.err
 }
 
-func (c *testStorage) searchObjects(exec *execCtx) ([]*objectSDK.ID, error) {
+func (c *testStorage) searchObjects(exec *execCtx, _ network.Address) ([]*objectSDK.ID, error) {
 	v, ok := c.items[exec.containerID().String()]
 	if !ok {
 		return nil, nil
