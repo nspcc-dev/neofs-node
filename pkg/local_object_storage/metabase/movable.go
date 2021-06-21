@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"go.etcd.io/bbolt"
 )
 
 // ToMoveItPrm groups the parameters of ToMoveIt operation.
@@ -63,15 +62,15 @@ func ToMoveIt(db *DB, addr *objectSDK.Address) error {
 // ToMoveIt marks objects to move it into another shard. This useful for
 // faster HRW fetching.
 func (db *DB) ToMoveIt(prm *ToMoveItPrm) (res *ToMoveItRes, err error) {
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		toMoveIt, err := tx.CreateBucketIfNotExists(toMoveItBucketName)
-		if err != nil {
-			return err
-		}
+	tx := db.db.NewBatch()
+	key := appendKey([]byte{toMoveItPrefix}, addressKey(prm.addr))
 
-		return toMoveIt.Put(addressKey(prm.addr), zeroValue)
-	})
+	err = tx.Set(key, zeroValue, nil)
+	if err != nil {
+		return
+	}
 
+	err = tx.Commit(nil)
 	return
 }
 
@@ -83,14 +82,8 @@ func DoNotMove(db *DB, addr *objectSDK.Address) error {
 
 // DoNotMove removes `MoveIt` mark from the object.
 func (db *DB) DoNotMove(prm *DoNotMovePrm) (res *DoNotMoveRes, err error) {
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		toMoveIt := tx.Bucket(toMoveItBucketName)
-		if toMoveIt == nil {
-			return nil
-		}
-
-		return toMoveIt.Delete(addressKey(prm.addr))
-	})
+	key := appendKey([]byte{toMoveItPrefix}, addressKey(prm.addr))
+	err = db.db.Delete(key, nil)
 
 	return
 }
@@ -109,20 +102,11 @@ func Movable(db *DB) ([]*objectSDK.Address, error) {
 func (db *DB) Movable(prm *MovablePrm) (*MovableRes, error) {
 	var strAddrs []string
 
-	err := db.boltDB.View(func(tx *bbolt.Tx) error {
-		toMoveIt := tx.Bucket(toMoveItBucketName)
-		if toMoveIt == nil {
-			return nil
-		}
+	iter := db.newPrefixIterator([]byte{toMoveItPrefix})
+	defer iter.Close()
 
-		return toMoveIt.ForEach(func(k, v []byte) error {
-			strAddrs = append(strAddrs, string(k))
-
-			return nil
-		})
-	})
-	if err != nil {
-		return nil, err
+	for iter.First(); iter.Valid(); iter.Next() {
+		strAddrs = append(strAddrs, string(iter.Key()[2:]))
 	}
 
 	// we can parse strings to structures in-place, but probably it seems

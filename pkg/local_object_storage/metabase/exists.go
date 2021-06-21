@@ -51,31 +51,32 @@ func Exists(db *DB, addr *objectSDK.Address) (bool, error) {
 func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 	res = new(ExistsRes)
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.exists, err = db.exists(tx, prm.addr)
-
-		return err
-	})
+	res.exists, err = db.exists(prm.addr)
 
 	return
 }
 
-func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err error) {
+func (db *DB) exists(addr *objectSDK.Address) (exists bool, err error) {
 	// check graveyard first
-	if inGraveyard(tx, addr) {
+	if db.inGraveyard(addr) {
 		return false, object.ErrAlreadyRemoved
 	}
 
 	objKey := objectKey(addr.ObjectID())
+	cidKey := cidBucketKey(addr.ContainerID(), primaryPrefix, objKey)
 
 	// if graveyard is empty, then check if object exists in primary bucket
-	if inBucket(tx, primaryBucketName(addr.ContainerID()), objKey) {
+	if db.hasKey(cidKey) {
 		return true, nil
 	}
 
 	// if primary bucket is empty, then check if object exists in parent bucket
-	if inBucket(tx, parentBucketName(addr.ContainerID()), objKey) {
-		splitInfo, err := getSplitInfo(tx, addr.ContainerID(), objKey)
+	cidKey[0] = parentPrefix
+	iter := db.newPrefixIterator(cidKey)
+	defer iter.Close()
+
+	if iter.First() {
+		splitInfo, err := db.getSplitInfo(addr.ContainerID(), objKey)
 		if err != nil {
 			return false, err
 		}
@@ -84,24 +85,20 @@ func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err er
 	}
 
 	// if parent bucket is empty, then check if object exists in tombstone bucket
-	if inBucket(tx, tombstoneBucketName(addr.ContainerID()), objKey) {
+	cidKey[0] = tombstonePrefix
+	if db.hasKey(cidKey) {
 		return true, nil
 	}
 
 	// if parent bucket is empty, then check if object exists in storage group bucket
-	return inBucket(tx, storageGroupBucketName(addr.ContainerID()), objKey), nil
+	cidKey[0] = storageGroupPrefix
+	return db.hasKey(cidKey), nil
 }
 
 // inGraveyard returns true if object was marked as removed.
-func inGraveyard(tx *bbolt.Tx, addr *objectSDK.Address) bool {
-	graveyard := tx.Bucket(graveyardBucketName)
-	if graveyard == nil {
-		return false
-	}
-
-	tombstone := graveyard.Get(addressKey(addr))
-
-	return len(tombstone) != 0
+func (db *DB) inGraveyard(addr *objectSDK.Address) bool {
+	key := append([]byte{graveyardPrefix}, addressKey(addr)...)
+	return db.hasKey(key)
 }
 
 // inBucket checks if key <key> is present in bucket <name>.
@@ -117,17 +114,29 @@ func inBucket(tx *bbolt.Tx, name, key []byte) bool {
 	return len(val) != 0
 }
 
+func (db *DB) hasKey(key []byte) bool {
+	_, c, err := db.db.Get(key)
+	if err != nil {
+		return false
+	}
+
+	c.Close()
+	return true
+}
+
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(tx *bbolt.Tx, cid *cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
-	rawSplitInfo := getFromBucket(tx, rootBucketName(cid), key)
-	if len(rawSplitInfo) == 0 {
+func (db *DB) getSplitInfo(cid *cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
+	cidKey := cidBucketKey(cid, rootPrefix, key)
+	rawSplitInfo, c, err := db.db.Get(cidKey)
+	if err != nil {
 		return nil, ErrLackSplitInfo
 	}
+	defer c.Close()
 
 	splitInfo := objectSDK.NewSplitInfo()
 
-	err := splitInfo.Unmarshal(rawSplitInfo)
+	err = splitInfo.Unmarshal(rawSplitInfo)
 	if err != nil {
 		return nil, fmt.Errorf("can't unmarshal split info from root index: %w", err)
 	}

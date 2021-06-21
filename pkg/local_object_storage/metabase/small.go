@@ -3,7 +3,6 @@ package meta
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"go.etcd.io/bbolt"
 )
 
 // IsSmallPrm groups the parameters of IsSmall operation.
@@ -49,25 +48,24 @@ func IsSmall(db *DB, addr *objectSDK.Address) (*blobovnicza.ID, error) {
 func (db *DB) IsSmall(prm *IsSmallPrm) (res *IsSmallRes, err error) {
 	res = new(IsSmallRes)
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.id, err = db.isSmall(tx, prm.addr)
-
-		return err
-	})
+	res.id, err = db.isSmall(prm.addr)
 
 	return
 }
 
-func (db *DB) isSmall(tx *bbolt.Tx, addr *objectSDK.Address) (*blobovnicza.ID, error) {
-	smallBucket := tx.Bucket(smallBucketName(addr.ContainerID()))
-	if smallBucket == nil {
+func (db *DB) isSmall(addr *objectSDK.Address) (*blobovnicza.ID, error) {
+	cidKey := cidBucketKey(addr.ContainerID(), smallPrefix, objectKey(addr.ObjectID()))
+	blobovniczaID, c, err := db.db.Get(cidKey)
+	if err != nil {
 		return nil, nil
 	}
+	defer c.Close()
 
-	blobovniczaID := smallBucket.Get(objectKey(addr.ObjectID()))
-	if len(blobovniczaID) == 0 {
-		return nil, nil
-	}
+	return blobovnicza.NewIDFromBytes(cloneBytes(blobovniczaID)), nil
+}
 
-	return blobovnicza.NewIDFromBytes(blobovniczaID), nil
+func cloneBytes(a []byte) []byte {
+	b := make([]byte, len(a))
+	copy(b, a)
+	return b
 }

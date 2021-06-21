@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cockroachdb/pebble"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -75,16 +75,12 @@ func Select(db *DB, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, er
 func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	res = new(SelectRes)
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, err = db.selectObjects(tx, prm.cid, prm.filters)
-
-		return err
-	})
+	res.addrList, err = db.selectObjects(prm.cid, prm.filters)
 
 	return res, err
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func (db *DB) selectObjects(cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
 	if cid == nil {
 		return nil, ErrMissingContainerID
 	}
@@ -114,10 +110,10 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 	if len(group.fastFilters) == 0 {
 		expLen = 1
 
-		db.selectAll(tx, cid, mAddr)
+		db.selectAll(cid, mAddr)
 	} else {
 		for i := range group.fastFilters {
-			db.selectFastFilter(tx, cid, group.fastFilters[i], mAddr, i)
+			db.selectFastFilter(cid, group.fastFilters[i], mAddr, i)
 		}
 	}
 
@@ -134,11 +130,11 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 			return nil, err
 		}
 
-		if inGraveyard(tx, addr) {
+		if db.inGraveyard(addr) {
 			continue // ignore removed objects
 		}
 
-		if !db.matchSlowFilters(tx, addr, group.slowFilters) {
+		if !db.matchSlowFilters(addr, group.slowFilters) {
 			continue // ignore objects with unmatched slow filters
 		}
 
@@ -149,35 +145,66 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 }
 
 // selectAll adds to resulting cache all available objects in metabase.
-func (db *DB) selectAll(tx *bbolt.Tx, cid *cid.ID, to map[string]int) {
+func (db *DB) selectAll(cid *cid.ID, to map[string]int) {
 	prefix := cid.String() + "/"
+	name := cidBucketKey(cid, primaryPrefix, nil)
+	db.selectAllFromBucket(name, prefix, to, 0)
 
-	selectAllFromBucket(tx, primaryBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, tombstoneBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, storageGroupBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, parentBucketName(cid), prefix, to, 0)
+	name[0] = tombstonePrefix
+	db.selectAllFromBucket(name, prefix, to, 0)
+
+	name[0] = storageGroupPrefix
+	db.selectAllFromBucket(name, prefix, to, 0)
+
+	name[0] = parentPrefix
+	db.selectAllFromBucket(name, prefix, to, 0)
 }
 
 // selectAllFromBucket goes through all keys in bucket and adds them in a
 // resulting cache. Keys should be stringed object ids.
-func selectAllFromBucket(tx *bbolt.Tx, name []byte, prefix string, to map[string]int, fNum int) {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return
+func (db *DB) selectAllFromBucket(name []byte, prefix string, to map[string]int, fNum int) {
+	iter := db.newPrefixIterator(name)
+	defer iter.Close()
+
+	for iter.First(); iter.Valid(); iter.Next() {
+		parts := splitKey(iter.Key())
+		if len(parts) >= 2 {
+			key := prefix + string(parts[1]) // consider using string builders from sync.Pool
+			markAddressInCache(to, fNum, key)
+		}
+	}
+}
+
+func nextKey(key []byte) []byte {
+	nxt := make([]byte, len(key))
+	copy(nxt, key)
+
+	for i := len(nxt) - 1; i >= 0; i-- {
+		if nxt[i] != 0xFF {
+			nxt[i]++
+			return nxt
+		}
 	}
 
-	_ = bkt.ForEach(func(k, v []byte) error {
-		key := prefix + string(k) // consider using string builders from sync.Pool
-		markAddressInCache(to, fNum, key)
+	// key consists of 0xFF bytes, return unchanged.
+	return nxt
+}
 
-		return nil
+func (db *DB) newPrefixIterator(start []byte) *pebble.Iterator {
+	var end []byte
+	if len(start) != 0 {
+		end = nextKey(start)
+	}
+
+	return db.db.NewIter(&pebble.IterOptions{
+		LowerBound: start,
+		UpperBound: end,
 	})
 }
 
 // selectFastFilter makes fast optimized checks for well known buckets or
 // looking through user attribute buckets otherwise.
 func (db *DB) selectFastFilter(
-	tx *bbolt.Tx,
 	cid *cid.ID, // container we search on
 	f object.SearchFilter, // fast filter
 	to map[string]int, // resulting cache
@@ -187,36 +214,37 @@ func (db *DB) selectFastFilter(
 
 	switch f.Header() {
 	case v2object.FilterHeaderObjectID:
-		db.selectObjectID(tx, f, cid, to, fNum)
+		db.selectObjectID(f, cid, to, fNum)
 	case v2object.FilterHeaderOwnerID:
-		bucketName := ownerBucketName(cid)
-		db.selectFromFKBT(tx, bucketName, f, prefix, to, fNum)
+		bucketName := cidBucketKey(cid, ownerPrefix, nil)
+		db.selectFromFKBT(bucketName, f, prefix, to, fNum)
 	case v2object.FilterHeaderPayloadHash:
-		bucketName := payloadHashBucketName(cid)
-		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
+		bucketName := cidBucketKey(cid, payloadHashPrefix, nil)
+		db.selectFromList(bucketName, f, prefix, to, fNum)
 	case v2object.FilterHeaderObjectType:
 		for _, bucketName := range bucketNamesForType(cid, f.Operation(), f.Value()) {
-			selectAllFromBucket(tx, bucketName, prefix, to, fNum)
+			db.selectAllFromBucket(bucketName, prefix, to, fNum)
 		}
 	case v2object.FilterHeaderParent:
-		bucketName := parentBucketName(cid)
-		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
+		bucketName := cidBucketKey(cid, parentPrefix, nil)
+		db.selectFromList(bucketName, f, prefix, to, fNum)
 	case v2object.FilterHeaderSplitID:
-		bucketName := splitBucketName(cid)
-		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
+		bucketName := cidBucketKey(cid, splitPrefix, nil)
+		db.selectFromList(bucketName, f, prefix, to, fNum)
 	case v2object.FilterPropertyRoot:
-		selectAllFromBucket(tx, rootBucketName(cid), prefix, to, fNum)
+		bucketName := cidBucketKey(cid, rootPrefix, nil)
+		db.selectAllFromBucket(bucketName, prefix, to, fNum)
 	case v2object.FilterPropertyPhy:
-		selectAllFromBucket(tx, primaryBucketName(cid), prefix, to, fNum)
-		selectAllFromBucket(tx, tombstoneBucketName(cid), prefix, to, fNum)
-		selectAllFromBucket(tx, storageGroupBucketName(cid), prefix, to, fNum)
+		db.selectAllFromBucket(cidBucketKey(cid, primaryPrefix, nil), prefix, to, fNum)
+		db.selectAllFromBucket(cidBucketKey(cid, tombstonePrefix, nil), prefix, to, fNum)
+		db.selectAllFromBucket(cidBucketKey(cid, storageGroupPrefix, nil), prefix, to, fNum)
 	default: // user attribute
-		bucketName := attributeBucketName(cid, f.Header())
+		bucketName := cidBucketKey(cid, attributePrefix, []byte(f.Header()))
 
 		if f.Operation() == object.MatchNotPresent {
-			selectOutsideFKBT(tx, allBucketNames(cid), bucketName, f, prefix, to, fNum)
+			db.selectOutsideFKBT(allBucketNames(cid), bucketName, f, prefix, to, fNum)
 		} else {
-			db.selectFromFKBT(tx, bucketName, f, prefix, to, fNum)
+			db.selectFromFKBT(bucketName, f, prefix, to, fNum)
 		}
 	}
 }
@@ -266,7 +294,6 @@ func bucketNamesForType(cid *cid.ID, mType object.SearchMatchType, typeVal strin
 // selectFromList looks into <fkbt> index to find list of addresses to add in
 // resulting cache.
 func (db *DB) selectFromFKBT(
-	tx *bbolt.Tx,
 	name []byte, // fkbt root bucket name
 	f object.SearchFilter, // filter for operation and value
 	prefix string, // prefix to create addr from oid in index
@@ -280,37 +307,22 @@ func (db *DB) selectFromFKBT(
 		return
 	}
 
-	fkbtRoot := tx.Bucket(name)
-	if fkbtRoot == nil {
-		return
-	}
+	iter := db.newPrefixIterator(name)
+	defer iter.Close()
 
-	err := fkbtRoot.ForEach(func(k, _ []byte) error {
-		if matchFunc(f.Header(), k, f.Value()) {
-			fkbtLeaf := fkbtRoot.Bucket(k)
-			if fkbtLeaf == nil {
-				return nil
-			}
-
-			return fkbtLeaf.ForEach(func(k, _ []byte) error {
-				addr := prefix + string(k)
-				markAddressInCache(to, fNum, addr)
-
-				return nil
-			})
+	for iter.First(); iter.Valid(); iter.Next() {
+		parts := splitKey(iter.Key())
+		if len(parts) < 4 || !matchFunc(f.Header(), parts[2], f.Value()) {
+			continue
 		}
-
-		return nil
-	})
-	if err != nil {
-		db.log.Debug("error in FKBT selection", zap.String("error", err.Error()))
+		addr := prefix + string(parts[3])
+		markAddressInCache(to, fNum, addr)
 	}
 }
 
 // selectOutsideFKBT looks into all incl buckets to find list of addresses outside <fkbt> to add in
 // resulting cache.
-func selectOutsideFKBT(
-	tx *bbolt.Tx,
+func (db *DB) selectOutsideFKBT(
 	incl [][]byte, // buckets
 	name []byte, // fkbt root bucket name
 	f object.SearchFilter, // filter for operation and value
@@ -320,67 +332,56 @@ func selectOutsideFKBT(
 ) {
 	mExcl := make(map[string]struct{})
 
-	bktExcl := tx.Bucket(name)
-	if bktExcl != nil {
-		_ = bktExcl.ForEach(func(k, _ []byte) error {
-			exclBktLeaf := bktExcl.Bucket(k)
-			if exclBktLeaf == nil {
-				return nil
-			}
+	iter := db.newPrefixIterator(name)
+	defer iter.Close()
 
-			return exclBktLeaf.ForEach(func(k, _ []byte) error {
-				addr := prefix + string(k)
-				mExcl[addr] = struct{}{}
-
-				return nil
-			})
-		})
+	for iter.First(); iter.Valid(); iter.Next() {
+		parts := splitKey(iter.Key())
+		if len(parts) >= 4 {
+			addr := prefix + string(parts[3])
+			mExcl[addr] = struct{}{}
+		}
 	}
 
 	for i := range incl {
-		bktIncl := tx.Bucket(incl[i])
-		if bktIncl == nil {
-			continue
-		}
+		iter := db.newPrefixIterator(incl[i])
+		defer iter.Close()
 
-		_ = bktIncl.ForEach(func(k, _ []byte) error {
-			addr := prefix + string(k)
-
-			if _, ok := mExcl[addr]; !ok {
-				markAddressInCache(to, fNum, addr)
+		for iter.First(); iter.Valid(); iter.Next() {
+			parts := splitKey(iter.Key())
+			if len(parts) >= 2 {
+				addr := prefix + string(parts[1])
+				if _, ok := mExcl[addr]; !ok {
+					markAddressInCache(to, fNum, addr)
+				}
 			}
-
-			return nil
-		})
+		}
 	}
 }
 
 // selectFromList looks into <list> index to find list of addresses to add in
 // resulting cache.
 func (db *DB) selectFromList(
-	tx *bbolt.Tx,
 	name []byte, // list root bucket name
 	f object.SearchFilter, // filter for operation and value
 	prefix string, // prefix to create addr from oid in index
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) { //
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return
-	}
 
 	var (
 		lst [][]byte
-		err error
 	)
 
 	switch op := f.Operation(); op {
 	case object.MatchStringEqual:
-		lst, err = decodeList(bkt.Get(bucketKeyHelper(f.Header(), f.Value())))
-		if err != nil {
-			db.log.Debug("can't decode list bucket leaf", zap.String("error", err.Error()))
-			return
+		bk := bucketKeyHelper(f.Header(), f.Value())
+		iter := db.newPrefixIterator(appendKey(name, bk))
+		defer iter.Close()
+
+		for iter.First(); iter.Valid(); iter.Next() {
+			parts := splitKey(iter.Key())
+			lst = append(lst, cloneBytes(parts[2]))
 		}
 	default:
 		fMatch, ok := db.matchers[op]
@@ -390,29 +391,17 @@ func (db *DB) selectFromList(
 			return
 		}
 
-		if err = bkt.ForEach(func(key, val []byte) error {
-			if !fMatch(f.Header(), key, f.Value()) {
-				return nil
+		iter := db.newPrefixIterator(name)
+		defer iter.Close()
+
+		for iter.First(); iter.Valid(); iter.Next() {
+			parts := splitKey(iter.Key())
+
+			if len(parts) < 3 || !fMatch(f.Header(), parts[1], f.Value()) {
+				continue
 			}
 
-			l, err := decodeList(val)
-			if err != nil {
-				db.log.Debug("can't decode list bucket leaf",
-					zap.String("error", err.Error()),
-				)
-
-				return err
-			}
-
-			lst = append(lst, l...)
-
-			return nil
-		}); err != nil {
-			db.log.Debug("can't iterate over the bucket",
-				zap.String("error", err.Error()),
-			)
-
-			return
+			lst = append(lst, cloneBytes(parts[2]))
 		}
 	}
 
@@ -424,7 +413,6 @@ func (db *DB) selectFromList(
 
 // selectObjectID processes objectID filter with in-place optimizations.
 func (db *DB) selectObjectID(
-	tx *bbolt.Tx,
 	f object.SearchFilter,
 	cid *cid.ID,
 	to map[string]int, // resulting cache
@@ -444,7 +432,7 @@ func (db *DB) selectObjectID(
 			return
 		}
 
-		ok, err := db.exists(tx, addr)
+		ok, err := db.exists(addr)
 		if (err == nil && ok) || errors.As(err, &splitInfoError) {
 			markAddressInCache(to, fNum, addrStr)
 		}
@@ -465,34 +453,26 @@ func (db *DB) selectObjectID(
 
 		for _, bucketName := range bucketNamesForType(cid, object.MatchStringNotEqual, "") {
 			// copy-paste from DB.selectAllFrom
-			bkt := tx.Bucket(bucketName)
-			if bkt == nil {
-				return
-			}
+			iter := db.newPrefixIterator(bucketName)
+			defer iter.Close()
 
-			err := bkt.ForEach(func(k, v []byte) error {
-				if oid := string(k); fMatch(f.Header(), k, f.Value()) {
-					appendOID(oid)
+			for iter.First(); iter.Valid(); iter.Next() {
+				parts := splitKey(iter.Key())
+				if len(parts) >= 2 && fMatch(f.Header(), parts[1], f.Value()) {
+					appendOID(string(parts[1]))
 				}
-
-				return nil
-			})
-			if err != nil {
-				db.log.Debug("could not iterate over the buckets",
-					zap.String("error", err.Error()),
-				)
 			}
 		}
 	}
 }
 
 // matchSlowFilters return true if object header is matched by all slow filters.
-func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *object.Address, f object.SearchFilters) bool {
+func (db *DB) matchSlowFilters(addr *object.Address, f object.SearchFilters) bool {
 	if len(f) == 0 {
 		return true
 	}
 
-	obj, err := db.get(tx, addr, true, false)
+	obj, err := db.get(addr, true, false)
 	if err != nil {
 		return false
 	}

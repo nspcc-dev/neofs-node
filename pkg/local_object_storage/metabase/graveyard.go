@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"go.etcd.io/bbolt"
 )
 
 // Grave represents descriptor of DB's graveyard item.
@@ -34,29 +33,29 @@ type GraveHandler func(*Grave) error
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
 func (db *DB) IterateOverGraveyard(h GraveHandler) error {
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateOverGraveyard(tx, h)
-	})
+	return db.iterateOverGraveyard(h)
 }
 
-func (db *DB) iterateOverGraveyard(tx *bbolt.Tx, h GraveHandler) error {
-	// get graveyard bucket
-	bktGraveyard := tx.Bucket(graveyardBucketName)
-	if bktGraveyard == nil {
-		return nil
-	}
+func (db *DB) iterateOverGraveyard(h GraveHandler) error {
+	iter := db.newPrefixIterator([]byte{graveyardPrefix})
+	defer iter.Close()
+
+	var err error
 
 	// iterate over all graves
-	err := bktGraveyard.ForEach(func(k, v []byte) error {
+	for iter.First(); err == nil && iter.Valid(); iter.Next() {
+		var g *Grave
+
 		// parse Grave
-		g, err := graveFromKV(k, v)
+		g, err = graveFromKV(iter.Key()[1:], iter.Value())
 		if err != nil {
-			return fmt.Errorf("could not parse Grave: %w", err)
+			err = fmt.Errorf("could not parse Grave: %w", err)
+			break
 		}
 
 		// handler Grave
-		return h(g)
-	})
+		err = h(g)
+	}
 
 	if errors.Is(err, ErrInterruptIterator) {
 		err = nil

@@ -1,9 +1,6 @@
 package meta
 
 import (
-	"bytes"
-	"strings"
-
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 )
@@ -17,90 +14,79 @@ bytes. Check it later.
 
 const invalidBase58String = "_"
 
+const (
+	graveyardPrefix       = 0x01
+	toMoveItPrefix        = 0x02
+	containerVolumePrefix = 0x03
+	primaryPrefix         = 0x04
+	smallPrefix           = 0x05
+	tombstonePrefix       = 0x06
+	storageGroupPrefix    = 0x07
+	ownerPrefix           = 0x08
+	payloadHashPrefix     = 0x09
+	rootPrefix            = 0x0A
+	parentPrefix          = 0x0B
+	splitPrefix           = 0x0C
+	attributePrefix       = 0x0D
+)
+
 var (
-	graveyardBucketName       = []byte(invalidBase58String + "Graveyard")
-	toMoveItBucketName        = []byte(invalidBase58String + "ToMoveIt")
-	containerVolumeBucketName = []byte(invalidBase58String + "ContainerSize")
-
 	zeroValue = []byte{0xFF}
-
-	smallPostfix        = invalidBase58String + "small"
-	storageGroupPostfix = invalidBase58String + "SG"
-	tombstonePostfix    = invalidBase58String + "TS"
-	ownerPostfix        = invalidBase58String + "ownerid"
-	payloadHashPostfix  = invalidBase58String + "payloadhash"
-	rootPostfix         = invalidBase58String + "root"
-	parentPostfix       = invalidBase58String + "parent"
-	splitPostfix        = invalidBase58String + "splitid"
-
-	userAttributePostfix = invalidBase58String + "attr_"
 
 	splitInfoError *object.SplitInfoError // for errors.As comparisons
 )
 
+func cidBucketKey(cid *cid.ID, bucket byte, subKey []byte) []byte {
+	cidBytes := cid.ToV2().GetValue()
+	key := make([]byte, 0, 1+1+len(cidBytes))
+	key = append(key, bucket)
+	key = appendKey(key, cidBytes)
+	if subKey != nil {
+		key = appendKey(key, subKey)
+	}
+
+	return key
+}
+
+func splitKey(key []byte) [][]byte {
+	var res [][]byte
+	if len(key) <= 1 {
+		return res
+	}
+
+	for i := 1; i < len(key); {
+		sz := int(key[i])
+		res = append(res, key[i+1:i+1+sz])
+		i += sz + 1
+	}
+
+	return res
+}
+
+func appendKey(key []byte, name []byte) []byte {
+	key = append(key, byte(len(name)))
+	key = append(key, name...)
+	return key
+}
+
 // primaryBucketName returns <CID>.
 func primaryBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String())
+	return cidBucketKey(cid, primaryPrefix, nil)
 }
 
 // tombstoneBucketName returns <CID>_TS.
 func tombstoneBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + tombstonePostfix)
+	return cidBucketKey(cid, tombstonePrefix, nil)
 }
 
 // storageGroupBucketName returns <CID>_SG.
 func storageGroupBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + storageGroupPostfix)
-}
-
-// smallBucketName returns <CID>_small.
-func smallBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + smallPostfix) // consider caching output values
-}
-
-// attributeBucketName returns <CID>_attr_<attributeKey>.
-func attributeBucketName(cid *cid.ID, attributeKey string) []byte {
-	sb := strings.Builder{} // consider getting string builders from sync.Pool
-	sb.WriteString(cid.String())
-	sb.WriteString(userAttributePostfix)
-	sb.WriteString(attributeKey)
-
-	return []byte(sb.String())
-}
-
-// returns <CID> from attributeBucketName result, nil otherwise.
-func cidFromAttributeBucket(val []byte, attributeKey string) []byte {
-	suffix := []byte(userAttributePostfix + attributeKey)
-	if !bytes.HasSuffix(val, suffix) {
-		return nil
-	}
-
-	return val[:len(val)-len(suffix)]
-}
-
-// payloadHashBucketName returns <CID>_payloadhash.
-func payloadHashBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + payloadHashPostfix)
-}
-
-// rootBucketName returns <CID>_root.
-func rootBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + rootPostfix)
-}
-
-// ownerBucketName returns <CID>_ownerid.
-func ownerBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + ownerPostfix)
+	return cidBucketKey(cid, storageGroupPrefix, nil)
 }
 
 // parentBucketName returns <CID>_parent.
 func parentBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + parentPostfix)
-}
-
-// splitBucketName returns <CID>_splitid.
-func splitBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + splitPostfix)
+	return cidBucketKey(cid, parentPrefix, nil)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.

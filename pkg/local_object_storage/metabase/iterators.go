@@ -8,7 +8,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"go.etcd.io/bbolt"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 )
 
 // ExpiredObject is a descriptor of expired object from DB.
@@ -41,72 +41,72 @@ var ErrInterruptIterator = errors.New("iterator is interrupted")
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
 func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateExpired(tx, epoch, h)
-	})
+	return db.iterateExpired(epoch, h)
 }
 
-func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler) error {
-	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		cidBytes := cidFromAttributeBucket(name, objectV2.SysAttributeExpEpoch)
-		if cidBytes == nil {
-			return nil
+func (db *DB) iterateExpired(epoch uint64, h ExpiredObjectHandler) error {
+	iter := db.newPrefixIterator([]byte{attributePrefix})
+	defer iter.Close()
+
+	for iter.First(); iter.Valid(); iter.Next() {
+		parts := splitKey(iter.Key())
+
+		if len(parts) < 4 || string(parts[1]) != objectV2.SysAttributeExpEpoch {
+			continue
 		}
 
-		return b.ForEach(func(expKey, _ []byte) error {
-			bktExpired := b.Bucket(expKey)
-			if bktExpired == nil {
-				return nil
-			}
+		cidBytes := parts[0]
+		var cidV2 refs.ContainerID
+		cidV2.SetValue(cidBytes)
+		cnrID := cid.NewFromV2(&cidV2)
+		//err := cnrID.Parse(string(cidBytes))
+		//if err != nil {
+		//	return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
+		//}
 
-			expiresAt, err := strconv.ParseUint(string(expKey), 10, 64)
-			if err != nil {
-				return fmt.Errorf("could not parse expiration epoch: %w", err)
-			} else if expiresAt >= epoch {
-				return nil
-			}
+		expKey := parts[2]
+		expiresAt, err := strconv.ParseUint(string(expKey), 10, 64)
+		if err != nil {
+			return fmt.Errorf("could not parse expiration epoch: %w", err)
+		} else if expiresAt >= epoch {
+			continue
+		}
 
-			return bktExpired.ForEach(func(idKey, _ []byte) error {
-				id := object.NewID()
+		idKey := parts[3]
+		id := object.NewID()
 
-				err = id.Parse(string(idKey))
-				if err != nil {
-					return fmt.Errorf("could not parse ID of expired object: %w", err)
-				}
+		err = id.Parse(string(idKey))
+		if err != nil {
+			return fmt.Errorf("could not parse ID of expired object: %w", err)
+		}
 
-				cnrID := cid.New()
+		addr := object.NewAddress()
+		addr.SetContainerID(cnrID)
+		addr.SetObjectID(id)
 
-				err = cnrID.Parse(string(cidBytes))
-				if err != nil {
-					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
-				}
-
-				addr := object.NewAddress()
-				addr.SetContainerID(cnrID)
-				addr.SetObjectID(id)
-
-				return h(&ExpiredObject{
-					typ:  objectType(tx, cnrID, idKey),
-					addr: addr,
-				})
-			})
+		err = h(&ExpiredObject{
+			typ:  db.objectType(cnrID, idKey),
+			addr: addr,
 		})
-	})
 
-	if errors.Is(err, ErrInterruptIterator) {
-		err = nil
+		if err != nil {
+			if errors.Is(err, ErrInterruptIterator) {
+				return nil
+			}
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
-func objectType(tx *bbolt.Tx, cid *cid.ID, oidBytes []byte) object.Type {
+func (db *DB) objectType(cid *cid.ID, oidBytes []byte) object.Type {
 	switch {
 	default:
 		return object.TypeRegular
-	case inBucket(tx, tombstoneBucketName(cid), oidBytes):
+	case db.hasKey(cidBucketKey(cid, tombstonePrefix, oidBytes)):
 		return object.TypeTombstone
-	case inBucket(tx, storageGroupBucketName(cid), oidBytes):
+	case db.hasKey(cidBucketKey(cid, storageGroupPrefix, oidBytes)):
 		return object.TypeStorageGroup
 	}
 }
@@ -119,33 +119,31 @@ func objectType(tx *bbolt.Tx, cid *cid.ID, oidBytes []byte) object.Type {
 //
 // Does not modify tss.
 func (db *DB) IterateCoveredByTombstones(tss map[string]struct{}, h func(*object.Address) error) error {
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateCoveredByTombstones(tx, tss, h)
-	})
+	return db.iterateCoveredByTombstones(tss, h)
 }
 
-func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, h func(*object.Address) error) error {
-	bktGraveyard := tx.Bucket(graveyardBucketName)
-	if bktGraveyard == nil {
-		return nil
-	}
+func (db *DB) iterateCoveredByTombstones(tss map[string]struct{}, h func(*object.Address) error) error {
+	iter := db.newPrefixIterator([]byte{graveyardPrefix})
+	defer iter.Close()
 
-	err := bktGraveyard.ForEach(func(k, v []byte) error {
-		if _, ok := tss[string(v)]; ok {
-			addr, err := addressFromKey(k)
-			if err != nil {
-				return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
-			}
-
-			return h(addr)
+	for iter.First(); iter.Valid(); iter.Next() {
+		if _, ok := tss[string(iter.Value()[1:])]; !ok {
+			continue
 		}
 
-		return nil
-	})
+		addr, err := addressFromKey(iter.Key()[1:])
+		if err != nil {
+			return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
+		}
 
-	if errors.Is(err, ErrInterruptIterator) {
-		err = nil
+		err = h(addr)
+		if err != nil {
+			if errors.Is(err, ErrInterruptIterator) {
+				return nil
+			}
+			return err
+		}
 	}
 
-	return err
+	return nil
 }

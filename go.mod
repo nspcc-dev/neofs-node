@@ -3,6 +3,7 @@ module github.com/nspcc-dev/neofs-node
 go 1.16
 
 require (
+	github.com/cockroachdb/pebble v0.0.0-20210616164745-bd9aafed099a
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4

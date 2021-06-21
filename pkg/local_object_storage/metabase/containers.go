@@ -2,60 +2,51 @@ package meta
 
 import (
 	"encoding/binary"
+	"io"
 	"strings"
 
+	"github.com/cockroachdb/pebble"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"go.etcd.io/bbolt"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 )
 
 func (db *DB) Containers() (list []*cid.ID, err error) {
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		list, err = db.containers(tx)
-
-		return err
-	})
-
-	return list, err
+	return db.containers()
 }
 
-func (db *DB) containers(tx *bbolt.Tx) ([]*cid.ID, error) {
+func (db *DB) containers() ([]*cid.ID, error) {
 	result := make([]*cid.ID, 0)
 
-	err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-		id, err := parseContainerID(name)
-		if err != nil {
-			return err
-		}
+	key := []byte{primaryPrefix}
+	iter := db.newPrefixIterator(key)
+	defer iter.Close()
 
-		if id != nil {
-			result = append(result, id)
-		}
+	for iter.First(); iter.Valid(); iter.SeekGE(key) {
+		parts := splitKey(iter.Key())
 
-		return nil
-	})
+		var cidV2 refs.ContainerID
+		cidV2.SetValue(cloneBytes(parts[0]))
+		result = append(result, cid.NewFromV2(&cidV2))
 
-	return result, err
+		key = nextKey(appendKey(key[:1], parts[0]))
+	}
+
+	return result, nil
 }
 
 func (db *DB) ContainerSize(id *cid.ID) (size uint64, err error) {
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		size, err = db.containerSize(tx, id)
-
-		return err
-	})
-
-	return size, err
+	return db.containerSize(id)
 }
 
-func (db *DB) containerSize(tx *bbolt.Tx, id *cid.ID) (uint64, error) {
-	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
+func (db *DB) containerSize(id *cid.ID) (uint64, error) {
+	key := cidBucketKey(id, containerVolumePrefix, nil)
+	sz, c, err := db.db.Get(key)
 	if err != nil {
 		return 0, err
 	}
+	defer c.Close()
 
-	key := id.ToV2().GetValue()
-
-	return parseContainerSize(containerVolume.Get(key)), nil
+	return parseContainerSize(sz), nil
 }
 
 func parseContainerID(name []byte) (*cid.ID, error) {
@@ -78,25 +69,45 @@ func parseContainerSize(v []byte) uint64 {
 	return binary.LittleEndian.Uint64(v)
 }
 
-func changeContainerSize(tx *bbolt.Tx, id *cid.ID, delta uint64, increase bool) error {
-	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
-	if err != nil {
-		return err
-	}
-
-	key := id.ToV2().GetValue()
-	size := parseContainerSize(containerVolume.Get(key))
-
-	if increase {
-		size += delta
-	} else if size > delta {
-		size -= delta
-	} else {
-		size = 0
+func (db *DB) changeContainerSize(tx *pebble.Batch, id *cid.ID, delta uint64, increase bool) error {
+	if !increase {
+		delta = uint64(-int64(delta))
 	}
 
 	buf := make([]byte, 8) // consider using sync.Pool to decrease allocations
-	binary.LittleEndian.PutUint64(buf, size)
+	binary.LittleEndian.PutUint64(buf, delta)
 
-	return containerVolume.Put(key, buf)
+	key := cidBucketKey(id, containerVolumePrefix, nil)
+	return tx.Merge(key, buf, nil)
+}
+
+var valueMerger = &pebble.Merger{
+	Merge: merger,
+	Name:  "neofs.addUint64",
+}
+
+func merger(_, v []byte) (pebble.ValueMerger, error) {
+	return &mergeAdd{
+		size: int64(binary.LittleEndian.Uint64(v)),
+	}, nil
+}
+
+type mergeAdd struct {
+	size int64
+	buf  [8]byte
+}
+
+func (m *mergeAdd) MergeNewer(value []byte) error {
+	m.size += int64(binary.LittleEndian.Uint64(value))
+	return nil
+}
+
+func (m *mergeAdd) MergeOlder(value []byte) error {
+	m.size += int64(binary.LittleEndian.Uint64(value))
+	return nil
+}
+
+func (m *mergeAdd) Finish(includesBase bool) ([]byte, io.Closer, error) {
+	binary.LittleEndian.PutUint64(m.buf[:], uint64(m.size))
+	return m.buf[:], nil, nil
 }

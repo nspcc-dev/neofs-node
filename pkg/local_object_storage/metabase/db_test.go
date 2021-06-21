@@ -56,7 +56,7 @@ func newDB(t testing.TB) *meta.DB {
 
 func releaseDB(db *meta.DB) {
 	db.Close()
-	os.Remove(db.DumpInfo().Path)
+	os.RemoveAll(db.DumpInfo().Path)
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {

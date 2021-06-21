@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
-	"go.etcd.io/bbolt"
 )
 
 type (
@@ -65,17 +65,18 @@ func Put(db *DB, obj *object.Object, id *blobovnicza.ID) error {
 // Put saves object header in metabase. Object payload expected to be cut.
 // Big objects have nil blobovniczaID.
 func (db *DB) Put(prm *PutPrm) (res *PutRes, err error) {
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, prm.obj, prm.id, nil)
-	})
+	b := db.db.NewBatch()
+	if err = db.put(b, prm.obj, prm.id, nil); err == nil {
+		err = b.Commit(nil)
+	}
 
 	return
 }
 
-func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *objectSDK.SplitInfo) error {
+func (db *DB) put(tx *pebble.Batch, obj *object.Object, id *blobovnicza.ID, si *objectSDK.SplitInfo) error {
 	isParent := si != nil
 
-	exists, err := db.exists(tx, obj.Address())
+	exists, err := db.exists(obj.Address())
 
 	if errors.As(err, &splitInfoError) {
 		exists = true // object exists, however it is virtual
@@ -97,7 +98,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 		// a linking object to put (or vice versa), we should update split info
 		// with object ids of these objects
 		if isParent {
-			return updateSplitInfo(tx, obj.Address(), si)
+			return db.updateSplitInfo(tx, obj.Address(), si)
 		}
 
 		return nil
@@ -159,7 +160,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 
 	// update container volume size estimation
 	if obj.Type() == objectSDK.TypeRegular && !isParent {
-		err = changeContainerSize(
+		err = db.changeContainerSize(
 			tx,
 			obj.ContainerID(),
 			obj.PayloadSize(),
@@ -186,11 +187,11 @@ func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.
 
 		switch obj.Type() {
 		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(addr.ContainerID())
+			bucketName = cidBucketKey(addr.ContainerID(), primaryPrefix, nil)
 		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(addr.ContainerID())
+			bucketName = cidBucketKey(addr.ContainerID(), tombstonePrefix, nil)
 		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(addr.ContainerID())
+			bucketName = cidBucketKey(addr.ContainerID(), storageGroupPrefix, nil)
 		default:
 			return nil, ErrUnknownObjectType
 		}
@@ -209,7 +210,7 @@ func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.
 		// index blobovniczaID if it is present
 		if id != nil {
 			result = append(result, namedBucketItem{
-				name: smallBucketName(addr.ContainerID()),
+				name: cidBucketKey(addr.ContainerID(), smallPrefix, nil),
 				key:  objKey,
 				val:  *id,
 			})
@@ -231,7 +232,7 @@ func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.
 		}
 
 		result = append(result, namedBucketItem{
-			name: rootBucketName(addr.ContainerID()),
+			name: cidBucketKey(addr.ContainerID(), rootPrefix, nil),
 			key:  objKey,
 			val:  splitInfo,
 		})
@@ -248,7 +249,7 @@ func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
 
 	// index payload hashes
 	result = append(result, namedBucketItem{
-		name: payloadHashBucketName(addr.ContainerID()),
+		name: cidBucketKey(addr.ContainerID(), payloadHashPrefix, nil),
 		key:  obj.PayloadChecksum().Sum(),
 		val:  objKey,
 	})
@@ -256,7 +257,7 @@ func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
 	// index parent ids
 	if obj.ParentID() != nil {
 		result = append(result, namedBucketItem{
-			name: parentBucketName(addr.ContainerID()),
+			name: cidBucketKey(addr.ContainerID(), parentPrefix, nil),
 			key:  objectKey(obj.ParentID()),
 			val:  objKey,
 		})
@@ -265,7 +266,7 @@ func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
 	// index split ids
 	if obj.SplitID() != nil {
 		result = append(result, namedBucketItem{
-			name: splitBucketName(addr.ContainerID()),
+			name: cidBucketKey(addr.ContainerID(), splitPrefix, nil),
 			key:  obj.SplitID().ToV2(),
 			val:  objKey,
 		})
@@ -284,7 +285,7 @@ func fkbtIndexes(obj *object.Object) ([]namedBucketItem, error) {
 
 	// owner
 	result = append(result, namedBucketItem{
-		name: ownerBucketName(addr.ContainerID()),
+		name: cidBucketKey(addr.ContainerID(), ownerPrefix, nil),
 		key:  []byte(obj.OwnerID().String()),
 		val:  objKey,
 	})
@@ -292,7 +293,7 @@ func fkbtIndexes(obj *object.Object) ([]namedBucketItem, error) {
 	// user specified attributes
 	for i := range attrs {
 		result = append(result, namedBucketItem{
-			name: attributeBucketName(addr.ContainerID(), attrs[i].Key()),
+			name: cidBucketKey(addr.ContainerID(), attributePrefix, []byte(attrs[i].Key())),
 			key:  []byte(attrs[i].Value()),
 			val:  objKey,
 		})
@@ -301,48 +302,19 @@ func fkbtIndexes(obj *object.Object) ([]namedBucketItem, error) {
 	return result, nil
 }
 
-func putUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
-	bkt, err := tx.CreateBucketIfNotExists(item.name)
-	if err != nil {
-		return fmt.Errorf("can't create index %v: %w", item.name, err)
-	}
-
-	return bkt.Put(item.key, item.val)
+func putUniqueIndexItem(tx *pebble.Batch, item namedBucketItem) error {
+	key := appendKey(item.name, item.key)
+	return tx.Set(key, item.val, nil)
 }
 
-func putFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
-	bkt, err := tx.CreateBucketIfNotExists(item.name)
-	if err != nil {
-		return fmt.Errorf("can't create index %v: %w", item.name, err)
-	}
-
-	fkbtRoot, err := bkt.CreateBucketIfNotExists(item.key)
-	if err != nil {
-		return fmt.Errorf("can't create fake bucket tree index %v: %w", item.key, err)
-	}
-
-	return fkbtRoot.Put(item.val, zeroValue)
+func putFKBTIndexItem(tx *pebble.Batch, item namedBucketItem) error {
+	key := appendKey(item.name, item.key)
+	key = appendKey(key, item.val)
+	return tx.Set(key, zeroValue, nil)
 }
 
-func putListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
-	bkt, err := tx.CreateBucketIfNotExists(item.name)
-	if err != nil {
-		return fmt.Errorf("can't create index %v: %w", item.name, err)
-	}
-
-	lst, err := decodeList(bkt.Get(item.key))
-	if err != nil {
-		return fmt.Errorf("can't decode leaf list %v: %w", item.key, err)
-	}
-
-	lst = append(lst, item.val)
-
-	encodedLst, err := encodeList(lst)
-	if err != nil {
-		return fmt.Errorf("can't encode leaf list %v: %w", item.key, err)
-	}
-
-	return bkt.Put(item.key, encodedLst)
+func putListIndexItem(tx *pebble.Batch, item namedBucketItem) error {
+	return putFKBTIndexItem(tx, item)
 }
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.
@@ -377,47 +349,9 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 
 // updateBlobovniczaID for existing objects if they were moved from from
 // one blobovnicza to another.
-func updateBlobovniczaID(tx *bbolt.Tx, addr *objectSDK.Address, id *blobovnicza.ID) error {
-	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.ContainerID()))
-	if err != nil {
-		return err
-	}
-
-	return bkt.Put(objectKey(addr.ObjectID()), *id)
-}
-
-// updateSpliInfo for existing objects if storage filled with extra information
-// about last object in split hierarchy or linking object.
-func updateSplitInfo(tx *bbolt.Tx, addr *objectSDK.Address, from *objectSDK.SplitInfo) error {
-	bkt := tx.Bucket(rootBucketName(addr.ContainerID()))
-	if bkt == nil {
-		// if object doesn't exists and we want to update split info on it
-		// then ignore, this should never happen
-		return ErrIncorrectSplitInfoUpdate
-	}
-
-	objectKey := objectKey(addr.ObjectID())
-
-	rawSplitInfo := bkt.Get(objectKey)
-	if len(rawSplitInfo) == 0 {
-		return ErrIncorrectSplitInfoUpdate
-	}
-
-	to := objectSDK.NewSplitInfo()
-
-	err := to.Unmarshal(rawSplitInfo)
-	if err != nil {
-		return fmt.Errorf("can't unmarshal split info from root index: %w", err)
-	}
-
-	result := util.MergeSplitInfo(from, to)
-
-	rawSplitInfo, err = result.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marhsal merged split info: %w", err)
-	}
-
-	return bkt.Put(objectKey, rawSplitInfo)
+func updateBlobovniczaID(tx *pebble.Batch, addr *objectSDK.Address, id *blobovnicza.ID) error {
+	cidKey := cidBucketKey(addr.ContainerID(), smallPrefix, objectKey(addr.ObjectID()))
+	return tx.Set(cidKey, *id, nil)
 }
 
 // splitInfoFromObject returns split info based on last or linkin object.
@@ -440,6 +374,33 @@ func splitInfoFromObject(obj *object.Object) (*objectSDK.SplitInfo, error) {
 	}
 
 	return info, nil
+}
+
+// updateSpliInfo for existing objects if storage filled with extra information
+// about last object in split hierarchy or linking object.
+func (db *DB) updateSplitInfo(tx *pebble.Batch, addr *objectSDK.Address, from *objectSDK.SplitInfo) error {
+	cidKey := cidBucketKey(addr.ContainerID(), rootPrefix, objectKey(addr.ObjectID()))
+	rawSplitInfo, c, err := db.db.Get(cidKey)
+	if err != nil {
+		return ErrIncorrectSplitInfoUpdate
+	}
+	defer c.Close()
+
+	to := objectSDK.NewSplitInfo()
+
+	err = to.Unmarshal(rawSplitInfo)
+	if err != nil {
+		return fmt.Errorf("can't unmarshal split info from root index: %w", err)
+	}
+
+	result := util.MergeSplitInfo(from, to)
+
+	rawSplitInfo, err = result.Marshal()
+	if err != nil {
+		return fmt.Errorf("can't marhsal merged split info: %w", err)
+	}
+
+	return tx.Set(cidKey, rawSplitInfo, nil)
 }
 
 // isLinkObject returns true if object contains parent header and list

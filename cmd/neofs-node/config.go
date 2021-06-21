@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 	"sync"
-	"time"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
@@ -47,7 +47,6 @@ import (
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -379,9 +378,7 @@ func initShardOptions(c *cfg) {
 				meta.WithLogger(c.log),
 				meta.WithPath(metaPath),
 				meta.WithPermissions(metaPerm),
-				meta.WithBoltDBOptions(&bbolt.Options{
-					Timeout: 100 * time.Millisecond,
-				}),
+				meta.WithDBOptions(&pebble.Options{}),
 			),
 			shard.WithWriteCache(useWriteCache),
 			shard.WithWriteCacheOptions(writeCacheOpts...),

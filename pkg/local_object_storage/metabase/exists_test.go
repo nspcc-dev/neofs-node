@@ -2,6 +2,7 @@ package meta_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
@@ -66,7 +67,8 @@ func TestDB_Exists(t *testing.T) {
 		err := putBig(db, child.Object())
 		require.NoError(t, err)
 
-		_, err = meta.Exists(db, parent.Object().Address())
+		ok, err := meta.Exists(db, parent.Object().Address())
+		fmt.Println(ok, err)
 
 		var expectedErr *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &expectedErr))

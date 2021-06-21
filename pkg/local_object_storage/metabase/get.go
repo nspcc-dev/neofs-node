@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"fmt"
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
@@ -71,44 +72,45 @@ func GetRaw(db *DB, addr *objectSDK.Address, raw bool) (*object.Object, error) {
 func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	res = new(GetRes)
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.hdr, err = db.get(tx, prm.addr, true, prm.raw)
-
-		return err
-	})
+	res.hdr, err = db.get(prm.addr, true, prm.raw)
 
 	return
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard, raw bool) (*object.Object, error) {
+func (db *DB) get(addr *objectSDK.Address, checkGraveyard, raw bool) (*object.Object, error) {
 	obj := object.New()
 	key := objectKey(addr.ObjectID())
 	cid := addr.ContainerID()
 
-	if checkGraveyard && inGraveyard(tx, addr) {
+	if checkGraveyard && db.inGraveyard(addr) {
 		return nil, object.ErrAlreadyRemoved
 	}
 
+	value := cidBucketKey(cid, primaryPrefix, key)
+
+	iter := db.newPrefixIterator(nil)
+	defer iter.Close()
+
 	// check in primary index
-	data := getFromBucket(tx, primaryBucketName(cid), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
+	value[0] = primaryPrefix
+	if iter.SeekGE(value) && bytes.Equal(iter.Key(), value) {
+		return obj, obj.Unmarshal(iter.Value())
 	}
 
 	// if not found then check in tombstone index
-	data = getFromBucket(tx, tombstoneBucketName(cid), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
+	value[0] = tombstonePrefix
+	if iter.SeekGE(value) && bytes.Equal(iter.Key(), value) {
+		return obj, obj.Unmarshal(iter.Value())
 	}
 
 	// if not found then check in storage group index
-	data = getFromBucket(tx, storageGroupBucketName(cid), key)
-	if len(data) != 0 {
-		return obj, obj.Unmarshal(data)
+	value[0] = storageGroupPrefix
+	if iter.SeekGE(value) && bytes.Equal(iter.Key(), value) {
+		return obj, obj.Unmarshal(iter.Value())
 	}
 
 	// if not found then check if object is a virtual
-	return getVirtualObject(tx, cid, key, raw)
+	return db.getVirtualObject(cid, key, raw)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
@@ -120,34 +122,39 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*object.Object, error) {
+func (db *DB) getVirtualObject(cid *cid.ID, key []byte, raw bool) (*object.Object, error) {
 	if raw {
-		return nil, getSplitInfoError(tx, cid, key)
+		return nil, db.getSplitInfoError(cid, key)
 	}
 
-	parentBucket := tx.Bucket(parentBucketName(cid))
-	if parentBucket == nil {
-		return nil, object.ErrNotFound
-	}
-
-	relativeLst, err := decodeList(parentBucket.Get(key))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(relativeLst) == 0 { // this should never happen though
-		return nil, object.ErrNotFound
-	}
+	cidKey := cidBucketKey(cid, parentPrefix, nil)
+	iterKey := appendKey(cidKey, key)
+	iter := db.newPrefixIterator(iterKey)
+	defer iter.Close()
 
 	// pick last item, for now there is not difference which address to pick
 	// but later list might be sorted so first or last value can be more
 	// prioritized to choose
-	virtualOID := relativeLst[len(relativeLst)-1]
-	data := getFromBucket(tx, primaryBucketName(cid), virtualOID)
+	var virtualOID []byte
+	for iter.First(); iter.Valid(); iter.Next() {
+		virtualOID = iter.Key()[len(iterKey)+1:]
+	}
+
+	if virtualOID == nil { // this should never happen though
+		return nil, object.ErrNotFound
+	}
+
+	cidKey[0] = primaryPrefix
+	oidKey := appendKey(cidKey, virtualOID)
+	value, c, err := db.db.Get(oidKey)
+	if err != nil {
+		return nil, object.ErrNotFound
+	}
+	defer c.Close()
 
 	child := object.New()
 
-	err = child.Unmarshal(data)
+	err = child.Unmarshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("can't unmarshal child with parent: %w", err)
 	}
@@ -159,8 +166,8 @@ func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*object.
 	return child.GetParent(), nil
 }
 
-func getSplitInfoError(tx *bbolt.Tx, cid *cid.ID, key []byte) error {
-	splitInfo, err := getSplitInfo(tx, cid, key)
+func (db *DB) getSplitInfoError(cid *cid.ID, key []byte) error {
+	splitInfo, err := db.getSplitInfo(cid, key)
 	if err == nil {
 		return objectSDK.NewSplitInfoError(splitInfo)
 	}

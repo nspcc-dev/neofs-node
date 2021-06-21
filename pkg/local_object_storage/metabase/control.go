@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"go.etcd.io/bbolt"
+	"github.com/cockroachdb/pebble"
 	"go.uber.org/zap"
 )
 
@@ -18,7 +18,7 @@ func (db *DB) Open() error {
 
 	db.log.Debug("created directory for Metabase", zap.String("path", db.info.Path))
 
-	db.boltDB, err = bbolt.Open(db.info.Path, db.info.Permission, db.boltOptions)
+	db.db, err = pebble.Open(db.info.Path, db.dbOptions)
 	if err != nil {
 		return fmt.Errorf("can't open boltDB database: %w", err)
 	}
@@ -38,5 +38,5 @@ func (db *DB) Init() error {
 
 // Close closes boltDB instance.
 func (db *DB) Close() error {
-	return db.boltDB.Close()
+	return db.db.Close()
 }

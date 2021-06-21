@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"go.etcd.io/bbolt"
 )
 
 // InhumePrm encapsulates parameters for Inhume operation.
@@ -69,86 +68,77 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // Inhume marks objects as removed but not removes it from metabase.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		graveyard, err := tx.CreateBucketIfNotExists(graveyardBucketName)
-		if err != nil {
-			return err
+	tx := db.db.NewBatch()
+
+	var tombKey []byte
+	if prm.tomb != nil {
+		tombKey = append([]byte{graveyardPrefix}, addressKey(prm.tomb)...)
+
+		// it is forbidden to have a tomb-on-tomb in NeoFS,
+		// so graveyard keys must not be addresses of tombstones
+
+		// tombstones can be marked for GC in graveyard, so exclude this case
+		data, c, err := db.db.Get(tombKey)
+		if err == nil {
+			defer c.Close()
+
+			if !bytes.Equal(data, []byte(inhumeGCMarkValue)) {
+				if err := tx.Delete(tombKey, nil); err != nil {
+					return nil, fmt.Errorf("could not remove grave with tombstone key: %w", err)
+				}
+			}
 		}
+	} else {
+		tombKey = []byte(inhumeGCMarkValue)
+	}
 
-		var tombKey []byte
-		if prm.tomb != nil {
-			tombKey = addressKey(prm.tomb)
+	for i := range prm.target {
+		obj, err := db.get(prm.target[i], false, true)
 
-			// it is forbidden to have a tomb-on-tomb in NeoFS,
-			// so graveyard keys must not be addresses of tombstones
-
-			// tombstones can be marked for GC in graveyard, so exclude this case
-			data := graveyard.Get(tombKey)
-			if data != nil && !bytes.Equal(data, []byte(inhumeGCMarkValue)) {
-				err := graveyard.Delete(tombKey)
-				if err != nil {
-					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
-				}
-			}
-		} else {
-			tombKey = []byte(inhumeGCMarkValue)
-		}
-
-		for i := range prm.target {
-			obj, err := db.get(tx, prm.target[i], false, true)
-
-			// if object is stored and it is regular object then update bucket
-			// with container size estimations
-			if err == nil && obj.Type() == objectSDK.TypeRegular {
-				err := changeContainerSize(
-					tx,
-					obj.ContainerID(),
-					obj.PayloadSize(),
-					false,
-				)
-				if err != nil {
-					return err
-				}
-			}
-
-			targetKey := addressKey(prm.target[i])
-
-			if prm.tomb != nil {
-				targetIsTomb := false
-
-				// iterate over graveyard and check if target address
-				// is the address of tombstone in graveyard.
-				err = graveyard.ForEach(func(k, v []byte) error {
-					// check if graveyard has record with key corresponding
-					// to tombstone address (at least one)
-					targetIsTomb = bytes.Equal(v, targetKey)
-
-					if targetIsTomb {
-						// break bucket iterator
-						return errBreakBucketForEach
-					}
-
-					return nil
-				})
-				if err != nil && !errors.Is(err, errBreakBucketForEach) {
-					return err
-				}
-
-				// do not add grave if target is a tombstone
-				if targetIsTomb {
-					continue
-				}
-			}
-
-			// consider checking if target is already in graveyard?
-			err = graveyard.Put(targetKey, tombKey)
+		// if object is stored and it is regular object then update bucket
+		// with container size estimations
+		if err == nil && obj.Type() == objectSDK.TypeRegular {
+			err := db.changeContainerSize(
+				tx,
+				obj.ContainerID(),
+				obj.PayloadSize(),
+				false,
+			)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
-		return nil
-	})
+		targetKey := append([]byte{graveyardPrefix}, addressKey(prm.target[i])...)
 
-	return
+		if prm.tomb != nil {
+			targetIsTomb := false
+
+			// iterate over graveyard and check if target address
+			// is the address of tombstone in graveyard.
+			iter := db.newPrefixIterator([]byte{graveyardPrefix})
+			defer iter.Close()
+
+			for iter.First(); iter.Valid(); iter.Next() {
+				// check if graveyard has record with key corresponding
+				// to tombstone address (at least one)
+				targetIsTomb = bytes.Equal(iter.Value(), targetKey)
+				if targetIsTomb {
+					break
+				}
+			}
+
+			// do not add grave if target is a tombstone
+			if targetIsTomb {
+				continue
+			}
+		}
+
+		// consider checking if target is already in graveyard?
+		if err := tx.Set(targetKey, tombKey, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, tx.Commit(nil)
 }

@@ -1,13 +1,12 @@
 package meta
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
+	"github.com/cockroachdb/pebble"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"go.etcd.io/bbolt"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -47,12 +46,16 @@ type referenceCounter map[string]*referenceNumber
 
 // Delete removed object records from metabase indexes.
 func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
-	return new(DeleteRes), db.boltDB.Update(func(tx *bbolt.Tx) error {
-		return db.deleteGroup(tx, prm.addrs)
-	})
+	tx := db.db.NewBatch()
+	err := db.deleteGroup(tx, prm.addrs)
+	if err == nil {
+		err = tx.Commit(nil)
+	}
+
+	return nil, err
 }
 
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*objectSDK.Address) error {
+func (db *DB) deleteGroup(tx *pebble.Batch, addrs []*objectSDK.Address) error {
 	refCounter := make(referenceCounter, len(addrs))
 
 	for i := range addrs {
@@ -74,18 +77,16 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*objectSDK.Address) error {
 	return nil
 }
 
-func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter referenceCounter) error {
+func (db *DB) delete(tx *pebble.Batch, addr *objectSDK.Address, refCounter referenceCounter) error {
 	// remove record from graveyard
-	graveyard := tx.Bucket(graveyardBucketName)
-	if graveyard != nil {
-		err := graveyard.Delete(addressKey(addr))
-		if err != nil {
-			return fmt.Errorf("could not remove from graveyard: %w", err)
-		}
+	key := append([]byte{graveyardPrefix}, addressKey(addr)...)
+	err := tx.Delete(key, nil)
+	if err != nil {
+		return fmt.Errorf("could not remove from graveyard: %w", err)
 	}
 
 	// unmarshal object, work only with physically stored (raw == true) objects
-	obj, err := db.get(tx, addr, false, true)
+	obj, err := db.get(addr, false, true)
 	if err != nil {
 		if errors.Is(err, object.ErrNotFound) {
 			return nil
@@ -102,7 +103,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter reference
 		nRef, ok := refCounter[sParAddr]
 		if !ok {
 			nRef = &referenceNumber{
-				all:  parentLength(tx, parent.Address()),
+				all:  db.parentLength(parent.Address()),
 				addr: parAddr,
 				obj:  parent,
 			}
@@ -118,7 +119,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter reference
 }
 
 func (db *DB) deleteObject(
-	tx *bbolt.Tx,
+	tx *pebble.Batch,
 	obj *object.Object,
 	isParent bool,
 ) error {
@@ -158,75 +159,30 @@ func (db *DB) deleteObject(
 }
 
 // parentLength returns amount of available children from parentid index.
-func parentLength(tx *bbolt.Tx, addr *objectSDK.Address) int {
-	bkt := tx.Bucket(parentBucketName(addr.ContainerID()))
-	if bkt == nil {
-		return 0
-	}
+func (db *DB) parentLength(addr *objectSDK.Address) int {
+	key := cidBucketKey(addr.ContainerID(), parentPrefix, objectKey(addr.ObjectID()))
+	iter := db.newPrefixIterator(key)
+	defer iter.Close()
 
-	lst, err := decodeList(bkt.Get(objectKey(addr.ObjectID())))
-	if err != nil {
-		return 0
+	var cnt int
+	for iter.First(); iter.Valid(); iter.Next() {
+		cnt++
 	}
-
-	return len(lst)
+	return cnt
 }
 
-func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
-	bkt := tx.Bucket(item.name)
-	if bkt != nil {
-		_ = bkt.Delete(item.key) // ignore error, best effort there
-	}
+func delUniqueIndexItem(tx *pebble.Batch, item namedBucketItem) {
+	_ = tx.Delete(appendKey(item.name, item.key), nil) // ignore error, best effort there
 }
 
-func delFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) {
-	bkt := tx.Bucket(item.name)
-	if bkt == nil {
-		return
-	}
-
-	fkbtRoot := bkt.Bucket(item.key)
-	if fkbtRoot == nil {
-		return
-	}
-
-	_ = fkbtRoot.Delete(item.val) // ignore error, best effort there
+func delFKBTIndexItem(tx *pebble.Batch, item namedBucketItem) {
+	key := appendKey(item.name, item.key)
+	key = appendKey(key, item.val)
+	_ = tx.Delete(key, nil) // ignore error, best effort there
 }
 
-func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
-	bkt := tx.Bucket(item.name)
-	if bkt == nil {
-		return
-	}
-
-	lst, err := decodeList(bkt.Get(item.key))
-	if err != nil || len(lst) == 0 {
-		return
-	}
-
-	// remove element from the list
-	newLst := make([][]byte, 0, len(lst))
-
-	for i := range lst {
-		if !bytes.Equal(item.val, lst[i]) {
-			newLst = append(newLst, lst[i])
-		}
-	}
-
-	// if list empty, remove the key from <list> bucket
-	if len(newLst) == 0 {
-		_ = bkt.Delete(item.key) // ignore error, best effort there
-
-		return
-	}
-
-	// if list is not empty, then update it
-	encodedLst, err := encodeList(lst)
-	if err != nil {
-		return // ignore error, best effort there
-	}
-
-	_ = bkt.Put(item.key, encodedLst) // ignore error, best effort there
+func delListIndexItem(tx *pebble.Batch, item namedBucketItem) {
+	delFKBTIndexItem(tx, item)
 }
 
 func delUniqueIndexes(obj *object.Object, isParent bool) ([]namedBucketItem, error) {
@@ -242,11 +198,11 @@ func delUniqueIndexes(obj *object.Object, isParent bool) ([]namedBucketItem, err
 
 		switch obj.Type() {
 		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(addr.ContainerID())
+			bucketName = cidBucketKey(addr.ContainerID(), primaryPrefix, nil)
 		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(addr.ContainerID())
+			bucketName = cidBucketKey(addr.ContainerID(), tombstonePrefix, nil)
 		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(addr.ContainerID())
+			bucketName = cidBucketKey(addr.ContainerID(), storageGroupPrefix, nil)
 		default:
 			return nil, ErrUnknownObjectType
 		}
@@ -256,23 +212,24 @@ func delUniqueIndexes(obj *object.Object, isParent bool) ([]namedBucketItem, err
 			key:  objKey,
 		})
 	} else {
+		name := cidBucketKey(obj.ContainerID(), parentPrefix, nil)
 		result = append(result, namedBucketItem{
-			name: parentBucketName(obj.ContainerID()),
+			name: name,
 			key:  objKey,
 		})
 	}
 
 	result = append(result,
 		namedBucketItem{ // remove from small blobovnicza id index
-			name: smallBucketName(addr.ContainerID()),
+			name: cidBucketKey(addr.ContainerID(), smallPrefix, nil),
 			key:  objKey,
 		},
 		namedBucketItem{ // remove from root index
-			name: rootBucketName(addr.ContainerID()),
+			name: cidBucketKey(addr.ContainerID(), rootPrefix, nil),
 			key:  objKey,
 		},
 		namedBucketItem{ // remove from ToMoveIt index
-			name: toMoveItBucketName,
+			name: []byte{toMoveItPrefix},
 			key:  addrKey,
 		},
 	)
