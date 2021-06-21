@@ -11,7 +11,7 @@ import (
 )
 
 type clientCache interface {
-	Get(network.Address) (apiClient.Client, error)
+	Get(network.AddressGroup) (apiClient.Client, error)
 }
 
 // clientKeyRemoteProvider must provide remote writer and take into account
@@ -84,7 +84,7 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
-	c, err := rtp.clientCache.Get(netAddr)
+	c, err := rtp.clientCache.Get(network.GroupFromAddress(netAddr))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}
