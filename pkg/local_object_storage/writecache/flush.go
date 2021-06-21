@@ -99,8 +99,6 @@ func (c *cache) flush() {
 			c.flushed.Add(m[i].addr, true)
 		}
 
-		c.dbSize.Sub(uint64(sz))
-
 		c.log.Debug("flushed items from write-cache",
 			zap.Int("count", len(m)),
 			zap.String("start", base58.Encode(lastKey)))
