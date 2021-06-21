@@ -51,6 +51,7 @@ func (c *cache) flushLoop() {
 		case <-c.closeCh:
 			c.log.Debug("waiting for workers to quit")
 			wg.Wait()
+			close(c.waitCh)
 			return
 		}
 	}
@@ -127,6 +128,7 @@ func (c *cache) flushBigObjects() {
 				return nil
 			})
 		case <-c.closeCh:
+			return
 		}
 	}
 }

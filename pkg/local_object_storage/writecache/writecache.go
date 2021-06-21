@@ -40,6 +40,7 @@ type cache struct {
 	metaCh chan *object.Object
 	// closeCh is close channel.
 	closeCh chan struct{}
+	waitCh  chan struct{}
 	evictCh chan []byte
 	// store contains underlying database.
 	store
@@ -72,6 +73,7 @@ func New(opts ...Option) Cache {
 		directCh: make(chan *object.Object),
 		metaCh:   make(chan *object.Object),
 		closeCh:  make(chan struct{}),
+		waitCh:   make(chan struct{}),
 		evictCh:  make(chan []byte),
 
 		options: options{
@@ -105,5 +107,6 @@ func (c *cache) Init() error {
 // Close closes db connection and stops services.
 func (c *cache) Close() error {
 	close(c.closeCh)
+	<-c.waitCh
 	return c.db.Close()
 }

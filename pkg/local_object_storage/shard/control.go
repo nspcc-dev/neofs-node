@@ -60,13 +60,13 @@ func (s *Shard) Init() error {
 
 // Close releases all Shard's components.
 func (s *Shard) Close() error {
-	components := []interface{ Close() error }{
-		s.blobStor, s.metaBase,
-	}
+	components := []interface{ Close() error }{}
 
 	if s.hasWriteCache() {
 		components = append(components, s.writeCache)
 	}
+
+	components = append(components, s.blobStor, s.metaBase)
 
 	for _, component := range components {
 		if err := component.Close(); err != nil {
