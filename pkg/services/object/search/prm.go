@@ -3,6 +3,8 @@ package searchsvc
 import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
@@ -25,7 +27,7 @@ type IDListWriter interface {
 
 // RequestForwarder is a callback for forwarding of the
 // original Search requests.
-type RequestForwarder func(client.Client) ([]*objectSDK.ID, error)
+type RequestForwarder func(network.Address, coreclient.Client) ([]*objectSDK.ID, error)
 
 // SetCommonParameters sets common parameters of the operation.
 func (p *Prm) SetCommonParameters(common *util.CommonPrm) {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -20,7 +20,7 @@ type Streamer struct {
 
 	target transformer.ObjectTarget
 
-	relay func(client.Client) error
+	relay func(network.Address, client.Client) error
 
 	maxPayloadSz uint64 // network config
 }
@@ -159,7 +159,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				return fmt.Errorf("could not create SDK client %s: %w", addr, err)
 			}
 
-			return p.relay(c)
+			return p.relay(addr, c)
 		}
 	}
 

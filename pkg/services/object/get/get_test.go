@@ -100,7 +100,7 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) getObject(exec *execCtx) (*objectSDK.Object, error) {
+func (c *testClient) getObject(exec *execCtx, _ network.Address) (*objectSDK.Object, error) {
 	v, ok := c.results[exec.address().String()]
 	if !ok {
 		return nil, object.ErrNotFound

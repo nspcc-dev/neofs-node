@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
@@ -124,11 +125,11 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	return fromPutResponse(resp), nil
 }
 
-func (s *streamer) relayRequest(c client.Client) error {
+func (s *streamer) relayRequest(addr network.Address, c client.Client) error {
 	// open stream
 	resp := new(object.PutResponse)
 
-	stream, err := rpc.PutObject(c.Raw(), resp)
+	stream, err := rpc.PutObject(c.RawForAddress(addr), resp)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
