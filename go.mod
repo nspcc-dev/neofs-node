@@ -6,7 +6,7 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/klauspost/compress v1.11.3
+	github.com/klauspost/compress v1.13.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.3.2
