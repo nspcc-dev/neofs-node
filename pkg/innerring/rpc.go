@@ -22,7 +22,7 @@ type (
 	ClientCache struct {
 		log   *zap.Logger
 		cache interface {
-			Get(address network.Address) (client.Client, error)
+			Get(address network.AddressGroup) (client.Client, error)
 			CloseAll()
 		}
 		key *ecdsa.PrivateKey
@@ -52,7 +52,7 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 func (c *ClientCache) Get(address network.Address) (client.Client, error) {
 	// Because cache is used by `ClientCache` exclusively,
 	// client will always have valid key.
-	return c.cache.Get(address)
+	return c.cache.Get(network.GroupFromAddress(address))
 }
 
 // GetSG polls the container from audit task to get the object by id.

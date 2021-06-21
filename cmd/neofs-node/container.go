@@ -205,7 +205,7 @@ type remoteLoadAnnounceProvider struct {
 	loadAddrSrc network.LocalAddressSource
 
 	clientCache interface {
-		Get(network.Address) (apiClient.Client, error)
+		Get(network.AddressGroup) (apiClient.Client, error)
 	}
 
 	deadEndProvider loadcontroller.WriterProvider
@@ -230,7 +230,7 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
-	c, err := r.clientCache.Get(netAddr)
+	c, err := r.clientCache.Get(network.GroupFromAddress(netAddr))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}

@@ -422,7 +422,7 @@ type reputationClientConstructor struct {
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(network.Address) (client.Client, error)
+		Get(network.AddressGroup) (client.Client, error)
 	}
 }
 
@@ -507,7 +507,7 @@ func (c *reputationClient) SearchObject(ctx context.Context, prm *client.SearchO
 }
 
 func (c *reputationClientConstructor) Get(addr network.Address) (client.Client, error) {
-	cl, err := c.basicConstructor.Get(addr)
+	cl, err := c.basicConstructor.Get(network.GroupFromAddress(addr))
 	if err != nil {
 		return nil, err
 	}
