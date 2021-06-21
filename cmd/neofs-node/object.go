@@ -11,14 +11,13 @@ import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	client3 "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
-	client2 "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -150,23 +149,13 @@ func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(addr network.Address) (client2.Client, error) {
+func (x *coreClientConstructor) Get(addr network.Address) (coreclient.Client, error) {
 	c, err := (*reputationClientConstructor)(x).Get(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	return apiclient{
-		Client: c,
-	}, nil
-}
-
-type apiclient struct {
-	client.Client
-}
-
-func (x apiclient) RawForAddress(network.Address) *client3.Client {
-	return x.Client.Raw()
+	return c.(coreclient.Client), nil
 }
 
 func initObjectService(c *cfg) {
@@ -438,7 +427,7 @@ type reputationClientConstructor struct {
 }
 
 type reputationClient struct {
-	client.Client
+	coreclient.Client
 
 	prm truststorage.UpdatePrm
 
@@ -535,7 +524,7 @@ func (c *reputationClientConstructor) Get(addr network.Address) (client.Client, 
 					prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 
 					return &reputationClient{
-						Client: cl,
+						Client: cl.(coreclient.Client),
 						prm:    prm,
 						cons:   c,
 					}, nil

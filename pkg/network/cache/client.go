@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"crypto/tls"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -54,16 +53,7 @@ func (c *ClientCache) Get(netAddr network.Address) (client.Client, error) {
 		return cli, nil
 	}
 
-	opts := append(c.opts, client.WithAddress(netAddr.HostAddr()))
-
-	if netAddr.TLSEnabled() {
-		opts = append(opts, client.WithTLSConfig(&tls.Config{}))
-	}
-
-	cli, err := client.New(opts...)
-	if err != nil {
-		return nil, err
-	}
+	cli := newMultiClient(network.GroupFromAddress(netAddr), c.opts)
 
 	c.clients[mAddr] = cli
 
