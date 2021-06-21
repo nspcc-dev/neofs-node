@@ -19,6 +19,7 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 		if saddr == c.mem[i].addr {
 			copy(c.mem[i:], c.mem[i+1:])
 			c.mem = c.mem[:len(c.mem)-1]
+			c.curMemSize -= uint64(len(c.mem[i].data))
 			c.mtx.Unlock()
 			return nil
 		}
@@ -26,18 +27,24 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 	c.mtx.Unlock()
 
 	// Check disk cache.
-	has := false
+	var has int
 	_ = c.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
-		has = b.Get([]byte(saddr)) != nil
+		has = len(b.Get([]byte(saddr)))
 		return nil
 	})
 
-	if has {
-		return c.db.Update(func(tx *bbolt.Tx) error {
+	if 0 < has {
+		err := c.db.Update(func(tx *bbolt.Tx) error {
 			b := tx.Bucket(defaultBucket)
-			return b.Delete([]byte(saddr))
+			err := b.Delete([]byte(saddr))
+			return err
 		})
+		if err != nil {
+			return err
+		}
+		c.dbSize.Sub(uint64(has))
+		return nil
 	}
 
 	err := c.fsTree.Delete(addr)

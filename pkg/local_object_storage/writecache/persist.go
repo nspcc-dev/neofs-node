@@ -31,19 +31,13 @@ func (c *cache) persistLoop() {
 				zap.Int("total", len(m)))
 
 			c.mtx.Lock()
+			c.curMemSize = 0
 			n := copy(c.mem, c.mem[len(m):])
 			c.mem = c.mem[:n]
 			for i := range c.mem {
 				c.curMemSize += uint64(len(c.mem[i].data))
 			}
 			c.mtx.Unlock()
-
-			sz := 0
-			for i := range m {
-				sz += len(m[i].addr) + m[i].obj.ToV2().StableSize()
-			}
-			c.dbSize.Add(uint64(sz))
-
 		case <-c.closeCh:
 			return
 		}
@@ -55,8 +49,8 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 		failMem []int
 		doneMem []int
 	)
-
-	_ = c.db.Update(func(tx *bbolt.Tx) error {
+	var sz uint64
+	err := c.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
 		for i := range objs {
 			if uint64(len(objs[i].data)) >= c.smallObjectSize {
@@ -68,12 +62,14 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 			if err != nil {
 				return err
 			}
-
+			sz += uint64(len(objs[i].data))
 			doneMem = append(doneMem, i)
 		}
 		return nil
 	})
-
+	if err == nil {
+		c.dbSize.Add(sz)
+	}
 	if len(doneMem) > 0 {
 		c.evictObjects(len(doneMem))
 		for _, i := range doneMem {

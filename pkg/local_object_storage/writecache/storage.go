@@ -8,6 +8,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/golang-lru/simplelru"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -95,16 +96,26 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 	if len(keys) == 0 {
 		return nil
 	}
-
-	return c.db.Update(func(tx *bbolt.Tx) error {
+	var sz uint64
+	err := c.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
 		for i := range keys {
+			has := b.Get(keys[i])
+			if has == nil {
+				return object.ErrNotFound
+			}
 			if err := b.Delete(keys[i]); err != nil {
 				return err
 			}
+			sz += uint64(len(has))
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	c.dbSize.Sub(sz)
+	return nil
 }
 
 func (c *cache) deleteFromDisk(keys [][]byte) error {
