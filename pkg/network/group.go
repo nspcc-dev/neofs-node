@@ -11,6 +11,21 @@ import (
 // List is sorted by priority of use.
 type AddressGroup []Address
 
+// StringifyGroup returns concatenation of all addresses
+// from the AddressGroup.
+//
+// The result is order-dependent.
+func StringifyGroup(x AddressGroup) string {
+	var s string
+
+	x.IterateAddresses(func(addr Address) bool {
+		s += addr.String()
+		return false
+	})
+
+	return s
+}
+
 // IterateAddresses iterates over all network addresses of the node.
 //
 // Breaks iterating on handler's true return.
