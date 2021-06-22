@@ -70,21 +70,19 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return rtp.deadEndProvider, nil
 	}
 
-	addr := srv.Address()
+	var netAddr network.AddressGroup
 
-	var netAddr network.Address
-
-	err := netAddr.FromString(addr)
+	err := netAddr.FromIterator(srv)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
-	if network.IsLocalAddress(rtp.localAddrSrc, network.GroupFromAddress(netAddr)) {
+	if network.IsLocalAddress(rtp.localAddrSrc, netAddr) {
 		// if local => return no-op writer
 		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
-	c, err := rtp.clientCache.Get(network.GroupFromAddress(netAddr))
+	c, err := rtp.clientCache.Get(netAddr)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}

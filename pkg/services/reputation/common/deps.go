@@ -69,9 +69,11 @@ type ServerInfo interface {
 	// from the route in a binary representation.
 	PublicKey() []byte
 
-	// Returns network address of the node
-	// in the route.
-	//
-	// Can be empty.
-	Address() string
+	// Iterates over network addresses of the node
+	// in the route. Breaks iterating on true return
+	// of the handler.
+	IterateAddresses(func(string) bool)
+
+	// Returns number of server's network addresses.
+	NumberOfAddresses() int
 }

@@ -216,21 +216,19 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return r.deadEndProvider, nil
 	}
 
-	addr := srv.Address()
+	var netAddr network.AddressGroup
 
-	var netAddr network.Address
-
-	err := netAddr.FromString(addr)
+	err := netAddr.FromIterator(srv)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
-	if network.IsLocalAddress(r.loadAddrSrc, network.GroupFromAddress(netAddr)) {
+	if network.IsLocalAddress(r.loadAddrSrc, netAddr) {
 		// if local => return no-op writer
 		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
-	c, err := r.clientCache.Get(network.GroupFromAddress(netAddr))
+	c, err := r.clientCache.Get(netAddr)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}
@@ -369,16 +367,24 @@ func (c *cfg) PublicKey() []byte {
 	return nodeKeyFromNetmap(c)
 }
 
-func (c *cfg) Address() string {
-	return nodeAddressFromNetmap(c)
+func (c *cfg) IterateAddresses(f func(string) bool) {
+	c.iterateNetworkAddresses(f)
+}
+
+func (c *cfg) NumberOfAddresses() int {
+	return c.addressNum()
 }
 
 func (c *usedSpaceService) PublicKey() []byte {
 	return nodeKeyFromNetmap(c.cfg)
 }
 
-func (c *usedSpaceService) Address() string {
-	return nodeAddressFromNetmap(c.cfg)
+func (c *usedSpaceService) IterateAddresses(f func(string) bool) {
+	c.cfg.iterateNetworkAddresses(f)
+}
+
+func (c *usedSpaceService) NumberOfAddresses() int {
+	return c.cfg.addressNum()
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *containerV2.AnnounceUsedSpaceRequest) (*containerV2.AnnounceUsedSpaceResponse, error) {
@@ -425,8 +431,11 @@ func (i *containerOnlyKeyRemoteServerInfo) PublicKey() []byte {
 	return i.key
 }
 
-func (*containerOnlyKeyRemoteServerInfo) Address() string {
-	return ""
+func (*containerOnlyKeyRemoteServerInfo) IterateAddresses(func(string) bool) {
+}
+
+func (*containerOnlyKeyRemoteServerInfo) NumberOfAddresses() int {
+	return 0
 }
 
 func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *cid.ID, key []byte) (bool, error) {

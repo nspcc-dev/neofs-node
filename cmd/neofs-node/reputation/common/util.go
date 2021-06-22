@@ -37,8 +37,11 @@ func (i *OnlyKeyRemoteServerInfo) PublicKey() []byte {
 	return i.Key
 }
 
-func (*OnlyKeyRemoteServerInfo) Address() string {
-	return ""
+func (*OnlyKeyRemoteServerInfo) IterateAddresses(func(string) bool) {
+}
+
+func (*OnlyKeyRemoteServerInfo) NumberOfAddresses() int {
+	return 0
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"

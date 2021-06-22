@@ -68,8 +68,12 @@ func nodeKeyFromNetmap(c *cfg) []byte {
 	return c.cfgNetmap.state.getNodeInfo().PublicKey()
 }
 
-func nodeAddressFromNetmap(c *cfg) string {
-	return c.cfgNetmap.state.getNodeInfo().Address()
+func (c *cfg) iterateNetworkAddresses(f func(string) bool) {
+	c.cfgNetmap.state.getNodeInfo().IterateAddresses(f)
+}
+
+func (c *cfg) addressNum() int {
+	return c.cfgNetmap.state.getNodeInfo().NumberOfAddresses()
 }
 
 func initNetmapService(c *cfg) {
