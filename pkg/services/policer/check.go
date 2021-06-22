@@ -57,20 +57,18 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 		default:
 		}
 
-		netAddr := nodes[i].Address()
+		var node network.AddressGroup
 
-		log := p.log.With(zap.String("node", netAddr))
-
-		var node network.Address
-
-		err := node.FromString(netAddr)
+		err := node.FromIterator(nodes[i])
 		if err != nil {
-			log.Error("could not parse network address")
+			p.log.Error("could not parse network address",
+				zap.String("error", err.Error()),
+			)
 
 			continue
 		}
 
-		if network.IsLocalAddress(p.localAddrSrc, network.GroupFromAddress(node)) {
+		if network.IsLocalAddress(p.localAddrSrc, node) {
 			if shortage == 0 {
 				// we can call the redundant copy callback
 				// here to slightly improve the performance
@@ -93,7 +91,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 				if strings.Contains(err.Error(), headsvc.ErrNotFound.Error()) {
 					continue
 				} else {
-					log.Error("could not receive object header",
+					p.log.Error("could not receive object header",
 						zap.String("error", err.Error()),
 					)
 
