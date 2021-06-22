@@ -149,30 +149,13 @@ func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(addrGroup network.AddressGroup) (cc coreclient.Client, err error) {
-	var c client.Client
-
-	addrGroup.IterateAddresses(func(addr network.Address) bool {
-		c, err = (*reputationClientConstructor)(x).Get(addr)
-		return true
-	})
-
-	if err == nil {
-		cc = c.(coreclient.Client)
+func (x *coreClientConstructor) Get(addrGroup network.AddressGroup) (coreclient.Client, error) {
+	c, err := (*reputationClientConstructor)(x).Get(addrGroup)
+	if err != nil {
+		return nil, err
 	}
 
-	return
-}
-
-type addressGroupClientConstructor reputationClientConstructor
-
-func (x *addressGroupClientConstructor) Get(addrGroup network.AddressGroup) (c client.Client, err error) {
-	addrGroup.IterateAddresses(func(addr network.Address) bool {
-		c, err = (*reputationClientConstructor)(x).Get(addr)
-		return true
-	})
-
-	return
+	return c.(coreclient.Client), nil
 }
 
 func initObjectService(c *cfg) {
@@ -199,8 +182,6 @@ func initObjectService(c *cfg) {
 	}
 
 	coreConstructor := (*coreClientConstructor)(clientConstructor)
-
-	groupConstructor := (*addressGroupClientConstructor)(coreConstructor)
 
 	irFetcher := &innerRingFetcher{
 		sidechain: c.cfgMorph.client,
@@ -237,7 +218,7 @@ func initObjectService(c *cfg) {
 		policer.WithExpansionRate(10),
 		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
-			headsvc.NewRemoteHeader(keyStorage, groupConstructor),
+			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
 		policer.WithLocalAddressSource(c),
 		policer.WithHeadTimeout(
@@ -525,8 +506,8 @@ func (c *reputationClient) SearchObject(ctx context.Context, prm *client.SearchO
 	return ids, err
 }
 
-func (c *reputationClientConstructor) Get(addr network.Address) (client.Client, error) {
-	cl, err := c.basicConstructor.Get(network.GroupFromAddress(addr))
+func (c *reputationClientConstructor) Get(addr network.AddressGroup) (client.Client, error) {
+	cl, err := c.basicConstructor.Get(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -534,11 +515,11 @@ func (c *reputationClientConstructor) Get(addr network.Address) (client.Client, 
 	nm, err := netmap.GetLatestNetworkMap(c.nmSrc)
 	if err == nil {
 		for i := range nm.Nodes {
-			var netAddr network.Address
+			var netAddr network.AddressGroup
 
-			err := netAddr.FromString(nm.Nodes[i].Address())
+			err := netAddr.FromIterator(nm.Nodes[i])
 			if err == nil {
-				if netAddr.Equal(addr) {
+				if netAddr.Intersects(addr) {
 					prm := truststorage.UpdatePrm{}
 					prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 
