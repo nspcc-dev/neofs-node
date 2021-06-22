@@ -90,7 +90,7 @@ type cfg struct {
 
 	cfgNodeInfo cfgNodeInfo
 
-	localAddr network.Address
+	localAddr network.AddressGroup
 
 	cfgObject cfgObject
 
@@ -285,7 +285,7 @@ func initCfg(path string) *cfg {
 			tlsCertFile:   tlsCertFile,
 			tlsKeyFile:    tlsKeyFile,
 		},
-		localAddr: netAddr,
+		localAddr: network.GroupFromAddress(netAddr),
 		respSvc: response.NewService(
 			response.WithNetworkState(state),
 		),
@@ -308,7 +308,7 @@ func initCfg(path string) *cfg {
 	return c
 }
 
-func (c *cfg) LocalAddress() network.Address {
+func (c *cfg) LocalAddress() network.AddressGroup {
 	return c.localAddr
 }
 
