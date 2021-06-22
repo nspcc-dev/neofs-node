@@ -55,7 +55,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -144,7 +144,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 			// convert the object
 			return objectSDK.NewFromV2(obj), nil
-		})
+		}))
 	}
 
 	return p, nil
@@ -177,7 +177,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -242,7 +242,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			obj.SetPayload(payload)
 
 			return obj.Object(), nil
-		})
+		}))
 	}
 
 	return p, nil
@@ -340,7 +340,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -439,7 +439,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 			// convert the object
 			return raw.Object().SDK(), nil
-		})
+		}))
 	}
 
 	return p, nil
@@ -506,4 +506,33 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 	sh.SetPayloadHash(hdrV2.GetPayloadHash())
 
 	return sh
+}
+
+func groupAddressRequestForwarder(f func(network.Address, client.Client) (*objectSDK.Object, error)) getsvc.RequestForwarder {
+	return func(addrGroup network.AddressGroup, c client.Client) (*objectSDK.Object, error) {
+		var (
+			firstErr error
+			res      *objectSDK.Object
+		)
+
+		addrGroup.IterateAddresses(func(addr network.Address) (stop bool) {
+			var err error
+
+			defer func() {
+				stop = err == nil
+
+				if stop || firstErr == nil {
+					firstErr = err
+				}
+
+				// would be nice to log otherwise
+			}()
+
+			res, err = f(addr, c)
+
+			return
+		})
+
+		return res, firstErr
+	}
 }
