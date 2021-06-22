@@ -122,7 +122,7 @@ func flatNodes(ns []netmap.Nodes) []netmap.Nodes {
 // Next returns next unprocessed address of the object placement.
 //
 // Returns nil if no nodes left or traversal operation succeeded.
-func (t *Traverser) Next() []network.Address {
+func (t *Traverser) Next() []network.AddressGroup {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
@@ -139,10 +139,10 @@ func (t *Traverser) Next() []network.Address {
 		count = len(t.vectors[0])
 	}
 
-	addrs := make([]network.Address, count)
+	addrs := make([]network.AddressGroup, count)
 
 	for i := 0; i < count; i++ {
-		err := addrs[i].FromString(t.vectors[0][i].Address())
+		err := addrs[i].FromIterator(t.vectors[0][i])
 		if err != nil {
 			// TODO: log error
 			return nil

@@ -3,7 +3,6 @@ package searchsvc
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"go.uber.org/zap"
 )
 
@@ -77,7 +76,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			}
 
 			// TODO: consider parallel execution
-			exec.processNode(ctx, network.GroupFromAddress(addrs[i]))
+			exec.processNode(ctx, addrs[i])
 		}
 	}
 
