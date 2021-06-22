@@ -65,12 +65,12 @@ func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Conta
 	return nodes, container.New(container.WithPolicy(policy))
 }
 
-func assertSameAddress(t *testing.T, ni *netmap.NodeInfo, addr network.Address) {
-	var netAddr network.Address
+func assertSameAddress(t *testing.T, ni *netmap.NodeInfo, addr network.AddressGroup) {
+	var netAddr network.AddressGroup
 
-	err := netAddr.FromString(ni.Address())
+	err := netAddr.FromIterator(ni)
 	require.NoError(t, err)
-	require.True(t, netAddr.Equal(addr))
+	require.True(t, netAddr.Intersects(addr))
 }
 
 func TestTraverserObjectScenarios(t *testing.T) {
@@ -124,12 +124,12 @@ func TestTraverserObjectScenarios(t *testing.T) {
 			require.NotNil(t, tr.Next())
 		}
 
-		var n network.Address
+		var n network.AddressGroup
 
-		err = n.FromString(nodes[1][0].Address())
+		err = n.FromIterator(nodes[1][0])
 		require.NoError(t, err)
 
-		require.Equal(t, []network.Address{n}, tr.Next())
+		require.Equal(t, []network.AddressGroup{n}, tr.Next())
 	})
 
 	t.Run("put scenario", func(t *testing.T) {

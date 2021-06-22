@@ -110,7 +110,7 @@ loop:
 			if err := t.workerPool.Submit(func() {
 				defer wg.Done()
 
-				if err := f(network.GroupFromAddress(addr)); err != nil {
+				if err := f(addr); err != nil {
 					svcutil.LogServiceError(t.log, "PUT", addr, err)
 					return
 				}
