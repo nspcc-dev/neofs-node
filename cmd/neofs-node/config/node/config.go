@@ -18,10 +18,7 @@ const (
 	attributePrefix = "attribute"
 )
 
-var (
-	errKeyNotSet     = errors.New("empty/not set key address, see `node.key` section")
-	errAddressNotSet = errors.New("empty/not set bootstrap address, see `node.address` section")
-)
+var errKeyNotSet = errors.New("empty/not set key address, see `node.key` section")
 
 // Key returns value of "key" config parameter
 // from "node" section.
@@ -63,19 +60,30 @@ func Wallet(c *config.Config) *keys.PrivateKey {
 	return acc.PrivateKey()
 }
 
-// BootstrapAddress returns value of "address" config parameter
-// from "node" section as network.Address.
-//
-// Panics if value is not a valid NeoFS network address
-func BootstrapAddress(c *config.Config) (addr network.Address) {
-	v := config.StringSafe(c.Sub(subsection), "address")
-	if v == "" {
-		panic(errAddressNotSet)
-	}
+type stringAddressGroup []string
 
-	err := addr.FromString(v)
+func (x stringAddressGroup) IterateAddresses(f func(string) bool) {
+	for i := range x {
+		if f(x[i]) {
+			break
+		}
+	}
+}
+
+func (x stringAddressGroup) NumberOfAddresses() int {
+	return len(x)
+}
+
+// BootstrapAddresses returns value of "addresses" config parameter
+// from "node" section as network.AddressGroup.
+//
+// Panics if value is not a string list of valid NeoFS network addresses.
+func BootstrapAddresses(c *config.Config) (addr network.AddressGroup) {
+	v := config.StringSlice(c.Sub(subsection), "addresses")
+
+	err := addr.FromIterator(stringAddressGroup(v))
 	if err != nil {
-		panic(fmt.Errorf("could not convert bootstrap address %s to %T: %w", v, addr, err))
+		panic(fmt.Errorf("could not parse bootstrap addresses: %w", err))
 	}
 
 	return addr

@@ -17,7 +17,10 @@
       "address": "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz",
       "password": "password"
     },
-    "address": "s01.neofs.devenv:8080",
+    "addresses": [
+      "s01.neofs.devenv:8080",
+      "s02.neofs.devenv:8081"
+    ],
     "attribute_0": "Price:11",
     "attribute_1": "UN-LOCODE:RU MSK",
     "relay": true
