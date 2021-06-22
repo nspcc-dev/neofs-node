@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -194,11 +195,7 @@ func init() {
 	// objectCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func initSession(ctx context.Context) (client.Client, *session.Token, error) {
-	key, err := getKey()
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't fetch private key: %w", err)
-	}
+func initSession(ctx context.Context, key *ecdsa.PrivateKey) (client.Client, *session.Token, error) {
 	cli, err := getSDKClient(key)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't create client: %w", err)
@@ -211,7 +208,13 @@ func initSession(ctx context.Context) (client.Client, *session.Token, error) {
 }
 
 func putObject(cmd *cobra.Command, _ []string) {
-	ownerID, err := getOwnerID()
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
+	ownerID, err := getOwnerID(key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -261,7 +264,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	obj.SetAttributes(attrs...)
 
 	ctx := context.Background()
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -290,6 +293,12 @@ func putObject(cmd *cobra.Command, _ []string) {
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -297,7 +306,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 	}
 
 	ctx := context.Background()
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -325,6 +334,12 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 }
 
 func getObject(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -346,7 +361,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 	}
 
 	ctx := context.Background()
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -393,6 +408,12 @@ func getObject(cmd *cobra.Command, _ []string) {
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -400,7 +421,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 	}
 
 	ctx := context.Background()
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -440,6 +461,12 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 }
 
 func searchObject(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	cid, err := getCID(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -453,7 +480,7 @@ func searchObject(cmd *cobra.Command, _ []string) {
 	}
 
 	ctx := context.Background()
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -481,6 +508,12 @@ func searchObject(cmd *cobra.Command, _ []string) {
 }
 
 func getObjectHash(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -506,7 +539,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	}
 
 	ctx := context.Background()
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -576,11 +609,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	}
 }
 
-func getOwnerID() (*owner.ID, error) {
-	key, err := getKey()
-	if err != nil {
-		return nil, err
-	}
+func getOwnerID(key *ecdsa.PrivateKey) (*owner.ID, error) {
 	w, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
 	if err != nil {
 		return nil, err
@@ -897,6 +926,12 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 }
 
 func getObjectRange(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	objAddr, err := getObjectAddress(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -931,7 +966,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	ctx := context.Background()
 
-	c, sessionToken, err := initSession(ctx)
+	c, sessionToken, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
