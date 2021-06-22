@@ -303,7 +303,7 @@ func initObjectService(c *cfg) {
 	sGet := getsvc.New(
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
-		getsvc.WithClientConstructor(coreConstructor),
+		getsvc.WithClientConstructor(groupConstructor),
 		getsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.SuccessAfter(1),

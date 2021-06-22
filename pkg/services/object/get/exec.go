@@ -270,9 +270,7 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 	}
 }
 
-func (exec execCtx) remoteClient(node network.Address) (getClient, bool) {
-	log := exec.log.With(zap.Stringer("node", node))
-
+func (exec execCtx) remoteClient(node network.AddressGroup) (getClient, bool) {
 	c, err := exec.svc.clientCache.get(node)
 
 	switch {
@@ -280,7 +278,7 @@ func (exec execCtx) remoteClient(node network.Address) (getClient, bool) {
 		exec.status = statusUndefined
 		exec.err = err
 
-		log.Debug("could not construct remote node client")
+		exec.log.Debug("could not construct remote node client")
 	case err == nil:
 		return c, true
 	}

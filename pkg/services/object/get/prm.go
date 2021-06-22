@@ -34,7 +34,7 @@ type RangeHashPrm struct {
 	salt []byte
 }
 
-type RequestForwarder func(network.Address, coreclient.Client) (*objectSDK.Object, error)
+type RequestForwarder func(network.AddressGroup, coreclient.Client) (*objectSDK.Object, error)
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {

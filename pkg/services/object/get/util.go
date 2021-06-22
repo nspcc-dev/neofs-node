@@ -73,7 +73,7 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj.Object()
 }
 
-func (c *clientCacheWrapper) get(addr network.Address) (getClient, error) {
+func (c *clientCacheWrapper) get(addr network.AddressGroup) (getClient, error) {
 	clt, err := c.cache.Get(addr)
 
 	return &clientWrapper{
@@ -81,7 +81,7 @@ func (c *clientCacheWrapper) get(addr network.Address) (getClient, error) {
 	}, err
 }
 
-func (c *clientWrapper) getObject(exec *execCtx, addr network.Address) (*objectSDK.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx, addr network.AddressGroup) (*objectSDK.Object, error) {
 	if !exec.assembling && exec.prm.forwarder != nil {
 		return exec.prm.forwarder(addr, c.client)
 	}
