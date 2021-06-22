@@ -7,10 +7,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func (exec *execCtx) processNode(ctx context.Context, addr network.Address) {
-	log := exec.log.With(zap.Stringer("remote node", addr))
-
-	log.Debug("processing node...")
+func (exec *execCtx) processNode(ctx context.Context, addr network.AddressGroup) {
+	exec.log.Debug("processing node...")
 
 	client, ok := exec.remoteClient(addr)
 	if !ok {
