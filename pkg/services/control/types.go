@@ -125,10 +125,10 @@ func (x *NodeInfo) SetPublicKey(v []byte) {
 	}
 }
 
-// SetAddress sets ways to connect to a node.
-func (x *NodeInfo) SetAddress(v string) {
+// SetAddresses sets ways to connect to a node.
+func (x *NodeInfo) SetAddresses(v []string) {
 	if x != nil {
-		x.Address = v
+		x.Addresses = v
 	}
 }
 
@@ -184,7 +184,7 @@ func (x *NodeInfo) StableMarshal(buf []byte) ([]byte, error) {
 
 	offset += n
 
-	n, err = proto.StringMarshal(nodeAddrFNum, buf[offset:], x.Address)
+	n, err = proto.RepeatedStringMarshal(nodeAddrFNum, buf[offset:], x.Addresses)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (x *NodeInfo) StableSize() int {
 	size := 0
 
 	size += proto.BytesSize(nodePubKeyFNum, x.PublicKey)
-	size += proto.StringSize(nodeAddrFNum, x.Address)
+	size += proto.RepeatedStringSize(nodeAddrFNum, x.Addresses)
 
 	for i := range x.Attributes {
 		size += proto.NestedStructureSize(nodeAttrsFNum, x.Attributes[i])

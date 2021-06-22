@@ -53,7 +53,12 @@ func nodesFromAPI(apiNodes netmapAPI.Nodes) []*control.NodeInfo {
 	for _, apiNode := range apiNodes {
 		node := new(control.NodeInfo)
 		node.SetPublicKey(apiNode.PublicKey())
-		node.SetAddress(apiNode.Address())
+
+		addrs := make([]string, apiNode.NumberOfAddresses())
+		netmapAPI.IterateAllAddresses(apiNode.NodeInfo, func(s string) {
+			addrs = append(addrs, s)
+		})
+		node.SetAddresses(addrs)
 		node.SetAttributes(attributesFromAPI(apiNode.Attributes()))
 		node.SetState(stateFromAPI(apiNode.State()))
 
