@@ -225,7 +225,7 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
-	if network.IsLocalAddress(r.loadAddrSrc, netAddr) {
+	if network.IsLocalAddress(r.loadAddrSrc, network.GroupFromAddress(netAddr)) {
 		// if local => return no-op writer
 		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}

@@ -25,7 +25,7 @@ type Address struct {
 // LocalAddressSource is an interface of local
 // network address container with read access.
 type LocalAddressSource interface {
-	LocalAddress() Address
+	LocalAddress() AddressGroup
 }
 
 // String returns multiaddr string.
@@ -107,8 +107,8 @@ func multiaddrStringFromHostAddr(host string) (string, error) {
 	return strings.Join([]string{prefix, addr, l4Protocol, port}, "/"), nil
 }
 
-// IsLocalAddress returns true if network endpoint from local address
-// source is equal to network endpoint of passed address.
-func IsLocalAddress(src LocalAddressSource, addr Address) bool {
-	return src.LocalAddress().Equal(addr)
+// IsLocalAddress returns true if network endpoints from local address group
+// source intersects with network endpoints of passed address group.
+func IsLocalAddress(src LocalAddressSource, addr AddressGroup) bool {
+	return src.LocalAddress().Intersects(addr)
 }
