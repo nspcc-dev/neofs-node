@@ -47,7 +47,7 @@ func testOID() *objectSDK.ID {
 func newDB(t testing.TB) *meta.DB {
 	path := t.Name()
 
-	bdb := meta.New(meta.WithPath(path), meta.WithPermissions(0600))
+	bdb := meta.New(meta.WithPath(path), meta.WithPermissions(0700))
 
 	require.NoError(t, bdb.Open())
 
@@ -63,7 +63,7 @@ func generateRawObject(t *testing.T) *object.RawObject {
 	return generateRawObjectWithCID(t, cidtest.Generate())
 }
 
-func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
+func generateRawObjectWithCID(t testing.TB, cid *cid.ID) *object.RawObject {
 	version := pkg.NewVersion()
 	version.SetMajor(2)
 	version.SetMinor(1)
