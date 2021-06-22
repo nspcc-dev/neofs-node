@@ -22,11 +22,10 @@ func TestNodeSection(t *testing.T) {
 			},
 		)
 
-		require.PanicsWithError(
+		require.Panics(
 			t,
-			errAddressNotSet.Error(),
 			func() {
-				BootstrapAddress(empty)
+				BootstrapAddresses(empty)
 			},
 		)
 
@@ -41,18 +40,21 @@ func TestNodeSection(t *testing.T) {
 
 	var fileConfigTest = func(c *config.Config) {
 		key := Key(c)
-		addr := BootstrapAddress(c)
+		addr := BootstrapAddresses(c)
 		attributes := Attributes(c)
 		relay := Relay(c)
 		wKey := Wallet(c)
 
-		var expectedAddr network.Address
+		var expectedAddr network.AddressGroup
 
-		err := expectedAddr.FromString("s01.neofs.devenv:8080")
+		err := expectedAddr.FromIterator(stringAddressGroup([]string{
+			"s01.neofs.devenv:8080",
+			"s02.neofs.devenv:8081",
+		}))
 		require.NoError(t, err)
 
 		require.Equal(t, "NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM", key.Address())
-		require.Equal(t, true, addr.Equal(expectedAddr))
+		require.Equal(t, expectedAddr, addr)
 		require.Equal(t, true, relay)
 
 		require.Len(t, attributes, 2)

@@ -215,7 +215,7 @@ func initCfg(path string) *cfg {
 	log, err := logger.NewLogger(logPrm)
 	fatalOnErr(err)
 
-	netAddr := nodeconfig.BootstrapAddress(appCfg)
+	netAddr := nodeconfig.BootstrapAddresses(appCfg)
 
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
@@ -259,7 +259,7 @@ func initCfg(path string) *cfg {
 			maxChunkSize:  maxChunkSize,
 			maxAddrAmount: maxAddrAmount,
 		},
-		localAddr: network.GroupFromAddress(netAddr),
+		localAddr: netAddr,
 		respSvc: response.NewService(
 			response.WithNetworkState(state),
 		),
