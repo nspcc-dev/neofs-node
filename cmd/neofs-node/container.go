@@ -114,23 +114,25 @@ func initContainerService(c *cfg) {
 		})
 	})
 
-	containerGRPC.RegisterContainerServiceServer(c.cfgGRPC.server,
-		containerTransportGRPC.New(
-			containerService.NewSignService(
-				&c.key.PrivateKey,
-				containerService.NewResponseService(
-					&usedSpaceService{
-						Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap)),
-						loadWriterProvider:   loadRouter,
-						loadPlacementBuilder: loadPlacementBuilder,
-						routeBuilder:         routeBuilder,
-						cfg:                  c,
-					},
-					c.respSvc,
-				),
+	server := containerTransportGRPC.New(
+		containerService.NewSignService(
+			&c.key.PrivateKey,
+			containerService.NewResponseService(
+				&usedSpaceService{
+					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap)),
+					loadWriterProvider:   loadRouter,
+					loadPlacementBuilder: loadPlacementBuilder,
+					routeBuilder:         routeBuilder,
+					cfg:                  c,
+				},
+				c.respSvc,
 			),
 		),
 	)
+
+	for _, srv := range c.cfgGRPC.servers {
+		containerGRPC.RegisterContainerServiceServer(srv, server)
+	}
 }
 
 // addContainerNotificationHandler adds handler that will be executed synchronously

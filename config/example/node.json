@@ -23,11 +23,20 @@
     "relay": true
   },
   "grpc": {
-    "endpoint": "s01.neofs.devenv:8080",
-    "tls": {
-      "enabled": true,
-      "certificate": "/path/to/cert",
-      "key": "/path/to/key"
+    "num": 2,
+    "0": {
+      "endpoint": "s01.neofs.devenv:8080",
+      "tls": {
+        "enabled": true,
+        "certificate": "/path/to/cert",
+        "key": "/path/to/key"
+      }
+    },
+    "1": {
+      "endpoint": "s02.neofs.devenv:8080",
+      "tls": {
+        "enabled": false
+      }
     }
   },
   "control": {

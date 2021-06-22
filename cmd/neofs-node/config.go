@@ -17,7 +17,6 @@ import (
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
-	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
@@ -112,17 +111,13 @@ type cfg struct {
 }
 
 type cfgGRPC struct {
-	listener net.Listener
+	listeners []net.Listener
 
-	server *grpc.Server
+	servers []*grpc.Server
 
 	maxChunkSize uint64
 
 	maxAddrAmount uint64
-
-	tlsEnabled  bool
-	tlsCertFile string
-	tlsKeyFile  string
 }
 
 type cfgMorph struct {
@@ -225,24 +220,6 @@ func initCfg(path string) *cfg {
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
 
-	var (
-		tlsEnabled  bool
-		tlsCertFile string
-		tlsKeyFile  string
-
-		tlsConfig = grpcconfig.TLS(appCfg)
-	)
-
-	if tlsConfig.Enabled() {
-		tlsEnabled = true
-		tlsCertFile = tlsConfig.CertificateFile()
-		tlsKeyFile = tlsConfig.KeyFile()
-	}
-
-	if tlsEnabled {
-		netAddr.AddTLS()
-	}
-
 	state := newNetworkState()
 
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
@@ -281,9 +258,6 @@ func initCfg(path string) *cfg {
 		cfgGRPC: cfgGRPC{
 			maxChunkSize:  maxChunkSize,
 			maxAddrAmount: maxAddrAmount,
-			tlsEnabled:    tlsEnabled,
-			tlsCertFile:   tlsCertFile,
-			tlsKeyFile:    tlsKeyFile,
 		},
 		localAddr: network.GroupFromAddress(netAddr),
 		respSvc: response.NewService(

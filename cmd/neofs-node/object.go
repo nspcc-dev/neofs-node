@@ -371,9 +371,11 @@ func initObjectService(c *cfg) {
 		firstSvc = objectService.NewMetricCollector(aclSvc, c.metricsCollector)
 	}
 
-	objectGRPC.RegisterObjectServiceServer(c.cfgGRPC.server,
-		objectTransportGRPC.New(firstSvc),
-	)
+	server := objectTransportGRPC.New(firstSvc)
+
+	for _, srv := range c.cfgGRPC.servers {
+		objectGRPC.RegisterObjectServiceServer(srv, server)
+	}
 }
 
 type morphEACLStorage struct {

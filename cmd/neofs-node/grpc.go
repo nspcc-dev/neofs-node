@@ -12,41 +12,52 @@ import (
 )
 
 func initGRPC(c *cfg) {
-	var err error
+	grpcconfig.IterateEndpoints(c.appCfg, func(sc *grpcconfig.Config) {
+		lis, err := net.Listen("tcp", sc.Endpoint())
+		fatalOnErr(err)
 
-	c.cfgGRPC.listener, err = net.Listen("tcp", grpcconfig.Endpoint(c.appCfg))
-	fatalOnErr(err)
+		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
 
-	serverOpts := []grpc.ServerOption{
-		grpc.MaxSendMsgSize(maxMsgSize),
-	}
+		serverOpts := []grpc.ServerOption{
+			grpc.MaxSendMsgSize(maxMsgSize),
+		}
 
-	if c.cfgGRPC.tlsEnabled {
-		creds, err := credentials.NewServerTLSFromFile(c.cfgGRPC.tlsCertFile, c.cfgGRPC.tlsKeyFile)
-		fatalOnErrDetails("could not read credentials from file", err)
+		tlsCfg := sc.TLS()
 
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-	}
+		if tlsCfg != nil {
+			creds, err := credentials.NewServerTLSFromFile(tlsCfg.CertificateFile(), tlsCfg.KeyFile())
+			fatalOnErrDetails("could not read credentials from file", err)
 
-	c.cfgGRPC.server = grpc.NewServer(serverOpts...)
+			serverOpts = append(serverOpts, grpc.Creds(creds))
+		}
 
-	c.onShutdown(func() {
-		stopGRPC("NeoFS Public API", c.cfgGRPC.server, c.log)
+		srv := grpc.NewServer(serverOpts...)
+
+		c.onShutdown(func() {
+			stopGRPC("NeoFS Public API", srv, c.log)
+		})
+
+		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
 	})
 }
 
 func serveGRPC(c *cfg) {
-	c.wg.Add(1)
+	for i := range c.cfgGRPC.servers {
+		c.wg.Add(1)
 
-	go func() {
-		defer func() {
-			c.wg.Done()
+		srv := c.cfgGRPC.servers[i]
+		lis := c.cfgGRPC.listeners[i]
+
+		go func() {
+			defer func() {
+				c.wg.Done()
+			}()
+
+			if err := srv.Serve(lis); err != nil {
+				fmt.Println("gRPC server error", err)
+			}
 		}()
-
-		if err := c.cfgGRPC.server.Serve(c.cfgGRPC.listener); err != nil {
-			fmt.Println("gRPC server error", err)
-		}
-	}()
+	}
 }
 
 func stopGRPC(name string, s *grpc.Server, l *logger.Logger) {
