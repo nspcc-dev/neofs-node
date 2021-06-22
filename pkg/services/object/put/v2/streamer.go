@@ -125,36 +125,62 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	return fromPutResponse(resp), nil
 }
 
-func (s *streamer) relayRequest(addr network.Address, c client.Client) error {
+func (s *streamer) relayRequest(addr network.AddressGroup, c client.Client) error {
 	// open stream
 	resp := new(object.PutResponse)
 
-	stream, err := rpc.PutObject(c.RawForAddress(addr), resp)
-	if err != nil {
-		return fmt.Errorf("stream opening failed: %w", err)
-	}
+	var firstErr error
 
-	// send init part
-	err = stream.Write(s.init)
-	if err != nil {
-		return fmt.Errorf("sending the initial message to stream failed: %w", err)
-	}
+	addr.IterateAddresses(func(addr network.Address) (stop bool) {
+		var err error
 
-	for i := range s.chunks {
-		if err := stream.Write(s.chunks[i]); err != nil {
-			return fmt.Errorf("sending the chunk %d failed: %w", i, err)
+		defer func() {
+			stop = err == nil
+
+			if stop || firstErr == nil {
+				firstErr = err
+			}
+
+			// would be nice to log otherwise
+		}()
+
+		var stream *rpc.PutRequestWriter
+
+		stream, err = rpc.PutObject(c.RawForAddress(addr), resp)
+		if err != nil {
+			err = fmt.Errorf("stream opening failed: %w", err)
+			return
 		}
-	}
 
-	// close object stream and receive response from remote node
-	err = stream.Close()
-	if err != nil {
-		return fmt.Errorf("closing the stream failed: %w", err)
-	}
+		// send init part
+		err = stream.Write(s.init)
+		if err != nil {
+			err = fmt.Errorf("sending the initial message to stream failed: %w", err)
+			return
+		}
 
-	// verify response structure
-	if err := signature.VerifyServiceMessage(resp); err != nil {
-		return fmt.Errorf("response verification failed: %w", err)
-	}
-	return nil
+		for i := range s.chunks {
+			if err = stream.Write(s.chunks[i]); err != nil {
+				err = fmt.Errorf("sending the chunk %d failed: %w", i, err)
+				return
+			}
+		}
+
+		// close object stream and receive response from remote node
+		err = stream.Close()
+		if err != nil {
+			err = fmt.Errorf("closing the stream failed: %w", err)
+			return
+		}
+
+		// verify response structure
+		err = signature.VerifyServiceMessage(resp)
+		if err != nil {
+			err = fmt.Errorf("response verification failed: %w", err)
+		}
+
+		return
+	})
+
+	return firstErr
 }

@@ -158,6 +158,17 @@ func (x *coreClientConstructor) Get(addr network.Address) (coreclient.Client, er
 	return c.(coreclient.Client), nil
 }
 
+type addressGroupClientConstructor coreClientConstructor
+
+func (x *addressGroupClientConstructor) Get(addrGroup network.AddressGroup) (c coreclient.Client, err error) {
+	addrGroup.IterateAddresses(func(addr network.Address) bool {
+		c, err = (*coreClientConstructor)(x).Get(addr)
+		return true
+	})
+
+	return
+}
+
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore)
@@ -183,6 +194,8 @@ func initObjectService(c *cfg) {
 
 	coreConstructor := (*coreClientConstructor)(clientConstructor)
 
+	groupConstructor := (*addressGroupClientConstructor)(coreConstructor)
+
 	irFetcher := &innerRingFetcher{
 		sidechain: c.cfgMorph.client,
 	}
@@ -199,7 +212,7 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, coreConstructor),
+			putsvc.NewRemoteSender(keyStorage, groupConstructor),
 		),
 	)
 
@@ -251,7 +264,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithClientConstructor(coreConstructor),
+		putsvc.WithClientConstructor(groupConstructor),
 		putsvc.WithMaxSizeSource(c),
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrStorage),

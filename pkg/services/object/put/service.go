@@ -30,7 +30,7 @@ type Service struct {
 type Option func(*cfg)
 
 type ClientConstructor interface {
-	Get(network.Address) (client.Client, error)
+	Get(network.AddressGroup) (client.Client, error)
 }
 
 type cfg struct {
