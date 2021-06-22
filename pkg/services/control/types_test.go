@@ -24,7 +24,7 @@ func generateNetmap() *control.Netmap {
 	for i := 0; i < nodeCount; i++ {
 		n := new(control.NodeInfo)
 		n.SetPublicKey(testData(33))
-		n.SetAddress(testString())
+		n.SetAddresses([]string{testString(), testString()})
 		n.SetState(control.NetmapStatus_ONLINE)
 
 		const attrCount = 2
@@ -81,9 +81,20 @@ func equalNetmaps(nm1, nm2 *control.Netmap) bool {
 
 func equalNodeInfos(n1, n2 *control.NodeInfo) bool {
 	if !bytes.Equal(n1.GetPublicKey(), n2.GetPublicKey()) ||
-		n1.GetAddress() != n2.GetAddress() ||
 		n1.GetState() != n2.GetState() {
 		return false
+	}
+
+	na1, na2 := n1.GetAddresses(), n2.GetAddresses()
+
+	if len(na1) != len(na2) {
+		return false
+	}
+
+	for i := range na1 {
+		if na1[i] != na2[i] {
+			return false
+		}
 	}
 
 	a1, a2 := n1.GetAttributes(), n2.GetAttributes()

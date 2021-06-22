@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -194,10 +195,10 @@ func prettyPrintNetmap(cmd *cobra.Command, nm *control.Netmap, jsonEncoding bool
 	cmd.Println("Epoch:", nm.GetEpoch())
 
 	for i, node := range nm.GetNodes() {
-		cmd.Printf("Node %d: %s %s %s\n", i+1,
+		cmd.Printf("Node %d: %s %s %v\n", i+1,
 			base58.Encode(node.GetPublicKey()),
-			node.GetAddress(),
 			node.GetState(),
+			node.GetAddresses(),
 		)
 
 		for _, attr := range node.GetAttributes() {
