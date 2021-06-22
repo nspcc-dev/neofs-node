@@ -2,13 +2,9 @@ package grpcconfig
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-)
-
-const (
-	subsection    = "grpc"
-	tlsSubsection = "tls"
 )
 
 var (
@@ -17,18 +13,17 @@ var (
 	errTLSCertNotSet  = errors.New("empty/not set TLS certificate file path, see `grpc.tls.certificate` section")
 )
 
-// TLSConfig is a wrapper over "tls" config section which provides access
-// to TLS configuration of gRPC connection.
-type TLSConfig struct {
-	cfg *config.Config
-}
+// Config is a wrapper over the config section
+// which provides access to gRPC server configurations.
+type Config config.Config
 
-// Endpoint returns value of "endpoint" config parameter
-// from "grpc" section.
+// Endpoint returns value of "endpoint" config parameter.
 //
 // Panics if value is not a non-empty string.
-func Endpoint(c *config.Config) string {
-	v := config.StringSafe(c.Sub(subsection), "endpoint")
+func (x *Config) Endpoint() string {
+	v := config.StringSafe(
+		(*config.Config)(x),
+		"endpoint")
 	if v == "" {
 		panic(errEndpointNotSet)
 	}
@@ -36,19 +31,27 @@ func Endpoint(c *config.Config) string {
 	return v
 }
 
-// TLS returns structure that provides access to "tls" subsection of
-// "grpc" section.
-func TLS(c *config.Config) TLSConfig {
-	return TLSConfig{
-		cfg: c.Sub(subsection).Sub(tlsSubsection),
+// TLS returns "tls" subsection as a TLSConfig.
+//
+// Returns nil if "enabled" value of "tls" subsection is false.
+func (x *Config) TLS() *TLSConfig {
+	sub := (*config.Config)(x).
+		Sub("tls")
+
+	if !config.BoolSafe(sub, "enabled") {
+		return nil
+	}
+
+	return &TLSConfig{
+		cfg: sub,
 	}
 }
 
-// Enabled returns value of "enabled" config parameter.
-//
-// Returns false if value is not set.
-func (tls TLSConfig) Enabled() bool {
-	return config.BoolSafe(tls.cfg, "enabled")
+// TLSConfig is a wrapper over the config section
+// which provides access to TLS configurations
+// of the gRPC server.
+type TLSConfig struct {
+	cfg *config.Config
 }
 
 // KeyFile returns value of "key" config parameter.
@@ -73,4 +76,25 @@ func (tls TLSConfig) CertificateFile() string {
 	}
 
 	return v
+}
+
+// IterateEndpoints iterates over subsections ["0":"N") (N - "num" value)
+// of "grpc" section of c, wrap them into Config and passes to f.
+//
+// Panics if N is not a positive number.
+func IterateEndpoints(c *config.Config, f func(*Config)) {
+	c = c.Sub("grpc")
+
+	num := config.Uint(c, "num")
+	if num == 0 {
+		panic("no gRPC server configured")
+	}
+
+	for i := uint64(0); i < num; i++ {
+		si := strconv.FormatUint(i, 10)
+
+		sc := (*Config)(c.Sub(si))
+
+		f(sc)
+	}
 }

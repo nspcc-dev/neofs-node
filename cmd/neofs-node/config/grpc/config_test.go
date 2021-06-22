@@ -10,49 +10,35 @@ import (
 
 func TestGRPCSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		empty := configtest.EmptyConfig()
-
-		tlsEnabled := TLS(empty).Enabled()
-
-		require.Equal(t, false, tlsEnabled)
-
-		require.PanicsWithError(
-			t,
-			errEndpointNotSet.Error(),
-			func() {
-				Endpoint(empty)
-			},
-		)
-
-		require.PanicsWithError(
-			t,
-			errTLSKeyNotSet.Error(),
-			func() {
-				TLS(empty).KeyFile()
-			},
-		)
-
-		require.PanicsWithError(
-			t,
-			errTLSCertNotSet.Error(),
-			func() {
-				TLS(empty).CertificateFile()
-			},
-		)
+		require.Panics(t, func() {
+			IterateEndpoints(configtest.EmptyConfig(), nil)
+		})
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		addr := Endpoint(c)
-		tlsEnabled := TLS(c).Enabled()
-		tlsCert := TLS(c).CertificateFile()
-		tlsKey := TLS(c).KeyFile()
+		num := 0
 
-		require.Equal(t, "s01.neofs.devenv:8080", addr)
-		require.Equal(t, true, tlsEnabled)
-		require.Equal(t, "/path/to/cert", tlsCert)
-		require.Equal(t, "/path/to/key", tlsKey)
+		IterateEndpoints(c, func(sc *Config) {
+			defer func() {
+				num++
+			}()
+
+			tls := sc.TLS()
+
+			switch num {
+			case 0:
+				require.Equal(t, "s01.neofs.devenv:8080", sc.Endpoint())
+
+				require.Equal(t, "/path/to/cert", tls.CertificateFile())
+				require.Equal(t, "/path/to/key", tls.KeyFile())
+			case 1:
+				require.Equal(t, "s02.neofs.devenv:8080", sc.Endpoint())
+
+				require.Nil(t, tls)
+			}
+		})
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

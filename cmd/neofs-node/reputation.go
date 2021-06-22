@@ -186,23 +186,25 @@ func initReputationService(c *cfg) {
 		},
 	)
 
-	v2reputationgrpc.RegisterReputationServiceServer(c.cfgGRPC.server,
-		grpcreputation.New(
-			reputationrpc.NewSignService(
-				&c.key.PrivateKey,
-				reputationrpc.NewResponseService(
-					&reputationServer{
-						cfg:                c,
-						log:                c.log,
-						localRouter:        localTrustRouter,
-						intermediateRouter: intermediateTrustRouter,
-						routeBuilder:       localRouteBuilder,
-					},
-					c.respSvc,
-				),
+	server := grpcreputation.New(
+		reputationrpc.NewSignService(
+			&c.key.PrivateKey,
+			reputationrpc.NewResponseService(
+				&reputationServer{
+					cfg:                c,
+					log:                c.log,
+					localRouter:        localTrustRouter,
+					intermediateRouter: intermediateTrustRouter,
+					routeBuilder:       localRouteBuilder,
+				},
+				c.respSvc,
 			),
 		),
 	)
+
+	for _, srv := range c.cfgGRPC.servers {
+		v2reputationgrpc.RegisterReputationServiceServer(srv, server)
+	}
 
 	// initialize eigen trust block timer
 	durationMeter := NewEigenTrustDuration(c.cfgNetmap.wrapper)

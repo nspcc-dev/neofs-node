@@ -10,17 +10,19 @@ import (
 func initSessionService(c *cfg) {
 	c.privateTokenStore = storage.New()
 
-	sessionGRPC.RegisterSessionServiceServer(c.cfgGRPC.server,
-		sessionTransportGRPC.New(
-			sessionSvc.NewSignService(
-				&c.key.PrivateKey,
-				sessionSvc.NewResponseService(
-					sessionSvc.NewExecutionService(
-						c.privateTokenStore,
-					),
-					c.respSvc,
+	server := sessionTransportGRPC.New(
+		sessionSvc.NewSignService(
+			&c.key.PrivateKey,
+			sessionSvc.NewResponseService(
+				sessionSvc.NewExecutionService(
+					c.privateTokenStore,
 				),
+				c.respSvc,
 			),
 		),
 	)
+
+	for _, srv := range c.cfgGRPC.servers {
+		sessionGRPC.RegisterSessionServiceServer(srv, server)
+	}
 }

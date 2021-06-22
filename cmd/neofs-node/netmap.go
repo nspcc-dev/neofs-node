@@ -86,24 +86,26 @@ func initNetmapService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	netmapGRPC.RegisterNetmapServiceServer(c.cfgGRPC.server,
-		netmapTransportGRPC.New(
-			netmapService.NewSignService(
-				&c.key.PrivateKey,
-				netmapService.NewResponseService(
-					netmapService.NewExecutionService(
-						c,
-						c.apiVersion,
-						&netInfo{
-							netState: c.cfgNetmap.state,
-							magic:    c.cfgMorph.client,
-						},
-					),
-					c.respSvc,
+	server := netmapTransportGRPC.New(
+		netmapService.NewSignService(
+			&c.key.PrivateKey,
+			netmapService.NewResponseService(
+				netmapService.NewExecutionService(
+					c,
+					c.apiVersion,
+					&netInfo{
+						netState: c.cfgNetmap.state,
+						magic:    c.cfgMorph.client,
+					},
 				),
+				c.respSvc,
 			),
 		),
 	)
+
+	for _, srv := range c.cfgGRPC.servers {
+		netmapGRPC.RegisterNetmapServiceServer(srv, server)
+	}
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		c.cfgNetmap.state.setCurrentEpoch(ev.(netmapEvent.NewEpoch).EpochNumber())
