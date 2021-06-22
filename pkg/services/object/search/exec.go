@@ -117,16 +117,14 @@ func (exec *execCtx) generateTraverser(cid *cid.ID) (*placement.Traverser, bool)
 	}
 }
 
-func (exec execCtx) remoteClient(node network.Address) (searchClient, bool) {
-	log := exec.log.With(zap.Stringer("node", node))
-
+func (exec execCtx) remoteClient(node network.AddressGroup) (searchClient, bool) {
 	c, err := exec.svc.clientConstructor.get(node)
 	switch {
 	default:
 		exec.status = statusUndefined
 		exec.err = err
 
-		log.Debug("could not construct remote node client")
+		exec.log.Debug("could not construct remote node client")
 	case err == nil:
 		return c, true
 	}

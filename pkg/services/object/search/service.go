@@ -23,11 +23,11 @@ type Service struct {
 type Option func(*cfg)
 
 type searchClient interface {
-	searchObjects(*execCtx, network.Address) ([]*object.ID, error)
+	searchObjects(*execCtx, network.AddressGroup) ([]*object.ID, error)
 }
 
 type ClientConstructor interface {
-	Get(network.Address) (client.Client, error)
+	Get(network.AddressGroup) (client.Client, error)
 }
 
 type cfg struct {
@@ -38,7 +38,7 @@ type cfg struct {
 	}
 
 	clientConstructor interface {
-		get(network.Address) (searchClient, error)
+		get(network.AddressGroup) (searchClient, error)
 	}
 
 	traverserGenerator interface {

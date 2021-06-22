@@ -286,7 +286,7 @@ func initObjectService(c *cfg) {
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
-		searchsvc.WithClientConstructor(coreConstructor),
+		searchsvc.WithClientConstructor(groupConstructor),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.WithoutSuccessTracking(),
