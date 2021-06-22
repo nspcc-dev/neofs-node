@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
-	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
@@ -14,6 +13,11 @@ import (
 )
 
 func initControlService(c *cfg) {
+	endpoint := controlconfig.GRPC(c.appCfg).Endpoint()
+	if endpoint == controlconfig.GRPCEndpointDefault {
+		return
+	}
+
 	pubs := controlconfig.AuthorizedKeys(c.appCfg)
 	rawPubs := make([][]byte, 0, len(pubs)+1) // +1 for node key
 
@@ -38,21 +42,10 @@ func initControlService(c *cfg) {
 		}),
 	)
 
-	var (
-		err      error
-		lis      net.Listener
-		endpoint = controlconfig.GRPC(c.appCfg).Endpoint()
-	)
+	lis, err := net.Listen("tcp", endpoint)
+	fatalOnErr(err)
 
-	if endpoint == "" || endpoint == grpcconfig.Endpoint(c.appCfg) {
-		lis = c.cfgGRPC.listener
-		c.cfgControlService.server = c.cfgGRPC.server
-	} else {
-		lis, err = net.Listen("tcp", endpoint)
-		fatalOnErr(err)
-
-		c.cfgControlService.server = grpc.NewServer()
-	}
+	c.cfgControlService.server = grpc.NewServer()
 
 	c.onShutdown(func() {
 		stopGRPC("NeoFS Control API", c.cfgControlService.server, c.log)
