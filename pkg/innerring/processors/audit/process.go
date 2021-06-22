@@ -118,9 +118,9 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*ob
 			zap.Int("total_tries", ln),
 		)
 
-		var netAddr network.Address
+		var netAddr network.AddressGroup
 
-		err := netAddr.FromString(shuffled[i].Address())
+		err := netAddr.FromIterator(shuffled[i])
 		if err != nil {
 			log.Warn("can't parse remote address", zap.String("error", err.Error()))
 

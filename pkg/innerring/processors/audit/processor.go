@@ -26,7 +26,7 @@ type (
 
 	// NeoFSClientCache is an interface for cache of neofs RPC clients
 	NeoFSClientCache interface {
-		Get(address network.Address) (SDKClient.Client, error)
+		Get(network.AddressGroup) (SDKClient.Client, error)
 	}
 
 	TaskManager interface {
