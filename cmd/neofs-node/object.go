@@ -149,20 +149,26 @@ func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(addr network.Address) (coreclient.Client, error) {
-	c, err := (*reputationClientConstructor)(x).Get(addr)
-	if err != nil {
-		return nil, err
+func (x *coreClientConstructor) Get(addrGroup network.AddressGroup) (cc coreclient.Client, err error) {
+	var c client.Client
+
+	addrGroup.IterateAddresses(func(addr network.Address) bool {
+		c, err = (*reputationClientConstructor)(x).Get(addr)
+		return true
+	})
+
+	if err == nil {
+		cc = c.(coreclient.Client)
 	}
 
-	return c.(coreclient.Client), nil
+	return
 }
 
-type addressGroupClientConstructor coreClientConstructor
+type addressGroupClientConstructor reputationClientConstructor
 
-func (x *addressGroupClientConstructor) Get(addrGroup network.AddressGroup) (c coreclient.Client, err error) {
+func (x *addressGroupClientConstructor) Get(addrGroup network.AddressGroup) (c client.Client, err error) {
 	addrGroup.IterateAddresses(func(addr network.Address) bool {
-		c, err = (*coreClientConstructor)(x).Get(addr)
+		c, err = (*reputationClientConstructor)(x).Get(addr)
 		return true
 	})
 
@@ -212,7 +218,7 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, groupConstructor),
+			putsvc.NewRemoteSender(keyStorage, coreConstructor),
 		),
 	)
 
@@ -231,7 +237,7 @@ func initObjectService(c *cfg) {
 		policer.WithExpansionRate(10),
 		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
-			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
+			headsvc.NewRemoteHeader(keyStorage, groupConstructor),
 		),
 		policer.WithLocalAddressSource(c),
 		policer.WithHeadTimeout(
@@ -264,7 +270,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithClientConstructor(groupConstructor),
+		putsvc.WithClientConstructor(coreConstructor),
 		putsvc.WithMaxSizeSource(c),
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrStorage),
@@ -286,7 +292,7 @@ func initObjectService(c *cfg) {
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
-		searchsvc.WithClientConstructor(groupConstructor),
+		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.WithoutSuccessTracking(),
@@ -303,7 +309,7 @@ func initObjectService(c *cfg) {
 	sGet := getsvc.New(
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
-		getsvc.WithClientConstructor(groupConstructor),
+		getsvc.WithClientConstructor(coreConstructor),
 		getsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
 				placement.SuccessAfter(1),

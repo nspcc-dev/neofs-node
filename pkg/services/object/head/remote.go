@@ -13,7 +13,7 @@ import (
 )
 
 type ClientConstructor interface {
-	Get(network.Address) (client.Client, error)
+	Get(network.AddressGroup) (client.Client, error)
 }
 
 // RemoteHeader represents utility for getting
@@ -28,7 +28,7 @@ type RemoteHeader struct {
 type RemoteHeadPrm struct {
 	commonHeadPrm *Prm
 
-	node network.Address
+	node network.AddressGroup
 }
 
 var ErrNotFound = errors.New("object header not found")
@@ -41,8 +41,8 @@ func NewRemoteHeader(keyStorage *util.KeyStorage, cache ClientConstructor) *Remo
 	}
 }
 
-// WithNodeAddress sets network address of the remote node.
-func (p *RemoteHeadPrm) WithNodeAddress(v network.Address) *RemoteHeadPrm {
+// WithNodeAddress sets network address group of the remote node.
+func (p *RemoteHeadPrm) WithNodeAddress(v network.AddressGroup) *RemoteHeadPrm {
 	if p != nil {
 		p.node = v
 	}
