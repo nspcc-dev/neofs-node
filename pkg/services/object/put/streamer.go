@@ -20,7 +20,7 @@ type Streamer struct {
 
 	target transformer.ObjectTarget
 
-	relay func(network.Address, client.Client) error
+	relay func(network.AddressGroup, client.Client) error
 
 	maxPayloadSz uint64 // network config
 }
@@ -147,10 +147,10 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 var errLocalAddress = errors.New("can't relay to local address")
 
 func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
-	var relay func(network.Address) error
+	var relay func(network.AddressGroup) error
 	if p.relay != nil {
-		relay = func(addr network.Address) error {
-			if network.IsLocalAddress(p.localAddrSrc, network.GroupFromAddress(addr)) {
+		relay = func(addr network.AddressGroup) error {
+			if network.IsLocalAddress(p.localAddrSrc, addr) {
 				return errLocalAddress
 			}
 
@@ -166,8 +166,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 	return &distributedTarget{
 		traverseOpts: prm.traverseOpts,
 		workerPool:   p.workerPool,
-		nodeTargetInitializer: func(addr network.Address) transformer.ObjectTarget {
-			if network.IsLocalAddress(p.localAddrSrc, network.GroupFromAddress(addr)) {
+		nodeTargetInitializer: func(addr network.AddressGroup) transformer.ObjectTarget {
+			if network.IsLocalAddress(p.localAddrSrc, addr) {
 				return &localTarget{
 					storage: p.localStore,
 				}

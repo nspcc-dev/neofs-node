@@ -23,9 +23,9 @@ type distributedTarget struct {
 
 	chunks [][]byte
 
-	nodeTargetInitializer func(network.Address) transformer.ObjectTarget
+	nodeTargetInitializer func(network.AddressGroup) transformer.ObjectTarget
 
-	relay func(network.Address) error
+	relay func(network.AddressGroup) error
 
 	fmt *object.FormatValidator
 
@@ -68,7 +68,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	return t.iteratePlacement(t.sendObject)
 }
 
-func (t *distributedTarget) sendObject(addr network.Address) error {
+func (t *distributedTarget) sendObject(addr network.AddressGroup) error {
 	if t.relay != nil {
 		err := t.relay(addr)
 		if err == nil || !errors.Is(err, errLocalAddress) {
@@ -86,7 +86,7 @@ func (t *distributedTarget) sendObject(addr network.Address) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(network.Address) error) (*transformer.AccessIdentifiers, error) {
+func (t *distributedTarget) iteratePlacement(f func(network.AddressGroup) error) (*transformer.AccessIdentifiers, error) {
 	traverser, err := placement.NewTraverser(
 		append(t.traverseOpts, placement.ForObject(t.obj.ID()))...,
 	)
@@ -110,7 +110,7 @@ loop:
 			if err := t.workerPool.Submit(func() {
 				defer wg.Done()
 
-				if err := f(addr); err != nil {
+				if err := f(network.GroupFromAddress(addr)); err != nil {
 					svcutil.LogServiceError(t.log, "PUT", addr, err)
 					return
 				}

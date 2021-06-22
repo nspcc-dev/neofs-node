@@ -2,6 +2,7 @@ package replicator
 
 import (
 	"context"
+	"encoding/hex"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -66,15 +67,15 @@ func (p *Replicator) handleTask(ctx context.Context, task *Task) {
 		default:
 		}
 
-		netAddr := task.nodes[i].Address()
+		log := p.log.With(zap.String("node", hex.EncodeToString(task.nodes[i].PublicKey())))
 
-		log := p.log.With(zap.String("node", netAddr))
+		var node network.AddressGroup
 
-		var node network.Address
-
-		err := node.FromString(netAddr)
+		err := node.FromIterator(task.nodes[i])
 		if err != nil {
-			log.Error("could not parse network address")
+			log.Error("could not parse network address",
+				zap.String("error", err.Error()),
+			)
 
 			continue
 		}
