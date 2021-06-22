@@ -128,7 +128,13 @@ func sgBearerToken(cmd *cobra.Command) (*token.BearerToken, error) {
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
-	ownerID, err := getOwnerID()
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
+	ownerID, err := getOwnerID(key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -160,7 +166,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 
 	ctx := context.Background()
 
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -214,6 +220,12 @@ func getSGID() (*objectSDK.ID, error) {
 }
 
 func getSG(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	cid, err := getCID(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -238,7 +250,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 	ctx := context.Background()
 
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -277,6 +289,12 @@ func getSG(cmd *cobra.Command, _ []string) {
 }
 
 func listSG(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	cid, err := getCID(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -291,7 +309,7 @@ func listSG(cmd *cobra.Command, _ []string) {
 
 	ctx := context.Background()
 
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
@@ -319,6 +337,12 @@ func listSG(cmd *cobra.Command, _ []string) {
 }
 
 func delSG(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	if err != nil {
+		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
+		return
+	}
+
 	cid, err := getCID(cmd)
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -339,7 +363,7 @@ func delSG(cmd *cobra.Command, _ []string) {
 
 	ctx := context.Background()
 
-	cli, tok, err := initSession(ctx)
+	cli, tok, err := initSession(ctx, key)
 	if err != nil {
 		cmd.PrintErrln(err)
 		return
