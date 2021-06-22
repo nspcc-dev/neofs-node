@@ -1,6 +1,7 @@
 package router
 
 import (
+	"encoding/hex"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
@@ -80,13 +81,13 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 	}
 
 	for _, remoteInfo := range route {
-		var endpoint string
+		var key string
 
 		if remoteInfo != nil {
-			endpoint = remoteInfo.Address()
+			key = hex.EncodeToString(remoteInfo.PublicKey())
 		}
 
-		remoteWriter, ok := w.mServers[endpoint]
+		remoteWriter, ok := w.mServers[key]
 		if !ok {
 			provider, err := w.router.remoteProvider.InitRemote(remoteInfo)
 			if err != nil {
@@ -107,7 +108,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 				continue
 			}
 
-			w.mServers[endpoint] = remoteWriter
+			w.mServers[key] = remoteWriter
 		}
 
 		err := remoteWriter.Write(t)
@@ -122,11 +123,11 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 }
 
 func (w *trustWriter) Close() error {
-	for endpoint, wRemote := range w.mServers {
+	for key, wRemote := range w.mServers {
 		err := wRemote.Close()
 		if err != nil {
 			w.router.log.Debug("could not close remote server writer",
-				zap.String("endpoint", endpoint),
+				zap.String("key", key),
 				zap.String("error", err.Error()),
 			)
 		}
