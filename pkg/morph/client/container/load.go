@@ -41,7 +41,7 @@ func (p *PutSizeArgs) SetReporterKey(v []byte) {
 	p.reporterKey = v
 }
 
-// Put invokes the call of put container method
+// PutSize invokes the call of put container size method
 // of NeoFS Container contract.
 func (c *Client) PutSize(args PutSizeArgs) error {
 	err := c.client.Invoke(

@@ -83,7 +83,7 @@ func WithPermissions(perm os.FileMode) Option {
 	}
 }
 
-// WithSizeLimit returns option to specify maximum size
+// WithObjectSizeLimit returns option to specify maximum size
 // of the objects stored in Blobovnicza.
 func WithObjectSizeLimit(lim uint64) Option {
 	return func(c *cfg) {

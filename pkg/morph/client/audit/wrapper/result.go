@@ -31,7 +31,7 @@ func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
 		PutAuditResult(args)
 }
 
-// ListAuditResults returns a list of all audit result IDs inside audit contract.
+// ListAllAuditResultID returns a list of all audit result IDs inside audit contract.
 func (w *ClientWrapper) ListAllAuditResultID() ([]ResultID, error) {
 	args := audit.ListResultsArgs{}
 

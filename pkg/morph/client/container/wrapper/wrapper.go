@@ -31,7 +31,7 @@ func defaultOpts() *opts {
 	return new(opts)
 }
 
-// TryNotaryInvoke returns option to enable
+// TryNotary returns option to enable
 // notary invocation tries.
 func TryNotary() Option {
 	return func(o *opts) {

@@ -17,7 +17,7 @@ type RngPrm struct {
 	addr *objectSDK.Address
 }
 
-// GetRes groups resulting values of GetRange operation.
+// RngRes groups resulting values of GetRange operation.
 type RngRes struct {
 	obj *object.Object
 }

@@ -100,7 +100,7 @@ func (a *AccessIdentifiers) Parent() *objectSDK.Object {
 	return nil
 }
 
-// WithParentID returns AccessIdentifiers with passed parent identifier.
+// WithParent returns AccessIdentifiers with passed parent identifier.
 func (a *AccessIdentifiers) WithParent(v *objectSDK.Object) *AccessIdentifiers {
 	res := a
 	if res == nil {

@@ -110,7 +110,7 @@ func WithMetaBaseOptions(opts ...meta.Option) Option {
 	}
 }
 
-// WithMetaBaseOptions returns option to set internal metabase options.
+// WithWriteCacheOptions returns option to set internal write cache options.
 func WithWriteCacheOptions(opts ...writecache.Option) Option {
 	return func(c *cfg) {
 		c.writeCacheOpts = opts

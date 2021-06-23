@@ -90,14 +90,14 @@ func WithMaxPDPSleepInterval(dur time.Duration) Option {
 	}
 }
 
-// WithPDPWorkerPool returns option to set worker pool for PDP pairs processing.
+// WithPDPWorkerPoolGenerator returns option to set worker pool for PDP pairs processing.
 func WithPDPWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
 	return func(c *cfg) {
 		c.pdpPoolGenerator = f
 	}
 }
 
-// WithPoRWorkerPool returns option to set worker pool for PoR SG processing.
+// WithPoRWorkerPoolGenerator returns option to set worker pool for PoR SG processing.
 func WithPoRWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
 	return func(c *cfg) {
 		c.porPoolGenerator = f

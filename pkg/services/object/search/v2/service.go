@@ -34,7 +34,7 @@ func NewService(opts ...Option) *Service {
 	}
 }
 
-// Get calls internal service and returns v2 object stream.
+// Search calls internal service and returns v2 object stream.
 func (s *Service) Search(req *objectV2.SearchRequest, stream objectSvc.SearchStream) error {
 	p, err := s.toPrm(req, stream)
 	if err != nil {

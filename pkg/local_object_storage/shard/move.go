@@ -14,7 +14,7 @@ type ToMoveItPrm struct {
 // ToMoveItRes encapsulates results of ToMoveIt operation.
 type ToMoveItRes struct{}
 
-// WithAdderss sets object address that should be marked to move into another
+// WithAddress sets object address that should be marked to move into another
 // shard.
 func (p *ToMoveItPrm) WithAddress(addr *objectSDK.Address) *ToMoveItPrm {
 	if p != nil {

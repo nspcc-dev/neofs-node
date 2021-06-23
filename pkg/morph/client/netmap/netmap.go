@@ -69,7 +69,7 @@ func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
 	return peersFromStackItems(prms, c.netMapMethod)
 }
 
-// NetMap performs the test invoke of get snapshot of network map
+// Snapshot performs the test invoke of get snapshot of network map
 // from NeoFS Netmap contract. Contract saves only one previous epoch,
 // so all invokes with diff > 1 return error.
 func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {

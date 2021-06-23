@@ -73,7 +73,7 @@ type Writer interface {
 	io.Closer
 }
 
-// IteratorProvider is a group of methods provided
+// WriterProvider is a group of methods provided
 // by entity which generates keepers of
 // UsedSpaceAnnouncement values.
 type WriterProvider interface {

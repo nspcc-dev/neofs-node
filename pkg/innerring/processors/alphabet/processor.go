@@ -21,7 +21,7 @@ type (
 	// Contracts is an interface of the storage
 	// of the alphabet contract addresses.
 	Contracts interface {
-		// Get by index must return address of the
+		// GetByIndex must return address of the
 		// alphabet contract by index of the glagolitic
 		// letter (e.g 0 for Az, 40 for Izhitsa).
 		//

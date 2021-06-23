@@ -65,7 +65,7 @@ func (x *Storage) AllDaughterTrusts(epoch uint64) (*DaughterStorage, bool) {
 	return s, ok
 }
 
-// maps IDs of daughter peers to repositories of the local trusts to their providers.
+// DaughterStorage maps IDs of daughter peers to repositories of the local trusts to their providers.
 type DaughterStorage struct {
 	mtx sync.RWMutex
 

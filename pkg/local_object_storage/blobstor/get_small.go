@@ -6,7 +6,7 @@ type GetSmallPrm struct {
 	rwBlobovniczaID
 }
 
-// GetBigRes groups resulting values of GetBig operation.
+// GetSmallRes groups resulting values of GetSmall operation.
 type GetSmallRes struct {
 	roObject
 }

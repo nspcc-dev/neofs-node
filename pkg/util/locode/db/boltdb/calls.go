@@ -132,7 +132,7 @@ func (db *DB) Put(key locodedb.Key, rec locodedb.Record) error {
 
 var errRecordNotFound = errors.New("record not found")
 
-// Put reads the record by key from underlying BoltDB instance.
+// Get reads the record by key from underlying BoltDB instance.
 //
 // Returns an error if no record is presented by key in DB.
 //

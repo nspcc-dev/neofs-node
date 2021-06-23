@@ -49,7 +49,7 @@ type MovableRes struct {
 	addrList []*objectSDK.Address
 }
 
-// WithAddress sets address of the object to prevent moving into another shard.
+// AddressList returns resulting addresses of Movable operation.
 func (p *MovableRes) AddressList() []*objectSDK.Address {
 	return p.addrList
 }

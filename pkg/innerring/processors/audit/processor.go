@@ -74,9 +74,9 @@ type epochAuditReporter struct {
 	rep audit.Reporter
 }
 
-// AuditProcessor manages audit tasks and fills queue for next epoch. This
-// process must not be interrupted by new audit epoch, so we limit pool size
-// for processor to one.
+// ProcessorPoolSize limits pool size for audit Processor. Processor manages
+// audit tasks and fills queue for next epoch. This process must not be interrupted
+// by new audit epoch, so we limit pool size for processor to one.
 const ProcessorPoolSize = 1
 
 // New creates audit processor instance.
