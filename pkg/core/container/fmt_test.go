@@ -41,4 +41,30 @@ func TestCheckFormat(t *testing.T) {
 	c.SetNonceUUID(uuid.New())
 
 	require.NoError(t, CheckFormat(c))
+
+	// set empty value attribute
+	attr1 := container.NewAttribute()
+	attr1.SetKey("attr")
+	attrs := container.Attributes{attr1}
+
+	c.SetAttributes(attrs)
+
+	require.ErrorIs(t, CheckFormat(c), errEmptyAttribute)
+
+	// add same key attribute
+	attr2 := container.NewAttribute()
+	attr2.SetKey(attr1.Key())
+	attr2.SetValue("val")
+
+	attr1.SetValue(attr2.Value())
+
+	attrs = append(attrs, attr2)
+
+	c.SetAttributes(attrs)
+
+	require.ErrorIs(t, CheckFormat(c), errRepeatedAttributes)
+
+	attr2.SetKey(attr1.Key() + "smth")
+
+	require.NoError(t, CheckFormat(c))
 }
