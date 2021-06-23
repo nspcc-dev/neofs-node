@@ -222,7 +222,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("attributes", func(t *testing.T) {
 		t.Run("duplication", func(t *testing.T) {
-			obj := blankValidObject(t, ownerKey)
+			obj := blankValidObject(t, &ownerKey.PrivateKey)
 
 			a1 := object.NewAttribute()
 			a1.SetKey("key1")
@@ -241,6 +241,18 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			err = v.checkAttributes(obj.Object())
 			require.Equal(t, errDuplAttr, err)
+		})
+
+		t.Run("empty value", func(t *testing.T) {
+			obj := blankValidObject(t, &ownerKey.PrivateKey)
+
+			a := object.NewAttribute()
+			a.SetKey("key")
+
+			obj.SetAttributes(a)
+
+			err := v.checkAttributes(obj.Object())
+			require.Equal(t, errEmptyAttrVal, err)
 		})
 	})
 }

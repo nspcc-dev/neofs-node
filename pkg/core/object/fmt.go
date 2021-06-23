@@ -231,7 +231,10 @@ func expirationEpochAttribute(obj *Object) (uint64, error) {
 	return 0, errNoExpirationEpoch
 }
 
-var errDuplAttr = errors.New("duplication of attributes detected")
+var (
+	errDuplAttr     = errors.New("duplication of attributes detected")
+	errEmptyAttrVal = errors.New("empty attribute value")
+)
 
 func (v *FormatValidator) checkAttributes(obj *Object) error {
 	as := obj.Attributes()
@@ -243,6 +246,10 @@ func (v *FormatValidator) checkAttributes(obj *Object) error {
 
 		if _, was := mUnique[key]; was {
 			return errDuplAttr
+		}
+
+		if a.Value() == "" {
+			return errEmptyAttrVal
 		}
 
 		mUnique[key] = struct{}{}
