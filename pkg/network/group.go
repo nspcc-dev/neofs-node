@@ -19,9 +19,8 @@ type AddressGroup []Address
 func StringifyGroup(x AddressGroup) string {
 	var s string
 
-	x.IterateAddresses(func(addr Address) bool {
+	iterateAllAddresses(x, func(addr Address) {
 		s += addr.String()
-		return false
 	})
 
 	return s
@@ -38,6 +37,15 @@ func (x AddressGroup) IterateAddresses(f func(Address) bool) {
 			break
 		}
 	}
+}
+
+// iterateAllAddresses iterates over all network addresses of g
+// and passes each of them to f.
+func iterateAllAddresses(g AddressGroup, f func(Address)) {
+	g.IterateAddresses(func(addr Address) bool {
+		f(addr)
+		return false
+	})
 }
 
 // Len returns number of addresses in AddressGroup.
@@ -111,9 +119,8 @@ func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
 	num := g.Len()
 	addrs := make([]string, 0, num)
 
-	g.IterateAddresses(func(addr Address) bool {
+	iterateAllAddresses(g, func(addr Address) {
 		addrs = append(addrs, addr.String())
-		return false
 	})
 
 	ni.SetAddresses(addrs...)
