@@ -77,6 +77,10 @@ func (v *FormatValidator) Validate(obj *Object) error {
 	}
 
 	for ; obj != nil; obj = obj.GetParent() {
+		if err := v.checkAttributes(obj); err != nil {
+			return fmt.Errorf("invalid attributes: %w", err)
+		}
+
 		if err := v.validateSignatureKey(obj); err != nil {
 			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
 		}
@@ -225,6 +229,26 @@ func expirationEpochAttribute(obj *Object) (uint64, error) {
 	}
 
 	return 0, errNoExpirationEpoch
+}
+
+var errDuplAttr = errors.New("duplication of attributes detected")
+
+func (v *FormatValidator) checkAttributes(obj *Object) error {
+	as := obj.Attributes()
+
+	mUnique := make(map[string]struct{}, len(as))
+
+	for _, a := range as {
+		key := a.Key()
+
+		if _, was := mUnique[key]; was {
+			return errDuplAttr
+		}
+
+		mUnique[key] = struct{}{}
+	}
+
+	return nil
 }
 
 // WithNetState returns options to set network state interface.

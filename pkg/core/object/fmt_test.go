@@ -219,4 +219,28 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, err)
 		})
 	})
+
+	t.Run("attributes", func(t *testing.T) {
+		t.Run("duplication", func(t *testing.T) {
+			obj := blankValidObject(t, ownerKey)
+
+			a1 := object.NewAttribute()
+			a1.SetKey("key1")
+			a1.SetValue("val1")
+
+			a2 := object.NewAttribute()
+			a2.SetKey("key2")
+			a2.SetValue("val2")
+
+			obj.SetAttributes(a1, a2)
+
+			err := v.checkAttributes(obj.Object())
+			require.NoError(t, err)
+
+			a2.SetKey(a1.Key())
+
+			err = v.checkAttributes(obj.Object())
+			require.Equal(t, errDuplAttr, err)
+		})
+	})
 }
