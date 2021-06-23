@@ -129,7 +129,7 @@ func (x AddressGroup) WriteToNodeInfo(ni *netmap.NodeInfo) {
 func (x AddressGroup) Intersects(x2 AddressGroup) bool {
 	for i := range x {
 		for j := range x2 {
-			if x[i].Equal(x2[j]) {
+			if x[i].equal(x2[j]) {
 				return true
 			}
 		}
