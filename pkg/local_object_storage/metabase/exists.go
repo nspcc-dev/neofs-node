@@ -58,7 +58,7 @@ func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 
 func (db *DB) exists(addr *objectSDK.Address) (exists bool, err error) {
 	// check graveyard first
-	if db.inGraveyard(addr) {
+	if db.inGraveyard(addr.String()) {
 		return false, object.ErrAlreadyRemoved
 	}
 
@@ -96,8 +96,8 @@ func (db *DB) exists(addr *objectSDK.Address) (exists bool, err error) {
 }
 
 // inGraveyard returns true if object was marked as removed.
-func (db *DB) inGraveyard(addr *objectSDK.Address) bool {
-	key := append([]byte{graveyardPrefix}, addressKey(addr)...)
+func (db *DB) inGraveyard(addr string) bool {
+	key := append([]byte{graveyardPrefix}, addr...)
 	return db.hasKey(key)
 }
 

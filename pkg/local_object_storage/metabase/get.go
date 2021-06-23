@@ -78,13 +78,17 @@ func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 }
 
 func (db *DB) get(addr *objectSDK.Address, checkGraveyard, raw bool) (*object.Object, error) {
+	return db.getAux(addr, addr.String(), checkGraveyard, raw)
+}
+
+func (db *DB) getAux(addr *objectSDK.Address, addrStr string, checkGraveyard, raw bool) (*object.Object, error) {
+	if checkGraveyard && db.inGraveyard(addrStr) {
+		return nil, object.ErrAlreadyRemoved
+	}
+
 	obj := object.New()
 	key := objectKey(addr.ObjectID())
 	cid := addr.ContainerID()
-
-	if checkGraveyard && db.inGraveyard(addr) {
-		return nil, object.ErrAlreadyRemoved
-	}
 
 	value := cidBucketKey(cid, primaryPrefix, key)
 

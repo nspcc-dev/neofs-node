@@ -124,17 +124,17 @@ func (db *DB) selectObjects(cid *cid.ID, fs object.SearchFilters) ([]*object.Add
 			continue // ignore objects with unmatched fast filters
 		}
 
+		if db.inGraveyard(a) {
+			continue // ignore removed objects
+		}
+
 		addr, err := addressFromKey([]byte(a))
 		if err != nil {
 			// TODO: storage was broken, so we need to handle it
 			return nil, err
 		}
 
-		if db.inGraveyard(addr) {
-			continue // ignore removed objects
-		}
-
-		if !db.matchSlowFilters(addr, group.slowFilters) {
+		if !db.matchSlowFilters(addr, a, group.slowFilters) {
 			continue // ignore objects with unmatched slow filters
 		}
 
@@ -467,12 +467,12 @@ func (db *DB) selectObjectID(
 }
 
 // matchSlowFilters return true if object header is matched by all slow filters.
-func (db *DB) matchSlowFilters(addr *object.Address, f object.SearchFilters) bool {
+func (db *DB) matchSlowFilters(addr *object.Address, addrStr string, f object.SearchFilters) bool {
 	if len(f) == 0 {
 		return true
 	}
 
-	obj, err := db.get(addr, true, false)
+	obj, err := db.getAux(addr, addrStr, true, false)
 	if err != nil {
 		return false
 	}
