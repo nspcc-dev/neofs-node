@@ -32,8 +32,8 @@ func (a Address) String() string {
 	return a.ma.String()
 }
 
-// Equal compares Address's.
-func (a Address) Equal(addr Address) bool {
+// equal compares Address's.
+func (a Address) equal(addr Address) bool {
 	return a.ma.Equal(addr.ma)
 }
 
