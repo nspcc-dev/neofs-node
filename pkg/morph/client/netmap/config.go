@@ -13,8 +13,8 @@ type ConfigArgs struct {
 	key []byte
 }
 
-// EpochValues groups the stack parameters
-// returned by get epoch number test invoke.
+// ConfigValues groups the stack parameters
+// returned by get config test invoke.
 type ConfigValues struct {
 	val interface{}
 }

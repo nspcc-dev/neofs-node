@@ -20,7 +20,7 @@ type (
 		id ReputationID
 	}
 
-	// GetResults groups the result of "get reputation value" and
+	// GetResult groups the result of "get reputation value" and
 	// "get reputation value by reputation id" test invocations.
 	GetResult struct {
 		reputations []reputation.GlobalTrust

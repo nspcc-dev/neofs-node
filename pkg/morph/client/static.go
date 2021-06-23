@@ -37,7 +37,7 @@ func defaultStaticOpts() *staticOpts {
 	return new(staticOpts)
 }
 
-// TryNotaryInvoke returns option to enable
+// TryNotary returns option to enable
 // notary invocation tries.
 func TryNotary() StaticClientOption {
 	return func(o *staticOpts) {

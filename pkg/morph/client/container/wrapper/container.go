@@ -278,7 +278,7 @@ type Estimation struct {
 	Reporter []byte
 }
 
-// Estimation is a structure of grouped container load estimation inside Container contract.
+// Estimations is a structure of grouped container load estimation inside Container contract.
 type Estimations struct {
 	ContainerID *cid.ID
 

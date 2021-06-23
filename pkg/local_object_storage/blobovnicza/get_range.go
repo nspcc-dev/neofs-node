@@ -24,7 +24,7 @@ func (p *GetRangePrm) SetAddress(addr *objectSDK.Address) {
 	p.addr = addr
 }
 
-// SetAddress sets range of the requested payload data .
+// SetRange sets range of the requested payload data .
 func (p *GetRangePrm) SetRange(rng *objectSDK.Range) {
 	p.rng = rng
 }
@@ -34,7 +34,7 @@ func (p *GetRangeRes) RangeData() []byte {
 	return p.rngData
 }
 
-// Get reads the object from Blobovnicza by address.
+// GetRange reads range of the object from Blobovnicza by address.
 //
 // Returns any error encountered that
 // did not allow to completely read the object.

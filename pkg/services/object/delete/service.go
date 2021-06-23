@@ -86,14 +86,14 @@ func WithHeadService(h *getsvc.Service) Option {
 	}
 }
 
-// WithClientCache returns option to set cache of remote node clients.
+// WithSearchService returns option to set search service.
 func WithSearchService(s *searchsvc.Service) Option {
 	return func(c *cfg) {
 		c.searcher = (*searchSvcWrapper)(s)
 	}
 }
 
-// WithClientOptions returns option to specify options of remote node clients.
+// WithPutService returns option to specify put service.
 func WithPutService(p *putsvc.Service) Option {
 	return func(c *cfg) {
 		c.placer = (*putSvcWrapper)(p)

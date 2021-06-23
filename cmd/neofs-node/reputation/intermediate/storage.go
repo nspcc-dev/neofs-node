@@ -68,7 +68,7 @@ func (ip *DaughterTrustIteratorProvider) InitAllDaughtersIterator(
 // InitConsumersIterator returns iterator over all daughters
 // of the current node(manager) and all their consumers' local
 // trusts for ctx.Epoch() epoch and ctx.I() iteration.
-
+//
 // Returns ErrNoData if there is no trust data for
 // specified epoch and iteration.
 func (ip *DaughterTrustIteratorProvider) InitConsumersIterator(

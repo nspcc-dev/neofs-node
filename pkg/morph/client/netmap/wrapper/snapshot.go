@@ -7,7 +7,7 @@ import (
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 )
 
-// Fetch returns current netmap node infos.
+// Snapshot returns current netmap node infos.
 // Consider using pkg/morph/client/netmap for this.
 func (w *Wrapper) Snapshot() (*netmap.Netmap, error) {
 	res, err := w.client.Snapshot(netmap2.GetSnapshotArgs{})

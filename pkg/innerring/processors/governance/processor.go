@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// GovernanceProcessor manages governance sync tasks. This process must not be
-// interrupted by other sync operation, so we limit pool size for processor to
-// one.
+// ProcessorPoolSize limits pool size for governance Processor. Processor manages
+// governance sync tasks. This process must not be interrupted by other sync
+// operation, so we limit pool size for processor to one.
 const ProcessorPoolSize = 1
 
 type (

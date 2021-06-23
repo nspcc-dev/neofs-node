@@ -16,7 +16,7 @@ type ClientMessageStreamer struct {
 	close util.ClientStreamCloser
 }
 
-// Recv calls send method of internal streamer.
+// Send calls send method of internal streamer.
 func (s *ClientMessageStreamer) Send(req interface{}) error {
 	if err := s.send(req); err != nil {
 		return fmt.Errorf("(%T) could not send the request: %w", s, err)
