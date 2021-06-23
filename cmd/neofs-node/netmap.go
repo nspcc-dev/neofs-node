@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
@@ -77,7 +78,7 @@ func (c *cfg) addressNum() int {
 }
 
 func initNetmapService(c *cfg) {
-	c.localAddr.WriteToNodeInfo(&c.cfgNodeInfo.localInfo)
+	network.WriteToNodeInfo(c.localAddr, &c.cfgNodeInfo.localInfo)
 	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
 	c.cfgNodeInfo.localInfo.SetAttributes(parseAttributes(c.appCfg)...)
 	c.cfgNodeInfo.localInfo.SetState(netmapSDK.NodeStateOffline)

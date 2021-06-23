@@ -107,12 +107,14 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) (err error) {
 }
 
 // WriteToNodeInfo writes AddressGroup to netmap.NodeInfo structure.
-func (x AddressGroup) WriteToNodeInfo(ni *netmap.NodeInfo) {
-	addrs := make([]string, len(x))
+func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
+	num := g.Len()
+	addrs := make([]string, 0, num)
 
-	for i := range x {
-		addrs[i] = x[i].String()
-	}
+	g.IterateAddresses(func(addr Address) bool {
+		addrs = append(addrs, addr.String())
+		return false
+	})
 
 	ni.SetAddresses(addrs...)
 }
