@@ -14,7 +14,6 @@ DIRS= $(BIN)
 
 # List of binaries to build.
 CMDS = $(notdir $(basename $(wildcard cmd/*)))
-CMS = $(addprefix $(BIN)/, $(CMDS))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
 .PHONY: help all dep clean fmts fmt imports test lint docker/lint
