@@ -106,13 +106,6 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) (err error) {
 	return
 }
 
-// GroupFromAddress wraps single Address into AddressGroup.
-//
-// Deprecated: use AddressGroup.FromIterator method.
-func GroupFromAddress(addr Address) AddressGroup {
-	return AddressGroup{addr}
-}
-
 // WriteToNodeInfo writes AddressGroup to netmap.NodeInfo structure.
 func (x AddressGroup) WriteToNodeInfo(ni *netmap.NodeInfo) {
 	addrs := make([]string, len(x))
