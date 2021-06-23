@@ -2,6 +2,7 @@ package network
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
@@ -39,6 +40,22 @@ func (x AddressGroup) IterateAddresses(f func(Address) bool) {
 	}
 }
 
+// Len returns number of addresses in AddressGroup.
+func (x AddressGroup) Len() int {
+	return len(x)
+}
+
+// Less returns true if i-th address in AddressGroup supports TLS
+// and j-th one doesn't.
+func (x AddressGroup) Less(i, j int) bool {
+	return x[i].TLSEnabled() && !x[j].TLSEnabled()
+}
+
+// Swap swaps i-th and j-th addresses in AddressGroup.
+func (x AddressGroup) Swap(i, j int) {
+	x[i], x[j] = x[j], x[i]
+}
+
 // MultiAddressIterator is an interface of network address group.
 type MultiAddressIterator interface {
 	// Must iterate over network addresses and pass each one
@@ -50,6 +67,7 @@ type MultiAddressIterator interface {
 }
 
 // FromIterator forms AddressGroup from MultiAddressIterator structure.
+// The result is sorted with sort.Sort.
 //
 // Returns an error in the absence of addresses or if any of the addresses are incorrect.
 func (x *AddressGroup) FromIterator(iter MultiAddressIterator) (err error) {
@@ -81,6 +99,7 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) (err error) {
 	})
 
 	if err == nil {
+		sort.Sort(as)
 		*x = as
 	}
 
