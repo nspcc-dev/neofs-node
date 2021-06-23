@@ -12,8 +12,6 @@ slows execution. Instead we can try to marshal these structures directly into
 bytes. Check it later.
 */
 
-const invalidBase58String = "_"
-
 const (
 	graveyardPrefix       = 0x01
 	toMoveItPrefix        = 0x02

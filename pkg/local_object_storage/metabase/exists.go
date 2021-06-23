@@ -7,7 +7,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"go.etcd.io/bbolt"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
@@ -99,19 +98,6 @@ func (db *DB) exists(addr *objectSDK.Address) (exists bool, err error) {
 func (db *DB) inGraveyard(addr string) bool {
 	key := append([]byte{graveyardPrefix}, addr...)
 	return db.hasKey(key)
-}
-
-// inBucket checks if key <key> is present in bucket <name>.
-func inBucket(tx *bbolt.Tx, name, key []byte) bool {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return false
-	}
-
-	// using `get` as `exists`: https://github.com/boltdb/bolt/issues/321
-	val := bkt.Get(key)
-
-	return len(val) != 0
 }
 
 func (db *DB) hasKey(key []byte) bool {

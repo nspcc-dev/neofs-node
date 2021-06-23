@@ -3,7 +3,6 @@ package meta
 import (
 	"encoding/binary"
 	"io"
-	"strings"
 
 	"github.com/cockroachdb/pebble"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
@@ -47,18 +46,6 @@ func (db *DB) containerSize(id *cid.ID) (uint64, error) {
 	defer c.Close()
 
 	return parseContainerSize(sz), nil
-}
-
-func parseContainerID(name []byte) (*cid.ID, error) {
-	strName := string(name)
-
-	if strings.Contains(strName, invalidBase58String) {
-		return nil, nil
-	}
-
-	id := cid.New()
-
-	return id, id.Parse(strName)
 }
 
 func parseContainerSize(v []byte) uint64 {

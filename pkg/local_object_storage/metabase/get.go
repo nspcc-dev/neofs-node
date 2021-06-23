@@ -7,7 +7,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"go.etcd.io/bbolt"
 )
 
 // GetPrm groups the parameters of Get operation.
@@ -115,15 +114,6 @@ func (db *DB) getAux(addr *objectSDK.Address, addrStr string, checkGraveyard, ra
 
 	// if not found then check if object is a virtual
 	return db.getVirtualObject(cid, key, raw)
-}
-
-func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return nil
-	}
-
-	return bkt.Get(key)
 }
 
 func (db *DB) getVirtualObject(cid *cid.ID, key []byte, raw bool) (*object.Object, error) {

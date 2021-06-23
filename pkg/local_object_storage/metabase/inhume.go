@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -63,8 +62,6 @@ func Inhume(db *DB, target, tomb *objectSDK.Address) error {
 }
 
 const inhumeGCMarkValue = "GCMARK"
-
-var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // Inhume marks objects as removed but not removes it from metabase.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
