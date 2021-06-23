@@ -7,7 +7,6 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
 
 /*
@@ -36,11 +35,6 @@ func (a Address) String() string {
 // Equal compares Address's.
 func (a Address) Equal(addr Address) bool {
 	return a.ma.Equal(addr.ma)
-}
-
-// WriteToNodeInfo writes Address to netmap.NodeInfo structure.
-func (a Address) WriteToNodeInfo(ni *netmap.NodeInfo) {
-	ni.SetAddress(a.ma.String())
 }
 
 // HostAddr returns host address in string format.

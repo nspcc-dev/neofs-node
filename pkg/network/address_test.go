@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/multiformats/go-multiaddr"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,23 +64,4 @@ func buildMultiaddr(s string, t *testing.T) multiaddr.Multiaddr {
 	ma, err := multiaddr.NewMultiaddr(s)
 	require.NoError(t, err)
 	return ma
-}
-
-func TestAddress_WriteToNodeInfo(t *testing.T) {
-	a := "127.0.0.1:8080"
-
-	var addr Address
-
-	err := addr.FromString(a)
-	require.NoError(t, err)
-
-	var ni netmap.NodeInfo
-
-	addr.WriteToNodeInfo(&ni)
-
-	var restored Address
-
-	err = restored.FromString(ni.Address())
-	require.NoError(t, err)
-	require.True(t, restored.Equal(addr))
 }
