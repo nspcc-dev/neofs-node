@@ -2,6 +2,7 @@ package auditor
 
 import (
 	"bytes"
+	"encoding/hex"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -80,7 +81,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 			hdr, err := c.cnrCom.GetHeader(c.task, flat[j], members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
-					zap.String("remote_node", flat[j].Address()),
+					zap.String("remote_node", hex.EncodeToString(flat[j].PublicKey())),
 					zap.Stringer("oid", members[i]))
 
 				continue

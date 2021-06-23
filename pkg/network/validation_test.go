@@ -58,7 +58,7 @@ func TestVerifyMultiAddress_Order(t *testing.T) {
 func constructNodeInfo(address string) *netmap.NodeInfo {
 	ni := new(netmap.NodeInfo)
 
-	ni.SetAddress(address)
+	ni.SetAddresses(address)
 
 	return ni
 }

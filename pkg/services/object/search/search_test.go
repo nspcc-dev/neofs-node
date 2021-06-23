@@ -201,7 +201,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 			)
 
 			ni := netmap.NewNodeInfo()
-			ni.SetAddress(a)
+			ni.SetAddresses(a)
 
 			var na network.AddressGroup
 

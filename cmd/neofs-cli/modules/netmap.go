@@ -178,8 +178,10 @@ func prettyPrintNodeInfo(cmd *cobra.Command, i *netmap.NodeInfo, jsonEncoding bo
 	}
 
 	cmd.Println("key:", hex.EncodeToString(i.PublicKey()))
-	cmd.Println("address:", i.Address())
 	cmd.Println("state:", i.State())
+	netmap.IterateAllAddresses(i, func(s string) {
+		cmd.Println("address:", s)
+	})
 
 	for _, attribute := range i.Attributes() {
 		cmd.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
