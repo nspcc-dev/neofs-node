@@ -9,7 +9,11 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 )
 
-var errNilPolicy = errors.New("placement policy is nil")
+var (
+	errNilPolicy          = errors.New("placement policy is nil")
+	errRepeatedAttributes = errors.New("repeated attributes found")
+	errEmptyAttribute     = errors.New("empty attribute found")
+)
 
 // CheckFormat conducts an initial check of the v2 container data.
 //
@@ -30,6 +34,21 @@ func CheckFormat(c *container.Container) error {
 
 	if _, err := c.NonceUUID(); err != nil {
 		return fmt.Errorf("incorrect nonce: %w", err)
+	}
+
+	// check if there are repeated attributes
+	attrs := c.Attributes()
+	uniqueAttr := make(map[string]struct{}, len(attrs))
+	for _, attr := range attrs {
+		if _, exists := uniqueAttr[attr.Key()]; exists {
+			return errRepeatedAttributes
+		}
+
+		if attr.Value() == "" {
+			return errEmptyAttribute
+		}
+
+		uniqueAttr[attr.Key()] = struct{}{}
 	}
 
 	return nil
