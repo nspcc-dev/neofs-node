@@ -54,14 +54,3 @@ func (a Address) TLSEnabled() bool {
 
 	return false
 }
-
-// AddTLS encapsulates a Address if there is no TLS yet.
-func (a *Address) AddTLS() {
-	// not need to add TLS if it is
-	// already included
-	if a.TLSEnabled() {
-		return
-	}
-
-	a.ma = a.ma.Encapsulate(tls)
-}

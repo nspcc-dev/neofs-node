@@ -24,30 +24,3 @@ func TestAddress_TLSEnabled(t *testing.T) {
 		require.Equal(t, test.wantTLS, addr.TLSEnabled(), test.input)
 	}
 }
-
-func TestAddress_AddTLS(t *testing.T) {
-	input, tls := "/dns4/localhost/tcp/8080", tls.String()
-
-	testCases := [...]struct {
-		input string
-		want  string
-	}{
-		{input, input + tls},
-		{input + tls, input + tls},
-	}
-
-	for _, test := range testCases {
-		addr := Address{
-			ma: buildMultiaddr(test.input, t),
-		}
-
-		addr.AddTLS()
-
-		var netAddr Address
-
-		err := netAddr.FromString(test.want)
-		require.NoError(t, err)
-
-		require.True(t, netAddr.equal(addr), test.input)
-	}
-}
