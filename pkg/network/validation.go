@@ -2,7 +2,6 @@ package network
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 )
@@ -47,16 +46,7 @@ var (
 //    3. tls(optional, may be absent)
 //
 func VerifyMultiAddress(ni *netmap.NodeInfo) error {
-	// check if it can be parsed to network.Address
-	var netAddr Address
-
-	err := netAddr.FromString(ni.Address())
-	if err != nil {
-		return fmt.Errorf("could not parse multiaddr from NodeInfo: %w", err)
-	}
-
-	// check amount of protocols and its order
-	return checkProtocols(netAddr)
+	return iterateParsedAddresses(ni, checkProtocols)
 }
 
 func checkProtocols(a Address) error {

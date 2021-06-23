@@ -20,7 +20,7 @@ func (b testBuilder) BuildPlacement(*object.Address, *netmap.PlacementPolicy) ([
 }
 
 func testNode(v uint32) (n netmap.NodeInfo) {
-	n.SetAddress("/ip4/0.0.0.0/tcp/" + strconv.Itoa(int(v)))
+	n.SetAddresses("/ip4/0.0.0.0/tcp/" + strconv.Itoa(int(v)))
 
 	return n
 }

@@ -2,6 +2,7 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -78,13 +79,12 @@ type MultiAddressIterator interface {
 // The result is sorted with sort.Sort.
 //
 // Returns an error in the absence of addresses or if any of the addresses are incorrect.
-func (x *AddressGroup) FromIterator(iter MultiAddressIterator) (err error) {
+func (x *AddressGroup) FromIterator(iter MultiAddressIterator) error {
 	as := *x
 
 	addrNum := iter.NumberOfAddresses()
 	if addrNum <= 0 {
-		err = errors.New("missing network addresses")
-		return
+		return errors.New("missing network addresses")
 	}
 
 	if cap(as) >= addrNum {
@@ -93,23 +93,35 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) (err error) {
 		as = make(AddressGroup, 0, addrNum)
 	}
 
-	iter.IterateAddresses(func(s string) bool {
-		var a Address
-
-		err = a.FromString(s)
-
-		fail := err != nil
-		if !fail {
-			as = append(as, a)
-		}
-
-		return fail
+	err := iterateParsedAddresses(iter, func(a Address) error {
+		as = append(as, a)
+		return nil
 	})
 
 	if err == nil {
 		sort.Sort(as)
 		*x = as
 	}
+
+	return err
+}
+
+// iterateParsedAddresses parses each address from MultiAddressIterator and passes it to f
+// until 1st parsing failure or f's error.
+func iterateParsedAddresses(iter MultiAddressIterator, f func(s Address) error) (err error) {
+	iter.IterateAddresses(func(s string) bool {
+		var a Address
+
+		err = a.FromString(s)
+		if err != nil {
+			err = fmt.Errorf("could not parse address from string: %w", err)
+			return true
+		}
+
+		err = f(a)
+
+		return err != nil
+	})
 
 	return
 }

@@ -3,6 +3,7 @@ package innerring
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -80,7 +81,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 		err := netAddr.FromIterator(node)
 		if err != nil {
 			c.log.Warn("can't parse remote address",
-				zap.String("address", node.Address()),
+				zap.String("key", hex.EncodeToString(node.PublicKey())),
 				zap.String("error", err.Error()))
 
 			continue
