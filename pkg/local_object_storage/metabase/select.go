@@ -119,22 +119,28 @@ func (db *DB) selectObjects(cid *cid.ID, fs object.SearchFilters) ([]*object.Add
 
 	res := make([]*object.Address, 0, len(mAddr))
 
+	prefix := cid.String() + "/"
 	for a, ind := range mAddr {
 		if ind != expLen {
 			continue // ignore objects with unmatched fast filters
 		}
 
-		if db.inGraveyard(a) {
+		if db.inGraveyard(prefix + a) {
 			continue // ignore removed objects
 		}
 
-		addr, err := addressFromKey([]byte(a))
+		var oid object.ID
+		err := oid.Parse(a)
 		if err != nil {
 			// TODO: storage was broken, so we need to handle it
 			return nil, err
 		}
 
-		if !db.matchSlowFilters(addr, a, group.slowFilters) {
+		addr := object.NewAddress()
+		addr.SetObjectID(&oid)
+		addr.SetContainerID(cid)
+
+		if !db.matchSlowFilters(addr, prefix+a, group.slowFilters) {
 			continue // ignore objects with unmatched slow filters
 		}
 
@@ -146,31 +152,29 @@ func (db *DB) selectObjects(cid *cid.ID, fs object.SearchFilters) ([]*object.Add
 
 // selectAll adds to resulting cache all available objects in metabase.
 func (db *DB) selectAll(cid *cid.ID, to map[string]int) {
-	prefix := cid.String() + "/"
 	name := cidBucketKey(cid, primaryPrefix, nil)
-	db.selectAllFromBucket(name, prefix, to, 0)
+	db.selectAllFromBucket(name, to, 0)
 
 	name[0] = tombstonePrefix
-	db.selectAllFromBucket(name, prefix, to, 0)
+	db.selectAllFromBucket(name, to, 0)
 
 	name[0] = storageGroupPrefix
-	db.selectAllFromBucket(name, prefix, to, 0)
+	db.selectAllFromBucket(name, to, 0)
 
 	name[0] = parentPrefix
-	db.selectAllFromBucket(name, prefix, to, 0)
+	db.selectAllFromBucket(name, to, 0)
 }
 
 // selectAllFromBucket goes through all keys in bucket and adds them in a
 // resulting cache. Keys should be stringed object ids.
-func (db *DB) selectAllFromBucket(name []byte, prefix string, to map[string]int, fNum int) {
+func (db *DB) selectAllFromBucket(name []byte, to map[string]int, fNum int) {
 	iter := db.newPrefixIterator(name)
 	defer iter.Close()
 
 	for iter.First(); iter.Valid(); iter.Next() {
 		parts := splitKey(iter.Key())
 		if len(parts) >= 2 {
-			key := prefix + string(parts[1]) // consider using string builders from sync.Pool
-			markAddressInCache(to, fNum, key)
+			markObjectIDInCache(to, fNum, string(parts[1]))
 		}
 	}
 }
@@ -210,41 +214,39 @@ func (db *DB) selectFastFilter(
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) {
-	prefix := cid.String() + "/"
-
 	switch f.Header() {
 	case v2object.FilterHeaderObjectID:
 		db.selectObjectID(f, cid, to, fNum)
 	case v2object.FilterHeaderOwnerID:
 		bucketName := cidBucketKey(cid, ownerPrefix, nil)
-		db.selectFromFKBT(bucketName, f, prefix, to, fNum)
+		db.selectFromFKBT(bucketName, f, to, fNum)
 	case v2object.FilterHeaderPayloadHash:
 		bucketName := cidBucketKey(cid, payloadHashPrefix, nil)
-		db.selectFromList(bucketName, f, prefix, to, fNum)
+		db.selectFromList(bucketName, f, to, fNum)
 	case v2object.FilterHeaderObjectType:
 		for _, bucketName := range bucketNamesForType(cid, f.Operation(), f.Value()) {
-			db.selectAllFromBucket(bucketName, prefix, to, fNum)
+			db.selectAllFromBucket(bucketName, to, fNum)
 		}
 	case v2object.FilterHeaderParent:
 		bucketName := cidBucketKey(cid, parentPrefix, nil)
-		db.selectFromList(bucketName, f, prefix, to, fNum)
+		db.selectFromList(bucketName, f, to, fNum)
 	case v2object.FilterHeaderSplitID:
 		bucketName := cidBucketKey(cid, splitPrefix, nil)
-		db.selectFromList(bucketName, f, prefix, to, fNum)
+		db.selectFromList(bucketName, f, to, fNum)
 	case v2object.FilterPropertyRoot:
 		bucketName := cidBucketKey(cid, rootPrefix, nil)
-		db.selectAllFromBucket(bucketName, prefix, to, fNum)
+		db.selectAllFromBucket(bucketName, to, fNum)
 	case v2object.FilterPropertyPhy:
-		db.selectAllFromBucket(cidBucketKey(cid, primaryPrefix, nil), prefix, to, fNum)
-		db.selectAllFromBucket(cidBucketKey(cid, tombstonePrefix, nil), prefix, to, fNum)
-		db.selectAllFromBucket(cidBucketKey(cid, storageGroupPrefix, nil), prefix, to, fNum)
+		db.selectAllFromBucket(cidBucketKey(cid, primaryPrefix, nil), to, fNum)
+		db.selectAllFromBucket(cidBucketKey(cid, tombstonePrefix, nil), to, fNum)
+		db.selectAllFromBucket(cidBucketKey(cid, storageGroupPrefix, nil), to, fNum)
 	default: // user attribute
 		bucketName := cidBucketKey(cid, attributePrefix, []byte(f.Header()))
 
 		if f.Operation() == object.MatchNotPresent {
-			db.selectOutsideFKBT(allBucketNames(cid), bucketName, f, prefix, to, fNum)
+			db.selectOutsideFKBT(allBucketNames(cid), bucketName, f, to, fNum)
 		} else {
-			db.selectFromFKBT(bucketName, f, prefix, to, fNum)
+			db.selectFromFKBT(bucketName, f, to, fNum)
 		}
 	}
 }
@@ -296,7 +298,6 @@ func bucketNamesForType(cid *cid.ID, mType object.SearchMatchType, typeVal strin
 func (db *DB) selectFromFKBT(
 	name []byte, // fkbt root bucket name
 	f object.SearchFilter, // filter for operation and value
-	prefix string, // prefix to create addr from oid in index
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) { //
@@ -315,8 +316,8 @@ func (db *DB) selectFromFKBT(
 		if len(parts) < 4 || !matchFunc(f.Header(), parts[2], f.Value()) {
 			continue
 		}
-		addr := prefix + string(parts[3])
-		markAddressInCache(to, fNum, addr)
+
+		markObjectIDInCache(to, fNum, string(parts[3]))
 	}
 }
 
@@ -326,7 +327,6 @@ func (db *DB) selectOutsideFKBT(
 	incl [][]byte, // buckets
 	name []byte, // fkbt root bucket name
 	f object.SearchFilter, // filter for operation and value
-	prefix string, // prefix to create addr from oid in index
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) {
@@ -338,8 +338,7 @@ func (db *DB) selectOutsideFKBT(
 	for iter.First(); iter.Valid(); iter.Next() {
 		parts := splitKey(iter.Key())
 		if len(parts) >= 4 {
-			addr := prefix + string(parts[3])
-			mExcl[addr] = struct{}{}
+			mExcl[string(parts[3])] = struct{}{}
 		}
 	}
 
@@ -350,9 +349,9 @@ func (db *DB) selectOutsideFKBT(
 		for iter.First(); iter.Valid(); iter.Next() {
 			parts := splitKey(iter.Key())
 			if len(parts) >= 2 {
-				addr := prefix + string(parts[1])
+				addr := string(parts[1])
 				if _, ok := mExcl[addr]; !ok {
-					markAddressInCache(to, fNum, addr)
+					markObjectIDInCache(to, fNum, addr)
 				}
 			}
 		}
@@ -364,7 +363,6 @@ func (db *DB) selectOutsideFKBT(
 func (db *DB) selectFromList(
 	name []byte, // list root bucket name
 	f object.SearchFilter, // filter for operation and value
-	prefix string, // prefix to create addr from oid in index
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) { //
@@ -406,8 +404,7 @@ func (db *DB) selectFromList(
 	}
 
 	for i := range lst {
-		addr := prefix + string(lst[i])
-		markAddressInCache(to, fNum, addr)
+		markObjectIDInCache(to, fNum, string(lst[i]))
 	}
 }
 
@@ -434,7 +431,7 @@ func (db *DB) selectObjectID(
 
 		ok, err := db.exists(addr)
 		if (err == nil && ok) || errors.As(err, &splitInfoError) {
-			markAddressInCache(to, fNum, addrStr)
+			markObjectIDInCache(to, fNum, oid)
 		}
 	}
 
@@ -540,7 +537,7 @@ func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
 	return res, nil
 }
 
-func markAddressInCache(cache map[string]int, fNum int, addr string) {
+func markObjectIDInCache(cache map[string]int, fNum int, addr string) {
 	if num := cache[addr]; num == fNum {
 		cache[addr] = num + 1
 	}
