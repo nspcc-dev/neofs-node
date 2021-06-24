@@ -17,6 +17,8 @@ func TestAddressFromString(t *testing.T) {
 			{"example.com:7070", buildMultiaddr("/dns4/example.com/tcp/7070", t)},
 			{"213.44.87.1:32512", buildMultiaddr("/ip4/213.44.87.1/tcp/32512", t)},
 			{"[2004:eb1::1]:8080", buildMultiaddr("/ip6/2004:eb1::1/tcp/8080", t)},
+			{"grpc://example.com:7070", buildMultiaddr("/dns4/example.com/tcp/7070", t)},
+			{grpcTLSScheme + "://example.com:7070", buildMultiaddr("/dns4/example.com/tcp/7070/"+tlsProtocolName, t)},
 		}
 
 		var addr Address

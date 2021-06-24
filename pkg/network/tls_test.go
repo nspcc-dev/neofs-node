@@ -14,12 +14,15 @@ func TestAddress_TLSEnabled(t *testing.T) {
 		{"/dns4/localhost/tcp/8080", false},
 		{"/dns4/localhost/tcp/8080/tls", true},
 		{"/tls/dns4/localhost/tcp/8080", true},
+		{"grpc://localhost:8080", false},
+		{"grpcs://localhost:8080", true},
 	}
 
+	var addr Address
+
 	for _, test := range testCases {
-		addr := Address{
-			ma: buildMultiaddr(test.input, t),
-		}
+		err := addr.FromString(test.input)
+		require.NoError(t, err)
 
 		require.Equal(t, test.wantTLS, addr.TLSEnabled(), test.input)
 	}
