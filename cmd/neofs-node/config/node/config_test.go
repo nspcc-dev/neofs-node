@@ -40,21 +40,51 @@ func TestNodeSection(t *testing.T) {
 
 	var fileConfigTest = func(c *config.Config) {
 		key := Key(c)
-		addr := BootstrapAddresses(c)
+		addrs := BootstrapAddresses(c)
 		attributes := Attributes(c)
 		relay := Relay(c)
 		wKey := Wallet(c)
 
-		var expectedAddr network.AddressGroup
-
-		err := expectedAddr.FromIterator(stringAddressGroup([]string{
-			"s01.neofs.devenv:8080",
-			"s02.neofs.devenv:8081",
-		}))
-		require.NoError(t, err)
+		expectedAddr := []struct {
+			str  string
+			host string
+			tls  bool
+		}{
+			{
+				str:  "/dns4/localhost/tcp/8083/tls",
+				host: "localhost:8083",
+				tls:  true,
+			},
+			{
+				str:  "/dns4/s01.neofs.devenv/tcp/8080",
+				host: "s01.neofs.devenv:8080",
+			},
+			{
+				str:  "/dns4/s02.neofs.devenv/tcp/8081",
+				host: "s02.neofs.devenv:8081",
+			},
+			{
+				str:  "/ip4/127.0.0.1/tcp/8082",
+				host: "127.0.0.1:8082",
+			},
+		}
 
 		require.Equal(t, "NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM", key.Address())
-		require.Equal(t, expectedAddr, addr)
+
+		require.EqualValues(t, len(expectedAddr), addrs.Len())
+
+		ind := 0
+
+		addrs.IterateAddresses(func(addr network.Address) bool {
+			require.Equal(t, expectedAddr[ind].str, addr.String())
+			require.Equal(t, expectedAddr[ind].host, addr.HostAddr())
+			require.Equal(t, expectedAddr[ind].tls, addr.TLSEnabled())
+
+			ind++
+
+			return false
+		})
+
 		require.Equal(t, true, relay)
 
 		require.Len(t, attributes, 2)

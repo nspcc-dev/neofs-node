@@ -17,7 +17,9 @@ node:
     password: "password"
   addresses:
     - s01.neofs.devenv:8080
-    - s02.neofs.devenv:8081
+    - /dns4/s02.neofs.devenv/tcp/8081
+    - grpc://127.0.0.1:8082
+    - grpcs://localhost:8083
   attribute_0: "Price:11"
   attribute_1: UN-LOCODE:RU MSK
   relay: true
