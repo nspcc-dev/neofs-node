@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
@@ -141,9 +142,11 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".main" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".config/neofs-cli")
+		// Search config in `$HOME/.config/neofs-cli/` or `$PWD` with name "config.yaml"
+		viper.AddConfigPath(filepath.Join(home, ".config", "neofs-cli"))
+		viper.AddConfigPath(".")
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
 	}
 
 	viper.SetEnvPrefix(envPrefix)
