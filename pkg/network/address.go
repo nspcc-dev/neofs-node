@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 
 	"github.com/multiformats/go-multiaddr"
@@ -13,6 +14,7 @@ import (
 	HostAddr strings: 	"localhost:8080", ":8080", "192.168.0.1:8080"
 	MultiAddr strings: 	"/dns4/localhost/tcp/8080", "/ip4/192.168.0.1/tcp/8080"
 	IPAddr strings:		"192.168.0.1:8080"
+	URIAddr strings:	"<scheme://>127.0.0.1:8080"
 */
 
 // Address represents the NeoFS node
@@ -53,19 +55,52 @@ func (a Address) HostAddr() string {
 
 // FromString restores Address from a string representation.
 //
-// Supports MultiAddr and HostAddr strings.
+// Supports URIAddr, MultiAddr and HostAddr strings.
 func (a *Address) FromString(s string) error {
 	var err error
 
 	a.ma, err = multiaddr.NewMultiaddr(s)
 	if err != nil {
-		s, err = multiaddrStringFromHostAddr(s)
+		var u uri
+
+		u.parse(s)
+
+		s, err = multiaddrStringFromHostAddr(u.host)
 		if err == nil {
 			a.ma, err = multiaddr.NewMultiaddr(s)
+			if err == nil && u.tls {
+				a.ma = a.ma.Encapsulate(tls)
+			}
 		}
 	}
 
 	return err
+}
+
+type uri struct {
+	host string
+	tls  bool
+}
+
+const grpcTLSScheme = "grpcs"
+
+func (u *uri) parse(s string) {
+	// TODO: code is copy-pasted from client.WithURIAddress function.
+	//  Would be nice to share the code.
+	uri, err := url.ParseRequestURI(s)
+	isURI := err == nil
+
+	if isURI && uri.Host != "" {
+		u.host = uri.Host
+	} else {
+		u.host = s
+	}
+
+	// check if passed string was parsed correctly
+	// URIs that do not start with a slash after the scheme are interpreted as:
+	// `scheme:opaque` => if `opaque` is not empty, then it is supposed that URI
+	// is in `host:port` format
+	u.tls = isURI && uri.Opaque == "" && uri.Scheme == grpcTLSScheme
 }
 
 // multiaddrStringFromHostAddr converts "localhost:8080" to "/dns4/localhost/tcp/8080"
