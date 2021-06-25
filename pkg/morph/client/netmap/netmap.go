@@ -140,7 +140,11 @@ func peerInfoFromStackItem(prm stackitem.Item) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get stack item array (PeerInfo): %w", err)
 	} else if ln := len(prms); ln != nodeInfoFixedPrmNumber {
-		return nil, fmt.Errorf("unexpected stack item count (PeerInfo): expected %d, has %d", 1, ln)
+		return nil, fmt.Errorf(
+			"unexpected stack item count (PeerInfo): expected %d, has %d",
+			nodeInfoFixedPrmNumber,
+			ln,
+		)
 	}
 
 	return client.BytesFromStackItem(prms[0])
