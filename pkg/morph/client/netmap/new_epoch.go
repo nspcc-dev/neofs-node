@@ -18,7 +18,7 @@ func (a *NewEpochArgs) SetEpochNumber(v int64) {
 // NewEpoch invokes the call of new epoch method
 // of NeoFS Netmap contract.
 func (c *Client) NewEpoch(args NewEpochArgs) error {
-	if err := c.client.Invoke(c.addPeerMethod, args.number); err != nil {
+	if err := c.client.Invoke(c.newEpochMethod, args.number); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.newEpochMethod, err)
 	}
 	return nil
