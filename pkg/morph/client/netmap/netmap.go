@@ -36,7 +36,55 @@ type EpochSnapshotValues struct {
 	*GetNetMapValues
 }
 
-const nodeInfoFixedPrmNumber = 1
+// GetNetMapCandidatesArgs groups the arguments
+// of get network map candidates test invoke call.
+type GetNetMapCandidatesArgs struct {
+}
+
+// GetNetMapCandidatesValues groups the stack parameters
+// returned by get network map candidates test invoke.
+type GetNetMapCandidatesValues struct {
+	netmapNodes []*PeerWithState
+}
+
+func (g GetNetMapCandidatesValues) NetmapNodes() []*PeerWithState {
+	return g.netmapNodes
+}
+
+// State is an enumeration of various states of the NeoFS node.
+type State int64
+
+const (
+	// Undefined is unknown state.
+	Undefined State = iota
+
+	// Online is network unavailable state.
+	Online
+
+	// Offline is an active state in the network.
+	Offline
+)
+
+// PeerWithState groups information about peer
+// and its state in network map.
+type PeerWithState struct {
+	peer  []byte
+	state State
+}
+
+func (ps PeerWithState) State() State {
+	return ps.state
+}
+
+func (ps PeerWithState) Peer() []byte {
+	return ps.peer
+}
+
+const (
+	nodeInfoFixedPrmNumber = 1
+
+	peerWithStateFixedPrmNumber = 2
+)
 
 // SetDiff sets argument for snapshot method of
 // netmap contract.
@@ -105,6 +153,85 @@ func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, er
 	return &EpochSnapshotValues{
 		GetNetMapValues: nmVals,
 	}, nil
+}
+
+func (c *Client) Candidates(_ GetNetMapCandidatesArgs) (*GetNetMapCandidatesValues, error) {
+	prms, err := c.client.TestInvoke(
+		c.netMapCandidatesMethod,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.netMapCandidatesMethod, err)
+	}
+
+	candVals, err := peersWithStateFromStackItems(prms, c.netMapCandidatesMethod)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse contract response: %w", err)
+	}
+
+	return candVals, nil
+}
+
+func peersWithStateFromStackItems(stack []stackitem.Item, method string) (*GetNetMapCandidatesValues, error) {
+	if ln := len(stack); ln != 1 {
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
+	}
+
+	netmapNodes, err := client.ArrayFromStackItem(stack[0])
+	if err != nil {
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", method, err)
+	}
+
+	res := &GetNetMapCandidatesValues{
+		netmapNodes: make([]*PeerWithState, 0, len(netmapNodes)),
+	}
+
+	for i := range netmapNodes {
+		node, err := peerWithStateFromStackItem(netmapNodes[i])
+		if err != nil {
+			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
+		}
+
+		res.netmapNodes = append(res.netmapNodes, node)
+	}
+
+	return res, nil
+}
+
+func peerWithStateFromStackItem(prm stackitem.Item) (*PeerWithState, error) {
+	prms, err := client.ArrayFromStackItem(prm)
+	if err != nil {
+		return nil, fmt.Errorf("could not get stack item array (PeerWithState): %w", err)
+	} else if ln := len(prms); ln != peerWithStateFixedPrmNumber {
+		return nil, fmt.Errorf(
+			"unexpected stack item count (PeerWithState): expected %d, has %d",
+			peerWithStateFixedPrmNumber,
+			ln,
+		)
+	}
+
+	var res PeerWithState
+
+	// peer
+	if res.peer, err = peerInfoFromStackItem(prms[0]); err != nil {
+		return nil, fmt.Errorf("could not get bytes from 'node' field of PeerWithState: %w", err)
+	}
+
+	// state
+	state, err := client.IntFromStackItem(prms[1])
+	if err != nil {
+		return nil, fmt.Errorf("could not get int from 'state' field of PeerWithState: %w", err)
+	}
+
+	switch state {
+	case 1:
+		res.state = Online
+	case 2:
+		res.state = Offline
+	default:
+		res.state = Undefined
+	}
+
+	return &res, nil
 }
 
 func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValues, error) {
