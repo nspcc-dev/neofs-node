@@ -38,6 +38,20 @@ func (w Wrapper) GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error) {
 	return unmarshalNetmap(vals.Peers())
 }
 
+// GetCandidates receives information list about candidates
+// for the next epoch network map through the Netmap contract
+// call, composes network map from them and returns it.
+func (w Wrapper) GetCandidates() (*netmap.Netmap, error) {
+	args := client.GetNetMapCandidatesArgs{}
+
+	vals, err := w.client.Candidates(args)
+	if err != nil {
+		return nil, err
+	}
+
+	return unmarshalCandidates(vals.NetmapNodes())
+}
+
 func unmarshalNetmap(rawPeers [][]byte) (*netmap.Netmap, error) {
 	infos := make([]netmap.NodeInfo, 0, len(rawPeers))
 
@@ -51,6 +65,32 @@ func unmarshalNetmap(rawPeers [][]byte) (*netmap.Netmap, error) {
 	}
 
 	nodes := netmap.NodesFromInfo(infos)
+
+	return netmap.NewNetmap(nodes)
+}
+
+func unmarshalCandidates(rawCandidate []*client.PeerWithState) (*netmap.Netmap, error) {
+	candidates := make([]netmap.NodeInfo, 0, len(rawCandidate))
+
+	for _, candidate := range rawCandidate {
+		nodeInfo := netmap.NewNodeInfo()
+		if err := nodeInfo.Unmarshal(candidate.Peer()); err != nil {
+			return nil, fmt.Errorf("can't unmarshal peer info: %w", err)
+		}
+
+		switch candidate.State() {
+		case client.Online:
+			nodeInfo.SetState(netmap.NodeStateOnline)
+		case client.Offline:
+			nodeInfo.SetState(netmap.NodeStateOffline)
+		default:
+			nodeInfo.SetState(0)
+		}
+
+		candidates = append(candidates, *nodeInfo)
+	}
+
+	nodes := netmap.NodesFromInfo(candidates)
 
 	return netmap.NewNetmap(nodes)
 }
