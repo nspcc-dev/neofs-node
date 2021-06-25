@@ -142,9 +142,8 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in `$HOME/.config/neofs-cli/` or `$PWD` with name "config.yaml"
+		// Search config in `$HOME/.config/neofs-cli/` with name "config.yaml"
 		viper.AddConfigPath(filepath.Join(home, ".config", "neofs-cli"))
-		viper.AddConfigPath(".")
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
 	}
