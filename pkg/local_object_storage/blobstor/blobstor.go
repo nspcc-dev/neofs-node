@@ -2,7 +2,7 @@ package blobstor
 
 import (
 	"encoding/hex"
-	"os"
+	"io/fs"
 	"path"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
@@ -145,7 +145,7 @@ func WithRootPath(rootDir string) Option {
 
 // WithRootPerm returns option to set permission
 // bits of the fs tree.
-func WithRootPerm(perm os.FileMode) Option {
+func WithRootPerm(perm fs.FileMode) Option {
 	return func(c *cfg) {
 		c.fsTree.Permissions = perm
 		c.blzOpts = append(c.blzOpts, blobovnicza.WithPermissions(perm))

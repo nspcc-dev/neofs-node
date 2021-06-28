@@ -2,7 +2,7 @@ package continentsdb
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
 	"github.com/paulmach/orb"
@@ -53,7 +53,7 @@ func (db *DB) PointContinent(point *locodedb.Point) (*locodedb.Continent, error)
 }
 
 func (db *DB) init() error {
-	data, err := ioutil.ReadFile(db.path)
+	data, err := os.ReadFile(db.path)
 	if err != nil {
 		return fmt.Errorf("could not read data file: %w", err)
 	}

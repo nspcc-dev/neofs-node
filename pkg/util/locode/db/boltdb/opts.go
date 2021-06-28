@@ -1,6 +1,7 @@
 package locodebolt
 
 import (
+	"io/fs"
 	"os"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 type Option func(*options)
 
 type options struct {
-	mode os.FileMode
+	mode fs.FileMode
 
 	boltOpts *bbolt.Options
 }

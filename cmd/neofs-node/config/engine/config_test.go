@@ -1,7 +1,7 @@
 package engineconfig_test
 
 import (
-	"os"
+	"io/fs"
 	"testing"
 	"time"
 
@@ -47,7 +47,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 555, wc.WorkersNumber())
 
 				require.Equal(t, "tmp/0/meta", meta.Path())
-				require.Equal(t, os.FileMode(0700), meta.Perm())
+				require.Equal(t, fs.FileMode(0700), meta.Perm())
 
 				require.Equal(t, "tmp/0/blob", blob.Path())
 				require.EqualValues(t, 0666, blob.Perm())
@@ -73,7 +73,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 556, wc.WorkersNumber())
 
 				require.Equal(t, "tmp/1/meta", meta.Path())
-				require.Equal(t, os.FileMode(0701), meta.Perm())
+				require.Equal(t, fs.FileMode(0701), meta.Perm())
 
 				require.Equal(t, "tmp/1/blob", blob.Path())
 				require.EqualValues(t, 0667, blob.Perm())

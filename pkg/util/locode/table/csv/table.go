@@ -2,7 +2,7 @@ package csvlocode
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 	"sync"
 )
 
@@ -32,7 +32,7 @@ type Prm struct {
 type Table struct {
 	paths []string
 
-	mode os.FileMode
+	mode fs.FileMode
 
 	subDivPath string
 

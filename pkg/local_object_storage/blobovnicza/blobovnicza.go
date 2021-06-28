@@ -1,6 +1,7 @@
 package blobovnicza
 
 import (
+	"io/fs"
 	"os"
 	"time"
 
@@ -33,7 +34,7 @@ type cfg struct {
 }
 
 type boltDBCfg struct {
-	perm os.FileMode
+	perm fs.FileMode
 
 	path string
 
@@ -77,7 +78,7 @@ func WithPath(path string) Option {
 
 // WithPermissions returns option to specify permission bits
 // of Blobovnicza's system path.
-func WithPermissions(perm os.FileMode) Option {
+func WithPermissions(perm fs.FileMode) Option {
 	return func(c *cfg) {
 		c.perm = perm
 	}

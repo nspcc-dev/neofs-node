@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
@@ -303,7 +302,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = ioutil.WriteFile(to, data, 0644)
+	err = os.WriteFile(to, data, 0644)
 	if err != nil {
 		cmd.PrintErrln(fmt.Errorf("can't write signed bearer token to file: %w", err))
 		return
@@ -349,7 +348,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = ioutil.WriteFile(to, data, 0644)
+	err = os.WriteFile(to, data, 0644)
 	if err != nil {
 		cmd.PrintErrln(fmt.Errorf("can't write signed session token to %s: %w", to, err))
 		return
@@ -389,7 +388,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = ioutil.WriteFile(to, data, 0644)
+	err = os.WriteFile(to, data, 0644)
 	if err != nil {
 		cmd.PrintErrln(fmt.Errorf("can't write exteded ACL table to file: %w", err))
 		return
@@ -486,7 +485,7 @@ func keyerGenerate(filename string, d *keyer.Dashboard) error {
 	}
 
 	if filename != "" {
-		return ioutil.WriteFile(filename, key, 0600)
+		return os.WriteFile(filename, key, 0600)
 	}
 
 	return nil
@@ -502,7 +501,7 @@ func fileExists(filename string) bool {
 }
 
 func keyerParseFile(filename string, d *keyer.Dashboard) error {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("can't open %v file: %w", filename, err)
 	}

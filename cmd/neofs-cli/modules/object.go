@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -638,7 +637,7 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		default:
 			return nil, fmt.Errorf("invalid field number: %d", len(words))
 		case 1:
-			data, err := ioutil.ReadFile(words[0])
+			data, err := os.ReadFile(words[0])
 			if err != nil {
 				return nil, err
 			}
@@ -808,7 +807,7 @@ func saveAndPrintHeader(cmd *cobra.Command, obj *object.Object, filename string)
 			cmd.Println(string(bs))
 			return nil
 		}
-		err := ioutil.WriteFile(filename, bs, os.ModePerm)
+		err := os.WriteFile(filename, bs, os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -906,7 +905,7 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 		return nil, nil
 	}
 
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("can't read bearer token file: %w", err)
 	}

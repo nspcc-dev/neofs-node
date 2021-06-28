@@ -5,10 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os/signal"
+	"syscall"
 
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +49,7 @@ func main() {
 }
 
 func initApp(c *cfg) {
-	c.ctx, c.ctxCancel = context.WithCancel(grace.NewGracefulContext(nil))
+	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	initGRPC(c)
 

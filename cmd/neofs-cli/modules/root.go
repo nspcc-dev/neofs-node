@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -195,7 +194,7 @@ func getKey() (*ecdsa.PrivateKey, error) {
 }
 
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
-	data, err := ioutil.ReadFile(keyPath)
+	data, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
 	}

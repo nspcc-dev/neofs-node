@@ -1,16 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
-	"github.com/nspcc-dev/neofs-node/pkg/util/grace"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -58,7 +60,9 @@ func main() {
 	log, err := logger.NewLogger(logPrm)
 	exitErr(err)
 
-	ctx := grace.NewGracefulContext(log)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	defer cancel()
+
 	intErr := make(chan error) // internal inner ring errors
 
 	httpServers := initHTTPServers(cfg)

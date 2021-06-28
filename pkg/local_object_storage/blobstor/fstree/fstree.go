@@ -3,7 +3,7 @@ package fstree
 import (
 	"crypto/sha256"
 	"errors"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path"
 	"strings"
@@ -23,7 +23,7 @@ type FSTree struct {
 // Info groups the information about file storage.
 type Info struct {
 	// Permission bits of the root directory.
-	Permissions os.FileMode
+	Permissions fs.FileMode
 
 	// Full path to the root directory.
 	RootPath string
@@ -73,7 +73,7 @@ func (t *FSTree) Iterate(f func(addr *objectSDK.Address, data []byte) error) err
 
 func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address, []byte) error) error {
 	curName := strings.Join(curPath[1:], "")
-	des, err := ioutil.ReadDir(path.Join(curPath...))
+	des, err := os.ReadDir(path.Join(curPath...))
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address,
 			continue
 		}
 
-		data, err := ioutil.ReadFile(path.Join(curPath...))
+		data, err := os.ReadFile(path.Join(curPath...))
 		if err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (t *FSTree) Put(addr *objectSDK.Address, data []byte) error {
 		return err
 	}
 
-	return ioutil.WriteFile(p, data, t.Permissions)
+	return os.WriteFile(p, data, t.Permissions)
 }
 
 // Get returns object from storage by address.
@@ -172,5 +172,5 @@ func (t *FSTree) Get(addr *objectSDK.Address) ([]byte, error) {
 		return nil, ErrFileNotFound
 	}
 
-	return ioutil.ReadFile(p)
+	return os.ReadFile(p)
 }
