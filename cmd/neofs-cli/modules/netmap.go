@@ -8,9 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
 )
 
@@ -33,14 +31,10 @@ func init() {
 	netmapCmd.AddCommand(
 		getEpochCmd,
 		localNodeInfoCmd,
-		snapshotCmd,
 		netInfoCmd,
 	)
 
 	localNodeInfoCmd.Flags().BoolVar(&nodeInfoJSON, "json", false, "print node info in JSON format")
-
-	snapshotCmd.Flags().BoolVar(&netmapSnapshotJSON, "json", false,
-		"print netmap structure in JSON format")
 }
 
 var getEpochCmd = &cobra.Command{
@@ -94,50 +88,6 @@ var localNodeInfoCmd = &cobra.Command{
 		}
 
 		prettyPrintNodeInfo(cmd, nodeInfo.NodeInfo(), nodeInfoJSON)
-	},
-}
-
-var snapshotCmd = &cobra.Command{
-	Use:   "snapshot",
-	Short: "Get network map snapshot",
-	Long:  "Get network map snapshot",
-	Run: func(cmd *cobra.Command, args []string) {
-		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
-
-		req := new(control.NetmapSnapshotRequest)
-		req.SetBody(new(control.NetmapSnapshotRequest_Body))
-
-		if err := controlSvc.SignMessage(key, req); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
-
-		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
-
-		resp, err := control.NetmapSnapshot(cli.Raw(), req)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
-
-		sign := resp.GetSignature()
-
-		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		}); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
-
-		prettyPrintNetmap(cmd, resp.GetBody().GetNetmap(), netmapSnapshotJSON)
 	},
 }
 

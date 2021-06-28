@@ -60,6 +60,7 @@ func init() {
 		healthCheckCmd,
 		setNetmapStatusCmd,
 		dropObjectsCmd,
+		snapshotCmd,
 	)
 
 	setNetmapStatusCmd.Flags().StringVarP(&netmapStatus, netmapStatusFlag, "", "",
@@ -77,6 +78,9 @@ func init() {
 	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
 
 	healthCheckCmd.Flags().BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
+
+	snapshotCmd.Flags().BoolVar(&netmapSnapshotJSON, "json", false,
+		"print netmap structure in JSON format")
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
@@ -277,5 +281,49 @@ var dropObjectsCmd = &cobra.Command{
 		}
 
 		cmd.Println("Objects were successfully marked to be removed.")
+	},
+}
+
+var snapshotCmd = &cobra.Command{
+	Use:   "netmap-snapshot",
+	Short: "Get network map snapshot",
+	Long:  "Get network map snapshot",
+	Run: func(cmd *cobra.Command, args []string) {
+		key, err := getKey()
+		if err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
+
+		req := new(control.NetmapSnapshotRequest)
+		req.SetBody(new(control.NetmapSnapshotRequest_Body))
+
+		if err := controlSvc.SignMessage(key, req); err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
+
+		cli, err := getSDKClient(key)
+		if err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
+
+		resp, err := control.NetmapSnapshot(cli.Raw(), req)
+		if err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
+
+		sign := resp.GetSignature()
+
+		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		}); err != nil {
+			cmd.PrintErrln(err)
+			return
+		}
+
+		prettyPrintNetmap(cmd, resp.GetBody().GetNetmap(), netmapSnapshotJSON)
 	},
 }
