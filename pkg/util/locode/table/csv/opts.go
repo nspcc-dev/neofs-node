@@ -1,14 +1,14 @@
 package csvlocode
 
 import (
-	"os"
+	"io/fs"
 )
 
 // Option sets an optional parameter of Table.
 type Option func(*options)
 
 type options struct {
-	mode os.FileMode
+	mode fs.FileMode
 
 	extraPaths []string
 }

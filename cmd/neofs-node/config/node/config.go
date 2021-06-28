@@ -3,7 +3,7 @@ package nodeconfig
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -35,7 +35,7 @@ func Key(c *config.Config) *keys.PrivateKey {
 		err  error
 		data []byte
 	)
-	if data, err = ioutil.ReadFile(v); err == nil {
+	if data, err = os.ReadFile(v); err == nil {
 		key, err = keys.NewPrivateKeyFromBytes(data)
 	}
 

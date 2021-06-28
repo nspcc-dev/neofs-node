@@ -2,7 +2,7 @@ package locodebolt
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 
 	"go.etcd.io/bbolt"
 )
@@ -34,7 +34,7 @@ type Prm struct {
 type DB struct {
 	path string
 
-	mode os.FileMode
+	mode fs.FileMode
 
 	boltOpts *bbolt.Options
 

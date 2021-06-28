@@ -1,7 +1,7 @@
 package blobstorconfig
 
 import (
-	"os"
+	"io/fs"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
@@ -45,10 +45,10 @@ func (x *Config) Path() string {
 	return p
 }
 
-// Perm returns value of "perm" config parameter as a os.FileMode.
+// Perm returns value of "perm" config parameter as a fs.FileMode.
 //
 // Returns PermDefault if value is not a non-zero number.
-func (x *Config) Perm() os.FileMode {
+func (x *Config) Perm() fs.FileMode {
 	p := config.UintSafe(
 		(*config.Config)(x),
 		"perm",
@@ -58,7 +58,7 @@ func (x *Config) Perm() os.FileMode {
 		p = PermDefault
 	}
 
-	return os.FileMode(p)
+	return fs.FileMode(p)
 }
 
 // ShallowDepth returns value of "shallow_depth" config parameter.

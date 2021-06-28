@@ -2,7 +2,7 @@ package airportsdb
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 	"sync"
 )
 
@@ -41,7 +41,7 @@ type DB struct {
 
 type pathMode struct {
 	path string
-	mode os.FileMode
+	mode fs.FileMode
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"

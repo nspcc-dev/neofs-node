@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -339,7 +338,7 @@ var getContainerInfoCmd = &cobra.Command{
 		)
 
 		if containerPathFrom != "" {
-			data, err := ioutil.ReadFile(containerPathFrom)
+			data, err := os.ReadFile(containerPathFrom)
 			if err != nil {
 				cmd.PrintErrln(fmt.Errorf("can't read file: %w", err))
 				return
@@ -398,7 +397,7 @@ var getContainerInfoCmd = &cobra.Command{
 				}
 			}
 
-			err = ioutil.WriteFile(containerPathTo, data, 0644)
+			err = os.WriteFile(containerPathTo, data, 0644)
 			if err != nil {
 				cmd.PrintErrln(fmt.Errorf("can't write container to file: %w", err))
 				return
@@ -472,7 +471,7 @@ var getExtendedACLCmd = &cobra.Command{
 		cmd.Println("Signature:")
 		printJSONMarshaler(cmd, sig, "signature")
 
-		if err = ioutil.WriteFile(containerPathTo, data, 0644); err != nil {
+		if err = os.WriteFile(containerPathTo, data, 0644); err != nil {
 			cmd.PrintErrln(err)
 		}
 	},
@@ -636,7 +635,7 @@ func getSessionToken(path string) (*session.Token, error) {
 	var tok *session.Token
 
 	if path != "" {
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
@@ -661,7 +660,7 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 	if err == nil {
 		printVerbose("Reading placement policy from file: %s", policyString)
 
-		data, err := ioutil.ReadFile(policyString)
+		data, err := os.ReadFile(policyString)
 		if err != nil {
 			return nil, fmt.Errorf("can't read file with placement policy: %w", err)
 		}
@@ -839,7 +838,7 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 
 	printVerbose("Reading EACL from file: %s", eaclPath)
 
-	data, err := ioutil.ReadFile(eaclPath)
+	data, err := os.ReadFile(eaclPath)
 	if err != nil {
 		return nil, fmt.Errorf("can't read file with EACL: %w", err)
 	}

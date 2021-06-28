@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"io/fs"
 	"os"
 	"strconv"
 
@@ -132,7 +133,7 @@ func WithPath(path string) Option {
 
 // WithPermissions returns option to specify permission bits
 // of Metabase system path.
-func WithPermissions(perm os.FileMode) Option {
+func WithPermissions(perm fs.FileMode) Option {
 	return func(c *cfg) {
 		c.info.Permission = perm
 	}

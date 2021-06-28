@@ -1,7 +1,7 @@
 package meta
 
 import (
-	"os"
+	"io/fs"
 )
 
 // Info groups the information about DB.
@@ -10,7 +10,7 @@ type Info struct {
 	Path string
 
 	// Permission of database file.
-	Permission os.FileMode
+	Permission fs.FileMode
 }
 
 // DumpInfo returns information about the DB.
