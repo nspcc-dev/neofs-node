@@ -214,7 +214,7 @@ func getKeyFromNEP2(encryptedWif string) (*ecdsa.PrivateKey, error) {
 		return nil, errInvalidPassword
 	}
 
-	k, err := keys.NEP2Decrypt(encryptedWif, pass)
+	k, err := keys.NEP2Decrypt(encryptedWif, pass, keys.NEP2ScryptParams())
 	if err != nil {
 		printVerbose("Invalid key or password: %v", err)
 		return nil, errInvalidPassword
@@ -247,7 +247,7 @@ func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, erro
 		return nil, errInvalidPassword
 	}
 
-	if err := acc.Decrypt(pass); err != nil {
+	if err := acc.Decrypt(pass, keys.NEP2ScryptParams()); err != nil {
 		printVerbose("Can't decrypt account: %v", err)
 		return nil, errInvalidPassword
 	}
