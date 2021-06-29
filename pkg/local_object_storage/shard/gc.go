@@ -2,6 +2,7 @@ package shard
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -170,7 +171,7 @@ func (s *Shard) removeGarbage() {
 
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, meta.ErrInterruptIterator) {
 		s.log.Warn("iterator over metabase graveyard failed",
 			zap.String("error", err.Error()),
 		)
