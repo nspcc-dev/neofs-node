@@ -1,6 +1,8 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [Unreleased]
+
 ## [0.22.0] - 2021-06-29 - Muuido (무의도, 舞衣島)
 
 Storage nodes with a group of network endpoints.
@@ -450,6 +452,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.0...master
 [0.22.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.20.0...v0.21.0
