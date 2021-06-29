@@ -1,6 +1,50 @@
 # Changelog
 Changelog for NeoFS Node
 
+## [0.22.0] - 2021-06-29 - Muuido (무의도, 舞衣島)
+
+Storage nodes with a group of network endpoints.
+
+### Added
+- Support of Neo wallet credentials in CLI ([#610](https://github.com/nspcc-dev/neofs-node/issues/610)).
+- More reliable approval of trust value by IR ([#500](https://github.com/nspcc-dev/neofs-node/issues/500)).
+- Storage node's ability to announce and serve on multiple network addresses ([#607](https://github.com/nspcc-dev/neofs-node/issues/607)).
+- Validation of network addresses of netmap candidates in IR ([#557](https://github.com/nspcc-dev/neofs-node/issues/557)).
+- Control service with healthcheck RPC in IR and CLI support ([#414](https://github.com/nspcc-dev/neofs-node/issues/414)).
+
+### Fixed
+- Approval of objects with with duplicate attribute keys or empty values ([#633](https://github.com/nspcc-dev/neofs-node/issues/633)). 
+- Approval of containers with with duplicate attribute keys or empty values ([#634](https://github.com/nspcc-dev/neofs-node/issues/634)).
+- Default path for CLI config ([#626](https://github.com/nspcc-dev/neofs-node/issues/626)). 
+
+### Changed
+- `version` command replaced with `--version` flag in CLI ([#571](https://github.com/nspcc-dev/neofs-node/issues/571)).
+- Command usage text is not printed on errors in CLI ([#623](https://github.com/nspcc-dev/neofs-node/issues/623)).
+- `netmap snapshot` command replaced with `control netmap-snapshot` one in CLI ([#651](https://github.com/nspcc-dev/neofs-node/issues/651)).
+- IR does not include nodes with LOCODE derived attributes to the network map ([#412](https://github.com/nspcc-dev/neofs-node/issues/412)).
+- IR uses morph/client packages for contract invocations ([#496](https://github.com/nspcc-dev/neofs-node/issues/496)).
+- Writecache decreases local size when objects are flushed ([#568](https://github.com/nspcc-dev/neofs-node/issues/568)).
+- IR can override global configuration values only in debug build ([#363](https://github.com/nspcc-dev/neofs-node/issues/363)).
+
+### Updated
+- Neo Go: [v0.95.3](https://github.com/nspcc-dev/neo-go/releases/tag/v0.95.3).
+- NeoFS API Go: [v1.28.0](https://github.com/nspcc-dev/neofs-api-go/releases/tag/v1.28.0).
+- protobuf: [v1.26.0](https://github.com/protocolbuffers/protobuf-go/releases/tag/v1.26.0).
+- uuid: [v1.2.0](https://github.com/google/uuid/releases/tag/v1.2.0).
+- compress: [v1.13.1](https://github.com/klauspost/compress/releases/tag/v1.13.1).
+- base58: [v1.2.0](https://github.com/mr-tron/base58/releases/tag/v1.2.0).
+- multiaddr: [v0.3.2](https://github.com/multiformats/go-multiaddr/releases/tag/v0.3.2).
+- ants: [v2.4.0](https://github.com/panjf2000/ants/releases/tag/v2.4.0).
+- orb: [v0.2.2](https://github.com/paulmach/orb/releases/tag/v0.2.2).
+- prometheus: [v1.11.0](https://github.com/prometheus/client_golang/releases/tag/v1.11.0).
+- testify: [v1.7.0](https://github.com/stretchr/testify/releases/tag/v1.7.0).
+- atomic: [v1.8.0](https://github.com/uber-go/atomic/releases/tag/v1.8.0).
+- zap: [v1.17.0](https://github.com/uber-go/zap/releases/tag/v1.17.0).
+- grpc: [v1.38.0](https://github.com/grpc/grpc-go/releases/tag/v1.38.0).
+- cast: [v1.3.1](https://github.com/spf13/cast/releases/tag/v1.3.1).
+- cobra: [1.1.3](https://github.com/spf13/cobra/releases/tag/v1.1.3).
+- viper: [v1.8.1](https://github.com/spf13/viper/releases/tag/v1.8.1). 
+
 ## [0.21.1] - 2021-06-10
 
 ### Fixed
@@ -406,6 +450,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
+[0.22.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.19.0...v0.20.0
