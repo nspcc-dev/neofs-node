@@ -16,9 +16,33 @@ import (
 // Working ClientWrapper must be created via NewFromMorph.
 type ClientWrapper neofscontract.Client
 
+// Option allows to set an optional
+// parameter of ClientWrapper.
+type Option func(*opts)
+
+type opts []client.StaticClientOption
+
+func defaultOpts() *opts {
+	return new(opts)
+}
+
+// TryNotary returns option to enable
+// notary invocation tries.
+func TryNotary() Option {
+	return func(o *opts) {
+		*o = append(*o, client.TryNotary())
+	}
+}
+
 // NewFromMorph wraps client to work with NeoFS contract.
-func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8) (*ClientWrapper, error) {
-	sc, err := client.NewStatic(cli, contract, fee, client.TryNotary())
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*ClientWrapper, error) {
+	o := defaultOpts()
+
+	for i := range opts {
+		opts[i](o)
+	}
+
+	sc, err := client.NewStatic(cli, contract, fee, ([]client.StaticClientOption)(*o)...)
 	if err != nil {
 		return nil, fmt.Errorf("could not create client of NeoFS contract: %w", err)
 	}

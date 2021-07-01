@@ -423,7 +423,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	neofsClient, err := neofsWrapper.NewFromMorph(server.mainnetClient, server.contracts.neofs,
-		server.feeConfig.MainChainFee())
+		server.feeConfig.MainChainFee(), neofsWrapper.TryNotary())
 	if err != nil {
 		return nil, err
 	}
