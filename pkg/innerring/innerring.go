@@ -390,7 +390,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	fee := server.feeConfig.SideChainFee()
 
-	server.auditClient, err = auditWrapper.NewFromMorph(server.morphClient, server.contracts.audit, fee, client.TryNotary())
+	// do not use TryNotary() in audit wrapper
+	// audit operations do not require multisignatures
+	server.auditClient, err = auditWrapper.NewFromMorph(server.morphClient, server.contracts.audit, fee)
 	if err != nil {
 		return nil, err
 	}
