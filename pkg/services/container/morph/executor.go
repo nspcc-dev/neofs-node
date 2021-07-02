@@ -2,7 +2,6 @@ package container
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
@@ -28,10 +27,7 @@ func NewExecutor(w *wrapper.Wrapper) containerSvc.ServiceExecutor {
 }
 
 func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.PutRequestBody) (*container.PutResponseBody, error) {
-	cnr, err := containerSDK.NewVerifiedFromV2(body.GetContainer())
-	if err != nil {
-		return nil, fmt.Errorf("invalid format of the container structure: %w", err)
-	}
+	cnr := containerSDK.NewContainerFromV2(body.GetContainer())
 
 	cnr.SetSignature(
 		pkg.NewSignatureFromV2(body.GetSignature()),
