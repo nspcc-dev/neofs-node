@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/pkg/policy"
 	"github.com/spf13/cobra"
 )
@@ -845,8 +846,8 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 
 	table := eacl.NewTable()
 	if err = table.UnmarshalJSON(data); err == nil {
-		version := table.Version()
-		if err := pkg.IsSupportedVersion(&version); err != nil {
+		v := table.Version()
+		if !version.IsValid(v) {
 			table.SetVersion(*pkg.SDKVersion())
 		}
 
