@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 )
 
 var (
@@ -24,8 +24,8 @@ func CheckFormat(c *container.Container) error {
 		return errNilPolicy
 	}
 
-	if err := pkg.IsSupportedVersion(c.Version()); err != nil {
-		return fmt.Errorf("incorrect version: %w", err)
+	if v := c.Version(); v == nil || !version.IsValid(*v) {
+		return fmt.Errorf("incorrect version %s", v)
 	}
 
 	if ln := len(c.OwnerID().ToV2().GetValue()); ln != owner.NEO3WalletSize {
