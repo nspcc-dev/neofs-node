@@ -47,9 +47,6 @@ func (s *executorSvc) LocalNodeInfo(
 	_ context.Context,
 	req *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
 	ver := pkg.NewVersionFromV2(req.GetMetaHeader().GetVersion())
-	if err := pkg.IsSupportedVersion(ver); err != nil {
-		return nil, err
-	}
 
 	ni, err := s.state.LocalNodeInfo()
 	if err != nil {
