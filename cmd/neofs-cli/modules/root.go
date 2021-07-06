@@ -63,9 +63,8 @@ var (
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	err := rootCmd.Execute()
+	exitOnErr(rootCmd, err)
 }
 
 func init() {
@@ -136,10 +135,7 @@ func initConfig() {
 	} else {
 		// Find home directory.
 		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		exitOnErr(rootCmd, err)
 
 		// Search config in `$HOME/.config/neofs-cli/` with name "config.yaml"
 		viper.AddConfigPath(filepath.Join(home, ".config", "neofs-cli"))

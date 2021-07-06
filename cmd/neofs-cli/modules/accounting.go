@@ -34,38 +34,23 @@ var accountingBalanceCmd = &cobra.Command{
 		)
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		if balanceOwner == "" {
 			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			oid = owner.NewIDFromNeo3Wallet(wallet)
 		} else {
 			oid, err = ownerFromString(balanceOwner)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 		}
 
 		response, err = cli.GetBalance(ctx, oid, globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		// print to stdout
 		prettyPrintDecimal(cmd, response)

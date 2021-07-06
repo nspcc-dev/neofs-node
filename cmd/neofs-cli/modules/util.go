@@ -118,10 +118,7 @@ var (
 			})
 
 			err := targetDB.Open()
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			defer targetDB.Close()
 
@@ -131,10 +128,7 @@ var (
 			}
 
 			err = locodedb.FillDatabase(locodeDB, airportDB, continentsDB, names, targetDB)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 		},
 	}
 )
@@ -157,18 +151,12 @@ var (
 			})
 
 			err := targetDB.Open()
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			defer targetDB.Close()
 
 			record, err := locodedb.LocodeRecord(targetDB, locodeInfoCode)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			cmd.Printf("Country: %s\n", record.CountryName())
 			cmd.Printf("Location: %s\n", record.LocationName())
@@ -255,28 +243,16 @@ func init() {
 
 func signBearerToken(cmd *cobra.Command, _ []string) {
 	btok, err := getBearerToken(cmd, "from")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	err = completeBearerToken(btok)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	err = btok.SignToken(key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	to := cmd.Flag("to").Value.String()
 	jsonFlag, _ := cmd.Flags().GetBool("json")
@@ -284,16 +260,10 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	var data []byte
 	if jsonFlag || len(to) == 0 {
 		data, err = btok.MarshalJSON()
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't JSON encode bearer token: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("can't JSON encode bearer token: %w", err))
 	} else {
 		data, err = btok.Marshal()
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't binary encode bearer token: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("can't binary encode bearer token: %w", err))
 	}
 
 	if len(to) == 0 {
@@ -303,44 +273,28 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	}
 
 	err = os.WriteFile(to, data, 0644)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't write signed bearer token to file: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't write signed bearer token to file: %w", err))
 
 	cmd.Printf("signed bearer token was successfully dumped to %s\n", to)
 }
 
 func signSessionToken(cmd *cobra.Command, _ []string) {
 	path, err := cmd.Flags().GetString("from")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	stok, err := getSessionToken(path)
 	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't read session token from %s: %w", path, err))
-		return
+		exitOnErr(cmd, fmt.Errorf("can't read session token from %s: %w", path, err))
 	}
 
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't get private key, make sure it is provided: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't get private key, make sure it is provided: %w", err))
 
 	err = stok.Sign(key)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't sign token: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't sign token: %w", err))
 
 	data, err := stok.MarshalJSON()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't encode session token: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't encode session token: %w", err))
 
 	to := cmd.Flag("to").Value.String()
 	if len(to) == 0 {
@@ -350,8 +304,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 
 	err = os.WriteFile(to, data, 0644)
 	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't write signed session token to %s: %w", to, err))
-		return
+		exitOnErr(cmd, fmt.Errorf("can't write signed session token to %s: %w", to, err))
 	}
 
 	cmd.Printf("signed session token saved in %s\n", to)
@@ -363,24 +316,15 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 	jsonFlag, _ := cmd.Flags().GetBool("json")
 
 	table, err := parseEACL(pathFrom)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	var data []byte
 	if jsonFlag || len(to) == 0 {
 		data, err = table.MarshalJSON()
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't JSON encode extended ACL table: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("can't JSON encode extended ACL table: %w", err))
 	} else {
 		data, err = table.Marshal()
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't binary encode extended ACL table: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("can't binary encode extended ACL table: %w", err))
 	}
 
 	if len(to) == 0 {
@@ -389,10 +333,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 	}
 
 	err = os.WriteFile(to, data, 0644)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't write exteded ACL table to file: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't write exteded ACL table to file: %w", err))
 
 	cmd.Printf("extended ACL table was successfully dumped to %s\n", to)
 }
@@ -412,8 +353,7 @@ func processKeyer(cmd *cobra.Command, args []string) {
 		err = result.ParseMultiSig(args)
 	} else {
 		if len(args) > 1 {
-			cmd.PrintErrln(errKeyerSingleArgument)
-			return
+			exitOnErr(cmd, errKeyerSingleArgument)
 		}
 
 		var argument string
@@ -431,10 +371,7 @@ func processKeyer(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	result.PrettyPrint(uncompressed, useHex)
 }
