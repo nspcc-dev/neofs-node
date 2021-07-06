@@ -921,7 +921,7 @@ func ParsePublicKeysFromStrings(pubKeys []string) (keys.PublicKeys, error) {
 }
 
 func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
-	num := glagoliticLetter(cfg.GetUint("contracts.alphabet.amount"))
+	num := GlagoliticLetter(cfg.GetUint("contracts.alphabet.amount"))
 	alpha := newAlphabetContracts()
 
 	if num > lastLetterNum {
@@ -929,11 +929,11 @@ func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
 	}
 
 	for letter := az; letter < num; letter++ {
-		contractStr := cfg.GetString("contracts.alphabet." + letter.configString())
+		contractStr := cfg.GetString("contracts.alphabet." + letter.String())
 
 		contractHash, err := util.Uint160DecodeStringLE(contractStr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid alphabet %s contract: %s: %w", letter.configString(), contractStr, err)
+			return nil, fmt.Errorf("invalid alphabet %s contract: %s: %w", letter.String(), contractStr, err)
 		}
 
 		alpha.set(letter, contractHash)

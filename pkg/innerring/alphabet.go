@@ -2,10 +2,10 @@ package innerring
 
 import "github.com/nspcc-dev/neo-go/pkg/util"
 
-type glagoliticLetter int8
+type GlagoliticLetter int8
 
 const (
-	_ glagoliticLetter = iota - 1
+	_ GlagoliticLetter = iota - 1
 
 	az
 	buky
@@ -53,7 +53,7 @@ const (
 )
 
 // returns string in config-compatible format
-func (l glagoliticLetter) configString() string {
+func (l GlagoliticLetter) String() string {
 	switch l {
 	default:
 		return "unknown"
@@ -142,10 +142,10 @@ func (l glagoliticLetter) configString() string {
 	}
 }
 
-type alphabetContracts map[glagoliticLetter]util.Uint160
+type alphabetContracts map[GlagoliticLetter]util.Uint160
 
 func newAlphabetContracts() alphabetContracts {
-	return make(map[glagoliticLetter]util.Uint160, lastLetterNum)
+	return make(map[GlagoliticLetter]util.Uint160, lastLetterNum)
 }
 
 func (a alphabetContracts) GetByIndex(ind int) (util.Uint160, bool) {
@@ -153,7 +153,7 @@ func (a alphabetContracts) GetByIndex(ind int) (util.Uint160, bool) {
 		return util.Uint160{}, false
 	}
 
-	contract, ok := a[glagoliticLetter(ind)]
+	contract, ok := a[GlagoliticLetter(ind)]
 
 	return contract, ok
 }
@@ -162,12 +162,12 @@ func (a alphabetContracts) indexOutOfRange(ind int) bool {
 	return ind < 0 && ind >= len(a)
 }
 
-func (a alphabetContracts) iterate(f func(glagoliticLetter, util.Uint160)) {
+func (a alphabetContracts) iterate(f func(GlagoliticLetter, util.Uint160)) {
 	for letter, contract := range a {
 		f(letter, contract)
 	}
 }
 
-func (a *alphabetContracts) set(l glagoliticLetter, h util.Uint160) {
+func (a *alphabetContracts) set(l GlagoliticLetter, h util.Uint160) {
 	(*a)[l] = h
 }
