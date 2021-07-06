@@ -86,6 +86,12 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			zap.Stringer("cid", containers[i]),
 			zap.Int("amount", len(storageGroups)))
 
+		// skip audit for containers
+		// without storage groups
+		if len(storageGroups) == 0 {
+			continue
+		}
+
 		auditTask := new(audit.Task).
 			WithReporter(&epochAuditReporter{
 				epoch: epoch,
