@@ -67,6 +67,12 @@ var (
 	eaclPathFrom string
 )
 
+var (
+	errDeleteTimeout  = errors.New("timeout: container has not been removed from sidechain")
+	errCreateTimeout  = errors.New("timeout: container has not been persisted on sidechain")
+	errSetEACLTimeout = errors.New("timeout: EACL has not been persisted on sidechain")
+)
+
 // containerCmd represents the container command
 var containerCmd = &cobra.Command{
 	Use:   "container",
@@ -87,38 +93,23 @@ var listContainersCmd = &cobra.Command{
 		)
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		if containerOwner == "" {
 			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			oid = owner.NewIDFromNeo3Wallet(wallet)
 		} else {
 			oid, err = ownerFromString(containerOwner)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 		}
 
 		response, err = cli.ListContainers(ctx, oid, globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		// print to stdout
 		prettyPrintContainerList(cmd, response)
@@ -134,46 +125,25 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		ctx := context.Background()
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		attributes, err := parseAttributes(containerAttributes)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		basicACL, err := parseBasicACL(containerACL)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		nonce, err := parseNonce(containerNonce)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		tok, err := getSessionToken(sessionTokenPath)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cnr := container.New()
 		cnr.SetPlacementPolicy(placementPolicy)
@@ -184,10 +154,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetOwnerID(tok.OwnerID())
 
 		id, err := cli.PutContainer(ctx, cnr, globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		cmd.Println("container ID:", id)
 
@@ -204,7 +171,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 				}
 			}
 
-			cmd.PrintErrln("timeout: container has not been persisted on sidechain")
+			exitOnErr(cmd, errCreateTimeout)
 		}
 	},
 }
@@ -218,28 +185,16 @@ Only owner of the container has a permission to remove container.`,
 		ctx := context.Background()
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		id, err := parseContainerID(containerID)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		tok, err := getSessionToken(sessionTokenPath)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		callOpts := globalCallOptions()
 
@@ -248,10 +203,7 @@ Only owner of the container has a permission to remove container.`,
 		}
 
 		err = cli.DeleteContainer(ctx, id, callOpts...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		cmd.Println("container delete method invoked")
 
@@ -268,7 +220,7 @@ Only owner of the container has a permission to remove container.`,
 				}
 			}
 
-			cmd.PrintErrln("timeout: container has not been removed from sidechain")
+			exitOnErr(cmd, errDeleteTimeout)
 		}
 	},
 }
@@ -281,28 +233,16 @@ var listContainerObjectsCmd = &cobra.Command{
 		ctx := context.Background()
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		id, err := parseContainerID(containerID)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		sessionToken, err := cli.CreateSession(ctx, math.MaxUint64)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't create session token: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("can't create session token: %w", err))
 
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
@@ -316,10 +256,7 @@ var listContainerObjectsCmd = &cobra.Command{
 				client.WithSession(sessionToken),
 			)...,
 		)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		for i := range objectIDs {
 			cmd.Println(objectIDs[i])
@@ -340,40 +277,23 @@ var getContainerInfoCmd = &cobra.Command{
 
 		if containerPathFrom != "" {
 			data, err := os.ReadFile(containerPathFrom)
-			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("can't read file: %w", err))
-				return
-			}
+			exitOnErr(cmd, errf("can't read file: %w", err))
 
 			cnr = container.New()
-			if err := cnr.Unmarshal(data); err != nil {
-				cmd.PrintErrln(fmt.Errorf("can't unmarshal container: %w", err))
-				return
-			}
+			err = cnr.Unmarshal(data)
+			exitOnErr(cmd, errf("can't unmarshal container: %w", err))
 		} else {
 			key, err := getKey()
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			cli, err := getSDKClient(key)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			id, err := parseContainerID(containerID)
-			if err != nil {
-				cmd.PrintErrln(err)
-				return
-			}
+			exitOnErr(cmd, err)
 
 			cnr, err = cli.GetContainer(ctx, id, globalCallOptions()...)
-			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-				return
-			}
+			exitOnErr(cmd, errf("rpc error: %w", err))
 		}
 
 		prettyPrintContainer(cmd, cnr, containerJSON)
@@ -386,23 +306,14 @@ var getContainerInfoCmd = &cobra.Command{
 
 			if containerJSON {
 				data, err = cnr.MarshalJSON()
-				if err != nil {
-					cmd.PrintErrln(fmt.Errorf("can't JSON encode container: %w", err))
-					return
-				}
+				exitOnErr(cmd, errf("can't JSON encode container: %w", err))
 			} else {
 				data, err = cnr.Marshal()
-				if err != nil {
-					cmd.PrintErrln(fmt.Errorf("can't binary encode container: %w", err))
-					return
-				}
+				exitOnErr(cmd, errf("can't binary encode container: %w", err))
 			}
 
 			err = os.WriteFile(containerPathTo, data, 0644)
-			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("can't write container to file: %w", err))
-				return
-			}
+			exitOnErr(cmd, errf("can't write container to file: %w", err))
 		}
 	},
 }
@@ -415,28 +326,16 @@ var getExtendedACLCmd = &cobra.Command{
 		ctx := context.Background()
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		id, err := parseContainerID(containerID)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		res, err := cli.GetEACL(ctx, id, globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		eaclTable := res.EACL()
 		sig := eaclTable.Signature()
@@ -455,16 +354,10 @@ var getExtendedACLCmd = &cobra.Command{
 
 		if containerJSON {
 			data, err = eaclTable.MarshalJSON()
-			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("can't enode to JSON: %w", err))
-				return
-			}
+			exitOnErr(cmd, errf("can't enode to JSON: %w", err))
 		} else {
 			data, err = eaclTable.Marshal()
-			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("can't enode to binary: %w", err))
-				return
-			}
+			exitOnErr(cmd, errf("can't enode to binary: %w", err))
 		}
 
 		cmd.Println("dumping data to file:", containerPathTo)
@@ -472,9 +365,8 @@ var getExtendedACLCmd = &cobra.Command{
 		cmd.Println("Signature:")
 		printJSONMarshaler(cmd, sig, "signature")
 
-		if err = os.WriteFile(containerPathTo, data, 0644); err != nil {
-			cmd.PrintErrln(err)
-		}
+		err = os.WriteFile(containerPathTo, data, 0644)
+		exitOnErr(cmd, err)
 	},
 }
 
@@ -487,50 +379,29 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		ctx := context.Background()
 
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		id, err := parseContainerID(containerID)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		eaclTable, err := parseEACL(eaclPathFrom)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		tok, err := getSessionToken(sessionTokenPath)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		eaclTable.SetCID(id)
 		eaclTable.SetSessionToken(tok)
 
 		err = cli.SetEACL(ctx, eaclTable, globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		if containerAwait {
 			exp, err := eaclTable.Marshal()
-			if err != nil {
-				cmd.PrintErrln("broken EACL table")
-				return
-			}
+			exitOnErr(cmd, errf("broken EACL table: %w", err))
 
 			cmd.Println("awaiting...")
 
@@ -552,8 +423,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				}
 			}
 
-			cmd.PrintErrln("timeout: EACL has not been persisted on sidechain")
-			return
+			exitOnErr(cmd, errSetEACLTimeout)
 		}
 	},
 }

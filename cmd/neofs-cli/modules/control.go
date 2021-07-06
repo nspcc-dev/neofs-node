@@ -85,16 +85,10 @@ func init() {
 
 func healthCheck(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	cli, err := getSDKClient(key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	if healthCheckIRVar {
 		healthCheckIR(cmd, key, cli)
@@ -105,25 +99,21 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 
 	req.SetBody(new(control.HealthCheckRequest_Body))
 
-	if err := controlSvc.SignMessage(key, req); err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	err = controlSvc.SignMessage(key, req)
+	exitOnErr(cmd, err)
 
 	resp, err := control.HealthCheck(cli.Raw(), req)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	sign := resp.GetSignature()
 
-	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-		return sign.GetKey(), sign.GetSign()
-	}); err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	err = signature.VerifyDataWithSource(
+		resp,
+		func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		},
+	)
+	exitOnErr(cmd, err)
 
 	cmd.Printf("Network status: %s\n", resp.GetBody().GetNetmapStatus())
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
@@ -134,42 +124,34 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c client.Client) {
 
 	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
 
-	if err := ircontrolsrv.SignMessage(key, req); err != nil {
-		cmd.PrintErrln(fmt.Errorf("could not sign request: %w", err))
-		return
-	}
+	err := ircontrolsrv.SignMessage(key, req)
+	exitOnErr(cmd, errf("could not sign request: %w", err))
 
 	resp, err := ircontrol.HealthCheck(c.Raw(), req)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("rpc failure: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("rpc failure: %w", err))
 
 	sign := resp.GetSignature()
 
-	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-		return sign.GetKey(), sign.GetSign()
-	}); err != nil {
-		cmd.PrintErrln(fmt.Errorf("invalid response signature: %w", err))
-		return
-	}
+	err = signature.VerifyDataWithSource(
+		resp,
+		func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		},
+	)
+	exitOnErr(cmd, errf("invalid response signature: %w", err))
 
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 }
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	var status control.NetmapStatus
 
 	switch netmapStatus {
 	default:
-		cmd.PrintErrln(fmt.Errorf("unsupported status %s", netmapStatus))
-		return
+		exitOnErr(cmd, fmt.Errorf("unsupported status %s", netmapStatus))
 	case netmapStatusOnline:
 		status = control.NetmapStatus_ONLINE
 	case netmapStatusOffline:
@@ -183,31 +165,24 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 
 	body.SetStatus(status)
 
-	if err := controlSvc.SignMessage(key, req); err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	err = controlSvc.SignMessage(key, req)
+	exitOnErr(cmd, err)
 
 	cli, err := getSDKClient(key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	resp, err := control.SetNetmapStatus(cli.Raw(), req)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	sign := resp.GetSignature()
 
-	if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-		return sign.GetKey(), sign.GetSign()
-	}); err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	err = signature.VerifyDataWithSource(
+		resp,
+		func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		},
+	)
+	exitOnErr(cmd, err)
 
 	cmd.Println("Network status update request successfully sent.")
 }
@@ -222,10 +197,7 @@ var dropObjectsCmd = &cobra.Command{
 	Long:  "Drop objects from the node's local storage",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		binAddrList := make([][]byte, 0, len(dropObjectsList))
 
@@ -234,15 +206,11 @@ var dropObjectsCmd = &cobra.Command{
 
 			err := a.Parse(dropObjectsList[i])
 			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("could not parse address #%d: %w", i, err))
-				return
+				exitOnErr(cmd, fmt.Errorf("could not parse address #%d: %w", i, err))
 			}
 
 			binAddr, err := a.Marshal()
-			if err != nil {
-				cmd.PrintErrln(fmt.Errorf("could not marshal the address: %w", err))
-				return
-			}
+			exitOnErr(cmd, errf("could not marshal the address: %w", err))
 
 			binAddrList = append(binAddrList, binAddr)
 		}
@@ -254,31 +222,24 @@ var dropObjectsCmd = &cobra.Command{
 
 		body.SetAddressList(binAddrList)
 
-		if err := controlSvc.SignMessage(key, req); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		err = controlSvc.SignMessage(key, req)
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		resp, err := control.DropObjects(cli.Raw(), req)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		sign := resp.GetSignature()
 
-		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		}); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		err = signature.VerifyDataWithSource(
+			resp,
+			func() ([]byte, []byte) {
+				return sign.GetKey(), sign.GetSign()
+			},
+		)
+		exitOnErr(cmd, err)
 
 		cmd.Println("Objects were successfully marked to be removed.")
 	},
@@ -290,39 +251,29 @@ var snapshotCmd = &cobra.Command{
 	Long:  "Get network map snapshot",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		req := new(control.NetmapSnapshotRequest)
 		req.SetBody(new(control.NetmapSnapshotRequest_Body))
 
-		if err := controlSvc.SignMessage(key, req); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		err = controlSvc.SignMessage(key, req)
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		resp, err := control.NetmapSnapshot(cli.Raw(), req)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		sign := resp.GetSignature()
 
-		if err := signature.VerifyDataWithSource(resp, func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		}); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		err = signature.VerifyDataWithSource(
+			resp,
+			func() ([]byte, []byte) {
+				return sign.GetKey(), sign.GetSign()
+			},
+		)
+		exitOnErr(cmd, err)
 
 		prettyPrintNetmap(cmd, resp.GetBody().GetNetmap(), netmapSnapshotJSON)
 	},

@@ -208,34 +208,21 @@ func initSession(ctx context.Context, key *ecdsa.PrivateKey) (client.Client, *se
 
 func putObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	ownerID, err := getOwnerID(key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	cid, err := getCID(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	filename := cmd.Flag("file").Value.String()
 	f, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't open file '%s': %w", filename, err))
-		return
+		exitOnErr(cmd, fmt.Errorf("can't open file '%s': %w", filename, err))
 	}
 
 	attrs, err := parseObjectAttrs(cmd)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't parse object attributes: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't parse object attributes: %w", err))
 
 	expiresOn, _ := cmd.Flags().GetUint64(putExpiresOnFlag)
 	if expiresOn > 0 {
@@ -264,15 +251,9 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	btok, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	oid, err := cli.PutObject(ctx,
 		new(client.PutObjectParams).
 			WithObject(obj.Object()).
@@ -282,10 +263,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 			client.WithBearer(btok),
 		)...,
 	)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't put object: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't put object: %w", err))
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
 	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
@@ -293,28 +271,16 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 func deleteObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	objAddr, err := getObjectAddress(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	btok, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	tombstoneAddr, err := client.DeleteObject(ctx, cli,
 		new(client.DeleteObjectParams).WithAddress(objAddr),
@@ -323,10 +289,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 			client.WithBearer(btok),
 		)...,
 	)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	cmd.Println("Object removed successfully.")
 	cmd.Printf("  ID: %s\n  CID: %s\n", tombstoneAddr.ObjectID(), tombstoneAddr.ContainerID())
@@ -334,16 +297,10 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 
 func getObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	objAddr, err := getObjectAddress(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	var out io.Writer
 	filename := cmd.Flag("file").Value.String()
@@ -352,24 +309,19 @@ func getObject(cmd *cobra.Command, _ []string) {
 	} else {
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't open file '%s': %w", filename, err))
-			return
+			exitOnErr(cmd, fmt.Errorf("can't open file '%s': %w", filename, err))
 		}
+
 		defer f.Close()
+
 		out = f
 	}
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	btok, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 
@@ -388,8 +340,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 			return
 		}
 
-		cmd.PrintErrln(fmt.Errorf("can't get object: %w", err))
-		return
+		exitOnErr(cmd, fmt.Errorf("can't get object: %w", err))
 	}
 
 	if filename != "" {
@@ -399,37 +350,23 @@ func getObject(cmd *cobra.Command, _ []string) {
 	// Print header only if file is not streamed to stdout.
 	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" || hdrFile != "" {
-		if err = saveAndPrintHeader(cmd, obj, hdrFile); err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		err = saveAndPrintHeader(cmd, obj, hdrFile)
+		exitOnErr(cmd, err)
 	}
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	objAddr, err := getObjectAddress(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	btok, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	ps := new(client.ObjectHeaderParams).WithAddress(objAddr)
 	if ok, _ := cmd.Flags().GetBool("main-only"); ok {
 		ps = ps.WithMainFields()
@@ -449,46 +386,28 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 			return
 		}
 
-		cmd.PrintErrln(fmt.Errorf("can't get object header: %w", err))
-		return
+		exitOnErr(cmd, fmt.Errorf("can't get object header: %w", err))
 	}
 
-	if err = saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String()); err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	err = saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String())
+	exitOnErr(cmd, err)
 }
 
 func searchObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	cid, err := getCID(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	sf, err := parseSearchFilters(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	btok, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	ps := new(client.SearchObjectParams).WithContainerID(cid).WithSearchFilters(sf)
 	ids, err := cli.SearchObject(ctx, ps,
 		append(globalCallOptions(),
@@ -496,10 +415,7 @@ func searchObject(cmd *cobra.Command, _ []string) {
 			client.WithBearer(btok),
 		)...,
 	)
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't search object: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't search object: %w", err))
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for _, id := range ids {
 		cmd.Println(id)
@@ -508,46 +424,25 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 func getObjectHash(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	objAddr, err := getObjectAddress(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	ranges, err := getRangeList(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	typ, err := getHashType(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	strSalt := strings.TrimPrefix(cmd.Flag(getRangeHashSaltFlag).Value.String(), "0x")
 
 	salt, err := hex.DecodeString(strSalt)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	btok, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 	if len(ranges) == 0 { // hash of full payload
 		obj, err := cli.GetObjectHeader(ctx,
 			new(client.ObjectHeaderParams).WithAddress(objAddr),
@@ -556,10 +451,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 				client.WithBearer(btok),
 			)...,
 		)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't get object header: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("can't get object header: %w", err))
 		switch typ {
 		case hashSha256:
 			cmd.Println(hex.EncodeToString(obj.PayloadChecksum().Sum()))
@@ -582,10 +474,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 				client.WithBearer(btok),
 			)...,
 		)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 		for i := range res {
 			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
 				hex.EncodeToString(res[i][:]))
@@ -597,10 +486,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 				client.WithBearer(btok),
 			)...,
 		)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 		for i := range res {
 			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
 				hex.EncodeToString(res[i][:]))
@@ -926,24 +812,16 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 
 func getObjectRange(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	if err != nil {
-		cmd.PrintErrln(fmt.Errorf("can't fetch private key: %w", err))
-		return
-	}
+	exitOnErr(cmd, errf("can't fetch private key: %w", err))
 
 	objAddr, err := getObjectAddress(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	ranges, err := getRangeList(cmd)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	} else if len(ranges) != 1 {
-		cmd.PrintErrln(err)
-		return
+	exitOnErr(cmd, err)
+
+	if len(ranges) != 1 {
+		exitOnErr(cmd, fmt.Errorf("exactly one range must be specified, got: %d", len(ranges)))
 	}
 
 	var out io.Writer
@@ -954,8 +832,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 	} else {
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("can't open file '%s': %w", filename, err))
-			return
+			exitOnErr(cmd, fmt.Errorf("can't open file '%s': %w", filename, err))
 		}
 
 		defer f.Close()
@@ -966,16 +843,10 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 	ctx := context.Background()
 
 	c, sessionToken, err := initSession(ctx, key)
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	bearerToken, err := getBearerToken(cmd, "bearer")
-	if err != nil {
-		cmd.PrintErrln(err)
-		return
-	}
+	exitOnErr(cmd, err)
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 
@@ -995,8 +866,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 			return
 		}
 
-		cmd.PrintErrln(fmt.Errorf("can't get object payload range: %w", err))
-		return
+		exitOnErr(cmd, fmt.Errorf("can't get object payload range: %w", err))
 	}
 
 	if filename != "" {

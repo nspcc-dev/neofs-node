@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
@@ -43,22 +42,13 @@ var getEpochCmd = &cobra.Command{
 	Long:  "Get current epoch number",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		netInfo, err := cli.NetworkInfo(context.Background(), globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		cmd.Println(netInfo.CurrentEpoch())
 	},
@@ -70,22 +60,13 @@ var localNodeInfoCmd = &cobra.Command{
 	Long:  `Get local node info`,
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		nodeInfo, err := cli.EndpointInfo(context.Background(), globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		prettyPrintNodeInfo(cmd, nodeInfo.NodeInfo(), nodeInfoJSON)
 	},
@@ -97,22 +78,13 @@ var netInfoCmd = &cobra.Command{
 	Long:  "Get information about NeoFS network",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKey()
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		cli, err := getSDKClient(key)
-		if err != nil {
-			cmd.PrintErrln(err)
-			return
-		}
+		exitOnErr(cmd, err)
 
 		netInfo, err := cli.NetworkInfo(context.Background(), globalCallOptions()...)
-		if err != nil {
-			cmd.PrintErrln(fmt.Errorf("rpc error: %w", err))
-			return
-		}
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		cmd.Printf("Epoch: %d\n", netInfo.CurrentEpoch())
 
