@@ -3,7 +3,7 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
-## [0.21.1] - 2021-07-07
+## [0.22.1] - 2021-07-07
 
 ### Added
 - `GetCandidates` method to morph client wrapper ([#647](https://github.com/nspcc-dev/neofs-node/pull/647)).
