@@ -3,6 +3,13 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.22.2] - 2021-07-07
+
+Updated broken version of NeoFS API Go.
+
+### Updated
+- NeoFS API Go: [v1.28.3](https://github.com/nspcc-dev/neofs-api-go/releases/tag/v1.28.3).
+
 ## [0.22.1] - 2021-07-07
 
 ### Added
@@ -470,7 +477,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.2...master
+[0.22.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.0...v0.21.1
