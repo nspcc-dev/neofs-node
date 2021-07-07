@@ -3,6 +3,24 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.21.1] - 2021-07-07
+
+### Added
+- `GetCandidates` method to morph client wrapper ([#647](https://github.com/nspcc-dev/neofs-node/pull/647)).
+- All-in-One Docker image that contains all NeoFS related binaries ([#662](https://github.com/nspcc-dev/neofs-node/pull/662)).
+- `--version` flag to Storage Node binary ([#664](https://github.com/nspcc-dev/neofs-node/issues/664)).
+
+### Changed
+- Do not check NeoFS version in `LocalNodeInfo` requests and `Put` container operations; `v2.7.0` is genesis version of NeoFS ([#660](https://github.com/nspcc-dev/neofs-node/pull/660)).
+- All error calls of CLI return `1` exit code ([#657](https://github.com/nspcc-dev/neofs-node/issues/657)).
+
+### Fixed
+- Do not use multisignature for audit operations ([#658](https://github.com/nspcc-dev/neofs-node/pull/658)).
+- Skip audit for containers without Storage Groups ([#659](https://github.com/nspcc-dev/neofs-node/issues/659)).
+
+### Updated
+- NeoFS API Go: [v1.28.2](https://github.com/nspcc-dev/neofs-api-go/releases/tag/v1.28.2).
+
 ## [0.22.0] - 2021-06-29 - Muuido (무의도, 舞衣島)
 
 Storage nodes with a group of network endpoints.
@@ -452,7 +470,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.1...master
+[0.22.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.20.0...v0.21.0
