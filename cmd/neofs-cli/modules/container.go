@@ -68,9 +68,10 @@ var (
 )
 
 var (
-	errDeleteTimeout  = errors.New("timeout: container has not been removed from sidechain")
-	errCreateTimeout  = errors.New("timeout: container has not been persisted on sidechain")
-	errSetEACLTimeout = errors.New("timeout: EACL has not been persisted on sidechain")
+	errDeleteTimeout         = errors.New("timeout: container has not been removed from sidechain")
+	errCreateTimeout         = errors.New("timeout: container has not been persisted on sidechain")
+	errSetEACLTimeout        = errors.New("timeout: EACL has not been persisted on sidechain")
+	errUnsupportedEACLFormat = errors.New("unsupported eACL format")
 )
 
 // containerCmd represents the container command
@@ -715,17 +716,27 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 	}
 
 	table := eacl.NewTable()
-	if err = table.UnmarshalJSON(data); err == nil {
-		v := table.Version()
-		if !version.IsValid(v) {
-			table.SetVersion(*pkg.SDKVersion())
-		}
 
+	if err = table.UnmarshalJSON(data); err == nil {
+		validateAndFixEACLVersion(table)
 		printVerbose("Parsed JSON encoded EACL table")
 		return table, nil
 	}
 
-	return nil, fmt.Errorf("can't parse EACL table: %w", err)
+	if err = table.Unmarshal(data); err == nil {
+		validateAndFixEACLVersion(table)
+		printVerbose("Parsed binary encoded EACL table")
+		return table, nil
+	}
+
+	return nil, errUnsupportedEACLFormat
+}
+
+func validateAndFixEACLVersion(table *eacl.Table) {
+	v := table.Version()
+	if !version.IsValid(v) {
+		table.SetVersion(*pkg.SDKVersion())
+	}
 }
 
 func prettyPrintEACL(cmd *cobra.Command, table *eacl.Table) {
