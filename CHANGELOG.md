@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Fixed
+- Do not require MainNet attributes in "Without MainNet" mode ([#663](https://github.com/nspcc-dev/neofs-node/issues/663)).
+
 ## [0.22.2] - 2021-07-07
 
 Updated broken version of NeoFS API Go.
