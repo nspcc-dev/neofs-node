@@ -83,10 +83,10 @@ image-%:
 		-t $(HUB_IMAGE)-$*:$(HUB_TAG) .
 
 # Build all Docker images
-images: image-storage image-ir image-cli
+images: image-storage image-ir image-cli image-adm
 
 # Build dirty local Docker images
-dirty-images: image-dirty-storage image-dirty-ir image-dirty-cli
+dirty-images: image-dirty-storage image-dirty-ir image-dirty-cli image-dirty-adm
 
 # Run all code formatters
 fmts: fmt imports
