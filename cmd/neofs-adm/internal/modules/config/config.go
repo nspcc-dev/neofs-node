@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 type configTemplate struct {
@@ -121,4 +123,15 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func AlphabetPassword(v *viper.Viper, index int) (string, error) {
+	letter := innerring.GlagoliticLetter(index)
+	key := "credentials." + letter.String()
+	if v.IsSet(key) {
+		return v.GetString(key), nil
+	}
+
+	prompt := "Password for " + letter.String() + " wallet > "
+	return input.ReadPassword(prompt)
 }

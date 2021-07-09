@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,6 +32,7 @@ func init() {
 	rootCmd.Flags().Bool("version", false, "application version")
 
 	rootCmd.AddCommand(config.RootCmd)
+	rootCmd.AddCommand(morph.RootCmd)
 }
 
 func Execute() error {
