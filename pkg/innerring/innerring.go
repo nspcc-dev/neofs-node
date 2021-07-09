@@ -305,8 +305,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	fmt.Println(hex.EncodeToString(server.key.PublicKey().Bytes()))
 
+	withoutMainNet := cfg.GetBool("without_mainnet")
+
 	// get all script hashes of contracts
-	server.contracts, err = parseContracts(cfg)
+	server.contracts, err = parseContracts(cfg, withoutMainNet)
 	if err != nil {
 		return nil, err
 	}
@@ -341,8 +343,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	if err != nil {
 		return nil, err
 	}
-
-	withoutMainNet := cfg.GetBool("without_mainnet")
 
 	if withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
@@ -525,22 +525,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	// create governance processor
-	governanceProcessor, err := governance.New(&governance.Params{
-		Log:            log,
-		NeoFSClient:    neofsClient,
-		NetmapClient:   server.netmapClient,
-		AlphabetState:  server,
-		EpochState:     server,
-		Voter:          server,
-		MorphClient:    server.morphClient,
-		MainnetClient:  server.mainnetClient,
-		NotaryDisabled: server.sideNotaryConfig.disabled,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	var alphaSync event.Handler
 
 	if withoutMainNet {
@@ -548,6 +532,22 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 			log.Debug("alphabet keys sync is disabled")
 		}
 	} else {
+		// create governance processor
+		governanceProcessor, err := governance.New(&governance.Params{
+			Log:            log,
+			NeoFSClient:    neofsClient,
+			NetmapClient:   server.netmapClient,
+			AlphabetState:  server,
+			EpochState:     server,
+			Voter:          server,
+			MorphClient:    server.morphClient,
+			MainnetClient:  server.mainnetClient,
+			NotaryDisabled: server.sideNotaryConfig.disabled,
+		})
+		if err != nil {
+			return nil, err
+		}
+
 		alphaSync = governanceProcessor.HandleAlphabetSync
 		err = bindMainnetProcessor(governanceProcessor, server)
 		if err != nil {
@@ -625,30 +625,32 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	// create mainnnet neofs processor
-	neofsProcessor, err := neofs.New(&neofs.Params{
-		Log:                 log,
-		PoolSize:            cfg.GetInt("workers.neofs"),
-		NeoFSContract:       server.contracts.neofs,
-		NeoFSIDClient:       neofsIDClient,
-		BalanceClient:       server.balanceClient,
-		NetmapClient:        server.netmapClient,
-		MorphClient:         server.morphClient,
-		EpochState:          server,
-		AlphabetState:       server,
-		Converter:           &server.precision,
-		MintEmitCacheSize:   cfg.GetInt("emit.mint.cache_size"),
-		MintEmitThreshold:   cfg.GetUint64("emit.mint.threshold"),
-		MintEmitValue:       fixedn.Fixed8(cfg.GetInt64("emit.mint.value")),
-		GasBalanceThreshold: cfg.GetInt64("emit.gas.balance_threshold"),
-	})
-	if err != nil {
-		return nil, err
-	}
+	if !withoutMainNet {
+		// create mainnnet neofs processor
+		neofsProcessor, err := neofs.New(&neofs.Params{
+			Log:                 log,
+			PoolSize:            cfg.GetInt("workers.neofs"),
+			NeoFSContract:       server.contracts.neofs,
+			NeoFSIDClient:       neofsIDClient,
+			BalanceClient:       server.balanceClient,
+			NetmapClient:        server.netmapClient,
+			MorphClient:         server.morphClient,
+			EpochState:          server,
+			AlphabetState:       server,
+			Converter:           &server.precision,
+			MintEmitCacheSize:   cfg.GetInt("emit.mint.cache_size"),
+			MintEmitThreshold:   cfg.GetUint64("emit.mint.threshold"),
+			MintEmitValue:       fixedn.Fixed8(cfg.GetInt64("emit.mint.value")),
+			GasBalanceThreshold: cfg.GetInt64("emit.gas.balance_threshold"),
+		})
+		if err != nil {
+			return nil, err
+		}
 
-	err = bindMainnetProcessor(neofsProcessor, server)
-	if err != nil {
-		return nil, err
+		err = bindMainnetProcessor(neofsProcessor, server)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// create alphabet processor
@@ -828,30 +830,35 @@ func createClient(ctx context.Context, p *chainParams, notaryOpts ...client.Nota
 	)
 }
 
-func parseContracts(cfg *viper.Viper) (*contracts, error) {
+func parseContracts(cfg *viper.Viper, withoutMainNet bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
 	)
 
+	if !withoutMainNet {
+		result.neofs, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.neofs"))
+		if err != nil {
+			return nil, fmt.Errorf("ir: can't read neofs script-hash: %w", err)
+		}
+
+		result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
+		if err != nil {
+			return nil, fmt.Errorf("ir: can't read processing script-hash: %w", err)
+		}
+	}
+
 	netmapContractStr := cfg.GetString("contracts.netmap")
-	neofsContractStr := cfg.GetString("contracts.neofs")
 	balanceContractStr := cfg.GetString("contracts.balance")
 	containerContractStr := cfg.GetString("contracts.container")
 	auditContractStr := cfg.GetString("contracts.audit")
 	proxyContractStr := cfg.GetString("contracts.proxy")
-	processingContractStr := cfg.GetString("contracts.processing")
 	reputationContractStr := cfg.GetString("contracts.reputation")
 	neofsIDContractStr := cfg.GetString("contracts.neofsid")
 
 	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
 	if err != nil {
 		return nil, fmt.Errorf("ir: can't read netmap script-hash: %w", err)
-	}
-
-	result.neofs, err = util.Uint160DecodeStringLE(neofsContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read neofs script-hash: %w", err)
 	}
 
 	result.balance, err = util.Uint160DecodeStringLE(balanceContractStr)
@@ -872,11 +879,6 @@ func parseContracts(cfg *viper.Viper) (*contracts, error) {
 	result.proxy, err = util.Uint160DecodeStringLE(proxyContractStr)
 	if err != nil {
 		return nil, fmt.Errorf("ir: can't read proxy script-hash: %w", err)
-	}
-
-	result.processing, err = util.Uint160DecodeStringLE(processingContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read processing script-hash: %w", err)
 	}
 
 	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
