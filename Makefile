@@ -69,7 +69,7 @@ image-aio: images
 		--build-arg HUB_IMAGE=$(HUB_IMAGE) \
 		--build-arg HUB_TAG=$(HUB_TAG) \
 		--rm \
-		-f Dockerfile.aio \
+		-f .docker/Dockerfile.aio \
 		-t $(HUB_IMAGE)-aio:$(HUB_TAG) .
 
 # Build NeoFS component's docker image
@@ -79,7 +79,7 @@ image-%:
 		--build-arg REPO=$(REPO) \
 		--build-arg VERSION=$(VERSION) \
 		--rm \
-		-f Dockerfile.$* \
+		-f .docker/Dockerfile.$* \
 		-t $(HUB_IMAGE)-$*:$(HUB_TAG) .
 
 # Build all Docker images
