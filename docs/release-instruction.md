@@ -23,7 +23,8 @@ changes between releases.
 ## Tag the release
 
 Use `vX.Y.Z` tag for releases and `vX.Y.Z-rc.N` for release candidates
-following the [semantic versioning](https://semver.org/) standard.
+following the [semantic versioning](https://semver.org/) standard. Tag must be
+created from the latest commit of the master branch.
 
 ## Push changes and release tag to github
 
