@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 
 ### Changed
 
+- Require SG members to be unique (#1490)
+
 ### Fixed
 
 ### Removed
