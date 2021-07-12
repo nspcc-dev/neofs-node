@@ -19,7 +19,12 @@ var (
 // sidechain list is empty. Function returns `errNotEnoughKeys` if mainnet
 // list contains less keys than sidechain list. Function returns (nil, nil) if
 // mainnet list contains all keys from sidechain list.
+//
+// Sorts passed slices.
 func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error) {
+	sort.Sort(sidechain)
+	sort.Sort(mainnet)
+
 	ln := len(sidechain)
 	if ln == 0 {
 		return nil, errEmptySidechain
