@@ -16,7 +16,7 @@ func TestNewAlphabetList(t *testing.T) {
 
 	t.Run("no sidechain keys", func(t *testing.T) {
 		_, err := newAlphabetList(nil, orig)
-		require.Error(t, err)
+		require.ErrorIs(t, err, errEmptySidechain)
 	})
 
 	t.Run("same keys", func(t *testing.T) {
@@ -27,7 +27,7 @@ func TestNewAlphabetList(t *testing.T) {
 
 	t.Run("not enough mainnet keys", func(t *testing.T) {
 		_, err := newAlphabetList(orig, orig[:len(orig)-1])
-		require.Error(t, err)
+		require.ErrorIs(t, err, errNotEnoughKeys)
 	})
 
 	t.Run("less than third new keys", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestUpdateInnerRing(t *testing.T) {
 		after := k[4:5]
 
 		_, err = updateInnerRing(ir, before, after)
-		require.Error(t, err)
+		require.ErrorIs(t, err, errNotEqualLen)
 	})
 
 	t.Run("new list", func(t *testing.T) {
