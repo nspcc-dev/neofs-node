@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Do not require MainNet attributes in "Without MainNet" mode ([#663](https://github.com/nspcc-dev/neofs-node/issues/663)).
 - Stable alphabet list merge in Inner Ring governance ([#670](https://github.com/nspcc-dev/neofs-node/issues/670)).
 - User can specify only wallet section without node key ([#690](https://github.com/nspcc-dev/neofs-node/pull/690)).
+- Log keys in hex format in reputation errors ([#693](https://github.com/nspcc-dev/neofs-node/pull/693)).
 
 ### Removed
 - Debug output of public key in Inner Ring log ([#689](https://github.com/nspcc-dev/neofs-node/pull/689)).
