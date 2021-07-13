@@ -21,7 +21,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
@@ -72,23 +71,19 @@ func initContainerService(c *cfg) {
 		PlacementBuilder: loadPlacementBuilder,
 	})
 
-	clientCache := cache.NewSDKClientCache() // FIXME: use shared cache
-
 	loadRouter := loadroute.New(
 		loadroute.Prm{
 			LocalServerInfo: c,
 			RemoteWriterProvider: &remoteLoadAnnounceProvider{
 				key:             &c.key.PrivateKey,
 				loadAddrSrc:     c,
-				clientCache:     clientCache,
+				clientCache:     c.clientCache,
 				deadEndProvider: loadcontroller.SimpleWriterProvider(loadAccumulator),
 			},
 			Builder: routeBuilder,
 		},
 		loadroute.WithLogger(c.log),
 	)
-
-	c.onShutdown(clientCache.CloseAll)
 
 	ctrl := loadcontroller.New(
 		loadcontroller.Prm{
