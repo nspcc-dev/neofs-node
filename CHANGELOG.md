@@ -3,6 +3,8 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.22.3] - 2021-07-13
+
 ### Added
 - Support binary eACL format in container CLI command ([#650](https://github.com/nspcc-dev/neofs-node/issues/650)).
 - Dockerfile for neofs-adm utility ([#680](https://github.com/nspcc-dev/neofs-node/pull/680)).
@@ -494,7 +496,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.3...master
+[0.22.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.2...v0.22.3
 [0.22.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.21.1...v0.22.0
