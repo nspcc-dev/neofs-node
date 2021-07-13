@@ -1,7 +1,6 @@
 package nodeconfig
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -18,16 +17,16 @@ const (
 	attributePrefix = "attribute"
 )
 
-var errKeyNotSet = errors.New("empty/not set key address, see `node.key` section")
-
 // Key returns value of "key" config parameter
 // from "node" section.
 //
-// Panics if value is not a non-empty string.
+// If value is not set, fallbacks to Wallet section.
+//
+// Panics if value is incorrect filename of binary encoded private key.
 func Key(c *config.Config) *keys.PrivateKey {
 	v := config.StringSafe(c.Sub(subsection), "key")
 	if v == "" {
-		panic(errKeyNotSet)
+		return Wallet(c)
 	}
 
 	var (
@@ -40,13 +39,15 @@ func Key(c *config.Config) *keys.PrivateKey {
 	}
 
 	if err != nil {
-		return Wallet(c)
+		panic(fmt.Errorf("invalid private key in node section: %w", err))
 	}
 
 	return key
 }
 
 // Wallet returns value of node private key from "node" section.
+//
+// Panics if section contains invalid values.
 func Wallet(c *config.Config) *keys.PrivateKey {
 	v := c.Sub(subsection).Sub("wallet")
 	acc, err := utilConfig.LoadAccount(
