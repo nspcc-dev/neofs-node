@@ -303,8 +303,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	server.key = acc.PrivateKey()
 
-	fmt.Println(hex.EncodeToString(server.key.PublicKey().Bytes()))
-
 	withoutMainNet := cfg.GetBool("without_mainnet")
 
 	// get all script hashes of contracts
