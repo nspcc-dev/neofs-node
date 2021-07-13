@@ -3,8 +3,19 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+- Support binary eACL format in container CLI command ([#650](https://github.com/nspcc-dev/neofs-node/issues/650)).
+- Dockerfile for neofs-adm utility ([#680](https://github.com/nspcc-dev/neofs-node/pull/680)).
+
+### Changed
+- All docker files moved to `.docker` dir ([#682](https://github.com/nspcc-dev/neofs-node/pull/682)).
+
 ### Fixed
 - Do not require MainNet attributes in "Without MainNet" mode ([#663](https://github.com/nspcc-dev/neofs-node/issues/663)).
+- Stable alphabet list merge in Inner Ring governance ([#670](https://github.com/nspcc-dev/neofs-node/issues/670)).
+
+### Removed
+- Debug output of public key in Inner Ring log ([#689](https://github.com/nspcc-dev/neofs-node/pull/689)).
 
 ## [0.22.2] - 2021-07-07
 
