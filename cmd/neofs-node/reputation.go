@@ -14,7 +14,6 @@ import (
 	rtpwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
@@ -87,15 +86,11 @@ func initReputationService(c *cfg) {
 		},
 	)
 
-	apiClientCache := cache.NewSDKClientCache()
-
-	c.onShutdown(apiClientCache.CloseAll)
-
 	remoteLocalTrustProvider := common.NewRemoteTrustProvider(
 		common.RemoteProviderPrm{
 			LocalAddrSrc:    c,
 			DeadEndProvider: daughterStorageWriterProvider,
-			ClientCache:     apiClientCache,
+			ClientCache:     c.clientCache,
 			WriterProvider: localreputation.NewRemoteProvider(
 				localreputation.RemoteProviderPrm{
 					Key: &c.key.PrivateKey,
@@ -108,7 +103,7 @@ func initReputationService(c *cfg) {
 		common.RemoteProviderPrm{
 			LocalAddrSrc:    c,
 			DeadEndProvider: consumerStorageWriterProvider,
-			ClientCache:     apiClientCache,
+			ClientCache:     c.clientCache,
 			WriterProvider: intermediatereputation.NewRemoteProvider(
 				intermediatereputation.RemoteProviderPrm{
 					Key: &c.key.PrivateKey,

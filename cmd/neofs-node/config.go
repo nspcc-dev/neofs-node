@@ -11,9 +11,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
+	apiclient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
@@ -36,6 +38,7 @@ import (
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
@@ -108,6 +111,8 @@ type cfg struct {
 	cfgReputation cfgReputation
 
 	mainChainClient *client.Client
+
+	clientCache *cache.ClientCache
 }
 
 type cfgGRPC struct {
@@ -271,11 +276,16 @@ func initCfg(path string) *cfg {
 			scriptHash: contractsconfig.Reputation(appCfg),
 			workerPool: reputationWorkerPool,
 		},
+		clientCache: cache.NewSDKClientCache(
+			apiclient.WithDialTimeout(apiclientconfig.DialTimeout(appCfg)),
+		),
 	}
 
 	if metricsconfig.Address(c.appCfg) != "" {
 		c.metricsCollector = metrics.NewStorageMetrics()
 	}
+
+	c.onShutdown(c.clientCache.CloseAll) // clean up connections
 
 	initLocalStorage(c)
 

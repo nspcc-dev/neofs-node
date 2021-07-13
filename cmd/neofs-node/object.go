@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -25,7 +24,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -168,17 +166,12 @@ func initObjectService(c *cfg) {
 
 	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
-	clientCache := cache.NewSDKClientCache(
-		client.WithDialTimeout(apiclientconfig.DialTimeout(c.appCfg)))
-
-	c.onShutdown(clientCache.CloseAll)
-
 	clientConstructor := &reputationClientConstructor{
 		log:              c.log,
 		nmSrc:            c.cfgObject.netMapStorage,
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
-		basicConstructor: clientCache,
+		basicConstructor: c.clientCache,
 	}
 
 	coreConstructor := (*coreClientConstructor)(clientConstructor)
