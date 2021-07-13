@@ -61,18 +61,9 @@ func (x *multiClient) iterateClients(f func(client.Client) error) error {
 	var firstErr error
 
 	x.addr.IterateAddresses(func(addr network.Address) bool {
-		x.mtx.Lock()
-
-		strAddr := addr.String()
-
 		var err error
 
-		c, cached := x.clients[strAddr]
-		if !cached {
-			c = x.createForAddress(addr)
-		}
-
-		x.mtx.Unlock()
+		c := x.client(addr)
 
 		err = f(c)
 
@@ -322,6 +313,10 @@ func (x *multiClient) Close() error {
 }
 
 func (x *multiClient) RawForAddress(addr network.Address) *rawclient.Client {
+	return x.client(addr).Raw()
+}
+
+func (x *multiClient) client(addr network.Address) client.Client {
 	x.mtx.Lock()
 
 	strAddr := addr.String()
@@ -333,5 +328,5 @@ func (x *multiClient) RawForAddress(addr network.Address) *rawclient.Client {
 
 	x.mtx.Unlock()
 
-	return c.Raw()
+	return c
 }
