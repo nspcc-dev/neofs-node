@@ -14,9 +14,8 @@ func TestNodeSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
-		require.PanicsWithError(
+		require.Panics(
 			t,
-			errKeyNotSet.Error(),
 			func() {
 				Key(empty)
 			},
