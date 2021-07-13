@@ -324,9 +324,14 @@ func (x *multiClient) Close() error {
 func (x *multiClient) RawForAddress(addr network.Address) *rawclient.Client {
 	x.mtx.Lock()
 
-	c := x.createForAddress(addr).Raw()
+	strAddr := addr.String()
+
+	c, cached := x.clients[strAddr]
+	if !cached {
+		c = x.createForAddress(addr)
+	}
 
 	x.mtx.Unlock()
 
-	return c
+	return c.Raw()
 }
