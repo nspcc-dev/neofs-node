@@ -44,19 +44,24 @@ func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error
 	newNodes := 0
 	newNodeLimit := (ln - 1) / 3
 
-	for i := 0; i < ln; i++ {
-		if newNodes == newNodeLimit {
+	for _, node := range mainnet {
+		if len(result) == ln {
 			break
 		}
 
-		mainnetAddr := mainnet[i].Address()
+		limitReached := newNodes == newNodeLimit
+
+		mainnetAddr := node.Address()
 		if _, ok := hmap[mainnetAddr]; !ok {
+			if limitReached {
+				continue
+			}
 			newNodes++
 		} else {
 			hmap[mainnetAddr] = true
 		}
 
-		result = append(result, mainnet[i])
+		result = append(result, node)
 	}
 
 	if newNodes == 0 {

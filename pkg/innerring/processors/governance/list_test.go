@@ -68,6 +68,15 @@ func TestNewAlphabetList(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, equalPublicKeyLists(exp, got)) // expect {1, 2, 4, 5}, not {1, 2, 3, 5}
 	})
+
+	t.Run("new keys in the middle", func(t *testing.T) {
+		orig := keys.PublicKeys{k[0], k[1], k[2], k[6], k[7], k[8], k[9]}
+		// `exp` should contain maximum amount of new keys (2) in the middle
+		exp := keys.PublicKeys{k[0], k[3], k[4], k[6], k[7], k[8], k[9]}
+		got, err := newAlphabetList(orig, exp)
+		require.NoError(t, err)
+		require.True(t, equalPublicKeyLists(exp, got))
+	})
 }
 
 func TestUpdateInnerRing(t *testing.T) {
