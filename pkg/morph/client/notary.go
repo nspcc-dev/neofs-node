@@ -102,6 +102,12 @@ func (c *Client) NotaryEnabled() bool {
 	return c.notary != nil
 }
 
+// ProbeNotary checks if native `Notary` contract is presented on chain.
+func (c *Client) ProbeNotary() bool {
+	_, err := c.client.GetNativeContractHash(nativenames.Notary)
+	return err == nil
+}
+
 // DepositNotary calls notary deposit method. Deposit is required to operate
 // with notary contract. It used by notary contract in to produce fallback tx
 // if main tx failed to create. Deposit isn't last forever, so it should
