@@ -1,6 +1,7 @@
 package morph
 
 import (
+	"errors"
 	"fmt"
 	"path"
 
@@ -18,6 +19,9 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 	size, err := cmd.Flags().GetUint(alphabetSizeFlag)
 	if err != nil {
 		return err
+	}
+	if size == 0 {
+		return errors.New("size must be > 0")
 	}
 
 	walletDir := viper.GetString(alphabetWalletsFlag)
