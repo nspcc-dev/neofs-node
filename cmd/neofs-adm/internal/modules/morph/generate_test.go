@@ -27,6 +27,13 @@ func TestGenerateAlphabet(t *testing.T) {
 	cmd := generateAlphabetCmd
 	v := viper.GetViper()
 
+	t.Run("zero size", func(t *testing.T) {
+		buf.Reset()
+		v.Set(alphabetWalletsFlag, walletDir)
+		require.NoError(t, cmd.Flags().Set(alphabetSizeFlag, "0"))
+		buf.WriteString("pass\r")
+		require.Error(t, generateAlphabetCreds(cmd, nil))
+	})
 	t.Run("no password provided", func(t *testing.T) {
 		buf.Reset()
 		v.Set(alphabetWalletsFlag, walletDir)
