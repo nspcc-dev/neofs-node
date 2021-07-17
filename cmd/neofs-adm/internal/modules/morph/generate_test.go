@@ -66,6 +66,14 @@ func TestGenerateAlphabet(t *testing.T) {
 		for _, a := range w.Accounts {
 			err := a.Decrypt(strconv.FormatUint(i, 10), keys.NEP2ScryptParams())
 			require.NoError(t, err, "can't decrypt account")
+			switch a.Label {
+			case consensusAccountName:
+				require.Equal(t, size/2+1, len(a.Contract.Parameters))
+			case committeeAccountName:
+				require.Equal(t, size*2/3+1, len(a.Contract.Parameters))
+			default:
+				require.Equal(t, singleAccountName, a.Label)
+			}
 		}
 	}
 }

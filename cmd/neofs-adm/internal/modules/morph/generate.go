@@ -14,6 +14,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	singleAccountName    = "single"
+	committeeAccountName = "committee"
+	consensusAccountName = "consensus"
+)
+
 func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 	// alphabet size is not part of the config
 	size, err := cmd.Flags().GetUint(alphabetSizeFlag)
@@ -56,7 +62,7 @@ func initializeWallets(walletDir string, size int) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("can't create wallet: %w", err)
 		}
-		if err := w.CreateAccount("single", password); err != nil {
+		if err := w.CreateAccount(singleAccountName, password); err != nil {
 			return nil, fmt.Errorf("can't create account: %w", err)
 		}
 
@@ -68,7 +74,7 @@ func initializeWallets(walletDir string, size int) ([]string, error) {
 	// Create committee account with N/2+1 multi-signature.
 	majCount := smartcontract.GetMajorityHonestNodeCount(size)
 	for i, w := range wallets {
-		if err := addMultisigAccount(w, majCount, passwords[i], pubs); err != nil {
+		if err := addMultisigAccount(w, majCount, committeeAccountName, passwords[i], pubs); err != nil {
 			return nil, fmt.Errorf("can't create committee account: %w", err)
 		}
 	}
@@ -76,7 +82,7 @@ func initializeWallets(walletDir string, size int) ([]string, error) {
 	// Create consensus account with 2*N/3+1 multi-signature.
 	bftCount := smartcontract.GetDefaultHonestNodeCount(size)
 	for i, w := range wallets {
-		if err := addMultisigAccount(w, bftCount, passwords[i], pubs); err != nil {
+		if err := addMultisigAccount(w, bftCount, consensusAccountName, passwords[i], pubs); err != nil {
 			return nil, fmt.Errorf("can't create consensus account: %w", err)
 		}
 	}
@@ -91,8 +97,10 @@ func initializeWallets(walletDir string, size int) ([]string, error) {
 	return passwords, nil
 }
 
-func addMultisigAccount(w *wallet.Wallet, m int, password string, pubs keys.PublicKeys) error {
+func addMultisigAccount(w *wallet.Wallet, m int, name, password string, pubs keys.PublicKeys) error {
 	acc := wallet.NewAccountFromPrivateKey(w.Accounts[0].PrivateKey())
+	acc.Label = name
+
 	if err := acc.ConvertMultisig(m, pubs); err != nil {
 		return err
 	}
