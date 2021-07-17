@@ -25,6 +25,7 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/atomic v1.8.0
 	go.uber.org/zap v1.17.0
+	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
 )
