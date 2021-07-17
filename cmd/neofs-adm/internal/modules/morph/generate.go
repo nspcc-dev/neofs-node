@@ -20,16 +20,9 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	pwds := make([]string, size)
-	for i := 0; i < int(size); i++ {
-		pwds[i], err = config.AlphabetPassword(viper.GetViper(), i)
-		if err != nil {
-			return err
-		}
-	}
-
 	walletDir := viper.GetString(alphabetWalletsFlag)
-	if err := initializeWallets(walletDir, pwds); err != nil {
+	pwds, err := initializeWallets(walletDir, int(size))
+	if err != nil {
 		return err
 	}
 
@@ -42,22 +35,28 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func initializeWallets(walletDir string, passwords []string) error {
-	size := len(passwords)
+func initializeWallets(walletDir string, size int) ([]string, error) {
 	wallets := make([]*wallet.Wallet, size)
 	pubs := make(keys.PublicKeys, size)
+	passwords := make([]string, size)
 
 	for i := range wallets {
+		password, err := config.AlphabetPassword(viper.GetViper(), i)
+		if err != nil {
+			return nil, fmt.Errorf("can't fetch password: %w", err)
+		}
+
 		p := path.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
 		// TODO(@fyrchik): file is created with 0666 permissions, consider changing.
 		w, err := wallet.NewWallet(p)
 		if err != nil {
-			return fmt.Errorf("can't create wallet: %w", err)
+			return nil, fmt.Errorf("can't create wallet: %w", err)
 		}
-		if err := w.CreateAccount("single", passwords[i]); err != nil {
-			return fmt.Errorf("can't create account: %w", err)
+		if err := w.CreateAccount("single", password); err != nil {
+			return nil, fmt.Errorf("can't create account: %w", err)
 		}
 
+		passwords[i] = password
 		wallets[i] = w
 		pubs[i] = w.Accounts[0].PrivateKey().PublicKey()
 	}
@@ -66,7 +65,7 @@ func initializeWallets(walletDir string, passwords []string) error {
 	majCount := smartcontract.GetMajorityHonestNodeCount(size)
 	for i, w := range wallets {
 		if err := addMultisigAccount(w, majCount, passwords[i], pubs); err != nil {
-			return fmt.Errorf("can't create committee account: %w", err)
+			return nil, fmt.Errorf("can't create committee account: %w", err)
 		}
 	}
 
@@ -74,18 +73,18 @@ func initializeWallets(walletDir string, passwords []string) error {
 	bftCount := smartcontract.GetDefaultHonestNodeCount(size)
 	for i, w := range wallets {
 		if err := addMultisigAccount(w, bftCount, passwords[i], pubs); err != nil {
-			return fmt.Errorf("can't create consensus account: %w", err)
+			return nil, fmt.Errorf("can't create consensus account: %w", err)
 		}
 	}
 
 	for _, w := range wallets {
 		if err := w.Save(); err != nil {
-			return fmt.Errorf("can't save wallet: %w", err)
+			return nil, fmt.Errorf("can't save wallet: %w", err)
 		}
 		w.Close()
 	}
 
-	return nil
+	return passwords, nil
 }
 
 func addMultisigAccount(w *wallet.Wallet, m int, password string, pubs keys.PublicKeys) error {
