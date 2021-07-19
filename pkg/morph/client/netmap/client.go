@@ -33,6 +33,7 @@ type Option func(*cfg)
 type cfg struct {
 	addPeerMethod, // add peer method name for invocation
 	newEpochMethod, // new epoch method name for invocation
+	innerRingList, // get innerring list method name for invocation
 	netMapMethod, // get network map method name
 	netMapCandidatesMethod, // get network candidates method name
 	snapshotMethod, // get network map snapshot method name
@@ -48,6 +49,7 @@ const (
 	defaultAddPeerMethod         = "addPeer"          // default add peer method name
 	defaultConfigMethod          = "config"           // default get config value method name
 	defaultEpochMethod           = "epoch"            // default get epoch number method name
+	defaultInnerRingListMethod   = "innerRingList"    // default get innerring list method name
 	defaultNetMapCandidateMethod = "netmapCandidates" // default get network candidates method name
 	defaultNetMapMethod          = "netmap"           // default get network map method name
 	defaultNewEpochMethod        = "newEpoch"         // default new epoch method name
@@ -64,6 +66,7 @@ func defaultConfig() *cfg {
 		addPeerMethod:          defaultAddPeerMethod,
 		configMethod:           defaultConfigMethod,
 		epochMethod:            defaultEpochMethod,
+		innerRingList:          defaultInnerRingListMethod,
 		netMapCandidatesMethod: defaultNetMapCandidateMethod,
 		netMapMethod:           defaultNetMapMethod,
 		newEpochMethod:         defaultNewEpochMethod,
