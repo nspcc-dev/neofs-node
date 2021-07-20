@@ -17,6 +17,14 @@ const (
 )
 
 func (c *initializeContext) transferFunds() error {
+	ok, err := c.transferFundsFinished()
+	if ok || err != nil {
+		if err == nil {
+			c.Command.Println("Stage 1: already performed.")
+		}
+		return err
+	}
+
 	gasHash, err := c.Client.GetNativeContractHash(nativenames.Gas)
 	if err != nil {
 		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Gas, err)
@@ -48,7 +56,7 @@ func (c *initializeContext) transferFunds() error {
 		client.TransferTarget{
 			Token:   gasHash,
 			Address: c.CommitteeAcc.Contract.ScriptHash(),
-			Amount:  gasInitialTotalSupply - initialAlphabetGASAmount*int64(len(c.Wallets)),
+			Amount:  (gasInitialTotalSupply - initialAlphabetGASAmount*int64(len(c.Wallets))) / 2,
 		},
 		client.TransferTarget{
 			Token:   neoHash,
@@ -73,6 +81,21 @@ func (c *initializeContext) transferFunds() error {
 	}
 
 	return c.awaitTx()
+}
+
+func (c *initializeContext) transferFundsFinished() (bool, error) {
+	gasHash, err := c.Client.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return false, err
+	}
+
+	acc, err := getWalletAccount(c.Wallets[0], singleAccountName)
+	if err != nil {
+		return false, err
+	}
+
+	res, err := c.Client.NEP17BalanceOf(gasHash, acc.Contract.ScriptHash())
+	return res > initialAlphabetGASAmount/2, err
 }
 
 func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accType string) error {
