@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
@@ -48,7 +49,11 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// TODO 2. Setup notary and alphabet nodes in designate contract.
+	cmd.Println("Stage 2: set notary and alphabet nodes in designate contract.")
+	if err := initCtx.setNotaryAndAlphabetNodes(); err != nil {
+		return err
+	}
+
 	// TODO 3. Deploy NNS contract with ID=0.
 	// TODO 4. Deploy NeoFS contracts.
 	// TODO 5. Setup NeoFS contracts addresses in NNS.
@@ -158,6 +163,21 @@ loop:
 	}
 
 	return nil
+}
+
+func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64) error {
+	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []client.SignerAccount{{
+		Signer: transaction.Signer{
+			Account: c.CommitteeAcc.Contract.ScriptHash(),
+			Scopes:  transaction.CalledByEntry,
+		},
+		Account: c.CommitteeAcc,
+	}})
+	if err != nil {
+		return fmt.Errorf("can't create tx: %w", err)
+	}
+
+	return c.multiSignAndSend(tx, committeeAccountName)
 }
 
 func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
