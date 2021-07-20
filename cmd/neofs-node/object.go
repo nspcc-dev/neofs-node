@@ -21,7 +21,8 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntrwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	nmwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
@@ -127,14 +128,32 @@ func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
 	return i.tsLifetime, nil
 }
 
-type innerRingFetcher struct {
+type innerRingFetcherWithNotary struct {
 	sidechain *morphClient.Client
 }
 
-func (n *innerRingFetcher) InnerRingKeys() ([][]byte, error) {
-	keys, err := n.sidechain.NeoFSAlphabetList()
+func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
+	keys, err := fn.sidechain.NeoFSAlphabetList()
 	if err != nil {
-		return nil, fmt.Errorf("can't get inner ring keys: %w", err)
+		return nil, fmt.Errorf("can't get inner ring keys from alphabet role: %w", err)
+	}
+
+	result := make([][]byte, 0, len(keys))
+	for i := range keys {
+		result = append(result, keys[i].Bytes())
+	}
+
+	return result, nil
+}
+
+type innerRingFetcherWithoutNotary struct {
+	nm *nmwrp.Wrapper
+}
+
+func (f *innerRingFetcherWithoutNotary) InnerRingKeys() ([][]byte, error) {
+	keys, err := f.nm.GetInnerRingList()
+	if err != nil {
+		return nil, fmt.Errorf("can't get inner ring keys from netmap contract: %w", err)
 	}
 
 	result := make([][]byte, 0, len(keys))
@@ -176,8 +195,16 @@ func initObjectService(c *cfg) {
 
 	coreConstructor := (*coreClientConstructor)(clientConstructor)
 
-	irFetcher := &innerRingFetcher{
-		sidechain: c.cfgMorph.client,
+	var irFetcher acl.InnerRingFetcher
+
+	if c.cfgMorph.client.ProbeNotary() {
+		irFetcher = &innerRingFetcherWithNotary{
+			sidechain: c.cfgMorph.client,
+		}
+	} else {
+		irFetcher = &innerRingFetcherWithoutNotary{
+			nm: c.cfgNetmap.wrapper,
+		}
 	}
 
 	objInhumer := &localObjectInhumer{
@@ -372,7 +399,7 @@ func initObjectService(c *cfg) {
 }
 
 type morphEACLStorage struct {
-	w *wrapper.Wrapper
+	w *cntrwrp.Wrapper
 }
 
 type signedEACLTable eaclSDK.Table
