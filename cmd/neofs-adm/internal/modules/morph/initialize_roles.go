@@ -11,6 +11,13 @@ import (
 )
 
 func (c *initializeContext) setNotaryAndAlphabetNodes() error {
+	if ok, err := c.setRolesFinished(); ok || err != nil {
+		if err == nil {
+			c.Command.Println("Stage 2: already performed.")
+		}
+		return err
+	}
+
 	designateHash, err := c.Client.GetNativeContractHash(nativenames.Designation)
 	if err != nil {
 		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Designation, err)
@@ -37,4 +44,14 @@ func (c *initializeContext) setNotaryAndAlphabetNodes() error {
 	}
 
 	return c.awaitTx()
+}
+
+func (c *initializeContext) setRolesFinished() (bool, error) {
+	height, err := c.Client.GetBlockCount()
+	if err != nil {
+		return false, err
+	}
+
+	pubs, err := c.Client.GetDesignatedByRole(noderoles.NeoFSAlphabet, height)
+	return len(pubs) == len(c.Wallets), err
 }

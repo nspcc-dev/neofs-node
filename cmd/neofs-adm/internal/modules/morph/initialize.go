@@ -29,6 +29,7 @@ type initializeContext struct {
 	Hashes       []util.Uint256
 	WaitDuration time.Duration
 	PollInterval time.Duration
+	Command      *cobra.Command
 }
 
 func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
@@ -38,7 +39,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	initCtx, err := newInitializeContext(viper.GetViper())
+	initCtx, err := newInitializeContext(cmd, viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("initialization error: %w", err)
 	}
@@ -68,7 +69,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func newInitializeContext(v *viper.Viper) (*initializeContext, error) {
+func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContext, error) {
 	walletDir := v.GetString(alphabetWalletsFlag)
 	wallets, err := openAlphabetWallets(walletDir)
 	if err != nil {
@@ -97,6 +98,7 @@ func newInitializeContext(v *viper.Viper) (*initializeContext, error) {
 		Wallets:      wallets,
 		WaitDuration: time.Second * 30,
 		PollInterval: time.Second,
+		Command:      cmd,
 	}
 
 	return initCtx, nil
@@ -139,6 +141,8 @@ func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
 }
 
 func (c *initializeContext) awaitTx() error {
+	c.Command.Println("Waiting for transactions to persist...")
+
 	tick := time.NewTicker(c.PollInterval)
 	defer tick.Stop()
 
@@ -149,6 +153,10 @@ func (c *initializeContext) awaitTx() error {
 
 loop:
 	for i := range c.Hashes {
+		_, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
+		if err == nil {
+			continue loop
+		}
 		for {
 			select {
 			case <-tick.C:
