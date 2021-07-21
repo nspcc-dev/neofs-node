@@ -29,6 +29,7 @@ type initializeContext struct {
 	Hashes       []util.Uint256
 	WaitDuration time.Duration
 	PollInterval time.Duration
+	Contracts    map[string]*contractState
 	Command      *cobra.Command
 }
 
@@ -55,8 +56,18 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// TODO 3. Deploy NNS contract with ID=0.
-	// TODO 4. Deploy NeoFS contracts.
+	// 3. Deploy NNS contract.
+	cmd.Println("Stage 3: deploy NNS contract.")
+	if err := initCtx.deployNNS(); err != nil {
+		return err
+	}
+
+	// 4. Deploy NeoFS contracts.
+	cmd.Println("Stage 4: deploy NeoFS contracts.")
+	if err := initCtx.deployContracts(); err != nil {
+		return err
+	}
+
 	// TODO 5. Setup NeoFS contracts addresses in NNS.
 	// TODO 6. Register candidates and call alphabet.Vote.
 
@@ -99,6 +110,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		WaitDuration: time.Second * 30,
 		PollInterval: time.Second,
 		Command:      cmd,
+		Contracts:    make(map[string]*contractState),
 	}
 
 	return initCtx, nil
