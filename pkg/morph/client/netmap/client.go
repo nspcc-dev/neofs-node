@@ -40,7 +40,7 @@ type cfg struct {
 	epochSnapshotMethod, // get network map snapshot by epoch method name
 	updateStateMethod, // update state method name for invocation
 	epochMethod, // get epoch number method name
-	setInnerRing, // set inner ring method name
+	updateInnerRing, // update innerring method name
 	setConfigMethod, // set config method name
 	configMethod string // get config value method name
 }
@@ -54,7 +54,7 @@ const (
 	defaultNetMapMethod          = "netmap"           // default get network map method name
 	defaultNewEpochMethod        = "newEpoch"         // default new epoch method name
 	defaultSetConfigMethod       = "setConfig"        // default get config value method name
-	defaultSetInnerRingMethod    = "updateInnerRing"  // default set innerring method name
+	defaultUpdateInnerRingMethod = "updateInnerRing"  // default update innerring method name
 	defaultSnapshotMethod        = "snapshot"         // default get network map snapshot method name
 	defaultUpdateStateMethod     = "updateState"      // default update state method name
 
@@ -73,6 +73,7 @@ func defaultConfig() *cfg {
 		setConfigMethod:        defaultSetConfigMethod,
 		snapshotMethod:         defaultSnapshotMethod,
 		updateStateMethod:      defaultUpdateStateMethod,
+		updateInnerRing:        defaultUpdateInnerRingMethod,
 		epochSnapshotMethod:    defaultEpochSnapshotMethod,
 	}
 }
