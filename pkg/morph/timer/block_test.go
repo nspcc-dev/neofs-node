@@ -108,3 +108,54 @@ func TestDeltaReset(t *testing.T) {
 
 	require.Equal(t, 2, detlaCallCounter)
 }
+
+func TestNewOneTickTimer(t *testing.T) {
+	blockDur := uint32(1)
+	baseCallCounter := 0
+
+	bt := timer.NewOneTickTimer(timer.StaticBlockMeter(blockDur), func() {
+		baseCallCounter++
+	})
+	require.NoError(t, bt.Reset())
+
+	tickN(bt, 10)
+	require.Equal(t, 1, baseCallCounter) // happens once no matter what
+
+	t.Run("zero duration", func(t *testing.T) {
+		blockDur = uint32(0)
+		baseCallCounter = 0
+
+		bt = timer.NewOneTickTimer(timer.StaticBlockMeter(blockDur), func() {
+			baseCallCounter++
+		})
+		require.NoError(t, bt.Reset())
+
+		tickN(bt, 10)
+		require.Equal(t, 1, baseCallCounter)
+	})
+
+	t.Run("delta without pulse", func(t *testing.T) {
+		blockDur = uint32(10)
+		baseCallCounter = 0
+
+		bt = timer.NewOneTickTimer(timer.StaticBlockMeter(blockDur), func() {
+			baseCallCounter++
+		})
+
+		detlaCallCounter := 0
+
+		bt.OnDelta(1, 10, func() {
+			detlaCallCounter++
+		})
+
+		require.NoError(t, bt.Reset())
+
+		tickN(bt, 10)
+		require.Equal(t, 1, baseCallCounter)
+		require.Equal(t, 1, detlaCallCounter)
+
+		tickN(bt, 10) // 10 more ticks must not affect counters
+		require.Equal(t, 1, baseCallCounter)
+		require.Equal(t, 1, detlaCallCounter)
+	})
+}
