@@ -40,6 +40,7 @@ type cfg struct {
 	epochSnapshotMethod, // get network map snapshot by epoch method name
 	updateStateMethod, // update state method name for invocation
 	epochMethod, // get epoch number method name
+	epochBlockMethod, // get epoch number method name
 	updateInnerRing, // update innerring method name
 	setConfigMethod, // set config method name
 	configMethod string // get config value method name
@@ -49,6 +50,7 @@ const (
 	defaultAddPeerMethod         = "addPeer"          // default add peer method name
 	defaultConfigMethod          = "config"           // default get config value method name
 	defaultEpochMethod           = "epoch"            // default get epoch number method name
+	defaultEpochBlockMethod      = "epochBlock"       // default get epoch block number method name
 	defaultInnerRingListMethod   = "innerRingList"    // default get innerring list method name
 	defaultNetMapCandidateMethod = "netmapCandidates" // default get network candidates method name
 	defaultNetMapMethod          = "netmap"           // default get network map method name
@@ -66,6 +68,7 @@ func defaultConfig() *cfg {
 		addPeerMethod:          defaultAddPeerMethod,
 		configMethod:           defaultConfigMethod,
 		epochMethod:            defaultEpochMethod,
+		epochBlockMethod:       defaultEpochBlockMethod,
 		innerRingList:          defaultInnerRingListMethod,
 		netMapCandidatesMethod: defaultNetMapCandidateMethod,
 		netMapMethod:           defaultNetMapMethod,
