@@ -25,6 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
+	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
@@ -79,10 +80,14 @@ type (
 		sideNotaryConfig *notaryConfig
 
 		// internal variables
-		key                  *keys.PrivateKey
-		pubKey               []byte
-		contracts            *contracts
-		predefinedValidators keys.PublicKeys
+		key                   *keys.PrivateKey
+		pubKey                []byte
+		contracts             *contracts
+		predefinedValidators  keys.PublicKeys
+		initialEpochTickDelta uint32
+
+		// runtime processors
+		netmapProcessor *netmap.Processor
 
 		workers []func(context.Context)
 
@@ -200,6 +205,14 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		s.log.Warn("can't vote for prepared validators",
 			zap.String("error", err.Error()))
 	}
+
+	// tick initial epoch
+	initialEpochTicker := timer.NewOneTickTimer(
+		timer.StaticBlockMeter(s.initialEpochTickDelta),
+		func() {
+			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
+		})
+	s.addBlockTimer(initialEpochTicker)
 
 	morphErr := make(chan error)
 	mainnnetErr := make(chan error)
@@ -564,7 +577,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	// create netmap processor
-	netmapProcessor, err := netmap.New(&netmap.Params{
+	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
 		PoolSize:         cfg.GetInt("workers.netmap"),
 		NetmapContract:   server.contracts.netmap,
@@ -591,7 +604,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	err = bindMorphProcessor(netmapProcessor, server)
+	err = bindMorphProcessor(server.netmapProcessor, server)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +721,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
 		l:                  server.log,
-		nm:                 netmapProcessor,
+		nm:                 server.netmapProcessor,
 		cnrWrapper:         cnrClient,
 		epoch:              server,
 		epochDuration:      globalConfig.EpochDuration,
@@ -966,6 +979,12 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
+	// get next epoch delta tick
+	s.initialEpochTickDelta, err = s.nextEpochBlockDelta()
+	if err != nil {
+		return err
+	}
+
 	s.epochCounter.Store(epoch)
 	s.precision.SetBalancePrecision(balancePrecision)
 
@@ -974,9 +993,34 @@ func (s *Server) initConfigFromBlockchain() error {
 		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Uint64("epoch", epoch),
 		zap.Uint32("precision", balancePrecision),
+		zap.Uint32("init_epoch_tick_delta", s.initialEpochTickDelta),
 	)
 
 	return nil
+}
+
+func (s *Server) nextEpochBlockDelta() (uint32, error) {
+	epochBlock, err := s.netmapClient.LastEpochBlock()
+	if err != nil {
+		return 0, fmt.Errorf("can't read last epoch block: %w", err)
+	}
+
+	blockHeight, err := s.morphClient.BlockCount()
+	if err != nil {
+		return 0, fmt.Errorf("can't get side chain height: %w", err)
+	}
+
+	epochDuration, err := s.netmapClient.EpochDuration()
+	if err != nil {
+		return 0, fmt.Errorf("can't get epoch duration: %w", err)
+	}
+
+	delta := uint32(epochDuration) + epochBlock
+	if delta < blockHeight {
+		return 0, nil
+	}
+
+	return delta - blockHeight, nil
 }
 
 // onlyActiveHandler wrapper around event handler that executes it
