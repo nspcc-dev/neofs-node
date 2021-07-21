@@ -44,7 +44,6 @@ func (gp *Processor) processAlphabetSync() {
 	}
 
 	gp.log.Info("alphabet list has been changed, starting update")
-	sort.Sort(newAlphabet)
 
 	// 1. Vote to side chain committee via alphabet contracts.
 	err = gp.voter.VoteForSidechainValidator(newAlphabet)
