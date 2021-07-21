@@ -67,7 +67,7 @@ func (gp *Processor) processAlphabetSync() {
 			sort.Sort(newInnerRing)
 
 			if gp.notaryDisabled {
-				err = gp.netmapClient.SetInnerRing(newInnerRing)
+				err = gp.netmapClient.UpdateInnerRing(newInnerRing)
 			} else {
 				err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing)
 			}

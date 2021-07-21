@@ -9,14 +9,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// SetInnerRing updates inner ring members in netmap contract.
-func (c *Client) SetInnerRing(keys keys.PublicKeys) error {
+// UpdateInnerRing updates inner ring members in netmap contract.
+func (c *Client) UpdateInnerRing(keys keys.PublicKeys) error {
 	args := make([][]byte, len(keys))
 	for i := range args {
 		args[i] = keys[i].Bytes()
 	}
 
-	return c.client.Invoke(c.setInnerRing, args)
+	return c.client.Invoke(c.updateInnerRing, args)
 }
 
 // InnerRingList returns public keys of inner ring members in

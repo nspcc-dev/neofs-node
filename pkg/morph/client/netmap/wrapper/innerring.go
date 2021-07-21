@@ -2,9 +2,9 @@ package wrapper
 
 import "github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 
-// SetInnerRing updates inner ring keys.
-func (w *Wrapper) SetInnerRing(keys keys.PublicKeys) error {
-	return w.client.SetInnerRing(keys)
+// UpdateInnerRing updates inner ring keys.
+func (w *Wrapper) UpdateInnerRing(keys keys.PublicKeys) error {
+	return w.client.UpdateInnerRing(keys)
 }
 
 // GetInnerRingList return current IR list.
