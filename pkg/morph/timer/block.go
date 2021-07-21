@@ -31,6 +31,8 @@ type BlockTimer struct {
 
 	ps []BlockTimer
 
+	once bool
+
 	deltaCfg
 }
 
@@ -72,6 +74,20 @@ func NewBlockTimer(dur BlockMeter, h BlockTickHandler) *BlockTimer {
 	}
 }
 
+// NewOneTickTimer creates a new BlockTimer that ticks only once.
+//
+// Do not use delta handlers with pulse in this timer.
+func NewOneTickTimer(dur BlockMeter, h BlockTickHandler) *BlockTimer {
+	return &BlockTimer{
+		mtx:  new(sync.Mutex),
+		dur:  dur,
+		mul:  1,
+		div:  1,
+		h:    h,
+		once: true,
+	}
+}
+
 // OnDelta registers handler which is executed on (mul / div * BlockMeter()) block
 // after basic interval reset.
 //
@@ -87,9 +103,10 @@ func (t *BlockTimer) OnDelta(mul, div uint32, h BlockTickHandler, opts ...DeltaO
 	}
 
 	t.ps = append(t.ps, BlockTimer{
-		mul: mul,
-		div: div,
-		h:   h,
+		mul:  mul,
+		div:  div,
+		h:    h,
+		once: t.once,
 
 		deltaCfg: c,
 	})
@@ -157,9 +174,11 @@ func (t *BlockTimer) tick() {
 		//   2. call t.tickH(h)
 		t.h()
 
-		t.cur = 0
-		t.rolledBack = true
-		t.reset()
+		if !t.once {
+			t.cur = 0
+			t.rolledBack = true
+			t.reset()
+		}
 	}
 
 	for i := range t.ps {
