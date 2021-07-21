@@ -315,3 +315,9 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 func (c *Client) MagicNumber() uint64 {
 	return uint64(c.client.GetNetwork())
 }
+
+// BlockCount returns block count of the network
+// to which the underlying RPC node client is connected.
+func (c *Client) BlockCount() (uint32, error) {
+	return c.client.GetBlockCount()
+}
