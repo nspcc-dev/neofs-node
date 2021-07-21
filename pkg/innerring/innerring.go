@@ -306,7 +306,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	withoutMainNet := cfg.GetBool("without_mainnet")
 
 	// get all script hashes of contracts
-	server.contracts, err = parseContracts(cfg, withoutMainNet)
+	server.contracts, err = parseContracts(cfg, withoutMainNet, server.sideNotaryConfig.disabled)
 	if err != nil {
 		return nil, err
 	}
@@ -828,7 +828,7 @@ func createClient(ctx context.Context, p *chainParams, notaryOpts ...client.Nota
 	)
 }
 
-func parseContracts(cfg *viper.Viper, withoutMainNet bool) (*contracts, error) {
+func parseContracts(cfg *viper.Viper, withoutMainNet, withoutNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -846,11 +846,17 @@ func parseContracts(cfg *viper.Viper, withoutMainNet bool) (*contracts, error) {
 		}
 	}
 
+	if !withoutNotary {
+		result.proxy, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.proxy"))
+		if err != nil {
+			return nil, fmt.Errorf("ir: can't read proxy script-hash: %w", err)
+		}
+	}
+
 	netmapContractStr := cfg.GetString("contracts.netmap")
 	balanceContractStr := cfg.GetString("contracts.balance")
 	containerContractStr := cfg.GetString("contracts.container")
 	auditContractStr := cfg.GetString("contracts.audit")
-	proxyContractStr := cfg.GetString("contracts.proxy")
 	reputationContractStr := cfg.GetString("contracts.reputation")
 	neofsIDContractStr := cfg.GetString("contracts.neofsid")
 
@@ -872,11 +878,6 @@ func parseContracts(cfg *viper.Viper, withoutMainNet bool) (*contracts, error) {
 	result.audit, err = util.Uint160DecodeStringLE(auditContractStr)
 	if err != nil {
 		return nil, fmt.Errorf("ir: can't read audit script-hash: %w", err)
-	}
-
-	result.proxy, err = util.Uint160DecodeStringLE(proxyContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read proxy script-hash: %w", err)
 	}
 
 	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
