@@ -87,61 +87,61 @@ storage:
 
       writecache:
         path: tmp/0/cache
-        mem_size: 111
-        db_size: 222
-        small_size: 333
-        max_size: 444
-        workers_number: 555
+        mem_size: 2147483648
+        db_size: 2147483648
+        small_size: 16384
+        max_size: 134217728
+        workers_number: 30
 
       metabase:
         path: tmp/0/meta
-        perm: 0700
+        perm: 0644
 
       blobstor:
         path: tmp/0/blob
-        perm: 0666
-        shallow_depth: 5
+        perm: 0644
         compress: true
-        small_size_limit: 77
+        shallow_depth: 5
+        small_size_limit: 102400
 
         blobovnicza:
-          size: 1024
-          shallow_depth: 10
-          shallow_width: 20
-          opened_cache_size: 88
+          size: 4194304
+          shallow_depth: 1
+          shallow_width: 4
+          opened_cache_size: 50
 
       gc:
-        remover_batch_size: 123
-        remover_sleep_interval: 3h
+        remover_batch_size: 150
+        remover_sleep_interval: 2m
 
     1:
       use_write_cache: true
 
       writecache:
         path: tmp/1/cache
-        mem_size: 112
-        db_size: 223
-        small_size: 334
-        max_size: 445
-        workers_number: 556
+        mem_size: 2147483648
+        db_size: 2147483648
+        small_size: 16384
+        max_size: 134217728
+        workers_number: 30
 
       metabase:
         path: tmp/1/meta
-        perm: 0701
+        perm: 0644
 
       blobstor:
         path: tmp/1/blob
-        perm: 0667
-        shallow_depth: 6
+        perm: 0644
         compress: false
-        small_size_limit: 78
+        shallow_depth: 5
+        small_size_limit: 102400
 
         blobovnicza:
-          size: 1025
-          shallow_depth: 11
-          shallow_width: 21
-          opened_cache_size: 89
+          size: 4194304
+          shallow_depth: 1
+          shallow_width: 4
+          opened_cache_size: 50
 
       gc:
-        remover_batch_size: 124
-        remover_sleep_interval: 3h1s
+        remover_batch_size: 200
+        remover_sleep_interval: 5m
