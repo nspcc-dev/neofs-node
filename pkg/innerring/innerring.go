@@ -375,12 +375,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	server.pubKey = server.key.PublicKey().Bytes()
 
-	server.statusIndex = newInnerRingIndexer(
-		server.morphClient,
-		server.key.PublicKey(),
-		cfg.GetDuration("indexer.cache_timeout"),
-	)
-
 	auditPool, err := ants.NewPool(cfg.GetInt("audit.task.exec_pool_size"))
 	if err != nil {
 		return nil, err
@@ -425,6 +419,21 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	if err != nil {
 		return nil, err
 	}
+
+	var irf irFetcher
+
+	if server.morphClient.ProbeNotary() {
+		irf = NewIRFetcherWithNotary(server.morphClient)
+	} else {
+		irf = NewIRFetcherWithoutNotary(server.netmapClient)
+	}
+
+	server.statusIndex = newInnerRingIndexer(
+		server.morphClient,
+		irf,
+		server.key.PublicKey(),
+		cfg.GetDuration("indexer.cache_timeout"),
+	)
 
 	// create global runtime config reader
 	globalConfig := config.NewGlobalConfigReader(cfg, server.netmapClient)

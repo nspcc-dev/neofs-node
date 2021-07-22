@@ -7,16 +7,24 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 type (
+	irFetcher interface {
+		InnerRingKeys() (keys.PublicKeys, error)
+	}
+
+	committeeFetcher interface {
+		Committee() (keys.PublicKeys, error)
+	}
+
 	innerRingIndexer struct {
 		sync.RWMutex
 
-		cli     *client.Client
-		key     *keys.PublicKey
-		timeout time.Duration
+		irFetcher   irFetcher
+		commFetcher committeeFetcher
+		key         *keys.PublicKey
+		timeout     time.Duration
 
 		ind indexes
 
@@ -29,11 +37,12 @@ type (
 	}
 )
 
-func newInnerRingIndexer(cli *client.Client, key *keys.PublicKey, to time.Duration) *innerRingIndexer {
+func newInnerRingIndexer(comf committeeFetcher, irf irFetcher, key *keys.PublicKey, to time.Duration) *innerRingIndexer {
 	return &innerRingIndexer{
-		cli:     cli,
-		key:     key,
-		timeout: to,
+		irFetcher:   irf,
+		commFetcher: comf,
+		key:         key,
+		timeout:     to,
 	}
 }
 
@@ -54,7 +63,7 @@ func (s *innerRingIndexer) update() (ind indexes, err error) {
 		return s.ind, nil
 	}
 
-	innerRing, err := s.cli.NeoFSAlphabetList()
+	innerRing, err := s.irFetcher.InnerRingKeys()
 	if err != nil {
 		return indexes{}, err
 	}
@@ -62,7 +71,7 @@ func (s *innerRingIndexer) update() (ind indexes, err error) {
 	s.ind.innerRingIndex = keyPosition(s.key, innerRing)
 	s.ind.innerRingSize = int32(len(innerRing))
 
-	alphabet, err := s.cli.Committee()
+	alphabet, err := s.commFetcher.Committee()
 	if err != nil {
 		return indexes{}, err
 	}
