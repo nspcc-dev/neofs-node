@@ -78,6 +78,11 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	cmd.Println("Stage 7: set addresses in NNS.")
+	if err := initCtx.setNNS(); err != nil {
+		return err
+	}
+
 	cmd.Println("endpoint:", viper.GetString(endpointFlag))
 	cmd.Println("alphabet-wallets:", viper.GetString(alphabetWalletsFlag))
 	cmd.Println("contracts:", contractsPath)
