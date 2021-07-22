@@ -54,7 +54,7 @@ func (gp *Processor) processAlphabetSync() {
 	}
 
 	// 2. Update NeoFSAlphabet role in side chain.
-	innerRing, err := gp.morphClient.NeoFSAlphabetList()
+	innerRing, err := gp.irFetcher.InnerRingKeys()
 	if err != nil {
 		gp.log.Error("can't fetch inner ring list from side chain",
 			zap.String("error", err.Error()))

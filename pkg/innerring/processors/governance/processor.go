@@ -21,7 +21,7 @@ import (
 const ProcessorPoolSize = 1
 
 type (
-	// AlphabetState is a callback interface for inner ring global state.
+	// AlphabetState is a callback interface for innerring global state.
 	AlphabetState interface {
 		IsAlphabet() bool
 	}
@@ -31,9 +31,16 @@ type (
 		VoteForSidechainValidator(keys keys.PublicKeys) error
 	}
 
-	// EpochState is a callback interface for inner ring global state.
+	// EpochState is a callback interface for innerring global state.
 	EpochState interface {
 		EpochCounter() uint64
+	}
+
+	// IRFetcher is a callback interface for innerring keys.
+	// Implementation must take into account availability of
+	// the notary contract.
+	IRFetcher interface {
+		InnerRingKeys() (keys.PublicKeys, error)
 	}
 
 	// Processor of events related to governance in the network.
@@ -46,6 +53,7 @@ type (
 		alphabetState AlphabetState
 		epochState    EpochState
 		voter         Voter
+		irFetcher     IRFetcher
 
 		mainnetClient *client.Client
 		morphClient   *client.Client
@@ -60,6 +68,7 @@ type (
 		AlphabetState AlphabetState
 		EpochState    EpochState
 		Voter         Voter
+		IRFetcher     IRFetcher
 
 		MorphClient   *client.Client
 		MainnetClient *client.Client
@@ -85,6 +94,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/governance: global state is not set")
 	case p.Voter == nil:
 		return nil, errors.New("ir/governance: global state is not set")
+	case p.IRFetcher == nil:
+		return nil, errors.New("ir/governance: innerring keys fetcher is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -100,6 +111,7 @@ func New(p *Params) (*Processor, error) {
 		alphabetState:  p.AlphabetState,
 		epochState:     p.EpochState,
 		voter:          p.Voter,
+		irFetcher:      p.IRFetcher,
 		mainnetClient:  p.MainnetClient,
 		morphClient:    p.MorphClient,
 		notaryDisabled: p.NotaryDisabled,
