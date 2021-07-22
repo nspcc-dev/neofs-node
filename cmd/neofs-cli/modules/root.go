@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -220,15 +221,20 @@ func getKeyFromNEP2(encryptedWif string) (*ecdsa.PrivateKey, error) {
 }
 
 func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, error) {
-	if addrStr == "" {
-		printVerbose("Address is empty")
-		return nil, errInvalidAddress
-	}
+	var (
+		addr util.Uint160
+		err  error
+	)
 
-	addr, err := flags.ParseAddress(addrStr)
-	if err != nil {
-		printVerbose("Can't parse address: %s", addrStr)
-		return nil, errInvalidAddress
+	if addrStr == "" {
+		printVerbose("Using default wallet address")
+		addr = w.GetChangeAddress()
+	} else {
+		addr, err = flags.ParseAddress(addrStr)
+		if err != nil {
+			printVerbose("Can't parse address: %s", addrStr)
+			return nil, errInvalidAddress
+		}
 	}
 
 	acc := w.GetAccount(addr)
