@@ -547,6 +547,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 			AlphabetState:  server,
 			EpochState:     server,
 			Voter:          server,
+			IRFetcher:      irf,
 			MorphClient:    server.morphClient,
 			MainnetClient:  server.mainnetClient,
 			NotaryDisabled: server.sideNotaryConfig.disabled,
