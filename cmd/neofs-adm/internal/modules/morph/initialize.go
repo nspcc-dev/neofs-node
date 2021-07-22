@@ -68,8 +68,15 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// TODO 5. Setup NeoFS contracts addresses in NNS.
-	// TODO 6. Register candidates and call alphabet.Vote.
+	cmd.Println("Stage 5: register candidates.")
+	if err := initCtx.registerCandidates(); err != nil {
+		return err
+	}
+
+	cmd.Println("Stage 6: transfer NEO to alphabet contracts.")
+	if err := initCtx.transferNEOToAlphabetContracts(); err != nil {
+		return err
+	}
 
 	cmd.Println("endpoint:", viper.GetString(endpointFlag))
 	cmd.Println("alphabet-wallets:", viper.GetString(alphabetWalletsFlag))
