@@ -319,7 +319,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	withoutMainNet := cfg.GetBool("without_mainnet")
 
 	// get all script hashes of contracts
-	server.contracts, err = parseContracts(cfg, withoutMainNet, server.sideNotaryConfig.disabled)
+	server.contracts, err = parseContracts(
+		cfg,
+		withoutMainNet,
+		server.mainNotaryConfig.disabled,
+		server.sideNotaryConfig.disabled,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -851,7 +856,7 @@ func createClient(ctx context.Context, p *chainParams, notaryOpts ...client.Nota
 	)
 }
 
-func parseContracts(cfg *viper.Viper, withoutMainNet, withoutNotary bool) (*contracts, error) {
+func parseContracts(cfg *viper.Viper, withoutMainNet, withoutMainNotary, withoutSideNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -863,13 +868,15 @@ func parseContracts(cfg *viper.Viper, withoutMainNet, withoutNotary bool) (*cont
 			return nil, fmt.Errorf("ir: can't read neofs script-hash: %w", err)
 		}
 
-		result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
-		if err != nil {
-			return nil, fmt.Errorf("ir: can't read processing script-hash: %w", err)
+		if !withoutMainNotary {
+			result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
+			if err != nil {
+				return nil, fmt.Errorf("ir: can't read processing script-hash: %w", err)
+			}
 		}
 	}
 
-	if !withoutNotary {
+	if !withoutSideNotary {
 		result.proxy, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.proxy"))
 		if err != nil {
 			return nil, fmt.Errorf("ir: can't read proxy script-hash: %w", err)
