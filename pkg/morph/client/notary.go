@@ -317,6 +317,8 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 
 	c.logger.Debug("notary request invoked",
 		zap.String("method", method),
+		zap.Uint32("valid_until_block", until),
+		zap.Uint32("fallback_valid_for", c.notary.fallbackTime),
 		zap.Stringer("tx_hash", resp.Hash().Reverse()))
 
 	return nil
