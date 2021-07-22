@@ -67,21 +67,21 @@ func (c *Client) Epoch(_ EpochArgs) (*EpochValues, error) {
 // LastEpochBlock performs the test invoke of get epoch block number
 // method of NeoFS Netmap contract.
 func (c *Client) LastEpochBlock(_ EpochBlockArgs) (*EpochBlockValues, error) {
-	items, err := c.client.TestInvoke(c.epochBlockMethod)
+	items, err := c.client.TestInvoke(c.lastEpochBlockMethod)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			c.epochBlockMethod, err)
+			c.lastEpochBlockMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
-			c.epochBlockMethod, ln)
+			c.lastEpochBlockMethod, ln)
 	}
 
 	block, err := client.IntFromStackItem(items[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get number from stack item (%s): %w",
-			c.epochBlockMethod, err)
+			c.lastEpochBlockMethod, err)
 	}
 
 	return &EpochBlockValues{
