@@ -18,6 +18,10 @@ In alphabetical order:
 
 In chronological order:
 - Pavel Karpy
+- Zhang Tao
+- Angira Kekteeva
+- Sergio Nemirowski
+- Tivizi Jing
 
 # Special Thanks
 
