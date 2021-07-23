@@ -138,7 +138,7 @@ func (c *initializeContext) deployContracts() error {
 		}
 		res, err := c.Client.InvokeFunction(mgmtHash, "deploy", params, []transaction.Signer{signer})
 		if err != nil {
-			return fmt.Errorf("can't deploy contract: %w", err)
+			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
 		h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
 			Signer:  signer,

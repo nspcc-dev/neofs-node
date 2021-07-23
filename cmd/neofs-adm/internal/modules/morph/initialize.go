@@ -68,6 +68,11 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	cmd.Println("Stage 4.1: Transfer GAS to proxy contract.")
+	if err := initCtx.transferGASToProxy(); err != nil {
+		return err
+	}
+
 	cmd.Println("Stage 5: register candidates.")
 	if err := initCtx.registerCandidates(); err != nil {
 		return err

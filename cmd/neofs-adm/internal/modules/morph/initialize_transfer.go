@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
@@ -14,6 +15,8 @@ const (
 	gasInitialTotalSupply = 30000000 * native.GASFactor
 	// initialAlphabetGASAmount represents amount of GAS given to each alphabet node.
 	initialAlphabetGASAmount = 10_000 * native.GASFactor
+	// initialProxyGASAmount represents amount of GAS given to proxy contract.
+	initialProxyGASAmount = 50_000 * native.GASFactor
 )
 
 func (c *initializeContext) transferFunds() error {
@@ -144,4 +147,38 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 	tx.Scripts = append(tx.Scripts, *w)
 
 	return nil
+}
+
+func (c *initializeContext) transferGASToProxy() error {
+	gasHash, err := c.Client.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Gas, err)
+	}
+
+	ctrPath, err := c.Command.Flags().GetString(contractsInitFlag)
+	if err != nil {
+		return fmt.Errorf("missing contracts path: %w", err)
+	}
+
+	cs, err := c.readContract(ctrPath, proxyContract)
+	if err != nil {
+		return err
+	}
+
+	h := state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
+	bal, err := c.Client.NEP17BalanceOf(gasHash, h)
+	if err != nil || bal > 0 {
+		return err
+	}
+
+	tx, err := c.Client.CreateNEP17TransferTx(c.CommitteeAcc, h, gasHash, initialProxyGASAmount, 0, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := c.multiSignAndSend(tx, committeeAccountName); err != nil {
+		return err
+	}
+
+	return c.awaitTx()
 }
