@@ -3,6 +3,32 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.23.0] - 2021-07-23 - Wando (완도, 莞島)
+
+Improved stability for notary disabled environment.
+
+### Added
+- Alphabet wallets generation command in neofs-adm (#684)
+- Initial epoch timer tick synchronization at Inner Ring node startup (#679)
+
+### Changed
+- `--address` flag is optional in NeoFS CLI (#656)
+- Notary subsystem now logs `ValidUntilBlock` (#677)
+- Updated neo-go to v0.96.1
+- Storage Node configuration example contains usable parameters (#699)
+
+### Fixed
+- Do not use side chain RoleManagement contract as source of Inner Ring list 
+  when notary disabled in side chain (#672)
+- Alphabet list transition is even more effective (#697)
+- Inner Ring node does not require proxy and processing contracts if notary
+  disabled (#701, #714)
+
+### Upgrading from v0.22.3
+To upgrade Storage node or Inner Ring node from v0.22.3, you don't need to
+change configuration files. Make sure, that NEO RPC nodes, specified in config,
+are connected to N3 RC4 (Testnet) network.
+
 ## [0.22.3] - 2021-07-13
 
 ### Added
@@ -496,7 +522,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.3...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.0...master
+[0.23.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.3...v0.23.0
 [0.22.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.2...v0.22.3
 [0.22.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.0...v0.22.1
