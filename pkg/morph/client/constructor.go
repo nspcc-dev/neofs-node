@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -28,8 +27,6 @@ type cfg struct {
 	gas util.Uint160 // native gas script-hash
 
 	waitInterval time.Duration
-
-	notaryOpts []NotaryOption
 }
 
 const (
@@ -47,6 +44,8 @@ func defaultConfig() *cfg {
 }
 
 // New creates, initializes and returns the Client instance.
+// Notary support should be enabled with EnableNotarySupport client
+// method separately.
 //
 // If private key is nil, it panics.
 //
@@ -105,12 +104,6 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		waitInterval: cfg.waitInterval,
 	}
 
-	if len(cfg.notaryOpts) != 0 {
-		if err := c.enableNotarySupport(cfg.notaryOpts...); err != nil {
-			return nil, fmt.Errorf("can't enable notary support: %w", err)
-		}
-	}
-
 	return c, nil
 }
 
@@ -153,12 +146,5 @@ func WithLogger(logger *logger.Logger) Option {
 		if logger != nil {
 			c.logger = logger
 		}
-	}
-}
-
-// WithNotaryOptions enables notary support and sets notary options for the client.
-func WithNotaryOptions(opts ...NotaryOption) Option {
-	return func(c *cfg) {
-		c.notaryOpts = opts
 	}
 }
