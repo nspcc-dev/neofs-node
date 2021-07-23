@@ -3,28 +3,28 @@ logger:
 
 morph:
   rpc_endpoint:
-    - https://rpc1.morph.fs.neo.org:40341
-    - https://rpc2.morph.fs.neo.org:40341
-    - https://rpc3.morph.fs.neo.org:40341
-    - https://rpc4.morph.fs.neo.org:40341
-    - https://rpc5.morph.fs.neo.org:40341
-    - https://rpc6.morph.fs.neo.org:40341
-    - https://rpc7.morph.fs.neo.org:40341
+    - https://rpc01.morph.testnet.fs.neo.org:50331
+    - https://rpc02.morph.testnet.fs.neo.org:50331
+    - https://rpc03.morph.testnet.fs.neo.org:50331
+    - https://rpc04.morph.testnet.fs.neo.org:50331
+    - https://rpc05.morph.testnet.fs.neo.org:50331
+    - https://rpc06.morph.testnet.fs.neo.org:50331
+    - https://rpc07.morph.testnet.fs.neo.org:50331
   notification_endpoint:
-    - wss://rpc1.morph.fs.neo.org:40341/ws
-    - wss://rpc2.morph.fs.neo.org:40341/ws
-    - wss://rpc3.morph.fs.neo.org:40341/ws
-    - wss://rpc4.morph.fs.neo.org:40341/ws
-    - wss://rpc5.morph.fs.neo.org:40341/ws
-    - wss://rpc6.morph.fs.neo.org:40341/ws
-    - wss://rpc7.morph.fs.neo.org:40341/ws
+    - wss://rpc01.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc02.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc03.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc04.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc05.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc06.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc07.morph.testnet.fs.neo.org:50331/ws
   dial_timeout: 20s
 
 contracts:
-  balance: 0fc02c693d59a7cde9926c7fc4bec6af310bda65
-  container: 16d1dd8b2eaf3bed5c6f469a8748de95a10ee1ed
-  netmap: 5283a843ee68f8fa9ee664df6b495054be5738d4
-  reputation: 3a5e05bae28049d8c1b8f218b0324e63816713c9
+  balance: 4f5b98a079e61cfb33cf2b9da8fd2dcaedb71d82
+  container: 8c555fa20e13bed708fe635492647c595d35e430
+  netmap: 86f589459b0b0ae47d31f3b9b340d6d431358954
+  reputation: 8d9ddd707af12c0d41f5da8f3d56386b39d871e0
 
 node:
   key: /node.key
