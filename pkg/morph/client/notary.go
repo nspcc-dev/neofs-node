@@ -65,10 +65,10 @@ func defaultNotaryConfig(c *Client) *notaryCfg {
 	}
 }
 
-// enableNotarySupport creates notary structure in client that provides
+// EnableNotarySupport creates notary structure in client that provides
 // ability for client to get alphabet keys from committee or provided source
 // and use proxy contract script hash to create tx for notary contract.
-func (c *Client) enableNotarySupport(opts ...NotaryOption) error {
+func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 	cfg := defaultNotaryConfig(c)
 
 	for _, opt := range opts {

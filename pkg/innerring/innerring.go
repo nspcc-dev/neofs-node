@@ -303,7 +303,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// parse notary support
 	server.feeConfig = config.NewFeeConfig(cfg)
-	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(cfg)
 
 	// prepare inner ring node private key
 	acc, err := utilConfig.LoadAccount(
@@ -315,25 +314,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	server.key = acc.PrivateKey()
-
-	withoutMainNet := cfg.GetBool("without_mainnet")
-
-	// get all script hashes of contracts
-	server.contracts, err = parseContracts(
-		cfg,
-		withoutMainNet,
-		server.mainNotaryConfig.disabled,
-		server.sideNotaryConfig.disabled,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// parse default validators
-	server.predefinedValidators, err = parsePredefinedValidators(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't parse predefined validators list: %w", err)
-	}
 
 	morphChain := &chainParams{
 		log:  log,
@@ -348,17 +328,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	// enable notary support in the client
-	var morphNotaryOpts []client.NotaryOption
-	if !server.sideNotaryConfig.disabled {
-		morphNotaryOpts = append(morphNotaryOpts, client.WithProxyContract(server.contracts.proxy))
-	}
-
 	// create morph client
-	server.morphClient, err = createClient(ctx, morphChain, morphNotaryOpts...)
+	server.morphClient, err = createClient(ctx, morphChain)
 	if err != nil {
 		return nil, err
 	}
+
+	withoutMainNet := cfg.GetBool("without_mainnet")
 
 	if withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
@@ -376,19 +352,55 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 			return nil, err
 		}
 
-		// enable notary support in the client
-		var mainnetNotaryOpts []client.NotaryOption
-		if !server.mainNotaryConfig.disabled {
-			mainnetNotaryOpts = append(mainnetNotaryOpts,
-				client.WithProxyContract(server.contracts.processing),
-				client.WithAlphabetSource(server.morphClient.Committee))
-		}
-
 		// create mainnet client
-		server.mainnetClient, err = createClient(ctx, mainnetChain, mainnetNotaryOpts...)
+		server.mainnetClient, err = createClient(ctx, mainnetChain)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(
+		cfg,
+		server.morphClient.ProbeNotary(),
+		!withoutMainNet && server.mainnetClient.ProbeNotary(), // if mainnet disabled then notary flag must be disabled too
+	)
+
+	// get all script hashes of contracts
+	server.contracts, err = parseContracts(
+		cfg,
+		withoutMainNet,
+		server.mainNotaryConfig.disabled,
+		server.sideNotaryConfig.disabled,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if !server.sideNotaryConfig.disabled {
+		// enable notary support in the side client
+		err = server.morphClient.EnableNotarySupport(
+			client.WithProxyContract(server.contracts.proxy),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
+		}
+	}
+
+	if !server.mainNotaryConfig.disabled {
+		// enable notary support in the main client
+		err = server.mainnetClient.EnableNotarySupport(
+			client.WithProxyContract(server.contracts.processing),
+			client.WithAlphabetSource(server.morphClient.Committee),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not enable main chain notary support: %w", err)
+		}
+	}
+
+	// parse default validators
+	server.predefinedValidators, err = parsePredefinedValidators(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("ir: can't parse predefined validators list: %w", err)
 	}
 
 	server.pubKey = server.key.PublicKey().Bytes()
@@ -845,14 +857,13 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 	return listener, err
 }
 
-func createClient(ctx context.Context, p *chainParams, notaryOpts ...client.NotaryOption) (*client.Client, error) {
+func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 	return client.New(
 		p.key,
 		p.cfg.GetString(p.name+".endpoint.client"),
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
-		client.WithNotaryOptions(notaryOpts...),
 	)
 }
 

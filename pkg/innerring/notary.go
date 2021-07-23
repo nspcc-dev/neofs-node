@@ -73,18 +73,18 @@ func awaitNotaryDepositInClient(ctx context.Context, cli *client.Client, txHash 
 	return errDepositTimeout
 }
 
-func parseNotaryConfigs(cfg *viper.Viper) (main, side *notaryConfig) {
+func parseNotaryConfigs(cfg *viper.Viper, withSideNotary, withMainNotary bool) (main, side *notaryConfig) {
 	main = new(notaryConfig)
 	side = new(notaryConfig)
 
-	if cfg.GetBool("without_notary") {
+	if !withSideNotary {
 		main.disabled = true
 		side.disabled = true
 
 		return
 	}
 
-	main.disabled = cfg.GetBool("without_main_notary")
+	main.disabled = withMainNotary
 	main.amount = fixedn.Fixed8(cfg.GetInt64("notary.main.deposit_amount"))
 	main.duration = cfg.GetUint32("timers.main_notary")
 
