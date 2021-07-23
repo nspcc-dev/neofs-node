@@ -11,7 +11,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.3.2
 	github.com/nspcc-dev/hrw v1.0.9
-	github.com/nspcc-dev/neo-go v0.96.0
+	github.com/nspcc-dev/neo-go v0.96.1
 	github.com/nspcc-dev/neofs-api-go v1.28.3
 	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20210520210714-9dee13f0d556
 	github.com/nspcc-dev/tzhash v1.4.0
@@ -22,10 +22,10 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
-	go.etcd.io/bbolt v1.3.5
-	go.uber.org/atomic v1.8.0
-	go.uber.org/zap v1.17.0
-	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
+	go.etcd.io/bbolt v1.3.6
+	go.uber.org/atomic v1.9.0
+	go.uber.org/zap v1.18.1
+	golang.org/x/term v0.0.0-20210429154555-c04ba851c2a4
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
 )
