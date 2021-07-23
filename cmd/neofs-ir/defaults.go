@@ -40,8 +40,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("metrics.shutdown_timeout", "30s")
 
 	cfg.SetDefault("without_mainnet", false)
-	cfg.SetDefault("without_notary", false)
-	cfg.SetDefault("without_main_notary", false)
 
 	cfg.SetDefault("morph.endpoint.client", "")
 	cfg.SetDefault("morph.endpoint.notification", "")
