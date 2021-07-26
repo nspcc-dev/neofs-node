@@ -178,6 +178,10 @@ func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
 }
 
 func (c *initializeContext) awaitTx() error {
+	if len(c.Hashes) == 0 {
+		return nil
+	}
+
 	c.Command.Println("Waiting for transactions to persist...")
 
 	tick := time.NewTicker(c.PollInterval)
