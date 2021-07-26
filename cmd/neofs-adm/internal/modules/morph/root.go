@@ -10,6 +10,8 @@ const (
 	alphabetSizeFlag      = "size"
 	endpointFlag          = "rpc-endpoint"
 	storageWalletFlag     = "storage-wallet"
+	storageGasCLIFlag     = "initial-gas"
+	storageGasConfigFlag  = "storage.initial_gas"
 	contractsInitFlag     = "contracts"
 	maxObjectSizeInitFlag = "network.max_object_size"
 	maxObjectSizeCLIFlag  = "max-object-size"
@@ -52,6 +54,7 @@ var (
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+			_ = viper.BindPFlag(storageGasConfigFlag, cmd.Flags().Lookup(storageGasCLIFlag))
 		},
 		RunE: generateStorageCreds,
 	}
@@ -92,6 +95,7 @@ func init() {
 	generateStorageCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	generateStorageCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	generateStorageCmd.Flags().String(storageWalletFlag, "", "path to new storage node wallet")
+	generateStorageCmd.Flags().String(storageGasCLIFlag, "", "initial amount of GAS to transfer")
 
 	RootCmd.AddCommand(forceNewEpoch)
 	forceNewEpoch.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")

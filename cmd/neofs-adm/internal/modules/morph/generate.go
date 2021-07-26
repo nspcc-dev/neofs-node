@@ -5,8 +5,14 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/nspcc-dev/neo-go/cli/input"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -117,10 +123,57 @@ func generateStorageCreds(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if storageWalletPath == "" {
+		return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
+	}
 
-	cmd.Println("endpoint:", viper.GetString(endpointFlag))
-	cmd.Println("alphabet-wallets:", viper.GetString(alphabetWalletsFlag))
-	cmd.Println("storage-wallet:", storageWalletPath)
+	w, err := wallet.NewWallet(storageWalletPath)
+	if err != nil {
+		return fmt.Errorf("can't create wallet: %w", err)
+	}
 
-	return nil
+	password, err := input.ReadPassword("New password > ")
+	if err != nil {
+		return fmt.Errorf("can't fetch password: %w", err)
+	}
+
+	if err := w.CreateAccount(singleAccountName, password); err != nil {
+		return fmt.Errorf("can't create account: %w", err)
+	}
+
+	gasStr := viper.GetString(storageGasConfigFlag)
+	if gasStr == "" {
+		return nil
+	}
+
+	gasAmount, err := fixedn.Fixed8FromString(gasStr)
+	if err != nil {
+		return fmt.Errorf("invalid GAS amount %s: %w", gasStr, err)
+	}
+	if gasAmount <= 0 {
+		return fmt.Errorf("GAS amount must be positive (got %d)", gasAmount)
+	}
+
+	wCtx, err := newInitializeContext(cmd, viper.GetViper())
+	if err != nil {
+		return err
+	}
+
+	gasHash, err := wCtx.Client.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return err
+	}
+
+	bw := io.NewBufBinWriter()
+	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,
+		wCtx.CommitteeAcc.Contract.ScriptHash(), w.Accounts[0].Contract.ScriptHash(), int64(gasAmount), nil)
+	if bw.Err != nil {
+		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
+	}
+
+	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1); err != nil {
+		return err
+	}
+
+	return wCtx.awaitTx()
 }
