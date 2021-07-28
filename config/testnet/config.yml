@@ -3,21 +3,21 @@ logger:
 
 morph:
   rpc_endpoint:
-    - https://rpc01.morph.testnet.fs.neo.org:50331
-    - https://rpc02.morph.testnet.fs.neo.org:50331
-    - https://rpc03.morph.testnet.fs.neo.org:50331
-    - https://rpc04.morph.testnet.fs.neo.org:50331
-    - https://rpc05.morph.testnet.fs.neo.org:50331
-    - https://rpc06.morph.testnet.fs.neo.org:50331
-    - https://rpc07.morph.testnet.fs.neo.org:50331
+    - https://rpc01.morph.testnet.fs.neo.org:51331
+    - https://rpc02.morph.testnet.fs.neo.org:51331
+    - https://rpc03.morph.testnet.fs.neo.org:51331
+    - https://rpc04.morph.testnet.fs.neo.org:51331
+    - https://rpc05.morph.testnet.fs.neo.org:51331
+    - https://rpc06.morph.testnet.fs.neo.org:51331
+    - https://rpc07.morph.testnet.fs.neo.org:51331
   notification_endpoint:
-    - wss://rpc01.morph.testnet.fs.neo.org:50331/ws
-    - wss://rpc02.morph.testnet.fs.neo.org:50331/ws
-    - wss://rpc03.morph.testnet.fs.neo.org:50331/ws
-    - wss://rpc04.morph.testnet.fs.neo.org:50331/ws
-    - wss://rpc05.morph.testnet.fs.neo.org:50331/ws
-    - wss://rpc06.morph.testnet.fs.neo.org:50331/ws
-    - wss://rpc07.morph.testnet.fs.neo.org:50331/ws
+    - wss://rpc01.morph.testnet.fs.neo.org:51331/ws
+    - wss://rpc02.morph.testnet.fs.neo.org:51331/ws
+    - wss://rpc03.morph.testnet.fs.neo.org:51331/ws
+    - wss://rpc04.morph.testnet.fs.neo.org:51331/ws
+    - wss://rpc05.morph.testnet.fs.neo.org:51331/ws
+    - wss://rpc06.morph.testnet.fs.neo.org:51331/ws
+    - wss://rpc07.morph.testnet.fs.neo.org:51331/ws
   dial_timeout: 20s
 
 contracts:
