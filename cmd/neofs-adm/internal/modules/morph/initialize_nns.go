@@ -2,6 +2,7 @@ package morph
 
 import (
 	"fmt"
+	"strconv"
 
 	nns "github.com/nspcc-dev/neo-go/examples/nft-nd-nns"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
@@ -41,6 +42,38 @@ func (c *initializeContext) setNNS() error {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
 		}
 		if err := c.awaitTx(); err != nil {
+			return err
+		}
+	}
+
+	alphaCs, err := c.readContract(ctrPath, alphabetContract)
+	if err != nil {
+		return fmt.Errorf("can't read alphabet contract: %w", err)
+	}
+	for i, w := range c.Wallets {
+		acc, err := getWalletAccount(w, singleAccountName)
+		if err != nil {
+			return err
+		}
+
+		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
+
+		domain := getAlphabetNNSDomain(i)
+		if ok, err := c.nnsDomainAvailable(h, domain); err != nil {
+			return err
+		} else if !ok {
+			continue
+		}
+
+		bw := io.NewBufBinWriter()
+		emit.AppCall(bw.BinWriter, h, "register", callflag.All,
+			domain, c.CommitteeAcc.Contract.ScriptHash())
+		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+		emit.AppCall(bw.BinWriter, h, "setRecord", callflag.All,
+			domain, int64(nns.TXT), alphaCs.Hash.StringLE())
+
+		sysFee := int64(defaultRegisterSysfee + native.GASFactor)
+		if err := c.sendCommitteeTx(bw.Bytes(), sysFee); err != nil {
 			return err
 		}
 	}
@@ -97,4 +130,8 @@ func (c *initializeContext) nnsDomainAvailable(nnsHash util.Uint160, domain stri
 		return ok, nil
 	}
 	return true, nil
+}
+
+func getAlphabetNNSDomain(i int) string {
+	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
 }
