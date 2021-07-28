@@ -59,7 +59,7 @@ func (c *initializeContext) setNNS() error {
 		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 
 		domain := getAlphabetNNSDomain(i)
-		if ok, err := c.nnsDomainAvailable(h, domain); err != nil {
+		if ok, err := c.Client.NNSIsAvailable(h, domain); err != nil {
 			return err
 		} else if !ok {
 			continue
@@ -86,7 +86,7 @@ func (c *initializeContext) setNNS() error {
 		cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
 
 		domain := ctrName + ".neofs"
-		if ok, err := c.nnsDomainAvailable(h, domain); err != nil {
+		if ok, err := c.Client.NNSIsAvailable(h, domain); err != nil {
 			return err
 		} else if !ok {
 			continue
@@ -115,21 +115,6 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error
 		return false, err
 	}
 	return res.State == vm.HaltState.String(), nil
-}
-
-func (c *initializeContext) nnsDomainAvailable(nnsHash util.Uint160, domain string) (bool, error) {
-	params := []smartcontract.Parameter{{Type: smartcontract.StringType, Value: domain}}
-	res, err := c.Client.InvokeFunction(nnsHash, "isAvailable", params, nil)
-	if err != nil {
-		return false, err
-	}
-	if len(res.Stack) == 0 {
-		return true, nil
-	}
-	if ok, err := res.Stack[0].TryBool(); err == nil {
-		return ok, nil
-	}
-	return true, nil
 }
 
 func getAlphabetNNSDomain(i int) string {
