@@ -14,6 +14,12 @@ type usedSpaceEstimations struct {
 	sizes []uint64
 }
 
+type storageKey struct {
+	epoch uint64
+
+	cid string
+}
+
 // Storage represents in-memory storage of
 // UsedSpaceAnnouncement values.
 //
@@ -34,7 +40,7 @@ type usedSpaceEstimations struct {
 type Storage struct {
 	mtx sync.RWMutex
 
-	mItems map[uint64]*usedSpaceEstimations
+	mItems map[storageKey]*usedSpaceEstimations
 }
 
 // Prm groups the required parameters of the Storage's constructor.
@@ -48,7 +54,7 @@ type Prm struct{}
 // initialization and is completely ready for work.
 func New(_ Prm) *Storage {
 	return &Storage{
-		mItems: make(map[uint64]*usedSpaceEstimations),
+		mItems: make(map[storageKey]*usedSpaceEstimations),
 	}
 }
 
@@ -60,7 +66,10 @@ func (s *Storage) Put(a container.UsedSpaceAnnouncement) error {
 	s.mtx.Lock()
 
 	{
-		key := a.Epoch()
+		key := storageKey{
+			epoch: a.Epoch(),
+			cid:   a.ContainerID().String(),
+		}
 
 		estimations, ok := s.mItems[key]
 		if !ok {
