@@ -119,12 +119,14 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, fmt.Errorf("can't find consensus account: %w", err)
 	}
 
-	if viper.GetInt64(epochDurationInitFlag) <= 0 {
-		return nil, fmt.Errorf("epoch duration must be positive")
-	}
+	if cmd.Name() == "init" {
+		if viper.GetInt64(epochDurationInitFlag) <= 0 {
+			return nil, fmt.Errorf("epoch duration must be positive")
+		}
 
-	if viper.GetInt64(maxObjectSizeInitFlag) <= 0 {
-		return nil, fmt.Errorf("max object size must be positive")
+		if viper.GetInt64(maxObjectSizeInitFlag) <= 0 {
+			return nil, fmt.Errorf("max object size must be positive")
+		}
 	}
 
 	initCtx := &initializeContext{
@@ -214,7 +216,7 @@ func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64) error {
 	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []client.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: c.CommitteeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.CalledByEntry,
+			Scopes:  transaction.Global,
 		},
 		Account: c.CommitteeAcc,
 	}})
