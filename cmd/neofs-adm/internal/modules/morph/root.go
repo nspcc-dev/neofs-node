@@ -65,6 +65,15 @@ var (
 		},
 		RunE: forceNewEpochCmd,
 	}
+
+	dumpContractHashesCmd = &cobra.Command{
+		Use:   "dump-hashes",
+		Short: "Dump deployed contract hashes.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: dumpContractHashes,
+	}
 )
 
 func init() {
@@ -87,4 +96,7 @@ func init() {
 	RootCmd.AddCommand(forceNewEpoch)
 	forceNewEpoch.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	forceNewEpoch.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(dumpContractHashesCmd)
+	dumpContractHashesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 }
