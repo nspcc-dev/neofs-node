@@ -10,6 +10,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,7 @@ const lruKeysCount = 256 * 1024 * 8
 const dbName = "small.bolt"
 
 func (c *cache) openStore() error {
-	if err := os.MkdirAll(c.path, os.ModePerm); err != nil {
+	if err := util.MkdirAllX(c.path, os.ModePerm); err != nil {
 		return err
 	}
 
