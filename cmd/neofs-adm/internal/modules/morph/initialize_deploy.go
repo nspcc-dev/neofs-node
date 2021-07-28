@@ -32,7 +32,6 @@ const (
 )
 
 var contractList = []string{
-	alphabetContract,
 	auditContract,
 	balanceContract,
 	containerContract,
@@ -118,7 +117,11 @@ func (c *initializeContext) deployContracts() error {
 			return err
 		}
 
-		cs := c.Contracts[alphabetContract]
+		cs, err := c.readContract(ctrPath, alphabetContract)
+		if err != nil {
+			return err
+		}
+
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
 		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil {
 			c.Command.Printf("Stage 4: alphabet contract #%d is already deployed.\n", i)
@@ -152,10 +155,6 @@ func (c *initializeContext) deployContracts() error {
 	}
 
 	for _, ctrName := range contractList {
-		if ctrName == alphabetContract {
-			continue
-		}
-
 		cs := c.Contracts[ctrName]
 		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil {
 			c.Command.Printf("Stage 4: %s contract is already deployed.\n", ctrName)
