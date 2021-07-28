@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"net"
-	"os"
 	"path"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/util"
+	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	apiclient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -44,7 +43,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
-	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
+	util "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
@@ -133,25 +132,25 @@ type cfgMorph struct {
 }
 
 type cfgAccounting struct {
-	scriptHash util.Uint160
+	scriptHash neogoutil.Uint160
 }
 
 type cfgContainer struct {
-	scriptHash util.Uint160
+	scriptHash neogoutil.Uint160
 
 	parsers     map[event.Type]event.Parser
 	subscribers map[event.Type][]event.Handler
-	workerPool  util2.WorkerPool // pool for asynchronous handlers
+	workerPool  util.WorkerPool // pool for asynchronous handlers
 }
 
 type cfgNetmap struct {
-	scriptHash util.Uint160
+	scriptHash neogoutil.Uint160
 	wrapper    *nmwrapper.Wrapper
 
 	parsers map[event.Type]event.Parser
 
 	subscribers map[event.Type][]event.Handler
-	workerPool  util2.WorkerPool // pool for asynchronous handlers
+	workerPool  util.WorkerPool // pool for asynchronous handlers
 
 	state *networkState
 
@@ -192,13 +191,13 @@ type cfgControlService struct {
 }
 
 type cfgReputation struct {
-	workerPool util2.WorkerPool // pool for EigenTrust algorithm's iterations
+	workerPool util.WorkerPool // pool for EigenTrust algorithm's iterations
 
 	localTrustStorage *truststorage.Storage
 
 	localTrustCtrl *trustcontroller.Controller
 
-	scriptHash util.Uint160
+	scriptHash neogoutil.Uint160
 }
 
 func initCfg(path string) *cfg {
@@ -359,7 +358,7 @@ func initShardOptions(c *cfg) {
 
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.Perm()
-		fatalOnErr(os.MkdirAll(path.Dir(metaPath), metaPerm))
+		fatalOnErr(util.MkdirAllX(path.Dir(metaPath), metaPerm))
 
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
@@ -387,7 +386,7 @@ func initShardOptions(c *cfg) {
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(gcCfg.RemoverBatchSize()),
 			shard.WithGCRemoverSleepInterval(gcCfg.RemoverSleepInterval()),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util2.WorkerPool {
+			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 				pool, err := ants.NewPool(sz)
 				fatalOnErr(err)
 

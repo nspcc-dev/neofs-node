@@ -2,16 +2,16 @@ package meta
 
 import (
 	"fmt"
-	"os"
 	"path"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
 // Open boltDB instance for metabase.
 func (db *DB) Open() error {
-	err := os.MkdirAll(path.Dir(db.info.Path), db.info.Permission)
+	err := util.MkdirAllX(path.Dir(db.info.Path), db.info.Permission)
 	if err != nil {
 		return fmt.Errorf("can't create dir %s for metabase: %w", db.info.Path, err)
 	}

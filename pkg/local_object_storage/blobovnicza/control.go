@@ -3,9 +3,9 @@ package blobovnicza
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -18,7 +18,7 @@ func (b *Blobovnicza) Open() error {
 		zap.String("path", b.path),
 	)
 
-	err := os.MkdirAll(path.Dir(b.path), b.perm)
+	err := util.MkdirAllX(path.Dir(b.path), b.perm)
 	if err == nil {
 		b.log.Debug("opening BoltDB",
 			zap.String("path", b.path),

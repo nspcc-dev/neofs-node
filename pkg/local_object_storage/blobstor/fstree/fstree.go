@@ -10,6 +10,7 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
 // FSTree represents object storage as filesystem tree.
@@ -157,7 +158,7 @@ func (t *FSTree) Exists(addr *objectSDK.Address) (string, error) {
 func (t *FSTree) Put(addr *objectSDK.Address, data []byte) error {
 	p := t.treePath(addr)
 
-	if err := os.MkdirAll(path.Dir(p), t.Permissions); err != nil {
+	if err := util.MkdirAllX(path.Dir(p), t.Permissions); err != nil {
 		return err
 	}
 
