@@ -15,7 +15,7 @@ type Config config.Config
 // config defaults
 const (
 	// PermDefault are default permission bits for BlobStor data.
-	PermDefault = 0700
+	PermDefault = 0660
 
 	// ShallowDepthDefault is a default shallow dir depth.
 	ShallowDepthDefault = 4

@@ -13,7 +13,7 @@ type Config config.Config
 // config defaults
 const (
 	// PermDefault is a default permission bits for metabase file.
-	PermDefault = 0700
+	PermDefault = 0660
 )
 
 // From wraps config section into Config.
