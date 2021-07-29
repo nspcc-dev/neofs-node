@@ -84,12 +84,6 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cmd.Println("endpoint:", viper.GetString(endpointFlag))
-	cmd.Println("alphabet-wallets:", viper.GetString(alphabetWalletsFlag))
-	cmd.Println("contracts:", initCtx.ContractPath)
-	cmd.Println("epoch-duration:", viper.GetUint(epochDurationInitFlag))
-	cmd.Println("max-object-size:", viper.GetUint(maxObjectSizeInitFlag))
-
 	return nil
 }
 
