@@ -1,8 +1,6 @@
 package morph
 
 import (
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -18,10 +16,7 @@ func (c *initializeContext) setNotaryAndAlphabetNodes() error {
 		return err
 	}
 
-	designateHash, err := c.Client.GetNativeContractHash(nativenames.Designation)
-	if err != nil {
-		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Designation, err)
-	}
+	designateHash := c.nativeHash(nativenames.Designation)
 
 	var pubs []interface{}
 	for _, w := range c.Wallets {

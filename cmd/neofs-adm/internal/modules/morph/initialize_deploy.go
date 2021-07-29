@@ -87,7 +87,7 @@ func (c *initializeContext) deployNNS() error {
 		Scopes:  transaction.CalledByEntry,
 	}
 
-	mgmtHash, _ := c.Client.GetNativeContractHash(nativenames.Management)
+	mgmtHash := c.nativeHash(nativenames.Management)
 	res, err := c.Client.InvokeFunction(mgmtHash, "deploy", params, []transaction.Signer{signer})
 	if err != nil {
 		return fmt.Errorf("can't deploy contract: %w", err)
@@ -109,7 +109,7 @@ func (c *initializeContext) deployNNS() error {
 }
 
 func (c *initializeContext) deployContracts() error {
-	mgmtHash, _ := c.Client.GetNativeContractHash(nativenames.Management)
+	mgmtHash := c.nativeHash(nativenames.Management)
 	sender := c.CommitteeAcc.Contract.ScriptHash()
 	for _, ctrName := range contractList {
 		cs, err := c.readContract(ctrName)

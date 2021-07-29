@@ -32,6 +32,7 @@ type initializeContext struct {
 	Contracts    map[string]*contractState
 	Command      *cobra.Command
 	ContractPath string
+	Natives      map[string]util.Uint160
 }
 
 func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
@@ -129,6 +130,16 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, fmt.Errorf("missing contracts path: %w", err)
 	}
 
+	ns, err := c.GetNativeContracts()
+	if err != nil {
+		return nil, fmt.Errorf("can't get native contract hashes: %w", err)
+	}
+
+	nativeHashes := make(map[string]util.Uint160, len(ns))
+	for i := range ns {
+		nativeHashes[ns[i].Manifest.Name] = ns[i].Hash
+	}
+
 	initCtx := &initializeContext{
 		Client:       c,
 		ConsensusAcc: consensusAcc,
@@ -139,9 +150,14 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		Command:      cmd,
 		Contracts:    make(map[string]*contractState),
 		ContractPath: ctrPath,
+		Natives:      nativeHashes,
 	}
 
 	return initCtx, nil
+}
+
+func (c *initializeContext) nativeHash(name string) util.Uint160 {
+	return c.Natives[name]
 }
 
 func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
