@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -29,6 +30,26 @@ const (
 	netmapContract     = "netmap"
 	proxyContract      = "proxy"
 	reputationContract = "reputation"
+)
+
+const (
+	netmapEpochKey                 = "EpochDuration"
+	netmapMaxObjectSizeKey         = "MaxObjectSize"
+	netmapAuditFeeKey              = "AuditFee"
+	netmapContainerFeeKey          = "ContainerFee"
+	netmapEigenTrustIterationsKey  = "EigenTrustIterations"
+	netmapEigenTrustAlphaKey       = "EigenTrustAlpha"
+	netmapBasicIncomeRateKey       = "BasicIncomeRate"
+	netmapInnerRingCandidateFeeKey = "InnerRingCandidateFee"
+	netmapWithdrawFeeKey           = "WithdrawFee"
+
+	defaultAuditFee              = 10000
+	defaultContainerFee          = 1000
+	defaultEigenTrustIterations  = 4
+	defaultEigenTrustAlpha       = "0.1"
+	defaultBasicIncomeRate       = 100000000
+	defaultInnerRingCandidateFee = 10000000000
+	defaultWithdrawFee           = 100000000
 )
 
 var contractList = []string{
@@ -238,7 +259,8 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 	case neofsContract:
 		items = append(items,
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[processingContract].Hash),
-			newContractParameter(smartcontract.ArrayType, keysParam))
+			newContractParameter(smartcontract.ArrayType, keysParam),
+			newContractParameter(smartcontract.ArrayType, smartcontract.Parameter{}))
 	case processingContract:
 		items = append(items, newContractParameter(smartcontract.Hash160Type, c.Contracts[neofsContract].Hash))
 		return items[1:] // no notary info
@@ -259,10 +281,31 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[containerContract].Hash))
 	case netmapContract:
+		configParam := []smartcontract.Parameter{
+			{Type: smartcontract.StringType, Value: netmapEpochKey},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(epochDurationInitFlag)},
+			{Type: smartcontract.StringType, Value: netmapMaxObjectSizeKey},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(maxObjectSizeInitFlag)},
+			{Type: smartcontract.StringType, Value: netmapAuditFeeKey},
+			{Type: smartcontract.IntegerType, Value: int64(defaultAuditFee)},
+			{Type: smartcontract.StringType, Value: netmapContainerFeeKey},
+			{Type: smartcontract.IntegerType, Value: int64(defaultContainerFee)},
+			{Type: smartcontract.StringType, Value: netmapEigenTrustIterationsKey},
+			{Type: smartcontract.IntegerType, Value: int64(defaultEigenTrustIterations)},
+			{Type: smartcontract.StringType, Value: netmapEigenTrustAlphaKey},
+			{Type: smartcontract.StringType, Value: defaultEigenTrustAlpha},
+			{Type: smartcontract.StringType, Value: netmapBasicIncomeRateKey},
+			{Type: smartcontract.IntegerType, Value: int64(defaultBasicIncomeRate)},
+			{Type: smartcontract.StringType, Value: netmapInnerRingCandidateFeeKey},
+			{Type: smartcontract.IntegerType, Value: int64(defaultInnerRingCandidateFee)},
+			{Type: smartcontract.StringType, Value: netmapWithdrawFeeKey},
+			{Type: smartcontract.IntegerType, Value: int64(defaultWithdrawFee)},
+		}
 		items = append(items,
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[balanceContract].Hash),
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[containerContract].Hash),
-			newContractParameter(smartcontract.ArrayType, keysParam))
+			newContractParameter(smartcontract.ArrayType, keysParam),
+			newContractParameter(smartcontract.ArrayType, configParam))
 	case proxyContract:
 		items = append(items, newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash))
 	case reputationContract:
