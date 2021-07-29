@@ -82,12 +82,7 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 		return err
 	}
 
-	ctrPath, err := c.Command.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return fmt.Errorf("missing contracts path: %w", err)
-	}
-
-	cs, err := c.readContract(ctrPath, alphabetContract)
+	cs, err := c.readContract(alphabetContract)
 	if err != nil {
 		return fmt.Errorf("can't read alphabet contract: %w", err)
 	}
