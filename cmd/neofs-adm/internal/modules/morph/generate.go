@@ -159,10 +159,7 @@ func generateStorageCreds(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gasHash, err := wCtx.Client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return err
-	}
+	gasHash := wCtx.nativeHash(nativenames.Gas)
 
 	bw := io.NewBufBinWriter()
 	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,

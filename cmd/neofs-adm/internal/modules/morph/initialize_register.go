@@ -22,10 +22,7 @@ import (
 const initialAlphabetNEOAmount = native.NEOTotalSupply
 
 func (c *initializeContext) registerCandidates() error {
-	neoHash, err := c.Client.GetNativeContractHash(nativenames.Neo)
-	if err != nil {
-		return err
-	}
+	neoHash := c.nativeHash(nativenames.Neo)
 
 	res, err := c.Client.InvokeFunction(neoHash, "getCandidates", []smartcontract.Parameter{}, nil)
 	if err != nil {
@@ -72,10 +69,7 @@ func (c *initializeContext) registerCandidates() error {
 }
 
 func (c *initializeContext) transferNEOToAlphabetContracts() error {
-	neoHash, err := c.Client.GetNativeContractHash(nativenames.Neo)
-	if err != nil {
-		return err
-	}
+	neoHash := c.nativeHash(nativenames.Neo)
 
 	ok, err := c.transferNEOFinished(neoHash)
 	if ok || err != nil {

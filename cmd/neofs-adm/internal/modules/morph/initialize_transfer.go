@@ -28,14 +28,8 @@ func (c *initializeContext) transferFunds() error {
 		return err
 	}
 
-	gasHash, err := c.Client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Gas, err)
-	}
-	neoHash, err := c.Client.GetNativeContractHash(nativenames.Neo)
-	if err != nil {
-		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Neo, err)
-	}
+	gasHash := c.nativeHash(nativenames.Gas)
+	neoHash := c.nativeHash(nativenames.Neo)
 
 	var transfers []client.TransferTarget
 	for _, w := range c.Wallets {
@@ -87,10 +81,7 @@ func (c *initializeContext) transferFunds() error {
 }
 
 func (c *initializeContext) transferFundsFinished() (bool, error) {
-	gasHash, err := c.Client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return false, err
-	}
+	gasHash := c.nativeHash(nativenames.Gas)
 
 	acc, err := getWalletAccount(c.Wallets[0], singleAccountName)
 	if err != nil {
@@ -150,11 +141,7 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 }
 
 func (c *initializeContext) transferGASToProxy() error {
-	gasHash, err := c.Client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Gas, err)
-	}
-
+	gasHash := c.nativeHash(nativenames.Gas)
 	cs, err := c.readContract(proxyContract)
 	if err != nil {
 		return err
