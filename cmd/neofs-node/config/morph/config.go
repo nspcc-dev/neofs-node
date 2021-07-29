@@ -52,3 +52,9 @@ func DialTimeout(c *config.Config) time.Duration {
 
 	return DialTimeoutDefault
 }
+
+// DisableCache returns value of "disable_cache" config parameter
+// from "morph" section.
+func DisableCache(c *config.Config) bool {
+	return config.BoolSafe(c.Sub(subsection), "disable_cache")
+}

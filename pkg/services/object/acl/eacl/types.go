@@ -15,7 +15,7 @@ type Storage interface {
 	// GetEACL must return exactly one non-nil value.
 	//
 	// Must return pkg/core/container.ErrEACLNotFound if requested
-	// eACL table is is not in storage.
+	// eACL table is not in storage.
 	GetEACL(*cid.ID) (*eacl.Table, error)
 }
 
