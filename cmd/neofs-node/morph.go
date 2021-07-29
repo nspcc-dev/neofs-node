@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	mainchainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/mainchain"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -61,7 +62,18 @@ func initMorphComponents(c *cfg) {
 	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0)
 	fatalOnErr(err)
 
-	c.cfgObject.netMapStorage = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
+	var netmapSource netmap.Source
+
+	c.cfgMorph.disableCache = morphconfig.DisableCache(c.appCfg)
+
+	if c.cfgMorph.disableCache {
+		netmapSource = wrap
+	} else {
+		// use RPC node as source of netmap (with caching)
+		netmapSource = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
+	}
+
+	c.cfgObject.netMapSource = netmapSource
 	c.cfgNetmap.wrapper = wrap
 }
 

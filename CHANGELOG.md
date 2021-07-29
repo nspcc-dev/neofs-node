@@ -3,6 +3,10 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Upgrading from v0.23.0
+Added `NEOFS_MORPH_DISABLE_CACHE` env. If `true`, none of
+the `eACL`/`netmap`/`container` RPC responses cached.
+
 ## [0.23.0] - 2021-07-23 - Wando (완도, 莞島)
 
 Improved stability for notary disabled environment.

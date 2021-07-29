@@ -159,7 +159,7 @@ func (s *ttlContainerStorage) Get(cid *cid.ID) (*containerSDK.Container, error) 
 
 type ttlEACLStorage ttlNetCache
 
-func newCachedEACLStorage(v eacl.Storage) eacl.Storage {
+func newCachedEACLStorage(v eacl.Source) eacl.Source {
 	const (
 		eaclCacheSize = 100
 		eaclCacheTTL  = 30 * time.Second

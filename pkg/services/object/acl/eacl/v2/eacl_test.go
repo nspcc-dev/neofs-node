@@ -149,7 +149,7 @@ func TestHeadRequest(t *testing.T) {
 	}
 
 	validator := eacl2.NewValidator(
-		eacl2.WithEACLStorage(eStorage),
+		eacl2.WithEACLSource(eStorage),
 	)
 
 	require.Equal(t, eacl.ActionDeny, validator.CalculateAction(unit))

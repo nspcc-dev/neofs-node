@@ -10,7 +10,7 @@ func WithLogger(v *logger.Logger) Option {
 	}
 }
 
-func WithEACLStorage(v Storage) Option {
+func WithEACLSource(v Source) Option {
 	return func(c *cfg) {
 		c.storage = v
 	}

@@ -23,7 +23,7 @@ type Option func(*cfg)
 type cfg struct {
 	logger *logger.Logger
 
-	storage Storage
+	storage Source
 }
 
 func defaultCfg() *cfg {

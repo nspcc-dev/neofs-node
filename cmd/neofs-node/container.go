@@ -43,7 +43,15 @@ func initContainerService(c *cfg) {
 
 	cnrSrc := wrapper.AsContainerSource(wrap)
 
-	c.cfgObject.cnrStorage = newCachedContainerStorage(cnrSrc) // use RPC node as source of containers (with caching)
+	var containerSource containerCore.Source
+
+	if c.cfgMorph.disableCache {
+		containerSource = cnrSrc
+	} else {
+		containerSource = newCachedContainerStorage(cnrSrc) // use RPC node as source of containers (with caching)
+	}
+
+	c.cfgObject.cnrSource = containerSource
 	c.cfgObject.cnrClient = wrap
 
 	localMetrics := &localStorageLoad{

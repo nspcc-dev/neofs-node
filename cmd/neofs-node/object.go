@@ -187,7 +187,7 @@ func initObjectService(c *cfg) {
 
 	clientConstructor := &reputationClientConstructor{
 		log:              c.log,
-		nmSrc:            c.cfgObject.netMapStorage,
+		nmSrc:            c.cfgObject.netMapSource,
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
 		basicConstructor: c.clientCache,
@@ -230,9 +230,9 @@ func initObjectService(c *cfg) {
 	pol := policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
-		policer.WithContainerSource(c.cfgObject.cnrStorage),
+		policer.WithContainerSource(c.cfgObject.cnrSource),
 		policer.WithPlacementBuilder(
-			placement.NewNetworkMapSourceBuilder(c.cfgObject.netMapStorage),
+			placement.NewNetworkMapSourceBuilder(c.cfgObject.netMapSource),
 		),
 		policer.WithWorkScope(100),
 		policer.WithExpansionRate(10),
@@ -265,7 +265,7 @@ func initObjectService(c *cfg) {
 		}
 	})
 
-	traverseGen := util.NewTraverserGenerator(c.cfgObject.netMapStorage, c.cfgObject.cnrStorage, c)
+	traverseGen := util.NewTraverserGenerator(c.cfgObject.netMapSource, c.cfgObject.cnrSource, c)
 
 	c.workers = append(c.workers, pol)
 
@@ -274,8 +274,8 @@ func initObjectService(c *cfg) {
 		putsvc.WithClientConstructor(coreConstructor),
 		putsvc.WithMaxSizeSource(c),
 		putsvc.WithLocalStorage(ls),
-		putsvc.WithContainerSource(c.cfgObject.cnrStorage),
-		putsvc.WithNetworkMapSource(c.cfgObject.netMapStorage),
+		putsvc.WithContainerSource(c.cfgObject.cnrSource),
+		putsvc.WithNetworkMapSource(c.cfgObject.netMapSource),
 		putsvc.WithLocalAddressSource(c),
 		putsvc.WithFormatValidatorOpts(
 			objectCore.WithDeleteHandler(objInhumer),
@@ -364,6 +364,20 @@ func initObjectService(c *cfg) {
 		respSvc,
 	)
 
+	var (
+		eACLSource  eacl.Source
+		eACLFetcher = &morphEACLFetcher{
+			w: c.cfgObject.cnrClient,
+		}
+	)
+
+	if c.cfgMorph.disableCache {
+		eACLSource = eACLFetcher
+	} else {
+		// use RPC node as source of eACL (with caching)
+		eACLSource = newCachedEACLStorage(eACLFetcher)
+	}
+
 	aclSvc := acl.New(
 		acl.WithSenderClassifier(
 			acl.NewSenderClassifier(
@@ -373,14 +387,12 @@ func initObjectService(c *cfg) {
 			),
 		),
 		acl.WithContainerSource(
-			c.cfgObject.cnrStorage,
+			c.cfgObject.cnrSource,
 		),
 		acl.WithNextService(signSvc),
 		acl.WithLocalStorage(ls),
 		acl.WithEACLValidatorOptions(
-			eacl.WithEACLStorage(newCachedEACLStorage(&morphEACLStorage{
-				w: c.cfgObject.cnrClient,
-			})),
+			eacl.WithEACLSource(eACLSource),
 			eacl.WithLogger(c.log),
 		),
 		acl.WithNetmapState(c.cfgNetmap.state),
@@ -398,7 +410,7 @@ func initObjectService(c *cfg) {
 	}
 }
 
-type morphEACLStorage struct {
+type morphEACLFetcher struct {
 	w *cntrwrp.Wrapper
 }
 
@@ -413,7 +425,7 @@ func (s *signedEACLTable) SignedDataSize() int {
 	return (*eaclSDK.Table)(s).ToV2().StableSize()
 }
 
-func (s *morphEACLStorage) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
+func (s *morphEACLFetcher) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 	table, err := s.w.GetEACL(cid)
 	if err != nil {
 		return nil, err

@@ -128,6 +128,8 @@ type cfgGRPC struct {
 type cfgMorph struct {
 	client *client.Client
 
+	disableCache bool
+
 	blockTimers     []*timer.BlockTimer // all combined timers
 	eigenTrustTimer *timer.BlockTimer   // timer for EigenTrust iterations
 }
@@ -166,9 +168,9 @@ type cfgNodeInfo struct {
 }
 
 type cfgObject struct {
-	netMapStorage netmapCore.Source
+	netMapSource netmapCore.Source
 
-	cnrStorage container.Source
+	cnrSource container.Source
 
 	cnrClient *cntwrapper.Wrapper
 
