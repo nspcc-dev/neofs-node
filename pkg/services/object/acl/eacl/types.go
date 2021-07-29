@@ -6,16 +6,16 @@ import (
 	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 )
 
-// Storage is the interface that wraps
-// basic methods of extended ACL table storage.
-type Storage interface {
-	// GetEACL reads the table from the storage by identifier.
+// Source is the interface that wraps
+// basic methods of extended ACL table source.
+type Source interface {
+	// GetEACL reads the table from the source by identifier.
 	// It returns any error encountered.
 	//
 	// GetEACL must return exactly one non-nil value.
 	//
 	// Must return pkg/core/container.ErrEACLNotFound if requested
-	// eACL table is not in storage.
+	// eACL table is not in source.
 	GetEACL(*cid.ID) (*eacl.Table, error)
 }
 
