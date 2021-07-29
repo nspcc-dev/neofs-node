@@ -155,12 +155,7 @@ func (c *initializeContext) transferGASToProxy() error {
 		return fmt.Errorf("can't fetch %s hash: %w", nativenames.Gas, err)
 	}
 
-	ctrPath, err := c.Command.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return fmt.Errorf("missing contracts path: %w", err)
-	}
-
-	cs, err := c.readContract(ctrPath, proxyContract)
+	cs, err := c.readContract(proxyContract)
 	if err != nil {
 		return err
 	}

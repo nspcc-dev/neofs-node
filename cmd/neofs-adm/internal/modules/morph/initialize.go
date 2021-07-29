@@ -31,15 +31,10 @@ type initializeContext struct {
 	PollInterval time.Duration
 	Contracts    map[string]*contractState
 	Command      *cobra.Command
+	ContractPath string
 }
 
 func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
-	// contract path is not part of the config
-	contractsPath, err := cmd.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return err
-	}
-
 	initCtx, err := newInitializeContext(cmd, viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("initialization error: %w", err)
@@ -90,7 +85,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 
 	cmd.Println("endpoint:", viper.GetString(endpointFlag))
 	cmd.Println("alphabet-wallets:", viper.GetString(alphabetWalletsFlag))
-	cmd.Println("contracts:", contractsPath)
+	cmd.Println("contracts:", initCtx.ContractPath)
 	cmd.Println("epoch-duration:", viper.GetUint(epochDurationInitFlag))
 	cmd.Println("max-object-size:", viper.GetUint(maxObjectSizeInitFlag))
 
@@ -129,6 +124,11 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		}
 	}
 
+	ctrPath, err := cmd.Flags().GetString(contractsInitFlag)
+	if err != nil {
+		return nil, fmt.Errorf("missing contracts path: %w", err)
+	}
+
 	initCtx := &initializeContext{
 		Client:       c,
 		ConsensusAcc: consensusAcc,
@@ -138,6 +138,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		PollInterval: time.Second,
 		Command:      cmd,
 		Contracts:    make(map[string]*contractState),
+		ContractPath: ctrPath,
 	}
 
 	return initCtx, nil

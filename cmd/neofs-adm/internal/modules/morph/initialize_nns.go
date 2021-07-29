@@ -21,12 +21,7 @@ const defaultNameServiceSysfee = 4000_0000
 const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
 
 func (c *initializeContext) setNNS() error {
-	ctrPath, err := c.Command.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return fmt.Errorf("missing contracts path: %w", err)
-	}
-
-	cs, err := c.readContract(ctrPath, nnsContract)
+	cs, err := c.readContract(nnsContract)
 	if err != nil {
 		return err
 	}
@@ -46,7 +41,7 @@ func (c *initializeContext) setNNS() error {
 		}
 	}
 
-	alphaCs, err := c.readContract(ctrPath, alphabetContract)
+	alphaCs, err := c.readContract(alphabetContract)
 	if err != nil {
 		return fmt.Errorf("can't read alphabet contract: %w", err)
 	}
@@ -79,7 +74,7 @@ func (c *initializeContext) setNNS() error {
 	}
 
 	for _, ctrName := range contractList {
-		cs, err := c.readContract(ctrPath, ctrName)
+		cs, err := c.readContract(ctrName)
 		if err != nil {
 			return err
 		}

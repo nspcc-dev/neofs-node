@@ -71,12 +71,7 @@ type contractState struct {
 }
 
 func (c *initializeContext) deployNNS() error {
-	ctrPath, err := c.Command.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return fmt.Errorf("missing contracts path: %w", err)
-	}
-
-	cs, err := c.readContract(ctrPath, nnsContract)
+	cs, err := c.readContract(nnsContract)
 	if err != nil {
 		return err
 	}
@@ -114,15 +109,10 @@ func (c *initializeContext) deployNNS() error {
 }
 
 func (c *initializeContext) deployContracts() error {
-	ctrPath, err := c.Command.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return fmt.Errorf("missing contracts path: %w", err)
-	}
-
 	mgmtHash, _ := c.Client.GetNativeContractHash(nativenames.Management)
 	sender := c.CommitteeAcc.Contract.ScriptHash()
 	for _, ctrName := range contractList {
-		cs, err := c.readContract(ctrPath, ctrName)
+		cs, err := c.readContract(ctrName)
 		if err != nil {
 			return err
 		}
@@ -138,7 +128,7 @@ func (c *initializeContext) deployContracts() error {
 			return err
 		}
 
-		cs, err := c.readContract(ctrPath, alphabetContract)
+		cs, err := c.readContract(alphabetContract)
 		if err != nil {
 			return err
 		}
@@ -202,12 +192,12 @@ func (c *initializeContext) deployContracts() error {
 	return c.awaitTx()
 }
 
-func (c *initializeContext) readContract(ctrPath, ctrName string) (*contractState, error) {
+func (c *initializeContext) readContract(ctrName string) (*contractState, error) {
 	if cs, ok := c.Contracts[ctrName]; ok {
 		return cs, nil
 	}
 
-	rawNef, err := ioutil.ReadFile(path.Join(ctrPath, ctrName, ctrName+"_contract.nef"))
+	rawNef, err := ioutil.ReadFile(path.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
 	if err != nil {
 		return nil, fmt.Errorf("can't read NEF file: %w", err)
 	}
@@ -215,7 +205,7 @@ func (c *initializeContext) readContract(ctrPath, ctrName string) (*contractStat
 	if err != nil {
 		return nil, fmt.Errorf("can't parse NEF file: %w", err)
 	}
-	rawManif, err := ioutil.ReadFile(path.Join(ctrPath, ctrName, "config.json"))
+	rawManif, err := ioutil.ReadFile(path.Join(c.ContractPath, ctrName, "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("can't read manifest file: %w", err)
 	}
