@@ -4,7 +4,7 @@ Here are files in all supported formats and with all possible configuration valu
 of NeoFS applications.
 
 All parameters are correct, however, they are for informational purposes only. 
-It is not recommended to transfer these configs for real application launches.
+It is not recommended transferring these configs for real application launches.
 
 ## Config files
 
