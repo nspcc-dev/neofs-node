@@ -26,6 +26,8 @@ type initializeContext struct {
 	// ConsensusAcc is used for retrieving committee address and verification script.
 	ConsensusAcc *wallet.Account
 	Wallets      []*wallet.Wallet
+	// Accounts contains simple signature accounts in the same order as in Wallets.
+	Accounts     []*wallet.Account
 	Hashes       []util.Uint256
 	WaitDuration time.Duration
 	PollInterval time.Duration
@@ -134,11 +136,21 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		nativeHashes[ns[i].Manifest.Name] = ns[i].Hash
 	}
 
+	accounts := make([]*wallet.Account, len(wallets))
+	for i, w := range wallets {
+		acc, err := getWalletAccount(w, singleAccountName)
+		if err != nil {
+			return nil, fmt.Errorf("wallet %s is invalid (no single account): %w", w.Path(), err)
+		}
+		accounts[i] = acc
+	}
+
 	initCtx := &initializeContext{
 		Client:       c,
 		ConsensusAcc: consensusAcc,
 		CommitteeAcc: committeeAcc,
 		Wallets:      wallets,
+		Accounts:     accounts,
 		WaitDuration: time.Second * 30,
 		PollInterval: time.Second,
 		Command:      cmd,

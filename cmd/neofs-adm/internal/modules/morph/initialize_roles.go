@@ -19,12 +19,7 @@ func (c *initializeContext) setNotaryAndAlphabetNodes() error {
 	designateHash := c.nativeHash(nativenames.Designation)
 
 	var pubs []interface{}
-	for _, w := range c.Wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
-		if err != nil {
-			return err
-		}
-
+	for _, acc := range c.Accounts {
 		pubs = append(pubs, acc.PrivateKey().PublicKey().Bytes())
 	}
 

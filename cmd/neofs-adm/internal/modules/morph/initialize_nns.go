@@ -45,12 +45,7 @@ func (c *initializeContext) setNNS() error {
 	if err != nil {
 		return fmt.Errorf("can't read alphabet contract: %w", err)
 	}
-	for i, w := range c.Wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
-		if err != nil {
-			return err
-		}
-
+	for i, acc := range c.Accounts {
 		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 
 		domain := getAlphabetNNSDomain(i)
