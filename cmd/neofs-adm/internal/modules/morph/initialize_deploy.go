@@ -119,16 +119,16 @@ func (c *initializeContext) deployContracts() error {
 		cs.Hash = state.CreateContractHash(sender, cs.NEF.Checksum, cs.Manifest.Name)
 	}
 
+	alphaCs, err := c.readContract(alphabetContract)
+	if err != nil {
+		return err
+	}
+
 	var keysParam []smartcontract.Parameter
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
-		cs, err := c.readContract(alphabetContract)
-		if err != nil {
-			return err
-		}
-
-		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
+		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil {
 			c.Command.Printf("Stage 4: alphabet contract #%d is already deployed.\n", i)
 			continue
@@ -139,7 +139,7 @@ func (c *initializeContext) deployContracts() error {
 			Value: acc.PrivateKey().PublicKey().Bytes(),
 		})
 
-		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
+		params := getContractDeployParameters(alphaCs.RawNEF, alphaCs.RawManifest,
 			c.getAlphabetDeployParameters(i, len(c.Wallets)))
 		signer := transaction.Signer{
 			Account: acc.Contract.ScriptHash(),
