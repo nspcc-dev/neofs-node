@@ -41,12 +41,7 @@ func (c *initializeContext) registerCandidates() error {
 	}
 
 	sysGas := regPrice + native.GASFactor // + 1 GAS
-	for _, w := range c.Wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
-		if err != nil {
-			return err
-		}
-
+	for _, acc := range c.Accounts {
 		w := io.NewBufBinWriter()
 		emit.AppCall(w.BinWriter, neoHash, "registerCandidate", callflag.States, acc.PrivateKey().PublicKey().Bytes())
 		emit.Opcodes(w.BinWriter, opcode.ASSERT)
@@ -84,12 +79,7 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 	amount := initialAlphabetNEOAmount / len(c.Wallets)
 
 	bw := io.NewBufBinWriter()
-	for _, w := range c.Wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
-		if err != nil {
-			return err
-		}
-
+	for _, acc := range c.Accounts {
 		h := state.CreateContractHash(acc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
 		emit.AppCall(bw.BinWriter, neoHash, "transfer", callflag.All,
 			c.CommitteeAcc.Contract.ScriptHash(), h, int64(amount), nil)

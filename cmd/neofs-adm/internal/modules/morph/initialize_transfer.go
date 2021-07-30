@@ -32,12 +32,7 @@ func (c *initializeContext) transferFunds() error {
 	neoHash := c.nativeHash(nativenames.Neo)
 
 	var transfers []client.TransferTarget
-	for _, w := range c.Wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
-		if err != nil {
-			return err
-		}
-
+	for _, acc := range c.Accounts {
 		to := acc.Contract.ScriptHash()
 		transfers = append(transfers,
 			client.TransferTarget{
@@ -82,11 +77,7 @@ func (c *initializeContext) transferFunds() error {
 
 func (c *initializeContext) transferFundsFinished() (bool, error) {
 	gasHash := c.nativeHash(nativenames.Gas)
-
-	acc, err := getWalletAccount(c.Wallets[0], singleAccountName)
-	if err != nil {
-		return false, err
-	}
+	acc := c.Accounts[0]
 
 	res, err := c.Client.NEP17BalanceOf(gasHash, acc.Contract.ScriptHash())
 	return res > initialAlphabetGASAmount/2, err

@@ -122,12 +122,7 @@ func (c *initializeContext) deployContracts() error {
 	var keysParam []smartcontract.Parameter
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
-	for i, w := range c.Wallets {
-		acc, err := getWalletAccount(w, singleAccountName)
-		if err != nil {
-			return err
-		}
-
+	for i, acc := range c.Accounts {
 		cs, err := c.readContract(alphabetContract)
 		if err != nil {
 			return err
