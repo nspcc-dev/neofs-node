@@ -111,6 +111,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, fmt.Errorf("can't find consensus account: %w", err)
 	}
 
+	var ctrPath string
 	if cmd.Name() == "init" {
 		if viper.GetInt64(epochDurationInitFlag) <= 0 {
 			return nil, fmt.Errorf("epoch duration must be positive")
@@ -119,11 +120,11 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		if viper.GetInt64(maxObjectSizeInitFlag) <= 0 {
 			return nil, fmt.Errorf("max object size must be positive")
 		}
-	}
 
-	ctrPath, err := cmd.Flags().GetString(contractsInitFlag)
-	if err != nil {
-		return nil, fmt.Errorf("missing contracts path: %w", err)
+		ctrPath, err = cmd.Flags().GetString(contractsInitFlag)
+		if err != nil {
+			return nil, fmt.Errorf("missing contracts path: %w", err)
+		}
 	}
 
 	ns, err := c.GetNativeContracts()
