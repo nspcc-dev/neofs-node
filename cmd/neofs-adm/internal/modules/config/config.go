@@ -15,11 +15,16 @@ import (
 )
 
 type configTemplate struct {
-	Endpoint      string
-	AlphabetDir   string
-	MaxObjectSize int
-	EpochDuration int
-	Glagolitics   []string
+	Endpoint        string
+	AlphabetDir     string
+	MaxObjectSize   int
+	EpochDuration   int
+	BasicIncomeRate int
+	AuditFee        int
+	CandidateFee    int
+	ContainerFee    int
+	WithdrawFee     int
+	Glagolitics     []string
 }
 
 const configTxtTemplate = `rpc-endpoint: {{ .Endpoint}}
@@ -27,6 +32,12 @@ alphabet-wallets: {{ .AlphabetDir}}
 network:
   max_object_size: {{ .MaxObjectSize}}
   epoch_duration: {{ .EpochDuration}}
+  basic_income_rate: {{ .BasicIncomeRate}}
+  fee:
+    audit: {{ .AuditFee}}
+    candidate: {{ .CandidateFee}}
+    container: {{ .ContainerFee}}
+    withdraw: {{ .WithdrawFee}}
 # if credentials section is omitted, then neofs-adm will require manual password input
 credentials:{{ range.Glagolitics}}
   {{.}}: password{{end}}
@@ -92,22 +103,27 @@ func defaultConfigPath() (string, error) {
 // want to order records in specific order in file and, probably, provide
 // some comments as well.
 func generateConfigExample(appDir string, credSize int) (string, error) {
-	input := configTemplate{
-		Endpoint:      "https://neo.rpc.node:30333",
-		MaxObjectSize: 67108864, // 64 MiB
-		EpochDuration: 240,      // 1 hour with 15s per block
-		Glagolitics:   make([]string, 0, credSize),
+	tmpl := configTemplate{
+		Endpoint:        "https://neo.rpc.node:30333",
+		MaxObjectSize:   67108864,      // 64 MiB
+		EpochDuration:   240,           // 1 hour with 15s per block
+		BasicIncomeRate: 1_0000_0000,   // 0.0001 GAS per GiB (Fixed12)
+		AuditFee:        1_0000,        // 0.00000001 GAS per audit (Fixed12)
+		CandidateFee:    100_0000_0000, // 100.0 GAS (Fixed8)
+		ContainerFee:    1000,          // 0.000000001 * 7 GAS per container (Fixed12)
+		WithdrawFee:     1_0000_0000,   // 1.0 GAS (Fixed8)
+		Glagolitics:     make([]string, 0, credSize),
 	}
 
 	appDir, err := filepath.Abs(appDir)
 	if err != nil {
 		return "", fmt.Errorf("making absolute path for %s: %w", appDir, err)
 	}
-	input.AlphabetDir = path.Join(appDir, "alphabet-wallets")
+	tmpl.AlphabetDir = path.Join(appDir, "alphabet-wallets")
 
 	var i innerring.GlagoliticLetter
 	for i = 0; i < innerring.GlagoliticLetter(credSize); i++ {
-		input.Glagolitics = append(input.Glagolitics, i.String())
+		tmpl.Glagolitics = append(tmpl.Glagolitics, i.String())
 	}
 
 	t, err := template.New("config.yml").Parse(configTxtTemplate)
@@ -117,7 +133,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 
 	buf := bytes.NewBuffer(nil)
 
-	err = t.Execute(buf, input)
+	err = t.Execute(buf, tmpl)
 	if err != nil {
 		return "", fmt.Errorf("generating config from tempalte: %w", err)
 	}

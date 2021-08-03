@@ -28,6 +28,11 @@ func TestGenerateConfigExample(t *testing.T) {
 	require.Equal(t, path.Join(appDir, "alphabet-wallets"), v.GetString("alphabet-wallets"))
 	require.Equal(t, 67108864, v.GetInt("network.max_object_size"))
 	require.Equal(t, 240, v.GetInt("network.epoch_duration"))
+	require.Equal(t, 100000000, v.GetInt("network.basic_income_rate"))
+	require.Equal(t, 10000, v.GetInt("network.fee.audit"))
+	require.Equal(t, 10000000000, v.GetInt("network.fee.candidate"))
+	require.Equal(t, 1000, v.GetInt("network.fee.container"))
+	require.Equal(t, 100000000, v.GetInt("network.fee.withdraw"))
 
 	var i innerring.GlagoliticLetter
 	for i = 0; i < innerring.GlagoliticLetter(n); i++ {

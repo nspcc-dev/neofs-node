@@ -43,13 +43,8 @@ const (
 	netmapInnerRingCandidateFeeKey = "InnerRingCandidateFee"
 	netmapWithdrawFeeKey           = "WithdrawFee"
 
-	defaultAuditFee              = 10000
-	defaultContainerFee          = 1000
-	defaultEigenTrustIterations  = 4
-	defaultEigenTrustAlpha       = "0.1"
-	defaultBasicIncomeRate       = 100000000
-	defaultInnerRingCandidateFee = 10000000000
-	defaultWithdrawFee           = 100000000
+	defaultEigenTrustIterations = 4
+	defaultEigenTrustAlpha      = "0.1"
 )
 
 var contractList = []string{
@@ -272,19 +267,19 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			{Type: smartcontract.StringType, Value: netmapMaxObjectSizeKey},
 			{Type: smartcontract.IntegerType, Value: viper.GetInt64(maxObjectSizeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapAuditFeeKey},
-			{Type: smartcontract.IntegerType, Value: int64(defaultAuditFee)},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(auditFeeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapContainerFeeKey},
-			{Type: smartcontract.IntegerType, Value: int64(defaultContainerFee)},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(containerFeeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapEigenTrustIterationsKey},
 			{Type: smartcontract.IntegerType, Value: int64(defaultEigenTrustIterations)},
 			{Type: smartcontract.StringType, Value: netmapEigenTrustAlphaKey},
 			{Type: smartcontract.StringType, Value: defaultEigenTrustAlpha},
 			{Type: smartcontract.StringType, Value: netmapBasicIncomeRateKey},
-			{Type: smartcontract.IntegerType, Value: int64(defaultBasicIncomeRate)},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(incomeRateInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapInnerRingCandidateFeeKey},
-			{Type: smartcontract.IntegerType, Value: int64(defaultInnerRingCandidateFee)},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(candidateFeeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapWithdrawFeeKey},
-			{Type: smartcontract.IntegerType, Value: int64(defaultWithdrawFee)},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(withdrawFeeInitFlag)},
 		}
 		items = append(items,
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[balanceContract].Hash),
