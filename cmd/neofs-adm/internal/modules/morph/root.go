@@ -17,6 +17,16 @@ const (
 	maxObjectSizeCLIFlag  = "max-object-size"
 	epochDurationInitFlag = "network.epoch_duration"
 	epochDurationCLIFlag  = "epoch-duration"
+	incomeRateInitFlag    = "network.basic_income_rate"
+	incomeRateCLIFlag     = "basic-income-rate"
+	auditFeeInitFlag      = "network.fee.audit"
+	auditFeeCLIFlag       = "audit-fee"
+	containerFeeInitFlag  = "network.fee.container"
+	containerFeeCLIFlag   = "container-fee"
+	candidateFeeInitFlag  = "network.fee.candidate"
+	candidateFeeCLIFlag   = "candidate-fee"
+	withdrawFeeInitFlag   = "network.fee.withdraw"
+	withdrawFeeCLIFlag    = "withdraw-fee"
 )
 
 var (
@@ -44,6 +54,11 @@ var (
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 			_ = viper.BindPFlag(epochDurationInitFlag, cmd.Flags().Lookup(epochDurationCLIFlag))
 			_ = viper.BindPFlag(maxObjectSizeInitFlag, cmd.Flags().Lookup(maxObjectSizeCLIFlag))
+			_ = viper.BindPFlag(incomeRateInitFlag, cmd.Flags().Lookup(incomeRateCLIFlag))
+			_ = viper.BindPFlag(auditFeeInitFlag, cmd.Flags().Lookup(auditFeeCLIFlag))
+			_ = viper.BindPFlag(candidateFeeInitFlag, cmd.Flags().Lookup(candidateFeeCLIFlag))
+			_ = viper.BindPFlag(containerFeeInitFlag, cmd.Flags().Lookup(containerFeeCLIFlag))
+			_ = viper.BindPFlag(withdrawFeeInitFlag, cmd.Flags().Lookup(withdrawFeeCLIFlag))
 		},
 		RunE: initializeSideChainCmd,
 	}
@@ -77,6 +92,15 @@ var (
 		},
 		RunE: dumpContractHashes,
 	}
+
+	dumpNetworkConfigCmd = &cobra.Command{
+		Use:   "dump-config",
+		Short: "Dump NeoFS network config.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: dumpNetworkConfig,
+	}
 )
 
 func init() {
@@ -103,4 +127,7 @@ func init() {
 
 	RootCmd.AddCommand(dumpContractHashesCmd)
 	dumpContractHashesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(dumpNetworkConfigCmd)
+	dumpNetworkConfigCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 }
