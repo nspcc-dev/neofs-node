@@ -133,10 +133,8 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid response from NNS contract: %w", err)
 	}
 
-	res, err = wCtx.Client.InvokeFunction(nmHash, "listConfig", []smartcontract.Parameter{}, []transaction.Signer{{
-		Account: wCtx.CommitteeAcc.Contract.ScriptHash(),
-		Scopes:  transaction.Global,
-	}})
+	res, err = wCtx.Client.InvokeFunction(nmHash, "listConfig",
+		[]smartcontract.Parameter{}, []transaction.Signer{{}})
 	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
 		return errors.New("can't fetch list of network config keys from the netmap contract")
 	}
@@ -166,13 +164,15 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 		}
 
 		switch string(k) {
-		case "AuditFee", "BasicIncomeRate", "ContainerFee", "EigenTrustIterations",
-			"EpochDuration", "InnerRingCandidateFee", "MaxObjectSize", "WithdrawFee":
+		case netmapAuditFeeKey, netmapBasicIncomeRateKey,
+			netmapContainerFeeKey, netmapEigenTrustIterationsKey,
+			netmapEpochKey, netmapInnerRingCandidateFeeKey,
+			netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
 			nbuf := make([]byte, 8)
 			copy(nbuf[:], v)
 			n := binary.LittleEndian.Uint64(nbuf)
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%d (int)\n", k, n)))
-		case "EigenTrustAlpha":
+		case netmapEigenTrustAlphaKey:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (str)\n", k, v)))
 		default:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (hex)\n", k, hex.EncodeToString(v))))
