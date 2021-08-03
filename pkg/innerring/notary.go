@@ -84,7 +84,7 @@ func parseNotaryConfigs(cfg *viper.Viper, withSideNotary, withMainNotary bool) (
 		return
 	}
 
-	main.disabled = withMainNotary
+	main.disabled = !withMainNotary
 	main.amount = fixedn.Fixed8(cfg.GetInt64("notary.main.deposit_amount"))
 	main.duration = cfg.GetUint32("timers.main_notary")
 
