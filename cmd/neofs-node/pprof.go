@@ -30,11 +30,15 @@ func initProfiler(c *cfg) {
 	}))
 
 	c.closers = append(c.closers, func() {
+		c.log.Debug("shutting down profiling service")
+
 		err := srv.Shutdown()
 		if err != nil {
 			c.log.Debug("could not shutdown pprof server",
 				zap.String("error", err.Error()),
 			)
 		}
+
+		c.log.Debug("profiling service has been stopped")
 	})
 }
