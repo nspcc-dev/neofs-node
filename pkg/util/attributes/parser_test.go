@@ -57,4 +57,16 @@ func TestParseV2Attributes(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, attrs, 5)
 	})
+
+	t.Run("escape characters", func(t *testing.T) {
+		from := []string{
+			`/K\:ey1:V\/alue\\/Ke\/y2:Va\:lue`,
+		}
+		attrs, err := attributes.ParseV2Attributes(from, nil)
+		require.NoError(t, err)
+		require.Equal(t, attrs[0].Key(), `K:ey1`)
+		require.Equal(t, attrs[0].Value(), `V/alue\`)
+		require.Equal(t, attrs[1].Key(), `Ke/y2`)
+		require.Equal(t, attrs[1].Value(), `Va:lue`)
+	})
 }
