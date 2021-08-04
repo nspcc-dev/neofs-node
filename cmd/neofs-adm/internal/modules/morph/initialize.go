@@ -90,7 +90,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 }
 
 func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContext, error) {
-	walletDir := v.GetString(alphabetWalletsFlag)
+	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
 	wallets, err := openAlphabetWallets(walletDir)
 	if err != nil {
 		return nil, err
