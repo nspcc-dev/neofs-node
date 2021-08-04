@@ -20,7 +20,7 @@ var (
 )
 
 // ParseV2Attributes parses strings like "K1:V1/K2:V2/K3:V3" into netmap
-// attributes.
+// attributes. Supports escaped symbols "\:", "\/" and "\\".
 func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, error) {
 	restricted := make(map[string]struct{}, len(excl))
 	for i := range excl {
@@ -31,6 +31,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 
 	for i := range attrs {
 		line := strings.Trim(attrs[i], pairSeparator)
+		line = replaceEscaping(line, false) // replaced escaped symbols with non-printable symbols
 		chain := strings.Split(line, pairSeparator)
 		if len(chain) == 0 {
 			return nil, errEmptyChain
@@ -55,6 +56,10 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 				return nil, errUnexpectedKey
 			}
 
+			// replace non-printable symbols with escaped symbols without escape character
+			key = replaceEscaping(key, true)
+			value = replaceEscaping(value, true)
+
 			attribute := netmap.NewNodeAttribute()
 			attribute.SetKey(key)
 			attribute.SetValue(value)
@@ -74,4 +79,30 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 	}
 
 	return result, nil
+}
+
+func replaceEscaping(target string, rollback bool) (s string) {
+	const escChar = `\`
+
+	var (
+		oldPairSep = escChar + pairSeparator
+		oldKVSep   = escChar + keyValueSeparator
+		oldEsc     = escChar + escChar
+		newPairSep = string(uint8(1))
+		newKVSep   = string(uint8(2))
+		newEsc     = string(uint8(3))
+	)
+
+	if rollback {
+		oldPairSep, oldKVSep, oldEsc = newPairSep, newKVSep, newEsc
+		newPairSep = pairSeparator
+		newKVSep = keyValueSeparator
+		newEsc = escChar
+	}
+
+	s = strings.ReplaceAll(target, oldEsc, newEsc)
+	s = strings.ReplaceAll(s, oldPairSep, newPairSep)
+	s = strings.ReplaceAll(s, oldKVSep, newKVSep)
+
+	return
 }
