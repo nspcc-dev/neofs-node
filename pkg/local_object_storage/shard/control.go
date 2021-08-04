@@ -39,9 +39,10 @@ func (s *Shard) Init() error {
 		}
 	}
 
-	gc := &gc{
-		gcCfg:   s.gcCfg,
-		remover: s.removeGarbage,
+	s.gc = &gc{
+		gcCfg:       s.gcCfg,
+		remover:     s.removeGarbage,
+		stopChannel: make(chan struct{}),
 		mEventHandler: map[eventType]*eventHandlers{
 			eventNewEpoch: {
 				cancelFunc: func() {},
@@ -53,7 +54,7 @@ func (s *Shard) Init() error {
 		},
 	}
 
-	gc.init()
+	s.gc.init()
 
 	return nil
 }
@@ -73,6 +74,8 @@ func (s *Shard) Close() error {
 			return fmt.Errorf("could not close %s: %w", component, err)
 		}
 	}
+
+	s.gc.stop()
 
 	return nil
 }

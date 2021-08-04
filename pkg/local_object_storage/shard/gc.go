@@ -52,6 +52,8 @@ type eventHandlers struct {
 type gc struct {
 	*gcCfg
 
+	stopChannel chan struct{}
+
 	workerPool util.WorkerPool
 
 	remover func()
@@ -146,10 +148,19 @@ func (gc *gc) tickRemover() {
 	defer timer.Stop()
 
 	for {
-		<-timer.C
-		gc.remover()
-		timer.Reset(gc.removerInterval)
+		select {
+		case <-gc.stopChannel:
+			gc.log.Debug("GC is stopped")
+			return
+		case <-timer.C:
+			gc.remover()
+			timer.Reset(gc.removerInterval)
+		}
 	}
+}
+
+func (gc *gc) stop() {
+	gc.stopChannel <- struct{}{}
 }
 
 // iterates over metabase graveyard and deletes objects
