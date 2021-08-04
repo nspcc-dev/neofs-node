@@ -50,8 +50,16 @@ func serveGRPC(c *cfg) {
 
 		go func() {
 			defer func() {
+				c.log.Info("stop listening gRPC endpoint",
+					zap.String("endpoint", lis.Addr().String()),
+				)
+
 				c.wg.Done()
 			}()
+
+			c.log.Info("start listening gRPC endpoint",
+				zap.String("endpoint", lis.Addr().String()),
+			)
 
 			if err := srv.Serve(lis); err != nil {
 				fmt.Println("gRPC server error", err)

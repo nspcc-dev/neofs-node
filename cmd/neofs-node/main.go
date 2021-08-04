@@ -117,6 +117,8 @@ func shutdown(c *cfg) {
 		closer()
 	}
 
+	c.log.Debug("waiting for all processes to stop")
+
 	c.wg.Wait()
 }
 

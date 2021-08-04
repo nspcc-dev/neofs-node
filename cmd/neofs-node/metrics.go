@@ -31,11 +31,15 @@ func initMetrics(c *cfg) {
 	}))
 
 	c.closers = append(c.closers, func() {
+		c.log.Debug("shutting down metrics service")
+
 		err := srv.Shutdown()
 		if err != nil {
 			c.log.Debug("could not shutdown metrics server",
 				zap.String("error", err.Error()),
 			)
 		}
+
+		c.log.Debug("metrics service has been stopped")
 	})
 }
