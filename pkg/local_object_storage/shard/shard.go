@@ -18,6 +18,8 @@ import (
 type Shard struct {
 	*cfg
 
+	gc *gc
+
 	mode *atomic.Uint32
 
 	writeCache writecache.Cache
