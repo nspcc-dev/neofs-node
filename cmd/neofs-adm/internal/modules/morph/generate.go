@@ -36,7 +36,7 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 		return errors.New("size must be > 0")
 	}
 
-	walletDir := viper.GetString(alphabetWalletsFlag)
+	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
 	pwds, err := initializeWallets(walletDir, int(size))
 	if err != nil {
 		return err
