@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -136,6 +137,7 @@ type (
 		key  *keys.PrivateKey
 		name string
 		gas  util.Uint160
+		sgn  *transaction.Signer
 	}
 )
 
@@ -345,6 +347,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	} else {
 		mainnetChain := morphChain
 		mainnetChain.name = mainnetPrefix
+		mainnetChain.sgn = &transaction.Signer{Scopes: transaction.CalledByEntry}
 
 		// create mainnet listener
 		server.mainnetListener, err = createListener(ctx, mainnetChain)
@@ -864,6 +867,7 @@ func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
+		client.WithSigner(p.sgn),
 	)
 }
 
