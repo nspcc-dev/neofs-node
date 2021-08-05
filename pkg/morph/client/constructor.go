@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -27,6 +28,8 @@ type cfg struct {
 	gas util.Uint160 // native gas script-hash
 
 	waitInterval time.Duration
+
+	signer *transaction.Signer
 }
 
 const (
@@ -40,6 +43,9 @@ func defaultConfig() *cfg {
 		dialTimeout:  defaultDialTimeout,
 		logger:       zap.L(),
 		waitInterval: defaultWaitInterval,
+		signer: &transaction.Signer{
+			Scopes: transaction.Global,
+		},
 	}
 }
 
@@ -102,6 +108,7 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		gas:          gas,
 		designate:    designate,
 		waitInterval: cfg.waitInterval,
+		signer:       cfg.signer,
 	}
 
 	return c, nil
@@ -145,6 +152,20 @@ func WithLogger(logger *logger.Logger) Option {
 	return func(c *cfg) {
 		if logger != nil {
 			c.logger = logger
+		}
+	}
+}
+
+// WithSigner returns a client constructor option
+// that specifies the signer and the scope of the transaction.
+//
+// Ignores nil value.
+//
+// If option not provided, signer with global scope is used.
+func WithSigner(signer *transaction.Signer) Option {
+	return func(c *cfg) {
+		if signer != nil {
+			c.signer = signer
 		}
 	}
 }

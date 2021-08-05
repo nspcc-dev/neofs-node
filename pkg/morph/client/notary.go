@@ -342,8 +342,10 @@ func (c *Client) notaryCosigners(ir []*keys.PublicKey, committee bool) ([]transa
 	}
 
 	s = append(s, transaction.Signer{
-		Account: hash.Hash160(multisigScript),
-		Scopes:  transaction.Global,
+		Account:          hash.Hash160(multisigScript),
+		Scopes:           c.signer.Scopes,
+		AllowedContracts: c.signer.AllowedContracts,
+		AllowedGroups:    c.signer.AllowedGroups,
 	})
 
 	// last one is a placeholder for notary contract signature
