@@ -41,6 +41,8 @@ type Client struct {
 
 	waitInterval time.Duration
 
+	signer *transaction.Signer
+
 	notary *notary
 }
 
@@ -83,8 +85,10 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 
 	cosigner := []transaction.Signer{
 		{
-			Account: c.acc.PrivateKey().PublicKey().GetScriptHash(),
-			Scopes:  transaction.Global,
+			Account:          c.acc.PrivateKey().PublicKey().GetScriptHash(),
+			Scopes:           c.signer.Scopes,
+			AllowedContracts: c.signer.AllowedContracts,
+			AllowedGroups:    c.signer.AllowedGroups,
 		},
 	}
 
