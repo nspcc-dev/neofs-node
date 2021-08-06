@@ -1,0 +1,72 @@
+node:
+  wallet:
+    path: <path/to/wallet>
+    address: <address-in-wallet>
+    password: <password>
+  addresses:
+    - <announced.address:port>
+  attribute_0: UN-LOCODE:<XX YYY>
+  attribute_1: Price:100000
+  attribute_2: User-Agent:NeoFS\/0.23
+
+grpc:
+  num: 1
+  0:
+    endpoint: <listen.local.address:port>
+    tls:
+      enabled: false
+
+storage:
+  shard_num: 1
+  shard:
+    0:
+      use_write_cache: false
+      metabase:
+        path: <storage-path>/metabase
+        perm: 0600
+      blobstor:
+        path: <storage-path>/blobstor
+        perm: 0600
+        blobovnicza:
+          opened_cache_size: 32
+          shallow_depth: 1
+          shallow_width: 1
+      gc:
+        remover_batch_size: 100
+        remover_sleep_interval: 1m
+
+logger:
+  level: info
+
+metrics:
+  address: 127.0.0.1:9090
+  shutdown_timeout: 15s
+
+object:
+  put:
+    pool_size: 100
+
+morph:
+  rpc_endpoint:
+    - https://rpc1.morph.fs.neo.org:40341
+    - https://rpc2.morph.fs.neo.org:40341
+    - https://rpc3.morph.fs.neo.org:40341
+    - https://rpc4.morph.fs.neo.org:40341
+    - https://rpc5.morph.fs.neo.org:40341
+    - https://rpc6.morph.fs.neo.org:40341
+    - https://rpc7.morph.fs.neo.org:40341
+  notification_endpoint:
+    - wss://rpc1.morph.fs.neo.org:40341/ws
+    - wss://rpc2.morph.fs.neo.org:40341/ws
+    - wss://rpc3.morph.fs.neo.org:40341/ws
+    - wss://rpc4.morph.fs.neo.org:40341/ws
+    - wss://rpc5.morph.fs.neo.org:40341/ws
+    - wss://rpc6.morph.fs.neo.org:40341/ws
+    - wss://rpc7.morph.fs.neo.org:40341/ws
+  dial_timeout: 20s
+
+contracts:
+  balance: dc1ec98d9d0c5f9dfade16144defe08cffc5ca55
+  container: 1b6e68d299b570e1cb7e86eadfdc06aa2e8e0cc5
+  netmap: 7c5bdb23e36cc7cce95bf42f3ab9e452c2501df1
+  reputation: 7ad824fd1eeb1565be2cee3889214b9aa605d2fc
