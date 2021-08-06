@@ -1,4 +1,4 @@
-# N3 testnet RC3 storage node configuration
+# N3 Testnet Storage node configuration
 
 There is a prepared configuration for NeoFS Storage Node deployment in
 N3 testnet RC3. The easiest way to deploy Storage Node is to use prepared
