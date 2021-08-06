@@ -3,9 +3,36 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.23.1] - 2021-08-06
+
+N3 Mainnet launch release with minor fixes.
+
+### Added
+- Initial version of `neofs-adm` tool for fast side chain deployment and
+  management in private installations
+- Notary support auto negotiation (#709)
+- Option to disable side chain cache in Storage node (#704)
+- Escape symbols in Storage node attributes (#700)
+
+### Changed
+- Updated neo-go to v0.97.1
+- Updated multiaddr lib to v0.4.0 with native TLS protocol support (#661)
+- Default file permission in storage engine is 660 (#646)
+
+### Fixed
+- Container size estimation routine now aggregates values by cid-epoch tuple
+  (#723)
+- Storage engine always creates executable dirs (#646)
+- GC routines in storage engine shards shutdown gracefully (#745)
+- Handle context shutdown at NeoFS multi client group address switching (#737)
+- Scope for main chain invocations from Inner Ring nodes (#751)
+
 ### Upgrading from v0.23.0
 Added `NEOFS_MORPH_DISABLE_CACHE` env. If `true`, none of
 the `eACL`/`netmap`/`container` RPC responses cached.
+
+Remove `WITHOUT_NOTARY` and `WITHOUT_MAIN_NOTARY` records from Inner Ring node
+config. Notary support is now auto negotiated.
 
 ## [0.23.0] - 2021-07-23 - Wando (완도, 莞島)
 
@@ -526,7 +553,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.1...master
+[0.23.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.3...v0.23.0
 [0.22.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.2...v0.22.3
 [0.22.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.1...v0.22.2
