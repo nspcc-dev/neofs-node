@@ -22,7 +22,7 @@ type (
 	notary struct {
 		txValidTime  uint32 // minimum amount of blocks when mainTx will be valid
 		roundTime    uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
-		fallbackTime uint32 // amount of blocks before fallbackTx will be sent
+		fallbackTime uint32 // mainTx's ValidUntilBlock - fallbackTime + 1 is when fallbackTx is sent
 
 		alphabetSource AlphabetKeys // source of alphabet node keys to prepare witness
 
