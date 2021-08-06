@@ -3,7 +3,7 @@
 version: "2.4"
 services:
   storage01:
-    image: nspccdev/neofs-storage-testnet:0.23.0
+    image: nspccdev/neofs-storage-testnet:0.23.1
     container_name: neofs-testnet
     env_file: node_config.env
     network_mode: host
