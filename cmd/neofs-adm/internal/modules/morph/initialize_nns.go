@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -49,21 +50,7 @@ func (c *initializeContext) setNNS() error {
 		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 
 		domain := getAlphabetNNSDomain(i)
-		if ok, err := c.Client.NNSIsAvailable(h, domain); err != nil {
-			return err
-		} else if !ok {
-			continue
-		}
-
-		bw := io.NewBufBinWriter()
-		emit.AppCall(bw.BinWriter, h, "register", callflag.All,
-			domain, c.CommitteeAcc.Contract.ScriptHash())
-		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-		emit.AppCall(bw.BinWriter, h, "setRecord", callflag.All,
-			domain, int64(nns.TXT), alphaCs.Hash.StringLE())
-
-		sysFee := int64(defaultRegisterSysfee + native.GASFactor)
-		if err := c.sendCommitteeTx(bw.Bytes(), sysFee); err != nil {
+		if err := c.nnsRegisterDomain(h, alphaCs.Hash, domain); err != nil {
 			return err
 		}
 	}
@@ -76,26 +63,48 @@ func (c *initializeContext) setNNS() error {
 		cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
 
 		domain := ctrName + ".neofs"
-		if ok, err := c.Client.NNSIsAvailable(h, domain); err != nil {
-			return err
-		} else if !ok {
-			continue
-		}
-
-		bw := io.NewBufBinWriter()
-		emit.AppCall(bw.BinWriter, h, "register", callflag.All,
-			domain, c.CommitteeAcc.Contract.ScriptHash())
-		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-		emit.AppCall(bw.BinWriter, h, "setRecord", callflag.All,
-			domain, int64(nns.TXT), cs.Hash.StringLE())
-
-		sysFee := int64(defaultRegisterSysfee + native.GASFactor)
-		if err := c.sendCommitteeTx(bw.Bytes(), sysFee); err != nil {
+		if err := c.nnsRegisterDomain(h, cs.Hash, domain); err != nil {
 			return err
 		}
 	}
 
 	return c.awaitTx()
+}
+
+func getAlphabetNNSDomain(i int) string {
+	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
+}
+
+func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160, domain string) error {
+	ok, err := c.Client.NNSIsAvailable(nnsHash, domain)
+	if err != nil {
+		return err
+	}
+
+	bw := io.NewBufBinWriter()
+	if ok {
+		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
+			domain, c.CommitteeAcc.Contract.ScriptHash())
+		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+	} else {
+		s, err := c.Client.NNSResolve(nnsHash, domain, nns.TXT)
+		if err != nil {
+			return err
+		}
+		if s == expectedHash.StringLE() {
+			return nil
+		}
+	}
+
+	emit.AppCall(bw.BinWriter, nnsHash, "setRecord", callflag.All,
+		domain, int64(nns.TXT), expectedHash.StringLE())
+
+	if bw.Err != nil {
+		panic(bw.Err)
+	}
+
+	sysFee := int64(defaultRegisterSysfee + native.GASFactor)
+	return c.sendCommitteeTx(bw.Bytes(), sysFee)
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error) {
@@ -107,6 +116,11 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error
 	return res.State == vm.HaltState.String(), nil
 }
 
-func getAlphabetNNSDomain(i int) string {
-	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
+func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+	s, err := c.NNSResolve(nnsHash, domain, nns.TXT)
+	if err != nil {
+		return util.Uint160{}, err
+	}
+
+	return util.Uint160DecodeStringLE(s)
 }

@@ -103,7 +103,7 @@ func (c *initializeContext) deployNNS() error {
 	return c.awaitTx()
 }
 
-func (c *initializeContext) deployContracts() error {
+func (c *initializeContext) deployContracts(method string) error {
 	mgmtHash := c.nativeHash(nativenames.Management)
 	sender := c.CommitteeAcc.Contract.ScriptHash()
 	for _, ctrName := range contractList {
@@ -119,14 +119,28 @@ func (c *initializeContext) deployContracts() error {
 		return err
 	}
 
+	nnsCs, err := c.Client.GetContractStateByID(1)
+	if err != nil {
+		return err
+	}
+	nnsHash := nnsCs.Hash
+
 	var keysParam []smartcontract.Parameter
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil {
-			c.Command.Printf("Stage 4: alphabet contract #%d is already deployed.\n", i)
+			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
 			continue
+		}
+
+		invokeHash := mgmtHash
+		if method == "migrate" {
+			invokeHash, err = nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
+			if err != nil {
+				return fmt.Errorf("can't resolve hash for contract update: %w", err)
+			}
 		}
 
 		keysParam = append(keysParam, smartcontract.Parameter{
@@ -140,7 +154,7 @@ func (c *initializeContext) deployContracts() error {
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
 		}
-		res, err := c.Client.InvokeFunction(mgmtHash, "deploy", params, []transaction.Signer{signer})
+		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
@@ -158,8 +172,16 @@ func (c *initializeContext) deployContracts() error {
 	for _, ctrName := range contractList {
 		cs := c.Contracts[ctrName]
 		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil {
-			c.Command.Printf("Stage 4: %s contract is already deployed.\n", ctrName)
+			c.Command.Printf("%s contract is already deployed.\n", ctrName)
 			continue
+		}
+
+		invokeHash := mgmtHash
+		if method == "migrate" {
+			invokeHash, err = nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
+			if err != nil {
+				return fmt.Errorf("can't resolve hash for contract update: %w", err)
+			}
 		}
 
 		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
@@ -169,7 +191,7 @@ func (c *initializeContext) deployContracts() error {
 			Scopes:  transaction.CalledByEntry,
 		}
 
-		res, err := c.Client.InvokeFunction(mgmtHash, "deploy", params, []transaction.Signer{signer})
+		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy contract: %w", err)
 		}

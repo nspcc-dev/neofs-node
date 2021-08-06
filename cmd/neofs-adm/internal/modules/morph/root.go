@@ -101,6 +101,16 @@ var (
 		},
 		RunE: dumpNetworkConfig,
 	}
+
+	updateContractsCmd = &cobra.Command{
+		Use:   "update-contracts",
+		Short: "Update NeoFS contracts.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: updateContracts,
+	}
 )
 
 func init() {
@@ -130,4 +140,9 @@ func init() {
 
 	RootCmd.AddCommand(dumpNetworkConfigCmd)
 	dumpNetworkConfigCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(updateContractsCmd)
+	updateContractsCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
+	updateContractsCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	updateContractsCmd.Flags().String(contractsInitFlag, "", "path to archive with compiled NeoFS contracts (default fetched from latest github release)")
 }

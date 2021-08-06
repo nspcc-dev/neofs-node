@@ -62,7 +62,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 
 	// 4. Deploy NeoFS contracts.
 	cmd.Println("Stage 4: deploy NeoFS contracts.")
-	if err := initCtx.deployContracts(); err != nil {
+	if err := initCtx.deployContracts("deploy"); err != nil {
 		return err
 	}
 
@@ -120,7 +120,8 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		if viper.GetInt64(maxObjectSizeInitFlag) <= 0 {
 			return nil, fmt.Errorf("max object size must be positive")
 		}
-
+	}
+	if cmd.Name() == "update-contracts" || cmd.Name() == "init" {
 		ctrPath, err = cmd.Flags().GetString(contractsInitFlag)
 		if err != nil {
 			return nil, fmt.Errorf("missing contracts path: %w", err)
