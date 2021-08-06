@@ -460,7 +460,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	var irf irFetcher
 
-	if server.morphClient.ProbeNotary() {
+	if !server.mainNotaryConfig.disabled {
 		irf = NewIRFetcherWithNotary(server.morphClient)
 	} else {
 		irf = NewIRFetcherWithoutNotary(server.netmapClient)
