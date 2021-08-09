@@ -31,7 +31,7 @@ func ParseAddPeer(prms []stackitem.Item) (event.Event, error) {
 
 	ev.node, err = client.BytesFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
+		return nil, fmt.Errorf("could not get raw nodeinfo: %w", err)
 	}
 
 	return ev, nil
