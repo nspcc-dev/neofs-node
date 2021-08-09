@@ -16,12 +16,12 @@ import (
 
 // Listener is an interface of smart contract notification event listener.
 type Listener interface {
-	// Must start the event listener.
+	// Listen must start the event listener.
 	//
 	// Must listen to events with the parser installed.
 	Listen(context.Context)
 
-	// Must start the event listener.
+	// ListenWithError must start the event listener.
 	//
 	// Must listen to events with the parser installed.
 	//
@@ -29,24 +29,24 @@ type Listener interface {
 	// it could not be started.
 	ListenWithError(context.Context, chan<- error)
 
-	// Must set the parser of particular contract event.
+	// SetParser must set the parser of particular contract event.
 	//
 	// Parser of each event must be set once. All parsers must be set before Listen call.
 	//
 	// Must ignore nil parsers and all calls after listener has been started.
 	SetParser(ParserInfo)
 
-	// Must register the event handler for particular notification event of contract.
+	// RegisterHandler must register the event handler for particular notification event of contract.
 	//
 	// The specified handler must be called after each capture and parsing of the event
 	//
 	// Must ignore nil handlers.
 	RegisterHandler(HandlerInfo)
 
-	// Must stop the event listener.
+	// Stop must stop the event listener.
 	Stop()
 
-	// Must register chain block handler.
+	// RegisterBlockHandler must register chain block handler.
 	//
 	// The specified handler must be called after each capture and parsing of the new block from chain.
 	//
