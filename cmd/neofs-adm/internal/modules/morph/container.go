@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -94,6 +96,81 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	return ioutil.WriteFile(filename, out, 0o660)
+}
+
+func restoreContainers(cmd *cobra.Command, _ []string) error {
+	filename, err := cmd.Flags().GetString(containerDumpFlag)
+	if err != nil {
+		return fmt.Errorf("invalid filename: %w", err)
+	}
+
+	wCtx, err := newInitializeContext(cmd, viper.GetViper())
+	if err != nil {
+		return err
+	}
+
+	nnsCs, err := wCtx.Client.GetContractStateByID(1)
+	if err != nil {
+		return fmt.Errorf("can't get NNS contract state: %w", err)
+	}
+
+	ch, err := nnsResolveHash(wCtx.Client, nnsCs.Hash, containerContract+".neofs")
+	if err != nil {
+		return fmt.Errorf("can't fetch container contract hash: %w", err)
+	}
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("can't read dump file: %w", err)
+	}
+
+	var containers []Container
+	err = json.Unmarshal(data, &containers)
+	if err != nil {
+		return fmt.Errorf("can't parse dump file: %w", err)
+	}
+
+	bw := io.NewBufBinWriter()
+	for _, cnt := range containers {
+		hv := hash.Sha256(cnt.Value)
+		bw.Reset()
+		emit.AppCall(bw.BinWriter, ch, "get", callflag.All, hv.BytesBE())
+		res, err := wCtx.Client.InvokeScript(bw.Bytes(), nil)
+		if err != nil {
+			return fmt.Errorf("can't check if container is already restored: %w", err)
+		}
+		if len(res.Stack) == 0 {
+			return errors.New("empty stack")
+		}
+
+		old := new(Container)
+		if err := old.FromStackItem(res.Stack[0]); err != nil {
+			return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+		}
+		if len(old.Value) != 0 {
+			id := cid.New()
+			id.SetSHA256(hv)
+			cmd.Printf("Container %s is already deployed.\n", id)
+			continue
+		}
+
+		bw.Reset()
+		emit.AppCall(bw.BinWriter, ch, "put", callflag.All,
+			cnt.Value, cnt.Signature, cnt.PublicKey, cnt.Token)
+		if ea := cnt.EACL; ea != nil {
+			emit.AppCall(bw.BinWriter, ch, "setEACL", callflag.All,
+				ea.Value, ea.Signature, ea.PublicKey, ea.Token)
+		}
+		if bw.Err != nil {
+			panic(bw.Err)
+		}
+
+		if err := wCtx.sendCommitteeTx(bw.Bytes(), -1); err != nil {
+			return err
+		}
+	}
+
+	return wCtx.awaitTx()
 }
 
 // Container represents container struct in contract storage.
