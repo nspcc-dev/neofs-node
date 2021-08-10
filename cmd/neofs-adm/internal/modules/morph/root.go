@@ -27,6 +27,7 @@ const (
 	candidateFeeCLIFlag   = "candidate-fee"
 	withdrawFeeInitFlag   = "network.fee.withdraw"
 	withdrawFeeCLIFlag    = "withdraw-fee"
+	containerDumpFlag     = "dump"
 )
 
 var (
@@ -111,6 +112,15 @@ var (
 		},
 		RunE: updateContracts,
 	}
+
+	dumpContainersCmd = &cobra.Command{
+		Use:   "dump-containers",
+		Short: "Dump NeoFS containers to file.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: dumpContainers,
+	}
 )
 
 func init() {
@@ -145,4 +155,8 @@ func init() {
 	updateContractsCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	updateContractsCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	updateContractsCmd.Flags().String(contractsInitFlag, "", "path to archive with compiled NeoFS contracts (default fetched from latest github release)")
+
+	RootCmd.AddCommand(dumpContainersCmd)
+	dumpContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	dumpContainersCmd.Flags().String(containerDumpFlag, "", "file where to save dumped containers")
 }
