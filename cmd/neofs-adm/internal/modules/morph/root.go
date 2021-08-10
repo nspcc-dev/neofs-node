@@ -28,6 +28,7 @@ const (
 	withdrawFeeInitFlag   = "network.fee.withdraw"
 	withdrawFeeCLIFlag    = "withdraw-fee"
 	containerDumpFlag     = "dump"
+	containerContractFlag = "container-contract"
 )
 
 var (
@@ -169,6 +170,7 @@ func init() {
 	RootCmd.AddCommand(dumpContainersCmd)
 	dumpContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	dumpContainersCmd.Flags().String(containerDumpFlag, "", "file where to save dumped containers")
+	dumpContainersCmd.Flags().String(containerContractFlag, "", "container contract hash (for networks without NNS)")
 
 	RootCmd.AddCommand(restoreContainersCmd)
 	restoreContainersCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
