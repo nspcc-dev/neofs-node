@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
@@ -35,9 +36,16 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't get NNS contract state: %w", err)
 	}
 
-	ch, err := nnsResolveHash(c, nnsCs.Hash, containerContract+".neofs")
+	var ch util.Uint160
+	s, err := cmd.Flags().GetString(containerContractFlag)
+	if err == nil {
+		ch, err = util.Uint160DecodeStringLE(s)
+	}
 	if err != nil {
-		return fmt.Errorf("can't fetch container contract hash: %w", err)
+		ch, err = nnsResolveHash(c, nnsCs.Hash, containerContract+".neofs")
+		if err != nil {
+			return err
+		}
 	}
 
 	res, err := c.InvokeFunction(ch, "list",
