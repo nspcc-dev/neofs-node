@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -67,9 +68,17 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		cids = append(cids, id)
 	}
 
+	isOK, err := getCIDFilterFunc(cmd)
+	if err != nil {
+		return err
+	}
+
 	var containers []*Container
 	bw := io.NewBufBinWriter()
 	for _, id := range cids {
+		if !isOK(id) {
+			continue
+		}
 		bw.Reset()
 		emit.AppCall(bw.BinWriter, ch, "get", callflag.All, id)
 		emit.AppCall(bw.BinWriter, ch, "eACL", callflag.All, id)
@@ -138,9 +147,17 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't parse dump file: %w", err)
 	}
 
+	isOK, err := getCIDFilterFunc(cmd)
+	if err != nil {
+		return err
+	}
+
 	bw := io.NewBufBinWriter()
 	for _, cnt := range containers {
 		hv := hash.Sha256(cnt.Value)
+		if !isOK(hv[:]) {
+			continue
+		}
 		bw.Reset()
 		emit.AppCall(bw.BinWriter, ch, "get", callflag.All, hv.BytesBE())
 		res, err := wCtx.Client.InvokeScript(bw.Bytes(), nil)
@@ -284,4 +301,35 @@ func (c *EACL) FromStackItem(item stackitem.Item) error {
 	c.PublicKey = pub
 	c.Token = tok
 	return nil
+}
+
+// getCIDFilterFunc returns filtering function for container IDs.
+// Raw byte slices are used because it works with structures returned
+// from contract.
+func getCIDFilterFunc(cmd *cobra.Command) (func([]byte) bool, error) {
+	rawIDs, err := cmd.Flags().GetStringSlice(containerIDsFlag)
+	if err != nil {
+		return nil, err
+	}
+	if len(rawIDs) == 0 {
+		return func([]byte) bool { return true }, nil
+	}
+
+	for i := range rawIDs {
+		err := cid.New().Parse(rawIDs[i])
+		if err != nil {
+			return nil, fmt.Errorf("can't parse CID %s: %w", rawIDs[i], err)
+		}
+	}
+	sort.Strings(rawIDs)
+	return func(rawID []byte) bool {
+		var v [32]byte
+		copy(v[:], rawID)
+
+		id := cid.New()
+		id.SetSHA256(v)
+		idStr := id.String()
+		n := sort.Search(len(rawIDs), func(i int) bool { return rawIDs[i] >= idStr })
+		return n < len(rawIDs) && rawIDs[n] == idStr
+	}, nil
 }
