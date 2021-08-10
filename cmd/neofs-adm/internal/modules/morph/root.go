@@ -121,6 +121,16 @@ var (
 		},
 		RunE: dumpContainers,
 	}
+
+	restoreContainersCmd = &cobra.Command{
+		Use:   "restore-containers",
+		Short: "Restore NeoFS containers from file.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: restoreContainers,
+	}
 )
 
 func init() {
@@ -159,4 +169,9 @@ func init() {
 	RootCmd.AddCommand(dumpContainersCmd)
 	dumpContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	dumpContainersCmd.Flags().String(containerDumpFlag, "", "file where to save dumped containers")
+
+	RootCmd.AddCommand(restoreContainersCmd)
+	restoreContainersCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
+	restoreContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	restoreContainersCmd.Flags().String(containerDumpFlag, "", "file to restore containers from")
 }
