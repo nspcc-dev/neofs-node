@@ -53,6 +53,7 @@ func (c *initializeContext) setNNS() error {
 		if err := c.nnsRegisterDomain(h, alphaCs.Hash, domain); err != nil {
 			return err
 		}
+		c.Command.Printf("NNS: Set %s -> %s\n", domain, alphaCs.Hash.StringLE())
 	}
 
 	for _, ctrName := range contractList {
@@ -66,6 +67,7 @@ func (c *initializeContext) setNNS() error {
 		if err := c.nnsRegisterDomain(h, cs.Hash, domain); err != nil {
 			return err
 		}
+		c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 	}
 
 	return c.awaitTx()
