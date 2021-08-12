@@ -88,12 +88,12 @@ func New(p *Params) (*Processor, error) {
 	}, nil
 }
 
-// ListenerParsers for the 'event.Listener' event producer.
-func (rp *Processor) ListenerParsers() []event.ParserInfo {
-	var parsers []event.ParserInfo
+// ListenerNotificationParsers for the 'event.Listener' event producer.
+func (rp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+	var parsers []event.NotificationParserInfo
 
 	// put reputation event
-	put := event.ParserInfo{}
+	put := event.NotificationParserInfo{}
 	put.SetType(putReputationNotification)
 	put.SetScriptHash(rp.reputationContract)
 	put.SetParser(reputationEvent.ParsePut)
@@ -102,12 +102,12 @@ func (rp *Processor) ListenerParsers() []event.ParserInfo {
 	return parsers
 }
 
-// ListenerHandlers for the 'event.Listener' event producer.
-func (rp *Processor) ListenerHandlers() []event.HandlerInfo {
-	var handlers []event.HandlerInfo
+// ListenerNotificationHandlers for the 'event.Listener' event producer.
+func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	var handlers []event.NotificationHandlerInfo
 
 	// put reputation handler
-	put := event.HandlerInfo{}
+	put := event.NotificationHandlerInfo{}
 	put.SetType(putReputationNotification)
 	put.SetScriptHash(rp.reputationContract)
 	put.SetHandler(rp.handlePutReputation)
@@ -117,6 +117,6 @@ func (rp *Processor) ListenerHandlers() []event.HandlerInfo {
 }
 
 // TimersHandlers for the 'Timers' event producer.
-func (rp *Processor) TimersHandlers() []event.HandlerInfo {
+func (rp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
 }

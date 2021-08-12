@@ -8,21 +8,21 @@ type (
 	// ContractProcessor interface defines functions for binding event producers
 	// such as event.Listener and Timers with contract processor.
 	ContractProcessor interface {
-		ListenerParsers() []event.ParserInfo
-		ListenerHandlers() []event.HandlerInfo
-		TimersHandlers() []event.HandlerInfo
+		ListenerNotificationParsers() []event.NotificationParserInfo
+		ListenerNotificationHandlers() []event.NotificationHandlerInfo
+		TimersHandlers() []event.NotificationHandlerInfo
 	}
 )
 
 func connectListenerWithProcessor(l event.Listener, p ContractProcessor) {
 	// register parsers
-	for _, parser := range p.ListenerParsers() {
-		l.SetParser(parser)
+	for _, parser := range p.ListenerNotificationParsers() {
+		l.SetNotificationParser(parser)
 	}
 
 	// register handlers
-	for _, handler := range p.ListenerHandlers() {
-		l.RegisterHandler(handler)
+	for _, handler := range p.ListenerNotificationHandlers() {
+		l.RegisterNotificationHandler(handler)
 	}
 }
 

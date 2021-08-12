@@ -128,25 +128,25 @@ func New(p *Params) (*Processor, error) {
 	}, nil
 }
 
-// ListenerParsers for the 'event.Listener' event producer.
-func (gp *Processor) ListenerParsers() []event.ParserInfo {
-	var pi event.ParserInfo
+// ListenerNotificationParsers for the 'event.Listener' event producer.
+func (gp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+	var pi event.NotificationParserInfo
 	pi.SetScriptHash(gp.designate)
 	pi.SetType(event.TypeFromString(native.DesignationEventName))
 	pi.SetParser(rolemanagement.ParseDesignate)
-	return []event.ParserInfo{pi}
+	return []event.NotificationParserInfo{pi}
 }
 
-// ListenerHandlers for the 'event.Listener' event producer.
-func (gp *Processor) ListenerHandlers() []event.HandlerInfo {
-	var hi event.HandlerInfo
+// ListenerNotificationHandlers for the 'event.Listener' event producer.
+func (gp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	var hi event.NotificationHandlerInfo
 	hi.SetScriptHash(gp.designate)
 	hi.SetType(event.TypeFromString(native.DesignationEventName))
 	hi.SetHandler(gp.HandleAlphabetSync)
-	return []event.HandlerInfo{hi}
+	return []event.NotificationHandlerInfo{hi}
 }
 
 // TimersHandlers for the 'Timers' event producer.
-func (gp *Processor) TimersHandlers() []event.HandlerInfo {
+func (gp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
 }

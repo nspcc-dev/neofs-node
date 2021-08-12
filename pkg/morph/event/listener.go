@@ -29,22 +29,19 @@ type Listener interface {
 	// it could not be started.
 	ListenWithError(context.Context, chan<- error)
 
-	// SetParser must set the parser of particular contract event.
+	// SetNotificationParser must set the parser of particular contract event.
 	//
 	// Parser of each event must be set once. All parsers must be set before Listen call.
 	//
 	// Must ignore nil parsers and all calls after listener has been started.
-	SetParser(ParserInfo)
+	SetNotificationParser(NotificationParserInfo)
 
-	// RegisterHandler must register the event handler for particular notification event of contract.
+	// RegisterNotificationHandler must register the event handler for particular notification event of contract.
 	//
-	// The specified handler must be called after each capture and parsing of the event
+	// The specified handler must be called after each capture and parsing of the event.
 	//
 	// Must ignore nil handlers.
-	RegisterHandler(HandlerInfo)
-
-	// Stop must stop the event listener.
-	Stop()
+	RegisterNotificationHandler(NotificationHandlerInfo)
 
 	// RegisterBlockHandler must register chain block handler.
 	//
@@ -52,6 +49,9 @@ type Listener interface {
 	//
 	// Must ignore nil handlers.
 	RegisterBlockHandler(BlockHandler)
+
+	// Stop must stop the event listener.
+	Stop()
 }
 
 // ListenerParams is a group of parameters
@@ -69,9 +69,8 @@ type listener struct {
 
 	started bool
 
-	parsers map[scriptHashWithType]Parser
-
-	handlers map[scriptHashWithType][]Handler
+	notificationParsers  map[scriptHashWithType]NotificationParser
+	notificationHandlers map[scriptHashWithType][]Handler
 
 	log *zap.Logger
 
@@ -93,10 +92,10 @@ var (
 // Executes once, all subsequent calls do nothing.
 //
 // Returns an error if listener was already started.
-func (s listener) Listen(ctx context.Context) {
-	s.once.Do(func() {
-		if err := s.listen(ctx, nil); err != nil {
-			s.log.Error("could not start listen to events",
+func (l listener) Listen(ctx context.Context) {
+	l.once.Do(func() {
+		if err := l.listen(ctx, nil); err != nil {
+			l.log.Error("could not start listen to events",
 				zap.String("error", err.Error()),
 			)
 		}
@@ -109,10 +108,10 @@ func (s listener) Listen(ctx context.Context) {
 // Executes once, all subsequent calls do nothing.
 //
 // Returns an error if listener was already started.
-func (s listener) ListenWithError(ctx context.Context, intError chan<- error) {
-	s.once.Do(func() {
-		if err := s.listen(ctx, intError); err != nil {
-			s.log.Error("could not start listen to events",
+func (l listener) ListenWithError(ctx context.Context, intError chan<- error) {
+	l.once.Do(func() {
+		if err := l.listen(ctx, intError); err != nil {
+			l.log.Error("could not start listen to events",
 				zap.String("error", err.Error()),
 			)
 			intError <- err
@@ -120,13 +119,13 @@ func (s listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	})
 }
 
-func (s listener) listen(ctx context.Context, intError chan<- error) error {
+func (l listener) listen(ctx context.Context, intError chan<- error) error {
 	// create the list of listening contract hashes
 	hashes := make([]util.Uint160, 0)
 
 	// fill the list with the contracts with set event parsers.
-	s.mtx.RLock()
-	for hashType := range s.parsers {
+	l.mtx.RLock()
+	for hashType := range l.notificationParsers {
 		scHash := hashType.ScriptHash()
 
 		// prevent repetitions
@@ -140,30 +139,30 @@ func (s listener) listen(ctx context.Context, intError chan<- error) error {
 	}
 
 	// mark listener as started
-	s.started = true
+	l.started = true
 
-	s.mtx.RUnlock()
+	l.mtx.RUnlock()
 
-	chEvent, err := s.subscriber.SubscribeForNotification(hashes...)
+	chEvent, err := l.subscriber.SubscribeForNotification(hashes...)
 	if err != nil {
 		return err
 	}
 
-	s.listenLoop(ctx, chEvent, intError)
+	l.listenLoop(ctx, chEvent, intError)
 
 	return nil
 }
 
-func (s listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
+func (l listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
 	var blockChan <-chan *block.Block
 
-	if len(s.blockHandlers) > 0 {
+	if len(l.blockHandlers) > 0 {
 		var err error
-		if blockChan, err = s.subscriber.BlockNotifications(); err != nil {
+		if blockChan, err = l.subscriber.BlockNotifications(); err != nil {
 			if intErr != nil {
 				intErr <- fmt.Errorf("could not open block notifications channel: %w", err)
 			} else {
-				s.log.Debug("could not open block notifications channel",
+				l.log.Debug("could not open block notifications channel",
 					zap.String("error", err.Error()),
 				)
 			}
@@ -178,47 +177,47 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			s.log.Info("stop event listener by context",
+			l.log.Info("stop event listener by context",
 				zap.String("reason", ctx.Err().Error()),
 			)
 			break loop
 		case notifyEvent, ok := <-chEvent:
 			if !ok {
-				s.log.Warn("stop event listener by channel")
+				l.log.Warn("stop event listener by channel")
 				if intErr != nil {
 					intErr <- errors.New("event subscriber connection has been terminated")
 				}
 
 				break loop
 			} else if notifyEvent == nil {
-				s.log.Warn("nil notification event was caught")
+				l.log.Warn("nil notification event was caught")
 				continue loop
 			}
 
-			s.parseAndHandle(notifyEvent)
+			l.parseAndHandleNotification(notifyEvent)
 		case b, ok := <-blockChan:
 			if !ok {
-				s.log.Warn("stop event listener by block channel")
+				l.log.Warn("stop event listener by block channel")
 				if intErr != nil {
 					intErr <- errors.New("new block notification channel is closed")
 				}
 
 				break loop
 			} else if b == nil {
-				s.log.Warn("nil block was caught")
+				l.log.Warn("nil block was caught")
 				continue loop
 			}
 
 			// TODO: consider asynchronous execution
-			for i := range s.blockHandlers {
-				s.blockHandlers[i](b)
+			for i := range l.blockHandlers {
+				l.blockHandlers[i](b)
 			}
 		}
 	}
 }
 
-func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
-	log := s.log.With(
+func (l listener) parseAndHandleNotification(notifyEvent *state.NotificationEvent) {
+	log := l.log.With(
 		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
 
@@ -247,9 +246,9 @@ func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 	keyEvent.SetScriptHash(notifyEvent.ScriptHash)
 	keyEvent.SetType(typEvent)
 
-	s.mtx.RLock()
-	parser, ok := s.parsers[keyEvent]
-	s.mtx.RUnlock()
+	l.mtx.RLock()
+	parser, ok := l.notificationParsers[keyEvent]
+	l.mtx.RUnlock()
 
 	if !ok {
 		log.Debug("event parser not set")
@@ -268,12 +267,12 @@ func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 	}
 
 	// handler the event
-	s.mtx.RLock()
-	handlers := s.handlers[keyEvent]
-	s.mtx.RUnlock()
+	l.mtx.RLock()
+	handlers := l.notificationHandlers[keyEvent]
+	l.mtx.RUnlock()
 
 	if len(handlers) == 0 {
-		log.Info("handlers for parsed notification event were not registered",
+		log.Info("notification handlers for parsed notification event were not registered",
 			zap.Any("event", event),
 		)
 
@@ -285,12 +284,12 @@ func (s listener) parseAndHandle(notifyEvent *state.NotificationEvent) {
 	}
 }
 
-// SetParser sets the parser of particular contract event.
+// SetNotificationParser sets the parser of particular contract event.
 //
 // Ignores nil and already set parsers.
 // Ignores the parser if listener is started.
-func (s listener) SetParser(p ParserInfo) {
-	log := s.log.With(
+func (l listener) SetNotificationParser(p NotificationParserInfo) {
+	log := l.log.With(
 		zap.String("script hash LE", p.ScriptHash().StringLE()),
 		zap.Stringer("event type", p.getType()),
 	)
@@ -301,29 +300,29 @@ func (s listener) SetParser(p ParserInfo) {
 		return
 	}
 
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
 
 	// check if the listener was started
-	if s.started {
+	if l.started {
 		log.Warn("listener has been already started, ignore parser")
 		return
 	}
 
 	// add event parser
-	if _, ok := s.parsers[p.scriptHashWithType]; !ok {
-		s.parsers[p.scriptHashWithType] = p.parser()
+	if _, ok := l.notificationParsers[p.scriptHashWithType]; !ok {
+		l.notificationParsers[p.scriptHashWithType] = p.parser()
 	}
 
 	log.Info("registered new event parser")
 }
 
-// RegisterHandler registers the handler for particular notification event of contract.
+// RegisterNotificationHandler registers the handler for particular notification event of contract.
 //
 // Ignores nil handlers.
 // Ignores handlers of event without parser.
-func (s listener) RegisterHandler(p HandlerInfo) {
-	log := s.log.With(
+func (l listener) RegisterNotificationHandler(p NotificationHandlerInfo) {
+	log := l.log.With(
 		zap.String("script hash LE", p.ScriptHash().StringLE()),
 		zap.Stringer("event type", p.GetType()),
 	)
@@ -335,9 +334,9 @@ func (s listener) RegisterHandler(p HandlerInfo) {
 	}
 
 	// check if parser was set
-	s.mtx.RLock()
-	_, ok := s.parsers[p.scriptHashWithType]
-	s.mtx.RUnlock()
+	l.mtx.RLock()
+	_, ok := l.notificationParsers[p.scriptHashWithType]
+	l.mtx.RUnlock()
 
 	if !ok {
 		log.Warn("ignore handler of event w/o parser")
@@ -345,28 +344,28 @@ func (s listener) RegisterHandler(p HandlerInfo) {
 	}
 
 	// add event handler
-	s.mtx.Lock()
-	s.handlers[p.scriptHashWithType] = append(
-		s.handlers[p.scriptHashWithType],
+	l.mtx.Lock()
+	l.notificationHandlers[p.scriptHashWithType] = append(
+		l.notificationHandlers[p.scriptHashWithType],
 		p.Handler(),
 	)
-	s.mtx.Unlock()
+	l.mtx.Unlock()
 
 	log.Info("registered new event handler")
 }
 
 // Stop closes subscription channel with remote neo node.
-func (s listener) Stop() {
-	s.subscriber.Close()
+func (l listener) Stop() {
+	l.subscriber.Close()
 }
 
-func (s *listener) RegisterBlockHandler(handler BlockHandler) {
+func (l *listener) RegisterBlockHandler(handler BlockHandler) {
 	if handler == nil {
-		s.log.Warn("ignore nil block handler")
+		l.log.Warn("ignore nil block handler")
 		return
 	}
 
-	s.blockHandlers = append(s.blockHandlers, handler)
+	l.blockHandlers = append(l.blockHandlers, handler)
 }
 
 // NewListener create the notification event listener instance and returns Listener interface.
@@ -379,11 +378,11 @@ func NewListener(p ListenerParams) (Listener, error) {
 	}
 
 	return &listener{
-		mtx:        new(sync.RWMutex),
-		once:       new(sync.Once),
-		parsers:    make(map[scriptHashWithType]Parser),
-		handlers:   make(map[scriptHashWithType][]Handler),
-		log:        p.Logger,
-		subscriber: p.Subscriber,
+		mtx:                  new(sync.RWMutex),
+		once:                 new(sync.Once),
+		notificationParsers:  make(map[scriptHashWithType]NotificationParser),
+		notificationHandlers: make(map[scriptHashWithType][]Handler),
+		log:                  p.Logger,
+		subscriber:           p.Subscriber,
 	}, nil
 }

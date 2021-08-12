@@ -166,11 +166,11 @@ func addNetmapNotificationHandler(c *cfg, sTyp string, h event.Handler) {
 	c.cfgNetmap.subscribers[typ] = append(c.cfgNetmap.subscribers[typ], h)
 }
 
-func setNetmapNotificationParser(c *cfg, sTyp string, p event.Parser) {
+func setNetmapNotificationParser(c *cfg, sTyp string, p event.NotificationParser) {
 	typ := event.TypeFromString(sTyp)
 
 	if c.cfgNetmap.parsers == nil {
-		c.cfgNetmap.parsers = make(map[event.Type]event.Parser, 1)
+		c.cfgNetmap.parsers = make(map[event.Type]event.NotificationParser, 1)
 	}
 
 	c.cfgNetmap.parsers[typ] = p

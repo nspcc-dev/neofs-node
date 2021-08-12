@@ -92,12 +92,12 @@ func New(p *Params) (*Processor, error) {
 	}, nil
 }
 
-// ListenerParsers for the 'event.Listener' event producer.
-func (cp *Processor) ListenerParsers() []event.ParserInfo {
+// ListenerNotificationParsers for the 'event.Listener' event producer.
+func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
 	var (
-		parsers = make([]event.ParserInfo, 0, 3)
+		parsers = make([]event.NotificationParserInfo, 0, 3)
 
-		p event.ParserInfo
+		p event.NotificationParserInfo
 	)
 
 	p.SetScriptHash(cp.containerContract)
@@ -120,12 +120,12 @@ func (cp *Processor) ListenerParsers() []event.ParserInfo {
 	return parsers
 }
 
-// ListenerHandlers for the 'event.Listener' event producer.
-func (cp *Processor) ListenerHandlers() []event.HandlerInfo {
+// ListenerNotificationHandlers for the 'event.Listener' event producer.
+func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
 	var (
-		handlers = make([]event.HandlerInfo, 0, 3)
+		handlers = make([]event.NotificationHandlerInfo, 0, 3)
 
-		h event.HandlerInfo
+		h event.NotificationHandlerInfo
 	)
 
 	h.SetScriptHash(cp.containerContract)
@@ -149,6 +149,6 @@ func (cp *Processor) ListenerHandlers() []event.HandlerInfo {
 }
 
 // TimersHandlers for the 'Timers' event producer.
-func (cp *Processor) TimersHandlers() []event.HandlerInfo {
+func (cp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
 }

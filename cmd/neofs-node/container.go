@@ -175,11 +175,11 @@ func addContainerAsyncNotificationHandler(c *cfg, sTyp string, h event.Handler) 
 	)
 }
 
-func setContainerNotificationParser(c *cfg, sTyp string, p event.Parser) {
+func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationParser) {
 	typ := event.TypeFromString(sTyp)
 
 	if c.cfgContainer.parsers == nil {
-		c.cfgContainer.parsers = make(map[event.Type]event.Parser, 1)
+		c.cfgContainer.parsers = make(map[event.Type]event.NotificationParser, 1)
 	}
 
 	c.cfgContainer.parsers[typ] = p

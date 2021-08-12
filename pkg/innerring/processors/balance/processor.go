@@ -76,12 +76,12 @@ func New(p *Params) (*Processor, error) {
 	}, nil
 }
 
-// ListenerParsers for the 'event.Listener' event producer.
-func (bp *Processor) ListenerParsers() []event.ParserInfo {
-	var parsers []event.ParserInfo
+// ListenerNotificationParsers for the 'event.Listener' event producer.
+func (bp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+	var parsers []event.NotificationParserInfo
 
 	// new lock event
-	lock := event.ParserInfo{}
+	lock := event.NotificationParserInfo{}
 	lock.SetType(lockNotification)
 	lock.SetScriptHash(bp.balanceContract)
 	lock.SetParser(balanceEvent.ParseLock)
@@ -90,12 +90,12 @@ func (bp *Processor) ListenerParsers() []event.ParserInfo {
 	return parsers
 }
 
-// ListenerHandlers for the 'event.Listener' event producer.
-func (bp *Processor) ListenerHandlers() []event.HandlerInfo {
-	var handlers []event.HandlerInfo
+// ListenerNotificationHandlers for the 'event.Listener' event producer.
+func (bp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	var handlers []event.NotificationHandlerInfo
 
 	// lock handler
-	lock := event.HandlerInfo{}
+	lock := event.NotificationHandlerInfo{}
 	lock.SetType(lockNotification)
 	lock.SetScriptHash(bp.balanceContract)
 	lock.SetHandler(bp.handleLock)
@@ -105,6 +105,6 @@ func (bp *Processor) ListenerHandlers() []event.HandlerInfo {
 }
 
 // TimersHandlers for the 'Timers' event producer.
-func (bp *Processor) TimersHandlers() []event.HandlerInfo {
+func (bp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
 }
