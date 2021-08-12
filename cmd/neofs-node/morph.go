@@ -139,10 +139,10 @@ func listenMorphNotifications(c *cfg) {
 	})
 }
 
-func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parsers map[event.Type]event.Parser,
+func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parsers map[event.Type]event.NotificationParser,
 	subs map[event.Type][]event.Handler) {
 	for typ, handlers := range subs {
-		pi := event.ParserInfo{}
+		pi := event.NotificationParserInfo{}
 		pi.SetType(typ)
 		pi.SetScriptHash(scHash)
 
@@ -153,15 +153,15 @@ func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parse
 
 		pi.SetParser(p)
 
-		lis.SetParser(pi)
+		lis.SetNotificationParser(pi)
 
 		for _, h := range handlers {
-			hi := event.HandlerInfo{}
+			hi := event.NotificationHandlerInfo{}
 			hi.SetType(typ)
 			hi.SetScriptHash(scHash)
 			hi.SetHandler(h)
 
-			lis.RegisterHandler(hi)
+			lis.RegisterNotificationHandler(hi)
 		}
 	}
 }

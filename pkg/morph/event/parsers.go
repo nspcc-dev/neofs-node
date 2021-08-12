@@ -6,17 +6,17 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
-// Parser is a function that constructs Event
+// NotificationParser is a function that constructs Event
 // from the StackItem list.
-type Parser func([]stackitem.Item) (Event, error)
+type NotificationParser func([]stackitem.Item) (Event, error)
 
-// ParserInfo is a structure that groups
+// NotificationParserInfo is a structure that groups
 // the parameters of particular contract
 // notification event parser.
-type ParserInfo struct {
+type NotificationParserInfo struct {
 	scriptHashWithType
 
-	p Parser
+	p NotificationParser
 }
 
 type wrongPrmNumber struct {
@@ -36,19 +36,19 @@ func (s wrongPrmNumber) Error() string {
 }
 
 // SetParser is an event parser setter.
-func (s *ParserInfo) SetParser(v Parser) {
+func (s *NotificationParserInfo) SetParser(v NotificationParser) {
 	s.p = v
 }
 
-func (s ParserInfo) parser() Parser {
+func (s NotificationParserInfo) parser() NotificationParser {
 	return s.p
 }
 
 // SetType is an event type setter.
-func (s *ParserInfo) SetType(v Type) {
+func (s *NotificationParserInfo) SetType(v Type) {
 	s.typ = v
 }
 
-func (s ParserInfo) getType() Type {
+func (s NotificationParserInfo) getType() Type {
 	return s.typ
 }

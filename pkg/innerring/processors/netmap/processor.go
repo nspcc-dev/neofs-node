@@ -146,26 +146,26 @@ func New(p *Params) (*Processor, error) {
 	}, nil
 }
 
-// ListenerParsers for the 'event.Listener' event producer.
-func (np *Processor) ListenerParsers() []event.ParserInfo {
-	var parsers []event.ParserInfo
+// ListenerNotificationParsers for the 'event.Listener' event producer.
+func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+	var parsers []event.NotificationParserInfo
 
 	// new epoch event
-	newEpoch := event.ParserInfo{}
+	newEpoch := event.NotificationParserInfo{}
 	newEpoch.SetType(newEpochNotification)
 	newEpoch.SetScriptHash(np.netmapContract)
 	newEpoch.SetParser(netmapEvent.ParseNewEpoch)
 	parsers = append(parsers, newEpoch)
 
 	// new peer event
-	addPeer := event.ParserInfo{}
+	addPeer := event.NotificationParserInfo{}
 	addPeer.SetType(addPeerNotification)
 	addPeer.SetScriptHash(np.netmapContract)
 	addPeer.SetParser(netmapEvent.ParseAddPeer)
 	parsers = append(parsers, addPeer)
 
 	// update peer event
-	updatePeer := event.ParserInfo{}
+	updatePeer := event.NotificationParserInfo{}
 	updatePeer.SetType(updatePeerStateNotification)
 	updatePeer.SetScriptHash(np.netmapContract)
 	updatePeer.SetParser(netmapEvent.ParseUpdatePeer)
@@ -174,26 +174,26 @@ func (np *Processor) ListenerParsers() []event.ParserInfo {
 	return parsers
 }
 
-// ListenerHandlers for the 'event.Listener' event producer.
-func (np *Processor) ListenerHandlers() []event.HandlerInfo {
-	var handlers []event.HandlerInfo
+// ListenerNotificationHandlers for the 'event.Listener' event producer.
+func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	var handlers []event.NotificationHandlerInfo
 
 	// new epoch handler
-	newEpoch := event.HandlerInfo{}
+	newEpoch := event.NotificationHandlerInfo{}
 	newEpoch.SetType(newEpochNotification)
 	newEpoch.SetScriptHash(np.netmapContract)
 	newEpoch.SetHandler(np.handleNewEpoch)
 	handlers = append(handlers, newEpoch)
 
 	// new peer handler
-	addPeer := event.HandlerInfo{}
+	addPeer := event.NotificationHandlerInfo{}
 	addPeer.SetType(addPeerNotification)
 	addPeer.SetScriptHash(np.netmapContract)
 	addPeer.SetHandler(np.handleAddPeer)
 	handlers = append(handlers, addPeer)
 
 	// update peer handler
-	updatePeer := event.HandlerInfo{}
+	updatePeer := event.NotificationHandlerInfo{}
 	updatePeer.SetType(updatePeerStateNotification)
 	updatePeer.SetScriptHash(np.netmapContract)
 	updatePeer.SetHandler(np.handleUpdateState)
@@ -203,6 +203,6 @@ func (np *Processor) ListenerHandlers() []event.HandlerInfo {
 }
 
 // TimersHandlers for the 'Timers' event producer.
-func (np *Processor) TimersHandlers() []event.HandlerInfo {
+func (np *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
 }

@@ -140,7 +140,7 @@ type cfgAccounting struct {
 type cfgContainer struct {
 	scriptHash neogoutil.Uint160
 
-	parsers     map[event.Type]event.Parser
+	parsers     map[event.Type]event.NotificationParser
 	subscribers map[event.Type][]event.Handler
 	workerPool  util.WorkerPool // pool for asynchronous handlers
 }
@@ -149,7 +149,7 @@ type cfgNetmap struct {
 	scriptHash neogoutil.Uint160
 	wrapper    *nmwrapper.Wrapper
 
-	parsers map[event.Type]event.Parser
+	parsers map[event.Type]event.NotificationParser
 
 	subscribers map[event.Type][]event.Handler
 	workerPool  util.WorkerPool // pool for asynchronous handlers
