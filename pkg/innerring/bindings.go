@@ -26,15 +26,13 @@ func connectListenerWithProcessor(l event.Listener, p ContractProcessor) {
 	}
 }
 
-// bindMorphProcessor connects both morph chain listener handlers and
-// local timers handlers.
+// bindMorphProcessor connects morph chain listener handlers.
 func bindMorphProcessor(proc ContractProcessor, s *Server) error {
 	connectListenerWithProcessor(s.morphListener, proc)
 	return nil
 }
 
-// bindMainnetProcessor connects both mainnet chain listener handlers and
-// local timers handlers.
+// bindMainnetProcessor connects mainnet chain listener handlers.
 func bindMainnetProcessor(proc ContractProcessor, s *Server) error {
 	connectListenerWithProcessor(s.mainnetListener, proc)
 	return nil
