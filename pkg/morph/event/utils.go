@@ -1,6 +1,7 @@
 package event
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.uber.org/zap"
@@ -19,12 +20,46 @@ type scriptHashWithType struct {
 	typeValue
 }
 
+type notaryRequestTypes struct {
+	notaryRequestMempoolType
+	notaryRequestType
+	scriptHashValue
+}
+
+type notaryRequestMempoolType struct {
+	mempoolTyp mempoolevent.Type
+}
+
+type notaryRequestType struct {
+	notaryType NotaryType
+}
+
+// GetMempoolType is a notary request mempool type getter.
+func (n notaryRequestMempoolType) GetMempoolType() mempoolevent.Type {
+	return n.mempoolTyp
+}
+
+// SetMempoolType is a notary request mempool type setter.
+func (n *notaryRequestMempoolType) SetMempoolType(typ mempoolevent.Type) {
+	n.mempoolTyp = typ
+}
+
+// RequestType is a notary request type getter.
+func (n notaryRequestType) RequestType() NotaryType {
+	return n.notaryType
+}
+
+// SetRequestType is a notary request type setter.
+func (n *notaryRequestType) SetRequestType(typ NotaryType) {
+	n.notaryType = typ
+}
+
 // SetScriptHash is a script hash setter.
 func (s *scriptHashValue) SetScriptHash(v util.Uint160) {
 	s.hash = v
 }
 
-// ScriptHash is script hash getter.
+// ScriptHash is a script hash getter.
 func (s scriptHashValue) ScriptHash() util.Uint160 {
 	return s.hash
 }
