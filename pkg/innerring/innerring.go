@@ -392,6 +392,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		if err != nil {
 			return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
 		}
+
+		server.morphListener.EnableNotarySupport(server.contracts.proxy, server.morphClient.Committee, server.morphClient)
 	}
 
 	if !server.mainNotaryConfig.disabled {
@@ -643,6 +645,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		ContainerClient:   cnrClient,
 		NeoFSIDClient:     neofsIDClient,
 		NetworkState:      server.netmapClient,
+		NotaryDisabled:    server.sideNotaryConfig.disabled,
 	})
 	if err != nil {
 		return nil, err
