@@ -258,6 +258,12 @@ func bucketNamesForType(cid *cid.ID, mType object.SearchMatchType, typeVal strin
 		}
 	case object.MatchStringEqual:
 		appendNames(typeVal)
+	case object.MatchCommonPrefix:
+		for key := range mBucketNaming {
+			if strings.HasPrefix(key, typeVal) {
+				appendNames(key)
+			}
+		}
 	}
 
 	return

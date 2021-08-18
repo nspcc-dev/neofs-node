@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -58,6 +59,7 @@ func New(opts ...Option) *DB {
 			object.MatchUnknown:        unknownMatcher,
 			object.MatchStringEqual:    stringEqualMatcher,
 			object.MatchStringNotEqual: stringNotEqualMatcher,
+			object.MatchCommonPrefix:   stringCommonPrefixMatcher,
 		},
 	}
 }
@@ -79,6 +81,10 @@ func stringEqualMatcher(key string, objVal []byte, filterVal string) bool {
 
 func stringNotEqualMatcher(key string, objVal []byte, filterVal string) bool {
 	return stringifyValue(key, objVal) != filterVal
+}
+
+func stringCommonPrefixMatcher(key string, objVal []byte, filterVal string) bool {
+	return strings.HasPrefix(stringifyValue(key, objVal), filterVal)
 }
 
 func unknownMatcher(_ string, _ []byte, _ string) bool {
