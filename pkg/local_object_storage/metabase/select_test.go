@@ -38,6 +38,24 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 	err = putBig(db, raw3.Object())
 	require.NoError(t, err)
 
+	raw4 := generateRawObjectWithCID(t, cid)
+	addAttribute(raw4, "path", "test/1/2")
+
+	err = putBig(db, raw4.Object())
+	require.NoError(t, err)
+
+	raw5 := generateRawObjectWithCID(t, cid)
+	addAttribute(raw5, "path", "test/1/3")
+
+	err = putBig(db, raw5.Object())
+	require.NoError(t, err)
+
+	raw6 := generateRawObjectWithCID(t, cid)
+	addAttribute(raw6, "path", "test/2/3")
+
+	err = putBig(db, raw6.Object())
+	require.NoError(t, err)
+
 	fs := objectSDK.SearchFilters{}
 	fs.AddFilter("foo", "bar", objectSDK.MatchStringEqual)
 	testSelect(t, db, cid, fs,
@@ -63,17 +81,31 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 
 	fs = objectSDK.SearchFilters{}
 	fs.AddFilter("foo", "", objectSDK.MatchNotPresent)
-	testSelect(t, db, cid, fs, raw3.Object().Address())
+	testSelect(t, db, cid, fs,
+		raw3.Object().Address(),
+		raw4.Object().Address(),
+		raw5.Object().Address(),
+		raw6.Object().Address(),
+	)
 
 	fs = objectSDK.SearchFilters{}
 	fs.AddFilter("a", "", objectSDK.MatchNotPresent)
-	testSelect(t, db, cid, fs, raw1.Object().Address(), raw2.Object().Address())
+	testSelect(t, db, cid, fs,
+		raw1.Object().Address(),
+		raw2.Object().Address(),
+		raw4.Object().Address(),
+		raw5.Object().Address(),
+		raw6.Object().Address(),
+	)
 
 	fs = objectSDK.SearchFilters{}
 	testSelect(t, db, cid, fs,
 		raw1.Object().Address(),
 		raw2.Object().Address(),
 		raw3.Object().Address(),
+		raw4.Object().Address(),
+		raw5.Object().Address(),
+		raw6.Object().Address(),
 	)
 
 	fs = objectSDK.SearchFilters{}
@@ -82,6 +114,24 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 		raw1.Object().Address(),
 		raw2.Object().Address(),
 		raw3.Object().Address(),
+		raw4.Object().Address(),
+		raw5.Object().Address(),
+		raw6.Object().Address(),
+	)
+
+	fs = objectSDK.SearchFilters{}
+	fs.AddFilter("path", "test", objectSDK.MatchCommonPrefix)
+	testSelect(t, db, cid, fs,
+		raw4.Object().Address(),
+		raw5.Object().Address(),
+		raw6.Object().Address(),
+	)
+
+	fs = objectSDK.SearchFilters{}
+	fs.AddFilter("path", "test/1", objectSDK.MatchCommonPrefix)
+	testSelect(t, db, cid, fs,
+		raw4.Object().Address(),
+		raw5.Object().Address(),
 	)
 }
 
