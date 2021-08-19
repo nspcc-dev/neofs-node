@@ -368,6 +368,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		!withoutMainNet && server.mainnetClient.ProbeNotary(), // if mainnet disabled then notary flag must be disabled too
 	)
 
+	log.Debug("notary support",
+		zap.Bool("sidechain_enabled", !server.sideNotaryConfig.disabled),
+		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
+	)
+
 	// get all script hashes of contracts
 	server.contracts, err = parseContracts(
 		cfg,
