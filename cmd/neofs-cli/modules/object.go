@@ -509,8 +509,9 @@ var searchUnaryOpVocabulary = map[string]object.SearchMatchType{
 }
 
 var searchBinaryOpVocabulary = map[string]object.SearchMatchType{
-	"EQ": object.MatchStringEqual,
-	"NE": object.MatchStringNotEqual,
+	"EQ":            object.MatchStringEqual,
+	"NE":            object.MatchStringNotEqual,
+	"COMMON_PREFIX": object.MatchCommonPrefix,
 }
 
 func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
