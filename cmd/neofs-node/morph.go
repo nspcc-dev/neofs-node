@@ -53,10 +53,18 @@ func initMorphComponents(c *cfg) {
 	// since current function initializes sidechain components
 	fn(mainchainconfig.RPCEndpoint(c.appCfg), mainchainconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
 		c.mainChainClient = cli
+
+		c.log.Debug("notary support",
+			zap.Bool("mainchain_enabled", cli.ProbeNotary()),
+		)
 	})
 
 	fn(morphconfig.RPCEndpoint(c.appCfg), morphconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
 		c.cfgMorph.client = cli
+
+		c.log.Debug("notary support",
+			zap.Bool("sidechain_enabled", cli.ProbeNotary()),
+		)
 	})
 
 	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0)
