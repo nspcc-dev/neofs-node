@@ -14,7 +14,7 @@ const (
 // Netmap returns value of "netmap" config parameter
 // from "contracts" section.
 //
-// Throws panic if value is not is not a 20-byte LE hex-encoded string.
+// Throws panic if value is not a 20-byte LE hex-encoded string.
 func Netmap(c *config.Config) util.Uint160 {
 	return contractAddress(c, "netmap")
 }
@@ -22,7 +22,7 @@ func Netmap(c *config.Config) util.Uint160 {
 // Balance returns value of "balance" config parameter
 // from "contracts" section.
 //
-// Throws panic if value is not is not a 20-byte LE hex-encoded string.
+// Throws panic if value is not a 20-byte LE hex-encoded string.
 func Balance(c *config.Config) util.Uint160 {
 	return contractAddress(c, "balance")
 }
@@ -30,7 +30,7 @@ func Balance(c *config.Config) util.Uint160 {
 // Container returns value of "container" config parameter
 // from "contracts" section.
 //
-// Throws panic if value is not is not a 20-byte LE hex-encoded string.
+// Throws panic if value is not a 20-byte LE hex-encoded string.
 func Container(c *config.Config) util.Uint160 {
 	return contractAddress(c, "container")
 }
@@ -38,9 +38,17 @@ func Container(c *config.Config) util.Uint160 {
 // Reputation returns value of "reputation" config parameter
 // from "contracts" section.
 //
-// Throws panic if value is not is not a 20-byte LE hex-encoded string.
+// Throws panic if value is not a 20-byte LE hex-encoded string.
 func Reputation(c *config.Config) util.Uint160 {
 	return contractAddress(c, "reputation")
+}
+
+// Proxy returns value of "proxy" config parameter
+// from "contracts" section.
+//
+// Throws panic if value is not a 20-byte LE hex-encoded string.
+func Proxy(c *config.Config) util.Uint160 {
+	return contractAddress(c, "proxy")
 }
 
 func contractAddress(c *config.Config, name string) util.Uint160 {
