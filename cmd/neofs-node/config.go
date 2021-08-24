@@ -156,7 +156,7 @@ type cfgNetmap struct {
 
 	state *networkState
 
-	reBootstrapEnabled  bool
+	needBootstrap       bool
 	reBoostrapTurnedOff *atomic.Bool // managed by control service in runtime
 	startEpoch          uint64       // epoch number when application is started
 }
@@ -258,7 +258,7 @@ func initCfg(path string) *cfg {
 			scriptHash:          contractsconfig.Netmap(appCfg),
 			state:               state,
 			workerPool:          netmapWorkerPool,
-			reBootstrapEnabled:  !relayOnly,
+			needBootstrap:       !relayOnly,
 			reBoostrapTurnedOff: atomic.NewBool(relayOnly),
 		},
 		cfgGRPC: cfgGRPC{
