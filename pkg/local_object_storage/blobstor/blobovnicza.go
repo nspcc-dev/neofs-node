@@ -94,7 +94,7 @@ func newBlobovniczaTree(c *cfg) (blz *blobovniczas) {
 				zap.String("error", err.Error()),
 			)
 		} else {
-			c.log.Debug("blobovnicza succesfully closed on evict",
+			c.log.Debug("blobovnicza successfully closed on evict",
 				zap.String("id", key.(string)),
 			)
 		}
@@ -750,7 +750,7 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	b.lruMtx.Unlock()
 	b.active[p] = active
 
-	b.log.Debug("blobovnicza succesfully activated",
+	b.log.Debug("blobovnicza successfully activated",
 		zap.String("path", path.Join(p, u64ToHexString(active.ind))),
 	)
 

@@ -135,7 +135,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 
 	err = t.Execute(buf, tmpl)
 	if err != nil {
-		return "", fmt.Errorf("generating config from tempalte: %w", err)
+		return "", fmt.Errorf("generating config from template: %w", err)
 	}
 
 	return buf.String(), nil
