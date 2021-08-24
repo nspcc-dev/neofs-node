@@ -88,6 +88,25 @@ func BoolSafe(c *Config, name string) bool {
 	return cast.ToBool(c.Value(name))
 }
 
+// Uint32 reads configuration value
+// from c by name and casts it to uint32.
+//
+// Panics if value can not be casted.
+func Uint32(c *Config, name string) uint32 {
+	x, err := cast.ToUint32E(c.Value(name))
+	panicOnErr(err)
+
+	return x
+}
+
+// Uint32Safe reads configuration value
+// from c by name and casts it to uint32.
+//
+// Returns 0 if value can not be casted.
+func Uint32Safe(c *Config, name string) uint32 {
+	return cast.ToUint32(c.Value(name))
+}
+
 // Uint reads configuration value
 // from c by name and casts it to uint64.
 //
