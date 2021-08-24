@@ -102,7 +102,7 @@ func (e *StorageEngine) List(limit uint64) (*SelectRes, error) {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
-	addrList := make([]*object.Address, limit)
+	addrList := make([]*object.Address, 0, limit)
 	uniqueMap := make(map[string]struct{})
 	ln := uint64(0)
 
