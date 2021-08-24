@@ -34,16 +34,21 @@ func TestContractsSection(t *testing.T) {
 	expReputation, err := util.Uint160DecodeStringLE("441995f631c1da2b133462b71859494a5cd45e90")
 	require.NoError(t, err)
 
+	expProxy, err := util.Uint160DecodeStringLE("ad7c6b55b737b696e5c82c85445040964a03e97f")
+	require.NoError(t, err)
+
 	var fileConfigTest = func(c *config.Config) {
 		balance := contractsconfig.Balance(c)
 		container := contractsconfig.Container(c)
 		netmap := contractsconfig.Netmap(c)
 		reputation := contractsconfig.Reputation(c)
+		proxy := contractsconfig.Proxy(c)
 
 		require.Equal(t, expBalance, balance)
 		require.Equal(t, expConatiner, container)
 		require.Equal(t, expNetmap, netmap)
 		require.Equal(t, expReputation, reputation)
+		require.Equal(t, expProxy, proxy)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
