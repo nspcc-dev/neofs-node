@@ -8,7 +8,6 @@ import (
 	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
 	rtpwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
@@ -50,12 +49,12 @@ func initReputationService(c *cfg) {
 	consumerStorage := consumerstorage.New(consumerstorage.Prm{})
 
 	// storing received daughter(of current node) trusts as a manager
-	daughterStorageWriterProvider := &intermediate.DaughterStorageWriterProvider{
+	daughterStorageWriterProvider := &intermediatereputation.DaughterStorageWriterProvider{
 		Log:     c.log,
 		Storage: daughterStorage,
 	}
 
-	consumerStorageWriterProvider := &intermediate.ConsumerStorageWriterProvider{
+	consumerStorageWriterProvider := &intermediatereputation.ConsumerStorageWriterProvider{
 		Log:     c.log,
 		Storage: consumerStorage,
 	}
@@ -136,15 +135,15 @@ func initReputationService(c *cfg) {
 			},
 			IntermediateValueTarget: intermediateTrustRouter,
 			WorkerPool:              c.cfgReputation.workerPool,
-			FinalResultTarget: intermediate.NewFinalWriterProvider(
-				intermediate.FinalWriterProviderPrm{
+			FinalResultTarget: intermediatereputation.NewFinalWriterProvider(
+				intermediatereputation.FinalWriterProviderPrm{
 					PrivatKey: &c.key.PrivateKey,
 					PubKey:    localKey,
 					Client:    wrap,
 				},
-				intermediate.FinalWriterWithLogger(c.log),
+				intermediatereputation.FinalWriterWithLogger(c.log),
 			),
-			DaughterTrustSource: &intermediate.DaughterTrustIteratorProvider{
+			DaughterTrustSource: &intermediatereputation.DaughterTrustIteratorProvider{
 				DaughterStorage: daughterStorage,
 				ConsumerStorage: consumerStorage,
 			},
@@ -154,7 +153,7 @@ func initReputationService(c *cfg) {
 
 	eigenTrustController := eigentrustctrl.New(
 		eigentrustctrl.Prm{
-			DaughtersTrustCalculator: &intermediate.DaughtersTrustCalculator{
+			DaughtersTrustCalculator: &intermediatereputation.DaughtersTrustCalculator{
 				Calculator: eigenTrustCalculator,
 			},
 			IterationsProvider: c.cfgNetmap.wrapper,

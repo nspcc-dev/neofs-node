@@ -23,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -236,13 +235,13 @@ func (b basicIncomeSettlementDeps) BasicRate() (uint64, error) {
 	return b.BasicIncomeRate()
 }
 
-func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*wrapper.Estimations, error) {
+func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*containerClient.Estimations, error) {
 	estimationIDs, err := b.cnrClient.ListLoadEstimationsByEpoch(epoch)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*wrapper.Estimations, 0, len(estimationIDs))
+	result := make([]*containerClient.Estimations, 0, len(estimationIDs))
 
 	for i := range estimationIDs {
 		estimation, err := b.cnrClient.GetUsedSpaceEstimations(estimationIDs[i])
