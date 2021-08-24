@@ -43,7 +43,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
-	util "github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
@@ -436,6 +436,7 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 	c.cfgNetmap.state.setNodeInfo(ni)
 }
 
+// bootstrap sets local node's netmap status to "online".
 func (c *cfg) bootstrap() error {
 	ni := c.cfgNodeInfo.localInfo
 	ni.SetState(netmap.NodeStateOnline)
