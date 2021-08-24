@@ -443,3 +443,8 @@ func (c *cfg) bootstrap() error {
 
 	return c.cfgNetmap.wrapper.AddPeer(&ni)
 }
+
+// needBootstrap checks if local node should be registered in network on bootup.
+func (c *cfg) needBootstrap() bool {
+	return c.cfgNetmap.needBootstrap
+}

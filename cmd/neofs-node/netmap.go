@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
@@ -113,7 +114,7 @@ func initNetmapService(c *cfg) {
 	})
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		if c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
+		if !c.needBootstrap() || c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
 			return
 		}
 
@@ -149,8 +150,10 @@ func initNetmapService(c *cfg) {
 func bootstrapNode(c *cfg) {
 	initState(c)
 
-	err := c.bootstrap()
-	fatalOnErrDetails("bootstrap error", err)
+	if c.needBootstrap() {
+		err := c.bootstrap()
+		fatalOnErrDetails("bootstrap error", err)
+	}
 }
 
 func addNetmapNotificationHandler(c *cfg, sTyp string, h event.Handler) {
@@ -228,7 +231,13 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 	)
 }
 
+var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
+
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
+	if !c.needBootstrap() {
+		return errRelayBootstrap
+	}
+
 	if st == control.NetmapStatus_ONLINE {
 		c.cfgNetmap.reBoostrapTurnedOff.Store(false)
 		return c.bootstrap()
