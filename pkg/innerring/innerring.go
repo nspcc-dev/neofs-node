@@ -429,33 +429,33 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee, cntWrapper.TryNotary())
+	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee, cntWrapper.TryNotary(), cntWrapper.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee, client.TryNotary())
+	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee, client.TryNotary(), client.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceWrapper.TryNotary())
+	server.balanceClient, err = balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceWrapper.TryNotary(), balanceWrapper.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	repClient, err := repWrapper.NewFromMorph(server.morphClient, server.contracts.reputation, fee, repWrapper.TryNotary())
+	repClient, err := repWrapper.NewFromMorph(server.morphClient, server.contracts.reputation, fee, repWrapper.TryNotary(), repWrapper.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	neofsIDClient, err := neofsidWrapper.NewFromMorph(server.morphClient, server.contracts.neofsID, fee, neofsidWrapper.TryNotary())
+	neofsIDClient, err := neofsidWrapper.NewFromMorph(server.morphClient, server.contracts.neofsID, fee, neofsidWrapper.TryNotary(), neofsidWrapper.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
 	neofsClient, err := neofsWrapper.NewFromMorph(server.mainnetClient, server.contracts.neofs,
-		server.feeConfig.MainChainFee(), neofsWrapper.TryNotary())
+		server.feeConfig.MainChainFee(), neofsWrapper.TryNotary(), neofsWrapper.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
