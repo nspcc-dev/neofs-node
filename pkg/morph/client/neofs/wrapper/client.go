@@ -34,6 +34,17 @@ func TryNotary() Option {
 	}
 }
 
+// AsAlphabet returns option to sign main TX
+// of notary requests with client's private
+// key.
+//
+// Considered to be used by IR nodes only.
+func AsAlphabet() Option {
+	return func(o *opts) {
+		*o = append(*o, client.AsAlphabet())
+	}
+}
+
 // NewFromMorph wraps client to work with NeoFS contract.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*ClientWrapper, error) {
 	o := defaultOpts()
