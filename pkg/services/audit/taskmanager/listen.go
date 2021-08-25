@@ -13,7 +13,7 @@ import (
 // The listener is terminated by context.
 func (m *Manager) Listen(ctx context.Context) {
 	m.log.Info("process routine",
-		zap.Uint32("queue capacity", m.queueCap),
+		zap.Uint32("queue_capacity", m.queueCap),
 	)
 
 	m.ch = make(chan *audit.Task, m.queueCap)
