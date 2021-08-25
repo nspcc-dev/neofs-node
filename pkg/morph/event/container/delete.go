@@ -18,7 +18,7 @@ type Delete struct {
 // MorphEvent implements Neo:Morph Event interface.
 func (Delete) MorphEvent() {}
 
-// Container is a marshalled container structure, defined in API.
+// ContainerID is a marshalled container structure, defined in API.
 func (d Delete) ContainerID() []byte { return d.containerID }
 
 // Signature of marshalled container by container owner.
