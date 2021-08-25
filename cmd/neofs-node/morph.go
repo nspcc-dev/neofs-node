@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	mainchainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/mainchain"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -19,7 +21,18 @@ import (
 	"go.uber.org/zap"
 )
 
-const newEpochNotification = "NewEpoch"
+const (
+	newEpochNotification = "NewEpoch"
+
+	// notaryDepositExtraBlocks is amount of extra blocks to overlap two deposits,
+	// we do that to make sure that there won't be any blocks without deposited
+	// assets in notary contract; make sure it is bigger than any extra rounding
+	// value in notary client.
+	notaryDepositExtraBlocks = 300
+
+	// amount of tries(blocks) before notary deposit timeout.
+	notaryDepositRetriesAmount
+)
 
 func initMorphComponents(c *cfg) {
 	var err error
@@ -62,8 +75,24 @@ func initMorphComponents(c *cfg) {
 	fn(morphconfig.RPCEndpoint(c.appCfg), morphconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
 		c.cfgMorph.client = cli
 
+		c.cfgMorph.notaryEnabled = cli.ProbeNotary()
+
+		if c.cfgMorph.notaryEnabled {
+			err = c.cfgMorph.client.EnableNotarySupport(
+				client.WithProxyContract(
+					contractsconfig.Proxy(c.appCfg),
+				),
+			)
+			fatalOnErr(err)
+
+			c.cfgMorph.notaryDepositAmount = morphconfig.Notary(c.appCfg).Amount()
+			c.cfgMorph.notaryDepositDuration = morphconfig.Notary(c.appCfg).Duration()
+
+			newDepositTimer(c)
+		}
+
 		c.log.Debug("notary support",
-			zap.Bool("sidechain_enabled", cli.ProbeNotary()),
+			zap.Bool("sidechain_enabled", c.cfgMorph.notaryEnabled),
 		)
 	})
 
@@ -83,6 +112,57 @@ func initMorphComponents(c *cfg) {
 
 	c.cfgObject.netMapSource = netmapSource
 	c.cfgNetmap.wrapper = wrap
+}
+
+func makeAndWaitNotaryDeposit(c *cfg) {
+	// skip notary deposit in non-notary environments
+	if !c.cfgMorph.notaryEnabled {
+		return
+	}
+
+	tx, err := makeNotaryDeposit(c)
+	fatalOnErr(err)
+
+	err = waitNotaryDeposit(c, tx)
+	fatalOnErr(err)
+}
+
+func makeNotaryDeposit(c *cfg) (util.Uint256, error) {
+	return c.cfgMorph.client.DepositNotary(
+		c.cfgMorph.notaryDepositAmount,
+		c.cfgMorph.notaryDepositDuration+notaryDepositExtraBlocks,
+	)
+}
+
+var (
+	errNotaryDepositFail    = errors.New("notary deposit tx has faulted")
+	errNotaryDepositTimeout = errors.New("notary deposit tx has not appeared in the network")
+)
+
+func waitNotaryDeposit(c *cfg, tx util.Uint256) error {
+	for i := 0; i < notaryDepositRetriesAmount; i++ {
+		select {
+		case <-c.ctx.Done():
+			return nil
+		default:
+		}
+
+		ok, err := c.cfgMorph.client.TxHalt(tx)
+		if err == nil {
+			if ok {
+				return nil
+			}
+
+			return errNotaryDepositFail
+		}
+
+		err = c.cfgMorph.client.Wait(c.ctx, 1)
+		if err != nil {
+			return fmt.Errorf("could not wait for one block in chain: %w", err)
+		}
+	}
+
+	return errNotaryDepositTimeout
 }
 
 func listenMorphNotifications(c *cfg) {
