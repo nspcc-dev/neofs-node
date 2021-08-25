@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
@@ -273,7 +274,26 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method s
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, contract, method, args...)
+	return c.notaryInvoke(false, true, contract, method, args...)
+}
+
+// NotaryInvokeNotAlpha does the same as NotaryInvoke but does not use client's
+// private key in Invocation script. It means that main TX of notary request is
+// not expected to be signed by the current node.
+//
+// Considered to be used by non-IR nodes.
+func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
+	if c.multiClient != nil {
+		return c.multiClient.iterateClients(func(c *Client) error {
+			return c.NotaryInvokeNotAlpha(contract, fee, method, args...)
+		})
+	}
+
+	if c.notary == nil {
+		return c.Invoke(contract, fee, method, args...)
+	}
+
+	return c.notaryInvoke(false, false, contract, method, args...)
 }
 
 func (c *Client) notaryInvokeAsCommittee(method string, args ...interface{}) error {
@@ -282,10 +302,10 @@ func (c *Client) notaryInvokeAsCommittee(method string, args ...interface{}) err
 		return err
 	}
 
-	return c.notaryInvoke(true, designate, method, args...)
+	return c.notaryInvoke(true, true, designate, method, args...)
 }
 
-func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method string, args ...interface{}) error {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, method string, args ...interface{}) error {
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err
@@ -322,7 +342,7 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 
 	// after test invocation we build main multisig transaction
 
-	multiaddrAccount, err := c.notaryMultisigAccount(alphabetList, committee)
+	multiaddrAccount, err := c.notaryMultisigAccount(alphabetList, committee, invokedByAlpha)
 	if err != nil {
 		return err
 	}
@@ -364,7 +384,7 @@ func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method stri
 	}
 
 	// define witnesses
-	mainTx.Scripts = c.notaryWitnesses(multiaddrAccount, mainTx)
+	mainTx.Scripts = c.notaryWitnesses(invokedByAlpha, multiaddrAccount, mainTx)
 
 	resp, err := c.client.SignAndPushP2PNotaryRequest(mainTx,
 		[]byte{byte(opcode.RET)},
@@ -444,7 +464,7 @@ func (c *Client) notaryAccounts(multiaddr *wallet.Account) []*wallet.Account {
 	return a
 }
 
-func (c *Client) notaryWitnesses(multiaddr *wallet.Account, tx *transaction.Transaction) []transaction.Witness {
+func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account, tx *transaction.Transaction) []transaction.Witness {
 	if multiaddr == nil || tx == nil {
 		return nil
 	}
@@ -459,11 +479,30 @@ func (c *Client) notaryWitnesses(multiaddr *wallet.Account, tx *transaction.Tran
 	})
 
 	// then we have inner ring multiaddress witness
-	w = append(w, transaction.Witness{
-		InvocationScript: append(
+
+	// invocation script should be of the form:
+	//		{ PUSHDATA1, 64, signatureBytes... }
+	// to pass Notary module verification
+	var invokeScript []byte
+
+	if invokedByAlpha {
+		invokeScript = append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
 			multiaddr.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), tx)...,
-		),
+		)
+	} else {
+		// we can't provide alphabet node signature
+		// because Storage Node doesn't own alphabet's
+		// private key. Thus, add dummy witness with
+		// empty bytes instead of signature
+		invokeScript = append(
+			[]byte{byte(opcode.PUSHDATA1), 64},
+			make([]byte, 64)...,
+		)
+	}
+
+	w = append(w, transaction.Witness{
+		InvocationScript:   invokeScript,
 		VerificationScript: multiaddr.GetVerificationScript(),
 	})
 
@@ -479,15 +518,33 @@ func (c *Client) notaryWitnesses(multiaddr *wallet.Account, tx *transaction.Tran
 	return w
 }
 
-func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee bool) (*wallet.Account, error) {
+func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedByAlpha bool) (*wallet.Account, error) {
 	m, _ := mn(ir, committee)
 
-	multisigAccount := wallet.NewAccountFromPrivateKey(c.acc.PrivateKey())
+	var multisigAccount *wallet.Account
 
-	err := multisigAccount.ConvertMultisig(m, ir)
-	if err != nil {
-		// wrap error as NeoFS-specific since the call is not related to any client
-		return nil, wrapNeoFSError(fmt.Errorf("can't make inner ring multisig wallet: %w", err))
+	if invokedByAlpha {
+		multisigAccount = wallet.NewAccountFromPrivateKey(c.acc.PrivateKey())
+		err := multisigAccount.ConvertMultisig(m, ir)
+		if err != nil {
+			// wrap error as NeoFS-specific since the call is not related to any client
+			return nil, wrapNeoFSError(fmt.Errorf("can't convert account to inner ring multisig wallet: %w", err))
+		}
+	} else {
+		script, err := smartcontract.CreateMultiSigRedeemScript(m, ir)
+		if err != nil {
+			// wrap error as NeoFS-specific since the call is not related to any client
+			return nil, wrapNeoFSError(fmt.Errorf("can't make inner ring multisig wallet: %w", err))
+		}
+
+		// alphabet multisig redeem script is
+		// used as verification script for
+		// inner ring multiaddress witness
+		multisigAccount = &wallet.Account{
+			Contract: &wallet.Contract{
+				Script: script,
+			},
+		}
 	}
 
 	return multisigAccount, nil
