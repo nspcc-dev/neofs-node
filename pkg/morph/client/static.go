@@ -17,6 +17,7 @@ import (
 // and can lead to panic.
 type StaticClient struct {
 	tryNotary bool
+	alpha     bool // use client's key to sign notary request's main TX
 
 	client *Client // neo-go client instance
 
@@ -27,6 +28,7 @@ type StaticClient struct {
 
 type staticOpts struct {
 	tryNotary bool
+	alpha     bool
 }
 
 // StaticClientOption allows to set an optional
@@ -35,14 +37,6 @@ type StaticClientOption func(*staticOpts)
 
 func defaultStaticOpts() *staticOpts {
 	return new(staticOpts)
-}
-
-// TryNotary returns option to enable
-// notary invocation tries.
-func TryNotary() StaticClientOption {
-	return func(o *staticOpts) {
-		o.tryNotary = true
-	}
 }
 
 // ErrNilStaticClient is returned by functions that expect
@@ -65,6 +59,7 @@ func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts 
 
 	return &StaticClient{
 		tryNotary:    o.tryNotary,
+		alpha:        o.alpha,
 		client:       client,
 		scScriptHash: scriptHash,
 		fee:          fee,
@@ -82,7 +77,11 @@ func (s StaticClient) Morph() *Client {
 // If TryNotary is provided, calls NotaryInvoke on Client.
 func (s StaticClient) Invoke(method string, args ...interface{}) error {
 	if s.tryNotary {
-		return s.client.NotaryInvoke(s.scScriptHash, s.fee, method, args...)
+		if s.alpha {
+			return s.client.NotaryInvoke(s.scScriptHash, s.fee, method, args...)
+		}
+
+		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, s.fee, method, args...)
 	}
 
 	return s.client.Invoke(
@@ -100,4 +99,23 @@ func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackite
 		method,
 		args...,
 	)
+}
+
+// TryNotary returns option to enable
+// notary invocation tries.
+func TryNotary() StaticClientOption {
+	return func(o *staticOpts) {
+		o.tryNotary = true
+	}
+}
+
+// AsAlphabet returns option to sign main TX
+// of notary requests with client's private
+// key.
+//
+// Considered to be used by IR nodes only.
+func AsAlphabet() StaticClientOption {
+	return func(o *staticOpts) {
+		o.alpha = true
+	}
 }
