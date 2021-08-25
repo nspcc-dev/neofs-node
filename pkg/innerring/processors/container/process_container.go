@@ -86,7 +86,15 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 }
 
 func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
-	err := cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), e.SessionToken())
+	var err error
+
+	if nr := e.NotaryRequest(); nr != nil {
+		// put event was received via Notary service
+		err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	} else {
+		// put event was received via notification service
+		err = cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), e.SessionToken())
+	}
 	if err != nil {
 		cp.log.Error("could not approve put container",
 			zap.String("error", err.Error()),
