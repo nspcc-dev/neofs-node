@@ -4,8 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Fixed
-- Work of a storage node with one Neo RPC endpoint instead of a list (#746).
-- Lack of support for HEAD operation on the object write cache (#762).
+- Work of a storage node with one Neo RPC endpoint instead of a list (#746)
+- Lack of support for HEAD operation on the object write cache (#762)
+
+### Changed
+- Reduce container creation delay via listening P2P notary pool (#519)
+
+### Upgrading from v0.24.0
+Added `NEOFS_CONTRACTS_PROXY` env for Storage Node; mandatory in
+notary enabled environments only. It should contain proxy contract's
+scripthash in side chain.
+Added `NEOFS_MORPH_NOTARY_DEPOSIT_AMOUNT` and
+`NEOFS_MORPH_NOTARY_DEPOSIT_DURATION` envs for Storage Node, that
+have default values, not required. They should contain notary deposit
+amount and frequency(in blocks) respectively.
 
 ## [0.24.0] - 2021-08-30 Anmyeondo (안면도, 安眠島)
 
