@@ -62,7 +62,26 @@ func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eacl.Heade
 				v: u64Value(obj.PayloadSize()),
 			},
 			oidHeader(addr.ObjectID()),
-			// TODO: add others fields after neofs-api#84
+			// object version
+			&sysObjHdr{
+				k: acl.FilterObjectVersion,
+				v: obj.Version().String(),
+			},
+			// payload hash
+			&sysObjHdr{
+				k: acl.FilterObjectPayloadHash,
+				v: obj.PayloadChecksum().String(),
+			},
+			// object type
+			&sysObjHdr{
+				k: acl.FilterObjectType,
+				v: obj.Type().String(),
+			},
+			// payload homomorphic hash
+			&sysObjHdr{
+				k: acl.FilterObjectHomomorphicHash,
+				v: obj.PayloadHomomorphicHash().String(),
+			},
 		)
 
 		attrs := obj.Attributes()
