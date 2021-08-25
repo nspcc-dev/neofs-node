@@ -97,7 +97,7 @@ func bootUp(c *cfg) {
 
 func wait(c *cfg) {
 	c.log.Info("application started",
-		zap.String("build time", misc.Build),
+		zap.String("build_time", misc.Build),
 		zap.String("version", misc.Version),
 		zap.String("debug", misc.Debug),
 	)
