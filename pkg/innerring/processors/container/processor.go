@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
@@ -28,6 +29,7 @@ type (
 		cnrClient         *wrapper.Wrapper // notary must be enabled
 		idClient          *neofsid.ClientWrapper
 		netState          NetworkState
+		notaryDisabled    bool
 	}
 
 	// Params of the processor constructor.
@@ -39,6 +41,7 @@ type (
 		ContainerClient   *wrapper.Wrapper
 		NeoFSIDClient     *neofsid.ClientWrapper
 		NetworkState      NetworkState
+		NotaryDisabled    bool
 	}
 )
 
@@ -89,6 +92,7 @@ func New(p *Params) (*Processor, error) {
 		cnrClient:         p.ContainerClient,
 		idClient:          p.NeoFSIDClient,
 		netState:          p.NetworkState,
+		notaryDisabled:    p.NotaryDisabled,
 	}, nil
 }
 
@@ -102,10 +106,12 @@ func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 
 	p.SetScriptHash(cp.containerContract)
 
-	// container put
-	p.SetType(event.TypeFromString(putNotification))
-	p.SetParser(containerEvent.ParsePut)
-	parsers = append(parsers, p)
+	if cp.notaryDisabled {
+		// container put
+		p.SetType(event.TypeFromString(putNotification))
+		p.SetParser(containerEvent.ParsePut)
+		parsers = append(parsers, p)
+	}
 
 	// container delete
 	p.SetType(event.TypeFromString(deleteNotification))
@@ -130,10 +136,12 @@ func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 
 	h.SetScriptHash(cp.containerContract)
 
-	// container put
-	h.SetType(event.TypeFromString(putNotification))
-	h.SetHandler(cp.handlePut)
-	handlers = append(handlers, h)
+	if cp.notaryDisabled {
+		// container put
+		h.SetType(event.TypeFromString(putNotification))
+		h.SetHandler(cp.handlePut)
+		handlers = append(handlers, h)
+	}
 
 	// container delete
 	h.SetType(event.TypeFromString(deleteNotification))
@@ -146,6 +154,30 @@ func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	handlers = append(handlers, h)
 
 	return handlers
+}
+
+// ListenerNotaryParsers for the 'event.Listener' notary event producer.
+func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
+	var p event.NotaryParserInfo
+
+	p.SetMempoolType(mempoolevent.TransactionAdded)
+	p.SetRequestType(containerEvent.PutNotaryEvent)
+	p.SetScriptHash(cp.containerContract)
+	p.SetParser(containerEvent.ParsePutNotary)
+
+	return []event.NotaryParserInfo{p}
+}
+
+// ListenerNotaryHandlers for the 'event.Listener' notary event producer.
+func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
+	var h event.NotaryHandlerInfo
+
+	h.SetMempoolType(mempoolevent.TransactionAdded)
+	h.SetRequestType(containerEvent.PutNotaryEvent)
+	h.SetScriptHash(cp.containerContract)
+	h.SetHandler(cp.handlePut)
+
+	return []event.NotaryHandlerInfo{h}
 }
 
 // TimersHandlers for the 'Timers' event producer.

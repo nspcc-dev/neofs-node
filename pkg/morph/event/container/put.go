@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -14,6 +15,10 @@ type Put struct {
 	signature    []byte
 	publicKey    []byte
 	token        []byte
+
+	// For notary notifications only.
+	// Contains raw transactions of notary request.
+	notaryRequest *payload.P2PNotaryRequest
 }
 
 const expectedItemNumPut = 4
@@ -34,6 +39,12 @@ func (p Put) PublicKey() []byte { return p.publicKey }
 // within which the container was created.
 func (p Put) SessionToken() []byte {
 	return p.token
+}
+
+// NotaryRequest returns raw notary request if notification
+// was received via notary service. Otherwise, returns nil.
+func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
+	return p.notaryRequest
 }
 
 // ParsePut from notification into container event structure.
