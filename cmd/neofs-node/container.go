@@ -41,7 +41,7 @@ const (
 )
 
 func initContainerService(c *cfg) {
-	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
+	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, wrapper.TryNotary())
 	fatalOnErr(err)
 
 	cnrSrc := wrapper.AsContainerSource(wrap)
