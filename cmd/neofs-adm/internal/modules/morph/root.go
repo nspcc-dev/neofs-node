@@ -30,6 +30,7 @@ const (
 	containerDumpFlag     = "dump"
 	containerContractFlag = "container-contract"
 	containerIDsFlag      = "cid"
+	refillGasAmountFlag   = "gas"
 )
 
 var (
@@ -75,6 +76,19 @@ var (
 			_ = viper.BindPFlag(storageGasConfigFlag, cmd.Flags().Lookup(storageGasCLIFlag))
 		},
 		RunE: generateStorageCreds,
+	}
+
+	refillGasCmd = &cobra.Command{
+		Use:   "refill-gas",
+		Short: "Refill GAS of storage node's wallet in the morph network",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+			_ = viper.BindPFlag(refillGasAmountFlag, cmd.Flags().Lookup(refillGasAmountFlag))
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return refillGas(cmd, refillGasAmountFlag, false)
+		},
 	}
 
 	forceNewEpoch = &cobra.Command{
@@ -179,4 +193,10 @@ func init() {
 	restoreContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	restoreContainersCmd.Flags().String(containerDumpFlag, "", "file to restore containers from")
 	restoreContainersCmd.Flags().StringSlice(containerIDsFlag, nil, "containers to restore")
+
+	RootCmd.AddCommand(refillGasCmd)
+	refillGasCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
+	refillGasCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	refillGasCmd.Flags().String(storageWalletFlag, "", "path to storage node wallet")
+	refillGasCmd.Flags().String(refillGasAmountFlag, "", "additional amount of GAS to transfer")
 }

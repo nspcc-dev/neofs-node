@@ -117,7 +117,11 @@ func addMultisigAccount(w *wallet.Wallet, m int, name, password string, pubs key
 	return nil
 }
 
-func generateStorageCreds(cmd *cobra.Command, args []string) error {
+func generateStorageCreds(cmd *cobra.Command, _ []string) error {
+	return refillGas(cmd, storageGasConfigFlag, true)
+}
+
+func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 	// storage wallet path is not part of the config
 	storageWalletPath, err := cmd.Flags().GetString(storageWalletFlag)
 	if err != nil {
@@ -127,24 +131,30 @@ func generateStorageCreds(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
 	}
 
-	w, err := wallet.NewWallet(storageWalletPath)
+	var w *wallet.Wallet
+
+	if createWallet {
+		w, err = wallet.NewWallet(storageWalletPath)
+	} else {
+		w, err = wallet.NewWalletFromFile(storageWalletPath)
+	}
+
 	if err != nil {
 		return fmt.Errorf("can't create wallet: %w", err)
 	}
 
-	password, err := input.ReadPassword("New password > ")
-	if err != nil {
-		return fmt.Errorf("can't fetch password: %w", err)
+	if createWallet {
+		password, err := input.ReadPassword("New password > ")
+		if err != nil {
+			return fmt.Errorf("can't fetch password: %w", err)
+		}
+
+		if err := w.CreateAccount(singleAccountName, password); err != nil {
+			return fmt.Errorf("can't create account: %w", err)
+		}
 	}
 
-	if err := w.CreateAccount(singleAccountName, password); err != nil {
-		return fmt.Errorf("can't create account: %w", err)
-	}
-
-	gasStr := viper.GetString(storageGasConfigFlag)
-	if gasStr == "" {
-		return nil
-	}
+	gasStr := viper.GetString(gasFlag)
 
 	gasAmount, err := fixedn.Fixed8FromString(gasStr)
 	if err != nil {
