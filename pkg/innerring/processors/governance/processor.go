@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -59,6 +60,8 @@ type (
 		morphClient   *client.Client
 
 		notaryDisabled bool
+
+		designate util.Uint160
 	}
 
 	// Params of the processor constructor.
@@ -103,6 +106,12 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/governance: can't create worker pool: %w", err)
 	}
 
+	// result is cached by neo-go, so we can pre-calc it
+	designate, err := p.MainnetClient.GetDesignateHash()
+	if err != nil {
+		return nil, fmt.Errorf("could not get designate hash: %w", err)
+	}
+
 	return &Processor{
 		log:            p.Log,
 		pool:           pool,
@@ -115,13 +124,14 @@ func New(p *Params) (*Processor, error) {
 		mainnetClient:  p.MainnetClient,
 		morphClient:    p.MorphClient,
 		notaryDisabled: p.NotaryDisabled,
+		designate:      designate,
 	}, nil
 }
 
 // ListenerParsers for the 'event.Listener' event producer.
 func (gp *Processor) ListenerParsers() []event.ParserInfo {
 	var pi event.ParserInfo
-	pi.SetScriptHash(gp.mainnetClient.GetDesignateHash())
+	pi.SetScriptHash(gp.designate)
 	pi.SetType(event.TypeFromString(native.DesignationEventName))
 	pi.SetParser(rolemanagement.ParseDesignate)
 	return []event.ParserInfo{pi}
@@ -130,7 +140,7 @@ func (gp *Processor) ListenerParsers() []event.ParserInfo {
 // ListenerHandlers for the 'event.Listener' event producer.
 func (gp *Processor) ListenerHandlers() []event.HandlerInfo {
 	var hi event.HandlerInfo
-	hi.SetScriptHash(gp.mainnetClient.GetDesignateHash())
+	hi.SetScriptHash(gp.designate)
 	hi.SetType(event.TypeFromString(native.DesignationEventName))
 	hi.SetHandler(gp.HandleAlphabetSync)
 	return []event.HandlerInfo{hi}

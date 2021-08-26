@@ -866,13 +866,20 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 }
 
 func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
+	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
+	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.client")
+	if len(endpoints) == 0 {
+		return nil, fmt.Errorf("%s chain client endpoints not provided", p.name)
+	}
+
 	return client.New(
 		p.key,
-		p.cfg.GetString(p.name+".endpoint.client"),
+		endpoints[0],
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
 		client.WithSigner(p.sgn),
+		client.WithExtraEndpoints(endpoints[1:]),
 	)
 }
 

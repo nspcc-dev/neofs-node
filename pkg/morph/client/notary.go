@@ -75,16 +75,25 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 		opt(cfg)
 	}
 
-	notaryContract, err := c.client.GetNativeContractHash(nativenames.Notary)
-	if err != nil {
-		return fmt.Errorf("can't get notary contract script hash: %w", err)
-	}
-
 	if cfg.proxy.Equals(util.Uint160{}) {
 		return errors.New("proxy contract hash is missing")
 	}
 
-	c.notary = &notary{
+	var (
+		notaryContract util.Uint160
+		err            error
+	)
+
+	if err = c.iterateClients(func(c *Client) error {
+		notaryContract, err = c.client.GetNativeContractHash(nativenames.Notary)
+		return err
+	}); err != nil {
+		return fmt.Errorf("can't get notary contract script hash: %w", err)
+	}
+
+	c.clientsMtx.Lock()
+
+	c.sharedNotary = &notary{
 		notary:         notaryContract,
 		proxy:          cfg.proxy,
 		txValidTime:    cfg.txValidTime,
@@ -93,17 +102,27 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 		alphabetSource: cfg.alphabetSource,
 	}
 
+	// update client cache
+	for _, cached := range c.clients {
+		cached.notary = c.sharedNotary
+	}
+
+	c.clientsMtx.Unlock()
+
 	return nil
 }
 
-// NotaryEnabled returns true if notary support was enabled in this instance
-// of client by providing notary options on client creation. Otherwise returns false.
-func (c *Client) NotaryEnabled() bool {
-	return c.notary != nil
-}
-
 // ProbeNotary checks if native `Notary` contract is presented on chain.
-func (c *Client) ProbeNotary() bool {
+func (c *Client) ProbeNotary() (res bool) {
+	if c.multiClient != nil {
+		_ = c.multiClient.iterateClients(func(c *Client) error {
+			res = c.ProbeNotary()
+			return nil
+		})
+
+		return
+	}
+
 	_, err := c.client.GetNativeContractHash(nativenames.Notary)
 	return err == nil
 }
@@ -115,7 +134,14 @@ func (c *Client) ProbeNotary() bool {
 // use this function.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (util.Uint256, error) {
+func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uint256, err error) {
+	if c.multiClient != nil {
+		return res, c.multiClient.iterateClients(func(c *Client) error {
+			res, err = c.DepositNotary(amount, delta)
+			return err
+		})
+	}
+
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
@@ -150,7 +176,14 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (util.Uint256
 // Notary support should be enabled in client to use this function.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) GetNotaryDeposit() (int64, error) {
+func (c *Client) GetNotaryDeposit() (res int64, err error) {
+	if c.multiClient != nil {
+		return res, c.multiClient.iterateClients(func(c *Client) error {
+			res, err = c.GetNotaryDeposit()
+			return err
+		})
+	}
+
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
@@ -179,11 +212,17 @@ func (c *Client) GetNotaryDeposit() (int64, error) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
+	if c.multiClient != nil {
+		return c.multiClient.iterateClients(func(c *Client) error {
+			return c.UpdateNotaryList(list)
+		})
+	}
+
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	return c.notaryInvokeAsCommittee(c.designate,
+	return c.notaryInvokeAsCommittee(
 		setDesignateMethod,
 		noderoles.P2PNotary,
 		list,
@@ -196,11 +235,17 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
+	if c.multiClient != nil {
+		return c.multiClient.iterateClients(func(c *Client) error {
+			return c.UpdateNeoFSAlphabetList(list)
+		})
+	}
+
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	return c.notaryInvokeAsCommittee(c.designate,
+	return c.notaryInvokeAsCommittee(
 		setDesignateMethod,
 		noderoles.NeoFSAlphabet,
 		list,
@@ -213,6 +258,12 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
+	if c.multiClient != nil {
+		return c.multiClient.iterateClients(func(c *Client) error {
+			return c.NotaryInvoke(contract, fee, method, args...)
+		})
+	}
+
 	if c.notary == nil {
 		return c.Invoke(contract, fee, method, args...)
 	}
@@ -220,8 +271,13 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method s
 	return c.notaryInvoke(false, contract, method, args...)
 }
 
-func (c *Client) notaryInvokeAsCommittee(contract util.Uint160, method string, args ...interface{}) error {
-	return c.notaryInvoke(true, contract, method, args...)
+func (c *Client) notaryInvokeAsCommittee(method string, args ...interface{}) error {
+	designate, err := c.GetDesignateHash()
+	if err != nil {
+		return err
+	}
+
+	return c.notaryInvoke(true, designate, method, args...)
 }
 
 func (c *Client) notaryInvoke(committee bool, contract util.Uint160, method string, args ...interface{}) error {

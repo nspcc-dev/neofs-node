@@ -30,21 +30,21 @@ func initMorphComponents(c *cfg) {
 			addresses[i], addresses[j] = addresses[j], addresses[i]
 		})
 
-		for i := range addresses {
-			cli, err := client.New(c.key, addresses[i], client.WithDialTimeout(dialTimeout))
-			if err == nil {
-				c.log.Info("neo RPC connection established",
-					zap.String("endpoint", addresses[i]))
+		cli, err := client.New(c.key, addresses[0],
+			client.WithDialTimeout(dialTimeout),
+			client.WithLogger(c.log),
+			client.WithExtraEndpoints(addresses[1:]),
+		)
+		if err == nil {
+			handler(cli)
 
-				handler(cli)
-
-				break
-			}
-
-			c.log.Info("failed to establish neo RPC connection, trying another",
-				zap.String("endpoint", addresses[i]),
-				zap.String("error", err.Error()))
+			return
 		}
+
+		c.log.Info("failed to create neo RPC client",
+			zap.Any("endpoints", addresses),
+			zap.String("error", err.Error()),
+		)
 
 		fatalOnErr(err)
 	}
