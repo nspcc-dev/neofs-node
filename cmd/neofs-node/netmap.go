@@ -261,14 +261,19 @@ type netInfo struct {
 	netState netmap.State
 
 	magic interface {
-		MagicNumber() uint64
+		MagicNumber() (uint64, error)
 	}
 }
 
 func (n *netInfo) Dump() (*netmapV2.NetworkInfo, error) {
+	magic, err := n.magic.MagicNumber()
+	if err != nil {
+		return nil, err
+	}
+
 	ni := new(netmapV2.NetworkInfo)
 	ni.SetCurrentEpoch(n.netState.CurrentEpoch())
-	ni.SetMagicNumber(n.magic.MagicNumber())
+	ni.SetMagicNumber(magic)
 
 	return ni, nil
 }

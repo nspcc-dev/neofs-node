@@ -390,22 +390,15 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 // to which the underlying RPC node client is connected.
 //
 // Returns 0 in case of connection problems.
-func (c *Client) MagicNumber() (res uint64) {
+func (c *Client) MagicNumber() (res uint64, err error) {
 	if c.multiClient != nil {
-		err := c.multiClient.iterateClients(func(c *Client) error {
-			res = c.MagicNumber()
-			return nil
+		return res, c.multiClient.iterateClients(func(c *Client) error {
+			res, err = c.MagicNumber()
+			return err
 		})
-		if err != nil {
-			c.logger.Debug("iterate over client failure",
-				zap.String("error", err.Error()),
-			)
-		}
-
-		return
 	}
 
-	return uint64(c.client.GetNetwork())
+	return uint64(c.client.GetNetwork()), nil
 }
 
 // BlockCount returns block count of the network
