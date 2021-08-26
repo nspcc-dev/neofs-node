@@ -60,14 +60,6 @@ func (x *Config) MemSize() uint64 {
 	return MemSizeDefault
 }
 
-// MaxDBSize returns value of "db_size" config parameter.
-func (x *Config) MaxDBSize() uint64 {
-	return config.UintSafe(
-		(*config.Config)(x),
-		"db_size",
-	)
-}
-
 // SmallObjectSize returns value of "small_size" config parameter.
 //
 // Returns SmallSizeDefault if value is not a positive number.
