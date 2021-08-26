@@ -4,10 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -30,6 +28,8 @@ type cfg struct {
 	waitInterval time.Duration
 
 	signer *transaction.Signer
+
+	extraEndpoints []string
 }
 
 const (
@@ -69,8 +69,6 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		panic("empty private key")
 	}
 
-	account := wallet.NewAccountFromPrivateKey(key)
-
 	// build default configuration
 	cfg := defaultConfig()
 
@@ -79,39 +77,16 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		opt(cfg)
 	}
 
-	cli, err := client.New(cfg.ctx, endpoint, client.Options{
-		DialTimeout: cfg.dialTimeout,
-	})
-	if err != nil {
-		return nil, err
-	}
+	endpoints := append(cfg.extraEndpoints, endpoint)
 
-	err = cli.Init() // magic number is set there based on RPC node answer
-	if err != nil {
-		return nil, err
-	}
-
-	gas, err := cli.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return nil, err
-	}
-
-	designate, err := cli.GetNativeContractHash(nativenames.Designation)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{
-		logger:       cfg.logger,
-		client:       cli,
-		acc:          account,
-		gas:          gas,
-		designate:    designate,
-		waitInterval: cfg.waitInterval,
-		signer:       cfg.signer,
-	}
-
-	return c, nil
+	return &Client{
+		multiClient: &multiClient{
+			cfg:       *cfg,
+			account:   wallet.NewAccountFromPrivateKey(key),
+			endpoints: endpoints,
+			clients:   make(map[string]*Client, len(endpoints)),
+		},
+	}, nil
 }
 
 // WithContext returns a client constructor option that
@@ -167,5 +142,13 @@ func WithSigner(signer *transaction.Signer) Option {
 		if signer != nil {
 			c.signer = signer
 		}
+	}
+}
+
+// WithExtraEndpoints returns a client constructor option
+// that specifies additional Neo rpc endpoints.
+func WithExtraEndpoints(endpoints []string) Option {
+	return func(c *cfg) {
+		c.extraEndpoints = append(c.extraEndpoints, endpoints...)
 	}
 }
