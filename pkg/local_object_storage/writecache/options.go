@@ -20,9 +20,6 @@ type options struct {
 	// maxMemSize is the maximum total size of all objects cached in memory.
 	// 1 GiB by default.
 	maxMemSize uint64
-	// maxDBSize is the maximum size of database in bytes.
-	// Unrestricted by default.
-	maxDBSize uint64
 	// maxObjectSize is the maximum size of the object stored in the write-cache.
 	maxObjectSize uint64
 	// smallObjectSize is the maximum size of the object stored in the database.
@@ -63,13 +60,6 @@ func WithMetabase(db *meta.DB) Option {
 func WithMaxMemSize(sz uint64) Option {
 	return func(o *options) {
 		o.maxMemSize = sz
-	}
-}
-
-// WithMaxDBSize sets maximum size for on-disk DB.
-func WithMaxDBSize(sz uint64) Option {
-	return func(o *options) {
-		o.maxDBSize = sz
 	}
 }
 

@@ -100,7 +100,6 @@
         "writecache": {
           "path": "tmp/0/cache",
           "mem_size": 2147483648,
-          "db_size": 2147483648,
           "small_size": 16384,
           "max_size": 134217728,
           "workers_number": 30
@@ -132,7 +131,6 @@
         "writecache": {
           "path": "tmp/1/cache",
           "mem_size": 2147483648,
-          "db_size": 2147483648,
           "small_size": 16384,
           "max_size": 134217728,
           "workers_number": 30

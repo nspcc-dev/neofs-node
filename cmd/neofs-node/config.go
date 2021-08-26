@@ -348,7 +348,6 @@ func initShardOptions(c *cfg) {
 				writecache.WithMaxMemSize(writeCacheCfg.MemSize()),
 				writecache.WithMaxObjectSize(writeCacheCfg.MaxObjectSize()),
 				writecache.WithSmallObjectSize(writeCacheCfg.SmallObjectSize()),
-				writecache.WithMaxDBSize(writeCacheCfg.MaxDBSize()),
 				writecache.WithFlushWorkersCount(writeCacheCfg.WorkersNumber()),
 			}
 		}
