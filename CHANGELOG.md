@@ -3,6 +3,37 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.24.0] - 2021-08-30 Anmyeondo (안면도, 安眠島)
+
+### Fixed
+- Linter warning messages (#766)
+- Storage Node does not register itself in network in relay mode now (#761)
+
+### Changed
+- `neofs-adm` fails when is called in a notary-disabled environment (#757)
+- `neofs-adm` uses `neo-go` client's native NNS resolving method instead of the custom one (#756)
+- Node selects pseudo-random list of objects from metabase for replication (#715)
+
+### Added
+- Contract update support in `neofs-adm` utility (#748)
+- Container transferring support in `neofs-adm` utility (#755)
+- Storage Node's balance refilling support in `neofs-adm` utility (#758)
+- Support `COMMON_PREFIX` filter for object attributes in storage engine and `neofs-cli` (#760) 
+- Node's and IR's notary status debug message on startup (#758)
+- Go `1.17` unit tests in CI (#766)
+- Supporting all eACL filter fields from the specification (#768)
+- Cache for Container service's read operations (#676)
+
+### Updated
+- `neofs-api-go` library to `v1.29.0`
+
+### Removed
+- Unused `DB_SIZE` parameter of writecache (#773)
+
+### Upgrading from v0.23.1
+Storage Node does not read unused `NEOFS_STORAGE_SHARD_XXX_WRITECACHE_DB_SIZE`
+config parameter anymore.
+
 ## [0.23.1] - 2021-08-06
 
 N3 Mainnet launch release with minor fixes.
@@ -553,7 +584,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.0...master
+[0.24.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.3...v0.23.0
 [0.22.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.2...v0.22.3
