@@ -364,20 +364,6 @@ func initObjectService(c *cfg) {
 		respSvc,
 	)
 
-	var (
-		eACLSource  eacl.Source
-		eACLFetcher = &morphEACLFetcher{
-			w: c.cfgObject.cnrClient,
-		}
-	)
-
-	if c.cfgMorph.disableCache {
-		eACLSource = eACLFetcher
-	} else {
-		// use RPC node as source of eACL (with caching)
-		eACLSource = newCachedEACLStorage(eACLFetcher)
-	}
-
 	aclSvc := acl.New(
 		acl.WithSenderClassifier(
 			acl.NewSenderClassifier(
@@ -392,7 +378,7 @@ func initObjectService(c *cfg) {
 		acl.WithNextService(signSvc),
 		acl.WithLocalStorage(ls),
 		acl.WithEACLValidatorOptions(
-			eacl.WithEACLSource(eACLSource),
+			eacl.WithEACLSource(c.cfgObject.eaclSource),
 			eacl.WithLogger(c.log),
 		),
 		acl.WithNetmapState(c.cfgNetmap.state),

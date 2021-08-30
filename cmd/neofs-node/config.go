@@ -31,7 +31,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	cntwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -39,6 +38,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
@@ -171,7 +171,7 @@ type cfgObject struct {
 
 	cnrSource container.Source
 
-	cnrClient *cntwrapper.Wrapper
+	eaclSource eacl.Source
 
 	pool cfgObjectRoutines
 
