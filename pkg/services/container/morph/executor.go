@@ -14,15 +14,30 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 )
 
 type morphExecutor struct {
 	wrapper *wrapper.Wrapper
+
+	rdr Reader
 }
 
-func NewExecutor(w *wrapper.Wrapper) containerSvc.ServiceExecutor {
+// Reader is an interface of read-only container storage.
+type Reader interface {
+	containercore.Source
+	eacl.Source
+
+	// List returns a list of container identifiers belonging
+	// to the specified owner of NeoFS system. Returns the identifiers
+	// of all NeoFS containers if pointer to owner identifier is nil.
+	List(*owner.ID) ([]*cid.ID, error)
+}
+
+func NewExecutor(w *wrapper.Wrapper, rdr Reader) containerSvc.ServiceExecutor {
 	return &morphExecutor{
 		wrapper: w,
+		rdr:     rdr,
 	}
 }
 
@@ -70,7 +85,7 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
 	id := cid.NewFromV2(body.GetContainerID())
 
-	cnr, err := wrapper.Get(s.wrapper, id)
+	cnr, err := s.rdr.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +101,7 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBody) (*container.ListResponseBody, error) {
 	oid := owner.NewIDFromV2(body.GetOwnerID())
 
-	cnrs, err := s.wrapper.List(oid)
+	cnrs, err := s.rdr.List(oid)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +135,7 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
 	id := cid.NewFromV2(body.GetContainerID())
 
-	table, err := s.wrapper.GetEACL(id)
+	table, err := s.rdr.GetEACL(id)
 	if err != nil {
 		return nil, err
 	}

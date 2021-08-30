@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"strconv"
 
+	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -28,6 +30,7 @@ import (
 	placementrouter "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route/placement"
 	loadstorage "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/storage"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -43,16 +46,26 @@ func initContainerService(c *cfg) {
 
 	cnrSrc := wrapper.AsContainerSource(wrap)
 
-	var containerSource containerCore.Source
-
-	if c.cfgMorph.disableCache {
-		containerSource = cnrSrc
-	} else {
-		containerSource = newCachedContainerStorage(cnrSrc) // use RPC node as source of containers (with caching)
+	eACLFetcher := &morphEACLFetcher{
+		w: wrap,
 	}
 
-	c.cfgObject.cnrSource = containerSource
-	c.cfgObject.cnrClient = wrap
+	cnrRdr := new(morphContainerReader)
+
+	if c.cfgMorph.disableCache {
+		c.cfgObject.eaclSource = eACLFetcher
+		cnrRdr.eacl = eACLFetcher
+		c.cfgObject.cnrSource = cnrSrc
+		cnrRdr.get = cnrSrc
+		cnrRdr.lister = wrap
+	} else {
+		// use RPC node as source of Container contract items (with caching)
+		c.cfgObject.eaclSource = newCachedEACLStorage(eACLFetcher)
+		c.cfgObject.cnrSource = newCachedContainerStorage(cnrSrc)
+		cnrRdr.lister = newCachedContainerLister(wrap)
+		cnrRdr.eacl = c.cfgObject.eaclSource
+		cnrRdr.get = c.cfgObject.cnrSource
+	}
 
 	localMetrics := &localStorageLoad{
 		log:    c.log,
@@ -122,7 +135,7 @@ func initContainerService(c *cfg) {
 			&c.key.PrivateKey,
 			containerService.NewResponseService(
 				&usedSpaceService{
-					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap)),
+					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap, cnrRdr)),
 					loadWriterProvider:   loadRouter,
 					loadPlacementBuilder: loadPlacementBuilder,
 					routeBuilder:         routeBuilder,
@@ -480,4 +493,27 @@ func (c *usedSpaceService) processLoadValue(ctx context.Context, a containerSDK.
 	}
 
 	return nil
+}
+
+// implements interface required by container service provided by morph executor.
+type morphContainerReader struct {
+	eacl eacl.Source
+
+	get containerCore.Source
+
+	lister interface {
+		List(*owner.ID) ([]*cid.ID, error)
+	}
+}
+
+func (x *morphContainerReader) Get(id *cid.ID) (*containerSDK.Container, error) {
+	return x.get.Get(id)
+}
+
+func (x *morphContainerReader) GetEACL(id *cid.ID) (*eaclSDK.Table, error) {
+	return x.eacl.GetEACL(id)
+}
+
+func (x *morphContainerReader) List(id *owner.ID) ([]*cid.ID, error) {
+	return x.lister.List(id)
 }

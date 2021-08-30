@@ -9,8 +9,10 @@ import (
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 )
 
@@ -226,4 +228,50 @@ func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.Netmap, err
 
 func (s *lruNetmapSource) Epoch() (uint64, error) {
 	return s.netState.CurrentEpoch(), nil
+}
+
+// wrapper over TTL cache of values read from the network
+// that implements container lister.
+type ttlContainerLister ttlNetCache
+
+func newCachedContainerLister(w *wrapper.Wrapper) *ttlContainerLister {
+	const (
+		containerListerCacheSize = 100
+		containerListerCacheTTL  = 30 * time.Second
+	)
+
+	lruCnrListerCache := newNetworkTTLCache(containerListerCacheSize, containerListerCacheTTL, func(key interface{}) (interface{}, error) {
+		var (
+			id    *owner.ID
+			strID = key.(string)
+		)
+
+		if strID != "" {
+			id = owner.NewID()
+
+			err := id.Parse(strID)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return w.List(id)
+	})
+
+	return (*ttlContainerLister)(lruCnrListerCache)
+}
+
+func (s *ttlContainerLister) List(id *owner.ID) ([]*cid.ID, error) {
+	var str string
+
+	if id != nil {
+		str = id.String()
+	}
+
+	val, err := (*ttlNetCache)(s).get(str)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.([]*cid.ID), nil
 }
