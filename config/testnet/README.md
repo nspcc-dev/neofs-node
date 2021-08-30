@@ -14,7 +14,7 @@ However, if you need to rebuild it for some reason, run
 $ make image-storage-testnet
 ...
 Successfully built ab0557117b02
-Successfully tagged nspccdev/neofs-storage-testnet:0.22.2
+Successfully tagged nspccdev/neofs-storage-testnet:0.24.0
 ```
 
 ## Deploy node
