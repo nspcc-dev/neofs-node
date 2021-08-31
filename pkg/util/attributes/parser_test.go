@@ -25,7 +25,6 @@ func TestParseV2Attributes(t *testing.T) {
 		bad := append(good, "StorageType:SSD/Cell:QLC")
 		_, err = attributes.ParseV2Attributes(bad, nil)
 		require.Error(t, err)
-
 	})
 
 	t.Run("malformed", func(t *testing.T) {
@@ -68,5 +67,31 @@ func TestParseV2Attributes(t *testing.T) {
 		require.Equal(t, attrs[0].Value(), `V/alue\`)
 		require.Equal(t, attrs[1].Key(), `Ke/y2`)
 		require.Equal(t, attrs[1].Value(), `Va:lue`)
+	})
+
+	t.Run("same attributes", func(t *testing.T) {
+		from := []string{"/a:b", "/a:b"}
+		attrs, err := attributes.ParseV2Attributes(from, nil)
+		require.NoError(t, err)
+		require.Len(t, attrs, 1)
+	})
+
+	t.Run("multiple parents", func(t *testing.T) {
+		from := []string{
+			"/parent1:x/child:x",
+			"/parent2:x/child:x",
+			"/parent2:x/child:x/subchild:x",
+		}
+		attrs, err := attributes.ParseV2Attributes(from, nil)
+		require.NoError(t, err)
+
+		var flag bool
+		for _, attr := range attrs {
+			if attr.Key() == "child" {
+				flag = true
+				require.Equal(t, attr.ParentKeys(), []string{"parent1", "parent2"})
+			}
+		}
+		require.True(t, flag)
 	})
 }

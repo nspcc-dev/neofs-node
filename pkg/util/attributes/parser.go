@@ -48,7 +48,8 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 			key := pair[0]
 			value := pair[1]
 
-			if at, ok := cache[key]; ok && at.Value() != value {
+			attribute, present := cache[key]
+			if present && attribute.Value() != value {
 				return nil, errNonUniqueBucket
 			}
 
@@ -56,20 +57,26 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 				return nil, errUnexpectedKey
 			}
 
-			// replace non-printable symbols with escaped symbols without escape character
-			key = replaceEscaping(key, true)
-			value = replaceEscaping(value, true)
+			if !present {
+				// replace non-printable symbols with escaped symbols without escape character
+				key = replaceEscaping(key, true)
+				value = replaceEscaping(value, true)
 
-			attribute := netmap.NewNodeAttribute()
-			attribute.SetKey(key)
-			attribute.SetValue(value)
+				attribute = netmap.NewNodeAttribute()
+				attribute.SetKey(key)
+				attribute.SetValue(value)
+
+				cache[key] = attribute
+			}
 
 			if parentKey != "" {
-				attribute.SetParentKeys(parentKey)
+				parentKeys := attribute.ParentKeys()
+				if !hasString(parentKeys, parentKey) {
+					attribute.SetParentKeys(append(parentKeys, parentKey)...)
+				}
 			}
 
 			parentKey = key
-			cache[key] = attribute
 		}
 	}
 
@@ -105,4 +112,13 @@ func replaceEscaping(target string, rollback bool) (s string) {
 	s = strings.ReplaceAll(s, oldKVSep, newKVSep)
 
 	return
+}
+
+func hasString(lst []string, v string) bool {
+	for i := range lst {
+		if lst[i] == v {
+			return true
+		}
+	}
+	return false
 }
