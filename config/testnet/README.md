@@ -1,7 +1,7 @@
 # N3 Testnet Storage node configuration
 
 There is a prepared configuration for NeoFS Storage Node deployment in
-N3 testnet RC3. The easiest way to deploy Storage Node is to use prepared
+N3 Testnet. The easiest way to deploy Storage Node is to use prepared
 docker image and run it with docker-compose.
 
 ## Build image
@@ -19,7 +19,7 @@ Successfully tagged nspccdev/neofs-storage-testnet:0.24.0
 
 ## Deploy node
 
-To run storage node in N3 testnet RC3 environment you should deposit GAS assets, 
+To run storage node in N3 Testnet environment you should deposit GAS assets, 
 update docker-compose file and start the node.
 
 ### Deposit
@@ -27,22 +27,22 @@ update docker-compose file and start the node.
 Storage Node owner should deposit GAS to NeoFS smart contract. It generates a 
 bit of side chain GAS in node's wallet. Side chain GAS used to send bootstrap tx. 
 
-First obtain GAS in N3 testnet RC3 chain. You can do that with
+First obtain GAS in N3 Testnet chain. You can do that with
 [faucet](https://neowish.ngd.network) service.
 
-Then make a deposit by transferring GAS to NeoFS contract in N3 testnet RC3.
+Then make a deposit by transferring GAS to NeoFS contract in N3 Testnet.
 You can provide scripthash in the `data` argument of transfer tx to make a
 deposit to specified account. Otherwise, deposit is made to tx sender.
 
-NeoFS contract scripthash in NEO testnet RC3 is `088c76a08c7b4546582fe95df1ba58f61f165645`, 
-so the address is `NSEawP75SPnnH9sRtk18xJbjYGHu2q5m1W`
+NeoFS contract scripthash in NEO Testnet is `51cf687eb6625eb1a2b98b0fb4e9d52bdf95f3a6`, 
+so the address is `Nb8jADHaYuH2e46koNEfTSrKj7iEPEEY7p`
 
 See a deposit example with `neo-go`.
 
 ```
 neo-go wallet nep17 transfer -w wallet.json -r https://rpc1.n3.nspcc.ru:20331 \
 --from NXxRAFPqPstaPByndKMHuC8iGcaHgtRY3m \
---to NSEawP75SPnnH9sRtk18xJbjYGHu2q5m1W \
+--to Nb8jADHaYuH2e46koNEfTSrKj7iEPEEY7p \
 --token GAS \
 --amount 1
 ```
@@ -53,17 +53,17 @@ Then configure `node_config.env` file. Change endpoints values. Both
 should contain your **public** IP.
 
 ```
-NEOFS_NODE_ADDRESS=65.52.183.157:36512
-NEOFS_GRPC_ENDPOINT=65.52.183.157:36512
+NEOFS_GRPC_0_ENDPOINT=65.52.183.157:36512
+NEOFS_NODE_ADDRESSES=65.52.183.157:36512
 ```
 
 Set up your [UN/LOCODE](https://unece.org/trade/cefact/unlocode-code-list-country-and-territory) 
 attribute.
 
 ```
-NEOFS_NODE_ADDRESS=65.52.183.157:36512
-NEOFS_GRPC_ENDPOINT=65.52.183.157:36512
-NEOFS_NODE_ATTRIBUTE_1=UN-LOCODE:RU LED
+NEOFS_GRPC_0_ENDPOINT=65.52.183.157:36512
+NEOFS_NODE_ADDRESSES=65.52.183.157:36512
+NEOFS_NODE_ATTRIBUTE_2=UN-LOCODE:RU LED
 ```
 
 You can validate UN/LOCODE attribute in 
