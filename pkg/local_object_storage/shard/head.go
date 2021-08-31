@@ -1,6 +1,9 @@
 package shard
 
 import (
+	"errors"
+	"fmt"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -48,13 +51,33 @@ func (r *HeadRes) Object() *object.Object {
 //
 // Returns any error encountered.
 func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
+	// object can be saved in write-cache (if enabled) or in metabase
+
+	if s.hasWriteCache() {
+		// try to read header from write-cache
+		header, err := s.writeCache.Head(prm.addr)
+		if err == nil {
+			return &HeadRes{
+				obj: header,
+			}, nil
+		} else if !errors.Is(err, object.ErrNotFound) {
+			// in this case we think that object is presented in write-cache, but corrupted
+			return nil, fmt.Errorf("could not read header from write-cache: %w", err)
+		}
+
+		// otherwise object seems to be flushed to metabase
+	}
+
 	headParams := new(meta.GetPrm).
 		WithAddress(prm.addr).
 		WithRaw(prm.raw)
 
-	head, err := s.metaBase.Get(headParams)
+	res, err := s.metaBase.Get(headParams)
+	if err != nil {
+		return nil, err
+	}
 
 	return &HeadRes{
-		obj: head.Header(),
-	}, err
+		obj: res.Header(),
+	}, nil
 }

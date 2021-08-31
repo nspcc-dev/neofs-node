@@ -13,6 +13,7 @@ import (
 // Cache represents write-cache for objects.
 type Cache interface {
 	Get(*objectSDK.Address) (*object.Object, error)
+	Head(*objectSDK.Address) (*object.Object, error)
 	Delete(*objectSDK.Address) error
 	Put(*object.Object) error
 
