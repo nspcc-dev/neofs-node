@@ -94,6 +94,11 @@ func (x *multiClient) iterateClients(f func(*Client) error) error {
 			return nil
 		}
 
+		// we dont need to continue the process after the logical error was encountered
+		if errNeoFS := unwrapNeoFSError(err); errNeoFS != nil {
+			return errNeoFS
+		}
+
 		// set first error once
 		if firstErr == nil {
 			firstErr = err
