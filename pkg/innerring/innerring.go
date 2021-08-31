@@ -120,20 +120,6 @@ type (
 		runners []func(chan<- error)
 	}
 
-	contracts struct {
-		neofs      util.Uint160 // in mainnet
-		netmap     util.Uint160 // in morph
-		balance    util.Uint160 // in morph
-		container  util.Uint160 // in morph
-		audit      util.Uint160 // in morph
-		proxy      util.Uint160 // in morph
-		processing util.Uint160 // in mainnet
-		reputation util.Uint160 // in morph
-		neofsID    util.Uint160 // in morph
-
-		alphabet alphabetContracts // in morph
-	}
-
 	chainParams struct {
 		log  *zap.Logger
 		cfg  *viper.Viper
@@ -418,6 +404,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// get all script hashes of contracts
 	server.contracts, err = parseContracts(
 		cfg,
+		server.morphClient,
 		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,
 		server.sideNotaryConfig.disabled,
@@ -929,78 +916,6 @@ func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 	)
 }
 
-func parseContracts(cfg *viper.Viper, withoutMainNet, withoutMainNotary, withoutSideNotary bool) (*contracts, error) {
-	var (
-		result = new(contracts)
-		err    error
-	)
-
-	if !withoutMainNet {
-		result.neofs, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.neofs"))
-		if err != nil {
-			return nil, fmt.Errorf("ir: can't read neofs script-hash: %w", err)
-		}
-
-		if !withoutMainNotary {
-			result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
-			if err != nil {
-				return nil, fmt.Errorf("ir: can't read processing script-hash: %w", err)
-			}
-		}
-	}
-
-	if !withoutSideNotary {
-		result.proxy, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.proxy"))
-		if err != nil {
-			return nil, fmt.Errorf("ir: can't read proxy script-hash: %w", err)
-		}
-	}
-
-	netmapContractStr := cfg.GetString("contracts.netmap")
-	balanceContractStr := cfg.GetString("contracts.balance")
-	containerContractStr := cfg.GetString("contracts.container")
-	auditContractStr := cfg.GetString("contracts.audit")
-	reputationContractStr := cfg.GetString("contracts.reputation")
-	neofsIDContractStr := cfg.GetString("contracts.neofsid")
-
-	result.netmap, err = util.Uint160DecodeStringLE(netmapContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read netmap script-hash: %w", err)
-	}
-
-	result.balance, err = util.Uint160DecodeStringLE(balanceContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read balance script-hash: %w", err)
-	}
-
-	result.container, err = util.Uint160DecodeStringLE(containerContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read container script-hash: %w", err)
-	}
-
-	result.audit, err = util.Uint160DecodeStringLE(auditContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read audit script-hash: %w", err)
-	}
-
-	result.reputation, err = util.Uint160DecodeStringLE(reputationContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read reputation script-hash: %w", err)
-	}
-
-	result.neofsID, err = util.Uint160DecodeStringLE(neofsIDContractStr)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't read NeoFS ID script-hash: %w", err)
-	}
-
-	result.alphabet, err = parseAlphabetContracts(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
 func parsePredefinedValidators(cfg *viper.Viper) (keys.PublicKeys, error) {
 	publicKeyStrings := cfg.GetStringSlice("morph.validators")
 
@@ -1022,28 +937,6 @@ func ParsePublicKeysFromStrings(pubKeys []string) (keys.PublicKeys, error) {
 	}
 
 	return publicKeys, nil
-}
-
-func parseAlphabetContracts(cfg *viper.Viper) (alphabetContracts, error) {
-	num := GlagoliticLetter(cfg.GetUint("contracts.alphabet.amount"))
-	alpha := newAlphabetContracts()
-
-	if num > lastLetterNum {
-		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
-	}
-
-	for letter := az; letter < num; letter++ {
-		contractStr := cfg.GetString("contracts.alphabet." + letter.String())
-
-		contractHash, err := util.Uint160DecodeStringLE(contractStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid alphabet %s contract: %s: %w", letter.String(), contractStr, err)
-		}
-
-		alpha.set(letter, contractHash)
-	}
-
-	return alpha, nil
 }
 
 func (s *Server) initConfigFromBlockchain() error {
