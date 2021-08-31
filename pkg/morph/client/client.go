@@ -79,6 +79,29 @@ var errEmptyInvocationScript = errors.New("got empty invocation script from neo 
 
 var errScriptDecode = errors.New("could not decode invocation script from neo node")
 
+// implementation of error interface for NeoFS-specific errors.
+type neofsError struct {
+	err error
+}
+
+func (e neofsError) Error() string {
+	return fmt.Sprintf("neofs error: %v", e.err)
+}
+
+// wraps NeoFS-specific error into neofsError. Arg must not be nil.
+func wrapNeoFSError(err error) error {
+	return neofsError{err}
+}
+
+// unwraps NeoFS-specific error if err is type of neofsError. Otherwise, returns nil.
+func unwrapNeoFSError(err error) error {
+	if e := new(neofsError); errors.As(err, e) {
+		return e.err
+	}
+
+	return nil
+}
+
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
 func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
@@ -121,11 +144,11 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 	}
 
 	if resp.State != HaltState {
-		return &notHaltStateError{state: resp.State, exception: resp.FaultException}
+		return wrapNeoFSError(&notHaltStateError{state: resp.State, exception: resp.FaultException})
 	}
 
 	if len(resp.Script) == 0 {
-		return errEmptyInvocationScript
+		return wrapNeoFSError(errEmptyInvocationScript)
 	}
 
 	script := resp.Script
@@ -178,7 +201,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 	}
 
 	if val.State != HaltState {
-		return nil, &notHaltStateError{state: val.State, exception: val.FaultException}
+		return nil, wrapNeoFSError(&notHaltStateError{state: val.State, exception: val.FaultException})
 	}
 
 	return val.Stack, nil
@@ -330,6 +353,9 @@ func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 	return c.client.GetDesignatedByRole(r, height)
 }
 
+// tries to resolve sc.Parameter from the arg.
+//
+// Wraps any error to neofsError.
 func toStackParameter(value interface{}) (sc.Parameter, error) {
 	var result = sc.Parameter{
 		Value: value,
@@ -380,7 +406,7 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 			result.Value = int64(0)
 		}
 	default:
-		return result, fmt.Errorf("chain/client: unsupported parameter %v", value)
+		return result, wrapNeoFSError(fmt.Errorf("chain/client: unsupported parameter %v", value))
 	}
 
 	return result, nil
