@@ -28,6 +28,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 	}
 
 	cache := make(map[string]*netmap.NodeAttribute, len(attrs))
+	result := make([]*netmap.NodeAttribute, 0, len(attrs))
 
 	for i := range attrs {
 		line := strings.Trim(attrs[i], pairSeparator)
@@ -67,6 +68,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 				attribute.SetValue(value)
 
 				cache[key] = attribute
+				result = append(result, attribute)
 			}
 
 			if parentKey != "" {
@@ -78,11 +80,6 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 
 			parentKey = key
 		}
-	}
-
-	result := make([]*netmap.NodeAttribute, 0, len(cache))
-	for _, v := range cache {
-		result = append(result, v)
 	}
 
 	return result, nil

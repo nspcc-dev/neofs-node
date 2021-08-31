@@ -94,4 +94,20 @@ func TestParseV2Attributes(t *testing.T) {
 		}
 		require.True(t, flag)
 	})
+
+	t.Run("consistent order in chain", func(t *testing.T) {
+		from := []string{"/a:1/b:2/c:3"}
+
+		for i := 0; i < 10000; i++ {
+			attrs, err := attributes.ParseV2Attributes(from, nil)
+			require.NoError(t, err)
+
+			require.Equal(t, attrs[0].Key(), "a")
+			require.Equal(t, attrs[0].Value(), "1")
+			require.Equal(t, attrs[1].Key(), "b")
+			require.Equal(t, attrs[1].Value(), "2")
+			require.Equal(t, attrs[2].Key(), "c")
+			require.Equal(t, attrs[2].Value(), "3")
+		}
+	})
 }
