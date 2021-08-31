@@ -90,14 +90,13 @@ func (x *multiClient) iterateClients(f func(*Client) error) error {
 			err = f(c)
 		}
 
-		success := err == nil
+		if err == nil {
+			return nil
+		}
 
-		if success || firstErr == nil {
+		// set first error once
+		if firstErr == nil {
 			firstErr = err
-
-			if success {
-				break
-			}
 		}
 	}
 
