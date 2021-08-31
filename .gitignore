@@ -1,5 +1,6 @@
 .idea
 bin
+release
 temp
 cmd/test
 /plugins/
