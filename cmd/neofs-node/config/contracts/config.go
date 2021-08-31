@@ -14,6 +14,7 @@ const (
 // Netmap returns value of "netmap" config parameter
 // from "contracts" section.
 //
+// Returns zero filled script hash if value is not set.
 // Throws panic if value is not a 20-byte LE hex-encoded string.
 func Netmap(c *config.Config) util.Uint160 {
 	return contractAddress(c, "netmap")
@@ -22,6 +23,7 @@ func Netmap(c *config.Config) util.Uint160 {
 // Balance returns value of "balance" config parameter
 // from "contracts" section.
 //
+// Returns zero filled script hash if value is not set.
 // Throws panic if value is not a 20-byte LE hex-encoded string.
 func Balance(c *config.Config) util.Uint160 {
 	return contractAddress(c, "balance")
@@ -30,6 +32,7 @@ func Balance(c *config.Config) util.Uint160 {
 // Container returns value of "container" config parameter
 // from "contracts" section.
 //
+// Returns zero filled script hash if value is not set.
 // Throws panic if value is not a 20-byte LE hex-encoded string.
 func Container(c *config.Config) util.Uint160 {
 	return contractAddress(c, "container")
@@ -38,6 +41,7 @@ func Container(c *config.Config) util.Uint160 {
 // Reputation returns value of "reputation" config parameter
 // from "contracts" section.
 //
+// Returns zero filled script hash if value is not set.
 // Throws panic if value is not a 20-byte LE hex-encoded string.
 func Reputation(c *config.Config) util.Uint160 {
 	return contractAddress(c, "reputation")
@@ -46,6 +50,7 @@ func Reputation(c *config.Config) util.Uint160 {
 // Proxy returns value of "proxy" config parameter
 // from "contracts" section.
 //
+// Returns zero filled script hash if value is not set.
 // Throws panic if value is not a 20-byte LE hex-encoded string.
 func Proxy(c *config.Config) util.Uint160 {
 	return contractAddress(c, "proxy")
@@ -54,11 +59,7 @@ func Proxy(c *config.Config) util.Uint160 {
 func contractAddress(c *config.Config, name string) util.Uint160 {
 	v := config.String(c.Sub(subsection), name)
 	if v == "" {
-		panic(fmt.Errorf(
-			"empty %s contract address, see `contracts.%s` section",
-			name,
-			name,
-		))
+		return util.Uint160{} // if address is not set, then NNS resolver should be used
 	}
 
 	addr, err := util.Uint160DecodeStringLE(v)

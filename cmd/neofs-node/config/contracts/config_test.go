@@ -13,11 +13,13 @@ import (
 func TestContractsSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig()
+		emptyHash := util.Uint160{}
 
-		require.Panics(t, func() { contractsconfig.Balance(empty) })
-		require.Panics(t, func() { contractsconfig.Container(empty) })
-		require.Panics(t, func() { contractsconfig.Netmap(empty) })
-		require.Panics(t, func() { contractsconfig.Reputation(empty) })
+		require.Equal(t, emptyHash, contractsconfig.Balance(empty))
+		require.Equal(t, emptyHash, contractsconfig.Container(empty))
+		require.Equal(t, emptyHash, contractsconfig.Netmap(empty))
+		require.Equal(t, emptyHash, contractsconfig.Reputation(empty))
+		require.Equal(t, emptyHash, contractsconfig.Proxy(empty))
 	})
 
 	const path = "../../../../config/example/node"

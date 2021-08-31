@@ -139,6 +139,8 @@ type cfgMorph struct {
 
 	blockTimers     []*timer.BlockTimer // all combined timers
 	eigenTrustTimer *timer.BlockTimer   // timer for EigenTrust iterations
+
+	proxyScriptHash neogoutil.Uint160
 }
 
 type cfgAccounting struct {
@@ -277,6 +279,9 @@ func initCfg(path string) *cfg {
 		cfgGRPC: cfgGRPC{
 			maxChunkSize:  maxChunkSize,
 			maxAddrAmount: maxAddrAmount,
+		},
+		cfgMorph: cfgMorph{
+			proxyScriptHash: contractsconfig.Proxy(appCfg),
 		},
 		localAddr: netAddr,
 		respSvc: response.NewService(

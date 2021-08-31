@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	mainchainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/mainchain"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -77,10 +76,12 @@ func initMorphComponents(c *cfg) {
 
 		c.cfgMorph.notaryEnabled = cli.ProbeNotary()
 
+		lookupScriptHashesInNNS(c) // smart contract auto negotiation
+
 		if c.cfgMorph.notaryEnabled {
 			err = c.cfgMorph.client.EnableNotarySupport(
 				client.WithProxyContract(
-					contractsconfig.Proxy(c.appCfg),
+					c.cfgMorph.proxyScriptHash,
 				),
 			)
 			fatalOnErr(err)
@@ -263,4 +264,31 @@ func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parse
 
 func registerBlockHandler(lis event.Listener, handler event.BlockHandler) {
 	lis.RegisterBlockHandler(handler)
+}
+
+// lookupScriptHashesInNNS looks up for contract script hashes in NNS contract of side
+// chain if they were not specified in config file.
+func lookupScriptHashesInNNS(c *cfg) {
+	var (
+		err error
+
+		emptyHash = util.Uint160{}
+		targets   = [...]struct {
+			h       *util.Uint160
+			nnsName string
+		}{
+			{&c.cfgNetmap.scriptHash, client.NNSNetmapContractName},
+			{&c.cfgAccounting.scriptHash, client.NNSBalanceContractName},
+			{&c.cfgContainer.scriptHash, client.NNSContainerContractName},
+			{&c.cfgReputation.scriptHash, client.NNSReputationContractName},
+			{&c.cfgMorph.proxyScriptHash, client.NNSProxyContractName},
+		}
+	)
+
+	for _, t := range targets {
+		if emptyHash.Equals(*t.h) {
+			*t.h, err = c.cfgMorph.client.NNSContractAddress(t.nnsName)
+			fatalOnErrDetails(fmt.Sprintf("can't resolve %s in NNS", t.nnsName), err)
+		}
+	}
 }
