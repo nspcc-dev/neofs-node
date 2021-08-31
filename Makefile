@@ -9,14 +9,19 @@ DEBUG ?= false
 HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 
+GO_VERSION ?= 1.16
+
 BIN = bin
-DIRS= $(BIN)
+DIRS = $(BIN)
+
+RELEASE = release
+ARCH = amd64
 
 # List of binaries to build.
 CMDS = $(notdir $(basename $(wildcard cmd/*)))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
-.PHONY: help all dep clean fmts fmt imports test lint docker/lint
+.PHONY: help all dep clean fmts fmt imports test lint docker/lint prepare-release
 
 # To build a specific binary, use it's name prefix with bin/ as a target
 # For example `make bin/neofs-node` will build only storage node binary
@@ -36,6 +41,18 @@ $(BINS): $(DIRS) dep
 $(DIRS):
 	@echo "⇒ Ensure dir: $@"
 	@mkdir -p $@
+
+# Directory for release files
+$(RELEASE):
+	@echo "⇒ Ensure dir: $@"
+	@mkdir -p $@
+
+# Prepare binaries and archives for release
+prepare-release: $(RELEASE) docker/all
+	@for file in $$(find $(BIN) -name 'neofs-*' -printf "%f\n"); do \
+  		cp $(BIN)/$$file $(RELEASE)/$$file-$(ARCH) && \
+  		tar -czf $(RELEASE)/$$file-$(ARCH).tar.gz $(RELEASE)/$$file-$(ARCH) ; \
+	done
 
 # Pull go dependencies
 dep:
@@ -135,3 +152,4 @@ help:
 clean:
 	rm -rf vendor
 	rm -rf $(BIN)
+	rm -rf $(RELEASE)
