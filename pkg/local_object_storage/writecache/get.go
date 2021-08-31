@@ -49,3 +49,20 @@ func (c *cache) Get(addr *objectSDK.Address) (*object.Object, error) {
 	c.flushed.Get(saddr)
 	return obj, nil
 }
+
+// Head returns object header from write-cache.
+func (c *cache) Head(addr *objectSDK.Address) (*object.Object, error) {
+	// TODO: easiest to implement solution is presented here, consider more efficient way, e.g.:
+	//  - provide header as common object.Object to Put, but marked to prevent correlation with full object
+	//    (all write-cache logic will automatically spread to headers, except flushing)
+	//  - cut header from in-memory objects directly and persist headers into particular bucket of DB
+	//    (explicit sync with full objects is needed)
+	//  - try to pull out binary header from binary full object (not sure if it is possible)
+	obj, err := c.Get(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTE: resetting the payload via the setter can lead to data corruption of in-memory objects, but ok for others
+	return object.NewRawFromObject(obj).CutPayload().Object(), nil
+}
