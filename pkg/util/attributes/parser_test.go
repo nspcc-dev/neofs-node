@@ -63,10 +63,10 @@ func TestParseV2Attributes(t *testing.T) {
 		}
 		attrs, err := attributes.ParseV2Attributes(from, nil)
 		require.NoError(t, err)
-		require.Equal(t, attrs[0].Key(), `K:ey1`)
-		require.Equal(t, attrs[0].Value(), `V/alue\`)
-		require.Equal(t, attrs[1].Key(), `Ke/y2`)
-		require.Equal(t, attrs[1].Value(), `Va:lue`)
+		require.Equal(t, `K:ey1`, attrs[0].Key())
+		require.Equal(t, `V/alue\`, attrs[0].Value())
+		require.Equal(t, `Ke/y2`, attrs[1].Key())
+		require.Equal(t, `Va:lue`, attrs[1].Value())
 	})
 
 	t.Run("same attributes", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestParseV2Attributes(t *testing.T) {
 		for _, attr := range attrs {
 			if attr.Key() == "child" {
 				flag = true
-				require.Equal(t, attr.ParentKeys(), []string{"parent1", "parent2"})
+				require.Equal(t, []string{"parent1", "parent2"}, attr.ParentKeys())
 			}
 		}
 		require.True(t, flag)
@@ -102,12 +102,12 @@ func TestParseV2Attributes(t *testing.T) {
 			attrs, err := attributes.ParseV2Attributes(from, nil)
 			require.NoError(t, err)
 
-			require.Equal(t, attrs[0].Key(), "a")
-			require.Equal(t, attrs[0].Value(), "1")
-			require.Equal(t, attrs[1].Key(), "b")
-			require.Equal(t, attrs[1].Value(), "2")
-			require.Equal(t, attrs[2].Key(), "c")
-			require.Equal(t, attrs[2].Value(), "3")
+			require.Equal(t, "a", attrs[0].Key())
+			require.Equal(t, "1", attrs[0].Value())
+			require.Equal(t, "b", attrs[1].Key())
+			require.Equal(t, "2", attrs[1].Value())
+			require.Equal(t, "c", attrs[2].Key())
+			require.Equal(t, "3", attrs[2].Value())
 		}
 	})
 }
