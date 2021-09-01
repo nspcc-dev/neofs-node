@@ -59,16 +59,16 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 			}
 
 			if !present {
+				attribute = netmap.NewNodeAttribute()
+				cache[key] = attribute
+				result = append(result, attribute)
+
 				// replace non-printable symbols with escaped symbols without escape character
 				key = replaceEscaping(key, true)
 				value = replaceEscaping(value, true)
 
-				attribute = netmap.NewNodeAttribute()
 				attribute.SetKey(key)
 				attribute.SetValue(value)
-
-				cache[key] = attribute
-				result = append(result, attribute)
 			}
 
 			if parentKey != "" {
