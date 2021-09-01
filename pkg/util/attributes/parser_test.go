@@ -74,6 +74,13 @@ func TestParseV2Attributes(t *testing.T) {
 		attrs, err := attributes.ParseV2Attributes(from, nil)
 		require.NoError(t, err)
 		require.Len(t, attrs, 1)
+
+		t.Run("with escape characters", func(t *testing.T) {
+			from = []string{`/a\::b\/`, `/a\::b\/`}
+			attrs, err := attributes.ParseV2Attributes(from, nil)
+			require.NoError(t, err)
+			require.Len(t, attrs, 1)
+		})
 	})
 
 	t.Run("multiple parents", func(t *testing.T) {
