@@ -288,6 +288,9 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 	}
 
 	c, err := client.New(options...)
+	if err != nil {
+		return nil, fmt.Errorf("coult not init api client:%w", err)
+	}
 
 	return c, err
 }
