@@ -355,10 +355,10 @@ var getExtendedACLCmd = &cobra.Command{
 
 		if containerJSON {
 			data, err = eaclTable.MarshalJSON()
-			exitOnErr(cmd, errf("can't enode to JSON: %w", err))
+			exitOnErr(cmd, errf("can't encode to JSON: %w", err))
 		} else {
 			data, err = eaclTable.Marshal()
-			exitOnErr(cmd, errf("can't enode to binary: %w", err))
+			exitOnErr(cmd, errf("can't encode to binary: %w", err))
 		}
 
 		cmd.Println("dumping data to file:", containerPathTo)
@@ -367,7 +367,7 @@ var getExtendedACLCmd = &cobra.Command{
 		printJSONMarshaler(cmd, sig, "signature")
 
 		err = os.WriteFile(containerPathTo, data, 0644)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("could not write eACL to file: %w", err))
 	},
 }
 
@@ -509,12 +509,12 @@ func getSessionToken(path string) (*session.Token, error) {
 	if path != "" {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not open file with session token: %w", err)
 		}
 
 		tok = session.NewToken()
 		if err = tok.UnmarshalJSON(data); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not ummarshal session token from file: %w", err)
 		}
 	}
 
@@ -618,7 +618,12 @@ func parseNonce(nonce string) (uuid.UUID, error) {
 		return result, nil
 	}
 
-	return uuid.Parse(nonce)
+	uid, err := uuid.Parse(nonce)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("could not parse nonce: %w", err)
+	}
+
+	return uid, nil
 }
 
 func parseContainerID(idStr string) (*cid.ID, error) {

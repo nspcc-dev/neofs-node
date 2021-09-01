@@ -263,7 +263,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 			client.WithBearer(btok),
 		)...,
 	)
-	exitOnErr(cmd, errf("can't put object: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
 	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
@@ -271,7 +271,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 func deleteObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
@@ -289,7 +289,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 			client.WithBearer(btok),
 		)...,
 	)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Println("Object removed successfully.")
 	cmd.Printf("  ID: %s\n  CID: %s\n", tombstoneAddr.ObjectID(), tombstoneAddr.ContainerID())
@@ -297,7 +297,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 
 func getObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
@@ -340,7 +340,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 			return
 		}
 
-		exitOnErr(cmd, fmt.Errorf("can't get object: %w", err))
+		exitOnErr(cmd, errf("rpc error: %w", err))
 	}
 
 	if filename != "" {
@@ -357,7 +357,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 
 func getObjectHeader(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
@@ -386,7 +386,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 			return
 		}
 
-		exitOnErr(cmd, fmt.Errorf("can't get object header: %w", err))
+		exitOnErr(cmd, errf("rpc error: %w", err))
 	}
 
 	err = saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String())
@@ -395,7 +395,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 
 func searchObject(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
@@ -415,7 +415,7 @@ func searchObject(cmd *cobra.Command, _ []string) {
 			client.WithBearer(btok),
 		)...,
 	)
-	exitOnErr(cmd, errf("can't search object: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for _, id := range ids {
 		cmd.Println(id)
@@ -436,7 +436,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	strSalt := strings.TrimPrefix(cmd.Flag(getRangeHashSaltFlag).Value.String(), "0x")
 
 	salt, err := hex.DecodeString(strSalt)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("could not decode salt: %w", err))
 
 	ctx := context.Background()
 	cli, tok, err := initSession(ctx, key)
@@ -451,7 +451,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 				client.WithBearer(btok),
 			)...,
 		)
-		exitOnErr(cmd, errf("can't get object header: %w", err))
+		exitOnErr(cmd, errf("rpc error: %w", err))
 		switch typ {
 		case hashSha256:
 			cmd.Println(hex.EncodeToString(obj.PayloadChecksum().Sum()))
@@ -474,7 +474,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 				client.WithBearer(btok),
 			)...,
 		)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("rpc error: %w", err))
 		for i := range res {
 			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
 				hex.EncodeToString(res[i][:]))
@@ -486,7 +486,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 				client.WithBearer(btok),
 			)...,
 		)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("rpc error: %w", err))
 		for i := range res {
 			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
 				hex.EncodeToString(res[i][:]))
@@ -526,13 +526,13 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		case 1:
 			data, err := os.ReadFile(words[0])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("could not read attributes filter from file: %w", err)
 			}
 
 			subFs := object.NewSearchFilters()
 
 			if err := subFs.UnmarshalJSON(data); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("could not unmarshal attributes filter from file: %w", err)
 			}
 
 			fs = append(fs, subFs...)
@@ -567,7 +567,7 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 	if oid != "" {
 		id := object.NewID()
 		if err := id.Parse(oid); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not parse object ID: %w", err)
 		}
 
 		fs.AddObjectIDFilter(object.MatchStringEqual, id)
@@ -618,16 +618,24 @@ func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
 
 func getCID(cmd *cobra.Command) (*cid.ID, error) {
 	id := cid.New()
-	err := id.Parse(cmd.Flag("cid").Value.String())
 
-	return id, err
+	err := id.Parse(cmd.Flag("cid").Value.String())
+	if err != nil {
+		return nil, fmt.Errorf("could not parse container ID: %w", err)
+	}
+
+	return id, nil
 }
 
 func getOID(cmd *cobra.Command) (*object.ID, error) {
 	oid := object.NewID()
-	err := oid.Parse(cmd.Flag("oid").Value.String())
 
-	return oid, err
+	err := oid.Parse(cmd.Flag("oid").Value.String())
+	if err != nil {
+		return nil, fmt.Errorf("could not parse object ID: %w", err)
+	}
+
+	return oid, nil
 }
 
 func getObjectAddress(cmd *cobra.Command) (*object.Address, error) {
@@ -687,16 +695,16 @@ func getHashType(cmd *cobra.Command) (string, error) {
 func saveAndPrintHeader(cmd *cobra.Command, obj *object.Object, filename string) error {
 	bs, err := marshalHeader(cmd, obj)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not marshal header: %w", err)
 	}
 	if len(bs) != 0 {
 		if filename == "" {
 			cmd.Println(string(bs))
 			return nil
 		}
-		err := os.WriteFile(filename, bs, os.ModePerm)
+		err = os.WriteFile(filename, bs, os.ModePerm)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not write header to file: %w", err)
 		}
 		cmd.Printf("[%s] Header successfully saved.", filename)
 	}

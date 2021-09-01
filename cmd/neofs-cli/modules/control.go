@@ -100,10 +100,10 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	req.SetBody(new(control.HealthCheckRequest_Body))
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("could not sign message: %w", err))
 
 	resp, err := control.HealthCheck(cli.Raw(), req)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
 
@@ -113,7 +113,7 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 			return sign.GetKey(), sign.GetSign()
 		},
 	)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("invalid response signature: %w", err))
 
 	cmd.Printf("Network status: %s\n", resp.GetBody().GetNetmapStatus())
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
@@ -128,7 +128,7 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c client.Client) {
 	exitOnErr(cmd, errf("could not sign request: %w", err))
 
 	resp, err := ircontrol.HealthCheck(c.Raw(), req)
-	exitOnErr(cmd, errf("rpc failure: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
 
@@ -166,13 +166,13 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	body.SetStatus(status)
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("could not sign request: %w", err))
 
 	cli, err := getSDKClient(key)
 	exitOnErr(cmd, err)
 
 	resp, err := control.SetNetmapStatus(cli.Raw(), req)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
 
@@ -182,7 +182,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 			return sign.GetKey(), sign.GetSign()
 		},
 	)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("invalid response signature: %w", err))
 
 	cmd.Println("Network status update request successfully sent.")
 }
@@ -223,13 +223,13 @@ var dropObjectsCmd = &cobra.Command{
 		body.SetAddressList(binAddrList)
 
 		err = controlSvc.SignMessage(key, req)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("could not sign request: %w", err))
 
 		cli, err := getSDKClient(key)
 		exitOnErr(cmd, err)
 
 		resp, err := control.DropObjects(cli.Raw(), req)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		sign := resp.GetSignature()
 
@@ -239,7 +239,7 @@ var dropObjectsCmd = &cobra.Command{
 				return sign.GetKey(), sign.GetSign()
 			},
 		)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("invalid response signature: %w", err))
 
 		cmd.Println("Objects were successfully marked to be removed.")
 	},
@@ -257,13 +257,13 @@ var snapshotCmd = &cobra.Command{
 		req.SetBody(new(control.NetmapSnapshotRequest_Body))
 
 		err = controlSvc.SignMessage(key, req)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("could not sign request: %w", err))
 
 		cli, err := getSDKClient(key)
 		exitOnErr(cmd, err)
 
 		resp, err := control.NetmapSnapshot(cli.Raw(), req)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		sign := resp.GetSignature()
 
@@ -273,7 +273,7 @@ var snapshotCmd = &cobra.Command{
 				return sign.GetKey(), sign.GetSign()
 			},
 		)
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("invalid response signature: %w", err))
 
 		prettyPrintNetmap(cmd, resp.GetBody().GetNetmap(), netmapSnapshotJSON)
 	},

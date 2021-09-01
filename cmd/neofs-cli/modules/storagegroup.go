@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -128,7 +129,7 @@ func sgBearerToken(cmd *cobra.Command) (*token.BearerToken, error) {
 
 func putSG(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	ownerID, err := getOwnerID(key)
 	exitOnErr(cmd, err)
@@ -142,7 +143,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 		id := objectSDK.NewID()
 
 		err = id.Parse(sgMembers[i])
-		exitOnErr(cmd, err)
+		exitOnErr(cmd, errf("could not parse object ID: %w", err))
 
 		members = append(members, id)
 	}
@@ -161,10 +162,10 @@ func putSG(cmd *cobra.Command, _ []string) {
 		c:           cli,
 		bearerToken: bearerToken,
 	}, cid, members)
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
 
 	sgContent, err := sg.Marshal()
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("could not marshal storage group: %w", err))
 
 	obj := objectSDK.NewRaw()
 	obj.SetContainerID(cid)
@@ -180,7 +181,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 			client.WithBearer(bearerToken),
 		)...,
 	)
-	exitOnErr(cmd, errf("can't put storage group: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Println("Storage group successfully stored")
 	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
@@ -189,13 +190,16 @@ func putSG(cmd *cobra.Command, _ []string) {
 func getSGID() (*objectSDK.ID, error) {
 	oid := objectSDK.NewID()
 	err := oid.Parse(sgID)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse storage group ID: %w", err)
+	}
 
-	return oid, err
+	return oid, nil
 }
 
 func getSG(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
@@ -223,12 +227,12 @@ func getSG(cmd *cobra.Command, _ []string) {
 			client.WithBearer(bearerToken),
 		)...,
 	)
-	exitOnErr(cmd, errf("can't get storage group: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sg := storagegroupAPI.New()
 
 	err = sg.Unmarshal(obj.Payload())
-	exitOnErr(cmd, err)
+	exitOnErr(cmd, errf("could not unmarshal storage group: %w", err))
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
@@ -245,7 +249,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 func listSG(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
@@ -267,7 +271,7 @@ func listSG(cmd *cobra.Command, _ []string) {
 			client.WithBearer(bearerToken),
 		)...,
 	)
-	exitOnErr(cmd, errf("can't search storage groups: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Printf("Found %d storage groups.\n", len(ids))
 
@@ -278,7 +282,7 @@ func listSG(cmd *cobra.Command, _ []string) {
 
 func delSG(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
+	exitOnErr(cmd, err)
 
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
@@ -306,7 +310,7 @@ func delSG(cmd *cobra.Command, _ []string) {
 			client.WithBearer(bearerToken),
 		)...,
 	)
-	exitOnErr(cmd, errf("can't get storage group: %w", err))
+	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Println("Storage group removed successfully.")
 	cmd.Printf("  Tombstone: %s\n", tombstone.ObjectID())
