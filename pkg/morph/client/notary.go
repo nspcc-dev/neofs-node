@@ -151,10 +151,15 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		return util.Uint256{}, fmt.Errorf("can't get blockchain height: %w", err)
 	}
 
+	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return util.Uint256{}, err
+	}
+
 	txHash, err := c.client.TransferNEP17(
 		c.acc,
 		c.notary.notary,
-		c.gas,
+		gas,
 		int64(amount),
 		0,
 		[]interface{}{c.acc.PrivateKey().GetScriptHash(), int64(bc + delta)},
