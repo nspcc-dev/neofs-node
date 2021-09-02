@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Work of a storage node with one Neo RPC endpoint instead of a list (#746).
+- Lack of support for HEAD operation on the object write cache (#762).
 
 ## [0.24.0] - 2021-08-30 Anmyeondo (안면도, 安眠島)
 
