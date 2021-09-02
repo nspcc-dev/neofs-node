@@ -3,7 +3,6 @@ package client
 import (
 	"sync"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"go.uber.org/zap"
@@ -37,17 +36,11 @@ func (x *multiClient) createForAddress(addr string) (*Client, error) {
 		return nil, err
 	}
 
-	gas, err := cli.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return nil, err
-	}
-
 	c := &Client{
 		singleClient: &singleClient{
 			logger:       x.cfg.logger,
 			client:       cli,
 			acc:          x.account,
-			gas:          gas,
 			waitInterval: x.cfg.waitInterval,
 			signer:       x.cfg.signer,
 			notary:       x.sharedNotary,

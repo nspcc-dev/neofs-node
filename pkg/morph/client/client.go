@@ -47,8 +47,6 @@ type singleClient struct {
 
 	acc *wallet.Account // neo account
 
-	gas util.Uint160 // native gas script-hash
-
 	waitInterval time.Duration
 
 	signer *transaction.Signer
@@ -215,7 +213,12 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 		})
 	}
 
-	txHash, err := c.client.TransferNEP17(c.acc, receiver, c.gas, int64(amount), 0, nil, nil)
+	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return err
+	}
+
+	txHash, err := c.client.TransferNEP17(c.acc, receiver, gas, int64(amount), 0, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -281,7 +284,12 @@ func (c *Client) GasBalance() (res int64, err error) {
 		})
 	}
 
-	return c.client.NEP17BalanceOf(c.gas, c.acc.PrivateKey().GetScriptHash())
+	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return 0, err
+	}
+
+	return c.client.NEP17BalanceOf(gas, c.acc.PrivateKey().GetScriptHash())
 }
 
 // Committee returns keys of chain committee from neo native contract.
