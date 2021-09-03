@@ -296,6 +296,51 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 	return c.notaryInvoke(false, false, contract, method, args...)
 }
 
+// NotarySignAndInvokeTX signs and sends notary request that was received from
+// Notary service.
+// NOTE: does not fallback to simple `Invoke()`. Expected to be used only for
+// TXs retrieved from the received notary requests.
+func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
+	if c.multiClient != nil {
+		return c.multiClient.iterateClients(func(c *Client) error {
+			return c.NotarySignAndInvokeTX(mainTx)
+		})
+	}
+
+	alphabetList, err := c.notary.alphabetSource()
+	if err != nil {
+		return fmt.Errorf("could not fetch current alphabet keys: %w", err)
+	}
+
+	multiaddrAccount, err := c.notaryMultisigAccount(alphabetList, false, true)
+	if err != nil {
+		return err
+	}
+
+	// mainTX is expected to be pre-validated: second witness must exist and be empty
+	mainTx.Scripts[1].VerificationScript = multiaddrAccount.GetVerificationScript()
+	mainTx.Scripts[1].InvocationScript = append(
+		[]byte{byte(opcode.PUSHDATA1), 64},
+		multiaddrAccount.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), mainTx)...,
+	)
+
+	resp, err := c.client.SignAndPushP2PNotaryRequest(mainTx,
+		[]byte{byte(opcode.RET)},
+		-1,
+		0,
+		c.notary.fallbackTime,
+		c.acc)
+	if err != nil && !alreadyOnChainError(err) {
+		return err
+	}
+
+	c.logger.Debug("notary request with prepared main TX invoked",
+		zap.Uint32("fallback_valid_for", c.notary.fallbackTime),
+		zap.Stringer("tx_hash", resp.Hash().Reverse()))
+
+	return nil
+}
+
 func (c *Client) notaryInvokeAsCommittee(method string, args ...interface{}) error {
 	designate, err := c.GetDesignateHash()
 	if err != nil {
