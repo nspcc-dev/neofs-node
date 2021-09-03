@@ -71,6 +71,11 @@ func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts 
 	}, nil
 }
 
+// Morph return wrapped raw morph client.
+func (s StaticClient) Morph() *Client {
+	return s.client
+}
+
 // Invoke calls Invoke method of Client with static internal script hash and fee.
 // Supported args types are the same as in Client.
 //
