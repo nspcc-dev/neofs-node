@@ -62,16 +62,6 @@ protoc:
 	done
 	rm -rf vendor
 
-# Build all-in-one NeoFS docker image
-image-aio: images
-	@echo "⇒ Build NeoFS All-In-One Docker image "
-	@docker build \
-		--build-arg HUB_IMAGE=$(HUB_IMAGE) \
-		--build-arg HUB_TAG=$(HUB_TAG) \
-		--rm \
-		-f .docker/Dockerfile.aio \
-		-t $(HUB_IMAGE)-aio:$(HUB_TAG) .
-
 # Build NeoFS component's docker image
 image-%:
 	@echo "⇒ Build NeoFS $* docker image "
