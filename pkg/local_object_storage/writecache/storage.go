@@ -10,6 +10,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -109,6 +110,7 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 				return err
 			}
 			sz += uint64(len(has))
+			storagelog.Write(c.log, storagelog.AddressField(string(keys[i])), storagelog.OpField("db DELETE"))
 		}
 		return nil
 	})
@@ -135,6 +137,8 @@ func (c *cache) deleteFromDisk(keys [][]byte) error {
 			lastErr = err
 			c.log.Error("can't remove object from write-cache", zap.Error(err))
 			continue
+		} else if err == nil {
+			storagelog.Write(c.log, storagelog.AddressField(string(keys[i])), storagelog.OpField("fstree DELETE"))
 		}
 	}
 

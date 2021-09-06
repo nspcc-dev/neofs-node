@@ -6,6 +6,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"go.etcd.io/bbolt"
 )
 
@@ -21,6 +22,7 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 			c.mem = c.mem[:len(c.mem)-1]
 			c.curMemSize -= uint64(len(c.mem[i].data))
 			c.mtx.Unlock()
+			storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("in-mem DELETE"))
 			return nil
 		}
 	}
@@ -44,12 +46,17 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 			return err
 		}
 		c.dbSize.Sub(uint64(has))
+		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("db DELETE"))
 		return nil
 	}
 
 	err := c.fsTree.Delete(addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		err = object.ErrNotFound
+	}
+
+	if err == nil {
+		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("fstree DELETE"))
 	}
 
 	return err
