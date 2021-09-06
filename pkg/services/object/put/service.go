@@ -46,7 +46,7 @@ type cfg struct {
 
 	workerPool util.WorkerPool
 
-	localAddrSrc network.LocalAddressSource
+	netmapKeys netmap.AnnouncedKeys
 
 	fmtValidator *object.FormatValidator
 
@@ -123,9 +123,9 @@ func WithWorkerPool(v util.WorkerPool) Option {
 	}
 }
 
-func WithLocalAddressSource(v network.LocalAddressSource) Option {
+func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
 	return func(c *cfg) {
-		c.localAddrSrc = v
+		c.netmapKeys = v
 	}
 }
 

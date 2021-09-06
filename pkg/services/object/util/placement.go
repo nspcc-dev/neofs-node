@@ -14,13 +14,13 @@ import (
 type localPlacement struct {
 	builder placement.Builder
 
-	localAddrSrc network.LocalAddressSource
+	netmapKeys netmap.AnnouncedKeys
 }
 
 type remotePlacement struct {
 	builder placement.Builder
 
-	localAddrSrc network.LocalAddressSource
+	netmapKeys netmap.AnnouncedKeys
 }
 
 // TraverserGenerator represents tool that generates
@@ -30,15 +30,15 @@ type TraverserGenerator struct {
 
 	cnrSrc container.Source
 
-	localAddrSrc network.LocalAddressSource
+	netmapKeys netmap.AnnouncedKeys
 
 	customOpts []placement.Option
 }
 
-func NewLocalPlacement(b placement.Builder, s network.LocalAddressSource) placement.Builder {
+func NewLocalPlacement(b placement.Builder, s netmap.AnnouncedKeys) placement.Builder {
 	return &localPlacement{
-		builder:      b,
-		localAddrSrc: s,
+		builder:    b,
+		netmapKeys: s,
 	}
 }
 
@@ -58,7 +58,7 @@ func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.
 				continue
 			}
 
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if p.netmapKeys.IsLocalKey(vs[i][j].PublicKey()) {
 				return []netmapSDK.Nodes{{vs[i][j]}}, nil
 			}
 		}
@@ -69,10 +69,10 @@ func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.
 
 // NewRemotePlacementBuilder creates, initializes and returns placement builder that
 // excludes local node from any placement vector.
-func NewRemotePlacementBuilder(b placement.Builder, s network.LocalAddressSource) placement.Builder {
+func NewRemotePlacementBuilder(b placement.Builder, s netmap.AnnouncedKeys) placement.Builder {
 	return &remotePlacement{
-		builder:      b,
-		localAddrSrc: s,
+		builder:    b,
+		netmapKeys: s,
 	}
 }
 
@@ -92,7 +92,7 @@ func (p *remotePlacement) BuildPlacement(addr *object.Address, policy *netmapSDK
 				continue
 			}
 
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if p.netmapKeys.IsLocalKey(vs[i][j].PublicKey()) {
 				vs[i] = append(vs[i][:j], vs[i][j+1:]...)
 				j--
 			}
@@ -103,21 +103,21 @@ func (p *remotePlacement) BuildPlacement(addr *object.Address, policy *netmapSDK
 }
 
 // NewTraverserGenerator creates, initializes and returns new TraverserGenerator instance.
-func NewTraverserGenerator(nmSrc netmap.Source, cnrSrc container.Source, localAddrSrc network.LocalAddressSource) *TraverserGenerator {
+func NewTraverserGenerator(nmSrc netmap.Source, cnrSrc container.Source, netmapKeys netmap.AnnouncedKeys) *TraverserGenerator {
 	return &TraverserGenerator{
-		netMapSrc:    nmSrc,
-		cnrSrc:       cnrSrc,
-		localAddrSrc: localAddrSrc,
+		netMapSrc:  nmSrc,
+		cnrSrc:     cnrSrc,
+		netmapKeys: netmapKeys,
 	}
 }
 
 // WithTraverseOptions returns TraverseGenerator that additionally applies provided options.
 func (g *TraverserGenerator) WithTraverseOptions(opts ...placement.Option) *TraverserGenerator {
 	return &TraverserGenerator{
-		netMapSrc:    g.netMapSrc,
-		cnrSrc:       g.cnrSrc,
-		localAddrSrc: g.localAddrSrc,
-		customOpts:   opts,
+		netMapSrc:  g.netMapSrc,
+		cnrSrc:     g.cnrSrc,
+		netmapKeys: g.netmapKeys,
+		customOpts: opts,
 	}
 }
 
@@ -143,7 +143,7 @@ func (g *TraverserGenerator) GenerateTraverser(addr *object.Address, epoch uint6
 	// create builder of the remote nodes from network map
 	builder := NewRemotePlacementBuilder(
 		placement.NewNetworkMapBuilder(nm),
-		g.localAddrSrc,
+		g.netmapKeys,
 	)
 
 	traverseOpts = append(traverseOpts,

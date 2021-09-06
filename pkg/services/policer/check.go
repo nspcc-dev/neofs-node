@@ -68,7 +68,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 			continue
 		}
 
-		if network.IsLocalAddress(p.localAddrSrc, node) {
+		if p.netmapKeys.IsLocalKey(nodes[i].PublicKey()) {
 			if shortage == 0 {
 				// we can call the redundant copy callback
 				// here to slightly improve the performance

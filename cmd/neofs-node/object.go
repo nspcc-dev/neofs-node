@@ -240,7 +240,7 @@ func initObjectService(c *cfg) {
 		policer.WithRemoteHeader(
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
-		policer.WithLocalAddressSource(c),
+		policer.WithNetmapKeys(c),
 		policer.WithHeadTimeout(
 			policerconfig.HeadTimeout(c.appCfg),
 		),
@@ -276,7 +276,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithLocalStorage(ls),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
 		putsvc.WithNetworkMapSource(c.cfgObject.netMapSource),
-		putsvc.WithLocalAddressSource(c),
+		putsvc.WithNetmapKeys(c),
 		putsvc.WithFormatValidatorOpts(
 			objectCore.WithDeleteHandler(objInhumer),
 		),

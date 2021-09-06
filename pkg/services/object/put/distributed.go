@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
@@ -23,7 +22,7 @@ type distributedTarget struct {
 
 	chunks [][]byte
 
-	nodeTargetInitializer func(network.AddressGroup) transformer.ObjectTarget
+	nodeTargetInitializer func(placement.Node) transformer.ObjectTarget
 
 	relay func(placement.Node) error
 
@@ -76,7 +75,7 @@ func (t *distributedTarget) sendObject(node placement.Node) error {
 		}
 	}
 
-	target := t.nodeTargetInitializer(node.Addresses())
+	target := t.nodeTargetInitializer(node)
 
 	if err := target.WriteHeader(t.obj); err != nil {
 		return fmt.Errorf("could not write header: %w", err)

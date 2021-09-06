@@ -97,7 +97,7 @@ func initContainerService(c *cfg) {
 			LocalServerInfo: c,
 			RemoteWriterProvider: &remoteLoadAnnounceProvider{
 				key:             &c.key.PrivateKey,
-				loadAddrSrc:     c,
+				netmapKeys:      c,
 				clientCache:     c.clientCache,
 				deadEndProvider: loadcontroller.SimpleWriterProvider(loadAccumulator),
 			},
@@ -220,7 +220,7 @@ func (nopLoadWriter) Close() error {
 type remoteLoadAnnounceProvider struct {
 	key *ecdsa.PrivateKey
 
-	loadAddrSrc network.LocalAddressSource
+	netmapKeys netmapCore.AnnouncedKeys
 
 	clientCache interface {
 		Get(network.AddressGroup) (apiClient.Client, error)
@@ -234,16 +234,16 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return r.deadEndProvider, nil
 	}
 
+	if r.netmapKeys.IsLocalKey(srv.PublicKey()) {
+		// if local => return no-op writer
+		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
+	}
+
 	var netAddr network.AddressGroup
 
 	err := netAddr.FromIterator(srv)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
-	}
-
-	if network.IsLocalAddress(r.loadAddrSrc, netAddr) {
-		// if local => return no-op writer
-		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
 	c, err := r.clientCache.Get(netAddr)
@@ -383,6 +383,10 @@ type usedSpaceService struct {
 
 func (c *cfg) PublicKey() []byte {
 	return nodeKeyFromNetmap(c)
+}
+
+func (c *cfg) IsLocalKey(key []byte) bool {
+	return bytes.Equal(key, c.PublicKey())
 }
 
 func (c *cfg) IterateAddresses(f func(string) bool) {
