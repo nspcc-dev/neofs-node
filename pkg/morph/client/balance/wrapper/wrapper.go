@@ -23,7 +23,7 @@ type Wrapper struct {
 }
 
 // Option allows to set an optional
-// parameter of ClientWrapper.
+// parameter of Wrapper.
 type Option func(*opts)
 
 type opts []client.StaticClientOption
