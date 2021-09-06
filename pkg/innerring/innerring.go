@@ -476,7 +476,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee, client.TryNotary(), client.AsAlphabet())
+	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee, nmWrapper.TryNotary(), nmWrapper.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
