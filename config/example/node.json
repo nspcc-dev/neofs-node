@@ -25,7 +25,10 @@
     ],
     "attribute_0": "Price:11",
     "attribute_1": "UN-LOCODE:RU MSK",
-    "relay": true
+    "relay": true,
+    "persistent_state": {
+      "path": "/state"
+    }
   },
   "grpc": {
     "num": 2,

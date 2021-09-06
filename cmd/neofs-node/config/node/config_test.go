@@ -30,9 +30,11 @@ func TestNodeSection(t *testing.T) {
 
 		attribute := Attributes(empty)
 		relay := Relay(empty)
+		persistatePath := PersistentState(empty).Path()
 
 		require.Empty(t, attribute)
 		require.Equal(t, false, relay)
+		require.Equal(t, PersistentStatePathDefault, persistatePath)
 	})
 
 	const path = "../../../../config/example/node"
@@ -43,6 +45,7 @@ func TestNodeSection(t *testing.T) {
 		attributes := Attributes(c)
 		relay := Relay(c)
 		wKey := Wallet(c)
+		persistatePath := PersistentState(c).Path()
 
 		expectedAddr := []struct {
 			str  string
@@ -94,6 +97,8 @@ func TestNodeSection(t *testing.T) {
 		require.Equal(t,
 			config.StringSafe(c.Sub("node").Sub("wallet"), "address"),
 			address.Uint160ToString(wKey.GetScriptHash()))
+
+		require.Equal(t, "/state", persistatePath)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
