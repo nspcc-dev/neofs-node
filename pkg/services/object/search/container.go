@@ -76,7 +76,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			}
 
 			// TODO: consider parallel execution
-			exec.processNode(ctx, addrs[i])
+			exec.processNode(ctx, addrs[i].Addresses())
 		}
 	}
 

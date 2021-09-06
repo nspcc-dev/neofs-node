@@ -78,7 +78,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			// TODO: consider parallel execution
 			// TODO: consider optimization: if status == SPLIT we can continue until
 			//  we reach the best result - split info with linking object ID.
-			if exec.processNode(ctx, addrs[i]) {
+			if exec.processNode(ctx, addrs[i].Addresses()) {
 				exec.log.Debug("completing the operation")
 				return true
 			}

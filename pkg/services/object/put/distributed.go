@@ -25,7 +25,7 @@ type distributedTarget struct {
 
 	nodeTargetInitializer func(network.AddressGroup) transformer.ObjectTarget
 
-	relay func(network.AddressGroup) error
+	relay func(placement.Node) error
 
 	fmt *object.FormatValidator
 
@@ -68,15 +68,15 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	return t.iteratePlacement(t.sendObject)
 }
 
-func (t *distributedTarget) sendObject(addr network.AddressGroup) error {
+func (t *distributedTarget) sendObject(node placement.Node) error {
 	if t.relay != nil {
-		err := t.relay(addr)
+		err := t.relay(node)
 		if err == nil || !errors.Is(err, errLocalAddress) {
 			return err
 		}
 	}
 
-	target := t.nodeTargetInitializer(addr)
+	target := t.nodeTargetInitializer(node.Addresses())
 
 	if err := target.WriteHeader(t.obj); err != nil {
 		return fmt.Errorf("could not write header: %w", err)
@@ -86,7 +86,7 @@ func (t *distributedTarget) sendObject(addr network.AddressGroup) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(network.AddressGroup) error) (*transformer.AccessIdentifiers, error) {
+func (t *distributedTarget) iteratePlacement(f func(placement.Node) error) (*transformer.AccessIdentifiers, error) {
 	traverser, err := placement.NewTraverser(
 		append(t.traverseOpts, placement.ForObject(t.obj.ID()))...,
 	)
@@ -111,7 +111,7 @@ loop:
 				defer wg.Done()
 
 				if err := f(addr); err != nil {
-					svcutil.LogServiceError(t.log, "PUT", addr, err)
+					svcutil.LogServiceError(t.log, "PUT", addr.Addresses(), err)
 					return
 				}
 
