@@ -99,11 +99,19 @@ func listenMorphNotifications(c *cfg) {
 		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
 	})
 
+	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
+	if err != nil {
+		fromSideChainBlock = 0
+		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+	}
+
 	for i := range endpoints {
 		subs, err = subscriber.New(c.ctx, &subscriber.Params{
-			Log:         c.log,
-			Endpoint:    endpoints[i],
-			DialTimeout: timeout,
+			Log:            c.log,
+			Endpoint:       endpoints[i],
+			DialTimeout:    timeout,
+			RPCInitTimeout: 10 * time.Second,
+			StartFromBlock: fromSideChainBlock,
 		})
 		if err == nil {
 			c.log.Info("websocket neo event listener established",
@@ -135,6 +143,14 @@ func listenMorphNotifications(c *cfg) {
 
 	registerBlockHandler(lis, func(block *block.Block) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
+
+		err = c.persistate.SetUInt32(persistateSideChainLastBlockKey, block.Index)
+		if err != nil {
+			c.log.Warn("can't update persistent state",
+				zap.String("chain", "side"),
+				zap.Uint32("block_index", block.Index))
+		}
+
 		tickBlockTimers(c)
 	})
 }
