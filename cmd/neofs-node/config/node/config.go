@@ -11,10 +11,20 @@ import (
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 )
 
+// PersistentStateConfig is a wrapper over "persistent_state" config section
+// which provides access to persistent state storage configuration of node.
+type PersistentStateConfig struct {
+	cfg *config.Config
+}
+
 const (
-	subsection = "node"
+	subsection                = "node"
+	persistentStateSubsection = "persistent_state"
 
 	attributePrefix = "attribute"
+
+	// PersistentStatePathDefault is a default path for persistent state file.
+	PersistentStatePathDefault = ".neofs-storage-state"
 )
 
 // Key returns value of "key" config parameter
@@ -114,4 +124,24 @@ func Attributes(c *config.Config) (attrs []string) {
 // Returns false if value is not set.
 func Relay(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "relay")
+}
+
+// PersistentState returns structure that provides access to "persistent_state"
+// subsection of "node" section.
+func PersistentState(c *config.Config) PersistentStateConfig {
+	return PersistentStateConfig{
+		c.Sub(subsection).Sub(persistentStateSubsection),
+	}
+}
+
+// Path returns value of "path" config parameter.
+//
+// Returns PersistentStatePathDefault if value is not a non-empty string.
+func (p PersistentStateConfig) Path() string {
+	v := config.String(p.cfg, "path")
+	if v != "" {
+		return v
+	}
+
+	return PersistentStatePathDefault
 }
