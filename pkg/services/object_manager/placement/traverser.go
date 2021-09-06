@@ -122,11 +122,18 @@ func flatNodes(ns []netmap.Nodes) []netmap.Nodes {
 // Node is a descriptor of storage node with information required for intra-container communication.
 type Node struct {
 	addresses network.AddressGroup
+
+	key []byte
 }
 
 // Addresses returns group of network addresses.
 func (x Node) Addresses() network.AddressGroup {
 	return x.addresses
+}
+
+// Key returns public key in a binary format. Should not be mutated.
+func (x Node) Key() []byte {
+	return x.key
 }
 
 // Next returns next unprocessed address of the object placement.
@@ -157,6 +164,8 @@ func (t *Traverser) Next() []Node {
 			// TODO: log error
 			return nil
 		}
+
+		nodes[i].key = t.vectors[0][i].PublicKey()
 	}
 
 	t.vectors[0] = t.vectors[0][count:]
