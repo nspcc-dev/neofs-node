@@ -119,10 +119,20 @@ func flatNodes(ns []netmap.Nodes) []netmap.Nodes {
 	return []netmap.Nodes{flat}
 }
 
+// Node is a descriptor of storage node with information required for intra-container communication.
+type Node struct {
+	addresses network.AddressGroup
+}
+
+// Addresses returns group of network addresses.
+func (x Node) Addresses() network.AddressGroup {
+	return x.addresses
+}
+
 // Next returns next unprocessed address of the object placement.
 //
 // Returns nil if no nodes left or traversal operation succeeded.
-func (t *Traverser) Next() []network.AddressGroup {
+func (t *Traverser) Next() []Node {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
@@ -139,10 +149,10 @@ func (t *Traverser) Next() []network.AddressGroup {
 		count = len(t.vectors[0])
 	}
 
-	addrs := make([]network.AddressGroup, count)
+	nodes := make([]Node, count)
 
 	for i := 0; i < count; i++ {
-		err := addrs[i].FromIterator(t.vectors[0][i])
+		err := nodes[i].addresses.FromIterator(t.vectors[0][i])
 		if err != nil {
 			// TODO: log error
 			return nil
@@ -151,7 +161,7 @@ func (t *Traverser) Next() []network.AddressGroup {
 
 	t.vectors[0] = t.vectors[0][count:]
 
-	return addrs
+	return nodes
 }
 
 func (t *Traverser) skipEmptyVectors() {

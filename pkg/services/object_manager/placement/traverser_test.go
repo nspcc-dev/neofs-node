@@ -95,7 +95,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 			require.Len(t, addrs, len(nodes[i]))
 
 			for j, n := range nodes[i] {
-				assertSameAddress(t, n.NodeInfo, addrs[j])
+				assertSameAddress(t, n.NodeInfo, addrs[j].Addresses())
 			}
 		}
 
@@ -129,7 +129,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		err = n.FromIterator(nodes[1][0])
 		require.NoError(t, err)
 
-		require.Equal(t, []network.AddressGroup{n}, tr.Next())
+		require.Equal(t, []Node{{addresses: n}}, tr.Next())
 	})
 
 	t.Run("put scenario", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 				require.Len(t, addrs, replicas[curVector])
 
 				for j := range addrs {
-					assertSameAddress(t, nodes[curVector][i+j].NodeInfo, addrs[j])
+					assertSameAddress(t, nodes[curVector][i+j].NodeInfo, addrs[j].Addresses())
 				}
 			}
 

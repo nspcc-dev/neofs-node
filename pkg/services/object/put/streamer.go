@@ -147,9 +147,11 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 var errLocalAddress = errors.New("can't relay to local address")
 
 func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
-	var relay func(network.AddressGroup) error
+	var relay func(placement.Node) error
 	if p.relay != nil {
-		relay = func(addr network.AddressGroup) error {
+		relay = func(node placement.Node) error {
+			addr := node.Addresses()
+
 			if network.IsLocalAddress(p.localAddrSrc, addr) {
 				return errLocalAddress
 			}
