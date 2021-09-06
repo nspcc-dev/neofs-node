@@ -86,6 +86,7 @@ type (
 		contracts             *contracts
 		predefinedValidators  keys.PublicKeys
 		initialEpochTickDelta uint32
+		withoutMainNet        bool
 
 		// runtime processors
 		netmapProcessor *netmap.Processor
@@ -336,9 +337,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	withoutMainNet := cfg.GetBool("without_mainnet")
+	server.withoutMainNet = cfg.GetBool("without_mainnet")
 
-	if withoutMainNet {
+	if server.withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
 		// otherwise Server.Start will run two similar routines.
 		// This behavior most likely will not change.
@@ -365,7 +366,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(
 		cfg,
 		server.morphClient.ProbeNotary(),
-		!withoutMainNet && server.mainnetClient.ProbeNotary(), // if mainnet disabled then notary flag must be disabled too
+		!server.withoutMainNet && server.mainnetClient.ProbeNotary(), // if mainnet disabled then notary flag must be disabled too
 	)
 
 	log.Debug("notary support",
@@ -376,7 +377,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// get all script hashes of contracts
 	server.contracts, err = parseContracts(
 		cfg,
-		withoutMainNet,
+		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,
 		server.sideNotaryConfig.disabled,
 	)
@@ -574,7 +575,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	var alphaSync event.Handler
 
-	if withoutMainNet {
+	if server.withoutMainNet {
 		alphaSync = func(event.Event) {
 			log.Debug("alphabet keys sync is disabled")
 		}
@@ -674,7 +675,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	if !withoutMainNet {
+	if !server.withoutMainNet {
 		// create mainnnet neofs processor
 		neofsProcessor, err := neofs.New(&neofs.Params{
 			Log:                 log,
