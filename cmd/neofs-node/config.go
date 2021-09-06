@@ -46,6 +46,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
@@ -113,6 +114,8 @@ type cfg struct {
 	mainChainClient *client.Client
 
 	clientCache *cache.ClientCache
+
+	persistate *state.PersistentStorage
 }
 
 type cfgGRPC struct {
@@ -207,6 +210,8 @@ type cfgReputation struct {
 	scriptHash neogoutil.Uint160
 }
 
+var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
+
 func initCfg(path string) *cfg {
 	var p config.Prm
 
@@ -231,7 +236,10 @@ func initCfg(path string) *cfg {
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
 
-	state := newNetworkState()
+	netState := newNetworkState()
+
+	persistate, err := state.NewPersistentStorage(nodeconfig.PersistentState(appCfg).Path())
+	fatalOnErr(err)
 
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
@@ -261,7 +269,7 @@ func initCfg(path string) *cfg {
 		},
 		cfgNetmap: cfgNetmap{
 			scriptHash:          contractsconfig.Netmap(appCfg),
-			state:               state,
+			state:               netState,
 			workerPool:          netmapWorkerPool,
 			needBootstrap:       !relayOnly,
 			reBoostrapTurnedOff: atomic.NewBool(relayOnly),
@@ -272,7 +280,7 @@ func initCfg(path string) *cfg {
 		},
 		localAddr: netAddr,
 		respSvc: response.NewService(
-			response.WithNetworkState(state),
+			response.WithNetworkState(netState),
 		),
 		cfgObject: cfgObject{
 			pool: initObjectPool(appCfg),
@@ -285,6 +293,7 @@ func initCfg(path string) *cfg {
 		clientCache: cache.NewSDKClientCache(
 			apiclient.WithDialTimeout(apiclientconfig.DialTimeout(appCfg)),
 		),
+		persistate: persistate,
 	}
 
 	if metricsconfig.Address(c.appCfg) != "" {
@@ -292,6 +301,7 @@ func initCfg(path string) *cfg {
 	}
 
 	c.onShutdown(c.clientCache.CloseAll) // clean up connections
+	c.onShutdown(func() { _ = c.persistate.Close() })
 
 	initLocalStorage(c)
 
