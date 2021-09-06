@@ -4,6 +4,7 @@ import (
 	"sort"
 	"time"
 
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -29,6 +30,13 @@ func (c *cache) persistLoop() {
 			c.log.Debug("persisted items to disk",
 				zap.Duration("took", time.Since(start)),
 				zap.Int("total", len(m)))
+
+			for i := range m {
+				storagelog.Write(c.log,
+					storagelog.AddressField(m[i].addr),
+					storagelog.OpField("in-mem DELETE persist"),
+				)
+			}
 
 			c.mtx.Lock()
 			c.curMemSize = 0
@@ -64,6 +72,7 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 			}
 			sz += uint64(len(objs[i].data))
 			doneMem = append(doneMem, i)
+			storagelog.Write(c.log, storagelog.AddressField(objs[i].addr), storagelog.OpField("db PUT"))
 		}
 		return nil
 	})
@@ -88,6 +97,8 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 		err := c.fsTree.Put(objs[i].obj.Address(), objs[i].data)
 		if err != nil {
 			failDisk = append(failDisk, i)
+		} else {
+			storagelog.Write(c.log, storagelog.AddressField(objs[i].addr), storagelog.OpField("fstree PUT"))
 		}
 	}
 

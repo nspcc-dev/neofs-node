@@ -31,7 +31,7 @@ type options struct {
 // WithLogger sets logger.
 func WithLogger(log *zap.Logger) Option {
 	return func(o *options) {
-		o.log = log
+		o.log = log.With(zap.String("component", "WriteCache"))
 	}
 }
 

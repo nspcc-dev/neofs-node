@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 )
 
 // ErrBigObject is returned when object is too big to be placed in cache.
@@ -34,6 +35,9 @@ func (c *cache) Put(o *object.Object) error {
 		c.mem = append(c.mem, oi)
 
 		c.mtx.Unlock()
+
+		storagelog.Write(c.log, storagelog.AddressField(oi.addr), storagelog.OpField("in-mem PUT"))
+
 		return nil
 	}
 
