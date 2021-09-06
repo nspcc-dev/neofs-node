@@ -41,6 +41,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("without_mainnet", false)
 
+	cfg.SetDefault("node.persistent_state.path", ".neofs-ir-state")
+
 	cfg.SetDefault("morph.endpoint.client", "")
 	cfg.SetDefault("morph.endpoint.notification", "")
 	cfg.SetDefault("morph.dial_timeout", "10s")

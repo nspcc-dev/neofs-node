@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -45,6 +46,7 @@ import (
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/atomic"
@@ -74,6 +76,7 @@ type (
 		healthStatus  atomic.Value
 		balanceClient *balanceWrapper.Wrapper
 		netmapClient  *nmWrapper.Wrapper
+		persistate    *state.PersistentStorage
 
 		// notary configuration
 		feeConfig        *config.FeeConfig
@@ -139,6 +142,7 @@ type (
 		name string
 		gas  util.Uint160
 		sgn  *transaction.Signer
+		from uint32 // block height
 	}
 )
 
@@ -237,8 +241,26 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			zap.Uint32("index", b.Index),
 		)
 
+		err = s.persistate.SetUInt32(persistateSideChainLastBlockKey, b.Index)
+		if err != nil {
+			s.log.Warn("can't update persistent state",
+				zap.String("chain", "side"),
+				zap.Uint32("block_index", b.Index))
+		}
+
 		s.tickTimers()
 	})
+
+	if !s.withoutMainNet {
+		s.mainnetListener.RegisterBlockHandler(func(b *block.Block) {
+			err = s.persistate.SetUInt32(persistateMainChainLastBlockKey, b.Index)
+			if err != nil {
+				s.log.Warn("can't update persistent state",
+					zap.String("chain", "main"),
+					zap.Uint32("block_index", b.Index))
+			}
+		})
+	}
 
 	for _, runner := range s.runners {
 		runner(intError)
@@ -318,11 +340,24 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	server.key = acc.PrivateKey()
 
+	server.persistate, err = initPersistentStateStorage(cfg)
+	if err != nil {
+		return nil, err
+	}
+	server.registerCloser(server.persistate.Close)
+
+	fromSideChainBlock, err := server.persistate.UInt32(persistateSideChainLastBlockKey)
+	if err != nil {
+		fromSideChainBlock = 0
+		log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+	}
+
 	morphChain := &chainParams{
 		log:  log,
 		cfg:  cfg,
 		key:  server.key,
 		name: morphPrefix,
+		from: fromSideChainBlock,
 	}
 
 	// create morph listener
@@ -349,6 +384,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		mainnetChain := morphChain
 		mainnetChain.name = mainnetPrefix
 		mainnetChain.sgn = &transaction.Signer{Scopes: transaction.CalledByEntry}
+
+		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
+		if err != nil {
+			fromMainChainBlock = 0
+			log.Warn("can't get last processed main chain block number", zap.String("error", err.Error()))
+		}
+		mainnetChain.from = fromMainChainBlock
 
 		// create mainnet listener
 		server.mainnetListener, err = createListener(ctx, mainnetChain)
@@ -847,9 +889,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 func createListener(ctx context.Context, p *chainParams) (event.Listener, error) {
 	sub, err := subscriber.New(ctx, &subscriber.Params{
-		Log:         p.log,
-		Endpoint:    p.cfg.GetString(p.name + ".endpoint.notification"),
-		DialTimeout: p.cfg.GetDuration(p.name + ".dial_timeout"),
+		Log:            p.log,
+		Endpoint:       p.cfg.GetString(p.name + ".endpoint.notification"),
+		DialTimeout:    p.cfg.GetDuration(p.name + ".dial_timeout"),
+		RPCInitTimeout: 10 * time.Second,
+		StartFromBlock: p.from,
 	})
 	if err != nil {
 		return nil, err
