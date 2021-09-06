@@ -3,6 +3,7 @@ package neofs
 import (
 	"encoding/hex"
 
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
@@ -12,7 +13,7 @@ func (np *Processor) handleDeposit(ev event.Event) {
 	deposit := ev.(neofsEvent.Deposit)
 	np.log.Info("notification",
 		zap.String("type", "deposit"),
-		zap.String("id", hex.EncodeToString(deposit.ID())))
+		zap.String("id", hex.EncodeToString(slice.CopyReverse(deposit.ID()))))
 
 	// send event to the worker pool
 
@@ -28,7 +29,7 @@ func (np *Processor) handleWithdraw(ev event.Event) {
 	withdraw := ev.(neofsEvent.Withdraw)
 	np.log.Info("notification",
 		zap.String("type", "withdraw"),
-		zap.String("id", hex.EncodeToString(withdraw.ID())))
+		zap.String("id", hex.EncodeToString(slice.CopyReverse(withdraw.ID()))))
 
 	// send event to the worker pool
 
