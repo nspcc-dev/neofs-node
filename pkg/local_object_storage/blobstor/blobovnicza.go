@@ -12,6 +12,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"go.uber.org/zap"
 )
 
@@ -181,10 +182,7 @@ func (b *blobovniczas) put(addr *objectSDK.Address, data []byte) (*blobovnicza.I
 
 		id = blobovnicza.NewIDFromBytes([]byte(p))
 
-		b.log.Debug("object successfully saved in active blobovnicza",
-			zap.String("path", p),
-			zap.Stringer("addr", addr),
-		)
+		storagelog.Write(b.log, storagelog.AddressField(addr), storagelog.OpField("blobovniczas PUT"))
 
 		return true, nil
 	}
@@ -262,7 +260,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 			return nil, err
 		}
 
-		return b.deleteObject(blz, bPrm)
+		return b.deleteObject(blz, bPrm, prm)
 	}
 
 	activeCache := make(map[string]struct{})
@@ -273,7 +271,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 		// don't process active blobovnicza of the level twice
 		_, ok := activeCache[dirPath]
 
-		res, err = b.deleteObjectFromLevel(bPrm, p, !ok)
+		res, err = b.deleteObjectFromLevel(bPrm, p, !ok, prm)
 		if err != nil {
 			if !errors.Is(err, object.ErrNotFound) {
 				b.log.Debug("could not remove object from level",
@@ -351,7 +349,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 // tries to delete object from particular blobovnicza.
 //
 // returns no error if object was removed from some blobovnicza of the same level.
-func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath string, tryActive bool) (*DeleteSmallRes, error) {
+func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath string, tryActive bool, dp *DeleteSmallPrm) (*DeleteSmallRes, error) {
 	lvlPath := path.Dir(blzPath)
 
 	log := b.log.With(
@@ -363,7 +361,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	v, ok := b.opened.Get(blzPath)
 	b.lruMtx.Unlock()
 	if ok {
-		if res, err := b.deleteObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
+		if res, err := b.deleteObject(v.(*blobovnicza.Blobovnicza), prm, dp); err == nil {
 			return res, err
 		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not remove object from opened blobovnicza",
@@ -381,7 +379,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	b.activeMtx.RUnlock()
 
 	if ok && tryActive {
-		if res, err := b.deleteObject(active.blz, prm); err == nil {
+		if res, err := b.deleteObject(active.blz, prm, dp); err == nil {
 			return res, err
 		} else if !errors.Is(err, object.ErrNotFound) {
 			log.Debug("could not remove object from active blobovnicza",
@@ -406,7 +404,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 		return nil, err
 	}
 
-	return b.deleteObject(blz, prm)
+	return b.deleteObject(blz, prm, dp)
 }
 
 // tries to read object from particular blobovnicza.
@@ -544,11 +542,17 @@ func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, 
 }
 
 // removes object from blobovnicza and returns DeleteSmallRes.
-func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.DeletePrm) (*DeleteSmallRes, error) {
+func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.DeletePrm, dp *DeleteSmallPrm) (*DeleteSmallRes, error) {
 	_, err := blz.Delete(prm)
 	if err != nil {
 		return nil, err
 	}
+
+	storagelog.Write(b.log,
+		storagelog.AddressField(dp.addr),
+		storagelog.OpField("blobovniczas DELETE"),
+		zap.Stringer("blobovnicza ID", dp.blobovniczaID),
+	)
 
 	return new(DeleteSmallRes), nil
 }

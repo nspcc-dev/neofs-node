@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 )
 
 // DeleteBigPrm groups the parameters of DeleteBig operation.
@@ -25,6 +26,10 @@ func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
 	err := b.fsTree.Delete(prm.addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		err = object.ErrNotFound
+	}
+
+	if err == nil {
+		storagelog.Write(b.log, storagelog.AddressField(prm.addr), storagelog.OpField("fstree DELETE"))
 	}
 
 	return nil, err
