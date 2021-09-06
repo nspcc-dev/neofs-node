@@ -6,8 +6,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -47,7 +47,7 @@ type cfg struct {
 
 	remoteHeader *headsvc.RemoteHeader
 
-	localAddrSrc network.LocalAddressSource
+	netmapKeys netmap.AnnouncedKeys
 
 	replicator *replicator.Replicator
 
@@ -142,10 +142,10 @@ func WithRemoteHeader(v *headsvc.RemoteHeader) Option {
 	}
 }
 
-// WithLocalAddressSource returns option to set local address source of Policer.
-func WithLocalAddressSource(v network.LocalAddressSource) Option {
+// WithNetmapKeys returns option to set tool to work with announced public keys.
+func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
 	return func(c *cfg) {
-		c.localAddrSrc = v
+		c.netmapKeys = v
 	}
 }
 

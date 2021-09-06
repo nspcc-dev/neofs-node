@@ -135,7 +135,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		prm.traverseOpts = append(prm.traverseOpts, placement.SuccessAfter(1))
 
 		// use local-only placement builder
-		builder = util.NewLocalPlacement(builder, p.localAddrSrc)
+		builder = util.NewLocalPlacement(builder, p.netmapKeys)
 	}
 
 	// set placement builder
@@ -152,7 +152,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 		relay = func(node placement.Node) error {
 			addr := node.Addresses()
 
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+			if p.netmapKeys.IsLocalKey(node.Key()) {
 				return errLocalAddress
 			}
 
@@ -168,8 +168,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 	return &distributedTarget{
 		traverseOpts: prm.traverseOpts,
 		workerPool:   p.workerPool,
-		nodeTargetInitializer: func(addr network.AddressGroup) transformer.ObjectTarget {
-			if network.IsLocalAddress(p.localAddrSrc, addr) {
+		nodeTargetInitializer: func(node placement.Node) transformer.ObjectTarget {
+			if p.netmapKeys.IsLocalKey(node.Key()) {
 				return &localTarget{
 					storage: p.localStore,
 				}
@@ -179,7 +179,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
-				addr:              addr,
+				addr:              node.Addresses(),
 				clientConstructor: p.clientConstructor,
 			}
 		},

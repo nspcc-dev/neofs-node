@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
@@ -27,7 +28,7 @@ type clientKeyRemoteProvider interface {
 //
 // remoteTrustProvider requires to be provided with clientKeyRemoteProvider.
 type remoteTrustProvider struct {
-	localAddrSrc    network.LocalAddressSource
+	netmapKeys      netmap.AnnouncedKeys
 	deadEndProvider reputationcommon.WriterProvider
 	clientCache     clientCache
 	remoteProvider  clientKeyRemoteProvider
@@ -39,7 +40,7 @@ type remoteTrustProvider struct {
 // Passing incorrect parameter values will result in constructor
 // failure (error or panic depending on the implementation).
 type RemoteProviderPrm struct {
-	LocalAddrSrc    network.LocalAddressSource
+	NetmapKeys      netmap.AnnouncedKeys
 	DeadEndProvider reputationcommon.WriterProvider
 	ClientCache     clientCache
 	WriterProvider  clientKeyRemoteProvider
@@ -47,8 +48,8 @@ type RemoteProviderPrm struct {
 
 func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriterProvider {
 	switch {
-	case prm.LocalAddrSrc == nil:
-		PanicOnPrmValue("LocalAddrSrc", prm.LocalAddrSrc)
+	case prm.NetmapKeys == nil:
+		PanicOnPrmValue("NetmapKeys", prm.NetmapKeys)
 	case prm.DeadEndProvider == nil:
 		PanicOnPrmValue("DeadEndProvider", prm.DeadEndProvider)
 	case prm.ClientCache == nil:
@@ -58,7 +59,7 @@ func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriter
 	}
 
 	return &remoteTrustProvider{
-		localAddrSrc:    prm.LocalAddrSrc,
+		netmapKeys:      prm.NetmapKeys,
 		deadEndProvider: prm.DeadEndProvider,
 		clientCache:     prm.ClientCache,
 		remoteProvider:  prm.WriterProvider,
@@ -70,16 +71,16 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return rtp.deadEndProvider, nil
 	}
 
+	if rtp.netmapKeys.IsLocalKey(srv.PublicKey()) {
+		// if local => return no-op writer
+		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
+	}
+
 	var netAddr network.AddressGroup
 
 	err := netAddr.FromIterator(srv)
 	if err != nil {
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
-	}
-
-	if network.IsLocalAddress(rtp.localAddrSrc, netAddr) {
-		// if local => return no-op writer
-		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
 	c, err := rtp.clientCache.Get(netAddr)
