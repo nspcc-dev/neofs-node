@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -43,7 +44,14 @@ func (b *BlobStor) PutRaw(addr *objectSDK.Address, data []byte) (*PutRes, error)
 
 	if big {
 		// save object in shallow dir
-		return new(PutRes), b.fsTree.Put(addr, data)
+		err := b.fsTree.Put(addr, data)
+		if err != nil {
+			return nil, err
+		}
+
+		storagelog.Write(b.log, storagelog.AddressField(addr), storagelog.OpField("fstree PUT"))
+
+		return new(PutRes), nil
 	}
 
 	// save object in blobovnicza
