@@ -1,16 +1,24 @@
 package innerring
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+	"github.com/nspcc-dev/neofs-node/pkg/util/state"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
 const voteMethod = "vote"
+
+var (
+	persistateMainChainLastBlockKey = []byte("main_chain_last_processed_block")
+	persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
+)
 
 // EpochCounter is a getter for a global epoch counter.
 func (s *Server) EpochCounter() uint64 {
@@ -139,4 +147,14 @@ func (s *Server) setHealthStatus(hs control.HealthStatus) {
 // HealthStatus returns current health status of IR application.
 func (s *Server) HealthStatus() control.HealthStatus {
 	return s.healthStatus.Load().(control.HealthStatus)
+}
+
+func initPersistentStateStorage(cfg *viper.Viper) (*state.PersistentStorage, error) {
+	persistPath := cfg.GetString("node.persistent_state.path")
+	persistStorage, err := state.NewPersistentStorage(persistPath)
+	if err != nil {
+		return nil, fmt.Errorf("persistent state init error: %w", err)
+	}
+
+	return persistStorage, nil
 }
