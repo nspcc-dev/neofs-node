@@ -67,7 +67,7 @@ func awaitNotaryDepositInClient(ctx context.Context, cli *client.Client, txHash 
 			return errDepositFail
 		}
 
-		cli.Wait(ctx, 1)
+		_ = cli.Wait(ctx, 1)
 	}
 
 	return errDepositTimeout
