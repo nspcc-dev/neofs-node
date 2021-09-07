@@ -3,6 +3,17 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.24.1] - 2021-09-07
+
+### Fixed 
+- Storage and Inner Ring will not start until Neo RPC node will have the height
+of the latest processed block by the nodes (#795)
+
+### Upgrading from v0.24.0
+Specify path to the local state DB in Inner Ring node config with 
+`NEOFS_IR_NODE_PERSISTENT_STATE_PATH`. Specify path to the local state DB in
+Storage node config with `NEOFS_NODE_PERSISTENT_STATE_PATH`.
+
 ## [0.24.0] - 2021-08-30 Anmyeondo (안면도, 安眠島)
 
 ### Fixed
@@ -584,7 +595,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.1...master
+[0.24.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.22.3...v0.23.0
