@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -892,7 +891,6 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 		Log:            p.log,
 		Endpoint:       p.cfg.GetString(p.name + ".endpoint.notification"),
 		DialTimeout:    p.cfg.GetDuration(p.name + ".dial_timeout"),
-		RPCInitTimeout: 10 * time.Second,
 		StartFromBlock: p.from,
 	})
 	if err != nil {
