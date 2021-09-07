@@ -110,7 +110,6 @@ func listenMorphNotifications(c *cfg) {
 			Log:            c.log,
 			Endpoint:       endpoints[i],
 			DialTimeout:    timeout,
-			RPCInitTimeout: 10 * time.Second,
 			StartFromBlock: fromSideChainBlock,
 		})
 		if err == nil {
