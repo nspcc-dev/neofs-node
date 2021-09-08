@@ -19,13 +19,7 @@ func (rp *Processor) handlePutReputation(ev event.Event) {
 
 	// send event to the worker pool
 
-	err := rp.pool.Submit(func() {
-		rp.processPut(
-			put.Epoch(),
-			peerID,
-			put.Value(),
-		)
-	})
+	err := rp.pool.Submit(func() { rp.processPut(&put) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		rp.log.Warn("reputation worker pool drained",

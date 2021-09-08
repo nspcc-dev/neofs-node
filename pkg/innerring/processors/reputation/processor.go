@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -37,6 +38,8 @@ type (
 		reputationWrp *reputationWrapper.ClientWrapper
 
 		mngBuilder common.ManagerBuilder
+
+		notaryDisabled bool
 	}
 
 	// Params of the processor constructor.
@@ -48,6 +51,7 @@ type (
 		AlphabetState      AlphabetState
 		ReputationWrapper  *reputationWrapper.ClientWrapper
 		ManagerBuilder     common.ManagerBuilder
+		NotaryDisabled     bool
 	}
 )
 
@@ -85,11 +89,16 @@ func New(p *Params) (*Processor, error) {
 		alphabetState:      p.AlphabetState,
 		reputationWrp:      p.ReputationWrapper,
 		mngBuilder:         p.ManagerBuilder,
+		notaryDisabled:     p.NotaryDisabled,
 	}, nil
 }
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (rp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+	if !rp.notaryDisabled {
+		return nil
+	}
+
 	var parsers []event.NotificationParserInfo
 
 	// put reputation event
@@ -104,6 +113,10 @@ func (rp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	if !rp.notaryDisabled {
+		return nil
+	}
+
 	var handlers []event.NotificationHandlerInfo
 
 	// put reputation handler
@@ -116,14 +129,28 @@ func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	return handlers
 }
 
-// ListenerNotaryParsers for the 'event.Listener' event producer.
+// ListenerNotaryParsers for the 'event.Listener' notary event producer.
 func (rp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
-	return nil
+	var p event.NotaryParserInfo
+
+	p.SetMempoolType(mempoolevent.TransactionAdded)
+	p.SetRequestType(reputationEvent.PutNotaryEvent)
+	p.SetScriptHash(rp.reputationContract)
+	p.SetParser(reputationEvent.ParsePutNotary)
+
+	return []event.NotaryParserInfo{p}
 }
 
-// ListenerNotaryHandlers for the 'event.Listener' event producer.
+// ListenerNotaryHandlers for the 'event.Listener' notary event producer.
 func (rp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
-	return nil
+	var h event.NotaryHandlerInfo
+
+	h.SetMempoolType(mempoolevent.TransactionAdded)
+	h.SetRequestType(reputationEvent.PutNotaryEvent)
+	h.SetScriptHash(rp.reputationContract)
+	h.SetHandler(rp.handlePutReputation)
+
+	return []event.NotaryHandlerInfo{h}
 }
 
 // TimersHandlers for the 'Timers' event producer.
