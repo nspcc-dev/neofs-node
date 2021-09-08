@@ -6,16 +6,16 @@ import (
 	"go.uber.org/zap"
 )
 
-func (np *Processor) HandleGasEmission(ev event.Event) {
+func (ap *Processor) HandleGasEmission(ev event.Event) {
 	_ = ev.(timers.NewAlphabetEmitTick)
-	np.log.Info("tick", zap.String("type", "alphabet gas emit"))
+	ap.log.Info("tick", zap.String("type", "alphabet gas emit"))
 
 	// send event to the worker pool
 
-	err := np.pool.Submit(func() { np.processEmit() })
+	err := ap.pool.Submit(func() { ap.processEmit() })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
-		np.log.Warn("alphabet processor worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+		ap.log.Warn("alphabet processor worker pool drained",
+			zap.Int("capacity", ap.pool.Cap()))
 	}
 }

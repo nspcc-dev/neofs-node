@@ -10,41 +10,31 @@ type (
 	ContractProcessor interface {
 		ListenerNotificationParsers() []event.NotificationParserInfo
 		ListenerNotificationHandlers() []event.NotificationHandlerInfo
-		TimersHandlers() []event.NotificationHandlerInfo
-	}
-
-	// NotaryContractProcessor interface defines function for binding notary event
-	// producers such as event.Listener with contract processor.
-	//
-	// This interface is optional for contract processor. If contract processor
-	// supports notary event handling, it should implement both ContractProcessor
-	// and NotaryContractProcessor interfaces.
-	NotaryContractProcessor interface {
 		ListenerNotaryParsers() []event.NotaryParserInfo
 		ListenerNotaryHandlers() []event.NotaryHandlerInfo
+		TimersHandlers() []event.NotificationHandlerInfo
 	}
 )
 
 func connectListenerWithProcessor(l event.Listener, p ContractProcessor) {
-	// register parsers
+	// register notification parsers
 	for _, parser := range p.ListenerNotificationParsers() {
 		l.SetNotificationParser(parser)
 	}
 
-	// register handlers
+	// register notification handlers
 	for _, handler := range p.ListenerNotificationHandlers() {
 		l.RegisterNotificationHandler(handler)
 	}
 
-	// add notary handlers if processor supports it
-	if notaryProcessor, ok := p.(NotaryContractProcessor); ok {
-		for _, notaryParser := range notaryProcessor.ListenerNotaryParsers() {
-			l.SetNotaryParser(notaryParser)
-		}
+	// register notary parsers
+	for _, notaryParser := range p.ListenerNotaryParsers() {
+		l.SetNotaryParser(notaryParser)
+	}
 
-		for _, notaryHandler := range notaryProcessor.ListenerNotaryHandlers() {
-			l.RegisterNotaryHandler(notaryHandler)
-		}
+	// register notary handlers
+	for _, notaryHandler := range p.ListenerNotaryHandlers() {
+		l.RegisterNotaryHandler(notaryHandler)
 	}
 }
 

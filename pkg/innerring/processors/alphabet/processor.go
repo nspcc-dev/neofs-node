@@ -83,16 +83,26 @@ func New(p *Params) (*Processor, error) {
 }
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
-func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+func (ap *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
 	return nil
 }
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
-func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+func (ap *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	return nil
+}
+
+// ListenerNotaryParsers for the 'event.Listener' event producer.
+func (ap *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
+	return nil
+}
+
+// ListenerNotaryHandlers for the 'event.Listener' event producer.
+func (ap *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	return nil
 }
 
 // TimersHandlers for the 'Timers' event producer.
-func (np *Processor) TimersHandlers() []event.NotificationHandlerInfo {
+func (ap *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
 }
