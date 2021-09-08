@@ -23,6 +23,11 @@ func defaultOpts() *opts {
 	return new(opts)
 }
 
+// Morph returns raw morph client.
+func (w ClientWrapper) Morph() *client.Client {
+	return (reputation.Client)(w).Morph()
+}
+
 // TryNotary returns option to enable
 // notary invocation tries.
 func TryNotary() Option {
