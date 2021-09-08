@@ -19,14 +19,16 @@ func (s AddPeer) Node() []byte {
 	return s.node
 }
 
+const expectedItemNumAddPeer = 1
+
 func ParseAddPeer(prms []stackitem.Item) (event.Event, error) {
 	var (
 		ev  AddPeer
 		err error
 	)
 
-	if ln := len(prms); ln != 1 {
-		return nil, event.WrongNumberOfParameters(1, ln)
+	if ln := len(prms); ln != expectedItemNumAddPeer {
+		return nil, event.WrongNumberOfParameters(expectedItemNumAddPeer, ln)
 	}
 
 	ev.node, err = client.BytesFromStackItem(prms[0])
