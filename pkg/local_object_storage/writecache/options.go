@@ -26,6 +26,11 @@ type options struct {
 	smallObjectSize uint64
 	// workersCount is the number of workers flushing objects in parallel.
 	workersCount int
+	// maxCacheSize is the maximum total size of all objects saved in cache (DB + FS).
+	// 1 GiB by default.
+	maxCacheSize uint64
+	// objCounters is an ObjectCounters instance needed for cache size estimation.
+	objCounters ObjectCounters
 }
 
 // WithLogger sets logger.
@@ -86,5 +91,19 @@ func WithFlushWorkersCount(c int) Option {
 		if c > 0 {
 			o.workersCount = c
 		}
+	}
+}
+
+// WithObjectCounters sets ObjectCounters instance needed for cache write-cache size estimation.
+func WithObjectCounters(v ObjectCounters) Option {
+	return func(o *options) {
+		o.objCounters = v
+	}
+}
+
+// WithMaxCacheSize sets maximum write-cache size in bytes.
+func WithMaxCacheSize(sz uint64) Option {
+	return func(o *options) {
+		o.maxCacheSize = sz
 	}
 }

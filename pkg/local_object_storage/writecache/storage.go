@@ -118,6 +118,7 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 		return err
 	}
 	c.dbSize.Sub(sz)
+	c.objCounters.DecDB()
 	return nil
 }
 
@@ -139,6 +140,7 @@ func (c *cache) deleteFromDisk(keys [][]byte) error {
 			continue
 		} else if err == nil {
 			storagelog.Write(c.log, storagelog.AddressField(string(keys[i])), storagelog.OpField("fstree DELETE"))
+			c.objCounters.DecFS()
 		}
 	}
 
