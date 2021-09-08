@@ -43,6 +43,12 @@ func NotaryTypeFromString(str string) NotaryType {
 	return NotaryType(str)
 }
 
+// UnexpectedArgNumErr returns error when notary parsers
+// get unexpected amount of argument in contract call.
+func UnexpectedArgNumErr(method string) error {
+	return fmt.Errorf("unexpected arguments amount in %s call", method)
+}
+
 // UnexpectedOpcode returns error when notary parsers
 // get unexpected opcode in contract call.
 func UnexpectedOpcode(method string, op opcode.Opcode) error {
