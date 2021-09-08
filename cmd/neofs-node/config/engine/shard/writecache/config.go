@@ -21,6 +21,9 @@ const (
 
 	// WorkersNumberDefault is a default number of workers.
 	WorkersNumberDefault = 20
+
+	// SizeLimitDefault is a default write-cache size limit.
+	SizeLimitDefault = 1 << 30
 )
 
 // From wraps config section into Config.
@@ -106,4 +109,20 @@ func (x *Config) WorkersNumber() int {
 	}
 
 	return WorkersNumberDefault
+}
+
+// SizeLimit returns value of "size_limit" config parameter.
+//
+// Returns SizeLimitDefault if value is not a positive number.
+func (x *Config) SizeLimit() uint64 {
+	c := config.UintSafe(
+		(*config.Config)(x),
+		"size_limit",
+	)
+
+	if c > 0 {
+		return c
+	}
+
+	return SizeLimitDefault
 }
