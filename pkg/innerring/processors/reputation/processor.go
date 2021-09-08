@@ -116,6 +116,16 @@ func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	return handlers
 }
 
+// ListenerNotaryParsers for the 'event.Listener' event producer.
+func (rp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
+	return nil
+}
+
+// ListenerNotaryHandlers for the 'event.Listener' event producer.
+func (rp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
+	return nil
+}
+
 // TimersHandlers for the 'Timers' event producer.
 func (rp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil

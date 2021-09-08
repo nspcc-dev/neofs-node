@@ -146,6 +146,16 @@ func (gp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	return []event.NotificationHandlerInfo{hi}
 }
 
+// ListenerNotaryParsers for the 'event.Listener' event producer.
+func (gp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
+	return nil
+}
+
+// ListenerNotaryHandlers for the 'event.Listener' event producer.
+func (gp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
+	return nil
+}
+
 // TimersHandlers for the 'Timers' event producer.
 func (gp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
 	return nil
