@@ -71,6 +71,11 @@ func New(c *client.StaticClient, opts ...Option) (*Client, error) {
 	return res, nil
 }
 
+// Morph returns raw morph client.
+func (c Client) Morph() *client.Client {
+	return c.client.Morph()
+}
+
 // WithPutMethod returns a client constructor option that
 // specifies the method name to put reputation value.
 //
