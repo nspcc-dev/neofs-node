@@ -82,6 +82,20 @@ func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
 	return val, nil
 }
 
+func (c *ttlNetCache) remove(key interface{}) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
+	c.cache.Remove(key)
+}
+
+func (c *ttlNetCache) keys() []interface{} {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+
+	return c.cache.Keys()
+}
+
 // entity that provides LRU cache interface.
 type lruNetCache struct {
 	mtx sync.Mutex
@@ -130,7 +144,7 @@ func (c *lruNetCache) get(key interface{}) (interface{}, error) {
 // that implements container storage.
 type ttlContainerStorage ttlNetCache
 
-func newCachedContainerStorage(v container.Source) container.Source {
+func newCachedContainerStorage(v container.Source) *ttlContainerStorage {
 	const (
 		containerCacheSize = 100
 		containerCacheTTL  = 30 * time.Second
@@ -150,6 +164,8 @@ func newCachedContainerStorage(v container.Source) container.Source {
 	return (*ttlContainerStorage)(lruCnrCache)
 }
 
+// Get returns container value from the cache. If value is missing in the cache
+// or expired, then it returns value from side chain and updates the cache.
 func (s *ttlContainerStorage) Get(cid *cid.ID) (*containerSDK.Container, error) {
 	val, err := (*ttlNetCache)(s).get(cid.String())
 	if err != nil {
@@ -159,9 +175,14 @@ func (s *ttlContainerStorage) Get(cid *cid.ID) (*containerSDK.Container, error) 
 	return val.(*containerSDK.Container), nil
 }
 
+// InvalidateContainer removes cached container value.
+func (s *ttlContainerStorage) InvalidateContainer(cid *cid.ID) {
+	(*ttlNetCache)(s).remove(cid.String())
+}
+
 type ttlEACLStorage ttlNetCache
 
-func newCachedEACLStorage(v eacl.Source) eacl.Source {
+func newCachedEACLStorage(v eacl.Source) *ttlEACLStorage {
 	const (
 		eaclCacheSize = 100
 		eaclCacheTTL  = 30 * time.Second
@@ -181,6 +202,8 @@ func newCachedEACLStorage(v eacl.Source) eacl.Source {
 	return (*ttlEACLStorage)(lruCnrCache)
 }
 
+// GetEACL returns eACL value from the cache. If value is missing in the cache
+// or expired, then it returns value from side chain and updates cache.
 func (s *ttlEACLStorage) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 	val, err := (*ttlNetCache)(s).get(cid.String())
 	if err != nil {
@@ -188,6 +211,11 @@ func (s *ttlEACLStorage) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 	}
 
 	return val.(*eaclSDK.Table), nil
+}
+
+// InvalidateEACL removes cached eACL value.
+func (s *ttlEACLStorage) InvalidateEACL(cid *cid.ID) {
+	(*ttlNetCache)(s).remove(cid.String())
 }
 
 type lruNetmapSource struct {
@@ -261,6 +289,9 @@ func newCachedContainerLister(w *wrapper.Wrapper) *ttlContainerLister {
 	return (*ttlContainerLister)(lruCnrListerCache)
 }
 
+// List returns list of container IDs from the cache. If list is missing in the
+// cache or expired, then it returns container IDs from side chain and updates
+// the cache.
 func (s *ttlContainerLister) List(id *owner.ID) ([]*cid.ID, error) {
 	var str string
 
@@ -274,4 +305,34 @@ func (s *ttlContainerLister) List(id *owner.ID) ([]*cid.ID, error) {
 	}
 
 	return val.([]*cid.ID), nil
+}
+
+// InvalidateContainerList removes cached list of container IDs.
+func (s *ttlContainerLister) InvalidateContainerList(id *owner.ID) {
+	(*ttlNetCache)(s).remove(id.String())
+}
+
+// InvalidateContainerListByCID removes cached list of container IDs. To do that
+// function iterates over all available lists and removes the first list where
+// specified ID is present.
+func (s *ttlContainerLister) InvalidateContainerListByCID(id *cid.ID) {
+	cache := (*ttlNetCache)(s)
+	for _, key := range cache.keys() {
+		val, err := cache.get(key)
+		if err != nil {
+			continue
+		}
+
+		ids, ok := val.([]*cid.ID)
+		if !ok {
+			continue
+		}
+
+		for i := range ids {
+			if ids[i].Equal(id) {
+				cache.remove(key)
+				return
+			}
+		}
+	}
 }

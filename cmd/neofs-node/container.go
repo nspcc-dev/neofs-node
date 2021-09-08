@@ -58,6 +58,7 @@ func initContainerService(c *cfg) {
 	}
 
 	cnrRdr := new(morphContainerReader)
+	cnrInvalidator := new(morphContainerInvalidator)
 
 	if c.cfgMorph.disableCache {
 		c.cfgObject.eaclSource = eACLFetcher
@@ -67,11 +68,20 @@ func initContainerService(c *cfg) {
 		cnrRdr.lister = wrap
 	} else {
 		// use RPC node as source of Container contract items (with caching)
-		c.cfgObject.eaclSource = newCachedEACLStorage(eACLFetcher)
-		c.cfgObject.cnrSource = newCachedContainerStorage(cnrSrc)
-		cnrRdr.lister = newCachedContainerLister(wrap)
+		cachedContainerStorage := newCachedContainerStorage(cnrSrc)
+		cachedEACLStorage := newCachedEACLStorage(eACLFetcher)
+		cachedContainerLister := newCachedContainerLister(wrap)
+
+		c.cfgObject.eaclSource = cachedEACLStorage
+		c.cfgObject.cnrSource = cachedContainerStorage
+
+		cnrRdr.lister = cachedContainerLister
 		cnrRdr.eacl = c.cfgObject.eaclSource
 		cnrRdr.get = c.cfgObject.cnrSource
+
+		cnrInvalidator.lists = cachedContainerLister
+		cnrInvalidator.eacls = cachedEACLStorage
+		cnrInvalidator.containers = cachedContainerStorage
 	}
 
 	localMetrics := &localStorageLoad{
@@ -142,7 +152,7 @@ func initContainerService(c *cfg) {
 			&c.key.PrivateKey,
 			containerService.NewResponseService(
 				&usedSpaceService{
-					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap, cnrRdr)),
+					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap, cnrRdr, cnrInvalidator)),
 					loadWriterProvider:   loadRouter,
 					loadPlacementBuilder: loadPlacementBuilder,
 					routeBuilder:         routeBuilder,
@@ -527,4 +537,43 @@ func (x *morphContainerReader) GetEACL(id *cid.ID) (*eaclSDK.Table, error) {
 
 func (x *morphContainerReader) List(id *owner.ID) ([]*cid.ID, error) {
 	return x.lister.List(id)
+}
+
+type morphContainerInvalidator struct {
+	containers interface {
+		InvalidateContainer(*cid.ID)
+	}
+
+	eacls interface {
+		InvalidateEACL(*cid.ID)
+	}
+
+	lists interface {
+		InvalidateContainerList(*owner.ID)
+		InvalidateContainerListByCID(*cid.ID)
+	}
+}
+
+func (x *morphContainerInvalidator) InvalidateContainer(id *cid.ID) {
+	if x.containers != nil {
+		x.containers.InvalidateContainer(id)
+	}
+}
+
+func (x *morphContainerInvalidator) InvalidateEACL(id *cid.ID) {
+	if x.eacls != nil {
+		x.eacls.InvalidateEACL(id)
+	}
+}
+
+func (x *morphContainerInvalidator) InvalidateContainerList(id *owner.ID) {
+	if x.lists != nil {
+		x.lists.InvalidateContainerList(id)
+	}
+}
+
+func (x *morphContainerInvalidator) InvalidateContainerListByCID(id *cid.ID) {
+	if x.lists != nil {
+		x.lists.InvalidateContainerListByCID(id)
+	}
 }
