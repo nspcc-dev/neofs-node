@@ -12,17 +12,13 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 )
 
 type morphExecutor struct {
-	wrapper *wrapper.Wrapper
-
 	rdr Reader
-
-	invalidator Invalidator
+	wrt Writer
 }
 
 // Reader is an interface of read-only container storage.
@@ -36,27 +32,20 @@ type Reader interface {
 	List(*owner.ID) ([]*cid.ID, error)
 }
 
-// Invalidator is an interface of local cache invalidator. It removes cached
-// values in order to synchronize updated data in the side chain faster.
-type Invalidator interface {
-	// InvalidateContainer from the local container cache if it exists.
-	InvalidateContainer(*cid.ID)
-	// InvalidateEACL from the local eACL cache if it exists.
-	InvalidateEACL(*cid.ID)
-	// InvalidateContainerList from the local cache of container list results
-	// if it exists.
-	InvalidateContainerList(*owner.ID)
-	// InvalidateContainerListByCID from the local cache of container list
-	// results if it exists. Container list source uses owner.ID as a key,
-	// so invalidating cache record by the value requires different approach.
-	InvalidateContainerListByCID(*cid.ID)
+// Writer is an interface of container storage updater.
+type Writer interface {
+	// Put stores specified container in the side chain.
+	Put(*containerSDK.Container) (*cid.ID, error)
+	// Delete removes specified container from the side chain.
+	Delete(containercore.RemovalWitness) error
+	// PutEACL updates extended ACL table of specified container in the side chain.
+	PutEACL(*eaclSDK.Table) error
 }
 
-func NewExecutor(w *wrapper.Wrapper, rdr Reader, i Invalidator) containerSvc.ServiceExecutor {
+func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
 	return &morphExecutor{
-		wrapper:     w,
-		rdr:         rdr,
-		invalidator: i,
+		rdr: rdr,
+		wrt: wrt,
 	}
 }
 
@@ -71,12 +60,10 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 		session.NewTokenFromV2(ctx.SessionToken),
 	)
 
-	cid, err := wrapper.Put(s.wrapper, cnr)
+	cid, err := s.wrt.Put(cnr)
 	if err != nil {
 		return nil, err
 	}
-
-	s.invalidator.InvalidateContainerList(cnr.OwnerID())
 
 	res := new(container.PutResponseBody)
 	res.SetContainerID(cid.ToV2())
@@ -95,17 +82,10 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 	rmWitness.SetSignature(sig)
 	rmWitness.SetSessionToken(tok)
 
-	err := wrapper.Delete(s.wrapper, rmWitness)
+	err := s.wrt.Delete(rmWitness)
 	if err != nil {
 		return nil, err
 	}
-
-	s.invalidator.InvalidateContainer(id)
-	s.invalidator.InvalidateEACL(id)
-
-	// it is faster to use slower invalidation by CID than making separate
-	// network request to fetch owner ID of the container.
-	s.invalidator.InvalidateContainerListByCID(id)
 
 	return new(container.DeleteResponseBody), nil
 }
@@ -155,12 +135,10 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 		session.NewTokenFromV2(ctx.SessionToken),
 	)
 
-	err := wrapper.PutEACL(s.wrapper, table)
+	err := s.wrt.PutEACL(table)
 	if err != nil {
 		return nil, err
 	}
-
-	s.invalidator.InvalidateEACL(table.CID())
 
 	return new(container.SetExtendedACLResponseBody), nil
 }
