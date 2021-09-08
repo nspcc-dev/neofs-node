@@ -1,8 +1,6 @@
 package container
 
 import (
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -31,7 +29,7 @@ func (p *Put) setToken(v []byte) {
 	}
 }
 
-var fieldSetters = []func(*Put, []byte){
+var putFieldSetters = []func(*Put, []byte){
 	// order on stack is reversed
 	(*Put).setToken,
 	(*Put).setPublicKey,
@@ -45,8 +43,6 @@ const (
 	// put container requests.
 	PutNotaryEvent = "put"
 )
-
-var errUnexpectedArgumentAmount = fmt.Errorf("unexpected arguments amount in %s call", PutNotaryEvent)
 
 // ParsePutNotary from NotaryEvent into container event structure.
 func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
@@ -63,10 +59,10 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 		switch {
 		case opcode.PUSHDATA1 <= currentOp && currentOp <= opcode.PUSHDATA4:
 			if fieldNum == expectedItemNumPut {
-				return nil, errUnexpectedArgumentAmount
+				return nil, event.UnexpectedArgNumErr(PutNotaryEvent)
 			}
 
-			fieldSetters[fieldNum](&ev, op.Param())
+			putFieldSetters[fieldNum](&ev, op.Param())
 			fieldNum++
 		case opcode.PUSH0 <= currentOp && currentOp <= opcode.PUSH16 || currentOp == opcode.PACK:
 			// array packing opcodes. do nothing with it

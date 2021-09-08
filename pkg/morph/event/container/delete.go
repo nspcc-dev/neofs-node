@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -13,6 +14,10 @@ type Delete struct {
 	containerID []byte
 	signature   []byte
 	token       []byte
+
+	// For notary notifications only.
+	// Contains raw transactions of notary request.
+	notaryRequest *payload.P2PNotaryRequest
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -30,6 +35,14 @@ func (d Delete) SessionToken() []byte {
 	return d.token
 }
 
+// NotaryRequest returns raw notary request if notification
+// was received via notary service. Otherwise, returns nil.
+func (d Delete) NotaryRequest() *payload.P2PNotaryRequest {
+	return d.notaryRequest
+}
+
+const expectedItemNumDelete = 3
+
 // ParseDelete from notification into container event structure.
 //
 // Expects 3 stack items.
@@ -39,10 +52,8 @@ func ParseDelete(params []stackitem.Item) (event.Event, error) {
 		err error
 	)
 
-	const expectedItemNumEACL = 3
-
-	if ln := len(params); ln != expectedItemNumEACL {
-		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, ln)
+	if ln := len(params); ln != expectedItemNumDelete {
+		return nil, event.WrongNumberOfParameters(expectedItemNumDelete, ln)
 	}
 
 	// parse container

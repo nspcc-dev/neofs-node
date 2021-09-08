@@ -98,6 +98,10 @@ func New(p *Params) (*Processor, error) {
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
+	if !cp.notaryDisabled {
+		return nil
+	}
+
 	var (
 		parsers = make([]event.NotificationParserInfo, 0, 3)
 
@@ -106,12 +110,10 @@ func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 
 	p.SetScriptHash(cp.containerContract)
 
-	if cp.notaryDisabled {
-		// container put
-		p.SetType(event.TypeFromString(putNotification))
-		p.SetParser(containerEvent.ParsePut)
-		parsers = append(parsers, p)
-	}
+	// container put
+	p.SetType(event.TypeFromString(putNotification))
+	p.SetParser(containerEvent.ParsePut)
+	parsers = append(parsers, p)
 
 	// container delete
 	p.SetType(event.TypeFromString(deleteNotification))
@@ -128,6 +130,10 @@ func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
+	if !cp.notaryDisabled {
+		return nil
+	}
+
 	var (
 		handlers = make([]event.NotificationHandlerInfo, 0, 3)
 
@@ -136,12 +142,10 @@ func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 
 	h.SetScriptHash(cp.containerContract)
 
-	if cp.notaryDisabled {
-		// container put
-		h.SetType(event.TypeFromString(putNotification))
-		h.SetHandler(cp.handlePut)
-		handlers = append(handlers, h)
-	}
+	// container put
+	h.SetType(event.TypeFromString(putNotification))
+	h.SetHandler(cp.handlePut)
+	handlers = append(handlers, h)
 
 	// container delete
 	h.SetType(event.TypeFromString(deleteNotification))
@@ -158,26 +162,50 @@ func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 
 // ListenerNotaryParsers for the 'event.Listener' notary event producer.
 func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
-	var p event.NotaryParserInfo
+	var (
+		p event.NotaryParserInfo
+
+		pp = make([]event.NotaryParserInfo, 0, 3)
+	)
 
 	p.SetMempoolType(mempoolevent.TransactionAdded)
-	p.SetRequestType(containerEvent.PutNotaryEvent)
 	p.SetScriptHash(cp.containerContract)
-	p.SetParser(containerEvent.ParsePutNotary)
 
-	return []event.NotaryParserInfo{p}
+	// container put
+	p.SetRequestType(containerEvent.PutNotaryEvent)
+	p.SetParser(containerEvent.ParsePutNotary)
+	pp = append(pp, p)
+
+	// container delete
+	p.SetRequestType(containerEvent.DeleteNotaryEvent)
+	p.SetParser(containerEvent.ParseDeleteNotary)
+	pp = append(pp, p)
+
+	return pp
 }
 
 // ListenerNotaryHandlers for the 'event.Listener' notary event producer.
 func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
-	var h event.NotaryHandlerInfo
+	var (
+		h event.NotaryHandlerInfo
 
-	h.SetMempoolType(mempoolevent.TransactionAdded)
-	h.SetRequestType(containerEvent.PutNotaryEvent)
+		hh = make([]event.NotaryHandlerInfo, 0, 3)
+	)
+
 	h.SetScriptHash(cp.containerContract)
-	h.SetHandler(cp.handlePut)
+	h.SetMempoolType(mempoolevent.TransactionAdded)
 
-	return []event.NotaryHandlerInfo{h}
+	// container put
+	h.SetRequestType(containerEvent.PutNotaryEvent)
+	h.SetHandler(cp.handlePut)
+	hh = append(hh, h)
+
+	// container delete
+	h.SetRequestType(containerEvent.DeleteNotaryEvent)
+	h.SetHandler(cp.handleDelete)
+	hh = append(hh, h)
+
+	return hh
 }
 
 // TimersHandlers for the 'Timers' event producer.

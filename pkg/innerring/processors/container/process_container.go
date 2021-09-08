@@ -187,7 +187,15 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 }
 
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
-	err := cp.cnrClient.Delete(e.ContainerID(), e.Signature(), e.SessionToken())
+	var err error
+
+	if nr := e.NotaryRequest(); nr != nil {
+		// delete event was received via Notary service
+		err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	} else {
+		// delete event was received via notification service
+		err = cp.cnrClient.Delete(e.ContainerID(), e.Signature(), e.SessionToken())
+	}
 	if err != nil {
 		cp.log.Error("could not approve delete container",
 			zap.String("error", err.Error()),
