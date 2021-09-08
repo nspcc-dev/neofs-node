@@ -60,6 +60,7 @@ const (
 	maxInMemorySizeBytes = 1024 * 1024 * 1024 // 1 GiB
 	maxObjectSize        = 64 * 1024 * 1024   // 64 MiB
 	smallObjectSize      = 32 * 1024          // 32 KiB
+	maxCacheSizeBytes    = 1 << 30            // 1 GiB
 )
 
 var (
@@ -81,6 +82,7 @@ func New(opts ...Option) Cache {
 			maxObjectSize:   maxObjectSize,
 			smallObjectSize: smallObjectSize,
 			workersCount:    flushWorkersCount,
+			maxCacheSize:    maxCacheSizeBytes,
 		},
 	}
 
@@ -91,9 +93,21 @@ func New(opts ...Option) Cache {
 	return c
 }
 
-// Open opens and initializes database.
+// Open opens and initializes database. Reads object counters from the ObjectCounters instance.
 func (c *cache) Open() error {
-	return c.openStore()
+	err := c.openStore()
+	if err != nil {
+		return err
+	}
+
+	if c.objCounters == nil {
+		c.objCounters = &counters{
+			db: c.db,
+			fs: c.fsTree,
+		}
+	}
+
+	return c.objCounters.Read()
 }
 
 // Init runs necessary services.
@@ -103,8 +117,9 @@ func (c *cache) Init() error {
 	return nil
 }
 
-// Close closes db connection and stops services.
+// Close closes db connection and stops services. Executes ObjectCounters.FlushAndClose op.
 func (c *cache) Close() error {
 	close(c.closeCh)
+	c.objCounters.FlushAndClose()
 	return c.db.Close()
 }

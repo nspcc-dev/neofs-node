@@ -47,6 +47,7 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 		}
 		c.dbSize.Sub(uint64(has))
 		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("db DELETE"))
+		c.objCounters.DecDB()
 		return nil
 	}
 
@@ -57,6 +58,7 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 
 	if err == nil {
 		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("fstree DELETE"))
+		c.objCounters.DecFS()
 	}
 
 	return err
