@@ -110,7 +110,8 @@
           "mem_size": 2147483648,
           "small_size": 16384,
           "max_size": 134217728,
-          "workers_number": 30
+          "workers_number": 30,
+          "size_limit": 3221225472
         },
         "metabase": {
           "path": "tmp/0/meta",
@@ -141,7 +142,8 @@
           "mem_size": 2147483648,
           "small_size": 16384,
           "max_size": 134217728,
-          "workers_number": 30
+          "workers_number": 30,
+          "size_limit": 4294967296
         },
         "metabase": {
           "path": "tmp/1/meta",
