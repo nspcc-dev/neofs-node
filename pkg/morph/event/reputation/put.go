@@ -3,6 +3,7 @@ package reputation
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -15,6 +16,10 @@ type Put struct {
 	epoch  uint64
 	peerID reputation.PeerID
 	value  reputation.GlobalTrust
+
+	// For notary notifications only.
+	// Contains raw transactions of notary request.
+	notaryRequest *payload.P2PNotaryRequest
 }
 
 const peerIDLength = 33 // compressed public key
@@ -35,6 +40,12 @@ func (p Put) PeerID() reputation.PeerID {
 // Value returns reputation structure.
 func (p Put) Value() reputation.GlobalTrust {
 	return p.value
+}
+
+// NotaryRequest returns raw notary request if notification
+// was received via notary service. Otherwise, returns nil.
+func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
+	return p.notaryRequest
 }
 
 // ParsePut from notification into reputation event structure.
