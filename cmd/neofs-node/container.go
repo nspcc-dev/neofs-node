@@ -58,7 +58,10 @@ func initContainerService(c *cfg) {
 	}
 
 	cnrRdr := new(morphContainerReader)
-	cnrInvalidator := new(morphContainerInvalidator)
+
+	cnrWrt := &morphContainerWriter{
+		neoClient: wrap,
+	}
 
 	if c.cfgMorph.disableCache {
 		c.cfgObject.eaclSource = eACLFetcher
@@ -79,9 +82,10 @@ func initContainerService(c *cfg) {
 		cnrRdr.eacl = c.cfgObject.eaclSource
 		cnrRdr.get = c.cfgObject.cnrSource
 
-		cnrInvalidator.lists = cachedContainerLister
-		cnrInvalidator.eacls = cachedEACLStorage
-		cnrInvalidator.containers = cachedContainerStorage
+		cnrWrt.cacheEnabled = true
+		cnrWrt.lists = cachedContainerLister
+		cnrWrt.eacls = cachedEACLStorage
+		cnrWrt.containers = cachedContainerStorage
 	}
 
 	localMetrics := &localStorageLoad{
@@ -152,7 +156,7 @@ func initContainerService(c *cfg) {
 			&c.key.PrivateKey,
 			containerService.NewResponseService(
 				&usedSpaceService{
-					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(wrap, cnrRdr, cnrInvalidator)),
+					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(cnrRdr, cnrWrt)),
 					loadWriterProvider:   loadRouter,
 					loadPlacementBuilder: loadPlacementBuilder,
 					routeBuilder:         routeBuilder,
@@ -539,41 +543,56 @@ func (x *morphContainerReader) List(id *owner.ID) ([]*cid.ID, error) {
 	return x.lister.List(id)
 }
 
-type morphContainerInvalidator struct {
-	containers interface {
-		InvalidateContainer(*cid.ID)
-	}
+type morphContainerWriter struct {
+	neoClient *wrapper.Wrapper
 
-	eacls interface {
-		InvalidateEACL(*cid.ID)
-	}
-
-	lists interface {
-		InvalidateContainerList(*owner.ID)
-		InvalidateContainerListByCID(*cid.ID)
-	}
+	cacheEnabled bool
+	containers   *ttlContainerStorage
+	eacls        *ttlEACLStorage
+	lists        *ttlContainerLister
 }
 
-func (x *morphContainerInvalidator) InvalidateContainer(id *cid.ID) {
-	if x.containers != nil {
-		x.containers.InvalidateContainer(id)
+func (m morphContainerWriter) Put(cnr *containerSDK.Container) (*cid.ID, error) {
+	containerID, err := wrapper.Put(m.neoClient, cnr)
+	if err != nil {
+		return nil, err
 	}
+
+	if m.cacheEnabled {
+		m.lists.InvalidateContainerList(cnr.OwnerID())
+	}
+
+	return containerID, nil
 }
 
-func (x *morphContainerInvalidator) InvalidateEACL(id *cid.ID) {
-	if x.eacls != nil {
-		x.eacls.InvalidateEACL(id)
+func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error {
+	err := wrapper.Delete(m.neoClient, witness)
+	if err != nil {
+		return err
 	}
+
+	if m.cacheEnabled {
+		containerID := witness.ContainerID()
+
+		m.containers.InvalidateContainer(containerID)
+		m.eacls.InvalidateEACL(containerID)
+		// it is faster to use slower invalidation by CID than making separate
+		// network request to fetch owner ID of the container.
+		m.lists.InvalidateContainerListByCID(containerID)
+	}
+
+	return nil
 }
 
-func (x *morphContainerInvalidator) InvalidateContainerList(id *owner.ID) {
-	if x.lists != nil {
-		x.lists.InvalidateContainerList(id)
+func (m morphContainerWriter) PutEACL(table *eaclSDK.Table) error {
+	err := wrapper.PutEACL(m.neoClient, table)
+	if err != nil {
+		return err
 	}
-}
 
-func (x *morphContainerInvalidator) InvalidateContainerListByCID(id *cid.ID) {
-	if x.lists != nil {
-		x.lists.InvalidateContainerListByCID(id)
+	if m.cacheEnabled {
+		m.eacls.InvalidateEACL(table.CID())
 	}
+
+	return nil
 }
