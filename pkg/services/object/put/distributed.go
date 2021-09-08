@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -93,6 +94,8 @@ func (t *distributedTarget) iteratePlacement(f func(placement.Node) error) (*tra
 		return nil, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
 	}
 
+	var resErr atomic.Value
+
 loop:
 	for {
 		addrs := traverser.Next()
@@ -110,6 +113,7 @@ loop:
 				defer wg.Done()
 
 				if err := f(addr); err != nil {
+					resErr.Store(err)
 					svcutil.LogServiceError(t.log, "PUT", addr.Addresses(), err)
 					return
 				}
@@ -128,6 +132,10 @@ loop:
 	}
 
 	if !traverser.Success() {
+		if err, ok := resErr.Load().(error); ok {
+			return nil, err
+		}
+
 		return nil, errIncompletePut
 	}
 
