@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -66,6 +67,8 @@ type (
 		handleAlphabetSync     event.Handler
 
 		nodeValidator NodeValidator
+
+		notaryDisabled bool
 	}
 
 	// Params of the processor constructor.
@@ -87,6 +90,8 @@ type (
 		AlphabetSyncHandler     event.Handler
 
 		NodeValidator NodeValidator
+
+		NotaryDisabled bool
 	}
 )
 
@@ -143,12 +148,14 @@ func New(p *Params) (*Processor, error) {
 		handleAlphabetSync: p.AlphabetSyncHandler,
 
 		nodeValidator: p.NodeValidator,
+
+		notaryDisabled: p.NotaryDisabled,
 	}, nil
 }
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	var parsers []event.NotificationParserInfo
+	parsers := make([]event.NotificationParserInfo, 0, 3)
 
 	// new epoch event
 	newEpoch := event.NotificationParserInfo{}
@@ -157,13 +164,6 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	newEpoch.SetParser(netmapEvent.ParseNewEpoch)
 	parsers = append(parsers, newEpoch)
 
-	// new peer event
-	addPeer := event.NotificationParserInfo{}
-	addPeer.SetType(addPeerNotification)
-	addPeer.SetScriptHash(np.netmapContract)
-	addPeer.SetParser(netmapEvent.ParseAddPeer)
-	parsers = append(parsers, addPeer)
-
 	// update peer event
 	updatePeer := event.NotificationParserInfo{}
 	updatePeer.SetType(updatePeerStateNotification)
@@ -171,12 +171,23 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	updatePeer.SetParser(netmapEvent.ParseUpdatePeer)
 	parsers = append(parsers, updatePeer)
 
+	if !np.notaryDisabled {
+		return parsers
+	}
+
+	// new peer event
+	addPeer := event.NotificationParserInfo{}
+	addPeer.SetType(addPeerNotification)
+	addPeer.SetScriptHash(np.netmapContract)
+	addPeer.SetParser(netmapEvent.ParseAddPeer)
+	parsers = append(parsers, addPeer)
+
 	return parsers
 }
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	var handlers []event.NotificationHandlerInfo
+	handlers := make([]event.NotificationHandlerInfo, 0, 3)
 
 	// new epoch handler
 	newEpoch := event.NotificationHandlerInfo{}
@@ -185,13 +196,6 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	newEpoch.SetHandler(np.handleNewEpoch)
 	handlers = append(handlers, newEpoch)
 
-	// new peer handler
-	addPeer := event.NotificationHandlerInfo{}
-	addPeer.SetType(addPeerNotification)
-	addPeer.SetScriptHash(np.netmapContract)
-	addPeer.SetHandler(np.handleAddPeer)
-	handlers = append(handlers, addPeer)
-
 	// update peer handler
 	updatePeer := event.NotificationHandlerInfo{}
 	updatePeer.SetType(updatePeerStateNotification)
@@ -199,17 +203,56 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	updatePeer.SetHandler(np.handleUpdateState)
 	handlers = append(handlers, updatePeer)
 
+	if !np.notaryDisabled {
+		return handlers
+	}
+
+	// new peer handler
+	addPeer := event.NotificationHandlerInfo{}
+	addPeer.SetType(addPeerNotification)
+	addPeer.SetScriptHash(np.netmapContract)
+	addPeer.SetHandler(np.handleAddPeer)
+	handlers = append(handlers, addPeer)
+
 	return handlers
 }
 
 // ListenerNotaryParsers for the 'event.Listener' event producer.
 func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
-	return nil
+	var (
+		p event.NotaryParserInfo
+
+		pp = make([]event.NotaryParserInfo, 0, 2)
+	)
+
+	p.SetMempoolType(mempoolevent.TransactionAdded)
+	p.SetScriptHash(np.netmapContract)
+
+	// new peer
+	p.SetRequestType(netmapEvent.AddPeerNotaryEvent)
+	p.SetParser(netmapEvent.ParseAddPeerNotary)
+	pp = append(pp, p)
+
+	return pp
 }
 
 // ListenerNotaryHandlers for the 'event.Listener' event producer.
 func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
-	return nil
+	var (
+		h event.NotaryHandlerInfo
+
+		hh = make([]event.NotaryHandlerInfo, 0, 2)
+	)
+
+	h.SetMempoolType(mempoolevent.TransactionAdded)
+	h.SetScriptHash(np.netmapContract)
+
+	// new peer
+	h.SetRequestType(netmapEvent.AddPeerNotaryEvent)
+	h.SetHandler(np.handleAddPeer)
+	hh = append(hh, h)
+
+	return hh
 }
 
 // TimersHandlers for the 'Timers' event producer.
