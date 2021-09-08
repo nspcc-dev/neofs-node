@@ -181,6 +181,11 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetParser(containerEvent.ParseDeleteNotary)
 	pp = append(pp, p)
 
+	// set EACL
+	p.SetRequestType(containerEvent.SetEACLNotaryEvent)
+	p.SetParser(containerEvent.ParseSetEACLNotary)
+	pp = append(pp, p)
+
 	return pp
 }
 
@@ -203,6 +208,11 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// container delete
 	h.SetRequestType(containerEvent.DeleteNotaryEvent)
 	h.SetHandler(cp.handleDelete)
+	hh = append(hh, h)
+
+	// set eACL
+	h.SetRequestType(containerEvent.SetEACLNotaryEvent)
+	h.SetHandler(cp.handleSetEACL)
 	hh = append(hh, h)
 
 	return hh

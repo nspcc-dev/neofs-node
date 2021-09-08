@@ -83,7 +83,15 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 }
 
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
-	err := cp.cnrClient.PutEACL(e.Table(), e.PublicKey(), e.Signature(), e.SessionToken())
+	var err error
+
+	if nr := e.NotaryRequest(); nr != nil {
+		// setEACL event was received via Notary service
+		err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	} else {
+		// setEACL event was received via notification service
+		err = cp.cnrClient.PutEACL(e.Table(), e.PublicKey(), e.Signature(), e.SessionToken())
+	}
 	if err != nil {
 		cp.log.Error("could not approve set EACL",
 			zap.String("error", err.Error()),

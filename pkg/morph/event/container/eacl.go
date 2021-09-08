@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -11,13 +12,14 @@ import (
 // SetEACL represents structure of notification about
 // modified eACL table coming from NeoFS Container contract.
 type SetEACL struct {
-	table []byte
-
+	table     []byte
 	signature []byte
-
 	publicKey []byte
+	token     []byte
 
-	token []byte
+	// For notary notifications only.
+	// Contains raw transactions of notary request.
+	notaryRequest *payload.P2PNotaryRequest
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -45,6 +47,14 @@ func (x SetEACL) SessionToken() []byte {
 	return x.token
 }
 
+// NotaryRequest returns raw notary request if notification
+// was received via notary service. Otherwise, returns nil.
+func (x SetEACL) NotaryRequest() *payload.P2PNotaryRequest {
+	return x.notaryRequest
+}
+
+const expectedItemNumEACL = 4
+
 // ParseSetEACL parses SetEACL notification event from list of stack items.
 //
 // Expects 4 stack items.
@@ -53,8 +63,6 @@ func ParseSetEACL(items []stackitem.Item) (event.Event, error) {
 		ev  SetEACL
 		err error
 	)
-
-	const expectedItemNumEACL = 4
 
 	if ln := len(items); ln != expectedItemNumEACL {
 		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, ln)
