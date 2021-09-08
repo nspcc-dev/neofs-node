@@ -777,6 +777,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 				NetMapSource: server.netmapClient,
 			},
 		),
+		NotaryDisabled: server.sideNotaryConfig.disabled,
 	})
 	if err != nil {
 		return nil, err

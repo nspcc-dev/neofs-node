@@ -8,17 +8,22 @@ import (
 
 	apireputation "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
+	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"go.uber.org/zap"
 )
 
 var errWrongManager = errors.New("got manager that is incorrect for peer")
 
-func (rp *Processor) processPut(epoch uint64, id apireputation.PeerID, value apireputation.GlobalTrust) {
+func (rp *Processor) processPut(e *reputationEvent.Put) {
 	if !rp.alphabetState.IsAlphabet() {
 		rp.log.Info("non alphabet mode, ignore reputation put notification")
 		return
 	}
+
+	epoch := e.Epoch()
+	id := e.PeerID()
+	value := e.Value()
 
 	// check if epoch is valid
 	currentEpoch := rp.epochState.EpochCounter()
@@ -49,18 +54,7 @@ func (rp *Processor) processPut(epoch uint64, id apireputation.PeerID, value api
 		return
 	}
 
-	args := wrapper.PutArgs{}
-	args.SetEpoch(epoch)
-	args.SetPeerID(id)
-	args.SetValue(value)
-
-	err := rp.reputationWrp.Put(args)
-	if err != nil {
-		// FIXME: do not use `ToV2` method outside neofs-api-go library
-		rp.log.Warn("can't send approval tx for reputation value",
-			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetPublicKey())),
-			zap.String("error", err.Error()))
-	}
+	rp.approvePutReputation(e)
 }
 
 func (rp *Processor) checkManagers(e uint64, mng apireputation.PeerID, peer apireputation.PeerID) error {
@@ -77,4 +71,29 @@ func (rp *Processor) checkManagers(e uint64, mng apireputation.PeerID, peer apir
 	}
 
 	return errWrongManager
+}
+
+func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
+	var (
+		id  = e.PeerID()
+		err error
+	)
+
+	if nr := e.NotaryRequest(); nr != nil {
+		// put event was received via Notary service
+		err = rp.reputationWrp.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	} else {
+		args := wrapper.PutArgs{}
+		args.SetEpoch(e.Epoch())
+		args.SetPeerID(id)
+		args.SetValue(e.Value())
+
+		err = rp.reputationWrp.Put(args)
+	}
+	if err != nil {
+		// FIXME: do not use `ToV2` method outside neofs-api-go library
+		rp.log.Warn("can't send approval tx for reputation value",
+			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetPublicKey())),
+			zap.String("error", err.Error()))
+	}
 }
