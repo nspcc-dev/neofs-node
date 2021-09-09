@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
@@ -28,7 +29,8 @@ var (
 	errIncorrectNotaryPlaceholder = errors.New("received main tx has incorrect Notary contract placeholder")
 	errIncorrectAttributesAmount  = errors.New("received main tx has incorrect attributes amount")
 	errIncorrectAttribute         = errors.New("received main tx has incorrect attribute")
-	errUnexpectedOpcode           = errors.New("received main tx has unexpected(not PUSHDATA) NeoVM opcodes")
+	errUnexpectedOpcode           = errors.New("received main tx has unexpected(not PUSH) NeoVM opcodes")
+	errIncorrectCallFlag          = errors.New("received main tx has unexpected call flag")
 
 	errIncorrectFBAttributesAmount = errors.New("received fallback tx has incorrect attributes amount")
 	errIncorrectFBAttributes       = errors.New("received fallback tx has incorrect attributes")
@@ -183,7 +185,13 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	// retrieve contract's method
 	contractMethod := string(ops[opsLen-3].param)
 
-	err = p.validateParameterOpcodes(ops[:opsLen-3])
+	// check if there is a call flag(must be in range [0:15))
+	callFlag := callflag.CallFlag(ops[opsLen-4].code - opcode.PUSH0)
+	if callFlag > callflag.All {
+		return nil, errIncorrectCallFlag
+	}
+
+	err = p.validateParameterOpcodes(ops[:opsLen-4])
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +199,7 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	return parsedNotaryEvent{
 		hash:       contractHash,
 		notaryType: NotaryTypeFromString(contractMethod),
-		params:     ops[:opsLen-3],
+		params:     ops[:opsLen-4],
 		raw:        nr,
 	}, nil
 }
