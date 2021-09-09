@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
@@ -15,6 +16,10 @@ import (
 type UpdatePeer struct {
 	publicKey *keys.PublicKey
 	status    netmap.NodeState
+
+	// For notary notifications only.
+	// Contains raw transactions of notary request.
+	notaryRequest *payload.P2PNotaryRequest
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -28,14 +33,22 @@ func (s UpdatePeer) PublicKey() *keys.PublicKey {
 	return s.publicKey
 }
 
+// NotaryRequest returns raw notary request if notification
+// was received via notary service. Otherwise, returns nil.
+func (s UpdatePeer) NotaryRequest() *payload.P2PNotaryRequest {
+	return s.notaryRequest
+}
+
+const expectedItemNumUpdatePeer = 2
+
 func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 	var (
 		ev  UpdatePeer
 		err error
 	)
 
-	if ln := len(prms); ln != 2 {
-		return nil, event.WrongNumberOfParameters(2, ln)
+	if ln := len(prms); ln != expectedItemNumUpdatePeer {
+		return nil, event.WrongNumberOfParameters(expectedItemNumUpdatePeer, ln)
 	}
 
 	// parse public key

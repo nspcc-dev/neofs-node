@@ -164,13 +164,6 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	newEpoch.SetParser(netmapEvent.ParseNewEpoch)
 	parsers = append(parsers, newEpoch)
 
-	// update peer event
-	updatePeer := event.NotificationParserInfo{}
-	updatePeer.SetType(updatePeerStateNotification)
-	updatePeer.SetScriptHash(np.netmapContract)
-	updatePeer.SetParser(netmapEvent.ParseUpdatePeer)
-	parsers = append(parsers, updatePeer)
-
 	if !np.notaryDisabled {
 		return parsers
 	}
@@ -181,6 +174,13 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	addPeer.SetScriptHash(np.netmapContract)
 	addPeer.SetParser(netmapEvent.ParseAddPeer)
 	parsers = append(parsers, addPeer)
+
+	// update peer event
+	updatePeer := event.NotificationParserInfo{}
+	updatePeer.SetType(updatePeerStateNotification)
+	updatePeer.SetScriptHash(np.netmapContract)
+	updatePeer.SetParser(netmapEvent.ParseUpdatePeer)
+	parsers = append(parsers, updatePeer)
 
 	return parsers
 }
@@ -196,13 +196,6 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	newEpoch.SetHandler(np.handleNewEpoch)
 	handlers = append(handlers, newEpoch)
 
-	// update peer handler
-	updatePeer := event.NotificationHandlerInfo{}
-	updatePeer.SetType(updatePeerStateNotification)
-	updatePeer.SetScriptHash(np.netmapContract)
-	updatePeer.SetHandler(np.handleUpdateState)
-	handlers = append(handlers, updatePeer)
-
 	if !np.notaryDisabled {
 		return handlers
 	}
@@ -213,6 +206,13 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	addPeer.SetScriptHash(np.netmapContract)
 	addPeer.SetHandler(np.handleAddPeer)
 	handlers = append(handlers, addPeer)
+
+	// update peer handler
+	updatePeer := event.NotificationHandlerInfo{}
+	updatePeer.SetType(updatePeerStateNotification)
+	updatePeer.SetScriptHash(np.netmapContract)
+	updatePeer.SetHandler(np.handleUpdateState)
+	handlers = append(handlers, updatePeer)
 
 	return handlers
 }
@@ -233,6 +233,11 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetParser(netmapEvent.ParseAddPeerNotary)
 	pp = append(pp, p)
 
+	// update state
+	p.SetRequestType(netmapEvent.UpdateStateNotaryEvent)
+	p.SetParser(netmapEvent.ParseUpdatePeerNotary)
+	pp = append(pp, p)
+
 	return pp
 }
 
@@ -250,6 +255,11 @@ func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// new peer
 	h.SetRequestType(netmapEvent.AddPeerNotaryEvent)
 	h.SetHandler(np.handleAddPeer)
+	hh = append(hh, h)
+
+	// update state
+	h.SetRequestType(netmapEvent.UpdateStateNotaryEvent)
+	h.SetHandler(np.handleUpdateState)
 	hh = append(hh, h)
 
 	return hh
