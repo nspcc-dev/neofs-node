@@ -57,7 +57,7 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 	for _, op := range ne.Params() {
 		switch op.Code() {
 		case opcode.PUSHDATA1, opcode.PUSHDATA2, opcode.PUSHDATA4:
-			if fieldNum > expectedItemNumPut {
+			if fieldNum == expectedItemNumPut {
 				return nil, errUnexpectedArgumentAmount
 			}
 
