@@ -368,6 +368,11 @@ func (l listener) parseAndHandleNotary(nr *response.NotaryRequestEvent) {
 		return
 	}
 
+	log := l.log.With(
+		zap.String("contract", notaryEvent.ScriptHash().StringLE()),
+		zap.Stringer("method", notaryEvent.Type()),
+	)
+
 	notaryKey := notaryRequestTypes{}
 	notaryKey.SetMempoolType(nr.Type)
 	notaryKey.SetRequestType(notaryEvent.Type())
@@ -379,7 +384,7 @@ func (l listener) parseAndHandleNotary(nr *response.NotaryRequestEvent) {
 	l.mtx.RUnlock()
 
 	if !ok {
-		l.log.Debug("notary parser not set")
+		log.Debug("notary parser not set")
 
 		return
 	}
@@ -387,7 +392,7 @@ func (l listener) parseAndHandleNotary(nr *response.NotaryRequestEvent) {
 	// parse the notary event
 	event, err := parser(notaryEvent)
 	if err != nil {
-		l.log.Warn("could not parse notary event",
+		log.Warn("could not parse notary event",
 			zap.String("error", err.Error()),
 		)
 
@@ -400,7 +405,7 @@ func (l listener) parseAndHandleNotary(nr *response.NotaryRequestEvent) {
 	l.mtx.RUnlock()
 
 	if !ok {
-		l.log.Info("notary handlers for parsed notification event were not registered",
+		log.Info("notary handlers for parsed notification event were not registered",
 			zap.Any("event", event),
 		)
 
@@ -416,8 +421,8 @@ func (l listener) parseAndHandleNotary(nr *response.NotaryRequestEvent) {
 // Ignores the parser if listener is started.
 func (l listener) SetNotificationParser(pi NotificationParserInfo) {
 	log := l.log.With(
-		zap.String("script hash LE", pi.ScriptHash().StringLE()),
-		zap.Stringer("event type", pi.getType()),
+		zap.String("contract", pi.ScriptHash().StringLE()),
+		zap.Stringer("event_type", pi.getType()),
 	)
 
 	parser := pi.parser()
@@ -449,8 +454,8 @@ func (l listener) SetNotificationParser(pi NotificationParserInfo) {
 // Ignores handlers of event without parser.
 func (l listener) RegisterNotificationHandler(hi NotificationHandlerInfo) {
 	log := l.log.With(
-		zap.String("script hash LE", hi.ScriptHash().StringLE()),
-		zap.Stringer("event type", hi.GetType()),
+		zap.String("contract", hi.ScriptHash().StringLE()),
+		zap.Stringer("event_type", hi.GetType()),
 	)
 
 	handler := hi.Handler()
@@ -512,7 +517,7 @@ func (l listener) SetNotaryParser(pi NotaryParserInfo) {
 
 	log := l.log.With(
 		zap.Stringer("mempool_type", pi.GetMempoolType()),
-		zap.Stringer("script_hash", pi.ScriptHash()),
+		zap.String("contract", pi.ScriptHash().StringLE()),
 		zap.Stringer("notary_type", pi.RequestType()),
 	)
 
@@ -549,8 +554,8 @@ func (l listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 	}
 
 	log := l.log.With(
-		zap.Stringer("mempool type", hi.GetMempoolType()),
-		zap.Stringer("script_hash", hi.ScriptHash()),
+		zap.Stringer("mempool_type", hi.GetMempoolType()),
+		zap.String("contract", hi.ScriptHash().StringLE()),
 		zap.Stringer("notary type", hi.RequestType()),
 	)
 
