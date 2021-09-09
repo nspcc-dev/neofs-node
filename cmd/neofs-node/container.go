@@ -41,7 +41,14 @@ const (
 )
 
 func initContainerService(c *cfg) {
+	// container wrapper that tries to invoke notary
+	// requests if chain is configured so
 	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, wrapper.TryNotary())
+	fatalOnErr(err)
+
+	// container wrapper that always sends non-notary
+	// requests
+	wrapperNoNotary, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
 	cnrSrc := wrapper.AsContainerSource(wrap)
@@ -76,7 +83,7 @@ func initContainerService(c *cfg) {
 
 	resultWriter := &morphLoadWriter{
 		log:            c.log,
-		cnrMorphClient: wrap,
+		cnrMorphClient: wrapperNoNotary,
 		key:            pubKey,
 	}
 
