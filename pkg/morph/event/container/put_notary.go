@@ -50,20 +50,28 @@ var errUnexpectedArgumentAmount = fmt.Errorf("unexpected arguments amount in %s 
 
 // ParsePutNotary from NotaryEvent into container event structure.
 func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
-	var ev Put
+	var (
+		ev        Put
+		currentOp opcode.Opcode
+	)
 
 	fieldNum := 0
 
 	for _, op := range ne.Params() {
-		switch op.Code() {
-		case opcode.PUSHDATA1, opcode.PUSHDATA2, opcode.PUSHDATA4:
+		currentOp = op.Code()
+
+		switch {
+		case opcode.PUSHDATA1 <= currentOp && currentOp <= opcode.PUSHDATA4:
 			if fieldNum == expectedItemNumPut {
 				return nil, errUnexpectedArgumentAmount
 			}
 
 			fieldSetters[fieldNum](&ev, op.Param())
 			fieldNum++
+		case opcode.PUSH0 <= currentOp && currentOp <= opcode.PUSH16 || currentOp == opcode.PACK:
+			// array packing opcodes. do nothing with it
 		default:
+			return nil, event.UnexpectedOpcode(PutNotaryEvent, op.Code())
 		}
 	}
 
