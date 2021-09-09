@@ -89,8 +89,8 @@ func initApp(c *cfg) {
 
 func bootUp(c *cfg) {
 	serveGRPC(c)
-	bootstrapNode(c)
 	makeAndWaitNotaryDeposit(c)
+	bootstrapNode(c)
 	startWorkers(c)
 	startBlockTimers(c)
 }
