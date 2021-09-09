@@ -84,7 +84,13 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	// again before new epoch will tick
 	np.netmapSnapshot.flag(hex.EncodeToString(ev.PublicKey().Bytes()))
 
-	err := np.netmapClient.UpdatePeerState(ev.PublicKey().Bytes(), ev.Status())
+	var err error
+
+	if nr := ev.NotaryRequest(); nr != nil {
+		err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	} else {
+		err = np.netmapClient.UpdatePeerState(ev.PublicKey().Bytes(), ev.Status())
+	}
 	if err != nil {
 		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))
 	}
