@@ -32,7 +32,20 @@ type distributedTarget struct {
 	log *logger.Logger
 }
 
-var errIncompletePut = errors.New("incomplete object put")
+// errIncompletePut is returned if processing on a container fails.
+type errIncompletePut struct {
+	singleErr error // error from the last responding node
+}
+
+func (x errIncompletePut) Error() string {
+	const commonMsg = "incomplete object PUT by placement"
+
+	if x.singleErr != nil {
+		return fmt.Sprintf("%s: %v", commonMsg, x.singleErr)
+	}
+
+	return commonMsg
+}
 
 func (t *distributedTarget) WriteHeader(obj *object.RawObject) error {
 	t.obj = obj
@@ -132,11 +145,11 @@ loop:
 	}
 
 	if !traverser.Success() {
-		if err, ok := resErr.Load().(error); ok {
-			return nil, err
-		}
+		var err errIncompletePut
 
-		return nil, errIncompletePut
+		err.singleErr, _ = resErr.Load().(error)
+
+		return nil, err
 	}
 
 	return new(transformer.AccessIdentifiers).
