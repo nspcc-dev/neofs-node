@@ -585,6 +585,12 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 		return false
 	}
 
+	// According to NeoFS specification sticky bit has no effect on system nodes
+	// for correct intra-container work with objects (in particular, replication).
+	if info.requestRole == acl.RoleSystem {
+		return true
+	}
+
 	if !info.basicACL.Sticky() {
 		return true
 	}
