@@ -159,10 +159,13 @@ func matchFilters(hdrSrc TypedHeaderSource, filters []*eacl.Filter) int {
 func targetMatches(unit *ValidationUnit, record *eacl.Record) bool {
 	for _, target := range record.Targets() {
 		// check public key match
-		for _, key := range target.BinaryKeys() {
-			if bytes.Equal(key, unit.key) {
-				return true
+		if pubs := target.BinaryKeys(); len(pubs) != 0 {
+			for _, key := range pubs {
+				if bytes.Equal(key, unit.key) {
+					return true
+				}
 			}
+			continue
 		}
 
 		// check target group match
