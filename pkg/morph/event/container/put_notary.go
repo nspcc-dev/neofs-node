@@ -64,8 +64,6 @@ func ParsePutNotary(ne event.NotaryEvent) (event.Event, error) {
 
 			putFieldSetters[fieldNum](&ev, op.Param())
 			fieldNum++
-		case opcode.PUSH0 <= currentOp && currentOp <= opcode.PUSH16 || currentOp == opcode.PACK:
-			// array packing opcodes. do nothing with it
 		default:
 			return nil, event.UnexpectedOpcode(PutNotaryEvent, op.Code())
 		}

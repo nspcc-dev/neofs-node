@@ -29,8 +29,9 @@ var (
 	errIncorrectNotaryPlaceholder = errors.New("received main tx has incorrect Notary contract placeholder")
 	errIncorrectAttributesAmount  = errors.New("received main tx has incorrect attributes amount")
 	errIncorrectAttribute         = errors.New("received main tx has incorrect attribute")
-	errUnexpectedOpcode           = errors.New("received main tx has unexpected(not PUSH) NeoVM opcodes")
 	errIncorrectCallFlag          = errors.New("received main tx has unexpected call flag")
+	errIncorrectArgPacking        = errors.New("received main tx has incorrect argument packing")
+	errUnexpectedCONVERT          = errors.New("received main tx has unexpected CONVERT opcode")
 
 	errIncorrectFBAttributesAmount = errors.New("received fallback tx has incorrect attributes amount")
 	errIncorrectFBAttributes       = errors.New("received fallback tx has incorrect attributes")
@@ -154,7 +155,7 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	)
 
 	ctx := vm.NewContext(nr.MainTransaction.Script)
-	ops := make([]Op, 0, 16) // 16 is maximum num of opcodes for calling contracts with 4 args(no arrays of arrays)
+	ops := make([]Op, 0, 10) // 10 is maximum num of opcodes for calling contracts with 4 args(no arrays of arrays)
 
 	for {
 		opCode, param, err = ctx.Next()
@@ -191,31 +192,85 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		return nil, errIncorrectCallFlag
 	}
 
-	err = p.validateParameterOpcodes(ops[:opsLen-4])
-	if err != nil {
-		return nil, err
+	args := ops[:opsLen-4]
+
+	if len(args) != 0 {
+		err = p.validateParameterOpcodes(args)
+		if err != nil {
+			return nil, fmt.Errorf("could not validate arguments: %w", err)
+		}
+
+		// without args packing opcodes
+		args = args[:len(args)-2]
 	}
 
 	return parsedNotaryEvent{
 		hash:       contractHash,
 		notaryType: NotaryTypeFromString(contractMethod),
-		params:     ops[:opsLen-4],
+		params:     args,
 		raw:        nr,
 	}, nil
 }
 
-func (p Preparator) validateParameterOpcodes(oo []Op) error {
-	// check for unexpected NeoVM opcodes
-	for _, o := range oo {
-		switch {
-		// only PUSH(and PACK for arrays) codes are allowed;
-		// number of params and their content must be checked
-		// in a notary parser and a notary handler of a
+func (p Preparator) validateParameterOpcodes(ops []Op) error {
+	l := len(ops)
+
+	if ops[l-1].code != opcode.PACK {
+		return fmt.Errorf("unexpected packing opcode: %s", ops[l-1].code)
+	}
+
+	argsLen, err := IntFromOpcode(ops[l-2])
+	if err != nil {
+		return fmt.Errorf("could not parse argument len: %w", err)
+	}
+
+	err = validateNestedArgs(argsLen, ops[:l-2])
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateNestedArgs(expArgLen int64, ops []Op) error {
+	var (
+		currentCode opcode.Opcode
+
+		opsLenGot = len(ops)
+	)
+
+	for i := opsLenGot - 1; i >= 0; i-- {
+		// only PUSH(also, PACK for arrays and CONVERT for booleans)
+		// codes are allowed; number of params and their content must
+		// be checked in a notary parser and a notary handler of a
 		// particular contract
-		case o.code <= opcode.PUSH16 || o.code == opcode.PACK:
+		switch currentCode = ops[i].code; {
+		case currentCode <= opcode.PUSH16:
+		case currentCode == opcode.CONVERT:
+			if i == 0 || ops[i-1].code != opcode.PUSHT && ops[i-1].code != opcode.PUSHF {
+				return errUnexpectedCONVERT
+			}
+
+			expArgLen++
+		case currentCode == opcode.PACK:
+			if i == 0 {
+				return errIncorrectArgPacking
+			}
+
+			argsLen, err := IntFromOpcode(ops[i-1])
+			if err != nil {
+				return fmt.Errorf("could not parse argument len: %w", err)
+			}
+
+			expArgLen += argsLen + 1
+			i--
 		default:
-			return errUnexpectedOpcode
+			return fmt.Errorf("received main tx has unexpected(not PUSH) NeoVM opcode: %s", currentCode)
 		}
+	}
+
+	if int64(opsLenGot) != expArgLen {
+		return errIncorrectArgPacking
 	}
 
 	return nil

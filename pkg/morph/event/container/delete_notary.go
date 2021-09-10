@@ -57,8 +57,6 @@ func ParseDeleteNotary(ne event.NotaryEvent) (event.Event, error) {
 
 			deleteFieldSetters[fieldNum](&ev, op.Param())
 			fieldNum++
-		case opcode.PUSH0 <= currentOp && currentOp <= opcode.PUSH16 || currentOp == opcode.PACK:
-			// array packing opcodes. do nothing with it
 		default:
 			return nil, event.UnexpectedOpcode(DeleteNotaryEvent, op.Code())
 		}
