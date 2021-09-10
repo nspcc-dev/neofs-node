@@ -3,6 +3,8 @@ package acl
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	ownertest "github.com/nspcc-dev/neofs-api-go/pkg/owner/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -33,4 +35,19 @@ func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Session
 	}
 
 	return metaHeader
+}
+
+func TestStickyCheck(t *testing.T) {
+	t.Run("system role", func(t *testing.T) {
+		var info requestInfo
+
+		info.senderKey = make([]byte, 33) // any non-empty key
+		info.requestRole = eacl.RoleSystem
+
+		info.basicACL.SetSticky()
+		require.True(t, stickyBitCheck(info, ownertest.Generate()))
+
+		info.basicACL.ResetSticky()
+		require.True(t, stickyBitCheck(info, ownertest.Generate()))
+	})
 }
