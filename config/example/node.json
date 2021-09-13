@@ -104,6 +104,7 @@
     "shard_num": 2,
     "shard": {
       "0": {
+        "refill_metabase": false,
         "use_write_cache": false,
         "writecache": {
           "path": "tmp/0/cache",
@@ -135,6 +136,7 @@
         }
       },
       "1": {
+        "refill_metabase": true,
         "use_write_cache": true,
         "writecache": {
           "path": "tmp/1/cache",
