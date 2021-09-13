@@ -6,6 +6,7 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"go.etcd.io/bbolt"
 )
 
 /*
@@ -117,4 +118,15 @@ func addressFromKey(k []byte) (*object.Address, error) {
 // objectKey returns key for K-V tables when key is an object id.
 func objectKey(oid *object.ID) []byte {
 	return []byte(oid.String())
+}
+
+// removes all bucket elements.
+func resetBucket(b *bbolt.Bucket) error {
+	return b.ForEach(func(k, v []byte) error {
+		if v != nil {
+			return b.Delete(k)
+		}
+
+		return b.DeleteBucket(k)
+	})
 }
