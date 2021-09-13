@@ -90,6 +90,8 @@ storage:
   shard_num: 2
   shard:
     0:
+      refill_metabase: false
+
       use_write_cache: false
 
       writecache:
@@ -122,6 +124,8 @@ storage:
         remover_sleep_interval: 2m
 
     1:
+      refill_metabase: true
+
       use_write_cache: true
 
       writecache:

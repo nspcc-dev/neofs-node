@@ -62,6 +62,8 @@ func TestEngineSection(t *testing.T) {
 
 				require.EqualValues(t, 150, gc.RemoverBatchSize())
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
+
+				require.Equal(t, false, sc.RefillMetabase())
 			case 1:
 				require.Equal(t, true, sc.UseWriteCache())
 
@@ -88,6 +90,8 @@ func TestEngineSection(t *testing.T) {
 
 				require.EqualValues(t, 200, gc.RemoverBatchSize())
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())
+
+				require.Equal(t, true, sc.RefillMetabase())
 			}
 		})
 
