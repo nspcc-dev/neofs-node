@@ -32,16 +32,24 @@ func (s *Shard) Open() error {
 
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	components := []interface{ Init() error }{
-		s.blobStor, s.metaBase,
+	var fMetabase func() error
+
+	if s.needRefillMetabase() {
+		fMetabase = s.refillMetabase
+	} else {
+		fMetabase = s.metaBase.Init
+	}
+
+	components := []func() error{
+		s.blobStor.Init, fMetabase,
 	}
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache)
+		components = append(components, s.writeCache.Init)
 	}
 
 	for _, component := range components {
-		if err := component.Init(); err != nil {
+		if err := component(); err != nil {
 			return fmt.Errorf("could not initialize %T: %w", component, err)
 		}
 	}

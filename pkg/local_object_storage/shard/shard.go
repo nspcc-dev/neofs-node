@@ -36,6 +36,8 @@ type Option func(*cfg)
 type ExpiredObjectsCallback func(context.Context, []*object.Address)
 
 type cfg struct {
+	refillMetabase bool
+
 	rmBatchSize int
 
 	useWriteCache bool
@@ -139,6 +141,11 @@ func (s Shard) hasWriteCache() bool {
 	return s.cfg.useWriteCache
 }
 
+// needRefillMetabase returns true if metabase is needed to be refilled.
+func (s Shard) needRefillMetabase() bool {
+	return s.cfg.refillMetabase
+}
+
 // WithRemoverBatchSize returns option to set batch size
 // of single removal operation.
 func WithRemoverBatchSize(sz int) Option {
@@ -176,5 +183,12 @@ func WithGCRemoverSleepInterval(dur time.Duration) Option {
 func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
 	return func(c *cfg) {
 		c.expiredTombstonesCallback = cb
+	}
+}
+
+// WithRefillMetabase returns option to set flag to refill the Metabase on Shard's initialization step.
+func WithRefillMetabase(v bool) Option {
+	return func(c *cfg) {
+		c.refillMetabase = v
 	}
 }
