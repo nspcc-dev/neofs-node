@@ -629,6 +629,20 @@ func (b *blobovniczas) iterateLeaves(f func(string) (bool, error)) error {
 	return b.iterateSortedLeaves(nil, f)
 }
 
+// iterator over all blobovniczas in unsorted order. Break on f's error return.
+func (b *blobovniczas) iterateBlobovniczas(f func(string, *blobovnicza.Blobovnicza) error) error {
+	return b.iterateLeaves(func(p string) (bool, error) {
+		blz, err := b.openBlobovnicza(p)
+		if err != nil {
+			return false, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
+		}
+
+		err = f(p, blz)
+
+		return err != nil, err
+	})
+}
+
 // iterator over the paths of blobovniczas sorted by weight.
 func (b *blobovniczas) iterateSortedLeaves(addr *objectSDK.Address, f func(string) (bool, error)) error {
 	_, err := b.iterateSorted(
@@ -767,19 +781,16 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 func (b *blobovniczas) init() error {
 	b.log.Debug("initializing Blobovnicza's")
 
-	return b.iterateLeaves(func(p string) (bool, error) {
-		blz, err := b.openBlobovnicza(p)
-		if err != nil {
-			return false, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
-		} else if err := blz.Init(); err != nil {
-			return false, fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
+	return b.iterateBlobovniczas(func(p string, blz *blobovnicza.Blobovnicza) error {
+		if err := blz.Init(); err != nil {
+			return fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
 		}
 
 		log := b.log.With(zap.String("id", p))
 
 		log.Debug("blobovnicza successfully initialized, closing...")
 
-		return false, nil
+		return nil
 	})
 }
 
