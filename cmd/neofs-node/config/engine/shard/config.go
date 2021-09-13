@@ -58,3 +58,13 @@ func (x *Config) GC() *gcconfig.Config {
 			Sub("gc"),
 	)
 }
+
+// RefillMetabase returns value of "refill_metabase" config parameter.
+//
+// Returns false if value is not a valid bool.
+func (x *Config) RefillMetabase() bool {
+	return config.BoolSafe(
+		(*config.Config)(x),
+		"refill_metabase",
+	)
+}
