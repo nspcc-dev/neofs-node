@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/vm"
+
 	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -89,6 +91,32 @@ func TestPrepare_CorrectNR(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, test.method, event.Type().String())
 		require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
+
+		// check args parsing
+		bw := io.NewBufBinWriter()
+		emit.Array(bw.BinWriter, test.args...)
+
+		ctx := vm.NewContext(bw.Bytes())
+
+		opCode, param, err := ctx.Next()
+		require.NoError(t, err)
+
+		for _, opGot := range event.Params() {
+			require.Equal(t, opCode, opGot.code)
+			require.Equal(t, param, opGot.param)
+
+			opCode, param, err = ctx.Next()
+			require.NoError(t, err)
+		}
+
+		_, _, err = ctx.Next() //  PACK opcode
+		require.NoError(t, err)
+		_, _, err = ctx.Next() //  packing len opcode
+		require.NoError(t, err)
+
+		opCode, _, err = ctx.Next()
+		require.NoError(t, err)
+		require.Equal(t, opcode.RET, opCode)
 	}
 }
 
