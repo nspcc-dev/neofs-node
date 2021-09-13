@@ -35,7 +35,7 @@ func BytesFromOpcode(op Op) ([]byte, error) {
 	}
 }
 
-// IntFromOpcode tries to retrieve bytes from Op.
+// IntFromOpcode tries to retrieve int from Op.
 func IntFromOpcode(op Op) (int64, error) {
 	switch code := op.Code(); {
 	case code == opcode.PUSHM1:
