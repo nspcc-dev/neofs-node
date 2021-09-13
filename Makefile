@@ -78,6 +78,16 @@ images: image-storage image-ir image-cli image-adm
 # Build dirty local Docker images
 dirty-images: image-dirty-storage image-dirty-ir image-dirty-cli image-dirty-adm
 
+# Run `make %` in Golang container
+docker/%:
+	docker run --rm -it \
+	-v `pwd`:/src \
+	-w /src \
+	-u "$$(id -u):$$(id -g)" \
+	--env HOME=/src \
+	golang:$(GO_VERSION) make $*
+
+
 # Run all code formatters
 fmts: fmt imports
 
