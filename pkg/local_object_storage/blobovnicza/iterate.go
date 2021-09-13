@@ -55,3 +55,68 @@ func max(a, b uint64) uint64 {
 
 	return b
 }
+
+// IterationElement represents a unit of elements through which Iterate operation passes.
+type IterationElement struct {
+	data []byte
+}
+
+// ObjectData returns stored object in a binary representation.
+func (x IterationElement) ObjectData() []byte {
+	return x.data
+}
+
+// IterationHandler is a generic processor of IterationElement.
+type IterationHandler func(IterationElement) error
+
+// IteratePrm groups the parameters of Iterate operation.
+type IteratePrm struct {
+	handler IterationHandler
+}
+
+// SetHandler sets handler to be called iteratively.
+func (x *IteratePrm) SetHandler(h IterationHandler) {
+	x.handler = h
+}
+
+// IterateRes groups resulting values of Iterate operation.
+type IterateRes struct {
+}
+
+// Iterate goes through all stored objects, and passes their headers
+// to parameterized handler until error return.
+//
+// Returns handler's errors directly. Returns nil after iterating finish.
+//
+// Handler should not retain object data. Handler must not be nil.
+func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
+	var elem IterationElement
+
+	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
+		return b.iterateBuckets(tx, func(lower, upper uint64, buck *bbolt.Bucket) (bool, error) {
+			err := buck.ForEach(func(k, v []byte) error {
+				elem.data = v
+				return prm.handler(elem)
+			})
+
+			return err != nil, err
+		})
+	}); err != nil {
+		return nil, err
+	}
+
+	return new(IterateRes), nil
+}
+
+// IterateObjects is a helper function which iterates over Blobovnicza and passes binary objects to f.
+func IterateObjects(blz *Blobovnicza, f func([]byte) error) error {
+	var prm IteratePrm
+
+	prm.SetHandler(func(elem IterationElement) error {
+		return f(elem.ObjectData())
+	})
+
+	_, err := blz.Iterate(prm)
+
+	return err
+}
