@@ -116,8 +116,8 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
 	var elem IterationElement
 
 	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
-		return b.iterateBuckets(tx, func(lower, upper uint64, buck *bbolt.Bucket) (bool, error) {
-			err := buck.ForEach(func(k, v []byte) error {
+		return tx.ForEach(func(name []byte, buck *bbolt.Bucket) error {
+			return buck.ForEach(func(k, v []byte) error {
 				if prm.decodeAddresses {
 					if elem.addr == nil {
 						elem.addr = object.NewAddress()
@@ -134,8 +134,6 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
 
 				return prm.handler(elem)
 			})
-
-			return err != nil, err
 		})
 	}); err != nil {
 		return nil, err
