@@ -42,7 +42,7 @@ Create images for `neofs-storage`, `neofs-ir` and `neofs-cli`, `neofs-adm` appli
 and push them into Docker Hub (so that releasing requires privileges in nspccdev
 organization in Docker Hub)
 
-    $ make images && make image-storage-testnet
+    $ make images
     $ docker push nspccdev/neofs-storage:0.24.0
     $ docker push nspccdev/neofs-storage-testnet:0.24.0
     $ docker push nspccdev/neofs-ir:0.24.0
