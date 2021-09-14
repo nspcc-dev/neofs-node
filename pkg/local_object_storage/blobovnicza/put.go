@@ -87,3 +87,7 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 func addressKey(addr *objectSDK.Address) []byte {
 	return []byte(addr.String())
 }
+
+func addressFromKey(dst *objectSDK.Address, data []byte) error {
+	return dst.Parse(string(data))
+}
