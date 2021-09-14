@@ -60,6 +60,45 @@ func (b blockCounter) BlockCount() (res uint32, err error) {
 	return b.epoch, b.err
 }
 
+func TestPrepare_IncorrectScript(t *testing.T) {
+	preparator := notaryPreparator(
+		PreparatorPrm{
+			alphaKeysSource(),
+			blockCounter{100, nil},
+		},
+	)
+
+	t.Run("not contract call", func(t *testing.T) {
+		bw := io.NewBufBinWriter()
+
+		emit.Int(bw.BinWriter, 4)
+		emit.String(bw.BinWriter, "test")
+		emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
+		emit.Syscall(bw.BinWriter, interopnames.SystemCallbackInvoke)
+
+		nr := correctNR(bw.Bytes())
+
+		_, err := preparator.Prepare(nr)
+
+		require.EqualError(t, err, errNotContractCall.Error())
+	})
+
+	t.Run("incorrect ", func(t *testing.T) {
+		bw := io.NewBufBinWriter()
+
+		emit.Int(bw.BinWriter, -1)
+		emit.String(bw.BinWriter, "test")
+		emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
+		emit.Syscall(bw.BinWriter, interopnames.SystemContractCall)
+
+		nr := correctNR(bw.Bytes())
+
+		_, err := preparator.Prepare(nr)
+
+		require.EqualError(t, err, errIncorrectCallFlag.Error())
+	})
+}
+
 func TestPrepare_IncorrectNR(t *testing.T) {
 	type (
 		mTX struct {
