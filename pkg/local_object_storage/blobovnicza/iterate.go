@@ -3,6 +3,7 @@ package blobovnicza
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"go.etcd.io/bbolt"
 )
 
@@ -58,6 +59,8 @@ func max(a, b uint64) uint64 {
 
 // IterationElement represents a unit of elements through which Iterate operation passes.
 type IterationElement struct {
+	addr *object.Address
+
 	data []byte
 }
 
@@ -66,12 +69,31 @@ func (x IterationElement) ObjectData() []byte {
 	return x.data
 }
 
+// Address returns address of the stored object.
+func (x IterationElement) Address() *object.Address {
+	return x.addr
+}
+
 // IterationHandler is a generic processor of IterationElement.
 type IterationHandler func(IterationElement) error
 
 // IteratePrm groups the parameters of Iterate operation.
 type IteratePrm struct {
+	decodeAddresses bool
+
+	withoutData bool
+
 	handler IterationHandler
+}
+
+// DecodeAddresses sets flag to unmarshal object addresses.
+func (x *IteratePrm) DecodeAddresses() {
+	x.decodeAddresses = true
+}
+
+// WithoutData sets flag to not read data of the objects.
+func (x *IteratePrm) WithoutData() {
+	x.withoutData = true
 }
 
 // SetHandler sets handler to be called iteratively.
@@ -83,8 +105,9 @@ func (x *IteratePrm) SetHandler(h IterationHandler) {
 type IterateRes struct {
 }
 
-// Iterate goes through all stored objects, and passes their headers
-// to parameterized handler until error return.
+// Iterate goes through all stored objects, and passes IterationElement to parameterized handler until error return.
+//
+// Decodes object addresses if DecodeAddresses was called. Don't read object data if WithoutData was called.
 //
 // Returns handler's errors directly. Returns nil after iterating finish.
 //
@@ -95,7 +118,20 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
 	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
 		return b.iterateBuckets(tx, func(lower, upper uint64, buck *bbolt.Bucket) (bool, error) {
 			err := buck.ForEach(func(k, v []byte) error {
-				elem.data = v
+				if prm.decodeAddresses {
+					if elem.addr == nil {
+						elem.addr = object.NewAddress()
+					}
+
+					if err := addressFromKey(elem.addr, k); err != nil {
+						return fmt.Errorf("could not decode address key: %w", err)
+					}
+				}
+
+				if !prm.withoutData {
+					elem.data = v
+				}
+
 				return prm.handler(elem)
 			})
 
@@ -114,6 +150,22 @@ func IterateObjects(blz *Blobovnicza, f func([]byte) error) error {
 
 	prm.SetHandler(func(elem IterationElement) error {
 		return f(elem.ObjectData())
+	})
+
+	_, err := blz.Iterate(prm)
+
+	return err
+}
+
+// IterateAddresses is a helper function which iterates over Blobovnicza and passes addresses of the objects to f.
+func IterateAddresses(blz *Blobovnicza, f func(*object.Address) error) error {
+	var prm IteratePrm
+
+	prm.DecodeAddresses()
+	prm.WithoutData()
+
+	prm.SetHandler(func(elem IterationElement) error {
+		return f(elem.Address())
 	})
 
 	_, err := blz.Iterate(prm)
