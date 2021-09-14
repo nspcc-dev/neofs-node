@@ -16,17 +16,24 @@ import (
 func (b *Blobovnicza) Open() error {
 	b.log.Debug("creating directory for BoltDB",
 		zap.String("path", b.path),
+		zap.Bool("ro", b.boltOptions.ReadOnly),
 	)
 
-	err := util.MkdirAllX(path.Dir(b.path), b.perm)
-	if err == nil {
-		b.log.Debug("opening BoltDB",
-			zap.String("path", b.path),
-			zap.Stringer("permissions", b.perm),
-		)
+	var err error
 
-		b.boltDB, err = bbolt.Open(b.path, b.perm, b.boltOptions)
+	if !b.boltOptions.ReadOnly {
+		err = util.MkdirAllX(path.Dir(b.path), b.perm)
+		if err != nil {
+			return err
+		}
 	}
+
+	b.log.Debug("opening BoltDB",
+		zap.String("path", b.path),
+		zap.Stringer("permissions", b.perm),
+	)
+
+	b.boltDB, err = bbolt.Open(b.path, b.perm, b.boltOptions)
 
 	return err
 }
@@ -34,6 +41,8 @@ func (b *Blobovnicza) Open() error {
 // Init initializes internal database structure.
 //
 // If Blobovnicza is already initialized, then no action is taken.
+//
+// Should not be called in read-only configuration.
 func (b *Blobovnicza) Init() error {
 	b.log.Debug("initializing...",
 		zap.Uint64("object size limit", b.objSizeLimit),

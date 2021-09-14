@@ -106,3 +106,10 @@ func WithLogger(l *logger.Logger) Option {
 		c.log = l.With(zap.String("component", "Blobovnicza"))
 	}
 }
+
+// ReadOnly returns option to open Blobovnicza in read-only mode.
+func ReadOnly() Option {
+	return func(c *cfg) {
+		c.boltOptions.ReadOnly = true
+	}
+}

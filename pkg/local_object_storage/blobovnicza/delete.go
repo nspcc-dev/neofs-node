@@ -27,6 +27,8 @@ func (p *DeletePrm) SetAddress(addr *objectSDK.Address) {
 // did not allow to completely delete the object.
 //
 // Returns ErrNotFound if the object to be deleted is not in blobovnicza.
+//
+// Should not be called in read-only configuration.
 func (b *Blobovnicza) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	addrKey := addressKey(prm.addr)
 
