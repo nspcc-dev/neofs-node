@@ -22,10 +22,14 @@ import (
 )
 
 var (
-	alphaKeys keys.PublicKeys
+	alphaKeys      keys.PublicKeys
+	wrongAlphaKeys keys.PublicKeys
 
-	dummyInvocationScript = append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
-	contractSysCall       = make([]byte, 4)
+	dummyInvocationScript      = append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
+	wrongDummyInvocationScript = append([]byte{byte(opcode.PUSHDATA1), 64, 1}, make([]byte, 63)...)
+
+	contractSysCall      = make([]byte, 4)
+	wrongContractSysCall = make([]byte, 4)
 
 	scriptHash util.Uint160
 )
@@ -36,7 +40,13 @@ func init() {
 
 	alphaKeys = keys.PublicKeys{pub}
 
+	wrongPrivat, _ := keys.NewPrivateKey()
+	wrongPub := wrongPrivat.PublicKey()
+
+	wrongAlphaKeys = keys.PublicKeys{wrongPub}
+
 	binary.LittleEndian.PutUint32(contractSysCall, interopnames.ToID([]byte(interopnames.SystemContractCall)))
+	binary.LittleEndian.PutUint32(wrongContractSysCall, interopnames.ToID([]byte(interopnames.SystemCallbackInvoke)))
 
 	scriptHash, _ = util.Uint160DecodeStringLE("21fce15191428e9c2f0e8d0329ff6d3dd14882de")
 }
@@ -48,6 +58,208 @@ type blockCounter struct {
 
 func (b blockCounter) BlockCount() (res uint32, err error) {
 	return b.epoch, b.err
+}
+
+func TestPrepare_IncorrectNR(t *testing.T) {
+	type (
+		mTX struct {
+			sigs    []transaction.Signer
+			scripts []transaction.Witness
+			attrs   []transaction.Attribute
+		}
+		fbTX struct {
+			attrs []transaction.Attribute
+		}
+	)
+
+	setIncorrectFields := func(nr payload.P2PNotaryRequest, m mTX, f fbTX) payload.P2PNotaryRequest {
+		if m.sigs != nil {
+			nr.MainTransaction.Signers = m.sigs
+		}
+
+		if m.scripts != nil {
+			nr.MainTransaction.Scripts = m.scripts
+		}
+
+		if m.attrs != nil {
+			nr.MainTransaction.Attributes = m.attrs
+		}
+
+		if f.attrs != nil {
+			nr.FallbackTransaction.Attributes = f.attrs
+		}
+
+		return nr
+	}
+
+	alphaVerificationScript, _ := smartcontract.CreateMultiSigRedeemScript(len(alphaKeys)*2/3+1, alphaKeys)
+	wrongAlphaVerificationScript, _ := smartcontract.CreateMultiSigRedeemScript(len(wrongAlphaKeys)*2/3+1, wrongAlphaKeys)
+
+	tests := []struct {
+		name   string
+		mTX    mTX
+		fbTX   fbTX
+		expErr error
+	}{
+		{
+			name: "incorrect witness amount",
+			mTX: mTX{
+				scripts: []transaction.Witness{{}},
+			},
+			expErr: errUnexpectedWitnessAmount,
+		},
+		{
+			name: "not dummy invocation script",
+			mTX: mTX{
+				scripts: []transaction.Witness{
+					{},
+					{
+						InvocationScript: wrongDummyInvocationScript,
+					},
+					{},
+				},
+			},
+			expErr: ErrTXAlreadyHandled,
+		},
+		{
+			name: "incorrect main TX signers amount",
+			mTX: mTX{
+				sigs: []transaction.Signer{{}},
+			},
+			expErr: errUnexpectedCosignersAmount,
+		},
+		{
+			name: "incorrect main TX Alphabet signer",
+			mTX: mTX{
+				sigs: []transaction.Signer{
+					{},
+					{
+						Account: hash.Hash160(wrongAlphaVerificationScript),
+					},
+					{},
+				},
+			},
+			expErr: errIncorrectAlphabetSigner,
+		},
+		{
+			name: "incorrect main TX attribute amount",
+			mTX: mTX{
+				attrs: []transaction.Attribute{{}, {}},
+			},
+			expErr: errIncorrectAttributesAmount,
+		},
+		{
+			name: "incorrect main TX attribute",
+			mTX: mTX{
+				attrs: []transaction.Attribute{
+					{
+						Value: &transaction.NotaryAssisted{
+							NKeys: uint8(len(alphaKeys) + 1),
+						},
+					},
+				},
+			},
+			expErr: errIncorrectAttribute,
+		},
+		{
+			name: "incorrect main TX proxy witness",
+			mTX: mTX{
+				scripts: []transaction.Witness{
+					{
+						InvocationScript: make([]byte, 1),
+					},
+					{
+						InvocationScript: dummyInvocationScript,
+					},
+					{},
+				},
+			},
+			expErr: errIncorrectProxyWitnesses,
+		},
+		{
+			name: "incorrect main TX Alphabet witness",
+			mTX: mTX{
+				scripts: []transaction.Witness{
+					{},
+					{
+						VerificationScript: wrongAlphaVerificationScript,
+						InvocationScript:   dummyInvocationScript,
+					},
+					{},
+				},
+			},
+			expErr: errIncorrectAlphabet,
+		},
+		{
+			name: "incorrect main TX Notary witness",
+			mTX: mTX{
+				scripts: []transaction.Witness{
+					{},
+					{
+						VerificationScript: alphaVerificationScript,
+						InvocationScript:   dummyInvocationScript,
+					},
+					{
+						InvocationScript: wrongDummyInvocationScript,
+					},
+				},
+			},
+			expErr: errIncorrectNotaryPlaceholder,
+		},
+		{
+			name: "incorrect fb TX attributes amount",
+			fbTX: fbTX{
+				attrs: []transaction.Attribute{{}},
+			},
+			expErr: errIncorrectFBAttributesAmount,
+		},
+		{
+			name: "incorrect fb TX attributes",
+			fbTX: fbTX{
+				attrs: []transaction.Attribute{{}, {}, {}},
+			},
+			expErr: errIncorrectFBAttributes,
+		},
+		{
+			name: "expired fb TX",
+			fbTX: fbTX{
+				[]transaction.Attribute{
+					{},
+					{
+						Type: transaction.NotValidBeforeT,
+						Value: &transaction.NotValidBefore{
+							Height: 1,
+						},
+					},
+					{},
+				},
+			},
+			expErr: ErrMainTXExpired,
+		},
+	}
+
+	preparator := notaryPreparator(
+		PreparatorPrm{
+			alphaKeysSource(),
+			blockCounter{100, nil},
+		},
+	)
+
+	var (
+		incorrectNR payload.P2PNotaryRequest
+		err         error
+	)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			correctNR := correctNR(nil)
+			incorrectNR = setIncorrectFields(*correctNR, test.mTX, test.fbTX)
+
+			_, err = preparator.Prepare(&incorrectNR)
+
+			require.EqualError(t, err, test.expErr.Error())
+		})
+	}
 }
 
 func TestPrepare_CorrectNR(t *testing.T) {
