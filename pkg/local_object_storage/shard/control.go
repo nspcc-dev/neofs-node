@@ -116,7 +116,12 @@ func (s *Shard) refillMetabase() error {
 			}
 		}
 
-		return meta.Put(s.metaBase, obj, blzID)
+		err := meta.Put(s.metaBase, obj, blzID)
+		if err != nil && !errors.Is(err, object.ErrAlreadyRemoved) {
+			return err
+		}
+
+		return nil
 	})
 }
 
