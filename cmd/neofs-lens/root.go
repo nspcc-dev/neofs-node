@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	cmdlist "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/commands/list"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +33,7 @@ func entryPoint(cmd *cobra.Command, _ []string) error {
 
 func init() {
 	command.AddCommand(
-	// sub-commands
+		cmdlist.Command,
 	)
 }
 
