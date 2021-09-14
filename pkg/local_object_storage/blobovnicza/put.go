@@ -47,6 +47,8 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 // did not allow to completely save the object.
 //
 // Returns ErrFull if blobovnicza is filled.
+//
+// Should not be called in read-only configuration.
 func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 	addr := prm.addr
 	if addr == nil {
