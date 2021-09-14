@@ -2,8 +2,8 @@ package writecache
 
 import (
 	"errors"
+	"fmt"
 	"os"
-	"path"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -28,16 +28,22 @@ const lruKeysCount = 256 * 1024 * 8
 const dbName = "small.bolt"
 
 func (c *cache) openStore() error {
-	if err := util.MkdirAllX(c.path, os.ModePerm); err != nil {
+	err := util.MkdirAllX(c.path, os.ModePerm)
+	if err != nil {
 		return err
 	}
 
-	db, err := bbolt.Open(path.Join(c.path, dbName), os.ModePerm, &bbolt.Options{
-		NoFreelistSync: true,
-		NoSync:         true,
+	c.db, err = OpenDB(c.path, false)
+	if err != nil {
+		return fmt.Errorf("could not open database: %w", err)
+	}
+
+	err = c.db.Update(func(tx *bbolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(defaultBucket)
+		return err
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("could not create default bucket: %w", err)
 	}
 
 	c.fsTree = &fstree.FSTree{
@@ -49,12 +55,6 @@ func (c *cache) openStore() error {
 		DirNameLen: 1,
 	}
 
-	_ = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(defaultBucket)
-		return err
-	})
-
-	c.db = db
 	c.flushed, _ = lru.New(lruKeysCount)
 	return nil
 }
