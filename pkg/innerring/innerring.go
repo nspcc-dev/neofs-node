@@ -879,14 +879,34 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 }
 
 func createListener(ctx context.Context, p *chainParams) (event.Listener, error) {
-	sub, err := subscriber.New(ctx, &subscriber.Params{
-		Log:            p.log,
-		Endpoint:       p.cfg.GetString(p.name + ".endpoint.notification"),
-		DialTimeout:    p.cfg.GetDuration(p.name + ".dial_timeout"),
-		StartFromBlock: p.from,
-	})
-	if err != nil {
-		return nil, err
+	// config name left unchanged for compatibility, may be its better to rename it to "endpoints"
+	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.notification")
+	if len(endpoints) == 0 {
+		return nil, errors.New("missing morph notification endpoints")
+	}
+
+	var (
+		sub subscriber.Subscriber
+		err error
+	)
+
+	dialTimeout := p.cfg.GetDuration(p.name + ".dial_timeout")
+
+	for i := range endpoints {
+		sub, err = subscriber.New(ctx, &subscriber.Params{
+			Log:            p.log,
+			Endpoint:       endpoints[i],
+			DialTimeout:    dialTimeout,
+			StartFromBlock: p.from,
+		})
+		if err == nil {
+			break
+		}
+
+		p.log.Info("failed to establish websocket neo event listener, trying another",
+			zap.String("endpoint", endpoints[i]),
+			zap.String("error", err.Error()),
+		)
 	}
 
 	listener, err := event.NewListener(event.ListenerParams{
