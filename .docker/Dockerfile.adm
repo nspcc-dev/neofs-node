@@ -1,7 +1,4 @@
-FROM golang:1.16 as basebuilder
-RUN apk add --update make bash
-
-FROM basebuilder as builder
+FROM golang:1.16 as builder
 ARG BUILD=now
 ARG VERSION=dev
 ARG REPO=repository
