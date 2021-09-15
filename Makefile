@@ -10,12 +10,11 @@ HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 
 GO_VERSION ?= 1.16
+ARCH = amd64
 
 BIN = bin
-DIRS = $(BIN)
-
 RELEASE = release
-ARCH = amd64
+DIRS = $(BIN) $(RELEASE)
 
 # List of binaries to build.
 CMDS = $(notdir $(basename $(wildcard cmd/*)))
@@ -42,16 +41,13 @@ $(DIRS):
 	@echo "⇒ Ensure dir: $@"
 	@mkdir -p $@
 
-# Directory for release files
-$(RELEASE):
-	@echo "⇒ Ensure dir: $@"
-	@mkdir -p $@
-
 # Prepare binaries and archives for release
-prepare-release: $(RELEASE) docker/all
-	@for file in $$(find $(BIN) -name 'neofs-*' -printf "%f\n"); do \
-  		cp $(BIN)/$$file $(RELEASE)/$$file-$(ARCH) && \
-  		tar -czf $(RELEASE)/$$file-$(ARCH).tar.gz $(RELEASE)/$$file-$(ARCH) ; \
+.ONESHELL:
+prepare-release: docker/all
+	@for file in `ls -1 $(BIN)/neofs-*`; do
+		cp $$file $(RELEASE)/`basename $$file`-$(ARCH)
+		strip $(RELEASE)/`basename $$file`-$(ARCH)
+		tar -czf $(RELEASE)/`basename $$file`-$(ARCH).tar.gz $(RELEASE)/`basename $$file`-$(ARCH)
 	done
 
 # Pull go dependencies
