@@ -101,6 +101,11 @@ func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackite
 	)
 }
 
+// ContractAddress returns the address of the associated contract.
+func (s StaticClient) ContractAddress() util.Uint160 {
+	return s.scScriptHash
+}
+
 // TryNotary returns option to enable
 // notary invocation tries.
 func TryNotary() StaticClientOption {
