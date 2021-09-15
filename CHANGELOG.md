@@ -3,21 +3,70 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.25.0] - 2021-09-27 - Mungapdo (문갑도, 文甲島)
+
 ### Fixed
 - Work of a storage node with one Neo RPC endpoint instead of a list (#746)
 - Lack of support for HEAD operation on the object write cache (#762)
+- Storage node attribute parsing is stable now (#787)
+- Inner Ring node now logs transaction hashes of Deposit and Withdraw events 
+  in LittleEndian encoding (#794)
+- Storage node uses public keys of the remote nodes in placement traverser
+  checks (#645)
+- Extended ACL `Target` check of role and public keys is mutual exclusive now
+  (#816)
+- neofs-adm supports update and deploy of neofs-contract v0.11.0 (#834, #836)
+- Possible NPE in public key conversion (#848)
+- Object assembly routine do not forward existing request instead of creating 
+  new one (#839)
+- Shard now returns only physical stored objects for replication (#840)
+
+### Added
+- Support events from P2P notary pool
+- Smart contract address auto negotiation with NNS contract (#736)
+- Detailed logs for all data writing operations in storage engine (#790)
+- Docker build and release targets in Makefile (#785)
+- Metabase restore option in the shard config (#789) 
+- Write cache used size limit in bytes (#776)
 
 ### Changed
 - Reduce container creation delay via listening P2P notary pool (#519)
+- Extended ACL table is not limited to 1KiB (#731)
+- Netmap side chain client wrapper now has `TryNotary` option (#793)
+- Sticky bit is ignored in requests with `SYSTEM` role (#818)
+- Incomplete object put error now contains last RPC error (#778)
+- Container service invalidates container cache on writing operations (#803)
+- Improved write cache size counters (#776)
+- Metabase returns `NotFound` error instead of `AlreadyRemoved` on GCMarked
+  objects (#840)
+- Object service uses two routine pools for remote and local GET requests (#845)
+
+### Removed
+- Dockerfile for AllInOne image moved to a separate repository (#796)
 
 ### Upgrading from v0.24.1
 Added `NEOFS_CONTRACTS_PROXY` env for Storage Node; mandatory in
 notary enabled environments only. It should contain proxy contract's
 scripthash in side chain.
+
 Added `NEOFS_MORPH_NOTARY_DEPOSIT_AMOUNT` and
 `NEOFS_MORPH_NOTARY_DEPOSIT_DURATION` envs for Storage Node, that
 have default values, not required. They should contain notary deposit
 amount and frequency(in blocks) respectively.
+
+All side chain contract address config values are optional. If side chain
+contract address is not specified, then value gathered from NNS contract.
+
+Added `NEOFS_STORAGE_SHARD_<N>_WRITECACHE_SIZE_LIMIT` where `<N>` is shard ID.
+This is the size limit for the all write cache storages combined in bytes. Default
+size limit is 1 GiB.
+
+Added `NEOFS_STORAGE_SHARD_<N>_REFILL_METABASE` bool flag where `<N>` is shard 
+ID. This flag purges metabase instance at the application start and reinitialize
+it with available objects from the blobstor.
+
+Object service pool size now split into `NEOFS_OBJECT_PUT_POOL_SIZE_REMOTE` and
+`NEOFS_OBJECT_PUT_POOL_SIZE_LOCAL` configuration records.
 
 ## [0.24.1] - 2021-09-07
 
@@ -611,7 +660,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...master
+[0.25.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.0...v0.23.1
