@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine as basebuilder
+FROM golang:1.16 as basebuilder
 RUN apk add --update make bash
 
 FROM basebuilder as builder
