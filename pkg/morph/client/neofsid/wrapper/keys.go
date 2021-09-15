@@ -15,7 +15,7 @@ func (x *ClientWrapper) AccountKeys(id *owner.ID) (keys.PublicKeys, error) {
 
 	args.SetOwnerID(id.ToV2().GetValue())
 
-	res, err := (*neofsid.Client)(x).AccountKeys(args)
+	res, err := x.client.AccountKeys(args)
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +52,12 @@ func (x *ClientWrapper) ManageKeys(ownerID []byte, ks [][]byte, add bool) error 
 	if add {
 		a = new(neofsid.AddKeysArgs)
 		call = func(a args) error {
-			return (*neofsid.Client)(x).AddKeys(*a.(*neofsid.AddKeysArgs))
+			return x.client.AddKeys(*a.(*neofsid.AddKeysArgs))
 		}
 	} else {
 		a = new(neofsid.RemoveKeysArgs)
 		call = func(a args) error {
-			return (*neofsid.Client)(x).RemoveKeys(*a.(*neofsid.RemoveKeysArgs))
+			return x.client.RemoveKeys(*a.(*neofsid.RemoveKeysArgs))
 		}
 	}
 

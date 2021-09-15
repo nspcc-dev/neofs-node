@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/internal"
 )
 
 // Wrapper is a wrapper over balance contract
@@ -19,6 +20,8 @@ import (
 // expression (or just declaring a Wrapper variable) is unsafe
 // and can lead to panic.
 type Wrapper struct {
+	internal.StaticClient
+
 	client *balance.Client
 }
 
@@ -69,5 +72,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("could not create Balance contract client: %w", err)
 	}
 
-	return &Wrapper{client: enhancedBalanceClient}, nil
+	return &Wrapper{
+		StaticClient: staticClient,
+		client:       enhancedBalanceClient,
+	}, nil
 }

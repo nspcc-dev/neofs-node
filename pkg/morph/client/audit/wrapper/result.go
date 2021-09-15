@@ -27,7 +27,7 @@ func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
 	args := audit.PutAuditResultArgs{}
 	args.SetRawResult(rawResult)
 
-	return (*audit.Client)(w).
+	return w.client.
 		PutAuditResult(args)
 }
 
@@ -35,7 +35,7 @@ func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
 func (w *ClientWrapper) ListAllAuditResultID() ([]ResultID, error) {
 	args := audit.ListResultsArgs{}
 
-	values, err := (*audit.Client)(w).ListAuditResults(args)
+	values, err := w.client.ListAuditResults(args)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (w *ClientWrapper) ListAuditResultIDByEpoch(epoch uint64) ([]ResultID, erro
 	args := audit.ListResultsByEpochArgs{}
 	args.SetEpoch(int64(epoch))
 
-	values, err := (*audit.Client)(w).ListAuditResultsByEpoch(args)
+	values, err := w.client.ListAuditResultsByEpoch(args)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (w *ClientWrapper) ListAuditResultIDByCID(epoch uint64, cid *cid.ID) ([]Res
 
 	args.SetCID(v2.GetValue())
 
-	values, err := (*audit.Client)(w).ListAuditResultsByCID(args)
+	values, err := w.client.ListAuditResultsByCID(args)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (w *ClientWrapper) ListAuditResultIDByNode(epoch uint64, cid *cid.ID, key [
 
 	args.SetCID(v2.GetValue())
 
-	values, err := (*audit.Client)(w).ListAuditResultsByNode(args)
+	values, err := w.client.ListAuditResultsByNode(args)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (w *ClientWrapper) GetAuditResult(id ResultID) (*auditAPI.Result, error) {
 	args := audit.GetAuditResultArgs{}
 	args.SetID(id)
 
-	value, err := (*audit.Client)(w).GetAuditResult(args)
+	value, err := w.client.GetAuditResult(args)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 )
 
@@ -19,6 +20,8 @@ import (
 // expression (or just declaring a Wrapper variable) is unsafe
 // and can lead to panic.
 type Wrapper struct {
+	internal.StaticClient
+
 	client *netmap.Client
 }
 
@@ -50,7 +53,10 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create netmap morph client: %w", err)
 	}
 
-	return &Wrapper{client: enhancedNetmapClient}, nil
+	return &Wrapper{
+		StaticClient: staticClient,
+		client:       enhancedNetmapClient,
+	}, nil
 }
 
 // Morph returns raw morph client.

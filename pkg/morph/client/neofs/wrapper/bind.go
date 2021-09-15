@@ -19,12 +19,12 @@ func (x *ClientWrapper) ManageKeys(scriptHash []byte, ks [][]byte, bind bool) er
 	if bind {
 		a = new(neofscontract.BindKeysArgs)
 		call = func(a args) error {
-			return (*neofscontract.Client)(x).BindKeys(*a.(*neofscontract.BindKeysArgs))
+			return x.client.BindKeys(*a.(*neofscontract.BindKeysArgs))
 		}
 	} else {
 		a = new(neofscontract.UnbindKeysArgs)
 		call = func(a args) error {
-			return (*neofscontract.Client)(x).UnbindKeys(*a.(*neofscontract.UnbindKeysArgs))
+			return x.client.UnbindKeys(*a.(*neofscontract.UnbindKeysArgs))
 		}
 	}
 

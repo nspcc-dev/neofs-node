@@ -37,7 +37,7 @@ func (w *ClientWrapper) ListByEpoch(v ListByEpochArgs) (*ListByEpochResult, erro
 	args := reputationClient.ListByEpochArgs{}
 	args.SetEpoch(v.epoch)
 
-	data, err := (*reputationClient.Client)(w).ListByEpoch(args)
+	data, err := w.client.ListByEpoch(args)
 	if err != nil {
 		return nil, err
 	}

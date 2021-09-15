@@ -40,7 +40,7 @@ func (w *ClientWrapper) Put(v PutArgs) error {
 		return err
 	}
 
-	return (*reputationClient.Client)(w).Put(args)
+	return w.client.Put(args)
 }
 
 func preparePutArgs(v PutArgs) (reputationClient.PutArgs, error) {

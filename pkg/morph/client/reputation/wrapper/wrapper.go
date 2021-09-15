@@ -6,12 +6,17 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 )
 
 // ClientWrapper is a wrapper over reputation contract
 // client which implements storage of reputation values.
-type ClientWrapper reputation.Client
+type ClientWrapper struct {
+	internal.StaticClient
+
+	client *reputation.Client
+}
 
 // Option allows to set an optional
 // parameter of ClientWrapper.
@@ -25,7 +30,7 @@ func defaultOpts() *opts {
 
 // Morph returns raw morph client.
 func (w ClientWrapper) Morph() *client.Client {
-	return (reputation.Client)(w).Morph()
+	return w.client.Morph()
 }
 
 // TryNotary returns option to enable
@@ -65,5 +70,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("could not create reputation contract client: %w", err)
 	}
 
-	return (*ClientWrapper)(enhancedRepurationClient), nil
+	return &ClientWrapper{
+		StaticClient: staticClient,
+		client:       enhancedRepurationClient,
+	}, nil
 }
