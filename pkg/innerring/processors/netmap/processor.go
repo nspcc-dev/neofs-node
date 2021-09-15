@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -50,12 +49,11 @@ type (
 	// Processor of events produced by network map contract
 	// and new epoch ticker, because it is related to contract.
 	Processor struct {
-		log            *zap.Logger
-		pool           *ants.Pool
-		netmapContract util.Uint160
-		epochTimer     EpochTimerReseter
-		epochState     EpochState
-		alphabetState  AlphabetState
+		log           *zap.Logger
+		pool          *ants.Pool
+		epochTimer    EpochTimerReseter
+		epochState    EpochState
+		alphabetState AlphabetState
 
 		netmapClient *nmWrapper.Wrapper
 		containerWrp *container.Wrapper
@@ -73,10 +71,8 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log      *zap.Logger
-		PoolSize int
-		// TODO(@fyrchik): add `ContractHash` method to the NetmapClient and remove this parameter.
-		NetmapContract   util.Uint160
+		Log              *zap.Logger
+		PoolSize         int
 		NetmapClient     *nmWrapper.Wrapper
 		EpochTimer       EpochTimerReseter
 		EpochState       EpochState
@@ -134,7 +130,6 @@ func New(p *Params) (*Processor, error) {
 	return &Processor{
 		log:            p.Log,
 		pool:           pool,
-		netmapContract: p.NetmapContract,
 		epochTimer:     p.EpochTimer,
 		epochState:     p.EpochState,
 		alphabetState:  p.AlphabetState,
@@ -157,30 +152,28 @@ func New(p *Params) (*Processor, error) {
 func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
 	parsers := make([]event.NotificationParserInfo, 0, 3)
 
+	var p event.NotificationParserInfo
+
+	p.SetScriptHash(np.netmapClient.ContractAddress())
+
 	// new epoch event
-	newEpoch := event.NotificationParserInfo{}
-	newEpoch.SetType(newEpochNotification)
-	newEpoch.SetScriptHash(np.netmapContract)
-	newEpoch.SetParser(netmapEvent.ParseNewEpoch)
-	parsers = append(parsers, newEpoch)
+	p.SetType(newEpochNotification)
+	p.SetParser(netmapEvent.ParseNewEpoch)
+	parsers = append(parsers, p)
 
 	if !np.notaryDisabled {
 		return parsers
 	}
 
 	// new peer event
-	addPeer := event.NotificationParserInfo{}
-	addPeer.SetType(addPeerNotification)
-	addPeer.SetScriptHash(np.netmapContract)
-	addPeer.SetParser(netmapEvent.ParseAddPeer)
-	parsers = append(parsers, addPeer)
+	p.SetType(addPeerNotification)
+	p.SetParser(netmapEvent.ParseAddPeer)
+	parsers = append(parsers, p)
 
 	// update peer event
-	updatePeer := event.NotificationParserInfo{}
-	updatePeer.SetType(updatePeerStateNotification)
-	updatePeer.SetScriptHash(np.netmapContract)
-	updatePeer.SetParser(netmapEvent.ParseUpdatePeer)
-	parsers = append(parsers, updatePeer)
+	p.SetType(updatePeerStateNotification)
+	p.SetParser(netmapEvent.ParseUpdatePeer)
+	parsers = append(parsers, p)
 
 	return parsers
 }
@@ -189,30 +182,28 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
 	handlers := make([]event.NotificationHandlerInfo, 0, 3)
 
+	var i event.NotificationHandlerInfo
+
+	i.SetScriptHash(np.netmapClient.ContractAddress())
+
 	// new epoch handler
-	newEpoch := event.NotificationHandlerInfo{}
-	newEpoch.SetType(newEpochNotification)
-	newEpoch.SetScriptHash(np.netmapContract)
-	newEpoch.SetHandler(np.handleNewEpoch)
-	handlers = append(handlers, newEpoch)
+	i.SetType(newEpochNotification)
+	i.SetHandler(np.handleNewEpoch)
+	handlers = append(handlers, i)
 
 	if !np.notaryDisabled {
 		return handlers
 	}
 
 	// new peer handler
-	addPeer := event.NotificationHandlerInfo{}
-	addPeer.SetType(addPeerNotification)
-	addPeer.SetScriptHash(np.netmapContract)
-	addPeer.SetHandler(np.handleAddPeer)
-	handlers = append(handlers, addPeer)
+	i.SetType(addPeerNotification)
+	i.SetHandler(np.handleAddPeer)
+	handlers = append(handlers, i)
 
 	// update peer handler
-	updatePeer := event.NotificationHandlerInfo{}
-	updatePeer.SetType(updatePeerStateNotification)
-	updatePeer.SetScriptHash(np.netmapContract)
-	updatePeer.SetHandler(np.handleUpdateState)
-	handlers = append(handlers, updatePeer)
+	i.SetType(updatePeerStateNotification)
+	i.SetHandler(np.handleUpdateState)
+	handlers = append(handlers, i)
 
 	return handlers
 }
@@ -226,7 +217,7 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	)
 
 	p.SetMempoolType(mempoolevent.TransactionAdded)
-	p.SetScriptHash(np.netmapContract)
+	p.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new peer
 	p.SetRequestType(netmapEvent.AddPeerNotaryEvent)
@@ -250,7 +241,7 @@ func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	)
 
 	h.SetMempoolType(mempoolevent.TransactionAdded)
-	h.SetScriptHash(np.netmapContract)
+	h.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new peer
 	h.SetRequestType(netmapEvent.AddPeerNotaryEvent)

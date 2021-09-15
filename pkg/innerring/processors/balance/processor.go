@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
@@ -25,22 +24,20 @@ type (
 
 	// Processor of events produced by balance contract in morph chain.
 	Processor struct {
-		log             *zap.Logger
-		pool            *ants.Pool
-		neofsClient     *neofscontract.ClientWrapper
-		balanceContract util.Uint160
-		alphabetState   AlphabetState
-		converter       PrecisionConverter
+		log           *zap.Logger
+		pool          *ants.Pool
+		neofsClient   *neofscontract.ClientWrapper
+		alphabetState AlphabetState
+		converter     PrecisionConverter
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log             *zap.Logger
-		PoolSize        int
-		NeoFSClient     *neofscontract.ClientWrapper
-		BalanceContract util.Uint160
-		AlphabetState   AlphabetState
-		Converter       PrecisionConverter
+		Log           *zap.Logger
+		PoolSize      int
+		NeoFSClient   *neofscontract.ClientWrapper
+		AlphabetState AlphabetState
+		Converter     PrecisionConverter
 	}
 )
 
@@ -67,12 +64,11 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:             p.Log,
-		pool:            pool,
-		neofsClient:     p.NeoFSClient,
-		balanceContract: p.BalanceContract,
-		alphabetState:   p.AlphabetState,
-		converter:       p.Converter,
+		log:           p.Log,
+		pool:          pool,
+		neofsClient:   p.NeoFSClient,
+		alphabetState: p.AlphabetState,
+		converter:     p.Converter,
 	}, nil
 }
 
@@ -83,7 +79,7 @@ func (bp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	// new lock event
 	lock := event.NotificationParserInfo{}
 	lock.SetType(lockNotification)
-	lock.SetScriptHash(bp.balanceContract)
+	lock.SetScriptHash(bp.neofsClient.ContractAddress())
 	lock.SetParser(balanceEvent.ParseLock)
 	parsers = append(parsers, lock)
 
@@ -97,7 +93,7 @@ func (bp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	// lock handler
 	lock := event.NotificationHandlerInfo{}
 	lock.SetType(lockNotification)
-	lock.SetScriptHash(bp.balanceContract)
+	lock.SetScriptHash(bp.neofsClient.ContractAddress())
 	lock.SetHandler(bp.handleLock)
 	handlers = append(handlers, lock)
 
