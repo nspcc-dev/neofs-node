@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/internal"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 )
 
@@ -14,7 +15,11 @@ import (
 // working with a contract.
 //
 // Working ClientWrapper must be created via NewFromMorph.
-type ClientWrapper neofscontract.Client
+type ClientWrapper struct {
+	internal.StaticClient
+
+	client *neofscontract.Client
+}
 
 // Option allows to set an optional
 // parameter of ClientWrapper.
@@ -58,5 +63,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("could not create client of NeoFS contract: %w", err)
 	}
 
-	return (*ClientWrapper)(neofscontract.New(sc)), nil
+	return &ClientWrapper{
+		StaticClient: sc,
+		client:       neofscontract.New(sc),
+	}, nil
 }

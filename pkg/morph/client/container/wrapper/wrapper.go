@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/internal"
 )
 
 // Wrapper is a wrapper over container contract
@@ -18,6 +19,8 @@ import (
 // expression (or just declaring a Wrapper variable) is unsafe
 // and can lead to panic.
 type Wrapper struct {
+	internal.StaticClient
+
 	client *container.Client
 }
 
@@ -73,5 +76,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create container morph client: %w", err)
 	}
 
-	return &Wrapper{client: enhancedContainerClient}, nil
+	return &Wrapper{
+		StaticClient: staticClient,
+		client:       enhancedContainerClient,
+	}, nil
 }

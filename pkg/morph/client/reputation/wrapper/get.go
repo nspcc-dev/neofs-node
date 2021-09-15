@@ -53,7 +53,7 @@ func (w *ClientWrapper) Get(v GetArgs) (*GetResult, error) {
 	args.SetEpoch(v.epoch)
 	args.SetPeerID(v.peerID.ToV2().GetPublicKey())
 
-	data, err := (*reputationClient.Client)(w).Get(args)
+	data, err := w.client.Get(args)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (w *ClientWrapper) GetByID(v GetByIDArgs) (*GetResult, error) {
 	args := reputationClient.GetByIDArgs{}
 	args.SetID(v.id)
 
-	data, err := (*reputationClient.Client)(w).GetByID(args)
+	data, err := w.client.GetByID(args)
 	if err != nil {
 		return nil, err
 	}
