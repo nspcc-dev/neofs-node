@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
@@ -30,8 +29,6 @@ type (
 		log  *zap.Logger
 		pool *ants.Pool
 
-		reputationContract util.Uint160
-
 		epochState    EpochState
 		alphabetState AlphabetState
 
@@ -44,14 +41,13 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log                *zap.Logger
-		PoolSize           int
-		ReputationContract util.Uint160
-		EpochState         EpochState
-		AlphabetState      AlphabetState
-		ReputationWrapper  *reputationWrapper.ClientWrapper
-		ManagerBuilder     common.ManagerBuilder
-		NotaryDisabled     bool
+		Log               *zap.Logger
+		PoolSize          int
+		EpochState        EpochState
+		AlphabetState     AlphabetState
+		ReputationWrapper *reputationWrapper.ClientWrapper
+		ManagerBuilder    common.ManagerBuilder
+		NotaryDisabled    bool
 	}
 )
 
@@ -82,14 +78,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:                p.Log,
-		pool:               pool,
-		reputationContract: p.ReputationContract,
-		epochState:         p.EpochState,
-		alphabetState:      p.AlphabetState,
-		reputationWrp:      p.ReputationWrapper,
-		mngBuilder:         p.ManagerBuilder,
-		notaryDisabled:     p.NotaryDisabled,
+		log:            p.Log,
+		pool:           pool,
+		epochState:     p.EpochState,
+		alphabetState:  p.AlphabetState,
+		reputationWrp:  p.ReputationWrapper,
+		mngBuilder:     p.ManagerBuilder,
+		notaryDisabled: p.NotaryDisabled,
 	}, nil
 }
 
@@ -104,7 +99,7 @@ func (rp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	// put reputation event
 	put := event.NotificationParserInfo{}
 	put.SetType(putReputationNotification)
-	put.SetScriptHash(rp.reputationContract)
+	put.SetScriptHash(rp.reputationWrp.ContractAddress())
 	put.SetParser(reputationEvent.ParsePut)
 	parsers = append(parsers, put)
 
@@ -122,7 +117,7 @@ func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	// put reputation handler
 	put := event.NotificationHandlerInfo{}
 	put.SetType(putReputationNotification)
-	put.SetScriptHash(rp.reputationContract)
+	put.SetScriptHash(rp.reputationWrp.ContractAddress())
 	put.SetHandler(rp.handlePutReputation)
 	handlers = append(handlers, put)
 
@@ -135,7 +130,7 @@ func (rp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	p.SetMempoolType(mempoolevent.TransactionAdded)
 	p.SetRequestType(reputationEvent.PutNotaryEvent)
-	p.SetScriptHash(rp.reputationContract)
+	p.SetScriptHash(rp.reputationWrp.ContractAddress())
 	p.SetParser(reputationEvent.ParsePutNotary)
 
 	return []event.NotaryParserInfo{p}
@@ -147,7 +142,7 @@ func (rp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 
 	h.SetMempoolType(mempoolevent.TransactionAdded)
 	h.SetRequestType(reputationEvent.PutNotaryEvent)
-	h.SetScriptHash(rp.reputationContract)
+	h.SetScriptHash(rp.reputationWrp.ContractAddress())
 	h.SetHandler(rp.handlePutReputation)
 
 	return []event.NotaryHandlerInfo{h}

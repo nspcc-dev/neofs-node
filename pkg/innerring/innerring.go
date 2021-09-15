@@ -636,7 +636,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
 		PoolSize:         cfg.GetInt("workers.netmap"),
-		NetmapContract:   server.contracts.netmap,
 		NetmapClient:     server.netmapClient,
 		EpochTimer:       server,
 		EpochState:       server,
@@ -668,14 +667,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// container processor
 	containerProcessor, err := container.New(&container.Params{
-		Log:               log,
-		PoolSize:          cfg.GetInt("workers.container"),
-		ContainerContract: server.contracts.container,
-		AlphabetState:     server,
-		ContainerClient:   cnrClient,
-		NeoFSIDClient:     neofsIDClient,
-		NetworkState:      server.netmapClient,
-		NotaryDisabled:    server.sideNotaryConfig.disabled,
+		Log:             log,
+		PoolSize:        cfg.GetInt("workers.container"),
+		AlphabetState:   server,
+		ContainerClient: cnrClient,
+		NeoFSIDClient:   neofsIDClient,
+		NetworkState:    server.netmapClient,
+		NotaryDisabled:  server.sideNotaryConfig.disabled,
 	})
 	if err != nil {
 		return nil, err
@@ -688,12 +686,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create balance processor
 	balanceProcessor, err := balance.New(&balance.Params{
-		Log:             log,
-		PoolSize:        cfg.GetInt("workers.balance"),
-		NeoFSClient:     neofsClient,
-		BalanceContract: server.contracts.balance,
-		AlphabetState:   server,
-		Converter:       &server.precision,
+		Log:           log,
+		PoolSize:      cfg.GetInt("workers.balance"),
+		NeoFSClient:   neofsClient,
+		AlphabetState: server,
+		Converter:     &server.precision,
 	})
 	if err != nil {
 		return nil, err
@@ -753,12 +750,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// create reputation processor
 	reputationProcessor, err := reputation.New(&reputation.Params{
-		Log:                log,
-		PoolSize:           cfg.GetInt("workers.reputation"),
-		ReputationContract: server.contracts.reputation,
-		EpochState:         server,
-		AlphabetState:      server,
-		ReputationWrapper:  repClient,
+		Log:               log,
+		PoolSize:          cfg.GetInt("workers.reputation"),
+		EpochState:        server,
+		AlphabetState:     server,
+		ReputationWrapper: repClient,
 		ManagerBuilder: reputationcommon.NewManagerBuilder(
 			reputationcommon.ManagersPrm{
 				NetMapSource: server.netmapClient,

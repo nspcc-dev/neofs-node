@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -22,26 +21,24 @@ type (
 
 	// Processor of events produced by container contract in morph chain.
 	Processor struct {
-		log               *zap.Logger
-		pool              *ants.Pool
-		containerContract util.Uint160
-		alphabetState     AlphabetState
-		cnrClient         *wrapper.Wrapper // notary must be enabled
-		idClient          *neofsid.ClientWrapper
-		netState          NetworkState
-		notaryDisabled    bool
+		log            *zap.Logger
+		pool           *ants.Pool
+		alphabetState  AlphabetState
+		cnrClient      *wrapper.Wrapper // notary must be enabled
+		idClient       *neofsid.ClientWrapper
+		netState       NetworkState
+		notaryDisabled bool
 	}
 
 	// Params of the processor constructor.
 	Params struct {
-		Log               *zap.Logger
-		PoolSize          int
-		ContainerContract util.Uint160
-		AlphabetState     AlphabetState
-		ContainerClient   *wrapper.Wrapper
-		NeoFSIDClient     *neofsid.ClientWrapper
-		NetworkState      NetworkState
-		NotaryDisabled    bool
+		Log             *zap.Logger
+		PoolSize        int
+		AlphabetState   AlphabetState
+		ContainerClient *wrapper.Wrapper
+		NeoFSIDClient   *neofsid.ClientWrapper
+		NetworkState    NetworkState
+		NotaryDisabled  bool
 	}
 )
 
@@ -85,14 +82,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:               p.Log,
-		pool:              pool,
-		containerContract: p.ContainerContract,
-		alphabetState:     p.AlphabetState,
-		cnrClient:         p.ContainerClient,
-		idClient:          p.NeoFSIDClient,
-		netState:          p.NetworkState,
-		notaryDisabled:    p.NotaryDisabled,
+		log:            p.Log,
+		pool:           pool,
+		alphabetState:  p.AlphabetState,
+		cnrClient:      p.ContainerClient,
+		idClient:       p.NeoFSIDClient,
+		netState:       p.NetworkState,
+		notaryDisabled: p.NotaryDisabled,
 	}, nil
 }
 
@@ -108,7 +104,7 @@ func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 		p event.NotificationParserInfo
 	)
 
-	p.SetScriptHash(cp.containerContract)
+	p.SetScriptHash(cp.cnrClient.ContractAddress())
 
 	// container put
 	p.SetType(event.TypeFromString(putNotification))
@@ -140,7 +136,7 @@ func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 		h event.NotificationHandlerInfo
 	)
 
-	h.SetScriptHash(cp.containerContract)
+	h.SetScriptHash(cp.cnrClient.ContractAddress())
 
 	// container put
 	h.SetType(event.TypeFromString(putNotification))
@@ -169,7 +165,7 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	)
 
 	p.SetMempoolType(mempoolevent.TransactionAdded)
-	p.SetScriptHash(cp.containerContract)
+	p.SetScriptHash(cp.cnrClient.ContractAddress())
 
 	// container put
 	p.SetRequestType(containerEvent.PutNotaryEvent)
@@ -197,7 +193,7 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 		hh = make([]event.NotaryHandlerInfo, 0, 3)
 	)
 
-	h.SetScriptHash(cp.containerContract)
+	h.SetScriptHash(cp.cnrClient.ContractAddress())
 	h.SetMempoolType(mempoolevent.TransactionAdded)
 
 	// container put
