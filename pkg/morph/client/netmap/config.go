@@ -68,3 +68,72 @@ func IntegerAssert(item stackitem.Item) (interface{}, error) {
 func StringAssert(item stackitem.Item) (interface{}, error) {
 	return client.StringFromStackItem(item)
 }
+
+// ListConfigArgs groups the arguments
+// of config listing test invoke call.
+type ListConfigArgs struct {
+}
+
+// ConfigValues groups the stack parameters
+// returned by config listing test invoke.
+type ListConfigValues struct {
+	rs []stackitem.Item
+}
+
+// IterateRecords iterates over all config records and passes them to f.
+//
+// Returns f's errors directly.
+func (x ListConfigValues) IterateRecords(f func(key, value []byte) error) error {
+	for i := range x.rs {
+		fields, err := client.ArrayFromStackItem(x.rs[i])
+		if err != nil {
+			return fmt.Errorf("record fields: %w", err)
+		}
+
+		if ln := len(fields); ln != 2 {
+			return fmt.Errorf("unexpected record fields number: %d", ln)
+		}
+
+		k, err := client.BytesFromStackItem(fields[0])
+		if err != nil {
+			return fmt.Errorf("record key: %w", err)
+		}
+
+		v, err := client.BytesFromStackItem(fields[1])
+		if err != nil {
+			return fmt.Errorf("record value: %w", err)
+		}
+
+		if err := f(k, v); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ListConfig performs the test invoke of config listing method of NeoFS Netmap contract.
+func (c *Client) ListConfig(args ListConfigArgs) (*ListConfigValues, error) {
+	items, err := c.client.TestInvoke(
+		c.configListMethod,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			c.configListMethod, err)
+	}
+
+	if ln := len(items); ln != 1 {
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
+			c.configListMethod, ln)
+	}
+
+	arr, err := client.ArrayFromStackItem(items[0])
+	if err != nil {
+		return nil, fmt.Errorf("record list (%s): %w",
+			c.configListMethod, err)
+	}
+
+	return &ListConfigValues{
+		rs: arr,
+	}, nil
+}
