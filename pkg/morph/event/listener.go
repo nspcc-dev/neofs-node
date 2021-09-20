@@ -8,7 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
@@ -189,7 +189,7 @@ func (l listener) listenLoop(ctx context.Context, chEvent <-chan *state.Notifica
 	var (
 		blockChan <-chan *block.Block
 
-		notaryChan <-chan *response.NotaryRequestEvent
+		notaryChan <-chan *subscriptions.NotaryRequestEvent
 
 		err error
 	)
@@ -349,7 +349,7 @@ func (l listener) parseAndHandleNotification(notifyEvent *state.NotificationEven
 	}
 }
 
-func (l listener) parseAndHandleNotary(nr *response.NotaryRequestEvent) {
+func (l listener) parseAndHandleNotary(nr *subscriptions.NotaryRequestEvent) {
 	// prepare the notary event
 	notaryEvent, err := l.notaryEventsPreparator.Prepare(nr.NotaryRequest)
 	if err != nil {
