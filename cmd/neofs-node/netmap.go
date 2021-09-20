@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -96,8 +98,10 @@ func initNetmapService(c *cfg) {
 					c,
 					c.apiVersion,
 					&netInfo{
-						netState: c.cfgNetmap.state,
-						magic:    c.cfgMorph.client,
+						netState:      c.cfgNetmap.state,
+						magic:         c.cfgMorph.client,
+						netCfg:        c.cfgNetmap.wrapper.IterateConfigParameters,
+						msPerBlockRdr: c.cfgMorph.client.MsPerBlock,
 					},
 				),
 				c.respSvc,
@@ -274,9 +278,13 @@ type netInfo struct {
 	magic interface {
 		MagicNumber() (uint64, error)
 	}
+
+	netCfg func(func(key, value []byte) error) error
+
+	msPerBlockRdr func() (int64, error)
 }
 
-func (n *netInfo) Dump() (*netmapV2.NetworkInfo, error) {
+func (n *netInfo) Dump(ver *refs.Version) (*netmapV2.NetworkInfo, error) {
 	magic, err := n.magic.MagicNumber()
 	if err != nil {
 		return nil, err
@@ -285,6 +293,36 @@ func (n *netInfo) Dump() (*netmapV2.NetworkInfo, error) {
 	ni := new(netmapV2.NetworkInfo)
 	ni.SetCurrentEpoch(n.netState.CurrentEpoch())
 	ni.SetMagicNumber(magic)
+
+	if mjr := ver.GetMajor(); mjr > 2 || mjr == 2 && ver.GetMinor() > 9 {
+		msPerBlock, err := n.msPerBlockRdr()
+		if err != nil {
+			return nil, fmt.Errorf("ms per block: %w", err)
+		}
+
+		var (
+			ps     []*netmapV2.NetworkParameter
+			netCfg netmapV2.NetworkConfig
+		)
+
+		if err := n.netCfg(func(key, value []byte) error {
+			var p netmapV2.NetworkParameter
+
+			p.SetKey(key)
+			p.SetValue(value)
+
+			ps = append(ps, &p)
+
+			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("network config: %w", err)
+		}
+
+		netCfg.SetParameters(ps...)
+
+		ni.SetNetworkConfig(&netCfg)
+		ni.SetMsPerBlock(msPerBlock)
+	}
 
 	return ni, nil
 }
