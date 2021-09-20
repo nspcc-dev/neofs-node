@@ -457,3 +457,20 @@ func (c *Client) BlockCount() (res uint32, err error) {
 
 	return c.client.GetBlockCount()
 }
+
+// MsPerBlock returns MillisecondsPerBlock network parameter.
+func (c *Client) MsPerBlock() (res int64, err error) {
+	if c.multiClient != nil {
+		return res, c.multiClient.iterateClients(func(c *Client) error {
+			res, err = c.MsPerBlock()
+			return err
+		})
+	}
+
+	v, err := c.client.GetVersion()
+	if err != nil {
+		return 0, fmt.Errorf("getVersion: %w", err)
+	}
+
+	return int64(v.Protocol.MillisecondsPerBlock), nil
+}
