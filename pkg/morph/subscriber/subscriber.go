@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"go.uber.org/zap"
 )
@@ -21,7 +22,7 @@ type (
 		SubscribeForNotification(...util.Uint160) (<-chan *state.NotificationEvent, error)
 		UnsubscribeForNotification()
 		BlockNotifications() (<-chan *block.Block, error)
-		SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *response.NotaryRequestEvent, error)
+		SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *subscriptions.NotaryRequestEvent, error)
 		Close()
 	}
 
@@ -35,7 +36,7 @@ type (
 
 		blockChan chan *block.Block
 
-		notaryChan chan *response.NotaryRequestEvent
+		notaryChan chan *subscriptions.NotaryRequestEvent
 	}
 
 	// Params is a group of Subscriber constructor parameters.
@@ -116,7 +117,7 @@ func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
 	return s.blockChan, nil
 }
 
-func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *response.NotaryRequestEvent, error) {
+func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *subscriptions.NotaryRequestEvent, error) {
 	if _, err := s.client.SubscribeForNotaryRequests(nil, &mainTXSigner); err != nil {
 		return nil, fmt.Errorf("could not subscribe for notary request events: %w", err)
 	}
@@ -157,7 +158,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 
 				s.blockChan <- b
 			case response.NotaryRequestEventID:
-				notaryRequest, ok := notification.Value.(*response.NotaryRequestEvent)
+				notaryRequest, ok := notification.Value.(*subscriptions.NotaryRequestEvent)
 				if !ok {
 					s.log.Error("can't cast notify event value to the notary request struct")
 					continue
@@ -209,7 +210,7 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		notifyChan: make(chan *state.NotificationEvent),
 		notifyIDs:  make(map[util.Uint160]string),
 		blockChan:  make(chan *block.Block),
-		notaryChan: make(chan *response.NotaryRequestEvent),
+		notaryChan: make(chan *subscriptions.NotaryRequestEvent),
 	}
 
 	// Worker listens all events from neo-go websocket and puts them

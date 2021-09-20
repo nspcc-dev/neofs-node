@@ -1,7 +1,6 @@
 package event
 
 import (
-	"encoding/binary"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -28,9 +27,6 @@ var (
 	dummyInvocationScript      = append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
 	wrongDummyInvocationScript = append([]byte{byte(opcode.PUSHDATA1), 64, 1}, make([]byte, 63)...)
 
-	contractSysCall      = make([]byte, 4)
-	wrongContractSysCall = make([]byte, 4)
-
 	scriptHash util.Uint160
 )
 
@@ -44,9 +40,6 @@ func init() {
 	wrongPub := wrongPrivat.PublicKey()
 
 	wrongAlphaKeys = keys.PublicKeys{wrongPub}
-
-	binary.LittleEndian.PutUint32(contractSysCall, interopnames.ToID([]byte(interopnames.SystemContractCall)))
-	binary.LittleEndian.PutUint32(wrongContractSysCall, interopnames.ToID([]byte(interopnames.SystemCallbackInvoke)))
 
 	scriptHash, _ = util.Uint160DecodeStringLE("21fce15191428e9c2f0e8d0329ff6d3dd14882de")
 }
@@ -74,7 +67,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 		emit.Int(bw.BinWriter, 4)
 		emit.String(bw.BinWriter, "test")
 		emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
-		emit.Syscall(bw.BinWriter, interopnames.SystemCallbackInvoke)
+		emit.Syscall(bw.BinWriter, interopnames.SystemContractCallNative) // any != interopnames.SystemContractCall
 
 		nr := correctNR(bw.Bytes())
 
