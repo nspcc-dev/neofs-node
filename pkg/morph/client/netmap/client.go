@@ -43,7 +43,8 @@ type cfg struct {
 	lastEpochBlockMethod, // get last epoch number method name
 	updateInnerRing, // update innerring method name
 	setConfigMethod, // set config method name
-	configMethod string // get config value method name
+	configMethod, // get config value method name
+	configListMethod string // list config method name
 }
 
 const (
@@ -61,6 +62,8 @@ const (
 	defaultUpdateStateMethod     = "updateState"      // default update state method name
 
 	defaultEpochSnapshotMethod = "snapshotByEpoch" // default get network map snapshot by epoch method name
+
+	defaultConfigListMethod = "listConfig" // default config listing method name
 )
 
 func defaultConfig() *cfg {
@@ -78,6 +81,7 @@ func defaultConfig() *cfg {
 		updateStateMethod:      defaultUpdateStateMethod,
 		updateInnerRing:        defaultUpdateInnerRingMethod,
 		epochSnapshotMethod:    defaultEpochSnapshotMethod,
+		configListMethod:       defaultConfigListMethod,
 	}
 }
 
@@ -211,6 +215,20 @@ func WithEpochSnapshotMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.epochSnapshotMethod = n
+		}
+	}
+}
+
+// WithConfigListMethod returns a client constructor option that
+// specifies the config listing method name.
+//
+// Ignores empty value.
+//
+// If option not provided, "listConfig" is used.
+func WithConfigListMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.configListMethod = n
 		}
 	}
 }

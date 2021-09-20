@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/bigint"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 )
 
@@ -158,4 +159,71 @@ func (w *Wrapper) readStringConfig(key string) (string, error) {
 // SetConfig sets config field.
 func (w *Wrapper) SetConfig(id, key []byte, value interface{}) error {
 	return w.client.SetConfig(id, key, value)
+}
+
+// IterateConfigParameters iterates over configuration parameters stored in Netmap contract and passes them to f.
+//
+// Returns f's errors directly.
+func (w *Wrapper) IterateConfigParameters(f func(key, value []byte) error) error {
+	var args netmap.ListConfigArgs
+
+	v, err := w.client.ListConfig(args)
+	if err != nil {
+		return fmt.Errorf("client error: %w", err)
+	}
+
+	return v.IterateRecords(func(key, value []byte) error {
+		return f(key, value)
+	})
+}
+
+// ConfigWriter is an interface of NeoFS network config writer.
+type ConfigWriter interface {
+	UnknownParameter(string, []byte)
+	MaxObjectSize(uint64)
+	BasicIncomeRate(uint64)
+	AuditFee(uint64)
+	EpochDuration(uint64)
+	ContainerFee(uint64)
+	EigenTrustIterations(uint64)
+	EigenTrustAlpha(float64)
+	InnerRingCandidateFee(uint64)
+	WithdrawFee(uint64)
+}
+
+// WriteConfig writes NeoFS network configuration received via iterator.
+//
+// Returns iterator's errors directly.
+func WriteConfig(dst ConfigWriter, iterator func(func(key, val []byte) error) error) error {
+	return iterator(func(key, val []byte) error {
+		switch k := string(key); k {
+		default:
+			dst.UnknownParameter(k, val)
+		case maxObjectSizeConfig:
+			dst.MaxObjectSize(bigint.FromBytes(val).Uint64())
+		case basicIncomeRateConfig:
+			dst.BasicIncomeRate(bigint.FromBytes(val).Uint64())
+		case auditFeeConfig:
+			dst.AuditFee(bigint.FromBytes(val).Uint64())
+		case epochDurationConfig:
+			dst.EpochDuration(bigint.FromBytes(val).Uint64())
+		case containerFeeConfig:
+			dst.ContainerFee(bigint.FromBytes(val).Uint64())
+		case etIterationsConfig:
+			dst.EigenTrustIterations(bigint.FromBytes(val).Uint64())
+		case etAlphaConfig:
+			v, err := strconv.ParseFloat(string(val), 64)
+			if err != nil {
+				return fmt.Errorf("prm %s: %v", etAlphaConfig, err)
+			}
+
+			dst.EigenTrustAlpha(v)
+		case irCandidateFeeConfig:
+			dst.InnerRingCandidateFee(bigint.FromBytes(val).Uint64())
+		case withdrawFeeConfig:
+			dst.WithdrawFee(bigint.FromBytes(val).Uint64())
+		}
+
+		return nil
+	})
 }
