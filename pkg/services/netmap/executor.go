@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 )
 
 type executorSvc struct {
@@ -25,9 +26,10 @@ type NodeState interface {
 // NetworkInfo encapsulates source of the
 // recent information about the NeoFS network.
 type NetworkInfo interface {
-	// Must return recent network information.
-	// in NeoFS API v2 NetworkInfo structure.
-	Dump() (*netmap.NetworkInfo, error)
+	// Must return recent network information in NeoFS API v2 NetworkInfo structure.
+	//
+	// If protocol version is <=2.9, MillisecondsPerBlock and network config should be unset.
+	Dump(*refs.Version) (*netmap.NetworkInfo, error)
 }
 
 func NewExecutionService(s NodeState, v *pkg.Version, netInfo NetworkInfo) Server {
@@ -78,8 +80,8 @@ func (s *executorSvc) LocalNodeInfo(
 
 func (s *executorSvc) NetworkInfo(
 	_ context.Context,
-	_ *netmap.NetworkInfoRequest) (*netmap.NetworkInfoResponse, error) {
-	ni, err := s.netInfo.Dump()
+	req *netmap.NetworkInfoRequest) (*netmap.NetworkInfoResponse, error) {
+	ni, err := s.netInfo.Dump(req.GetMetaHeader().GetVersion())
 	if err != nil {
 		return nil, err
 	}
