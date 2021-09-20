@@ -7,6 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
 )
@@ -90,6 +91,58 @@ var localNodeInfoCmd = &cobra.Command{
 	},
 }
 
+type netCfgWriter cobra.Command
+
+func (x *netCfgWriter) print(name string, v interface{}, unknown bool) {
+	var sUnknown string
+
+	if unknown {
+		sUnknown = " (unknown)"
+	}
+
+	(*cobra.Command)(x).Printf("  %s%s: %v\n", name, sUnknown, v)
+}
+
+func (x *netCfgWriter) UnknownParameter(k string, v []byte) {
+	x.print(k, hex.EncodeToString(v), true)
+}
+
+func (x *netCfgWriter) MaxObjectSize(v uint64) {
+	x.print("Maximum object size", v, false)
+}
+
+func (x *netCfgWriter) BasicIncomeRate(v uint64) {
+	x.print("Basic income rate", v, false)
+}
+
+func (x *netCfgWriter) AuditFee(v uint64) {
+	x.print("Audit fee", v, false)
+}
+
+func (x *netCfgWriter) EpochDuration(v uint64) {
+	x.print("Epoch duration", v, false)
+}
+
+func (x *netCfgWriter) ContainerFee(v uint64) {
+	x.print("Container fee", v, false)
+}
+
+func (x *netCfgWriter) EigenTrustIterations(v uint64) {
+	x.print("Number EigenTrust of iterations", v, false)
+}
+
+func (x *netCfgWriter) EigenTrustAlpha(v float64) {
+	x.print("EigenTrust α", v, false)
+}
+
+func (x *netCfgWriter) InnerRingCandidateFee(v uint64) {
+	x.print("Inner Ring candidate fee", v, false)
+}
+
+func (x *netCfgWriter) WithdrawFee(v uint64) {
+	x.print("Withdraw fee", v, false)
+}
+
 var netInfoCmd = &cobra.Command{
 	Use:   "netinfo",
 	Short: "Get information about NeoFS network",
@@ -108,6 +161,24 @@ var netInfoCmd = &cobra.Command{
 
 		magic := netInfo.MagicNumber()
 		cmd.Printf("Network magic: [%s] %d\n", netmode.Magic(magic), magic)
+
+		cmd.Printf("MillisecondsPerBlock: %d\n", netInfo.MsPerBlock())
+
+		netCfg := netInfo.NetworkConfig()
+
+		cmd.Println("NeoFS network configuration")
+
+		err = wrapper.WriteConfig((*netCfgWriter)(cmd), func(f func(key []byte, val []byte) error) error {
+			var err error
+
+			netCfg.IterateParameters(func(prm *netmap.NetworkParameter) bool {
+				err = f(prm.Key(), prm.Value())
+				return err != nil
+			})
+
+			return err
+		})
+		exitOnErr(cmd, errf("read config: %w", err))
 	},
 }
 
