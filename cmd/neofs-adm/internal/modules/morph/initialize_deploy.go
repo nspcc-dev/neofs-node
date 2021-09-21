@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/spf13/viper"
 )
@@ -85,7 +86,10 @@ func (c *initializeContext) deployNNS() error {
 	mgmtHash := c.nativeHash(nativenames.Management)
 	res, err := c.Client.InvokeFunction(mgmtHash, "deploy", params, []transaction.Signer{signer})
 	if err != nil {
-		return fmt.Errorf("can't deploy contract: %w", err)
+		return fmt.Errorf("can't deploy NNS contract: %w", err)
+	}
+	if res.State != vm.HaltState.String() {
+		return fmt.Errorf("can't deploy NNS contract: %s", res.FaultException)
 	}
 
 	tx, err := c.Client.CreateTxFromScript(res.Script, c.CommitteeAcc, res.GasConsumed, 0, []client.SignerAccount{{
@@ -158,6 +162,10 @@ func (c *initializeContext) deployContracts(method string) error {
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
+		if res.State != vm.HaltState.String() {
+			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
+		}
+
 		h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
 			Signer:  signer,
 			Account: acc,
@@ -193,7 +201,10 @@ func (c *initializeContext) deployContracts(method string) error {
 
 		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
 		if err != nil {
-			return fmt.Errorf("can't deploy contract: %w", err)
+			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
+		}
+		if res.State != vm.HaltState.String() {
+			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
 		if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
