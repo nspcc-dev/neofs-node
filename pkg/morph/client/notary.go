@@ -80,28 +80,46 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 		return errors.New("proxy contract hash is missing")
 	}
 
-	var (
-		notaryContract util.Uint160
-		err            error
-	)
-
-	if err = c.iterateClients(func(c *Client) error {
-		notaryContract, err = c.client.GetNativeContractHash(nativenames.Notary)
-		return err
-	}); err != nil {
-		return fmt.Errorf("can't get notary contract script hash: %w", err)
-	}
-
-	c.clientsMtx.Lock()
-
-	c.sharedNotary = &notary{
-		notary:         notaryContract,
+	notaryCfg := &notary{
 		proxy:          cfg.proxy,
 		txValidTime:    cfg.txValidTime,
 		roundTime:      cfg.roundTime,
 		fallbackTime:   cfg.fallbackTime,
 		alphabetSource: cfg.alphabetSource,
 	}
+
+	var err error
+
+	getNotaryHashFunc := func(c *Client) error {
+		notaryCfg.notary, err = c.client.GetNativeContractHash(nativenames.Notary)
+		if err != nil {
+			return fmt.Errorf("can't get notary contract script hash: %w", err)
+		}
+
+		return nil
+	}
+
+	if c.multiClient == nil {
+		// single client case
+		err = getNotaryHashFunc(c)
+		if err != nil {
+			return err
+		}
+
+		c.notary = notaryCfg
+
+		return nil
+	}
+
+	// multi client case
+
+	if err = c.iterateClients(getNotaryHashFunc); err != nil {
+		return err
+	}
+
+	c.clientsMtx.Lock()
+
+	c.sharedNotary = notaryCfg
 
 	// update client cache
 	for _, cached := range c.clients {

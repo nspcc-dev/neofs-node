@@ -36,15 +36,11 @@ func (x *multiClient) createForAddress(addr string) (*Client, error) {
 		return nil, err
 	}
 
+	sCli := blankSingleClient(cli, x.account, &x.cfg)
+	sCli.notary = x.sharedNotary
+
 	c := &Client{
-		singleClient: &singleClient{
-			logger:       x.cfg.logger,
-			client:       cli,
-			acc:          x.account,
-			waitInterval: x.cfg.waitInterval,
-			signer:       x.cfg.signer,
-			notary:       x.sharedNotary,
-		},
+		singleClient: sCli,
 	}
 
 	x.clients[addr] = c
