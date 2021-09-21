@@ -308,7 +308,9 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			newContractParameter(smartcontract.ArrayType, keysParam),
 			newContractParameter(smartcontract.ArrayType, configParam))
 	case proxyContract:
-		items = append(items, newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash))
+		items = []smartcontract.Parameter{
+			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
+		}
 	case reputationContract:
 	default:
 		panic(fmt.Sprintf("invalid contract name: %s", ctrName))
