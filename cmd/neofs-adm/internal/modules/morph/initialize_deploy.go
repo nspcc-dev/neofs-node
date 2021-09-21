@@ -253,9 +253,8 @@ func getContractDeployParameters(rawNef, rawManif []byte, deployData []smartcont
 }
 
 func (c *initializeContext) getContractDeployData(ctrName string, keysParam []smartcontract.Parameter) []smartcontract.Parameter {
-	items := make([]smartcontract.Parameter, 2, 7)
-	items[0] = newContractParameter(smartcontract.BoolType, false)                                   // notaryDisabled is false
-	items[1] = newContractParameter(smartcontract.Hash160Type, c.CommitteeAcc.Contract.ScriptHash()) // owner is committee
+	items := make([]smartcontract.Parameter, 1, 6)
+	items[0] = newContractParameter(smartcontract.BoolType, false) // notaryDisabled is false
 
 	switch ctrName {
 	case neofsContract:
@@ -320,7 +319,6 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 func (c *initializeContext) getAlphabetDeployParameters(i, n int) []smartcontract.Parameter {
 	return []smartcontract.Parameter{
 		newContractParameter(smartcontract.BoolType, false),
-		newContractParameter(smartcontract.Hash160Type, c.CommitteeAcc.Contract.ScriptHash()),
 		newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
 		newContractParameter(smartcontract.Hash160Type, c.Contracts[proxyContract].Hash),
 		newContractParameter(smartcontract.StringType, innerring.GlagoliticLetter(i).String()),
