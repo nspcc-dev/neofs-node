@@ -134,7 +134,7 @@ func (c *initializeContext) deployContracts(method string) error {
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
-		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil {
+		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil && method != "migrate" {
 			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
 			continue
 		}
@@ -179,7 +179,7 @@ func (c *initializeContext) deployContracts(method string) error {
 
 	for _, ctrName := range contractList {
 		cs := c.Contracts[ctrName]
-		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil {
+		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != "migrate" {
 			c.Command.Printf("%s contract is already deployed.\n", ctrName)
 			continue
 		}
