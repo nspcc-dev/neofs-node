@@ -158,6 +158,13 @@ func (c *initializeContext) deployContracts(method string) error {
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
 		}
+		if method == "migrate" {
+			signer = transaction.Signer{
+				Account: c.CommitteeAcc.Contract.ScriptHash(),
+				Scopes:  transaction.CalledByEntry,
+			}
+		}
+
 		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
@@ -166,15 +173,21 @@ func (c *initializeContext) deployContracts(method string) error {
 			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
 		}
 
-		h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
-			Signer:  signer,
-			Account: acc,
-		}})
-		if err != nil {
-			return fmt.Errorf("can't push deploy transaction: %w", err)
-		}
+		if method == "migrate" {
+			if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
+				return err
+			}
+		} else {
+			h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
+				Signer:  signer,
+				Account: acc,
+			}})
+			if err != nil {
+				return fmt.Errorf("can't push deploy transaction: %w", err)
+			}
 
-		c.Hashes = append(c.Hashes, h)
+			c.Hashes = append(c.Hashes, h)
+		}
 	}
 
 	for _, ctrName := range contractList {
