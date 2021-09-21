@@ -66,25 +66,37 @@ type contractState struct {
 	Hash        util.Uint160
 }
 
-func (c *initializeContext) deployNNS() error {
+func (c *initializeContext) deployNNS(method string) error {
 	cs, err := c.readContract(nnsContract)
 	if err != nil {
 		return err
 	}
 
 	h := state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
-	if _, err := c.Client.GetContractStateByHash(h); err == nil {
+	if _, err := c.Client.GetContractStateByHash(h); err == nil && method != "update" {
 		return nil
 	}
 
 	params := getContractDeployParameters(cs.RawNEF, cs.RawManifest, nil)
+	if method == "update" {
+		params = params[:len(params)-1] // update has only NEF and manifest args
+	}
+
 	signer := transaction.Signer{
 		Account: c.CommitteeAcc.Contract.ScriptHash(),
 		Scopes:  transaction.CalledByEntry,
 	}
 
 	mgmtHash := c.nativeHash(nativenames.Management)
-	res, err := c.Client.InvokeFunction(mgmtHash, "deploy", params, []transaction.Signer{signer})
+	if method == "update" {
+		nnsCs, err := c.Client.GetContractStateByID(1)
+		if err != nil {
+			return fmt.Errorf("can't resolve NNS hash for contract update: %w", err)
+		}
+		mgmtHash = nnsCs.Hash
+	}
+
+	res, err := c.Client.InvokeFunction(mgmtHash, method, params, []transaction.Signer{signer})
 	if err != nil {
 		return fmt.Errorf("can't deploy NNS contract: %w", err)
 	}
