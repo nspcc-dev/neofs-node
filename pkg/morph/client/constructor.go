@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -30,6 +31,8 @@ type cfg struct {
 	signer *transaction.Signer
 
 	extraEndpoints []string
+
+	singleCli *client.Client // neo-go client for single client mode
 }
 
 const (
@@ -77,6 +80,12 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		opt(cfg)
 	}
 
+	if cfg.singleCli != nil {
+		return &Client{
+			singleClient: blankSingleClient(cfg.singleCli, wallet.NewAccountFromPrivateKey(key), cfg),
+		}, nil
+	}
+
 	endpoints := append(cfg.extraEndpoints, endpoint)
 
 	return &Client{
@@ -92,7 +101,8 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 // WithContext returns a client constructor option that
 // specifies the neo-go client context.
 //
-// Ignores nil value.
+// Ignores nil value. Has no effect if WithSingleClient
+// is provided.
 //
 // If option not provided, context.Background() is used.
 func WithContext(ctx context.Context) Option {
@@ -106,7 +116,8 @@ func WithContext(ctx context.Context) Option {
 // WithDialTimeout returns a client constructor option
 // that specifies neo-go client dial timeout  duration.
 //
-// Ignores non-positive value.
+// Ignores non-positive value. Has no effect if WithSingleClient
+// is provided.
 //
 // If option not provided, 5s timeout is used.
 func WithDialTimeout(dur time.Duration) Option {
@@ -147,8 +158,21 @@ func WithSigner(signer *transaction.Signer) Option {
 
 // WithExtraEndpoints returns a client constructor option
 // that specifies additional Neo rpc endpoints.
+//
+// Has no effect if WithSingleClient is provided.
 func WithExtraEndpoints(endpoints []string) Option {
 	return func(c *cfg) {
 		c.extraEndpoints = append(c.extraEndpoints, endpoints...)
+	}
+}
+
+// WithSingleClient returns a client constructor option
+// that specifies single neo-go client and forces Client
+// to use it and only it for requests.
+//
+// Passed client must already be initialized.
+func WithSingleClient(cli *client.Client) Option {
+	return func(c *cfg) {
+		c.singleCli = cli
 	}
 }

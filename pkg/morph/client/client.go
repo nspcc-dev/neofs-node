@@ -54,6 +54,16 @@ type singleClient struct {
 	notary *notary
 }
 
+func blankSingleClient(cli *client.Client, w *wallet.Account, cfg *cfg) *singleClient {
+	return &singleClient{
+		logger:       cfg.logger,
+		client:       cli,
+		acc:          w,
+		waitInterval: cfg.waitInterval,
+		signer:       cfg.signer,
+	}
+}
+
 // ErrNilClient is returned by functions that expect
 // a non-nil Client pointer, but received nil.
 var ErrNilClient = errors.New("client is nil")
