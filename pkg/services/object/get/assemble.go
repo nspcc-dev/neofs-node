@@ -12,7 +12,11 @@ func (exec *execCtx) assemble() {
 		return
 	}
 
-	exec.assembling = true
+	// do not use forwarding during assembly stage
+	// assembly flag is not inherited in produced
+	// `execCtx`, however `commonPrm` does, so it
+	// makes sense to nil it there
+	exec.prm.SetRequestForwarder(nil)
 
 	exec.log.Debug("trying to assemble the object...")
 
