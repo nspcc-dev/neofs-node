@@ -94,7 +94,8 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 	epoch := s.EpochCounter()
 
 	s.contracts.alphabet.iterate(func(letter GlagoliticLetter, contract util.Uint160) {
-		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), voteMethod, int64(epoch), validators)
+		// FIXME: do not use constant nonce for alphabet NR: #844
+		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), 1, voteMethod, int64(epoch), validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),

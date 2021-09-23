@@ -78,7 +78,8 @@ func (s StaticClient) Morph() *Client {
 func (s StaticClient) Invoke(method string, args ...interface{}) error {
 	if s.tryNotary {
 		if s.alpha {
-			return s.client.NotaryInvoke(s.scScriptHash, s.fee, method, args...)
+			// FIXME: do not use constant nonce for alphabet NR: #844
+			return s.client.NotaryInvoke(s.scScriptHash, s.fee, 1, method, args...)
 		}
 
 		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, s.fee, method, args...)
