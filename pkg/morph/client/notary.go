@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"go.uber.org/zap"
 )
 
@@ -230,6 +231,7 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 
 	return c.notaryInvokeAsCommittee(
 		setDesignateMethod,
+		1, // FIXME: do not use constant nonce for alphabet NR: #844
 		noderoles.P2PNotary,
 		list,
 	)
@@ -253,6 +255,7 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 
 	return c.notaryInvokeAsCommittee(
 		setDesignateMethod,
+		1, // FIXME: do not use constant nonce for alphabet NR: #844
 		noderoles.NeoFSAlphabet,
 		list,
 	)
@@ -263,10 +266,10 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 // it fallbacks to a simple `Invoke()`.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
+func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, method string, args ...interface{}) error {
 	if c.multiClient != nil {
 		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.NotaryInvoke(contract, fee, method, args...)
+			return c.NotaryInvoke(contract, fee, nonce, method, args...)
 		})
 	}
 
@@ -274,8 +277,11 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method s
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, true, contract, method, args...)
+	return c.notaryInvoke(false, true, contract, nonce, method, args...)
 }
+
+// randSource is a source of random numbers.
+var randSource = rand.New()
 
 // NotaryInvokeNotAlpha does the same as NotaryInvoke but does not use client's
 // private key in Invocation script. It means that main TX of notary request is
@@ -293,7 +299,7 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, false, contract, method, args...)
+	return c.notaryInvoke(false, false, contract, randSource.Uint32(), method, args...)
 }
 
 // NotarySignAndInvokeTX signs and sends notary request that was received from
@@ -341,16 +347,16 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 	return nil
 }
 
-func (c *Client) notaryInvokeAsCommittee(method string, args ...interface{}) error {
+func (c *Client) notaryInvokeAsCommittee(method string, nonce uint32, args ...interface{}) error {
 	designate, err := c.GetDesignateHash()
 	if err != nil {
 		return err
 	}
 
-	return c.notaryInvoke(true, true, designate, method, args...)
+	return c.notaryInvoke(true, true, designate, nonce, method, args...)
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, method string, args ...interface{}) error {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, method string, args ...interface{}) error {
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err
@@ -399,7 +405,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 
 	// prepare main tx
 	mainTx := &transaction.Transaction{
-		Nonce:           1,
+		Nonce:           nonce,
 		SystemFee:       test.GasConsumed,
 		ValidUntilBlock: until,
 		Script:          test.Script,
