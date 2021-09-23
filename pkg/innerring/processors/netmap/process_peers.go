@@ -12,7 +12,7 @@ import (
 
 // Process add peer notification by sanity check of new node
 // local epoch timer.
-func (np *Processor) processAddPeer(node []byte) {
+func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore new peer notification")
 		return
@@ -20,7 +20,7 @@ func (np *Processor) processAddPeer(node []byte) {
 
 	// unmarshal node info
 	nodeInfo := netmap.NewNodeInfo()
-	if err := nodeInfo.Unmarshal(node); err != nil {
+	if err := nodeInfo.Unmarshal(ev.Node()); err != nil {
 		// it will be nice to have tx id at event structure to log it
 		np.log.Warn("can't parse network map candidate")
 		return
@@ -57,7 +57,33 @@ func (np *Processor) processAddPeer(node []byte) {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
-		err := np.netmapClient.AddPeer(nodeInfo)
+		if nr := ev.NotaryRequest(); nr != nil {
+			// notary event case
+
+			var nodeInfoBinary []byte
+
+			nodeInfoBinary, err = nodeInfo.Marshal()
+			if err != nil {
+				np.log.Warn("could not marshal updated network map candidate",
+					zap.String("error", err.Error()),
+				)
+
+				return
+			}
+
+			// create new notary request with the original nonce
+			err = np.netmapClient.Morph().NotaryInvoke(
+				np.netmapContract,
+				0,
+				nr.MainTransaction.Nonce,
+				netmapEvent.AddPeerNotaryEvent,
+				nodeInfoBinary,
+			)
+		} else {
+			// notification event case
+			err = np.netmapClient.AddPeer(nodeInfo)
+		}
+
 		if err != nil {
 			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
 		}
