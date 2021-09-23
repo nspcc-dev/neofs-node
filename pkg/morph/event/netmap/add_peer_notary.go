@@ -43,5 +43,7 @@ func ParseAddPeerNotary(ne event.NotaryEvent) (event.Event, error) {
 		}
 	}
 
+	ev.notaryRequest = ne.Raw()
+
 	return ev, nil
 }
