@@ -51,7 +51,7 @@ func (np *Processor) handleAddPeer(ev event.Event) {
 	// send event to the worker pool
 
 	err := np.pool.Submit(func() {
-		np.processAddPeer(newPeer.Node())
+		np.processAddPeer(newPeer)
 	})
 	if err != nil {
 		// there system can be moved into controlled degradation stage
@@ -91,7 +91,7 @@ func (np *Processor) handleCleanupTick(ev event.Event) {
 
 	// send event to the worker pool
 	err := np.pool.Submit(func() {
-		np.processNetmapCleanupTick(cleanup.epoch)
+		np.processNetmapCleanupTick(cleanup)
 	})
 	if err != nil {
 		// there system can be moved into controlled degradation stage
