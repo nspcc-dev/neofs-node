@@ -1,7 +1,6 @@
 package putsvc
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -23,13 +22,21 @@ type distributedTarget struct {
 
 	chunks [][]byte
 
-	nodeTargetInitializer func(placement.Node) transformer.ObjectTarget
+	nodeTargetInitializer func(nodeDesc) transformer.ObjectTarget
 
-	relay func(placement.Node) error
+	isLocalKey func([]byte) bool
+
+	relay func(nodeDesc) error
 
 	fmt *object.FormatValidator
 
 	log *logger.Logger
+}
+
+type nodeDesc struct {
+	local bool
+
+	info placement.Node
 }
 
 // errIncompletePut is returned if processing on a container fails.
@@ -81,12 +88,9 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	return t.iteratePlacement(t.sendObject)
 }
 
-func (t *distributedTarget) sendObject(node placement.Node) error {
-	if t.relay != nil {
-		err := t.relay(node)
-		if err == nil || !errors.Is(err, errLocalAddress) {
-			return err
-		}
+func (t *distributedTarget) sendObject(node nodeDesc) error {
+	if !node.local && t.relay != nil {
+		return t.relay(node)
 	}
 
 	target := t.nodeTargetInitializer(node)
@@ -99,7 +103,7 @@ func (t *distributedTarget) sendObject(node placement.Node) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(placement.Node) error) (*transformer.AccessIdentifiers, error) {
+func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (*transformer.AccessIdentifiers, error) {
 	traverser, err := placement.NewTraverser(
 		append(t.traverseOpts, placement.ForObject(t.obj.ID()))...,
 	)
@@ -122,10 +126,13 @@ loop:
 			wg.Add(1)
 
 			addr := addrs[i]
+
+			isLocal := t.isLocalKey(addr.Key())
+
 			if err := t.workerPool.Submit(func() {
 				defer wg.Done()
 
-				if err := f(addr); err != nil {
+				if err := f(nodeDesc{local: isLocal, info: addr}); err != nil {
 					resErr.Store(err)
 					svcutil.LogServiceError(t.log, "PUT", addr.Addresses(), err)
 					return
