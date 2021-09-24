@@ -53,8 +53,9 @@ func (cp *Processor) checkKeyOwnership(ownerIDSrc ownerIDSource, key *keys.Publi
 
 	// TODO: need more convenient way to do this
 	w, err := owner.NEO3WalletFromPublicKey(&ecdsa.PublicKey{
-		X: key.X,
-		Y: key.Y,
+		Curve: key.Curve,
+		X:     key.X,
+		Y:     key.Y,
 	})
 	if err != nil {
 		return err
