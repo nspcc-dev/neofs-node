@@ -47,6 +47,10 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 }
 
 func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes netmap.Nodes, shortage uint32) {
+	log := p.log.With(
+		zap.Stringer("object", addr),
+	)
+
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 	redundantLocalCopy := false
 
@@ -61,7 +65,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 
 		err := node.FromIterator(nodes[i])
 		if err != nil {
-			p.log.Error("could not parse network address",
+			log.Error("could not parse network address",
 				zap.String("error", err.Error()),
 			)
 
@@ -91,7 +95,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 				if strings.Contains(err.Error(), headsvc.ErrNotFound.Error()) {
 					continue
 				} else {
-					p.log.Error("could not receive object header",
+					log.Error("could not receive object header",
 						zap.String("error", err.Error()),
 					)
 
@@ -107,7 +111,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 	}
 
 	if shortage > 0 {
-		p.log.Info("shortage of object copies detected",
+		log.Info("shortage of object copies detected",
 			zap.Uint32("shortage", shortage),
 		)
 
