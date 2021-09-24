@@ -94,6 +94,20 @@ func TestDB_Get(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child.CutPayload().Object(), newChild))
 	})
+
+	t.Run("get removed object", func(t *testing.T) {
+		obj := generateAddress()
+		ts := generateAddress()
+
+		require.NoError(t, meta.Inhume(db, obj, ts))
+		_, err := meta.Get(db, obj)
+		require.ErrorIs(t, err, object.ErrAlreadyRemoved)
+
+		obj = generateAddress()
+		require.NoError(t, meta.Inhume(db, obj, nil))
+		_, err = meta.Get(db, obj)
+		require.ErrorIs(t, err, object.ErrNotFound)
+	})
 }
 
 // binary equal is used when object contains empty lists in the structure and

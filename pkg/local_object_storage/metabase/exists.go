@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -62,7 +63,10 @@ func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 
 func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err error) {
 	// check graveyard first
-	if inGraveyard(tx, addr) {
+	switch inGraveyard(tx, addr) {
+	case 1:
+		return false, object.ErrNotFound
+	case 2:
 		return false, object.ErrAlreadyRemoved
 	}
 
@@ -92,16 +96,26 @@ func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err er
 	return inBucket(tx, storageGroupBucketName(addr.ContainerID()), objKey), nil
 }
 
-// inGraveyard returns true if object was marked as removed.
-func inGraveyard(tx *bbolt.Tx, addr *objectSDK.Address) bool {
+// inGraveyard returns:
+//  * 0 if object is not in graveyard;
+//  * 1 if object is in graveyard with GC mark;
+//  * 2 if object is in graveyard with tombstone.
+func inGraveyard(tx *bbolt.Tx, addr *objectSDK.Address) uint8 {
 	graveyard := tx.Bucket(graveyardBucketName)
 	if graveyard == nil {
-		return false
+		return 0
 	}
 
-	tombstone := graveyard.Get(addressKey(addr))
+	val := graveyard.Get(addressKey(addr))
+	if val == nil {
+		return 0
+	}
 
-	return len(tombstone) != 0
+	if bytes.Equal(val, []byte(inhumeGCMarkValue)) {
+		return 1
+	}
+
+	return 2
 }
 
 // inBucket checks if key <key> is present in bucket <name>.

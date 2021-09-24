@@ -85,8 +85,13 @@ func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard, raw boo
 	key := objectKey(addr.ObjectID())
 	cid := addr.ContainerID()
 
-	if checkGraveyard && inGraveyard(tx, addr) {
-		return nil, object.ErrAlreadyRemoved
+	if checkGraveyard {
+		switch inGraveyard(tx, addr) {
+		case 1:
+			return nil, object.ErrNotFound
+		case 2:
+			return nil, object.ErrAlreadyRemoved
+		}
 	}
 
 	// check in primary index
