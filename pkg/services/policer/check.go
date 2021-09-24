@@ -121,6 +121,8 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 			WithCopiesNumber(shortage),
 		)
 	} else if redundantLocalCopy {
+		log.Info("redundant local object copy detected")
+
 		p.cbRedundantCopy(addr)
 	}
 }
