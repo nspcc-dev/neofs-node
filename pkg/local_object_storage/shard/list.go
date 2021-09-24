@@ -19,6 +19,7 @@ func (r *ListContainersRes) Containers() []*cid.ID {
 	return r.containers
 }
 
+// List returns all objects physically stored in the Shard.
 func (s *Shard) List() (*SelectRes, error) {
 	lst, err := s.metaBase.Containers()
 	if err != nil {
@@ -27,6 +28,7 @@ func (s *Shard) List() (*SelectRes, error) {
 
 	res := new(SelectRes)
 	filters := object.NewSearchFilters()
+	filters.AddPhyFilter()
 
 	for i := range lst {
 		ids, err := meta.Select(s.metaBase, lst[i], filters) // consider making List in metabase
