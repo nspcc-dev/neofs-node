@@ -134,7 +134,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 			return nil, err
 		}
 
-		if inGraveyard(tx, addr) {
+		if inGraveyard(tx, addr) > 0 {
 			continue // ignore removed objects
 		}
 
