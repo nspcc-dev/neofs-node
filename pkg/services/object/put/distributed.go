@@ -16,7 +16,7 @@ import (
 type distributedTarget struct {
 	traverseOpts []placement.Option
 
-	workerPool util.WorkerPool
+	remotePool, localPool util.WorkerPool
 
 	obj *object.RawObject
 
@@ -129,7 +129,15 @@ loop:
 
 			isLocal := t.isLocalKey(addr.Key())
 
-			if err := t.workerPool.Submit(func() {
+			var workerPool util.WorkerPool
+
+			if isLocal {
+				workerPool = t.localPool
+			} else {
+				workerPool = t.remotePool
+			}
+
+			if err := workerPool.Submit(func() {
 				defer wg.Done()
 
 				if err := f(nodeDesc{local: isLocal, info: addr}); err != nil {

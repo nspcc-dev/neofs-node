@@ -44,7 +44,7 @@ type cfg struct {
 
 	netMapSrc netmap.Source
 
-	workerPool util.WorkerPool
+	remotePool, localPool util.WorkerPool
 
 	netmapKeys netmap.AnnouncedKeys
 
@@ -61,7 +61,8 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		workerPool: new(util.SyncWorkerPool),
+		remotePool: new(util.SyncWorkerPool),
+		localPool:  new(util.SyncWorkerPool),
 		log:        zap.L(),
 	}
 }
@@ -117,9 +118,9 @@ func WithNetworkMapSource(v netmap.Source) Option {
 	}
 }
 
-func WithWorkerPool(v util.WorkerPool) Option {
+func WithWorkerPools(remote, local util.WorkerPool) Option {
 	return func(c *cfg) {
-		c.workerPool = v
+		c.remotePool, c.localPool = remote, local
 	}
 }
 
