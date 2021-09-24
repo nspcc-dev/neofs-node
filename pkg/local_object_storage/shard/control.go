@@ -107,7 +107,7 @@ func (s *Shard) refillMetabase() error {
 
 			var inhumePrm meta.InhumePrm
 
-			inhumePrm.WithAddresses(tombAddr)
+			inhumePrm.WithTombstoneAddress(tombAddr)
 			inhumePrm.WithAddresses(tombMembers...)
 
 			_, err = s.metaBase.Inhume(&inhumePrm)
