@@ -144,17 +144,11 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	return nil
 }
 
-var errLocalAddress = errors.New("can't relay to local address")
-
 func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
-	var relay func(placement.Node) error
+	var relay func(nodeDesc) error
 	if p.relay != nil {
-		relay = func(node placement.Node) error {
-			addr := node.Addresses()
-
-			if p.netmapKeys.IsLocalKey(node.Key()) {
-				return errLocalAddress
-			}
+		relay = func(node nodeDesc) error {
+			addr := node.info.Addresses()
 
 			c, err := p.clientConstructor.Get(addr)
 			if err != nil {
@@ -168,8 +162,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 	return &distributedTarget{
 		traverseOpts: prm.traverseOpts,
 		workerPool:   p.workerPool,
-		nodeTargetInitializer: func(node placement.Node) transformer.ObjectTarget {
-			if p.netmapKeys.IsLocalKey(node.Key()) {
+		nodeTargetInitializer: func(node nodeDesc) transformer.ObjectTarget {
+			if node.local {
 				return &localTarget{
 					storage: p.localStore,
 				}
@@ -179,13 +173,15 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
-				addr:              node.Addresses(),
+				addr:              node.info.Addresses(),
 				clientConstructor: p.clientConstructor,
 			}
 		},
 		relay: relay,
 		fmt:   p.fmtValidator,
 		log:   p.log,
+
+		isLocalKey: p.netmapKeys.IsLocalKey,
 	}
 }
 
