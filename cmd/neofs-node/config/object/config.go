@@ -28,11 +28,23 @@ func Put(c *config.Config) PutConfig {
 	}
 }
 
-// PoolSize returns value of "pool_size" config parameter.
+// PoolSizeRemote returns value of "pool_size_remote" config parameter.
 //
 // Returns PutPoolSizeDefault if value is not positive number.
-func (g PutConfig) PoolSize() int {
-	v := config.Int(g.cfg, "pool_size")
+func (g PutConfig) PoolSizeRemote() int {
+	v := config.Int(g.cfg, "pool_size_remote")
+	if v > 0 {
+		return int(v)
+	}
+
+	return PutPoolSizeDefault
+}
+
+// PoolSizeLocal returns value of "pool_size_local" config parameter.
+//
+// Returns PutPoolSizeDefault if value is not positive number.
+func (g PutConfig) PoolSizeLocal() int {
+	v := config.Int(g.cfg, "pool_size_local")
 	if v > 0 {
 		return int(v)
 	}

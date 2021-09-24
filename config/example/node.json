@@ -97,7 +97,8 @@
   },
   "object": {
     "put": {
-      "pool_size": 100
+      "pool_size_remote": 100,
+      "pool_size_local": 101
     }
   },
   "storage": {

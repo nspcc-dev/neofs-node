@@ -435,12 +435,12 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 
 	optNonBlocking := ants.WithNonblocking(true)
 
-	pool.putRemote, err = ants.NewPool(objectconfig.Put(cfg).PoolSize(), optNonBlocking)
+	pool.putRemote, err = ants.NewPool(objectconfig.Put(cfg).PoolSizeRemote(), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
 
-	pool.putLocal, err = ants.NewPool(objectconfig.Put(cfg).PoolSize(), optNonBlocking)
+	pool.putLocal, err = ants.NewPool(objectconfig.Put(cfg).PoolSizeLocal(), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
