@@ -161,7 +161,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 
 	return &distributedTarget{
 		traverseOpts: prm.traverseOpts,
-		workerPool:   p.workerPool,
+		remotePool:   p.remotePool,
+		localPool:    p.localPool,
 		nodeTargetInitializer: func(node nodeDesc) transformer.ObjectTarget {
 			if node.local {
 				return &localTarget{
