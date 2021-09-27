@@ -347,3 +347,15 @@ func (exec *execCtx) writeCollectedObject() {
 		exec.writeObjectPayload(exec.collectedObject)
 	}
 }
+
+// isForwardingEnabled returns true if common execution
+// parameters has request forwarding closure set.
+func (exec execCtx) isForwardingEnabled() bool {
+	return exec.prm.forwarder != nil
+}
+
+// disableForwarding removes request forwarding closure from common
+// parameters, so it won't be inherited in new execution contexts.
+func (exec *execCtx) disableForwarding() {
+	exec.prm.SetRequestForwarder(nil)
+}

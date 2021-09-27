@@ -82,7 +82,7 @@ func (c *clientCacheWrapper) get(addr network.AddressGroup) (getClient, error) {
 }
 
 func (c *clientWrapper) getObject(exec *execCtx, addr network.AddressGroup) (*objectSDK.Object, error) {
-	if exec.prm.forwarder != nil {
+	if exec.isForwardingEnabled() {
 		return exec.prm.forwarder(addr, c.client)
 	}
 
