@@ -22,18 +22,35 @@ var netmapCmd = &cobra.Command{
 	Use:   "netmap",
 	Short: "Operations with Network Map",
 	Long:  `Operations with Network Map`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// bind exactly that cmd's flags to
+		// the viper before execution
+		bindCommonFlags(cmd)
+	},
 }
 
 func init() {
-	rootCmd.AddCommand(netmapCmd)
-
-	netmapCmd.AddCommand(
+	netmapChildCommands := []*cobra.Command{
 		getEpochCmd,
 		localNodeInfoCmd,
 		netInfoCmd,
-	)
+	}
 
+	rootCmd.AddCommand(netmapCmd)
+	netmapCmd.AddCommand(netmapChildCommands...)
+
+	initCommonFlags(getEpochCmd)
+	initCommonFlags(netInfoCmd)
+
+	initCommonFlags(localNodeInfoCmd)
 	localNodeInfoCmd.Flags().BoolVar(&nodeInfoJSON, "json", false, "print node info in JSON format")
+
+	for _, netmapCommand := range netmapChildCommands {
+		flags := netmapCommand.Flags()
+
+		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
+		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+	}
 }
 
 var getEpochCmd = &cobra.Command{

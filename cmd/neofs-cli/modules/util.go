@@ -19,6 +19,7 @@ import (
 	continentsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/continents/geojson"
 	csvlocode "github.com/nspcc-dev/neofs-node/pkg/util/locode/table/csv"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var errKeyerSingleArgument = errors.New("pass only one argument at a time")
@@ -27,6 +28,16 @@ var (
 	utilCmd = &cobra.Command{
 		Use:   "util",
 		Short: "Utility operations",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			flags := cmd.Flags()
+
+			_ = viper.BindPFlag(generateKey, flags.Lookup(generateKey))
+			_ = viper.BindPFlag(binaryKey, flags.Lookup(binaryKey))
+			_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
+			_ = viper.BindPFlag(wif, flags.Lookup(wif))
+			_ = viper.BindPFlag(address, flags.Lookup(address))
+			_ = viper.BindPFlag(verbose, flags.Lookup(verbose))
+		},
 	}
 
 	signCmd = &cobra.Command{
@@ -171,74 +182,116 @@ var (
 	}
 )
 
-func init() {
-	rootCmd.AddCommand(utilCmd)
-
-	utilCmd.AddCommand(signCmd)
-	utilCmd.AddCommand(convertCmd)
-	utilCmd.AddCommand(keyerCmd)
-	utilCmd.AddCommand(locodeCmd)
-
-	signCmd.AddCommand(signBearerCmd)
-	signBearerCmd.Flags().String("from", "", "File with JSON or binary encoded bearer token to sign")
-	_ = signBearerCmd.MarkFlagFilename("from")
-	_ = signBearerCmd.MarkFlagRequired("from")
-	signBearerCmd.Flags().String("to", "", "File to dump signed bearer token (default: binary encoded)")
-	signBearerCmd.Flags().Bool("json", false, "Dump bearer token in JSON encoding")
-
-	signCmd.AddCommand(signSessionCmd)
-	signSessionCmd.Flags().String("from", "", "File with JSON encoded session token to sign")
-	_ = signSessionCmd.MarkFlagFilename("from")
-	_ = signSessionCmd.MarkFlagRequired("from")
-	signSessionCmd.Flags().String("to", "", "File to save signed session token (optional)")
-
-	convertCmd.AddCommand(convertEACLCmd)
-	convertEACLCmd.Flags().String("from", "", "File with JSON or binary encoded extended ACL table")
-	_ = convertEACLCmd.MarkFlagFilename("from")
-	_ = convertEACLCmd.MarkFlagRequired("from")
-	convertEACLCmd.Flags().String("to", "", "File to dump extended ACL table (default: binary encoded)")
-	convertEACLCmd.Flags().Bool("json", false, "Dump extended ACL table in JSON encoding")
-
+func initUtilKeyerCmd() {
 	keyerCmd.Flags().BoolP("generate", "g", false, "generate new private key")
 	keyerCmd.Flags().Bool("hex", false, "print all values in hex encoding")
 	keyerCmd.Flags().BoolP("uncompressed", "u", false, "use uncompressed public key format")
 	keyerCmd.Flags().BoolP("multisig", "m", false, "calculate multisig address from public keys")
+}
 
-	locodeCmd.AddCommand(locodeGenerateCmd)
+func initCommonFlagsWithoutRPC(cmd *cobra.Command) {
+	flags := cmd.Flags()
 
-	locodeGenerateCmd.Flags().StringSliceVar(&locodeGenerateInPaths, locodeGenerateInputFlag, nil,
-		"List of paths to UN/LOCODE tables (csv)")
+	flags.BoolP(generateKey, generateKeyShorthand, generateKeyDefault, generateKeyUsage)
+	flags.StringP(binaryKey, binaryKeyShorthand, binaryKeyDefault, binaryKeyUsage)
+	flags.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
+	flags.StringP(wif, wifShorthand, wifDefault, wifUsage)
+	flags.StringP(address, addressShorthand, addressDefault, addressUsage)
+	flags.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
+	flags.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
+}
+
+func initUtilSignBearerCmd() {
+	initCommonFlagsWithoutRPC(signBearerCmd)
+
+	flags := signBearerCmd.Flags()
+
+	flags.String("from", "", "File with JSON or binary encoded bearer token to sign")
+	_ = signBearerCmd.MarkFlagFilename("from")
+	_ = signBearerCmd.MarkFlagRequired("from")
+
+	flags.String("to", "", "File to dump signed bearer token (default: binary encoded)")
+	flags.Bool("json", false, "Dump bearer token in JSON encoding")
+}
+
+func initUtilSignSessionCmd() {
+	initCommonFlagsWithoutRPC(signSessionCmd)
+
+	flags := signSessionCmd.Flags()
+
+	flags.String("from", "", "File with JSON encoded session token to sign")
+	_ = signSessionCmd.MarkFlagFilename("from")
+	_ = signSessionCmd.MarkFlagRequired("from")
+
+	flags.String("to", "", "File to save signed session token (optional)")
+}
+
+func initUtilConvertEACLCmd() {
+	flags := convertEACLCmd.Flags()
+
+	flags.String("from", "", "File with JSON or binary encoded extended ACL table")
+	_ = convertEACLCmd.MarkFlagFilename("from")
+	_ = convertEACLCmd.MarkFlagRequired("from")
+
+	flags.String("to", "", "File to dump extended ACL table (default: binary encoded)")
+	flags.Bool("json", false, "Dump extended ACL table in JSON encoding")
+}
+
+func initUtilLocodeGenerateCmd() {
+	flags := locodeGenerateCmd.Flags()
+
+	flags.StringSliceVar(&locodeGenerateInPaths, locodeGenerateInputFlag, nil, "List of paths to UN/LOCODE tables (csv)")
 	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateInputFlag)
 
-	locodeGenerateCmd.Flags().StringVar(&locodeGenerateSubDivPath, locodeGenerateSubDivFlag, "",
-		"Path to UN/LOCODE subdivision database (csv)")
+	flags.StringVar(&locodeGenerateSubDivPath, locodeGenerateSubDivFlag, "", "Path to UN/LOCODE subdivision database (csv)")
 	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateSubDivFlag)
 
-	locodeGenerateCmd.Flags().StringVar(&locodeGenerateAirportsPath, locodeGenerateAirportsFlag, "",
-		"Path to OpenFlights airport database (csv)")
+	flags.StringVar(&locodeGenerateAirportsPath, locodeGenerateAirportsFlag, "", "Path to OpenFlights airport database (csv)")
 	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateAirportsFlag)
 
-	locodeGenerateCmd.Flags().StringVar(&locodeGenerateCountriesPath, locodeGenerateCountriesFlag, "",
-		"Path to OpenFlights country database (csv)")
+	flags.StringVar(&locodeGenerateCountriesPath, locodeGenerateCountriesFlag, "", "Path to OpenFlights country database (csv)")
 	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateCountriesFlag)
 
-	locodeGenerateCmd.Flags().StringVar(&locodeGenerateContinentsPath, locodeGenerateContinentsFlag, "",
-		"Path to continent polygons (GeoJSON)")
+	flags.StringVar(&locodeGenerateContinentsPath, locodeGenerateContinentsFlag, "", "Path to continent polygons (GeoJSON)")
 	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateContinentsFlag)
 
-	locodeGenerateCmd.Flags().StringVar(&locodeGenerateOutPath, locodeGenerateOutputFlag, "",
-		"Target path for generated database")
+	flags.StringVar(&locodeGenerateOutPath, locodeGenerateOutputFlag, "", "Target path for generated database")
 	_ = locodeGenerateCmd.MarkFlagRequired(locodeGenerateOutputFlag)
+}
 
-	locodeCmd.AddCommand(locodeInfoCmd)
+func initUtilLocodeInfoCmd() {
+	flags := locodeInfoCmd.Flags()
 
-	locodeInfoCmd.Flags().StringVar(&locodeInfoDBPath, locodeInfoDBFlag, "",
-		"Path to NeoFS UN/LOCODE database")
-	_ = locodeGenerateCmd.MarkFlagRequired(locodeInfoDBFlag)
+	flags.StringVar(&locodeInfoDBPath, locodeInfoDBFlag, "", "Path to NeoFS UN/LOCODE database")
+	_ = locodeInfoCmd.MarkFlagRequired(locodeInfoDBFlag)
 
-	locodeInfoCmd.Flags().StringVar(&locodeInfoCode, locodeInfoCodeFlag, "",
-		"UN/LOCODE")
-	_ = locodeGenerateCmd.MarkFlagRequired(locodeInfoCodeFlag)
+	flags.StringVar(&locodeInfoCode, locodeInfoCodeFlag, "", "UN/LOCODE")
+	_ = locodeInfoCmd.MarkFlagRequired(locodeInfoCodeFlag)
+}
+
+func init() {
+	rootCmd.AddCommand(utilCmd)
+
+	utilCmd.AddCommand(
+		signCmd,
+		convertCmd,
+		keyerCmd,
+		locodeCmd,
+	)
+
+	signCmd.AddCommand(signBearerCmd, signSessionCmd)
+	convertCmd.AddCommand(convertEACLCmd)
+	locodeCmd.AddCommand(locodeGenerateCmd, locodeInfoCmd)
+
+	initUtilKeyerCmd()
+
+	initUtilSignBearerCmd()
+	initUtilSignSessionCmd()
+
+	initUtilConvertEACLCmd()
+
+	initUtilLocodeInfoCmd()
+	initUtilLocodeGenerateCmd()
 }
 
 func signBearerToken(cmd *cobra.Command, _ []string) {
