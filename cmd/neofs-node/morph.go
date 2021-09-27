@@ -286,6 +286,10 @@ func lookupScriptHashesInNNS(c *cfg) {
 	)
 
 	for _, t := range targets {
+		if t.nnsName == client.NNSProxyContractName && !c.cfgMorph.notaryEnabled {
+			continue // ignore proxy contract if notary disabled
+		}
+
 		if emptyHash.Equals(*t.h) {
 			*t.h, err = c.cfgMorph.client.NNSContractAddress(t.nnsName)
 			fatalOnErrDetails(fmt.Sprintf("can't resolve %s in NNS", t.nnsName), err)
