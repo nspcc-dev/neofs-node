@@ -26,8 +26,6 @@ import (
 
 const (
 	envPrefix = "NEOFS_CLI"
-
-	ttlDefaultValue = 2
 )
 
 const xHeadersFlag = "xhdr"
@@ -37,8 +35,57 @@ var xHeaders []string
 // Global scope flags.
 var (
 	cfgFile string
-	verbose bool
 )
+
+const (
+	// Common CLI flag keys, shorthands, default
+	// values and their usage descriptions.
+	generateKey          = "generate-key"
+	generateKeyShorthand = ""
+	generateKeyDefault   = false
+	generateKeyUsage     = "generate new private key"
+
+	binaryKey          = "binary-key"
+	binaryKeyShorthand = ""
+	binaryKeyDefault   = ""
+	binaryKeyUsage     = "path to the raw private key file"
+
+	walletPath          = "wallet"
+	walletPathShorthand = "w"
+	walletPathDefault   = ""
+	walletPathUsage     = "path to the wallet"
+
+	wif          = "wif"
+	wifShorthand = ""
+	wifDefault   = ""
+	wifUsage     = "WIF or NEP-2"
+
+	address          = "address"
+	addressShorthand = ""
+	addressDefault   = ""
+	addressUsage     = "address of wallet account"
+
+	rpc          = "rpc-endpoint"
+	rpcShorthand = "r"
+	rpcDefault   = ""
+	rpcUsage     = "remote node address (as 'multiaddr' or '<host>:<port>')"
+
+	verbose          = "verbose"
+	verboseShorthand = "v"
+	verboseDefault   = false
+	verboseUsage     = "verbose output"
+
+	ttl          = "ttl"
+	ttlShorthand = ""
+	ttlDefault   = 2
+	ttlUsage     = "TTL value in request meta header"
+
+	xHeadersKey       = "xhdr"
+	xHeadersShorthand = "x"
+	xHeadersUsage     = "Request X-Headers in form of Key=Value"
+)
+
+var xHeadersDefault []string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -71,41 +118,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
 	// use stdout as default output for cmd.Print()
 	rootCmd.SetOut(os.Stdout)
 
+	// Here you will define your flags and configuration settings.
+	// Cobra supports persistent flags, which, if defined here,
+	// will be global for your application.
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
-
-	// Key options.
-	rootCmd.PersistentFlags().BoolP("generate-key", "", false, "generate new private key")
-	_ = viper.BindPFlag("generate-key", rootCmd.PersistentFlags().Lookup("generate-key"))
-
-	rootCmd.PersistentFlags().StringP("binary-key", "", "", "path to the raw private key file")
-	_ = viper.BindPFlag("binary-key", rootCmd.PersistentFlags().Lookup("binary-key"))
-
-	rootCmd.PersistentFlags().StringP("wif", "", "", "WIF or NEP-2")
-	_ = viper.BindPFlag("wif", rootCmd.PersistentFlags().Lookup("wif"))
-
-	rootCmd.PersistentFlags().StringP("wallet", "w", "", "path to the wallet")
-	_ = viper.BindPFlag("wallet", rootCmd.PersistentFlags().Lookup("wallet"))
-	rootCmd.PersistentFlags().StringP("address", "", "", "address of wallet account")
-	_ = viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
-
-	rootCmd.PersistentFlags().StringP("rpc-endpoint", "r", "", "remote node address (as 'multiaddr' or '<host>:<port>')")
-	_ = viper.BindPFlag("rpc", rootCmd.PersistentFlags().Lookup("rpc-endpoint"))
-
-	rootCmd.PersistentFlags().Uint32("ttl", ttlDefaultValue, "TTL value in request meta header")
-	_ = viper.BindPFlag("ttl", rootCmd.PersistentFlags().Lookup("ttl"))
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-
-	rootCmd.PersistentFlags().StringSliceVarP(&xHeaders, xHeadersFlag, "x", nil,
-		"Request X-Headers in form of Key=Value")
-	_ = viper.BindPFlag(xHeadersFlag, rootCmd.PersistentFlags().Lookup(xHeadersFlag))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -157,7 +176,7 @@ const nep2Base58Length = 58
 
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
-	if viper.GetBool("generate-key") {
+	if viper.GetBool(generateKey) {
 		priv, err := keys.NewPrivateKey()
 		if err != nil {
 			return nil, errCantGenerateKey
@@ -165,19 +184,19 @@ func getKey() (*ecdsa.PrivateKey, error) {
 		return &priv.PrivateKey, nil
 	}
 
-	if keyPath := viper.GetString("binary-key"); keyPath != "" {
+	if keyPath := viper.GetString(binaryKey); keyPath != "" {
 		return getKeyFromFile(keyPath)
 	}
 
-	if walletPath := viper.GetString("wallet"); walletPath != "" {
+	if walletPath := viper.GetString(walletPath); walletPath != "" {
 		w, err := wallet.NewWalletFromFile(walletPath)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
 		}
-		return getKeyFromWallet(w, viper.GetString("address"))
+		return getKeyFromWallet(w, viper.GetString(address))
 	}
 
-	wif := viper.GetString("wif")
+	wif := viper.GetString(wif)
 	if len(wif) == nep2Base58Length {
 		return getKeyFromNEP2(wif)
 	}
@@ -260,7 +279,7 @@ func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, erro
 // getEndpointAddress returns network address structure that stores multiaddr
 // inside, parsed from global arguments.
 func getEndpointAddress() (addr network.Address, err error) {
-	endpoint := viper.GetString("rpc")
+	endpoint := viper.GetString(rpc)
 
 	err = addr.FromString(endpoint)
 	if err != nil {
@@ -296,7 +315,7 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 }
 
 func getTTL() uint32 {
-	ttl := viper.GetUint32("ttl")
+	ttl := viper.GetUint32(ttl)
 	printVerbose("TTL: %d", ttl)
 
 	return ttl
@@ -315,7 +334,7 @@ func ownerFromString(s string) (*owner.ID, error) {
 }
 
 func printVerbose(format string, a ...interface{}) {
-	if verbose {
+	if viper.GetBool(verbose) {
 		fmt.Printf(format+"\n", a...)
 	}
 }
@@ -350,4 +369,36 @@ func globalCallOptions() []client.CallOption {
 	}
 
 	return opts
+}
+
+// add common flags to the command:
+// - key;
+// - wallet;
+// - WIF;
+// - address;
+// - RPC;
+// - verbose;
+func initCommonFlags(cmd *cobra.Command) {
+	ff := cmd.Flags()
+
+	ff.BoolP(generateKey, generateKeyShorthand, generateKeyDefault, generateKeyUsage)
+	ff.StringP(binaryKey, binaryKeyShorthand, binaryKeyDefault, binaryKeyUsage)
+	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
+	ff.StringP(wif, wifShorthand, wifDefault, wifUsage)
+	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
+	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
+	ff.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
+}
+
+// bind common command flags to the viper
+func bindCommonFlags(cmd *cobra.Command) {
+	ff := cmd.Flags()
+
+	_ = viper.BindPFlag(generateKey, ff.Lookup(generateKey))
+	_ = viper.BindPFlag(binaryKey, ff.Lookup(binaryKey))
+	_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
+	_ = viper.BindPFlag(wif, ff.Lookup(wif))
+	_ = viper.BindPFlag(address, ff.Lookup(address))
+	_ = viper.BindPFlag(rpc, ff.Lookup(rpc))
+	_ = viper.BindPFlag(verbose, ff.Lookup(verbose))
 }

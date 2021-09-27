@@ -53,6 +53,41 @@ var (
 
 var netmapStatus string
 
+func initControlHealthCheckCmd() {
+	initCommonFlags(healthCheckCmd)
+
+	healthCheckCmd.Flags().BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
+}
+
+func initControlSetNetmapStatusCmd() {
+	initCommonFlags(setNetmapStatusCmd)
+
+	setNetmapStatusCmd.Flags().StringVarP(&netmapStatus, netmapStatusFlag, "", "",
+		fmt.Sprintf("new netmap status keyword ('%s', '%s')",
+			netmapStatusOnline,
+			netmapStatusOffline,
+		),
+	)
+
+	_ = setNetmapStatusCmd.MarkFlagRequired(netmapStatusFlag)
+}
+
+func initControlDropObjectsCmd() {
+	initCommonFlags(dropObjectsCmd)
+
+	dropObjectsCmd.Flags().StringSliceVarP(&dropObjectsList, dropObjectsFlag, "o", nil,
+		"List of object addresses to be removed in string format")
+
+	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
+}
+
+func initControlSnapshotCmd() {
+	initCommonFlags(snapshotCmd)
+
+	snapshotCmd.Flags().BoolVar(&netmapSnapshotJSON, "json", false,
+		"print netmap structure in JSON format")
+}
+
 func init() {
 	rootCmd.AddCommand(controlCmd)
 
@@ -63,24 +98,10 @@ func init() {
 		snapshotCmd,
 	)
 
-	setNetmapStatusCmd.Flags().StringVarP(&netmapStatus, netmapStatusFlag, "", "",
-		fmt.Sprintf("new netmap status keyword ('%s', '%s')",
-			netmapStatusOnline,
-			netmapStatusOffline,
-		),
-	)
-
-	_ = setNetmapStatusCmd.MarkFlagRequired(netmapStatusFlag)
-
-	dropObjectsCmd.Flags().StringSliceVarP(&dropObjectsList, dropObjectsFlag, "o", nil,
-		"List of object addresses to be removed in string format")
-
-	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
-
-	healthCheckCmd.Flags().BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
-
-	snapshotCmd.Flags().BoolVar(&netmapSnapshotJSON, "json", false,
-		"print netmap structure in JSON format")
+	initControlHealthCheckCmd()
+	initControlSetNetmapStatusCmd()
+	initControlDropObjectsCmd()
+	initControlSnapshotCmd()
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {

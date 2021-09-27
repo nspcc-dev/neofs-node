@@ -79,6 +79,11 @@ var containerCmd = &cobra.Command{
 	Use:   "container",
 	Short: "Operations with containers",
 	Long:  "Operations with containers",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// bind exactly that cmd's flags to
+		// the viper before execution
+		bindCommonFlags(cmd)
+	},
 }
 
 var listContainersCmd = &cobra.Command{
@@ -429,15 +434,89 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 	},
 }
 
+func initContainerListContainersCmd() {
+	initCommonFlags(listContainersCmd)
+
+	flags := listContainersCmd.Flags()
+
+	flags.StringVar(&containerOwner, "owner", "", "owner of containers (omit to use owner from private key)")
+}
+
+func initContainerCreateCmd() {
+	initCommonFlags(createContainerCmd)
+
+	flags := createContainerCmd.Flags()
+
+	flags.StringVar(&containerACL, "basic-acl", basicACLPrivate, fmt.Sprintf("hex encoded basic ACL value or keywords '%s', '%s', '%s'", basicACLPublic, basicACLPrivate, basicACLReadOnly))
+	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
+	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
+	flags.StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
+	flags.BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
+	flags.StringVar(&containerName, "name", "", "container name attribute")
+	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
+}
+
+func initContainerDeleteCmd() {
+	initCommonFlags(deleteContainerCmd)
+
+	flags := deleteContainerCmd.Flags()
+
+	flags.StringVar(&containerID, "cid", "", "container ID")
+	flags.BoolVar(&containerAwait, "await", false, "block execution until container is removed")
+}
+
+func initContainerListObjectsCmd() {
+	initCommonFlags(listContainerObjectsCmd)
+
+	flags := listContainerObjectsCmd.Flags()
+
+	flags.StringVar(&containerID, "cid", "", "container ID")
+}
+
+func initContainerInfoCmd() {
+	initCommonFlags(getContainerInfoCmd)
+
+	flags := getContainerInfoCmd.Flags()
+
+	flags.StringVar(&containerID, "cid", "", "container ID")
+	flags.StringVar(&containerPathTo, "to", "", "path to dump encoded container")
+	flags.StringVar(&containerPathFrom, "from", "", "path to file with encoded container")
+	flags.BoolVar(&containerJSON, "json", false, "print or dump container in JSON format")
+}
+
+func initContainerGetEACLCmd() {
+	initCommonFlags(getExtendedACLCmd)
+
+	flags := getExtendedACLCmd.Flags()
+
+	flags.StringVar(&containerID, "cid", "", "container ID")
+	flags.StringVar(&containerPathTo, "to", "", "path to dump encoded container (default: binary encoded)")
+	flags.BoolVar(&containerJSON, "json", false, "encode EACL table in json format")
+}
+
+func initContainerSetEACLCmd() {
+	initCommonFlags(setExtendedACLCmd)
+
+	flags := setExtendedACLCmd.Flags()
+	flags.StringVar(&containerID, "cid", "", "container ID")
+	flags.StringVar(&eaclPathFrom, "table", "", "path to file with JSON or binary encoded EACL table")
+	flags.BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
+}
+
 func init() {
+	containerChildCommand := []*cobra.Command{
+		listContainersCmd,
+		createContainerCmd,
+		deleteContainerCmd,
+		listContainerObjectsCmd,
+		getContainerInfoCmd,
+		getExtendedACLCmd,
+		setExtendedACLCmd,
+	}
+
 	rootCmd.AddCommand(containerCmd)
-	containerCmd.AddCommand(listContainersCmd)
-	containerCmd.AddCommand(createContainerCmd)
-	containerCmd.AddCommand(deleteContainerCmd)
-	containerCmd.AddCommand(listContainerObjectsCmd)
-	containerCmd.AddCommand(getContainerInfoCmd)
-	containerCmd.AddCommand(getExtendedACLCmd)
-	containerCmd.AddCommand(setExtendedACLCmd)
+
+	containerCmd.AddCommand(containerChildCommand...)
 
 	// Here you will define your flags and configuration settings.
 
@@ -449,43 +528,20 @@ func init() {
 	// is called directly, e.g.:
 	// containerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	// container list
-	listContainersCmd.Flags().StringVar(&containerOwner, "owner", "", "owner of containers (omit to use owner from private key)")
+	initContainerListContainersCmd()
+	initContainerCreateCmd()
+	initContainerDeleteCmd()
+	initContainerListObjectsCmd()
+	initContainerInfoCmd()
+	initContainerGetEACLCmd()
+	initContainerSetEACLCmd()
 
-	// container create
-	createContainerCmd.Flags().StringVar(&containerACL, "basic-acl", basicACLPrivate,
-		fmt.Sprintf("hex encoded basic ACL value or keywords '%s', '%s', '%s'", basicACLPublic, basicACLPrivate, basicACLReadOnly))
-	createContainerCmd.Flags().StringVarP(&containerPolicy, "policy", "p", "",
-		"QL-encoded or JSON-encoded placement policy or path to file with it")
-	createContainerCmd.Flags().StringSliceVarP(&containerAttributes, "attributes", "a", nil,
-		"comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
-	createContainerCmd.Flags().StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
-	createContainerCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
-	createContainerCmd.Flags().StringVar(&containerName, "name", "", "container name attribute")
-	createContainerCmd.Flags().BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
+	for _, containerCommand := range containerChildCommand {
+		flags := containerCommand.Flags()
 
-	// container delete
-	deleteContainerCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
-	deleteContainerCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until container is removed")
-
-	// container list-object
-	listContainerObjectsCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
-
-	// container get
-	getContainerInfoCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
-	getContainerInfoCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump encoded container")
-	getContainerInfoCmd.Flags().StringVar(&containerPathFrom, "from", "", "path to file with encoded container")
-	getContainerInfoCmd.Flags().BoolVar(&containerJSON, "json", false, "print or dump container in JSON format")
-
-	// container get-eacl
-	getExtendedACLCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
-	getExtendedACLCmd.Flags().StringVar(&containerPathTo, "to", "", "path to dump encoded container (default: binary encoded)")
-	getExtendedACLCmd.Flags().BoolVar(&containerJSON, "json", false, "encode EACL table in json format")
-
-	// container set-eacl
-	setExtendedACLCmd.Flags().StringVar(&containerID, "cid", "", "container ID")
-	setExtendedACLCmd.Flags().StringVar(&eaclPathFrom, "table", "", "path to file with JSON or binary encoded EACL table")
-	setExtendedACLCmd.Flags().BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
+		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
+		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+	}
 
 	for _, cmd := range []*cobra.Command{
 		createContainerCmd,

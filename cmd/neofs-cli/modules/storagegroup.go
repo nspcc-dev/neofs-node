@@ -20,6 +20,11 @@ var storagegroupCmd = &cobra.Command{
 	Use:   "storagegroup",
 	Short: "Operations with Storage Groups",
 	Long:  `Operations with Storage Groups`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// bind exactly that cmd's flags to
+		// the viper before execution
+		bindCommonFlags(cmd)
+	},
 }
 
 var sgPutCmd = &cobra.Command{
@@ -61,34 +66,72 @@ var (
 	sgID      string
 )
 
-func init() {
-	rootCmd.AddCommand(storagegroupCmd)
+func initSGPutCmd() {
+	initCommonFlags(sgPutCmd)
 
-	storagegroupCmd.PersistentFlags().String(sgBearerFlag, "",
-		"File with signed JSON or binary encoded bearer token")
+	flags := sgPutCmd.Flags()
 
-	storagegroupCmd.AddCommand(sgPutCmd)
-	sgPutCmd.Flags().String("cid", "", "Container ID")
+	flags.String("cid", "", "Container ID")
 	_ = sgPutCmd.MarkFlagRequired("cid")
-	sgPutCmd.Flags().StringSliceVarP(&sgMembers, sgMembersFlag, "m", nil,
-		"ID list of storage group members")
+
+	flags.StringSliceVarP(&sgMembers, sgMembersFlag, "m", nil, "ID list of storage group members")
 	_ = sgPutCmd.MarkFlagRequired(sgMembersFlag)
+}
 
-	storagegroupCmd.AddCommand(sgGetCmd)
-	sgGetCmd.Flags().String("cid", "", "Container ID")
+func initSGGetCmd() {
+	initCommonFlags(sgGetCmd)
+
+	flags := sgGetCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = sgGetCmd.MarkFlagRequired("cid")
-	sgGetCmd.Flags().StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
-	_ = sgGetCmd.MarkFlagRequired(sgIDFlag)
 
-	storagegroupCmd.AddCommand(sgListCmd)
+	flags.StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
+	_ = sgGetCmd.MarkFlagRequired(sgIDFlag)
+}
+
+func initSGListCmd() {
+	initCommonFlags(sgListCmd)
+
 	sgListCmd.Flags().String("cid", "", "Container ID")
 	_ = sgListCmd.MarkFlagRequired("cid")
+}
 
-	storagegroupCmd.AddCommand(sgDelCmd)
-	sgDelCmd.Flags().String("cid", "", "Container ID")
+func initSGDeleteCmd() {
+	initCommonFlags(sgDelCmd)
+
+	flags := sgDelCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = sgDelCmd.MarkFlagRequired("cid")
-	sgDelCmd.Flags().StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
+
+	flags.StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
 	_ = sgDelCmd.MarkFlagRequired(sgIDFlag)
+}
+
+func init() {
+	storageGroupChildCommands := []*cobra.Command{
+		sgPutCmd,
+		sgGetCmd,
+		sgListCmd,
+		sgDelCmd,
+	}
+
+	rootCmd.AddCommand(storagegroupCmd)
+	storagegroupCmd.AddCommand(storageGroupChildCommands...)
+
+	for _, sgCommand := range storageGroupChildCommands {
+		flags := sgCommand.Flags()
+
+		flags.String(sgBearerFlag, "", "File with signed JSON or binary encoded bearer token")
+		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
+		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+	}
+
+	initSGPutCmd()
+	initSGGetCmd()
+	initSGListCmd()
+	initSGDeleteCmd()
 }
 
 type sgHeadReceiver struct {

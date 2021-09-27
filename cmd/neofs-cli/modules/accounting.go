@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/accounting"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -19,6 +20,16 @@ var accountingCmd = &cobra.Command{
 	Use:   "accounting",
 	Short: "Operations with accounts and balances",
 	Long:  `Operations with accounts and balances`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		flags := cmd.Flags()
+
+		_ = viper.BindPFlag(binaryKey, flags.Lookup(binaryKey))
+		_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
+		_ = viper.BindPFlag(wif, flags.Lookup(wif))
+		_ = viper.BindPFlag(address, flags.Lookup(address))
+		_ = viper.BindPFlag(rpc, flags.Lookup(rpc))
+		_ = viper.BindPFlag(verbose, flags.Lookup(verbose))
+	},
 }
 
 var accountingBalanceCmd = &cobra.Command{
@@ -57,6 +68,19 @@ var accountingBalanceCmd = &cobra.Command{
 	},
 }
 
+func initAccountingBalanceCmd() {
+	ff := accountingBalanceCmd.Flags()
+
+	ff.StringP(binaryKey, binaryKeyShorthand, binaryKeyDefault, binaryKeyUsage)
+	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
+	ff.StringP(wif, wifShorthand, wifDefault, wifUsage)
+	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
+	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
+	ff.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
+
+	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
+}
+
 func init() {
 	rootCmd.AddCommand(accountingCmd)
 	accountingCmd.AddCommand(accountingBalanceCmd)
@@ -71,7 +95,7 @@ func init() {
 	// is called directly, e.g.:
 	// accountingCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
+	initAccountingBalanceCmd()
 }
 
 func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
@@ -79,7 +103,7 @@ func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
 		return
 	}
 
-	if verbose {
+	if viper.GetBool(verbose) {
 		cmd.Println("value:", decimal.Value())
 		cmd.Println("precision:", decimal.Precision())
 	} else {

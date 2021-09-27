@@ -42,6 +42,11 @@ var (
 		Use:   "object",
 		Short: "Operations with Objects",
 		Long:  `Operations with Objects`,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// bind exactly that cmd's flags to
+			// the viper before execution
+			bindCommonFlags(cmd)
+		},
 	}
 
 	objectPutCmd = &cobra.Command{
@@ -114,74 +119,139 @@ const putExpiresOnFlag = "expires-on"
 
 var putExpiredOn uint64
 
-func init() {
-	rootCmd.AddCommand(objectCmd)
-	objectCmd.PersistentFlags().String("bearer", "", "File with signed JSON or binary encoded bearer token")
+func initObjectPutCmd() {
+	initCommonFlags(objectPutCmd)
 
-	objectCmd.AddCommand(objectPutCmd)
-	objectPutCmd.Flags().String("file", "", "File with object payload")
+	flags := objectPutCmd.Flags()
+
+	flags.String("file", "", "File with object payload")
 	_ = objectPutCmd.MarkFlagFilename("file")
 	_ = objectPutCmd.MarkFlagRequired("file")
-	objectPutCmd.Flags().String("cid", "", "Container ID")
+
+	flags.String("cid", "", "Container ID")
 	_ = objectPutCmd.MarkFlagRequired("cid")
-	objectPutCmd.Flags().String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
-	objectPutCmd.Flags().Bool("disable-filename", false, "Do not set well-known filename attribute")
-	objectPutCmd.Flags().Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
-	objectPutCmd.Flags().Uint64VarP(&putExpiredOn, putExpiresOnFlag, "e", 0,
-		"Last epoch in the life of the object")
 
-	objectCmd.AddCommand(objectDelCmd)
-	objectDelCmd.Flags().String("cid", "", "Container ID")
+	flags.String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
+	flags.Bool("disable-filename", false, "Do not set well-known filename attribute")
+	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
+	flags.Uint64VarP(&putExpiredOn, putExpiresOnFlag, "e", 0, "Last epoch in the life of the object")
+}
+
+func initObjectDeleteCmd() {
+	initCommonFlags(objectDelCmd)
+
+	flags := objectDelCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = objectDelCmd.MarkFlagRequired("cid")
-	objectDelCmd.Flags().String("oid", "", "Object ID")
+
+	flags.String("oid", "", "Object ID")
 	_ = objectDelCmd.MarkFlagRequired("oid")
+}
 
-	objectCmd.AddCommand(objectGetCmd)
-	objectGetCmd.Flags().String("file", "", "File to write object payload to. Default: stdout.")
-	objectGetCmd.Flags().String("header", "", "File to write header to. Default: stdout.")
-	objectGetCmd.Flags().String("cid", "", "Container ID")
+func initObjectGetCmd() {
+	initCommonFlags(objectGetCmd)
+
+	flags := objectGetCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = objectGetCmd.MarkFlagRequired("cid")
-	objectGetCmd.Flags().String("oid", "", "Object ID")
+
+	flags.String("oid", "", "Object ID")
 	_ = objectGetCmd.MarkFlagRequired("oid")
-	objectGetCmd.Flags().Bool(rawFlag, false, rawFlagDesc)
 
-	objectCmd.AddCommand(objectSearchCmd)
-	objectSearchCmd.Flags().String("cid", "", "Container ID")
+	flags.String("file", "", "File to write object payload to. Default: stdout.")
+	flags.String("header", "", "File to write header to. Default: stdout.")
+	flags.Bool(rawFlag, false, rawFlagDesc)
+}
+
+func initObjectSearchCmd() {
+	initCommonFlags(objectSearchCmd)
+
+	flags := objectSearchCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = objectSearchCmd.MarkFlagRequired("cid")
-	objectSearchCmd.Flags().StringSliceVarP(&searchFilters, "filters", "f", nil,
+
+	flags.StringSliceVarP(&searchFilters, "filters", "f", nil,
 		"Repeated filter expressions or files with protobuf JSON")
-	objectSearchCmd.Flags().Bool("root", false, "Search for user objects")
-	objectSearchCmd.Flags().Bool("phy", false, "Search physically stored objects")
-	objectSearchCmd.Flags().String(searchOIDFlag, "", "Search object by identifier")
 
-	objectCmd.AddCommand(objectHeadCmd)
-	objectHeadCmd.Flags().String("file", "", "File to write header to. Default: stdout.")
-	objectHeadCmd.Flags().String("cid", "", "Container ID")
+	flags.Bool("root", false, "Search for user objects")
+	flags.Bool("phy", false, "Search physically stored objects")
+	flags.String(searchOIDFlag, "", "Search object by identifier")
+}
+
+func initObjectHeadCmd() {
+	initCommonFlags(objectHeadCmd)
+
+	flags := objectHeadCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = objectHeadCmd.MarkFlagRequired("cid")
-	objectHeadCmd.Flags().String("oid", "", "Object ID")
+
+	flags.String("oid", "", "Object ID")
 	_ = objectHeadCmd.MarkFlagRequired("oid")
-	objectHeadCmd.Flags().Bool("main-only", false, "Return only main fields")
-	objectHeadCmd.Flags().Bool("json", false, "Marshal output in JSON")
-	objectHeadCmd.Flags().Bool("proto", false, "Marshal output in Protobuf")
-	objectHeadCmd.Flags().Bool(rawFlag, false, rawFlagDesc)
 
-	objectCmd.AddCommand(objectHashCmd)
-	objectHashCmd.Flags().String("cid", "", "Container ID")
+	flags.String("file", "", "File to write header to. Default: stdout.")
+	flags.Bool("main-only", false, "Return only main fields")
+	flags.Bool("json", false, "Marshal output in JSON")
+	flags.Bool("proto", false, "Marshal output in Protobuf")
+	flags.Bool(rawFlag, false, rawFlagDesc)
+}
+
+func initObjectHashCmd() {
+	initCommonFlags(objectHashCmd)
+
+	flags := objectHashCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = objectHashCmd.MarkFlagRequired("cid")
-	objectHashCmd.Flags().String("oid", "", "Object ID")
-	_ = objectHashCmd.MarkFlagRequired("oid")
-	objectHashCmd.Flags().String("range", "", "Range to take hash from in the form offset1:length1,...")
-	objectHashCmd.Flags().String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")
-	objectHashCmd.Flags().String(getRangeHashSaltFlag, "", "Salt in hex format")
 
-	objectCmd.AddCommand(objectRangeCmd)
-	objectRangeCmd.Flags().String("cid", "", "Container ID")
+	flags.String("oid", "", "Object ID")
+	_ = objectHashCmd.MarkFlagRequired("oid")
+
+	flags.String("range", "", "Range to take hash from in the form offset1:length1,...")
+	flags.String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")
+	flags.String(getRangeHashSaltFlag, "", "Salt in hex format")
+}
+
+func initObjectRangeCmd() {
+	initCommonFlags(objectRangeCmd)
+
+	flags := objectRangeCmd.Flags()
+
+	flags.String("cid", "", "Container ID")
 	_ = objectRangeCmd.MarkFlagRequired("cid")
-	objectRangeCmd.Flags().String("oid", "", "Object ID")
+
+	flags.String("oid", "", "Object ID")
 	_ = objectRangeCmd.MarkFlagRequired("oid")
-	objectRangeCmd.Flags().String("range", "", "Range to take data from in the form offset:length")
-	objectRangeCmd.Flags().String("file", "", "File to write object payload to. Default: stdout.")
-	objectRangeCmd.Flags().Bool(rawFlag, false, rawFlagDesc)
+
+	flags.String("range", "", "Range to take data from in the form offset:length")
+	flags.String("file", "", "File to write object payload to. Default: stdout.")
+	flags.Bool(rawFlag, false, rawFlagDesc)
+}
+
+func init() {
+	objectChildCommands := []*cobra.Command{
+		objectPutCmd,
+		objectDelCmd,
+		objectGetCmd,
+		objectSearchCmd,
+		objectHeadCmd,
+		objectHashCmd,
+		objectRangeCmd,
+	}
+
+	rootCmd.AddCommand(objectCmd)
+	objectCmd.AddCommand(objectChildCommands...)
+
+	for _, objCommand := range objectChildCommands {
+		flags := objCommand.Flags()
+
+		flags.String("bearer", "", "File with signed JSON or binary encoded bearer token")
+		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
+		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+	}
 
 	// Here you will define your flags and configuration settings.
 
@@ -192,6 +262,14 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// objectCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	initObjectPutCmd()
+	initObjectDeleteCmd()
+	initObjectGetCmd()
+	initObjectSearchCmd()
+	initObjectHeadCmd()
+	initObjectHashCmd()
+	initObjectRangeCmd()
 }
 
 func initSession(ctx context.Context, key *ecdsa.PrivateKey) (client.Client, *session.Token, error) {
