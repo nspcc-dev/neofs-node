@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/hex"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -40,10 +41,10 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
 	//  but network.StringifyGroup is order-dependent.
 	//  This works until the same mixed group is transmitted
 	//  (for a network map, it seems to be true).
-	mAddr := network.StringifyGroup(netAddr)
+	cacheKey := hex.EncodeToString(info.PublicKey()) + network.StringifyGroup(netAddr)
 
 	c.mu.RLock()
-	if cli, ok := c.clients[mAddr]; ok {
+	if cli, ok := c.clients[cacheKey]; ok {
 		// todo: check underlying connection neofs-api-go#196
 		c.mu.RUnlock()
 
@@ -57,13 +58,13 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
 
 	// check once again if client is missing in cache, concurrent routine could
 	// create client while this routine was locked on `c.mu.Lock()`.
-	if cli, ok := c.clients[mAddr]; ok {
+	if cli, ok := c.clients[cacheKey]; ok {
 		return cli, nil
 	}
 
 	cli := newMultiClient(netAddr, c.opts)
 
-	c.clients[mAddr] = cli
+	c.clients[cacheKey] = cli
 
 	return cli, nil
 }
