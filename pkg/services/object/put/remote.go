@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -54,7 +55,11 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
-	c, err := t.clientConstructor.Get(t.addr)
+	var info clientcore.NodeInfo
+
+	info.SetAddressGroup(t.addr)
+
+	c, err := t.clientConstructor.Get(info)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.addr, err)
 	}

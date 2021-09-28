@@ -5,20 +5,20 @@ import (
 	"errors"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"go.uber.org/zap"
 )
 
-func (exec *execCtx) processNode(ctx context.Context, addr network.AddressGroup) bool {
+func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool {
 	exec.log.Debug("processing node...")
 
-	client, ok := exec.remoteClient(addr)
+	client, ok := exec.remoteClient(info)
 	if !ok {
 		return true
 	}
 
-	obj, err := client.getObject(exec, addr)
+	obj, err := client.getObject(exec, info)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 

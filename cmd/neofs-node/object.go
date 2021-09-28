@@ -166,8 +166,8 @@ func (f *innerRingFetcherWithoutNotary) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(addrGroup network.AddressGroup) (coreclient.Client, error) {
-	c, err := (*reputationClientConstructor)(x).Get(addrGroup)
+func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.Client, error) {
+	c, err := (*reputationClientConstructor)(x).Get(info)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +442,7 @@ type reputationClientConstructor struct {
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(network.AddressGroup) (client.Client, error)
+		Get(coreclient.NodeInfo) (client.Client, error)
 	}
 }
 
@@ -526,14 +526,16 @@ func (c *reputationClient) SearchObject(ctx context.Context, prm *client.SearchO
 	return ids, err
 }
 
-func (c *reputationClientConstructor) Get(addr network.AddressGroup) (client.Client, error) {
-	cl, err := c.basicConstructor.Get(addr)
+func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (client.Client, error) {
+	cl, err := c.basicConstructor.Get(info)
 	if err != nil {
 		return nil, err
 	}
 
 	nm, err := netmap.GetLatestNetworkMap(c.nmSrc)
 	if err == nil {
+		addr := info.AddressGroup()
+
 		for i := range nm.Nodes {
 			var netAddr network.AddressGroup
 

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	coreObject "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -22,11 +23,8 @@ import (
 type (
 	ClientCache struct {
 		log   *zap.Logger
-		cache interface {
-			Get(address network.AddressGroup) (client.Client, error)
-			CloseAll()
-		}
-		key *ecdsa.PrivateKey
+		cache *cache.ClientCache
+		key   *ecdsa.PrivateKey
 
 		sgTimeout, headTimeout, rangeTimeout time.Duration
 	}
@@ -51,9 +49,13 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 }
 
 func (c *ClientCache) Get(address network.AddressGroup) (client.Client, error) {
+	var info clientcore.NodeInfo
+
+	info.SetAddressGroup(address)
+
 	// Because cache is used by `ClientCache` exclusively,
 	// client will always have valid key.
-	return c.cache.Get(address)
+	return c.cache.Get(info)
 }
 
 // GetSG polls the container from audit task to get the object by id.

@@ -14,6 +14,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -82,8 +83,8 @@ func (p *testPlacementBuilder) BuildPlacement(addr *objectSDK.Address, _ *netmap
 	return vs, nil
 }
 
-func (c *testClientCache) get(mAddr network.AddressGroup) (getClient, error) {
-	v, ok := c.clients[network.StringifyGroup(mAddr)]
+func (c *testClientCache) get(info client.NodeInfo) (getClient, error) {
+	v, ok := c.clients[network.StringifyGroup(info.AddressGroup())]
 	if !ok {
 		return nil, errors.New("could not construct client")
 	}
@@ -100,7 +101,7 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) getObject(exec *execCtx, _ network.AddressGroup) (*objectSDK.Object, error) {
+func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, error) {
 	v, ok := c.results[exec.address().String()]
 	if !ok {
 		return nil, object.ErrNotFound

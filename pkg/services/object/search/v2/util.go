@@ -112,13 +112,13 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 }
 
 func groupAddressRequestForwarder(f func(network.Address, client.Client) ([]*objectSDK.ID, error)) searchsvc.RequestForwarder {
-	return func(addrGroup network.AddressGroup, c client.Client) ([]*objectSDK.ID, error) {
+	return func(info client.NodeInfo, c client.Client) ([]*objectSDK.ID, error) {
 		var (
 			firstErr error
 			res      []*objectSDK.ID
 		)
 
-		addrGroup.IterateAddresses(func(addr network.Address) (stop bool) {
+		info.AddressGroup().IterateAddresses(func(addr network.Address) (stop bool) {
 			var err error
 
 			defer func() {
