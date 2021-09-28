@@ -131,8 +131,8 @@ func (x Node) Addresses() network.AddressGroup {
 	return x.addresses
 }
 
-// Key returns public key in a binary format. Should not be mutated.
-func (x Node) Key() []byte {
+// PublicKey returns public key in a binary format. Should not be mutated.
+func (x Node) PublicKey() []byte {
 	return x.key
 }
 
