@@ -19,6 +19,8 @@ type Client interface {
 // NodeInfo groups information about NeoFS storage node needed for Client construction.
 type NodeInfo struct {
 	addrGroup network.AddressGroup
+
+	key []byte
 }
 
 // SetAddressGroup sets group of network addresses.
@@ -29,4 +31,18 @@ func (x *NodeInfo) SetAddressGroup(v network.AddressGroup) {
 // AddressGroup returns group of network addresses.
 func (x NodeInfo) AddressGroup() network.AddressGroup {
 	return x.addrGroup
+}
+
+// SetPublicKey sets public key in a binary format.
+//
+// Argument must not be mutated.
+func (x *NodeInfo) SetPublicKey(v []byte) {
+	x.key = v
+}
+
+// PublicKey returns public key in a binary format.
+//
+// Result must not be mutated.
+func (x *NodeInfo) PublicKey() []byte {
+	return x.key
 }
