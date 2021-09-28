@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/tzhash/tz"
 )
@@ -55,7 +56,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -104,6 +105,11 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 					}
 
 					return nil, fmt.Errorf("reading the response failed: %w", err)
+				}
+
+				// verify response key
+				if err = internal.VerifyResponseKeyV2(pubkey, resp); err != nil {
+					return nil, err
 				}
 
 				// verify response structure
@@ -177,7 +183,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -219,6 +225,11 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 					}
 
 					return nil, fmt.Errorf("reading the response failed: %w", err)
+				}
+
+				// verify response key
+				if err = internal.VerifyResponseKeyV2(pubkey, resp); err != nil {
+					return nil, err
 				}
 
 				// verify response structure
@@ -340,7 +351,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -367,6 +378,11 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			resp, err := rpc.HeadObject(c.RawForAddress(addr), req, rpcclient.WithContext(ctx))
 			if err != nil {
 				return nil, fmt.Errorf("sending the request failed: %w", err)
+			}
+
+			// verify response key
+			if err = internal.VerifyResponseKeyV2(pubkey, resp); err != nil {
+				return nil, err
 			}
 
 			// verify response structure
@@ -508,11 +524,13 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 	return sh
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.Client) (*objectSDK.Object, error)) getsvc.RequestForwarder {
+func groupAddressRequestForwarder(f func(network.Address, client.Client, []byte) (*objectSDK.Object, error)) getsvc.RequestForwarder {
 	return func(info client.NodeInfo, c client.Client) (*objectSDK.Object, error) {
 		var (
 			firstErr error
 			res      *objectSDK.Object
+
+			key = info.PublicKey()
 		)
 
 		info.AddressGroup().IterateAddresses(func(addr network.Address) (stop bool) {
@@ -528,7 +546,7 @@ func groupAddressRequestForwarder(f func(network.Address, client.Client) (*objec
 				// would be nice to log otherwise
 			}()
 
-			res, err = f(addr, c)
+			res, err = f(addr, c, key)
 
 			return
 		})

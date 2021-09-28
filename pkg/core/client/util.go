@@ -1,8 +1,10 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 )
 
@@ -39,4 +41,16 @@ func NodeInfoFromNetmapElement(dst *NodeInfo, info interface {
 	Addresses() network.AddressGroup
 }) {
 	nodeInfoFromKeyAddr(dst, info.PublicKey(), info.Addresses())
+}
+
+// AssertKeyResponseCallback returns client response callback which checks if the response was signed by expected key.
+// Returns ErrWrongPublicKey in case of key mismatch.
+func AssertKeyResponseCallback(expectedKey []byte) func(client.ResponseMetaInfo) error {
+	return func(info client.ResponseMetaInfo) error {
+		if !bytes.Equal(info.ResponderKey(), expectedKey) {
+			return ErrWrongPublicKey
+		}
+
+		return nil
+	}
 }

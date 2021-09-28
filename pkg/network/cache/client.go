@@ -62,7 +62,9 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
 		return cli, nil
 	}
 
-	cli := newMultiClient(netAddr, c.opts)
+	cli := newMultiClient(netAddr, append(c.opts,
+		client.WithResponseInfoHandler(clientcore.AssertKeyResponseCallback(info.PublicKey())),
+	))
 
 	c.clients[cacheKey] = cli
 
