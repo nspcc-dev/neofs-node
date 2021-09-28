@@ -15,3 +15,18 @@ type Client interface {
 	// for the passed network.Address.
 	RawForAddress(network.Address) *rawclient.Client
 }
+
+// NodeInfo groups information about NeoFS storage node needed for Client construction.
+type NodeInfo struct {
+	addrGroup network.AddressGroup
+}
+
+// SetAddressGroup sets group of network addresses.
+func (x *NodeInfo) SetAddressGroup(v network.AddressGroup) {
+	x.addrGroup = v
+}
+
+// AddressGroup returns group of network addresses.
+func (x NodeInfo) AddressGroup() network.AddressGroup {
+	return x.addrGroup
+}
