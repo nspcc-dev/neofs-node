@@ -125,13 +125,13 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	return fromPutResponse(resp), nil
 }
 
-func (s *streamer) relayRequest(addr network.AddressGroup, c client.Client) error {
+func (s *streamer) relayRequest(info client.NodeInfo, c client.Client) error {
 	// open stream
 	resp := new(object.PutResponse)
 
 	var firstErr error
 
-	addr.IterateAddresses(func(addr network.Address) (stop bool) {
+	info.AddressGroup().IterateAddresses(func(addr network.Address) (stop bool) {
 		var err error
 
 		defer func() {
