@@ -21,8 +21,11 @@ import (
 type (
 	ClientCache struct {
 		log   *zap.Logger
-		cache *cache.ClientCache
-		key   *ecdsa.PrivateKey
+		cache interface {
+			Get(clientcore.NodeInfo) (client.Client, error)
+			CloseAll()
+		}
+		key *ecdsa.PrivateKey
 
 		sgTimeout, headTimeout, rangeTimeout time.Duration
 	}
