@@ -53,14 +53,19 @@ func (c *cache) persistLoop() {
 }
 
 func (c *cache) persistToCache(objs []objectInfo) []int {
+	type failedObj struct {
+		index    int
+		overflow bool
+	}
+
 	var (
-		failMem []int // some index is negative => all objects starting from it will overflow the cache
+		failMem []failedObj
 		doneMem []int
 	)
 
 	for i := range objs {
 		if uint64(len(objs[i].data)) >= c.smallObjectSize {
-			failMem = append(failMem, i)
+			failMem = append(failMem, failedObj{index: i})
 			continue
 		}
 
@@ -68,7 +73,7 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 		cacheSz := c.estimateCacheSize()
 		if cacheSz > c.maxCacheSize {
 			// set negative index. We decrement index to cover 0 val (overflow is practically impossible)
-			failMem = append(failMem, -i-1)
+			failMem = append(failMem, failedObj{index: i, overflow: true})
 			return nil
 		}
 
@@ -91,26 +96,16 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 
 	cacheSz := c.estimateCacheSize()
 
-	for _, objInd := range failMem {
-		var (
-			updCacheSz  uint64
-			overflowInd = -1
-		)
+	for _, obj := range failMem {
+		var updCacheSz uint64
 
-		if objInd < 0 {
-			// actually, since the overflow was detected in DB tx, the required space could well have been freed,
-			// but it is easier to consider the entire method atomic
-			overflowInd = -objInd - 1 // subtract 1 since we decremented index above
-		} else {
-			// check if object will overflow write-cache size limit
-			if updCacheSz = c.incSizeFS(cacheSz); updCacheSz > c.maxCacheSize {
-				overflowInd = objInd
-			}
+		if !obj.overflow {
+			updCacheSz = c.incSizeFS(cacheSz)
 		}
 
-		if overflowInd >= 0 {
+		if obj.overflow || updCacheSz > c.maxCacheSize {
 		loop:
-			for j := range objs[overflowInd:] {
+			for j := range objs[obj.index:] {
 				// exclude objects which are already stored in DB
 				for _, doneMemInd := range doneMem {
 					if j == doneMemInd {
@@ -124,16 +119,17 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 			break
 		}
 
-		if uint64(len(objs[objInd].data)) > c.maxObjectSize {
-			failDisk = append(failDisk, objInd)
+		if uint64(len(objs[obj.index].data)) > c.maxObjectSize {
+			failDisk = append(failDisk, obj.index)
 			continue
 		}
 
-		err := c.fsTree.Put(objs[objInd].obj.Address(), objs[objInd].data)
+		err := c.fsTree.Put(objs[obj.index].obj.Address(), objs[obj.index].data)
 		if err != nil {
-			failDisk = append(failDisk, objInd)
+			failDisk = append(failDisk, obj.index)
 		} else {
-			storagelog.Write(c.log, storagelog.AddressField(objs[objInd].addr), storagelog.OpField("fstree PUT"))
+			storagelog.Write(c.log, storagelog.AddressField(objs[obj.index].addr),
+				storagelog.OpField("fstree PUT"))
 
 			// update cache size
 			cacheSz = updCacheSz
