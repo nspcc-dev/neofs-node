@@ -3,11 +3,11 @@ package writecache
 import (
 	"errors"
 
+	"github.com/cockroachdb/pebble"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	"go.etcd.io/bbolt"
 )
 
 // Delete removes object from write-cache.
@@ -29,29 +29,24 @@ func (c *cache) Delete(addr *objectSDK.Address) error {
 	c.mtx.Unlock()
 
 	// Check disk cache.
-	var has int
-	_ = c.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		has = len(b.Get([]byte(saddr)))
-		return nil
-	})
+	var sz int
 
-	if 0 < has {
-		err := c.db.Update(func(tx *bbolt.Tx) error {
-			b := tx.Bucket(defaultBucket)
-			err := b.Delete([]byte(saddr))
-			return err
-		})
+	val, cl, err := c.db.Get([]byte(saddr))
+	if err == nil {
+		sz = len(val)
+		cl.Close()
+	}
+
+	if 0 < sz {
+		err := c.db.Delete([]byte(saddr), pebble.NoSync)
 		if err != nil {
 			return err
 		}
-		c.dbSize.Sub(uint64(has))
 		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("db DELETE"))
-		c.objCounters.DecDB()
 		return nil
 	}
 
-	err := c.fsTree.Delete(addr)
+	err = c.fsTree.Delete(addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		err = object.ErrNotFound
 	}

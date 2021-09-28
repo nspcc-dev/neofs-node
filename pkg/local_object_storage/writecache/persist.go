@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cockroachdb/pebble"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -57,41 +57,28 @@ func (c *cache) persistToCache(objs []objectInfo) []int {
 		failMem []int // some index is negative => all objects starting from it will overflow the cache
 		doneMem []int
 	)
-	var sz uint64
-	err := c.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		cacheSz := c.estimateCacheSize()
-		for i := range objs {
-			if uint64(len(objs[i].data)) >= c.smallObjectSize {
-				failMem = append(failMem, i)
-				continue
-			}
 
-			// check if object will overflow write-cache size limit
-			updCacheSz := c.incSizeDB(cacheSz)
-			if updCacheSz > c.maxCacheSize {
-				// set negative index. We decrement index to cover 0 val (overflow is practically impossible)
-				failMem = append(failMem, -i-1)
-
-				return nil
-			}
-
-			err := b.Put([]byte(objs[i].addr), objs[i].data)
-			if err != nil {
-				return err
-			}
-			sz += uint64(len(objs[i].data))
-			doneMem = append(doneMem, i)
-			storagelog.Write(c.log, storagelog.AddressField(objs[i].addr), storagelog.OpField("db PUT"))
-
-			// update cache size
-			cacheSz = updCacheSz
-			c.objCounters.IncDB()
+	for i := range objs {
+		if uint64(len(objs[i].data)) >= c.smallObjectSize {
+			failMem = append(failMem, i)
+			continue
 		}
-		return nil
-	})
-	if err == nil {
-		c.dbSize.Add(sz)
+
+		// check if object will overflow write-cache size limit
+		cacheSz := c.estimateCacheSize()
+		if cacheSz > c.maxCacheSize {
+			// set negative index. We decrement index to cover 0 val (overflow is practically impossible)
+			failMem = append(failMem, -i-1)
+			return nil
+		}
+
+		err := c.db.Set([]byte(objs[i].addr), objs[i].data, pebble.NoSync)
+		if err != nil {
+			continue
+		}
+
+		doneMem = append(doneMem, i)
+		storagelog.Write(c.log, storagelog.AddressField(objs[i].addr), storagelog.OpField("db PUT"))
 	}
 	if len(doneMem) > 0 {
 		c.evictObjects(len(doneMem))

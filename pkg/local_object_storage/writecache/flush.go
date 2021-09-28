@@ -4,13 +4,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mr-tron/base58"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -57,57 +55,28 @@ func (c *cache) flushLoop() {
 }
 
 func (c *cache) flush() {
-	lastKey := []byte{}
-	var m []objectInfo
-	for {
-		m = m[:0]
-		sz := 0
+	iter := c.db.NewIter(nil)
+	defer iter.Close()
 
-		// We put objects in batches of fixed size to not interfere with main put cycle a lot.
-		_ = c.db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket(defaultBucket)
-			cs := b.Cursor()
-			for k, v := cs.Seek(lastKey); k != nil && len(m) < flushBatchSize; k, v = cs.Next() {
-				if _, ok := c.flushed.Peek(string(k)); ok {
-					continue
-				}
-
-				sz += len(k) + len(v)
-				m = append(m, objectInfo{
-					addr: string(k),
-					data: cloneBytes(v),
-				})
-			}
-			return nil
-		})
-
-		for i := range m {
-			obj := object.New()
-			if err := obj.Unmarshal(m[i].data); err != nil {
-				continue
-			}
-
-			select {
-			case c.flushCh <- obj:
-			case <-c.closeCh:
-				return
-			}
+	for iter.First(); iter.Valid(); iter.Next() {
+		k := string(iter.Key())
+		if _, ok := c.flushed.Peek(k); ok {
+			continue
 		}
 
-		c.evictObjects(len(m))
-		for i := range m {
-			c.flushed.Add(m[i].addr, true)
+		obj := object.New()
+		if err := obj.Unmarshal(iter.Value()); err != nil {
+			continue
 		}
 
-		c.log.Debug("flushed items from write-cache",
-			zap.Int("count", len(m)),
-			zap.String("start", base58.Encode(lastKey)))
-
-		if len(m) > 0 {
-			lastKey = append([]byte(m[len(m)-1].addr), 0)
-		} else {
-			break
+		select {
+		case c.flushCh <- obj:
+		case <-c.closeCh:
+			return
 		}
+
+		c.evictObjects(1)
+		c.flushed.Add(k, true)
 	}
 }
 

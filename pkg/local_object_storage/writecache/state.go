@@ -1,22 +1,16 @@
 package writecache
 
 import (
-	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 )
 
 // ObjectCounters is an interface of the storage of cached object amount.
 type ObjectCounters interface {
-	// Increments number of objects saved in DB.
-	IncDB()
-	// Decrements number of objects saved in DB.
-	DecDB()
-	// Returns number of objects saved in DB.
-	DB() uint64
-
 	// Increments number of objects saved in FSTree.
 	IncFS()
 	// Decrements number of objects saved in FSTree.
@@ -31,11 +25,7 @@ type ObjectCounters interface {
 }
 
 func (c *cache) estimateCacheSize() uint64 {
-	return c.objCounters.DB()*c.smallObjectSize + c.objCounters.FS()*c.maxObjectSize
-}
-
-func (c *cache) incSizeDB(sz uint64) uint64 {
-	return sz + c.smallObjectSize
+	return c.db.Metrics().DiskSpaceUsage() + c.objCounters.FS()*c.maxObjectSize
 }
 
 func (c *cache) incSizeFS(sz uint64) uint64 {
@@ -43,23 +33,13 @@ func (c *cache) incSizeFS(sz uint64) uint64 {
 }
 
 type counters struct {
-	cDB, cFS atomic.Uint64
+	cFS atomic.Uint64
 
-	db *bbolt.DB
+	maxObjectSize uint64
+
+	db *pebble.DB
 
 	fs *fstree.FSTree
-}
-
-func (x *counters) IncDB() {
-	x.cDB.Inc()
-}
-
-func (x *counters) DecDB() {
-	x.cDB.Dec()
-}
-
-func (x *counters) DB() uint64 {
-	return x.cDB.Load()
 }
 
 func (x *counters) IncFS() {
@@ -75,26 +55,22 @@ func (x *counters) FS() uint64 {
 }
 
 func (x *counters) Read() error {
-	var inDB uint64
-
-	err := x.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		if b != nil {
-			inDB = uint64(b.Stats().KeyN)
+	var size uint64
+	err := filepath.Walk(x.fs.RootPath, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
-
-		return nil
+		size += uint64(info.Size())
+		return err
 	})
+
 	if err != nil {
-		return fmt.Errorf("could not read write-cache DB counter: %w", err)
+		return err
 	}
 
-	x.cDB.Store(inDB)
-
-	// FIXME: calculate the actual value in FSTree (new method?).
-	//  For now we can think that db/fs = 50/50.
-	x.cFS.Store(inDB)
-
+	// To avoid traversing filesystem we maintain only a number of keys
+	// stored in the FS. Here a pessimistic initial estimation is done.
+	x.cFS.Store(size/x.maxObjectSize + 1)
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/cockroachdb/pebble"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/golang-lru/simplelru"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
@@ -12,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -20,7 +20,7 @@ import (
 // for flushed items on top of it.
 type store struct {
 	flushed simplelru.LRUCache
-	db      *bbolt.DB
+	db      *pebble.DB
 }
 
 const lruKeysCount = 256 * 1024 * 8
@@ -32,10 +32,7 @@ func (c *cache) openStore() error {
 		return err
 	}
 
-	db, err := bbolt.Open(path.Join(c.path, dbName), os.ModePerm, &bbolt.Options{
-		NoFreelistSync: true,
-		NoSync:         true,
-	})
+	db, err := pebble.Open(path.Join(c.path, dbName), &pebble.Options{})
 	if err != nil {
 		return err
 	}
@@ -48,11 +45,6 @@ func (c *cache) openStore() error {
 		Depth:      1,
 		DirNameLen: 1,
 	}
-
-	_ = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(defaultBucket)
-		return err
-	})
 
 	c.db = db
 	c.flushed, _ = lru.New(lruKeysCount)
@@ -98,27 +90,21 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	var sz uint64
-	err := c.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		for i := range keys {
-			has := b.Get(keys[i])
-			if has == nil {
-				return object.ErrNotFound
-			}
-			if err := b.Delete(keys[i]); err != nil {
-				return err
-			}
-			sz += uint64(len(has))
-			storagelog.Write(c.log, storagelog.AddressField(string(keys[i])), storagelog.OpField("db DELETE"))
+
+	for i := range keys {
+		_, cl, err := c.db.Get(keys[i])
+		if err != nil {
+			return object.ErrNotFound
 		}
-		return nil
-	})
-	if err != nil {
-		return err
+
+		_ = cl.Close()
+		if err := c.db.Delete(keys[i], pebble.NoSync); err != nil {
+			return err
+		}
+		storagelog.Write(c.log, storagelog.AddressField(string(keys[i])), storagelog.OpField("db DELETE"))
 	}
-	c.dbSize.Sub(sz)
-	c.objCounters.DecDB()
+	c.db.Flush()
+
 	return nil
 }
 
