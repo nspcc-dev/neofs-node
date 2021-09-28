@@ -127,7 +127,7 @@ loop:
 
 			addr := addrs[i]
 
-			isLocal := t.isLocalKey(addr.Key())
+			isLocal := t.isLocalKey(addr.PublicKey())
 
 			var workerPool util.WorkerPool
 
