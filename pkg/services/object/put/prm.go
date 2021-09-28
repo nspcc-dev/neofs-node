@@ -3,7 +3,6 @@ package putsvc
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 )
@@ -15,7 +14,7 @@ type PutInitPrm struct {
 
 	traverseOpts []placement.Option
 
-	relay func(network.AddressGroup, client.Client) error
+	relay func(client.NodeInfo, client.Client) error
 }
 
 type PutChunkPrm struct {
@@ -46,7 +45,7 @@ func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
 	return p
 }
 
-func (p *PutInitPrm) WithRelay(f func(network.AddressGroup, client.Client) error) *PutInitPrm {
+func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.Client) error) *PutInitPrm {
 	if p != nil {
 		p.relay = f
 	}

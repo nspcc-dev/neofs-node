@@ -7,7 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
@@ -20,7 +19,7 @@ type Streamer struct {
 
 	target transformer.ObjectTarget
 
-	relay func(network.AddressGroup, client.Client) error
+	relay func(client.NodeInfo, client.Client) error
 
 	maxPayloadSz uint64 // network config
 }
@@ -157,7 +156,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				return fmt.Errorf("could not create SDK client %s: %w", info.AddressGroup(), err)
 			}
 
-			return p.relay(info.AddressGroup(), c)
+			return p.relay(info, c)
 		}
 	}
 
