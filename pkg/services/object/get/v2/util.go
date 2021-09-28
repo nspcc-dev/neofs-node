@@ -509,13 +509,13 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 }
 
 func groupAddressRequestForwarder(f func(network.Address, client.Client) (*objectSDK.Object, error)) getsvc.RequestForwarder {
-	return func(addrGroup network.AddressGroup, c client.Client) (*objectSDK.Object, error) {
+	return func(info client.NodeInfo, c client.Client) (*objectSDK.Object, error) {
 		var (
 			firstErr error
 			res      *objectSDK.Object
 		)
 
-		addrGroup.IterateAddresses(func(addr network.Address) (stop bool) {
+		info.AddressGroup().IterateAddresses(func(addr network.Address) (stop bool) {
 			var err error
 
 			defer func() {

@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -23,11 +22,11 @@ type Service struct {
 type Option func(*cfg)
 
 type searchClient interface {
-	searchObjects(*execCtx, network.AddressGroup) ([]*object.ID, error)
+	searchObjects(*execCtx, client.NodeInfo) ([]*object.ID, error)
 }
 
 type ClientConstructor interface {
-	Get(network.AddressGroup) (client.Client, error)
+	Get(client.NodeInfo) (client.Client, error)
 }
 
 type cfg struct {
@@ -38,7 +37,7 @@ type cfg struct {
 	}
 
 	clientConstructor interface {
-		get(network.AddressGroup) (searchClient, error)
+		get(client.NodeInfo) (searchClient, error)
 	}
 
 	traverserGenerator interface {

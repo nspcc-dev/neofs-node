@@ -7,7 +7,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
@@ -34,7 +33,7 @@ type RangeHashPrm struct {
 	salt []byte
 }
 
-type RequestForwarder func(network.AddressGroup, coreclient.Client) (*objectSDK.Object, error)
+type RequestForwarder func(coreclient.NodeInfo, coreclient.Client) (*objectSDK.Object, error)
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {

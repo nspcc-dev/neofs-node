@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 )
 
@@ -28,7 +29,9 @@ func NewSDKClientCache(opts ...client.Option) *ClientCache {
 }
 
 // Get function returns existing client or creates a new one.
-func (c *ClientCache) Get(netAddr network.AddressGroup) (client.Client, error) {
+func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
+	netAddr := info.AddressGroup()
+
 	// multiaddr is used as a key in client cache since
 	// same host may have different connections(with tls or not),
 	// therefore, host+port pair is not unique

@@ -150,7 +150,11 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 		relay = func(node nodeDesc) error {
 			addr := node.info.Addresses()
 
-			c, err := p.clientConstructor.Get(addr)
+			var info client.NodeInfo
+
+			info.SetAddressGroup(addr)
+
+			c, err := p.clientConstructor.Get(info)
 			if err != nil {
 				return fmt.Errorf("could not create SDK client %s: %w", addr, err)
 			}

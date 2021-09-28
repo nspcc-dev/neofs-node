@@ -3,6 +3,7 @@ package getsvc
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"go.uber.org/zap"
 )
 
@@ -78,7 +79,11 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			// TODO: consider parallel execution
 			// TODO: consider optimization: if status == SPLIT we can continue until
 			//  we reach the best result - split info with linking object ID.
-			if exec.processNode(ctx, addrs[i].Addresses()) {
+			var info client.NodeInfo
+
+			info.SetAddressGroup(addrs[i].Addresses())
+
+			if exec.processNode(ctx, info) {
 				exec.log.Debug("completing the operation")
 				return true
 			}

@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 )
 
 type SimpleObjectWriter struct {
@@ -73,17 +72,20 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 	return s.obj.Object()
 }
 
-func (c *clientCacheWrapper) get(addr network.AddressGroup) (getClient, error) {
-	clt, err := c.cache.Get(addr)
+func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
+	clt, err := c.cache.Get(info)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientWrapper{
 		client: clt,
-	}, err
+	}, nil
 }
 
-func (c *clientWrapper) getObject(exec *execCtx, addr network.AddressGroup) (*objectSDK.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*objectSDK.Object, error) {
 	if exec.isForwardingEnabled() {
-		return exec.prm.forwarder(addr, c.client)
+		return exec.prm.forwarder(info, c.client)
 	}
 
 	if exec.headOnly() {

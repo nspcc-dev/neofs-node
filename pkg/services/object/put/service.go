@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -30,7 +29,7 @@ type Service struct {
 type Option func(*cfg)
 
 type ClientConstructor interface {
-	Get(network.AddressGroup) (client.Client, error)
+	Get(client.NodeInfo) (client.Client, error)
 }
 
 type cfg struct {

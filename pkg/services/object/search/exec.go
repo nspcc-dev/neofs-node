@@ -5,7 +5,7 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -117,8 +117,8 @@ func (exec *execCtx) generateTraverser(cid *cid.ID) (*placement.Traverser, bool)
 	}
 }
 
-func (exec execCtx) remoteClient(node network.AddressGroup) (searchClient, bool) {
-	c, err := exec.svc.clientConstructor.get(node)
+func (exec execCtx) remoteClient(info client.NodeInfo) (searchClient, bool) {
+	c, err := exec.svc.clientConstructor.get(info)
 	switch {
 	default:
 		exec.status = statusUndefined

@@ -8,8 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -264,8 +264,8 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 	}
 }
 
-func (exec execCtx) remoteClient(node network.AddressGroup) (getClient, bool) {
-	c, err := exec.svc.clientCache.get(node)
+func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
+	c, err := exec.svc.clientCache.get(info)
 
 	switch {
 	default:

@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -244,7 +245,7 @@ type remoteLoadAnnounceProvider struct {
 	netmapKeys netmapCore.AnnouncedKeys
 
 	clientCache interface {
-		Get(network.AddressGroup) (apiClient.Client, error)
+		Get(client.NodeInfo) (apiClient.Client, error)
 	}
 
 	deadEndProvider loadcontroller.WriterProvider
@@ -267,7 +268,11 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
-	c, err := r.clientCache.Get(netAddr)
+	var info client.NodeInfo
+
+	info.SetAddressGroup(netAddr)
+
+	c, err := r.clientCache.Get(info)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}

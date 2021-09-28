@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
@@ -12,7 +13,7 @@ import (
 )
 
 type clientCache interface {
-	Get(network.AddressGroup) (apiClient.Client, error)
+	Get(client.NodeInfo) (apiClient.Client, error)
 }
 
 // clientKeyRemoteProvider must provide remote writer and take into account
@@ -83,7 +84,11 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
 	}
 
-	c, err := rtp.clientCache.Get(netAddr)
+	var info client.NodeInfo
+
+	info.SetAddressGroup(netAddr)
+
+	c, err := rtp.clientCache.Get(info)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize API client: %w", err)
 	}

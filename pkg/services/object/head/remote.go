@@ -7,13 +7,14 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type ClientConstructor interface {
-	Get(network.AddressGroup) (client.Client, error)
+	Get(clientcore.NodeInfo) (client.Client, error)
 }
 
 // RemoteHeader represents utility for getting
@@ -66,7 +67,11 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", h, err)
 	}
 
-	c, err := h.clientCache.Get(prm.node)
+	var info clientcore.NodeInfo
+
+	info.SetAddressGroup(prm.node)
+
+	c, err := h.clientCache.Get(info)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, prm.node, err)
 	}
