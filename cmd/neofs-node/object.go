@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -24,7 +25,6 @@ import (
 	cntrwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -534,23 +534,18 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (client.Clie
 
 	nm, err := netmap.GetLatestNetworkMap(c.nmSrc)
 	if err == nil {
-		addr := info.AddressGroup()
+		key := info.PublicKey()
 
 		for i := range nm.Nodes {
-			var netAddr network.AddressGroup
+			if bytes.Equal(nm.Nodes[i].PublicKey(), key) {
+				prm := truststorage.UpdatePrm{}
+				prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 
-			err := netAddr.FromIterator(nm.Nodes[i])
-			if err == nil {
-				if netAddr.Intersects(addr) {
-					prm := truststorage.UpdatePrm{}
-					prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
-
-					return &reputationClient{
-						Client: cl.(coreclient.Client),
-						prm:    prm,
-						cons:   c,
-					}, nil
-				}
+				return &reputationClient{
+					Client: cl.(coreclient.Client),
+					prm:    prm,
+					cons:   c,
+				}, nil
 			}
 		}
 	} else {
