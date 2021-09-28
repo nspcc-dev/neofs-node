@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"go.uber.org/zap"
@@ -61,17 +60,6 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 		default:
 		}
 
-		var node network.AddressGroup
-
-		err := node.FromIterator(nodes[i])
-		if err != nil {
-			log.Error("could not parse network address",
-				zap.String("error", err.Error()),
-			)
-
-			continue
-		}
-
 		if p.netmapKeys.IsLocalKey(nodes[i].PublicKey()) {
 			if shortage == 0 {
 				// we can call the redundant copy callback
@@ -85,7 +73,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 		} else if shortage > 0 {
 			callCtx, cancel := context.WithTimeout(ctx, p.headTimeout)
 
-			_, err = p.remoteHeader.Head(callCtx, prm.WithNodeAddress(node))
+			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i].NodeInfo))
 
 			cancel()
 

@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
@@ -29,7 +29,7 @@ type RemoteHeader struct {
 type RemoteHeadPrm struct {
 	commonHeadPrm *Prm
 
-	node network.AddressGroup
+	node *netmap.NodeInfo
 }
 
 var ErrNotFound = errors.New("object header not found")
@@ -42,8 +42,8 @@ func NewRemoteHeader(keyStorage *util.KeyStorage, cache ClientConstructor) *Remo
 	}
 }
 
-// WithNodeAddress sets network address group of the remote node.
-func (p *RemoteHeadPrm) WithNodeAddress(v network.AddressGroup) *RemoteHeadPrm {
+// WithNodeInfo sets information about the remote node.
+func (p *RemoteHeadPrm) WithNodeInfo(v *netmap.NodeInfo) *RemoteHeadPrm {
 	if p != nil {
 		p.node = v
 	}
@@ -69,11 +69,14 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	var info clientcore.NodeInfo
 
-	info.SetAddressGroup(prm.node)
+	err = clientcore.NodeInfoFromRawNetmapElement(&info, prm.node)
+	if err != nil {
+		return nil, fmt.Errorf("parse client node info: %w", err)
+	}
 
 	c, err := h.clientCache.Get(info)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, prm.node, err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, info.AddressGroup(), err)
 	}
 
 	p := new(client.ObjectHeaderParams).
@@ -91,7 +94,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		client.WithKey(key),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, prm.node, err)
+		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, info.AddressGroup(), err)
 	}
 
 	return object.NewFromSDK(hdr), nil

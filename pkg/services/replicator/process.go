@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"go.uber.org/zap"
 )
@@ -69,20 +68,9 @@ func (p *Replicator) handleTask(ctx context.Context, task *Task) {
 
 		log := p.log.With(zap.String("node", hex.EncodeToString(task.nodes[i].PublicKey())))
 
-		var node network.AddressGroup
-
-		err := node.FromIterator(task.nodes[i])
-		if err != nil {
-			log.Error("could not parse network address",
-				zap.String("error", err.Error()),
-			)
-
-			continue
-		}
-
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
-		err = p.remoteSender.PutObject(callCtx, prm.WithNodeAddress(node))
+		err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i].NodeInfo))
 
 		cancel()
 

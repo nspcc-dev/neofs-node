@@ -3,7 +3,6 @@ package innerring
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	coreObject "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -48,11 +46,7 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 	}
 }
 
-func (c *ClientCache) Get(address network.AddressGroup) (client.Client, error) {
-	var info clientcore.NodeInfo
-
-	info.SetAddressGroup(address)
-
+func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
 	// Because cache is used by `ClientCache` exclusively,
 	// client will always have valid key.
 	return c.cache.Get(info)
@@ -77,19 +71,15 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 	getParams := new(client.GetObjectParams)
 	getParams.WithAddress(addr)
 
+	var info clientcore.NodeInfo
+
 	for _, node := range placement.FlattenNodes(nodes) {
-		var netAddr network.AddressGroup
-
-		err := netAddr.FromIterator(node)
+		err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
 		if err != nil {
-			c.log.Warn("can't parse remote address",
-				zap.String("key", hex.EncodeToString(node.PublicKey())),
-				zap.String("error", err.Error()))
-
-			continue
+			return nil, fmt.Errorf("parse client node info: %w", err)
 		}
 
-		cli, err := c.Get(netAddr)
+		cli, err := c.Get(info)
 		if err != nil {
 			c.log.Warn("can't setup remote connection",
 				zap.String("error", err.Error()))
@@ -141,16 +131,16 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 	headParams.WithMainFields()
 	headParams.WithAddress(objAddress)
 
-	var netAddr network.AddressGroup
+	var info clientcore.NodeInfo
 
-	err := netAddr.FromIterator(node)
+	err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse remote address: %w", err)
+		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	cli, err := c.Get(netAddr)
+	cli, err := c.Get(info)
 	if err != nil {
-		return nil, fmt.Errorf("can't setup remote connection with %s: %w", netAddr, err)
+		return nil, fmt.Errorf("can't setup remote connection with %s: %w", info.AddressGroup(), err)
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.headTimeout)
@@ -179,16 +169,16 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 	rangeParams.WithRangeList(rng)
 	rangeParams.WithSalt(nil) // it MUST be nil for correct hash concatenation in PDP game
 
-	var netAddr network.AddressGroup
+	var info clientcore.NodeInfo
 
-	err := netAddr.FromIterator(node)
+	err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse remote address: %w", err)
+		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	cli, err := c.Get(netAddr)
+	cli, err := c.Get(info)
 	if err != nil {
-		return nil, fmt.Errorf("can't setup remote connection with %s: %w", netAddr, err)
+		return nil, fmt.Errorf("can't setup remote connection with %s: %w", info.AddressGroup(), err)
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.rangeTimeout)

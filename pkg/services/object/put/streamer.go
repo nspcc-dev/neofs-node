@@ -148,18 +148,16 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
-			addr := node.info.Addresses()
-
 			var info client.NodeInfo
 
-			info.SetAddressGroup(addr)
+			client.NodeInfoFromNetmapElement(&info, node.info)
 
 			c, err := p.clientConstructor.Get(info)
 			if err != nil {
-				return fmt.Errorf("could not create SDK client %s: %w", addr, err)
+				return fmt.Errorf("could not create SDK client %s: %w", info.AddressGroup(), err)
 			}
 
-			return p.relay(addr, c)
+			return p.relay(info.AddressGroup(), c)
 		}
 	}
 
@@ -174,13 +172,16 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 				}
 			}
 
-			return &remoteTarget{
+			rt := &remoteTarget{
 				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
-				addr:              node.info.Addresses(),
 				clientConstructor: p.clientConstructor,
 			}
+
+			client.NodeInfoFromNetmapElement(&rt.nodeInfo, node.info)
+
+			return rt
 		},
 		relay: relay,
 		fmt:   p.fmtValidator,

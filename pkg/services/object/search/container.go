@@ -79,7 +79,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			// TODO: consider parallel execution
 			var info client.NodeInfo
 
-			info.SetAddressGroup(addrs[i].Addresses())
+			client.NodeInfoFromNetmapElement(&info, addrs[i])
 
 			exec.processNode(ctx, info)
 		}
