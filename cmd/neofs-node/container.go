@@ -23,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
@@ -261,16 +260,12 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
-	var netAddr network.AddressGroup
-
-	err := netAddr.FromIterator(srv)
-	if err != nil {
-		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
-	}
-
 	var info client.NodeInfo
 
-	info.SetAddressGroup(netAddr)
+	err := client.NodeInfoFromRawNetmapElement(&info, srv)
+	if err != nil {
+		return nil, fmt.Errorf("parse client node info: %w", err)
+	}
 
 	c, err := r.clientCache.Get(info)
 	if err != nil {

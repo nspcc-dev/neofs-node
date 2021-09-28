@@ -8,8 +8,8 @@ import (
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
@@ -117,6 +117,8 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*ob
 
 	ln := len(shuffled)
 
+	var info clientcore.NodeInfo
+
 	for i := range shuffled { // consider iterating over some part of container
 		log := ap.log.With(
 			zap.Stringer("cid", cid),
@@ -125,16 +127,14 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*ob
 			zap.Int("total_tries", ln),
 		)
 
-		var netAddr network.AddressGroup
-
-		err := netAddr.FromIterator(shuffled[i])
+		err := clientcore.NodeInfoFromRawNetmapElement(&info, shuffled[i])
 		if err != nil {
-			log.Warn("can't parse remote address", zap.String("error", err.Error()))
+			log.Warn("parse client node info", zap.String("error", err.Error()))
 
 			continue
 		}
 
-		cli, err := ap.clientCache.Get(netAddr)
+		cli, err := ap.clientCache.Get(info)
 		if err != nil {
 			log.Warn("can't setup remote connection", zap.String("error", err.Error()))
 

@@ -6,7 +6,6 @@ import (
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
@@ -77,16 +76,12 @@ func (rtp *remoteTrustProvider) InitRemote(srv reputationcommon.ServerInfo) (rep
 		return trustcontroller.SimpleWriterProvider(new(NopReputationWriter)), nil
 	}
 
-	var netAddr network.AddressGroup
-
-	err := netAddr.FromIterator(srv)
-	if err != nil {
-		return nil, fmt.Errorf("could not convert address to IP format: %w", err)
-	}
-
 	var info client.NodeInfo
 
-	info.SetAddressGroup(netAddr)
+	err := client.NodeInfoFromRawNetmapElement(&info, srv)
+	if err != nil {
+		return nil, fmt.Errorf("parse client node info: %w", err)
+	}
 
 	c, err := rtp.clientCache.Get(info)
 	if err != nil {

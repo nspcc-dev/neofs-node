@@ -81,7 +81,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			//  we reach the best result - split info with linking object ID.
 			var info client.NodeInfo
 
-			info.SetAddressGroup(addrs[i].Addresses())
+			client.NodeInfoFromNetmapElement(&info, addrs[i])
 
 			if exec.processNode(ctx, info) {
 				exec.log.Debug("completing the operation")

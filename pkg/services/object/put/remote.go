@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 )
@@ -21,7 +21,7 @@ type remoteTarget struct {
 
 	commonPrm *util.CommonPrm
 
-	addr network.AddressGroup
+	nodeInfo clientcore.NodeInfo
 
 	obj *object.Object
 
@@ -38,7 +38,7 @@ type RemoteSender struct {
 
 // RemotePutPrm groups remote put operation parameters.
 type RemotePutPrm struct {
-	node network.AddressGroup
+	node *netmap.NodeInfo
 
 	obj *object.Object
 }
@@ -55,13 +55,9 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
-	var info clientcore.NodeInfo
-
-	info.SetAddressGroup(t.addr)
-
-	c, err := t.clientConstructor.Get(info)
+	c, err := t.clientConstructor.Get(t.nodeInfo)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.addr, err)
+		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
 	}
 
 	id, err := c.PutObject(t.ctx, new(client.PutObjectParams).
@@ -75,7 +71,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		)...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.addr, err)
+		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
 	}
 
 	return new(transformer.AccessIdentifiers).
@@ -90,8 +86,8 @@ func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *Remot
 	}
 }
 
-// WithNodeAddress sets network address of the remote node.
-func (p *RemotePutPrm) WithNodeAddress(v network.AddressGroup) *RemotePutPrm {
+// WithNodeInfo sets information about the remote node.
+func (p *RemotePutPrm) WithNodeInfo(v *netmap.NodeInfo) *RemotePutPrm {
 	if p != nil {
 		p.node = v
 	}
@@ -113,8 +109,12 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	t := &remoteTarget{
 		ctx:               ctx,
 		keyStorage:        s.keyStorage,
-		addr:              p.node,
 		clientConstructor: s.clientConstructor,
+	}
+
+	err := clientcore.NodeInfoFromRawNetmapElement(&t.nodeInfo, p.node)
+	if err != nil {
+		return fmt.Errorf("parse client node info: %w", err)
 	}
 
 	if err := t.WriteHeader(object.NewRawFromObject(p.obj)); err != nil {
