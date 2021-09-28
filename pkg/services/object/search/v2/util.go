@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
@@ -46,7 +47,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client) ([]*objectSDK.ID, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) ([]*objectSDK.ID, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -89,6 +90,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 					return nil, fmt.Errorf("reading the response failed: %w", err)
 				}
 
+				// verify response key
+				if err = internal.VerifyResponseKeyV2(pubkey, resp); err != nil {
+					return nil, err
+				}
+
 				// verify response structure
 				if err := signature.VerifyServiceMessage(resp); err != nil {
 					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
@@ -111,11 +117,13 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	return p, nil
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.Client) ([]*objectSDK.ID, error)) searchsvc.RequestForwarder {
+func groupAddressRequestForwarder(f func(network.Address, client.Client, []byte) ([]*objectSDK.ID, error)) searchsvc.RequestForwarder {
 	return func(info client.NodeInfo, c client.Client) ([]*objectSDK.ID, error) {
 		var (
 			firstErr error
 			res      []*objectSDK.ID
+
+			key = info.PublicKey()
 		)
 
 		info.AddressGroup().IterateAddresses(func(addr network.Address) (stop bool) {
@@ -131,7 +139,7 @@ func groupAddressRequestForwarder(f func(network.Address, client.Client) ([]*obj
 				// would be nice to log otherwise
 			}()
 
-			res, err = f(addr, c)
+			res, err = f(addr, c, key)
 
 			return
 		})

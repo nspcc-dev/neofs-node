@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
@@ -129,6 +130,8 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.Client) error {
 	// open stream
 	resp := new(object.PutResponse)
 
+	key := info.PublicKey()
+
 	var firstErr error
 
 	info.AddressGroup().IterateAddresses(func(addr network.Address) (stop bool) {
@@ -170,6 +173,11 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.Client) error {
 		err = stream.Close()
 		if err != nil {
 			err = fmt.Errorf("closing the stream failed: %w", err)
+			return
+		}
+
+		// verify response key
+		if err = internal.VerifyResponseKeyV2(key, resp); err != nil {
 			return
 		}
 
