@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	mainchainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/mainchain"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -64,16 +63,6 @@ func initMorphComponents(c *cfg) {
 
 		fatalOnErr(err)
 	}
-
-	// replace to a separate initialing block during refactoring
-	// since current function initializes sidechain components
-	fn(mainchainconfig.RPCEndpoint(c.appCfg), mainchainconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
-		c.mainChainClient = cli
-
-		c.log.Debug("notary support",
-			zap.Bool("mainchain_enabled", cli.ProbeNotary()),
-		)
-	})
 
 	fn(morphconfig.RPCEndpoint(c.appCfg), morphconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
 		c.cfgMorph.client = cli

@@ -111,8 +111,6 @@ type cfg struct {
 
 	cfgReputation cfgReputation
 
-	mainChainClient *client.Client
-
 	clientCache *cache.ClientCache
 
 	persistate *state.PersistentStorage
