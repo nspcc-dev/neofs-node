@@ -37,6 +37,10 @@ func initMorphComponents(c *cfg) {
 	var err error
 
 	fn := func(addresses []string, dialTimeout time.Duration, handler func(*client.Client)) {
+		if len(addresses) == 0 {
+			fatalOnErr(errors.New("missing Neo RPC endpoints"))
+		}
+
 		crand := rand.New() // math/rand with cryptographic source
 		crand.Shuffle(len(addresses), func(i, j int) {
 			addresses[i], addresses[j] = addresses[j], addresses[i]
