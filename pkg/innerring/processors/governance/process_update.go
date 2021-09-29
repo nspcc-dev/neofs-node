@@ -2,8 +2,11 @@ package governance
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"sort"
+	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"go.uber.org/zap"
 )
 
@@ -43,7 +46,10 @@ func (gp *Processor) processAlphabetSync() {
 		return
 	}
 
-	gp.log.Info("alphabet list has been changed, starting update")
+	gp.log.Info("alphabet list has been changed, starting update",
+		zap.String("side_chain_alphabet", prettyKeys(sidechainAlphabet)),
+		zap.String("new_alphabet", prettyKeys(newAlphabet)),
+	)
 
 	// 1. Vote to side chain committee via alphabet contracts.
 	err = gp.voter.VoteForSidechainValidator(newAlphabet)
@@ -64,6 +70,11 @@ func (gp *Processor) processAlphabetSync() {
 				zap.String("error", err.Error()))
 		} else {
 			sort.Sort(newInnerRing)
+
+			gp.log.Info("update of the inner ring list",
+				zap.String("before", prettyKeys(innerRing)),
+				zap.String("after", prettyKeys(newInnerRing)),
+			)
 
 			if gp.notaryDisabled {
 				err = gp.netmapClient.UpdateInnerRing(newInnerRing)
@@ -102,4 +113,16 @@ func (gp *Processor) processAlphabetSync() {
 	}
 
 	gp.log.Info("finished alphabet list update")
+}
+
+func prettyKeys(keys keys.PublicKeys) string {
+	const delimiter = ","
+
+	sb := strings.Builder{}
+	for _, key := range keys {
+		sb.WriteString(hex.EncodeToString(key.Bytes()))
+		sb.WriteString(delimiter)
+	}
+
+	return strings.TrimRight(sb.String(), delimiter)
 }

@@ -99,7 +99,8 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),
-				zap.Uint64("epoch", epoch))
+				zap.Uint64("epoch", epoch),
+				zap.String("error", err.Error()))
 		}
 	})
 
