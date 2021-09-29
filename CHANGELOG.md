@@ -3,6 +3,16 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.25.1] - 2021-09-29
+
+### Fixed
+- Panic caused by missing Neo RPC endpoints in storage node's config (#863)
+
+### Added
+- Support of multiple Neo RPC endpoints in Inner Ring node (#792)
+
+`mainchain` section of storage node config is left unused by the application. 
+
 ## [0.25.0] - 2021-09-27 - Mungapdo (문갑도, 文甲島)
 
 ### Fixed
@@ -660,7 +670,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...master
+[0.25.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.23.1...v0.24.0
