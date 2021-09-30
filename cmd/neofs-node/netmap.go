@@ -7,6 +7,7 @@ import (
 	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
+	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -145,6 +146,19 @@ func initNetmapService(c *cfg) {
 
 		c.handleLocalNodeInfo(ni)
 	})
+
+	if c.cfgMorph.notaryEnabled {
+		c.cfgMorph.notaryDepositDuration = morphconfig.Notary(c.appCfg).Duration()
+
+		addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+			_, err := makeNotaryDeposit(c)
+			if err != nil {
+				c.log.Error("could not make notary deposit",
+					zap.String("error", err.Error()),
+				)
+			}
+		})
+	}
 }
 
 func bootstrapNode(c *cfg) {

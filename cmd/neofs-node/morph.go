@@ -78,11 +78,6 @@ func initMorphComponents(c *cfg) {
 				),
 			)
 			fatalOnErr(err)
-
-			c.cfgMorph.notaryDepositAmount = morphconfig.Notary(c.appCfg).Amount()
-			c.cfgMorph.notaryDepositDuration = morphconfig.Notary(c.appCfg).Duration()
-
-			newDepositTimer(c)
 		}
 
 		c.log.Debug("notary support",
@@ -122,8 +117,24 @@ func makeAndWaitNotaryDeposit(c *cfg) {
 }
 
 func makeNotaryDeposit(c *cfg) (util.Uint256, error) {
+	const (
+		// gasMultiplier defines how many times more the notary
+		// balance must be compared to the GAS balance of the node:
+		//     notaryBalance = GASBalance * gasMultiplier
+		gasMultiplier = 3
+
+		// gasDivisor defines what part of GAS balance (1/gasDivisor)
+		// should be transferred to the notary service
+		gasDivisor = 2
+	)
+
+	depositAmount, err := client.CalculateNotaryDepositAmount(c.cfgMorph.client, gasMultiplier, gasDivisor)
+	if err != nil {
+		return util.Uint256{}, fmt.Errorf("could not calculate notary deposit: %w", err)
+	}
+
 	return c.cfgMorph.client.DepositNotary(
-		c.cfgMorph.notaryDepositAmount,
+		depositAmount,
 		c.cfgMorph.notaryDepositDuration+notaryDepositExtraBlocks,
 	)
 }
