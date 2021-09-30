@@ -66,6 +66,8 @@ type contractState struct {
 	Hash        util.Uint160
 }
 
+const updateMethodName = "update"
+
 func (c *initializeContext) deployNNS(method string) error {
 	cs, err := c.readContract(nnsContract)
 	if err != nil {
@@ -146,13 +148,13 @@ func (c *initializeContext) deployContracts(method string) error {
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
-		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil && method != "migrate" {
+		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil && method != updateMethodName {
 			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
 			continue
 		}
 
 		invokeHash := mgmtHash
-		if method == "migrate" {
+		if method == updateMethodName {
 			invokeHash, err = nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
 			if err != nil {
 				return fmt.Errorf("can't resolve hash for contract update: %w", err)
@@ -170,7 +172,7 @@ func (c *initializeContext) deployContracts(method string) error {
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
 		}
-		if method == "migrate" {
+		if method == updateMethodName {
 			signer = transaction.Signer{
 				Account: c.CommitteeAcc.Contract.ScriptHash(),
 				Scopes:  transaction.CalledByEntry,
@@ -185,7 +187,7 @@ func (c *initializeContext) deployContracts(method string) error {
 			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
 		}
 
-		if method == "migrate" {
+		if method == updateMethodName {
 			if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
 				return err
 			}
@@ -204,13 +206,13 @@ func (c *initializeContext) deployContracts(method string) error {
 
 	for _, ctrName := range contractList {
 		cs := c.Contracts[ctrName]
-		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != "migrate" {
+		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != updateMethodName {
 			c.Command.Printf("%s contract is already deployed.\n", ctrName)
 			continue
 		}
 
 		invokeHash := mgmtHash
-		if method == "migrate" {
+		if method == updateMethodName {
 			invokeHash, err = nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
 			if err != nil {
 				return fmt.Errorf("can't resolve hash for contract update: %w", err)
