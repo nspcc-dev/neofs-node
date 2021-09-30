@@ -74,10 +74,6 @@
       "wss://rpc1.morph.fs.neo.org:40341/ws",
       "wss://rpc2.morph.fs.neo.org:40341/ws"
     ],
-    "notary": {
-      "deposit_amount": 100000001,
-      "deposit_duration": 1001
-    }
   },
   "mainchain": {
     "dial_timeout": "30s",
