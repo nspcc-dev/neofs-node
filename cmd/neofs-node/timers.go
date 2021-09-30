@@ -5,7 +5,6 @@ import (
 
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
-	"go.uber.org/zap"
 )
 
 type (
@@ -83,19 +82,4 @@ func newEigenTrustIterTimer(c *cfg, it *EigenTrustDuration, handler timer.BlockT
 	)
 
 	c.cfgMorph.blockTimers = append(c.cfgMorph.blockTimers, c.cfgMorph.eigenTrustTimer)
-}
-
-func newDepositTimer(c *cfg) {
-	c.cfgMorph.blockTimers = append(c.cfgMorph.blockTimers,
-		timer.NewBlockTimer(
-			timer.StaticBlockMeter(c.cfgMorph.notaryDepositDuration),
-			func() {
-				_, err := makeNotaryDeposit(c)
-				if err != nil {
-					c.log.Warn("can't deposit notary contract",
-						zap.String("error", err.Error()))
-				}
-			},
-		),
-	)
 }
