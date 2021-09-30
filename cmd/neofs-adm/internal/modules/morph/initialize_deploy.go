@@ -313,10 +313,18 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[containerContract].Hash))
 	case containerContract:
+		// In case if NNS is updated multiple times, we can't calculate
+		// it's actual hash based on local data, thus query chain.
+		nnsCs, err := c.Client.GetContractStateByID(1)
+		if err != nil {
+			panic("NNS is not yet deployed")
+		}
 		items = append(items,
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[balanceContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[neofsIDContract].Hash))
+			newContractParameter(smartcontract.Hash160Type, c.Contracts[neofsIDContract].Hash),
+			newContractParameter(smartcontract.Hash160Type, nnsCs.Hash),
+			newContractParameter(smartcontract.StringType, "container"))
 	case neofsIDContract:
 		items = append(items,
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
