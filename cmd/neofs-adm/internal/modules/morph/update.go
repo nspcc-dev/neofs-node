@@ -13,7 +13,7 @@ func updateContracts(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("initialization error: %w", err)
 	}
 
-	if err := wCtx.deployContracts("migrate"); err != nil {
+	if err := wCtx.deployContracts(updateMethodName); err != nil {
 		return err
 	}
 
