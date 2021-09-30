@@ -30,7 +30,7 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 		} else {
 			// use epoch as TX nonce to prevent collisions
 			err = np.netmapClient.Morph().NotaryInvoke(
-				np.netmapContract,
+				np.netmapClient.ContractAddress(),
 				0,
 				uint32(ev.epoch),
 				netmapEvent.UpdateStateNotaryEvent,
