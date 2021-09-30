@@ -603,7 +603,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	var alphaSync event.Handler
 
-	if server.withoutMainNet {
+	if server.withoutMainNet || cfg.GetBool("governance.disable") {
 		alphaSync = func(event.Event) {
 			log.Debug("alphabet keys sync is disabled")
 		}

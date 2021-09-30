@@ -120,4 +120,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("control.authorized_keys", []string{})
 	cfg.SetDefault("control.grpc.endpoint", "")
+
+	cfg.SetDefault("governance.disable", false)
 }
