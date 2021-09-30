@@ -61,6 +61,8 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	buf := bytes.NewBuffer(nil)
 	tw := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 
+	_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s\n", nnsContract, cs.Hash.StringLE())))
+
 	if irSize != 0 {
 		bw.Reset()
 		for i := 0; i < irSize; i++ {
