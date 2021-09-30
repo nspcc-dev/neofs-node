@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
@@ -19,8 +18,6 @@ func TestMorphSection(t *testing.T) {
 		require.Panics(t, func() { morphconfig.NotificationEndpoint(empty) })
 		require.Equal(t, morphconfig.DialTimeoutDefault, morphconfig.DialTimeout(empty))
 		require.Equal(t, false, morphconfig.DisableCache(empty))
-		require.Equal(t, fixedn.Fixed8(morphconfig.NotaryDepositAmountDefault), morphconfig.Notary(empty).Amount())
-		require.Equal(t, morphconfig.NotaryDepositDurationDefault, morphconfig.Notary(empty).Duration())
 	})
 
 	const path = "../../../../config/example/node"
@@ -42,8 +39,6 @@ func TestMorphSection(t *testing.T) {
 		require.Equal(t, wss, morphconfig.NotificationEndpoint(c))
 		require.Equal(t, 30*time.Second, morphconfig.DialTimeout(c))
 		require.Equal(t, true, morphconfig.DisableCache(c))
-		require.Equal(t, fixedn.Fixed8(100000001), morphconfig.Notary(c).Amount())
-		require.Equal(t, uint32(1001), morphconfig.Notary(c).Duration())
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
