@@ -1,53 +1,53 @@
 logger:
-  level: debug
+  level: debug  # logger level: one of "info"(default), "debug", "warn", "error", "dpanic", "panic", "fatal"
 
 profiler:
-  address: 127.0.0.1:6060
-  shutdown_timeout: 15s
+  address: 127.0.0.1:6060  # endpoint for Node profiling
+  shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
 
 metrics:
-  address: 127.0.0.1:9090
-  shutdown_timeout: 15s
+  address: 127.0.0.1:9090  # endpoint for Node metrics
+  shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
 
 node:
-  key: ./wallet.key
+  key: ./wallet.key  # path to a binary private key
   wallet:
-    path: "./wallet.json"
-    address: "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz"
-    password: "password"
-  addresses:
+    path: "./wallet.json"  # path to a NEO wallet; ignored if key is presented
+    address: "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz"  # address of a NEO account in the wallet; ignored if key is presented
+    password: "password"  # password for a NEO account in the wallet; ignored if key is presented
+  addresses:  # list of addresses announced by Storage node in the Network map
     - s01.neofs.devenv:8080
     - /dns4/s02.neofs.devenv/tcp/8081
     - grpc://127.0.0.1:8082
     - grpcs://localhost:8083
   attribute_0: "Price:11"
   attribute_1: UN-LOCODE:RU MSK
-  relay: true
-  persistent_state:
+  relay: true  # start Storage node in relay mode without bootstrapping into the Network map
+  persistent_state:  # path to persistent state file of Storage node
     path: /state
 
 grpc:
-  num: 2
+  num: 2  # total number of listener endpoints
   0:
-    endpoint: s01.neofs.devenv:8080
+    endpoint: s01.neofs.devenv:8080  # endpoint for gRPC server
     tls:
-      enabled: true
-      certificate: /path/to/cert
-      key: /path/to/key
+      enabled: true  # use TLS for a gRPC connection
+      certificate: /path/to/cert  # path to TLS certificate
+      key: /path/to/key  # path to TLS key
 
   1:
-    endpoint: s02.neofs.devenv:8080
+    endpoint: s02.neofs.devenv:8080  # endpoint for gRPC server
     tls:
-      enabled: false
+      enabled: false  # use TLS for a gRPC connection
 
 control:
-  authorized_keys:
+  authorized_keys:  # list of hex-encoded public keys that have rights to use the Control Service
     - 035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11
     - 028f42cfcb74499d7b15b35d9bff260a1c8d27de4f446a627406a382d8961486d6
   grpc:
-    endpoint: 127.0.0.1:8090
+    endpoint: 127.0.0.1:8090  # endpoint that is listened by the Control Service
 
-contracts:
+contracts:  # side chain NEOFS contract script hashes; optional, override values retrieved from NNS contract
   balance: 5263abba1abedbf79bb57f3e40b50b4425d2d6cd
   container: 5d084790d7aa36cea7b53fe897380dab11d2cd3c
   netmap: 0cce9e948dca43a6b592efe59ddb4ecb89bdd9ca
@@ -55,105 +55,105 @@ contracts:
   proxy: ad7c6b55b737b696e5c82c85445040964a03e97f
 
 morph:
-  dial_timeout: 30s
-  disable_cache: true
-  rpc_endpoint:
+  dial_timeout: 30s  # timeout for side chain NEO RPC client connection
+  disable_cache: true  # do not use TTL cache for side chain GET operations
+  rpc_endpoint:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
     - https://rpc1.morph.fs.neo.org:40341
     - https://rpc2.morph.fs.neo.org:40341
-  notification_endpoint:
+  notification_endpoint:  # side chain NEO RPC notification endpoints; are shuffled and used only the first non-error one
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
   notary:
-    deposit_amount: 100000001
-    deposit_duration: 1001
+    deposit_amount: 100000001  # notary deposit GAS amount
+    deposit_duration: 1001  # notary deposit period in blocks
 
-mainchain:
-  dial_timeout: 30s
-  rpc_endpoint:
+mainchain:  # DEPRECATED section, is not used and not read
+  dial_timeout: 30s  # timeout for main chain NEO RPC client connection
+  rpc_endpoint:  # main chain NEO RPC endpoints; are shuffled and used one by one until the first success
     - https://rpc1.n3.nspcc.ru:30341
     - https://rpc2.n3.nspcc.ru:30341
 
 apiclient:
-  dial_timeout: 15s
+  dial_timeout: 15s  # timeout for NEOFS API client connection
 
 policer:
-  head_timeout: 15s
+  head_timeout: 15s  # timeout for the Policer HEAD remote operation
 
 replicator:
-  put_timeout: 15s
+  put_timeout: 15s  # timeout for the Replicator PUT remote operation
 
 object:
   put:
-    pool_size_remote: 100
-    pool_size_local: 101
+    pool_size_remote: 100  # number of async workers for remote PUT operations
+    pool_size_local: 101  # number of async workers for local PUT operations
 
 storage:
-  shard_num: 2
+  shard_num: 2  # total number of shards
   shard:
     0:
-      refill_metabase: false
+      refill_metabase: false  # sync metabase with blobstore on start, expensive, leave false until complete understanding
 
-      use_write_cache: false
+      use_write_cache: false  # use write-cache
 
       writecache:
-        path: tmp/0/cache
-        mem_size: 2147483648
-        small_size: 16384
-        max_size: 134217728
-        workers_number: 30
-        size_limit: 3221225472
+        path: tmp/0/cache  # write-cache root directory
+        mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
+        small_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not on FS, bytes
+        max_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
+        workers_number: 30  # number of write-cache flusher threads
+        size_limit: 3221225472  # approximate write-cache total size, bytes
 
       metabase:
-        path: tmp/0/meta
-        perm: 0644
+        path: tmp/0/meta  # metabase path
+        perm: 0644  # permissions for metabase files(directories: +x for current user and group)
 
       blobstor:
-        path: tmp/0/blob
-        perm: 0644
-        compress: true
-        shallow_depth: 5
-        small_size_limit: 102400
+        path: tmp/0/blob  # blobstor path
+        perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
+        compress: true  # turn on/off zstd(level 3) compression of stored objects
+        shallow_depth: 5  # max depth of object tree storage in FS
+        small_size_limit: 102400  # size threshold for objects that are considered to be "small", bytes
 
         blobovnicza:
-          size: 4194304
-          shallow_depth: 1
-          shallow_width: 4
-          opened_cache_size: 50
+          size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
+          shallow_depth: 1  # max depth of object tree storage in key-value DB
+          shallow_width: 4   # max width of object tree storage in key-value DB
+          opened_cache_size: 50  # maximum number of opened database files
 
       gc:
-        remover_batch_size: 150
-        remover_sleep_interval: 2m
+        remover_batch_size: 150  # number of objects to be removed by the garbage collector
+        remover_sleep_interval: 2m  # frequency of the garbage collector invocation
 
     1:
-      refill_metabase: true
+      refill_metabase: true  # sync metabase with blobstore on start, expensive, leave false until complete understanding
 
-      use_write_cache: true
+      use_write_cache: true  # use write-cache
 
       writecache:
-        path: tmp/1/cache
-        mem_size: 2147483648
-        small_size: 16384
-        max_size: 134217728
-        workers_number: 30
-        size_limit: 4294967296
+        path: tmp/1/cache  # write-cache root directory
+        mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
+        small_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+        max_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
+        workers_number: 30  # number of write-cache flusher threads
+        size_limit: 4294967296  # approximate write-cache total size, bytes
 
       metabase:
-        path: tmp/1/meta
-        perm: 0644
+        path: tmp/1/meta  # metabase path
+        perm: 0644  # permissions for metabase files(directories: +x for current user and group)
 
       blobstor:
-        path: tmp/1/blob
-        perm: 0644
-        compress: false
-        shallow_depth: 5
-        small_size_limit: 102400
+        path: tmp/1/blob  # blobstor path
+        perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
+        compress: false  # turn on/off zstd(level 3) compression of stored objects
+        shallow_depth: 5  # max depth of object tree storage in FS
+        small_size_limit: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
 
         blobovnicza:
-          size: 4194304
-          shallow_depth: 1
-          shallow_width: 4
-          opened_cache_size: 50
+          size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
+          shallow_depth: 1  # max depth of object tree storage in key-value DB
+          shallow_width: 4   # max width of object tree storage in key-value DB
+          opened_cache_size: 50  # maximum number of opened database files
 
       gc:
-        remover_batch_size: 200
-        remover_sleep_interval: 5m
+        remover_batch_size: 200  # number of objects to be removed by the garbage collector
+        remover_sleep_interval: 5m  # frequency of the garbage collector invocation
