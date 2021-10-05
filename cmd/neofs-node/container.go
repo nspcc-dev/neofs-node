@@ -228,6 +228,16 @@ func (*morphLoadWriter) Close() error {
 	return nil
 }
 
+type nopLoadWriter struct{}
+
+func (nopLoadWriter) Put(containerSDK.UsedSpaceAnnouncement) error {
+	return nil
+}
+
+func (nopLoadWriter) Close() error {
+	return nil
+}
+
 type remoteLoadAnnounceProvider struct {
 	key *ecdsa.PrivateKey
 
@@ -241,8 +251,13 @@ type remoteLoadAnnounceProvider struct {
 }
 
 func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadcontroller.WriterProvider, error) {
-	if srv == nil || r.netmapKeys.IsLocalKey(srv.PublicKey()) {
+	if srv == nil {
 		return r.deadEndProvider, nil
+	}
+
+	if r.netmapKeys.IsLocalKey(srv.PublicKey()) {
+		// if local => return no-op writer
+		return loadcontroller.SimpleWriterProvider(new(nopLoadWriter)), nil
 	}
 
 	var info client.NodeInfo
