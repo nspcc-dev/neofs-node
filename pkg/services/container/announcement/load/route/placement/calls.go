@@ -1,6 +1,7 @@
 package placementrouter
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
@@ -30,7 +31,15 @@ func (b *Builder) NextStage(a container.UsedSpaceAnnouncement, passed []loadrout
 			continue
 		}
 
-		res = append(res, placement[i][0])
+		target := placement[i][0]
+
+		if len(passed) == 1 && bytes.Equal(passed[0].PublicKey(), target.PublicKey()) {
+			// add nil element so the announcement will be saved in local memory
+			res = append(res, nil)
+		} else {
+			// add element with remote node to send announcement to
+			res = append(res, target)
+		}
 	}
 
 	return res, nil
