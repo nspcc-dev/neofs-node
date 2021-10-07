@@ -139,11 +139,20 @@ func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util
 	if len(result.Stack) == 0 {
 		return util.Uint160{}, errors.New("result stack is empty")
 	}
-	arr, ok := result.Stack[len(result.Stack)-1].Value().([]stackitem.Item)
-	if !ok || len(arr) == 0 {
-		return util.Uint160{}, errors.New("malformed response")
+	return parseNNSResolveResult(result.Stack[len(result.Stack)-1])
+}
+
+// parseNNSResolveResult parses the result of resolving NNS record.
+// It works with multiple formats (corresponding to multiple NNS versions).
+// If array of hashes is provided, it returns only the first one.
+func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
+	if arr, ok := res.Value().([]stackitem.Item); ok {
+		if len(arr) == 0 {
+			return util.Uint160{}, errors.New("NNS record is missing")
+		}
+		res = arr[0]
 	}
-	bs, err := arr[0].TryBytes()
+	bs, err := res.TryBytes()
 	if err != nil {
 		return util.Uint160{}, errors.New("malformed response")
 	}

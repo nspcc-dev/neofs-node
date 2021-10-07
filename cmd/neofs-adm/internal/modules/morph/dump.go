@@ -78,9 +78,8 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 		for i := 0; i < irSize; i++ {
 			ctrHash := "hash is invalid"
-			bs, err := alphaRes.Stack[i].TryBytes()
-			if err == nil {
-				ctrHash = string(bs) // hashes are stored as hex-encoded LE string
+			if h, err := parseNNSResolveResult(alphaRes.Stack[i]); err == nil {
+				ctrHash = h.StringLE()
 			}
 
 			_, _ = tw.Write([]byte(fmt.Sprintf("alphabet %d:\t%s\n", i, ctrHash)))
@@ -89,9 +88,8 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 	for i := range contractList {
 		ctrHash := "hash is invalid"
-		bs, err := res.Stack[i].TryBytes()
-		if err == nil {
-			ctrHash = string(bs) // hashes are stored as hex-encoded LE string
+		if h, err := parseNNSResolveResult(res.Stack[i]); err == nil {
+			ctrHash = h.StringLE()
 		}
 
 		_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s\n", contractList[i], ctrHash)))
