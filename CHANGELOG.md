@@ -3,6 +3,10 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Changed
+- Do not use global flags in CLI; delete useless flags from `accounting balance`
+  command (#810)
+
 ## [0.25.1] - 2021-09-29
 
 ### Fixed
