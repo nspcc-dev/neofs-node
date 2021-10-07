@@ -32,7 +32,7 @@ func From(c *config.Config) *Config {
 //
 // Returns SizeDefault if value is not a positive number.
 func (x *Config) Size() uint64 {
-	s := config.UintSafe(
+	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
 		"size",
 	)
