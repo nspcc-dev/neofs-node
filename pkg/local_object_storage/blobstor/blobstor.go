@@ -26,6 +26,8 @@ type Option func(*cfg)
 type cfg struct {
 	fsTree fstree.FSTree
 
+	compressionEnabled bool
+
 	compressor func([]byte) []byte
 
 	decompressor func([]byte) ([]byte, error)
@@ -65,8 +67,6 @@ func defaultCfg() *cfg {
 				RootPath:    "./",
 			},
 		},
-		compressor:      noOpCompressor,
-		decompressor:    noOpDecompressor,
 		smallSizeLimit:  defaultSmallSizeLimit,
 		log:             zap.L(),
 		openedCacheSize: defaultOpenedCacheSize,
@@ -111,26 +111,9 @@ func WithShallowDepth(depth int) Option {
 // If compressor (decompressor) creation failed,
 // the uncompressed option will be used, and the error
 // is recorded in the provided log.
-func WithCompressObjects(comp bool, log *logger.Logger) Option {
+func WithCompressObjects(comp bool) Option {
 	return func(c *cfg) {
-		if comp {
-			var err error
-
-			if c.compressor, err = zstdCompressor(); err != nil {
-				log.Error("could not create zstd compressor",
-					zap.String("error", err.Error()),
-				)
-			} else if c.decompressor, err = zstdDecompressor(); err != nil {
-				log.Error("could not create zstd decompressor",
-					zap.String("error", err.Error()),
-				)
-			} else {
-				return
-			}
-		}
-
-		c.compressor = noOpCompressor
-		c.decompressor = noOpDecompressor
+		c.compressionEnabled = comp
 	}
 }
 

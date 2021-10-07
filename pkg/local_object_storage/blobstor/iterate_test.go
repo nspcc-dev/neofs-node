@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objecttest "github.com/nspcc-dev/neofs-api-go/pkg/object/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +18,7 @@ func TestIterateObjects(t *testing.T) {
 
 	// create BlobStor instance
 	blobStor := New(
-		WithCompressObjects(true, test.NewLogger(false)),
+		WithCompressObjects(true),
 		WithRootPath(p),
 		WithSmallSizeLimit(smalSz),
 		WithBlobovniczaShallowWidth(1),

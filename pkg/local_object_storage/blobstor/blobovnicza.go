@@ -781,6 +781,22 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 func (b *blobovniczas) init() error {
 	b.log.Debug("initializing Blobovnicza's")
 
+	if b.compressionEnabled {
+		zstdC, err := zstdCompressor()
+		if err != nil {
+			return fmt.Errorf("could not create zstd compressor: %v", err)
+		}
+		zstdD, err := zstdDecompressor()
+		if err != nil {
+			return fmt.Errorf("could not create zstd decompressor: %v", err)
+		}
+		b.compressor = zstdC
+		b.decompressor = zstdD
+	} else {
+		b.compressor = noOpCompressor
+		b.decompressor = noOpDecompressor
+	}
+
 	return b.iterateBlobovniczas(func(p string, blz *blobovnicza.Blobovnicza) error {
 		if err := blz.Init(); err != nil {
 			return fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
