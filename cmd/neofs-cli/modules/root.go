@@ -28,8 +28,6 @@ const (
 	envPrefix = "NEOFS_CLI"
 )
 
-const xHeadersFlag = "xhdr"
-
 var xHeaders []string
 
 // Global scope flags.
@@ -401,4 +399,11 @@ func bindCommonFlags(cmd *cobra.Command) {
 	_ = viper.BindPFlag(address, ff.Lookup(address))
 	_ = viper.BindPFlag(rpc, ff.Lookup(rpc))
 	_ = viper.BindPFlag(verbose, ff.Lookup(verbose))
+}
+
+func bindAPIFlags(cmd *cobra.Command) {
+	ff := cmd.Flags()
+
+	_ = viper.BindPFlag(ttl, ff.Lookup(ttl))
+	_ = viper.BindPFlag(xHeadersKey, ff.Lookup(xHeadersKey))
 }
