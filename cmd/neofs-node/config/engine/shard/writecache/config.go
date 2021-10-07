@@ -51,7 +51,7 @@ func (x *Config) Path() string {
 //
 // Returns MemSizeDefault if value is not a positive number.
 func (x *Config) MemSize() uint64 {
-	s := config.UintSafe(
+	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
 		"mem_size",
 	)
@@ -67,7 +67,7 @@ func (x *Config) MemSize() uint64 {
 //
 // Returns SmallSizeDefault if value is not a positive number.
 func (x *Config) SmallObjectSize() uint64 {
-	s := config.UintSafe(
+	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
 		"small_size",
 	)
@@ -83,7 +83,7 @@ func (x *Config) SmallObjectSize() uint64 {
 //
 // Returns MaxSizeDefault if value is not a positive number.
 func (x *Config) MaxObjectSize() uint64 {
-	s := config.UintSafe(
+	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
 		"max_size",
 	)
@@ -115,7 +115,7 @@ func (x *Config) WorkersNumber() int {
 //
 // Returns SizeLimitDefault if value is not a positive number.
 func (x *Config) SizeLimit() uint64 {
-	c := config.UintSafe(
+	c := config.SizeInBytesSafe(
 		(*config.Config)(x),
 		"size_limit",
 	)

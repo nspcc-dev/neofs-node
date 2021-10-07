@@ -92,7 +92,7 @@ func (x *Config) Compress() bool {
 //
 // Returns SmallSizeLimitDefault if value is not a positive number.
 func (x *Config) SmallSizeLimit() uint64 {
-	l := config.UintSafe(
+	l := config.SizeInBytesSafe(
 		(*config.Config)(x),
 		"small_size_limit",
 	)
