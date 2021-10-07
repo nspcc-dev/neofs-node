@@ -13,9 +13,9 @@ func updateContracts(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("initialization error: %w", err)
 	}
 
-	if err := wCtx.deployContracts(updateMethodName); err != nil {
+	if err := wCtx.deployNNS(updateMethodName); err != nil {
 		return err
 	}
 
-	return wCtx.deployNNS("update")
+	return wCtx.deployContracts(updateMethodName)
 }
