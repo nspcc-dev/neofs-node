@@ -223,7 +223,7 @@ func (c *initializeContext) deployContracts(method string) error {
 			c.getContractDeployData(ctrName, keysParam))
 		signer := transaction.Signer{
 			Account: c.CommitteeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.CalledByEntry,
+			Scopes:  transaction.Global,
 		}
 
 		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
