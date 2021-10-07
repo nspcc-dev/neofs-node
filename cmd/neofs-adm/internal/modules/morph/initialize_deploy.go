@@ -74,12 +74,12 @@ func (c *initializeContext) deployNNS(method string) error {
 		return err
 	}
 
-	if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != "update" {
+	if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != updateMethodName {
 		return nil
 	}
 
 	params := getContractDeployParameters(cs.RawNEF, cs.RawManifest, nil)
-	if method == "update" {
+	if method == updateMethodName {
 		params = params[:len(params)-1] // update has only NEF and manifest args
 	}
 
@@ -89,7 +89,7 @@ func (c *initializeContext) deployNNS(method string) error {
 	}
 
 	mgmtHash := c.nativeHash(nativenames.Management)
-	if method == "update" {
+	if method == updateMethodName {
 		nnsCs, err := c.Client.GetContractStateByID(1)
 		if err != nil {
 			return fmt.Errorf("can't resolve NNS hash for contract update: %w", err)
