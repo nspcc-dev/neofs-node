@@ -15,6 +15,7 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 	cnr, err := p.cnrSrc.Get(addr.ContainerID())
 	if err != nil {
 		p.log.Error("could not get container",
+			zap.Stringer("cid", addr.ContainerID()),
 			zap.String("error", err.Error()),
 		)
 
