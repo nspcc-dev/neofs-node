@@ -46,6 +46,7 @@ var (
 			// bind exactly that cmd's flags to
 			// the viper before execution
 			bindCommonFlags(cmd)
+			bindAPIFlags(cmd)
 		},
 	}
 
