@@ -1,6 +1,7 @@
 package morph
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
 const defaultNameServiceDomainPrice = 10_0000_0000
@@ -86,19 +88,20 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	bw := io.NewBufBinWriter()
 	if ok {
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
-			domain, c.CommitteeAcc.Contract.ScriptHash())
+			domain, c.CommitteeAcc.Contract.ScriptHash(),
+			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	} else {
-		s, err := c.Client.NNSResolve(nnsHash, domain, nns.TXT)
+		s, err := nnsResolveHash(c.Client, nnsHash, domain)
 		if err != nil {
 			return err
 		}
-		if s == expectedHash.StringLE() {
+		if s != expectedHash {
 			return nil
 		}
 	}
 
-	emit.AppCall(bw.BinWriter, nnsHash, "setRecord", callflag.All,
+	emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
 		domain, int64(nns.TXT), expectedHash.StringLE())
 
 	if bw.Err != nil {
@@ -119,10 +122,32 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error
 }
 
 func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
-	s, err := c.NNSResolve(nnsHash, domain, nns.TXT)
+	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
+		{
+			Type:  smartcontract.StringType,
+			Value: domain,
+		},
+		{
+			Type:  smartcontract.IntegerType,
+			Value: int64(nns.TXT),
+		},
+	}, nil)
 	if err != nil {
-		return util.Uint160{}, err
+		return util.Uint160{}, fmt.Errorf("`resolve`: %w", err)
 	}
-
-	return util.Uint160DecodeStringLE(s)
+	if result.State != vm.HaltState.String() {
+		return util.Uint160{}, fmt.Errorf("invocation failed: %s", result.FaultException)
+	}
+	if len(result.Stack) == 0 {
+		return util.Uint160{}, errors.New("result stack is empty")
+	}
+	arr, ok := result.Stack[len(result.Stack)-1].Value().([]stackitem.Item)
+	if !ok || len(arr) == 0 {
+		return util.Uint160{}, errors.New("malformed response")
+	}
+	bs, err := arr[0].TryBytes()
+	if err != nil {
+		return util.Uint160{}, errors.New("malformed response")
+	}
+	return util.Uint160DecodeStringLE(string(bs))
 }
