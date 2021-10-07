@@ -46,5 +46,15 @@
     "correct": true,
     "correct_string": "true",
     "incorrect": "not true"
+  },
+
+  "sizes": {
+    "size_kb": "1 kb",
+    "size_kb_no_space": "2kb",
+    "size_mb": "12m",
+    "size_gb": "4g",
+    "size_tb": "5 TB",
+    "size_bytes": "2048b",
+    "size_bytes_no_suffix": 123456
   }
 }

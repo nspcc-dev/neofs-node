@@ -115,3 +115,22 @@ func TestNumbers(t *testing.T) {
 		require.Zero(t, config.UintSafe(c, incorrect))
 	})
 }
+
+func TestSizeInBytes(t *testing.T) {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+		tb = 1024 * gb
+	)
+	configtest.ForEachFileType("test/config", func(c *config.Config) {
+		c = c.Sub("sizes")
+		require.EqualValues(t, kb, config.SizeInBytesSafe(c, "size_kb"))
+		require.EqualValues(t, 2*kb, config.SizeInBytesSafe(c, "size_kb_no_space"))
+		require.EqualValues(t, 12*mb, config.SizeInBytesSafe(c, "size_mb"))
+		require.EqualValues(t, 4*gb, config.SizeInBytesSafe(c, "size_gb"))
+		require.EqualValues(t, 5*tb, config.SizeInBytesSafe(c, "size_tb"))
+		require.EqualValues(t, 2048, config.SizeInBytesSafe(c, "size_bytes"))
+		require.EqualValues(t, 123456, config.SizeInBytesSafe(c, "size_bytes_no_suffix"))
+	})
+}

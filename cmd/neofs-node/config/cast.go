@@ -1,7 +1,9 @@
 package config
 
 import (
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cast"
 )
@@ -143,4 +145,64 @@ func Int(c *Config, name string) int64 {
 // Returns 0 if value can not be casted.
 func IntSafe(c *Config, name string) int64 {
 	return cast.ToInt64(c.Value(name))
+}
+
+// SizeInBytesSafe reads configuration value
+// from c by name and casts it to size in bytes (uint64).
+//
+// The suffix can be single-letter (b, k, m, g, t) or with
+// an additional b at the end. Spaces between the number and the suffix
+// are allowed. All multipliers are power of 2 (i.e. k is for kibi-byte).
+//
+// Returns 0 if a value can't be casted.
+func SizeInBytesSafe(c *Config, name string) uint64 {
+	s := StringSafe(c, name)
+	return parseSizeInBytes(s)
+}
+
+// The following code is taken from https://github.com/spf13/viper/blob/master/util.go
+// with minor corrections (allow to use both `k` and `kb` forms.
+// Seems like viper allows to convert sizes but corresponding parser in `cast` package
+// is missing.
+func safeMul(a, b uint64) uint64 {
+	c := a * b
+	if a > 1 && b > 1 && c/b != a {
+		return 0
+	}
+	return c
+}
+
+// parseSizeInBytes converts strings like 1GB or 12 mb into an unsigned integer number of bytes
+func parseSizeInBytes(sizeStr string) uint64 {
+	sizeStr = strings.TrimSpace(sizeStr)
+	lastChar := len(sizeStr) - 1
+	multiplier := uint64(1)
+
+	if lastChar > 0 {
+		if sizeStr[lastChar] == 'b' || sizeStr[lastChar] == 'B' {
+			lastChar--
+		}
+		if lastChar > 0 {
+			switch unicode.ToLower(rune(sizeStr[lastChar])) {
+			case 'k':
+				multiplier = 1 << 10
+				sizeStr = strings.TrimSpace(sizeStr[:lastChar])
+			case 'm':
+				multiplier = 1 << 20
+				sizeStr = strings.TrimSpace(sizeStr[:lastChar])
+			case 'g':
+				multiplier = 1 << 30
+				sizeStr = strings.TrimSpace(sizeStr[:lastChar])
+			case 't':
+				multiplier = 1 << 40
+				sizeStr = strings.TrimSpace(sizeStr[:lastChar])
+			default:
+				multiplier = 1
+				sizeStr = strings.TrimSpace(sizeStr[:lastChar+1])
+			}
+		}
+	}
+
+	size := cast.ToUint64(sizeStr)
+	return safeMul(size, multiplier)
 }
