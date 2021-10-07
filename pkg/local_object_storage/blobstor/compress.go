@@ -4,6 +4,10 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+// zstdFrameMagic contains first 4 bytes of any compressed object
+// https://github.com/klauspost/compress/blob/master/zstd/framedec.go#L58 .
+var zstdFrameMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
+
 func noOpCompressor(data []byte) []byte {
 	return data
 }

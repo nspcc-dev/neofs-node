@@ -1,6 +1,7 @@
 package blobstor
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"path"
@@ -781,20 +782,33 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 func (b *blobovniczas) init() error {
 	b.log.Debug("initializing Blobovnicza's")
 
+	zstdC, err := zstdCompressor()
+	if err != nil {
+		return fmt.Errorf("could not create zstd compressor: %v", err)
+	}
+	zstdD, err := zstdDecompressor()
+	if err != nil {
+		return fmt.Errorf("could not create zstd decompressor: %v", err)
+	}
+
+	// Compression is always done based on config settings.
 	if b.compressionEnabled {
-		zstdC, err := zstdCompressor()
-		if err != nil {
-			return fmt.Errorf("could not create zstd compressor: %v", err)
-		}
-		zstdD, err := zstdDecompressor()
-		if err != nil {
-			return fmt.Errorf("could not create zstd decompressor: %v", err)
-		}
 		b.compressor = zstdC
-		b.decompressor = zstdD
 	} else {
 		b.compressor = noOpCompressor
-		b.decompressor = noOpDecompressor
+	}
+
+	// However we should be able to read any object
+	// we have previously written.
+	b.decompressor = func(data []byte) ([]byte, error) {
+		// Fallback to reading decompressed objects.
+		// For normal objects data is always bigger than 4 bytes, the first check is here
+		// because function interface is rather generic (Go compiler inserts bound
+		// checks anyway).
+		if len(data) < 4 || !bytes.Equal(data[:4], zstdFrameMagic) {
+			return noOpDecompressor(data)
+		}
+		return zstdD(data)
 	}
 
 	return b.iterateBlobovniczas(func(p string, blz *blobovnicza.Blobovnicza) error {
