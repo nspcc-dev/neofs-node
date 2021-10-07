@@ -385,7 +385,7 @@ func initShardOptions(c *cfg) {
 			shard.WithRefillMetabase(sc.RefillMetabase()),
 			shard.WithBlobStorOptions(
 				blobstor.WithRootPath(blobStorCfg.Path()),
-				blobstor.WithCompressObjects(blobStorCfg.Compress(), c.log),
+				blobstor.WithCompressObjects(blobStorCfg.Compress()),
 				blobstor.WithRootPerm(blobStorCfg.Perm()),
 				blobstor.WithShallowDepth(blobStorCfg.ShallowDepth()),
 				blobstor.WithSmallSizeLimit(blobStorCfg.SmallSizeLimit()),
