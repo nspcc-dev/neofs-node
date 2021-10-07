@@ -29,6 +29,17 @@ func TestAddressFromString(t *testing.T) {
 			require.Equal(t, testcase.exp, addr.ma, testcase.inp)
 		}
 	})
+	t.Run("invalid addresses", func(t *testing.T) {
+		testCases := []string{
+			"wtf://example.com:123", // wrong scheme
+			"grpc://example.com",    // missing port
+		}
+
+		var addr Address
+		for _, tc := range testCases {
+			require.Error(t, addr.FromString(tc))
+		}
+	})
 }
 
 func TestAddress_HostAddrString(t *testing.T) {
