@@ -24,18 +24,17 @@ const defaultNameServiceSysfee = 4000_0000
 const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
 
 func (c *initializeContext) setNNS() error {
-	cs, err := c.readContract(nnsContract)
+	nnsCs, err := c.readContract(nnsContract)
 	if err != nil {
 		return err
 	}
 
-	h := state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
-	ok, err := c.nnsRootRegistered(h)
+	ok, err := c.nnsRootRegistered(nnsCs.Hash)
 	if err != nil {
 		return err
 	} else if !ok {
 		bw := io.NewBufBinWriter()
-		emit.AppCall(bw.BinWriter, h, "addRoot", callflag.All, "neofs")
+		emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRoot", callflag.All, "neofs")
 		if err := c.sendCommitteeTx(bw.Bytes(), -1); err != nil {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
 		}
@@ -52,7 +51,7 @@ func (c *initializeContext) setNNS() error {
 		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 
 		domain := getAlphabetNNSDomain(i)
-		if err := c.nnsRegisterDomain(h, alphaCs.Hash, domain); err != nil {
+		if err := c.nnsRegisterDomain(nnsCs.Hash, alphaCs.Hash, domain); err != nil {
 			return err
 		}
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, alphaCs.Hash.StringLE())
@@ -63,10 +62,9 @@ func (c *initializeContext) setNNS() error {
 		if err != nil {
 			return err
 		}
-		cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
 
 		domain := ctrName + ".neofs"
-		if err := c.nnsRegisterDomain(h, cs.Hash, domain); err != nil {
+		if err := c.nnsRegisterDomain(nnsCs.Hash, cs.Hash, domain); err != nil {
 			return err
 		}
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())

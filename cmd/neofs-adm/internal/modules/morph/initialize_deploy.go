@@ -74,8 +74,7 @@ func (c *initializeContext) deployNNS(method string) error {
 		return err
 	}
 
-	h := state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
-	if _, err := c.Client.GetContractStateByHash(h); err == nil && method != "update" {
+	if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != "update" {
 		return nil
 	}
 
@@ -123,13 +122,11 @@ func (c *initializeContext) deployNNS(method string) error {
 
 func (c *initializeContext) deployContracts(method string) error {
 	mgmtHash := c.nativeHash(nativenames.Management)
-	sender := c.CommitteeAcc.Contract.ScriptHash()
 	for _, ctrName := range contractList {
-		cs, err := c.readContract(ctrName)
+		_, err := c.readContract(ctrName)
 		if err != nil {
 			return err
 		}
-		cs.Hash = state.CreateContractHash(sender, cs.NEF.Checksum, cs.Manifest.Name)
 	}
 
 	alphaCs, err := c.readContract(alphabetContract)
@@ -264,13 +261,18 @@ func (c *initializeContext) readContract(ctrName string) (*contractState, error)
 		return nil, fmt.Errorf("can't parse manifest file: %w", err)
 	}
 
-	c.Contracts[ctrName] = &contractState{
+	cs := &contractState{
 		NEF:         &nf,
 		RawNEF:      rawNef,
 		Manifest:    m,
 		RawManifest: rawManif,
 	}
-	return c.Contracts[ctrName], nil
+	if ctrName != alphabetContract {
+		cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(),
+			cs.NEF.Checksum, cs.Manifest.Name)
+	}
+	c.Contracts[ctrName] = cs
+	return cs, nil
 }
 
 func getContractDeployParameters(rawNef, rawManif []byte, deployData []smartcontract.Parameter) []smartcontract.Parameter {

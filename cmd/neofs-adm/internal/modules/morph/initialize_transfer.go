@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
@@ -133,18 +132,17 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 
 func (c *initializeContext) transferGASToProxy() error {
 	gasHash := c.nativeHash(nativenames.Gas)
-	cs, err := c.readContract(proxyContract)
+	proxyCs, err := c.readContract(proxyContract)
 	if err != nil {
 		return err
 	}
 
-	h := state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
-	bal, err := c.Client.NEP17BalanceOf(gasHash, h)
+	bal, err := c.Client.NEP17BalanceOf(gasHash, proxyCs.Hash)
 	if err != nil || bal > 0 {
 		return err
 	}
 
-	tx, err := c.Client.CreateNEP17TransferTx(c.CommitteeAcc, h, gasHash, initialProxyGASAmount, 0, nil, nil)
+	tx, err := c.Client.CreateNEP17TransferTx(c.CommitteeAcc, proxyCs.Hash, gasHash, initialProxyGASAmount, 0, nil, nil)
 	if err != nil {
 		return err
 	}
