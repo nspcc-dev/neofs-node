@@ -49,46 +49,58 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 	finished := false
 
 	e.iterateOverSortedShards(prm.obj.Address(), func(ind int, s *shard.Shard) (stop bool) {
-		exists, err := s.Exists(existPrm)
-		if err != nil {
-			return false // this is not ErrAlreadyRemoved error so we can go to the next shard
-		}
+		e.mtx.RLock()
+		pool := e.shardPools[s.ID().String()]
+		e.mtx.RUnlock()
 
-		if exists.Exists() {
-			if ind != 0 {
-				toMoveItPrm := new(shard.ToMoveItPrm)
-				toMoveItPrm.WithAddress(prm.obj.Address())
+		exitCh := make(chan struct{})
 
-				_, err = s.ToMoveIt(toMoveItPrm)
-				if err != nil {
-					e.log.Warn("could not mark object for shard relocation",
-						zap.Stringer("shard", s.ID()),
-						zap.String("error", err.Error()),
-					)
+		_ = pool.Submit(func() {
+			defer close(exitCh)
+
+			exists, err := s.Exists(existPrm)
+			if err != nil {
+				return // this is not ErrAlreadyRemoved error so we can go to the next shard
+			}
+
+			if exists.Exists() {
+				if ind != 0 {
+					toMoveItPrm := new(shard.ToMoveItPrm)
+					toMoveItPrm.WithAddress(prm.obj.Address())
+
+					_, err = s.ToMoveIt(toMoveItPrm)
+					if err != nil {
+						e.log.Warn("could not mark object for shard relocation",
+							zap.Stringer("shard", s.ID()),
+							zap.String("error", err.Error()),
+						)
+					}
 				}
+
+				finished = true
+
+				return
+			}
+
+			putPrm := new(shard.PutPrm)
+			putPrm.WithObject(prm.obj)
+
+			_, err = s.Put(putPrm)
+			if err != nil {
+				e.log.Warn("could not put object in shard",
+					zap.Stringer("shard", s.ID()),
+					zap.String("error", err.Error()),
+				)
+
+				return
 			}
 
 			finished = true
+		})
 
-			return true
-		}
+		<-exitCh
 
-		putPrm := new(shard.PutPrm)
-		putPrm.WithObject(prm.obj)
-
-		_, err = s.Put(putPrm)
-		if err != nil {
-			e.log.Warn("could not put object in shard",
-				zap.Stringer("shard", s.ID()),
-				zap.String("error", err.Error()),
-			)
-
-			return false
-		}
-
-		finished = true
-
-		return true
+		return finished
 	})
 
 	if !finished {

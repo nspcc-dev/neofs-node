@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/panjf2000/ants/v2"
 )
 
 var errShardNotFound = errors.New("shard not found")
@@ -29,10 +30,19 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 		return nil, fmt.Errorf("could not generate shard ID: %w", err)
 	}
 
-	e.shards[id.String()] = shard.New(append(opts,
+	pool, err := ants.NewPool(int(e.shardPoolSize), ants.WithNonblocking(true))
+	if err != nil {
+		return nil, err
+	}
+
+	strID := id.String()
+
+	e.shards[strID] = shard.New(append(opts,
 		shard.WithID(id),
 		shard.WithExpiredObjectsCallback(e.processExpiredTombstones),
 	)...)
+
+	e.shardPools[strID] = pool
 
 	return id, nil
 }
