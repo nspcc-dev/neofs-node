@@ -16,8 +16,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/tzhash/tz"
+	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -27,12 +29,19 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 		cfg: &cfg{
 			log: zap.L(),
 		},
-		mtx:    new(sync.RWMutex),
-		shards: make(map[string]*shard.Shard, len(shards)),
+		mtx:        new(sync.RWMutex),
+		shards:     make(map[string]*shard.Shard, len(shards)),
+		shardPools: make(map[string]util.WorkerPool, len(shards)),
 	}
 
 	for _, s := range shards {
+		pool, err := ants.NewPool(10, ants.WithNonblocking(true))
+		if err != nil {
+			panic(err)
+		}
+
 		engine.shards[s.ID().String()] = s
+		engine.shardPools[s.ID().String()] = pool
 	}
 
 	return engine
