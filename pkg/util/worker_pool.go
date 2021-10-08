@@ -11,13 +11,13 @@ type WorkerPool interface {
 	Submit(func()) error
 }
 
-// SyncWorkerPool represents synchronous worker pool.
-type SyncWorkerPool struct{}
+// PseudoWorkerPool represents pseudo worker pool which executes submitted job immediately in the caller's routine..
+type PseudoWorkerPool struct{}
 
 // Submit executes passed function immediately.
 //
 // Always returns nil.
-func (SyncWorkerPool) Submit(fn func()) error {
+func (PseudoWorkerPool) Submit(fn func()) error {
 	fn()
 
 	return nil
