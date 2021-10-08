@@ -85,7 +85,6 @@ replicator:
 object:
   put:
     pool_size_remote: 100  # number of async workers for remote PUT operations
-    pool_size_local: 101  # number of async workers for local PUT operations
 
 storage:
   shard_pool_size: 15 # size of per-shard worker pools used for PUT operations
