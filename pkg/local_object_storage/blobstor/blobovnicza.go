@@ -829,8 +829,6 @@ func (b *blobovniczas) close() error {
 	b.activeMtx.Lock()
 
 	b.lruMtx.Lock()
-	b.opened.Purge()
-	b.lruMtx.Unlock()
 
 	for p, v := range b.active {
 		if err := v.blz.Close(); err != nil {
@@ -839,9 +837,23 @@ func (b *blobovniczas) close() error {
 				zap.String("error", err.Error()),
 			)
 		}
-
-		delete(b.active, p)
+		b.opened.Remove(p)
 	}
+	for _, k := range b.opened.Keys() {
+		v, _ := b.opened.Get(k)
+		blz := v.(*blobovnicza.Blobovnicza)
+		if err := blz.Close(); err != nil {
+			b.log.Debug("could not close active blobovnicza",
+				zap.String("path", k.(string)),
+				zap.String("error", err.Error()),
+			)
+		}
+		b.opened.Remove(k)
+	}
+
+	b.active = make(map[string]blobovniczaWithIndex)
+
+	b.lruMtx.Unlock()
 
 	b.activeMtx.Unlock()
 
