@@ -18,6 +18,9 @@ var controlCmd = &cobra.Command{
 	Use:   "control",
 	Short: "Operations with storage node",
 	Long:  `Operations with storage node`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		bindCommonFlags(cmd)
+	},
 }
 
 var healthCheckCmd = &cobra.Command{
