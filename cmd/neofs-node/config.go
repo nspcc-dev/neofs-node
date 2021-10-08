@@ -318,7 +318,10 @@ func (c *cfg) LocalAddress() network.AddressGroup {
 func initLocalStorage(c *cfg) {
 	initShardOptions(c)
 
-	engineOpts := []engine.Option{engine.WithLogger(c.log)}
+	engineOpts := []engine.Option{
+		engine.WithLogger(c.log),
+		engine.WithShardPoolSize(engineconfig.ShardPoolSize(c.appCfg)),
+	}
 	if c.metricsCollector != nil {
 		engineOpts = append(engineOpts, engine.WithMetrics(c.metricsCollector))
 	}
