@@ -1,8 +1,8 @@
 package locodedb
 
 import (
+	"fmt"
 	"strconv"
-	"strings"
 
 	locodecolumn "github.com/nspcc-dev/neofs-node/pkg/util/locode/column"
 )
@@ -40,12 +40,9 @@ func PointFromCoordinates(crd *locodecolumn.Coordinates) (*Point, error) {
 	cLatDeg := cLat.Degrees()
 	cLatMnt := cLat.Minutes()
 
-	lat, err := strconv.ParseFloat(strings.Join([]string{
-		string(cLatDeg[:]),
-		string(cLatMnt[:]),
-	}, "."), 64)
+	lat, err := toDecimal(cLatDeg[:], cLatMnt[:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not parse latitude: %w", err)
 	}
 
 	if !cLat.Hemisphere().North() {
@@ -56,12 +53,9 @@ func PointFromCoordinates(crd *locodecolumn.Coordinates) (*Point, error) {
 	cLngDeg := cLng.Degrees()
 	cLngMnt := cLng.Minutes()
 
-	lng, err := strconv.ParseFloat(strings.Join([]string{
-		string(cLngDeg[:]),
-		string(cLngMnt[:]),
-	}, "."), 64)
+	lng, err := toDecimal(cLngDeg[:], cLngMnt[:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not parse longitude: %w", err)
 	}
 
 	if !cLng.Hemisphere().East() {
@@ -72,4 +66,28 @@ func PointFromCoordinates(crd *locodecolumn.Coordinates) (*Point, error) {
 		lat: lat,
 		lng: lng,
 	}, nil
+}
+
+func toDecimal(intRaw, minutesRaw []byte) (float64, error) {
+	integer, err := strconv.ParseFloat(string(intRaw), 64)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse integer part: %w", err)
+	}
+
+	decimal, err := minutesToDegrees(minutesRaw)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse decimal part: %w", err)
+	}
+
+	return integer + decimal, nil
+}
+
+// minutesToDegrees converts minutes to decimal part of a degree
+func minutesToDegrees(raw []byte) (float64, error) {
+	minutes, err := strconv.ParseFloat(string(raw), 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return minutes / 60, nil
 }
