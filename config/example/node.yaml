@@ -7,7 +7,7 @@ profiler:
 
 metrics:
   address: 127.0.0.1:9090  # endpoint for Node metrics
-  shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
+  shutdown_timeout: 15s  # timeout for metrics HTTP server graceful shutdown
 
 node:
   key: ./wallet.key  # path to a binary private key
@@ -112,7 +112,7 @@ storage:
         perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
         compress: true  # turn on/off zstd(level 3) compression of stored objects
         shallow_depth: 5  # max depth of object tree storage in FS
-        small_size_limit: 102400  # size threshold for objects that are considered to be "small", bytes
+        small_size_limit: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
 
         blobovnicza:
           size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
