@@ -102,6 +102,7 @@
     }
   },
   "storage": {
+    "shard_pool_size": 15,
     "shard_num": 2,
     "shard": {
       "0": {
