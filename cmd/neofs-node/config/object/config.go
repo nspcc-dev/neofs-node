@@ -39,15 +39,3 @@ func (g PutConfig) PoolSizeRemote() int {
 
 	return PutPoolSizeDefault
 }
-
-// PoolSizeLocal returns value of "pool_size_local" config parameter.
-//
-// Returns PutPoolSizeDefault if value is not positive number.
-func (g PutConfig) PoolSizeLocal() int {
-	v := config.Int(g.cfg, "pool_size_local")
-	if v > 0 {
-		return int(v)
-	}
-
-	return PutPoolSizeDefault
-}

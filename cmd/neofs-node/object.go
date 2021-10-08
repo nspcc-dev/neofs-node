@@ -281,7 +281,7 @@ func initObjectService(c *cfg) {
 			objectCore.WithDeleteHandler(objInhumer),
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
-		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
+		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote),
 		putsvc.WithLogger(c.log),
 	)
 

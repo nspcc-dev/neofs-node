@@ -14,14 +14,12 @@ func TestObjectSection(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
 		require.Equal(t, objectconfig.PutPoolSizeDefault, objectconfig.Put(empty).PoolSizeRemote())
-		require.Equal(t, objectconfig.PutPoolSizeDefault, objectconfig.Put(empty).PoolSizeLocal())
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, 100, objectconfig.Put(c).PoolSizeRemote())
-		require.Equal(t, 101, objectconfig.Put(c).PoolSizeLocal())
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
