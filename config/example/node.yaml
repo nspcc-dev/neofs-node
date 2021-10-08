@@ -88,6 +88,7 @@ object:
     pool_size_local: 101  # number of async workers for local PUT operations
 
 storage:
+  shard_pool_size: 15 # size of per-shard worker pools used for PUT operations
   shard_num: 2  # total number of shards
   shard:
     0:

@@ -14,15 +14,21 @@ import (
 
 func TestEngineSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
+		empty := configtest.EmptyConfig()
+
 		require.Panics(t, func() {
-			engineconfig.IterateShards(configtest.EmptyConfig(), nil)
+			engineconfig.IterateShards(empty, nil)
 		})
+
+		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, engineconfig.ShardPoolSize(empty))
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
 		num := 0
+
+		require.EqualValues(t, 15, engineconfig.ShardPoolSize(c))
 
 		engineconfig.IterateShards(c, func(sc *shardconfig.Config) {
 			defer func() {
