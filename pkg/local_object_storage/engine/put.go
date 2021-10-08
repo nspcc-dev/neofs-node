@@ -55,7 +55,7 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 
 		exitCh := make(chan struct{})
 
-		_ = pool.Submit(func() {
+		if err := pool.Submit(func() {
 			defer close(exitCh)
 
 			exists, err := s.Exists(existPrm)
@@ -96,7 +96,10 @@ func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
 			}
 
 			finished = true
-		})
+		}); err != nil {
+			// TODO: log errors except ErrOverload when errors of util.WorkerPool will be documented
+			close(exitCh)
+		}
 
 		<-exitCh
 
