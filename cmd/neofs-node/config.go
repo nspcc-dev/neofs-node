@@ -193,7 +193,7 @@ type cfgLocalStorage struct {
 }
 
 type cfgObjectRoutines struct {
-	putRemote, putLocal *ants.Pool
+	putRemote *ants.Pool
 }
 
 type cfgControlService struct {
@@ -437,11 +437,6 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	optNonBlocking := ants.WithNonblocking(true)
 
 	pool.putRemote, err = ants.NewPool(objectconfig.Put(cfg).PoolSizeRemote(), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
-
-	pool.putLocal, err = ants.NewPool(objectconfig.Put(cfg).PoolSizeLocal(), optNonBlocking)
 	if err != nil {
 		fatalOnErr(err)
 	}
