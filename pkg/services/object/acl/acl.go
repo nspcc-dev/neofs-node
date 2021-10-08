@@ -381,7 +381,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 			return err
 		}
 
-		sTok := part.GetHeader().GetSessionToken()
+		sTok := request.GetMetaHeader().GetSessionToken()
 
 		req := metaWithToken{
 			vheader: request.GetVerificationHeader(),
