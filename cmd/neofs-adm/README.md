@@ -3,16 +3,16 @@
 ## Overview
 
 Admin tool provides an easier way to deploy and maintain private installation
-of NeoFS. Private installation contains a set of consensus N3 nodes, NeoFS 
+of NeoFS. Private installation provides a set of consensus N3 nodes, NeoFS 
 Alphabet, and Storage nodes. Admin tool generates consensus keys, initializes 
-side chain and provides functions to update the network and register new
+side chain, and provides functions to update the network and register new
 Storage nodes.
 
 ## Build
 
-To build binary locally use `make bin/neofs-adm` command. 
+To build binary locally, use `make bin/neofs-adm` command. 
 
-For clean build inside docker container use `make docker/bin/neofs-adm`. 
+For clean build inside a docker container use `make docker/bin/neofs-adm`. 
 
 Build docker image with `make image-adm`.
 
@@ -27,7 +27,7 @@ contracts. Find them in the latest release of
 
 Config section provides `init` command that creates configuration file for the
 private installation deployment and updates. Config file is optional, all
-parameters may be passed by arguments or read from standard input (wallet 
+parameters can be passed by arguments or read from standard input (wallet 
 passwords).
 
 Config example:
@@ -57,14 +57,14 @@ credentials:     # passwords for consensus node / alphabet wallets
 
 #### Network deployment
 
-- Use `generate-alphabet` to generate set of wallets for consensus and 
+- Use `generate-alphabet` to generate a set of wallets for consensus and 
   Alphabet nodes. 
 
 - `init` will initialize side chain by deploying smart contracts and
   setting provided NeoFS network configuration.
 
 - `generate-storage-wallet` generates wallet for the Storage node that 
-  is ready for deployment. It also transfers a bit of side chain GAS so this 
+  is ready for deployment. It also transfers a bit of side chain GAS, so this 
   wallet can be used for NeoFS bootstrap.
 
 #### Network maintenance
@@ -72,20 +72,20 @@ credentials:     # passwords for consensus node / alphabet wallets
 - `force-new-epoch` increments NeoFS epoch number and enforces new epoch
   handlers in NeoFS nodes.
 
-- `refill-gas` transfers side chain GAS to specified wallet. 
+- `refill-gas` transfers side chain GAS to the specified wallet. 
 
 - `update-contracts` starts contract update routine.
 
 #### Container migration
 
-If network has to be redeployed, these commands will migrate all container meta
+If the network has to be redeployed, these commands will migrate all container meta
 info. These commands **do not migrate actual objects**.
 
-- `dump-containers` saves all containers and metadata registered in container
+- `dump-containers` saves all containers and metadata registered in the container
   contract to a file.
 
-- `restore-containers` restores previously saved containers in container
-  contract.
+- `restore-containers` restores previously saved containers by their repeated registration in 
+ container contract.
 
 #### Network info
 
