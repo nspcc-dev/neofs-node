@@ -24,6 +24,8 @@ type (
 	EpochState interface {
 		SetEpochCounter(uint64)
 		EpochCounter() uint64
+		SetEpochDuration(uint64)
+		EpochDuration() uint64
 	}
 
 	// AlphabetState is a callback interface for inner ring global state.
