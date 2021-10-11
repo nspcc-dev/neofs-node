@@ -1,5 +1,5 @@
 logger:
-  level: debug  # logger level: one of "info"(default), "debug", "warn", "error", "dpanic", "panic", "fatal"
+  level: debug  # logger level: one of "debug", "info" (default), "warn", "error", "dpanic", "panic", "fatal"
 
 profiler:
   address: 127.0.0.1:6060  # endpoint for Node profiling
