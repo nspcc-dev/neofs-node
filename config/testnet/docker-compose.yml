@@ -21,7 +21,7 @@ services:
     env_file: node_config.env
     command:
       - '-promscrape.config=/configs/prometheus.yml'
-      - '-remoteWrite.url=https://collector.fs.neo.org:8429/api/v1/write'
+      - '-remoteWrite.url=https://collector.fs.neo.org/api/v1/write'
     network_mode: host
     restart: always
     volumes:
