@@ -15,11 +15,11 @@ To follow this guide you need:
 ## Step 1: Prepare network configuration 
 
 To start the network, you need a set of consensus nodes, the same number of 
-Alphabet nodes and Storage nodes. While the number of Storage nodes can be 
-scaled almost infinitely, the number of consensus and Alphabet nodes can't be changed
-so easily right now. Consider this before going any further.
+Alphabet nodes and any number of Storage nodes. While the number of Storage 
+nodes can be scaled almost infinitely, the number of consensus and Alphabet 
+nodes can't be changed so easily right now. Consider this before going any further.
 
-`neofs-adm` works best with predefined configuration. First, create
+It is easier to use`neofs-adm` with predefined configuration. First, create
 network configuration file. In this example, there is going to be only one
 consensus / Alphabet node in the network.
 
@@ -47,13 +47,14 @@ For private installation it is recommended to set all **fees** and **basic
 income rate** to 0. 
 
 As for **epoch duration**, consider consensus node block generation frequency. 
-With default 15 sec per block, 240 blocks are going to be a 1-hour epoch. 
+With default 15 seconds per block, 240 blocks are going to be a 1-hour epoch. 
 
-For **max object size**, 67108864 (64MiB) or 134217728 (128MiB) should provide 
+For **max object size**, 67108864 (64 MiB) or 134217728 (128 MiB) should provide 
 good chunk distribution in most cases.
 
-With this config, generate wallets (private keys) of consensus / Alphabet nodes.
-Make sure, that dir for alphabet wallets already exists.
+With this config, generate wallets (private keys) of consensus nodes. The same
+wallets will be used for Alphabet nodes. Make sure, that dir for alphabet 
+wallets already exists.
 
 ```
 $ neofs-adm -c foo.network.yml morph generate-alphabet --size 1
@@ -88,12 +89,16 @@ NiMKabp3ddi3xShmLAXhTfbnuWb4cSJT6E (1 out of 1 multisig contract):
 
 Put the list of public keys into `ProtocolConfiguration.StandbyCommittee` 
 section. Specify the wallet path and the password in `ApplicationConfiguration.P2PNotary`
-and `ApplicationConfiguration.UnlockWallet` sections.
+and `ApplicationConfiguration.UnlockWallet` sections. If config includes
+`ProtocolConfiguration.NativeActivations` section, then add notary 
+contract `Notary: [0]`.
 
 ```yaml
 ProtocolConfiguration:
   StandbyCommittee:
     - 02c1cc85f9c856dbe2d02017349bcb7b4e5defa78b8056a09b3240ba2a8c078869
+  NativeActivations:
+    Notary: [0]
 ApplicationConfiguration:
   P2PNotary:
     Enabled: true

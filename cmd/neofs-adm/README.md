@@ -3,7 +3,7 @@
 ## Overview
 
 Admin tool provides an easier way to deploy and maintain private installation
-of NeoFS. Private installation provides a set of consensus N3 nodes, NeoFS 
+of NeoFS. Private installation provides a set of N3 consensus nodes, NeoFS 
 Alphabet, and Storage nodes. Admin tool generates consensus keys, initializes 
 side chain, and provides functions to update the network and register new
 Storage nodes.
@@ -44,23 +44,23 @@ network:
     container: 0 # container creation fee, for private installation consider 0
     withdraw: 0  # withdraw fee, for private installation consider 0
 credentials:     # passwords for consensus node / alphabet wallets
-  az: ...
-  buky: ...
-  vedi: ...
-  glagoli: ...
-  dobro: ...
-  yest: ...
-  zhivete: ...
+  az: password1
+  buky: password2
+  vedi: password3
+  glagoli: password4
+  dobro: password5
+  yest: password6
+  zhivete: password7
 ```
 
 ### Morph
 
 #### Network deployment
 
-- Use `generate-alphabet` to generate a set of wallets for consensus and 
+- `generate-alphabet` generates a set of wallets for consensus and 
   Alphabet nodes. 
 
-- `init` will initialize side chain by deploying smart contracts and
+- `init` initializes side chain by deploying smart contracts and
   setting provided NeoFS network configuration.
 
 - `generate-storage-wallet` generates wallet for the Storage node that 
@@ -69,12 +69,12 @@ credentials:     # passwords for consensus node / alphabet wallets
 
 #### Network maintenance
 
-- `force-new-epoch` increments NeoFS epoch number and enforces new epoch
+- `force-new-epoch` increments NeoFS epoch number and executes new epoch
   handlers in NeoFS nodes.
 
 - `refill-gas` transfers side chain GAS to the specified wallet. 
 
-- `update-contracts` starts contract update routine.
+- `update-contracts` updates contracts to a new version.
 
 #### Container migration
 
