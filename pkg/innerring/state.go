@@ -31,6 +31,17 @@ func (s *Server) SetEpochCounter(val uint64) {
 	s.epochCounter.Store(val)
 }
 
+// EpochDuration is a getter for a global epoch duration.
+func (s *Server) EpochDuration() uint64 {
+	return s.epochDuration.Load()
+}
+
+// SetEpochDuration is a setter for the Netmap processor to update global
+// epoch duration.
+func (s *Server) SetEpochDuration(val uint64) {
+	s.epochDuration.Store(val)
+}
+
 // IsActive is a getter for a global active flag state.
 func (s *Server) IsActive() bool {
 	return s.InnerRingIndex() >= 0

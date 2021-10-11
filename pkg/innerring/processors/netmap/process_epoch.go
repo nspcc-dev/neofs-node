@@ -16,6 +16,14 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 			zap.String("error", err.Error()))
 	}
 
+	epochDuration, err := np.netmapClient.EpochDuration()
+	if err != nil {
+		np.log.Warn("can't get epoch duration",
+			zap.String("error", err.Error()))
+	} else {
+		np.epochState.SetEpochDuration(epochDuration)
+	}
+
 	// get new netmap snapshot
 	networkMap, err := np.netmapClient.Snapshot()
 	if err != nil {

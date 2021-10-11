@@ -2,8 +2,8 @@ package innerring
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
@@ -11,23 +11,43 @@ import (
 
 type (
 	notaryConfig struct {
-		amount   fixedn.Fixed8 // amount of deposited GAS to notary contract
-		duration uint32        // lifetime of notary deposit in blocks
-		disabled bool          // true if notary disabled on chain
+		duration uint32 // lifetime of notary deposit in blocks
+		disabled bool   // true if notary disabled on chain
 	}
 )
 
+const (
+	// gasMultiplier defines how many times more the notary
+	// balance must be compared to the GAS balance of the IR:
+	//     notaryBalance = GASBalance * gasMultiplier
+	gasMultiplier = 3
+
+	// gasDivisor defines what part of GAS balance (1/gasDivisor)
+	// should be transferred to the notary service
+	gasDivisor = 2
+)
+
 func (s *Server) depositMainNotary() (tx util.Uint256, err error) {
+	depositAmount, err := client.CalculateNotaryDepositAmount(s.mainnetClient, gasMultiplier, gasDivisor)
+	if err != nil {
+		return util.Uint256{}, fmt.Errorf("could not calculate main notary deposit amount: %w", err)
+	}
+
 	return s.mainnetClient.DepositNotary(
-		s.mainNotaryConfig.amount,
-		s.mainNotaryConfig.duration+notaryExtraBlocks,
+		depositAmount,
+		uint32(s.epochDuration.Load())+notaryExtraBlocks,
 	)
 }
 
 func (s *Server) depositSideNotary() (tx util.Uint256, err error) {
+	depositAmount, err := client.CalculateNotaryDepositAmount(s.morphClient, gasMultiplier, gasDivisor)
+	if err != nil {
+		return util.Uint256{}, fmt.Errorf("could not calculate side notary deposit amount: %w", err)
+	}
+
 	return s.morphClient.DepositNotary(
-		s.sideNotaryConfig.amount,
-		s.sideNotaryConfig.duration+notaryExtraBlocks,
+		depositAmount,
+		uint32(s.epochDuration.Load())+notaryExtraBlocks,
 	)
 }
 
@@ -85,10 +105,8 @@ func parseNotaryConfigs(cfg *viper.Viper, withSideNotary, withMainNotary bool) (
 	}
 
 	main.disabled = !withMainNotary
-	main.amount = fixedn.Fixed8(cfg.GetInt64("notary.main.deposit_amount"))
 	main.duration = cfg.GetUint32("timers.main_notary")
 
-	side.amount = fixedn.Fixed8(cfg.GetInt64("notary.side.deposit_amount"))
 	side.duration = cfg.GetUint32("timers.side_notary")
 
 	return

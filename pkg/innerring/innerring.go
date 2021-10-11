@@ -69,6 +69,7 @@ type (
 		morphClient   *client.Client
 		mainnetClient *client.Client
 		epochCounter  atomic.Uint64
+		epochDuration atomic.Uint64
 		statusIndex   *innerRingIndexer
 		precision     precision.Fixed8Converter
 		auditClient   *auditWrapper.ClientWrapper
@@ -961,7 +962,13 @@ func (s *Server) initConfigFromBlockchain() error {
 	// get current epoch
 	epoch, err := s.netmapClient.Epoch()
 	if err != nil {
-		return fmt.Errorf("can't parse epoch: %w", err)
+		return fmt.Errorf("can't read epoch number: %w", err)
+	}
+
+	// get current epoch duration
+	epochDuration, err := s.netmapClient.EpochDuration()
+	if err != nil {
+		return fmt.Errorf("can't read epoch duration: %w", err)
 	}
 
 	// get balance precision
@@ -977,6 +984,7 @@ func (s *Server) initConfigFromBlockchain() error {
 	}
 
 	s.epochCounter.Store(epoch)
+	s.epochDuration.Store(epochDuration)
 	s.precision.SetBalancePrecision(balancePrecision)
 
 	s.log.Debug("read config from blockchain",
