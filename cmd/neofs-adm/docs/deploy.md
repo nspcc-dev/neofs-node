@@ -14,12 +14,12 @@ To follow this guide you need:
 
 ## Step 1: Prepare network configuration 
 
-To start the network you need a set of consensus nodes, the same number of 
+To start the network, you need a set of consensus nodes, the same number of 
 Alphabet nodes and Storage nodes. While the number of Storage nodes can be 
 scaled almost infinitely, the number of consensus and Alphabet nodes can't be changed
 so easily right now. Consider this before going any further.
 
-`neofs-adm` works best with predefined configuration. At first, create
+`neofs-adm` works best with predefined configuration. First, create
 network configuration file. In this example, there is going to be only one
 consensus / Alphabet node in the network.
 
@@ -87,7 +87,7 @@ NiMKabp3ddi3xShmLAXhTfbnuWb4cSJT6E (1 out of 1 multisig contract):
 ```
 
 Put the list of public keys into `ProtocolConfiguration.StandbyCommittee` 
-section. Specify wallet path and password in `ApplicationConfiguration.P2PNotary`
+section. Specify the wallet path and the password in `ApplicationConfiguration.P2PNotary`
 and `ApplicationConfiguration.UnlockWallet` sections.
 
 ```yaml
@@ -105,10 +105,10 @@ ApplicationConfiguration:
     Password: "hunter2"
 ```
 
-Then launch consensus node. They should connect to each other and start
+Then, launch consensus node. They should connect to each other and start
 producing blocks in consensus. You might want to deploy additional RPC
 nodes at this stage because Storage nodes should be connected to the chain too.
-It is not recommended to use consensus node as RPC node due to security policies
+It is not recommended to use consensus node as an RPC node due to security policies
 and possible overload issues.
 
 ## Step 3: Initialize side chain
@@ -148,7 +148,7 @@ Waiting for transactions to persist...
 
 ## Step 4: Launch Alphabet nodes
 
-Configure Alphabet nodes with the wallets, generated in step 1. For 
+Configure Alphabet nodes with the wallets generated in step 1. For 
 `morph.validators` use list of public keys from 
 `ProtocolConfiguration.StandbyCommittee`.
 
