@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
@@ -25,10 +24,12 @@ type (
 		durationDiv uint32        // Y: X/Y of epoch in blocks
 	}
 
+	newEpochHandler func()
+
 	epochTimerArgs struct {
 		l *zap.Logger
 
-		nm *netmap.Processor // to handle new epoch tick
+		newEpochHandlers []newEpochHandler
 
 		cnrWrapper *container.Wrapper // to invoke stop container estimation
 		epoch      epochState         // to specify which epoch to stop
@@ -54,8 +55,6 @@ type (
 		l *zap.Logger
 
 		depositor depositor
-
-		notaryDuration uint32 // in blocks
 	}
 )
 
@@ -83,7 +82,9 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 	epochTimer := timer.NewBlockTimer(
 		args.epochDuration,
 		func() {
-			args.nm.HandleNewEpochTick(timerEvent.NewEpochTick{})
+			for _, handler := range args.newEpochHandlers {
+				handler()
+			}
 		},
 	)
 
@@ -146,15 +147,12 @@ func newEmissionTimer(args *emitTimerArgs) *timer.BlockTimer {
 	)
 }
 
-func newNotaryDepositTimer(args *notaryDepositArgs) *timer.BlockTimer {
-	return timer.NewBlockTimer(
-		timer.StaticBlockMeter(args.notaryDuration),
-		func() {
-			_, err := args.depositor()
-			if err != nil {
-				args.l.Warn("can't deposit notary contract",
-					zap.String("error", err.Error()))
-			}
-		},
-	)
+func newNotaryDepositHandler(args *notaryDepositArgs) newEpochHandler {
+	return func() {
+		_, err := args.depositor()
+		if err != nil {
+			args.l.Warn("can't deposit notary contract",
+				zap.String("error", err.Error()))
+		}
+	}
 }
