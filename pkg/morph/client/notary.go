@@ -715,3 +715,33 @@ const alreadyOnChainErrorMessage = "already on chain"
 func alreadyOnChainError(err error) bool {
 	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)
 }
+
+// CalculateNotaryDepositAmount calculates notary deposit amount
+// using the rule:
+//      IF notaryBalance < gasBalance * gasMul {
+//          DEPOSIT gasBalance / gasDiv
+//      } ELSE {
+//          DEPOSIT 1
+//      }
+// gasMul and gasDiv must be positive.
+func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed8, error) {
+	notaryBalance, err := c.GetNotaryDeposit()
+	if err != nil {
+		return 0, fmt.Errorf("could not get notary balance: %w", err)
+	}
+
+	gasBalance, err := c.GasBalance()
+	if err != nil {
+		return 0, fmt.Errorf("could not get GAS balance: %w", err)
+	}
+
+	var depositAmount int64
+
+	if gasBalance*gasMul > notaryBalance {
+		depositAmount = gasBalance / gasDiv
+	} else {
+		depositAmount = 1
+	}
+
+	return fixedn.Fixed8(depositAmount), nil
+}
