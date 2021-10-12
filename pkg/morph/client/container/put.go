@@ -14,6 +14,8 @@ type PutArgs struct {
 	publicKey []byte // public key of container owner
 
 	token []byte // binary session token
+
+	name, zone string // native name and zone
 }
 
 // SetPublicKey sets the public key of container owner
@@ -41,19 +43,46 @@ func (p *PutArgs) SetSessionToken(v []byte) {
 	p.token = v
 }
 
-// Put invokes the call of put container method
+// SetNativeNameWithZone sets container native name and its zone.
+func (p *PutArgs) SetNativeNameWithZone(name, zone string) {
+	p.name, p.zone = name, zone
+}
+
+// Put invokes the call of put (named if name is set) container method
 // of NeoFS Container contract.
 func (c *Client) Put(args PutArgs) error {
-	err := c.client.Invoke(
-		c.putMethod,
-		args.cnr,
-		args.sig,
-		args.publicKey,
-		args.token,
+	var (
+		err    error
+		method string
 	)
 
-	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)
+	if args.name != "" {
+		err = c.client.Invoke(
+			c.putNamedMethod,
+			args.cnr,
+			args.sig,
+			args.publicKey,
+			args.token,
+			args.name,
+			args.zone,
+		)
+
+		method = c.putNamedMethod
+	} else {
+		err = c.client.Invoke(
+			c.putMethod,
+			args.cnr,
+			args.sig,
+			args.publicKey,
+			args.token,
+		)
+
+		method = c.putMethod
 	}
+
+	if err != nil {
+		return fmt.Errorf("could not invoke method (%s): %w", method, err)
+	}
+
 	return nil
 }
