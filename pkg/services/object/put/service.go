@@ -60,8 +60,8 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		remotePool: new(util.PseudoWorkerPool),
-		localPool:  new(util.PseudoWorkerPool),
+		remotePool: util.NewPseudoWorkerPool(),
+		localPool:  util.NewPseudoWorkerPool(),
 		log:        zap.L(),
 	}
 }
