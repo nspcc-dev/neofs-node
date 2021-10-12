@@ -161,7 +161,7 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	var (
 		p event.NotaryParserInfo
 
-		pp = make([]event.NotaryParserInfo, 0, 3)
+		pp = make([]event.NotaryParserInfo, 0, 4)
 	)
 
 	p.SetMempoolType(mempoolevent.TransactionAdded)
@@ -170,6 +170,11 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	// container put
 	p.SetRequestType(containerEvent.PutNotaryEvent)
 	p.SetParser(containerEvent.ParsePutNotary)
+	pp = append(pp, p)
+
+	// container named put
+	p.SetRequestType(containerEvent.PutNamedNotaryEvent)
+	p.SetParser(containerEvent.ParsePutNamedNotary)
 	pp = append(pp, p)
 
 	// container delete
@@ -190,7 +195,7 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	var (
 		h event.NotaryHandlerInfo
 
-		hh = make([]event.NotaryHandlerInfo, 0, 3)
+		hh = make([]event.NotaryHandlerInfo, 0, 4)
 	)
 
 	h.SetScriptHash(cp.cnrClient.ContractAddress())
@@ -199,6 +204,10 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// container put
 	h.SetRequestType(containerEvent.PutNotaryEvent)
 	h.SetHandler(cp.handlePut)
+	hh = append(hh, h)
+
+	// container named put (same handler)
+	h.SetRequestType(containerEvent.PutNamedNotaryEvent)
 	hh = append(hh, h)
 
 	// container delete

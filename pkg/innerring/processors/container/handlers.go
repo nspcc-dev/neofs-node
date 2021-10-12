@@ -10,7 +10,7 @@ import (
 )
 
 func (cp *Processor) handlePut(ev event.Event) {
-	put := ev.(containerEvent.Put)
+	put := ev.(putEvent)
 
 	id := sha256.Sum256(put.Container())
 	cp.log.Info("notification",
@@ -19,7 +19,7 @@ func (cp *Processor) handlePut(ev event.Event) {
 
 	// send event to the worker pool
 
-	err := cp.pool.Submit(func() { cp.processContainerPut(&put) })
+	err := cp.pool.Submit(func() { cp.processContainerPut(put) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",

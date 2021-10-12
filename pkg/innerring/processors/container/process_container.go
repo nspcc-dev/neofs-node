@@ -7,24 +7,46 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"go.uber.org/zap"
 )
 
+// putEvent is a common interface of Put and PutNamed event.
+type putEvent interface {
+	event.Event
+	Container() []byte
+	PublicKey() []byte
+	Signature() []byte
+	SessionToken() []byte
+	NotaryRequest() *payload.P2PNotaryRequest
+}
+
+type putContainerContext struct {
+	e putEvent
+
+	name, zone string // from container structure
+}
+
 // Process new container from the user by checking container sanity
 // and sending approve tx back to morph.
-func (cp *Processor) processContainerPut(put *containerEvent.Put) {
+func (cp *Processor) processContainerPut(put putEvent) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")
 		return
 	}
 
-	err := cp.checkPutContainer(put)
+	ctx := &putContainerContext{
+		e: put,
+	}
+
+	err := cp.checkPutContainer(ctx)
 	if err != nil {
 		cp.log.Error("put container check failed",
 			zap.String("error", err.Error()),
@@ -33,10 +55,12 @@ func (cp *Processor) processContainerPut(put *containerEvent.Put) {
 		return
 	}
 
-	cp.approvePutContainer(put)
+	cp.approvePutContainer(ctx)
 }
 
-func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
+func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
+	e := ctx.e
+
 	// verify signature
 	key, err := keys.NewPublicKeyFromBytes(e.PublicKey(), elliptic.P256())
 	if err != nil {
@@ -56,6 +80,12 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 	err = cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
+	}
+
+	// check native name and zone
+	err = checkNNS(ctx, cnr)
+	if err != nil {
+		return fmt.Errorf("NNS: %w", err)
 	}
 
 	// perform format check
@@ -85,7 +115,9 @@ func (cp *Processor) checkPutContainer(e *containerEvent.Put) error {
 	return cp.checkKeyOwnership(cnr, key)
 }
 
-func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
+func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
+	e := ctx.e
+
 	var err error
 
 	if nr := e.NotaryRequest(); nr != nil {
@@ -93,7 +125,7 @@ func (cp *Processor) approvePutContainer(e *containerEvent.Put) {
 		err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 	} else {
 		// put event was received via notification service
-		err = cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), e.SessionToken())
+		err = cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), e.SessionToken(), ctx.name, ctx.zone)
 	}
 	if err != nil {
 		cp.log.Error("could not approve put container",
@@ -201,4 +233,25 @@ func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 			zap.String("error", err.Error()),
 		)
 	}
+}
+
+func checkNNS(ctx *putContainerContext, cnr *containerSDK.Container) error {
+	// fetch native name and zone
+	ctx.name, ctx.zone = containerSDK.GetNativeNameWithZone(cnr)
+
+	// if PutNamed event => check if values in container correspond to args
+	if named, ok := ctx.e.(interface {
+		Name() string
+		Zone() string
+	}); ok {
+		if name := named.Name(); name != ctx.name {
+			return fmt.Errorf("names differ %s/%s", name, ctx.name)
+		}
+
+		if zone := named.Zone(); zone != ctx.zone {
+			return fmt.Errorf("zones differ %s/%s", zone, ctx.zone)
+		}
+	}
+
+	return nil
 }
