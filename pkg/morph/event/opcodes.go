@@ -25,6 +25,8 @@ func (o Op) Param() []byte {
 	return o.param
 }
 
+// Below are the functions which reverse the results of github.com/nspcc-dev/neo-go/pkg/vm/emit.Array function.
+
 // BytesFromOpcode tries to retrieve bytes from Op.
 func BytesFromOpcode(op Op) ([]byte, error) {
 	switch code := op.Code(); code {
@@ -47,4 +49,11 @@ func IntFromOpcode(op Op) (int64, error) {
 	default:
 		return 0, fmt.Errorf("unexpected INT opcode %s", code)
 	}
+}
+
+// StringFromOpcode tries to retrieve string from Op.
+func StringFromOpcode(op Op) (string, error) {
+	// strings are emitted like bytes
+	data, err := BytesFromOpcode(op)
+	return string(data), err
 }
