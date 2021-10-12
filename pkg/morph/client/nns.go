@@ -1,11 +1,16 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
 	nns "github.com/nspcc-dev/neo-go/examples/nft-nd-nns"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
 const (
@@ -48,15 +53,47 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 		return sh, fmt.Errorf("NNS contract state: %w", err)
 	}
 
-	s, err := c.client.NNSResolve(cs.Hash, name, nns.TXT)
+	sh, err = nnsResolve(c.client, cs.Hash, name)
 	if err != nil {
 		return sh, fmt.Errorf("NNS.resolve: %w", err)
 	}
+	return sh, nil
+}
 
-	sh, err = util.Uint160DecodeStringLE(s)
+func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
+		{
+			Type:  smartcontract.StringType,
+			Value: domain,
+		},
+		{
+			Type:  smartcontract.IntegerType,
+			Value: int64(nns.TXT),
+		},
+	}, nil)
 	if err != nil {
-		return sh, fmt.Errorf("NNS u160 decode: %w", err)
+		return util.Uint160{}, err
+	}
+	if result.State != vm.HaltState.String() {
+		return util.Uint160{}, fmt.Errorf("invocation failed: %s", result.FaultException)
+	}
+	if len(result.Stack) == 0 {
+		return util.Uint160{}, errors.New("result stack is empty")
 	}
 
-	return sh, nil
+	// Parse the result of resolving NNS record.
+	// It works with multiple formats (corresponding to multiple NNS versions).
+	// If array of hashes is provided, it returns only the first one.
+	res := result.Stack[0]
+	if arr, ok := res.Value().([]stackitem.Item); ok {
+		if len(arr) == 0 {
+			return util.Uint160{}, errors.New("NNS record is missing")
+		}
+		res = arr[0]
+	}
+	bs, err := res.TryBytes()
+	if err != nil {
+		return util.Uint160{}, fmt.Errorf("malformed response: %w", err)
+	}
+	return util.Uint160DecodeStringLE(string(bs))
 }
