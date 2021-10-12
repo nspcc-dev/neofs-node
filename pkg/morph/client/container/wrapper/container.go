@@ -41,7 +41,9 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 
 	sig := cnr.Signature()
 
-	err = w.Put(data, sig.Key(), sig.Sign(), binToken)
+	name, zone := container.GetNativeNameWithZone(cnr)
+
+	err = w.Put(data, sig.Key(), sig.Sign(), binToken, name, zone)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +61,7 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 // encountered that caused the saving to interrupt.
 //
 // If TryNotary is provided, calls notary contract.
-func (w *Wrapper) Put(cnr, key, sig, token []byte) error {
+func (w *Wrapper) Put(cnr, key, sig, token []byte, name, zone string) error {
 	if len(sig) == 0 || len(key) == 0 {
 		return errNilArgument
 	}
@@ -70,6 +72,7 @@ func (w *Wrapper) Put(cnr, key, sig, token []byte) error {
 	args.SetSignature(sig)
 	args.SetPublicKey(key)
 	args.SetSessionToken(token)
+	args.SetNativeNameWithZone(name, zone)
 
 	err := w.client.Put(args)
 	if err != nil {
