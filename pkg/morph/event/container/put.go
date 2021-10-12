@@ -47,6 +47,23 @@ func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
 	return p.notaryRequest
 }
 
+// PutNamed represents notification event spawned by PutNamed method from Container contract of NeoFS Morph chain.
+type PutNamed struct {
+	Put
+
+	name, zone string
+}
+
+// Name returns "name" arg of contract call.
+func (x PutNamed) Name() string {
+	return x.name
+}
+
+// Zone returns "zone" arg of contract call.
+func (x PutNamed) Zone() string {
+	return x.zone
+}
+
 // ParsePut from notification into container event structure.
 func ParsePut(params []stackitem.Item) (event.Event, error) {
 	var (
