@@ -29,6 +29,7 @@ type Option func(*cfg)
 
 type cfg struct {
 	putMethod, // put container method name for invocation
+	putNamedMethod, // put named container method name for invocation
 	putSizeMethod, // put container size method name for invocation
 	listSizesMethod, // list container sizes method name for invocation
 	getSizeMethod, // get container size method name for invocation
@@ -55,6 +56,8 @@ const (
 	defaultPutSizeMethod   = "putContainerSize"   // default "put container size" method name
 	defaultListSizesMethod = "listContainerSizes" // default "list container sizes" method name
 	defaultGetSizeMethod   = "getContainerSize"   // default "get container size" method name
+
+	defaultPutNamedMethod = "putNamed" // default put named container method name
 )
 
 func defaultConfig() *cfg {
@@ -71,6 +74,8 @@ func defaultConfig() *cfg {
 		putSizeMethod:   defaultPutSizeMethod,
 		listSizesMethod: defaultListSizesMethod,
 		getSizeMethod:   defaultGetSizeMethod,
+
+		putNamedMethod: defaultPutNamedMethod,
 	}
 }
 
@@ -267,6 +272,20 @@ func WithGetSizeMethod(n string) Option {
 	return func(c *cfg) {
 		if n != "" {
 			c.getSizeMethod = n
+		}
+	}
+}
+
+// WithPutNamedMethod returns a client constructor option that
+// specifies the method name of "put named container" operation.
+//
+// Ignores empty value.
+//
+// If option not provided, "putNamed" is used.
+func WithPutNamedMethod(n string) Option {
+	return func(c *cfg) {
+		if n != "" {
+			c.putNamedMethod = n
 		}
 	}
 }
