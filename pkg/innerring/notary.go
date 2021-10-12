@@ -11,8 +11,7 @@ import (
 
 type (
 	notaryConfig struct {
-		duration uint32 // lifetime of notary deposit in blocks
-		disabled bool   // true if notary disabled on chain
+		disabled bool // true if notary disabled on chain
 	}
 )
 
@@ -105,9 +104,6 @@ func parseNotaryConfigs(cfg *viper.Viper, withSideNotary, withMainNotary bool) (
 	}
 
 	main.disabled = !withMainNotary
-	main.duration = cfg.GetUint32("timers.main_notary")
-
-	side.duration = cfg.GetUint32("timers.side_notary")
 
 	return
 }

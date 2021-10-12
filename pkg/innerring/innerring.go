@@ -808,9 +808,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// initialize notary timers
 	if !server.mainNotaryConfig.disabled {
 		mainNotaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
-			l:              log,
-			depositor:      server.depositMainNotary,
-			notaryDuration: server.mainNotaryConfig.duration,
+			l:         log,
+			depositor: server.depositMainNotary,
 		})
 
 		server.addBlockTimer(mainNotaryTimer)
@@ -818,9 +817,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	if !server.sideNotaryConfig.disabled {
 		sideNotaryTimer := newNotaryDepositTimer(&notaryDepositArgs{
-			l:              log,
-			depositor:      server.depositSideNotary,
-			notaryDuration: server.sideNotaryConfig.duration,
+			l:         log,
+			depositor: server.depositSideNotary,
 		})
 
 		server.addBlockTimer(sideNotaryTimer)
