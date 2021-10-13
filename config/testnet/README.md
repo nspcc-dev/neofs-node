@@ -14,7 +14,7 @@ However, if you need to rebuild it for some reason, run
 $ make image-storage-testnet
 ...
 Successfully built ab0557117b02
-Successfully tagged nspccdev/neofs-storage-testnet:0.24.0
+Successfully tagged nspccdev/neofs-storage-testnet:0.25.1
 ```
 
 ## Deploy node
@@ -34,15 +34,15 @@ Then make a deposit by transferring GAS to NeoFS contract in N3 Testnet.
 You can provide scripthash in the `data` argument of transfer tx to make a
 deposit to specified account. Otherwise, deposit is made to tx sender.
 
-NeoFS contract scripthash in NEO Testnet is `51cf687eb6625eb1a2b98b0fb4e9d52bdf95f3a6`, 
-so the address is `Nb8jADHaYuH2e46koNEfTSrKj7iEPEEY7p`
+NeoFS contract scripthash in N3 Testnet is `b65d8243ac63983206d17e5221af0653a7266fa1`, 
+so the address is `NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF`.
 
 See a deposit example with `neo-go`.
 
 ```
-neo-go wallet nep17 transfer -w wallet.json -r https://rpc1.n3.nspcc.ru:20331 \
+neo-go wallet nep17 transfer -w wallet.json -r https://rpc01.testnet.n3.nspcc.ru:21331 \
 --from NXxRAFPqPstaPByndKMHuC8iGcaHgtRY3m \
---to Nb8jADHaYuH2e46koNEfTSrKj7iEPEEY7p \
+--to NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF \
 --token GAS \
 --amount 1
 ```
