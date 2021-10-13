@@ -20,17 +20,8 @@ func (c *cache) Get(addr *objectSDK.Address) (*object.Object, error) {
 	}
 	c.mtx.RUnlock()
 
-	var value []byte
-	_ = c.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		val := b.Get([]byte(saddr))
-		if val != nil {
-			value = cloneBytes(val)
-		}
-		return nil
-	})
-
-	if value != nil {
+	value, err := Get(c.db, []byte(saddr))
+	if err == nil {
 		obj := object.New()
 		c.flushed.Get(saddr)
 		return obj, obj.Unmarshal(value)
@@ -65,4 +56,23 @@ func (c *cache) Head(addr *objectSDK.Address) (*object.Object, error) {
 
 	// NOTE: resetting the payload via the setter can lead to data corruption of in-memory objects, but ok for others
 	return object.NewRawFromObject(obj).CutPayload().Object(), nil
+}
+
+// Get fetches object from the underlying database.
+// Key should be a stringified address.
+func Get(db *bbolt.DB, key []byte) ([]byte, error) {
+	var value []byte
+	err := db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(defaultBucket)
+		if b == nil {
+			return ErrNoDefaultBucket
+		}
+		value = b.Get(key)
+		if value == nil {
+			return object.ErrNotFound
+		}
+		value = cloneBytes(value)
+		return nil
+	})
+	return value, err
 }
