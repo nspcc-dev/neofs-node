@@ -95,7 +95,7 @@ dirty-images: image-dirty-storage image-dirty-ir image-dirty-cli image-dirty-adm
 
 # Run `make %` in Golang container
 docker/%:
-	docker run --rm -it \
+	docker run --rm -t \
 	-v `pwd`:/src \
 	-w /src \
 	-u "$$(id -u):$$(id -g)" \
@@ -127,7 +127,7 @@ lint:
 
 # Run linters in Docker
 docker/lint:
-	docker run --rm -it \
+	docker run --rm -t \
 	-v `pwd`:/src \
 	-u `stat -c "%u:%g" .` \
 	--env HOME=/src \
