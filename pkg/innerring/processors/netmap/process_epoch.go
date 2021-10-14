@@ -10,18 +10,18 @@ import (
 // Process new epoch notification by setting global epoch value and resetting
 // local epoch timer.
 func (np *Processor) processNewEpoch(epoch uint64) {
-	np.epochState.SetEpochCounter(epoch)
-	if err := np.epochTimer.ResetEpochTimer(); err != nil {
-		np.log.Warn("can't reset epoch timer",
-			zap.String("error", err.Error()))
-	}
-
 	epochDuration, err := np.netmapClient.EpochDuration()
 	if err != nil {
 		np.log.Warn("can't get epoch duration",
 			zap.String("error", err.Error()))
 	} else {
 		np.epochState.SetEpochDuration(epochDuration)
+	}
+
+	np.epochState.SetEpochCounter(epoch)
+	if err := np.epochTimer.ResetEpochTimer(); err != nil {
+		np.log.Warn("can't reset epoch timer",
+			zap.String("error", err.Error()))
 	}
 
 	// get new netmap snapshot
