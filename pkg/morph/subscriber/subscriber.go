@@ -142,17 +142,21 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 
 			switch notification.Type {
 			case response.NotificationEventID:
-				notification, ok := notification.Value.(*state.NotificationEvent)
+				notifyEvent, ok := notification.Value.(*subscriptions.NotificationEvent)
 				if !ok {
-					s.log.Error("can't cast notify event value to the notify struct")
+					s.log.Error("can't cast notify event value to the notify struct",
+						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
+					)
 					continue
 				}
 
-				s.notifyChan <- notification
+				s.notifyChan <- &notifyEvent.NotificationEvent
 			case response.BlockEventID:
 				b, ok := notification.Value.(*block.Block)
 				if !ok {
-					s.log.Error("can't cast block event value to block")
+					s.log.Error("can't cast block event value to block",
+						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
+					)
 					continue
 				}
 
@@ -160,7 +164,9 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 			case response.NotaryRequestEventID:
 				notaryRequest, ok := notification.Value.(*subscriptions.NotaryRequestEvent)
 				if !ok {
-					s.log.Error("can't cast notify event value to the notary request struct")
+					s.log.Error("can't cast notify event value to the notary request struct",
+						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
+					)
 					continue
 				}
 
