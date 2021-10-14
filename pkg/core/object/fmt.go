@@ -76,23 +76,28 @@ func (v *FormatValidator) Validate(obj *Object) error {
 		return errNilCID
 	}
 
-	for ; obj != nil; obj = obj.GetParent() {
-		if err := v.checkAttributes(obj); err != nil {
-			return fmt.Errorf("invalid attributes: %w", err)
-		}
+	if err := v.checkOwner(obj); err != nil {
+		return err
+	}
 
-		if err := v.validateSignatureKey(obj); err != nil {
-			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
-		}
+	if err := v.checkAttributes(obj); err != nil {
+		return fmt.Errorf("invalid attributes: %w", err)
+	}
 
-		// TODO: combine small checks
-		if err := v.checkExpiration(obj); err != nil {
-			return fmt.Errorf("object did not pass expiration check: %w", err)
-		}
+	if err := v.validateSignatureKey(obj); err != nil {
+		return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
+	}
 
-		if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
-			return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
-		}
+	if err := v.checkExpiration(obj); err != nil {
+		return fmt.Errorf("object did not pass expiration check: %w", err)
+	}
+
+	if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
+		return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
+	}
+
+	if obj = obj.GetParent(); obj != nil {
+		return v.Validate(obj)
 	}
 
 	return nil
@@ -253,6 +258,17 @@ func (v *FormatValidator) checkAttributes(obj *Object) error {
 		}
 
 		mUnique[key] = struct{}{}
+	}
+
+	return nil
+}
+
+var errIncorrectOwner = errors.New("incorrect object owner")
+
+func (v *FormatValidator) checkOwner(obj *Object) error {
+	// TODO: use appropriate functionality after neofs-api-go#352
+	if len(obj.OwnerID().ToV2().GetValue()) != owner.NEO3WalletSize {
+		return errIncorrectOwner
 	}
 
 	return nil

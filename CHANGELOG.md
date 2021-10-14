@@ -14,6 +14,7 @@ Storage Node envs.
   command (#810)
 - SN and IR notary deposits are made dynamically depending on the Notary and
   GAS balances now (#873)
+- Do not accept objects with empty owner (#841)
 
 ## [0.25.1] - 2021-09-29
 
