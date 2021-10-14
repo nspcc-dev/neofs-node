@@ -294,12 +294,15 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	s.expiredTombstonesCallback(ctx, expired)
 }
 
-// HandleExpiredTombstones mark to be removed all objects that are expired in epoch
-// and protected by tombstone with string address from tss.
+// HandleExpiredTombstones marks to be removed all objects that are
+// protected by tombstones with string addresses from tss.
+// If successful, marks tombstones themselves as garbage.
 //
 // Does not modify tss.
 func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
 	inhume := make([]*object.Address, 0, len(tss))
+
+	// Collect all objects covered by the tombstones.
 
 	err := s.metaBase.IterateCoveredByTombstones(tss, func(addr *object.Address) error {
 		inhume = append(inhume, addr)
@@ -311,16 +314,56 @@ func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
 		)
 
 		return
-	} else if len(inhume) == 0 {
-		return
 	}
 
-	_, err = s.metaBase.Inhume(new(meta.InhumePrm).
-		WithAddresses(inhume...).
-		WithGCMark(),
-	)
+	// Mark collected objects as garbage.
+
+	var pInhume meta.InhumePrm
+
+	pInhume.WithGCMark()
+
+	if len(inhume) > 0 {
+		// inhume objects
+		pInhume.WithAddresses(inhume...)
+
+		_, err = s.metaBase.Inhume(&pInhume)
+		if err != nil {
+			s.log.Warn("could not inhume objects under the expired tombstone",
+				zap.String("error", err.Error()),
+			)
+
+			return
+		}
+	}
+
+	// Mark the tombstones as garbage.
+
+	inhume = inhume[:0]
+
+	for strAddr := range tss {
+		// parse address
+		// TODO: make type of map values *object.Address since keys are calculated from addresses
+		addr := object.NewAddress()
+
+		err = addr.Parse(strAddr)
+		if err != nil {
+			s.log.Error("could not parse tombstone address",
+				zap.String("text", strAddr),
+				zap.String("error", err.Error()),
+			)
+
+			continue // try process other tombstones
+		}
+
+		inhume = append(inhume, addr)
+	}
+
+	pInhume.WithAddresses(inhume...) // GC mark is already set above
+
+	// inhume tombstones
+	_, err = s.metaBase.Inhume(&pInhume)
 	if err != nil {
-		s.log.Warn("could not inhume objects under the expired tombstone",
+		s.log.Warn("could not mark tombstones as garbage",
 			zap.String("error", err.Error()),
 		)
 
