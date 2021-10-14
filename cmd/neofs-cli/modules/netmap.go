@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/hex"
+	"time"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
@@ -162,7 +163,7 @@ var netInfoCmd = &cobra.Command{
 		magic := netInfo.MagicNumber()
 		cmd.Printf("Network magic: [%s] %d\n", netmode.Magic(magic), magic)
 
-		cmd.Printf("MillisecondsPerBlock: %d\n", netInfo.MsPerBlock())
+		cmd.Printf("Time per block: %s\n", time.Duration(netInfo.MsPerBlock())*time.Millisecond)
 
 		netCfg := netInfo.NetworkConfig()
 
