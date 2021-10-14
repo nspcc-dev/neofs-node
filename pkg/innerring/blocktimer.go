@@ -16,6 +16,7 @@ import (
 type (
 	epochState interface {
 		EpochCounter() uint64
+		EpochDuration() uint64
 	}
 
 	subEpochEventHandler struct {
@@ -32,11 +33,10 @@ type (
 		newEpochHandlers []newEpochHandler
 
 		cnrWrapper *container.Wrapper // to invoke stop container estimation
-		epoch      epochState         // to specify which epoch to stop
+		epoch      epochState         // to specify which epoch to stop, and epoch duration
 
-		epochDuration      timer.BlockMeter // in blocks
-		stopEstimationDMul uint32           // X: X/Y of epoch in blocks
-		stopEstimationDDiv uint32           // Y: X/Y of epoch in blocks
+		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
+		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks
 
 		collectBasicIncome    subEpochEventHandler
 		distributeBasicIncome subEpochEventHandler
@@ -80,7 +80,9 @@ func (s *Server) tickTimers() {
 
 func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 	epochTimer := timer.NewBlockTimer(
-		args.epochDuration,
+		func() (uint32, error) {
+			return uint32(args.epoch.EpochDuration()), nil
+		},
 		func() {
 			for _, handler := range args.newEpochHandlers {
 				handler()

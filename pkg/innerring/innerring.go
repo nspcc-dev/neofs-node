@@ -780,7 +780,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		newEpochHandlers:   server.newEpochHandlers(log),
 		cnrWrapper:         cnrClient,
 		epoch:              server,
-		epochDuration:      globalConfig.EpochDuration,
 		stopEstimationDMul: cfg.GetUint32("timers.stop_estimation.mul"),
 		stopEstimationDDiv: cfg.GetUint32("timers.stop_estimation.div"),
 		collectBasicIncome: subEpochEventHandler{
@@ -956,15 +955,15 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
+	s.epochCounter.Store(epoch)
+	s.epochDuration.Store(epochDuration)
+	s.precision.SetBalancePrecision(balancePrecision)
+
 	// get next epoch delta tick
 	s.initialEpochTickDelta, err = s.nextEpochBlockDelta()
 	if err != nil {
 		return err
 	}
-
-	s.epochCounter.Store(epoch)
-	s.epochDuration.Store(epochDuration)
-	s.precision.SetBalancePrecision(balancePrecision)
 
 	s.log.Debug("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
@@ -988,12 +987,7 @@ func (s *Server) nextEpochBlockDelta() (uint32, error) {
 		return 0, fmt.Errorf("can't get side chain height: %w", err)
 	}
 
-	epochDuration, err := s.netmapClient.EpochDuration()
-	if err != nil {
-		return 0, fmt.Errorf("can't get epoch duration: %w", err)
-	}
-
-	delta := uint32(epochDuration) + epochBlock
+	delta := uint32(s.epochDuration.Load()) + epochBlock
 	if delta < blockHeight {
 		return 0, nil
 	}
