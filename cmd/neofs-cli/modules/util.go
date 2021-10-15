@@ -197,7 +197,6 @@ func initCommonFlagsWithoutRPC(cmd *cobra.Command) {
 	flags.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
 	flags.StringP(wif, wifShorthand, wifDefault, wifUsage)
 	flags.StringP(address, addressShorthand, addressDefault, addressUsage)
-	flags.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
 	flags.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
 }
 
