@@ -276,8 +276,8 @@ func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, erro
 
 // getEndpointAddress returns network address structure that stores multiaddr
 // inside, parsed from global arguments.
-func getEndpointAddress() (addr network.Address, err error) {
-	endpoint := viper.GetString(rpc)
+func getEndpointAddress(endpointFlag string) (addr network.Address, err error) {
+	endpoint := viper.GetString(endpointFlag)
 
 	err = addr.FromString(endpoint)
 	if err != nil {
@@ -290,7 +290,7 @@ func getEndpointAddress() (addr network.Address, err error) {
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
 func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
-	netAddr, err := getEndpointAddress()
+	netAddr, err := getEndpointAddress(rpc)
 	if err != nil {
 		return nil, err
 	}
