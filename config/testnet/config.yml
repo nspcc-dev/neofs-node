@@ -29,7 +29,7 @@ contracts:
 node:
   key: /node.key
   attribute_0: Deployed:SelfHosted
-  attribute_1: User-Agent:NeoFS\/0.25
+  attribute_1: User-Agent:NeoFS\/0.26
 
 metrics:
   address: 127.0.0.1:9090
