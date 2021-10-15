@@ -8,8 +8,11 @@ Deleted `NEOFS_IR_NOTARY_SIDE_DEPOSIT_AMOUNT`, `NEOFS_IR_NOTARY_MAIN_DEPOSIT_AMO
 and `NEOFS_IR_TIMERS_SIDE_NOTARY`, `NEOFS_IR_TIMERS_MAIN_NOTARY` Inner Ring envs.
 Deleted `NEOFS_MORPH_NOTARY_DEPOSIT_AMOUNT` and `NEOFS_MORPH_NOTARY_DEPOSIT_DURATION`
 Storage Node envs.
+`control` CLI command does not have `--rpc-endpoint`/`r` flag, use `endpoint`
+instead.
 
 ### Changed
+- Renamed `--rpc-endpoint` CLI flag for `control command` (#879)
 - Do not use global flags in CLI; delete useless flags from `accounting balance`
   command (#810)
 - SN and IR notary deposits are made dynamically depending on the Notary and

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"crypto/ecdsa"
+	"crypto/tls"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
@@ -12,6 +13,7 @@ import (
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var controlCmd = &cobra.Command{
@@ -19,7 +21,15 @@ var controlCmd = &cobra.Command{
 	Short: "Operations with storage node",
 	Long:  `Operations with storage node`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		bindCommonFlags(cmd)
+		ff := cmd.Flags()
+
+		_ = viper.BindPFlag(generateKey, ff.Lookup(generateKey))
+		_ = viper.BindPFlag(binaryKey, ff.Lookup(binaryKey))
+		_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
+		_ = viper.BindPFlag(wif, ff.Lookup(wif))
+		_ = viper.BindPFlag(address, ff.Lookup(address))
+		_ = viper.BindPFlag(controlRPC, ff.Lookup(controlRPC))
+		_ = viper.BindPFlag(verbose, ff.Lookup(verbose))
 	},
 }
 
@@ -44,6 +54,12 @@ const (
 	netmapStatusOffline = "offline"
 )
 
+const (
+	controlRPC        = "endpoint"
+	controlRPCDefault = ""
+	controlRPCUsage   = "remote node control address (as 'multiaddr' or '<host>:<port>')"
+)
+
 // control healthcheck flags
 const (
 	healthcheckIRFlag = "ir"
@@ -57,15 +73,21 @@ var (
 var netmapStatus string
 
 func initControlHealthCheckCmd() {
-	initCommonFlags(healthCheckCmd)
+	initCommonFlagsWithoutRPC(healthCheckCmd)
 
-	healthCheckCmd.Flags().BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
+	flags := healthCheckCmd.Flags()
+
+	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
+	flags.BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
 }
 
 func initControlSetNetmapStatusCmd() {
-	initCommonFlags(setNetmapStatusCmd)
+	initCommonFlagsWithoutRPC(setNetmapStatusCmd)
 
-	setNetmapStatusCmd.Flags().StringVarP(&netmapStatus, netmapStatusFlag, "", "",
+	flags := setNetmapStatusCmd.Flags()
+
+	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
+	flags.StringVarP(&netmapStatus, netmapStatusFlag, "", "",
 		fmt.Sprintf("new netmap status keyword ('%s', '%s')",
 			netmapStatusOnline,
 			netmapStatusOffline,
@@ -76,18 +98,23 @@ func initControlSetNetmapStatusCmd() {
 }
 
 func initControlDropObjectsCmd() {
-	initCommonFlags(dropObjectsCmd)
+	initCommonFlagsWithoutRPC(dropObjectsCmd)
 
-	dropObjectsCmd.Flags().StringSliceVarP(&dropObjectsList, dropObjectsFlag, "o", nil,
+	flags := dropObjectsCmd.Flags()
+
+	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
+	flags.StringSliceVarP(&dropObjectsList, dropObjectsFlag, "o", nil,
 		"List of object addresses to be removed in string format")
 
 	_ = dropObjectsCmd.MarkFlagRequired(dropObjectsFlag)
 }
 
 func initControlSnapshotCmd() {
-	initCommonFlags(snapshotCmd)
+	initCommonFlagsWithoutRPC(snapshotCmd)
 
-	snapshotCmd.Flags().BoolVar(&netmapSnapshotJSON, "json", false,
+	flags := snapshotCmd.Flags()
+
+	flags.BoolVar(&netmapSnapshotJSON, "json", false,
 		"print netmap structure in JSON format")
 }
 
@@ -111,7 +138,7 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
 	exitOnErr(cmd, err)
 
-	cli, err := getSDKClient(key)
+	cli, err := getControlSDKClient(key)
 	exitOnErr(cmd, err)
 
 	if healthCheckIRVar {
@@ -192,7 +219,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	err = controlSvc.SignMessage(key, req)
 	exitOnErr(cmd, errf("could not sign request: %w", err))
 
-	cli, err := getSDKClient(key)
+	cli, err := getControlSDKClient(key)
 	exitOnErr(cmd, err)
 
 	resp, err := control.SetNetmapStatus(cli.Raw(), req)
@@ -249,7 +276,7 @@ var dropObjectsCmd = &cobra.Command{
 		err = controlSvc.SignMessage(key, req)
 		exitOnErr(cmd, errf("could not sign request: %w", err))
 
-		cli, err := getSDKClient(key)
+		cli, err := getControlSDKClient(key)
 		exitOnErr(cmd, err)
 
 		resp, err := control.DropObjects(cli.Raw(), req)
@@ -283,7 +310,7 @@ var snapshotCmd = &cobra.Command{
 		err = controlSvc.SignMessage(key, req)
 		exitOnErr(cmd, errf("could not sign request: %w", err))
 
-		cli, err := getSDKClient(key)
+		cli, err := getControlSDKClient(key)
 		exitOnErr(cmd, err)
 
 		resp, err := control.NetmapSnapshot(cli.Raw(), req)
@@ -301,4 +328,29 @@ var snapshotCmd = &cobra.Command{
 
 		prettyPrintNetmap(cmd, resp.GetBody().GetNetmap(), netmapSnapshotJSON)
 	},
+}
+
+// getControlSDKClient is the same getSDKClient but with
+// another RPC endpoint flag.
+func getControlSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
+	netAddr, err := getEndpointAddress(controlRPC)
+	if err != nil {
+		return nil, err
+	}
+
+	options := []client.Option{
+		client.WithAddress(netAddr.HostAddr()),
+		client.WithDefaultPrivateKey(key),
+	}
+
+	if netAddr.TLSEnabled() {
+		options = append(options, client.WithTLSConfig(&tls.Config{}))
+	}
+
+	c, err := client.New(options...)
+	if err != nil {
+		return nil, fmt.Errorf("coult not init api client:%w", err)
+	}
+
+	return c, err
 }
