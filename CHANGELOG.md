@@ -3,6 +3,51 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.26.0] - 2021-10-19 - Udo (우도, 牛島)
+
+NeoFS API v2.10 support
+
+### Fixed
+- Check remote node public key in every response message (#645)
+- Do not lose local container size estimations (#872)
+- Compressed and uncompressed objects are always available for reading 
+  regardless of compression configuration (#868)
+- Use request session token in ACL check of object.Put (#881)
+- Parse URI in neofs-cli properly (#883)
+- Parse minutes in LOCODE DB properly (#902)
+- Remove expired tombstones (#884)
+- Close all opened blobovniczas properly (#896)
+- Do not accept objects with empty OwnerID field (#841)
+
+### Added
+- More logs in governance and policer components (#867, #882)
+- Contract address getter in static blockchain clients (#627)
+- Alphabet configuration option to disable governance sync (#869)
+- neofs-lens app implementation (#791)
+- Detailed comments in neofs-node config example (#858)
+- Size suffixes support in neofs-node config (#857)
+- Docs for neofs-adm (#906)
+- Side chain block size duration and global NeoFS configuration in
+  NetworkConfig response (#833)
+- Support native container names (#889)
+
+### Changed
+- Updated grpc to v1.41.0 (#860)
+- Updated neo-go to v0.97.3 (#833)
+- Updated neofs-api-go to v1.30.0
+- Adopt neofs-adm for new contracts release (#835, #888)
+- Adopt neofs-node for new contracts release (#905)
+- SN and IR notary deposits are made dynamically depending on the Notary and
+  GAS balances (#771)
+- VMagent port in testnet config is now 443 (#908)
+- Use per-shard worker pools for object.Put operations (#674)
+- Renamed `--rpc-endpoint` CLI flag for `control command` to `--endpoint` (#879)
+
+### Removed
+- Global flags in CLI. Deleted useless flags from `accounting balance`
+  command (#810).
+- Interactive mode in docker run command (#916)
+
 ### Upgrading from v0.25.1
 Deleted `NEOFS_IR_NOTARY_SIDE_DEPOSIT_AMOUNT`, `NEOFS_IR_NOTARY_MAIN_DEPOSIT_AMOUNT`
 and `NEOFS_IR_TIMERS_SIDE_NOTARY`, `NEOFS_IR_TIMERS_MAIN_NOTARY` Inner Ring envs.
@@ -10,14 +55,6 @@ Deleted `NEOFS_MORPH_NOTARY_DEPOSIT_AMOUNT` and `NEOFS_MORPH_NOTARY_DEPOSIT_DURA
 Storage Node envs.
 `control` CLI command does not have `--rpc-endpoint`/`r` flag, use `endpoint`
 instead.
-
-### Changed
-- Renamed `--rpc-endpoint` CLI flag for `control command` (#879)
-- Do not use global flags in CLI; delete useless flags from `accounting balance`
-  command (#810)
-- SN and IR notary deposits are made dynamically depending on the Notary and
-  GAS balances now (#873)
-- Do not accept objects with empty owner (#841)
 
 ## [0.25.1] - 2021-09-29
 
@@ -686,7 +723,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...master
+[0.26.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.0...v0.24.1
