@@ -2,10 +2,13 @@ package policer
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"go.uber.org/zap"
@@ -18,6 +21,17 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 			zap.Stringer("cid", addr.ContainerID()),
 			zap.String("error", err.Error()),
 		)
+		if errors.Is(err, container.ErrNotFound) {
+			prm := new(engine.InhumePrm)
+			prm.MarkAsGarbage(addr)
+			_, err := p.jobQueue.localStorage.Inhume(prm)
+			if err != nil {
+				p.log.Error("could not inhume object with missing container",
+					zap.Stringer("cid", addr.ContainerID()),
+					zap.Stringer("oid", addr.ObjectID()),
+					zap.String("error", err.Error()))
+			}
+		}
 
 		return
 	}
