@@ -20,7 +20,7 @@ DIRS = $(BIN) $(RELEASE)
 CMDS = $(notdir $(basename $(wildcard cmd/*)))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
-.PHONY: help all dep clean fmts fmt imports test lint docker/lint prepare-release
+.PHONY: help all images dep clean fmts fmt imports test lint docker/lint prepare-release
 
 # To build a specific binary, use it's name prefix with bin/ as a target
 # For example `make bin/neofs-node` will build only storage node binary
