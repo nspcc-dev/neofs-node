@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strings"
 
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -165,14 +166,17 @@ func (w *Wrapper) Get(cid []byte) (*container.Container, error) {
 	// ask RPC neo node to get serialized container
 	rpcAnswer, err := w.client.Get(args)
 	if err != nil {
+		// TODO(fyrchik): reuse messages from container contract.
+		// Currently there are some dependency problems:
+		// github.com/nspcc-dev/neofs-node/pkg/innerring imports
+		//        github.com/nspcc-dev/neofs-sdk-go/audit imports
+		//        github.com/nspcc-dev/neofs-api-go/v2/audit: ambiguous import: found package github.com/nspcc-dev/neofs-api-go/v2/audit in multiple modules:
+		//        github.com/nspcc-dev/neofs-api-go v1.27.1 (/home/dzeta/go/pkg/mod/github.com/nspcc-dev/neofs-api-go@v1.27.1/v2/audit)
+		//        github.com/nspcc-dev/neofs-api-go/v2 v2.11.0-pre.0.20211201134523-3604d96f3fe1 (/home/dzeta/go/pkg/mod/github.com/nspcc-dev/neofs-api-go/v2@v2.11.0-pre.0.20211201134523-3604d96f3fe1/audit)
+		if strings.Contains(err.Error(), "container does not exist") {
+			return nil, core.ErrNotFound
+		}
 		return nil, err
-	}
-
-	// In #37 we've decided to remove length check, because smart contract would
-	// fail on casting `nil` value from storage to `[]byte` producing FAULT state.
-	// Apparently it does not fail, so we have to check length explicitly.
-	if len(rpcAnswer.Container()) == 0 {
-		return nil, core.ErrNotFound
 	}
 
 	// unmarshal container
