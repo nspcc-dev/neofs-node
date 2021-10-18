@@ -60,3 +60,20 @@ func TestConfig_SubValue(t *testing.T) {
 		require.Equal(t, "val1", sub.Value("key"))
 	})
 }
+
+func TestConfig_SetDefault(t *testing.T) {
+	configtest.ForEachFileType("test/config", func(c *config.Config) {
+		c = c.Sub("with_default")
+		s := c.Sub("custom")
+		s.SetDefault(c.Sub("default"))
+
+		require.Equal(t, int64(42), config.Int(s, "missing"))
+		require.Equal(t, "b", config.String(s, "overridden"))
+		require.Equal(t, false, config.Bool(s, "overridden_with_default"))
+
+		// Default can be set only once.
+		s = s.Sub("sub")
+		require.Equal(t, int64(123), config.Int(s, "missing"))
+		require.Equal(t, "y", config.String(s, "overridden"))
+	})
+}

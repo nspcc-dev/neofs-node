@@ -15,9 +15,19 @@ func (x *Config) Sub(name string) *Config {
 
 	copy(path, x.path)
 
+	var defaultPath []string
+	if x.defaultPath != nil {
+		ln := len(x.defaultPath)
+		defaultPath = make([]string, ln, ln+1)
+		copy(defaultPath, x.defaultPath)
+	}
+
+	copy(path, x.path)
+
 	return &Config{
-		v:    x.v,
-		path: append(path, name),
+		v:           x.v,
+		path:        append(path, name),
+		defaultPath: append(defaultPath, name),
 	}
 }
 
@@ -30,5 +40,18 @@ func (x *Config) Sub(name string) *Config {
 //
 // Returns nil if config is nil.
 func (x *Config) Value(name string) interface{} {
-	return x.v.Get(strings.Join(append(x.path, name), separator))
+	value := x.v.Get(strings.Join(append(x.path, name), separator))
+	if value != nil || x.defaultPath == nil {
+		return value
+	}
+	return x.v.Get(strings.Join(append(x.defaultPath, name), separator))
+}
+
+// SetDefault sets fallback config for missing values.
+//
+// It supports only one level of nesting and is intended to be used
+// to provide default values.
+func (x *Config) SetDefault(from *Config) {
+	x.defaultPath = make([]string, len(from.path))
+	copy(x.defaultPath, from.path)
 }
