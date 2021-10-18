@@ -22,8 +22,6 @@ func (x *Config) Sub(name string) *Config {
 		copy(defaultPath, x.defaultPath)
 	}
 
-	copy(path, x.path)
-
 	return &Config{
 		v:           x.v,
 		path:        append(path, name),

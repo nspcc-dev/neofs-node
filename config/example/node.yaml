@@ -86,6 +86,36 @@ object:
 storage:
   shard_pool_size: 15 # size of per-shard worker pools used for PUT operations
   shard_num: 2  # total number of shards
+  default: # section with the default shard parameters
+    refill_metabase: true  # sync metabase with blobstore on start, expensive, leave false until complete understanding
+
+    use_write_cache: true  # use write-cache
+
+    writecache:
+      mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
+      small_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+      max_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
+      workers_number: 30  # number of write-cache flusher threads
+
+    metabase:
+      perm: 0644  # permissions for metabase files(directories: +x for current user and group)
+
+    blobstor:
+      compress: false  # turn on/off zstd(level 3) compression of stored objects
+      perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
+      shallow_depth: 5  # max depth of object tree storage in FS
+      small_size_limit: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+
+      blobovnicza:
+        size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
+        shallow_depth: 1  # max depth of object tree storage in key-value DB
+        shallow_width: 4   # max width of object tree storage in key-value DB
+        opened_cache_size: 50  # maximum number of opened database files
+
+    gc:
+      remover_batch_size: 200  # number of objects to be removed by the garbage collector
+      remover_sleep_interval: 5m  # frequency of the garbage collector invocation
+
   shard:
     0:
       refill_metabase: false  # sync metabase with blobstore on start, expensive, leave false until complete understanding
@@ -94,63 +124,26 @@ storage:
 
       writecache:
         path: tmp/0/cache  # write-cache root directory
-        mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
-        small_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not on FS, bytes
-        max_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
-        workers_number: 30  # number of write-cache flusher threads
         size_limit: 3221225472  # approximate write-cache total size, bytes
 
       metabase:
         path: tmp/0/meta  # metabase path
-        perm: 0644  # permissions for metabase files(directories: +x for current user and group)
 
       blobstor:
         path: tmp/0/blob  # blobstor path
-        perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
         compress: true  # turn on/off zstd(level 3) compression of stored objects
-        shallow_depth: 5  # max depth of object tree storage in FS
-        small_size_limit: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
-
-        blobovnicza:
-          size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
-          shallow_depth: 1  # max depth of object tree storage in key-value DB
-          shallow_width: 4   # max width of object tree storage in key-value DB
-          opened_cache_size: 50  # maximum number of opened database files
 
       gc:
         remover_batch_size: 150  # number of objects to be removed by the garbage collector
         remover_sleep_interval: 2m  # frequency of the garbage collector invocation
 
     1:
-      refill_metabase: true  # sync metabase with blobstore on start, expensive, leave false until complete understanding
-
-      use_write_cache: true  # use write-cache
-
       writecache:
         path: tmp/1/cache  # write-cache root directory
-        mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
-        small_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
-        max_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
-        workers_number: 30  # number of write-cache flusher threads
         size_limit: 4294967296  # approximate write-cache total size, bytes
 
       metabase:
         path: tmp/1/meta  # metabase path
-        perm: 0644  # permissions for metabase files(directories: +x for current user and group)
 
       blobstor:
         path: tmp/1/blob  # blobstor path
-        perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
-        compress: false  # turn on/off zstd(level 3) compression of stored objects
-        shallow_depth: 5  # max depth of object tree storage in FS
-        small_size_limit: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
-
-        blobovnicza:
-          size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
-          shallow_depth: 1  # max depth of object tree storage in key-value DB
-          shallow_width: 4   # max width of object tree storage in key-value DB
-          opened_cache_size: 50  # maximum number of opened database files
-
-      gc:
-        remover_batch_size: 200  # number of objects to be removed by the garbage collector
-        remover_sleep_interval: 5m  # frequency of the garbage collector invocation
