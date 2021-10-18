@@ -48,8 +48,8 @@ storage:
         perm: 0777
         blobovnicza:
           opened_cache_capacity: 32
-          shallow_depth: 1
-          shallow_width: 1
+          depth: 1
+          width: 1
       gc:
         remover_batch_size: 100
         remover_sleep_interval: 1m
