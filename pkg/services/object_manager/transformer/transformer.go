@@ -28,8 +28,6 @@ type payloadSizeLimiter struct {
 	chunkWriter io.Writer
 
 	splitID *objectSDK.SplitID
-
-	parAttrs []*objectSDK.Attribute
 }
 
 type payloadChecksumHasher struct {
@@ -265,12 +263,6 @@ func (s *payloadSizeLimiter) prepareFirstChild() {
 	// initialize split header with split ID on first object in chain
 	s.current.InitRelations()
 	s.current.SetSplitID(s.splitID)
-
-	// cut source attributes
-	s.parAttrs = s.current.Attributes()
-	s.current.SetAttributes()
-
-	// attributes will be added to parent in detachParent
 }
 
 func (s *payloadSizeLimiter) detachParent() {
@@ -279,7 +271,4 @@ func (s *payloadSizeLimiter) detachParent() {
 	s.parent.ResetRelations()
 	s.parent.SetSignature(nil)
 	s.parentHashers = s.currentHashers
-
-	// return source attributes
-	s.parent.SetAttributes(s.parAttrs...)
 }
