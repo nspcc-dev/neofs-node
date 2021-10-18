@@ -79,13 +79,13 @@ func (x *Config) SmallObjectSize() uint64 {
 	return SmallSizeDefault
 }
 
-// MaxObjectSize returns value of "max_size" config parameter.
+// MaxObjectSize returns value of "max_object_size" config parameter.
 //
 // Returns MaxSizeDefault if value is not a positive number.
 func (x *Config) MaxObjectSize() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
-		"max_size",
+		"max_object_size",
 	)
 
 	if s > 0 {
