@@ -149,7 +149,8 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 		switch string(k) {
 		case netmapAuditFeeKey, netmapBasicIncomeRateKey,
-			netmapContainerFeeKey, netmapEigenTrustIterationsKey,
+			netmapContainerFeeKey, netmapContainerAliasFeeKey,
+			netmapEigenTrustIterationsKey,
 			netmapEpochKey, netmapInnerRingCandidateFeeKey,
 			netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
 			nbuf := make([]byte, 8)

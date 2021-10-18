@@ -42,6 +42,7 @@ network:
     audit: 0     # network audit fee, for private installation consider 0
     candidate: 0 # inner ring candidate registration fee, for private installation consider 0
     container: 0 # container creation fee, for private installation consider 0
+    container_alias: 0 # container nice-name registration fee, for private installation consider 0
     withdraw: 0  # withdraw fee, for private installation consider 0
 credentials:     # passwords for consensus node / alphabet wallets
   az: password1

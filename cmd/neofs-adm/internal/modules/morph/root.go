@@ -6,31 +6,33 @@ import (
 )
 
 const (
-	alphabetWalletsFlag   = "alphabet-wallets"
-	alphabetSizeFlag      = "size"
-	endpointFlag          = "rpc-endpoint"
-	storageWalletFlag     = "storage-wallet"
-	storageGasCLIFlag     = "initial-gas"
-	storageGasConfigFlag  = "storage.initial_gas"
-	contractsInitFlag     = "contracts"
-	maxObjectSizeInitFlag = "network.max_object_size"
-	maxObjectSizeCLIFlag  = "max-object-size"
-	epochDurationInitFlag = "network.epoch_duration"
-	epochDurationCLIFlag  = "epoch-duration"
-	incomeRateInitFlag    = "network.basic_income_rate"
-	incomeRateCLIFlag     = "basic-income-rate"
-	auditFeeInitFlag      = "network.fee.audit"
-	auditFeeCLIFlag       = "audit-fee"
-	containerFeeInitFlag  = "network.fee.container"
-	containerFeeCLIFlag   = "container-fee"
-	candidateFeeInitFlag  = "network.fee.candidate"
-	candidateFeeCLIFlag   = "candidate-fee"
-	withdrawFeeInitFlag   = "network.fee.withdraw"
-	withdrawFeeCLIFlag    = "withdraw-fee"
-	containerDumpFlag     = "dump"
-	containerContractFlag = "container-contract"
-	containerIDsFlag      = "cid"
-	refillGasAmountFlag   = "gas"
+	alphabetWalletsFlag       = "alphabet-wallets"
+	alphabetSizeFlag          = "size"
+	endpointFlag              = "rpc-endpoint"
+	storageWalletFlag         = "storage-wallet"
+	storageGasCLIFlag         = "initial-gas"
+	storageGasConfigFlag      = "storage.initial_gas"
+	contractsInitFlag         = "contracts"
+	maxObjectSizeInitFlag     = "network.max_object_size"
+	maxObjectSizeCLIFlag      = "max-object-size"
+	epochDurationInitFlag     = "network.epoch_duration"
+	epochDurationCLIFlag      = "epoch-duration"
+	incomeRateInitFlag        = "network.basic_income_rate"
+	incomeRateCLIFlag         = "basic-income-rate"
+	auditFeeInitFlag          = "network.fee.audit"
+	auditFeeCLIFlag           = "audit-fee"
+	containerFeeInitFlag      = "network.fee.container"
+	containerAliasFeeInitFlag = "network.fee.container_alias"
+	containerFeeCLIFlag       = "container-fee"
+	containerAliasFeeCLIFlag  = "container-alias-fee"
+	candidateFeeInitFlag      = "network.fee.candidate"
+	candidateFeeCLIFlag       = "candidate-fee"
+	withdrawFeeInitFlag       = "network.fee.withdraw"
+	withdrawFeeCLIFlag        = "withdraw-fee"
+	containerDumpFlag         = "dump"
+	containerContractFlag     = "container-contract"
+	containerIDsFlag          = "cid"
+	refillGasAmountFlag       = "gas"
 )
 
 var (
@@ -62,6 +64,7 @@ var (
 			_ = viper.BindPFlag(auditFeeInitFlag, cmd.Flags().Lookup(auditFeeCLIFlag))
 			_ = viper.BindPFlag(candidateFeeInitFlag, cmd.Flags().Lookup(candidateFeeCLIFlag))
 			_ = viper.BindPFlag(containerFeeInitFlag, cmd.Flags().Lookup(containerFeeCLIFlag))
+			_ = viper.BindPFlag(containerAliasFeeInitFlag, cmd.Flags().Lookup(containerAliasFeeCLIFlag))
 			_ = viper.BindPFlag(withdrawFeeInitFlag, cmd.Flags().Lookup(withdrawFeeCLIFlag))
 		},
 		RunE: initializeSideChainCmd,
