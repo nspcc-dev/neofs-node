@@ -63,13 +63,13 @@ func (x *Config) MemSize() uint64 {
 	return MemSizeDefault
 }
 
-// SmallObjectSize returns value of "small_size" config parameter.
+// SmallObjectSize returns value of "small_object_size" config parameter.
 //
 // Returns SmallSizeDefault if value is not a positive number.
 func (x *Config) SmallObjectSize() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
-		"small_size",
+		"small_object_size",
 	)
 
 	if s > 0 {
