@@ -102,22 +102,22 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 }
 
 func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
-	wCtx, err := newInitializeContext(cmd, viper.GetViper())
+	c, err := getN3Client(viper.GetViper())
 	if err != nil {
-		return fmt.Errorf("can't to initialize context: %w", err)
+		return fmt.Errorf("can't create N3 client: %w", err)
 	}
 
-	cs, err := wCtx.Client.GetContractStateByID(1)
+	cs, err := c.GetContractStateByID(1)
 	if err != nil {
 		return fmt.Errorf("can't get NNS contract info: %w", err)
 	}
 
-	nmHash, err := nnsResolveHash(wCtx.Client, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsResolveHash(c, cs.Hash, netmapContract+".neofs")
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}
 
-	res, err := wCtx.Client.InvokeFunction(nmHash, "listConfig",
+	res, err := c.InvokeFunction(nmHash, "listConfig",
 		[]smartcontract.Parameter{}, []transaction.Signer{{}})
 	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
 		return errors.New("can't fetch list of network config keys from the netmap contract")
