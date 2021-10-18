@@ -163,6 +163,9 @@ func init() {
 	initCmd.Flags().String(contractsInitFlag, "", "path to archive with compiled NeoFS contracts (default fetched from latest github release)")
 	initCmd.Flags().Uint(epochDurationCLIFlag, 240, "amount of side chain blocks in one NeoFS epoch")
 	initCmd.Flags().Uint(maxObjectSizeCLIFlag, 67108864, "max single object size in bytes")
+	// Defaults are taken from neo-preodolenie.
+	initCmd.Flags().Uint64(containerFeeCLIFlag, 1000, "container registration fee")
+	initCmd.Flags().Uint64(containerAliasFeeCLIFlag, 500, "container alias fee")
 
 	RootCmd.AddCommand(generateStorageCmd)
 	generateStorageCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
