@@ -111,13 +111,13 @@ func (x *Config) WorkersNumber() int {
 	return WorkersNumberDefault
 }
 
-// SizeLimit returns value of "size_limit" config parameter.
+// SizeLimit returns value of "capacity" config parameter.
 //
 // Returns SizeLimitDefault if value is not a positive number.
 func (x *Config) SizeLimit() uint64 {
 	c := config.SizeInBytesSafe(
 		(*config.Config)(x),
-		"size_limit",
+		"capacity",
 	)
 
 	if c > 0 {

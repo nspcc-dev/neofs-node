@@ -124,7 +124,7 @@ storage:
 
       writecache:
         path: tmp/0/cache  # write-cache root directory
-        size_limit: 3221225472  # approximate write-cache total size, bytes
+        capacity: 3221225472  # approximate write-cache total size, bytes
 
       metabase:
         path: tmp/0/meta  # metabase path
@@ -140,7 +140,7 @@ storage:
     1:
       writecache:
         path: tmp/1/cache  # write-cache root directory
-        size_limit: 4294967296  # approximate write-cache total size, bytes
+        capacity: 4294967296  # approximate write-cache total size, bytes
 
       metabase:
         path: tmp/1/meta  # metabase path
