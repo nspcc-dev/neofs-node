@@ -15,16 +15,17 @@ import (
 )
 
 type configTemplate struct {
-	Endpoint        string
-	AlphabetDir     string
-	MaxObjectSize   int
-	EpochDuration   int
-	BasicIncomeRate int
-	AuditFee        int
-	CandidateFee    int
-	ContainerFee    int
-	WithdrawFee     int
-	Glagolitics     []string
+	Endpoint          string
+	AlphabetDir       string
+	MaxObjectSize     int
+	EpochDuration     int
+	BasicIncomeRate   int
+	AuditFee          int
+	CandidateFee      int
+	ContainerFee      int
+	ContainerAliasFee int
+	WithdrawFee       int
+	Glagolitics       []string
 }
 
 const configTxtTemplate = `rpc-endpoint: {{ .Endpoint}}
@@ -37,6 +38,7 @@ network:
     audit: {{ .AuditFee}}
     candidate: {{ .CandidateFee}}
     container: {{ .ContainerFee}}
+    container_alias: {{ .ContainerAliasFee }}
     withdraw: {{ .WithdrawFee}}
 # if credentials section is omitted, then neofs-adm will require manual password input
 credentials:{{ range.Glagolitics}}
@@ -104,15 +106,16 @@ func defaultConfigPath() (string, error) {
 // some comments as well.
 func generateConfigExample(appDir string, credSize int) (string, error) {
 	tmpl := configTemplate{
-		Endpoint:        "https://neo.rpc.node:30333",
-		MaxObjectSize:   67108864,      // 64 MiB
-		EpochDuration:   240,           // 1 hour with 15s per block
-		BasicIncomeRate: 1_0000_0000,   // 0.0001 GAS per GiB (Fixed12)
-		AuditFee:        1_0000,        // 0.00000001 GAS per audit (Fixed12)
-		CandidateFee:    100_0000_0000, // 100.0 GAS (Fixed8)
-		ContainerFee:    1000,          // 0.000000001 * 7 GAS per container (Fixed12)
-		WithdrawFee:     1_0000_0000,   // 1.0 GAS (Fixed8)
-		Glagolitics:     make([]string, 0, credSize),
+		Endpoint:          "https://neo.rpc.node:30333",
+		MaxObjectSize:     67108864,      // 64 MiB
+		EpochDuration:     240,           // 1 hour with 15s per block
+		BasicIncomeRate:   1_0000_0000,   // 0.0001 GAS per GiB (Fixed12)
+		AuditFee:          1_0000,        // 0.00000001 GAS per audit (Fixed12)
+		CandidateFee:      100_0000_0000, // 100.0 GAS (Fixed8)
+		ContainerFee:      1000,          // 0.000000001 * 7 GAS per container (Fixed12)
+		ContainerAliasFee: 500,           // ContainerFee / 2
+		WithdrawFee:       1_0000_0000,   // 1.0 GAS (Fixed8)
+		Glagolitics:       make([]string, 0, credSize),
 	}
 
 	appDir, err := filepath.Abs(appDir)

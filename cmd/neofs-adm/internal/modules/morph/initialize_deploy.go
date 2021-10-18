@@ -38,6 +38,7 @@ const (
 	netmapMaxObjectSizeKey         = "MaxObjectSize"
 	netmapAuditFeeKey              = "AuditFee"
 	netmapContainerFeeKey          = "ContainerFee"
+	netmapContainerAliasFeeKey     = "ContainerAliasFee"
 	netmapEigenTrustIterationsKey  = "EigenTrustIterations"
 	netmapEigenTrustAlphaKey       = "EigenTrustAlpha"
 	netmapBasicIncomeRateKey       = "BasicIncomeRate"
@@ -339,6 +340,8 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			{Type: smartcontract.IntegerType, Value: viper.GetInt64(auditFeeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapContainerFeeKey},
 			{Type: smartcontract.IntegerType, Value: viper.GetInt64(containerFeeInitFlag)},
+			{Type: smartcontract.StringType, Value: netmapContainerAliasFeeKey},
+			{Type: smartcontract.IntegerType, Value: viper.GetInt64(containerAliasFeeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapEigenTrustIterationsKey},
 			{Type: smartcontract.IntegerType, Value: int64(defaultEigenTrustIterations)},
 			{Type: smartcontract.StringType, Value: netmapEigenTrustAlphaKey},
