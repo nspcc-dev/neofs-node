@@ -93,7 +93,7 @@ storage:
 
     writecache:
       mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
-      small_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+      small_object_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
       max_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
       workers_number: 30  # number of write-cache flusher threads
 
@@ -104,7 +104,7 @@ storage:
       compress: false  # turn on/off zstd(level 3) compression of stored objects
       perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
       shallow_depth: 5  # max depth of object tree storage in FS
-      small_size_limit: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+      small_object_size: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
 
       blobovnicza:
         size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes

@@ -106,7 +106,7 @@
         "writecache": {
           "path": "tmp/0/cache",
           "mem_size": 2147483648,
-          "small_size": 16384,
+          "small_object_size": 16384,
           "max_size": 134217728,
           "workers_number": 30,
           "size_limit": 3221225472
@@ -120,7 +120,7 @@
           "perm": "0644",
           "compress": true,
           "shallow_depth": 5,
-          "small_size_limit": 102400,
+          "small_object_size": 102400,
           "blobovnicza": {
             "size": 4194304,
             "shallow_depth": 1,
@@ -139,7 +139,7 @@
         "writecache": {
           "path": "tmp/1/cache",
           "mem_size": 2147483648,
-          "small_size": 16384,
+          "small_object_size": 16384,
           "max_size": 134217728,
           "workers_number": 30,
           "size_limit": 4294967296
@@ -153,7 +153,7 @@
           "perm": "0644",
           "compress": false,
           "shallow_depth": 5,
-          "small_size_limit": 102400,
+          "small_object_size": 102400,
           "blobovnicza": {
             "size": 4194304,
             "shallow_depth": 1,

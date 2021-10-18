@@ -88,13 +88,13 @@ func (x *Config) Compress() bool {
 	)
 }
 
-// SmallSizeLimit returns value of "small_size_limit" config parameter.
+// SmallSizeLimit returns value of "small_object_size" config parameter.
 //
 // Returns SmallSizeLimitDefault if value is not a positive number.
 func (x *Config) SmallSizeLimit() uint64 {
 	l := config.SizeInBytesSafe(
 		(*config.Config)(x),
-		"small_size_limit",
+		"small_object_size",
 	)
 
 	if l > 0 {
