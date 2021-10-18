@@ -104,13 +104,13 @@ storage:
     blobstor:
       compress: false  # turn on/off zstd(level 3) compression of stored objects
       perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
-      shallow_depth: 5  # max depth of object tree storage in FS
+      depth: 5  # max depth of object tree storage in FS
       small_object_size: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
 
       blobovnicza:
         size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
-        shallow_depth: 1  # max depth of object tree storage in key-value DB
-        shallow_width: 4   # max width of object tree storage in key-value DB
+        depth: 1  # max depth of object tree storage in key-value DB
+        width: 4   # max width of object tree storage in key-value DB
         opened_cache_capacity: 50  # maximum number of opened database files
 
     gc:
