@@ -61,14 +61,14 @@ func (x *Config) Perm() fs.FileMode {
 	return fs.FileMode(p)
 }
 
-// ShallowDepth returns value of "shallow_depth" config parameter.
+// ShallowDepth returns value of "depth" config parameter.
 //
 // Returns ShallowDepthDefault if value is out of
 // [1:fstree.MaxDepth] range.
 func (x *Config) ShallowDepth() int {
 	d := config.IntSafe(
 		(*config.Config)(x),
-		"shallow_depth",
+		"depth",
 	)
 
 	if d >= 1 && d <= fstree.MaxDepth {

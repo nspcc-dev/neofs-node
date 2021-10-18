@@ -44,13 +44,13 @@ func (x *Config) Size() uint64 {
 	return SizeDefault
 }
 
-// ShallowDepth returns value of "shallow_depth" config parameter.
+// ShallowDepth returns value of "depth" config parameter.
 //
 // Returns ShallowDepthDefault if value is not a positive number.
 func (x *Config) ShallowDepth() uint64 {
 	d := config.UintSafe(
 		(*config.Config)(x),
-		"shallow_depth",
+		"depth",
 	)
 
 	if d > 0 {
@@ -60,13 +60,13 @@ func (x *Config) ShallowDepth() uint64 {
 	return ShallowDepthDefault
 }
 
-// ShallowWidth returns value of "shallow_width" config parameter.
+// ShallowWidth returns value of "width" config parameter.
 //
 // Returns ShallowWidthDefault if value is not a positive number.
 func (x *Config) ShallowWidth() uint64 {
 	d := config.UintSafe(
 		(*config.Config)(x),
-		"shallow_width",
+		"width",
 	)
 
 	if d > 0 {

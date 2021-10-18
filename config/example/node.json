@@ -119,12 +119,12 @@
           "path": "tmp/0/blob",
           "perm": "0644",
           "compress": true,
-          "shallow_depth": 5,
+          "depth": 5,
           "small_object_size": 102400,
           "blobovnicza": {
             "size": 4194304,
-            "shallow_depth": 1,
-            "shallow_width": 4,
+            "depth": 1,
+            "width": 4,
             "opened_cache_capacity": 50
           }
         },
@@ -152,12 +152,12 @@
           "path": "tmp/1/blob",
           "perm": "0644",
           "compress": false,
-          "shallow_depth": 5,
+          "depth": 5,
           "small_object_size": 102400,
           "blobovnicza": {
             "size": 4194304,
-            "shallow_depth": 1,
-            "shallow_width": 4,
+            "depth": 1,
+            "width": 4,
             "opened_cache_capacity": 50
           }
         },
