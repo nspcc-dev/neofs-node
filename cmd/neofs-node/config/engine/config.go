@@ -28,6 +28,7 @@ func IterateShards(c *config.Config, f func(*shardconfig.Config)) {
 		panic("no shard configured")
 	}
 
+	def := c.Sub("default")
 	c = c.Sub("shard")
 
 	for i := uint64(0); i < num; i++ {
@@ -36,6 +37,7 @@ func IterateShards(c *config.Config, f func(*shardconfig.Config)) {
 		sc := shardconfig.From(
 			c.Sub(si),
 		)
+		(*config.Config)(sc).SetDefault(def)
 
 		f(sc)
 	}
