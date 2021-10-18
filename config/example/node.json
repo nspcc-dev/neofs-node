@@ -109,7 +109,7 @@
           "small_object_size": 16384,
           "max_object_size": 134217728,
           "workers_number": 30,
-          "size_limit": 3221225472
+          "capacity": 3221225472
         },
         "metabase": {
           "path": "tmp/0/meta",
@@ -142,7 +142,7 @@
           "small_object_size": 16384,
           "max_object_size": 134217728,
           "workers_number": 30,
-          "size_limit": 4294967296
+          "capacity": 4294967296
         },
         "metabase": {
           "path": "tmp/1/meta",
