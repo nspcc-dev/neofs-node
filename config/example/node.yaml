@@ -111,7 +111,7 @@ storage:
         size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
         shallow_depth: 1  # max depth of object tree storage in key-value DB
         shallow_width: 4   # max width of object tree storage in key-value DB
-        opened_cache_size: 50  # maximum number of opened database files
+        opened_cache_capacity: 50  # maximum number of opened database files
 
     gc:
       remover_batch_size: 200  # number of objects to be removed by the garbage collector
