@@ -56,5 +56,24 @@
     "size_tb": "5 TB",
     "size_bytes": "2048b",
     "size_bytes_no_suffix": 123456
+  },
+
+  "with_default": {
+    "default": {
+      "sub": {
+        "missing": 123,
+        "overridden": "x"
+      },
+      "missing": 42,
+      "overridden": "a",
+      "overridden_with_default": true
+    },
+    "custom": {
+      "sub": {
+        "overridden": "y"
+      },
+      "overridden": "b",
+      "overridden_with_default": false
+    }
   }
 }

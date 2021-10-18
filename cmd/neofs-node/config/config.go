@@ -17,7 +17,8 @@ import (
 type Config struct {
 	v *viper.Viper
 
-	path []string
+	defaultPath []string
+	path        []string
 }
 
 const separator = "."
