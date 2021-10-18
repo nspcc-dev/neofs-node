@@ -47,7 +47,7 @@ storage:
         path: /storage/blobstor
         perm: 0777
         blobovnicza:
-          opened_cache_size: 32
+          opened_cache_capacity: 32
           shallow_depth: 1
           shallow_width: 1
       gc:

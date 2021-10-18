@@ -125,7 +125,7 @@
             "size": 4194304,
             "shallow_depth": 1,
             "shallow_width": 4,
-            "opened_cache_size": 50
+            "opened_cache_capacity": 50
           }
         },
         "gc": {
@@ -158,7 +158,7 @@
             "size": 4194304,
             "shallow_depth": 1,
             "shallow_width": 4,
-            "opened_cache_size": 50
+            "opened_cache_capacity": 50
           }
         },
         "gc": {

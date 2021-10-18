@@ -76,13 +76,13 @@ func (x *Config) ShallowWidth() uint64 {
 	return ShallowWidthDefault
 }
 
-// OpenedCacheSize returns value of "opened_cache_size" config parameter.
+// OpenedCacheSize returns value of "opened_cache_capacity" config parameter.
 //
 // Returns OpenedCacheSizeDefault if value is not a positive number.
 func (x *Config) OpenedCacheSize() int {
 	d := config.IntSafe(
 		(*config.Config)(x),
-		"opened_cache_size",
+		"opened_cache_capacity",
 	)
 
 	if d > 0 {
