@@ -105,7 +105,7 @@
         "use_write_cache": false,
         "writecache": {
           "path": "tmp/0/cache",
-          "mem_size": 2147483648,
+          "memcache_capacity": 2147483648,
           "small_object_size": 16384,
           "max_object_size": 134217728,
           "workers_number": 30,
@@ -138,7 +138,7 @@
         "use_write_cache": true,
         "writecache": {
           "path": "tmp/1/cache",
-          "mem_size": 2147483648,
+          "memcache_capacity": 2147483648,
           "small_object_size": 16384,
           "max_object_size": 134217728,
           "workers_number": 30,

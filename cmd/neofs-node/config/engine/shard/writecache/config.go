@@ -47,13 +47,13 @@ func (x *Config) Path() string {
 	return p
 }
 
-// MemSize returns value of "mem_size" config parameter.
+// MemSize returns value of "memcache_capacity" config parameter.
 //
 // Returns MemSizeDefault if value is not a positive number.
 func (x *Config) MemSize() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
-		"mem_size",
+		"memcache_capacity",
 	)
 
 	if s > 0 {

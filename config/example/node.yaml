@@ -92,7 +92,7 @@ storage:
     use_write_cache: true  # use write-cache
 
     writecache:
-      mem_size: 2147483648  # approximate RAM usage limit for "small" objects, bytes
+      memcache_capacity: 2147483648  # approximate RAM usage limit for "small" objects, bytes
       small_object_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
       max_object_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
       workers_number: 30  # number of write-cache flusher threads
