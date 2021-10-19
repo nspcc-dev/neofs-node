@@ -3,9 +3,11 @@ package fstree
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
@@ -174,4 +176,27 @@ func (t *FSTree) Get(addr *objectSDK.Address) ([]byte, error) {
 	}
 
 	return os.ReadFile(p)
+}
+
+// NumberOfObjects walks the file tree rooted at FSTree's root
+// and returns number of stored objects.
+func (t *FSTree) NumberOfObjects() (uint64, error) {
+	var counter uint64
+
+	// it is simpler to just consider every file
+	// that is not directory as an object
+	err := filepath.WalkDir(t.RootPath,
+		func(_ string, d fs.DirEntry, _ error) error {
+			if !d.IsDir() {
+				counter++
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		return 0, fmt.Errorf("could not walk through %s directory: %w", t.RootPath, err)
+	}
+
+	return counter, nil
 }
