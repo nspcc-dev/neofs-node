@@ -91,9 +91,12 @@ func (x *counters) Read() error {
 
 	x.cDB.Store(inDB)
 
-	// FIXME: calculate the actual value in FSTree (new method?).
-	//  For now we can think that db/fs = 50/50.
-	x.cFS.Store(inDB)
+	inFS, err := x.fs.NumberOfObjects()
+	if err != nil {
+		return fmt.Errorf("could not read write-cache FS counter: %w", err)
+	}
+
+	x.cFS.Store(inFS)
 
 	return nil
 }
