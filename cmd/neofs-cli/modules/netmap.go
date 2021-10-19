@@ -128,6 +128,10 @@ func (x *netCfgWriter) ContainerFee(v uint64) {
 	x.print("Container fee", v, false)
 }
 
+func (x *netCfgWriter) ContainerAliasFee(v uint64) {
+	x.print("Container alias fee", v, false)
+}
+
 func (x *netCfgWriter) EigenTrustIterations(v uint64) {
 	x.print("Number EigenTrust of iterations", v, false)
 }
