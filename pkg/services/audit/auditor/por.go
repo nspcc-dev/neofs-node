@@ -30,6 +30,7 @@ func (c *Context) executePoR() {
 	}
 
 	wg.Wait()
+	c.porWorkerPool.Release()
 
 	c.report.SetPoRCounters(c.porRequests.Load(), c.porRetries.Load())
 }

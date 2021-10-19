@@ -150,6 +150,9 @@ func (gc *gc) tickRemover() {
 	for {
 		select {
 		case <-gc.stopChannel:
+			if gc.workerPool != nil {
+				gc.workerPool.Release()
+			}
 			gc.log.Debug("GC is stopped")
 			return
 		case <-timer.C:

@@ -24,6 +24,7 @@ func (m *Manager) Listen(ctx context.Context) {
 			m.log.Warn("stop listener by context",
 				zap.String("error", ctx.Err().Error()),
 			)
+			m.workerPool.Release()
 
 			return
 		case task, ok := <-m.ch:
