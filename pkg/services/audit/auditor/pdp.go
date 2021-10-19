@@ -33,6 +33,7 @@ func (c *Context) processPairs() {
 	}
 
 	wg.Wait()
+	c.pdpWorkerPool.Release()
 }
 
 func (c *Context) processPair(p *gamePair) {
