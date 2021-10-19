@@ -39,6 +39,10 @@ func (e *StorageEngine) Close() error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
+	for _, p := range e.shardPools {
+		p.Release()
+	}
+
 	for id, sh := range e.shards {
 		if err := sh.Close(); err != nil {
 			e.log.Debug("could not close shard",
