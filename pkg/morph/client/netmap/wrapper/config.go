@@ -9,15 +9,16 @@ import (
 )
 
 const (
-	maxObjectSizeConfig   = "MaxObjectSize"
-	basicIncomeRateConfig = "BasicIncomeRate"
-	auditFeeConfig        = "AuditFee"
-	epochDurationConfig   = "EpochDuration"
-	containerFeeConfig    = "ContainerFee"
-	etIterationsConfig    = "EigenTrustIterations"
-	etAlphaConfig         = "EigenTrustAlpha"
-	irCandidateFeeConfig  = "InnerRingCandidateFee"
-	withdrawFeeConfig     = "WithdrawFee"
+	maxObjectSizeConfig     = "MaxObjectSize"
+	basicIncomeRateConfig   = "BasicIncomeRate"
+	auditFeeConfig          = "AuditFee"
+	epochDurationConfig     = "EpochDuration"
+	containerFeeConfig      = "ContainerFee"
+	containerAliasFeeConfig = "ContainerAliasFee"
+	etIterationsConfig      = "EigenTrustIterations"
+	etAlphaConfig           = "EigenTrustAlpha"
+	irCandidateFeeConfig    = "InnerRingCandidateFee"
+	withdrawFeeConfig       = "WithdrawFee"
 )
 
 // MaxObjectSize receives max object size configuration
@@ -69,6 +70,17 @@ func (w *Wrapper) ContainerFee() (uint64, error) {
 	fee, err := w.readUInt64Config(containerFeeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get container fee: %w", w, err)
+	}
+
+	return fee, nil
+}
+
+// ContainerAliasFee returns additional fee paid by container owner to each
+// alphabet node for container nice name registration.
+func (w *Wrapper) ContainerAliasFee() (uint64, error) {
+	fee, err := w.readUInt64Config(containerAliasFeeConfig)
+	if err != nil {
+		return 0, fmt.Errorf("(%T) could not get container alias fee: %w", w, err)
 	}
 
 	return fee, nil
@@ -185,6 +197,7 @@ type ConfigWriter interface {
 	AuditFee(uint64)
 	EpochDuration(uint64)
 	ContainerFee(uint64)
+	ContainerAliasFee(uint64)
 	EigenTrustIterations(uint64)
 	EigenTrustAlpha(float64)
 	InnerRingCandidateFee(uint64)
@@ -209,6 +222,8 @@ func WriteConfig(dst ConfigWriter, iterator func(func(key, val []byte) error) er
 			dst.EpochDuration(bigint.FromBytes(val).Uint64())
 		case containerFeeConfig:
 			dst.ContainerFee(bigint.FromBytes(val).Uint64())
+		case containerAliasFeeConfig:
+			dst.ContainerAliasFee(bigint.FromBytes(val).Uint64())
 		case etIterationsConfig:
 			dst.EigenTrustIterations(bigint.FromBytes(val).Uint64())
 		case etAlphaConfig:
