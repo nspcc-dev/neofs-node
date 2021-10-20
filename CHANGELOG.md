@@ -3,6 +3,15 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Changed
+- Alphabet contract number is not mandatory (#880)
+
+### Upgrading from v0.26.1
+`NEOFS_IR_CONTRACTS_ALPHABET_AMOUNT` is not mandatory env anymore. If it
+is not set, Inner Ring would try to read maximum from config and NNS contract.
+However, that parameter still can be set in order to require the exact number
+of contracts.
+
 ## [0.26.1] - 2021-11-02
 
 ### Fixed
