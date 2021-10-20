@@ -1,6 +1,7 @@
 package innerring
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -87,16 +88,32 @@ func parseAlphabetContracts(cfg *viper.Viper, morph *client.Client) (alphabetCon
 		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
 	}
 
+	thresholdIsSet := num != 0
+
+	if !thresholdIsSet {
+		// try to read maximum alphabet contracts
+		// if threshold has not been set manually
+		num = lastLetterNum
+	}
+
 	for letter := az; letter < num; letter++ {
 		contractHash, err := parseContract(cfg, morph,
 			"contracts.alphabet."+letter.String(),
 			client.NNSAlphabetContractName(int(letter)),
 		)
 		if err != nil {
+			if errors.Is(err, client.ErrNNSRecordNotFound) {
+				break
+			}
+
 			return nil, fmt.Errorf("invalid alphabet %s contract: %w", letter, err)
 		}
 
 		alpha.set(letter, contractHash)
+	}
+
+	if thresholdIsSet && len(alpha) != int(num) {
+		return nil, fmt.Errorf("could not read all contracts: required %d, read %d", num, len(alpha))
 	}
 
 	return alpha, nil
