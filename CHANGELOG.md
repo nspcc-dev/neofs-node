@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Fixed
+- Storage Node handles requests before its initialization is finished (#934)
+
 ## [0.26.0] - 2021-10-19 - Udo (우도, 牛島)
 
 NeoFS API v2.10 support

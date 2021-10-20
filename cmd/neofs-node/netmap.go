@@ -90,6 +90,8 @@ func initNetmapService(c *cfg) {
 		initMorphComponents(c)
 	}
 
+	initNetmapState(c)
+
 	server := netmapTransportGRPC.New(
 		netmapService.NewSignService(
 			&c.key.PrivateKey,
@@ -162,9 +164,9 @@ func initNetmapService(c *cfg) {
 	}
 }
 
+// bootstrapNode adds current node to the Network map.
+// Must be called after initNetmapService.
 func bootstrapNode(c *cfg) {
-	initState(c)
-
 	if c.needBootstrap() {
 		err := c.bootstrap()
 		fatalOnErrDetails("bootstrap error", err)
@@ -191,7 +193,9 @@ func setNetmapNotificationParser(c *cfg, sTyp string, p event.NotificationParser
 	c.cfgNetmap.parsers[typ] = p
 }
 
-func initState(c *cfg) {
+// initNetmapState inits current Network map state.
+// Must be called after Morph components initialization.
+func initNetmapState(c *cfg) {
 	epoch, err := c.cfgNetmap.wrapper.Epoch()
 	fatalOnErrDetails("could not initialize current epoch number", err)
 
