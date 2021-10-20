@@ -64,8 +64,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("contracts.proxy", "")
 	cfg.SetDefault("contracts.processing", "")
 	cfg.SetDefault("contracts.reputation", "")
-	// alphabet contracts
-	cfg.SetDefault("contracts.alphabet.amount", 7)
 
 	cfg.SetDefault("timers.epoch", "0")
 	cfg.SetDefault("timers.emit", "0")
