@@ -65,10 +65,12 @@ func loadEnv(path string) {
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		pair := strings.Split(scanner.Text(), "=")
+		pair := strings.SplitN(scanner.Text(), "=", 2)
 		if len(pair) != 2 {
 			continue
 		}
+
+		pair[1] = strings.Trim(pair[1], `"`)
 
 		err = os.Setenv(pair[0], pair[1])
 		if err != nil {
