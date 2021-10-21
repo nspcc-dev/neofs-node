@@ -127,6 +127,14 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		if err != nil {
 			return nil, fmt.Errorf("missing contracts path: %w", err)
 		}
+		if ctrPath == "" {
+			cmd.Println("Contracts flag is missing, latest release will be fetched from Github.")
+			ctrPath, err = downloadContractsFromGithub(cmd)
+			if err != nil {
+				return nil, err
+			}
+			cmd.Printf("Saved to %s\n", ctrPath)
+		}
 	}
 
 	ns, err := c.GetNativeContracts()

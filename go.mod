@@ -3,6 +3,7 @@ module github.com/nspcc-dev/neofs-node
 go 1.16
 
 require (
+	github.com/google/go-github/v39 v39.2.0
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/compress v1.13.1
