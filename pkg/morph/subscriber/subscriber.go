@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
@@ -19,7 +18,7 @@ import (
 type (
 	// Subscriber is an interface of the NotificationEvent listener.
 	Subscriber interface {
-		SubscribeForNotification(...util.Uint160) (<-chan *state.NotificationEvent, error)
+		SubscribeForNotification(...util.Uint160) (<-chan *subscriptions.NotificationEvent, error)
 		UnsubscribeForNotification()
 		BlockNotifications() (<-chan *block.Block, error)
 		SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *subscriptions.NotaryRequestEvent, error)
@@ -31,7 +30,7 @@ type (
 		log    *zap.Logger
 		client *client.WSClient
 
-		notifyChan chan *state.NotificationEvent
+		notifyChan chan *subscriptions.NotificationEvent
 		notifyIDs  map[util.Uint160]string
 
 		blockChan chan *block.Block
@@ -54,7 +53,7 @@ var (
 	errNilLogger = errors.New("chain/subscriber: logger was not provided to the constructor")
 )
 
-func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan *state.NotificationEvent, error) {
+func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan *subscriptions.NotificationEvent, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -150,7 +149,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 					continue
 				}
 
-				s.notifyChan <- &notifyEvent.NotificationEvent
+				s.notifyChan <- notifyEvent
 			case response.BlockEventID:
 				b, ok := notification.Value.(*block.Block)
 				if !ok {
@@ -213,7 +212,7 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		RWMutex:    new(sync.RWMutex),
 		log:        p.Log,
 		client:     wsClient,
-		notifyChan: make(chan *state.NotificationEvent),
+		notifyChan: make(chan *subscriptions.NotificationEvent),
 		notifyIDs:  make(map[util.Uint160]string),
 		blockChan:  make(chan *block.Block),
 		notaryChan: make(chan *subscriptions.NotaryRequestEvent),
