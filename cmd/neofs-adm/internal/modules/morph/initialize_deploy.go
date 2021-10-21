@@ -1,10 +1,15 @@
 package morph
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path"
+	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -245,35 +250,104 @@ func (c *initializeContext) readContract(ctrName string) (*contractState, error)
 		return cs, nil
 	}
 
-	rawNef, err := ioutil.ReadFile(path.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
+	fi, err := os.Stat(c.ContractPath)
 	if err != nil {
-		return nil, fmt.Errorf("can't read NEF file: %w", err)
+		return nil, fmt.Errorf("invalid contracts path: %w", err)
 	}
-	nf, err := nef.FileFromBytes(rawNef)
+
+	var cs *contractState
+	if fi.IsDir() {
+		cs = new(contractState)
+		cs.RawNEF, err = ioutil.ReadFile(path.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
+		if err != nil {
+			return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+		}
+		cs.RawManifest, err = ioutil.ReadFile(path.Join(c.ContractPath, ctrName, "config.json"))
+		if err != nil {
+			return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+		}
+	} else {
+		f, err := os.Open(c.ContractPath)
+		if err != nil {
+			return nil, fmt.Errorf("can't open contracts archive: %w", err)
+		}
+		defer f.Close()
+
+		m, err := readContractsFromArchive(f, []string{ctrName})
+		if err != nil {
+			return nil, err
+		}
+		cs = m[ctrName]
+	}
+
+	nf, err := nef.FileFromBytes(cs.RawNEF)
 	if err != nil {
 		return nil, fmt.Errorf("can't parse NEF file: %w", err)
 	}
-	rawManif, err := ioutil.ReadFile(path.Join(c.ContractPath, ctrName, "config.json"))
-	if err != nil {
-		return nil, fmt.Errorf("can't read manifest file: %w", err)
-	}
-	m := new(manifest.Manifest)
-	if err := json.Unmarshal(rawManif, m); err != nil {
+	cs.NEF = &nf
+
+	cs.Manifest = new(manifest.Manifest)
+	if err := json.Unmarshal(cs.RawManifest, cs.Manifest); err != nil {
 		return nil, fmt.Errorf("can't parse manifest file: %w", err)
 	}
 
-	cs := &contractState{
-		NEF:         &nf,
-		RawNEF:      rawNef,
-		Manifest:    m,
-		RawManifest: rawManif,
-	}
 	if ctrName != alphabetContract {
 		cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(),
 			cs.NEF.Checksum, cs.Manifest.Name)
 	}
 	c.Contracts[ctrName] = cs
 	return cs, nil
+}
+
+func readContractsFromArchive(file io.Reader, names []string) (map[string]*contractState, error) {
+	m := make(map[string]*contractState, len(names))
+	for i := range names {
+		m[names[i]] = new(contractState)
+	}
+
+	gr, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, fmt.Errorf("contracts file must be tar.gz archive: %w", err)
+	}
+
+	r := tar.NewReader(gr)
+	for h, err := r.Next(); ; h, err = r.Next() {
+		if err != nil {
+			break
+		}
+
+		dir, _ := path.Split(h.Name)
+		ctrName := path.Base(dir)
+
+		cs, ok := m[ctrName]
+		if !ok {
+			continue
+		}
+
+		switch {
+		case strings.HasSuffix(h.Name, path.Join(ctrName, ctrName+"_contract.nef")):
+			cs.RawNEF, err = ioutil.ReadAll(r)
+			if err != nil {
+				return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+			}
+		case strings.HasSuffix(h.Name, "config.json"):
+			cs.RawManifest, err = ioutil.ReadAll(r)
+			if err != nil {
+				return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+			}
+		}
+		m[ctrName] = cs
+	}
+
+	for ctrName, cs := range m {
+		if cs.RawNEF == nil {
+			return nil, fmt.Errorf("NEF for %s contract wasn't found", ctrName)
+		}
+		if cs.RawManifest == nil {
+			return nil, fmt.Errorf("manifest for %s contract wasn't found", ctrName)
+		}
+	}
+	return m, nil
 }
 
 func getContractDeployParameters(rawNef, rawManif []byte, deployData []smartcontract.Parameter) []smartcontract.Parameter {
