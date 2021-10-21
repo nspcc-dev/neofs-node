@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -185,7 +184,7 @@ func (l *listener) listen(ctx context.Context, intError chan<- error) error {
 	return nil
 }
 
-func (l listener) listenLoop(ctx context.Context, chEvent <-chan *state.NotificationEvent, intErr chan<- error) {
+func (l listener) listenLoop(ctx context.Context, chEvent <-chan *subscriptions.NotificationEvent, intErr chan<- error) {
 	var (
 		blockChan <-chan *block.Block
 
@@ -281,7 +280,7 @@ loop:
 	}
 }
 
-func (l listener) parseAndHandleNotification(notifyEvent *state.NotificationEvent) {
+func (l listener) parseAndHandleNotification(notifyEvent *subscriptions.NotificationEvent) {
 	log := l.log.With(
 		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
