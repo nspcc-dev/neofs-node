@@ -3,6 +3,8 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -33,7 +35,12 @@ func (s StartEstimation) Epoch() uint64 { return s.epoch }
 func (s StopEstimation) Epoch() uint64 { return s.epoch }
 
 // ParseStartEstimation from notification into container event structure.
-func ParseStartEstimation(params []stackitem.Item) (event.Event, error) {
+func ParseStartEstimation(e *subscriptions.NotificationEvent) (event.Event, error) {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
 	epoch, err := parseEstimation(params)
 	if err != nil {
 		return nil, err
@@ -43,7 +50,12 @@ func ParseStartEstimation(params []stackitem.Item) (event.Event, error) {
 }
 
 // ParseStopEstimation from notification into container event structure.
-func ParseStopEstimation(params []stackitem.Item) (event.Event, error) {
+func ParseStopEstimation(e *subscriptions.NotificationEvent) (event.Event, error) {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
 	epoch, err := parseEstimation(params)
 	if err != nil {
 		return nil, err

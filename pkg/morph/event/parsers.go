@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 )
 
 // NotificationParser is a function that constructs Event
 // from the StackItem list.
-type NotificationParser func([]stackitem.Item) (Event, error)
+type NotificationParser func(*subscriptions.NotificationEvent) (Event, error)
 
 // NotificationParserInfo is a structure that groups
 // the parameters of particular contract

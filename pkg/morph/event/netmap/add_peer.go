@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -32,17 +32,22 @@ func (s AddPeer) NotaryRequest() *payload.P2PNotaryRequest {
 
 const expectedItemNumAddPeer = 1
 
-func ParseAddPeer(prms []stackitem.Item) (event.Event, error) {
+func ParseAddPeer(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  AddPeer
 		err error
 	)
 
-	if ln := len(prms); ln != expectedItemNumAddPeer {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
+	if ln := len(params); ln != expectedItemNumAddPeer {
 		return nil, event.WrongNumberOfParameters(expectedItemNumAddPeer, ln)
 	}
 
-	ev.node, err = client.BytesFromStackItem(prms[0])
+	ev.node, err = client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get raw nodeinfo: %w", err)
 	}

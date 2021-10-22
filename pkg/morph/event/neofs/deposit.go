@@ -3,8 +3,8 @@ package neofs
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -33,8 +33,13 @@ func (d Deposit) To() util.Uint160 { return d.to }
 func (d Deposit) Amount() int64 { return d.amount }
 
 // ParseDeposit notification into deposit structure.
-func ParseDeposit(params []stackitem.Item) (event.Event, error) {
+func ParseDeposit(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var ev Deposit
+
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
 
 	if ln := len(params); ln != 4 {
 		return nil, event.WrongNumberOfParameters(4, ln)

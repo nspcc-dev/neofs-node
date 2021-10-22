@@ -25,32 +25,32 @@ func TestParseUpdatePeer(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseUpdatePeer(prms)
+		_, err := ParseUpdatePeer(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(2, len(prms)).Error())
 	})
 
 	t.Run("wrong first parameter type", func(t *testing.T) {
-		_, err := ParseUpdatePeer([]stackitem.Item{
+		_, err := ParseUpdatePeer(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong second parameter type", func(t *testing.T) {
-		_, err := ParseUpdatePeer([]stackitem.Item{
+		_, err := ParseUpdatePeer(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(publicKey.Bytes()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseUpdatePeer([]stackitem.Item{
+		ev, err := ParseUpdatePeer(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetInt64(int64(state.ToV2()))),
 			stackitem.NewByteArray(publicKey.Bytes()),
-		})
+		}))
 		require.NoError(t, err)
 
 		require.Equal(t, UpdatePeer{

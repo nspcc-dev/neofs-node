@@ -4,9 +4,11 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -41,18 +43,23 @@ func (s UpdatePeer) NotaryRequest() *payload.P2PNotaryRequest {
 
 const expectedItemNumUpdatePeer = 2
 
-func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
+func ParseUpdatePeer(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  UpdatePeer
 		err error
 	)
 
-	if ln := len(prms); ln != expectedItemNumUpdatePeer {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
+	if ln := len(params); ln != expectedItemNumUpdatePeer {
 		return nil, event.WrongNumberOfParameters(expectedItemNumUpdatePeer, ln)
 	}
 
 	// parse public key
-	key, err := client.BytesFromStackItem(prms[1])
+	key, err := client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, fmt.Errorf("could not get public key: %w", err)
 	}
@@ -63,7 +70,7 @@ func ParseUpdatePeer(prms []stackitem.Item) (event.Event, error) {
 	}
 
 	// parse node status
-	st, err := client.IntFromStackItem(prms[0])
+	st, err := client.IntFromStackItem(params[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get node status: %w", err)
 	}
