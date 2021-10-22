@@ -197,15 +197,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		nil,
 	)
 	if err != nil {
-		if !tillShouldNotBeLessError(err) {
-			return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
-		}
-
-		c.logger.Debug("notary deposit invoke failed due to low `till` value",
-			zap.Int64("amount", int64(amount)),
-			zap.Uint32("till", bc+delta))
-
-		return util.Uint256{}, nil
+		return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
 	}
 
 	c.logger.Debug("notary deposit invoke",
@@ -751,19 +743,6 @@ func alreadyOnChainError(err error) bool {
 	const alreadyOnChainErrorMessage = "already on chain"
 
 	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)
-}
-
-// Neo RPC node can return "`till` shouldn't be less then the
-// previous value <>" message. This error is expected and ignored.
-// This happens because previous `till` value could be bigger
-// than the current one due to significant epoch duration decrease.
-// Theoretically, balance should not run out so fast and such
-// errors are ignored(at least for now; there is #910 issue
-// for it).
-func tillShouldNotBeLessError(err error) bool {
-	const tillTooLowErrorMessage = "less then the previous value"
-
-	return strings.Contains(err.Error(), tillTooLowErrorMessage)
 }
 
 // CalculateNotaryDepositAmount calculates notary deposit amount
