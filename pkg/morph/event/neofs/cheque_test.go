@@ -25,55 +25,55 @@ func TestParseCheque(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseCheque(prms)
+		_, err := ParseCheque(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(4, len(prms)).Error())
 	})
 
 	t.Run("wrong id parameter", func(t *testing.T) {
-		_, err := ParseCheque([]stackitem.Item{
+		_, err := ParseCheque(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong user parameter", func(t *testing.T) {
-		_, err := ParseCheque([]stackitem.Item{
+		_, err := ParseCheque(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong amount parameter", func(t *testing.T) {
-		_, err := ParseCheque([]stackitem.Item{
+		_, err := ParseCheque(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong lock parameter", func(t *testing.T) {
-		_, err := ParseCheque([]stackitem.Item{
+		_, err := ParseCheque(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseCheque([]stackitem.Item{
+		ev, err := ParseCheque(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewByteArray(lock.BytesBE()),
-		})
+		}))
 
 		require.NoError(t, err)
 		require.Equal(t, Cheque{

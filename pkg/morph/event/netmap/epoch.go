@@ -3,7 +3,7 @@ package netmap
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -24,12 +24,17 @@ func (s NewEpoch) EpochNumber() uint64 {
 // ParseNewEpoch is a parser of new epoch notification event.
 //
 // Result is type of NewEpoch.
-func ParseNewEpoch(prms []stackitem.Item) (event.Event, error) {
-	if ln := len(prms); ln != 1 {
+func ParseNewEpoch(e *subscriptions.NotificationEvent) (event.Event, error) {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
+	if ln := len(params); ln != 1 {
 		return nil, event.WrongNumberOfParameters(1, ln)
 	}
 
-	prmEpochNum, err := client.IntFromStackItem(prms[0])
+	prmEpochNum, err := client.IntFromStackItem(params[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
 	}

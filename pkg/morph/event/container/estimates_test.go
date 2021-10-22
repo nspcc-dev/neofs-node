@@ -19,22 +19,22 @@ func TestStartEstimation(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseStartEstimation(prms)
+		_, err := ParseStartEstimation(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(1, len(prms)).Error())
 	})
 
 	t.Run("wrong estimation parameter", func(t *testing.T) {
-		_, err := ParseStartEstimation([]stackitem.Item{
+		_, err := ParseStartEstimation(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseStartEstimation([]stackitem.Item{
+		ev, err := ParseStartEstimation(createNotifyEventFromItems([]stackitem.Item{
 			epochItem,
-		})
+		}))
 
 		require.NoError(t, err)
 
@@ -54,22 +54,22 @@ func TestStopEstimation(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseStopEstimation(prms)
+		_, err := ParseStopEstimation(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(1, len(prms)).Error())
 	})
 
 	t.Run("wrong estimation parameter", func(t *testing.T) {
-		_, err := ParseStopEstimation([]stackitem.Item{
+		_, err := ParseStopEstimation(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseStopEstimation([]stackitem.Item{
+		ev, err := ParseStopEstimation(createNotifyEventFromItems([]stackitem.Item{
 			epochItem,
-		})
+		}))
 
 		require.NoError(t, err)
 

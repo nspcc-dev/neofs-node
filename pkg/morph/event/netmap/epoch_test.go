@@ -16,14 +16,14 @@ func TestParseNewEpoch(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseNewEpoch(prms)
+		_, err := ParseNewEpoch(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(1, len(prms)).Error())
 	})
 
 	t.Run("wrong first parameter type", func(t *testing.T) {
-		_, err := ParseNewEpoch([]stackitem.Item{
+		_, err := ParseNewEpoch(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
@@ -31,9 +31,9 @@ func TestParseNewEpoch(t *testing.T) {
 	t.Run("correct behavior", func(t *testing.T) {
 		epochNum := uint64(100)
 
-		ev, err := ParseNewEpoch([]stackitem.Item{
+		ev, err := ParseNewEpoch(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epochNum)),
-		})
+		}))
 
 		require.NoError(t, err)
 		require.Equal(t, NewEpoch{

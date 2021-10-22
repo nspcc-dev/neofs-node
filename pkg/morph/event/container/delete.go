@@ -3,8 +3,9 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -46,11 +47,16 @@ const expectedItemNumDelete = 3
 // ParseDelete from notification into container event structure.
 //
 // Expects 3 stack items.
-func ParseDelete(params []stackitem.Item) (event.Event, error) {
+func ParseDelete(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  Delete
 		err error
 	)
+
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
 
 	if ln := len(params); ln != expectedItemNumDelete {
 		return nil, event.WrongNumberOfParameters(expectedItemNumDelete, ln)

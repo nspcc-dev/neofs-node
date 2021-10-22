@@ -23,36 +23,36 @@ func TestParseUnbind(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseUnbind(prms)
+		_, err := ParseUnbind(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(2, len(prms)).Error())
 	})
 
 	t.Run("wrong first parameter", func(t *testing.T) {
-		_, err := ParseUnbind([]stackitem.Item{
+		_, err := ParseUnbind(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong second parameter", func(t *testing.T) {
-		_, err := ParseUnbind([]stackitem.Item{
+		_, err := ParseUnbind(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(user),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
-		ev, err := ParseUnbind([]stackitem.Item{
+		ev, err := ParseUnbind(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(user),
 			stackitem.NewArray([]stackitem.Item{
 				stackitem.NewByteArray(publicKeys[0]),
 				stackitem.NewByteArray(publicKeys[1]),
 				stackitem.NewByteArray(publicKeys[2]),
 			}),
-		})
+		}))
 		require.NoError(t, err)
 
 		e := ev.(Unbind)

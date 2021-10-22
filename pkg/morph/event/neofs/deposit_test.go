@@ -25,55 +25,55 @@ func TestParseDeposit(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseDeposit(prms)
+		_, err := ParseDeposit(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(4, len(prms)).Error())
 	})
 
 	t.Run("wrong from parameter", func(t *testing.T) {
-		_, err := ParseDeposit([]stackitem.Item{
+		_, err := ParseDeposit(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong amount parameter", func(t *testing.T) {
-		_, err := ParseDeposit([]stackitem.Item{
+		_, err := ParseDeposit(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(from.BytesBE()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong to parameter", func(t *testing.T) {
-		_, err := ParseDeposit([]stackitem.Item{
+		_, err := ParseDeposit(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(from.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong id parameter", func(t *testing.T) {
-		_, err := ParseDeposit([]stackitem.Item{
+		_, err := ParseDeposit(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(from.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewByteArray(to.BytesBE()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseDeposit([]stackitem.Item{
+		ev, err := ParseDeposit(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(from.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewByteArray(to.BytesBE()),
 			stackitem.NewByteArray(id),
-		})
+		}))
 
 		require.NoError(t, err)
 		require.Equal(t, Deposit{

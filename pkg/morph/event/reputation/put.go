@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -49,18 +49,23 @@ func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
 }
 
 // ParsePut from notification into reputation event structure.
-func ParsePut(prms []stackitem.Item) (event.Event, error) {
+func ParsePut(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  Put
 		err error
 	)
 
-	if ln := len(prms); ln != 3 {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
+	if ln := len(params); ln != 3 {
 		return nil, event.WrongNumberOfParameters(3, ln)
 	}
 
 	// parse epoch number
-	epoch, err := client.IntFromStackItem(prms[0])
+	epoch, err := client.IntFromStackItem(params[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
 	}
@@ -68,7 +73,7 @@ func ParsePut(prms []stackitem.Item) (event.Event, error) {
 	ev.epoch = uint64(epoch)
 
 	// parse peer ID value
-	peerID, err := client.BytesFromStackItem(prms[1])
+	peerID, err := client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, fmt.Errorf("could not get peer ID value: %w", err)
 	}
@@ -82,7 +87,7 @@ func ParsePut(prms []stackitem.Item) (event.Event, error) {
 	ev.peerID.SetPublicKey(publicKey)
 
 	// parse global trust value
-	rawValue, err := client.BytesFromStackItem(prms[2])
+	rawValue, err := client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, fmt.Errorf("could not get global trust value: %w", err)
 	}

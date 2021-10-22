@@ -3,8 +3,9 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -65,11 +66,16 @@ func (x PutNamed) Zone() string {
 }
 
 // ParsePut from notification into container event structure.
-func ParsePut(params []stackitem.Item) (event.Event, error) {
+func ParsePut(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  Put
 		err error
 	)
+
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
 
 	if ln := len(params); ln != expectedItemNumPut {
 		return nil, event.WrongNumberOfParameters(expectedItemNumPut, ln)

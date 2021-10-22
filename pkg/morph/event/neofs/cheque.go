@@ -3,8 +3,8 @@ package neofs
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -33,11 +33,16 @@ func (c Cheque) Amount() int64 { return c.amount }
 func (c Cheque) LockAccount() util.Uint160 { return c.lock }
 
 // ParseCheque from notification into cheque structure.
-func ParseCheque(params []stackitem.Item) (event.Event, error) {
+func ParseCheque(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  Cheque
 		err error
 	)
+
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
 
 	if ln := len(params); ln != 4 {
 		return nil, event.WrongNumberOfParameters(4, ln)

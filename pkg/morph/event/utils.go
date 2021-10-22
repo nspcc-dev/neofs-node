@@ -1,8 +1,14 @@
 package event
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.uber.org/zap"
 )
@@ -87,4 +93,19 @@ func WorkerPoolHandler(w util2.WorkerPool, h Handler, log *zap.Logger) Handler {
 			)
 		}
 	}
+}
+
+var errEmptyStackArray = errors.New("stack item array is empty")
+
+// ParseStackArray parses stack array from raw notification
+// event received from neo-go RPC node.
+func ParseStackArray(event *subscriptions.NotificationEvent) ([]stackitem.Item, error) {
+	arr, err := client.ArrayFromStackItem(event.Item)
+	if err != nil {
+		return nil, fmt.Errorf("stack item is not an array type: %w", err)
+	} else if len(arr) == 0 {
+		return nil, errEmptyStackArray
+	}
+
+	return arr, nil
 }

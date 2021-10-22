@@ -22,55 +22,55 @@ func TestParsePut(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParsePut(prms)
+		_, err := ParsePut(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(expectedItemNumPut, len(prms)).Error())
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong signature parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerData),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong key parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerData),
 			stackitem.NewByteArray(signature),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong session token parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerData),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(publicKey),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParsePut([]stackitem.Item{
+		ev, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerData),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(publicKey),
 			stackitem.NewByteArray(token),
-		})
+		}))
 		require.NoError(t, err)
 
 		require.Equal(t, Put{
