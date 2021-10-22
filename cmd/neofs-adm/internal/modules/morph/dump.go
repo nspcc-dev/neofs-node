@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -21,6 +22,12 @@ import (
 )
 
 const lastGlagoliticLetter = 41
+
+type contractDumpInfo struct {
+	hash    util.Uint160
+	name    string
+	version string
+}
 
 func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	c, err := getN3Client(viper.GetViper())
@@ -32,6 +39,8 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	infos := []contractDumpInfo{{name: nnsContract, hash: cs.Hash}}
 
 	bw := io.NewBufBinWriter()
 	for _, ctrName := range contractList {
@@ -59,9 +68,6 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	tw := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
-
-	_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s\n", nnsContract, cs.Hash.StringLE())))
 
 	if irSize != 0 {
 		bw.Reset()
@@ -77,28 +83,68 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		}
 
 		for i := 0; i < irSize; i++ {
-			ctrHash := "hash is invalid"
+			info := contractDumpInfo{name: fmt.Sprintf("alphabet %d", i)}
 			if h, err := parseNNSResolveResult(alphaRes.Stack[i]); err == nil {
-				ctrHash = h.StringLE()
+				info.hash = h
 			}
-
-			_, _ = tw.Write([]byte(fmt.Sprintf("alphabet %d:\t%s\n", i, ctrHash)))
+			infos = append(infos, info)
 		}
 	}
 
 	for i := range contractList {
-		ctrHash := "hash is invalid"
+		info := contractDumpInfo{name: contractList[i]}
 		if h, err := parseNNSResolveResult(res.Stack[i]); err == nil {
-			ctrHash = h.StringLE()
+			info.hash = h
 		}
-
-		_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s\n", contractList[i], ctrHash)))
+		infos = append(infos, info)
 	}
 
+	bw.Reset()
+	for i := range infos {
+		if i == 0 || infos[i].hash.Equals(util.Uint160{}) { // current NNS contract has no Version method
+			emit.Int(bw.BinWriter, 0)
+		} else {
+			emit.AppCall(bw.BinWriter, infos[i].hash, "version", callflag.NoneFlag)
+		}
+	}
+
+	res, err = c.InvokeScript(bw.Bytes(), nil)
+	if err != nil {
+		return fmt.Errorf("can't fetch info from NNS: %w", err)
+	}
+
+	if res.State == vm.HaltState.String() {
+		for i := range res.Stack {
+			infos[i].version = parseContractVersion(res.Stack[i])
+		}
+	}
+
+	tw := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
+	for _, info := range infos {
+		if info.version == "" {
+			info.version = "unknown"
+		}
+		_, _ = tw.Write([]byte(fmt.Sprintf("%s\t(%s):\t%s\n",
+			info.name, info.version, info.hash.StringLE())))
+	}
 	_ = tw.Flush()
+
 	cmd.Print(buf.String())
 
 	return nil
+}
+
+func parseContractVersion(item stackitem.Item) string {
+	bi, err := item.TryInteger()
+	if err != nil || bi.Sign() == 0 || !bi.IsInt64() {
+		return "unknown"
+	}
+
+	v := bi.Int64()
+	major := v / 1_000_000
+	minor := (v % 1_000_000) / 1000
+	patch := v % 1_000
+	return fmt.Sprintf("v%d.%d.%d", major, minor, patch)
 }
 
 func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
