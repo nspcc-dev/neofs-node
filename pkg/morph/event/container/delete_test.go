@@ -20,43 +20,43 @@ func TestParseDelete(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseDelete(prms)
+		_, err := ParseDelete(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
 	})
 
 	t.Run("wrong container parameter", func(t *testing.T) {
-		_, err := ParseDelete([]stackitem.Item{
+		_, err := ParseDelete(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong signature parameter", func(t *testing.T) {
-		_, err := ParseDelete([]stackitem.Item{
+		_, err := ParseDelete(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerID),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong session token parameter", func(t *testing.T) {
-		_, err := ParseDelete([]stackitem.Item{
+		_, err := ParseDelete(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerID),
 			stackitem.NewByteArray(signature),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseDelete([]stackitem.Item{
+		ev, err := ParseDelete(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(containerID),
 			stackitem.NewByteArray(signature),
 			stackitem.NewByteArray(token),
-		})
+		}))
 
 		require.NoError(t, err)
 

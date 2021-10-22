@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -58,36 +58,41 @@ const expectedItemNumEACL = 4
 // ParseSetEACL parses SetEACL notification event from list of stack items.
 //
 // Expects 4 stack items.
-func ParseSetEACL(items []stackitem.Item) (event.Event, error) {
+func ParseSetEACL(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  SetEACL
 		err error
 	)
 
-	if ln := len(items); ln != expectedItemNumEACL {
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
+
+	if ln := len(params); ln != expectedItemNumEACL {
 		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, ln)
 	}
 
 	// parse table
-	ev.table, err = client.BytesFromStackItem(items[0])
+	ev.table, err = client.BytesFromStackItem(params[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not parse binary table: %w", err)
 	}
 
 	// parse signature
-	ev.signature, err = client.BytesFromStackItem(items[1])
+	ev.signature, err = client.BytesFromStackItem(params[1])
 	if err != nil {
 		return nil, fmt.Errorf("could not parse table signature: %w", err)
 	}
 
 	// parse public key
-	ev.publicKey, err = client.BytesFromStackItem(items[2])
+	ev.publicKey, err = client.BytesFromStackItem(params[2])
 	if err != nil {
 		return nil, fmt.Errorf("could not parse binary public key: %w", err)
 	}
 
 	// parse session token
-	ev.token, err = client.BytesFromStackItem(items[3])
+	ev.token, err = client.BytesFromStackItem(params[3])
 	if err != nil {
 		return nil, fmt.Errorf("could not get session token: %w", err)
 	}

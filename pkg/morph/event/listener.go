@@ -285,19 +285,6 @@ func (l listener) parseAndHandleNotification(notifyEvent *subscriptions.Notifica
 		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
 
-	// stack item must be an array of items
-	arr, err := client.ArrayFromStackItem(notifyEvent.Item)
-	if err != nil {
-		log.Warn("stack item is not an array type",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	} else if len(arr) == 0 {
-		log.Warn("stack item array is empty")
-		return
-	}
-
 	// calculate event type from bytes
 	typEvent := TypeFromString(notifyEvent.Name)
 
@@ -321,7 +308,7 @@ func (l listener) parseAndHandleNotification(notifyEvent *subscriptions.Notifica
 	}
 
 	// parse the notification event
-	event, err := parser(arr)
+	event, err := parser(notifyEvent)
 	if err != nil {
 		log.Warn("could not parse notification event",
 			zap.String("error", err.Error()),

@@ -3,6 +3,7 @@ package neofs
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -24,11 +25,16 @@ func (b bindCommon) Keys() [][]byte { return b.keys }
 
 func (b bindCommon) User() []byte { return b.user }
 
-func ParseBind(params []stackitem.Item) (event.Event, error) {
+func ParseBind(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  Bind
 		err error
 	)
+
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
 
 	err = parseBind(&ev.bindCommon, params)
 	if err != nil {

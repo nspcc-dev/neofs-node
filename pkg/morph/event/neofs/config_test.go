@@ -20,43 +20,43 @@ func TestParseConfig(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseConfig(prms)
+		_, err := ParseConfig(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
 	})
 
 	t.Run("wrong first parameter", func(t *testing.T) {
-		_, err := ParseConfig([]stackitem.Item{
+		_, err := ParseConfig(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong second parameter", func(t *testing.T) {
-		_, err := ParseConfig([]stackitem.Item{
+		_, err := ParseConfig(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong third parameter", func(t *testing.T) {
-		_, err := ParseConfig([]stackitem.Item{
+		_, err := ParseConfig(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(key),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
-		ev, err := ParseConfig([]stackitem.Item{
+		ev, err := ParseConfig(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(key),
 			stackitem.NewByteArray(value),
-		})
+		}))
 		require.NoError(t, err)
 
 		require.Equal(t, Config{

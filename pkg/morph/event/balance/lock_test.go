@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -26,68 +28,68 @@ func TestParseLock(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseLock(prms)
+		_, err := ParseLock(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(5, len(prms)).Error())
 	})
 
 	t.Run("wrong id parameter", func(t *testing.T) {
-		_, err := ParseLock([]stackitem.Item{
+		_, err := ParseLock(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong from parameter", func(t *testing.T) {
-		_, err := ParseLock([]stackitem.Item{
+		_, err := ParseLock(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong lock parameter", func(t *testing.T) {
-		_, err := ParseLock([]stackitem.Item{
+		_, err := ParseLock(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong amount parameter", func(t *testing.T) {
-		_, err := ParseLock([]stackitem.Item{
+		_, err := ParseLock(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewByteArray(lock.BytesBE()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong until parameter", func(t *testing.T) {
-		_, err := ParseLock([]stackitem.Item{
+		_, err := ParseLock(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewByteArray(lock.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseLock([]stackitem.Item{
+		ev, err := ParseLock(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(id),
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewByteArray(lock.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(until)),
-		})
+		}))
 
 		require.NoError(t, err)
 		require.Equal(t, Lock{
@@ -98,4 +100,12 @@ func TestParseLock(t *testing.T) {
 			until:  until,
 		}, ev)
 	})
+}
+
+func createNotifyEventFromItems(items []stackitem.Item) *subscriptions.NotificationEvent {
+	return &subscriptions.NotificationEvent{
+		NotificationEvent: state.NotificationEvent{
+			Item: stackitem.NewArray(items),
+		},
+	}
 }

@@ -3,8 +3,9 @@ package balance
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -37,11 +38,16 @@ func (l Lock) Amount() int64 { return l.amount }
 func (l Lock) Until() int64 { return l.until }
 
 // ParseLock from notification into lock structure.
-func ParseLock(params []stackitem.Item) (event.Event, error) {
+func ParseLock(e *subscriptions.NotificationEvent) (event.Event, error) {
 	var (
 		ev  Lock
 		err error
 	)
+
+	params, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
+	}
 
 	if ln := len(params); ln != 5 {
 		return nil, event.WrongNumberOfParameters(5, ln)

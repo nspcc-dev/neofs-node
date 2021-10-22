@@ -24,43 +24,43 @@ func TestParseWithdraw(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParseWithdraw(prms)
+		_, err := ParseWithdraw(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
 	})
 
 	t.Run("wrong user parameter", func(t *testing.T) {
-		_, err := ParseWithdraw([]stackitem.Item{
+		_, err := ParseWithdraw(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong amount parameter", func(t *testing.T) {
-		_, err := ParseWithdraw([]stackitem.Item{
+		_, err := ParseWithdraw(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong id parameter", func(t *testing.T) {
-		_, err := ParseWithdraw([]stackitem.Item{
+		_, err := ParseWithdraw(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParseWithdraw([]stackitem.Item{
+		ev, err := ParseWithdraw(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewByteArray(user.BytesBE()),
 			stackitem.NewBigInteger(new(big.Int).SetInt64(amount)),
 			stackitem.NewByteArray(id),
-		})
+		}))
 
 		require.NoError(t, err)
 		require.Equal(t, Withdraw{

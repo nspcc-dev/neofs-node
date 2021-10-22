@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -39,43 +41,43 @@ func TestParsePut(t *testing.T) {
 			stackitem.NewMap(),
 		}
 
-		_, err := ParsePut(prms)
+		_, err := ParsePut(createNotifyEventFromItems(prms))
 		require.EqualError(t, err, event.WrongNumberOfParameters(3, len(prms)).Error())
 	})
 
 	t.Run("wrong epoch parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong peerID parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epoch)),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("wrong value parameter", func(t *testing.T) {
-		_, err := ParsePut([]stackitem.Item{
+		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epoch)),
 			stackitem.NewByteArray(rawPeerID[:]),
 			stackitem.NewMap(),
-		})
+		}))
 
 		require.Error(t, err)
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
-		ev, err := ParsePut([]stackitem.Item{
+		ev, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epoch)),
 			stackitem.NewByteArray(rawPeerID[:]),
 			stackitem.NewByteArray(rawValue),
-		})
+		}))
 		require.NoError(t, err)
 
 		require.Equal(t, Put{
@@ -84,4 +86,12 @@ func TestParsePut(t *testing.T) {
 			value:  value,
 		}, ev)
 	})
+}
+
+func createNotifyEventFromItems(items []stackitem.Item) *subscriptions.NotificationEvent {
+	return &subscriptions.NotificationEvent{
+		NotificationEvent: state.NotificationEvent{
+			Item: stackitem.NewArray(items),
+		},
+	}
 }
