@@ -49,8 +49,9 @@ const (
 	defaultNotaryRoundTime    = 100
 	defaultNotaryFallbackTime = 40
 
-	notaryBalanceOfMethod = "balanceOf"
-	setDesignateMethod    = "designateAsRole"
+	notaryBalanceOfMethod    = "balanceOf"
+	notaryExpirationOfMethod = "expirationOf"
+	setDesignateMethod       = "designateAsRole"
 
 	notaryBalanceErrMsg      = "can't fetch notary balance"
 	notaryNotEnabledPanicMsg = "notary support was not enabled on this client"
@@ -171,9 +172,19 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		return util.Uint256{}, fmt.Errorf("can't get blockchain height: %w", err)
 	}
 
+	currentTill, err := c.depositExpirationOf()
+	if err != nil {
+		return util.Uint256{}, fmt.Errorf("can't get previous expiration value: %w", err)
+	}
+
+	till := int64(bc + delta)
+	if till < currentTill {
+		till = currentTill
+	}
+
 	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
 	if err != nil {
-		return util.Uint256{}, err
+		return util.Uint256{}, fmt.Errorf("can't get GAS script hash: %w", err)
 	}
 
 	txHash, err := c.client.TransferNEP17(
@@ -182,7 +193,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		gas,
 		int64(amount),
 		0,
-		[]interface{}{c.acc.PrivateKey().GetScriptHash(), int64(bc + delta)},
+		[]interface{}{c.acc.PrivateKey().GetScriptHash(), till},
 		nil,
 	)
 	if err != nil {
@@ -199,7 +210,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 
 	c.logger.Debug("notary deposit invoke",
 		zap.Int64("amount", int64(amount)),
-		zap.Uint32("expire_at", bc+delta),
+		zap.Int64("expire_at", till),
 		zap.Stringer("tx_hash", txHash.Reverse()))
 
 	return txHash, nil
@@ -637,6 +648,24 @@ func (c *Client) notaryTxValidationLimit() (uint32, error) {
 	rounded := (min/c.notary.roundTime + 1) * c.notary.roundTime
 
 	return rounded, nil
+}
+
+func (c *Client) depositExpirationOf() (int64, error) {
+	expirationRes, err := c.TestInvoke(c.notary.notary, notaryExpirationOfMethod, c.acc.PrivateKey().GetScriptHash())
+	if err != nil {
+		return 0, fmt.Errorf("can't invoke method: %w", err)
+	}
+
+	if len(expirationRes) != 1 {
+		return 0, fmt.Errorf("method returned unexpected item count: %d", len(expirationRes))
+	}
+
+	currentTillBig, err := expirationRes[0].TryInteger()
+	if err != nil {
+		return 0, fmt.Errorf("can't parse deposit till value: %w", err)
+	}
+
+	return currentTillBig.Int64(), nil
 }
 
 func invocationParams(args ...interface{}) ([]sc.Parameter, error) {
