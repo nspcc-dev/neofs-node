@@ -54,15 +54,24 @@ const (
 	defaultEigenTrustAlpha      = "0.1"
 )
 
-var contractList = []string{
-	auditContract,
-	balanceContract,
-	containerContract,
-	neofsIDContract,
-	netmapContract,
-	proxyContract,
-	reputationContract,
-}
+var (
+	contractList = []string{
+		auditContract,
+		balanceContract,
+		containerContract,
+		neofsIDContract,
+		netmapContract,
+		proxyContract,
+		reputationContract,
+	}
+
+	fullContractList = append([]string{
+		neofsContract,
+		processingContract,
+		nnsContract,
+		alphabetContract,
+	}, contractList...)
+)
 
 type contractState struct {
 	NEF         *nef.File
@@ -75,10 +84,7 @@ type contractState struct {
 const updateMethodName = "update"
 
 func (c *initializeContext) deployNNS(method string) error {
-	cs, err := c.readContract(nnsContract)
-	if err != nil {
-		return err
-	}
+	cs := c.getContract(nnsContract)
 
 	if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != updateMethodName {
 		return nil
@@ -128,17 +134,7 @@ func (c *initializeContext) deployNNS(method string) error {
 
 func (c *initializeContext) deployContracts(method string) error {
 	mgmtHash := c.nativeHash(nativenames.Management)
-	for _, ctrName := range contractList {
-		_, err := c.readContract(ctrName)
-		if err != nil {
-			return err
-		}
-	}
-
-	alphaCs, err := c.readContract(alphabetContract)
-	if err != nil {
-		return err
-	}
+	alphaCs := c.getContract(alphabetContract)
 
 	nnsCs, err := c.Client.GetContractStateByID(1)
 	if err != nil {
@@ -245,58 +241,85 @@ func (c *initializeContext) deployContracts(method string) error {
 	return c.awaitTx()
 }
 
-func (c *initializeContext) readContract(ctrName string) (*contractState, error) {
-	if cs, ok := c.Contracts[ctrName]; ok {
-		return cs, nil
-	}
+func (c *initializeContext) getContract(ctrName string) *contractState {
+	return c.Contracts[ctrName]
+}
 
-	fi, err := os.Stat(c.ContractPath)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contracts path: %w", err)
-	}
-
-	var cs *contractState
-	if fi.IsDir() {
-		cs = new(contractState)
-		cs.RawNEF, err = ioutil.ReadFile(path.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
+func (c *initializeContext) readContracts(names []string) error {
+	var (
+		fi  os.FileInfo
+		err error
+	)
+	if c.ContractPath != "" {
+		fi, err = os.Stat(c.ContractPath)
 		if err != nil {
-			return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+			return fmt.Errorf("invalid contracts path: %w", err)
 		}
-		cs.RawManifest, err = ioutil.ReadFile(path.Join(c.ContractPath, ctrName, "config.json"))
-		if err != nil {
-			return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+	}
+
+	if c.ContractPath != "" && fi.IsDir() {
+		for _, ctrName := range names {
+			cs := new(contractState)
+			cs.RawNEF, err = ioutil.ReadFile(path.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
+			if err != nil {
+				return fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+			}
+			cs.RawManifest, err = ioutil.ReadFile(path.Join(c.ContractPath, ctrName, "config.json"))
+			if err != nil {
+				return fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+			}
+			c.Contracts[ctrName] = cs
 		}
 	} else {
-		f, err := os.Open(c.ContractPath)
-		if err != nil {
-			return nil, fmt.Errorf("can't open contracts archive: %w", err)
+		var r io.ReadCloser
+		if c.ContractPath == "" {
+			c.Command.Println("Contracts flag is missing, latest release will be fetched from Github.")
+			r, err = downloadContractsFromGithub(c.Command)
+		} else {
+			r, err = os.Open(c.ContractPath)
 		}
-		defer f.Close()
+		if err != nil {
+			return fmt.Errorf("can't open contracts archive: %w", err)
+		}
+		defer r.Close()
 
-		m, err := readContractsFromArchive(f, []string{ctrName})
+		m, err := readContractsFromArchive(r, names)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		cs = m[ctrName]
+		for _, name := range names {
+			c.Contracts[name] = m[name]
+		}
 	}
 
+	for _, ctrName := range names {
+		cs := c.Contracts[ctrName]
+		if err := cs.parse(); err != nil {
+			return err
+		}
+
+		if ctrName != alphabetContract {
+			cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(),
+				cs.NEF.Checksum, cs.Manifest.Name)
+		}
+	}
+	return nil
+}
+
+func (cs *contractState) parse() error {
 	nf, err := nef.FileFromBytes(cs.RawNEF)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse NEF file: %w", err)
+		return fmt.Errorf("can't parse NEF file: %w", err)
 	}
+
+	m := new(manifest.Manifest)
+	if err := json.Unmarshal(cs.RawManifest, m); err != nil {
+		return fmt.Errorf("can't parse manifest file: %w", err)
+	}
+
 	cs.NEF = &nf
-
-	cs.Manifest = new(manifest.Manifest)
-	if err := json.Unmarshal(cs.RawManifest, cs.Manifest); err != nil {
-		return nil, fmt.Errorf("can't parse manifest file: %w", err)
-	}
-
-	if ctrName != alphabetContract {
-		cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(),
-			cs.NEF.Checksum, cs.Manifest.Name)
-	}
-	c.Contracts[ctrName] = cs
-	return cs, nil
+	cs.Manifest = m
+	return nil
 }
 
 func readContractsFromArchive(file io.Reader, names []string) (map[string]*contractState, error) {

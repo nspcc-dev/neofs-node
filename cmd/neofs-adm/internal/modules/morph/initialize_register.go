@@ -71,11 +71,7 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 		return err
 	}
 
-	cs, err := c.readContract(alphabetContract)
-	if err != nil {
-		return fmt.Errorf("can't read alphabet contract: %w", err)
-	}
-
+	cs := c.getContract(alphabetContract)
 	amount := initialAlphabetNEOAmount / len(c.Wallets)
 
 	bw := io.NewBufBinWriter()

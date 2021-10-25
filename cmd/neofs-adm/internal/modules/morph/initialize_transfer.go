@@ -132,10 +132,7 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 
 func (c *initializeContext) transferGASToProxy() error {
 	gasHash := c.nativeHash(nativenames.Gas)
-	proxyCs, err := c.readContract(proxyContract)
-	if err != nil {
-		return err
-	}
+	proxyCs := c.getContract(proxyContract)
 
 	bal, err := c.Client.NEP17BalanceOf(gasHash, proxyCs.Hash)
 	if err != nil || bal > 0 {
