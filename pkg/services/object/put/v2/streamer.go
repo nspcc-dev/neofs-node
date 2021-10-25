@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -97,13 +96,15 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 
 	metaHdr := new(sessionV2.RequestMetaHeader)
 	meta := req.GetMetaHeader()
-	st := session.NewTokenFromV2(meta.GetSessionToken())
 
 	metaHdr.SetTTL(meta.GetTTL() - 1)
 	metaHdr.SetOrigin(meta)
 	req.SetMetaHeader(metaHdr)
 
-	key, err := s.keyStorage.GetKey(st)
+	// session token should not be used there
+	// otherwise remote nodes won't be able to
+	// process received part of split object
+	key, err := s.keyStorage.GetKey(nil)
 	if err != nil {
 		return err
 	}
