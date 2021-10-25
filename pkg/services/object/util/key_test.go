@@ -19,7 +19,7 @@ func TestNewKeyStorage(t *testing.T) {
 	require.NoError(t, err)
 
 	tokenStor := tokenStorage.New()
-	stor := util.NewKeyStorage(&nodeKey.PrivateKey, tokenStor)
+	stor := util.NewKeyStorage(&nodeKey.PrivateKey, tokenStor, mockedNetworkState{42})
 
 	t.Run("node key", func(t *testing.T) {
 		key, err := stor.GetKey(nil)
@@ -42,6 +42,12 @@ func TestNewKeyStorage(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, pubKey.X, key.PublicKey.X)
 		require.Equal(t, pubKey.Y, key.PublicKey.Y)
+	})
+
+	t.Run("expired token", func(t *testing.T) {
+		tok := createToken(t, tokenStor, 30)
+		_, err := stor.GetKey(tok)
+		require.Error(t, err)
 	})
 }
 
@@ -73,4 +79,12 @@ func createToken(t *testing.T, store *tokenStorage.TokenStore, exp uint64) *sess
 	tok.SetID(resp.GetID())
 
 	return tok
+}
+
+type mockedNetworkState struct {
+	value uint64
+}
+
+func (m mockedNetworkState) CurrentEpoch() uint64 {
+	return m.value
 }
