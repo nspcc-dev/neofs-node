@@ -24,10 +24,7 @@ const defaultNameServiceSysfee = 4000_0000
 const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
 
 func (c *initializeContext) setNNS() error {
-	nnsCs, err := c.readContract(nnsContract)
-	if err != nil {
-		return err
-	}
+	nnsCs := c.getContract(nnsContract)
 
 	ok, err := c.nnsRootRegistered(nnsCs.Hash)
 	if err != nil {
@@ -43,10 +40,7 @@ func (c *initializeContext) setNNS() error {
 		}
 	}
 
-	alphaCs, err := c.readContract(alphabetContract)
-	if err != nil {
-		return fmt.Errorf("can't read alphabet contract: %w", err)
-	}
+	alphaCs := c.getContract(alphabetContract)
 	for i, acc := range c.Accounts {
 		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 
@@ -58,10 +52,7 @@ func (c *initializeContext) setNNS() error {
 	}
 
 	for _, ctrName := range contractList {
-		cs, err := c.readContract(ctrName)
-		if err != nil {
-			return err
-		}
+		cs := c.getContract(ctrName)
 
 		domain := ctrName + ".neofs"
 		if err := c.nnsRegisterDomain(nnsCs.Hash, cs.Hash, domain); err != nil {
