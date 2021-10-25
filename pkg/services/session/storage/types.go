@@ -15,3 +15,8 @@ type PrivateToken struct {
 func (t *PrivateToken) SessionKey() *ecdsa.PrivateKey {
 	return t.sessionKey
 }
+
+// ExpiredAt returns epoch number until token is valid.
+func (t *PrivateToken) ExpiredAt() uint64 {
+	return t.exp
+}
