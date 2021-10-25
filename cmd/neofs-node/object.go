@@ -177,7 +177,7 @@ func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.Client
 
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
-	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore)
+	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore, c.cfgNetmap.state)
 	nodeOwner := owner.NewID()
 
 	neo3Wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(c.key.PublicKey()))
