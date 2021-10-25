@@ -122,18 +122,12 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 			return nil, fmt.Errorf("max object size must be positive")
 		}
 	}
-	if cmd.Name() == "update-contracts" || cmd.Name() == "init" {
+
+	needContracts := cmd.Name() == "update-contracts" || cmd.Name() == "init"
+	if needContracts {
 		ctrPath, err = cmd.Flags().GetString(contractsInitFlag)
 		if err != nil {
-			return nil, fmt.Errorf("missing contracts path: %w", err)
-		}
-		if ctrPath == "" {
-			cmd.Println("Contracts flag is missing, latest release will be fetched from Github.")
-			ctrPath, err = downloadContractsFromGithub(cmd)
-			if err != nil {
-				return nil, err
-			}
-			cmd.Printf("Saved to %s\n", ctrPath)
+			return nil, fmt.Errorf("invalid contracts path: %w", err)
 		}
 	}
 
@@ -175,6 +169,13 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		Contracts:    make(map[string]*contractState),
 		ContractPath: ctrPath,
 		Natives:      nativeHashes,
+	}
+
+	if needContracts {
+		err := initCtx.readContracts(fullContractList)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return initCtx, nil
