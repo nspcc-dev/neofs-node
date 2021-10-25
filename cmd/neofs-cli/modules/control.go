@@ -114,6 +114,7 @@ func initControlSnapshotCmd() {
 
 	flags := snapshotCmd.Flags()
 
+	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.BoolVar(&netmapSnapshotJSON, "json", false,
 		"print netmap structure in JSON format")
 }
