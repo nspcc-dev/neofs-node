@@ -2,10 +2,14 @@ package util
 
 import (
 	"crypto/ecdsa"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 )
+
+// todo(alexvanin): should be a part of status API
+var errNoSessionToken = errors.New("session token does not exist")
 
 // KeyStorage represents private key storage of the local node.
 type KeyStorage struct {
@@ -32,6 +36,7 @@ func (s *KeyStorage) GetKey(token *session.Token) (*ecdsa.PrivateKey, error) {
 		if pToken != nil {
 			return pToken.SessionKey(), nil
 		}
+		return nil, errNoSessionToken
 	}
 
 	return s.key, nil
