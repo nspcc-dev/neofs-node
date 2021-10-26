@@ -83,11 +83,16 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]*o
 		return exec.prm.forwarder(info, c.client)
 	}
 
+	key, err := exec.prm.common.KeyStorage().GetKey(exec.prm.common.SessionToken())
+	if err != nil {
+		return nil, err
+	}
+
 	return c.client.SearchObject(exec.context(),
 		&exec.prm.SearchObjectParams,
 		exec.prm.common.RemoteCallOptions(
 			util.WithNetmapEpoch(exec.curProcEpoch),
-			util.WithKey(exec.prm.common.PrivateKey()),
+			util.WithKey(key),
 		)...)
 }
 
