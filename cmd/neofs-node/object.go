@@ -300,6 +300,7 @@ func initObjectService(c *cfg) {
 			),
 		),
 		searchsvc.WithNetMapSource(c.cfgNetmap.wrapper),
+		searchsvc.WithKeyStorage(keyStorage),
 	)
 
 	sSearchV2 := searchsvcV2.NewService(
@@ -317,6 +318,7 @@ func initObjectService(c *cfg) {
 			),
 		),
 		getsvc.WithNetMapSource(c.cfgNetmap.wrapper),
+		getsvc.WithKeyStorage(keyStorage),
 	)
 
 	sGetV2 := getsvcV2.NewService(

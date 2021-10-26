@@ -20,8 +20,6 @@ type CommonPrm struct {
 
 	bearer *token.BearerToken
 
-	keyStor *KeyStorage
-
 	callOpts []client.CallOption
 }
 
@@ -61,24 +59,6 @@ func (p *CommonPrm) WithBearerToken(token *token.BearerToken) *CommonPrm {
 	}
 
 	return p
-}
-
-// WithKeyStorage sets private key storage to use during execution.
-func (p *CommonPrm) WithKeyStorage(stor *KeyStorage) *CommonPrm {
-	if p != nil {
-		p.keyStor = stor
-	}
-
-	return p
-}
-
-// KeyStorage returns private key storage to use during execution.
-func (p *CommonPrm) KeyStorage() *KeyStorage {
-	if p != nil {
-		return p.keyStor
-	}
-
-	return nil
 }
 
 // WithRemoteCallOptions sets call options remote remote client calls.
