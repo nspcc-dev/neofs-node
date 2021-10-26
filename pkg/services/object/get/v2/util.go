@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
 	rpcclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	signature2 "github.com/nspcc-dev/neofs-api-go/util/signature"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -33,11 +32,6 @@ var errWrongMessageSeq = errors.New("incorrect message sequence")
 func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStream) (*getsvc.Prm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
-	if err != nil {
-		return nil, err
-	}
-
 	commonPrm, err := util.CommonPrmFromV2(req)
 	if err != nil {
 		return nil, err
@@ -45,7 +39,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 	p := new(getsvc.Prm)
 	p.SetCommonParameters(commonPrm.
-		WithPrivateKey(key),
+		WithKeyStorage(s.keyStorage),
 	)
 
 	body := req.GetBody()
@@ -59,8 +53,14 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
+			key, err := s.keyStorage.GetKey(nil)
+			if err != nil {
+				return nil, err
+			}
+
 			// once compose and resign forwarding request
 			onceResign.Do(func() {
+
 				// compose meta header of the local server
 				metaHdr := new(session.RequestMetaHeader)
 				metaHdr.SetTTL(meta.GetTTL() - 1)
@@ -159,11 +159,6 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.GetObjectRangeStream) (*getsvc.RangePrm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
-	if err != nil {
-		return nil, err
-	}
-
 	commonPrm, err := util.CommonPrmFromV2(req)
 	if err != nil {
 		return nil, err
@@ -171,7 +166,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 
 	p := new(getsvc.RangePrm)
 	p.SetCommonParameters(commonPrm.
-		WithPrivateKey(key),
+		WithKeyStorage(s.keyStorage),
 	)
 
 	body := req.GetBody()
@@ -182,6 +177,11 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
+
+		key, err := s.keyStorage.GetKey(nil)
+		if err != nil {
+			return nil, err
+		}
 
 		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
@@ -260,13 +260,6 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 }
 
 func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.RangeHashPrm, error) {
-	meta := req.GetMetaHeader()
-
-	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
-	if err != nil {
-		return nil, err
-	}
-
 	commonPrm, err := util.CommonPrmFromV2(req)
 	if err != nil {
 		return nil, err
@@ -274,7 +267,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 
 	p := new(getsvc.RangeHashPrm)
 	p.SetCommonParameters(commonPrm.
-		WithPrivateKey(key),
+		WithKeyStorage(s.keyStorage),
 	)
 
 	body := req.GetBody()
@@ -325,11 +318,6 @@ func (w *headResponseWriter) WriteHeader(hdr *object.Object) error {
 func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp *objectV2.HeadResponse) (*getsvc.HeadPrm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
-	if err != nil {
-		return nil, err
-	}
-
 	commonPrm, err := util.CommonPrmFromV2(req)
 	if err != nil {
 		return nil, err
@@ -337,7 +325,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 	p := new(getsvc.HeadPrm)
 	p.SetCommonParameters(commonPrm.
-		WithPrivateKey(key),
+		WithKeyStorage(s.keyStorage),
 	)
 
 	body := req.GetBody()
@@ -353,6 +341,11 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
+
+			key, err := s.keyStorage.GetKey(nil)
+			if err != nil {
+				return nil, err
+			}
 
 			// once compose and resign forwarding request
 			onceResign.Do(func() {

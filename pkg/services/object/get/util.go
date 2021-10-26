@@ -88,12 +88,17 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		return exec.prm.forwarder(info, c.client)
 	}
 
+	opts, err := exec.callOptions()
+	if err != nil {
+		return nil, err
+	}
+
 	if exec.headOnly() {
 		return c.client.GetObjectHeader(exec.context(),
 			new(client.ObjectHeaderParams).
 				WithAddress(exec.address()).
 				WithRawFlag(exec.isRaw()),
-			exec.callOptions()...,
+			opts...,
 		)
 	}
 	// we don't specify payload writer because we accumulate
@@ -104,7 +109,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 				WithAddress(exec.address()).
 				WithRange(rng).
 				WithRaw(exec.isRaw()),
-			exec.callOptions()...,
+			opts...,
 		)
 		if err != nil {
 			return nil, err
@@ -115,7 +120,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 	return c.client.GetObject(exec.context(),
 		exec.remotePrm(),
-		exec.callOptions()...,
+		opts...,
 	)
 }
 

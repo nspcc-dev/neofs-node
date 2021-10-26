@@ -20,7 +20,7 @@ type CommonPrm struct {
 
 	bearer *token.BearerToken
 
-	key *ecdsa.PrivateKey
+	keyStor *KeyStorage
 
 	callOpts []client.CallOption
 }
@@ -63,19 +63,19 @@ func (p *CommonPrm) WithBearerToken(token *token.BearerToken) *CommonPrm {
 	return p
 }
 
-// WithPrivateKey sets private key to use during execution.
-func (p *CommonPrm) WithPrivateKey(key *ecdsa.PrivateKey) *CommonPrm {
+// WithKeyStorage sets private key storage to use during execution.
+func (p *CommonPrm) WithKeyStorage(stor *KeyStorage) *CommonPrm {
 	if p != nil {
-		p.key = key
+		p.keyStor = stor
 	}
 
 	return p
 }
 
-// PrivateKey returns private key to use during execution.
-func (p *CommonPrm) PrivateKey() *ecdsa.PrivateKey {
+// KeyStorage returns private key storage to use during execution.
+func (p *CommonPrm) KeyStorage() *KeyStorage {
 	if p != nil {
-		return p.key
+		return p.keyStor
 	}
 
 	return nil

@@ -104,14 +104,19 @@ func (exec execCtx) isChild(obj *object.Object) bool {
 	return par != nil && equalAddresses(exec.address(), par.Address())
 }
 
-func (exec execCtx) key() *ecdsa.PrivateKey {
-	return exec.prm.common.PrivateKey()
+func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
+	return exec.prm.common.KeyStorage().GetKey(exec.prm.common.SessionToken())
 }
 
-func (exec execCtx) callOptions() []client.CallOption {
+func (exec execCtx) callOptions() ([]client.CallOption, error) {
+	key, err := exec.key()
+	if err != nil {
+		return nil, err
+	}
+
 	return exec.prm.common.RemoteCallOptions(
 		util.WithNetmapEpoch(exec.curProcEpoch),
-		util.WithKey(exec.key()))
+		util.WithKey(key)), nil
 }
 
 func (exec execCtx) remotePrm() *client.GetObjectParams {
