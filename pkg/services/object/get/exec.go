@@ -105,7 +105,7 @@ func (exec execCtx) isChild(obj *object.Object) bool {
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
-	return exec.prm.common.KeyStorage().GetKey(exec.prm.common.SessionToken())
+	return exec.svc.keyStore.GetKey(exec.prm.common.SessionToken())
 }
 
 func (exec execCtx) callOptions() ([]client.CallOption, error) {

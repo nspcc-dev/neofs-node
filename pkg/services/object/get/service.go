@@ -1,7 +1,10 @@
 package getsvc
 
 import (
+	"crypto/ecdsa"
+
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -43,6 +46,10 @@ type cfg struct {
 
 	currentEpochReceiver interface {
 		currentEpoch() (uint64, error)
+	}
+
+	keyStore interface {
+		GetKey(token *session.Token) (*ecdsa.PrivateKey, error)
 	}
 }
 
@@ -117,5 +124,13 @@ func WithNetMapSource(nmSrc netmap.Source) Option {
 		c.currentEpochReceiver = &nmSrcWrapper{
 			nmSrc: nmSrc,
 		}
+	}
+}
+
+// WithKeyStorage returns option to set private
+// key storage for session tokens and node key.
+func WithKeyStorage(store *util.KeyStorage) Option {
+	return func(c *cfg) {
+		c.keyStore = store
 	}
 }
