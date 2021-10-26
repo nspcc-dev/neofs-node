@@ -8,7 +8,6 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
 	rpcclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
@@ -25,11 +24,6 @@ import (
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
 	meta := req.GetMetaHeader()
 
-	key, err := s.keyStorage.GetKey(sessionsdk.NewTokenFromV2(meta.GetSessionToken()))
-	if err != nil {
-		return nil, err
-	}
-
 	commonPrm, err := util.CommonPrmFromV2(req)
 	if err != nil {
 		return nil, err
@@ -37,7 +31,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 	p := new(searchsvc.Prm)
 	p.SetCommonParameters(commonPrm.
-		WithPrivateKey(key),
+		WithKeyStorage(s.keyStorage),
 	)
 
 	p.SetWriter(&streamWriter{
@@ -46,6 +40,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
+
+		key, err := s.keyStorage.GetKey(nil)
+		if err != nil {
+			return nil, err
+		}
 
 		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) ([]*objectSDK.ID, error) {
 			var err error
