@@ -38,9 +38,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	}
 
 	p := new(getsvc.Prm)
-	p.SetCommonParameters(commonPrm.
-		WithKeyStorage(s.keyStorage),
-	)
+	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
@@ -165,9 +163,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	}
 
 	p := new(getsvc.RangePrm)
-	p.SetCommonParameters(commonPrm.
-		WithKeyStorage(s.keyStorage),
-	)
+	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
@@ -266,9 +262,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	}
 
 	p := new(getsvc.RangeHashPrm)
-	p.SetCommonParameters(commonPrm.
-		WithKeyStorage(s.keyStorage),
-	)
+	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
@@ -324,9 +318,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	}
 
 	p := new(getsvc.HeadPrm)
-	p.SetCommonParameters(commonPrm.
-		WithKeyStorage(s.keyStorage),
-	)
+	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
 	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))

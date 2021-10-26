@@ -83,7 +83,7 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]*o
 		return exec.prm.forwarder(info, c.client)
 	}
 
-	key, err := exec.prm.common.KeyStorage().GetKey(exec.prm.common.SessionToken())
+	key, err := exec.svc.keyStore.GetKey(exec.prm.common.SessionToken())
 	if err != nil {
 		return nil, err
 	}

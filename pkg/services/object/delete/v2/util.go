@@ -18,9 +18,7 @@ func (s *Service) toPrm(req *objectV2.DeleteRequest, respBody *objectV2.DeleteRe
 	}
 
 	p := new(deletesvc.Prm)
-	p.SetCommonParameters(commonPrm.
-		WithKeyStorage(s.keyStorage),
-	)
+	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
 	p.WithAddress(object.NewAddressFromV2(body.GetAddress()))

@@ -30,9 +30,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	}
 
 	p := new(searchsvc.Prm)
-	p.SetCommonParameters(commonPrm.
-		WithKeyStorage(s.keyStorage),
-	)
+	p.SetCommonParameters(commonPrm)
 
 	p.SetWriter(&streamWriter{
 		stream: stream,
