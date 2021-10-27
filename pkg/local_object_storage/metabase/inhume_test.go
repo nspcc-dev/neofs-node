@@ -11,7 +11,6 @@ import (
 
 func TestDB_Inhume(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	raw := generateRawObject(t)
 	addAttribute(raw, "foo", "bar")
@@ -33,7 +32,6 @@ func TestDB_Inhume(t *testing.T) {
 
 func TestInhumeTombOnTomb(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	var (
 		err error

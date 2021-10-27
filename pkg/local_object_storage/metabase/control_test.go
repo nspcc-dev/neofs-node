@@ -11,7 +11,6 @@ import (
 
 func TestReset(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	err := db.Reset()
 	require.NoError(t, err)

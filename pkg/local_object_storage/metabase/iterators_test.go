@@ -12,7 +12,6 @@ import (
 
 func TestDB_IterateExpired(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	const epoch = 13
 
@@ -59,7 +58,6 @@ func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uin
 
 func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	ts := generateAddress()
 	protected1 := generateAddress()
