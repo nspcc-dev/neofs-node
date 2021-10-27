@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"go.etcd.io/bbolt"
 )
 
@@ -50,14 +51,7 @@ const (
 	cursorPrefixSG        = 's'
 )
 
-var (
-	// ErrEndOfListing returns from ListWithCursor when metabase can't return
-	// any more objects after provided cursor.
-	// Use empty cursor to start listing again.
-	ErrEndOfListing = errors.New("end of metabase records")
-
-	errStopIterator = errors.New("stop")
-)
+var errStopIterator = errors.New("stop")
 
 // ListWithCursor lists physical objects available in metabase. Includes regular,
 // tombstone and storage group objects. Does not include inhumed objects. Use
@@ -148,7 +142,7 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor string) ([]*object.
 	})
 
 	if len(result) == 0 {
-		return nil, "", ErrEndOfListing
+		return nil, "", core.ErrEndOfListing
 	}
 
 	return result, string(cursorPrefix) + cursor, nil
