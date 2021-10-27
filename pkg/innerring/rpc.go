@@ -12,6 +12,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	coreObject "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	neofsapiclient "github.com/nspcc-dev/neofs-node/pkg/innerring/internal/client"
+	auditproc "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -82,7 +84,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 			return nil, fmt.Errorf("parse client node info: %w", err)
 		}
 
-		cli, err := c.Get(info)
+		cli, err := c.getWrappedClient(info)
 		if err != nil {
 			c.log.Warn("can't setup remote connection",
 				zap.String("error", err.Error()))
@@ -91,12 +93,15 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 		}
 
 		cctx, cancel := context.WithTimeout(ctx, c.sgTimeout)
-		obj, err := cli.GetObject(cctx, getParams, client.WithKey(c.key))
+
+		// NOTE: we use the function which does not verify object integrity (checksums, signature),
+		// but it would be useful to do as part of a data audit.
+		payload, err := neofsapiclient.GetObjectPayload(cctx, cli, addr)
 
 		cancel()
 
 		if err != nil {
-			c.log.Warn("can't get storage group object",
+			c.log.Warn("can't get payload of storage group object",
 				zap.String("error", err.Error()))
 
 			continue
@@ -104,7 +109,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 
 		sg := storagegroup.New()
 
-		err = sg.Unmarshal(obj.Payload())
+		err = sg.Unmarshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("can't parse storage group payload: %w", err)
 		}
@@ -117,22 +122,9 @@ func (c *ClientCache) getSG(ctx context.Context, addr *object.Address, nm *netma
 
 // GetHeader requests node from the container under audit to return object header by id.
 func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.ID, relay bool) (*object.Object, error) {
-	raw := true
-	ttl := uint32(1)
-
-	if relay {
-		ttl = 10 // todo: instead of hardcode value we can set TTL based on container length
-		raw = false
-	}
-
 	objAddress := new(object.Address)
 	objAddress.SetContainerID(task.ContainerID())
 	objAddress.SetObjectID(id)
-
-	headParams := new(client.ObjectHeaderParams)
-	headParams.WithRawFlag(raw)
-	headParams.WithMainFields()
-	headParams.WithAddress(objAddress)
 
 	var info clientcore.NodeInfo
 
@@ -141,15 +133,21 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	cli, err := c.Get(info)
+	cli, err := c.getWrappedClient(info)
 	if err != nil {
 		return nil, fmt.Errorf("can't setup remote connection with %s: %w", info.AddressGroup(), err)
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.headTimeout)
-	head, err := cli.GetObjectHeader(cctx, headParams,
-		client.WithTTL(ttl),
-		client.WithKey(c.key))
+
+	var obj *object.Object
+
+	if relay {
+		// todo: function sets hardcoded TTL value, but instead we can set TTL based on container length
+		obj, err = neofsapiclient.GetObjectHeaderFromContainer(cctx, cli, objAddress)
+	} else {
+		obj, err = neofsapiclient.GetRawObjectHeaderLocally(cctx, cli, objAddress)
+	}
 
 	cancel()
 
@@ -157,7 +155,7 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *object.
 		return nil, fmt.Errorf("object head error: %w", err)
 	}
 
-	return head, nil
+	return obj, nil
 }
 
 // GetRangeHash requests node from the container under audit to return Tillich-Zemor hash of the
@@ -167,11 +165,6 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 	objAddress.SetContainerID(task.ContainerID())
 	objAddress.SetObjectID(id)
 
-	rangeParams := new(client.RangeChecksumParams)
-	rangeParams.WithAddress(objAddress)
-	rangeParams.WithRangeList(rng)
-	rangeParams.WithSalt(nil) // it MUST be nil for correct hash concatenation in PDP game
-
 	var info clientcore.NodeInfo
 
 	err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
@@ -179,15 +172,14 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
 
-	cli, err := c.Get(info)
+	cli, err := c.getWrappedClient(info)
 	if err != nil {
 		return nil, fmt.Errorf("can't setup remote connection with %s: %w", info.AddressGroup(), err)
 	}
 
 	cctx, cancel := context.WithTimeout(task.AuditContext(), c.rangeTimeout)
-	result, err := cli.ObjectPayloadRangeTZ(cctx, rangeParams,
-		client.WithTTL(1),
-		client.WithKey(c.key))
+
+	h, err := neofsapiclient.HashObjectRange(cctx, cli, objAddress, rng)
 
 	cancel()
 
@@ -195,7 +187,41 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *obje
 		return nil, fmt.Errorf("object rangehash error: %w", err)
 	}
 
-	// client guarantees that request and response have equal amount of ranges
+	return h, nil
+}
 
-	return result[0][:], nil
+func (c *ClientCache) getWrappedClient(info clientcore.NodeInfo) (neofsapiclient.Client, error) {
+	// can be also cached
+	var cInternal neofsapiclient.Client
+
+	cli, err := c.Get(info)
+	if err != nil {
+		return cInternal, fmt.Errorf("could not get API client from cache")
+	}
+
+	cInternal.WrapBasicClient(cli)
+	cInternal.SetPrivateKey(c.key)
+
+	return cInternal, nil
+}
+
+func (c ClientCache) ListSG(dst *auditproc.SearchSGDst, prm auditproc.SearchSGPrm) error {
+	cli, err := c.getWrappedClient(prm.NodeInfo())
+	if err != nil {
+		return fmt.Errorf("could not get API client from cache")
+	}
+
+	var cliPrm neofsapiclient.SearchSGPrm
+
+	cliPrm.SetContext(prm.Context())
+	cliPrm.SetContainerID(prm.CID())
+
+	res, err := cli.SearchSG(cliPrm)
+	if err != nil {
+		return err
+	}
+
+	dst.WriteIDList(res.IDList())
+
+	return nil
 }

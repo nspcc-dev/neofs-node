@@ -544,7 +544,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		NetmapClient:     server.netmapClient,
 		ContainerClient:  cnrClient,
 		IRList:           server,
-		ClientCache:      clientCache,
+		SGSource:         clientCache,
 		Key:              &server.key.PrivateKey,
 		RPCSearchTimeout: cfg.GetDuration("audit.timeout.search"),
 		TaskManager:      auditTaskManager,
