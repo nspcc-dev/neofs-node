@@ -4,19 +4,15 @@ import (
 	"context"
 	"encoding/hex"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"go.uber.org/zap"
 )
-
-var sgFilter = storagegroup.SearchQuery()
 
 func (ap *Processor) processStartAudit(epoch uint64) {
 	log := ap.log.With(zap.Uint64("epoch", epoch))
@@ -117,7 +113,12 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*ob
 
 	ln := len(shuffled)
 
-	var info clientcore.NodeInfo
+	var (
+		info clientcore.NodeInfo
+		prm  SearchSGPrm
+	)
+
+	prm.id = cid
 
 	for i := range shuffled { // consider iterating over some part of container
 		log := ap.log.With(
@@ -134,19 +135,15 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*ob
 			continue
 		}
 
-		cli, err := ap.clientCache.Get(info)
-		if err != nil {
-			log.Warn("can't setup remote connection", zap.String("error", err.Error()))
-
-			continue
-		}
-
-		sgSearchParams := &client.SearchObjectParams{}
-		sgSearchParams.WithContainerID(cid)
-		sgSearchParams.WithSearchFilters(sgFilter)
-
 		ctx, cancel := context.WithTimeout(context.Background(), ap.searchTimeout)
-		result, err := cli.SearchObject(ctx, sgSearchParams, client.WithKey(ap.key))
+
+		prm.ctx = ctx
+		prm.info = info
+
+		var dst SearchSGDst
+
+		err = ap.sgSrc.ListSG(&dst, prm)
+
 		cancel()
 
 		if err != nil {
@@ -154,7 +151,7 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*ob
 			continue
 		}
 
-		sg = append(sg, result...)
+		sg = append(sg, dst.ids...)
 
 		break // we found storage groups, so break loop
 	}
