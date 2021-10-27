@@ -20,15 +20,14 @@ func (db *DB) Containers() (list []*cid.ID, err error) {
 
 func (db *DB) containers(tx *bbolt.Tx) ([]*cid.ID, error) {
 	result := make([]*cid.ID, 0)
+	unique := make(map[string]struct{})
 
 	err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-		id, err := parseContainerID(name)
-		if err != nil {
-			return err
-		}
+		id := parseContainerID(name, unique)
 
 		if id != nil {
 			result = append(result, id)
+			unique[id.String()] = struct{}{}
 		}
 
 		return nil
@@ -58,16 +57,19 @@ func (db *DB) containerSize(tx *bbolt.Tx, id *cid.ID) (uint64, error) {
 	return parseContainerSize(containerVolume.Get(key)), nil
 }
 
-func parseContainerID(name []byte) (*cid.ID, error) {
-	strName := string(name)
+func parseContainerID(name []byte, ignore map[string]struct{}) *cid.ID {
+	containerID := cid.New()
+	strContainerID := strings.Split(string(name), invalidBase58String)[0]
 
-	if strings.Contains(strName, invalidBase58String) {
-		return nil, nil
+	if _, ok := ignore[strContainerID]; ok {
+		return nil
 	}
 
-	id := cid.New()
+	if err := containerID.Parse(strContainerID); err != nil {
+		return nil
+	}
 
-	return id, id.Parse(strName)
+	return containerID
 }
 
 func parseContainerSize(v []byte) uint64 {
