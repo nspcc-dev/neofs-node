@@ -2,10 +2,12 @@ package meta_test
 
 import (
 	"math/rand"
+	"sort"
 	"testing"
 
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/stretchr/testify/require"
@@ -70,6 +72,49 @@ func TestDB_Containers(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, cnrs, obj.ContainerID())
 	})
+}
+
+func TestDB_ContainersCount(t *testing.T) {
+	db := newDB(t)
+	t.Cleanup(func() { releaseDB(db) })
+
+	const R, T, SG = 10, 11, 12 // amount of object per type
+
+	uploadObjects := [...]struct {
+		amount int
+		typ    objectSDK.Type
+	}{
+		{R, objectSDK.TypeRegular},
+		{T, objectSDK.TypeTombstone},
+		{SG, objectSDK.TypeTombstone},
+	}
+
+	expected := make([]*cid.ID, 0, R+T+SG)
+
+	for _, upload := range uploadObjects {
+		for i := 0; i < upload.amount; i++ {
+			obj := generateRawObject(t)
+			obj.SetType(upload.typ)
+
+			err := putBig(db, obj.Object())
+			require.NoError(t, err)
+
+			expected = append(expected, obj.ContainerID())
+		}
+	}
+
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].String() < expected[j].String()
+	})
+
+	got, err := db.Containers()
+	require.NoError(t, err)
+
+	sort.Slice(got, func(i, j int) bool {
+		return got[i].String() < got[j].String()
+	})
+
+	require.Equal(t, expected, got)
 }
 
 func TestDB_ContainerSize(t *testing.T) {
