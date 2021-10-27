@@ -12,7 +12,6 @@ import (
 
 func TestDB_Exists(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	t.Run("no object", func(t *testing.T) {
 		nonExist := generateRawObject(t)

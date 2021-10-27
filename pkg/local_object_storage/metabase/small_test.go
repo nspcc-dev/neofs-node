@@ -10,7 +10,6 @@ import (
 
 func TestDB_IsSmall(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	raw1 := generateRawObject(t)
 	raw2 := generateRawObject(t)

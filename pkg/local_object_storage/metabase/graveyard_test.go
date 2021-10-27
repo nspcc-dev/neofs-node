@@ -10,7 +10,6 @@ import (
 
 func TestDB_IterateOverGraveyard(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	// generate and put 2 objects
 	obj1 := generateRawObject(t)

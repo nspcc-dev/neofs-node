@@ -12,7 +12,6 @@ import (
 
 func TestDB_Delete(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 	parent := generateRawObjectWithCID(t, cid)
@@ -69,7 +68,6 @@ func TestDB_Delete(t *testing.T) {
 
 func TestDeleteAllChildren(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -106,7 +104,6 @@ func TestDeleteAllChildren(t *testing.T) {
 
 func TestGraveOnlyDelete(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	addr := generateAddress()
 

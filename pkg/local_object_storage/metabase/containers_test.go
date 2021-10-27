@@ -15,7 +15,6 @@ import (
 
 func TestDB_Containers(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	const N = 10
 
@@ -76,7 +75,6 @@ func TestDB_Containers(t *testing.T) {
 
 func TestDB_ContainersCount(t *testing.T) {
 	db := newDB(t)
-	t.Cleanup(func() { releaseDB(db) })
 
 	const R, T, SG = 10, 11, 12 // amount of object per type
 
@@ -86,7 +84,7 @@ func TestDB_ContainersCount(t *testing.T) {
 	}{
 		{R, objectSDK.TypeRegular},
 		{T, objectSDK.TypeTombstone},
-		{SG, objectSDK.TypeTombstone},
+		{SG, objectSDK.TypeStorageGroup},
 	}
 
 	expected := make([]*cid.ID, 0, R+T+SG)
@@ -119,7 +117,6 @@ func TestDB_ContainersCount(t *testing.T) {
 
 func TestDB_ContainerSize(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	const (
 		C = 3

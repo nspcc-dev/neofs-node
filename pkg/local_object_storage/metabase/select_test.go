@@ -14,7 +14,6 @@ import (
 
 func TestDB_SelectUserAttributes(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -137,7 +136,6 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 
 func TestDB_SelectRootPhyParent(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -305,7 +303,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 func TestDB_SelectInhume(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -338,7 +335,6 @@ func TestDB_SelectInhume(t *testing.T) {
 
 func TestDB_SelectPayloadHash(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -374,7 +370,6 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 
 func TestDB_SelectWithSlowFilters(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -473,7 +468,6 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 
 func TestDB_SelectObjectID(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -582,7 +576,6 @@ func TestDB_SelectObjectID(t *testing.T) {
 
 func TestDB_SelectSplitID(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 
@@ -637,7 +630,6 @@ func TestDB_SelectSplitID(t *testing.T) {
 
 func TestDB_SelectContainerID(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	cid := cidtest.Generate()
 

@@ -51,12 +51,12 @@ func newDB(t testing.TB) *meta.DB {
 
 	require.NoError(t, bdb.Open())
 
-	return bdb
-}
+	t.Cleanup(func() {
+		bdb.Close()
+		os.Remove(bdb.DumpInfo().Path)
+	})
 
-func releaseDB(db *meta.DB) {
-	db.Close()
-	os.Remove(db.DumpInfo().Path)
+	return bdb
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {
