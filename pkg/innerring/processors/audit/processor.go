@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	SDKClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
@@ -24,11 +25,6 @@ type (
 		InnerRingSize() int
 	}
 
-	// NeoFSClientCache is an interface for cache of neofs RPC clients
-	NeoFSClientCache interface {
-		Get(client.NodeInfo) (SDKClient.Client, error)
-	}
-
 	TaskManager interface {
 		PushTask(*audit.Task) error
 
@@ -42,8 +38,7 @@ type (
 		log           *zap.Logger
 		pool          *ants.Pool
 		irList        Indexer
-		clientCache   NeoFSClientCache
-		key           *ecdsa.PrivateKey
+		sgSrc         SGSource
 		searchTimeout time.Duration
 
 		containerClient *wrapContainer.Wrapper
@@ -60,13 +55,55 @@ type (
 		NetmapClient     *wrapNetmap.Wrapper
 		ContainerClient  *wrapContainer.Wrapper
 		IRList           Indexer
-		ClientCache      NeoFSClientCache
+		SGSource         SGSource
 		RPCSearchTimeout time.Duration
 		TaskManager      TaskManager
 		Reporter         audit.Reporter
 		Key              *ecdsa.PrivateKey
 	}
 )
+
+// SearchSGPrm groups the parameters which are formed by Processor to search the storage group objects.
+type SearchSGPrm struct {
+	ctx context.Context
+
+	id *cid.ID
+
+	info client.NodeInfo
+}
+
+// Context returns context to use for network communication.
+func (x SearchSGPrm) Context() context.Context {
+	return x.ctx
+}
+
+// CID returns identifier of the container to search SG in.
+func (x SearchSGPrm) CID() *cid.ID {
+	return x.id
+}
+
+// NodeInfo returns information about storage node to communicate with.
+func (x SearchSGPrm) NodeInfo() client.NodeInfo {
+	return x.info
+}
+
+// SearchSGDst groups target values which Processor expects from SG searching to process.
+type SearchSGDst struct {
+	ids []*object.ID
+}
+
+// WriteIDList writes list of identifiers of storage group objects stored in the container.
+func (x *SearchSGDst) WriteIDList(ids []*object.ID) {
+	x.ids = ids
+}
+
+// SGSource is a storage group information source interface.
+type SGSource interface {
+	// Lists storage group objects in the container. Formed list must be written to destination.
+	//
+	// Must return any error encountered which did not allow to form the list.
+	ListSG(*SearchSGDst, SearchSGPrm) error
+}
 
 type epochAuditReporter struct {
 	epoch uint64
@@ -86,8 +123,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/audit: logger is not set")
 	case p.IRList == nil:
 		return nil, errors.New("ir/audit: global state is not set")
-	case p.ClientCache == nil:
-		return nil, errors.New("ir/audit: neofs RPC client cache is not set")
+	case p.SGSource == nil:
+		return nil, errors.New("ir/audit: SG source is not set")
 	case p.TaskManager == nil:
 		return nil, errors.New("ir/audit: audit task manager is not set")
 	case p.Reporter == nil:
@@ -106,8 +143,7 @@ func New(p *Params) (*Processor, error) {
 		pool:              pool,
 		containerClient:   p.ContainerClient,
 		irList:            p.IRList,
-		clientCache:       p.ClientCache,
-		key:               p.Key,
+		sgSrc:             p.SGSource,
 		searchTimeout:     p.RPCSearchTimeout,
 		netmapClient:      p.NetmapClient,
 		taskManager:       p.TaskManager,
