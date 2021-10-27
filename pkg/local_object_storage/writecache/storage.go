@@ -117,7 +117,6 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 	if err != nil {
 		return err
 	}
-	c.dbSize.Sub(sz)
 	c.objCounters.DecDB()
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -44,8 +43,6 @@ type cache struct {
 	evictCh chan []byte
 	// store contains underlying database.
 	store
-	// dbSize stores approximate database size. It is updated every flush/persist cycle.
-	dbSize atomic.Uint64
 	// fsTree contains big files stored directly on file-system.
 	fsTree *fstree.FSTree
 }

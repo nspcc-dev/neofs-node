@@ -30,7 +30,7 @@ func (c *cache) Put(o *object.Object) error {
 
 	c.mtx.Lock()
 
-	if sz < c.smallObjectSize && c.curMemSize+sz <= c.maxMemSize {
+	if sz <= c.smallObjectSize && c.curMemSize+sz <= c.maxMemSize {
 		c.curMemSize += sz
 		c.mem = append(c.mem, oi)
 
@@ -43,6 +43,10 @@ func (c *cache) Put(o *object.Object) error {
 
 	c.mtx.Unlock()
 
-	c.persistObjects([]objectInfo{oi})
+	if sz <= c.smallObjectSize {
+		c.persistSmallObjects([]objectInfo{oi})
+	} else {
+		c.persistBigObject(oi)
+	}
 	return nil
 }
