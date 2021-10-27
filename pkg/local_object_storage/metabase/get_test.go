@@ -13,7 +13,6 @@ import (
 
 func TestDB_Get(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	raw := generateRawObject(t)
 

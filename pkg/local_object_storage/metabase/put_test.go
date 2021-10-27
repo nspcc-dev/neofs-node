@@ -10,7 +10,6 @@ import (
 
 func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 	db := newDB(t)
-	defer releaseDB(db)
 
 	raw1 := generateRawObject(t)
 	blobovniczaID := blobovnicza.ID{1, 2, 3, 4}
