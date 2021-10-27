@@ -19,6 +19,42 @@ func (r *ListContainersRes) Containers() []*cid.ID {
 	return r.containers
 }
 
+// ListWithCursorPrm contains parameters for ListWithCursor operation.
+type ListWithCursorPrm struct {
+	count  uint32
+	cursor string
+}
+
+// ListWithCursorRes contains values returned from ListWithCursor operation.
+type ListWithCursorRes struct {
+	addrList []*object.Address
+	cursor   string
+}
+
+// WithCount sets maximum amount of addresses that ListWithCursor can return.
+func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
+	p.count = count
+	return p
+}
+
+// WithCursor sets cursor for ListWithCursor operation. For initial request,
+// ignore this param or use empty string. For continues requests, use value
+// from ListWithCursorRes.
+func (p *ListWithCursorPrm) WithCursor(cursor string) *ListWithCursorPrm {
+	p.cursor = cursor
+	return p
+}
+
+// AddressList returns addresses selected by ListWithCursor operation.
+func (r ListWithCursorRes) AddressList() []*object.Address {
+	return r.addrList
+}
+
+// Cursor returns cursor for consecutive listing requests.
+func (r ListWithCursorRes) Cursor() string {
+	return r.cursor
+}
+
 // List returns all objects physically stored in the Shard.
 func (s *Shard) List() (*SelectRes, error) {
 	lst, err := s.metaBase.Containers()
@@ -64,4 +100,33 @@ func ListContainers(s *Shard) ([]*cid.ID, error) {
 	}
 
 	return res.Containers(), nil
+}
+
+// ListWithCursor lists physical objects available in shard starting from
+// cursor. Includes regular, tombstone and storage group objects. Does not
+// include inhumed objects. Use cursor value from response for consecutive requests.
+func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
+	metaPrm := new(meta.ListPrm).WithCount(prm.count).WithCursor(prm.cursor)
+	res, err := s.metaBase.ListWithCursor(metaPrm)
+	if err != nil {
+		return nil, fmt.Errorf("could not get list of objects: %w", err)
+	}
+
+	return &ListWithCursorRes{
+		addrList: res.AddressList(),
+		cursor:   res.Cursor(),
+	}, nil
+}
+
+// ListWithCursor lists physical objects available in shard starting from
+// cursor. Includes regular, tombstone and storage group objects. Does not
+// include inhumed objects. Use cursor value from response for consecutive requests.
+func ListWithCursor(s *Shard, count uint32, cursor string) ([]*object.Address, string, error) {
+	prm := new(ListWithCursorPrm).WithCount(count).WithCursor(cursor)
+	res, err := s.ListWithCursor(prm)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return res.AddressList(), res.Cursor(), nil
 }
