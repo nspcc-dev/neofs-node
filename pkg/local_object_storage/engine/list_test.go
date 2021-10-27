@@ -7,7 +7,7 @@ import (
 
 	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,7 +45,7 @@ func TestListWithCursor(t *testing.T) {
 
 		got = append(got, res.AddressList()...)
 		_, err = e.ListWithCursor(prm.WithCursor(res.Cursor()))
-		require.ErrorIs(t, err, meta.ErrEndOfListing)
+		require.ErrorIs(t, err, core.ErrEndOfListing)
 	}
 
 	got = sortAddresses(got)
