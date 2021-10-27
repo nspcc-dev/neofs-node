@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand"
+	"path"
 	"sync"
 	"testing"
 
@@ -56,13 +57,13 @@ func testNewShard(t *testing.T, id int) *shard.Shard {
 		shard.WithID(sid),
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(
-			blobstor.WithRootPath(fmt.Sprintf("%s.%d.blobstor", t.Name(), id)),
+			blobstor.WithRootPath(path.Join(t.Name(), fmt.Sprintf("%d.blobstor", id))),
 			blobstor.WithBlobovniczaShallowWidth(2),
 			blobstor.WithBlobovniczaShallowDepth(2),
 			blobstor.WithRootPerm(0700),
 		),
 		shard.WithMetaBaseOptions(
-			meta.WithPath(fmt.Sprintf("%s.%d.metabase", t.Name(), id)),
+			meta.WithPath(path.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
 		))
 

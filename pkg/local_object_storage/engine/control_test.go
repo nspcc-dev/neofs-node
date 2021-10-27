@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -10,7 +11,10 @@ import (
 
 func TestExecBlocks(t *testing.T) {
 	e := testNewEngineWithShardNum(t, 2) // number doesn't matter in this test, 2 is several but not many
-	defer e.Close()
+	t.Cleanup(func() {
+		e.Close()
+		os.RemoveAll(t.Name())
+	})
 
 	// put some object
 	obj := generateRawObjectWithCID(t, cidtest.GenerateID()).Object()
