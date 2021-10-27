@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -60,7 +61,7 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 
 func releaseShard(s *shard.Shard, t testing.TB) {
 	s.Close()
-	os.RemoveAll(t.Name())
+	os.RemoveAll(strings.Split(t.Name(), string(os.PathSeparator))[0])
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {
