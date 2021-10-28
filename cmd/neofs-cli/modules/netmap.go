@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"context"
 	"encoding/hex"
 	"time"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -61,14 +61,14 @@ var getEpochCmd = &cobra.Command{
 	Short: "Get current epoch number",
 	Long:  "Get current epoch number",
 	Run: func(cmd *cobra.Command, args []string) {
-		key, err := getKey()
-		exitOnErr(cmd, err)
+		var prm internalclient.NetworkInfoPrm
 
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
+		prepareAPIClient(cmd, &prm)
 
-		netInfo, err := cli.NetworkInfo(context.Background(), globalCallOptions()...)
+		res, err := internalclient.NetworkInfo(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
+
+		netInfo := res.NetworkInfo()
 
 		cmd.Println(netInfo.CurrentEpoch())
 	},
@@ -79,16 +79,14 @@ var localNodeInfoCmd = &cobra.Command{
 	Short: "Get local node info",
 	Long:  `Get local node info`,
 	Run: func(cmd *cobra.Command, args []string) {
-		key, err := getKey()
-		exitOnErr(cmd, err)
+		var prm internalclient.NodeInfoPrm
 
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
+		prepareAPIClient(cmd, &prm)
 
-		nodeInfo, err := cli.EndpointInfo(context.Background(), globalCallOptions()...)
+		res, err := internalclient.NodeInfo(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
-		prettyPrintNodeInfo(cmd, nodeInfo.NodeInfo(), nodeInfoJSON)
+		prettyPrintNodeInfo(cmd, res.NodeInfo(), nodeInfoJSON)
 	},
 }
 
@@ -153,14 +151,14 @@ var netInfoCmd = &cobra.Command{
 	Short: "Get information about NeoFS network",
 	Long:  "Get information about NeoFS network",
 	Run: func(cmd *cobra.Command, args []string) {
-		key, err := getKey()
-		exitOnErr(cmd, err)
+		var prm internalclient.NetworkInfoPrm
 
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
+		prepareAPIClient(cmd, &prm)
 
-		netInfo, err := cli.NetworkInfo(context.Background(), globalCallOptions()...)
+		res, err := internalclient.NetworkInfo(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
+
+		netInfo := res.NetworkInfo()
 
 		cmd.Printf("Epoch: %d\n", netInfo.CurrentEpoch())
 
