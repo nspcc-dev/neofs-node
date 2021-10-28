@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -16,13 +14,13 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl"
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/pkg/policy"
 	"github.com/spf13/cobra"
@@ -92,17 +90,9 @@ var listContainersCmd = &cobra.Command{
 	Short: "List all created containers",
 	Long:  "List all created containers",
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			response []*cid.ID
-			oid      *owner.ID
-
-			ctx = context.Background()
-		)
+		var oid *owner.ID
 
 		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
 		exitOnErr(cmd, err)
 
 		if containerOwner == "" {
@@ -115,11 +105,16 @@ var listContainersCmd = &cobra.Command{
 			exitOnErr(cmd, err)
 		}
 
-		response, err = cli.ListContainers(ctx, oid, globalCallOptions()...)
+		var prm internalclient.ListContainersPrm
+
+		prepareAPIClientWithKey(cmd, key, &prm)
+		prm.SetOwner(oid)
+
+		res, err := internalclient.ListContainers(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		// print to stdout
-		prettyPrintContainerList(cmd, response)
+		prettyPrintContainerList(cmd, res.IDList())
 	},
 }
 
@@ -129,14 +124,6 @@ var createContainerCmd = &cobra.Command{
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
-		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
-
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		exitOnErr(cmd, err)
 
@@ -160,18 +147,31 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetSessionToken(tok)
 		cnr.SetOwnerID(tok.OwnerID())
 
-		id, err := cli.PutContainer(ctx, cnr, globalCallOptions()...)
+		var (
+			putPrm internalclient.PutContainerPrm
+			getPrm internalclient.GetContainerPrm
+		)
+
+		prepareAPIClient(cmd, &putPrm, &getPrm)
+		putPrm.SetContainer(cnr)
+		putPrm.SetSessionToken(tok)
+
+		res, err := internalclient.PutContainer(putPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
+
+		id := res.ID()
 
 		cmd.Println("container ID:", id)
 
 		if containerAwait {
 			cmd.Println("awaiting...")
 
+			getPrm.SetContainerID(id)
+
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				_, err := cli.GetContainer(ctx, id, globalCallOptions()...)
+				_, err := internalclient.GetContainer(getPrm)
 				if err == nil {
 					cmd.Println("container has been persisted on sidechain")
 					return
@@ -189,27 +189,22 @@ var deleteContainerCmd = &cobra.Command{
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
-		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
-
 		id, err := parseContainerID(containerID)
 		exitOnErr(cmd, err)
 
 		tok, err := getSessionToken(sessionTokenPath)
 		exitOnErr(cmd, err)
 
-		callOpts := globalCallOptions()
+		var (
+			delPrm internalclient.DeleteContainerPrm
+			getPrm internalclient.GetContainerPrm
+		)
 
-		if tok != nil {
-			callOpts = append(callOpts, client.WithSession(tok))
-		}
+		prepareAPIClient(cmd, &delPrm, &getPrm)
+		delPrm.SetContainerID(id)
+		delPrm.SetSessionToken(tok)
 
-		err = cli.DeleteContainer(ctx, id, callOpts...)
+		_, err = internalclient.DeleteContainer(delPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		cmd.Println("container delete method invoked")
@@ -217,10 +212,12 @@ Only owner of the container has a permission to remove container.`,
 		if containerAwait {
 			cmd.Println("awaiting...")
 
+			getPrm.SetContainerID(id)
+
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				_, err := cli.GetContainer(ctx, id, globalCallOptions()...)
+				_, err := internalclient.GetContainer(getPrm)
 				if err != nil {
 					cmd.Println("container has been removed:", containerID)
 					return
@@ -237,33 +234,23 @@ var listContainerObjectsCmd = &cobra.Command{
 	Short: "List existing objects in container",
 	Long:  `List existing objects in container`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
-		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
-
 		id, err := parseContainerID(containerID)
 		exitOnErr(cmd, err)
-
-		sessionToken, err := cli.CreateSession(ctx, math.MaxUint64)
-		exitOnErr(cmd, errf("can't create session token: %w", err))
 
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
 
-		searchQuery := new(client.SearchObjectParams)
-		searchQuery.WithContainerID(id)
-		searchQuery.WithSearchFilters(*filters)
+		var prm internalclient.SearchObjectsPrm
 
-		objectIDs, err := cli.SearchObject(ctx, searchQuery,
-			append(globalCallOptions(),
-				client.WithSession(sessionToken),
-			)...,
-		)
+		prepareSessionPrm(cmd, &prm)
+		prepareObjectPrm(cmd, &prm)
+		prm.SetContainerID(id)
+		prm.SetFilters(*filters)
+
+		res, err := internalclient.SearchObjects(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
+
+		objectIDs := res.IDList()
 
 		for i := range objectIDs {
 			cmd.Println(objectIDs[i])
@@ -276,11 +263,7 @@ var getContainerInfoCmd = &cobra.Command{
 	Short: "Get container field info",
 	Long:  `Get container field info`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			cnr *container.Container
-
-			ctx = context.Background()
-		)
+		var cnr *container.Container
 
 		if containerPathFrom != "" {
 			data, err := os.ReadFile(containerPathFrom)
@@ -290,17 +273,18 @@ var getContainerInfoCmd = &cobra.Command{
 			err = cnr.Unmarshal(data)
 			exitOnErr(cmd, errf("can't unmarshal container: %w", err))
 		} else {
-			key, err := getKey()
-			exitOnErr(cmd, err)
-
-			cli, err := getSDKClient(key)
-			exitOnErr(cmd, err)
-
 			id, err := parseContainerID(containerID)
 			exitOnErr(cmd, err)
 
-			cnr, err = cli.GetContainer(ctx, id, globalCallOptions()...)
+			var prm internalclient.GetContainerPrm
+
+			prepareAPIClient(cmd, &prm)
+			prm.SetContainerID(id)
+
+			res, err := internalclient.GetContainer(prm)
 			exitOnErr(cmd, errf("rpc error: %w", err))
+
+			cnr = res.Container()
 		}
 
 		prettyPrintContainer(cmd, cnr, containerJSON)
@@ -330,21 +314,19 @@ var getExtendedACLCmd = &cobra.Command{
 	Short: "Get extended ACL table of container",
 	Long:  `Get extended ACL talbe of container`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
-		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
-
 		id, err := parseContainerID(containerID)
 		exitOnErr(cmd, err)
 
-		res, err := cli.GetEACL(ctx, id, globalCallOptions()...)
+		var eaclPrm internalclient.EACLPrm
+
+		prepareAPIClient(cmd, &eaclPrm)
+		eaclPrm.SetContainerID(id)
+
+		res, err := internalclient.EACL(eaclPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		eaclTable := res.EACL()
+
 		sig := eaclTable.Signature()
 
 		if containerPathTo == "" {
@@ -383,14 +365,6 @@ var setExtendedACLCmd = &cobra.Command{
 	Long: `Set new extended ACL table for container.
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
-		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
-		exitOnErr(cmd, err)
-
 		id, err := parseContainerID(containerID)
 		exitOnErr(cmd, err)
 
@@ -403,7 +377,16 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		eaclTable.SetCID(id)
 		eaclTable.SetSessionToken(tok)
 
-		err = cli.SetEACL(ctx, eaclTable, globalCallOptions()...)
+		var (
+			setEACLPrm internalclient.SetEACLPrm
+			getEACLPrm internalclient.EACLPrm
+		)
+
+		prepareAPIClient(cmd, &setEACLPrm, &getEACLPrm)
+		setEACLPrm.SetSessionToken(tok)
+		setEACLPrm.SetEACLTable(eaclTable)
+
+		_, err = internalclient.SetEACL(setEACLPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		if containerAwait {
@@ -412,13 +395,15 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 			cmd.Println("awaiting...")
 
+			getEACLPrm.SetContainerID(id)
+
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				tableSig, err := cli.GetEACL(ctx, id, globalCallOptions()...)
+				res, err := internalclient.EACL(getEACLPrm)
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					got, err := tableSig.EACL().Marshal()
+					got, err := res.EACL().Marshal()
 					if err != nil {
 						continue
 					}

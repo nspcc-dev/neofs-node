@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"math"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/accounting"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,17 +37,9 @@ var accountingBalanceCmd = &cobra.Command{
 	Short: "Get internal balance of NeoFS account",
 	Long:  `Get internal balance of NeoFS account`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			response *accounting.Decimal
-			oid      *owner.ID
-
-			ctx = context.Background()
-		)
+		var oid *owner.ID
 
 		key, err := getKey()
-		exitOnErr(cmd, err)
-
-		cli, err := getSDKClient(key)
 		exitOnErr(cmd, err)
 
 		if balanceOwner == "" {
@@ -60,11 +52,16 @@ var accountingBalanceCmd = &cobra.Command{
 			exitOnErr(cmd, err)
 		}
 
-		response, err = cli.GetBalance(ctx, oid, globalCallOptions()...)
+		var prm internalclient.BalanceOfPrm
+
+		prepareAPIClientWithKey(cmd, key, &prm)
+		prm.SetOwner(oid)
+
+		res, err := internalclient.BalanceOf(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		// print to stdout
-		prettyPrintDecimal(cmd, response)
+		prettyPrintDecimal(cmd, res.Balance())
 	},
 }
 

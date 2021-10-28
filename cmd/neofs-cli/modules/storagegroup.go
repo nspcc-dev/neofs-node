@@ -1,15 +1,13 @@
 package cmd
 
 import (
-	"context"
+	"bytes"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	storagegroupAPI "github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/spf13/cobra"
@@ -59,7 +57,6 @@ var sgDelCmd = &cobra.Command{
 const (
 	sgMembersFlag = "members"
 	sgIDFlag      = "id"
-	sgBearerFlag  = "bearer"
 )
 
 var (
@@ -124,7 +121,7 @@ func init() {
 	for _, sgCommand := range storageGroupChildCommands {
 		flags := sgCommand.Flags()
 
-		flags.String(sgBearerFlag, "", "File with signed JSON or binary encoded bearer token")
+		flags.String(bearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
 		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
 		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
 	}
@@ -136,24 +133,13 @@ func init() {
 }
 
 type sgHeadReceiver struct {
-	ctx context.Context
-
-	tok *session.Token
-
-	c client.Client
-
-	bearerToken *token.BearerToken
+	prm internalclient.HeadObjectPrm
 }
 
-func (c *sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
-	obj, err := c.c.GetObjectHeader(c.ctx,
-		new(client.ObjectHeaderParams).
-			WithAddress(addr).
-			WithRawFlag(true),
-		client.WithTTL(2),
-		client.WithSession(c.tok),
-		client.WithBearer(c.bearerToken),
-	)
+func (c sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
+	c.prm.SetAddress(addr)
+
+	res, err := internalclient.HeadObject(c.prm)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 
@@ -161,14 +147,10 @@ func (c *sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
 	default:
 		return nil, err
 	case err == nil:
-		return object.NewFromSDK(obj), nil
+		return object.NewFromSDK(res.Header()), nil
 	case errors.As(err, &errSplitInfo):
 		return errSplitInfo.SplitInfo(), nil
 	}
-}
-
-func sgBearerToken(cmd *cobra.Command) (*token.BearerToken, error) {
-	return getBearerToken(cmd, sgBearerFlag)
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
@@ -192,19 +174,18 @@ func putSG(cmd *cobra.Command, _ []string) {
 		members = append(members, id)
 	}
 
-	bearerToken, err := sgBearerToken(cmd)
-	exitOnErr(cmd, err)
+	var (
+		headPrm internalclient.HeadObjectPrm
+		putPrm  internalclient.PutObjectPrm
+	)
 
-	ctx := context.Background()
+	prepareSessionPrmWithOwner(cmd, key, ownerID, &headPrm, &putPrm)
+	prepareObjectPrm(cmd, &headPrm, &putPrm)
 
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
+	headPrm.SetRawFlag(true)
 
-	sg, err := storagegroup.CollectMembers(&sgHeadReceiver{
-		ctx:         ctx,
-		tok:         tok,
-		c:           cli,
-		bearerToken: bearerToken,
+	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
+		prm: headPrm,
 	}, cid, members)
 	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
 
@@ -215,20 +196,15 @@ func putSG(cmd *cobra.Command, _ []string) {
 	obj.SetContainerID(cid)
 	obj.SetOwnerID(ownerID)
 	obj.SetType(objectSDK.TypeStorageGroup)
-	obj.SetPayload(sgContent)
 
-	oid, err := cli.PutObject(ctx,
-		new(client.PutObjectParams).
-			WithObject(obj.Object()),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(bearerToken),
-		)...,
-	)
+	putPrm.SetHeader(obj.Object())
+	putPrm.SetPayloadReader(bytes.NewReader(sgContent))
+
+	res, err := internalclient.PutObject(putPrm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Println("Storage group successfully stored")
-	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
+	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cid)
 }
 
 func getSGID() (*objectSDK.ID, error) {
@@ -242,40 +218,31 @@ func getSGID() (*objectSDK.ID, error) {
 }
 
 func getSG(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	id, err := getSGID()
 	exitOnErr(cmd, err)
 
-	bearerToken, err := sgBearerToken(cmd)
-	exitOnErr(cmd, err)
-
 	addr := objectSDK.NewAddress()
 	addr.SetContainerID(cid)
 	addr.SetObjectID(id)
 
-	ctx := context.Background()
+	buf := bytes.NewBuffer(nil)
 
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
+	var prm internalclient.GetObjectPrm
 
-	obj, err := cli.GetObject(ctx,
-		new(client.GetObjectParams).
-			WithAddress(addr),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(bearerToken),
-		)...,
-	)
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrmRaw(cmd, &prm)
+	prm.SetAddress(addr)
+	prm.SetPayloadWriter(buf)
+
+	_, err = internalclient.GetObject(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sg := storagegroupAPI.New()
 
-	err = sg.Unmarshal(obj.Payload())
+	err = sg.Unmarshal(buf.Bytes())
 	exitOnErr(cmd, errf("could not unmarshal storage group: %w", err))
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
@@ -292,30 +259,20 @@ func getSG(cmd *cobra.Command, _ []string) {
 }
 
 func listSG(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
-	bearerToken, err := sgBearerToken(cmd)
-	exitOnErr(cmd, err)
+	var prm internalclient.SearchObjectsPrm
 
-	ctx := context.Background()
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrm(cmd, &prm)
+	prm.SetContainerID(cid)
+	prm.SetFilters(storagegroup.SearchQuery())
 
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-
-	ids, err := cli.SearchObject(ctx,
-		new(client.SearchObjectParams).
-			WithContainerID(cid).
-			WithSearchFilters(storagegroup.SearchQuery()),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(bearerToken),
-		)...,
-	)
+	res, err := internalclient.SearchObjects(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	ids := res.IDList()
 
 	cmd.Printf("Found %d storage groups.\n", len(ids))
 
@@ -325,36 +282,26 @@ func listSG(cmd *cobra.Command, _ []string) {
 }
 
 func delSG(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	id, err := getSGID()
 	exitOnErr(cmd, err)
 
-	bearerToken, err := sgBearerToken(cmd)
-	exitOnErr(cmd, err)
-
-	ctx := context.Background()
-
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-
 	addr := objectSDK.NewAddress()
 	addr.SetContainerID(cid)
 	addr.SetObjectID(id)
 
-	tombstone, err := client.DeleteObject(ctx, cli,
-		new(client.DeleteObjectParams).
-			WithAddress(addr),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(bearerToken),
-		)...,
-	)
+	var prm internalclient.DeleteObjectPrm
+
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrm(cmd, &prm)
+	prm.SetAddress(addr)
+
+	res, err := internalclient.DeleteObject(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	tombstone := res.TombstoneAddress()
 
 	cmd.Println("Storage group removed successfully.")
 	cmd.Printf("  Tombstone: %s\n", tombstone.ObjectID())

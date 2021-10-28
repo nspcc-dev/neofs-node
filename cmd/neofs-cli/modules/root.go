@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/spf13/cobra"
@@ -287,6 +288,41 @@ func getEndpointAddress(endpointFlag string) (addr network.Address, err error) {
 	return
 }
 
+type clientWithKey interface {
+	SetClient(client.Client)
+	SetKey(*ecdsa.PrivateKey)
+}
+
+// reads private key from command args and call prepareAPIClientWithKey with it.
+func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
+	key, err := getKey()
+	exitOnErr(cmd, errf("get private key: %w", err))
+
+	prepareAPIClientWithKey(cmd, key, dst...)
+}
+
+// creates NeoFS API client and writes it to target along with the private key.
+func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...clientWithKey) {
+	cli, err := getSDKClient(key)
+	exitOnErr(cmd, errf("create API client: %w", err))
+
+	for _, d := range dst {
+		d.SetClient(cli)
+		d.SetKey(key)
+	}
+}
+
+type bearerPrm interface {
+	SetBearerToken(prm *token.BearerToken)
+}
+
+func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
+	btok, err := getBearerToken(cmd, bearerTokenFlag)
+	exitOnErr(cmd, errf("bearer token: %w", err))
+
+	prm.SetBearerToken(btok)
+}
+
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
 func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
@@ -354,19 +390,6 @@ func parseXHeaders() []*pkg.XHeader {
 	}
 
 	return xs
-}
-
-func globalCallOptions() []client.CallOption {
-	xHdrs := parseXHeaders()
-
-	opts := make([]client.CallOption, 0, len(xHdrs)+1) // + TTL
-	opts = append(opts, client.WithTTL(getTTL()))
-
-	for i := range xHdrs {
-		opts = append(opts, client.WithXHeader(xHdrs[i]))
-	}
-
-	return opts
 }
 
 // add common flags to the command:

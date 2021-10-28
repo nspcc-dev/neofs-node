@@ -1,26 +1,25 @@
 package cmd
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	"github.com/nspcc-dev/neofs-api-go/pkg"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +34,8 @@ const (
 const (
 	getRangeHashSaltFlag = "salt"
 )
+
+const bearerTokenFlag = "bearer"
 
 var (
 	// objectCmd represents the object command
@@ -249,7 +250,7 @@ func init() {
 	for _, objCommand := range objectChildCommands {
 		flags := objCommand.Flags()
 
-		flags.String("bearer", "", "File with signed JSON or binary encoded bearer token")
+		flags.String(bearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
 		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
 		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
 	}
@@ -273,16 +274,78 @@ func init() {
 	initObjectRangeCmd()
 }
 
-func initSession(ctx context.Context, key *ecdsa.PrivateKey) (client.Client, *session.Token, error) {
-	cli, err := getSDKClient(key)
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't create client: %w", err)
+type clientKeySession interface {
+	clientWithKey
+	SetSessionToken(*session.Token)
+}
+
+func prepareSessionPrm(cmd *cobra.Command, prms ...clientKeySession) {
+	key, err := getKey()
+	exitOnErr(cmd, errf("get private key: %w", err))
+
+	prepareSessionPrmWithKey(cmd, key, prms...)
+}
+
+func prepareSessionPrmWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, prms ...clientKeySession) {
+	ownerID, err := getOwnerID(key)
+	exitOnErr(cmd, errf("owner ID from key: %w", err))
+
+	prepareSessionPrmWithOwner(cmd, key, ownerID, prms...)
+}
+
+func prepareSessionPrmWithOwner(
+	cmd *cobra.Command,
+	key *ecdsa.PrivateKey,
+	ownerID *owner.ID,
+	prms ...clientKeySession,
+) {
+	var sessionPrm internalclient.CreateSessionPrm
+
+	cws := make([]clientWithKey, 1, len(prms)+1)
+	cws[0] = &sessionPrm
+
+	for i := range prms {
+		cws = append(cws, prms[i])
 	}
-	tok, err := cli.CreateSession(ctx, math.MaxUint64)
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't create session: %w", err)
+
+	prepareAPIClientWithKey(cmd, key, cws...)
+
+	sessionRes, err := internalclient.CreateSession(sessionPrm)
+	exitOnErr(cmd, errf("open session: %w", err))
+
+	tok := session.NewToken()
+	tok.SetID(sessionRes.ID())
+	tok.SetSessionKey(sessionRes.SessionKey())
+	tok.SetOwnerID(ownerID)
+
+	for i := range prms {
+		prms[i].SetSessionToken(tok)
 	}
-	return cli, tok, nil
+}
+
+type objectPrm interface {
+	bearerPrm
+	SetTTL(uint32)
+	SetXHeaders([]*pkg.XHeader)
+}
+
+func prepareObjectPrm(cmd *cobra.Command, prms ...objectPrm) {
+	for i := range prms {
+		prepareBearerPrm(cmd, prms[i])
+
+		prms[i].SetTTL(getTTL())
+		prms[i].SetXHeaders(parseXHeaders())
+	}
+}
+
+func prepareObjectPrmRaw(cmd *cobra.Command, prm interface {
+	objectPrm
+	SetRawFlag(bool)
+}) {
+	prepareObjectPrm(cmd, prm)
+
+	raw, _ := cmd.Flags().GetBool(rawFlag)
+	prm.SetRawFlag(raw)
 }
 
 func putObject(cmd *cobra.Command, _ []string) {
@@ -328,56 +391,40 @@ func putObject(cmd *cobra.Command, _ []string) {
 	obj.SetOwnerID(ownerID)
 	obj.SetAttributes(attrs...)
 
-	ctx := context.Background()
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-	btok, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
-	oid, err := cli.PutObject(ctx,
-		new(client.PutObjectParams).
-			WithObject(obj.Object()).
-			WithPayloadReader(f),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(btok),
-		)...,
-	)
+	var prm internalclient.PutObjectPrm
+
+	prepareSessionPrmWithOwner(cmd, key, ownerID, &prm)
+	prepareObjectPrm(cmd, &prm)
+	prm.SetHeader(obj.Object())
+	prm.SetPayloadReader(f)
+
+	res, err := internalclient.PutObject(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
-	cmd.Printf("  ID: %s\n  CID: %s\n", oid, cid)
+	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cid)
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
 
-	ctx := context.Background()
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-	btok, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
+	var prm internalclient.DeleteObjectPrm
 
-	tombstoneAddr, err := client.DeleteObject(ctx, cli,
-		new(client.DeleteObjectParams).WithAddress(objAddr),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(btok),
-		)...,
-	)
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrm(cmd, &prm)
+	prm.SetAddress(objAddr)
+
+	res, err := internalclient.DeleteObject(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	tombstoneAddr := res.TombstoneAddress()
 
 	cmd.Println("Object removed successfully.")
 	cmd.Printf("  ID: %s\n  CID: %s\n", tombstoneAddr.ObjectID(), tombstoneAddr.ContainerID())
 }
 
 func getObject(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
 
@@ -396,24 +443,14 @@ func getObject(cmd *cobra.Command, _ []string) {
 		out = f
 	}
 
-	ctx := context.Background()
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-	btok, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
+	var prm internalclient.GetObjectPrm
 
-	raw, _ := cmd.Flags().GetBool(rawFlag)
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrmRaw(cmd, &prm)
+	prm.SetAddress(objAddr)
+	prm.SetPayloadWriter(out)
 
-	obj, err := cli.GetObject(ctx,
-		new(client.GetObjectParams).
-			WithAddress(objAddr).
-			WithPayloadWriter(out).
-			WithRawFlag(raw),
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(btok),
-		)...,
-	)
+	res, err := internalclient.GetObject(prm)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return
@@ -429,37 +466,25 @@ func getObject(cmd *cobra.Command, _ []string) {
 	// Print header only if file is not streamed to stdout.
 	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" || hdrFile != "" {
-		err = saveAndPrintHeader(cmd, obj, hdrFile)
+		err = saveAndPrintHeader(cmd, res.Header(), hdrFile)
 		exitOnErr(cmd, err)
 	}
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
 
-	ctx := context.Background()
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-	btok, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
-	ps := new(client.ObjectHeaderParams).WithAddress(objAddr)
-	if ok, _ := cmd.Flags().GetBool("main-only"); ok {
-		ps = ps.WithMainFields()
-	}
+	mainOnly, _ := cmd.Flags().GetBool("main-only")
 
-	raw, _ := cmd.Flags().GetBool(rawFlag)
-	ps.WithRawFlag(raw)
+	var prm internalclient.HeadObjectPrm
 
-	obj, err := cli.GetObjectHeader(ctx, ps,
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(btok),
-		)...,
-	)
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrmRaw(cmd, &prm)
+	prm.SetAddress(objAddr)
+	prm.SetMainOnlyFlag(mainOnly)
+
+	res, err := internalclient.HeadObject(prm)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return
@@ -468,33 +493,29 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 		exitOnErr(cmd, errf("rpc error: %w", err))
 	}
 
-	err = saveAndPrintHeader(cmd, obj, cmd.Flag("file").Value.String())
+	err = saveAndPrintHeader(cmd, res.Header(), cmd.Flag("file").Value.String())
 	exitOnErr(cmd, err)
 }
 
 func searchObject(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, err)
-
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	sf, err := parseSearchFilters(cmd)
 	exitOnErr(cmd, err)
 
-	ctx := context.Background()
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-	btok, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
-	ps := new(client.SearchObjectParams).WithContainerID(cid).WithSearchFilters(sf)
-	ids, err := cli.SearchObject(ctx, ps,
-		append(globalCallOptions(),
-			client.WithSession(tok),
-			client.WithBearer(btok),
-		)...,
-	)
+	var prm internalclient.SearchObjectsPrm
+
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrm(cmd, &prm)
+	prm.SetContainerID(cid)
+	prm.SetFilters(sf)
+
+	res, err := internalclient.SearchObjects(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	ids := res.IDList()
+
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for _, id := range ids {
 		cmd.Println(id)
@@ -502,9 +523,6 @@ func searchObject(cmd *cobra.Command, _ []string) {
 }
 
 func getObjectHash(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
-
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
 	ranges, err := getRangeList(cmd)
@@ -517,59 +535,61 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	salt, err := hex.DecodeString(strSalt)
 	exitOnErr(cmd, errf("could not decode salt: %w", err))
 
-	ctx := context.Background()
-	cli, tok, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
-	btok, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
-	if len(ranges) == 0 { // hash of full payload
-		obj, err := cli.GetObjectHeader(ctx,
-			new(client.ObjectHeaderParams).WithAddress(objAddr),
-			append(globalCallOptions(),
-				client.WithSession(tok),
-				client.WithBearer(btok),
-			)...,
-		)
+	var (
+		hashPrm internalclient.HashPayloadRangesPrm
+		headPrm internalclient.HeadObjectPrm
+
+		sesPrms = []clientKeySession{&hashPrm}
+		objPrms = []objectPrm{&hashPrm}
+	)
+
+	fullHash := len(ranges) == 0
+	if fullHash {
+		sesPrms = append(sesPrms, &headPrm)
+		objPrms = append(objPrms, &headPrm)
+	}
+
+	prepareSessionPrm(cmd, sesPrms...)
+	prepareObjectPrm(cmd, objPrms...)
+
+	tz := typ == hashTz
+
+	if fullHash {
+		headPrm.SetAddress(objAddr)
+
+		// get hash of full payload through HEAD (may be user can do it through dedicated command?)
+		res, err := internalclient.HeadObject(headPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
-		switch typ {
-		case hashSha256:
-			cmd.Println(hex.EncodeToString(obj.PayloadChecksum().Sum()))
-		case hashTz:
-			cmd.Println(hex.EncodeToString(obj.PayloadHomomorphicHash().Sum()))
+
+		var cs *pkg.Checksum
+
+		if tz {
+			cs = res.Header().PayloadHomomorphicHash()
+		} else {
+			cs = res.Header().PayloadChecksum()
 		}
+
+		cmd.Println(hex.EncodeToString(cs.Sum()))
+
 		return
 	}
 
-	ps := new(client.RangeChecksumParams).
-		WithAddress(objAddr).
-		WithRangeList(ranges...).
-		WithSalt(salt)
+	hashPrm.SetAddress(objAddr)
+	hashPrm.SetSalt(salt)
+	hashPrm.SetRanges(ranges)
 
-	switch typ {
-	case hashSha256:
-		res, err := cli.ObjectPayloadRangeSHA256(ctx, ps,
-			append(globalCallOptions(),
-				client.WithSession(tok),
-				client.WithBearer(btok),
-			)...,
-		)
-		exitOnErr(cmd, errf("rpc error: %w", err))
-		for i := range res {
-			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
-				hex.EncodeToString(res[i][:]))
-		}
-	case hashTz:
-		res, err := cli.ObjectPayloadRangeTZ(ctx, ps,
-			append(globalCallOptions(),
-				client.WithSession(tok),
-				client.WithBearer(btok),
-			)...,
-		)
-		exitOnErr(cmd, errf("rpc error: %w", err))
-		for i := range res {
-			cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
-				hex.EncodeToString(res[i][:]))
-		}
+	if tz {
+		hashPrm.TZ()
+	}
+
+	res, err := internalclient.HashPayloadRanges(hashPrm)
+	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	hs := res.HashList()
+
+	for i := range hs {
+		cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
+			hex.EncodeToString(hs[i]))
 	}
 }
 
@@ -899,9 +919,6 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*token.BearerToken, er
 }
 
 func getObjectRange(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	exitOnErr(cmd, errf("can't fetch private key: %w", err))
-
 	objAddr, err := getObjectAddress(cmd)
 	exitOnErr(cmd, err)
 
@@ -928,27 +945,15 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 		out = f
 	}
 
-	ctx := context.Background()
+	var prm internalclient.PayloadRangePrm
 
-	c, sessionToken, err := initSession(ctx, key)
-	exitOnErr(cmd, err)
+	prepareSessionPrm(cmd, &prm)
+	prepareObjectPrmRaw(cmd, &prm)
+	prm.SetAddress(objAddr)
+	prm.SetRange(ranges[0])
+	prm.SetPayloadWriter(out)
 
-	bearerToken, err := getBearerToken(cmd, "bearer")
-	exitOnErr(cmd, err)
-
-	raw, _ := cmd.Flags().GetBool(rawFlag)
-
-	_, err = c.ObjectPayloadRangeData(ctx,
-		new(client.RangeDataParams).
-			WithAddress(objAddr).
-			WithRange(ranges[0]).
-			WithDataWriter(out).
-			WithRaw(raw),
-		append(globalCallOptions(),
-			client.WithSession(sessionToken),
-			client.WithBearer(bearerToken),
-		)...,
-	)
+	_, err = internalclient.PayloadRange(prm)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return
