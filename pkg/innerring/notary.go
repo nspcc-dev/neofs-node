@@ -6,7 +6,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 type (
@@ -48,6 +50,22 @@ func (s *Server) depositSideNotary() (tx util.Uint256, err error) {
 		depositAmount,
 		uint32(s.epochDuration.Load())+notaryExtraBlocks,
 	)
+}
+
+func (s *Server) notaryHandler(_ event.Event) {
+	if !s.mainNotaryConfig.disabled {
+		_, err := s.depositMainNotary()
+		if err != nil {
+			s.log.Error("can't make notary deposit in main chain", zap.Error(err))
+		}
+	}
+
+	if !s.sideNotaryConfig.disabled {
+		_, err := s.depositSideNotary()
+		if err != nil {
+			s.log.Error("can't make notary deposit in side chain", zap.Error(err))
+		}
+	}
 }
 
 func (s *Server) awaitMainNotaryDeposit(ctx context.Context, tx util.Uint256) error {

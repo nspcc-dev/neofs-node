@@ -4,12 +4,15 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
 )
 
 // Process new epoch notification by setting global epoch value and resetting
 // local epoch timer.
-func (np *Processor) processNewEpoch(epoch uint64) {
+func (np *Processor) processNewEpoch(event netmapEvent.NewEpoch) {
+	epoch := event.EpochNumber()
+
 	epochDuration, err := np.netmapClient.EpochDuration()
 	if err != nil {
 		np.log.Warn("can't get epoch duration",
@@ -48,6 +51,7 @@ func (np *Processor) processNewEpoch(epoch uint64) {
 	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
 	np.handleAuditSettlements(settlement.NewAuditEvent(epoch))
 	np.handleAlphabetSync(governance.NewSyncEvent())
+	np.handleNotaryDeposit(event)
 }
 
 // Process new epoch tick by invoking new epoch method in network map contract.

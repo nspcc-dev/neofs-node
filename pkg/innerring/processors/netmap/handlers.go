@@ -32,7 +32,7 @@ func (np *Processor) handleNewEpoch(ev event.Event) {
 	// send event to the worker pool
 
 	err := np.pool.Submit(func() {
-		np.processNewEpoch(epochEvent.EpochNumber())
+		np.processNewEpoch(epochEvent)
 	})
 	if err != nil {
 		// there system can be moved into controlled degradation stage

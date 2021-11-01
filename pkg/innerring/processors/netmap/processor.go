@@ -65,6 +65,7 @@ type (
 		handleNewAudit         event.Handler
 		handleAuditSettlements event.Handler
 		handleAlphabetSync     event.Handler
+		handleNotaryDeposit    event.Handler
 
 		nodeValidator NodeValidator
 
@@ -86,6 +87,7 @@ type (
 		HandleAudit             event.Handler
 		AuditSettlementsHandler event.Handler
 		AlphabetSyncHandler     event.Handler
+		NotaryDepositHandler    event.Handler
 
 		NodeValidator NodeValidator
 
@@ -116,6 +118,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: audit settlement handler is not set")
 	case p.AlphabetSyncHandler == nil:
 		return nil, errors.New("ir/netmap: alphabet sync handler is not set")
+	case p.NotaryDepositHandler == nil:
+		return nil, errors.New("ir/netmap: notary deposit handler is not set")
 	case p.ContainerWrapper == nil:
 		return nil, errors.New("ir/netmap: container contract wrapper is not set")
 	case p.NodeValidator == nil:
@@ -143,6 +147,8 @@ func New(p *Params) (*Processor, error) {
 		handleAuditSettlements: p.AuditSettlementsHandler,
 
 		handleAlphabetSync: p.AlphabetSyncHandler,
+
+		handleNotaryDeposit: p.NotaryDepositHandler,
 
 		nodeValidator: p.NodeValidator,
 
