@@ -31,7 +31,10 @@ func (db *DB) PointContinent(point *locodedb.Point) (*locodedb.Continent, error)
 
 	planarPoint := orb.Point{point.Longitude(), point.Latitude()}
 
-	var continent string
+	var (
+		continent string
+		minDst    float64
+	)
 
 	for _, feature := range db.features {
 		if multiPolygon, ok := feature.Geometry.(orb.MultiPolygon); ok {
@@ -44,6 +47,11 @@ func (db *DB) PointContinent(point *locodedb.Point) (*locodedb.Continent, error)
 				continent = feature.Properties.MustString(continentProperty)
 				break
 			}
+		}
+		distance := planar.DistanceFrom(feature.Geometry, planarPoint)
+		if minDst == 0 || minDst > distance {
+			minDst = distance
+			continent = feature.Properties.MustString(continentProperty)
 		}
 	}
 
