@@ -3,7 +3,6 @@ package getsvc
 import (
 	"hash"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -45,7 +44,9 @@ type commonPrm struct {
 
 	common *util.CommonPrm
 
-	client.GetObjectParams
+	addr *objectSDK.Address
+
+	raw bool
 
 	forwarder RequestForwarder
 }
@@ -107,6 +108,16 @@ func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
 
 func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
 	p.forwarder = f
+}
+
+// WithAddress sets object address to be read.
+func (p *commonPrm) WithAddress(addr *objectSDK.Address) {
+	p.addr = addr
+}
+
+// WithRawFlag sets flag of raw reading.
+func (p *commonPrm) WithRawFlag(raw bool) {
+	p.raw = raw
 }
 
 // SetHeaderWriter sets target component to write the object header.

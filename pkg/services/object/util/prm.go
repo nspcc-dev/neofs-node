@@ -1,11 +1,9 @@
 package util
 
 import (
-	"crypto/ecdsa"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -20,14 +18,28 @@ type CommonPrm struct {
 
 	bearer *token.BearerToken
 
-	callOpts []client.CallOption
+	ttl uint32
+
+	xhdrs []*pkg.XHeader
 }
 
-type remoteCallOpts struct {
-	opts []client.CallOption
+// TTL returns TTL for new requests.
+func (p *CommonPrm) TTL() uint32 {
+	if p != nil {
+		return p.ttl
+	}
+
+	return 0
 }
 
-type DynamicCallOption func(*remoteCallOpts)
+// Returns X-Headers for new requests.
+func (p *CommonPrm) XHeaders() []*pkg.XHeader {
+	if p != nil {
+		return p.xhdrs
+	}
+
+	return nil
+}
 
 func (p *CommonPrm) WithLocalOnly(v bool) *CommonPrm {
 	if p != nil {
@@ -43,65 +55,6 @@ func (p *CommonPrm) LocalOnly() bool {
 	}
 
 	return false
-}
-
-func (p *CommonPrm) WithSessionToken(token *sessionsdk.Token) *CommonPrm {
-	if p != nil {
-		p.token = token
-	}
-
-	return p
-}
-
-func (p *CommonPrm) WithBearerToken(token *token.BearerToken) *CommonPrm {
-	if p != nil {
-		p.bearer = token
-	}
-
-	return p
-}
-
-// WithRemoteCallOptions sets call options remote remote client calls.
-func (p *CommonPrm) WithRemoteCallOptions(opts ...client.CallOption) *CommonPrm {
-	if p != nil {
-		p.callOpts = opts
-	}
-
-	return p
-}
-
-// RemoteCallOptions return call options for remote client calls.
-func (p *CommonPrm) RemoteCallOptions(dynamic ...DynamicCallOption) []client.CallOption {
-	if p != nil {
-		o := &remoteCallOpts{
-			opts: p.callOpts,
-		}
-
-		for _, applier := range dynamic {
-			applier(o)
-		}
-
-		return o.opts
-	}
-
-	return nil
-}
-
-func WithNetmapEpoch(v uint64) DynamicCallOption {
-	return func(o *remoteCallOpts) {
-		xHdr := pkg.NewXHeader()
-		xHdr.SetKey(session.XHeaderNetmapEpoch)
-		xHdr.SetValue(strconv.FormatUint(v, 10))
-
-		o.opts = append(o.opts, client.WithXHeader(xHdr))
-	}
-}
-
-// WithKey sets key to use for the request.
-func WithKey(key *ecdsa.PrivateKey) DynamicCallOption {
-	return func(o *remoteCallOpts) {
-		o.opts = append(o.opts, client.WithKey(key))
-	}
 }
 
 func (p *CommonPrm) SessionToken() *sessionsdk.Token {
@@ -148,26 +101,20 @@ func CommonPrmFromV2(req interface {
 	meta := req.GetMetaHeader()
 
 	xHdrs := meta.GetXHeaders()
-
-	const staticOptNum = 3
+	ttl := meta.GetTTL()
 
 	prm := &CommonPrm{
-		local:    meta.GetTTL() <= 1, // FIXME: use constant
-		token:    nil,
-		bearer:   nil,
-		callOpts: make([]client.CallOption, 0, staticOptNum+len(xHdrs)),
+		local: ttl <= 1, // FIXME: use constant
+		xhdrs: make([]*pkg.XHeader, 0, len(xHdrs)),
+		ttl:   ttl - 1, // decrease TTL for new requests
 	}
-
-	prm.callOpts = append(prm.callOpts, client.WithTTL(meta.GetTTL()-1))
 
 	if tok := meta.GetSessionToken(); tok != nil {
 		prm.token = sessionsdk.NewTokenFromV2(tok)
-		prm.callOpts = append(prm.callOpts, client.WithSession(prm.token))
 	}
 
 	if tok := meta.GetBearerToken(); tok != nil {
 		prm.bearer = token.NewBearerTokenFromV2(tok)
-		prm.callOpts = append(prm.callOpts, client.WithBearer(prm.bearer))
 	}
 
 	for i := range xHdrs {
@@ -187,11 +134,9 @@ func CommonPrmFromV2(req interface {
 				return nil, err
 			}
 		default:
-			prm.callOpts = append(prm.callOpts,
-				client.WithXHeader(
-					pkg.NewXHeaderFromV2(xHdrs[i]),
-				),
-			)
+			xhdr := pkg.NewXHeaderFromV2(xHdrs[i])
+
+			prm.xhdrs = append(prm.xhdrs, xhdr)
 		}
 	}
 
