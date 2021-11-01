@@ -647,6 +647,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		HandleAudit: server.onlyActiveEventHandler(
 			auditProcessor.StartAuditHandler(),
 		),
+		NotaryDepositHandler: server.onlyAlphabetEventHandler(
+			server.notaryHandler,
+		),
 		AuditSettlementsHandler: server.onlyAlphabetEventHandler(
 			settlementProcessor.HandleAuditEvent,
 		),
@@ -777,7 +780,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{
 		l:                  server.log,
-		newEpochHandlers:   server.newEpochHandlers(log),
+		newEpochHandlers:   server.newEpochTickHandlers(),
 		cnrWrapper:         cnrClient,
 		epoch:              server,
 		stopEstimationDMul: cfg.GetUint32("timers.stop_estimation.mul"),
@@ -1015,29 +1018,11 @@ func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 	}
 }
 
-func (s *Server) newEpochHandlers(log *zap.Logger) []newEpochHandler {
+func (s *Server) newEpochTickHandlers() []newEpochHandler {
 	newEpochHandlers := []newEpochHandler{
 		func() {
 			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
 		},
-	}
-
-	if !s.mainNotaryConfig.disabled {
-		newEpochHandlers = append(newEpochHandlers,
-			newNotaryDepositHandler(&notaryDepositArgs{
-				l:         log,
-				depositor: s.depositMainNotary,
-			}),
-		)
-	}
-
-	if !s.sideNotaryConfig.disabled {
-		newEpochHandlers = append(newEpochHandlers,
-			newNotaryDepositHandler(&notaryDepositArgs{
-				l:         log,
-				depositor: s.depositSideNotary,
-			}),
-		)
 	}
 
 	return newEpochHandlers

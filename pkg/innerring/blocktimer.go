@@ -50,12 +50,6 @@ type (
 
 	depositor func() (util.Uint256, error)
 	awaiter   func(context.Context, util.Uint256) error
-
-	notaryDepositArgs struct {
-		l *zap.Logger
-
-		depositor depositor
-	}
 )
 
 func (s *Server) addBlockTimer(t *timer.BlockTimer) {
@@ -147,14 +141,4 @@ func newEmissionTimer(args *emitTimerArgs) *timer.BlockTimer {
 			args.ap.HandleGasEmission(timerEvent.NewAlphabetEmitTick{})
 		},
 	)
-}
-
-func newNotaryDepositHandler(args *notaryDepositArgs) newEpochHandler {
-	return func() {
-		_, err := args.depositor()
-		if err != nil {
-			args.l.Warn("can't deposit notary contract",
-				zap.String("error", err.Error()))
-		}
-	}
 }
