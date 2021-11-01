@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 )
@@ -88,12 +89,25 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]*o
 		return nil, err
 	}
 
-	return c.client.SearchObject(exec.context(),
-		&exec.prm.SearchObjectParams,
-		exec.prm.common.RemoteCallOptions(
-			util.WithNetmapEpoch(exec.curProcEpoch),
-			util.WithKey(key),
-		)...)
+	var prm internalclient.SearchObjectsPrm
+
+	prm.SetContext(exec.context())
+	prm.SetClient(c.client)
+	prm.SetPrivateKey(key)
+	prm.SetSessionToken(exec.prm.common.SessionToken())
+	prm.SetBearerToken(exec.prm.common.BearerToken())
+	prm.SetTTL(exec.prm.common.TTL())
+	prm.SetXHeaders(exec.prm.common.XHeaders())
+	prm.SetNetmapEpoch(exec.curProcEpoch)
+	prm.SetContainerID(exec.containerID())
+	prm.SetFilters(exec.searchFilters())
+
+	res, err := internalclient.SearchObjects(prm)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.IDList(), nil
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]*objectSDK.ID, error) {

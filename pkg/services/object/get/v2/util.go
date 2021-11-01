@@ -321,7 +321,10 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
-	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
+
+	objAddr := objectSDK.NewAddressFromV2(body.GetAddress())
+
+	p.WithAddress(objAddr)
 	p.WithRawFlag(body.GetRaw())
 	p.SetHeaderWriter(&headResponseWriter{
 		mainOnly: body.GetMainOnly(),
@@ -417,7 +420,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 				if err := signature2.VerifyDataWithSource(
 					signature.StableMarshalerWrapper{
-						SM: p.Address().ObjectID().ToV2(),
+						SM: objAddr.ObjectID().ToV2(),
 					},
 					func() (key, sig []byte) {
 						return idSig.GetKey(), idSig.GetSign()
@@ -436,7 +439,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			obj.SetSignature(idSig)
 
 			raw := object.NewRawFromV2(obj)
-			raw.SetID(p.Address().ObjectID())
+			raw.SetID(objAddr.ObjectID())
 
 			// convert the object
 			return raw.Object().SDK(), nil

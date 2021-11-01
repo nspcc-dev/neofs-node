@@ -10,6 +10,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
@@ -62,7 +63,7 @@ func (p *RemoteHeadPrm) WithObjectAddress(v *objectSDK.Address) *RemoteHeadPrm {
 
 // Head requests object header from the remote node.
 func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Object, error) {
-	key, err := h.keyStorage.GetKey(prm.commonHeadPrm.common.SessionToken())
+	key, err := h.keyStorage.GetKey(nil)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", h, err)
 	}
@@ -79,23 +80,18 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", h, info.AddressGroup(), err)
 	}
 
-	p := new(client.ObjectHeaderParams).
-		WithAddress(prm.commonHeadPrm.addr).
-		WithRawFlag(prm.commonHeadPrm.raw)
+	var headPrm internalclient.HeadObjectPrm
 
-	if prm.commonHeadPrm.short {
-		p = p.WithMainFields()
-	}
+	headPrm.SetContext(ctx)
+	headPrm.SetClient(c)
+	headPrm.SetPrivateKey(key)
+	headPrm.SetAddress(prm.commonHeadPrm.addr)
+	headPrm.SetTTL(1) // FIXME: use constant
 
-	hdr, err := c.GetObjectHeader(ctx, p,
-		client.WithTTL(1), // FIXME: use constant
-		client.WithSession(prm.commonHeadPrm.common.SessionToken()),
-		client.WithBearer(prm.commonHeadPrm.common.BearerToken()),
-		client.WithKey(key),
-	)
+	res, err := internalclient.HeadObject(headPrm)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, info.AddressGroup(), err)
 	}
 
-	return object.NewFromSDK(hdr), nil
+	return object.NewFromSDK(res.Header()), nil
 }

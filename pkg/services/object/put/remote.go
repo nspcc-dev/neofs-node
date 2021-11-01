@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 )
@@ -60,22 +60,23 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
 	}
 
-	id, err := c.PutObject(t.ctx, new(client.PutObjectParams).
-		WithObject(
-			t.obj.SDK(),
-		),
-		append(
-			t.commonPrm.RemoteCallOptions(),
-			client.WithTTL(1), // FIXME: use constant
-			client.WithKey(key),
-		)...,
-	)
+	var prm internalclient.PutObjectPrm
+
+	prm.SetContext(t.ctx)
+	prm.SetClient(c)
+	prm.SetPrivateKey(key)
+	prm.SetSessionToken(t.commonPrm.SessionToken())
+	prm.SetBearerToken(t.commonPrm.BearerToken())
+	prm.SetXHeaders(t.commonPrm.XHeaders())
+	prm.SetObject(t.obj.SDK())
+
+	res, err := internalclient.PutObject(prm)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
 	}
 
 	return new(transformer.AccessIdentifiers).
-		WithSelfID(id), nil
+		WithSelfID(res.ID()), nil
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.
