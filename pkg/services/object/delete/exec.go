@@ -60,11 +60,11 @@ func (exec execCtx) isLocal() bool {
 }
 
 func (exec *execCtx) address() *objectSDK.Address {
-	return exec.prm.Address()
+	return exec.prm.addr
 }
 
 func (exec *execCtx) containerID() *cid.ID {
-	return exec.prm.Address().ContainerID()
+	return exec.prm.addr.ContainerID()
 }
 
 func (exec *execCtx) commonParameters() *util.CommonPrm {
@@ -264,7 +264,7 @@ func (exec *execCtx) saveTombstone() bool {
 		exec.status = statusOK
 		exec.err = nil
 
-		exec.prm.TombstoneAddressTarget().
+		exec.prm.tombAddrWriter.
 			SetAddress(exec.newAddress(id))
 	}
 

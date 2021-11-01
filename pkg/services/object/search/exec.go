@@ -60,11 +60,11 @@ func (exec execCtx) isLocal() bool {
 }
 
 func (exec *execCtx) containerID() *cid.ID {
-	return exec.prm.ContainerID()
+	return exec.prm.cid
 }
 
 func (exec *execCtx) searchFilters() objectSDK.SearchFilters {
-	return exec.prm.SearchFilters()
+	return exec.prm.filters
 }
 
 func (exec *execCtx) netmapEpoch() uint64 {

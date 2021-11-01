@@ -1,7 +1,7 @@
 package searchsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
+	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -13,7 +13,9 @@ type Prm struct {
 
 	common *util.CommonPrm
 
-	client.SearchObjectParams
+	cid *cid.ID
+
+	filters objectSDK.SearchFilters
 
 	forwarder RequestForwarder
 }
@@ -42,4 +44,14 @@ func (p *Prm) SetWriter(w IDListWriter) {
 // of the original request.
 func (p *Prm) SetRequestForwarder(f RequestForwarder) {
 	p.forwarder = f
+}
+
+// WithContainerID sets identifier of the container to search the objects.
+func (p *Prm) WithContainerID(id *cid.ID) {
+	p.cid = id
+}
+
+// WithSearchFilters sets search filters.
+func (p *Prm) WithSearchFilters(fs objectSDK.SearchFilters) {
+	p.filters = fs
 }

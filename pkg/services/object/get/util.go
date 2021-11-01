@@ -3,12 +3,13 @@ package getsvc
 import (
 	"io"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	internal "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 )
 
 type SimpleObjectWriter struct {
@@ -88,40 +89,85 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		return exec.prm.forwarder(info, c.client)
 	}
 
-	opts, err := exec.callOptions()
+	key, err := exec.key()
 	if err != nil {
 		return nil, err
 	}
 
 	if exec.headOnly() {
-		return c.client.GetObjectHeader(exec.context(),
-			new(client.ObjectHeaderParams).
-				WithAddress(exec.address()).
-				WithRawFlag(exec.isRaw()),
-			opts...,
-		)
-	}
-	// we don't specify payload writer because we accumulate
-	// the object locally (even huge).
-	if rng := exec.ctxRange(); rng != nil {
-		data, err := c.client.ObjectPayloadRangeData(exec.context(),
-			new(client.RangeDataParams).
-				WithAddress(exec.address()).
-				WithRange(rng).
-				WithRaw(exec.isRaw()),
-			opts...,
-		)
+		var prm internalclient.HeadObjectPrm
+
+		prm.SetContext(exec.context())
+		prm.SetClient(c.client)
+		prm.SetTTL(exec.prm.common.TTL())
+		prm.SetNetmapEpoch(exec.curProcEpoch)
+		prm.SetAddress(exec.address())
+		prm.SetPrivateKey(key)
+		prm.SetSessionToken(exec.prm.common.SessionToken())
+		prm.SetBearerToken(exec.prm.common.BearerToken())
+		prm.SetXHeaders(exec.prm.common.XHeaders())
+
+		if exec.isRaw() {
+			prm.SetRawFlag()
+		}
+
+		res, err := internalclient.HeadObject(prm)
 		if err != nil {
 			return nil, err
 		}
 
-		return payloadOnlyObject(data), nil
+		return res.Header(), nil
+	}
+	// we don't specify payload writer because we accumulate
+	// the object locally (even huge).
+	if rng := exec.ctxRange(); rng != nil {
+		var prm internalclient.PayloadRangePrm
+
+		prm.SetContext(exec.context())
+		prm.SetClient(c.client)
+		prm.SetTTL(exec.prm.common.TTL())
+		prm.SetNetmapEpoch(exec.curProcEpoch)
+		prm.SetAddress(exec.address())
+		prm.SetPrivateKey(key)
+		prm.SetSessionToken(exec.prm.common.SessionToken())
+		prm.SetBearerToken(exec.prm.common.BearerToken())
+		prm.SetXHeaders(exec.prm.common.XHeaders())
+		prm.SetRange(rng)
+
+		if exec.isRaw() {
+			prm.SetRawFlag()
+		}
+
+		res, err := internalclient.PayloadRange(prm)
+		if err != nil {
+			return nil, err
+		}
+
+		return payloadOnlyObject(res.PayloadRange()), nil
 	}
 
-	return c.client.GetObject(exec.context(),
-		exec.remotePrm(),
-		opts...,
-	)
+	var prm internalclient.GetObjectPrm
+
+	prm.SetContext(exec.context())
+	prm.SetClient(c.client)
+	prm.SetTTL(exec.prm.common.TTL())
+	prm.SetNetmapEpoch(exec.curProcEpoch)
+	prm.SetAddress(exec.address())
+	prm.SetPrivateKey(key)
+	prm.SetSessionToken(exec.prm.common.SessionToken())
+	prm.SetBearerToken(exec.prm.common.BearerToken())
+	prm.SetXHeaders(exec.prm.common.XHeaders())
+
+	if exec.isRaw() {
+		prm.SetRawFlag()
+	}
+
+	res, err := internal.GetObject(prm)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Object(), nil
 }
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {

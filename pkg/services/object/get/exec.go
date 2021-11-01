@@ -5,12 +5,10 @@ import (
 	"crypto/ecdsa"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -92,11 +90,11 @@ func (exec execCtx) isLocal() bool {
 }
 
 func (exec execCtx) isRaw() bool {
-	return exec.prm.RawFlag()
+	return exec.prm.raw
 }
 
 func (exec execCtx) address() *objectSDK.Address {
-	return exec.prm.Address()
+	return exec.prm.addr
 }
 
 func (exec execCtx) isChild(obj *object.Object) bool {
@@ -106,23 +104,6 @@ func (exec execCtx) isChild(obj *object.Object) bool {
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 	return exec.svc.keyStore.GetKey(exec.prm.common.SessionToken())
-}
-
-func (exec execCtx) callOptions() ([]client.CallOption, error) {
-	key, err := exec.key()
-	if err != nil {
-		return nil, err
-	}
-
-	return exec.prm.common.RemoteCallOptions(
-		util.WithNetmapEpoch(exec.curProcEpoch),
-		util.WithKey(key)), nil
-}
-
-func (exec execCtx) remotePrm() *client.GetObjectParams {
-	return new(client.GetObjectParams).
-		WithAddress(exec.prm.Address()).
-		WithRawFlag(exec.prm.RawFlag())
 }
 
 func (exec *execCtx) canAssemble() bool {
@@ -207,7 +188,7 @@ func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range, withHdr bo
 	addr.SetContainerID(exec.address().ContainerID())
 	addr.SetObjectID(id)
 
-	p.WithAddress(addr)
+	p.addr = addr
 
 	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng))
 
@@ -231,7 +212,7 @@ func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
-	p.WithAddress(childAddr)
+	p.addr = childAddr
 
 	prm := HeadPrm{
 		commonPrm: p.commonPrm,
