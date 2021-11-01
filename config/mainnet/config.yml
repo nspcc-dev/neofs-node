@@ -7,7 +7,7 @@ node:
     - <announced.address:port>
   attribute_0: UN-LOCODE:<XX YYY>
   attribute_1: Price:100000
-  attribute_2: User-Agent:NeoFS\/0.23
+  attribute_2: User-Agent:NeoFS\/0.26
 
 grpc:
   num: 1
