@@ -3,8 +3,36 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.26.1] - 2021-11-02
+
 ### Fixed
 - Storage Node handles requests before its initialization is finished (#934)
+- Release worker pools gracefully (#901)
+- Metabase ignored containers of storage group and tombstone objects 
+  in listing (#945)
+- CLI missed endpoint flag in `control netmap-snapshot` command (#942)
+- Write cache object persisting (#866)
+
+### Added
+- Quote symbol support in `.env` example tests (#935)
+- FSTree object counter (#821)
+- neofs-adm prints contract version in `dump-hashes` command (#940)
+- Default values section in shard configuration (#877)
+- neofs-adm downloads contracts directly from GitHub (#733)
+
+### Changed
+- Use FSTree counter in write cache (#821)
+- Calculate notary deposit `till` parameter depending on available 
+  deposit (#910)
+- Storage node returns session token error if attached token's private key 
+  is not available (#943)
+- Refactor of NeoFS API client in inner ring (#946)
+- LOCODE generator tries to find the closest continent if there are 
+  no exact match (#955)
+
+### Upgrading from v0.26.0
+You can specify default section in storage engine configuration. 
+See [example](./config/example/node.yaml) for more details.
 
 ## [0.26.0] - 2021-10-19 - Udo (우도, 牛島)
 
@@ -726,7 +754,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...master
+[0.26.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.24.1...v0.25.0
