@@ -6,6 +6,7 @@ import (
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	reputationapi "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 )
@@ -84,16 +85,15 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 }
 
 func (rtp *RemoteTrustWriter) Close() error {
-	prm := apiClient.AnnounceLocalTrustPrm{}
+	var prm internalclient.AnnounceLocalPrm
 
+	prm.SetContext(rtp.ctx)
+	prm.SetClient(rtp.client)
+	prm.SetPrivateKey(rtp.key)
 	prm.SetEpoch(rtp.ctx.Epoch())
 	prm.SetTrusts(rtp.buf)
 
-	_, err := rtp.client.AnnounceLocalTrust(
-		rtp.ctx,
-		prm,
-		apiClient.WithKey(rtp.key),
-	)
+	_, err := internalclient.AnnounceLocal(prm)
 
 	return err
 }

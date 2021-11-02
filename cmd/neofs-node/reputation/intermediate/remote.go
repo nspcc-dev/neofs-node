@@ -6,6 +6,7 @@ import (
 	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	reputationapi "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
@@ -72,13 +73,9 @@ type RemoteTrustWriter struct {
 	eiCtx  eigentrustcalc.Context
 	client apiClient.Client
 	key    *ecdsa.PrivateKey
-
-	buf []*apiClient.AnnounceIntermediateTrustPrm
 }
 
-// Write check if passed context contains required
-// data(returns ErrIncorrectContext if not) and
-// caches passed trusts(as SendIntermediateTrustPrm structs).
+// Write sends trust value to remote node via ReputationService.AnnounceIntermediateResult RPC.
 func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	apiTrustingPeer := reputationapi.NewPeerID()
 	apiTrustingPeer.SetPublicKey(t.TrustingPeer())
@@ -94,29 +91,20 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	apiPeerToPeerTrust.SetTrustingPeer(apiTrustingPeer)
 	apiPeerToPeerTrust.SetTrust(apiTrust)
 
-	p := &apiClient.AnnounceIntermediateTrustPrm{}
+	var p internalclient.AnnounceIntermediatePrm
+
+	p.SetContext(rtp.eiCtx)
+	p.SetClient(rtp.client)
+	p.SetPrivateKey(rtp.key)
 	p.SetEpoch(rtp.eiCtx.Epoch())
 	p.SetIteration(rtp.eiCtx.I())
 	p.SetTrust(apiPeerToPeerTrust)
 
-	rtp.buf = append(rtp.buf, p)
+	_, err := internalclient.AnnounceIntermediate(p)
 
-	return nil
+	return err
 }
 
-// Close sends all cached intermediate trusts.
-// If error occurs, returns in immediately and stops iteration.
-func (rtp *RemoteTrustWriter) Close() (err error) {
-	for _, prm := range rtp.buf {
-		_, err = rtp.client.AnnounceIntermediateTrust(
-			rtp.eiCtx,
-			*prm,
-			apiClient.WithKey(rtp.key),
-		)
-		if err != nil {
-			return
-		}
-	}
-
-	return
+func (rtp *RemoteTrustWriter) Close() error {
+	return nil
 }
