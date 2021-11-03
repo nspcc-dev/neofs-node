@@ -124,11 +124,14 @@ func (x GetObjectRes) Object() *object.Object {
 //
 // Client, context and key must be set.
 //
+// Returns any error prevented the operation from completing correctly in error return.
 // Returns:
 //  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
 //  object.ErrAlreadyRemoved error if requested object is marked to be removed.
 func GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 	res.cliRes, err = prm.cli.GetObject(prm.ctx, &prm.cliPrm, prm.opts...)
+
+	// FIXME: object.ErrAlreadyRemoved never returns
 
 	return
 }
@@ -168,11 +171,14 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 // Client, context and key must be set.
 //
+// Returns any error prevented the operation from completing correctly in error return.
 // Returns:
 //  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
 //  object.ErrAlreadyRemoved error if requested object is marked to be removed.
 func HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 	res.cliRes, err = prm.cli.GetObjectHeader(prm.ctx, &prm.cliPrm, prm.opts...)
+
+	// FIXME: object.ErrAlreadyRemoved never returns
 
 	return
 }
@@ -219,11 +225,14 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 //
 // Client, context and key must be set.
 //
+// Returns any error prevented the operation from completing correctly in error return.
 // Returns:
 //  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
 //  object.ErrAlreadyRemoved error if requested object is marked to be removed.
 func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 	res.cliRes, err = prm.cli.ObjectPayloadRangeData(prm.ctx, &prm.cliPrm, prm.opts...)
+
+	// FIXME: object.ErrAlreadyRemoved never returns
 
 	return
 }
@@ -255,6 +264,8 @@ func (x PutObjectRes) ID() *object.ID {
 // PutObject saves the object in local storage of the remote node.
 //
 // Client, context and key must be set.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func PutObject(prm PutObjectPrm) (res PutObjectRes, err error) {
 	res.cliRes, err = prm.cli.PutObject(prm.ctx, &prm.cliPrm,
 		append(prm.opts, client.WithTTL(1))...,
@@ -293,6 +304,8 @@ func (x SearchObjectsRes) IDList() []*object.ID {
 }
 
 // SearchObjects selects objects from container which match the filters.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func SearchObjects(prm SearchObjectsPrm) (res SearchObjectsRes, err error) {
 	res.cliRes, err = prm.cli.SearchObject(prm.ctx, &prm.cliPrm, prm.opts...)
 

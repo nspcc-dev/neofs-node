@@ -62,6 +62,8 @@ type AnnounceLocalRes struct{}
 // AnnounceLocal sends estimations of local trust to the remote node.
 //
 // Client, context and key must be set.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func AnnounceLocal(prm AnnounceLocalPrm) (res AnnounceLocalRes, err error) {
 	_, err = prm.cli.AnnounceLocalTrust(prm.ctx, prm.cliPrm, prm.opts...)
 
@@ -97,6 +99,8 @@ type AnnounceIntermediateRes struct{}
 // and epoch to to the remote node.
 //
 // Client, context and key must be set.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func AnnounceIntermediate(prm AnnounceIntermediatePrm) (res AnnounceIntermediateRes, err error) {
 	_, err = prm.cli.AnnounceIntermediateTrust(prm.ctx, prm.cliPrm, prm.opts...)
 
