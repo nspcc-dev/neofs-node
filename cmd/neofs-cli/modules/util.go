@@ -159,7 +159,7 @@ var (
 		Run: func(cmd *cobra.Command, _ []string) {
 			targetDB := locodebolt.New(locodebolt.Prm{
 				Path: locodeInfoDBPath,
-			})
+			}, locodebolt.ReadOnly())
 
 			err := targetDB.Open()
 			exitOnErr(cmd, err)
