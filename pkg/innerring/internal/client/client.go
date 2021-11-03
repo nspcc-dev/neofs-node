@@ -53,6 +53,8 @@ func (x SearchSGRes) IDList() []*object.ID {
 var sgFilter = storagegroup.SearchQuery()
 
 // SearchSG lists objects of storage group type in the container.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func (x Client) SearchSG(prm SearchSGPrm) (res SearchSGRes, err error) {
 	var cliPrm client.SearchObjectParams
 
@@ -82,6 +84,8 @@ func (x GetObjectRes) Object() *object.Object {
 }
 
 // GetObject reads the object by address.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func (x Client) GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 	var cliPrm client.GetObjectParams
 
@@ -125,7 +129,8 @@ func (x HeadObjectRes) Header() *object.Object {
 
 // HeadObject reads short object header by address.
 //
-// For raw requests, returns an error if requested object is virtual.
+// Returns any error prevented the operation from completing correctly in error return.
+// For raw requests, returns *object.SplitInfoError error if requested object is virtual.
 func (x Client) HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 	var cliPrm client.ObjectHeaderParams
 
@@ -142,6 +147,8 @@ func (x Client) HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 }
 
 // GetObjectPayload reads object by address from NeoFS via Client and returns its payload.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func GetObjectPayload(ctx context.Context, c Client, addr *object.Address) ([]byte, error) {
 	var prm GetObjectPrm
 
@@ -210,6 +217,8 @@ func (x HashPayloadRangeRes) Hash() []byte {
 
 // HashObjectRange requests to calculate Tillich-Zemor hash of the payload range of the object
 // from the remote server's local storage.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeRes, err error) {
 	var cliPrm client.RangeChecksumParams
 
@@ -233,6 +242,8 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 
 // HashObjectRange reads Tillich-Zemor hash of the object payload range by address
 // from the remote server's local storage via Client.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func HashObjectRange(ctx context.Context, c Client, addr *object.Address, rng *object.Range) ([]byte, error) {
 	var prm HashPayloadRangePrm
 

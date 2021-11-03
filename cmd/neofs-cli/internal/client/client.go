@@ -34,6 +34,8 @@ func (x BalanceOfRes) Balance() *accounting.Decimal {
 }
 
 // BalanceOf requests current balance of NeoFS user.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func BalanceOf(prm BalanceOfPrm) (res BalanceOfRes, err error) {
 	res.cliRes, err = prm.cli.GetBalance(context.Background(), prm.ownerID,
 		client.WithKey(prm.privKey),
@@ -59,6 +61,8 @@ func (x ListContainersRes) IDList() []*cid.ID {
 }
 
 // ListContainers requests list of NeoFS user's containers.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func ListContainers(prm ListContainersPrm) (res ListContainersRes, err error) {
 	res.cliRes, err = prm.cli.ListContainers(context.Background(), prm.ownerID,
 		client.WithKey(prm.privKey),
@@ -96,6 +100,8 @@ func (x PutContainerRes) ID() *cid.ID {
 // The required time is also not predictable.
 //
 // Success can be verified by reading by identifier.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
 	res.cliRes, err = prm.cli.PutContainer(context.Background(), prm.cnr,
 		client.WithKey(prm.privKey),
@@ -122,6 +128,8 @@ func (x GetContainerRes) Container() *container.Container {
 }
 
 // GetContainer reads container from NeoFS by ID.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
 	res.cliRes, err = prm.cli.GetContainer(context.Background(), prm.cnrID,
 		client.WithKey(prm.privKey),
@@ -146,6 +154,8 @@ type DeleteContainerRes struct{}
 // The required time is also not predictable.
 //
 // Success can be verified by reading by identifier.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func DeleteContainer(prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
 	err = prm.cli.DeleteContainer(context.Background(), prm.cnrID,
 		client.WithKey(prm.privKey),
@@ -172,6 +182,8 @@ func (x EACLRes) EACL() *eacl.Table {
 }
 
 // EACL reads eACL table from NeoFS by container ID.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func EACL(prm EACLPrm) (res EACLRes, err error) {
 	res.cliRes, err = prm.cli.GetEACL(context.Background(), prm.cnrID,
 		client.WithKey(prm.privKey),
@@ -202,6 +214,8 @@ type SetEACLRes struct{}
 // The required time is also not predictable.
 //
 // Success can be verified by reading by container identifier.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func SetEACL(prm SetEACLPrm) (res SetEACLRes, err error) {
 	err = prm.cli.SetEACL(context.Background(), prm.eaclTable,
 		client.WithKey(prm.privKey),
@@ -227,6 +241,8 @@ func (x NetworkInfoRes) NetworkInfo() *netmap.NetworkInfo {
 }
 
 // NetworkInfo reads information about the NeoFS network.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func NetworkInfo(prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
 	res.cliRes, err = prm.cli.NetworkInfo(context.Background(),
 		client.WithKey(prm.privKey),
@@ -256,6 +272,8 @@ func (x NodeInfoRes) LatestVersion() *version.Version {
 }
 
 // NodeInfo requests information about the remote server from NeoFS netmap.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
 	res.cliRes, err = prm.cli.EndpointInfo(context.Background(),
 		client.WithKey(prm.privKey),
@@ -285,6 +303,8 @@ func (x CreateSessionRes) SessionKey() []byte {
 }
 
 // CreateSession opens new unlimited session with the remote node.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func CreateSession(prm CreateSessionPrm) (res CreateSessionRes, err error) {
 	res.cliRes, err = prm.cli.CreateSession(context.Background(), math.MaxUint64,
 		client.WithKey(prm.privKey),
@@ -323,6 +343,8 @@ func (x PutObjectRes) ID() *object.ID {
 }
 
 // PutObject saves the object in NeoFS network.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func PutObject(prm PutObjectPrm) (res PutObjectRes, err error) {
 	var putPrm client.PutObjectParams
 
@@ -355,6 +377,8 @@ func (x DeleteObjectRes) TombstoneAddress() *object.Address {
 }
 
 // DeleteObject marks object to be removed from NeoFS through tombstone placement.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func DeleteObject(prm DeleteObjectPrm) (res DeleteObjectRes, err error) {
 	var delPrm client.DeleteObjectParams
 
@@ -390,6 +414,9 @@ func (x GetObjectRes) Header() *object.Object {
 // GetObject reads the object by address.
 //
 // Interrupts on any writer error. If successful, payload is written to writer.
+//
+// Returns any error prevented the operation from completing correctly in error return.
+// For raw reading, returns *object.SplitInfoError error if object is virtual.
 func GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 	var getPrm client.GetObjectParams
 
@@ -432,6 +459,7 @@ func (x HeadObjectRes) Header() *object.Object {
 
 // HeadObject reads object header by address.
 //
+// Returns any error prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 	var cliPrm client.ObjectHeaderParams
@@ -478,6 +506,8 @@ func (x SearchObjectsRes) IDList() []*object.ID {
 }
 
 // SearchObjects selects objects from container which match the filters.
+//
+// Returns any error prevented the operation from completing correctly in error return.
 func SearchObjects(prm SearchObjectsPrm) (res SearchObjectsRes, err error) {
 	var cliPrm client.SearchObjectParams
 
@@ -532,6 +562,7 @@ func (x HashPayloadRangesRes) HashList() [][]byte {
 
 // HashPayloadRanges requests hashes (by default SHA256) of the object payload ranges.
 //
+// Returns any error prevented the operation from completing correctly in error return.
 // Returns an error if number of received hashes differs with the number of requested ranges.
 func HashPayloadRanges(prm HashPayloadRangesPrm) (res HashPayloadRangesRes, err error) {
 	var cliPrm client.RangeChecksumParams
@@ -596,6 +627,9 @@ type PayloadRangeRes struct{}
 // PayloadRange reads object payload range from NeoFS and writes it to specified writer.
 //
 // Interrupts on any writer error.
+//
+// Returns any error prevented the operation from completing correctly in error return.
+// For raw reading, returns *object.SplitInfoError error if object is virtual.
 func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 	var cliPrm client.RangeDataParams
 
