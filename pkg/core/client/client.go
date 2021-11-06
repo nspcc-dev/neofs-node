@@ -1,7 +1,7 @@
 package client
 
 import (
-	rawclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
+	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )

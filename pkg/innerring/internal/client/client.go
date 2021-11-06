@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
@@ -42,12 +43,12 @@ func (x *SearchSGPrm) SetContainerID(id *cid.ID) {
 
 // SearchSGRes groups resulting values of SearchSG operation.
 type SearchSGRes struct {
-	cliRes []*object.ID
+	cliRes *client.ObjectSearchRes
 }
 
 // IDList returns list of IDs of storage groups in container.
 func (x SearchSGRes) IDList() []*object.ID {
-	return x.cliRes
+	return x.cliRes.IDList()
 }
 
 var sgFilter = storagegroup.SearchQuery()
@@ -61,9 +62,13 @@ func (x Client) SearchSG(prm SearchSGPrm) (res SearchSGRes, err error) {
 	cliPrm.WithContainerID(prm.cnrID)
 	cliPrm.WithSearchFilters(sgFilter)
 
-	res.cliRes, err = x.c.SearchObject(prm.ctx, &cliPrm,
+	res.cliRes, err = x.c.SearchObjects(prm.ctx, &cliPrm,
 		client.WithKey(x.key),
 	)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	return
 }
@@ -75,12 +80,12 @@ type GetObjectPrm struct {
 
 // GetObjectRes groups resulting values of GetObject operation.
 type GetObjectRes struct {
-	cliRes *object.Object
+	cliRes *client.ObjectGetRes
 }
 
 // Object returns received object.
 func (x GetObjectRes) Object() *object.Object {
-	return x.cliRes
+	return x.cliRes.Object()
 }
 
 // GetObject reads the object by address.
@@ -94,6 +99,10 @@ func (x Client) GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 	res.cliRes, err = x.c.GetObject(prm.ctx, &cliPrm,
 		client.WithKey(x.key),
 	)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	return
 }
@@ -119,12 +128,12 @@ func (x *HeadObjectPrm) SetTTL(ttl uint32) {
 
 // HeadObjectRes groups resulting values of HeadObject operation.
 type HeadObjectRes struct {
-	cliRes *object.Object
+	cliRes *client.ObjectHeadRes
 }
 
 // Header returns received object header.
 func (x HeadObjectRes) Header() *object.Object {
-	return x.cliRes
+	return x.cliRes.Object()
 }
 
 // HeadObject reads short object header by address.
@@ -138,10 +147,14 @@ func (x Client) HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 	cliPrm.WithRawFlag(prm.raw)
 	cliPrm.WithMainFields()
 
-	res.cliRes, err = x.c.GetObjectHeader(prm.ctx, &cliPrm,
+	res.cliRes, err = x.c.HeadObject(prm.ctx, &cliPrm,
 		client.WithKey(x.key),
 		client.WithTTL(prm.ttl),
 	)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	return
 }
@@ -225,15 +238,22 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 	cliPrm.WithAddress(prm.objAddr)
 	cliPrm.WithRangeList(prm.rng)
 
-	hs, err := x.c.ObjectPayloadRangeTZ(prm.ctx, &cliPrm,
+	cliRes, err := x.c.HashObjectPayloadRanges(prm.ctx, &cliPrm,
 		client.WithKey(x.key),
 		client.WithTTL(1),
 	)
 	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(cliRes.Status())
+		if err != nil {
+			return
+		}
+
+		hs := cliRes.Hashes()
 		if ln := len(hs); ln != 1 {
 			err = fmt.Errorf("wrong number of hashes %d", ln)
 		} else {
-			res.h = hs[0][:]
+			res.h = hs[0]
 		}
 	}
 

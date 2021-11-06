@@ -2,23 +2,18 @@ package cache
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"errors"
 	"io"
 	"sync"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
+	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 type multiClient struct {
@@ -87,215 +82,184 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(client.Client) 
 	return firstErr
 }
 
-func (x *multiClient) PutObject(ctx context.Context, p *client.PutObjectParams, opts ...client.CallOption) (*object.ID, error) {
-	var res *object.ID
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) PutObject(ctx context.Context, p *client.PutObjectParams, opts ...client.CallOption) (res *client.ObjectPutRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.PutObject(ctx, p, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) GetBalance(ctx context.Context, id *owner.ID, opts ...client.CallOption) (*accounting.Decimal, error) {
-	var res *accounting.Decimal
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) GetBalance(ctx context.Context, id *owner.ID, opts ...client.CallOption) (res *client.BalanceOfRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.GetBalance(ctx, id, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) PutContainer(ctx context.Context, cnr *container.Container, opts ...client.CallOption) (*cid.ID, error) {
-	var res *cid.ID
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) PutContainer(ctx context.Context, cnr *container.Container, opts ...client.CallOption) (res *client.ContainerPutRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.PutContainer(ctx, cnr, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) GetContainer(ctx context.Context, id *cid.ID, opts ...client.CallOption) (*container.Container, error) {
-	var res *container.Container
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) GetContainer(ctx context.Context, id *cid.ID, opts ...client.CallOption) (res *client.ContainerGetRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.GetContainer(ctx, id, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) ListContainers(ctx context.Context, id *owner.ID, opts ...client.CallOption) ([]*cid.ID, error) {
-	var res []*cid.ID
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) ListContainers(ctx context.Context, id *owner.ID, opts ...client.CallOption) (res *client.ContainerListRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.ListContainers(ctx, id, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) DeleteContainer(ctx context.Context, id *cid.ID, opts ...client.CallOption) error {
-	return x.iterateClients(ctx, func(c client.Client) error {
-		return c.DeleteContainer(ctx, id, opts...)
-	})
-}
-
-func (x *multiClient) GetEACL(ctx context.Context, id *cid.ID, opts ...client.CallOption) (*client.EACLWithSignature, error) {
-	var res *client.EACLWithSignature
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
-		res, err = c.GetEACL(ctx, id, opts...)
-		return
+func (x *multiClient) DeleteContainer(ctx context.Context, id *cid.ID, opts ...client.CallOption) (res *client.ContainerDeleteRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.DeleteContainer(ctx, id, opts...)
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) SetEACL(ctx context.Context, t *eacl.Table, opts ...client.CallOption) error {
-	return x.iterateClients(ctx, func(c client.Client) error {
-		return c.SetEACL(ctx, t, opts...)
+func (x *multiClient) EACL(ctx context.Context, id *cid.ID, opts ...client.CallOption) (res *client.EACLRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.EACL(ctx, id, opts...)
+		return err
 	})
+
+	return
 }
 
-func (x *multiClient) AnnounceContainerUsedSpace(ctx context.Context, as []container.UsedSpaceAnnouncement, opts ...client.CallOption) error {
-	return x.iterateClients(ctx, func(c client.Client) error {
-		return c.AnnounceContainerUsedSpace(ctx, as, opts...)
+func (x *multiClient) SetEACL(ctx context.Context, t *eacl.Table, opts ...client.CallOption) (res *client.SetEACLRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.SetEACL(ctx, t, opts...)
+		return err
 	})
+
+	return
 }
 
-func (x *multiClient) EndpointInfo(ctx context.Context, opts ...client.CallOption) (*client.EndpointInfo, error) {
-	var res *client.EndpointInfo
+func (x *multiClient) AnnounceContainerUsedSpace(ctx context.Context, as []container.UsedSpaceAnnouncement, opts ...client.CallOption) (res *client.AnnounceSpaceRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.AnnounceContainerUsedSpace(ctx, as, opts...)
+		return err
+	})
 
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+	return
+}
+
+func (x *multiClient) EndpointInfo(ctx context.Context, opts ...client.CallOption) (res *client.EndpointInfoRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.EndpointInfo(ctx, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) NetworkInfo(ctx context.Context, opts ...client.CallOption) (*netmap.NetworkInfo, error) {
-	var res *netmap.NetworkInfo
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) NetworkInfo(ctx context.Context, opts ...client.CallOption) (res *client.NetworkInfoRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.NetworkInfo(ctx, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) DeleteObject(ctx context.Context, p *client.DeleteObjectParams, opts ...client.CallOption) error {
-	return x.iterateClients(ctx, func(c client.Client) error {
-		return c.DeleteObject(ctx, p, opts...)
+func (x *multiClient) DeleteObject(ctx context.Context, p *client.DeleteObjectParams, opts ...client.CallOption) (res *client.ObjectDeleteRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.DeleteObject(ctx, p, opts...)
+		return err
 	})
+
+	return
 }
 
-func (x *multiClient) GetObject(ctx context.Context, p *client.GetObjectParams, opts ...client.CallOption) (*object.Object, error) {
-	var res *object.Object
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) GetObject(ctx context.Context, p *client.GetObjectParams, opts ...client.CallOption) (res *client.ObjectGetRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.GetObject(ctx, p, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) GetObjectHeader(ctx context.Context, p *client.ObjectHeaderParams, opts ...client.CallOption) (*object.Object, error) {
-	var res *object.Object
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
-		res, err = c.GetObjectHeader(ctx, p, opts...)
-		return
-	})
-
-	return res, err
-}
-
-func (x *multiClient) ObjectPayloadRangeData(ctx context.Context, p *client.RangeDataParams, opts ...client.CallOption) ([]byte, error) {
-	var res []byte
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) ObjectPayloadRangeData(ctx context.Context, p *client.RangeDataParams, opts ...client.CallOption) (res *client.ObjectRangeRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.ObjectPayloadRangeData(ctx, p, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) ObjectPayloadRangeSHA256(ctx context.Context, p *client.RangeChecksumParams, opts ...client.CallOption) ([][sha256.Size]byte, error) {
-	var res [][sha256.Size]byte
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
-		res, err = c.ObjectPayloadRangeSHA256(ctx, p, opts...)
-		return
+func (x *multiClient) HeadObject(ctx context.Context, p *client.ObjectHeaderParams, opts ...client.CallOption) (res *client.ObjectHeadRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.HeadObject(ctx, p, opts...)
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) ObjectPayloadRangeTZ(ctx context.Context, p *client.RangeChecksumParams, opts ...client.CallOption) ([][client.TZSize]byte, error) {
-	var res [][client.TZSize]byte
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
-		res, err = c.ObjectPayloadRangeTZ(ctx, p, opts...)
-		return
+func (x *multiClient) HashObjectPayloadRanges(ctx context.Context, p *client.RangeChecksumParams, opts ...client.CallOption) (res *client.ObjectRangeHashRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.HashObjectPayloadRanges(ctx, p, opts...)
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) SearchObject(ctx context.Context, p *client.SearchObjectParams, opts ...client.CallOption) ([]*object.ID, error) {
-	var res []*object.ID
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
-		res, err = c.SearchObject(ctx, p, opts...)
-		return
+func (x *multiClient) SearchObjects(ctx context.Context, p *client.SearchObjectParams, opts ...client.CallOption) (res *client.ObjectSearchRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
+		res, err = c.SearchObjects(ctx, p, opts...)
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) CreateSession(ctx context.Context, exp uint64, opts ...client.CallOption) (*session.Token, error) {
-	var res *session.Token
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) CreateSession(ctx context.Context, exp uint64, opts ...client.CallOption) (res *client.CreateSessionRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.CreateSession(ctx, exp, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) AnnounceLocalTrust(ctx context.Context, p client.AnnounceLocalTrustPrm, opts ...client.CallOption) (*client.AnnounceLocalTrustRes, error) {
-	var res *client.AnnounceLocalTrustRes
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) AnnounceLocalTrust(ctx context.Context, p client.AnnounceLocalTrustPrm, opts ...client.CallOption) (res *client.AnnounceLocalTrustRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.AnnounceLocalTrust(ctx, p, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
-func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, p client.AnnounceIntermediateTrustPrm, opts ...client.CallOption) (*client.AnnounceIntermediateTrustRes, error) {
-	var res *client.AnnounceIntermediateTrustRes
-
-	err := x.iterateClients(ctx, func(c client.Client) (err error) {
+func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, p client.AnnounceIntermediateTrustPrm, opts ...client.CallOption) (res *client.AnnounceIntermediateTrustRes, err error) {
+	err = x.iterateClients(ctx, func(c client.Client) error {
 		res, err = c.AnnounceIntermediateTrust(ctx, p, opts...)
-		return
+		return err
 	})
 
-	return res, err
+	return
 }
 
 func (x *multiClient) Raw() *rawclient.Client {

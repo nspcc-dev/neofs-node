@@ -26,6 +26,9 @@ func (s *signService) Balance(ctx context.Context, req *accounting.BalanceReques
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Balance(ctx, req.(*accounting.BalanceRequest))
 		},
+		func() util.ResponseMessage {
+			return new(accounting.BalanceResponse)
+		},
 	)
 	if err != nil {
 		return nil, err

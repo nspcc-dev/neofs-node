@@ -26,6 +26,9 @@ func (s *signService) Put(ctx context.Context, req *container.PutRequest) (*cont
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Put(ctx, req.(*container.PutRequest))
 		},
+		func() util.ResponseMessage {
+			return new(container.PutResponse)
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -38,6 +41,9 @@ func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) 
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Delete(ctx, req.(*container.DeleteRequest))
+		},
+		func() util.ResponseMessage {
+			return new(container.DeleteResponse)
 		},
 	)
 	if err != nil {
@@ -52,6 +58,9 @@ func (s *signService) Get(ctx context.Context, req *container.GetRequest) (*cont
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Get(ctx, req.(*container.GetRequest))
 		},
+		func() util.ResponseMessage {
+			return new(container.GetResponse)
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -64,6 +73,9 @@ func (s *signService) List(ctx context.Context, req *container.ListRequest) (*co
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.List(ctx, req.(*container.ListRequest))
+		},
+		func() util.ResponseMessage {
+			return new(container.ListResponse)
 		},
 	)
 	if err != nil {
@@ -78,6 +90,9 @@ func (s *signService) SetExtendedACL(ctx context.Context, req *container.SetExte
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.SetExtendedACL(ctx, req.(*container.SetExtendedACLRequest))
 		},
+		func() util.ResponseMessage {
+			return new(container.SetExtendedACLResponse)
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -91,6 +106,9 @@ func (s *signService) GetExtendedACL(ctx context.Context, req *container.GetExte
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.GetExtendedACL(ctx, req.(*container.GetExtendedACLRequest))
 		},
+		func() util.ResponseMessage {
+			return new(container.GetExtendedACLResponse)
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -103,6 +121,9 @@ func (s *signService) AnnounceUsedSpace(ctx context.Context, req *container.Anno
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.AnnounceUsedSpace(ctx, req.(*container.AnnounceUsedSpaceRequest))
+		},
+		func() util.ResponseMessage {
+			return new(container.AnnounceUsedSpaceResponse)
 		},
 	)
 	if err != nil {

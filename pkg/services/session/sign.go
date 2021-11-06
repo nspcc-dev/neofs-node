@@ -26,6 +26,9 @@ func (s *signService) Create(ctx context.Context, req *session.CreateRequest) (*
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.Create(ctx, req.(*session.CreateRequest))
 		},
+		func() util.ResponseMessage {
+			return new(session.CreateResponse)
+		},
 	)
 	if err != nil {
 		return nil, err

@@ -312,7 +312,8 @@ func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) err
 }
 
 func (r *remoteLoadAnnounceWriter) Close() error {
-	return r.client.AnnounceContainerUsedSpace(r.ctx, r.buf, apiClient.WithKey(r.key))
+	_, err := r.client.AnnounceContainerUsedSpace(r.ctx, r.buf, apiClient.WithKey(r.key))
+	return err
 }
 
 type loadPlacementBuilder struct {
