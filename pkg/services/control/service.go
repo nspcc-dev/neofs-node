@@ -1,7 +1,7 @@
 package control
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/util/proto"
+	"github.com/nspcc-dev/neofs-api-go/v2/util/proto"
 )
 
 // StableMarshal reads binary representation of health check request body

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 )
 
 // Server wraps NeoFS API Object service and
@@ -52,6 +53,15 @@ func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 		}
 
 		if err := stream.Send(putReq); err != nil {
+			if errors.Is(err, util.ErrAbortStream) {
+				resp, err := stream.CloseAndRecv()
+				if err != nil {
+					return err
+				}
+
+				return gStream.SendAndClose(resp.ToGRPCMessage().(*objectGRPC.PutResponse))
+			}
+
 			return err
 		}
 	}
