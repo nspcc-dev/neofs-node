@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
@@ -65,7 +66,13 @@ type AnnounceLocalRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func AnnounceLocal(prm AnnounceLocalPrm) (res AnnounceLocalRes, err error) {
-	_, err = prm.cli.AnnounceLocalTrust(prm.ctx, prm.cliPrm, prm.opts...)
+	var cliRes *client.AnnounceLocalTrustRes
+
+	cliRes, err = prm.cli.AnnounceLocalTrust(prm.ctx, prm.cliPrm, prm.opts...)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(cliRes.Status())
+	}
 
 	return
 }
@@ -102,7 +109,13 @@ type AnnounceIntermediateRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func AnnounceIntermediate(prm AnnounceIntermediatePrm) (res AnnounceIntermediateRes, err error) {
-	_, err = prm.cli.AnnounceIntermediateTrust(prm.ctx, prm.cliPrm, prm.opts...)
+	var cliRes *client.AnnounceIntermediateTrustRes
+
+	cliRes, err = prm.cli.AnnounceIntermediateTrust(prm.ctx, prm.cliPrm, prm.opts...)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(cliRes.Status())
+	}
 
 	return
 }

@@ -1,8 +1,8 @@
 package control
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/rpc/client"
-	"github.com/nspcc-dev/neofs-api-go/rpc/common"
+	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	"github.com/nspcc-dev/neofs-api-go/v2/rpc/common"
 )
 
 const serviceName = "ircontrol.ControlService"

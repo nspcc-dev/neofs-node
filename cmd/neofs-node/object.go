@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -474,68 +473,60 @@ func (c *reputationClient) submitResult(err error) {
 	c.cons.trustStorage.Update(prm)
 }
 
-func (c *reputationClient) PutObject(ctx context.Context, prm *client.PutObjectParams, opts ...client.CallOption) (*objectSDK.ID, error) {
-	id, err := c.Client.PutObject(ctx, prm, opts...)
+func (c *reputationClient) PutObject(ctx context.Context, prm *client.PutObjectParams, opts ...client.CallOption) (*client.ObjectPutRes, error) {
+	res, err := c.Client.PutObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return id, err
+	return res, err
 }
 
-func (c *reputationClient) DeleteObject(ctx context.Context, prm *client.DeleteObjectParams, opts ...client.CallOption) error {
-	err := c.Client.DeleteObject(ctx, prm, opts...)
+func (c *reputationClient) DeleteObject(ctx context.Context, prm *client.DeleteObjectParams, opts ...client.CallOption) (*client.ObjectDeleteRes, error) {
+	res, err := c.Client.DeleteObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return err
+	return res, err
 }
 
-func (c *reputationClient) GetObject(ctx context.Context, prm *client.GetObjectParams, opts ...client.CallOption) (*objectSDK.Object, error) {
-	obj, err := c.Client.GetObject(ctx, prm, opts...)
+func (c *reputationClient) GetObject(ctx context.Context, prm *client.GetObjectParams, opts ...client.CallOption) (*client.ObjectGetRes, error) {
+	res, err := c.Client.GetObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return obj, err
+	return res, err
 }
 
-func (c *reputationClient) GetObjectHeader(ctx context.Context, prm *client.ObjectHeaderParams, opts ...client.CallOption) (*objectSDK.Object, error) {
-	obj, err := c.Client.GetObjectHeader(ctx, prm, opts...)
+func (c *reputationClient) HeadObject(ctx context.Context, prm *client.ObjectHeaderParams, opts ...client.CallOption) (*client.ObjectHeadRes, error) {
+	res, err := c.Client.HeadObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return obj, err
+	return res, err
 }
 
-func (c *reputationClient) ObjectPayloadRangeData(ctx context.Context, prm *client.RangeDataParams, opts ...client.CallOption) ([]byte, error) {
-	rng, err := c.Client.ObjectPayloadRangeData(ctx, prm, opts...)
+func (c *reputationClient) ObjectPayloadRangeData(ctx context.Context, prm *client.RangeDataParams, opts ...client.CallOption) (*client.ObjectRangeRes, error) {
+	res, err := c.Client.ObjectPayloadRangeData(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return rng, err
+	return res, err
 }
 
-func (c *reputationClient) ObjectPayloadRangeSHA256(ctx context.Context, prm *client.RangeChecksumParams, opts ...client.CallOption) ([][sha256.Size]byte, error) {
-	hashes, err := c.Client.ObjectPayloadRangeSHA256(ctx, prm, opts...)
+func (c *reputationClient) HashObjectPayloadRanges(ctx context.Context, prm *client.RangeChecksumParams, opts ...client.CallOption) (*client.ObjectRangeHashRes, error) {
+	res, err := c.Client.HashObjectPayloadRanges(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return hashes, err
+	return res, err
 }
 
-func (c *reputationClient) ObjectPayloadRangeTZ(ctx context.Context, prm *client.RangeChecksumParams, opts ...client.CallOption) ([][client.TZSize]byte, error) {
-	hashes, err := c.Client.ObjectPayloadRangeTZ(ctx, prm, opts...)
+func (c *reputationClient) SearchObjects(ctx context.Context, prm *client.SearchObjectParams, opts ...client.CallOption) (*client.ObjectSearchRes, error) {
+	res, err := c.Client.SearchObjects(ctx, prm, opts...)
 
 	c.submitResult(err)
 
-	return hashes, err
-}
-
-func (c *reputationClient) SearchObject(ctx context.Context, prm *client.SearchObjectParams, opts ...client.CallOption) ([]*objectSDK.ID, error) {
-	ids, err := c.Client.SearchObject(ctx, prm, opts...)
-
-	c.submitResult(err)
-
-	return ids, err
+	return res, err
 }
 
 func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (client.Client, error) {

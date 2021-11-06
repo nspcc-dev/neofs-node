@@ -26,6 +26,9 @@ func (s *signService) AnnounceLocalTrust(ctx context.Context, req *reputation.An
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.AnnounceLocalTrust(ctx, req.(*reputation.AnnounceLocalTrustRequest))
 		},
+		func() util.ResponseMessage {
+			return new(reputation.AnnounceLocalTrustResponse)
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -38,6 +41,9 @@ func (s *signService) AnnounceIntermediateResult(ctx context.Context, req *reput
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.AnnounceIntermediateResult(ctx, req.(*reputation.AnnounceIntermediateResultRequest))
+		},
+		func() util.ResponseMessage {
+			return new(reputation.AnnounceIntermediateResultResponse)
 		},
 	)
 	if err != nil {

@@ -28,6 +28,9 @@ func (s *signService) LocalNodeInfo(
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.LocalNodeInfo(ctx, req.(*netmap.LocalNodeInfoRequest))
 		},
+		func() util.ResponseMessage {
+			return new(netmap.LocalNodeInfoResponse)
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -40,6 +43,9 @@ func (s *signService) NetworkInfo(ctx context.Context, req *netmap.NetworkInfoRe
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
 		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
 			return s.svc.NetworkInfo(ctx, req.(*netmap.NetworkInfoRequest))
+		},
+		func() util.ResponseMessage {
+			return new(netmap.NetworkInfoResponse)
 		},
 	)
 	if err != nil {

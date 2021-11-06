@@ -7,6 +7,7 @@ import (
 
 	session2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -112,12 +113,12 @@ func (x *GetObjectPrm) SetAddress(addr *object.Address) {
 
 // GetObjectRes groups resulting values of GetObject operation.
 type GetObjectRes struct {
-	cliRes *object.Object
+	cliRes *client.ObjectGetRes
 }
 
 // Object returns requested object.
 func (x GetObjectRes) Object() *object.Object {
-	return x.cliRes
+	return x.cliRes.Object()
 }
 
 // GetObject reads the object by address.
@@ -130,6 +131,10 @@ func (x GetObjectRes) Object() *object.Object {
 //  object.ErrAlreadyRemoved error if requested object is marked to be removed.
 func GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 	res.cliRes, err = prm.cli.GetObject(prm.ctx, &prm.cliPrm, prm.opts...)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	// FIXME: object.ErrAlreadyRemoved never returns
 
@@ -159,12 +164,12 @@ func (x *HeadObjectPrm) SetAddress(addr *object.Address) {
 
 // GetObjectRes groups resulting values of GetObject operation.
 type HeadObjectRes struct {
-	cliRes *object.Object
+	cliRes *client.ObjectHeadRes
 }
 
 // Header returns requested object header.
 func (x HeadObjectRes) Header() *object.Object {
-	return x.cliRes
+	return x.cliRes.Object()
 }
 
 // HeadObject reads object header by address.
@@ -176,7 +181,11 @@ func (x HeadObjectRes) Header() *object.Object {
 //  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
 //  object.ErrAlreadyRemoved error if requested object is marked to be removed.
 func HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
-	res.cliRes, err = prm.cli.GetObjectHeader(prm.ctx, &prm.cliPrm, prm.opts...)
+	res.cliRes, err = prm.cli.HeadObject(prm.ctx, &prm.cliPrm, prm.opts...)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	// FIXME: object.ErrAlreadyRemoved never returns
 
@@ -213,12 +222,12 @@ func (x *PayloadRangePrm) SetRange(rng *object.Range) {
 
 // PayloadRangeRes groups resulting values of GetObject operation.
 type PayloadRangeRes struct {
-	cliRes []byte
+	cliRes *client.ObjectRangeRes
 }
 
 // PayloadRange returns data of the requested payload range.
 func (x PayloadRangeRes) PayloadRange() []byte {
-	return x.cliRes
+	return x.cliRes.Data()
 }
 
 // PayloadRange reads object payload range by address.
@@ -231,6 +240,10 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 //  object.ErrAlreadyRemoved error if requested object is marked to be removed.
 func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 	res.cliRes, err = prm.cli.ObjectPayloadRangeData(prm.ctx, &prm.cliPrm, prm.opts...)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	// FIXME: object.ErrAlreadyRemoved never returns
 
@@ -253,12 +266,12 @@ func (x *PutObjectPrm) SetObject(obj *object.Object) {
 
 // PutObjectRes groups resulting values of PutObject operation.
 type PutObjectRes struct {
-	cliRes *object.ID
+	cliRes *client.ObjectPutRes
 }
 
 // ID returns identifier of the stored object.
 func (x PutObjectRes) ID() *object.ID {
-	return x.cliRes
+	return x.cliRes.ID()
 }
 
 // PutObject saves the object in local storage of the remote node.
@@ -270,6 +283,10 @@ func PutObject(prm PutObjectPrm) (res PutObjectRes, err error) {
 	res.cliRes, err = prm.cli.PutObject(prm.ctx, &prm.cliPrm,
 		append(prm.opts, client.WithTTL(1))...,
 	)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	return
 }
@@ -295,19 +312,23 @@ func (x *SearchObjectsPrm) SetFilters(fs object.SearchFilters) {
 
 // SearchObjectsRes groups resulting values of SearchObjects operation.
 type SearchObjectsRes struct {
-	cliRes []*object.ID
+	cliRes *client.ObjectSearchRes
 }
 
 // IDList returns identifiers of the matched objects.
 func (x SearchObjectsRes) IDList() []*object.ID {
-	return x.cliRes
+	return x.cliRes.IDList()
 }
 
 // SearchObjects selects objects from container which match the filters.
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func SearchObjects(prm SearchObjectsPrm) (res SearchObjectsRes, err error) {
-	res.cliRes, err = prm.cli.SearchObject(prm.ctx, &prm.cliPrm, prm.opts...)
+	res.cliRes, err = prm.cli.SearchObjects(prm.ctx, &prm.cliPrm, prm.opts...)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	}
 
 	return
 }
