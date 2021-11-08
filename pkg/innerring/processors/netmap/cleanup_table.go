@@ -1,7 +1,9 @@
 package netmap
 
 import (
+	"bytes"
 	"encoding/hex"
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
@@ -12,12 +14,18 @@ type (
 		*sync.RWMutex
 		enabled    bool
 		threshold  uint64
-		lastAccess map[string]epochStamp
+		lastAccess map[string]epochStampWithNodeInfo
 	}
 
 	epochStamp struct {
 		epoch      uint64
 		removeFlag bool
+	}
+
+	epochStampWithNodeInfo struct {
+		epochStamp
+
+		binNodeInfo []byte
 	}
 )
 
@@ -26,7 +34,7 @@ func newCleanupTable(enabled bool, threshold uint64) cleanupTable {
 		RWMutex:    new(sync.RWMutex),
 		enabled:    enabled,
 		threshold:  threshold,
-		lastAccess: make(map[string]epochStamp),
+		lastAccess: make(map[string]epochStampWithNodeInfo),
 	}
 }
 
@@ -36,32 +44,50 @@ func (c *cleanupTable) update(snapshot *netmap.Netmap, now uint64) {
 	defer c.Unlock()
 
 	// replacing map is less memory efficient but faster
-	newMap := make(map[string]epochStamp, len(snapshot.Nodes))
+	newMap := make(map[string]epochStampWithNodeInfo, len(snapshot.Nodes))
 
 	for i := range snapshot.Nodes {
-		keyString := hex.EncodeToString(snapshot.Nodes[i].PublicKey())
-		if access, ok := c.lastAccess[keyString]; ok {
-			access.removeFlag = false // reset remove Flag on each Update
-			newMap[keyString] = access
-		} else {
-			newMap[keyString] = epochStamp{epoch: now}
+		binNodeInfo, err := snapshot.Nodes[i].Marshal()
+		if err != nil {
+			panic(fmt.Errorf("could not marshal node info: %w", err)) // seems better than ignore
 		}
+
+		keyString := hex.EncodeToString(snapshot.Nodes[i].PublicKey())
+
+		access, ok := c.lastAccess[keyString]
+		if ok {
+			access.removeFlag = false // reset remove Flag on each Update
+		} else {
+			access.epoch = now
+		}
+
+		access.binNodeInfo = binNodeInfo
+
+		newMap[keyString] = access
 	}
 
 	c.lastAccess = newMap
 }
 
-func (c *cleanupTable) touch(keyString string, now uint64) bool {
+// updates last access time of the netmap node by string public key.
+//
+// Returns true if at least one condition is met:
+//  * node hasn't been accessed yet;
+//  * remove flag is set;
+//  * binary node info has changed.
+func (c *cleanupTable) touch(keyString string, now uint64, binNodeInfo []byte) bool {
 	c.Lock()
 	defer c.Unlock()
 
 	access, ok := c.lastAccess[keyString]
-	result := !access.removeFlag && ok
+	result := !ok || access.removeFlag || !bytes.Equal(access.binNodeInfo, binNodeInfo)
 
 	access.removeFlag = false // reset remove flag on each touch
 	if now > access.epoch {
 		access.epoch = now
 	}
+
+	access.binNodeInfo = binNodeInfo // update binary node info
 
 	c.lastAccess[keyString] = access
 
