@@ -2,6 +2,7 @@ package deletesvc
 
 import (
 	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
@@ -25,6 +26,10 @@ type NetworkInfo interface {
 	// Must return the lifespan of the tombstones
 	// in the NeoFS epochs.
 	TombstoneLifetime() (uint64, error)
+
+	// Returns user ID of the local storage node. Result must not be nil.
+	// New tombstone objects will have the result as an owner ID if removal is executed w/o a session.
+	LocalNodeID() *owner.ID
 }
 
 type cfg struct {

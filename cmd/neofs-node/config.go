@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/pkg"
 	apiclient "github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
@@ -76,6 +77,8 @@ type cfg struct {
 	wg *sync.WaitGroup
 
 	key *keys.PrivateKey
+
+	ownerIDFromKey *owner.ID // owner ID calculated from key
 
 	apiVersion *pkg.Version
 
@@ -221,9 +224,15 @@ func initCfg(path string) *cfg {
 
 	key := nodeconfig.Key(appCfg)
 
+	neo3Wallet, err := owner.NEO3WalletFromPublicKey(&key.PrivateKey.PublicKey)
+	fatalOnErr(err)
+
+	ownerIDFromKey := owner.NewID()
+	ownerIDFromKey.SetNeo3Wallet(neo3Wallet)
+
 	var logPrm logger.Prm
 
-	err := logPrm.SetLevelString(
+	err = logPrm.SetLevelString(
 		loggerconfig.Level(appCfg),
 	)
 	fatalOnErr(err)
@@ -297,6 +306,8 @@ func initCfg(path string) *cfg {
 			apiclient.WithDialTimeout(apiclientconfig.DialTimeout(appCfg)),
 		),
 		persistate: persistate,
+
+		ownerIDFromKey: ownerIDFromKey,
 	}
 
 	if metricsconfig.Address(c.appCfg) != "" {
