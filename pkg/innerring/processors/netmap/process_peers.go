@@ -50,27 +50,25 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	})
 	nodeInfo.SetAttributes(a...)
 
+	// marshal updated node info structure
+	nodeInfoBinary, err := nodeInfo.Marshal()
+	if err != nil {
+		np.log.Warn("could not marshal updated network map candidate",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
 	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 
-	exists := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter())
-	if !exists {
+	updated := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter(), nodeInfoBinary)
+
+	if updated {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
 		if nr := ev.NotaryRequest(); nr != nil {
-			// notary event case
-
-			var nodeInfoBinary []byte
-
-			nodeInfoBinary, err = nodeInfo.Marshal()
-			if err != nil {
-				np.log.Warn("could not marshal updated network map candidate",
-					zap.String("error", err.Error()),
-				)
-
-				return
-			}
-
 			// create new notary request with the original nonce
 			err = np.netmapClient.Morph().NotaryInvoke(
 				np.netmapClient.ContractAddress(),

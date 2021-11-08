@@ -25,10 +25,13 @@ func TestCleanupTable(t *testing.T) {
 	networkMap, err := netmap.NewNetmap(netmap.NodesFromInfo(infos))
 	require.NoError(t, err)
 
-	mapInfos := map[string]struct{}{
-		hex.EncodeToString(infos[0].PublicKey()): {},
-		hex.EncodeToString(infos[1].PublicKey()): {},
-		hex.EncodeToString(infos[2].PublicKey()): {},
+	mapInfos := make(map[string][]byte)
+
+	for i := range infos {
+		binNodeInfo, err := infos[i].Marshal()
+		require.NoError(t, err)
+
+		mapInfos[hex.EncodeToString(infos[i].PublicKey())] = binNodeInfo
 	}
 
 	t.Run("update", func(t *testing.T) {
@@ -59,10 +62,15 @@ func TestCleanupTable(t *testing.T) {
 		c.update(networkMap, 1)
 
 		key := hex.EncodeToString(infos[1].PublicKey())
-		require.True(t, c.touch(key, 11))
+		require.False(t, c.touch(key, 11, mapInfos[key]))
 		require.EqualValues(t, 11, c.lastAccess[key].epoch)
 
-		require.False(t, c.touch(key+"x", 12))
+		updNodeInfo := []byte("changed node info")
+
+		require.True(t, c.touch(key, 11, updNodeInfo))
+		require.EqualValues(t, 11, c.lastAccess[key].epoch)
+
+		require.True(t, c.touch(key+"x", 12, updNodeInfo))
 		require.EqualValues(t, 12, c.lastAccess[key+"x"].epoch)
 	})
 
@@ -74,7 +82,7 @@ func TestCleanupTable(t *testing.T) {
 		c.flag(key)
 		require.True(t, c.lastAccess[key].removeFlag)
 
-		require.False(t, c.touch(key, 2))
+		require.True(t, c.touch(key, 2, mapInfos[key]))
 		require.False(t, c.lastAccess[key].removeFlag)
 	})
 
@@ -108,7 +116,7 @@ func TestCleanupTable(t *testing.T) {
 			cnt := 0
 			key := hex.EncodeToString(infos[1].PublicKey())
 
-			require.False(t, c.touch(key, 4)) // one node was updated
+			require.True(t, c.touch(key, 4, mapInfos[key])) // one node was updated
 
 			require.NoError(t,
 				c.forEachRemoveCandidate(4, func(s string) error {
