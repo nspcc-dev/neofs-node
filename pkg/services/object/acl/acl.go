@@ -581,10 +581,6 @@ func basicACLCheck(info requestInfo) bool {
 }
 
 func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
-	if owner == nil || len(info.senderKey) == 0 {
-		return false
-	}
-
 	// According to NeoFS specification sticky bit has no effect on system nodes
 	// for correct intra-container work with objects (in particular, replication).
 	if info.requestRole == acl.RoleSystem {
@@ -593,6 +589,10 @@ func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 
 	if !info.basicACL.Sticky() {
 		return true
+	}
+
+	if owner == nil || len(info.senderKey) == 0 {
+		return false
 	}
 
 	requestSenderKey := unmarshalPublicKey(info.senderKey)

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	ownertest "github.com/nspcc-dev/neofs-api-go/pkg/owner/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
@@ -49,5 +50,41 @@ func TestStickyCheck(t *testing.T) {
 
 		info.basicACL.ResetSticky()
 		require.True(t, stickyBitCheck(info, ownertest.Generate()))
+	})
+
+	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
+		var info requestInfo
+
+		info.requestRole = eacl.RoleOthers // should be non-system role
+
+		assertFn := func(isSticky, withKey, withOwner, expected bool) {
+			if isSticky {
+				info.basicACL.SetSticky()
+			} else {
+				info.basicACL.ResetSticky()
+			}
+
+			if withKey {
+				info.senderKey = make([]byte, 33)
+			} else {
+				info.senderKey = nil
+			}
+
+			var ownerID *owner.ID
+
+			if withOwner {
+				ownerID = ownertest.Generate()
+			}
+
+			require.Equal(t, expected, stickyBitCheck(info, ownerID))
+		}
+
+		assertFn(true, false, false, false)
+		assertFn(true, true, false, false)
+		assertFn(true, false, true, false)
+		assertFn(false, false, false, true)
+		assertFn(false, true, false, true)
+		assertFn(false, false, true, true)
+		assertFn(false, true, true, true)
 	})
 }
