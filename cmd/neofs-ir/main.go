@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
@@ -37,7 +35,6 @@ func exitErr(err error) {
 
 func main() {
 	configFile := flag.String("config", "", "path to config")
-	validators := flag.String("vote", "", "hex encoded public keys split with comma")
 	versionFlag := flag.Bool("version", false, "neofs-ir node version")
 	flag.Parse()
 
@@ -74,16 +71,6 @@ func main() {
 
 	innerRing, err := innerring.New(ctx, log, cfg)
 	exitErr(err)
-
-	if len(*validators) != 0 {
-		validatorKeys, err := parsePublicKeysFromString(*validators)
-		exitErr(err)
-
-		err = innerRing.InitAndVoteForSidechainValidator(validatorKeys)
-		exitErr(err)
-
-		return
-	}
 
 	// start HTTP servers
 	for i := range httpServers {
@@ -127,12 +114,6 @@ func main() {
 	}
 
 	log.Info("application stopped")
-}
-
-func parsePublicKeysFromString(argument string) (keys.PublicKeys, error) {
-	publicKeysString := strings.Split(argument, ",")
-
-	return innerring.ParsePublicKeysFromStrings(publicKeysString)
 }
 
 func initHTTPServers(cfg *viper.Viper) []*httputil.Server {
