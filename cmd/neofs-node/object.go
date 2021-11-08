@@ -120,12 +120,20 @@ func (r *localObjectInhumer) DeleteObjects(ts *objectSDK.Address, addr ...*objec
 
 type delNetInfo struct {
 	netmap.State
-
 	tsLifetime uint64
+
+	cfg *cfg
 }
 
 func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
 	return i.tsLifetime, nil
+}
+
+// returns node owner ID calculated from configured private key.
+//
+// Implements method needed for Object.Delete service.
+func (i *delNetInfo) LocalNodeID() *owner.ID {
+	return i.cfg.ownerIDFromKey
 }
 
 type innerRingFetcherWithNotary struct {
@@ -334,6 +342,8 @@ func initObjectService(c *cfg) {
 		deletesvc.WithNetworkInfo(&delNetInfo{
 			State:      c.cfgNetmap.state,
 			tsLifetime: 5,
+
+			cfg: c,
 		}),
 	)
 
