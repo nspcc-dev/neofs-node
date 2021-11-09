@@ -50,8 +50,9 @@ var setNetmapStatusCmd = &cobra.Command{
 const (
 	netmapStatusFlag = "status"
 
-	netmapStatusOnline  = "online"
-	netmapStatusOffline = "offline"
+	netmapStatusOnline      = "online"
+	netmapStatusOffline     = "offline"
+	netmapStatusMaintenance = "maintenance"
 )
 
 const (
@@ -88,9 +89,10 @@ func initControlSetNetmapStatusCmd() {
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.StringVarP(&netmapStatus, netmapStatusFlag, "", "",
-		fmt.Sprintf("new netmap status keyword ('%s', '%s')",
+		fmt.Sprintf("new netmap status keyword ('%s', '%s', '%s')",
 			netmapStatusOnline,
 			netmapStatusOffline,
+			netmapStatusMaintenance,
 		),
 	)
 
@@ -208,6 +210,8 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 		status = control.NetmapStatus_ONLINE
 	case netmapStatusOffline:
 		status = control.NetmapStatus_OFFLINE
+	case netmapStatusMaintenance:
+		status = control.NetmapStatus_MAINTENANCE
 	}
 
 	req := new(control.SetNetmapStatusRequest)
