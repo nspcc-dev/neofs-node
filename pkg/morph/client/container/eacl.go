@@ -55,10 +55,12 @@ func (g *EACLValues) SessionToken() []byte {
 // EACL performs the test invoke of get eACL
 // method of NeoFS Container contract.
 func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.eaclMethod,
-		args.cid,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.eaclMethod)
+	invokePrm.SetArgs(args.cid)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.eaclMethod, err)
 	} else if ln := len(prms); ln != 1 {

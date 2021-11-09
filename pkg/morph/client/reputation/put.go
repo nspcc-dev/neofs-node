@@ -2,6 +2,8 @@ package reputation
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // PutArgs groups the arguments of "put reputation value" invocation call.
@@ -28,12 +30,12 @@ func (p *PutArgs) SetValue(v []byte) {
 
 // Put invokes direct call of "put reputation value" method of reputation contract.
 func (c *Client) Put(args PutArgs) error {
-	err := c.client.Invoke(
-		c.putMethod,
-		int64(args.epoch),
-		args.peerID,
-		args.value,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.putMethod)
+	prm.SetArgs(int64(args.epoch), args.peerID, args.value)
+
+	err := c.client.Invoke(prm)
 
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)

@@ -2,6 +2,8 @@ package netmap
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // UpdateStateArgs groups the arguments
@@ -26,11 +28,12 @@ func (u *UpdateStateArgs) SetState(v int64) {
 // UpdateState invokes the call of update state method
 // of NeoFS Netmap contract.
 func (c *Client) UpdateState(args UpdateStateArgs) error {
-	err := c.client.Invoke(
-		c.updateStateMethod,
-		args.state,
-		args.key,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.updateStateMethod)
+	prm.SetArgs(args.state, args.key)
+
+	err := c.client.Invoke(prm)
 
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.updateStateMethod, err)

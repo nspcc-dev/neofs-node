@@ -33,14 +33,12 @@ func (l *ListValues) CIDList() [][]byte {
 // List performs the test invoke of list container
 // method of NeoFS Container contract.
 func (c *Client) List(args ListArgs) (*ListValues, error) {
-	invokeArgs := make([]interface{}, 0, 1)
+	invokePrm := client.TestInvokePrm{}
 
-	invokeArgs = append(invokeArgs, args.ownerID)
+	invokePrm.SetMethod(c.listMethod)
+	invokePrm.SetArgs(args.ownerID)
 
-	prms, err := c.client.TestInvoke(
-		c.listMethod,
-		invokeArgs...,
-	)
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listMethod, err)
 	} else if ln := len(prms); ln != 1 {

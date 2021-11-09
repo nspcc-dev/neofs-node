@@ -2,6 +2,8 @@ package neofsid
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // AddKeysArgs groups the arguments
@@ -35,11 +37,12 @@ func (x *commonBindArgs) SetKeys(v [][]byte) {
 // AddKeys invokes the call of key adding method
 // of NeoFS contract.
 func (x *Client) AddKeys(args AddKeysArgs) error {
-	err := x.client.Invoke(
-		x.addKeysMethod,
-		args.ownerID,
-		args.keys,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(x.addKeysMethod)
+	prm.SetArgs(args.ownerID, args.keys)
+
+	err := x.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", x.addKeysMethod, err)
 	}
@@ -50,11 +53,12 @@ func (x *Client) AddKeys(args AddKeysArgs) error {
 // RemoveKeys invokes the call of key removing method
 // of NeoFS contract.
 func (x *Client) RemoveKeys(args RemoveKeysArgs) error {
-	err := x.client.Invoke(
-		x.removeKeysMethod,
-		args.ownerID,
-		args.keys,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(x.removeKeysMethod)
+	prm.SetArgs(args.ownerID, args.keys)
+
+	err := x.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", x.removeKeysMethod, err)
 	}

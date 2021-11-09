@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // SetEACLArgs groups the arguments
@@ -44,13 +46,12 @@ func (p *SetEACLArgs) SetSessionToken(v []byte) {
 // SetEACL invokes the call of set eACL method
 // of NeoFS Container contract.
 func (c *Client) SetEACL(args SetEACLArgs) error {
-	err := c.client.Invoke(
-		c.setEACLMethod,
-		args.eacl,
-		args.sig,
-		args.pubkey,
-		args.token,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.setEACLMethod)
+	prm.SetArgs(args.eacl, args.sig, args.pubkey, args.token)
+
+	err := c.client.Invoke(prm)
 
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.setEACLMethod, err)

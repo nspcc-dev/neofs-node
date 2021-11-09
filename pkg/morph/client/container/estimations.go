@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 type StartEstimation struct {
@@ -21,14 +23,24 @@ func (e *StopEstimation) SetEpoch(v int64) {
 }
 
 func (c *Client) StartEstimation(args StartEstimation) error {
-	if err := c.client.Invoke(c.startEstimation, args.epoch); err != nil {
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.startEstimation)
+	prm.SetArgs(args.epoch)
+
+	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.startEstimation, err)
 	}
 	return nil
 }
 
 func (c *Client) StopEstimation(args StopEstimation) error {
-	if err := c.client.Invoke(c.stopEstimation, args.epoch); err != nil {
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.stopEstimation)
+	prm.SetArgs(args.epoch)
+
+	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.stopEstimation, err)
 	}
 	return nil

@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // DeleteArgs groups the arguments
@@ -36,12 +38,12 @@ func (p *DeleteArgs) SetSessionToken(v []byte) {
 // Delete invokes the call of delete container
 // method of NeoFS Container contract.
 func (c *Client) Delete(args DeleteArgs) error {
-	err := c.client.Invoke(
-		c.deleteMethod,
-		args.cid,
-		args.sig,
-		args.token,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.deleteMethod)
+	prm.SetArgs(args.cid, args.sig, args.token)
+
+	err := c.client.Invoke(prm)
 
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.deleteMethod, err)
