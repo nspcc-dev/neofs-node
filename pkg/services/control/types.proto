@@ -23,6 +23,9 @@ enum NetmapStatus {
 
     // Node is offline.
     OFFLINE = 2;
+
+    // Node is maintained by the owner.
+    MAINTENANCE = 3;
 }
 
 // NeoFS node description.
