@@ -252,7 +252,20 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 
 var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
 
+var errNodeMaintenance = errors.New("node is in maintenance mode")
+
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
+	if st == control.NetmapStatus_MAINTENANCE {
+		return c.cfgObject.cfgLocalStorage.localStorage.BlockExecution(errNodeMaintenance)
+	}
+
+	err := c.cfgObject.cfgLocalStorage.localStorage.ResumeExecution()
+	if err != nil {
+		c.log.Error("failed to resume local object operations",
+			zap.String("error", err.Error()),
+		)
+	}
+
 	if !c.needBootstrap() {
 		return errRelayBootstrap
 	}
