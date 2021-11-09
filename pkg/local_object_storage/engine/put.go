@@ -33,7 +33,18 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
-func (e *StorageEngine) Put(prm *PutPrm) (*PutRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) Put(prm *PutPrm) (res *PutRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.put(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}

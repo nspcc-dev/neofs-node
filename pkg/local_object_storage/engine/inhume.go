@@ -49,7 +49,18 @@ var errInhumeFailure = errors.New("inhume operation failed")
 
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from shard until `Delete` operation.
-func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.inhume(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
@@ -63,9 +74,9 @@ func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}
 
-		ok := e.inhume(prm.addrs[i], shPrm, true)
+		ok := e.inhumeAddr(prm.addrs[i], shPrm, true)
 		if !ok {
-			ok = e.inhume(prm.addrs[i], shPrm, false)
+			ok = e.inhumeAddr(prm.addrs[i], shPrm, false)
 			if !ok {
 				return nil, errInhumeFailure
 			}
@@ -75,7 +86,7 @@ func (e *StorageEngine) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 	return new(InhumeRes), nil
 }
 
-func (e *StorageEngine) inhume(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
+func (e *StorageEngine) inhumeAddr(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
 	root := false
 
 	e.iterateOverSortedShards(addr, func(_ int, sh *shard.Shard) (stop bool) {
