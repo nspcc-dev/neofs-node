@@ -63,9 +63,11 @@ func (v *ListResultsByNodeArgs) SetNodeKey(key []byte) {
 // ListAuditResults performs the test invoke of "list all audit result IDs"
 // method of NeoFS Audit contract.
 func (c *Client) ListAuditResults(args ListResultsArgs) (*ListResultsValues, error) {
-	items, err := c.client.TestInvoke(
-		c.listResultsMethod,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.listResultsMethod)
+
+	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listResultsMethod, err)
 	}
@@ -76,10 +78,12 @@ func (c *Client) ListAuditResults(args ListResultsArgs) (*ListResultsValues, err
 // ListAuditResultsByEpoch performs the test invoke of "list audit result IDs
 // by epoch" method of NeoFS Audit contract.
 func (c *Client) ListAuditResultsByEpoch(args ListResultsByEpochArgs) (*ListResultsValues, error) {
-	items, err := c.client.TestInvoke(
-		c.listByEpochResultsMethod,
-		args.epoch,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.listByEpochResultsMethod)
+	invokePrm.SetArgs(args.epoch)
+
+	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByEpochResultsMethod, err)
 	}
@@ -90,11 +94,12 @@ func (c *Client) ListAuditResultsByEpoch(args ListResultsByEpochArgs) (*ListResu
 // ListAuditResultsByCID performs the test invoke of "list audit result IDs
 // by epoch and CID" method of NeoFS Audit contract.
 func (c *Client) ListAuditResultsByCID(args ListResultsByCIDArgs) (*ListResultsValues, error) {
-	items, err := c.client.TestInvoke(
-		c.listByCIDResultsMethod,
-		args.epoch,
-		args.cid,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.listByCIDResultsMethod)
+	invokePrm.SetArgs(args.epoch, args.cid)
+
+	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByCIDResultsMethod, err)
 	}
@@ -105,12 +110,12 @@ func (c *Client) ListAuditResultsByCID(args ListResultsByCIDArgs) (*ListResultsV
 // ListAuditResultsByNode performs the test invoke of "list audit result IDs
 // by epoch, CID, and node key" method of NeoFS Audit contract.
 func (c *Client) ListAuditResultsByNode(args ListResultsByNodeArgs) (*ListResultsValues, error) {
-	items, err := c.client.TestInvoke(
-		c.listByNodeResultsMethod,
-		args.epoch,
-		args.cid,
-		args.nodeKey,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.listByNodeResultsMethod)
+	invokePrm.SetArgs(args.epoch, args.cid, args.nodeKey)
+
+	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByNodeResultsMethod, err)
 	}

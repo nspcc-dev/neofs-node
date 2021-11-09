@@ -32,10 +32,12 @@ func (c ConfigValues) Value() interface{} {
 // Config performs the test invoke of get config value
 // method of NeoFS Netmap contract.
 func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{}, error)) (*ConfigValues, error) {
-	items, err := c.client.TestInvoke(
-		c.configMethod,
-		args.key,
-	)
+	prm := client.TestInvokePrm{}
+
+	prm.SetMethod(c.configMethod)
+	prm.SetArgs(args.key)
+
+	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.configMethod, err)
@@ -58,7 +60,12 @@ func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{
 
 // SetConfig invokes `setConfig` method of NeoFS Netmap contract.
 func (c *Client) SetConfig(id, key []byte, value interface{}) error {
-	return c.client.Invoke(c.setConfigMethod, id, key, value)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.setConfigMethod)
+	prm.SetArgs(id, key, value)
+
+	return c.client.Invoke(prm)
 }
 
 func IntegerAssert(item stackitem.Item) (interface{}, error) {
@@ -74,7 +81,7 @@ func StringAssert(item stackitem.Item) (interface{}, error) {
 type ListConfigArgs struct {
 }
 
-// ConfigValues groups the stack parameters
+// ListConfigValues groups the stack parameters
 // returned by config listing test invoke.
 type ListConfigValues struct {
 	rs []stackitem.Item
@@ -114,9 +121,11 @@ func (x ListConfigValues) IterateRecords(f func(key, value []byte) error) error 
 
 // ListConfig performs the test invoke of config listing method of NeoFS Netmap contract.
 func (c *Client) ListConfig(args ListConfigArgs) (*ListConfigValues, error) {
-	items, err := c.client.TestInvoke(
-		c.configListMethod,
-	)
+	prm := client.TestInvokePrm{}
+
+	prm.SetMethod(c.configListMethod)
+
+	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.configListMethod, err)

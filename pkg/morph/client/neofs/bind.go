@@ -2,6 +2,8 @@ package neofscontract
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // BindKeysArgs groups the arguments
@@ -35,11 +37,12 @@ func (x *commonBindArgs) SetKeys(v [][]byte) {
 // BindKeys invokes the call of key binding method
 // of NeoFS contract.
 func (x *Client) BindKeys(args BindKeysArgs) error {
-	err := x.client.Invoke(
-		x.bindKeysMethod,
-		args.scriptHash,
-		args.keys,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(x.bindKeysMethod)
+	prm.SetArgs(args.scriptHash, args.keys)
+
+	err := x.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", x.bindKeysMethod, err)
 	}
@@ -50,11 +53,12 @@ func (x *Client) BindKeys(args BindKeysArgs) error {
 // UnbindKeys invokes the call of key unbinding method
 // of NeoFS contract.
 func (x *Client) UnbindKeys(args UnbindKeysArgs) error {
-	err := x.client.Invoke(
-		x.unbindKeysMethod,
-		args.scriptHash,
-		args.keys,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(x.unbindKeysMethod)
+	prm.SetArgs(args.scriptHash, args.keys)
+
+	err := x.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", x.unbindKeysMethod, err)
 	}

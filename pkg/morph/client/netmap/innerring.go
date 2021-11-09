@@ -16,15 +16,21 @@ func (c *Client) UpdateInnerRing(keys keys.PublicKeys) error {
 		args[i] = keys[i].Bytes()
 	}
 
-	return c.client.Invoke(c.updateInnerRing, args)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.updateInnerRing)
+	prm.SetArgs(args)
+
+	return c.client.Invoke(prm)
 }
 
 // InnerRingList returns public keys of inner ring members in
 // netmap contract.
 func (c *Client) InnerRingList() (keys.PublicKeys, error) {
-	prms, err := c.client.TestInvoke(
-		c.innerRingList,
-	)
+	invokePrm := client.TestInvokePrm{}
+	invokePrm.SetMethod(c.innerRingList)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.innerRingList, err)
 	}

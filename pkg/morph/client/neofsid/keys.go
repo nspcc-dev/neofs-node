@@ -33,14 +33,12 @@ func (l *KeyListingValues) Keys() [][]byte {
 // AccountKeys requests public keys of NeoFS account
 // through method of NeoFS ID contract.
 func (x *Client) AccountKeys(args KeyListingArgs) (*KeyListingValues, error) {
-	invokeArgs := make([]interface{}, 0, 1)
+	invokePrm := client.TestInvokePrm{}
 
-	invokeArgs = append(invokeArgs, args.ownerID)
+	invokePrm.SetMethod(x.keyListingMethod)
+	invokePrm.SetArgs(args.ownerID)
 
-	items, err := x.client.TestInvoke(
-		x.keyListingMethod,
-		invokeArgs...,
-	)
+	items, err := x.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", x.keyListingMethod, err)
 	} else if ln := len(items); ln != 1 {

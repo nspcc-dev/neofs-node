@@ -55,10 +55,12 @@ func (g *GetValues) SessionToken() []byte {
 // Get performs the test invoke of get container
 // method of NeoFS Container contract.
 func (c *Client) Get(args GetArgs) (*GetValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.getMethod,
-		args.cid,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.getMethod)
+	invokePrm.SetArgs(args.cid)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getMethod, err)
 	} else if ln := len(prms); ln != 1 {

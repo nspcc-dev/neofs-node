@@ -31,10 +31,12 @@ func (l ListByEpochResult) IDs() [][]byte {
 // ListByEpoch invokes the call of "list reputation ids by epoch" method of
 // reputation contract.
 func (c *Client) ListByEpoch(args ListByEpochArgs) (*ListByEpochResult, error) {
-	prms, err := c.client.TestInvoke(
-		c.listByEpochMethod,
-		int64(args.epoch),
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.listByEpochMethod)
+	invokePrm.SetArgs(int64(args.epoch))
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByEpochMethod, err)
 	} else if ln := len(prms); ln != 1 {

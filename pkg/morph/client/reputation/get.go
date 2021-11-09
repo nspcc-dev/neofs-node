@@ -47,11 +47,12 @@ func (g GetResult) Reputations() [][]byte {
 
 // Get invokes the call of "get reputation value" method of reputation contract.
 func (c *Client) Get(args GetArgs) (*GetResult, error) {
-	prms, err := c.client.TestInvoke(
-		c.getMethod,
-		int64(args.epoch),
-		args.peerID,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.getMethod)
+	invokePrm.SetArgs(int64(args.epoch), args.peerID)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getMethod, err)
 	}
@@ -62,10 +63,12 @@ func (c *Client) Get(args GetArgs) (*GetResult, error) {
 // GetByID invokes the call of "get reputation value by reputation id" method
 // of reputation contract.
 func (c *Client) GetByID(args GetByIDArgs) (*GetResult, error) {
-	prms, err := c.client.TestInvoke(
-		c.getByIDMethod,
-		args.id,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.getByIDMethod)
+	invokePrm.SetArgs(args.id)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getByIDMethod, err)
 	}

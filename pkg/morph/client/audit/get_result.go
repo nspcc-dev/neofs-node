@@ -31,10 +31,12 @@ func (v *GetAuditResultValue) Result() []byte {
 // GetAuditResult invokes the call of "get audit result" method
 // of NeoFS Audit contract.
 func (c *Client) GetAuditResult(args GetAuditResultArgs) (*GetAuditResultValue, error) {
-	prms, err := c.client.TestInvoke(
-		c.getResultMethod,
-		args.id,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.getResultMethod)
+	invokePrm.SetArgs(args.id)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getResultMethod, err)
 	} else if ln := len(prms); ln != 1 {

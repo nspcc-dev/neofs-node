@@ -2,6 +2,8 @@ package balance
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // TransferXArgs groups the arguments
@@ -43,13 +45,12 @@ func (t *TransferXArgs) SetDetails(v []byte) {
 // TransferX directly invokes the call of "transferX" method
 // of NeoFS Balance contract.
 func (c *Client) TransferX(args TransferXArgs) error {
-	err := c.client.Invoke(
-		c.transferXMethod,
-		args.sender,
-		args.recipient,
-		args.amount,
-		args.details,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.transferXMethod)
+	prm.SetArgs(args.sender, args.recipient, args.amount, args.details)
+
+	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.transferXMethod, err)
 	}
@@ -59,15 +60,30 @@ func (c *Client) TransferX(args TransferXArgs) error {
 
 // Mint invokes `mint` method of the balance contract.
 func (c *Client) Mint(to []byte, amount int64, id []byte) error {
-	return c.client.Invoke(c.mintMethod, to, amount, id)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.mintMethod)
+	prm.SetArgs(to, amount, id)
+
+	return c.client.Invoke(prm)
 }
 
 // Burn invokes `burn` method of the balance contract.
 func (c *Client) Burn(to []byte, amount int64, id []byte) error {
-	return c.client.Invoke(c.burnMethod, to, amount, id)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.burnMethod)
+	prm.SetArgs(to, amount, id)
+
+	return c.client.Invoke(prm)
 }
 
 // Lock invokes `lock` method of the balance contract.
 func (c *Client) Lock(id, user, lock []byte, amount, dueEpoch int64) error {
-	return c.client.Invoke(c.lockMethod, id, user, lock, amount, dueEpoch)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.lockMethod)
+	prm.SetArgs(id, user, lock, amount, dueEpoch)
+
+	return c.client.Invoke(prm)
 }
