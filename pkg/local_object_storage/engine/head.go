@@ -57,7 +57,18 @@ func (r *HeadRes) Header() *object.Object {
 //
 // Returns object.ErrNotFound if requested object is missing in local storage.
 // Returns object.ErrAlreadyRemoved if requested object was inhumed.
-func (e *StorageEngine) Head(prm *HeadPrm) (*HeadRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.head(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}

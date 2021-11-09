@@ -26,7 +26,18 @@ func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
 }
 
 // Delete marks the objects to be removed.
-func (e *StorageEngine) Delete(prm *DeletePrm) (*DeleteRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) Delete(prm *DeletePrm) (res *DeleteRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.delete(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}

@@ -60,7 +60,18 @@ func (r *RngRes) Object() *object.Object {
 // Returns ErrNotFound if requested object is missing in local storage.
 // Returns ErrAlreadyRemoved if requested object is inhumed.
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
-func (e *StorageEngine) GetRange(prm *RngPrm) (*RngRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) GetRange(prm *RngPrm) (res *RngRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.getRange(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}

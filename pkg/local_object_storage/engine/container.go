@@ -37,14 +37,24 @@ func (r *ListContainersRes) Containers() []*cid.ID {
 }
 
 // ContainerSize returns sum of estimation container sizes among all shards.
-func (e *StorageEngine) ContainerSize(prm *ContainerSizePrm) *ContainerSizeRes {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
+//
+// Returns empty result if executions are blocked (see BlockExecution).
+func (e *StorageEngine) ContainerSize(prm *ContainerSizePrm) (res *ContainerSizeRes) {
+	err := e.exec(func() error {
+		res = e.containerSize(prm)
+		return nil
+	})
+	if err != nil {
+		e.log.Debug("container size exec failure",
+			zap.String("err", err.Error()),
+		)
 	}
 
-	return &ContainerSizeRes{
-		size: e.containerSize(prm.cid),
+	if res == nil {
+		res = new(ContainerSizeRes)
 	}
+
+	return
 }
 
 // ContainerSize returns sum of estimation container sizes among all shards.
@@ -52,35 +62,51 @@ func ContainerSize(e *StorageEngine, id *cid.ID) uint64 {
 	return e.ContainerSize(&ContainerSizePrm{cid: id}).Size()
 }
 
-func (e *StorageEngine) containerSize(id *cid.ID) (total uint64) {
+func (e *StorageEngine) containerSize(prm *ContainerSizePrm) *ContainerSizeRes {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
+	}
+
+	var res ContainerSizeRes
+
 	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
-		size, err := shard.ContainerSize(s, id)
+		size, err := shard.ContainerSize(s, prm.cid)
 		if err != nil {
 			e.log.Warn("can't get container size",
 				zap.Stringer("shard_id", s.ID()),
-				zap.Stringer("container_id", id),
+				zap.Stringer("container_id", prm.cid),
 				zap.String("error", err.Error()))
 
 			return false
 		}
 
-		total += size
+		res.size += size
 
 		return false
 	})
 
-	return total
+	return &res
 }
 
 // ListContainers returns unique container IDs presented in the engine objects.
-func (e *StorageEngine) ListContainers(_ *ListContainersPrm) *ListContainersRes {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddListContainersDuration)()
+//
+// Returns empty result if executions are blocked (see BlockExecution).
+func (e *StorageEngine) ListContainers(_ *ListContainersPrm) (res *ListContainersRes) {
+	err := e.exec(func() error {
+		res = e.listContainers()
+		return nil
+	})
+	if err != nil {
+		e.log.Debug("list containers exec failure",
+			zap.String("err", err.Error()),
+		)
 	}
 
-	return &ListContainersRes{
-		containers: e.listContainers(),
+	if res == nil {
+		res = new(ListContainersRes)
 	}
+
+	return
 }
 
 // ListContainers returns unique container IDs presented in the engine objects.
@@ -88,7 +114,11 @@ func ListContainers(e *StorageEngine) []*cid.ID {
 	return e.ListContainers(&ListContainersPrm{}).Containers()
 }
 
-func (e *StorageEngine) listContainers() []*cid.ID {
+func (e *StorageEngine) listContainers() *ListContainersRes {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddListContainersDuration)()
+	}
+
 	uniqueIDs := make(map[string]*cid.ID)
 
 	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
@@ -116,5 +146,7 @@ func (e *StorageEngine) listContainers() []*cid.ID {
 		result = append(result, v)
 	}
 
-	return result
+	return &ListContainersRes{
+		containers: result,
+	}
 }

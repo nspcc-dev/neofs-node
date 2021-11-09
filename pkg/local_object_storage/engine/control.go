@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -8,6 +9,10 @@ import (
 
 // Open opens all StorageEngine's components.
 func (e *StorageEngine) Open() error {
+	return e.open()
+}
+
+func (e *StorageEngine) open() error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
@@ -34,8 +39,18 @@ func (e *StorageEngine) Init() error {
 	return nil
 }
 
-// Close releases all StorageEngine's components.
+var errClosed = errors.New("storage engine is closed")
+
+// Close releases all StorageEngine's components. Waits for all data-related operations to complete.
+// After the call, all the next ones will fail until the ResumeExecution call.
+//
+// Еhe method is supposed to be called when the application exits.
 func (e *StorageEngine) Close() error {
+	return e.setBlockExecErr(errClosed)
+}
+
+// closes all shards. Never returns an error, shard errors are logged.
+func (e *StorageEngine) close() error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
@@ -53,4 +68,71 @@ func (e *StorageEngine) Close() error {
 	}
 
 	return nil
+}
+
+// executes op if execution is not blocked, otherwise returns blocking error.
+//
+// Can be called concurrently with setBlockExecErr.
+func (e *StorageEngine) exec(op func() error) error {
+	e.blockExec.mtx.RLock()
+	defer e.blockExec.mtx.RUnlock()
+
+	if e.blockExec.err != nil {
+		return e.blockExec.err
+	}
+
+	return op()
+}
+
+// sets the flag of blocking execution of all data operations according to err:
+//   * err != nil, then blocks the execution. If exec wasn't blocked, calls close method.
+//   * otherwise, resumes execution. If exec was blocked, calls open method.
+//
+// Can be called concurrently with exec. In this case it waits for all executions to complete.
+func (e *StorageEngine) setBlockExecErr(err error) error {
+	e.blockExec.mtx.Lock()
+	defer e.blockExec.mtx.Unlock()
+
+	prevErr := e.blockExec.err
+
+	e.blockExec.err = err
+
+	if err == nil {
+		if prevErr != nil { // block -> ok
+			return e.open()
+		}
+	} else if prevErr == nil { // ok -> block
+		return e.close()
+	}
+
+	// otherwise do nothing
+
+	return nil
+}
+
+// BlockExecution block blocks the execution of any data-related operation. All blocked ops will return err.
+// To resume the execution, use ResumeExecution method.
+//
+// Сan be called regardless of the fact of the previous blocking. If execution wasn't blocked, releases all resources
+// similar to Close. Can be called concurrently with Close and any data related method (waits for all executions
+// to complete).
+//
+// Must not be called concurrently with either Open or Init.
+//
+// Note: technically passing nil error will resume the execution, otherwise, it is recommended to call ResumeExecution
+// for this.
+func (e *StorageEngine) BlockExecution(err error) error {
+	return e.setBlockExecErr(err)
+}
+
+// ResumeExecution resumes the execution of any data-related operation.
+// To block the execution, use BlockExecution method.
+//
+// Сan be called regardless of the fact of the previous blocking. If execution was blocked, prepares all resources
+// similar to Open. Can be called concurrently with Close and any data related method (waits for all executions
+// to complete).
+//
+// Must not be called concurrently with either Open or Init.
+func (e *StorageEngine) ResumeExecution() error {
+	return e.setBlockExecErr(nil)
 }

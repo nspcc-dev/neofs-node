@@ -42,7 +42,18 @@ func (r *GetRes) Object() *object.Object {
 // did not allow to completely read the object part.
 //
 // Returns ErrNotFound if requested object is missing in local storage.
-func (e *StorageEngine) Get(prm *GetPrm) (*GetRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) Get(prm *GetPrm) (res *GetRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.get(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) get(prm *GetPrm) (*GetRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}

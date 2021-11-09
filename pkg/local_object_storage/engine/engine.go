@@ -18,6 +18,12 @@ type StorageEngine struct {
 	shards map[string]*shard.Shard
 
 	shardPools map[string]util.WorkerPool
+
+	blockExec struct {
+		mtx sync.RWMutex
+
+		err error
+	}
 }
 
 // Option represents StorageEngine's constructor option.
