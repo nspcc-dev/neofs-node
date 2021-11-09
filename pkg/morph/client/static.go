@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -71,34 +72,106 @@ func (s StaticClient) Morph() *Client {
 	return s.client
 }
 
+// InvokePrm groups parameters of the Invoke operation.
+type InvokePrm struct {
+	// required parameters
+	method string
+	args   []interface{}
+
+	// optional parameters
+	InvokePrmOptional
+}
+
+// InvokePrmOptional groups optional parameters of the Invoke operation.
+type InvokePrmOptional struct {
+	// hash is an optional hash of the transaction
+	// that generated the notification that required
+	// to invoke notary request.
+	// It is used to generate same but unique nonce and
+	// `validUntilBlock` values by all notification
+	// receivers.
+	hash *util.Uint256
+}
+
+// SetMethod sets method of the contract to call.
+func (i *InvokePrm) SetMethod(method string) {
+	i.method = method
+}
+
+// SetArgs sets arguments of the contact call.
+func (i *InvokePrm) SetArgs(args ...interface{}) {
+	i.args = args
+}
+
+// SetHash sets optional hash of the transaction.
+// If hash is set and notary is enabled, StaticClient
+// uses it for notary nonce and `validUntilBlock`
+// calculation.
+func (i *InvokePrmOptional) SetHash(hash util.Uint256) {
+	i.hash = &hash
+}
+
 // Invoke calls Invoke method of Client with static internal script hash and fee.
 // Supported args types are the same as in Client.
 //
-// If TryNotary is provided, calls NotaryInvoke on Client.
-func (s StaticClient) Invoke(method string, args ...interface{}) error {
+// If TryNotary is provided:
+//     - if AsAlphabet is provided, calls NotaryInvoke;
+//     - otherwise, calls NotaryInvokeNotAlpha.
+func (s StaticClient) Invoke(prm InvokePrm) error {
 	if s.tryNotary {
 		if s.alpha {
-			// FIXME: do not use constant nonce for alphabet NR: #844
-			return s.client.NotaryInvoke(s.scScriptHash, s.fee, 1, method, args...)
+			var (
+				nonce uint32 = 1
+				vubP  *uint32
+				vub   uint32
+				err   error
+			)
+
+			if prm.hash != nil {
+				nonce, vub, err = s.client.CalculateNonceAndVUB(*prm.hash)
+				if err != nil {
+					return fmt.Errorf("could not calculate nonce and VUB for notary alphabet invoke: %w", err)
+				}
+
+				vubP = &vub
+			}
+
+			return s.client.NotaryInvoke(s.scScriptHash, s.fee, nonce, vubP, prm.method, prm.args...)
 		}
 
-		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, s.fee, method, args...)
+		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, s.fee, prm.method, prm.args...)
 	}
 
 	return s.client.Invoke(
 		s.scScriptHash,
 		s.fee,
-		method,
-		args...,
+		prm.method,
+		prm.args...,
 	)
 }
 
+// TestInvokePrm groups parameters of the TestInvoke operation.
+type TestInvokePrm struct {
+	method string
+	args   []interface{}
+}
+
+// SetMethod sets method of the contract to call.
+func (ti *TestInvokePrm) SetMethod(method string) {
+	ti.method = method
+}
+
+// SetArgs sets arguments of the contact call.
+func (ti *TestInvokePrm) SetArgs(args ...interface{}) {
+	ti.args = args
+}
+
 // TestInvoke calls TestInvoke method of Client with static internal script hash.
-func (s StaticClient) TestInvoke(method string, args ...interface{}) ([]stackitem.Item, error) {
+func (s StaticClient) TestInvoke(prm TestInvokePrm) ([]stackitem.Item, error) {
 	return s.client.TestInvoke(
 		s.scScriptHash,
-		method,
-		args...,
+		prm.method,
+		prm.args...,
 	)
 }
 
