@@ -33,10 +33,12 @@ func (g *GetBalanceOfValues) Amount() *big.Int {
 // BalanceOf performs the test invoke of "balance of"
 // method of NeoFS Balance contract.
 func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.balanceOfMethod,
-		args.wallet,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.balanceOfMethod)
+	invokePrm.SetArgs(args.wallet)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.balanceOfMethod, err)
 	} else if ln := len(prms); ln != 1 {

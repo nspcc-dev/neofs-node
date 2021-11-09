@@ -41,9 +41,10 @@ func (e EpochBlockValues) Block() int64 {
 // Epoch performs the test invoke of get epoch number
 // method of NeoFS Netmap contract.
 func (c *Client) Epoch(_ EpochArgs) (*EpochValues, error) {
-	items, err := c.client.TestInvoke(
-		c.epochMethod,
-	)
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(c.epochMethod)
+
+	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.epochMethod, err)
@@ -67,7 +68,10 @@ func (c *Client) Epoch(_ EpochArgs) (*EpochValues, error) {
 // LastEpochBlock performs the test invoke of get epoch block number
 // method of NeoFS Netmap contract.
 func (c *Client) LastEpochBlock(_ EpochBlockArgs) (*EpochBlockValues, error) {
-	items, err := c.client.TestInvoke(c.lastEpochBlockMethod)
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(c.lastEpochBlockMethod)
+
+	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.lastEpochBlockMethod, err)

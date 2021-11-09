@@ -106,9 +106,10 @@ func (g GetNetMapValues) Peers() [][]byte {
 // NetMap performs the test invoke of get network map
 // method of NeoFS Netmap contract.
 func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.netMapMethod,
-	)
+	invokePrm := client.TestInvokePrm{}
+	invokePrm.SetMethod(c.netMapMethod)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.netMapMethod, err)
@@ -121,10 +122,12 @@ func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
 // from NeoFS Netmap contract. Contract saves only one previous epoch,
 // so all invokes with diff > 1 return error.
 func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.snapshotMethod,
-		int64(a.diff),
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.snapshotMethod)
+	invokePrm.SetArgs(int64(a.diff))
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.netMapMethod, err)
@@ -136,10 +139,12 @@ func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
 // EpochSnapshot performs the test invoke of get snapshot of network map by epoch
 // from NeoFS Netmap contract.
 func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.epochSnapshotMethod,
-		int64(args.epoch),
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.epochSnapshotMethod)
+	invokePrm.SetArgs(int64(args.epoch))
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			c.epochSnapshotMethod, err)
@@ -156,9 +161,10 @@ func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, er
 }
 
 func (c *Client) Candidates(_ GetNetMapCandidatesArgs) (*GetNetMapCandidatesValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.netMapCandidatesMethod,
-	)
+	invokePrm := client.TestInvokePrm{}
+	invokePrm.SetMethod(c.netMapCandidatesMethod)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.netMapCandidatesMethod, err)
 	}

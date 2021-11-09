@@ -25,9 +25,11 @@ func (d *DecimalsValues) Decimals() int64 {
 // Decimals performs the test invoke of decimals
 // method of NeoFS Balance contract.
 func (c *Client) Decimals(args DecimalsArgs) (*DecimalsValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.decimalsMethod,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.decimalsMethod)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.decimalsMethod, err)
 	} else if ln := len(prms); ln != 1 {

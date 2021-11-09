@@ -44,13 +44,12 @@ func (p *PutSizeArgs) SetReporterKey(v []byte) {
 // PutSize invokes the call of put container size method
 // of NeoFS Container contract.
 func (c *Client) PutSize(args PutSizeArgs) error {
-	err := c.client.Invoke(
-		c.putSizeMethod,
-		args.epoch,
-		args.cid,
-		args.size,
-		args.reporterKey,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.putSizeMethod)
+	prm.SetArgs(args.epoch, args.cid, args.size, args.reporterKey)
+
+	err := c.client.Invoke(prm)
 
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.putSizeMethod, err)
@@ -76,19 +75,21 @@ type ListSizesValues struct {
 	ids [][]byte
 }
 
-// Announcements returns list of identifiers of the
+// IDList returns list of identifiers of the
 // container load estimations.
 func (v *ListSizesValues) IDList() [][]byte {
 	return v.ids
 }
 
-// List performs the test invoke of "list container sizes"
+// ListSizes performs the test invoke of "list container sizes"
 // method of NeoFS Container contract.
 func (c *Client) ListSizes(args ListSizesArgs) (*ListSizesValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.listSizesMethod,
-		args.epoch,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.listSizesMethod)
+	invokePrm.SetArgs(args.epoch)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listSizesMethod, err)
 	} else if ln := len(prms); ln != 1 {
@@ -153,10 +154,12 @@ func (v *GetSizeValues) Estimations() Estimations {
 // GetContainerSize performs the test invoke of "get container size"
 // method of NeoFS Container contract.
 func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
-	prms, err := c.client.TestInvoke(
-		c.getSizeMethod,
-		args.id,
-	)
+	invokePrm := client.TestInvokePrm{}
+
+	invokePrm.SetMethod(c.getSizeMethod)
+	invokePrm.SetArgs(args.id)
+
+	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getSizeMethod, err)
 	} else if ln := len(prms); ln != 1 {

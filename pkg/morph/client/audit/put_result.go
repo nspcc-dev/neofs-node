@@ -2,6 +2,8 @@ package audit
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // PutAuditResultArgs groups the arguments
@@ -19,10 +21,12 @@ func (g *PutAuditResultArgs) SetRawResult(v []byte) {
 // PutAuditResult invokes the call of "put audit result" method
 // of NeoFS Audit contract.
 func (c *Client) PutAuditResult(args PutAuditResultArgs) error {
-	err := c.client.Invoke(
-		c.putResultMethod,
-		args.rawResult,
-	)
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.putResultMethod)
+	prm.SetArgs(args.rawResult)
+
+	err := c.client.Invoke(prm)
 
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.putResultMethod, err)

@@ -2,6 +2,8 @@ package netmap
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // NewEpochArgs groups the arguments
@@ -18,7 +20,12 @@ func (a *NewEpochArgs) SetEpochNumber(v int64) {
 // NewEpoch invokes the call of new epoch method
 // of NeoFS Netmap contract.
 func (c *Client) NewEpoch(args NewEpochArgs) error {
-	if err := c.client.Invoke(c.newEpochMethod, args.number); err != nil {
+	prm := client.InvokePrm{}
+
+	prm.SetMethod(c.newEpochMethod)
+	prm.SetArgs(args.number)
+
+	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.newEpochMethod, err)
 	}
 	return nil

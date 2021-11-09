@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // PutArgs groups the arguments
@@ -52,34 +54,23 @@ func (p *PutArgs) SetNativeNameWithZone(name, zone string) {
 // of NeoFS Container contract.
 func (c *Client) Put(args PutArgs) error {
 	var (
-		err    error
 		method string
+		prm    client.InvokePrm
 	)
 
 	if args.name != "" {
-		err = c.client.Invoke(
-			c.putNamedMethod,
-			args.cnr,
-			args.sig,
-			args.publicKey,
-			args.token,
-			args.name,
-			args.zone,
-		)
-
 		method = c.putNamedMethod
-	} else {
-		err = c.client.Invoke(
-			c.putMethod,
-			args.cnr,
-			args.sig,
-			args.publicKey,
-			args.token,
-		)
 
+		prm.SetArgs(args.cnr, args.sig, args.publicKey, args.token, args.name, args.zone)
+	} else {
 		method = c.putMethod
+
+		prm.SetArgs(args.cnr, args.sig, args.publicKey, args.token)
 	}
 
+	prm.SetMethod(method)
+
+	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", method, err)
 	}
