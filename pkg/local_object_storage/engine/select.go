@@ -47,7 +47,18 @@ func (r *SelectRes) AddressList() []*object.Address {
 // Select selects the objects from local storage that match select parameters.
 //
 // Returns any error encountered that did not allow to completely select the objects.
-func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) Select(prm *SelectPrm) (res *SelectRes, err error) {
+	err = e.exec(func() error {
+		res, err = e._select(prm)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -97,7 +108,18 @@ func (e *StorageEngine) Select(prm *SelectPrm) (*SelectRes, error) {
 
 // List returns `limit` available physically storage object addresses in engine.
 // If limit is zero, then returns all available object addresses.
-func (e *StorageEngine) List(limit uint64) (*SelectRes, error) {
+//
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) List(limit uint64) (res *SelectRes, err error) {
+	err = e.exec(func() error {
+		res, err = e.list(limit)
+		return err
+	})
+
+	return
+}
+
+func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
