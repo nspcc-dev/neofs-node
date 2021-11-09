@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -243,14 +244,31 @@ func (c *Client) GetNotaryDeposit() (res int64, err error) {
 	return bigIntDeposit.Int64(), nil
 }
 
+// UpdateNotaryListPrm groups parameters of UpdateNotaryList operation.
+type UpdateNotaryListPrm struct {
+	list keys.PublicKeys
+	hash util.Uint256
+}
+
+// SetList sets list of the new notary role keys.
+func (u *UpdateNotaryListPrm) SetList(list keys.PublicKeys) {
+	u.list = list
+}
+
+// SetHash sets hash of the transaction that led to the update
+// of the notary role in the designate contract.
+func (u *UpdateNotaryListPrm) SetHash(hash util.Uint256) {
+	u.hash = hash
+}
+
 // UpdateNotaryList updates list of notary nodes in designate contract. Requires
 // committee multi signature.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
+func (c *Client) UpdateNotaryList(prm UpdateNotaryListPrm) error {
 	if c.multiClient != nil {
 		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.UpdateNotaryList(list)
+			return c.UpdateNotaryList(prm)
 		})
 	}
 
@@ -258,12 +276,35 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
+	nonce, vub, err := c.CalculateNonceAndVUB(prm.hash)
+	if err != nil {
+		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
+	}
+
 	return c.notaryInvokeAsCommittee(
 		setDesignateMethod,
-		1, // FIXME: do not use constant nonce for alphabet NR: #844
+		nonce,
+		vub,
 		noderoles.P2PNotary,
-		list,
+		prm.list,
 	)
+}
+
+// UpdateAlphabetListPrm groups parameters of UpdateNeoFSAlphabetList operation.
+type UpdateAlphabetListPrm struct {
+	list keys.PublicKeys
+	hash util.Uint256
+}
+
+// SetList sets list of the new alphabet role keys.
+func (u *UpdateAlphabetListPrm) SetList(list keys.PublicKeys) {
+	u.list = list
+}
+
+// SetHash sets hash of the transaction that led to the update
+// of the alphabet role in the designate contract.
+func (u *UpdateAlphabetListPrm) SetHash(hash util.Uint256) {
+	u.hash = hash
 }
 
 // UpdateNeoFSAlphabetList updates list of alphabet nodes in designate contract.
@@ -271,10 +312,10 @@ func (c *Client) UpdateNotaryList(list keys.PublicKeys) error {
 // Requires committee multi signature.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
+func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 	if c.multiClient != nil {
 		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.UpdateNeoFSAlphabetList(list)
+			return c.UpdateNeoFSAlphabetList(prm)
 		})
 	}
 
@@ -282,11 +323,17 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
+	nonce, vub, err := c.CalculateNonceAndVUB(prm.hash)
+	if err != nil {
+		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
+	}
+
 	return c.notaryInvokeAsCommittee(
 		setDesignateMethod,
-		1, // FIXME: do not use constant nonce for alphabet NR: #844
+		nonce,
+		vub,
 		noderoles.NeoFSAlphabet,
-		list,
+		prm.list,
 	)
 }
 
@@ -294,11 +341,11 @@ func (c *Client) UpdateNeoFSAlphabetList(list keys.PublicKeys) error {
 // blockchain. Fallback tx is a `RET`. If Notary support is not enabled
 // it fallbacks to a simple `Invoke()`.
 //
-// This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, method string, args ...interface{}) error {
+// `nonce` and `vub` are used only if notary is enabled.
+func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...interface{}) error {
 	if c.multiClient != nil {
 		return c.multiClient.iterateClients(func(c *Client) error {
-			return c.NotaryInvoke(contract, fee, nonce, method, args...)
+			return c.NotaryInvoke(contract, fee, nonce, vub, method, args...)
 		})
 	}
 
@@ -306,7 +353,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, true, contract, nonce, method, args...)
+	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
 }
 
 // randSource is a source of random numbers.
@@ -328,7 +375,7 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, false, contract, randSource.Uint32(), method, args...)
+	return c.notaryInvoke(false, false, contract, randSource.Uint32(), nil, method, args...)
 }
 
 // NotarySignAndInvokeTX signs and sends notary request that was received from
@@ -376,16 +423,16 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 	return nil
 }
 
-func (c *Client) notaryInvokeAsCommittee(method string, nonce uint32, args ...interface{}) error {
+func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...interface{}) error {
 	designate, err := c.GetDesignateHash()
 	if err != nil {
 		return err
 	}
 
-	return c.notaryInvoke(true, true, designate, nonce, method, args...)
+	return c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, method string, args ...interface{}) error {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...interface{}) error {
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err
@@ -427,9 +474,15 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		return err
 	}
 
-	until, err := c.notaryTxValidationLimit()
-	if err != nil {
-		return err
+	var until uint32
+
+	if vub != nil {
+		until = *vub
+	} else {
+		until, err = c.notaryTxValidationLimit()
+		if err != nil {
+			return err
+		}
 	}
 
 	// prepare main tx
@@ -773,4 +826,25 @@ func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed
 	}
 
 	return fixedn.Fixed8(depositAmount), nil
+}
+
+// CalculateNonceAndVUB calculates nonce and ValidUntilBlock values
+// based on transaction hash. Uses MurmurHash3.
+func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint32, err error) {
+	if c.multiClient != nil {
+		return nonce, vub, c.multiClient.iterateClients(func(c *Client) error {
+			nonce, vub, err = c.CalculateNonceAndVUB(hash)
+			return err
+		})
+	}
+
+	// TODO: cache values since some operations uses same TX as triggers
+	nonce = binary.LittleEndian.Uint32(hash.BytesLE())
+
+	height, err := c.client.GetTransactionHeight(hash)
+	if err != nil {
+		return 0, 0, fmt.Errorf("could not get transaction height: %w", err)
+	}
+
+	return nonce, height + c.notary.txValidTime, nil
 }
