@@ -1,8 +1,8 @@
 package meta
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -51,8 +51,6 @@ const (
 	cursorPrefixSG        = 's'
 )
 
-var errStopIterator = errors.New("stop")
-
 // ListWithCursor lists physical objects available in metabase. Includes regular,
 // tombstone and storage group objects. Does not include inhumed objects. Use
 // cursor value from response for consecutive requests.
@@ -100,18 +98,21 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor string) ([]*object.
 	result := make([]*object.Address, 0, count)
 	unique := make(map[string]struct{}) // do not parse the same containerID twice
 
-	_ = tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
+	c := tx.Cursor()
+	name, _ := c.First()
+
+	if !threshold {
+		name, _ = c.Seek([]byte(a.ContainerID().String()))
+	}
+
+loop:
+	for ; name != nil; name, _ = c.Next() {
 		containerID := parseContainerID(name, unique)
 		if containerID == nil {
-			return nil
+			continue
 		}
 
 		unique[containerID.String()] = struct{}{}
-
-		if !threshold && !containerID.Equal(a.ContainerID()) {
-			return nil // ignore buckets until we find cursor bucket
-		}
-
 		prefix := containerID.String() + "/"
 
 		lookupBuckets := [...]struct {
@@ -131,15 +132,14 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor string) ([]*object.
 			cursorPrefix = lb.prefix
 			result, cursor = selectNFromBucket(tx, lb.name, prefix, result, count, cursor, threshold)
 			if len(result) >= count {
-				return errStopIterator
+				break loop
 			}
 
 			// set threshold flag after first `selectNFromBucket` invocation
 			// first invocation must look for cursor object
 			threshold = true
 		}
-		return nil
-	})
+	}
 
 	if len(result) == 0 {
 		return nil, "", core.ErrEndOfListing
@@ -165,38 +165,35 @@ func selectNFromBucket(tx *bbolt.Tx,
 
 	count := len(to)
 
-	_ = bkt.ForEach(func(k, v []byte) error {
+	c := bkt.Cursor()
+	k, _ := c.First()
+
+	if !threshold {
+		seekKey := strings.Replace(cursor, prefix, "", 1)
+		c.Seek([]byte(seekKey))
+		k, _ = c.Next() // we are looking for objects _after_ the cursor
+	}
+
+	for ; k != nil; k, _ = c.Next() {
 		if count >= limit {
-			return errStopIterator
+			break
 		}
 
 		key := prefix + string(k)
-
-		if !threshold {
-			if cursor == key {
-				// ignore cursor object and start adding next objects
-				threshold = true
-			}
-			return nil
-		}
-
-		threshold = true
 		cursor = key
 
 		a := object.NewAddress()
 		if err := a.Parse(key); err != nil {
-			return err
+			break
 		}
 
 		if inGraveyard(tx, a) > 0 {
-			return nil
+			continue
 		}
 
 		to = append(to, a)
 		count++
-
-		return nil
-	})
+	}
 
 	return to, cursor
 }
