@@ -6,63 +6,66 @@ import (
 	"go.uber.org/zap"
 )
 
+// ContainerSizePrm groups parameters of ContainerSize operation.
 type ContainerSizePrm struct {
 	cid *cid.ID
 }
 
+// ContainerSizeRes resulting values of ContainerSize operation.
 type ContainerSizeRes struct {
 	size uint64
 }
 
+// ListContainersPrm groups parameters of ListContainers operation.
 type ListContainersPrm struct{}
 
+// ListContainersRes groups resulting values of ListContainers operation.
 type ListContainersRes struct {
 	containers []*cid.ID
 }
 
-func (p *ContainerSizePrm) WithContainerID(cid *cid.ID) *ContainerSizePrm {
-	if p != nil {
-		p.cid = cid
-	}
-
-	return p
+// SetContainerID sets identifier of the container to estimate the size.
+func (p *ContainerSizePrm) SetContainerID(cid *cid.ID) {
+	p.cid = cid
 }
 
-func (r *ContainerSizeRes) Size() uint64 {
+// Size returns calculated estimation of the container size.
+func (r ContainerSizeRes) Size() uint64 {
 	return r.size
 }
 
-func (r *ListContainersRes) Containers() []*cid.ID {
+// Containers returns list of identifiers of the containers in which local objects are stored.
+func (r ListContainersRes) Containers() []*cid.ID {
 	return r.containers
 }
 
 // ContainerSize returns sum of estimation container sizes among all shards.
 //
-// Returns empty result if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ContainerSize(prm *ContainerSizePrm) (res *ContainerSizeRes) {
-	err := e.execIfNotBlocked(func() error {
-		res = e.containerSize(prm)
-		return nil
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) ContainerSize(prm ContainerSizePrm) (res *ContainerSizeRes, err error) {
+	err = e.execIfNotBlocked(func() error {
+		res, err = e.containerSize(prm)
+		return err
 	})
-	if err != nil {
-		e.log.Debug("container size exec failure",
-			zap.String("err", err.Error()),
-		)
-	}
-
-	if res == nil {
-		res = new(ContainerSizeRes)
-	}
 
 	return
 }
 
-// ContainerSize returns sum of estimation container sizes among all shards.
-func ContainerSize(e *StorageEngine, id *cid.ID) uint64 {
-	return e.ContainerSize(&ContainerSizePrm{cid: id}).Size()
+// ContainerSize calls ContainerSize method on engine to calculate sum of estimation container sizes among all shards.
+func ContainerSize(e *StorageEngine, id *cid.ID) (uint64, error) {
+	var prm ContainerSizePrm
+
+	prm.SetContainerID(id)
+
+	res, err := e.ContainerSize(prm)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.Size(), nil
 }
 
-func (e *StorageEngine) containerSize(prm *ContainerSizePrm) *ContainerSizeRes {
+func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
@@ -85,36 +88,34 @@ func (e *StorageEngine) containerSize(prm *ContainerSizePrm) *ContainerSizeRes {
 		return false
 	})
 
-	return &res
+	return &res, nil
 }
 
 // ListContainers returns unique container IDs presented in the engine objects.
 //
-// Returns empty result if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ListContainers(_ *ListContainersPrm) (res *ListContainersRes) {
-	err := e.execIfNotBlocked(func() error {
-		res = e.listContainers()
-		return nil
+// Returns an error if executions are blocked (see BlockExecution).
+func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res *ListContainersRes, err error) {
+	err = e.execIfNotBlocked(func() error {
+		res, err = e.listContainers()
+		return err
 	})
-	if err != nil {
-		e.log.Debug("list containers exec failure",
-			zap.String("err", err.Error()),
-		)
-	}
-
-	if res == nil {
-		res = new(ListContainersRes)
-	}
 
 	return
 }
 
-// ListContainers returns unique container IDs presented in the engine objects.
-func ListContainers(e *StorageEngine) []*cid.ID {
-	return e.ListContainers(&ListContainersPrm{}).Containers()
+// ListContainers calls ListContainers method on engine to get unique container IDs presented in the engine objects.
+func ListContainers(e *StorageEngine) ([]*cid.ID, error) {
+	var prm ListContainersPrm
+
+	res, err := e.ListContainers(prm)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Containers(), nil
 }
 
-func (e *StorageEngine) listContainers() *ListContainersRes {
+func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
@@ -148,5 +149,5 @@ func (e *StorageEngine) listContainers() *ListContainersRes {
 
 	return &ListContainersRes{
 		containers: result,
-	}
+	}, nil
 }
