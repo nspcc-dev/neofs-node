@@ -22,6 +22,13 @@ type commonBindArgs struct {
 	scriptHash []byte // script hash of account identifier
 
 	keys [][]byte // list of serialized public keys
+
+	client.InvokePrmOptional
+}
+
+// SetOptionalPrm sets optional client parameters.
+func (x *commonBindArgs) SetOptionalPrm(op client.InvokePrmOptional) {
+	x.InvokePrmOptional = op
 }
 
 // SetScriptHash sets script hash of the NeoFS account identifier.
@@ -41,6 +48,7 @@ func (x *Client) BindKeys(args BindKeysArgs) error {
 
 	prm.SetMethod(x.bindKeysMethod)
 	prm.SetArgs(args.scriptHash, args.keys)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
@@ -57,6 +65,7 @@ func (x *Client) UnbindKeys(args UnbindKeysArgs) error {
 
 	prm.SetMethod(x.unbindKeysMethod)
 	prm.SetArgs(args.scriptHash, args.keys)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
