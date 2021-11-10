@@ -6,7 +6,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	"go.uber.org/zap"
 )
 
@@ -14,7 +19,7 @@ const (
 	alphabetUpdateIDPrefix = "AlphabetUpdate"
 )
 
-func (gp *Processor) processAlphabetSync() {
+func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	if !gp.alphabetState.IsAlphabet() {
 		gp.log.Info("non alphabet mode, ignore alphabet sync")
 		return
@@ -51,8 +56,13 @@ func (gp *Processor) processAlphabetSync() {
 		zap.String("new_alphabet", prettyKeys(newAlphabet)),
 	)
 
+	votePrm := VoteValidatorPrm{
+		Validators: newAlphabet,
+		Hash:       &txHash,
+	}
+
 	// 1. Vote to side chain committee via alphabet contracts.
-	err = gp.voter.VoteForSidechainValidator(newAlphabet)
+	err = gp.voter.VoteForSidechainValidator(votePrm)
 	if err != nil {
 		gp.log.Error("can't vote for side chain committee",
 			zap.String("error", err.Error()))
@@ -77,9 +87,19 @@ func (gp *Processor) processAlphabetSync() {
 			)
 
 			if gp.notaryDisabled {
-				err = gp.netmapClient.UpdateInnerRing(newInnerRing)
+				updPrm := wrapper.UpdateIRPrm{}
+
+				updPrm.SetKeys(newInnerRing)
+				updPrm.SetHash(txHash)
+
+				err = gp.netmapClient.UpdateInnerRing(updPrm)
 			} else {
-				err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing)
+				updPrm := client.UpdateAlphabetListPrm{}
+
+				updPrm.SetList(newInnerRing)
+				updPrm.SetHash(txHash)
+
+				err = gp.morphClient.UpdateNeoFSAlphabetList(updPrm)
 			}
 
 			if err != nil {
@@ -91,7 +111,13 @@ func (gp *Processor) processAlphabetSync() {
 
 	if !gp.notaryDisabled {
 		// 3. Update notary role in side chain.
-		err = gp.morphClient.UpdateNotaryList(newAlphabet)
+
+		updPrm := client.UpdateNotaryListPrm{}
+
+		updPrm.SetList(newAlphabet)
+		updPrm.SetHash(txHash)
+
+		err = gp.morphClient.UpdateNotaryList(updPrm)
 		if err != nil {
 			gp.log.Error("can't update list of notary nodes in side chain",
 				zap.String("error", err.Error()))
@@ -106,7 +132,12 @@ func (gp *Processor) processAlphabetSync() {
 
 	id := append([]byte(alphabetUpdateIDPrefix), buf...)
 
-	err = gp.neofsClient.AlphabetUpdate(id, newAlphabet)
+	prm := neofscontract.AlphabetUpdatePrm{}
+
+	prm.SetID(id)
+	prm.SetPubs(newAlphabet)
+
+	err = gp.neofsClient.AlphabetUpdate(prm)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
 			zap.String("error", err.Error()))

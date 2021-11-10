@@ -17,6 +17,11 @@ type Lock struct {
 	lock   util.Uint160
 	amount int64 // Fixed16
 	until  int64
+
+	// txHash is used in notary environmental
+	// for calculating unique but same for
+	// all notification receivers values.
+	txHash util.Uint256
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -34,8 +39,12 @@ func (l Lock) LockAccount() util.Uint160 { return l.lock }
 // Amount of the locked assets.
 func (l Lock) Amount() int64 { return l.amount }
 
-// Until is a epoch before locked account exists.
+// Until is an epoch before locked account exists.
 func (l Lock) Until() int64 { return l.until }
+
+// TxHash returns hash of the TX with lock
+// notification.
+func (l Lock) TxHash() util.Uint256 { return l.txHash }
 
 // ParseLock from notification into lock structure.
 func ParseLock(e *subscriptions.NotificationEvent) (event.Event, error) {
@@ -92,6 +101,8 @@ func ParseLock(e *subscriptions.NotificationEvent) (event.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get lock deadline: %w", err)
 	}
+
+	ev.txHash = e.Container
 
 	return ev, nil
 }

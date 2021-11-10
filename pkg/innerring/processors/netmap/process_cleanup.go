@@ -2,7 +2,7 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
@@ -25,20 +25,13 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 
 		np.log.Info("vote to remove node from netmap", zap.String("key", s))
 
-		if np.notaryDisabled {
-			err = np.netmapClient.UpdatePeerState(key.Bytes(), netmap.NodeStateOffline)
-		} else {
-			// use epoch as TX nonce to prevent collisions
-			err = np.netmapClient.Morph().NotaryInvoke(
-				np.netmapClient.ContractAddress(),
-				0,
-				uint32(ev.epoch),
-				netmapEvent.UpdateStateNotaryEvent,
-				int64(netmap.NodeStateOffline.ToV2()),
-				key.Bytes(),
-			)
-		}
+		prm := netmapclient.UpdatePeerPrm{}
 
+		prm.SetKey(key.Bytes())
+		prm.SetState(netmap.NodeStateOffline)
+		prm.SetHash(ev.TxHash())
+
+		err = np.netmapClient.UpdatePeerState(prm)
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
 		}

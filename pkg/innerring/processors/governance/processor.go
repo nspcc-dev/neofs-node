@@ -26,12 +26,21 @@ type (
 	AlphabetState interface {
 		IsAlphabet() bool
 	}
+)
 
-	// Voter is a callback interface for alphabet contract voting.
-	Voter interface {
-		VoteForSidechainValidator(keys keys.PublicKeys) error
-	}
+// VoteValidatorPrm groups parameters of the VoteForSidechainValidator
+// operation.
+type VoteValidatorPrm struct {
+	Validators keys.PublicKeys
+	Hash       *util.Uint256 // hash of the transaction that triggered voting
+}
 
+// Voter is a callback interface for alphabet contract voting.
+type Voter interface {
+	VoteForSidechainValidator(VoteValidatorPrm) error
+}
+
+type (
 	// EpochState is a callback interface for innerring global state.
 	EpochState interface {
 		EpochCounter() uint64
