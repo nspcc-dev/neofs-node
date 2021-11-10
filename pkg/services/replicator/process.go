@@ -37,12 +37,13 @@ func (p *Replicator) Run(ctx context.Context) {
 				return
 			}
 
-			p.handleTask(ctx, task)
+			p.HandleTask(ctx, task)
 		}
 	}
 }
 
-func (p *Replicator) handleTask(ctx context.Context, task *Task) {
+// HandleTask executes replication task inside invoking goroutine.
+func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 	defer func() {
 		p.log.Info("finish work",
 			zap.Uint32("amount of unfinished replicas", task.quantity),
