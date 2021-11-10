@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+
 	"github.com/nspcc-dev/neo-go/pkg/encoding/bigint"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 )
@@ -168,9 +170,40 @@ func (w *Wrapper) readStringConfig(key string) (string, error) {
 	return str, nil
 }
 
+// SetConfigPrm groups parameters of SetConfig operation.
+type SetConfigPrm struct {
+	id    []byte
+	key   []byte
+	value interface{}
+
+	client.InvokePrmOptional
+}
+
+// SetID sets ID of the config value.
+func (s *SetConfigPrm) SetID(id []byte) {
+	s.id = id
+}
+
+// SetKey sets key of the config value.
+func (s *SetConfigPrm) SetKey(key []byte) {
+	s.key = key
+}
+
+// SetValue sets value of the config value.
+func (s *SetConfigPrm) SetValue(value interface{}) {
+	s.value = value
+}
+
 // SetConfig sets config field.
-func (w *Wrapper) SetConfig(id, key []byte, value interface{}) error {
-	return w.client.SetConfig(id, key, value)
+func (w *Wrapper) SetConfig(prm SetConfigPrm) error {
+	args := netmap.SetConfigPrm{}
+
+	args.SetID(prm.id)
+	args.SetKey(prm.key)
+	args.SetValue(prm.value)
+	args.InvokePrmOptional = prm.InvokePrmOptional
+
+	return w.client.SetConfig(args)
 }
 
 // IterateConfigParameters iterates over configuration parameters stored in Netmap contract and passes them to f.

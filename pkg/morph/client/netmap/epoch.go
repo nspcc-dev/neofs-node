@@ -8,8 +8,7 @@ import (
 
 // EpochArgs groups the arguments
 // of get epoch number test invoke call.
-type EpochArgs struct {
-}
+type EpochArgs struct{}
 
 // EpochValues groups the stack parameters
 // returned by get epoch number test invoke.
@@ -20,22 +19,6 @@ type EpochValues struct {
 // Number return the number of NeoFS epoch.
 func (e EpochValues) Number() int64 {
 	return e.num
-}
-
-// EpochBlockArgs groups the arguments of
-// get epoch block number test invoke call.
-type EpochBlockArgs struct {
-}
-
-// EpochBlockValues groups the stack parameters
-// returned by get epoch block number test invoke.
-type EpochBlockValues struct {
-	block int64
-}
-
-// Block return the block number of NeoFS epoch.
-func (e EpochBlockValues) Block() int64 {
-	return e.block
 }
 
 // Epoch performs the test invoke of get epoch number
@@ -63,6 +46,21 @@ func (c *Client) Epoch(_ EpochArgs) (*EpochValues, error) {
 	return &EpochValues{
 		num: num,
 	}, nil
+}
+
+// EpochBlockArgs groups the arguments of
+// get epoch block number test invoke call.
+type EpochBlockArgs struct{}
+
+// EpochBlockValues groups the stack parameters
+// returned by get epoch block number test invoke.
+type EpochBlockValues struct {
+	block int64
+}
+
+// Block return the block number of NeoFS epoch.
+func (e EpochBlockValues) Block() int64 {
+	return e.block
 }
 
 // LastEpochBlock performs the test invoke of get epoch block number
