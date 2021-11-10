@@ -9,17 +9,32 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
+// UpdateIRPrm groups parameters of UpdateInnerRing
+// invocation.
+type UpdateIRPrm struct {
+	keys keys.PublicKeys
+
+	client.InvokePrmOptional
+}
+
+// SetKeys sets new inner ring keys.
+func (u *UpdateIRPrm) SetKeys(keys keys.PublicKeys) {
+	u.keys = keys
+}
+
 // UpdateInnerRing updates inner ring members in netmap contract.
-func (c *Client) UpdateInnerRing(keys keys.PublicKeys) error {
-	args := make([][]byte, len(keys))
+func (c *Client) UpdateInnerRing(p UpdateIRPrm) error {
+	args := make([][]byte, len(p.keys))
+
 	for i := range args {
-		args[i] = keys[i].Bytes()
+		args[i] = p.keys[i].Bytes()
 	}
 
 	prm := client.InvokePrm{}
 
 	prm.SetMethod(c.updateInnerRing)
 	prm.SetArgs(args)
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return c.client.Invoke(prm)
 }
