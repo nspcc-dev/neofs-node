@@ -10,8 +10,8 @@ import (
 
 // Process new epoch notification by setting global epoch value and resetting
 // local epoch timer.
-func (np *Processor) processNewEpoch(event netmapEvent.NewEpoch) {
-	epoch := event.EpochNumber()
+func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
+	epoch := ev.EpochNumber()
 
 	epochDuration, err := np.netmapClient.EpochDuration()
 	if err != nil {
@@ -47,11 +47,11 @@ func (np *Processor) processNewEpoch(event netmapEvent.NewEpoch) {
 	}
 
 	np.netmapSnapshot.update(networkMap, epoch)
-	np.handleCleanupTick(netmapCleanupTick{epoch: epoch})
+	np.handleCleanupTick(netmapCleanupTick{epoch: epoch, txHash: ev.TxHash()})
 	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
 	np.handleAuditSettlements(settlement.NewAuditEvent(epoch))
-	np.handleAlphabetSync(governance.NewSyncEvent())
-	np.handleNotaryDeposit(event)
+	np.handleAlphabetSync(governance.NewSyncEvent(ev.TxHash()))
+	np.handleNotaryDeposit(ev)
 }
 
 // Process new epoch tick by invoking new epoch method in network map contract.

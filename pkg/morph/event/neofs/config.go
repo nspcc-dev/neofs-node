@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -12,6 +13,17 @@ type Config struct {
 	key   []byte
 	value []byte
 	id    []byte
+
+	// txHash is used in notary environmental
+	// for calculating unique but same for
+	// all notification receivers values.
+	txHash util.Uint256
+}
+
+// TxHash returns hash of the TX with new epoch
+// notification.
+func (u Config) TxHash() util.Uint256 {
+	return u.txHash
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -55,6 +67,8 @@ func ParseConfig(e *subscriptions.NotificationEvent) (event.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get config value: %w", err)
 	}
+
+	ev.txHash = e.Container
 
 	return ev, nil
 }

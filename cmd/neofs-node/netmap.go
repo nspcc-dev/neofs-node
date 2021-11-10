@@ -9,6 +9,7 @@ import (
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -283,10 +284,12 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
-	return c.cfgNetmap.wrapper.UpdatePeerState(
-		c.key.PublicKey().Bytes(),
-		apiState,
-	)
+	prm := wrapper.UpdatePeerPrm{}
+
+	prm.SetKey(c.key.PublicKey().Bytes())
+	prm.SetState(apiState)
+
+	return c.cfgNetmap.wrapper.UpdatePeerState(prm)
 }
 
 type netInfo struct {

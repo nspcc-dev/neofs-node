@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -88,7 +88,9 @@ func (s *Server) AlphabetIndex() int {
 	return int(index)
 }
 
-func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
+func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) error {
+	validators := prm.Validators
+
 	index := s.InnerRingIndex()
 	if s.contracts.alphabet.indexOutOfRange(index) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
@@ -104,9 +106,21 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 
 	epoch := s.EpochCounter()
 
+	var (
+		nonce uint32 = 1
+		vub   uint32
+		err   error
+	)
+
+	if prm.Hash != nil {
+		nonce, vub, err = s.morphClient.CalculateNonceAndVUB(*prm.Hash)
+		if err != nil {
+			return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
+		}
+	}
+
 	s.contracts.alphabet.iterate(func(letter GlagoliticLetter, contract util.Uint160) {
-		// FIXME: do not use constant nonce for alphabet NR: #844
-		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), 1, voteMethod, int64(epoch), validators)
+		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, &vub, voteMethod, int64(epoch), validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),
@@ -120,9 +134,9 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys) error {
 
 // VoteForSidechainValidator calls vote method on alphabet contracts with
 // provided list of keys.
-func (s *Server) VoteForSidechainValidator(validators keys.PublicKeys) error {
-	sort.Sort(validators)
-	return s.voteForSidechainValidator(validators)
+func (s *Server) VoteForSidechainValidator(prm governance.VoteValidatorPrm) error {
+	sort.Sort(prm.Validators)
+	return s.voteForSidechainValidator(prm)
 }
 
 // WriteReport composes audit result structure from audit report

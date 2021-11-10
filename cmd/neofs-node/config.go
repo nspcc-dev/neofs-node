@@ -476,7 +476,10 @@ func (c *cfg) bootstrap() error {
 	ni := c.cfgNodeInfo.localInfo
 	ni.SetState(netmap.NodeStateOnline)
 
-	return c.cfgNetmap.wrapper.AddPeer(&ni)
+	prm := nmwrapper.AddPeerPrm{}
+	prm.SetNodeInfo(&ni)
+
+	return c.cfgNetmap.wrapper.AddPeer(prm)
 }
 
 // needBootstrap checks if local node should be registered in network on bootup.

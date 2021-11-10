@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -11,6 +12,11 @@ import (
 // NewEpoch is a new epoch Neo:Morph event.
 type NewEpoch struct {
 	num uint64
+
+	// txHash is used in notary environmental
+	// for calculating unique but same for
+	// all notification receivers values.
+	txHash util.Uint256
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -19,6 +25,12 @@ func (NewEpoch) MorphEvent() {}
 // EpochNumber returns new epoch number.
 func (s NewEpoch) EpochNumber() uint64 {
 	return s.num
+}
+
+// TxHash returns hash of the TX with new epoch
+// notification.
+func (s NewEpoch) TxHash() util.Uint256 {
+	return s.txHash
 }
 
 // ParseNewEpoch is a parser of new epoch notification event.
@@ -40,6 +52,7 @@ func ParseNewEpoch(e *subscriptions.NotificationEvent) (event.Event, error) {
 	}
 
 	return NewEpoch{
-		num: uint64(prmEpochNum),
+		num:    uint64(prmEpochNum),
+		txHash: e.Container,
 	}, nil
 }
