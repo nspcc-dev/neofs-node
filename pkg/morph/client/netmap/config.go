@@ -13,15 +13,15 @@ type ConfigArgs struct {
 	key []byte
 }
 
+// SetKey sets binary key to configuration parameter.
+func (c *ConfigArgs) SetKey(v []byte) {
+	c.key = v
+}
+
 // ConfigValues groups the stack parameters
 // returned by get config test invoke.
 type ConfigValues struct {
 	val interface{}
-}
-
-// SetKey sets binary key to configuration parameter.
-func (c *ConfigArgs) SetKey(v []byte) {
-	c.key = v
 }
 
 // Value returns configuration value.
@@ -58,12 +58,37 @@ func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{
 	}, nil
 }
 
+// SetConfigPrm groups parameters of SetConfig operation.
+type SetConfigPrm struct {
+	id    []byte
+	key   []byte
+	value interface{}
+
+	client.InvokePrmOptional
+}
+
+// SetID sets ID of the config value.
+func (s *SetConfigPrm) SetID(id []byte) {
+	s.id = id
+}
+
+// SetKey sets key of the config value.
+func (s *SetConfigPrm) SetKey(key []byte) {
+	s.key = key
+}
+
+// SetValue sets value of the config value.
+func (s *SetConfigPrm) SetValue(value interface{}) {
+	s.value = value
+}
+
 // SetConfig invokes `setConfig` method of NeoFS Netmap contract.
-func (c *Client) SetConfig(id, key []byte, value interface{}) error {
+func (c *Client) SetConfig(args SetConfigPrm) error {
 	prm := client.InvokePrm{}
 
 	prm.SetMethod(c.setConfigMethod)
-	prm.SetArgs(id, key, value)
+	prm.SetArgs(args.id, args.key, args.value)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	return c.client.Invoke(prm)
 }
@@ -120,7 +145,7 @@ func (x ListConfigValues) IterateRecords(f func(key, value []byte) error) error 
 }
 
 // ListConfig performs the test invoke of config listing method of NeoFS Netmap contract.
-func (c *Client) ListConfig(args ListConfigArgs) (*ListConfigValues, error) {
+func (c *Client) ListConfig(_ ListConfigArgs) (*ListConfigValues, error) {
 	prm := client.TestInvokePrm{}
 
 	prm.SetMethod(c.configListMethod)

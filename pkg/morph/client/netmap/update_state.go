@@ -12,6 +12,8 @@ type UpdateStateArgs struct {
 	key []byte // peer public key
 
 	state int64 // new peer state
+
+	client.InvokePrmOptional
 }
 
 // SetPublicKey sets peer public key
@@ -32,9 +34,9 @@ func (c *Client) UpdateState(args UpdateStateArgs) error {
 
 	prm.SetMethod(c.updateStateMethod)
 	prm.SetArgs(args.state, args.key)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
-
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.updateStateMethod, err)
 	}

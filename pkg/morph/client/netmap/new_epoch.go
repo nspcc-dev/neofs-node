@@ -10,6 +10,8 @@ import (
 // of new epoch invocation call.
 type NewEpochArgs struct {
 	number int64 // new epoch number
+
+	client.InvokePrmOptional
 }
 
 // SetEpochNumber sets the new epoch number.
@@ -24,6 +26,7 @@ func (c *Client) NewEpoch(args NewEpochArgs) error {
 
 	prm.SetMethod(c.newEpochMethod)
 	prm.SetArgs(args.number)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.newEpochMethod, err)

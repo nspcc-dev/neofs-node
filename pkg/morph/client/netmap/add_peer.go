@@ -10,6 +10,8 @@ import (
 // of add peer invocation call.
 type AddPeerArgs struct {
 	info []byte
+
+	client.InvokePrmOptional
 }
 
 // SetInfo sets the peer information.
@@ -24,6 +26,7 @@ func (c *Client) AddPeer(args AddPeerArgs) error {
 
 	prm.SetMethod(c.addPeerMethod)
 	prm.SetArgs(args.info)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.addPeerMethod, err)

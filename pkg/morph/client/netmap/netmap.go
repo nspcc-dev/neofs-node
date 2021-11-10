@@ -7,48 +7,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// GetNetMapArgs groups the arguments
-// of get network map test invoke call.
-type GetNetMapArgs struct {
-}
-
-// GetSnapshotArgs groups the arguments
-// of get netmap snapshot test invoke call.
-type GetSnapshotArgs struct {
-	diff uint64
-}
-
 // GetNetMapValues groups the stack parameters
 // returned by get network map test invoke.
 type GetNetMapValues struct {
 	peers [][]byte
-}
-
-// EpochSnapshotArgs groups the arguments
-// of snapshot by epoch test invoke call.
-type EpochSnapshotArgs struct {
-	epoch uint64
-}
-
-// EpochSnapshotValues groups the stack parameters
-// returned by snapshot by epoch test invoke.
-type EpochSnapshotValues struct {
-	*GetNetMapValues
-}
-
-// GetNetMapCandidatesArgs groups the arguments
-// of get network map candidates test invoke call.
-type GetNetMapCandidatesArgs struct {
-}
-
-// GetNetMapCandidatesValues groups the stack parameters
-// returned by get network map candidates test invoke.
-type GetNetMapCandidatesValues struct {
-	netmapNodes []*PeerWithState
-}
-
-func (g GetNetMapCandidatesValues) NetmapNodes() []*PeerWithState {
-	return g.netmapNodes
 }
 
 // State is an enumeration of various states of the NeoFS node.
@@ -86,22 +48,15 @@ const (
 	peerWithStateFixedPrmNumber = 2
 )
 
-// SetDiff sets argument for snapshot method of
-// netmap contract.
-func (g *GetSnapshotArgs) SetDiff(d uint64) {
-	g.diff = d
-}
-
-// SetEpoch sets epoch number to get snapshot.
-func (a *EpochSnapshotArgs) SetEpoch(d uint64) {
-	a.epoch = d
-}
-
 // Peers return the list of peers from
 // network map in a binary format.
 func (g GetNetMapValues) Peers() [][]byte {
 	return g.peers
 }
+
+// GetNetMapArgs groups the arguments
+// of get network map test invoke call.
+type GetNetMapArgs struct{}
 
 // NetMap performs the test invoke of get network map
 // method of NeoFS Netmap contract.
@@ -116,6 +71,18 @@ func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
 	}
 
 	return peersFromStackItems(prms, c.netMapMethod)
+}
+
+// GetSnapshotArgs groups the arguments
+// of get netmap snapshot test invoke call.
+type GetSnapshotArgs struct {
+	diff uint64
+}
+
+// SetDiff sets argument for snapshot method of
+// netmap contract.
+func (g *GetSnapshotArgs) SetDiff(d uint64) {
+	g.diff = d
 }
 
 // Snapshot performs the test invoke of get snapshot of network map
@@ -134,6 +101,23 @@ func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
 	}
 
 	return peersFromStackItems(prms, c.snapshotMethod)
+}
+
+// EpochSnapshotArgs groups the arguments
+// of snapshot by epoch test invoke call.
+type EpochSnapshotArgs struct {
+	epoch uint64
+}
+
+// SetEpoch sets epoch number to get snapshot.
+func (a *EpochSnapshotArgs) SetEpoch(d uint64) {
+	a.epoch = d
+}
+
+// EpochSnapshotValues groups the stack parameters
+// returned by snapshot by epoch test invoke.
+type EpochSnapshotValues struct {
+	*GetNetMapValues
 }
 
 // EpochSnapshot performs the test invoke of get snapshot of network map by epoch
@@ -158,6 +142,20 @@ func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, er
 	return &EpochSnapshotValues{
 		GetNetMapValues: nmVals,
 	}, nil
+}
+
+// GetNetMapCandidatesArgs groups the arguments
+// of get network map candidates test invoke call.
+type GetNetMapCandidatesArgs struct{}
+
+// GetNetMapCandidatesValues groups the stack parameters
+// returned by get network map candidates test invoke.
+type GetNetMapCandidatesValues struct {
+	netmapNodes []*PeerWithState
+}
+
+func (g GetNetMapCandidatesValues) NetmapNodes() []*PeerWithState {
+	return g.netmapNodes
 }
 
 func (c *Client) Candidates(_ GetNetMapCandidatesArgs) (*GetNetMapCandidatesValues, error) {
