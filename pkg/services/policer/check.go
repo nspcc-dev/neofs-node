@@ -118,7 +118,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 			zap.Uint32("shortage", shortage),
 		)
 
-		p.replicator.AddTask(new(replicator.Task).
+		p.replicator.HandleTask(ctx, new(replicator.Task).
 			WithObjectAddress(addr).
 			WithNodes(nodes).
 			WithCopiesNumber(shortage),
