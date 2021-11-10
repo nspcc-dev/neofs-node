@@ -3,8 +3,8 @@ package blobstor
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // ExistsPrm groups the parameters of Exists operation.

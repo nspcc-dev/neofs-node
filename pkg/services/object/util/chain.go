@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 )

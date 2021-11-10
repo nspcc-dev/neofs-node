@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -68,7 +68,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	t.Run("parent object", func(t *testing.T) {
 		obj := generateRawObject(t)
 		addAttribute(obj, "foo", "bar")
-		cid := cidtest.Generate()
+		cid := cidtest.GenerateID()
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateRawObjectWithCID(t, cid)

@@ -3,12 +3,12 @@ package local
 import (
 	"crypto/ecdsa"
 
-	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
-	reputationapi "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
+	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // RemoteProviderPrm groups the required parameters of the RemoteProvider's constructor.

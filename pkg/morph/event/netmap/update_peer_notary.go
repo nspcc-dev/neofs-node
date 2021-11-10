@@ -7,9 +7,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapv2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 var errNilPubKey = errors.New("could not parse public key: public key is nil")

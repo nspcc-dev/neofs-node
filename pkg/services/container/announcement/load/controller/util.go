@@ -3,7 +3,7 @@ package loadcontroller
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
 func usedSpaceFilterEpochEQ(epoch uint64) UsedSpaceFilter {

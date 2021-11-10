@@ -3,8 +3,8 @@ package transformer
 import (
 	"io"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // AccessIdentifiers represents group of the object identifiers

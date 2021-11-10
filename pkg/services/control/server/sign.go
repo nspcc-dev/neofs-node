@@ -5,8 +5,8 @@ import (
 	"crypto/ecdsa"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 )
 
 // SignedMessage is an interface of Control service message.

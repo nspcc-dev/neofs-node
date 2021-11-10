@@ -7,12 +7,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
@@ -45,6 +39,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"go.uber.org/zap"
 )
 
@@ -414,8 +414,8 @@ type morphEACLFetcher struct {
 
 type signedEACLTable eaclSDK.Table
 
-func (s *signedEACLTable) ReadSignedData(buf []byte) ([]byte, error) {
-	return (*eaclSDK.Table)(s).Marshal(buf)
+func (s *signedEACLTable) ReadSignedData(_ []byte) ([]byte, error) {
+	return (*eaclSDK.Table)(s).Marshal()
 }
 
 func (s *signedEACLTable) SignedDataSize() int {

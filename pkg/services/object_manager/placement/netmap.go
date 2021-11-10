@@ -3,9 +3,9 @@ package placement
 import (
 	"fmt"
 
-	netmapSDK "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type netMapBuilder struct {

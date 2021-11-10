@@ -3,7 +3,7 @@ package neofsapiclient
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type contextPrm struct {

@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/hrw"
-	apiNetmap "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 

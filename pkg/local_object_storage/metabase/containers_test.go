@@ -5,11 +5,11 @@ import (
 	"sort"
 	"testing"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -127,7 +127,7 @@ func TestDB_ContainerSize(t *testing.T) {
 	objs := make(map[*cid.ID][]*object.RawObject, C*N)
 
 	for i := 0; i < C; i++ {
-		cid := cidtest.Generate()
+		cid := cidtest.GenerateID()
 		cids[cid] = 0
 
 		for j := 0; j < N; j++ {

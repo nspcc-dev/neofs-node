@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )

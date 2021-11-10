@@ -3,10 +3,10 @@ package getsvc
 import (
 	"hash"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // Prm groups parameters of Get service call.

@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/panjf2000/ants/v2"
 )
 

@@ -3,13 +3,13 @@ package getsvc
 import (
 	"io"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	internal "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type SimpleObjectWriter struct {

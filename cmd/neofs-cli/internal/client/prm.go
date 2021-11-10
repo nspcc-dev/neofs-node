@@ -4,13 +4,12 @@ import (
 	"crypto/ecdsa"
 	"io"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 // here are small structures with public setters to share between parameter structures
@@ -107,7 +106,7 @@ func (x *commonObjectPrm) SetTTL(ttl uint32) {
 }
 
 // SetXHeaders sets request X-Headers.
-func (x *commonObjectPrm) SetXHeaders(xhdrs []*pkg.XHeader) {
+func (x *commonObjectPrm) SetXHeaders(xhdrs []*session.XHeader) {
 	for _, xhdr := range xhdrs {
 		x.opts = append(x.opts, client.WithXHeader(xhdr))
 	}

@@ -1,10 +1,10 @@
 package searchsvc
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type streamWriter struct {

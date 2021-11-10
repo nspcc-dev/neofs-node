@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 var errMissingRequiredAttr = errors.New("missing required attribute in DB record")

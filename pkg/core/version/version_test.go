@@ -3,15 +3,15 @@ package version_test
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
+	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIsValid(t *testing.T) {
-	require.True(t, version.IsValid(*pkg.SDKVersion()))
+	require.True(t, version.IsValid(*versionSDK.Current()))
 
-	var v pkg.Version
+	var v versionSDK.Version
 
 	for _, item := range []struct {
 		mjr, mnr uint32

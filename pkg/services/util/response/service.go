@@ -1,11 +1,11 @@
 package response
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 // Service represents universal v2 service
@@ -25,7 +25,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		version: pkg.SDKVersion().ToV2(),
+		version: version.Current().ToV2(),
 	}
 }
 

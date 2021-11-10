@@ -1,7 +1,7 @@
 package util
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // MergeSplitInfo ignores conflicts and rewrites `to` with non empty values

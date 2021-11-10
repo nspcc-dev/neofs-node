@@ -11,18 +11,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
-	"github.com/nspcc-dev/neofs-sdk-go/pkg/policy"
+	"github.com/nspcc-dev/neofs-sdk-go/acl"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/policy"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
 
@@ -782,7 +782,7 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 func validateAndFixEACLVersion(table *eacl.Table) {
 	v := table.Version()
 	if !version.IsValid(v) {
-		table.SetVersion(*pkg.SDKVersion())
+		table.SetVersion(*versionSDK.Current())
 	}
 }
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 // AccountKeys requests public keys of NeoFS account from NeoFS ID contract.

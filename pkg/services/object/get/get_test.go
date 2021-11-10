@@ -9,17 +9,17 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -189,7 +189,7 @@ func generateAddress() *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(generateID())
 
-	addr.SetContainerID(cidtest.Generate())
+	addr.SetContainerID(cidtest.GenerateID())
 
 	return addr
 }

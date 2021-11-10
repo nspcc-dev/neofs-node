@@ -1,9 +1,9 @@
 package policer
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type jobQueue struct {

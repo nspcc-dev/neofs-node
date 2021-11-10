@@ -6,10 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	coreObject "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	neofsapiclient "github.com/nspcc-dev/neofs-node/pkg/innerring/internal/client"
@@ -17,6 +13,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/zap"
 )
 

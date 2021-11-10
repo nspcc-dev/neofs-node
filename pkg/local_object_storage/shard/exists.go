@@ -1,8 +1,8 @@
 package shard
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // ExistsPrm groups the parameters of Exists operation.

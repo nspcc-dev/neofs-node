@@ -1,8 +1,8 @@
 package loadroute
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
 // ServerInfo describes a set of

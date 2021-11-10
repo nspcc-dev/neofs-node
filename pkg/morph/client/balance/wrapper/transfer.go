@@ -1,11 +1,10 @@
 package wrapper
 
 import (
-	"fmt"
-
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 // TransferPrm groups parameters of TransferX method.
@@ -22,20 +21,19 @@ type TransferPrm struct {
 //
 // If TryNotary is provided, calls notary contract.
 func (w *Wrapper) TransferX(p TransferPrm) error {
-	from, err := owner.ScriptHashBE(p.From)
+	from, err := address.StringToUint160(p.From.String())
 	if err != nil {
-		return fmt.Errorf("invalid sender: %w", err)
+		return err
 	}
-
-	to, err := owner.ScriptHashBE(p.To)
+	to, err := address.StringToUint160(p.From.String())
 	if err != nil {
-		return fmt.Errorf("invalid recipient: %w", err)
+		return err
 	}
 
 	// prepare invocation arguments
 	args := balance.TransferXArgs{}
-	args.SetSender(from)
-	args.SetRecipient(to)
+	args.SetSender(from.BytesBE())
+	args.SetRecipient(to.BytesBE())
 	args.SetAmount(p.Amount)
 	args.SetDetails(p.Details)
 

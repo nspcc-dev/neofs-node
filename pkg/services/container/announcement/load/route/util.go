@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
 var errWrongRoute = errors.New("wrong route")

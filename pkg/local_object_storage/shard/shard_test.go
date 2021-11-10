@@ -7,18 +7,19 @@ import (
 	"path"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	ownertest "github.com/nspcc-dev/neofs-api-go/pkg/owner/test"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -63,26 +64,26 @@ func releaseShard(s *shard.Shard, t testing.TB) {
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {
-	return generateRawObjectWithCID(t, cidtest.Generate())
+	return generateRawObjectWithCID(t, cidtest.GenerateID())
 }
 
 func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
-	version := pkg.NewVersion()
+	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
 
 	w, err := owner.NEO3WalletFromPublicKey(&test.DecodeKey(-1).PublicKey)
 	require.NoError(t, err)
 
-	csum := new(pkg.Checksum)
+	csum := new(checksum.Checksum)
 	csum.SetSHA256(sha256.Sum256(w.Bytes()))
 
-	csumTZ := new(pkg.Checksum)
+	csumTZ := new(checksum.Checksum)
 	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))
 
 	obj := object.NewRaw()
 	obj.SetID(generateOID())
-	obj.SetOwnerID(ownertest.Generate())
+	obj.SetOwnerID(ownertest.GenerateID())
 	obj.SetContainerID(cid)
 	obj.SetVersion(version)
 	obj.SetPayloadChecksum(csum)

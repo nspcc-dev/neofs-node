@@ -3,12 +3,12 @@ package deletesvc
 import (
 	"errors"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type headSvcWrapper getsvc.Service

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
 func nodeInfoFromKeyAddr(dst *NodeInfo, k []byte, a network.AddressGroup) {

@@ -3,9 +3,9 @@ package blobstor
 import (
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // IterationElement represents a unit of elements through which Iterate operation passes.

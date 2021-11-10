@@ -3,8 +3,8 @@ package common
 import (
 	"math/big"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 // NodeInfo groups the data about the storage node

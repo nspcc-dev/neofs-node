@@ -1,10 +1,10 @@
 package deletesvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type tombstoneBodyWriter struct {

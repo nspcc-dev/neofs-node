@@ -3,12 +3,12 @@ package wrapper
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
 // GetEACL reads the extended ACL table from NeoFS system
@@ -58,7 +58,7 @@ func (w *Wrapper) GetEACL(cid *cid.ID) (*eacl.Table, error) {
 		table.SetSessionToken(tok)
 	}
 
-	tableSignature := pkg.NewSignature()
+	tableSignature := signature.New()
 	tableSignature.SetKey(rpcAnswer.PublicKey())
 	tableSignature.SetSign(sig)
 

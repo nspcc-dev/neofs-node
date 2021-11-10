@@ -3,8 +3,8 @@ package wrapper
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	reputationClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 type (

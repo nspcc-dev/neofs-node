@@ -4,11 +4,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 type formatter struct {
@@ -64,7 +64,7 @@ func (f *formatter) Write(p []byte) (n int, err error) {
 func (f *formatter) Close() (*AccessIdentifiers, error) {
 	curEpoch := f.prm.NetworkState.CurrentEpoch()
 
-	f.obj.SetVersion(pkg.SDKVersion())
+	f.obj.SetVersion(version.Current())
 	f.obj.SetPayloadSize(f.sz)
 	f.obj.SetSessionToken(f.prm.SessionToken)
 	f.obj.SetCreationEpoch(curEpoch)

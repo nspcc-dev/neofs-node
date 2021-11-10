@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	storagegroupAPI "github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	storagegroupAPI "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/spf13/cobra"
 )
 

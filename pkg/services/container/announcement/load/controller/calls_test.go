@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,7 +75,7 @@ func (s *testAnnouncementStorage) Close() error {
 
 func randAnnouncement() container.UsedSpaceAnnouncement {
 	a := container.NewAnnouncement()
-	a.SetContainerID(cidtest.Generate())
+	a.SetContainerID(cidtest.GenerateID())
 	a.SetUsedSpace(rand.Uint64())
 
 	return *a

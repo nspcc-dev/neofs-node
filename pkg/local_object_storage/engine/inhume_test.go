@@ -4,16 +4,16 @@ import (
 	"os"
 	"testing"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStorageEngine_Inhume(t *testing.T) {
 	defer os.RemoveAll(t.Name())
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 	splitID := objectSDK.NewSplitID()
 
 	fs := objectSDK.SearchFilters{}

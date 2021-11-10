@@ -3,9 +3,9 @@ package v2
 import (
 	"io"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type localStorage struct {

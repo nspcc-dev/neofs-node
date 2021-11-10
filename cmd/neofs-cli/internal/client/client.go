@@ -6,15 +6,15 @@ import (
 	"io"
 	"math"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/accounting"
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
+	"github.com/nspcc-dev/neofs-sdk-go/accounting"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 // BalanceOfPrm groups parameters of BalanceOf operation.
@@ -251,7 +251,7 @@ func (x NodeInfoRes) NodeInfo() *netmap.NodeInfo {
 }
 
 // LatestVersion returns latest NeoFS API version in use.
-func (x NodeInfoRes) LatestVersion() *pkg.Version {
+func (x NodeInfoRes) LatestVersion() *version.Version {
 	return x.cliRes.LatestVersion()
 }
 

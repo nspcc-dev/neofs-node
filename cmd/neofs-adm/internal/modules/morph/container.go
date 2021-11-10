@@ -14,7 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

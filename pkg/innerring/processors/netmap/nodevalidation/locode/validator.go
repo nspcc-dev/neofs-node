@@ -1,7 +1,7 @@
 package locode
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // Prm groups the required parameters of the Validator's constructor.

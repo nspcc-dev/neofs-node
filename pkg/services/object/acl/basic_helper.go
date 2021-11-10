@@ -1,7 +1,7 @@
 package acl
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
 // wrapper around basic ACL to provide easy access to basic ACL fields

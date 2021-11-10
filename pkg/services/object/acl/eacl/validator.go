@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"go.uber.org/zap"
 )
 

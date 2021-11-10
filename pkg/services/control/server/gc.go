@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

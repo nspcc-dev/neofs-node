@@ -1,9 +1,9 @@
 package audit
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
+	"github.com/nspcc-dev/neofs-sdk-go/audit"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // CalculatorPrm groups the parameters of Calculator's constructor.

@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	sessiontest "github.com/nspcc-dev/neofs-api-go/pkg/session/test"
-	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
+	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func blankValidObject(t *testing.T, key *ecdsa.PrivateKey) *RawObject {
 	ownerID.SetNeo3Wallet(wallet)
 
 	obj := NewRaw()
-	obj.SetContainerID(cidtest.Generate())
+	obj.SetContainerID(cidtest.GenerateID())
 	obj.SetOwnerID(ownerID)
 
 	return obj
@@ -87,7 +87,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("unsigned object", func(t *testing.T) {
 		obj := NewRaw()
-		obj.SetContainerID(cidtest.Generate())
+		obj.SetContainerID(cidtest.GenerateID())
 		obj.SetID(testObjectID(t))
 
 		require.Error(t, v.Validate(obj.Object()))
@@ -101,7 +101,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		tok.SetOwnerID(owner.NewIDFromNeo3Wallet(w))
 
 		obj := NewRaw()
-		obj.SetContainerID(cidtest.Generate())
+		obj.SetContainerID(cidtest.GenerateID())
 		obj.SetSessionToken(sessiontest.Generate())
 		obj.SetOwnerID(tok.OwnerID())
 

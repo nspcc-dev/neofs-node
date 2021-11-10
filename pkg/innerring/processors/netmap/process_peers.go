@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 

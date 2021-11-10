@@ -3,13 +3,13 @@ package acl
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	ownertest "github.com/nspcc-dev/neofs-api-go/pkg/owner/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessiontest "github.com/nspcc-dev/neofs-api-go/v2/session/test"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,10 +46,10 @@ func TestStickyCheck(t *testing.T) {
 		info.requestRole = eacl.RoleSystem
 
 		info.basicACL.SetSticky()
-		require.True(t, stickyBitCheck(info, ownertest.Generate()))
+		require.True(t, stickyBitCheck(info, ownertest.GenerateID()))
 
 		info.basicACL.ResetSticky()
-		require.True(t, stickyBitCheck(info, ownertest.Generate()))
+		require.True(t, stickyBitCheck(info, ownertest.GenerateID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
@@ -73,7 +73,7 @@ func TestStickyCheck(t *testing.T) {
 			var ownerID *owner.ID
 
 			if withOwner {
-				ownerID = ownertest.Generate()
+				ownerID = ownertest.GenerateID()
 			}
 
 			require.Equal(t, expected, stickyBitCheck(info, ownerID))

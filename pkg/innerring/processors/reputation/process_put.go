@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	apireputation "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/accounting"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-sdk-go/accounting"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

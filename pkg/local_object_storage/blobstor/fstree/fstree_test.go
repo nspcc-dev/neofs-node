@@ -8,8 +8,8 @@ import (
 	"path"
 	"testing"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +26,7 @@ func testOID() *objectSDK.ID {
 func testAddress() *objectSDK.Address {
 	a := objectSDK.NewAddress()
 	a.SetObjectID(testOID())
-	a.SetContainerID(cidtest.Generate())
+	a.SetContainerID(cidtest.GenerateID())
 
 	return a
 }

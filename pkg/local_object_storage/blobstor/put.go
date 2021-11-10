@@ -3,8 +3,8 @@ package blobstor
 import (
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // PutPrm groups the parameters of Put operation.

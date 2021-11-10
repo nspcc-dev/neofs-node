@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/mr-tron/base58"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type key struct {

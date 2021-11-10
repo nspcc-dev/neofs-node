@@ -3,8 +3,8 @@ package blobovnicza
 import (
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // GetRangePrm groups the parameters of GetRange operation.
