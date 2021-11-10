@@ -52,7 +52,7 @@ var errInhumeFailure = errors.New("inhume operation failed")
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.inhume(prm)
 		return err
 	})

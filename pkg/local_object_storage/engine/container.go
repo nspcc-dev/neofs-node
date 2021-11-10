@@ -40,7 +40,7 @@ func (r *ListContainersRes) Containers() []*cid.ID {
 //
 // Returns empty result if executions are blocked (see BlockExecution).
 func (e *StorageEngine) ContainerSize(prm *ContainerSizePrm) (res *ContainerSizeRes) {
-	err := e.exec(func() error {
+	err := e.execIfNotBlocked(func() error {
 		res = e.containerSize(prm)
 		return nil
 	})
@@ -92,7 +92,7 @@ func (e *StorageEngine) containerSize(prm *ContainerSizePrm) *ContainerSizeRes {
 //
 // Returns empty result if executions are blocked (see BlockExecution).
 func (e *StorageEngine) ListContainers(_ *ListContainersPrm) (res *ListContainersRes) {
-	err := e.exec(func() error {
+	err := e.execIfNotBlocked(func() error {
 		res = e.listContainers()
 		return nil
 	})
