@@ -197,6 +197,10 @@ type cfgLocalStorage struct {
 
 type cfgObjectRoutines struct {
 	putRemote *ants.Pool
+
+	putRemoteCapacity int
+
+	replication *ants.Pool
 }
 
 type cfgControlService struct {
@@ -449,10 +453,13 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 
 	optNonBlocking := ants.WithNonblocking(true)
 
-	pool.putRemote, err = ants.NewPool(objectconfig.Put(cfg).PoolSizeRemote(), optNonBlocking)
-	if err != nil {
-		fatalOnErr(err)
-	}
+	pool.putRemoteCapacity = objectconfig.Put(cfg).PoolSizeRemote()
+
+	pool.putRemote, err = ants.NewPool(pool.putRemoteCapacity, optNonBlocking)
+	fatalOnErr(err)
+
+	pool.replication, err = ants.NewPool(pool.putRemoteCapacity)
+	fatalOnErr(err)
 
 	return pool
 }
@@ -485,4 +492,11 @@ func (c *cfg) bootstrap() error {
 // needBootstrap checks if local node should be registered in network on bootup.
 func (c *cfg) needBootstrap() bool {
 	return c.cfgNetmap.needBootstrap
+}
+
+// ObjectServiceLoad implements system loader interface for policer component.
+// It is calculated as size/capacity ratio of "remote object put" worker.
+// Returns float value between 0.0 and 1.0.
+func (c *cfg) ObjectServiceLoad() float64 {
+	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemoteCapacity)
 }
