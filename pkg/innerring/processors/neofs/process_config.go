@@ -1,6 +1,7 @@
 package neofs
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
@@ -13,7 +14,14 @@ func (np *Processor) processConfig(config *neofsEvent.Config) {
 		return
 	}
 
-	err := np.netmapClient.SetConfig(config.ID(), config.Key(), config.Value())
+	prm := wrapper.SetConfigPrm{}
+
+	prm.SetID(config.ID())
+	prm.SetKey(config.Key())
+	prm.SetValue(config.Value())
+	prm.SetHash(config.TxHash())
+
+	err := np.netmapClient.SetConfig(prm)
 	if err != nil {
 		np.log.Error("can't relay set config event", zap.Error(err))
 	}

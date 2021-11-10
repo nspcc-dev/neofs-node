@@ -191,8 +191,11 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		}
 	}
 
+	prm := governance.VoteValidatorPrm{}
+	prm.Validators = s.predefinedValidators
+
 	// vote for sidechain validator if it is prepared in config
-	err = s.voteForSidechainValidator(s.predefinedValidators)
+	err = s.voteForSidechainValidator(prm)
 	if err != nil {
 		// we don't stop inner ring execution on this error
 		s.log.Warn("can't vote for prepared validators",

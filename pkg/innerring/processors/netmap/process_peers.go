@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -68,18 +69,22 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
+		prm := netmapclient.AddPeerPrm{}
+		prm.SetNodeInfo(nodeInfo)
+
 		if nr := ev.NotaryRequest(); nr != nil {
 			// create new notary request with the original nonce
 			err = np.netmapClient.Morph().NotaryInvoke(
 				np.netmapClient.ContractAddress(),
 				0,
 				nr.MainTransaction.Nonce,
+				nil,
 				netmapEvent.AddPeerNotaryEvent,
 				nodeInfoBinary,
 			)
 		} else {
 			// notification event case
-			err = np.netmapClient.AddPeer(nodeInfo)
+			err = np.netmapClient.AddPeer(prm)
 		}
 
 		if err != nil {
@@ -113,7 +118,12 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	if nr := ev.NotaryRequest(); nr != nil {
 		err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 	} else {
-		err = np.netmapClient.UpdatePeerState(ev.PublicKey().Bytes(), ev.Status())
+		prm := netmapclient.UpdatePeerPrm{}
+
+		prm.SetState(ev.Status())
+		prm.SetKey(ev.PublicKey().Bytes())
+
+		err = np.netmapClient.UpdatePeerState(prm)
 	}
 	if err != nil {
 		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))
