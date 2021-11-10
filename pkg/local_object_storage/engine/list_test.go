@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"os"
 	"sort"
 	"testing"
@@ -37,16 +38,22 @@ func TestListWithCursor(t *testing.T) {
 
 	expected = sortAddresses(expected)
 
-	for _, shard := range e.DumpInfo().Shards {
-		prm := new(ListWithCursorPrm).WithShardID(*shard.ID).WithCount(total)
-		res, err := e.ListWithCursor(prm)
-		require.NoError(t, err)
-		require.NotEmpty(t, res.AddressList())
+	prm := new(ListWithCursorPrm).WithCount(1)
+	res, err := e.ListWithCursor(prm)
+	require.NoError(t, err)
+	require.NotEmpty(t, res.AddressList())
+	got = append(got, res.AddressList()...)
 
+	for i := 0; i < total-1; i++ {
+		res, err = e.ListWithCursor(prm.WithCursor(res.Cursor()))
+		if errors.Is(err, core.ErrEndOfListing) {
+			break
+		}
 		got = append(got, res.AddressList()...)
-		_, err = e.ListWithCursor(prm.WithCursor(res.Cursor()))
-		require.ErrorIs(t, err, core.ErrEndOfListing)
 	}
+
+	_, err = e.ListWithCursor(prm.WithCursor(res.Cursor()))
+	require.ErrorIs(t, err, core.ErrEndOfListing)
 
 	got = sortAddresses(got)
 	require.Equal(t, expected, got)
