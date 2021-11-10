@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -53,9 +53,9 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 	switch typ := cs.Type(); typ {
 	default:
 		return fmt.Errorf("(%T) unsupported payload checksum type %v", t, typ)
-	case pkg.ChecksumSHA256:
+	case checksum.SHA256:
 		t.hash = sha256.New()
-	case pkg.ChecksumTZ:
+	case checksum.TZ:
 		t.hash = tz.New()
 	}
 

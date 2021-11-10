@@ -3,8 +3,8 @@ package control
 import (
 	"context"
 
-	netmapAPI "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

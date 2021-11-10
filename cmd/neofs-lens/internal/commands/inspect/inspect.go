@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/spf13/cobra"
 )
 

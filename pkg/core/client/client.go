@@ -1,9 +1,9 @@
 package client
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	rawclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
 // Client is an interface of NeoFS storage

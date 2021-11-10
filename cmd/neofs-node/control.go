@@ -4,11 +4,11 @@ import (
 	"context"
 	"net"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"google.golang.org/grpc"
 )
 

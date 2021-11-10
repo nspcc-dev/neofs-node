@@ -6,10 +6,10 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +33,7 @@ func TestAuditResults(t *testing.T) {
 	auditClientWrapper, err := auditWrapper.NewFromMorph(morphClient, auditHash, 0)
 	require.NoError(t, err)
 
-	id := cidtest.Generate()
+	id := cidtest.GenerateID()
 
 	auditRes := auditAPI.NewResult()
 	auditRes.SetAuditEpoch(epoch)

@@ -1,8 +1,8 @@
 package meta
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
 )
 

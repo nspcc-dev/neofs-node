@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // Open opens all Shard's components.

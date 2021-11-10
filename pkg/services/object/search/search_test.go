@@ -9,16 +9,16 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -159,7 +159,7 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := cidtest.Generate()
+		cid := cidtest.GenerateID()
 		ids := generateIDs(10)
 		storage.addResult(cid, ids, nil)
 
@@ -175,7 +175,7 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := cidtest.Generate()
+		cid := cidtest.GenerateID()
 		testErr := errors.New("any error")
 		storage.addResult(cid, nil, testErr)
 

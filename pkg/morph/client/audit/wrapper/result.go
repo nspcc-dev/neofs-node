@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
+	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
 // ResultID is an identity of audit result inside audit contract.

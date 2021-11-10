@@ -1,7 +1,7 @@
 package headsvc
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type Prm struct {

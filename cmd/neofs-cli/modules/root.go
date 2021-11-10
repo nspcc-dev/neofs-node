@@ -15,12 +15,12 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -373,8 +373,8 @@ func printVerbose(format string, a ...interface{}) {
 	}
 }
 
-func parseXHeaders() []*pkg.XHeader {
-	xs := make([]*pkg.XHeader, 0, len(xHeaders))
+func parseXHeaders() []*session.XHeader {
+	xs := make([]*session.XHeader, 0, len(xHeaders))
 
 	for i := range xHeaders {
 		kv := strings.SplitN(xHeaders[i], "=", 2)
@@ -382,7 +382,7 @@ func parseXHeaders() []*pkg.XHeader {
 			panic(fmt.Errorf("invalid X-Header format: %s", xHeaders[i]))
 		}
 
-		x := pkg.NewXHeader()
+		x := session.NewXHeader()
 		x.SetKey(kv[0])
 		x.SetValue(kv[1])
 

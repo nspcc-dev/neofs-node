@@ -4,12 +4,12 @@ import (
 	"context"
 	"strconv"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 

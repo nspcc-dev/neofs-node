@@ -3,13 +3,13 @@ package netmap
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 type executorSvc struct {
-	version *pkg.Version
+	version *version.Version
 	state   NodeState
 
 	netInfo NetworkInfo
@@ -32,7 +32,7 @@ type NetworkInfo interface {
 	Dump(*refs.Version) (*netmap.NetworkInfo, error)
 }
 
-func NewExecutionService(s NodeState, v *pkg.Version, netInfo NetworkInfo) Server {
+func NewExecutionService(s NodeState, v *version.Version, netInfo NetworkInfo) Server {
 	if s == nil || v == nil || netInfo == nil {
 		// this should never happen, otherwise it programmers bug
 		panic("can't create netmap execution service")
@@ -48,7 +48,7 @@ func NewExecutionService(s NodeState, v *pkg.Version, netInfo NetworkInfo) Serve
 func (s *executorSvc) LocalNodeInfo(
 	_ context.Context,
 	req *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
-	ver := pkg.NewVersionFromV2(req.GetMetaHeader().GetVersion())
+	ver := version.NewFromV2(req.GetMetaHeader().GetVersion())
 
 	ni, err := s.state.LocalNodeInfo()
 	if err != nil {

@@ -10,10 +10,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	apiclient "github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
@@ -48,6 +44,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
+	apiclient "github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
@@ -80,7 +80,7 @@ type cfg struct {
 
 	ownerIDFromKey *owner.ID // owner ID calculated from key
 
-	apiVersion *pkg.Version
+	apiVersion *version.Version
 
 	cfgGRPC cfgGRPC
 
@@ -268,7 +268,7 @@ func initCfg(path string) *cfg {
 		log:         log,
 		wg:          new(sync.WaitGroup),
 		key:         key,
-		apiVersion:  pkg.SDKVersion(),
+		apiVersion:  version.Current(),
 		cfgAccounting: cfgAccounting{
 			scriptHash: contractsconfig.Balance(appCfg),
 		},

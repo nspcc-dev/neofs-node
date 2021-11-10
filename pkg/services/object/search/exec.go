@@ -3,11 +3,11 @@ package searchsvc
 import (
 	"context"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 

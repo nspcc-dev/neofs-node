@@ -17,7 +17,7 @@ func (c *cache) Put(o *object.Object) error {
 		return ErrBigObject
 	}
 
-	data, err := o.Marshal(nil)
+	data, err := o.Marshal()
 	if err != nil {
 		return err
 	}

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
 	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
 // NextStage composes container nodes for the container and epoch from a,

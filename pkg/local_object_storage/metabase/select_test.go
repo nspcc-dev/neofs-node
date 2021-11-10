@@ -4,18 +4,18 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDB_SelectUserAttributes(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	addAttribute(raw1, "foo", "bar")
@@ -137,7 +137,7 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 func TestDB_SelectRootPhyParent(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	// prepare
 
@@ -304,7 +304,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 func TestDB_SelectInhume(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, raw1.Object())
@@ -336,7 +336,7 @@ func TestDB_SelectInhume(t *testing.T) {
 func TestDB_SelectPayloadHash(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, raw1.Object())
@@ -371,12 +371,12 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 func TestDB_SelectWithSlowFilters(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
-	v20 := new(pkg.Version)
+	v20 := new(version.Version)
 	v20.SetMajor(2)
 
-	v21 := new(pkg.Version)
+	v21 := new(version.Version)
 	v21.SetMajor(2)
 	v21.SetMinor(1)
 
@@ -469,7 +469,7 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 func TestDB_SelectObjectID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	// prepare
 
@@ -577,7 +577,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 func TestDB_SelectSplitID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	child1 := generateRawObjectWithCID(t, cid)
 	child2 := generateRawObjectWithCID(t, cid)
@@ -631,7 +631,7 @@ func TestDB_SelectSplitID(t *testing.T) {
 func TestDB_SelectContainerID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	obj1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, obj1.Object())
@@ -665,7 +665,7 @@ func TestDB_SelectContainerID(t *testing.T) {
 	})
 
 	t.Run("not same cid", func(t *testing.T) {
-		newCID := cidtest.Generate()
+		newCID := cidtest.GenerateID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, newCID)

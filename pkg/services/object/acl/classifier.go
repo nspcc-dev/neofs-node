@@ -7,17 +7,17 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	acl "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	acl "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/signature"
+	sigutil "github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"go.uber.org/zap"
 )
 
@@ -125,7 +125,7 @@ func requestOwner(req metaWithToken) (*owner.ID, *keys.PublicKey, error) {
 	return user, key, nil
 }
 
-func originalBodySignature(v *session.RequestVerificationHeader) *pkg.Signature {
+func originalBodySignature(v *session.RequestVerificationHeader) *signature.Signature {
 	if v == nil {
 		return nil
 	}
@@ -134,7 +134,7 @@ func originalBodySignature(v *session.RequestVerificationHeader) *pkg.Signature 
 		v = v.GetOrigin()
 	}
 
-	return pkg.NewSignatureFromV2(v.GetBodySignature())
+	return signature.NewFromV2(v.GetBodySignature())
 }
 
 func (c SenderClassifier) isInnerRingKey(owner []byte) (bool, error) {
@@ -200,7 +200,7 @@ func lookupKeyInContainer(
 func ownerFromToken(token *session.SessionToken) (*owner.ID, *keys.PublicKey, error) {
 	// 1. First check signature of session token.
 	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
-	if err := signature.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
+	if err := sigutil.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {
 		tokenSignature := token.GetSignature()
 		return tokenSignature.GetKey(), tokenSignature.GetSign()
 	}); err != nil {

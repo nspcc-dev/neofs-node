@@ -3,14 +3,14 @@ package searchsvc
 import (
 	"sync"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type uniqueIDWriter struct {

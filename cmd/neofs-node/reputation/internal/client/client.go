@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 type commonPrm struct {

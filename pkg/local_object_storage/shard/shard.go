@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )

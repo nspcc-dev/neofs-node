@@ -6,8 +6,6 @@ import (
 	"io"
 	"sync"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	rpcclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
@@ -19,6 +17,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {

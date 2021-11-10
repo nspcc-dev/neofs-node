@@ -5,13 +5,12 @@ import (
 	"crypto/ecdsa"
 	"strconv"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	session2 "github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 type commonPrm struct {
@@ -60,7 +59,7 @@ func (x *commonPrm) SetBearerToken(tok *token.BearerToken) {
 // SetXHeaders sets request X-Headers.
 //
 // By default X-Headers will  not be attached to the request.
-func (x *commonPrm) SetXHeaders(xhdrs []*pkg.XHeader) {
+func (x *commonPrm) SetXHeaders(xhdrs []*session.XHeader) {
 	for _, xhdr := range xhdrs {
 		x.opts = append(x.opts, client.WithXHeader(xhdr))
 	}
@@ -76,7 +75,7 @@ type readPrmCommon struct {
 //
 // By default current epoch on the server will be used.
 func (x *readPrmCommon) SetNetmapEpoch(epoch uint64) {
-	xNetmapEpoch := pkg.NewXHeader()
+	xNetmapEpoch := session.NewXHeader()
 	xNetmapEpoch.SetKey(session2.XHeaderNetmapEpoch)
 	xNetmapEpoch.SetValue(strconv.FormatUint(epoch, 10))
 

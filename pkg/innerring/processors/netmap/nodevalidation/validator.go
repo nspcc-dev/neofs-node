@@ -1,8 +1,8 @@
 package nodevalidation
 
 import (
-	apinetmap "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
+	apinetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // CompositeValidator wraps `netmap.NodeValidator`s.

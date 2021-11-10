@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/locode"
 	locodestd "github.com/nspcc-dev/neofs-node/pkg/util/locode"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,11 +5,11 @@ import (
 	"path"
 	"testing"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	objecttest "github.com/nspcc-dev/neofs-api-go/pkg/object/test"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 

@@ -1,13 +1,13 @@
 package storagegroup
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -43,7 +43,7 @@ func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []*objectSDK.ID
 		return nil, err
 	}
 
-	cs := pkg.NewChecksum()
+	cs := checksum.New()
 	tzHash := [client.TZSize]byte{}
 	copy(tzHash[:], sumHash)
 	cs.SetTillichZemor(tzHash)

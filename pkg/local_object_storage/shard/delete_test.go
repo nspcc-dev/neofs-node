@@ -3,9 +3,9 @@ package shard_test
 import (
 	"testing"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +23,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	obj := generateRawObjectWithCID(t, cid)
 	addAttribute(obj, "foo", "bar")

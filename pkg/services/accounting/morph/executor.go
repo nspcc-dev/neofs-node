@@ -3,11 +3,11 @@ package accounting
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	accountingSvc "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type morphExecutor struct {

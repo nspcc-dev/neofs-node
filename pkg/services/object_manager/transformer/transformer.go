@@ -6,9 +6,9 @@ import (
 	"hash"
 	"io"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -140,7 +140,7 @@ func payloadHashersForObject(obj *object.RawObject) []*payloadChecksumHasher {
 				csSHA := [sha256.Size]byte{}
 				copy(csSHA[:], cs)
 
-				checksum := pkg.NewChecksum()
+				checksum := checksum.New()
 				checksum.SetSHA256(csSHA)
 
 				obj.SetPayloadChecksum(checksum)
@@ -156,7 +156,7 @@ func payloadHashersForObject(obj *object.RawObject) []*payloadChecksumHasher {
 				csTZ := [tzChecksumSize]byte{}
 				copy(csTZ[:], cs)
 
-				checksum := pkg.NewChecksum()
+				checksum := checksum.New()
 				checksum.SetTillichZemor(csTZ)
 
 				obj.SetPayloadHomomorphicHash(checksum)

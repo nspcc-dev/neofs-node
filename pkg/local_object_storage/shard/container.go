@@ -3,7 +3,7 @@ package shard
 import (
 	"fmt"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
 type ContainerSizePrm struct {
