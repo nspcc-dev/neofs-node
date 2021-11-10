@@ -1,9 +1,9 @@
 package policer
 
 import (
-	"sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -12,15 +12,22 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
+
+// NodeLoader provides application load statistics.
+type nodeLoader interface {
+	// ObjectServiceLoad returns object service load value in [0:1] range.
+	ObjectServiceLoad() float64
+}
 
 // Policer represents the utility that verifies
 // compliance with the object storage policy.
 type Policer struct {
 	*cfg
 
-	prevTask prevTask
+	cache *lru.Cache
 }
 
 // Option is an option for Policer constructor.
@@ -33,11 +40,7 @@ type RedundantCopyCallback func(*object.Address)
 type cfg struct {
 	headTimeout time.Duration
 
-	workScope workScope
-
 	log *logger.Logger
-
-	trigger <-chan *Task
 
 	jobQueue jobQueue
 
@@ -52,11 +55,25 @@ type cfg struct {
 	replicator *replicator.Replicator
 
 	cbRedundantCopy RedundantCopyCallback
+
+	taskPool *ants.Pool
+
+	loader nodeLoader
+
+	maxCapacity int
+
+	batchSize, cacheSize uint32
+
+	rebalanceFreq, evictDuration time.Duration
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: zap.L(),
+		log:           zap.L(),
+		batchSize:     10,
+		cacheSize:     200_000, // should not allocate more than 200 MiB
+		rebalanceFreq: 1 * time.Second,
+		evictDuration: 30 * time.Second,
 	}
 }
 
@@ -70,12 +87,14 @@ func New(opts ...Option) *Policer {
 
 	c.log = c.log.With(zap.String("component", "Object Policer"))
 
+	cache, err := lru.New(int(c.cacheSize))
+	if err != nil {
+		panic(err)
+	}
+
 	return &Policer{
-		cfg: c,
-		prevTask: prevTask{
-			cancel: func() {},
-			wait:   new(sync.WaitGroup),
-		},
+		cfg:   c,
+		cache: cache,
 	}
 }
 
@@ -83,27 +102,6 @@ func New(opts ...Option) *Policer {
 func WithHeadTimeout(v time.Duration) Option {
 	return func(c *cfg) {
 		c.headTimeout = v
-	}
-}
-
-// WithWorkScope returns option to set job work scope value of Policer.
-func WithWorkScope(v int) Option {
-	return func(c *cfg) {
-		c.workScope.val = v
-	}
-}
-
-// WithExpansionRate returns option to set expansion rate of Policer's works scope (in %).
-func WithExpansionRate(v int) Option {
-	return func(c *cfg) {
-		c.workScope.expRate = v
-	}
-}
-
-// WithTrigger returns option to set triggering channel of Policer.
-func WithTrigger(v <-chan *Task) Option {
-	return func(c *cfg) {
-		c.trigger = v
 	}
 }
 
@@ -162,5 +160,28 @@ func WithReplicator(v *replicator.Replicator) Option {
 func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
 	return func(c *cfg) {
 		c.cbRedundantCopy = cb
+	}
+}
+
+// WithMaxCapacity returns option to set max capacity
+// that can be set to the pool.
+func WithMaxCapacity(cap int) Option {
+	return func(c *cfg) {
+		c.maxCapacity = cap
+	}
+}
+
+// WithPool returns option to set pool for
+// policy and replication operations.
+func WithPool(p *ants.Pool) Option {
+	return func(c *cfg) {
+		c.taskPool = p
+	}
+}
+
+// WithNodeLoader returns option to set NeoFS node load source.
+func WithNodeLoader(l nodeLoader) Option {
+	return func(c *cfg) {
+		c.loader = l
 	}
 }

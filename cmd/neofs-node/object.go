@@ -17,7 +17,6 @@ import (
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntrwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	nmwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -232,8 +231,6 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, repl)
 
-	ch := make(chan *policer.Task, 1)
-
 	pol := policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
@@ -241,9 +238,6 @@ func initObjectService(c *cfg) {
 		policer.WithPlacementBuilder(
 			placement.NewNetworkMapSourceBuilder(c.cfgObject.netMapSource),
 		),
-		policer.WithWorkScope(100),
-		policer.WithExpansionRate(10),
-		policer.WithTrigger(ch),
 		policer.WithRemoteHeader(
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
@@ -260,17 +254,10 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
+		policer.WithMaxCapacity(c.cfgObject.pool.putRemoteCapacity),
+		policer.WithPool(c.cfgObject.pool.replication),
+		policer.WithNodeLoader(c),
 	)
-
-	addNewEpochNotificationHandler(c, func(ev event.Event) {
-		select {
-		case ch <- new(policer.Task):
-		case <-c.ctx.Done():
-			close(ch)
-		default:
-			c.log.Info("policer is busy")
-		}
-	})
 
 	traverseGen := util.NewTraverserGenerator(c.cfgObject.netMapSource, c.cfgObject.cnrSource, c)
 
