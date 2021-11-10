@@ -50,7 +50,7 @@ func (r *SelectRes) AddressList() []*object.Address {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Select(prm *SelectPrm) (res *SelectRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e._select(prm)
 		return err
 	})
@@ -111,7 +111,7 @@ func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) List(limit uint64) (res *SelectRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.list(limit)
 		return err
 	})

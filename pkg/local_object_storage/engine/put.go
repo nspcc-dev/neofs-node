@@ -36,7 +36,7 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Put(prm *PutPrm) (res *PutRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.put(prm)
 		return err
 	})

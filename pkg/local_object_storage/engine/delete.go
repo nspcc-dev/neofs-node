@@ -29,7 +29,7 @@ func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Delete(prm *DeletePrm) (res *DeleteRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.delete(prm)
 		return err
 	})

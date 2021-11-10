@@ -44,7 +44,7 @@ var errClosed = errors.New("storage engine is closed")
 // Close releases all StorageEngine's components. Waits for all data-related operations to complete.
 // After the call, all the next ones will fail until the ResumeExecution call.
 //
-// Еhe method is supposed to be called when the application exits.
+// The method is supposed to be called when the application exits.
 func (e *StorageEngine) Close() error {
 	return e.setBlockExecErr(errClosed)
 }
@@ -73,7 +73,7 @@ func (e *StorageEngine) close() error {
 // executes op if execution is not blocked, otherwise returns blocking error.
 //
 // Can be called concurrently with setBlockExecErr.
-func (e *StorageEngine) exec(op func() error) error {
+func (e *StorageEngine) execIfNotBlocked(op func() error) error {
 	e.blockExec.mtx.RLock()
 	defer e.blockExec.mtx.RUnlock()
 
@@ -110,7 +110,7 @@ func (e *StorageEngine) setBlockExecErr(err error) error {
 	return nil
 }
 
-// BlockExecution block blocks the execution of any data-related operation. All blocked ops will return err.
+// BlockExecution blocks the execution of any data-related operation. All blocked ops will return err.
 // To resume the execution, use ResumeExecution method.
 //
 // Сan be called regardless of the fact of the previous blocking. If execution wasn't blocked, releases all resources

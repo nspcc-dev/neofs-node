@@ -63,7 +63,7 @@ func (r *RngRes) Object() *object.Object {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) GetRange(prm *RngPrm) (res *RngRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.getRange(prm)
 		return err
 	})

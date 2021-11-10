@@ -45,7 +45,7 @@ func (r *GetRes) Object() *object.Object {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Get(prm *GetPrm) (res *GetRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.get(prm)
 		return err
 	})

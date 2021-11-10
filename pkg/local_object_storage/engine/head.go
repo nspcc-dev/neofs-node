@@ -60,7 +60,7 @@ func (r *HeadRes) Header() *object.Object {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {
-	err = e.exec(func() error {
+	err = e.execIfNotBlocked(func() error {
 		res, err = e.head(prm)
 		return err
 	})
