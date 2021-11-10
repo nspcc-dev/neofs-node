@@ -3,8 +3,8 @@ package maddress
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // VerifyAndUpdate calls network.VerifyAddress.

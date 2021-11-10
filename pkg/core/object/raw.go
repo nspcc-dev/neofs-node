@@ -1,8 +1,8 @@
 package object
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // RawObject represents the raw NeoFS object.

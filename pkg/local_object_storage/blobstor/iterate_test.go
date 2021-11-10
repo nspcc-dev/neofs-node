@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	objecttest "github.com/nspcc-dev/neofs-api-go/pkg/object/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 

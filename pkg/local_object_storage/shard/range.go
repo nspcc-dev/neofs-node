@@ -1,10 +1,10 @@
 package shard
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // RngPrm groups the parameters of GetRange operation.

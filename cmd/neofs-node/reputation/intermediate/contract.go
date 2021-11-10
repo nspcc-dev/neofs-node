@@ -4,11 +4,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	apireputation "github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 

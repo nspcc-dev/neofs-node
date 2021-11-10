@@ -9,13 +9,6 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	auditAPI "github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	containerAPI "github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	netmapAPI "github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/storagegroup"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -25,6 +18,13 @@ import (
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/zap"
 )
 

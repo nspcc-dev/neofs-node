@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"strings"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
 )
 

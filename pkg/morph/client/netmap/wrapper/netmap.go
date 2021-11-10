@@ -3,8 +3,8 @@ package wrapper
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // GetNetMap receives information list about storage nodes

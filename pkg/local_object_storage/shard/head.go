@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // HeadPrm groups the parameters of Head operation.

@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/util/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

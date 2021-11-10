@@ -4,13 +4,13 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/client"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
 type (
-	// ClientCache is a structure around neofs-api-go/pkg/client to reuse
+	// ClientCache is a structure around neofs-sdk-go/client to reuse
 	// already created clients.
 	ClientCache struct {
 		mu      *sync.RWMutex

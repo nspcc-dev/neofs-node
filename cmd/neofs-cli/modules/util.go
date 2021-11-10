@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
 	airportsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/airports"
 	locodebolt "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/boltdb"
 	continentsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/continents/geojson"
 	csvlocode "github.com/nspcc-dev/neofs-node/pkg/util/locode/table/csv"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -432,7 +432,7 @@ func completeBearerToken(btok *token.BearerToken) error {
 	if v2 := btok.ToV2(); v2 != nil {
 		// set eACL table version, because it usually omitted
 		table := v2.GetBody().GetEACL()
-		table.SetVersion(pkg.SDKVersion().ToV2())
+		table.SetVersion(version.Current().ToV2())
 	} else {
 		return errors.New("unsupported bearer token version")
 	}

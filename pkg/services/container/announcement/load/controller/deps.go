@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
 // UsedSpaceHandler describes the signature of the UsedSpaceAnnouncement

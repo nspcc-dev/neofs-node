@@ -3,7 +3,7 @@ package meta
 import (
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
 )
 

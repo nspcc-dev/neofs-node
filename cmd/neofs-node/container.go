@@ -8,12 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	apiClient "github.com/nspcc-dev/neofs-api-go/pkg/client"
-	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -32,6 +26,12 @@ import (
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"go.uber.org/zap"
 )
 

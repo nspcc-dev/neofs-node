@@ -3,8 +3,8 @@ package netmap
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 type NodeInfo = netmap.NodeInfo

@@ -3,7 +3,7 @@ package common
 import (
 	"math/big"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type TransferTable struct {

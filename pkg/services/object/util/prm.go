@@ -3,10 +3,9 @@ package util
 import (
 	"strconv"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	sessionsdk "github.com/nspcc-dev/neofs-api-go/pkg/session"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 type CommonPrm struct {
@@ -20,7 +19,7 @@ type CommonPrm struct {
 
 	ttl uint32
 
-	xhdrs []*pkg.XHeader
+	xhdrs []*sessionsdk.XHeader
 }
 
 // TTL returns TTL for new requests.
@@ -33,7 +32,7 @@ func (p *CommonPrm) TTL() uint32 {
 }
 
 // Returns X-Headers for new requests.
-func (p *CommonPrm) XHeaders() []*pkg.XHeader {
+func (p *CommonPrm) XHeaders() []*sessionsdk.XHeader {
 	if p != nil {
 		return p.xhdrs
 	}
@@ -105,7 +104,7 @@ func CommonPrmFromV2(req interface {
 
 	prm := &CommonPrm{
 		local: ttl <= 1, // FIXME: use constant
-		xhdrs: make([]*pkg.XHeader, 0, len(xHdrs)),
+		xhdrs: make([]*sessionsdk.XHeader, 0, len(xHdrs)),
 		ttl:   ttl - 1, // decrease TTL for new requests
 	}
 
@@ -134,7 +133,7 @@ func CommonPrmFromV2(req interface {
 				return nil, err
 			}
 		default:
-			xhdr := pkg.NewXHeaderFromV2(xHdrs[i])
+			xhdr := sessionsdk.NewXHeaderFromV2(xHdrs[i])
 
 			prm.xhdrs = append(prm.xhdrs, xhdr)
 		}

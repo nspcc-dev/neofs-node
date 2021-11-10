@@ -3,9 +3,9 @@ package audit_test
 import (
 	"testing"
 
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -79,7 +79,7 @@ func generateContainers(n int) []*cid.ID {
 	result := make([]*cid.ID, 0, n)
 
 	for i := 0; i < n; i++ {
-		result = append(result, cidtest.Generate())
+		result = append(result, cidtest.GenerateID())
 	}
 
 	return result

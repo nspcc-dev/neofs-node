@@ -1,7 +1,7 @@
 package deletesvc
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 

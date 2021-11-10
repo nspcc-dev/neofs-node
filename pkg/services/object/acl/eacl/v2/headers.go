@@ -3,16 +3,16 @@ package v2
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 type Option func(*cfg)
@@ -76,7 +76,7 @@ func requestHeaders(msg xHeaderSource) []eacl.Header {
 	res := make([]eacl.Header, 0, len(xHdrs))
 
 	for i := range xHdrs {
-		res = append(res, pkg.NewXHeaderFromV2(xHdrs[i]))
+		res = append(res, sessionSDK.NewXHeaderFromV2(xHdrs[i]))
 	}
 
 	return res

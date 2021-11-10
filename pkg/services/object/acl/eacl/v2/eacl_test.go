@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	eacl2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,7 +61,7 @@ func testID(t *testing.T) *objectSDK.ID {
 func testAddress(t *testing.T) *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(testID(t))
-	addr.SetContainerID(cidtest.Generate())
+	addr.SetContainerID(cidtest.GenerateID())
 
 	return addr
 }

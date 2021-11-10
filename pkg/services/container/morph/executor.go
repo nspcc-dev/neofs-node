@@ -3,17 +3,17 @@ package container
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	eaclSDK "github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	containerSDK "github.com/nspcc-dev/neofs-api-go/pkg/container"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
 type morphExecutor struct {
@@ -53,7 +53,7 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 	cnr := containerSDK.NewContainerFromV2(body.GetContainer())
 
 	cnr.SetSignature(
-		pkg.NewSignatureFromV2(body.GetSignature()),
+		signature.NewFromV2(body.GetSignature()),
 	)
 
 	cnr.SetSessionToken(
@@ -127,7 +127,7 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 
 func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
 	table := eaclSDK.NewTableFromV2(body.GetEACL())
-	sign := pkg.NewSignatureFromV2(body.GetSignature())
+	sign := signature.NewFromV2(body.GetSignature())
 
 	table.SetSignature(sign)
 

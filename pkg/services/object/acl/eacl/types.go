@@ -1,9 +1,9 @@
 package eacl
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/pkg/acl/eacl"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
 	bearer "github.com/nspcc-dev/neofs-api-go/v2/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
 // Source is the interface that wraps

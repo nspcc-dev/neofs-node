@@ -4,16 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDB_Delete(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 	parent := generateRawObjectWithCID(t, cid)
 	addAttribute(parent, "foo", "bar")
 
@@ -69,7 +69,7 @@ func TestDB_Delete(t *testing.T) {
 func TestDeleteAllChildren(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.Generate()
+	cid := cidtest.GenerateID()
 
 	// generate parent object
 	parent := generateRawObjectWithCID(t, cid)

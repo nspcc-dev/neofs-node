@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/netmap"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 type remoteTarget struct {

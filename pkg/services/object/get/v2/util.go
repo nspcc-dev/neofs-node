@@ -9,9 +9,7 @@ import (
 	"io"
 	"sync"
 
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	rpcclient "github.com/nspcc-dev/neofs-api-go/rpc/client"
-	signature2 "github.com/nspcc-dev/neofs-api-go/util/signature"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
@@ -24,6 +22,8 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	signature2 "github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 

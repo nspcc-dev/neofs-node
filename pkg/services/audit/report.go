@@ -3,9 +3,9 @@ package audit
 import (
 	"sync"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg/audit"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
+	"github.com/nspcc-dev/neofs-sdk-go/audit"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // Report tracks the progress of auditing container data.

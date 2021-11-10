@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neofs-api-go/pkg/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/stretchr/testify/require"
 )
 

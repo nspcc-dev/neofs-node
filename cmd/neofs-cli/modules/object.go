@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/pkg"
-	cid "github.com/nspcc-dev/neofs-api-go/pkg/container/id"
-	"github.com/nspcc-dev/neofs-api-go/pkg/object"
-	"github.com/nspcc-dev/neofs-api-go/pkg/owner"
-	"github.com/nspcc-dev/neofs-api-go/pkg/session"
-	"github.com/nspcc-dev/neofs-api-go/pkg/token"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/spf13/cobra"
 )
 
@@ -326,7 +326,7 @@ func prepareSessionPrmWithOwner(
 type objectPrm interface {
 	bearerPrm
 	SetTTL(uint32)
-	SetXHeaders([]*pkg.XHeader)
+	SetXHeaders([]*session.XHeader)
 }
 
 func prepareObjectPrm(cmd *cobra.Command, prms ...objectPrm) {
@@ -561,7 +561,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		res, err := internalclient.HeadObject(headPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
-		var cs *pkg.Checksum
+		var cs *checksum.Checksum
 
 		if tz {
 			cs = res.Header().PayloadHomomorphicHash()
