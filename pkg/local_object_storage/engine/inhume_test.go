@@ -34,7 +34,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	link.SetSplitID(splitID)
 
 	t.Run("delete small object", func(t *testing.T) {
-		e := testNewEngineWithShards(testNewShard(t, 1))
+		e := testNewEngineWithShardNum(t, 1)
 		defer e.Close()
 
 		err := Put(e, parent.Object())
