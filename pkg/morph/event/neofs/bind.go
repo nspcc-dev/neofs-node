@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -16,6 +17,17 @@ type Bind struct {
 type bindCommon struct {
 	user []byte
 	keys [][]byte
+
+	// txHash is used in notary environmental
+	// for calculating unique but same for
+	// all notification receivers values.
+	txHash util.Uint256
+}
+
+// TxHash returns hash of the TX with new epoch
+// notification.
+func (b bindCommon) TxHash() util.Uint256 {
+	return b.txHash
 }
 
 // MorphEvent implements Neo:Morph Event interface.
@@ -40,6 +52,8 @@ func ParseBind(e *subscriptions.NotificationEvent) (event.Event, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	ev.txHash = e.Container
 
 	return ev, nil
 }
