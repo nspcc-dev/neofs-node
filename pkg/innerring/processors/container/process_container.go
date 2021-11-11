@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -198,8 +199,11 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 
 		checkKeys = keys.PublicKeys{key}
 	} else {
+		prm := neofsid.AccountKeysPrm{}
+		prm.SetID(cnr.OwnerID())
+
 		// receive all owner keys from NeoFS ID contract
-		checkKeys, err = cp.idClient.AccountKeys(cnr.OwnerID())
+		checkKeys, err = cp.idClient.AccountKeys(prm)
 		if err != nil {
 			return fmt.Errorf("could not received owner keys %s: %w", cnr.OwnerID(), err)
 		}
