@@ -9,6 +9,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Cursor is a type for continuous object listing.
+type Cursor = meta.Cursor
+
 type ListContainersPrm struct{}
 
 type ListContainersRes struct {
@@ -22,13 +25,13 @@ func (r *ListContainersRes) Containers() []*cid.ID {
 // ListWithCursorPrm contains parameters for ListWithCursor operation.
 type ListWithCursorPrm struct {
 	count  uint32
-	cursor string
+	cursor *Cursor
 }
 
 // ListWithCursorRes contains values returned from ListWithCursor operation.
 type ListWithCursorRes struct {
 	addrList []*object.Address
-	cursor   string
+	cursor   *Cursor
 }
 
 // WithCount sets maximum amount of addresses that ListWithCursor can return.
@@ -38,9 +41,9 @@ func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
 }
 
 // WithCursor sets cursor for ListWithCursor operation. For initial request,
-// ignore this param or use empty string. For continues requests, use value
+// ignore this param or use nil value. For continues requests, use value
 // from ListWithCursorRes.
-func (p *ListWithCursorPrm) WithCursor(cursor string) *ListWithCursorPrm {
+func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 	p.cursor = cursor
 	return p
 }
@@ -51,7 +54,7 @@ func (r ListWithCursorRes) AddressList() []*object.Address {
 }
 
 // Cursor returns cursor for consecutive listing requests.
-func (r ListWithCursorRes) Cursor() string {
+func (r ListWithCursorRes) Cursor() *Cursor {
 	return r.cursor
 }
 
@@ -121,11 +124,11 @@ func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, erro
 // ListWithCursor lists physical objects available in shard starting from
 // cursor. Includes regular, tombstone and storage group objects. Does not
 // include inhumed objects. Use cursor value from response for consecutive requests.
-func ListWithCursor(s *Shard, count uint32, cursor string) ([]*object.Address, string, error) {
+func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]*object.Address, *Cursor, error) {
 	prm := new(ListWithCursorPrm).WithCount(count).WithCursor(cursor)
 	res, err := s.ListWithCursor(prm)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	return res.AddressList(), res.Cursor(), nil

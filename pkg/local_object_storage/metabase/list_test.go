@@ -75,7 +75,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {
 			got := make([]*objectSDK.Address, 0, total)
 
-			res, cursor, err := meta.ListWithCursor(db, uint32(countPerReq), "")
+			res, cursor, err := meta.ListWithCursor(db, uint32(countPerReq), nil)
 			require.NoError(t, err, "count:%d", countPerReq)
 			got = append(got, res...)
 
@@ -98,19 +98,8 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid cursor", func(t *testing.T) {
-		_, cursor, err := meta.ListWithCursor(db, total/2, "")
-		require.NoError(t, err)
-
-		_, _, err = meta.ListWithCursor(db, total/2, "x"+cursor[1:])
-		require.Error(t, err)
-
-		_, _, err = meta.ListWithCursor(db, total/2, cursor[1:])
-		require.Error(t, err)
-	})
-
 	t.Run("invalid count", func(t *testing.T) {
-		_, _, err := meta.ListWithCursor(db, 0, "")
+		_, _, err := meta.ListWithCursor(db, 0, nil)
 		require.ErrorIs(t, err, core.ErrEndOfListing)
 	})
 }
@@ -131,7 +120,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	}
 
 	// get half of the objects
-	got, cursor, err := meta.ListWithCursor(db, total/2, "")
+	got, cursor, err := meta.ListWithCursor(db, total/2, nil)
 	require.NoError(t, err)
 	for _, obj := range got {
 		if _, ok := expected[obj.String()]; ok {
