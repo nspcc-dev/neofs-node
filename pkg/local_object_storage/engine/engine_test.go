@@ -116,3 +116,13 @@ func addAttribute(obj *object.RawObject, key, val string) {
 	attrs = append(attrs, attr)
 	obj.SetAttributes(attrs...)
 }
+
+func testNewEngineWithShardNum(t *testing.T, num int) *StorageEngine {
+	shards := make([]*shard.Shard, 0, num)
+
+	for i := 0; i < num; i++ {
+		shards = append(shards, testNewShard(t, i))
+	}
+
+	return testNewEngineWithShards(shards...)
+}
