@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math/bits"
 	"strings"
 	"time"
 	"unicode"
@@ -164,12 +165,28 @@ func SizeInBytesSafe(c *Config, name string) uint64 {
 // with minor corrections (allow to use both `k` and `kb` forms.
 // Seems like viper allows to convert sizes but corresponding parser in `cast` package
 // is missing.
-func safeMul(a, b uint64) uint64 {
-	c := a * b
-	if a > 1 && b > 1 && c/b != a {
+
+// safeMul returns size*multiplier, rounding down to the
+// multiplier/1024 number of bytes.
+// Returns 0 if overflow is detected.
+func safeMul(size float64, multiplier uint64) uint64 {
+	n := uint64(size)
+	f := uint64((size - float64(n)) * 1024)
+	if f != 0 && multiplier != 1 {
+		s := n<<10 + f
+		if s < n {
+			return 0
+		}
+
+		n = s
+		multiplier >>= 10
+	}
+
+	hi, lo := bits.Mul64(n, multiplier)
+	if hi != 0 {
 		return 0
 	}
-	return c
+	return lo
 }
 
 // parseSizeInBytes converts strings like 1GB or 12 mb into an unsigned integer number of bytes
@@ -203,6 +220,6 @@ func parseSizeInBytes(sizeStr string) uint64 {
 		}
 	}
 
-	size := cast.ToUint64(sizeStr)
+	size := cast.ToFloat64(sizeStr)
 	return safeMul(size, multiplier)
 }
