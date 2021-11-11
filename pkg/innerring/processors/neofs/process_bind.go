@@ -4,6 +4,8 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
+	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
@@ -15,6 +17,7 @@ import (
 type bindCommon interface {
 	User() []byte
 	Keys() [][]byte
+	TxHash() util.Uint256
 }
 
 func (np *Processor) processBind(e bindCommon) {
@@ -93,7 +96,14 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 		return
 	}
 
-	err = np.neofsIDClient.ManageKeys(wallet, e.Keys(), e.bind)
+	prm := neofsid.ManageKeysPrm{}
+
+	prm.SetOwnerID(wallet)
+	prm.SetKeys(e.Keys())
+	prm.SetAdd(e.bind)
+	prm.SetHash(e.bindCommon.TxHash())
+
+	err = np.neofsIDClient.ManageKeys(prm)
 	if err != nil {
 		var typ string
 

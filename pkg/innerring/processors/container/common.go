@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -65,7 +66,10 @@ func (cp *Processor) checkKeyOwnership(ownerIDSrc ownerIDSource, key *keys.Publi
 		return nil
 	}
 
-	ownerKeys, err := cp.idClient.AccountKeys(ownerIDSrc.OwnerID())
+	prm := neofsid.AccountKeysPrm{}
+	prm.SetID(ownerIDSrc.OwnerID())
+
+	ownerKeys, err := cp.idClient.AccountKeys(prm)
 	if err != nil {
 		return fmt.Errorf("could not received owner keys %s: %w", ownerIDSrc.OwnerID(), err)
 	}

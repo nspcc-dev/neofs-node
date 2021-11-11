@@ -27,5 +27,7 @@ func ParseUnbind(e *subscriptions.NotificationEvent) (event.Event, error) {
 		return nil, err
 	}
 
+	ev.txHash = e.Container
+
 	return ev, nil
 }
