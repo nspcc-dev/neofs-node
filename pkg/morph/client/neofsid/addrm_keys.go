@@ -22,6 +22,12 @@ type commonBindArgs struct {
 	ownerID []byte // NeoFS account identifier
 
 	keys [][]byte // list of serialized public keys
+
+	client.InvokePrmOptional
+}
+
+func (x *commonBindArgs) SetOptionalPrm(prm client.InvokePrmOptional) {
+	x.InvokePrmOptional = prm
 }
 
 // SetOwnerID sets NeoFS account identifier.
@@ -41,6 +47,7 @@ func (x *Client) AddKeys(args AddKeysArgs) error {
 
 	prm.SetMethod(x.addKeysMethod)
 	prm.SetArgs(args.ownerID, args.keys)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
@@ -57,6 +64,7 @@ func (x *Client) RemoveKeys(args RemoveKeysArgs) error {
 
 	prm.SetMethod(x.removeKeysMethod)
 	prm.SetArgs(args.ownerID, args.keys)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
