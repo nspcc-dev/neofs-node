@@ -42,7 +42,7 @@ func (e *StorageEngine) Init() error {
 var errClosed = errors.New("storage engine is closed")
 
 // Close releases all StorageEngine's components. Waits for all data-related operations to complete.
-// After the call, all the next ones will fail until the ResumeExecution call.
+// After the call, all the next ones will fail.
 //
 // The method is supposed to be called when the application exits.
 func (e *StorageEngine) Close() error {
@@ -50,12 +50,14 @@ func (e *StorageEngine) Close() error {
 }
 
 // closes all shards. Never returns an error, shard errors are logged.
-func (e *StorageEngine) close() error {
+func (e *StorageEngine) close(releasePools bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
-	for _, p := range e.shardPools {
-		p.Release()
+	if releasePools {
+		for _, p := range e.shardPools {
+			p.Release()
+		}
 	}
 
 	for id, sh := range e.shards {
@@ -85,7 +87,8 @@ func (e *StorageEngine) execIfNotBlocked(op func() error) error {
 }
 
 // sets the flag of blocking execution of all data operations according to err:
-//   * err != nil, then blocks the execution. If exec wasn't blocked, calls close method.
+//   * err != nil, then blocks the execution. If exec wasn't blocked, calls close method
+//     (if err == errClosed => additionally releases pools and does not allow to resume executions).
 //   * otherwise, resumes execution. If exec was blocked, calls open method.
 //
 // Can be called concurrently with exec. In this case it waits for all executions to complete.
@@ -95,6 +98,11 @@ func (e *StorageEngine) setBlockExecErr(err error) error {
 
 	prevErr := e.blockExec.err
 
+	wasClosed := errors.Is(prevErr, errClosed)
+	if wasClosed {
+		return errClosed
+	}
+
 	e.blockExec.err = err
 
 	if err == nil {
@@ -102,7 +110,7 @@ func (e *StorageEngine) setBlockExecErr(err error) error {
 			return e.open()
 		}
 	} else if prevErr == nil { // ok -> block
-		return e.close()
+		return e.close(errors.Is(err, errClosed))
 	}
 
 	// otherwise do nothing
@@ -115,7 +123,7 @@ func (e *StorageEngine) setBlockExecErr(err error) error {
 //
 // Сan be called regardless of the fact of the previous blocking. If execution wasn't blocked, releases all resources
 // similar to Close. Can be called concurrently with Close and any data related method (waits for all executions
-// to complete).
+// to complete). Returns error if any Close has been called before.
 //
 // Must not be called concurrently with either Open or Init.
 //
@@ -130,7 +138,7 @@ func (e *StorageEngine) BlockExecution(err error) error {
 //
 // Сan be called regardless of the fact of the previous blocking. If execution was blocked, prepares all resources
 // similar to Open. Can be called concurrently with Close and any data related method (waits for all executions
-// to complete).
+// to complete). Returns error if any Close has been called before.
 //
 // Must not be called concurrently with either Open or Init.
 func (e *StorageEngine) ResumeExecution() error {
