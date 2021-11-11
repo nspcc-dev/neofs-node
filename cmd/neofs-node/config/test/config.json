@@ -54,6 +54,9 @@
     "size_mb": "12m",
     "size_gb": "4g",
     "size_tb": "5 TB",
+    "size_float": ".5t",
+    "size_float_big": "14.123 gb",
+    "size_i_am_not_very_clever": "12.12345678",
     "size_bytes": "2048b",
     "size_bytes_no_suffix": 123456
   },
