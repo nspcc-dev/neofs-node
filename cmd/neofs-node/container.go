@@ -221,7 +221,12 @@ func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
 		zap.Uint64("size", a.UsedSpace()),
 	)
 
-	return w.cnrMorphClient.AnnounceLoad(a, w.key)
+	prm := wrapper.AnnounceLoadPrm{}
+
+	prm.SetAnnouncement(a)
+	prm.SetReporter(w.key)
+
+	return w.cnrMorphClient.AnnounceLoad(prm)
 }
 
 func (*morphLoadWriter) Close() error {
