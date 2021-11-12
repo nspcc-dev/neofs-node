@@ -712,7 +712,7 @@ You can specify default section in storage engine configuration.
 See [example](./config/example/node.yaml) for more details.
 
 
-## [0.28.0] - 2021-10-19 - Udo (우도, 牛島)
+## [0.28.1] - 2021-10-19 - Udo (우도, 牛島)
 
 NeoFS API v2.10 support
 
