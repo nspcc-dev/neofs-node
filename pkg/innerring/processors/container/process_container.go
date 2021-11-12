@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -121,12 +123,21 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	var err error
 
+	prm := wrapper.PutPrm{}
+
+	prm.SetContainer(e.Container())
+	prm.SetKey(e.PublicKey())
+	prm.SetSignature(e.Signature())
+	prm.SetToken(e.SessionToken())
+	prm.SetName(ctx.name)
+	prm.SetZone(ctx.zone)
+
 	if nr := e.NotaryRequest(); nr != nil {
 		// put event was received via Notary service
 		err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 	} else {
 		// put event was received via notification service
-		err = cp.cnrClient.Put(e.Container(), e.PublicKey(), e.Signature(), e.SessionToken(), ctx.name, ctx.zone)
+		err = cp.cnrClient.Put(prm)
 	}
 	if err != nil {
 		cp.log.Error("could not approve put container",
@@ -225,12 +236,18 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	var err error
 
+	prm := wrapper.DeletePrm{}
+
+	prm.SetCID(e.ContainerID())
+	prm.SetSignature(e.Signature())
+	prm.SetToken(e.SessionToken())
+
 	if nr := e.NotaryRequest(); nr != nil {
 		// delete event was received via Notary service
 		err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 	} else {
 		// delete event was received via notification service
-		err = cp.cnrClient.Delete(e.ContainerID(), e.Signature(), e.SessionToken())
+		err = cp.cnrClient.Delete(prm)
 	}
 	if err != nil {
 		cp.log.Error("could not approve delete container",

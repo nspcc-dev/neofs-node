@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
 )
@@ -36,8 +37,13 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		return
 	}
 
+	prm := wrapper.StartEstimationPrm{}
+
+	prm.SetEpoch(epoch - 1)
+	prm.SetHash(ev.TxHash())
+
 	if epoch > 0 { // estimates are invalid in genesis epoch
-		err = np.containerWrp.StartEstimation(epoch - 1)
+		err = np.containerWrp.StartEstimation(prm)
 
 		if err != nil {
 			np.log.Warn("can't start container size estimation",
