@@ -20,14 +20,14 @@ type ListWithCursorPrm struct {
 	cursor *Cursor
 }
 
-// WithCount sets maximum amount of addresses that ListWithCursor can return.
+// WithCount sets maximum amount of addresses that ListWithCursor should return.
 func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
 	p.count = count
 	return p
 }
 
 // WithCursor sets cursor for ListWithCursor operation. For initial request
-// ignore this param or use nil value. For continues requests, use  value
+// ignore this param or use nil value. For consecutive requests, use  value
 // from ListWithCursorRes.
 func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 	p.cursor = cursor
@@ -50,10 +50,13 @@ func (l ListWithCursorRes) Cursor() *Cursor {
 	return l.cursor
 }
 
-// ListWithCursor lists physical objects available in specified shard starting
+// ListWithCursor lists physical objects available in engine starting
 // from cursor. Includes regular,tombstone and storage group objects.
 // Does not include inhumed objects. Use cursor value from response
 // for consecutive requests.
+//
+// Returns ErrEndOfListing if there are no more objects to return or count
+// parameter set to zero.
 func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
 	result := make([]*object.Address, 0, prm.count)
 

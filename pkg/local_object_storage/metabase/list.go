@@ -18,14 +18,14 @@ type ListPrm struct {
 	cursor *Cursor
 }
 
-// WithCount sets maximum amount of addresses that ListWithCursor can return.
+// WithCount sets maximum amount of addresses that ListWithCursor should return.
 func (l *ListPrm) WithCount(count uint32) *ListPrm {
 	l.count = int(count)
 	return l
 }
 
 // WithCursor sets cursor for ListWithCursor operation. For initial request
-// ignore this param or use nil value. For continues requests, use value
+// ignore this param or use nil value. For consecutive requests, use value
 // from ListRes.
 func (l *ListPrm) WithCursor(cursor *Cursor) *ListPrm {
 	l.cursor = cursor
@@ -54,9 +54,12 @@ const (
 	cursorBucketSG
 )
 
-// ListWithCursor lists physical objects available in metabase. Includes regular,
-// tombstone and storage group objects. Does not include inhumed objects. Use
-// cursor value from response for consecutive requests.
+// ListWithCursor lists physical objects available in metabase starting from
+// cursor. Includes regular, tombstone and storage group objects. Does not
+// include inhumed objects. Use cursor value from response for consecutive requests.
+//
+// Returns ErrEndOfListing if there are no more objects to return or count
+// parameter set to zero.
 func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]*object.Address, *Cursor, error) {
 	r, err := db.ListWithCursor(new(ListPrm).WithCount(count).WithCursor(cursor))
 	if err != nil {
@@ -66,9 +69,12 @@ func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]*object.Address, *C
 	return r.AddressList(), r.Cursor(), nil
 }
 
-// ListWithCursor lists physical objects available in metabase. Includes regular,
-// tombstone and storage group objects. Does not include inhumed objects. Use
-// cursor value from response for consecutive requests.
+// ListWithCursor lists physical objects available in metabase starting from
+// cursor. Includes regular, tombstone and storage group objects. Does not
+// include inhumed objects. Use cursor value from response for consecutive requests.
+//
+// Returns ErrEndOfListing if there are no more objects to return or count
+// parameter set to zero.
 func (db *DB) ListWithCursor(prm *ListPrm) (res *ListRes, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res = new(ListRes)
