@@ -34,14 +34,14 @@ type ListWithCursorRes struct {
 	cursor   *Cursor
 }
 
-// WithCount sets maximum amount of addresses that ListWithCursor can return.
+// WithCount sets maximum amount of addresses that ListWithCursor should return.
 func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
 	p.count = count
 	return p
 }
 
 // WithCursor sets cursor for ListWithCursor operation. For initial request,
-// ignore this param or use nil value. For continues requests, use value
+// ignore this param or use nil value. For consecutive requests, use value
 // from ListWithCursorRes.
 func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 	p.cursor = cursor
@@ -108,6 +108,9 @@ func ListContainers(s *Shard) ([]*cid.ID, error) {
 // ListWithCursor lists physical objects available in shard starting from
 // cursor. Includes regular, tombstone and storage group objects. Does not
 // include inhumed objects. Use cursor value from response for consecutive requests.
+//
+// Returns ErrEndOfListing if there are no more objects to return or count
+// parameter set to zero.
 func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
 	metaPrm := new(meta.ListPrm).WithCount(prm.count).WithCursor(prm.cursor)
 	res, err := s.metaBase.ListWithCursor(metaPrm)
@@ -124,6 +127,9 @@ func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, erro
 // ListWithCursor lists physical objects available in shard starting from
 // cursor. Includes regular, tombstone and storage group objects. Does not
 // include inhumed objects. Use cursor value from response for consecutive requests.
+//
+// Returns ErrEndOfListing if there are no more objects to return or count
+// parameter set to zero.
 func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]*object.Address, *Cursor, error) {
 	prm := new(ListWithCursorPrm).WithCount(count).WithCursor(cursor)
 	res, err := s.ListWithCursor(prm)
