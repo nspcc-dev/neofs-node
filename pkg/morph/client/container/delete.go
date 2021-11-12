@@ -14,6 +14,8 @@ type DeleteArgs struct {
 	sig []byte // container identifier signature
 
 	token []byte // binary session token
+
+	client.InvokePrmOptional
 }
 
 // SetCID sets the container identifier
@@ -42,6 +44,7 @@ func (c *Client) Delete(args DeleteArgs) error {
 
 	prm.SetMethod(c.deleteMethod)
 	prm.SetArgs(args.cid, args.sig, args.token)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 

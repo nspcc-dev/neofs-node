@@ -16,6 +16,8 @@ type SetEACLArgs struct {
 	pubkey []byte // binary public key
 
 	token []byte // binary session token
+
+	client.InvokePrmOptional
 }
 
 // SetEACL sets the extended ACL table
@@ -50,6 +52,7 @@ func (c *Client) SetEACL(args SetEACLArgs) error {
 
 	prm.SetMethod(c.setEACLMethod)
 	prm.SetArgs(args.eacl, args.sig, args.pubkey, args.token)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 
