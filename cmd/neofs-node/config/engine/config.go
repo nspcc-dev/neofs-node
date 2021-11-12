@@ -19,13 +19,17 @@ const (
 // of "shard" subsection of "storage" section of c, wrap them into
 // shardconfig.Config and passes to f.
 //
-// Panics if N is not a positive number.
-func IterateShards(c *config.Config, f func(*shardconfig.Config)) {
+// Panics if N is not a positive number while shards are required.
+func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config)) {
 	c = c.Sub(subsection)
 
 	num := config.Uint(c, "shard_num")
 	if num == 0 {
-		panic("no shard configured")
+		if required {
+			panic("no shard configured")
+		}
+
+		return
 	}
 
 	def := c.Sub("default")
