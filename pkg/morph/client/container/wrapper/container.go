@@ -7,6 +7,7 @@ import (
 
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	staticli "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -43,7 +44,14 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 
 	name, zone := container.GetNativeNameWithZone(cnr)
 
-	err = w.Put(data, sig.Key(), sig.Sign(), binToken, name, zone)
+	err = w.Put(PutPrm{
+		cnr:   data,
+		key:   sig.Key(),
+		sig:   sig.Sign(),
+		token: binToken,
+		name:  name,
+		zone:  zone,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +62,48 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 	return id, nil
 }
 
+// PutPrm groups parameters of Put operation.
+type PutPrm struct {
+	cnr   []byte
+	key   []byte
+	sig   []byte
+	token []byte
+	name  string
+	zone  string
+
+	staticli.InvokePrmOptional
+}
+
+// SetContainer sets container data.
+func (p *PutPrm) SetContainer(cnr []byte) {
+	p.cnr = cnr
+}
+
+// SetKey sets public key.
+func (p *PutPrm) SetKey(key []byte) {
+	p.key = key
+}
+
+// SetSignature sets signature.
+func (p *PutPrm) SetSignature(sig []byte) {
+	p.sig = sig
+}
+
+// SetToken sets session token.
+func (p *PutPrm) SetToken(token []byte) {
+	p.token = token
+}
+
+// SetName sets native name.
+func (p *PutPrm) SetName(name string) {
+	p.name = name
+}
+
+// SetZone sets zone.
+func (p *PutPrm) SetZone(zone string) {
+	p.zone = zone
+}
+
 // Put saves binary container with its session token, key and signature
 // in NeoFS system through Container contract call.
 //
@@ -61,18 +111,19 @@ func Put(w *Wrapper, cnr *container.Container) (*cid.ID, error) {
 // encountered that caused the saving to interrupt.
 //
 // If TryNotary is provided, calls notary contract.
-func (w *Wrapper) Put(cnr, key, sig, token []byte, name, zone string) error {
-	if len(sig) == 0 || len(key) == 0 {
+func (w *Wrapper) Put(prm PutPrm) error {
+	if len(prm.sig) == 0 || len(prm.key) == 0 {
 		return errNilArgument
 	}
 
 	var args client.PutArgs
 
-	args.SetContainer(cnr)
-	args.SetSignature(sig)
-	args.SetPublicKey(key)
-	args.SetSessionToken(token)
-	args.SetNativeNameWithZone(name, zone)
+	args.SetContainer(prm.cnr)
+	args.SetSignature(prm.sig)
+	args.SetPublicKey(prm.key)
+	args.SetSessionToken(prm.token)
+	args.SetNativeNameWithZone(prm.name, prm.zone)
+	args.InvokePrmOptional = prm.InvokePrmOptional
 
 	err := w.client.Put(args)
 	if err != nil {
@@ -167,7 +218,36 @@ func Delete(w *Wrapper, witness core.RemovalWitness) error {
 		return fmt.Errorf("could not marshal session token: %w", err)
 	}
 
-	return w.Delete(id.ToV2().GetValue(), witness.Signature(), binToken)
+	return w.Delete(
+		DeletePrm{
+			cid:       id.ToV2().GetValue(),
+			signature: witness.Signature(),
+			token:     binToken,
+		})
+}
+
+// DeletePrm groups parameters of Delete client operation.
+type DeletePrm struct {
+	cid       []byte
+	signature []byte
+	token     []byte
+
+	staticli.InvokePrmOptional
+}
+
+// SetCID sets container ID.
+func (d *DeletePrm) SetCID(cid []byte) {
+	d.cid = cid
+}
+
+// SetSignature sets signature.
+func (d *DeletePrm) SetSignature(signature []byte) {
+	d.signature = signature
+}
+
+// SetToken sets session token.
+func (d *DeletePrm) SetToken(token []byte) {
+	d.token = token
 }
 
 // Delete removes the container from NeoFS system
@@ -177,16 +257,17 @@ func Delete(w *Wrapper, witness core.RemovalWitness) error {
 // the removal to interrupt.
 //
 // If TryNotary is provided, calls notary contract.
-func (w *Wrapper) Delete(cid, signature, token []byte) error {
-	if len(signature) == 0 {
+func (w *Wrapper) Delete(prm DeletePrm) error {
+	if len(prm.signature) == 0 {
 		return errNilArgument
 	}
 
 	var args client.DeleteArgs
 
-	args.SetSignature(signature)
-	args.SetCID(cid)
-	args.SetSessionToken(token)
+	args.SetSignature(prm.signature)
+	args.SetCID(prm.cid)
+	args.SetSessionToken(prm.token)
+	args.InvokePrmOptional = prm.InvokePrmOptional
 
 	return w.client.Delete(args)
 }
@@ -229,21 +310,40 @@ func (w *Wrapper) List(ownerID *owner.ID) ([]*cid.ID, error) {
 	return result, nil
 }
 
+// AnnounceLoadPrm groups parameters of AnnounceLoad operation.
+type AnnounceLoadPrm struct {
+	a   container.UsedSpaceAnnouncement
+	key []byte
+
+	staticli.InvokePrmOptional
+}
+
+// SetAnnouncement sets announcement.
+func (a2 *AnnounceLoadPrm) SetAnnouncement(a container.UsedSpaceAnnouncement) {
+	a2.a = a
+}
+
+// SetReporter sets public key of the reporter.
+func (a2 *AnnounceLoadPrm) SetReporter(key []byte) {
+	a2.key = key
+}
+
 // AnnounceLoad saves container size estimation calculated by storage node
 // with key in NeoFS system through Container contract call.
 //
 // Returns any error encountered that caused the saving to interrupt.
-func (w *Wrapper) AnnounceLoad(a container.UsedSpaceAnnouncement, key []byte) error {
-	v2 := a.ContainerID().ToV2()
+func (w *Wrapper) AnnounceLoad(prm AnnounceLoadPrm) error {
+	v2 := prm.a.ContainerID().ToV2()
 	if v2 == nil {
 		return errUnsupported // use other major version if there any
 	}
 
 	args := client.PutSizeArgs{}
 	args.SetContainerID(v2.GetValue())
-	args.SetEpoch(a.Epoch())
-	args.SetSize(a.UsedSpace())
-	args.SetReporterKey(key)
+	args.SetEpoch(prm.a.Epoch())
+	args.SetSize(prm.a.UsedSpace())
+	args.SetReporterKey(prm.key)
+	args.InvokePrmOptional = prm.InvokePrmOptional
 
 	return w.client.PutSize(args)
 }
