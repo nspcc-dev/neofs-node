@@ -18,6 +18,8 @@ type PutArgs struct {
 	token []byte // binary session token
 
 	name, zone string // native name and zone
+
+	client.InvokePrmOptional
 }
 
 // SetPublicKey sets the public key of container owner
@@ -69,6 +71,7 @@ func (c *Client) Put(args PutArgs) error {
 	}
 
 	prm.SetMethod(method)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 	if err != nil {

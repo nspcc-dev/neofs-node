@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	staticli "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	client "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -90,23 +91,60 @@ func PutEACL(w *Wrapper, table *eacl.Table) error {
 
 	sig := table.Signature()
 
-	return w.PutEACL(data, sig.Key(), sig.Sign(), binToken)
+	return w.PutEACL(
+		PutEACLPrm{
+			table: data,
+			key:   sig.Key(),
+			sig:   sig.Sign(),
+			token: binToken,
+		})
+}
+
+// PutEACLPrm groups parameters of PutEACL operation.
+type PutEACLPrm struct {
+	table []byte
+	key   []byte
+	sig   []byte
+	token []byte
+
+	staticli.InvokePrmOptional
+}
+
+// SetTable sets table.
+func (p *PutEACLPrm) SetTable(table []byte) {
+	p.table = table
+}
+
+// SetKey sets key.
+func (p *PutEACLPrm) SetKey(key []byte) {
+	p.key = key
+}
+
+// SetSignature sets signature.
+func (p *PutEACLPrm) SetSignature(sig []byte) {
+	p.sig = sig
+}
+
+// SetToken sets session token.
+func (p *PutEACLPrm) SetToken(token []byte) {
+	p.token = token
 }
 
 // PutEACL saves binary eACL table with its session token, key and signature
 // in NeoFS system through Container contract call.
 //
 // Returns any error encountered that caused the saving to interrupt.
-func (w *Wrapper) PutEACL(table, key, sig, token []byte) error {
-	if len(sig) == 0 || len(key) == 0 {
+func (w *Wrapper) PutEACL(prm PutEACLPrm) error {
+	if len(prm.sig) == 0 || len(prm.key) == 0 {
 		return errNilArgument
 	}
 
 	args := client.SetEACLArgs{}
-	args.SetSignature(sig)
-	args.SetPublicKey(key)
-	args.SetEACL(table)
-	args.SetSessionToken(token)
+	args.SetSignature(prm.sig)
+	args.SetPublicKey(prm.key)
+	args.SetEACL(prm.table)
+	args.SetSessionToken(prm.token)
+	args.InvokePrmOptional = prm.InvokePrmOptional
 
 	return w.client.SetEACL(args)
 }

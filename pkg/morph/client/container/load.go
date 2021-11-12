@@ -16,6 +16,8 @@ type PutSizeArgs struct {
 	cid []byte
 
 	reporterKey []byte
+
+	client.InvokePrmOptional
 }
 
 // SetEpoch sets the number of the epoch when
@@ -48,6 +50,7 @@ func (c *Client) PutSize(args PutSizeArgs) error {
 
 	prm.SetMethod(c.putSizeMethod)
 	prm.SetArgs(args.epoch, args.cid, args.size, args.reporterKey)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 

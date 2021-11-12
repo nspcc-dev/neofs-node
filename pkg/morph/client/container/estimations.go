@@ -6,8 +6,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
+// StartEstimation groups parameters of StartEstimation operation.
 type StartEstimation struct {
 	epoch int64
+
+	client.InvokePrmOptional
 }
 
 func (e *StartEstimation) SetEpoch(v int64) {
@@ -16,6 +19,8 @@ func (e *StartEstimation) SetEpoch(v int64) {
 
 type StopEstimation struct {
 	epoch int64
+
+	client.InvokePrmOptional
 }
 
 func (e *StopEstimation) SetEpoch(v int64) {
@@ -27,6 +32,7 @@ func (c *Client) StartEstimation(args StartEstimation) error {
 
 	prm.SetMethod(c.startEstimation)
 	prm.SetArgs(args.epoch)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.startEstimation, err)
@@ -39,6 +45,7 @@ func (c *Client) StopEstimation(args StopEstimation) error {
 
 	prm.SetMethod(c.stopEstimation)
 	prm.SetArgs(args.epoch)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", c.stopEstimation, err)
