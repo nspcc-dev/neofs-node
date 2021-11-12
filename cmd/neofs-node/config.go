@@ -367,7 +367,9 @@ func initLocalStorage(c *cfg) {
 func initShardOptions(c *cfg) {
 	var opts [][]shard.Option
 
-	engineconfig.IterateShards(c.appCfg, func(sc *shardconfig.Config) {
+	require := !nodeconfig.Relay(c.appCfg) // relay node does not require shards
+
+	engineconfig.IterateShards(c.appCfg, require, func(sc *shardconfig.Config) {
 		var writeCacheOpts []writecache.Option
 
 		useWriteCache := sc.UseWriteCache()
