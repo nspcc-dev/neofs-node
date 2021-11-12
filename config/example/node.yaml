@@ -84,6 +84,7 @@ object:
     pool_size_remote: 100  # number of async workers for remote PUT operations
 
 storage:
+  # note: shard configuration can be omitted for relay node (see `node.relay`)
   shard_pool_size: 15 # size of per-shard worker pools used for PUT operations
   shard_num: 2  # total number of shards
   default: # section with the default shard parameters
