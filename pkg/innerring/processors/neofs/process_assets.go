@@ -2,6 +2,7 @@ package neofs
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	balancewrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
@@ -19,11 +20,14 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 		return
 	}
 
+	prm := balancewrp.MintPrm{}
+
+	prm.SetTo(deposit.To())
+	prm.SetAmount(np.converter.ToBalancePrecision(deposit.Amount()))
+	prm.SetID(deposit.ID())
+
 	// send transferX to balance contract
-	err := np.balanceClient.Mint(
-		deposit.To(),
-		np.converter.ToBalancePrecision(deposit.Amount()),
-		deposit.ID())
+	err := np.balanceClient.Mint(prm)
 	if err != nil {
 		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
 	}
@@ -91,12 +95,15 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 
 	curEpoch := np.epochState.EpochCounter()
 
-	err = np.balanceClient.Lock(
-		withdraw.ID(),
-		withdraw.User(),
-		lock,
-		np.converter.ToBalancePrecision(withdraw.Amount()),
-		int64(curEpoch+lockAccountLifetime))
+	prm := balancewrp.LockPrm{}
+
+	prm.SetID(withdraw.ID())
+	prm.SetUser(withdraw.User())
+	prm.SetLock(lock)
+	prm.SetAmount(np.converter.ToBalancePrecision(withdraw.Amount()))
+	prm.SetDueEpoch(int64(curEpoch + lockAccountLifetime))
+
+	err = np.balanceClient.Lock(prm)
 	if err != nil {
 		np.log.Error("can't lock assets for withdraw", zap.Error(err))
 	}
@@ -110,10 +117,13 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		return
 	}
 
-	err := np.balanceClient.Burn(
-		cheque.LockAccount(),
-		np.converter.ToBalancePrecision(cheque.Amount()),
-		cheque.ID())
+	prm := balancewrp.BurnPrm{}
+
+	prm.SetTo(cheque.LockAccount())
+	prm.SetAmount(np.converter.ToBalancePrecision(cheque.Amount()))
+	prm.SetID(cheque.ID())
+
+	err := np.balanceClient.Burn(prm)
 	if err != nil {
 		np.log.Error("can't transfer assets to fed contract", zap.Error(err))
 	}
