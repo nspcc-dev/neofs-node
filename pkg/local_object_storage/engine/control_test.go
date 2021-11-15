@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,7 +13,7 @@ func TestExecBlocks(t *testing.T) {
 	defer e.Close()
 
 	// put some object
-	obj := generateRawObjectWithCID(t, cidtest.Generate()).Object()
+	obj := generateRawObjectWithCID(t, cidtest.GenerateID()).Object()
 
 	addr := obj.Address()
 
