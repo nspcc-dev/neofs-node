@@ -21,7 +21,8 @@ func TestCompression(t *testing.T) {
 	newBlobStor := func(t *testing.T, compress bool) *BlobStor {
 		bs := New(WithCompressObjects(compress),
 			WithRootPath(dir),
-			WithSmallSizeLimit(smallSizeLimit))
+			WithSmallSizeLimit(smallSizeLimit),
+			WithBlobovniczaShallowWidth(1)) // default width is 16, slow init
 		require.NoError(t, bs.Open())
 		require.NoError(t, bs.Init())
 		return bs
