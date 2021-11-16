@@ -40,7 +40,10 @@ func TestAuditResults(t *testing.T) {
 	auditRes.SetPublicKey(key.PublicKey().Bytes())
 	auditRes.SetContainerID(id)
 
-	require.NoError(t, auditClientWrapper.PutAuditResult(auditRes))
+	prm := auditWrapper.PutPrm{}
+	prm.SetResult(auditRes)
+
+	require.NoError(t, auditClientWrapper.PutAuditResult(prm))
 
 	time.Sleep(5 * time.Second)
 
