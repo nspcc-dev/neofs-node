@@ -474,3 +474,20 @@ func (c *Client) MsPerBlock() (res int64, err error) {
 
 	return int64(v.Protocol.MillisecondsPerBlock), nil
 }
+
+// IsValidScript returns true if invocation script executes with HALT state.
+func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res bool, err error) {
+	if c.multiClient != nil {
+		return res, c.multiClient.iterateClients(func(c *Client) error {
+			res, err = c.IsValidScript(script, signers)
+			return err
+		})
+	}
+
+	result, err := c.client.InvokeScript(script, signers)
+	if err != nil {
+		return false, fmt.Errorf("invokeScript: %w", err)
+	}
+
+	return result.State == vm.HaltState.String(), nil
+}
