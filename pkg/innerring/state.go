@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
+	auditwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -145,7 +146,10 @@ func (s *Server) WriteReport(r *audit.Report) error {
 	res := r.Result()
 	res.SetPublicKey(s.pubKey)
 
-	return s.auditClient.PutAuditResult(res)
+	prm := auditwrp.PutPrm{}
+	prm.SetResult(res)
+
+	return s.auditClient.PutAuditResult(prm)
 }
 
 // ResetEpochTimer resets block timer that produces events to update epoch
