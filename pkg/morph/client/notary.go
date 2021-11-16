@@ -441,7 +441,11 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	_, n := mn(alphabetList, committee)
 	u8n := uint8(n)
 
-	cosigners, err := c.notaryCosigners(alphabetList, committee)
+	if !invokedByAlpha {
+		u8n++
+	}
+
+	cosigners, err := c.notaryCosigners(invokedByAlpha, alphabetList, committee)
 	if err != nil {
 		return err
 	}
@@ -510,7 +514,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	err = c.client.AddNetworkFee(
 		mainTx,
 		notaryFee,
-		c.notaryAccounts(multiaddrAccount)...,
+		c.notaryAccounts(invokedByAlpha, multiaddrAccount)...,
 	)
 	if err != nil {
 		return err
@@ -538,8 +542,8 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	return nil
 }
 
-func (c *Client) notaryCosigners(ir []*keys.PublicKey, committee bool) ([]transaction.Signer, error) {
-	s := make([]transaction.Signer, 0, 3)
+func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, committee bool) ([]transaction.Signer, error) {
+	s := make([]transaction.Signer, 0, 4)
 
 	// first we have proxy contract signature, as it will pay for the execution
 	s = append(s, transaction.Signer{
@@ -563,6 +567,16 @@ func (c *Client) notaryCosigners(ir []*keys.PublicKey, committee bool) ([]transa
 		AllowedGroups:    c.signer.AllowedGroups,
 	})
 
+	if !invokedByAlpha {
+		// then we have invoker signature
+		s = append(s, transaction.Signer{
+			Account:          hash.Hash160(c.acc.GetVerificationScript()),
+			Scopes:           c.signer.Scopes,
+			AllowedContracts: c.signer.AllowedContracts,
+			AllowedGroups:    c.signer.AllowedGroups,
+		})
+	}
+
 	// last one is a placeholder for notary contract signature
 	s = append(s, transaction.Signer{
 		Account: c.notary.notary,
@@ -572,12 +586,12 @@ func (c *Client) notaryCosigners(ir []*keys.PublicKey, committee bool) ([]transa
 	return s, nil
 }
 
-func (c *Client) notaryAccounts(multiaddr *wallet.Account) []*wallet.Account {
+func (c *Client) notaryAccounts(invokedByAlpha bool, multiaddr *wallet.Account) []*wallet.Account {
 	if multiaddr == nil {
 		return nil
 	}
 
-	a := make([]*wallet.Account, 0, 3)
+	a := make([]*wallet.Account, 0, 4)
 
 	// first we have proxy account, as it will pay for the execution
 	a = append(a, &wallet.Account{
@@ -588,6 +602,11 @@ func (c *Client) notaryAccounts(multiaddr *wallet.Account) []*wallet.Account {
 
 	// then we have inner ring multiaddress account
 	a = append(a, multiaddr)
+
+	if !invokedByAlpha {
+		// then we have invoker account
+		a = append(a, c.acc)
+	}
 
 	// last one is a placeholder for notary contract account
 	a = append(a, &wallet.Account{
@@ -602,7 +621,7 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 		return nil
 	}
 
-	w := make([]transaction.Witness, 0, 3)
+	w := make([]transaction.Witness, 0, 4)
 
 	// first we have empty proxy witness, because notary will execute `Verify`
 	// method on the proxy contract to check witness
@@ -638,6 +657,19 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 		InvocationScript:   invokeScript,
 		VerificationScript: multiaddr.GetVerificationScript(),
 	})
+
+	if !invokedByAlpha {
+		// then we have invoker witness
+		invokeScript = append(
+			[]byte{byte(opcode.PUSHDATA1), 64},
+			c.acc.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), tx)...,
+		)
+
+		w = append(w, transaction.Witness{
+			InvocationScript:   invokeScript,
+			VerificationScript: c.acc.GetVerificationScript(),
+		})
+	}
 
 	// last one is a placeholder for notary contract witness
 	w = append(w, transaction.Witness{

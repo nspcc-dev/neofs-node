@@ -25,6 +25,7 @@ var (
 	errUnexpectedCosignersAmount  = errors.New("received main tx has unexpected amount of cosigners")
 	errIncorrectAlphabetSigner    = errors.New("received main tx has incorrect Alphabet signer")
 	errIncorrectProxyWitnesses    = errors.New("received main tx has non-empty Proxy witnesses")
+	errIncorrectInvokerWitnesses  = errors.New("received main tx has empty Invoker witness")
 	errIncorrectAlphabet          = errors.New("received main tx has incorrect Alphabet verification")
 	errIncorrectNotaryPlaceholder = errors.New("received main tx has incorrect Notary contract placeholder")
 	errIncorrectAttributesAmount  = errors.New("received main tx has incorrect attributes amount")
@@ -104,12 +105,16 @@ func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
 // since every notary call is a new notary request in fact.
 func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	// notary request's main tx is expected to have
-	// exactly three witnesses: one for proxy contract,
-	// one for notary's invoker and one is for notary
-	// contract
-	if len(nr.MainTransaction.Scripts) != 3 {
+	// three or four witnesses: one for proxy contract,
+	// one for alphabet multisignature, one optional for
+	// notary's invoker and one is for notary  contract
+	ln := len(nr.MainTransaction.Scripts)
+	switch ln {
+	case 3, 4:
+	default:
 		return nil, errUnexpectedWitnessAmount
 	}
+	invokerWitness := ln == 4
 
 	// alphabet node should handle only notary requests
 	// that have been sent unsigned(by storage nodes) =>
@@ -126,19 +131,19 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		return nil, fmt.Errorf("could not fetch Alphabet public keys: %w", err)
 	}
 
-	err = p.validateCosigners(nr.MainTransaction.Signers, currentAlphabet)
+	err = p.validateCosigners(ln, nr.MainTransaction.Signers, currentAlphabet)
 	if err != nil {
 		return nil, err
 	}
 
 	// validate main TX's notary attribute
-	err = p.validateAttributes(nr.MainTransaction.Attributes, currentAlphabet)
+	err = p.validateAttributes(nr.MainTransaction.Attributes, currentAlphabet, invokerWitness)
 	if err != nil {
 		return nil, err
 	}
 
 	// validate main TX's witnesses
-	err = p.validateWitnesses(nr.MainTransaction.Scripts, currentAlphabet)
+	err = p.validateWitnesses(nr.MainTransaction.Scripts, currentAlphabet, invokerWitness)
 	if err != nil {
 		return nil, err
 	}
@@ -303,8 +308,8 @@ func (p Preparator) validateExpiration(fbTX *transaction.Transaction) error {
 	return nil
 }
 
-func (p Preparator) validateCosigners(s []transaction.Signer, alphaKeys keys.PublicKeys) error {
-	if len(s) != 3 {
+func (p Preparator) validateCosigners(expected int, s []transaction.Signer, alphaKeys keys.PublicKeys) error {
+	if len(s) != expected {
 		return errUnexpectedCosignersAmount
 	}
 
@@ -320,7 +325,7 @@ func (p Preparator) validateCosigners(s []transaction.Signer, alphaKeys keys.Pub
 	return nil
 }
 
-func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.PublicKeys) error {
+func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.PublicKeys, invokerWitness bool) error {
 	// the first one(proxy contract) must have empty
 	// witnesses
 	if len(w[0].VerificationScript)+len(w[0].InvocationScript) != 0 {
@@ -338,23 +343,35 @@ func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.Pu
 		return errIncorrectAlphabet
 	}
 
-	// the third one must be a placeholder for notary
-	// contract witness
-	if !bytes.Equal(w[2].InvocationScript, p.dummyInvocationScript) || len(w[2].VerificationScript) != 0 {
+	if invokerWitness {
+		// the optional third one must be an invoker witness
+		if len(w[2].VerificationScript)+len(w[2].InvocationScript) == 0 {
+			return errIncorrectInvokerWitnesses
+		}
+	}
+
+	// the last one must be a placeholder for notary contract witness
+	last := len(w) - 1
+	if !bytes.Equal(w[last].InvocationScript, p.dummyInvocationScript) || len(w[last].VerificationScript) != 0 {
 		return errIncorrectNotaryPlaceholder
 	}
 
 	return nil
 }
 
-func (p Preparator) validateAttributes(aa []transaction.Attribute, alphaKeys keys.PublicKeys) error {
+func (p Preparator) validateAttributes(aa []transaction.Attribute, alphaKeys keys.PublicKeys, invokerWitness bool) error {
 	// main tx must have exactly one attribute
 	if len(aa) != 1 {
 		return errIncorrectAttributesAmount
 	}
 
+	expectedN := uint8(len(alphaKeys))
+	if invokerWitness {
+		expectedN++
+	}
+
 	val, ok := aa[0].Value.(*transaction.NotaryAssisted)
-	if !ok || val.NKeys != uint8(len(alphaKeys)) {
+	if !ok || val.NKeys != expectedN {
 		return errIncorrectAttribute
 	}
 
