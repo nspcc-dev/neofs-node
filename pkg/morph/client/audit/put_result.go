@@ -10,6 +10,8 @@ import (
 // of "put audit result" invocation call.
 type PutAuditResultArgs struct {
 	rawResult []byte // audit result in NeoFS API-compatible binary representation
+
+	client.InvokePrmOptional
 }
 
 // SetRawResult sets audit result structure
@@ -25,6 +27,7 @@ func (c *Client) PutAuditResult(args PutAuditResultArgs) error {
 
 	prm.SetMethod(c.putResultMethod)
 	prm.SetArgs(args.rawResult)
+	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 
