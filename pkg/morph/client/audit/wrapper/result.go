@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -14,18 +15,31 @@ type ResultID []byte
 
 var errUnsupported = errors.New("unsupported structure version")
 
+// PutPrm groups parameters of PutAuditResult operation.
+type PutPrm struct {
+	result *auditAPI.Result
+
+	client.InvokePrmOptional
+}
+
+// SetResult sets audit result.
+func (p *PutPrm) SetResult(result *auditAPI.Result) {
+	p.result = result
+}
+
 // PutAuditResult saves passed audit result structure in NeoFS system
 // through Audit contract call.
 //
 // Returns encountered error that caused the saving to interrupt.
-func (w *ClientWrapper) PutAuditResult(result *auditAPI.Result) error {
-	rawResult, err := result.Marshal()
+func (w *ClientWrapper) PutAuditResult(prm PutPrm) error {
+	rawResult, err := prm.result.Marshal()
 	if err != nil {
 		return fmt.Errorf("could not marshal audit result: %w", err)
 	}
 
 	args := audit.PutAuditResultArgs{}
 	args.SetRawResult(rawResult)
+	args.InvokePrmOptional = prm.InvokePrmOptional
 
 	return w.client.
 		PutAuditResult(args)
