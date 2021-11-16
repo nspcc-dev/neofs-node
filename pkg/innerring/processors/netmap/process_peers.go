@@ -18,6 +18,19 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		return
 	}
 
+	// check if notary transaction is valid, see #976
+	if originalRequest := ev.NotaryRequest(); originalRequest != nil {
+		tx := originalRequest.MainTransaction
+		ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
+		if err != nil || !ok {
+			np.log.Warn("non-halt notary transaction",
+				zap.String("method", "netmap.AddPeer"),
+				zap.String("hash", tx.Hash().StringLE()),
+				zap.Error(err))
+			return
+		}
+	}
+
 	// unmarshal node info
 	nodeInfo := netmap.NewNodeInfo()
 	if err := nodeInfo.Unmarshal(ev.Node()); err != nil {
