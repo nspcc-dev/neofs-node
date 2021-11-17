@@ -5,10 +5,10 @@ import (
 	"sort"
 	"testing"
 
-	cidtest "github.com/nspcc-dev/neofs-api-go/pkg/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-api-go/pkg/object"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +24,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	// fill metabase with objects
 	for i := 0; i < containers; i++ {
-		containerID := cidtest.Generate()
+		containerID := cidtest.GenerateID()
 
 		// add one regular object
 		obj := generateRawObjectWithCID(t, containerID)
