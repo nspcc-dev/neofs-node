@@ -5,7 +5,6 @@ import (
 	"sort"
 	"testing"
 
-	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -91,7 +90,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 			}
 
 			_, _, err = meta.ListWithCursor(db, uint32(countPerReq), cursor)
-			require.ErrorIs(t, err, core.ErrEndOfListing, "count:%d", countPerReq, cursor)
+			require.ErrorIs(t, err, meta.ErrEndOfListing, "count:%d", countPerReq, cursor)
 
 			got = sortAddresses(got)
 			require.Equal(t, expected, got, "count:%d", countPerReq)
@@ -100,7 +99,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	t.Run("invalid count", func(t *testing.T) {
 		_, _, err := meta.ListWithCursor(db, 0, nil)
-		require.ErrorIs(t, err, core.ErrEndOfListing)
+		require.ErrorIs(t, err, meta.ErrEndOfListing)
 	})
 }
 
@@ -138,7 +137,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	// get remaining objects
 	for {
 		got, cursor, err = meta.ListWithCursor(db, total, cursor)
-		if errors.Is(err, core.ErrEndOfListing) {
+		if errors.Is(err, meta.ErrEndOfListing) {
 			break
 		}
 		for _, obj := range got {

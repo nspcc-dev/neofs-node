@@ -3,10 +3,14 @@ package engine
 import (
 	"sort"
 
-	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
+
+// ErrEndOfListing is returned from object listing with cursor
+// when storage can't return any more objects after provided
+// cursor. Use nil cursor object to start listing again.
+var ErrEndOfListing = shard.ErrEndOfListing
 
 // Cursor is a type for continuous object listing.
 type Cursor struct {
@@ -69,7 +73,7 @@ func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorR
 	e.mtx.RUnlock()
 
 	if len(shardIDs) == 0 {
-		return nil, core.ErrEndOfListing
+		return nil, ErrEndOfListing
 	}
 
 	sort.Slice(shardIDs, func(i, j int) bool {
@@ -116,7 +120,7 @@ func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorR
 	}
 
 	if len(result) == 0 {
-		return nil, core.ErrEndOfListing
+		return nil, ErrEndOfListing
 	}
 
 	return &ListWithCursorRes{
