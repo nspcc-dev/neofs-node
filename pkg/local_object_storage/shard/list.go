@@ -12,6 +12,11 @@ import (
 // Cursor is a type for continuous object listing.
 type Cursor = meta.Cursor
 
+// ErrEndOfListing is returned from object listing with cursor
+// when storage can't return any more objects after provided
+// cursor. Use nil cursor object to start listing again.
+var ErrEndOfListing = meta.ErrEndOfListing
+
 type ListContainersPrm struct{}
 
 type ListContainersRes struct {

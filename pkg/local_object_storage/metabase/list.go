@@ -1,13 +1,18 @@
 package meta
 
 import (
+	"errors"
 	"strings"
 
-	core "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
 )
+
+// ErrEndOfListing is returned from object listing with cursor
+// when storage can't return any more objects after provided
+// cursor. Use nil cursor object to start listing again.
+var ErrEndOfListing = errors.New("end of object listing")
 
 // Cursor is a type for continuous object listing.
 type Cursor struct {
@@ -121,7 +126,7 @@ loop:
 	}
 
 	if len(result) == 0 {
-		return nil, nil, core.ErrEndOfListing
+		return nil, nil, ErrEndOfListing
 	}
 
 	// new slice is much faster but less memory efficient
