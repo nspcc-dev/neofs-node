@@ -6,12 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
