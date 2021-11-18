@@ -4,12 +4,11 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
-	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
-
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
