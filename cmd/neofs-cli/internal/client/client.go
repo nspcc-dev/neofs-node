@@ -604,11 +604,11 @@ func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 	cliPrm.WithDataWriter(prm.wrt)
 	cliPrm.WithRange(prm.rng)
 
-	_, err = prm.cli.ObjectPayloadRangeData(context.Background(), &cliPrm,
+	_, err = prm.cli.ObjectPayloadRangeData(context.Background(), &cliPrm, append(prm.opts,
 		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
-	)
+	)...)
 
 	return
 }
