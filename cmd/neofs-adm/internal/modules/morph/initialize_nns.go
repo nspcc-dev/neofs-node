@@ -24,14 +24,20 @@ const defaultNameServiceSysfee = 4000_0000
 const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
 
 func (c *initializeContext) setNNS() error {
-	nnsCs := c.getContract(nnsContract)
+	nnsCs, err := c.Client.GetContractStateByID(1)
+	if err != nil {
+		return err
+	}
 
 	ok, err := c.nnsRootRegistered(nnsCs.Hash)
 	if err != nil {
 		return err
 	} else if !ok {
 		bw := io.NewBufBinWriter()
-		emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRoot", callflag.All, "neofs")
+		emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
+			"neofs", c.CommitteeAcc.Contract.ScriptHash(),
+			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
+		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 		if err := c.sendCommitteeTx(bw.Bytes(), -1); err != nil {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
 		}
