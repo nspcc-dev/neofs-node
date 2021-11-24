@@ -86,7 +86,9 @@ const updateMethodName = "update"
 func (c *initializeContext) deployNNS(method string) error {
 	cs := c.getContract(nnsContract)
 
-	if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != updateMethodName {
+	realCs, err := c.Client.GetContractStateByID(1)
+	if err == nil && realCs.NEF.Checksum == cs.NEF.Checksum {
+		c.Command.Println("NNS contract is already deployed.")
 		return nil
 	}
 
@@ -147,17 +149,20 @@ func (c *initializeContext) deployContracts(method string) error {
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
-		if _, err := c.Client.GetContractStateByHash(ctrHash); err == nil && method != updateMethodName {
+		if method == updateMethodName {
+			ctrHash, err = nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
+			if err != nil {
+				return fmt.Errorf("can't resolve hash for contract update: %w", err)
+			}
+		}
+		if c.isUpdated(ctrHash, alphaCs) {
 			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
 			continue
 		}
 
 		invokeHash := mgmtHash
 		if method == updateMethodName {
-			invokeHash, err = nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
-			if err != nil {
-				return fmt.Errorf("can't resolve hash for contract update: %w", err)
-			}
+			invokeHash = ctrHash
 		}
 
 		keysParam = append(keysParam, smartcontract.Parameter{
@@ -205,17 +210,22 @@ func (c *initializeContext) deployContracts(method string) error {
 
 	for _, ctrName := range contractList {
 		cs := c.Contracts[ctrName]
-		if _, err := c.Client.GetContractStateByHash(cs.Hash); err == nil && method != updateMethodName {
+
+		ctrHash := cs.Hash
+		if method == updateMethodName {
+			ctrHash, err = nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
+			if err != nil {
+				return fmt.Errorf("can't resolve hash for contract update: %w", err)
+			}
+		}
+		if c.isUpdated(ctrHash, cs) {
 			c.Command.Printf("%s contract is already deployed.\n", ctrName)
 			continue
 		}
 
 		invokeHash := mgmtHash
 		if method == updateMethodName {
-			invokeHash, err = nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
-			if err != nil {
-				return fmt.Errorf("can't resolve hash for contract update: %w", err)
-			}
+			invokeHash = ctrHash
 		}
 
 		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
@@ -239,6 +249,11 @@ func (c *initializeContext) deployContracts(method string) error {
 	}
 
 	return c.awaitTx()
+}
+
+func (c *initializeContext) isUpdated(ctrHash util.Uint160, cs *contractState) bool {
+	realCs, err := c.Client.GetContractStateByHash(ctrHash)
+	return err == nil && realCs.NEF.Checksum == cs.NEF.Checksum
 }
 
 func (c *initializeContext) getContract(ctrName string) *contractState {
