@@ -91,7 +91,7 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 		if err != nil {
 			return err
 		}
-		if s != expectedHash {
+		if s == expectedHash {
 			return nil
 		}
 	}
