@@ -110,6 +110,7 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 	var (
 		nonce uint32 = 1
 		vub   uint32
+		vubP  *uint32
 		err   error
 	)
 
@@ -118,10 +119,11 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 		if err != nil {
 			return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
 		}
+		vubP = &vub
 	}
 
 	s.contracts.alphabet.iterate(func(letter GlagoliticLetter, contract util.Uint160) {
-		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, &vub, voteMethod, int64(epoch), validators)
+		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, vubP, voteMethod, int64(epoch), validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),
