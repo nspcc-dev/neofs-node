@@ -69,7 +69,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 		emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
 		emit.Syscall(bw.BinWriter, interopnames.SystemContractCallNative) // any != interopnames.SystemContractCall
 
-		nr := correctNR(bw.Bytes())
+		nr := correctNR(bw.Bytes(), false)
 
 		_, err := preparator.Prepare(nr)
 
@@ -84,7 +84,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 		emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
 		emit.Syscall(bw.BinWriter, interopnames.SystemContractCall)
 
-		nr := correctNR(bw.Bytes())
+		nr := correctNR(bw.Bytes(), false)
 
 		_, err := preparator.Prepare(nr)
 
@@ -129,12 +129,14 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 
 	tests := []struct {
 		name   string
+		addW   bool // additional witness for non alphabet invocations
 		mTX    mTX
 		fbTX   fbTX
 		expErr error
 	}{
 		{
 			name: "incorrect witness amount",
+			addW: false,
 			mTX: mTX{
 				scripts: []transaction.Witness{{}},
 			},
@@ -142,6 +144,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "not dummy invocation script",
+			addW: false,
 			mTX: mTX{
 				scripts: []transaction.Witness{
 					{},
@@ -155,6 +158,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX signers amount",
+			addW: false,
 			mTX: mTX{
 				sigs: []transaction.Signer{{}},
 			},
@@ -162,6 +166,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX Alphabet signer",
+			addW: false,
 			mTX: mTX{
 				sigs: []transaction.Signer{
 					{},
@@ -175,6 +180,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX attribute amount",
+			addW: false,
 			mTX: mTX{
 				attrs: []transaction.Attribute{{}, {}},
 			},
@@ -182,6 +188,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX attribute",
+			addW: false,
 			mTX: mTX{
 				attrs: []transaction.Attribute{
 					{
@@ -195,6 +202,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX proxy witness",
+			addW: false,
 			mTX: mTX{
 				scripts: []transaction.Witness{
 					{
@@ -210,6 +218,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX Alphabet witness",
+			addW: false,
 			mTX: mTX{
 				scripts: []transaction.Witness{
 					{},
@@ -224,6 +233,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect main TX Notary witness",
+			addW: false,
 			mTX: mTX{
 				scripts: []transaction.Witness{
 					{},
@@ -240,6 +250,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect fb TX attributes amount",
+			addW: false,
 			fbTX: fbTX{
 				attrs: []transaction.Attribute{{}},
 			},
@@ -247,6 +258,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "incorrect fb TX attributes",
+			addW: false,
 			fbTX: fbTX{
 				attrs: []transaction.Attribute{{}, {}, {}},
 			},
@@ -254,6 +266,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 		{
 			name: "expired fb TX",
+			addW: false,
 			fbTX: fbTX{
 				[]transaction.Attribute{
 					{},
@@ -267,6 +280,36 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 				},
 			},
 			expErr: ErrMainTXExpired,
+		},
+		{
+			name: "incorrect invoker TX Alphabet witness",
+			addW: true,
+			mTX: mTX{
+				scripts: []transaction.Witness{
+					{},
+					{
+						VerificationScript: alphaVerificationScript,
+						InvocationScript:   dummyInvocationScript,
+					},
+					{},
+					{},
+				},
+			},
+			expErr: errIncorrectInvokerWitnesses,
+		},
+		{
+			name: "incorrect main TX attribute with invoker",
+			addW: true,
+			mTX: mTX{
+				attrs: []transaction.Attribute{
+					{
+						Value: &transaction.NotaryAssisted{
+							NKeys: uint8(len(alphaKeys) + 2),
+						},
+					},
+				},
+			},
+			expErr: errIncorrectAttribute,
 		},
 	}
 
@@ -284,7 +327,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			correctNR := correctNR(nil)
+			correctNR := correctNR(nil, test.addW)
 			incorrectNR = setIncorrectFields(*correctNR, test.mTX, test.fbTX)
 
 			_, err = preparator.Prepare(&incorrectNR)
@@ -328,39 +371,42 @@ func TestPrepare_CorrectNR(t *testing.T) {
 	)
 
 	for _, test := range tests {
-		nr := correctNR(script(test.hash, test.method, test.args...))
+		for i := 0; i < 1; i++ { // run tests against 3 and 4 witness NR
+			additionalWitness := i == 0
+			nr := correctNR(script(test.hash, test.method, test.args...), additionalWitness)
 
-		event, err := preparator.Prepare(nr)
+			event, err := preparator.Prepare(nr)
 
-		require.NoError(t, err)
-		require.Equal(t, test.method, event.Type().String())
-		require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
-
-		// check args parsing
-		bw := io.NewBufBinWriter()
-		emit.Array(bw.BinWriter, test.args...)
-
-		ctx := vm.NewContext(bw.Bytes())
-
-		opCode, param, err := ctx.Next()
-		require.NoError(t, err)
-
-		for _, opGot := range event.Params() {
-			require.Equal(t, opCode, opGot.code)
-			require.Equal(t, param, opGot.param)
-
-			opCode, param, err = ctx.Next()
 			require.NoError(t, err)
+			require.Equal(t, test.method, event.Type().String())
+			require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
+
+			// check args parsing
+			bw := io.NewBufBinWriter()
+			emit.Array(bw.BinWriter, test.args...)
+
+			ctx := vm.NewContext(bw.Bytes())
+
+			opCode, param, err := ctx.Next()
+			require.NoError(t, err)
+
+			for _, opGot := range event.Params() {
+				require.Equal(t, opCode, opGot.code)
+				require.Equal(t, param, opGot.param)
+
+				opCode, param, err = ctx.Next()
+				require.NoError(t, err)
+			}
+
+			_, _, err = ctx.Next() //  PACK opcode
+			require.NoError(t, err)
+			_, _, err = ctx.Next() //  packing len opcode
+			require.NoError(t, err)
+
+			opCode, _, err = ctx.Next()
+			require.NoError(t, err)
+			require.Equal(t, opcode.RET, opCode)
 		}
-
-		_, _, err = ctx.Next() //  PACK opcode
-		require.NoError(t, err)
-		_, _, err = ctx.Next() //  packing len opcode
-		require.NoError(t, err)
-
-		opCode, _, err = ctx.Next()
-		require.NoError(t, err)
-		require.Equal(t, opcode.RET, opCode)
 	}
 }
 
@@ -382,32 +428,52 @@ func script(hash util.Uint160, method string, args ...interface{}) []byte {
 	return bw.Bytes()
 }
 
-func correctNR(script []byte) *payload.P2PNotaryRequest {
+func correctNR(script []byte, additionalWitness bool) *payload.P2PNotaryRequest {
 	alphaVerificationScript, _ := smartcontract.CreateMultiSigRedeemScript(len(alphaKeys)*2/3+1, alphaKeys)
+
+	signers := []transaction.Signer{
+		{},
+		{
+			Account: hash.Hash160(alphaVerificationScript),
+		},
+		{},
+	}
+	if additionalWitness { // insert on element with index 2
+		signers = append(signers[:2+1], signers[2:]...)
+		signers[2] = transaction.Signer{Account: hash.Hash160(alphaVerificationScript)}
+	}
+
+	scripts := []transaction.Witness{
+		{},
+		{
+			InvocationScript:   dummyInvocationScript,
+			VerificationScript: alphaVerificationScript,
+		},
+		{
+			InvocationScript: dummyInvocationScript,
+		},
+	}
+	if additionalWitness { // insert on element with index 2
+		scripts = append(scripts[:2+1], scripts[2:]...)
+		scripts[2] = transaction.Witness{
+			InvocationScript:   dummyInvocationScript,
+			VerificationScript: alphaVerificationScript,
+		}
+	}
+
+	nKeys := uint8(len(alphaKeys))
+	if additionalWitness {
+		nKeys++
+	}
 
 	return &payload.P2PNotaryRequest{
 		MainTransaction: &transaction.Transaction{
-			Signers: []transaction.Signer{
-				{},
-				{
-					Account: hash.Hash160(alphaVerificationScript),
-				},
-				{},
-			},
-			Scripts: []transaction.Witness{
-				{},
-				{
-					InvocationScript:   dummyInvocationScript,
-					VerificationScript: alphaVerificationScript,
-				},
-				{
-					InvocationScript: dummyInvocationScript,
-				},
-			},
+			Signers: signers,
+			Scripts: scripts,
 			Attributes: []transaction.Attribute{
 				{
 					Value: &transaction.NotaryAssisted{
-						NKeys: uint8(len(alphaKeys)),
+						NKeys: nKeys,
 					},
 				},
 			},
