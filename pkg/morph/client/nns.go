@@ -30,6 +30,8 @@ const (
 	NNSProxyContractName = "proxy.neofs"
 	// NNSReputationContractName is a name of the reputation contract in NNS.
 	NNSReputationContractName = "reputation.neofs"
+	// NNSSubnetworkContractName is a name of the subnet contract in NNS.
+	NNSSubnetworkContractName = "subnet.neofs"
 )
 
 var (
