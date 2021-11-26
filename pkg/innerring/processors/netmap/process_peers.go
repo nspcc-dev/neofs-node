@@ -1,13 +1,16 @@
 package netmap
 
 import (
+	"bytes"
 	"encoding/hex"
 	"sort"
 	"strings"
 
 	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	subnetEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"go.uber.org/zap"
 )
 
@@ -140,5 +143,77 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	}
 	if err != nil {
 		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))
+	}
+}
+
+func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore remove node from subnet notification")
+		return
+	}
+
+	candidates, err := np.netmapClient.GetCandidates()
+	if err != nil {
+		np.log.Warn("could not get network map candidates",
+			zap.Error(err),
+		)
+		return
+	}
+
+	rawSubnet := ev.SubnetworkID()
+	subnetToRemoveFrom := &subnetid.ID{}
+
+	err = subnetToRemoveFrom.Unmarshal(rawSubnet)
+	if err != nil {
+		np.log.Warn("could not unmarshal subnet id",
+			zap.Error(err),
+		)
+		return
+	}
+
+	if subnetid.IsZero(*subnetToRemoveFrom) {
+		np.log.Warn("got zero subnet in remove node notification")
+		return
+	}
+
+	for _, node := range candidates.Nodes {
+		if !bytes.Equal(node.NodeInfo.PublicKey(), ev.Node()) {
+			continue
+		}
+
+		err = node.IterateSubnets(func(subNetID subnetid.ID) error {
+			if subNetID.Equals(subnetToRemoveFrom) {
+				return netmap.ErrRemoveSubnet
+			}
+
+			return nil
+		})
+		if err != nil {
+			np.log.Warn("could not iterate over subnetworks of the node", zap.Error(err))
+			np.log.Info("vote to remove node from netmap", zap.String("key", hex.EncodeToString(ev.Node())))
+
+			prm := netmapclient.UpdatePeerPrm{}
+			prm.SetKey(ev.Node())
+			prm.SetState(netmap.NodeStateOffline)
+			prm.SetHash(ev.TxHash())
+
+			err = np.netmapClient.UpdatePeerState(prm)
+			if err != nil {
+				np.log.Error("could not invoke netmap.UpdateState", zap.Error(err))
+				return
+			}
+		} else {
+			prm := netmapclient.AddPeerPrm{}
+			prm.SetNodeInfo(node.NodeInfo)
+			prm.SetHash(ev.TxHash())
+
+			err = np.netmapClient.AddPeer(prm)
+			if err != nil {
+				np.log.Error("could not invoke netmap.AddPeer", zap.Error(err))
+				return
+			}
+		}
+
+		break
 	}
 }

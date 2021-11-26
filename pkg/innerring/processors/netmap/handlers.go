@@ -6,6 +6,7 @@ import (
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"go.uber.org/zap"
 )
 
@@ -92,6 +93,25 @@ func (np *Processor) handleCleanupTick(ev event.Event) {
 	// send event to the worker pool
 	err := np.pool.Submit(func() {
 		np.processNetmapCleanupTick(cleanup)
+	})
+	if err != nil {
+		// there system can be moved into controlled degradation stage
+		np.log.Warn("netmap worker pool drained",
+			zap.Int("capacity", np.pool.Cap()))
+	}
+}
+
+func (np *Processor) handleRemoveNode(ev event.Event) {
+	removeNode := ev.(subnet.RemoveNode)
+
+	np.log.Info("notification",
+		zap.String("type", "remove node from subnet"),
+		zap.String("subnetID", hex.EncodeToString(removeNode.SubnetworkID())),
+		zap.String("key", hex.EncodeToString(removeNode.Node())),
+	)
+
+	err := np.pool.Submit(func() {
+		np.processRemoveSubnetNode(removeNode)
 	})
 	if err != nil {
 		// there system can be moved into controlled degradation stage

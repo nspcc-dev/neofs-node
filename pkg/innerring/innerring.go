@@ -662,6 +662,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 			locodeValidator,
 		),
 		NotaryDisabled: server.sideNotaryConfig.disabled,
+		SubnetContract: &server.contracts.subnet,
 	})
 	if err != nil {
 		return nil, err
