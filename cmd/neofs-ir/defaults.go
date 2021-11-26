@@ -80,6 +80,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("workers.container", "10")
 	cfg.SetDefault("workers.alphabet", "10")
 	cfg.SetDefault("workers.reputation", "10")
+	cfg.SetDefault("workers.subnet", "10")
 
 	cfg.SetDefault("netmap_cleaner.enabled", true)
 	cfg.SetDefault("netmap_cleaner.threshold", 3)

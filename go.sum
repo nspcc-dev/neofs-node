@@ -360,8 +360,8 @@ github.com/nspcc-dev/go-ordered-json v0.0.0-20210915112629-e1b6cce73d02/go.mod h
 github.com/nspcc-dev/hrw v1.0.9 h1:17VcAuTtrstmFppBjfRiia4K2wA/ukXZhLFS8Y8rz5Y=
 github.com/nspcc-dev/hrw v1.0.9/go.mod h1:l/W2vx83vMQo6aStyx2AuZrJ+07lGv2JQGlVkPG06MU=
 github.com/nspcc-dev/neo-go v0.73.1-pre.0.20200303142215-f5a1b928ce09/go.mod h1:pPYwPZ2ks+uMnlRLUyXOpLieaDQSEaf4NM3zHVbRjmg=
-github.com/nspcc-dev/neo-go v0.97.4-pre.0.20211123163659-b25c3775e847 h1:9cRAXmYoMxWhCJnlh0c9twr6/1faDC57pdOv2ABxqLs=
-github.com/nspcc-dev/neo-go v0.97.4-pre.0.20211123163659-b25c3775e847/go.mod h1:ThDwtZ1KXjpz2n0UyKkS0sEth5weNqMkZ2cWSIKaxaE=
+github.com/nspcc-dev/neo-go v0.97.4-pre.0.20211126130906-87f5113c031b h1:YEtImvVCnf7sTXJGd84e9SxzLG3LU6czJN/Q35XQGDY=
+github.com/nspcc-dev/neo-go v0.97.4-pre.0.20211126130906-87f5113c031b/go.mod h1:ThDwtZ1KXjpz2n0UyKkS0sEth5weNqMkZ2cWSIKaxaE=
 github.com/nspcc-dev/neofs-api-go/v2 v2.11.0-pre.0.20211118144033-580f6c5554ff/go.mod h1:oS8dycEh8PPf2Jjp6+8dlwWyEv2Dy77h/XhhcdxYEFs=
 github.com/nspcc-dev/neofs-api-go/v2 v2.11.0-pre.0.20211124141318-d93828f46514 h1:ccZ+d8nJa8H2IWCLlr6YSanqwtTP6YiWa8RmCtT8aOs=
 github.com/nspcc-dev/neofs-api-go/v2 v2.11.0-pre.0.20211124141318-d93828f46514/go.mod h1:oS8dycEh8PPf2Jjp6+8dlwWyEv2Dy77h/XhhcdxYEFs=
@@ -370,8 +370,8 @@ github.com/nspcc-dev/neofs-crypto v0.2.3/go.mod h1:8w16GEJbH6791ktVqHN9YRNH3s9BE
 github.com/nspcc-dev/neofs-crypto v0.3.0 h1:zlr3pgoxuzrmGCxc5W8dGVfA9Rro8diFvVnBg0L4ifM=
 github.com/nspcc-dev/neofs-crypto v0.3.0/go.mod h1:8w16GEJbH6791ktVqHN9YRNH3s9BEEKYxGhlFnp0cDw=
 github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211123100340-d9317cbea191/go.mod h1:zpeoUpflmlq9aDOTC72+E2JyJZDNzoqbZJFtqClBuu4=
-github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211126123811-1dde267424aa h1:twlGWZU0cwWnJvLrVVQxnNcJBj16HsNoOuZPJ/pP/vE=
-github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211126123811-1dde267424aa/go.mod h1:kyRFPFVQ7z5oeqNxawVk05E4w+fkbkWbgBIRH/wlvRQ=
+github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211126125208-279a5a1e0bfe h1:/c6mALl+YZh6A/5IZ+yTgkAroHGgId1bgvTAdrTtiKg=
+github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211126125208-279a5a1e0bfe/go.mod h1:kyRFPFVQ7z5oeqNxawVk05E4w+fkbkWbgBIRH/wlvRQ=
 github.com/nspcc-dev/rfc6979 v0.1.0/go.mod h1:exhIh1PdpDC5vQmyEsGvc4YDM/lyQp/452QxGq/UEso=
 github.com/nspcc-dev/rfc6979 v0.2.0 h1:3e1WNxrN60/6N0DW7+UYisLeZJyfqZTNOjeV/toYvOE=
 github.com/nspcc-dev/rfc6979 v0.2.0/go.mod h1:exhIh1PdpDC5vQmyEsGvc4YDM/lyQp/452QxGq/UEso=
@@ -525,7 +525,6 @@ go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.7.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
 go.uber.org/atomic v1.9.0 h1:ECmE8Bn/WFTYwEW/bpKD3M8VtR/zQVbavAoalC1PYyE=
 go.uber.org/atomic v1.9.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
-go.uber.org/atomic v1.9.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
 go.uber.org/goleak v1.1.10 h1:z+mqJhf6ss6BSfSM671tgKyZBFPTTJM+HLxnhPC3wu0=
 go.uber.org/goleak v1.1.10/go.mod h1:8a7PlsEVH3e/a/GLqe5IIrQx6GzcnRmZEufDUTk4A7A=
 go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
@@ -547,7 +546,6 @@ golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586/go.mod h1:yigFU9vqHzYiE8U
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
-golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
 golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 h1:HWj/xjIHfjYU5nVXpTM0s39J9CbLn7Cc5a7IC5rwsMQ=

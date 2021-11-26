@@ -1,4 +1,4 @@
-package subnet
+package subnetevents_test
 
 import (
 	"testing"
@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	. "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/stretchr/testify/require"
 )
