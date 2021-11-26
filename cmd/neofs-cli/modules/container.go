@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
@@ -54,6 +55,7 @@ var (
 	containerAwait       bool
 	containerName        string
 	containerNoTimestamp bool
+	containerSubnet      string
 
 	containerID string
 
@@ -126,6 +128,11 @@ It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		exitOnErr(cmd, err)
+
+		subnetID, err := parseSubnetID(containerSubnet)
+		exitOnErr(cmd, errf("could not parse subnetID: %w", err))
+
+		placementPolicy.SetSubnetID(subnetID)
 
 		attributes, err := parseAttributes(containerAttributes)
 		exitOnErr(cmd, err)
@@ -440,6 +447,7 @@ func initContainerCreateCmd() {
 	flags.BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
 	flags.StringVar(&containerName, "name", "", "container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
+	flags.StringVar(&containerSubnet, "subnet", "", "string representation of container subnetwork")
 }
 
 func initContainerDeleteCmd() {
@@ -567,6 +575,16 @@ func prettyPrintContainerList(cmd *cobra.Command, list []*cid.ID) {
 	for i := range list {
 		cmd.Println(list[i])
 	}
+}
+
+func parseSubnetID(val string) (sub *subnetid.ID, err error) {
+	sub = &subnetid.ID{}
+
+	if val != "" {
+		err = sub.UnmarshalText([]byte(val))
+	}
+
+	return
 }
 
 func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) {
