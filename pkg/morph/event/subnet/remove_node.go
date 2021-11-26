@@ -1,4 +1,4 @@
-package subnet
+package subnetevents
 
 import (
 	"fmt"

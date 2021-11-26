@@ -119,6 +119,8 @@ type (
 		//
 		// TODO: unify with workers.
 		runners []func(chan<- error)
+
+		subnetHandler
 	}
 
 	chainParams struct {
@@ -856,6 +858,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	} else {
 		log.Info("no Control server endpoint specified, service is disabled")
 	}
+
+	server.initSubnet(subnetConfig{
+		queueSize: cfg.GetUint32("workers.subnet"),
+	})
 
 	return server, nil
 }
