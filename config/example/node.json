@@ -28,6 +28,14 @@
     "relay": true,
     "persistent_state": {
       "path": "/state"
+    },
+    "subnet": {
+      "exit_zero": true,
+      "entries": [
+        "123",
+        "456",
+        "789"
+      ]
     }
   },
   "grpc": {
