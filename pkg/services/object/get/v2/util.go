@@ -58,7 +58,6 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 			// once compose and resign forwarding request
 			onceResign.Do(func() {
-
 				// compose meta header of the local server
 				metaHdr := new(session.RequestMetaHeader)
 				metaHdr.SetTTL(meta.GetTTL() - 1)
