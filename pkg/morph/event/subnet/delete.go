@@ -3,7 +3,6 @@ package subnetevents
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -34,18 +33,6 @@ func (x Delete) TxHash() util.Uint256 {
 	return x.txHash
 }
 
-// NotaryMainTx returns main transaction of the request in the Notary service.
-// Returns nil in non-notary environments.
-func (x Delete) NotaryMainTx() *transaction.Transaction {
-	if x.notaryRequest != nil {
-		return x.notaryRequest.MainTransaction
-	}
-
-	return nil
-}
-
-const itemNumDelete = 1
-
 // ParseDelete parses the notification about the removal of a subnet which has been thrown
 // by the appropriate method of the Subnet contract.
 //
@@ -61,6 +48,8 @@ func ParseDelete(e *subscriptions.NotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("parse stack array: %w", err)
 	}
 
+	const itemNumDelete = 1
+
 	if ln := len(items); ln != itemNumDelete {
 		return nil, event.WrongNumberOfParameters(itemNumDelete, ln)
 	}
@@ -72,38 +61,6 @@ func ParseDelete(e *subscriptions.NotificationEvent) (event.Event, error) {
 	}
 
 	ev.txHash = e.Container
-
-	return ev, nil
-}
-
-// ParseNotaryDelete parses the notary notification about the removal of a subnet which has been
-// thrown by the appropriate method of the Subnet contract.
-//
-// Resulting event is of Delete type.
-func ParseNotaryDelete(e event.NotaryEvent) (event.Event, error) {
-	var ev Delete
-
-	ev.notaryRequest = e.Raw()
-	if ev.notaryRequest == nil {
-		panic(fmt.Sprintf("nil %T in notary environment", ev.notaryRequest))
-	}
-
-	var (
-		err error
-
-		prms = e.Params()
-	)
-
-	if ln := len(prms); ln != itemNumDelete {
-		return nil, event.WrongNumberOfParameters(itemNumDelete, ln)
-	}
-
-	ev.id, err = event.BytesFromOpcode(prms[0])
-	if err != nil {
-		return nil, fmt.Errorf("id param: %w", err)
-	}
-
-	ev.notaryRequest = e.Raw()
 
 	return ev, nil
 }

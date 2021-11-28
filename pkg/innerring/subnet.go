@@ -135,8 +135,6 @@ func (s *Server) listenSubnet() {
 
 	// subnet creation
 	listenEvent(subnetCreateEvName, subnetevents.ParseNotaryPut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
-	// subnet removal
-	listenEvent(subnetRemoveEvName, subnetevents.ParseNotaryDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
 }
 
 func (s *Server) listenSubnetWithoutNotary() {
@@ -303,25 +301,15 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 		return
 	}
 
-	notaryMainTx := delEv.NotaryMainTx()
+	// send new transaction
+	var prm morphsubnet.DeletePrm
 
-	isNotary := notaryMainTx != nil
-	if isNotary {
-		// re-sign notary request
-		err = s.morphClient.NotarySignAndInvokeTX(notaryMainTx)
-	} else {
-		// send new transaction
-		var prm morphsubnet.DeletePrm
+	prm.SetID(delEv.ID())
+	prm.SetTxHash(delEv.TxHash())
 
-		prm.SetID(delEv.ID())
-		prm.SetTxHash(delEv.TxHash())
-
-		_, err = s.subnetHandler.morphClient.Delete(prm)
-	}
-
+	_, err = s.subnetHandler.morphClient.Delete(prm)
 	if err != nil {
 		s.log.Error("approve subnet removal",
-			zap.Bool("notary", isNotary),
 			zap.String("error", err.Error()),
 		)
 
