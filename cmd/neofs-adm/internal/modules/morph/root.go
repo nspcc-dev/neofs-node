@@ -205,4 +205,6 @@ func init() {
 	refillGasCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	refillGasCmd.Flags().String(storageWalletFlag, "", "path to storage node wallet")
 	refillGasCmd.Flags().String(refillGasAmountFlag, "", "additional amount of GAS to transfer")
+
+	RootCmd.AddCommand(cmdSubnet)
 }
