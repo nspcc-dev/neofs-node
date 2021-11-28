@@ -56,3 +56,59 @@ func (x *Client) UserAllowed(prm UserAllowedPrm) (*UserAllowedRes, error) {
 		result: result,
 	}, nil
 }
+
+// ManageClientsPrm groups parameters of client management in Subnet contract.
+//
+// Zero value adds subnet client. Subnet, group and client ID must be specified via setters.
+type ManageClientsPrm struct {
+	// remove or add client
+	rm bool
+
+	args [3]interface{}
+}
+
+// SetRemove marks client to be removed. By default, client is added.
+func (x *ManageClientsPrm) SetRemove() {
+	x.rm = true
+}
+
+// SetSubnet sets identifier of the subnet in a binary NeoFS API protocol format.
+func (x *ManageClientsPrm) SetSubnet(id []byte) {
+	x.args[0] = id
+}
+
+// SetGroup sets identifier of the client group in a binary NeoFS API protocol format.
+func (x *ManageClientsPrm) SetGroup(id []byte) {
+	x.args[1] = id
+}
+
+// SetClient sets client's user ID in a binary NeoFS API protocol format.
+func (x *ManageClientsPrm) SetClient(id []byte) {
+	x.args[2] = id
+}
+
+// ManageClientsRes groups resulting values of client management methods of Subnet contract.
+type ManageClientsRes struct{}
+
+// ManageClients manages client list of the NeoFS subnet through Subnet contract calls.
+func (x Client) ManageClients(prm ManageClientsPrm) (*ManageClientsRes, error) {
+	var method string
+
+	if prm.rm {
+		method = "removeUser"
+	} else {
+		method = "addUser"
+	}
+
+	var prmInvoke client.InvokePrm
+
+	prmInvoke.SetMethod(method)
+	prmInvoke.SetArgs(prm.args[:]...)
+
+	err := x.client.Invoke(prmInvoke)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(ManageClientsRes), nil
+}
