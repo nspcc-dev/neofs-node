@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package neo.fs.v2.refs;
+
+option go_package = "github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph/internal";
+
+// Client group identifier in the NeoFS subnet.
+//
+// String representation of a value is base-10 integer.
+//
+// JSON representation is an object containing single `value` number field.
+message SubnetClientGroupID {
+  // 4-byte integer identifier of the subnet client group.
+  fixed32 value = 1 [json_name = "value"];
+}
