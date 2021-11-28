@@ -28,7 +28,7 @@ func (x Delete) ID() []byte {
 }
 
 // TxHash returns hash of the transaction which thrown the notification event.
-// Makes sense only in non-notary environments (see NotaryMainTx).
+// Makes sense only in notary environments.
 func (x Delete) TxHash() util.Uint256 {
 	return x.txHash
 }
