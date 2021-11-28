@@ -19,7 +19,7 @@ type Put struct {
 
 	id []byte
 
-	ownerID []byte
+	owner []byte
 
 	info []byte
 }
@@ -32,9 +32,9 @@ func (x Put) ID() []byte {
 	return x.id
 }
 
-// Owner returns subnet owner's ID in a binary format of NeoFS API protocol.
+// Owner returns subnet owner's public key in a binary format.
 func (x Put) Owner() []byte {
-	return x.ownerID
+	return x.owner
 }
 
 // Info returns information about the subnet in a binary format of NeoFS API protocol.
@@ -43,7 +43,7 @@ func (x Put) Info() []byte {
 }
 
 // TxHash returns hash of the transaction which thrown the notification event.
-// Makes sense only in non-notary environments (see NotaryMainTx).
+// Makes sense only in notary environments.
 func (x Put) TxHash() util.Uint256 {
 	return x.txHash
 }
@@ -87,12 +87,12 @@ func ParsePut(e *subscriptions.NotificationEvent) (event.Event, error) {
 	}
 
 	// parse owner
-	put.ownerID, err = client.BytesFromStackItem(items[1])
+	put.owner, err = client.BytesFromStackItem(items[1])
 	if err != nil {
 		return nil, fmt.Errorf("owner item: %w", err)
 	}
 
-	// parse public key
+	// parse info about subnet
 	put.info, err = client.BytesFromStackItem(items[2])
 	if err != nil {
 		return nil, fmt.Errorf("info item: %w", err)
@@ -125,16 +125,19 @@ func ParseNotaryPut(e event.NotaryEvent) (event.Event, error) {
 		return nil, event.WrongNumberOfParameters(itemNumPut, ln)
 	}
 
+	// parse info about subnet
 	put.info, err = event.BytesFromOpcode(prms[0])
 	if err != nil {
 		return nil, fmt.Errorf("info param: %w", err)
 	}
 
-	put.ownerID, err = event.BytesFromOpcode(prms[1])
+	// parse owner
+	put.owner, err = event.BytesFromOpcode(prms[1])
 	if err != nil {
 		return nil, fmt.Errorf("creator param: %w", err)
 	}
 
+	// parse ID
 	put.id, err = event.BytesFromOpcode(prms[2])
 	if err != nil {
 		return nil, fmt.Errorf("id param: %w", err)
