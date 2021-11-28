@@ -25,6 +25,12 @@ node:
   relay: true  # start Storage node in relay mode without bootstrapping into the Network map
   persistent_state:  # path to persistent state file of Storage node
     path: /state
+  subnet:
+    exit_zero: true # toggle entrance to zero subnet (overrides corresponding attribute and occurrence in `entries`)
+    entries: # list of IDs of subnets to enter in a text format of NeoFS API protocol (overrides corresponding attributes)
+      - 123
+      - 456
+      - 789
 
 grpc:
   num: 2  # total number of listener endpoints
