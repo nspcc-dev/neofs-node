@@ -36,6 +36,7 @@ const (
 	netmapContract     = "netmap"
 	proxyContract      = "proxy"
 	reputationContract = "reputation"
+	subnetContract     = "subnet"
 )
 
 const (
@@ -63,6 +64,7 @@ var (
 		netmapContract,
 		proxyContract,
 		reputationContract,
+		subnetContract,
 	}
 
 	fullContractList = append([]string{
@@ -475,6 +477,7 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
 		}
 	case reputationContract:
+	case subnetContract:
 	default:
 		panic(fmt.Sprintf("invalid contract name: %s", ctrName))
 	}
