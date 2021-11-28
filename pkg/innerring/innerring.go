@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/maddress"
+	subnetvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -35,6 +36,7 @@ import (
 	neofsidWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
+	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
@@ -495,6 +497,24 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	// initialize morph client of Subnet contract
+	clientMode := morphsubnet.NotaryAlphabet
+
+	if server.sideNotaryConfig.disabled {
+		clientMode = morphsubnet.NonNotary
+	}
+
+	subnetInitPrm := morphsubnet.InitPrm{}
+	subnetInitPrm.SetBaseClient(server.morphClient)
+	subnetInitPrm.SetContractAddress(server.contracts.subnet)
+	subnetInitPrm.SetMode(clientMode)
+
+	subnetClient := &morphsubnet.Client{}
+	err = subnetClient.Init(subnetInitPrm)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize subnet client: %w", err)
+	}
+
 	var irf irFetcher
 
 	if !server.mainNotaryConfig.disabled {
@@ -607,6 +627,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
+	subnetValidator, err := subnetvalidator.New(
+		subnetvalidator.Prm{
+			SubnetClient: subnetClient,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var alphaSync event.Handler
 
 	if server.withoutMainNet || cfg.GetBool("governance.disable") {
@@ -662,6 +691,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		NodeValidator: nodevalidator.New(
 			addrvalidator.New(),
 			locodeValidator,
+			subnetValidator,
 		),
 		NotaryDisabled: server.sideNotaryConfig.disabled,
 		SubnetContract: &server.contracts.subnet,
