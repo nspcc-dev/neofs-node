@@ -145,3 +145,30 @@ func (p PersistentStateConfig) Path() string {
 
 	return PersistentStatePathDefault
 }
+
+// SubnetConfig represents node configuration related to subnets.
+type SubnetConfig config.Config
+
+// Init initializes SubnetConfig from "subnet" sub-section of "node" section
+// of the root config.
+func (x *SubnetConfig) Init(root config.Config) {
+	*x = SubnetConfig(*root.Sub(subsection).Sub("subnet"))
+}
+
+// ExitZero returns value of "exit_zero" config parameter as bool.
+// Returns false if value can not be cast.
+func (x SubnetConfig) ExitZero() bool {
+	return config.BoolSafe((*config.Config)(&x), "exit_zero")
+}
+
+// IterateSubnets casts value of "entries" config parameter to string slice,
+// iterates over all of its elements and passes them to f.
+//
+// Does nothing if value can not be cast to string slice.
+func (x SubnetConfig) IterateSubnets(f func(string)) {
+	ids := config.StringSliceSafe((*config.Config)(&x), "entries")
+
+	for i := range ids {
+		f(ids[i])
+	}
+}

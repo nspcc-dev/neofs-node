@@ -8,6 +8,7 @@ import (
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -17,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -86,6 +88,8 @@ func initNetmapService(c *cfg) {
 	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
 	c.cfgNodeInfo.localInfo.SetAttributes(parseAttributes(c.appCfg)...)
 	c.cfgNodeInfo.localInfo.SetState(netmapSDK.NodeStateOffline)
+
+	readSubnetCfg(c)
 
 	if c.cfgMorph.client == nil {
 		initMorphComponents(c)
@@ -162,6 +166,29 @@ func initNetmapService(c *cfg) {
 				)
 			}
 		})
+	}
+}
+
+func readSubnetCfg(c *cfg) {
+	var subnetCfg nodeconfig.SubnetConfig
+
+	subnetCfg.Init(*c.appCfg)
+
+	var (
+		id  subnetid.ID
+		err error
+	)
+
+	subnetCfg.IterateSubnets(func(idTxt string) {
+		err = id.UnmarshalText([]byte(idTxt))
+		fatalOnErrDetails("parse subnet entry", err)
+
+		c.cfgNodeInfo.localInfo.EnterSubnet(id)
+	})
+
+	if subnetCfg.ExitZero() {
+		subnetid.MakeZero(&id)
+		c.cfgNodeInfo.localInfo.ExitSubnet(id)
 	}
 }
 

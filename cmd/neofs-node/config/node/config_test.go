@@ -35,6 +35,20 @@ func TestNodeSection(t *testing.T) {
 		require.Empty(t, attribute)
 		require.Equal(t, false, relay)
 		require.Equal(t, PersistentStatePathDefault, persistatePath)
+
+		var subnetCfg SubnetConfig
+
+		subnetCfg.Init(*empty)
+
+		require.False(t, subnetCfg.ExitZero())
+
+		called := false
+
+		subnetCfg.IterateSubnets(func(string) {
+			called = true
+		})
+
+		require.False(t, called)
 	})
 
 	const path = "../../../../config/example/node"
@@ -99,6 +113,20 @@ func TestNodeSection(t *testing.T) {
 			address.Uint160ToString(wKey.GetScriptHash()))
 
 		require.Equal(t, "/state", persistatePath)
+
+		var subnetCfg SubnetConfig
+
+		subnetCfg.Init(*c)
+
+		require.True(t, subnetCfg.ExitZero())
+
+		var ids []string
+
+		subnetCfg.IterateSubnets(func(id string) {
+			ids = append(ids, id)
+		})
+
+		require.Equal(t, []string{"123", "456", "789"}, ids)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
