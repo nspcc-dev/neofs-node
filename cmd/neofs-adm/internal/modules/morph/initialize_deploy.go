@@ -215,7 +215,7 @@ func (c *initializeContext) deployContracts(method string) error {
 	}
 
 	for _, ctrName := range contractList {
-		cs := c.Contracts[ctrName]
+		cs := c.getContract(ctrName)
 
 		ctrHash := cs.Hash
 
@@ -259,6 +259,15 @@ func (c *initializeContext) deployContracts(method string) error {
 
 		if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
 			return err
+		}
+
+		if method == updateMethodName && methodCur == deployMethodName {
+			// same actions are done in initializeContext.setNNS, can be unified
+			domain := ctrName + ".neofs"
+			if err := c.nnsRegisterDomain(nnsCs.Hash, cs.Hash, domain); err != nil {
+				return err
+			}
+			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 		}
 	}
 
