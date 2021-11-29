@@ -97,7 +97,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
-	w, err := openContractWallet(walletDir)
+	w, err := openContractWallet(cmd, walletDir)
 	if err != nil {
 		return nil, err
 	}
