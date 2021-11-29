@@ -93,20 +93,7 @@ func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHas
 	}
 
 	if !isAvail {
-		item, err := nnsResolve(c.Client, nnsHash, "group.neofs")
-		if err != nil {
-			return 0, err
-		}
-		arr, ok := item.Value().([]stackitem.Item)
-		if !ok || len(arr) == 0 {
-			return 0, errors.New("NNS record is missing")
-		}
-		bs, err := arr[0].TryBytes()
-		if err != nil {
-			return 0, errors.New("malformed response")
-		}
-
-		currentPub, err := keys.NewPublicKeyFromString(string(bs))
+		currentPub, err := nnsResolveKey(c.Client, nnsHash, groupKeyDomain)
 		if err != nil {
 			return 0, err
 		}
@@ -218,6 +205,23 @@ func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (stackite
 		return nil, errors.New("result stack is empty")
 	}
 	return result.Stack[len(result.Stack)-1], nil
+}
+
+func nnsResolveKey(c *client.Client, nnsHash util.Uint160, domain string) (*keys.PublicKey, error) {
+	item, err := nnsResolve(c, nnsHash, domain)
+	if err != nil {
+		return nil, err
+	}
+	arr, ok := item.Value().([]stackitem.Item)
+	if !ok || len(arr) == 0 {
+		return nil, errors.New("NNS record is missing")
+	}
+	bs, err := arr[0].TryBytes()
+	if err != nil {
+		return nil, errors.New("malformed response")
+	}
+
+	return keys.NewPublicKeyFromString(string(bs))
 }
 
 // parseNNSResolveResult parses the result of resolving NNS record.
