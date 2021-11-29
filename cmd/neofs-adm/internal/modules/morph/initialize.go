@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -174,7 +175,17 @@ func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
 		return nil, fmt.Errorf("can't read alphabet wallets dir: %w", err)
 	}
 
-	size := len(walletFiles)
+	var size int
+loop:
+	for i := range walletFiles {
+		for j := 0; j < len(walletFiles); j++ {
+			letter := innerring.GlagoliticLetter(j).String()
+			if strings.HasPrefix(walletFiles[i].Name(), letter) {
+				size++
+				continue loop
+			}
+		}
+	}
 	if size == 0 {
 		return nil, errors.New("alphabet wallets dir is empty (run `generate-alphabet` command first)")
 	}
