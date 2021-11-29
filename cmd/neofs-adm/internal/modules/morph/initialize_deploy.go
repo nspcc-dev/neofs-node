@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -83,7 +84,10 @@ type contractState struct {
 	Hash        util.Uint160
 }
 
-const updateMethodName = "update"
+const (
+	updateMethodName = "update"
+	deployMethodName = "deploy"
+)
 
 func (c *initializeContext) deployNNS(method string) error {
 	cs := c.getContract(nnsContract)
@@ -214,10 +218,18 @@ func (c *initializeContext) deployContracts(method string) error {
 		cs := c.Contracts[ctrName]
 
 		ctrHash := cs.Hash
+
+		methodCur := method // prevent overriding in if-block
+
 		if method == updateMethodName {
 			ctrHash, err = nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
 			if err != nil {
-				return fmt.Errorf("can't resolve hash for contract update: %w", err)
+				if errors.Is(err, errMissingNNSRecord) {
+					// if contract not found we deploy it instead of update
+					methodCur = deployMethodName
+				} else {
+					return fmt.Errorf("can't resolve hash for contract update: %w", err)
+				}
 			}
 		}
 		if c.isUpdated(ctrHash, cs) {
@@ -226,7 +238,7 @@ func (c *initializeContext) deployContracts(method string) error {
 		}
 
 		invokeHash := mgmtHash
-		if method == updateMethodName {
+		if methodCur == updateMethodName {
 			invokeHash = ctrHash
 		}
 
@@ -237,7 +249,7 @@ func (c *initializeContext) deployContracts(method string) error {
 			Scopes:  transaction.Global,
 		}
 
-		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
+		res, err := c.Client.InvokeFunction(invokeHash, methodCur, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}

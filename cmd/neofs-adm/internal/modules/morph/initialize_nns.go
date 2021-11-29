@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	nns "github.com/nspcc-dev/neo-go/examples/nft-nd-nns"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
@@ -116,6 +117,9 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error
 	return res.State == vm.HaltState.String(), nil
 }
 
+var errMissingNNSRecord = errors.New("missing NNS record")
+
+// Returns errMissingNNSRecord if invocation fault exception contains "token not found".
 func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
 	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
 		{
@@ -131,6 +135,9 @@ func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util
 		return util.Uint160{}, fmt.Errorf("`resolve`: %w", err)
 	}
 	if result.State != vm.HaltState.String() {
+		if strings.Contains(result.FaultException, "token not found") {
+			return util.Uint160{}, errMissingNNSRecord
+		}
 		return util.Uint160{}, fmt.Errorf("invocation failed: %s", result.FaultException)
 	}
 	if len(result.Stack) == 0 {
