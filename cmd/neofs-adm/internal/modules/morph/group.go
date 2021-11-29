@@ -3,23 +3,74 @@ package morph
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const contractWalletName = "contract.json"
 
-func openContractWallet(walletDir string) (*wallet.Wallet, error) {
+func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
+	var (
+		password string
+		err      error
+	)
+
+	if key := "credentials.contract"; viper.IsSet(key) {
+		password = viper.GetString(key)
+	} else {
+		prompt := "Password for contract wallet > "
+		password, err = input.ReadPassword(prompt)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	w, err := wallet.NewWallet(path.Join(walletDir, contractWalletName))
+	if err != nil {
+		return nil, err
+	}
+
+	acc, err := wallet.NewAccount()
+	if err != nil {
+		return nil, err
+	}
+
+	err = acc.Encrypt(password, keys.NEP2ScryptParams())
+	if err != nil {
+		return nil, err
+	}
+
+	w.AddAccount(acc)
+	if err := w.Save(); err != nil {
+		return nil, err
+	}
+
+	return w, nil
+}
+
+func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, error) {
 	p := path.Join(walletDir, contractWalletName)
 	w, err := wallet.NewWalletFromFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("can't open wallet: %w", err)
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("can't open wallet: %w", err)
+		}
+
+		cmd.Printf("Contract group wallet is missing, initialize at %s\n",
+			filepath.Join(walletDir, contractWalletName))
+		w, err = initializeContractWallet(walletDir)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var password string
