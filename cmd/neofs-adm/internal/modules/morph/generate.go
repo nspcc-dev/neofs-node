@@ -42,6 +42,12 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	w, err := initializeContractWallet(walletDir)
+	if err != nil {
+		return err
+	}
+	w.Close()
+
 	cmd.Println("size:", size)
 	cmd.Println("alphabet-wallets:", walletDir)
 	for i := range pwds {
