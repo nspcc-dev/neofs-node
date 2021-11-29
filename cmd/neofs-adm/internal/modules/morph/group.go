@@ -18,6 +18,8 @@ import (
 
 const contractWalletName = "contract.json"
 
+const groupKeyDomain = "group.neofs"
+
 func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
 	var (
 		password string

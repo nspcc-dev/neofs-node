@@ -1,6 +1,7 @@
 package morph
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	nns "github.com/nspcc-dev/neo-go/examples/nft-nd-nns"
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -67,7 +69,65 @@ func (c *initializeContext) setNNS() error {
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 	}
 
+	err = c.updateNNSGroup(nnsCs.Hash, c.ContractWallet.Accounts[0].PrivateKey().PublicKey())
+	if err != nil {
+		return err
+	}
+
 	return c.awaitTx()
+}
+
+func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.PublicKey) error {
+	bw := io.NewBufBinWriter()
+	sysFee, err := c.emitUpdateNNSGroupScript(bw, nnsHash, pub)
+	if err != nil {
+		return err
+	}
+	return c.sendCommitteeTx(bw.Bytes(), sysFee)
+}
+
+func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (int64, error) {
+	isAvail, err := c.Client.NNSIsAvailable(nnsHash, groupKeyDomain)
+	if err != nil {
+		return 0, err
+	}
+
+	if !isAvail {
+		item, err := nnsResolve(c.Client, nnsHash, "group.neofs")
+		if err != nil {
+			return 0, err
+		}
+		arr, ok := item.Value().([]stackitem.Item)
+		if !ok || len(arr) == 0 {
+			return 0, errors.New("NNS record is missing")
+		}
+		bs, err := arr[0].TryBytes()
+		if err != nil {
+			return 0, errors.New("malformed response")
+		}
+
+		currentPub, err := keys.NewPublicKeyFromString(string(bs))
+		if err != nil {
+			return 0, err
+		}
+
+		if pub.Equal(currentPub) {
+			return 0, nil
+		}
+	}
+
+	sysFee := int64(native.GASFactor)
+	if isAvail {
+		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
+			groupKeyDomain, c.CommitteeAcc.Contract.ScriptHash(),
+			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
+		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+		sysFee += defaultRegisterSysfee
+	}
+	emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
+		"group.neofs", int64(nns.TXT), hex.EncodeToString(pub.Bytes()))
+
+	return sysFee, bw.Err
 }
 
 func getAlphabetNNSDomain(i int) string {
@@ -127,6 +187,14 @@ var errMissingNNSRecord = errors.New("missing NNS record")
 
 // Returns errMissingNNSRecord if invocation fault exception contains "token not found".
 func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+	item, err := nnsResolve(c, nnsHash, domain)
+	if err != nil {
+		return util.Uint160{}, err
+	}
+	return parseNNSResolveResult(item)
+}
+
+func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
 	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
 		{
 			Type:  smartcontract.StringType,
@@ -138,18 +206,18 @@ func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util
 		},
 	}, nil)
 	if err != nil {
-		return util.Uint160{}, fmt.Errorf("`resolve`: %w", err)
+		return nil, fmt.Errorf("`resolve`: %w", err)
 	}
 	if result.State != vm.HaltState.String() {
 		if strings.Contains(result.FaultException, "token not found") {
-			return util.Uint160{}, errMissingNNSRecord
+			return nil, errMissingNNSRecord
 		}
-		return util.Uint160{}, fmt.Errorf("invocation failed: %s", result.FaultException)
+		return nil, fmt.Errorf("invocation failed: %s", result.FaultException)
 	}
 	if len(result.Stack) == 0 {
-		return util.Uint160{}, errors.New("result stack is empty")
+		return nil, errors.New("result stack is empty")
 	}
-	return parseNNSResolveResult(result.Stack[len(result.Stack)-1])
+	return result.Stack[len(result.Stack)-1], nil
 }
 
 // parseNNSResolveResult parses the result of resolving NNS record.
