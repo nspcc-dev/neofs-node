@@ -272,9 +272,12 @@ func (c *initializeContext) updateContracts() error {
 		}
 	}
 
-	if w.Err != nil {
-		return w.Err
+	sysFee, err := c.emitUpdateNNSGroupScript(w, nnsHash, c.ContractWallet.Accounts[0].PrivateKey().PublicKey())
+	if err != nil {
+		return err
 	}
+
+	totalGasCost += sysFee
 	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost); err != nil {
 		return err
 	}
