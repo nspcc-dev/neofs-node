@@ -28,6 +28,8 @@ type initializeContext struct {
 	// ConsensusAcc is used for retrieving committee address and verification script.
 	ConsensusAcc *wallet.Account
 	Wallets      []*wallet.Wallet
+	// ContractWallet is a wallet for providing contract group signature.
+	ContractWallet *wallet.Wallet
 	// Accounts contains simple signature accounts in the same order as in Wallets.
 	Accounts     []*wallet.Account
 	Contracts    map[string]*contractState
@@ -95,6 +97,11 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
+	w, err := openContractWallet(walletDir)
+	if err != nil {
+		return nil, err
+	}
+
 	c, err := getN3Client(v)
 	if err != nil {
 		return nil, fmt.Errorf("can't create N3 client: %w", err)
@@ -144,15 +151,16 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 	}
 
 	initCtx := &initializeContext{
-		clientContext: *defaultClientContext(c),
-		ConsensusAcc:  consensusAcc,
-		CommitteeAcc:  committeeAcc,
-		Wallets:       wallets,
-		Accounts:      accounts,
-		Command:       cmd,
-		Contracts:     make(map[string]*contractState),
-		ContractPath:  ctrPath,
-		Natives:       nativeHashes,
+		clientContext:  *defaultClientContext(c),
+		ConsensusAcc:   consensusAcc,
+		CommitteeAcc:   committeeAcc,
+		ContractWallet: w,
+		Wallets:        wallets,
+		Accounts:       accounts,
+		Command:        cmd,
+		Contracts:      make(map[string]*contractState),
+		ContractPath:   ctrPath,
+		Natives:        nativeHashes,
 	}
 
 	if needContracts {

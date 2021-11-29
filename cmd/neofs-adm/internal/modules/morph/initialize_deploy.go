@@ -96,11 +96,20 @@ const (
 
 func (c *initializeContext) deployNNS(method string) error {
 	cs := c.getContract(nnsContract)
+	h := cs.Hash
 
 	realCs, err := c.Client.GetContractStateByID(1)
-	if err == nil && realCs.NEF.Checksum == cs.NEF.Checksum {
-		c.Command.Println("NNS contract is already deployed.")
-		return nil
+	if err == nil {
+		if realCs.NEF.Checksum == cs.NEF.Checksum {
+			c.Command.Println("NNS contract is already deployed.")
+			return nil
+		}
+		h = realCs.Hash
+	}
+
+	err = c.addManifestGroup(h, cs)
+	if err != nil {
+		return fmt.Errorf("can't sign manifest group: %v", err)
 	}
 
 	params := getContractDeployParameters(cs.RawNEF, cs.RawManifest, nil)
@@ -220,6 +229,11 @@ func (c *initializeContext) updateContracts() error {
 			}
 		}
 
+		err = c.addManifestGroup(ctrHash, alphaCs)
+		if err != nil {
+			return fmt.Errorf("can't sign manifest group: %v", err)
+		}
+
 		invokeHash := mgmtHash
 		if method == updateMethodName {
 			invokeHash = ctrHash
@@ -320,6 +334,11 @@ func (c *initializeContext) deployContracts() error {
 		if c.isUpdated(ctrHash, cs) {
 			c.Command.Printf("%s contract is already deployed.\n", ctrName)
 			continue
+		}
+
+		err := c.addManifestGroup(ctrHash, cs)
+		if err != nil {
+			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
 		invokeHash := mgmtHash
