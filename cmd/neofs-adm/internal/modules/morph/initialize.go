@@ -21,7 +21,7 @@ import (
 )
 
 type initializeContext struct {
-	Client *client.Client
+	clientContext
 	// CommitteeAcc is used for retrieving committee address and verification script.
 	CommitteeAcc *wallet.Account
 	// ConsensusAcc is used for retrieving committee address and verification script.
@@ -29,9 +29,6 @@ type initializeContext struct {
 	Wallets      []*wallet.Wallet
 	// Accounts contains simple signature accounts in the same order as in Wallets.
 	Accounts     []*wallet.Account
-	Hashes       []util.Uint256
-	WaitDuration time.Duration
-	PollInterval time.Duration
 	Contracts    map[string]*contractState
 	Command      *cobra.Command
 	ContractPath string
@@ -158,13 +155,15 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 	}
 
 	initCtx := &initializeContext{
-		Client:       c,
+		clientContext: clientContext{
+			Client:       c,
+			WaitDuration: time.Second * 30,
+			PollInterval: time.Second,
+		},
 		ConsensusAcc: consensusAcc,
 		CommitteeAcc: committeeAcc,
 		Wallets:      wallets,
 		Accounts:     accounts,
-		WaitDuration: time.Second * 30,
-		PollInterval: time.Second,
 		Command:      cmd,
 		Contracts:    make(map[string]*contractState),
 		ContractPath: ctrPath,
@@ -222,11 +221,15 @@ func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
 }
 
 func (c *initializeContext) awaitTx() error {
+	return c.clientContext.awaitTx(c.Command)
+}
+
+func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 	if len(c.Hashes) == 0 {
 		return nil
 	}
 
-	c.Command.Println("Waiting for transactions to persist...")
+	cmd.Println("Waiting for transactions to persist...")
 
 	tick := time.NewTicker(c.PollInterval)
 	defer tick.Stop()
