@@ -78,6 +78,11 @@ func (tls TLSConfig) CertificateFile() string {
 	return v
 }
 
+// UseInsecureCrypto returns true if TLS 1.2 cipher suite should not be restricted.
+func (tls TLSConfig) UseInsecureCrypto() bool {
+	return config.BoolSafe(tls.cfg, "use_insecure_crypto")
+}
+
 // IterateEndpoints iterates over subsections ["0":"N") (N - "num" value)
 // of "grpc" section of c, wrap them into Config and passes to f.
 //

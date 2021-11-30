@@ -37,7 +37,7 @@ grpc:
   0:
     endpoint: s01.neofs.devenv:8080  # endpoint for gRPC server
     tls:
-      enabled: true  # use TLS for a gRPC connection
+      enabled: true  # use TLS for a gRPC connection (min version is TLS 1.2)
       certificate: /path/to/cert  # path to TLS certificate
       key: /path/to/key  # path to TLS key
 
@@ -45,6 +45,11 @@ grpc:
     endpoint: s02.neofs.devenv:8080  # endpoint for gRPC server
     tls:
       enabled: false  # use TLS for a gRPC connection
+  2:
+    endpoint: s03.neofs.devenv:8080
+    tls:
+      enabled: true
+      use_insecure_crypto: true # allow using insecure ciphers with TLS 1.2
 
 control:
   authorized_keys:  # list of hex-encoded public keys that have rights to use the Control Service

@@ -53,6 +53,13 @@
       "tls": {
         "enabled": false
       }
+    },
+    "2": {
+      "endpoint": "s03.neofs.devenv:8080",
+      "tls": {
+        "enabled": true,
+        "use_insecure_crypto": true
+      }
     }
   },
   "control": {
