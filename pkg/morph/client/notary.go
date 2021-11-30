@@ -80,7 +80,12 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 	}
 
 	if cfg.proxy.Equals(util.Uint160{}) {
-		return errors.New("proxy contract hash is missing")
+		var err error
+
+		cfg.proxy, err = c.NNSContractAddress(NNSProxyContractName)
+		if err != nil {
+			return fmt.Errorf("get proxy contract addess from NNS: %w", err)
+		}
 	}
 
 	notaryCfg := &notary{
