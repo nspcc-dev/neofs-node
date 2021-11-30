@@ -87,13 +87,7 @@ func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accTyp
 		return err
 	}
 
-	h, err := c.Client.SendRawTransaction(tx)
-	if err != nil {
-		return err
-	}
-
-	c.Hashes = append(c.Hashes, h)
-	return nil
+	return c.sendTx(tx, c.Command, false)
 }
 
 func (c *initializeContext) multiSign(tx *transaction.Transaction, accType string) error {
