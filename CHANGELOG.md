@@ -3,14 +3,52 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### [0.27.0-rc.1] - 2021-12-02 - Sinjido (신지도, 薪智島) rc.1
+
+NeoFS API v2.11.0 support with response status codes and storage subnetworks.
+
+### Fixed
+- CLI now opens LOCODE database in read-only mode for listing command (#958)
+- Tombstone owner now is always set (#842)
+- Node in relay mode does not require shard config anymore (#969)
+- Alphabet nodes now ignore notary notifications with non-HALT main tx (#976) 
+
+### Added
+- Maintenance mode for Storage node (#922)
+- Float values in Storage node config (#903)
+- Status codes for NeoFS API Response messages (#961)
+- Subnetwork support (#977, #973, #983, #974, #982, #979, #998, #995, #1001)
+
 ### Changed
 - Alphabet contract number is not mandatory (#880)
+- Alphabet nodes resign `AddPeer` request if it updates Storage node info (#938)
+- All applications now use client from neofs-sdk-go library (#966)
+- Some shard configuration records were renamed, see upgrading section (#859)
+- `Nonce` and `VUB` values of notary transactions generated from notification 
+  hash (#844)
+- Non alphabet notary invocations now have 4 witnesses (#975)
+- Object replication is now async and continuous (#965)
+- NeoFS ADM updated for the neofs-contract v0.13.0 deploy (#984)
+- Minimal TLS version is set to v1.2 (#878)
 
 ### Upgrading from v0.26.1
 `NEOFS_IR_CONTRACTS_ALPHABET_AMOUNT` is not mandatory env anymore. If it
 is not set, Inner Ring would try to read maximum from config and NNS contract.
 However, that parameter still can be set in order to require the exact number
 of contracts.
+
+Shard configuration records were renamed:
+- `refill_metabase` -> `resync_metabase`
+- `writecache.max_size` -> `writecache.max_object_size`
+- `writecache.mem_size` -> `writecache.memcache_capacity`
+- `writecache.size_limit` -> `writecache_capcity`
+- `blobstor.blobovnicza.opened_cache_size` -> `blobstor.blobovnicza.opened_cache_capacity`
+- `*.shallow_depth` -> `*.depth`
+- `*.shallow_width` -> `*.width`
+- `*.small_size_limit` -> `*.small_object_size`
+
+Specify storage subnetworks in `NEOFS_NODE_SUBNET_ENTRIES` as the list of
+integer numbers. To exit default subnet, use `NEOFS_NODE_SUBNET_EXIT_ZERO=true`
 
 ## [0.26.1] - 2021-11-02
 
@@ -763,7 +801,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0-rc.1...master
+[0.27.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...v0.27.0-rc.1
 [0.26.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...v0.25.1
