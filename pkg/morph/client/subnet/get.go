@@ -2,15 +2,12 @@ package morphsubnet
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 // GetPrm groups parameters of Get method of Subnet contract.
 type GetPrm struct {
-	cliPrm client.TestInvokePrm
-
 	args [1]interface{}
 }
 
@@ -33,12 +30,13 @@ var errEmptyResponse = errors.New("empty response")
 
 // Get reads the subnet through the call of the corresponding method of the Subnet contract.
 func (x *Client) Get(prm GetPrm) (*GetRes, error) {
-	prm.cliPrm.SetMethod("get")
-	prm.cliPrm.SetArgs(prm.args[:]...)
+	var prmGet client.TestInvokePrm
 
-	res, err := x.client.TestInvoke(prm.cliPrm)
+	prmGet.SetMethod("get")
+	prmGet.SetArgs(prm.args[:]...)
+
+	res, err := x.client.TestInvoke(prmGet)
 	if err != nil {
-		fmt.Println()
 		return nil, err
 	}
 
