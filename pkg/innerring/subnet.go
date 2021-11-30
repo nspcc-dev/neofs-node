@@ -88,6 +88,8 @@ const (
 	subnetCreateEvName = "put"
 	// subnet removal
 	subnetRemoveEvName = "delete"
+	// subnet creation (notary)
+	notarySubnetCreateEvName = "Put"
 )
 
 // makes IR server to listen notifications of Subnet contract.
@@ -134,7 +136,7 @@ func (s *Server) listenSubnet() {
 	}
 
 	// subnet creation
-	listenEvent(subnetCreateEvName, subnetevents.ParseNotaryPut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
+	listenEvent(notarySubnetCreateEvName, subnetevents.ParseNotaryPut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
 }
 
 func (s *Server) listenSubnetWithoutNotary() {
