@@ -128,21 +128,9 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		}
 	}
 
-	ns, err := c.GetNativeContracts()
+	nativeHashes, err := getNativeHashes(c)
 	if err != nil {
-		return nil, fmt.Errorf("can't get native contract hashes: %w", err)
-	}
-
-	notaryEnabled := false
-	nativeHashes := make(map[string]util.Uint160, len(ns))
-	for i := range ns {
-		if ns[i].Manifest.Name == nativenames.Notary {
-			notaryEnabled = len(ns[i].UpdateHistory) > 0
-		}
-		nativeHashes[ns[i].Manifest.Name] = ns[i].Hash
-	}
-	if !notaryEnabled {
-		return nil, errors.New("notary contract must be enabled")
+		return nil, err
 	}
 
 	accounts := make([]*wallet.Account, len(wallets))
@@ -155,19 +143,15 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 	}
 
 	initCtx := &initializeContext{
-		clientContext: clientContext{
-			Client:       c,
-			WaitDuration: time.Second * 30,
-			PollInterval: time.Second,
-		},
-		ConsensusAcc: consensusAcc,
-		CommitteeAcc: committeeAcc,
-		Wallets:      wallets,
-		Accounts:     accounts,
-		Command:      cmd,
-		Contracts:    make(map[string]*contractState),
-		ContractPath: ctrPath,
-		Natives:      nativeHashes,
+		clientContext: *defaultClientContext(c),
+		ConsensusAcc:  consensusAcc,
+		CommitteeAcc:  committeeAcc,
+		Wallets:       wallets,
+		Accounts:      accounts,
+		Command:       cmd,
+		Contracts:     make(map[string]*contractState),
+		ContractPath:  ctrPath,
+		Natives:       nativeHashes,
 	}
 
 	if needContracts {
@@ -283,4 +267,24 @@ func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
 		}
 	}
 	return nil, fmt.Errorf("account for '%s' not found", typ)
+}
+
+func getNativeHashes(c *client.Client) (map[string]util.Uint160, error) {
+	ns, err := c.GetNativeContracts()
+	if err != nil {
+		return nil, fmt.Errorf("can't get native contract hashes: %w", err)
+	}
+
+	notaryEnabled := false
+	nativeHashes := make(map[string]util.Uint160, len(ns))
+	for i := range ns {
+		if ns[i].Manifest.Name == nativenames.Notary {
+			notaryEnabled = len(ns[i].UpdateHistory) > 0
+		}
+		nativeHashes[ns[i].Manifest.Name] = ns[i].Hash
+	}
+	if !notaryEnabled {
+		return nil, errors.New("notary contract must be enabled")
+	}
+	return nativeHashes, nil
 }
