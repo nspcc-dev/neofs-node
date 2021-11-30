@@ -111,7 +111,7 @@ func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
 
 	nonNotary := viper.GetBool(flagSubnetNonNotary)
 
-	if nonNotary {
+	if !nonNotary {
 		err = cMorph.EnableNotarySupport()
 		if err != nil {
 			return fmt.Errorf("enable notary support: %w", err)
