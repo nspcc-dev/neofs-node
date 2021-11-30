@@ -156,12 +156,9 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 
 	gasStr := viper.GetString(gasFlag)
 
-	gasAmount, err := fixedn.Fixed8FromString(gasStr)
+	gasAmount, err := parseGASAmount(gasStr)
 	if err != nil {
-		return fmt.Errorf("invalid GAS amount %s: %w", gasStr, err)
-	}
-	if gasAmount <= 0 {
-		return fmt.Errorf("GAS amount must be positive (got %d)", gasAmount)
+		return err
 	}
 
 	wCtx, err := newInitializeContext(cmd, viper.GetViper())
@@ -183,4 +180,15 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 	}
 
 	return wCtx.awaitTx()
+}
+
+func parseGASAmount(s string) (fixedn.Fixed8, error) {
+	gasAmount, err := fixedn.Fixed8FromString(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid GAS amount %s: %w", s, err)
+	}
+	if gasAmount <= 0 {
+		return 0, fmt.Errorf("GAS amount must be positive (got %d)", gasAmount)
+	}
+	return gasAmount, nil
 }

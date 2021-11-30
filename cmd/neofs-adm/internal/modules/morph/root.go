@@ -33,6 +33,8 @@ const (
 	containerContractFlag     = "container-contract"
 	containerIDsFlag          = "cid"
 	refillGasAmountFlag       = "gas"
+	walletAccountFlag         = "account"
+	notaryDepositTillFlag     = "till"
 )
 
 var (
@@ -150,6 +152,15 @@ var (
 		},
 		RunE: restoreContainers,
 	}
+
+	depositNotaryCmd = &cobra.Command{
+		Use:   "deposit-notary",
+		Short: "Deposit GAS for notary service.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: depositNotary,
+	}
 )
 
 func init() {
@@ -207,4 +218,11 @@ func init() {
 	refillGasCmd.Flags().String(refillGasAmountFlag, "", "additional amount of GAS to transfer")
 
 	RootCmd.AddCommand(cmdSubnet)
+
+	RootCmd.AddCommand(depositNotaryCmd)
+	depositNotaryCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	depositNotaryCmd.Flags().String(storageWalletFlag, "", "path to storage node wallet")
+	depositNotaryCmd.Flags().String(walletAccountFlag, "", "wallet account address")
+	depositNotaryCmd.Flags().String(refillGasAmountFlag, "", "amount of GAS to deposit")
+	depositNotaryCmd.Flags().String(notaryDepositTillFlag, "", "notary deposit duration in blocks")
 }

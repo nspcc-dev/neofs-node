@@ -35,6 +35,14 @@ func getN3Client(v *viper.Viper) (*client.Client, error) {
 	return c, nil
 }
 
+func defaultClientContext(c *client.Client) *clientContext {
+	return &clientContext{
+		Client:       c,
+		WaitDuration: time.Second * 30,
+		PollInterval: time.Second,
+	}
+}
+
 func (c *clientContext) sendTx(tx *transaction.Transaction, cmd *cobra.Command, await bool) error {
 	h, err := c.Client.SendRawTransaction(tx)
 	if err != nil {
