@@ -42,7 +42,7 @@ func viperBindFlags(cmd *cobra.Command, flags ...string) {
 var cmdSubnet = &cobra.Command{
 	Use:   "subnet",
 	Short: "NeoFS subnet management.",
-	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetEndpoint,
 			flagSubnetKey,
@@ -378,7 +378,7 @@ const (
 var cmdSubnetAdmin = &cobra.Command{
 	Use:   "admin",
 	Short: "Manage administrators of the NeoFS subnet.",
-	PreRun: func(cmd *cobra.Command, _ []string) {
+	PreRun: func(cmd *cobra.Command, args []string) {
 		viperBindFlags(cmd,
 			flagSubnetAdminSubnet,
 			flagSubnetAdminID,
@@ -646,6 +646,30 @@ var cmdSubnetClientRemove = &cobra.Command{
 	},
 }
 
+// returns function which calls PreRun on parent if it exists.
+func inheritPreRun(preRun func(*cobra.Command, []string)) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		par := cmd.Parent()
+		if par != nil && par.PreRun != nil {
+			par.PreRun(par, args)
+		}
+
+		if preRun != nil {
+			preRun(cmd, args)
+		}
+	}
+}
+
+// inherits PreRun function of parent command in all sub-commands and
+// adds them to the parent.
+func addCommandInheritPreRun(par *cobra.Command, subs ...*cobra.Command) {
+	for _, sub := range subs {
+		sub.PreRun = inheritPreRun(sub.PreRun)
+	}
+
+	par.AddCommand(subs...)
+}
+
 // registers flags and binds sub-commands for subnet commands.
 func init() {
 	// get subnet flags
@@ -683,13 +707,13 @@ func init() {
 	_ = cmdSubnetClient.MarkFlagRequired(flagSubnetClientID)
 
 	// add all admin managing commands to corresponding command section
-	cmdSubnetAdmin.AddCommand(
+	addCommandInheritPreRun(cmdSubnetAdmin,
 		cmdSubnetAdminAdd,
 		cmdSubnetAdminRemove,
 	)
 
 	// add all client managing commands to corresponding command section
-	cmdSubnetClient.AddCommand(
+	addCommandInheritPreRun(cmdSubnetClient,
 		cmdSubnetClientAdd,
 		cmdSubnetClientRemove,
 	)
@@ -705,7 +729,7 @@ func init() {
 	cmdSubnetFlags.Bool(flagSubnetNonNotary, false, "Flag to work in non-notary environment")
 
 	// add all subnet commands to corresponding command section
-	cmdSubnet.AddCommand(
+	addCommandInheritPreRun(cmdSubnet,
 		cmdSubnetCreate,
 		cmdSubnetRemove,
 		cmdSubnetGet,
