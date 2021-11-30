@@ -3,10 +3,21 @@ package morph
 import (
 	"context"
 	"errors"
+	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+type clientContext struct {
+	Client       *client.Client
+	Hashes       []util.Uint256
+	WaitDuration time.Duration
+	PollInterval time.Duration
+}
 
 func getN3Client(v *viper.Viper) (*client.Client, error) {
 	ctx := context.Background() // FIXME(@fyrchik): timeout context
@@ -22,4 +33,18 @@ func getN3Client(v *viper.Viper) (*client.Client, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+func (c *clientContext) sendTx(tx *transaction.Transaction, cmd *cobra.Command, await bool) error {
+	h, err := c.Client.SendRawTransaction(tx)
+	if err != nil {
+		return err
+	}
+
+	c.Hashes = append(c.Hashes, h)
+
+	if await {
+		return c.awaitTx(cmd)
+	}
+	return nil
 }
