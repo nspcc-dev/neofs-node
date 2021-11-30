@@ -42,7 +42,7 @@ func viperBindFlags(cmd *cobra.Command, flags ...string) {
 var cmdSubnet = &cobra.Command{
 	Use:   "subnet",
 	Short: "NeoFS subnet management.",
-	PreRun: func(cmd *cobra.Command, _ []string) {
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetEndpoint,
 			flagSubnetKey,
@@ -109,10 +109,19 @@ func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
 		return err
 	}
 
+	nonNotary := viper.GetBool(flagSubnetNonNotary)
+
+	if nonNotary {
+		err = cMorph.EnableNotarySupport()
+		if err != nil {
+			return fmt.Errorf("enable notary support: %w", err)
+		}
+	}
+
 	// calc client mode
 	cMode := morphsubnet.NotaryNonAlphabet
 
-	if viper.GetBool(flagSubnetNonNotary) {
+	if nonNotary {
 		cMode = morphsubnet.NonNotary
 	}
 
@@ -173,11 +182,6 @@ var cmdSubnetCreate = &cobra.Command{
 		// declare creator ID and encode it
 		creator := *owner.NewIDFromNeo3Wallet(n3Wallet)
 
-		binCreator, err := creator.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal creator ID: %w", err)
-		}
-
 		// fill subnet info and encode it
 		var info subnet.Info
 
@@ -201,7 +205,7 @@ var cmdSubnetCreate = &cobra.Command{
 		var prm morphsubnet.PutPrm
 
 		prm.SetID(binID)
-		prm.SetOwner(binCreator)
+		prm.SetOwner(key.PublicKey().Bytes())
 		prm.SetInfo(binInfo)
 
 		_, err = cSubnet.Put(prm)
@@ -653,7 +657,7 @@ func init() {
 	_ = cmdSubnetRemove.MarkFlagRequired(flagSubnetRemoveID)
 
 	// subnet administer flags
-	adminFlags := cmdSubnetAdmin.Flags()
+	adminFlags := cmdSubnetAdmin.PersistentFlags()
 	adminFlags.String(flagSubnetAdminSubnet, "", "ID of the subnet to manage administrators")
 	_ = cmdSubnetAdmin.MarkFlagRequired(flagSubnetAdminSubnet)
 	adminFlags.String(flagSubnetAdminID, "", "Hex-encoded public key of the admin")
@@ -670,7 +674,7 @@ func init() {
 	cmdSubnetAdminRemoveFlags.Bool(flagSubnetAdminClient, false, "Remove client admin instead of node one")
 
 	// client managements flags
-	clientFlags := cmdSubnetClient.Flags()
+	clientFlags := cmdSubnetClient.PersistentFlags()
 	clientFlags.String(flagSubnetClientSubnet, "", "ID of the subnet to be managed")
 	_ = cmdSubnetClient.MarkFlagRequired(flagSubnetClientSubnet)
 	clientFlags.String(flagSubnetClientGroup, "", "ID of the client group to work with")
@@ -691,7 +695,7 @@ func init() {
 	)
 
 	// subnet global flags
-	cmdSubnetFlags := cmdSubnet.Flags()
+	cmdSubnetFlags := cmdSubnet.PersistentFlags()
 	cmdSubnetFlags.StringP(flagSubnetEndpoint, "r", "", "N3 RPC node endpoint")
 	_ = cmdSubnet.MarkFlagRequired(flagSubnetEndpoint)
 	cmdSubnetFlags.StringP(flagSubnetKey, "k", "", "Path to file with private key")
