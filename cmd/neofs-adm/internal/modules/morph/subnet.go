@@ -378,7 +378,7 @@ const (
 	// subnet ID to be managed
 	flagSubnetAdminSubnet = flagSubnet
 	// admin public key
-	flagSubnetAdminID = "id"
+	flagSubnetAdminID = "admin"
 	// manage client admins instead of node ones
 	flagSubnetAdminClient = "client"
 )
