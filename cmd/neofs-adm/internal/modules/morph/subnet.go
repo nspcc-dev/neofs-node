@@ -646,6 +646,117 @@ var cmdSubnetClientRemove = &cobra.Command{
 	},
 }
 
+// cmdSubnetNode flags.
+const (
+	// node ID
+	flagSubnetNode = "id"
+	// ID of the subnet to be managed
+	flagSubnetNodeSubnet = flagSubnet
+)
+
+// common executor cmdSubnetNodeAdd and cmdSubnetNodeRemove commands.
+func manageSubnetNodes(cmd *cobra.Command, rm bool) error {
+	// read private key
+	var key keys.PrivateKey
+
+	err := readSubnetKey(&key)
+	if err != nil {
+		return fmt.Errorf("read private key: %w", err)
+	}
+
+	// read ID and encode it
+	var id subnetid.ID
+
+	err = id.UnmarshalText([]byte(viper.GetString(flagSubnetNodeSubnet)))
+	if err != nil {
+		return fmt.Errorf("decode ID text: %w", err)
+	}
+
+	if subnetid.IsZero(id) {
+		return errZeroSubnet
+	}
+
+	binID, err := id.Marshal()
+	if err != nil {
+		return fmt.Errorf("marshal subnet ID: %w", err)
+	}
+
+	// read node  ID and encode it
+	binNodeID, err := hex.DecodeString(viper.GetString(flagSubnetNode))
+	if err != nil {
+		return fmt.Errorf("decode node ID text: %w", err)
+	}
+
+	var pubkey keys.PublicKey
+	if err = pubkey.DecodeBytes(binNodeID); err != nil {
+		return fmt.Errorf("node ID format: %w", err)
+	}
+
+	var prm morphsubnet.ManageNodesPrm
+
+	prm.SetSubnet(binID)
+	prm.SetNode(binNodeID)
+
+	if rm {
+		prm.SetRemove()
+	}
+
+	// initialize morph subnet client
+	var cSubnet morphsubnet.Client
+
+	err = initSubnetClient(&cSubnet, &key)
+	if err != nil {
+		return fmt.Errorf("init subnet client: %w", err)
+	}
+
+	_, err = cSubnet.ManageNodes(prm)
+	if err != nil {
+		return fmt.Errorf("morph call: %w", err)
+	}
+
+	var op string
+
+	if rm {
+		op = "Remove"
+	} else {
+		op = "Add"
+	}
+
+	cmd.Printf("%s node request sent successfully.\n", op)
+
+	return nil
+}
+
+// command to manage subnet nodes.
+var cmdSubnetNode = &cobra.Command{
+	Use:   "node",
+	Short: "Manage nodes of the NeoFS subnet.",
+	PreRun: func(cmd *cobra.Command, _ []string) {
+		viperBindFlags(cmd,
+			flagSubnetNode,
+			flagSubnetNodeSubnet,
+		)
+	},
+}
+
+// command to add subnet node.
+var cmdSubnetNodeAdd = &cobra.Command{
+	Use:   "add",
+	Short: "Add node to the NeoFS subnet.",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return manageSubnetNodes(cmd, false)
+	},
+}
+
+// command to remove subnet node.
+var cmdSubnetNodeRemove = &cobra.Command{
+	Use:   "remove",
+	Short: "Remove node from the NeoFS subnet.",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return manageSubnetNodes(cmd, true)
+	},
+}
+
 // returns function which calls PreRun on parent if it exists.
 func inheritPreRun(preRun func(*cobra.Command, []string)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
@@ -718,6 +829,19 @@ func init() {
 		cmdSubnetClientRemove,
 	)
 
+	// subnet node flags
+	nodeFlags := cmdSubnetNode.PersistentFlags()
+	nodeFlags.String(flagSubnetNode, "", "Hex-encoded public key of the node")
+	_ = cmdSubnetAdmin.MarkFlagRequired(flagSubnetNode)
+	nodeFlags.String(flagSubnetNodeSubnet, "", "ID of the subnet to manage nodes")
+	_ = cmdSubnetNode.MarkFlagRequired(flagSubnetNodeSubnet)
+
+	// add all node managing commands to corresponding command section
+	addCommandInheritPreRun(cmdSubnetNode,
+		cmdSubnetNodeAdd,
+		cmdSubnetNodeRemove,
+	)
+
 	// subnet global flags
 	cmdSubnetFlags := cmdSubnet.PersistentFlags()
 	cmdSubnetFlags.StringP(flagSubnetEndpoint, "r", "", "N3 RPC node endpoint")
@@ -735,5 +859,6 @@ func init() {
 		cmdSubnetGet,
 		cmdSubnetAdmin,
 		cmdSubnetClient,
+		cmdSubnetNode,
 	)
 }
