@@ -85,11 +85,11 @@ func (s *Server) stopSubnet() {
 // names of listened notification events from Subnet contract.
 const (
 	// subnet creation
-	subnetCreateEvName = "put"
+	subnetCreateEvName = "Put"
 	// subnet removal
-	subnetRemoveEvName = "delete"
+	subnetRemoveEvName = "Delete"
 	// subnet creation (notary)
-	notarySubnetCreateEvName = "Put"
+	notarySubnetCreateEvName = "put"
 )
 
 // makes IR server to listen notifications of Subnet contract.
@@ -100,11 +100,10 @@ const (
 //
 // Events (notary):
 //   * put (parser: subnetevents.ParseNotaryPut, handler: catchSubnetCreation);
-//   * delete (parser: subnetevents.ParseNotaryDelete, handler: catchSubnetRemoval).
 //
 // Events (non-notary):
-//   * put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
-//   * delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
+//   * Put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
+//   * Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
 func (s *Server) listenSubnet() {
 	if s.sideNotaryConfig.disabled {
 		s.listenSubnetWithoutNotary()
