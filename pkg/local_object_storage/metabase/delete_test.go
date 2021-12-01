@@ -13,7 +13,7 @@ import (
 func TestDB_Delete(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 	parent := generateRawObjectWithCID(t, cid)
 	addAttribute(parent, "foo", "bar")
 
@@ -69,7 +69,7 @@ func TestDB_Delete(t *testing.T) {
 func TestDeleteAllChildren(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	// generate parent object
 	parent := generateRawObjectWithCID(t, cid)

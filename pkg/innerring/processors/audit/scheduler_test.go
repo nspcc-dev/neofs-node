@@ -79,7 +79,7 @@ func generateContainers(n int) []*cid.ID {
 	result := make([]*cid.ID, 0, n)
 
 	for i := 0; i < n; i++ {
-		result = append(result, cidtest.GenerateID())
+		result = append(result, cidtest.ID())
 	}
 
 	return result

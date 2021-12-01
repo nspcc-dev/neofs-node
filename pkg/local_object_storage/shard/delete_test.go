@@ -23,7 +23,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	obj := generateRawObjectWithCID(t, cid)
 	addAttribute(obj, "foo", "bar")

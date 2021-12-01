@@ -46,10 +46,10 @@ func TestStickyCheck(t *testing.T) {
 		info.requestRole = eacl.RoleSystem
 
 		info.basicACL.SetSticky()
-		require.True(t, stickyBitCheck(info, ownertest.GenerateID()))
+		require.True(t, stickyBitCheck(info, ownertest.ID()))
 
 		info.basicACL.ResetSticky()
-		require.True(t, stickyBitCheck(info, ownertest.GenerateID()))
+		require.True(t, stickyBitCheck(info, ownertest.ID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
@@ -73,7 +73,7 @@ func TestStickyCheck(t *testing.T) {
 			var ownerID *owner.ID
 
 			if withOwner {
-				ownerID = ownertest.GenerateID()
+				ownerID = ownertest.ID()
 			}
 
 			require.Equal(t, expected, stickyBitCheck(info, ownerID))

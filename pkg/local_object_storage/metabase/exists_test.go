@@ -55,7 +55,7 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		parent := generateRawObjectWithCID(t, cid)
 
 		child := generateRawObjectWithCID(t, cid)
@@ -72,7 +72,7 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("merge split info", func(t *testing.T) {
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateRawObjectWithCID(t, cid)

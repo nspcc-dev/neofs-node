@@ -42,7 +42,7 @@ func blankValidObject(t *testing.T, key *ecdsa.PrivateKey) *RawObject {
 	ownerID.SetNeo3Wallet(wallet)
 
 	obj := NewRaw()
-	obj.SetContainerID(cidtest.GenerateID())
+	obj.SetContainerID(cidtest.ID())
 	obj.SetOwnerID(ownerID)
 
 	return obj
@@ -87,7 +87,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("unsigned object", func(t *testing.T) {
 		obj := NewRaw()
-		obj.SetContainerID(cidtest.GenerateID())
+		obj.SetContainerID(cidtest.ID())
 		obj.SetID(testObjectID(t))
 
 		require.Error(t, v.Validate(obj.Object()))
@@ -97,12 +97,12 @@ func TestFormatValidator_Validate(t *testing.T) {
 		w, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(ownerKey.PublicKey()))
 		require.NoError(t, err)
 
-		tok := sessiontest.Generate()
+		tok := sessiontest.Token()
 		tok.SetOwnerID(owner.NewIDFromNeo3Wallet(w))
 
 		obj := NewRaw()
-		obj.SetContainerID(cidtest.GenerateID())
-		obj.SetSessionToken(sessiontest.Generate())
+		obj.SetContainerID(cidtest.ID())
+		obj.SetSessionToken(sessiontest.Token())
 		obj.SetOwnerID(tok.OwnerID())
 
 		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))

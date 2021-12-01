@@ -61,7 +61,7 @@ func newDB(t testing.TB) *meta.DB {
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {
-	return generateRawObjectWithCID(t, cidtest.GenerateID())
+	return generateRawObjectWithCID(t, cidtest.ID())
 }
 
 func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
@@ -80,7 +80,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 
 	obj := object.NewRaw()
 	obj.SetID(testOID())
-	obj.SetOwnerID(ownertest.GenerateID())
+	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
 	obj.SetVersion(version)
 	obj.SetPayloadChecksum(csum)
@@ -92,7 +92,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 
 func generateAddress() *objectSDK.Address {
 	addr := objectSDK.NewAddress()
-	addr.SetContainerID(cidtest.GenerateID())
+	addr.SetContainerID(cidtest.ID())
 	addr.SetObjectID(testOID())
 
 	return addr

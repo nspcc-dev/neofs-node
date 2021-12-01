@@ -13,7 +13,7 @@ import (
 func TestStorageEngine_Inhume(t *testing.T) {
 	defer os.RemoveAll(t.Name())
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 	splitID := objectSDK.NewSplitID()
 
 	fs := objectSDK.SearchFilters{}
