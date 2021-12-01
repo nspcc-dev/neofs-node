@@ -59,7 +59,7 @@ func TestDB_Get(t *testing.T) {
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateRawObjectWithCID(t, cid)

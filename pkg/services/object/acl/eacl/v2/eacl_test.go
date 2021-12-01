@@ -61,7 +61,7 @@ func testID(t *testing.T) *objectSDK.ID {
 func testAddress(t *testing.T) *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(testID(t))
-	addr.SetContainerID(cidtest.GenerateID())
+	addr.SetContainerID(cidtest.ID())
 
 	return addr
 }

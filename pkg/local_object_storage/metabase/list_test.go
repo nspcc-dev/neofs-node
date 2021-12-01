@@ -23,7 +23,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	// fill metabase with objects
 	for i := 0; i < containers; i++ {
-		containerID := cidtest.GenerateID()
+		containerID := cidtest.ID()
 
 		// add one regular object
 		obj := generateRawObjectWithCID(t, containerID)

@@ -65,7 +65,7 @@ func releaseShard(s *shard.Shard, t testing.TB) {
 }
 
 func generateRawObject(t *testing.T) *object.RawObject {
-	return generateRawObjectWithCID(t, cidtest.GenerateID())
+	return generateRawObjectWithCID(t, cidtest.ID())
 }
 
 func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
@@ -84,7 +84,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 
 	obj := object.NewRaw()
 	obj.SetID(generateOID())
-	obj.SetOwnerID(ownertest.GenerateID())
+	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
 	obj.SetVersion(version)
 	obj.SetPayloadChecksum(csum)

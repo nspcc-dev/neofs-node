@@ -13,7 +13,7 @@ func TestStorage(t *testing.T) {
 	const epoch uint64 = 13
 
 	a := container.NewAnnouncement()
-	a.SetContainerID(cidtest.GenerateID())
+	a.SetContainerID(cidtest.ID())
 	a.SetEpoch(epoch)
 
 	const opinionsNum = 100

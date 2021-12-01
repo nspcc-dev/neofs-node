@@ -68,7 +68,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	t.Run("parent object", func(t *testing.T) {
 		obj := generateRawObject(t)
 		addAttribute(obj, "foo", "bar")
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateRawObjectWithCID(t, cid)

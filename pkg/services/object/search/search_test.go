@@ -159,7 +159,7 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		ids := generateIDs(10)
 		storage.addResult(cid, ids, nil)
 
@@ -175,7 +175,7 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		testErr := errors.New("any error")
 		storage.addResult(cid, nil, testErr)
 

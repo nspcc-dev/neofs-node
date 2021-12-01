@@ -189,7 +189,7 @@ func generateAddress() *objectSDK.Address {
 	addr := objectSDK.NewAddress()
 	addr.SetObjectID(generateID())
 
-	addr.SetContainerID(cidtest.GenerateID())
+	addr.SetContainerID(cidtest.ID())
 
 	return addr
 }

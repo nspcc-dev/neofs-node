@@ -99,7 +99,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 
 	obj := object.NewRaw()
 	obj.SetID(testOID())
-	obj.SetOwnerID(ownertest.GenerateID())
+	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
 	obj.SetVersion(version)
 	obj.SetPayloadChecksum(csum)

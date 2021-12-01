@@ -127,7 +127,7 @@ func TestDB_ContainerSize(t *testing.T) {
 	objs := make(map[*cid.ID][]*object.RawObject, C*N)
 
 	for i := 0; i < C; i++ {
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 		cids[cid] = 0
 
 		for j := 0; j < N; j++ {
