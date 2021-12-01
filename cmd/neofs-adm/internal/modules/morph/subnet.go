@@ -367,7 +367,7 @@ var cmdSubnetGet = &cobra.Command{
 
 		info.ReadOwner(&ownerID)
 
-		cmd.Printf("Owner: %s\n", ownerID)
+		cmd.Printf("Owner: %s\n", &ownerID)
 
 		return nil
 	},
