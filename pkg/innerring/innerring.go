@@ -714,6 +714,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		NeoFSIDClient:   neofsIDClient,
 		NetworkState:    server.netmapClient,
 		NotaryDisabled:  server.sideNotaryConfig.disabled,
+		SubnetClient:    subnetClient,
 	})
 	if err != nil {
 		return nil, err

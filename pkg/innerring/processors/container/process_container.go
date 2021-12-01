@@ -12,11 +12,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"go.uber.org/zap"
 )
 
@@ -82,6 +84,12 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	err = cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
+	}
+
+	// check owner allowance in the subnetwork
+	err = checkSubnet(cp.subnetClient, cnr)
+	if err != nil {
+		return fmt.Errorf("incorrect subnetwork: %w", err)
 	}
 
 	// check native name and zone
@@ -271,6 +279,39 @@ func checkNNS(ctx *putContainerContext, cnr *containerSDK.Container) error {
 		if zone := named.Zone(); zone != ctx.zone {
 			return fmt.Errorf("zones differ %s/%s", zone, ctx.zone)
 		}
+	}
+
+	return nil
+}
+
+func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error {
+	prm := morphsubnet.UserAllowedPrm{}
+
+	subID := cnr.PlacementPolicy().SubnetID()
+	if subID == nil || subnetid.IsZero(*subID) {
+		return nil
+	}
+
+	rawSubID, err := subID.Marshal()
+	if err != nil {
+		return fmt.Errorf("could not marshal container subnetwork: %w", err)
+	}
+
+	ownerID, err := cnr.OwnerID().Marshal()
+	if err != nil {
+		return fmt.Errorf("could not marshal container ownerID: %w", err)
+	}
+
+	prm.SetID(rawSubID)
+	prm.SetClient(ownerID)
+
+	res, err := subCli.UserAllowed(prm)
+	if err != nil {
+		return fmt.Errorf("could not check user in contract: %w", err)
+	}
+
+	if !res.Allowed() {
+		return fmt.Errorf("user is not allowed to create containers in %s subnetwork", subID)
 	}
 
 	return nil
