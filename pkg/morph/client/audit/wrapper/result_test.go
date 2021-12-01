@@ -33,7 +33,7 @@ func TestAuditResults(t *testing.T) {
 	auditClientWrapper, err := auditWrapper.NewFromMorph(morphClient, auditHash, 0)
 	require.NoError(t, err)
 
-	id := cidtest.GenerateID()
+	id := cidtest.ID()
 
 	auditRes := auditAPI.NewResult()
 	auditRes.SetAuditEpoch(epoch)

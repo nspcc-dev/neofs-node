@@ -34,7 +34,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	putPrm := new(shard.PutPrm)
 
 	for i := 0; i < C; i++ {
-		cid := cidtest.GenerateID()
+		cid := cidtest.ID()
 
 		for j := 0; j < N; j++ {
 			obj := generateRawObjectWithCID(t, cid)

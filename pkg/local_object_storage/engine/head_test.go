@@ -13,7 +13,7 @@ import (
 func TestHeadRaw(t *testing.T) {
 	defer os.RemoveAll(t.Name())
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 	splitID := objectSDK.NewSplitID()
 
 	parent := generateRawObjectWithCID(t, cid)

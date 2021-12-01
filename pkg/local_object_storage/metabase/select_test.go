@@ -15,7 +15,7 @@ import (
 func TestDB_SelectUserAttributes(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	addAttribute(raw1, "foo", "bar")
@@ -137,7 +137,7 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 func TestDB_SelectRootPhyParent(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	// prepare
 
@@ -304,7 +304,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 func TestDB_SelectInhume(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, raw1.Object())
@@ -336,7 +336,7 @@ func TestDB_SelectInhume(t *testing.T) {
 func TestDB_SelectPayloadHash(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	raw1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, raw1.Object())
@@ -371,7 +371,7 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 func TestDB_SelectWithSlowFilters(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	v20 := new(version.Version)
 	v20.SetMajor(2)
@@ -469,7 +469,7 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 func TestDB_SelectObjectID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	// prepare
 
@@ -577,7 +577,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 func TestDB_SelectSplitID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	child1 := generateRawObjectWithCID(t, cid)
 	child2 := generateRawObjectWithCID(t, cid)
@@ -631,7 +631,7 @@ func TestDB_SelectSplitID(t *testing.T) {
 func TestDB_SelectContainerID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.GenerateID()
+	cid := cidtest.ID()
 
 	obj1 := generateRawObjectWithCID(t, cid)
 	err := putBig(db, obj1.Object())
@@ -665,7 +665,7 @@ func TestDB_SelectContainerID(t *testing.T) {
 	})
 
 	t.Run("not same cid", func(t *testing.T) {
-		newCID := cidtest.GenerateID()
+		newCID := cidtest.ID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, newCID)

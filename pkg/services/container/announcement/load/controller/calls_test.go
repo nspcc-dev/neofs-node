@@ -75,7 +75,7 @@ func (s *testAnnouncementStorage) Close() error {
 
 func randAnnouncement() container.UsedSpaceAnnouncement {
 	a := container.NewAnnouncement()
-	a.SetContainerID(cidtest.GenerateID())
+	a.SetContainerID(cidtest.ID())
 	a.SetUsedSpace(rand.Uint64())
 
 	return *a

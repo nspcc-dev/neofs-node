@@ -27,7 +27,7 @@ func TestListWithCursor(t *testing.T) {
 	got := make([]*object.Address, 0, total)
 
 	for i := 0; i < total; i++ {
-		containerID := cidtest.GenerateID()
+		containerID := cidtest.ID()
 		obj := generateRawObjectWithCID(t, containerID)
 		prm := new(PutPrm).WithObject(obj.Object())
 		_, err := e.Put(prm)
