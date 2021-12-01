@@ -28,8 +28,6 @@ const (
 	flagSubnetKey = "key"
 	// contract address
 	flagSubnetContract = "contract"
-	// disable notary
-	flagSubnetNonNotary = "non-notary"
 )
 
 func viperBindFlags(cmd *cobra.Command, flags ...string) {
@@ -47,7 +45,6 @@ var cmdSubnet = &cobra.Command{
 			flagSubnetEndpoint,
 			flagSubnetKey,
 			flagSubnetContract,
-			flagSubnetNonNotary,
 		)
 	},
 }
@@ -84,13 +81,19 @@ func readSubnetKey(key *keys.PrivateKey) error {
 	return nil
 }
 
+// calls initSubnetClientCheckNotary with unset checkNotary.
+func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
+	return initSubnetClientCheckNotary(c, key, false)
+}
+
 // initializes morph subnet client with the specified private key.
 //
 // Parameters are read from:
 //  * contract address: flagSubnetContract;
-//  * endpoint: flagSubnetEndpoint;
-//  * non-notary mode: flagSubnetNonNotary.
-func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
+//  * endpoint: flagSubnetEndpoint.
+//
+// If checkNotary is set, non-notary mode is read from flagSubnetNonNotary.
+func initSubnetClientCheckNotary(c *morphsubnet.Client, key *keys.PrivateKey, checkNotary bool) error {
 	// read endpoint
 	endpoint := viper.GetString(flagSubnetEndpoint)
 	if endpoint == "" {
@@ -109,20 +112,16 @@ func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
 		return err
 	}
 
-	nonNotary := viper.GetBool(flagSubnetNonNotary)
+	// calc client mode
+	cMode := morphsubnet.NonNotary
 
-	if !nonNotary {
+	if checkNotary && viper.GetBool(flagSubnetNotary) {
 		err = cMorph.EnableNotarySupport()
 		if err != nil {
 			return fmt.Errorf("enable notary support: %w", err)
 		}
-	}
 
-	// calc client mode
-	cMode := morphsubnet.NotaryNonAlphabet
-
-	if nonNotary {
-		cMode = morphsubnet.NonNotary
+		cMode = morphsubnet.NotaryNonAlphabet
 	}
 
 	// init subnet morph client
@@ -139,10 +138,20 @@ func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
 	return nil
 }
 
+const (
+	// enable notary
+	flagSubnetNotary = "notary"
+)
+
 // create subnet command.
 var cmdSubnetCreate = &cobra.Command{
 	Use:   "create",
 	Short: "Create NeoFS subnet.",
+	PreRun: func(cmd *cobra.Command, _ []string) {
+		viperBindFlags(cmd,
+			flagSubnetNotary,
+		)
+	},
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		// read private key
 		var key keys.PrivateKey
@@ -196,7 +205,7 @@ var cmdSubnetCreate = &cobra.Command{
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
 
-		err = initSubnetClient(&cSubnet, &key)
+		err = initSubnetClientCheckNotary(&cSubnet, &key, true)
 		if err != nil {
 			return fmt.Errorf("init subnet client: %w", err)
 		}
@@ -783,6 +792,8 @@ func addCommandInheritPreRun(par *cobra.Command, subs ...*cobra.Command) {
 
 // registers flags and binds sub-commands for subnet commands.
 func init() {
+	cmdSubnetCreate.Flags().Bool(flagSubnetNotary, false, "Flag to create subnet in notary environment")
+
 	// get subnet flags
 	cmdSubnetGet.Flags().String(flagSubnetGetID, "", "ID of the subnet to read")
 	_ = cmdSubnetAdminAdd.MarkFlagRequired(flagSubnetGetID)
@@ -849,8 +860,6 @@ func init() {
 	cmdSubnetFlags.StringP(flagSubnetKey, "k", "", "Path to file with private key")
 	_ = cmdSubnet.MarkFlagRequired(flagSubnetKey)
 	cmdSubnetFlags.StringP(flagSubnetContract, "a", "", "Subnet contract address (string LE)")
-	_ = cmdSubnet.MarkFlagRequired(flagSubnetContract)
-	cmdSubnetFlags.Bool(flagSubnetNonNotary, false, "Flag to work in non-notary environment")
 
 	// add all subnet commands to corresponding command section
 	addCommandInheritPreRun(cmdSubnet,
