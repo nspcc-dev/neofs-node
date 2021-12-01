@@ -585,25 +585,22 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 		return fmt.Errorf("marshal client ID: %w", err)
 	}
 
-	var prm morphsubnet.ManageClientsPrm
+	// read group ID and encode it
+	var groupID internal.SubnetClientGroupID
 
-	if viper.GetBool(flagSubnetAdminClient) {
-		// read group ID and encode it
-		var groupID internal.SubnetClientGroupID
-
-		err = groupID.UnmarshalText([]byte(viper.GetString(flagSubnetAdminAddGroup)))
-		if err != nil {
-			return fmt.Errorf("decode group ID text: %w", err)
-		}
-
-		binGroupID, err := groupID.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal group ID: %w", err)
-		}
-
-		prm.SetGroup(binGroupID)
+	err = groupID.UnmarshalText([]byte(viper.GetString(flagSubnetAdminAddGroup)))
+	if err != nil {
+		return fmt.Errorf("decode group ID text: %w", err)
 	}
 
+	binGroupID, err := groupID.Marshal()
+	if err != nil {
+		return fmt.Errorf("marshal group ID: %w", err)
+	}
+
+	var prm morphsubnet.ManageClientsPrm
+
+	prm.SetGroup(binGroupID)
 	prm.SetSubnet(binID)
 	prm.SetClient(binClientID)
 
