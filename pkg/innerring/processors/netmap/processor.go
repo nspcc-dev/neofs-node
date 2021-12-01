@@ -176,6 +176,8 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	p.SetType(removeNodeNotification)
 	p.SetParser(subnetEvent.ParseRemoveNode)
 
+	parsers = append(parsers, p)
+
 	p.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new epoch event
@@ -210,6 +212,8 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	i.SetScriptHash(np.subnetContract)
 	i.SetType(removeNodeNotification)
 	i.SetHandler(np.handleRemoveNode)
+
+	handlers = append(handlers, i)
 
 	i.SetScriptHash(np.netmapClient.ContractAddress())
 
