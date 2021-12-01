@@ -86,13 +86,18 @@ func initSubnetClient(c *morphsubnet.Client, key *keys.PrivateKey) error {
 	return initSubnetClientCheckNotary(c, key, false)
 }
 
+const (
+	// enable notary
+	flagSubnetNotary = "notary"
+)
+
 // initializes morph subnet client with the specified private key.
 //
 // Parameters are read from:
 //  * contract address: flagSubnetContract;
 //  * endpoint: flagSubnetEndpoint.
 //
-// If checkNotary is set, non-notary mode is read from flagSubnetNonNotary.
+// If checkNotary is set, notary mode is read from flagSubnetNotary.
 func initSubnetClientCheckNotary(c *morphsubnet.Client, key *keys.PrivateKey, checkNotary bool) error {
 	// read endpoint
 	endpoint := viper.GetString(flagSubnetEndpoint)
@@ -137,11 +142,6 @@ func initSubnetClientCheckNotary(c *morphsubnet.Client, key *keys.PrivateKey, ch
 
 	return nil
 }
-
-const (
-	// enable notary
-	flagSubnetNotary = "notary"
-)
 
 // create subnet command.
 var cmdSubnetCreate = &cobra.Command{
