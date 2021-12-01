@@ -14,6 +14,12 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	prm := morphsubnet.NodeAllowedPrm{}
 
 	err := n.IterateSubnets(func(id subnetid.ID) error {
+		// every node can be bootstrapped
+		// to the zero subnetwork
+		if subnetid.IsZero(id) {
+			return nil
+		}
+
 		rawSubnetID, err := id.Marshal()
 		if err != nil {
 			return fmt.Errorf("could not marshal subnetwork ID: %w", err)
