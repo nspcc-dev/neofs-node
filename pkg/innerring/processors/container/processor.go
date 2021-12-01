@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/panjf2000/ants/v2"
@@ -26,6 +27,7 @@ type (
 		alphabetState  AlphabetState
 		cnrClient      *wrapper.Wrapper // notary must be enabled
 		idClient       *neofsid.ClientWrapper
+		subnetClient   *morphsubnet.Client
 		netState       NetworkState
 		notaryDisabled bool
 	}
@@ -37,6 +39,7 @@ type (
 		AlphabetState   AlphabetState
 		ContainerClient *wrapper.Wrapper
 		NeoFSIDClient   *neofsid.ClientWrapper
+		SubnetClient    *morphsubnet.Client
 		NetworkState    NetworkState
 		NotaryDisabled  bool
 	}
@@ -72,6 +75,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: NeoFS ID client is not set")
 	case p.NetworkState == nil:
 		return nil, errors.New("ir/container: network state is not set")
+	case p.SubnetClient == nil:
+		return nil, errors.New("ir/container: subnet client is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -89,6 +94,7 @@ func New(p *Params) (*Processor, error) {
 		idClient:       p.NeoFSIDClient,
 		netState:       p.NetworkState,
 		notaryDisabled: p.NotaryDisabled,
+		subnetClient:   p.SubnetClient,
 	}, nil
 }
 
