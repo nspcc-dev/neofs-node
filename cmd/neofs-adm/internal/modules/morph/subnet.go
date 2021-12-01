@@ -655,7 +655,7 @@ var cmdSubnetClientRemove = &cobra.Command{
 // cmdSubnetNode flags.
 const (
 	// node ID
-	flagSubnetNode = "id"
+	flagSubnetNode = "node"
 	// ID of the subnet to be managed
 	flagSubnetNodeSubnet = flagSubnet
 )
