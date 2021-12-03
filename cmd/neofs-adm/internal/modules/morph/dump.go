@@ -42,21 +42,6 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 	infos := []contractDumpInfo{{name: nnsContract, hash: cs.Hash}}
 
-	bw := io.NewBufBinWriter()
-	for _, ctrName := range contractList {
-		emit.AppCall(bw.BinWriter, cs.Hash, "resolve", callflag.ReadOnly,
-			ctrName+".neofs", int64(nns.TXT))
-	}
-
-	res, err := c.InvokeScript(bw.Bytes(), nil)
-	if err != nil {
-		return fmt.Errorf("can't fetch info from NNS: %w", err)
-	}
-
-	if len(res.Stack) != len(contractList) {
-		return errors.New("invalid response from NNS contract: length mismatch")
-	}
-
 	irSize := 0
 	for ; irSize < lastGlagoliticLetter; irSize++ {
 		ok, err := c.NNSIsAvailable(cs.Hash, getAlphabetNNSDomain(irSize))
@@ -68,6 +53,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	}
 
 	buf := bytes.NewBuffer(nil)
+	bw := io.NewBufBinWriter()
 
 	if irSize != 0 {
 		bw.Reset()
@@ -91,10 +77,21 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	for i := range contractList {
-		info := contractDumpInfo{name: contractList[i]}
-		if h, err := parseNNSResolveResult(res.Stack[i]); err == nil {
-			info.hash = h
+	for _, ctrName := range contractList {
+		bw.Reset()
+		emit.AppCall(bw.BinWriter, cs.Hash, "resolve", callflag.ReadOnly,
+			ctrName+".neofs", int64(nns.TXT))
+
+		res, err := c.InvokeScript(bw.Bytes(), nil)
+		if err != nil {
+			return fmt.Errorf("can't fetch info from NNS: %w", err)
+		}
+
+		info := contractDumpInfo{name: ctrName}
+		if len(res.Stack) != 0 {
+			if h, err := parseNNSResolveResult(res.Stack[0]); err == nil {
+				info.hash = h
+			}
 		}
 		infos = append(infos, info)
 	}
@@ -108,7 +105,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	res, err = c.InvokeScript(bw.Bytes(), nil)
+	res, err := c.InvokeScript(bw.Bytes(), nil)
 	if err != nil {
 		return fmt.Errorf("can't fetch info from NNS: %w", err)
 	}
