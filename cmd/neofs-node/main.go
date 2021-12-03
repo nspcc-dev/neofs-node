@@ -35,7 +35,7 @@ func fatalOnErrDetails(details string, err error) {
 
 func main() {
 	configFile := flag.String("config", "", "path to config")
-	versionFlag := flag.Bool("version", false, "neofs-ir node version")
+	versionFlag := flag.Bool("version", false, "neofs node version")
 	flag.Parse()
 
 	if *versionFlag {
