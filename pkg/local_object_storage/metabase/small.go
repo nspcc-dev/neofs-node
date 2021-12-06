@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
@@ -69,5 +70,5 @@ func (db *DB) isSmall(tx *bbolt.Tx, addr *objectSDK.Address) (*blobovnicza.ID, e
 		return nil, nil
 	}
 
-	return blobovnicza.NewIDFromBytes(blobovniczaID), nil
+	return blobovnicza.NewIDFromBytes(slice.Copy(blobovniczaID)), nil
 }
