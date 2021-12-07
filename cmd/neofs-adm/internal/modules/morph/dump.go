@@ -98,7 +98,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 	bw.Reset()
 	for i := range infos {
-		if i == 0 || infos[i].hash.Equals(util.Uint160{}) { // current NNS contract has no Version method
+		if infos[i].hash.Equals(util.Uint160{}) {
 			emit.Int(bw.BinWriter, 0)
 		} else {
 			emit.AppCall(bw.BinWriter, infos[i].hash, "version", callflag.NoneFlag)
