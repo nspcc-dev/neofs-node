@@ -109,8 +109,9 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("locode.db.path", "")
 
 	// extra fee values for working mode without notary contract
-	cfg.SetDefault("fee.main_chain", 5000_0000)   // 0.5 Fixed8
-	cfg.SetDefault("fee.side_chain", 2_0000_0000) // 2.0 Fixed8
+	cfg.SetDefault("fee.main_chain", 5000_0000)                  // 0.5 Fixed8
+	cfg.SetDefault("fee.side_chain", 2_0000_0000)                // 2.0 Fixed8
+	cfg.SetDefault("fee.named_container_register", 25_0000_0000) // 25.0 Fixed8
 
 	cfg.SetDefault("control.authorized_keys", []string{})
 	cfg.SetDefault("control.grpc.endpoint", "")
