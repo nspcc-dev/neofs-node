@@ -88,6 +88,11 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		prm := netmapclient.AddPeerPrm{}
 		prm.SetNodeInfo(nodeInfo)
 
+		// In notary environments we call Register method instead of AddPeer.
+		// It differs from AddPeer only by name, so we can do this in the same form.
+		// See https://github.com/nspcc-dev/neofs-contract/issues/154.
+		const methodAddPeerNotary = "register"
+
 		if nr := ev.NotaryRequest(); nr != nil {
 			// create new notary request with the original nonce
 			err = np.netmapClient.Morph().NotaryInvoke(
@@ -95,7 +100,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 				0,
 				nr.MainTransaction.Nonce,
 				nil,
-				netmapEvent.AddPeerNotaryEvent,
+				methodAddPeerNotary,
 				nodeInfoBinary,
 			)
 		} else {
