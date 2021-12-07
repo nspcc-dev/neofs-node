@@ -28,7 +28,12 @@ type Wrapper struct {
 // parameter of Wrapper.
 type Option func(*opts)
 
-type opts []client.StaticClientOption
+type opts struct {
+	feePutNamedSet bool
+	feePutNamed    fixedn.Fixed8
+
+	staticOpts []client.StaticClientOption
+}
 
 func defaultOpts() *opts {
 	return new(opts)
@@ -43,7 +48,7 @@ func (w Wrapper) Morph() *client.Client {
 // notary invocation tries.
 func TryNotary() Option {
 	return func(o *opts) {
-		*o = append(*o, client.TryNotary())
+		o.staticOpts = append(o.staticOpts, client.TryNotary())
 	}
 }
 
@@ -54,11 +59,22 @@ func TryNotary() Option {
 // Considered to be used by IR nodes only.
 func AsAlphabet() Option {
 	return func(o *opts) {
-		*o = append(*o, client.AsAlphabet())
+		o.staticOpts = append(o.staticOpts, client.AsAlphabet())
+	}
+}
+
+// WithCustomFeeForNamedPut returns option to specify custom fee for each Put operation with named container.
+func WithCustomFeeForNamedPut(fee fixedn.Fixed8) Option {
+	return func(o *opts) {
+		o.feePutNamed = fee
+		o.feePutNamedSet = true
 	}
 }
 
 // NewFromMorph returns the wrapper instance from the raw morph client.
+//
+// Specified fee is used for all operations by default. If WithCustomFeeForNamedPut is provided,
+// the customized fee is used for Put operations with named containers.
 func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*Wrapper, error) {
 	o := defaultOpts()
 
@@ -66,12 +82,27 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		opts[i](o)
 	}
 
-	staticClient, err := client.NewStatic(cli, contract, fee, ([]client.StaticClientOption)(*o)...)
+	// below is working but not the best solution to customize fee for PutNamed operation
+	// It is done like that because container package doesn't provide option to specify the fee.
+	// In the future, we will possibly get rid of the container package at all.
+	const methodNamePutNamed = "putNamed"
+
+	var (
+		staticOpts = o.staticOpts
+		cnrOpts    = make([]container.Option, 0, 1)
+	)
+
+	if o.feePutNamedSet {
+		staticOpts = append(staticOpts, client.WithCustomFee(methodNamePutNamed, o.feePutNamed))
+		cnrOpts = append(cnrOpts, container.WithPutNamedMethod(methodNamePutNamed))
+	}
+
+	staticClient, err := client.NewStatic(cli, contract, fee, staticOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container static client: %w", err)
 	}
 
-	enhancedContainerClient, err := container.New(staticClient)
+	enhancedContainerClient, err := container.New(staticClient, cnrOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container morph client: %w", err)
 	}
