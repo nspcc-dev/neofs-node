@@ -466,7 +466,22 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee, cntWrapper.TryNotary(), cntWrapper.AsAlphabet())
+	// form morph container client's options
+	morphCnrOpts := make([]cntWrapper.Option, 0, 3)
+	morphCnrOpts = append(morphCnrOpts,
+		cntWrapper.TryNotary(),
+		cntWrapper.AsAlphabet(),
+	)
+
+	if server.sideNotaryConfig.disabled {
+		// in non-notary environments we customize fee for named container registration
+		// because it takes much more additional GAS than other operations.
+		morphCnrOpts = append(morphCnrOpts,
+			cntWrapper.WithCustomFeeForNamedPut(server.feeConfig.NamedContainerRegistrationFee()),
+		)
+	}
+
+	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee, morphCnrOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -17,28 +17,23 @@ import (
 // expression (or just declaring a StaticClient variable) is unsafe
 // and can lead to panic.
 type StaticClient struct {
-	tryNotary bool
-	alpha     bool // use client's key to sign notary request's main TX
+	staticOpts
 
 	client *Client // neo-go client instance
 
 	scScriptHash util.Uint160 // contract script-hash
-
-	fee fixedn.Fixed8 // invocation fee
 }
 
 type staticOpts struct {
 	tryNotary bool
-	alpha     bool
+	alpha     bool // use client's key to sign notary request's main TX
+
+	fees fees
 }
 
 // StaticClientOption allows to set an optional
 // parameter of StaticClient.
 type StaticClientOption func(*staticOpts)
-
-func defaultStaticOpts() *staticOpts {
-	return new(staticOpts)
-}
 
 // ErrNilStaticClient is returned by functions that expect
 // a non-nil StaticClient pointer, but received nil.
@@ -47,24 +42,25 @@ var ErrNilStaticClient = errors.New("static client is nil")
 // NewStatic creates, initializes and returns the StaticClient instance.
 //
 // If provided Client instance is nil, ErrNilClient is returned.
+//
+// Specified fee is used by default. Per-operation fees can be customized via WithCustomFee option.
 func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts ...StaticClientOption) (*StaticClient, error) {
 	if client == nil {
 		return nil, ErrNilClient
 	}
 
-	o := defaultStaticOpts()
-
-	for i := range opts {
-		opts[i](o)
-	}
-
-	return &StaticClient{
-		tryNotary:    o.tryNotary,
-		alpha:        o.alpha,
+	c := &StaticClient{
 		client:       client,
 		scScriptHash: scriptHash,
-		fee:          fee,
-	}, nil
+	}
+
+	c.fees.setDefault(fee)
+
+	for i := range opts {
+		opts[i](&c.staticOpts)
+	}
+
+	return c, nil
 }
 
 // Morph return wrapped raw morph client.
@@ -117,7 +113,12 @@ func (i *InvokePrmOptional) SetHash(hash util.Uint256) {
 // If TryNotary is provided:
 //     - if AsAlphabet is provided, calls NotaryInvoke;
 //     - otherwise, calls NotaryInvokeNotAlpha.
+//
+// If fee for the operation executed using specified method is customized, then StaticClient uses it.
+// Otherwise, default fee is used.
 func (s StaticClient) Invoke(prm InvokePrm) error {
+	fee := s.fees.feeForMethod(prm.method)
+
 	if s.tryNotary {
 		if s.alpha {
 			var (
@@ -136,15 +137,15 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 				vubP = &vub
 			}
 
-			return s.client.NotaryInvoke(s.scScriptHash, s.fee, nonce, vubP, prm.method, prm.args...)
+			return s.client.NotaryInvoke(s.scScriptHash, fee, nonce, vubP, prm.method, prm.args...)
 		}
 
-		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, s.fee, prm.method, prm.args...)
+		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, fee, prm.method, prm.args...)
 	}
 
 	return s.client.Invoke(
 		s.scScriptHash,
-		s.fee,
+		fee,
 		prm.method,
 		prm.args...,
 	)
@@ -196,5 +197,13 @@ func TryNotary() StaticClientOption {
 func AsAlphabet() StaticClientOption {
 	return func(o *staticOpts) {
 		o.alpha = true
+	}
+}
+
+// WithCustomFee returns option to specify custom fee for the operation executed using
+// specified contract method.
+func WithCustomFee(method string, fee fixedn.Fixed8) StaticClientOption {
+	return func(o *staticOpts) {
+		o.fees.setFeeForMethod(method, fee)
 	}
 }
