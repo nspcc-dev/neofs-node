@@ -65,7 +65,7 @@ func (b *Blobovnicza) Init() error {
 
 				b.log.Debug("bucket already exists, initializing state")
 
-				return true, b.syncFullnessCounter()
+				return true, b.syncFullnessCounter(tx)
 			}
 
 			if err != nil {
