@@ -26,10 +26,6 @@ import (
 const (
 	// Neo RPC endpoint
 	flagSubnetEndpoint = endpointFlag
-	// filepath to wallet
-	flagSubnetWallet = "wallet"
-	// address in the wallet, optional
-	flagSubnetAddress = "address"
 )
 
 func viperBindFlags(cmd *cobra.Command, flags ...string) {
@@ -45,8 +41,6 @@ var cmdSubnet = &cobra.Command{
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetEndpoint,
-			flagSubnetWallet,
-			flagSubnetAddress,
 		)
 	},
 }
@@ -57,6 +51,10 @@ const (
 	flagSubnet = "subnet"
 	// subnet client group ID
 	flagSubnetGroup = "group"
+	// filepath to wallet
+	flagSubnetWallet = "wallet"
+	// address in the wallet, optional
+	flagSubnetAddress = "address"
 )
 
 // reads wallet from the filepath configured in flagSubnetWallet flag,
@@ -181,6 +179,8 @@ var cmdSubnetCreate = &cobra.Command{
 	Short: "Create NeoFS subnet.",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
+			flagSubnetWallet,
+			flagSubnetAddress,
 			flagSubnetNotary,
 		)
 	},
@@ -275,6 +275,8 @@ var cmdSubnetRemove = &cobra.Command{
 	Short: "Remove NeoFS subnet.",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
+			flagSubnetWallet,
+			flagSubnetAddress,
 			flagSubnetRemoveID,
 		)
 	},
@@ -307,15 +309,7 @@ var cmdSubnetRemove = &cobra.Command{
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
 
-		// use random key to fetch the data
-		// we could use raw neo-go client to perform testInvoke
-		// without keys, as it is done in other commands
-		key, err := keys.NewPrivateKey()
-		if err != nil {
-			return fmt.Errorf("init subnet client: %w", err)
-		}
-
-		err = initSubnetClient(&cSubnet, key)
+		err = initSubnetClient(&cSubnet, &key)
 		if err != nil {
 			return fmt.Errorf("init subnet client: %w", err)
 		}
@@ -372,7 +366,15 @@ var cmdSubnetGet = &cobra.Command{
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
 
-		err = initSubnetClient(&cSubnet, &key)
+		// use random key to fetch the data
+		// we could use raw neo-go client to perform testInvoke
+		// without keys, as it is done in other commands
+		key, err := keys.NewPrivateKey()
+		if err != nil {
+			return fmt.Errorf("init subnet client: %w", err)
+		}
+
+		err = initSubnetClient(&cSubnet, key)
 		if err != nil {
 			return fmt.Errorf("init subnet client: %w", err)
 		}
@@ -421,6 +423,8 @@ var cmdSubnetAdmin = &cobra.Command{
 	Short: "Manage administrators of the NeoFS subnet.",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viperBindFlags(cmd,
+			flagSubnetWallet,
+			flagSubnetAddress,
 			flagSubnetAdminSubnet,
 			flagSubnetAdminID,
 		)
@@ -570,6 +574,8 @@ var cmdSubnetClient = &cobra.Command{
 	Short: "Manage clients of the NeoFS subnet.",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
+			flagSubnetWallet,
+			flagSubnetAddress,
 			flagSubnetClientSubnet,
 			flagSubnetClientID,
 			flagSubnetClientGroup,
@@ -822,6 +828,9 @@ func addCommandInheritPreRun(par *cobra.Command, subs ...*cobra.Command) {
 // registers flags and binds sub-commands for subnet commands.
 func init() {
 	cmdSubnetCreate.Flags().Bool(flagSubnetNotary, false, "Flag to create subnet in notary environment")
+	cmdSubnetCreate.Flags().StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
+	_ = cmdSubnetCreate.MarkFlagRequired(flagSubnetWallet)
+	cmdSubnetCreate.Flags().StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
 
 	// get subnet flags
 	cmdSubnetGet.Flags().String(flagSubnetGetID, "", "ID of the subnet to read")
@@ -830,6 +839,9 @@ func init() {
 	// remove subnet flags
 	cmdSubnetRemove.Flags().String(flagSubnetRemoveID, "", "ID of the subnet to remove")
 	_ = cmdSubnetRemove.MarkFlagRequired(flagSubnetRemoveID)
+	cmdSubnetRemove.Flags().StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
+	_ = cmdSubnetRemove.MarkFlagRequired(flagSubnetWallet)
+	cmdSubnetRemove.Flags().StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
 
 	// subnet administer flags
 	adminFlags := cmdSubnetAdmin.PersistentFlags()
@@ -837,6 +849,9 @@ func init() {
 	_ = cmdSubnetAdmin.MarkFlagRequired(flagSubnetAdminSubnet)
 	adminFlags.String(flagSubnetAdminID, "", "Hex-encoded public key of the admin")
 	_ = cmdSubnetAdmin.MarkFlagRequired(flagSubnetAdminID)
+	adminFlags.StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
+	_ = cmdSubnetAdmin.MarkFlagRequired(flagSubnetWallet)
+	adminFlags.StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
 
 	// add admin flags
 	cmdSubnetAdminAddFlags := cmdSubnetAdminAdd.Flags()
@@ -856,6 +871,9 @@ func init() {
 	_ = cmdSubnetClient.MarkFlagRequired(flagSubnetClientGroup)
 	clientFlags.String(flagSubnetClientID, "", "Client's user ID in NeoFS system in text format")
 	_ = cmdSubnetClient.MarkFlagRequired(flagSubnetClientID)
+	clientFlags.StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
+	_ = cmdSubnetClient.MarkFlagRequired(flagSubnetWallet)
+	clientFlags.StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
 
 	// add all admin managing commands to corresponding command section
 	addCommandInheritPreRun(cmdSubnetAdmin,
@@ -886,9 +904,6 @@ func init() {
 	cmdSubnetFlags := cmdSubnet.PersistentFlags()
 	cmdSubnetFlags.StringP(flagSubnetEndpoint, "r", "", "N3 RPC node endpoint")
 	_ = cmdSubnet.MarkFlagRequired(flagSubnetEndpoint)
-	cmdSubnetFlags.StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
-	_ = cmdSubnet.MarkFlagRequired(flagSubnetWallet)
-	cmdSubnetFlags.StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
 
 	// add all subnet commands to corresponding command section
 	addCommandInheritPreRun(cmdSubnet,
