@@ -61,7 +61,7 @@ func (b *Blobovnicza) syncFullnessCounter(tx *bbolt.Tx) error {
 			return false, fmt.Errorf("bucket not found %s", stringifyBounds(lower, upper))
 		}
 
-		sz += uint64(buck.Stats().KeyN) * (upper - lower)
+		sz += uint64(buck.Stats().KeyN) * (upper + lower) / 2
 
 		return false, nil
 	}); err != nil {
@@ -71,5 +71,4 @@ func (b *Blobovnicza) syncFullnessCounter(tx *bbolt.Tx) error {
 	b.filled.Store(sz)
 
 	return nil
-
 }
