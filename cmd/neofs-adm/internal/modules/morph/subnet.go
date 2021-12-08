@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
@@ -26,8 +25,6 @@ const (
 	flagSubnetEndpoint = endpointFlag
 	// filepath to private key
 	flagSubnetKey = "key"
-	// contract address
-	flagSubnetContract = "contract"
 )
 
 func viperBindFlags(cmd *cobra.Command, flags ...string) {
@@ -44,7 +41,6 @@ var cmdSubnet = &cobra.Command{
 		viperBindFlags(cmd,
 			flagSubnetEndpoint,
 			flagSubnetKey,
-			flagSubnetContract,
 		)
 	},
 }
@@ -105,16 +101,16 @@ func initSubnetClientCheckNotary(c *morphsubnet.Client, key *keys.PrivateKey, ch
 		return errors.New("missing endpoint")
 	}
 
-	// read contract address
-	contractAddr, err := util.Uint160DecodeStringLE(viper.GetString(flagSubnetContract))
-	if err != nil {
-		return fmt.Errorf("subnet contract address: %w", err)
-	}
-
 	// create base morph client
 	cMorph, err := client.New(key, endpoint)
 	if err != nil {
 		return err
+	}
+
+	// read contract address
+	contractAddr, err := cMorph.NNSContractAddress(client.NNSSubnetworkContractName)
+	if err != nil {
+		return fmt.Errorf("read subnet contract address in NNS: %w", err)
 	}
 
 	// calc client mode
@@ -856,7 +852,6 @@ func init() {
 	_ = cmdSubnet.MarkFlagRequired(flagSubnetEndpoint)
 	cmdSubnetFlags.StringP(flagSubnetKey, "k", "", "Path to file with private key")
 	_ = cmdSubnet.MarkFlagRequired(flagSubnetKey)
-	cmdSubnetFlags.StringP(flagSubnetContract, "a", "", "Subnet contract address (string LE)")
 
 	// add all subnet commands to corresponding command section
 	addCommandInheritPreRun(cmdSubnet,
