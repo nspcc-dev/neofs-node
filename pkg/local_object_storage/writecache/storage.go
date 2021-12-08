@@ -98,7 +98,6 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	var sz uint64
 	err := c.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
 		for i := range keys {
@@ -109,7 +108,6 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 			if err := b.Delete(keys[i]); err != nil {
 				return err
 			}
-			sz += uint64(len(has))
 			storagelog.Write(c.log, storagelog.AddressField(string(keys[i])), storagelog.OpField("db DELETE"))
 		}
 		return nil
@@ -117,7 +115,9 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 	if err != nil {
 		return err
 	}
-	c.objCounters.DecDB()
+	for range keys {
+		c.objCounters.DecDB()
+	}
 	return nil
 }
 
