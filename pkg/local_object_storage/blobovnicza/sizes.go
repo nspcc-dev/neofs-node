@@ -52,29 +52,24 @@ func (b *Blobovnicza) full() bool {
 	return b.filled.Load() >= b.fullSizeLimit
 }
 
-func (b *Blobovnicza) syncFullnessCounter() error {
-	err := b.boltDB.View(func(tx *bbolt.Tx) error {
-		sz := uint64(0)
+func (b *Blobovnicza) syncFullnessCounter(tx *bbolt.Tx) error {
+	sz := uint64(0)
 
-		if err := b.iterateBucketKeys(func(lower, upper uint64, key []byte) (bool, error) {
-			buck := tx.Bucket(key)
-			if buck == nil {
-				return false, fmt.Errorf("bucket not found %s", stringifyBounds(lower, upper))
-			}
-
-			sz += uint64(buck.Stats().KeyN) * (upper - lower)
-
-			return false, nil
-		}); err != nil {
-			return err
+	if err := b.iterateBucketKeys(func(lower, upper uint64, key []byte) (bool, error) {
+		buck := tx.Bucket(key)
+		if buck == nil {
+			return false, fmt.Errorf("bucket not found %s", stringifyBounds(lower, upper))
 		}
 
-		b.filled.Store(sz)
+		sz += uint64(buck.Stats().KeyN) * (upper - lower)
 
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("could not sync fullness counter: %w", err)
+		return false, nil
+	}); err != nil {
+		return err
 	}
+
+	b.filled.Store(sz)
+
 	return nil
+
 }
