@@ -3,7 +3,7 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
-### [0.27.0-rc.1] - 2021-12-02 - Sinjido (신지도, 薪智島) rc.1
+### [0.27.0] - 2021-12-09 - Sinjido (신지도, 薪智島)
 
 NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 
@@ -12,12 +12,16 @@ NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 - Tombstone owner now is always set (#842)
 - Node in relay mode does not require shard config anymore (#969)
 - Alphabet nodes now ignore notary notifications with non-HALT main tx (#976) 
+- neofs-adm now prints version of NNS contract (#1014)
+- Possible NPE in blobovnicza (#1007)
+- More precise calculation of blobovnicza size (#915)
 
 ### Added
 - Maintenance mode for Storage node (#922)
 - Float values in Storage node config (#903)
 - Status codes for NeoFS API Response messages (#961)
-- Subnetwork support (#977, #973, #983, #974, #982, #979, #998, #995, #1001)
+- Subnetwork support (#977, #973, #983, #974, #982, #979, #998, #995, #1001, #1004)
+- Customized fee for named container registration (#1008)
 
 ### Changed
 - Alphabet contract number is not mandatory (#880)
@@ -30,6 +34,8 @@ NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 - Object replication is now async and continuous (#965)
 - NeoFS ADM updated for the neofs-contract v0.13.0 deploy (#984)
 - Minimal TLS version is set to v1.2 (#878)
+- Alphabet nodes now invoke `netmap.Register` to add node to the network map 
+  candidates in notary enabled environment (#1008)
 
 ### Upgrading from v0.26.1
 `NEOFS_IR_CONTRACTS_ALPHABET_AMOUNT` is not mandatory env anymore. If it
@@ -49,6 +55,9 @@ Shard configuration records were renamed:
 
 Specify storage subnetworks in `NEOFS_NODE_SUBNET_ENTRIES` as the list of
 integer numbers. To exit default subnet, use `NEOFS_NODE_SUBNET_EXIT_ZERO=true`
+
+Specify fee for named container registration in notary disabled environment
+with `NEOFS_IR_FEE_NAMED_CONTAINER_REGISTER`.
 
 ## [0.26.1] - 2021-11-02
 
@@ -801,8 +810,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0-rc.1...master
-[0.27.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...v0.27.0-rc.1
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...master
+[0.27.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.0...v0.25.1
