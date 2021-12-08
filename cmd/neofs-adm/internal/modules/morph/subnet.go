@@ -307,7 +307,15 @@ var cmdSubnetRemove = &cobra.Command{
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
 
-		err = initSubnetClient(&cSubnet, &key)
+		// use random key to fetch the data
+		// we could use raw neo-go client to perform testInvoke
+		// without keys, as it is done in other commands
+		key, err := keys.NewPrivateKey()
+		if err != nil {
+			return fmt.Errorf("init subnet client: %w", err)
+		}
+
+		err = initSubnetClient(&cSubnet, key)
 		if err != nil {
 			return fmt.Errorf("init subnet client: %w", err)
 		}
@@ -344,18 +352,10 @@ var cmdSubnetGet = &cobra.Command{
 		)
 	},
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		// read private key
-		var key keys.PrivateKey
-
-		err := readSubnetKey(&key)
-		if err != nil {
-			return fmt.Errorf("read private key: %w", err)
-		}
-
 		// read ID and encode it
 		var id subnetid.ID
 
-		err = id.UnmarshalText([]byte(viper.GetString(flagSubnetGetID)))
+		err := id.UnmarshalText([]byte(viper.GetString(flagSubnetGetID)))
 		if err != nil {
 			return fmt.Errorf("decode ID text: %w", err)
 		}
