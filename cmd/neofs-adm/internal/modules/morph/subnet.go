@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 
+	"github.com/nspcc-dev/neo-go/cli/flags"
+	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
@@ -23,8 +26,10 @@ import (
 const (
 	// Neo RPC endpoint
 	flagSubnetEndpoint = endpointFlag
-	// filepath to private key
-	flagSubnetKey = "key"
+	// filepath to wallet
+	flagSubnetWallet = "wallet"
+	// address in the wallet, optional
+	flagSubnetAddress = "address"
 )
 
 func viperBindFlags(cmd *cobra.Command, flags ...string) {
@@ -40,7 +45,8 @@ var cmdSubnet = &cobra.Command{
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetEndpoint,
-			flagSubnetKey,
+			flagSubnetWallet,
+			flagSubnetAddress,
 		)
 	},
 }
@@ -53,26 +59,56 @@ const (
 	flagSubnetGroup = "group"
 )
 
-// reads private key from the filepath configured in flagSubnetKey flag.
+// reads wallet from the filepath configured in flagSubnetWallet flag,
+// looks for address specified in flagSubnetAddress flag (uses default
+// address if flag is empty) and decrypts private key.
 func readSubnetKey(key *keys.PrivateKey) error {
-	// read key from file
-	keyPath := viper.GetString(flagSubnetKey)
-	if keyPath == "" {
-		return errors.New("missing path to private key")
+	// read wallet from file
+
+	walletPath := viper.GetString(flagSubnetWallet)
+	if walletPath == "" {
+		return errors.New("missing path to wallet")
 	}
 
-	data, err := os.ReadFile(keyPath)
+	w, err := wallet.NewWalletFromFile(walletPath)
 	if err != nil {
-		return fmt.Errorf("read private key file: %w", err)
+		return fmt.Errorf("read wallet from file: %w", err)
 	}
 
-	// decode key
-	k, err := keys.NewPrivateKeyFromBytes(data)
+	// read account from the wallet
+
+	var (
+		addr    util.Uint160
+		addrStr = viper.GetString(flagSubnetAddress)
+	)
+
+	if addrStr == "" {
+		addr = w.GetChangeAddress()
+	} else {
+		addr, err = flags.ParseAddress(addrStr)
+		if err != nil {
+			return fmt.Errorf("read wallet address: %w", err)
+		}
+	}
+
+	acc := w.GetAccount(addr)
+	if acc == nil {
+		return fmt.Errorf("address %s not found in %s", addrStr, walletPath)
+	}
+
+	// read password
+	pass, err := input.ReadPassword("Enter password > ")
 	if err != nil {
-		return fmt.Errorf("decode private key: %w", err)
+		return fmt.Errorf("read password: %w", err)
 	}
 
-	*key = *k
+	// decrypt with just read password
+	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
+	if err != nil {
+		return fmt.Errorf("decrypt wallet: %w", err)
+	}
+
+	*key = *acc.PrivateKey()
 
 	return nil
 }
@@ -850,8 +886,9 @@ func init() {
 	cmdSubnetFlags := cmdSubnet.PersistentFlags()
 	cmdSubnetFlags.StringP(flagSubnetEndpoint, "r", "", "N3 RPC node endpoint")
 	_ = cmdSubnet.MarkFlagRequired(flagSubnetEndpoint)
-	cmdSubnetFlags.StringP(flagSubnetKey, "k", "", "Path to file with private key")
-	_ = cmdSubnet.MarkFlagRequired(flagSubnetKey)
+	cmdSubnetFlags.StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
+	_ = cmdSubnet.MarkFlagRequired(flagSubnetWallet)
+	cmdSubnetFlags.StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
 
 	// add all subnet commands to corresponding command section
 	addCommandInheritPreRun(cmdSubnet,
