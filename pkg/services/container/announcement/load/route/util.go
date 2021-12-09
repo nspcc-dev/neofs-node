@@ -24,6 +24,15 @@ func CheckRoute(builder Builder, a container.UsedSpaceAnnouncement, route []Serv
 		found := false
 
 		for j := range servers {
+			if servers[j] == nil {
+				// nil route point means that
+				// (i-1)-th node in the route
+				// must, among other things,
+				// save the announcement to its
+				// local memory
+				continue
+			}
+
 			if bytes.Equal(servers[j].PublicKey(), route[i].PublicKey()) {
 				found = true
 				break
