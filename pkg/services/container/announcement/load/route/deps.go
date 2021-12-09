@@ -29,6 +29,10 @@ type Builder interface {
 	// Empty passed list means being at the starting point of the route.
 	//
 	// Must return empty list and no error if the endpoint of the route is reached.
+	// If there are more than one point to go and the last passed point is included
+	// in that list (means that point is the last point in one of the route groups),
+	// returned route must contain nil point that should be interpreted as signal to,
+	// among sending to other route points, save the announcement in that point.
 	NextStage(a container.UsedSpaceAnnouncement, passed []ServerInfo) ([]ServerInfo, error)
 }
 
