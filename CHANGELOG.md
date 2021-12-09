@@ -3,7 +3,7 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
-### [0.27.0] - 2021-12-09 - Sinjido (신지도, 薪智島)
+## [0.27.0] - 2021-12-09 - Sinjido (신지도, 薪智島)
 
 NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 
