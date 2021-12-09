@@ -117,13 +117,20 @@ func (c *cache) flushBigObjects() {
 		select {
 		case <-tick.C:
 			_ = c.fsTree.Iterate(func(addr *objectSDK.Address, data []byte) error {
-				if _, ok := c.store.flushed.Peek(addr.String()); ok {
+				sAddr := addr.String()
+
+				if _, ok := c.store.flushed.Peek(sAddr); ok {
 					return nil
 				}
 
 				if _, err := c.blobstor.PutRaw(addr, data); err != nil {
 					c.log.Error("cant flush object to blobstor", zap.Error(err))
+					return nil
 				}
+
+				// mark object as flushed
+				c.store.flushed.Add(sAddr, false)
+
 				return nil
 			})
 		case <-c.closeCh:
