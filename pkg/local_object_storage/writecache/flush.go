@@ -116,6 +116,8 @@ func (c *cache) flushBigObjects() {
 	for {
 		select {
 		case <-tick.C:
+			evictNum := 0
+
 			_ = c.fsTree.Iterate(func(addr *objectSDK.Address, data []byte) error {
 				sAddr := addr.String()
 
@@ -131,8 +133,13 @@ func (c *cache) flushBigObjects() {
 				// mark object as flushed
 				c.store.flushed.Add(sAddr, false)
 
+				evictNum++
+
 				return nil
 			})
+
+			// evict objects which were successfully written to BlobStor
+			c.evictObjects(evictNum)
 		case <-c.closeCh:
 		}
 	}
