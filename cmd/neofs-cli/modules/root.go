@@ -40,7 +40,7 @@ const (
 	// Common CLI flag keys, shorthands, default
 	// values and their usage descriptions.
 	generateKey          = "generate-key"
-	generateKeyShorthand = ""
+	generateKeyShorthand = "g"
 	generateKeyDefault   = false
 	generateKeyUsage     = "generate new private key"
 
