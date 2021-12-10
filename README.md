@@ -6,7 +6,7 @@
 </p>
 
 ---
-[![Report](https://goreportcard.com/badge/github.com/nspcc-dev/neo-go)](https://goreportcard.com/report/github.com/nspcc-dev/neofs-node)
+[![Report](https://goreportcard.com/badge/github.com/nspcc-dev/neofs-node)](https://goreportcard.com/report/github.com/nspcc-dev/neofs-node)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/nspcc-dev/neofs-node?sort=semver)
 ![License](https://img.shields.io/github/license/nspcc-dev/neofs-node.svg?style=popout)
 
@@ -26,16 +26,16 @@ of disks, capacity, etc. Thus, NeoFS gives full control over data to users.
 Deep [Neo Blockchain](https://neo.org) integration allows NeoFS to be used by
 dApp directly from
 [NeoVM](https://docs.neo.org/docs/en-us/basic/technology/neovm.html) on the
-[Smart Contract](https://docs.neo.org/docs/en-us/basic/technology/neocontract.html)
+[Smart Contract](https://docs.neo.org/docs/en-us/intro/glossary.html)
 code level. This way dApps are not limited to on-chain storage and can
 manipulate large amounts of data without paying a prohibitive price.
 
-NeoFS has native [gRPC](https://grpc.io) API and popular protocol gates such as
-[AWS S3](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html),
-[HTTP](https://wikipedia.org/wiki/Hypertext_Transfer_Protocol),
+NeoFS has native [gRPC API](https://github.com/nspcc-dev/neofs-api) and popular
+protocol gates such as [AWS S3](https://github.com/nspcc-dev/neofs-s3-gw),
+[HTTP](https://github.com/nspcc-dev/neofs-http-gw),
 [FUSE](https://wikipedia.org/wiki/Filesystem_in_Userspace) and
 [sFTP](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol) allowing
-developers to easily integrate applications without rewriting their code.
+developers to integrate applications without rewriting their code.
 
 # Supported platforms
 
