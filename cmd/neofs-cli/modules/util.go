@@ -16,6 +16,7 @@ import (
 	locodebolt "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/boltdb"
 	continentsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/continents/geojson"
 	csvlocode "github.com/nspcc-dev/neofs-node/pkg/util/locode/table/csv"
+	sdkstatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
@@ -508,17 +509,33 @@ func errf(errFmt string, err error) error {
 	return fmt.Errorf(errFmt, err)
 }
 
-// exitOnErr calls exitOnErrCode with code 1.
+// exitOnErr prints error and exits with a code that matches
+// one of the common errors from sdk library. If no errors
+// found, exits with 1 code.
+// Does nothing if passed error in nil.
 func exitOnErr(cmd *cobra.Command, err error) {
-	exitOnErrCode(cmd, err, 1)
-}
-
-// exitOnErrCode prints error via cmd and calls
-// os.Exit with passed exit code. Does nothing
-// if err is nil.
-func exitOnErrCode(cmd *cobra.Command, err error, code int) {
-	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(code)
+	if err == nil {
+		return
 	}
+
+	const (
+		_ = iota
+		internal
+	)
+
+	var (
+		code int
+
+		internalErr = new(sdkstatus.ServerInternal)
+	)
+
+	switch {
+	case errors.As(err, &internalErr):
+		code = internal
+	default:
+		code = internal
+	}
+
+	cmd.PrintErrln(err)
+	os.Exit(code)
 }
