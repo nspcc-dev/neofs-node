@@ -33,6 +33,8 @@ func init() {
 
 	rootCmd.AddCommand(config.RootCmd)
 	rootCmd.AddCommand(morph.RootCmd)
+
+	rootCmd.AddCommand(completionCmd)
 }
 
 func Execute() error {
