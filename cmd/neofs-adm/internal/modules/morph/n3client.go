@@ -20,12 +20,16 @@ type clientContext struct {
 }
 
 func getN3Client(v *viper.Viper) (*client.Client, error) {
+	// number of opened connections
+	// by neo-go client per one host
+	const maxConnsPerHost = 10
+
 	ctx := context.Background() // FIXME(@fyrchik): timeout context
 	endpoint := v.GetString(endpointFlag)
 	if endpoint == "" {
 		return nil, errors.New("missing endpoint")
 	}
-	c, err := client.New(ctx, endpoint, client.Options{})
+	c, err := client.New(ctx, endpoint, client.Options{MaxConnsPerHost: maxConnsPerHost})
 	if err != nil {
 		return nil, err
 	}
