@@ -86,3 +86,10 @@ func ReconnectionRetriesDelay(c *config.Config) time.Duration {
 
 	return ReconnectionRetriesDelayDefault
 }
+
+// MaxConnPerHost return value of "connections_per_host" config
+// parameter from "morph" section.
+func MaxConnPerHost(c *config.Config) uint32 {
+	v := config.Uint32Safe(c.Sub(subsection), "conns_per_host")
+	return uint32(v)
+}

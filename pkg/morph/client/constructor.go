@@ -40,7 +40,8 @@ type cfg struct {
 	autoSidechainScope bool
 	signer             *transaction.Signer
 
-	endpoints []string
+	endpoints      []string
+	maxConnPerHost uint32
 
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
@@ -198,7 +199,7 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.WSOptions{
 		Options: rpcclient.Options{
 			DialTimeout:     c.cfg.dialTimeout,
-			MaxConnsPerHost: 10,
+			MaxConnsPerHost: int(c.cfg.maxConnPerHost),
 		},
 	})
 	if err != nil {
@@ -302,6 +303,15 @@ func WithLogger(logger *zap.Logger) Option {
 func WithEndpoints(endpoints []string) Option {
 	return func(c *cfg) {
 		c.endpoints = append(c.endpoints, endpoints...)
+	}
+}
+
+// WithMaxConnectionPerHost returns a client constructor
+// option that specifies Neo client's maximum opened
+// connection per one host.
+func WithMaxConnectionPerHost(m uint32) Option {
+	return func(c *cfg) {
+		c.maxConnPerHost = m
 	}
 }
 

@@ -80,6 +80,7 @@ morph:
   endpoints:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
+  conns_per_host: 1  # maximum of open connections per host
 
 apiclient:
   dial_timeout: 15s  # timeout for NEOFS API client connection

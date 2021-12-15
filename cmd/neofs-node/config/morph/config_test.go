@@ -19,6 +19,7 @@ func TestMorphSection(t *testing.T) {
 		require.Equal(t, morphconfig.CacheTTLDefault, morphconfig.CacheTTL(empty))
 		require.Equal(t, 5, morphconfig.ReconnectionRetriesNumber(empty))
 		require.Equal(t, 5*time.Second, morphconfig.ReconnectionRetriesDelay(empty))
+		require.Equal(t, uint32(0), morphconfig.MaxConnPerHost(empty))
 	})
 
 	const path = "../../../../config/example/node"
@@ -31,6 +32,7 @@ func TestMorphSection(t *testing.T) {
 		require.Equal(t, 15*time.Second, morphconfig.CacheTTL(c))
 		require.Equal(t, 6, morphconfig.ReconnectionRetriesNumber(c))
 		require.Equal(t, 6*time.Second, morphconfig.ReconnectionRetriesDelay(c))
+		require.Equal(t, uint32(1), morphconfig.MaxConnPerHost(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
