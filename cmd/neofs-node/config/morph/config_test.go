@@ -18,6 +18,7 @@ func TestMorphSection(t *testing.T) {
 		require.Panics(t, func() { morphconfig.NotificationEndpoint(empty) })
 		require.Equal(t, morphconfig.DialTimeoutDefault, morphconfig.DialTimeout(empty))
 		require.Equal(t, false, morphconfig.DisableCache(empty))
+		require.Equal(t, 10, morphconfig.MaxConnPerHost(empty))
 	})
 
 	const path = "../../../../config/example/node"
@@ -39,6 +40,7 @@ func TestMorphSection(t *testing.T) {
 		require.Equal(t, wss, morphconfig.NotificationEndpoint(c))
 		require.Equal(t, 30*time.Second, morphconfig.DialTimeout(c))
 		require.Equal(t, true, morphconfig.DisableCache(c))
+		require.Equal(t, 11, morphconfig.MaxConnPerHost(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

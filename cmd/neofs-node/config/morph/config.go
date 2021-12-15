@@ -19,6 +19,9 @@ const (
 
 	// NotaryDepositDurationDefault is a default deposit duration.
 	NotaryDepositDurationDefault uint32 = 1000
+
+	// MaxConnPerHostDefault is a default maximum of connections per host of the morph client.
+	MaxConnPerHostDefault = 10
 )
 
 // RPCEndpoint returns list of values of "rpc_endpoint" config parameter
@@ -64,4 +67,15 @@ func DialTimeout(c *config.Config) time.Duration {
 // from "morph" section.
 func DisableCache(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "disable_cache")
+}
+
+// MaxConnPerHost return value of "max_connections_per_host" config
+// parameter from "morph" section.
+func MaxConnPerHost(c *config.Config) int {
+	v := config.Uint32Safe(c.Sub(subsection), "max_connections_per_host")
+	if v > 0 {
+		return int(v)
+	}
+
+	return MaxConnPerHostDefault
 }
