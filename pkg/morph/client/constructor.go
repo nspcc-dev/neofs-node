@@ -32,12 +32,15 @@ type cfg struct {
 
 	extraEndpoints []string
 
+	maxConnPerHost int
+
 	singleCli *client.Client // neo-go client for single client mode
 }
 
 const (
-	defaultDialTimeout  = 5 * time.Second
-	defaultWaitInterval = 500 * time.Millisecond
+	defaultDialTimeout    = 5 * time.Second
+	defaultWaitInterval   = 500 * time.Millisecond
+	defaultMaxConnPerHost = 10
 )
 
 func defaultConfig() *cfg {
@@ -49,6 +52,7 @@ func defaultConfig() *cfg {
 		signer: &transaction.Signer{
 			Scopes: transaction.Global,
 		},
+		maxConnPerHost: defaultMaxConnPerHost,
 	}
 }
 
@@ -163,6 +167,15 @@ func WithSigner(signer *transaction.Signer) Option {
 func WithExtraEndpoints(endpoints []string) Option {
 	return func(c *cfg) {
 		c.extraEndpoints = append(c.extraEndpoints, endpoints...)
+	}
+}
+
+// WithMaxConnectionPerHost returns a client constructor
+// option that specifies Neo client's maximum opened
+// connection per one host.
+func WithMaxConnectionPerHost(m int) Option {
+	return func(c *cfg) {
+		c.maxConnPerHost = m
 	}
 }
 
