@@ -25,7 +25,8 @@ type multiClient struct {
 // note: must be wrapped into mutex lock.
 func (x *multiClient) createForAddress(addr string) (*Client, error) {
 	cli, err := client.New(x.cfg.ctx, addr, client.Options{
-		DialTimeout: x.cfg.dialTimeout,
+		DialTimeout:     x.cfg.dialTimeout,
+		MaxConnsPerHost: x.cfg.maxConnPerHost,
 	})
 	if err != nil {
 		return nil, err

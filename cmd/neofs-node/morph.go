@@ -49,6 +49,7 @@ func initMorphComponents(c *cfg) {
 			client.WithDialTimeout(dialTimeout),
 			client.WithLogger(c.log),
 			client.WithExtraEndpoints(addresses[1:]),
+			client.WithMaxConnectionPerHost(morphconfig.MaxConnPerHost(c.appCfg)),
 		)
 		if err == nil {
 			handler(cli)
