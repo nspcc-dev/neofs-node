@@ -74,6 +74,7 @@ morph:
   notification_endpoint:  # side chain NEO RPC notification endpoints; are shuffled and used only the first non-error one
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
+  max_connections_per_host: 11  # maximum of open connections per one host
 
 mainchain:  # DEPRECATED section, is not used and not read
   dial_timeout: 30s  # timeout for main chain NEO RPC client connection
