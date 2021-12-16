@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -42,6 +43,10 @@ type Writer interface {
 	PutEACL(*eaclSDK.Table) error
 }
 
+// ErrInvalidContext is thrown by morph ServiceExecutor when provided session
+// token does not contain expected container context.
+var ErrInvalidContext = errors.New("session token does not contain container context")
+
 func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
 	return &morphExecutor{
 		rdr: rdr,
@@ -56,9 +61,12 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 		signature.NewFromV2(body.GetSignature()),
 	)
 
-	cnr.SetSessionToken(
-		session.NewTokenFromV2(ctx.SessionToken),
-	)
+	tok := session.NewTokenFromV2(ctx.SessionToken)
+	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
+		return nil, ErrInvalidContext
+	}
+
+	cnr.SetSessionToken(tok)
 
 	cid, err := s.wrt.Put(cnr)
 	if err != nil {
@@ -74,7 +82,11 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
 	id := cid.NewFromV2(body.GetContainerID())
 	sig := body.GetSignature().GetSign()
+
 	tok := session.NewTokenFromV2(ctx.SessionToken)
+	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
+		return nil, ErrInvalidContext
+	}
 
 	var rmWitness containercore.RemovalWitness
 
@@ -131,9 +143,12 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 
 	table.SetSignature(sign)
 
-	table.SetSessionToken(
-		session.NewTokenFromV2(ctx.SessionToken),
-	)
+	tok := session.NewTokenFromV2(ctx.SessionToken)
+	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
+		return nil, ErrInvalidContext
+	}
+
+	table.SetSessionToken(tok)
 
 	err := s.wrt.PutEACL(table)
 	if err != nil {
