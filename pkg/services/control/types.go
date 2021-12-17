@@ -316,3 +316,116 @@ func (x *Netmap) MarshalJSON() ([]byte, error) {
 		EmitUnpopulated: true,
 	}.Marshal(x)
 }
+
+// SetID sets identificator of the shard.
+func (x *ShardInfo) SetID(v []byte) {
+	x.Shard_ID = v
+}
+
+// SetMetabasePath sets path to shard's metabase.
+func (x *ShardInfo) SetMetabasePath(v string) {
+	x.MetabasePath = v
+}
+
+// SetBlobstorePath sets path to shard's blobstore.
+func (x *ShardInfo) SetBlobstorePath(v string) {
+	x.BlobstorePath = v
+}
+
+// SetWriteCachePath sets path to shard's write-cache.
+func (x *ShardInfo) SetWriteCachePath(v string) {
+	x.WritecachePath = v
+}
+
+// SetMode sets path to shard's work mode.
+func (x *ShardInfo) SetMode(v ShardMode) {
+	x.Mode = v
+}
+
+const (
+	_ = iota
+	shardInfoIDFNum
+	shardInfoMetabaseFNum
+	shardInfoBlobstoreFNum
+	shardInfoWriteCacheFNum
+	shardInfoModeFNum
+)
+
+// StableSize returns binary size of shard information
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ShardInfo) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.BytesSize(shardInfoIDFNum, x.Shard_ID)
+	size += proto.StringSize(shardInfoMetabaseFNum, x.MetabasePath)
+	size += proto.StringSize(shardInfoBlobstoreFNum, x.BlobstorePath)
+	size += proto.StringSize(shardInfoWriteCacheFNum, x.WritecachePath)
+	size += proto.EnumSize(shardInfoModeFNum, int32(x.Mode))
+
+	return size
+}
+
+// StableMarshal reads binary representation of shard information
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ShardInfo) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.BytesMarshal(shardInfoIDFNum, buf[offset:], x.Shard_ID)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	n, err = proto.StringMarshal(shardInfoMetabaseFNum, buf[offset:], x.MetabasePath)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	n, err = proto.StringMarshal(shardInfoBlobstoreFNum, buf[offset:], x.BlobstorePath)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	n, err = proto.StringMarshal(shardInfoWriteCacheFNum, buf[offset:], x.WritecachePath)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	_, err = proto.EnumMarshal(shardInfoModeFNum, buf[offset:], int32(x.Mode))
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
