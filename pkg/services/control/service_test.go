@@ -1,6 +1,7 @@
 package control_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -78,4 +79,44 @@ func generateSetNetmapStatusRequestBody() *control.SetNetmapStatusRequest_Body {
 
 func equalSetnetmapStatusRequestBodies(b1, b2 *control.SetNetmapStatusRequest_Body) bool {
 	return b1.GetStatus() == b2.GetStatus()
+}
+
+func TestListShardsResponse_Body_StableMarshal(t *testing.T) {
+	testStableMarshal(t,
+		generateListShardsResponseBody(),
+		new(control.ListShardsResponse_Body),
+		func(m1, m2 protoMessage) bool {
+			return equalListShardResponseBodies(
+				m1.(*control.ListShardsResponse_Body),
+				m2.(*control.ListShardsResponse_Body),
+			)
+		},
+	)
+}
+
+func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool {
+	if len(b1.Shards) != len(b2.Shards) {
+		return false
+	}
+
+	for i := range b1.Shards {
+		if b1.Shards[i].GetMetabasePath() != b2.Shards[i].GetMetabasePath() ||
+			b1.Shards[i].GetBlobstorePath() != b2.Shards[i].GetBlobstorePath() ||
+			b1.Shards[i].GetWritecachePath() != b2.Shards[i].GetWritecachePath() ||
+			!bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[i].GetShard_ID()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func generateListShardsResponseBody() *control.ListShardsResponse_Body {
+	body := new(control.ListShardsResponse_Body)
+	body.SetShards([]*control.ShardInfo{
+		generateShardInfo(),
+		generateShardInfo(),
+	})
+
+	return body
 }
