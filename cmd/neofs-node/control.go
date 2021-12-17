@@ -40,6 +40,7 @@ func initControlService(c *cfg) {
 
 			return err
 		}),
+		controlSvc.WithLocalStorage(c.cfgObject.cfgLocalStorage.localStorage),
 	)
 
 	lis, err := net.Listen("tcp", endpoint)

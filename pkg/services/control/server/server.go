@@ -3,6 +3,8 @@ package control
 import (
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
@@ -49,6 +51,8 @@ type cfg struct {
 	nodeState NodeState
 
 	delObjHandler DeletedObjectHandler
+
+	s *engine.StorageEngine
 }
 
 func defaultCfg() *cfg {
@@ -111,5 +115,13 @@ func WithNodeState(state NodeState) Option {
 func WithDeletedObjectHandler(h DeletedObjectHandler) Option {
 	return func(c *cfg) {
 		c.delObjHandler = h
+	}
+}
+
+// WithLocalStorage returns option to set local storage engine that
+// contains information about shards.
+func WithLocalStorage(engine *engine.StorageEngine) Option {
+	return func(c *cfg) {
+		c.s = engine
 	}
 }
