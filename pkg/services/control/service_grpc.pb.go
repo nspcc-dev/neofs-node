@@ -26,6 +26,8 @@ type ControlServiceClient interface {
 	SetNetmapStatus(ctx context.Context, in *SetNetmapStatusRequest, opts ...grpc.CallOption) (*SetNetmapStatusResponse, error)
 	// Mark objects to be removed from node's local object storage.
 	DropObjects(ctx context.Context, in *DropObjectsRequest, opts ...grpc.CallOption) (*DropObjectsResponse, error)
+	// Returns list that contains information about all shards of a node.
+	ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error)
 }
 
 type controlServiceClient struct {
@@ -72,6 +74,15 @@ func (c *controlServiceClient) DropObjects(ctx context.Context, in *DropObjectsR
 	return out, nil
 }
 
+func (c *controlServiceClient) ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error) {
+	out := new(ListShardsResponse)
+	err := c.cc.Invoke(ctx, "/control.ControlService/ListShards", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations should embed UnimplementedControlServiceServer
 // for forward compatibility
@@ -84,6 +95,8 @@ type ControlServiceServer interface {
 	SetNetmapStatus(context.Context, *SetNetmapStatusRequest) (*SetNetmapStatusResponse, error)
 	// Mark objects to be removed from node's local object storage.
 	DropObjects(context.Context, *DropObjectsRequest) (*DropObjectsResponse, error)
+	// Returns list that contains information about all shards of a node.
+	ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error)
 }
 
 // UnimplementedControlServiceServer should be embedded to have forward compatible implementations.
@@ -101,6 +114,9 @@ func (UnimplementedControlServiceServer) SetNetmapStatus(context.Context, *SetNe
 }
 func (UnimplementedControlServiceServer) DropObjects(context.Context, *DropObjectsRequest) (*DropObjectsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropObjects not implemented")
+}
+func (UnimplementedControlServiceServer) ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListShards not implemented")
 }
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -186,6 +202,24 @@ func _ControlService_DropObjects_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_ListShards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ListShards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.ControlService/ListShards",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ListShards(ctx, req.(*ListShardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -208,6 +242,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DropObjects",
 			Handler:    _ControlService_DropObjects_Handler,
+		},
+		{
+			MethodName: "ListShards",
+			Handler:    _ControlService_ListShards_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
