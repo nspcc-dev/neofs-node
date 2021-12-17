@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
 
@@ -122,4 +123,21 @@ func equalNodeInfos(n1, n2 *control.NodeInfo) bool {
 	}
 
 	return true
+}
+
+func generateShardInfo() *control.ShardInfo {
+	si := new(control.ShardInfo)
+
+	path := "/nice/dir/awesome/files"
+
+	uid, _ := uuid.NewRandom()
+	bin, _ := uid.MarshalBinary()
+
+	si.SetID(bin)
+	si.SetMode(control.ShardMode_READ_WRITE)
+	si.SetMetabasePath(path)
+	si.SetBlobstorePath(path)
+	si.SetWriteCachePath(path)
+
+	return si
 }
