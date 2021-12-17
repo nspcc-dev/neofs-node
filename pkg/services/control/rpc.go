@@ -12,6 +12,7 @@ const (
 	rpcNetmapSnapshot  = "NetmapSnapshot"
 	rpcSetNetmapStatus = "SetNetmapStatus"
 	rpcDropObjects     = "DropObjects"
+	rpcListShards      = "ListShards"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -94,6 +95,27 @@ func DropObjects(
 		m: req,
 	}
 	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcDropObjects), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.m, nil
+}
+
+// ListShards executes ControlService.ListShards RPC.
+func ListShards(
+	cli *client.Client,
+	req *ListShardsRequest,
+	opts ...client.CallOption,
+) (*ListShardsResponse, error) {
+	wResp := &listShardsRequestWrapper{
+		m: new(ListShardsResponse),
+	}
+
+	wReq := &requestWrapper{
+		m: req,
+	}
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcListShards), wReq, wResp, opts...)
 	if err != nil {
 		return nil, err
 	}
