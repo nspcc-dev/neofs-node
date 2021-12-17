@@ -594,3 +594,157 @@ func (x *DropObjectsResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *DropObjectsResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
+
+// StableMarshal reads binary representation of list shards request body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ListShardsRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+// StableSize returns binary size of list shards request body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ListShardsRequest_Body) StableSize() int {
+	return 0
+}
+
+// SetBody sets list shards request body.
+func (x *ListShardsRequest) SetBody(v *ListShardsRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the health check request body.
+func (x *ListShardsRequest) SetSignature(body *Signature) {
+	if x != nil {
+		x.Signature = body
+	}
+}
+
+// ReadSignedData reads signed data of list shard request to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *ListShardsRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data
+// of list shard request.
+//
+// Structures with the same field values have the same signed data size.
+func (x *ListShardsRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SetShards sets shards of the storage node.
+func (x *ListShardsResponse_Body) SetShards(v []*ShardInfo) {
+	if x != nil {
+		x.Shards = v
+	}
+}
+
+const (
+	_ = iota
+	listShardsRespBodyShardsFNum
+)
+
+// StableMarshal reads binary representation of list shards response body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ListShardsResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	for i := range x.Shards {
+		n, err = proto.NestedStructureMarshal(listShardsRespBodyShardsFNum, buf[offset:], x.Shards[i])
+		if err != nil {
+			return nil, err
+		}
+
+		offset += n
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of list shards response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ListShardsResponse_Body) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	for i := range x.Shards {
+		size += proto.NestedStructureSize(listShardsRespBodyShardsFNum, x.Shards[i])
+	}
+
+	return size
+}
+
+// SetBody sets list shards response body.
+func (x *ListShardsResponse) SetBody(v *ListShardsResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the list shards response body.
+func (x *ListShardsResponse) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data of list shards response to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *ListShardsResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data
+// of list shards response.
+//
+// Structures with the same field values have the same signed data size.
+func (x *ListShardsResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
