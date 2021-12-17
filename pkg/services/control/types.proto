@@ -119,3 +119,33 @@ enum HealthStatus {
     // Storage node application is shutting down.
     SHUTTING_DOWN = 3;
 }
+
+// Shard description.
+message ShardInfo {
+    // ID of the shard.
+    bytes shard_ID = 1 [json_name = "shardID"];
+
+    // Path to shard's metabase.
+    string metabase_path = 2 [json_name = "metabasePath"];
+
+    // Path to shard's blobstore.
+    string blobstor_path = 3 [json_name = "blobstorPath"];
+
+    // Path to shard's write-cache, empty if disabled.
+    string writecache_path = 4 [json_name = "writecachePath"];
+
+    // Work mode of the shard.
+    ShardMode mode = 5;
+}
+
+// Work mode of the shard.
+enum ShardMode {
+    // Undefined mode, default value.
+    SHARD_MODE_UNDEFINED = 0;
+
+    // Read-write.
+    READ_WRITE = 1;
+
+    // Read-only.
+    READ_ONLY = 2;
+}
