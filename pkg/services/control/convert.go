@@ -92,3 +92,22 @@ func (w *dropObjectsResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 
 	return nil
 }
+
+type listShardsRequestWrapper struct {
+	m *ListShardsResponse
+}
+
+func (w *listShardsRequestWrapper) ToGRPCMessage() grpc.Message {
+	return w.m
+}
+
+func (w *listShardsRequestWrapper) FromGRPCMessage(m grpc.Message) error {
+	var ok bool
+
+	w.m, ok = m.(*ListShardsResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, w.m)
+	}
+
+	return nil
+}
