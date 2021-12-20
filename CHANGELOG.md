@@ -3,6 +3,24 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.1] - 2021-12-20
+
+### Fixed
+- Big objects now flushed from WriteCache after write (#1028)
+- WriteCache big object counter (#1022)
+- Panic in the container estimation routing (#1016)
+- Shutdown freeze in policer component (#1047)
+
+### Added
+- Shorthand `-g` for `--generate-key` in NeoFS CLI (#1034)
+- Autocomplete generator command for neofs-adm (#1013)
+- Max connection per host config value for neo-go client (#780)
+- Sanity check of session token context in container service (#1045)
+
+### Changed
+- CLI now checks NeoFS status code for exit code (#1039)
+- New `Update` method signature for NNS contract in neofs-adm (#1038)
+
 ## [0.27.0] - 2021-12-09 - Sinjido (신지도, 薪智島)
 
 NeoFS API v2.11.0 support with response status codes and storage subnetworks.
@@ -811,6 +829,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 First public review release.
 
 [Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...master
+[0.27.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.25.1...v0.26.0
