@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 
+	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
@@ -47,6 +48,19 @@ var setNetmapStatusCmd = &cobra.Command{
 	Run:   setNetmapStatus,
 }
 
+var listShardsCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List shards of the storage node",
+	Long:  "List shards of the storage node",
+	Run:   listShards,
+}
+
+var shardsCmd = &cobra.Command{
+	Use:   "shards",
+	Short: "Operations with storage node's shards",
+	Long:  "Operations with storage node's shards",
+}
+
 const (
 	netmapStatusFlag = "status"
 
@@ -80,6 +94,14 @@ func initControlHealthCheckCmd() {
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
+}
+
+func initControlShardsListCmd() {
+	initCommonFlagsWithoutRPC(listShardsCmd)
+
+	flags := listShardsCmd.Flags()
+
+	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 }
 
 func initControlSetNetmapStatusCmd() {
@@ -124,17 +146,21 @@ func initControlSnapshotCmd() {
 func init() {
 	rootCmd.AddCommand(controlCmd)
 
+	shardsCmd.AddCommand(listShardsCmd)
+
 	controlCmd.AddCommand(
 		healthCheckCmd,
 		setNetmapStatusCmd,
 		dropObjectsCmd,
 		snapshotCmd,
+		shardsCmd,
 	)
 
 	initControlHealthCheckCmd()
 	initControlSetNetmapStatusCmd()
 	initControlDropObjectsCmd()
 	initControlSnapshotCmd()
+	initControlShardsListCmd()
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
@@ -335,6 +361,34 @@ var snapshotCmd = &cobra.Command{
 	},
 }
 
+func listShards(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	exitOnErr(cmd, err)
+
+	req := new(control.ListShardsRequest)
+	req.SetBody(new(control.ListShardsRequest_Body))
+
+	err = controlSvc.SignMessage(key, req)
+	exitOnErr(cmd, errf("could not sign request: %w", err))
+
+	cli, err := getControlSDKClient(key)
+	exitOnErr(cmd, err)
+
+	resp, err := control.ListShards(cli.Raw(), req)
+	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	sign := resp.GetSignature()
+	err = signature.VerifyDataWithSource(
+		resp,
+		func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		},
+	)
+	exitOnErr(cmd, errf("invalid response signature: %w", err))
+
+	prettyPrintShards(cmd, resp.GetBody().GetShards())
+}
+
 // getControlSDKClient is the same getSDKClient but with
 // another RPC endpoint flag.
 func getControlSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
@@ -358,4 +412,35 @@ func getControlSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 	}
 
 	return c, err
+}
+
+func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
+	for _, i := range ii {
+		var mode string
+
+		switch i.GetMode() {
+		case control.ShardMode_READ_WRITE:
+			mode = "read-write"
+		case control.ShardMode_READ_ONLY:
+			mode = "read-only"
+		default:
+			mode = "unknown"
+		}
+
+		pathPrinter := func(name, path string) string {
+			if path == "" {
+				return ""
+			}
+
+			return fmt.Sprintf("%s: %s\n", name, path)
+		}
+
+		cmd.Printf("Shard %s:\nMode: %s\n"+
+			pathPrinter("Metabase", i.GetMetabasePath())+
+			pathPrinter("Blobstor", i.GetBlobstorPath())+
+			pathPrinter("Write-cache", i.GetWritecachePath())+"\n",
+			base58.Encode(i.Shard_ID),
+			mode,
+		)
+	}
 }
