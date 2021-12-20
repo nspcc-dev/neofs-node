@@ -84,13 +84,17 @@ func New(opts ...Option) *Shard {
 				writecache.WithMetabase(mb))...)
 	}
 
-	return &Shard{
+	s := &Shard{
 		cfg:        c,
 		mode:       atomic.NewUint32(0), // TODO: init with particular mode
 		blobStor:   bs,
 		metaBase:   mb,
 		writeCache: writeCache,
 	}
+
+	s.fillInfo()
+
+	return s
 }
 
 // WithID returns option to set shard identifier.
@@ -190,5 +194,14 @@ func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
 func WithRefillMetabase(v bool) Option {
 	return func(c *cfg) {
 		c.refillMetabase = v
+	}
+}
+
+func (s *Shard) fillInfo() {
+	s.cfg.info.MetaBaseInfo = s.metaBase.DumpInfo()
+	s.cfg.info.BlobStorInfo = s.blobStor.DumpInfo()
+
+	if s.cfg.useWriteCache {
+		s.cfg.info.WriteCacheInfo = s.writeCache.DumpInfo()
 	}
 }
