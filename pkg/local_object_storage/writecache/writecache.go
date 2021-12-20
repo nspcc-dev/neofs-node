@@ -9,12 +9,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// Info groups the information about write-cache.
+type Info struct {
+	// Full path to the write-cache.
+	Path string
+}
+
 // Cache represents write-cache for objects.
 type Cache interface {
 	Get(*objectSDK.Address) (*object.Object, error)
 	Head(*objectSDK.Address) (*object.Object, error)
 	Delete(*objectSDK.Address) error
 	Put(*object.Object) error
+	DumpInfo() Info
 
 	Init() error
 	Open() error
@@ -88,6 +95,12 @@ func New(opts ...Option) Cache {
 	}
 
 	return c
+}
+
+func (c *cache) DumpInfo() Info {
+	return Info{
+		Path: c.path,
+	}
 }
 
 // Open opens and initializes database. Reads object counters from the ObjectCounters instance.
