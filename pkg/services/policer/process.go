@@ -27,6 +27,12 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	)
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		addrs, cursor, err = p.jobQueue.Select(cursor, p.batchSize)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
