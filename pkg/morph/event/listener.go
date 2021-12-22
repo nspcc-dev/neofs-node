@@ -431,7 +431,7 @@ func (l listener) SetNotificationParser(pi NotificationParserInfo) {
 		l.notificationParsers[pi.scriptHashWithType] = pi.parser()
 	}
 
-	log.Info("registered new event parser")
+	log.Debug("registered new event parser")
 }
 
 // RegisterNotificationHandler registers the handler for particular notification event of contract.
@@ -468,7 +468,7 @@ func (l listener) RegisterNotificationHandler(hi NotificationHandlerInfo) {
 	)
 	l.mtx.Unlock()
 
-	log.Info("registered new event handler")
+	log.Debug("registered new event handler")
 }
 
 // EnableNotarySupport enables notary request listening. Passed hash is
