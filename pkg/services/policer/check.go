@@ -98,7 +98,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 				if strings.Contains(err.Error(), headsvc.ErrNotFound.Error()) {
 					continue
 				} else {
-					log.Error("could not receive object header",
+					log.Debug("could not receive object header",
 						zap.String("error", err.Error()),
 					)
 
@@ -114,7 +114,7 @@ func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes 
 	}
 
 	if shortage > 0 {
-		log.Info("shortage of object copies detected",
+		log.Debug("shortage of object copies detected",
 			zap.Uint32("shortage", shortage),
 		)
 

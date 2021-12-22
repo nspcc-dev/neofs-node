@@ -45,7 +45,7 @@ func (p *Replicator) Run(ctx context.Context) {
 // HandleTask executes replication task inside invoking goroutine.
 func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 	defer func() {
-		p.log.Info("finish work",
+		p.log.Debug("finish work",
 			zap.Uint32("amount of unfinished replicas", task.quantity),
 		)
 	}()
@@ -67,7 +67,10 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 		default:
 		}
 
-		log := p.log.With(zap.String("node", hex.EncodeToString(task.nodes[i].PublicKey())))
+		log := p.log.With(
+			zap.String("node", hex.EncodeToString(task.nodes[i].PublicKey())),
+			zap.Stringer("object", task.addr),
+		)
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
@@ -80,7 +83,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 				zap.String("error", err.Error()),
 			)
 		} else {
-			log.Info("object successfully replicated")
+			log.Debug("object successfully replicated")
 
 			task.quantity--
 		}
