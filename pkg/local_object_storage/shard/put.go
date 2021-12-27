@@ -33,7 +33,7 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
-	if s.getMode() == ModeReadOnly {
+	if s.GetMode() == ModeReadOnly {
 		return nil, ErrReadOnlyMode
 	}
 

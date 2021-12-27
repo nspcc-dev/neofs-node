@@ -11,6 +11,9 @@ type Info struct {
 	// Identifier of the shard.
 	ID *ID
 
+	// Shard mode.
+	Mode Mode
+
 	// Information about the metabase.
 	MetaBaseInfo meta.Info
 

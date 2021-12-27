@@ -2,6 +2,7 @@ package shard
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -10,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -34,7 +34,7 @@ type Option func(*cfg)
 type ExpiredObjectsCallback func(context.Context, []*object.Address)
 
 type cfg struct {
-	mode *atomic.Uint32
+	m sync.RWMutex
 
 	refillMetabase bool
 
@@ -59,7 +59,6 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		mode:        atomic.NewUint32(uint32(ModeReadWrite)),
 		rmBatchSize: 100,
 		log:         zap.L(),
 		gcCfg:       defaultGCCfg(),
@@ -202,13 +201,14 @@ func WithRefillMetabase(v bool) Option {
 //	- ModeReadOnly.
 func WithMode(v Mode) Option {
 	return func(c *cfg) {
-		c.mode.Store(uint32(v))
+		c.info.Mode = v
 	}
 }
 
 func (s *Shard) fillInfo() {
 	s.cfg.info.MetaBaseInfo = s.metaBase.DumpInfo()
 	s.cfg.info.BlobStorInfo = s.blobStor.DumpInfo()
+	s.cfg.info.Mode = s.GetMode()
 
 	if s.cfg.useWriteCache {
 		s.cfg.info.WriteCacheInfo = s.writeCache.DumpInfo()
