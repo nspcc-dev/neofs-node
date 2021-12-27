@@ -22,6 +22,9 @@ service ControlService {
 
     // Returns list that contains information about all shards of a node.
     rpc ListShards (ListShardsRequest) returns (ListShardsResponse);
+
+    // Sets mode of the shard.
+    rpc SetShardMode (SetShardModeRequest) returns (SetShardModeResponse);
 }
 
 // Health check request.
@@ -162,6 +165,37 @@ message ListShardsResponse {
     }
 
     // Body of the response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// Request to set mode of the shard.
+message SetShardModeRequest {
+    // Request body structure.
+    message Body {
+        // ID of the shard.
+        bytes shard_ID = 1;
+
+        // Mode that requested to be set.
+        ShardMode mode = 2;
+    }
+
+    // Body of set shard mode request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// SetShardMode response.
+message SetShardModeResponse {
+    // Response body structure.
+    message Body {
+    }
+
+    // Body of set shard mode response message.
     Body body = 1;
 
     // Body signature.
