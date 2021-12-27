@@ -404,6 +404,7 @@ func initShardOptions(c *cfg) {
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithRefillMetabase(sc.RefillMetabase()),
+			shard.WithMode(sc.Mode()),
 			shard.WithBlobStorOptions(
 				blobstor.WithRootPath(blobStorCfg.Path()),
 				blobstor.WithCompressObjects(blobStorCfg.Compress()),
