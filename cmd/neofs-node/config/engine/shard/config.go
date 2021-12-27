@@ -1,11 +1,14 @@
 package shardconfig
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	blobstorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor"
 	gcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/gc"
 	metabaseconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/metabase"
 	writecacheconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/writecache"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 )
 
 // Config is a wrapper over the config section
@@ -67,4 +70,26 @@ func (x *Config) RefillMetabase() bool {
 		(*config.Config)(x),
 		"resync_metabase",
 	)
+}
+
+// Mode return value of "mode" config parameter.
+//
+// Panics if read value is not one of predefined
+// shard modes.
+func (x *Config) Mode() (m shard.Mode) {
+	s := config.StringSafe(
+		(*config.Config)(x),
+		"mode",
+	)
+
+	switch s {
+	case "read-write", "":
+		m = shard.ModeReadWrite
+	case "read-only":
+		m = shard.ModeReadOnly
+	default:
+		panic(fmt.Sprintf("unknown shard mode: %s", s))
+	}
+
+	return
 }
