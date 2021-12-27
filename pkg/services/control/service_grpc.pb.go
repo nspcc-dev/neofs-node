@@ -28,6 +28,8 @@ type ControlServiceClient interface {
 	DropObjects(ctx context.Context, in *DropObjectsRequest, opts ...grpc.CallOption) (*DropObjectsResponse, error)
 	// Returns list that contains information about all shards of a node.
 	ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error)
+	// Sets mode of the shard.
+	SetShardMode(ctx context.Context, in *SetShardModeRequest, opts ...grpc.CallOption) (*SetShardModeResponse, error)
 }
 
 type controlServiceClient struct {
@@ -83,6 +85,15 @@ func (c *controlServiceClient) ListShards(ctx context.Context, in *ListShardsReq
 	return out, nil
 }
 
+func (c *controlServiceClient) SetShardMode(ctx context.Context, in *SetShardModeRequest, opts ...grpc.CallOption) (*SetShardModeResponse, error) {
+	out := new(SetShardModeResponse)
+	err := c.cc.Invoke(ctx, "/control.ControlService/SetShardMode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations should embed UnimplementedControlServiceServer
 // for forward compatibility
@@ -97,6 +108,8 @@ type ControlServiceServer interface {
 	DropObjects(context.Context, *DropObjectsRequest) (*DropObjectsResponse, error)
 	// Returns list that contains information about all shards of a node.
 	ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error)
+	// Sets mode of the shard.
+	SetShardMode(context.Context, *SetShardModeRequest) (*SetShardModeResponse, error)
 }
 
 // UnimplementedControlServiceServer should be embedded to have forward compatible implementations.
@@ -117,6 +130,9 @@ func (UnimplementedControlServiceServer) DropObjects(context.Context, *DropObjec
 }
 func (UnimplementedControlServiceServer) ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListShards not implemented")
+}
+func (UnimplementedControlServiceServer) SetShardMode(context.Context, *SetShardModeRequest) (*SetShardModeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetShardMode not implemented")
 }
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -220,6 +236,24 @@ func _ControlService_ListShards_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_SetShardMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetShardModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).SetShardMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.ControlService/SetShardMode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).SetShardMode(ctx, req.(*SetShardModeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -246,6 +280,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListShards",
 			Handler:    _ControlService_ListShards_Handler,
+		},
+		{
+			MethodName: "SetShardMode",
+			Handler:    _ControlService_SetShardMode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
