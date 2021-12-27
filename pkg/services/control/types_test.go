@@ -136,7 +136,7 @@ func generateShardInfo() *control.ShardInfo {
 	si.SetID(bin)
 	si.SetMode(control.ShardMode_READ_WRITE)
 	si.SetMetabasePath(path)
-	si.SetBlobstorePath(path)
+	si.SetBlobstorPath(path)
 	si.SetWriteCachePath(path)
 
 	return si

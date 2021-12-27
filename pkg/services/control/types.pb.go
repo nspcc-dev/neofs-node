@@ -392,7 +392,7 @@ type ShardInfo struct {
 	Shard_ID []byte `protobuf:"bytes,1,opt,name=shard_ID,json=shardID,proto3" json:"shard_ID,omitempty"`
 	// Path to shard's metabase.
 	MetabasePath string `protobuf:"bytes,2,opt,name=metabase_path,json=metabasePath,proto3" json:"metabase_path,omitempty"`
-	// Path to shard's blobstore.
+	// Path to shard's blobstor.
 	BlobstorPath string `protobuf:"bytes,3,opt,name=blobstor_path,json=blobstorPath,proto3" json:"blobstor_path,omitempty"`
 	// Path to shard's write-cache, empty if disabled.
 	WritecachePath string `protobuf:"bytes,4,opt,name=writecache_path,json=writecachePath,proto3" json:"writecache_path,omitempty"`

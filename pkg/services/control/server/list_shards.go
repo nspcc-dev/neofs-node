@@ -29,7 +29,7 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 
 		si.SetID(*shard.ID)
 		si.SetMetabasePath(shard.MetaBaseInfo.Path)
-		si.SetBlobstorePath(shard.BlobStorInfo.RootPath)
+		si.SetBlobstorPath(shard.BlobStorInfo.RootPath)
 		si.SetWriteCachePath(shard.WriteCacheInfo.Path)
 
 		// FIXME: use real shard mode when there are more than just `read-write`
