@@ -748,3 +748,165 @@ func (x *ListShardsResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *ListShardsResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
+
+// SetShardID sets shard ID whose mode is requested to be set.
+func (x *SetShardModeRequest_Body) SetShardID(v []byte) {
+	if v != nil {
+		x.Shard_ID = v
+	}
+}
+
+// SetMode sets mode of the shard.
+func (x *SetShardModeRequest_Body) SetMode(v ShardMode) {
+	x.Mode = v
+}
+
+const (
+	_ = iota
+	setShardModeReqBodyShardIDFNum
+	setShardModeReqBodyModeFNum
+)
+
+// StableMarshal reads binary representation of list shards request body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *SetShardModeRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.BytesMarshal(setShardModeReqBodyShardIDFNum, buf, x.Shard_ID)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	_, err = proto.EnumMarshal(setShardModeReqBodyModeFNum, buf[offset:], int32(x.Mode))
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of list shards response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *SetShardModeRequest_Body) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.BytesSize(setShardModeReqBodyShardIDFNum, x.Shard_ID)
+	size += proto.EnumSize(setShardModeReqBodyModeFNum, int32(x.Mode))
+
+	return size
+}
+
+// SetBody sets request body.
+func (x *SetShardModeRequest) SetBody(v *SetShardModeRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the request body.
+func (x *SetShardModeRequest) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data of the set shard mode request to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *SetShardModeRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data
+// of the set shard mode request.
+//
+// Structures with the same field values have the same signed data size.
+func (x *SetShardModeRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// StableMarshal reads binary representation of the set shard mode response body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *SetShardModeResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+// StableSize returns binary size of the set shard mode response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *SetShardModeResponse_Body) StableSize() int {
+	return 0
+}
+
+// SetBody sets body of the set shard mode response.
+func (x *SetShardModeResponse) SetBody(v *SetShardModeResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the set shard mode response body.
+func (x *SetShardModeResponse) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data of the set shard mode response to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *SetShardModeResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data
+// of the set shard mode response.
+//
+// Structures with the same field values have the same signed data size.
+func (x *SetShardModeResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
