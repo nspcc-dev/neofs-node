@@ -27,6 +27,10 @@ func (p *ToMoveItPrm) WithAddress(addr *objectSDK.Address) *ToMoveItPrm {
 // ToMoveIt calls metabase.ToMoveIt method to mark object as relocatable to
 // another shard.
 func (s *Shard) ToMoveIt(prm *ToMoveItPrm) (*ToMoveItRes, error) {
+	if s.getMode() == ModeReadOnly {
+		return nil, ErrReadOnlyMode
+	}
+
 	err := meta.ToMoveIt(s.metaBase, prm.addr)
 	if err != nil {
 		s.log.Debug("could not mark object for shard relocation in metabase",

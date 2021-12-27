@@ -30,7 +30,13 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
+//
+// Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
+	if s.getMode() == ModeReadOnly {
+		return nil, ErrReadOnlyMode
+	}
+
 	putPrm := new(blobstor.PutPrm) // form Put parameters
 	putPrm.SetObject(prm.obj)
 
