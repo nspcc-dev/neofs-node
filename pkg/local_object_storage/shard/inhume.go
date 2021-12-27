@@ -46,7 +46,7 @@ func (p *InhumePrm) MarkAsGarbage(addr ...*objectSDK.Address) *InhumePrm {
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
-	if s.getMode() == ModeReadOnly {
+	if s.GetMode() == ModeReadOnly {
 		return nil, ErrReadOnlyMode
 	}
 

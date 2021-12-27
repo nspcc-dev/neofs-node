@@ -37,11 +37,18 @@ func (m Mode) String() string {
 // Returns any error encountered that did not allow
 // setting shard mode.
 func (s *Shard) SetMode(m Mode) error {
-	s.mode.Store(uint32(m))
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	s.info.Mode = m
 
 	return nil
 }
 
-func (s *Shard) getMode() Mode {
-	return Mode(s.mode.Load())
+// GetMode returns mode of the shard.
+func (s *Shard) GetMode() Mode {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	return s.info.Mode
 }
