@@ -75,10 +75,10 @@ func getAlphabetNNSDomain(i int) string {
 	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
 }
 
-func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160, domain string) error {
+func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string) ([]byte, error) {
 	ok, err := c.Client.NNSIsAvailable(nnsHash, domain)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	bw := io.NewBufBinWriter()
@@ -90,10 +90,10 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	} else {
 		s, err := nnsResolveHash(c.Client, nnsHash, domain)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if s == expectedHash {
-			return nil
+			return nil, nil
 		}
 	}
 
@@ -103,9 +103,16 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	if bw.Err != nil {
 		panic(bw.Err)
 	}
+	return bw.Bytes(), nil
+}
 
+func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160, domain string) error {
+	script, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain)
+	if script == nil {
+		return err
+	}
 	sysFee := int64(defaultRegisterSysfee + native.GASFactor)
-	return c.sendCommitteeTx(bw.Bytes(), sysFee)
+	return c.sendCommitteeTx(script, sysFee)
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error) {
