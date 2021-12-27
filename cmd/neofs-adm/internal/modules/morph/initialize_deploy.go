@@ -12,9 +12,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	io2 "github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
@@ -137,7 +139,7 @@ func (c *initializeContext) deployNNS(method string) error {
 	return c.awaitTx()
 }
 
-func (c *initializeContext) deployContracts(method string) error {
+func (c *initializeContext) updateContracts() error {
 	mgmtHash := c.nativeHash(nativenames.Management)
 	alphaCs := c.getContract(alphabetContract)
 
@@ -147,20 +149,54 @@ func (c *initializeContext) deployContracts(method string) error {
 	}
 	nnsHash := nnsCs.Hash
 
+	totalGasCost := int64(0)
+	w := io2.NewBufBinWriter()
+
 	var keysParam []smartcontract.Parameter
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
-		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
-		if method == updateMethodName {
-			ctrHash, err = nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
-			if err != nil {
+		ctrHash, err := nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
+		if err != nil {
+			return fmt.Errorf("can't resolve hash for contract update: %w", err)
+		}
+
+		keysParam = append(keysParam, smartcontract.Parameter{
+			Type:  smartcontract.PublicKeyType,
+			Value: acc.PrivateKey().PublicKey().Bytes(),
+		})
+
+		params := getContractDeployParameters(alphaCs.RawNEF, alphaCs.RawManifest,
+			c.getAlphabetDeployParameters(i, len(c.Wallets)))
+		signer := transaction.Signer{
+			Account: c.CommitteeAcc.Contract.ScriptHash(),
+			Scopes:  transaction.CalledByEntry,
+		}
+
+		res, err := c.Client.InvokeFunction(ctrHash, updateMethodName, params, []transaction.Signer{signer})
+		if err != nil {
+			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
+		}
+		if res.State != vm.HaltState.String() {
+			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
+		}
+
+		totalGasCost += res.GasConsumed
+		w.WriteBytes(res.Script)
+	}
+
+	for _, ctrName := range contractList {
+		cs := c.getContract(ctrName)
+
+		method := updateMethodName
+		ctrHash, err := nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
+		if err != nil {
+			if errors.Is(err, errMissingNNSRecord) {
+				// if contract not found we deploy it instead of update
+				method = deployMethodName
+			} else {
 				return fmt.Errorf("can't resolve hash for contract update: %w", err)
 			}
-		}
-		if c.isUpdated(ctrHash, alphaCs) {
-			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
-			continue
 		}
 
 		invokeHash := mgmtHash
@@ -168,6 +204,63 @@ func (c *initializeContext) deployContracts(method string) error {
 			invokeHash = ctrHash
 		}
 
+		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
+			c.getContractDeployData(ctrName, keysParam))
+		signer := transaction.Signer{
+			Account: c.CommitteeAcc.Contract.ScriptHash(),
+			Scopes:  transaction.Global,
+		}
+
+		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
+		if err != nil {
+			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
+		}
+		if res.State != vm.HaltState.String() {
+			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
+		}
+
+		totalGasCost += res.GasConsumed
+		w.WriteBytes(res.Script)
+
+		if method == deployMethodName {
+			// same actions are done in initializeContext.setNNS, can be unified
+			domain := ctrName + ".neofs"
+			script, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain)
+			if err != nil {
+				return err
+			}
+			if script != nil {
+				totalGasCost += defaultRegisterSysfee + native.GASFactor
+				w.WriteBytes(script)
+			}
+			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
+		}
+	}
+
+	if w.Err != nil {
+		return w.Err
+	}
+	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost); err != nil {
+		return err
+	}
+	return c.awaitTx()
+}
+
+func (c *initializeContext) deployContracts() error {
+	mgmtHash := c.nativeHash(nativenames.Management)
+	alphaCs := c.getContract(alphabetContract)
+
+	var keysParam []smartcontract.Parameter
+
+	// alphabet contracts should be deployed by individual nodes to get different hashes.
+	for i, acc := range c.Accounts {
+		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
+		if c.isUpdated(ctrHash, alphaCs) {
+			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
+			continue
+		}
+
+		invokeHash := mgmtHash
 		keysParam = append(keysParam, smartcontract.Parameter{
 			Type:  smartcontract.PublicKeyType,
 			Value: acc.PrivateKey().PublicKey().Bytes(),
@@ -179,14 +272,8 @@ func (c *initializeContext) deployContracts(method string) error {
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
 		}
-		if method == updateMethodName {
-			signer = transaction.Signer{
-				Account: c.CommitteeAcc.Contract.ScriptHash(),
-				Scopes:  transaction.CalledByEntry,
-			}
-		}
 
-		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
+		res, err := c.Client.InvokeFunction(invokeHash, deployMethodName, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
@@ -194,51 +281,27 @@ func (c *initializeContext) deployContracts(method string) error {
 			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
 		}
 
-		if method == updateMethodName {
-			if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
-				return err
-			}
-		} else {
-			h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
-				Signer:  signer,
-				Account: acc,
-			}})
-			if err != nil {
-				return fmt.Errorf("can't push deploy transaction: %w", err)
-			}
-
-			c.Hashes = append(c.Hashes, h)
+		h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
+			Signer:  signer,
+			Account: acc,
+		}})
+		if err != nil {
+			return fmt.Errorf("can't push deploy transaction: %w", err)
 		}
+
+		c.Hashes = append(c.Hashes, h)
 	}
 
 	for _, ctrName := range contractList {
 		cs := c.getContract(ctrName)
 
 		ctrHash := cs.Hash
-
-		methodCur := method // prevent overriding in if-block
-
-		if method == updateMethodName {
-			ctrHash, err = nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
-			if err != nil {
-				if errors.Is(err, errMissingNNSRecord) {
-					// if contract not found we deploy it instead of update
-					methodCur = deployMethodName
-				} else {
-					return fmt.Errorf("can't resolve hash for contract update: %w", err)
-				}
-			}
-		}
 		if c.isUpdated(ctrHash, cs) {
 			c.Command.Printf("%s contract is already deployed.\n", ctrName)
 			continue
 		}
 
 		invokeHash := mgmtHash
-		if methodCur == updateMethodName {
-			invokeHash = ctrHash
-		}
-
 		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
 			c.getContractDeployData(ctrName, keysParam))
 		signer := transaction.Signer{
@@ -246,7 +309,7 @@ func (c *initializeContext) deployContracts(method string) error {
 			Scopes:  transaction.Global,
 		}
 
-		res, err := c.Client.InvokeFunction(invokeHash, methodCur, params, []transaction.Signer{signer})
+		res, err := c.Client.InvokeFunction(invokeHash, deployMethodName, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
@@ -256,15 +319,6 @@ func (c *initializeContext) deployContracts(method string) error {
 
 		if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
 			return err
-		}
-
-		if method == updateMethodName && methodCur == deployMethodName {
-			// same actions are done in initializeContext.setNNS, can be unified
-			domain := ctrName + ".neofs"
-			if err := c.nnsRegisterDomain(nnsCs.Hash, cs.Hash, domain); err != nil {
-				return err
-			}
-			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 		}
 	}
 

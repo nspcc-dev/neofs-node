@@ -61,7 +61,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 
 	// 4. Deploy NeoFS contracts.
 	cmd.Println("Stage 4: deploy NeoFS contracts.")
-	if err := initCtx.deployContracts(deployMethodName); err != nil {
+	if err := initCtx.deployContracts(); err != nil {
 		return err
 	}
 
