@@ -117,6 +117,7 @@
     "shard_num": 2,
     "shard": {
       "0": {
+        "mode": "read-only",
         "resync_metabase": false,
         "use_write_cache": false,
         "writecache": {
@@ -150,6 +151,7 @@
         }
       },
       "1": {
+        "mode": "read-write",
         "resync_metabase": true,
         "use_write_cache": true,
         "writecache": {

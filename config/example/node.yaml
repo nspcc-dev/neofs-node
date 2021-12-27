@@ -131,6 +131,7 @@ storage:
 
   shard:
     0:
+      mode: "read-only"  # mode of the shard, must be one of the: "read-write" (default), "read-only"
       resync_metabase: false  # sync metabase with blobstor on start, expensive, leave false until complete understanding
 
       use_write_cache: false  # use write-cache
