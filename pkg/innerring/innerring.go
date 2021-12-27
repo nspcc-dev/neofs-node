@@ -28,6 +28,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
+	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
@@ -79,6 +80,9 @@ type (
 		balanceClient *balanceWrapper.Wrapper
 		netmapClient  *nmWrapper.Wrapper
 		persistate    *state.PersistentStorage
+
+		// metrics
+		metrics *metrics.InnerRingServiceMetrics
 
 		// notary configuration
 		feeConfig        *config.FeeConfig
@@ -908,6 +912,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	server.initSubnet(subnetConfig{
 		queueSize: cfg.GetUint32("workers.subnet"),
 	})
+
+	if cfg.GetString("metrics.address") != "" {
+		m := metrics.NewInnerRingMetrics()
+		server.metrics = &m
+	}
 
 	return server, nil
 }

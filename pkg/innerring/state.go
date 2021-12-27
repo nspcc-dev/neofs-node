@@ -30,6 +30,9 @@ func (s *Server) EpochCounter() uint64 {
 // epoch counter.
 func (s *Server) SetEpochCounter(val uint64) {
 	s.epochCounter.Store(val)
+	if s.metrics != nil {
+		s.metrics.SetEpoch(val)
+	}
 }
 
 // EpochDuration is a getter for a global epoch duration.
