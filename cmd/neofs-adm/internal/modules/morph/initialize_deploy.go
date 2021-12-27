@@ -19,10 +19,13 @@ import (
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/spf13/viper"
 )
@@ -154,6 +157,20 @@ func (c *initializeContext) updateContracts() error {
 
 	var keysParam []smartcontract.Parameter
 
+	// Update script size for a single-node committee is close to the maximum allowed size of 65535.
+	// Because of this we want to reuse alphabet contract NEF and manifest for different updates.
+	// The generated script is as following.
+	// 1. Initialize static slots for alphabet NEF and manifest.
+	// 2. Store NEF and manifest into static slots.
+	// 3. Push parameters for each alphabet contract on stack.
+	// 4. For each alphabet contract, invoke `update` using parameters on stack and
+	//    NEF and manifest from step 2.
+	// 5. Update other contracts as usual.
+	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{2})
+	emit.Bytes(w.BinWriter, alphaCs.RawManifest)
+	emit.Bytes(w.BinWriter, alphaCs.RawNEF)
+	emit.Opcodes(w.BinWriter, opcode.STSFLD0, opcode.STSFLD1)
+
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash, err := nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
@@ -166,24 +183,28 @@ func (c *initializeContext) updateContracts() error {
 			Value: acc.PrivateKey().PublicKey().Bytes(),
 		})
 
-		params := getContractDeployParameters(alphaCs.RawNEF, alphaCs.RawManifest,
-			c.getAlphabetDeployParameters(i, len(c.Wallets)))
-		signer := transaction.Signer{
-			Account: c.CommitteeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.CalledByEntry,
-		}
-
-		res, err := c.Client.InvokeFunction(ctrHash, updateMethodName, params, []transaction.Signer{signer})
-		if err != nil {
-			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
-		}
-		if res.State != vm.HaltState.String() {
-			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
-		}
-
-		totalGasCost += res.GasConsumed
-		w.WriteBytes(res.Script)
+		params := c.getAlphabetDeployItems(i, len(c.Wallets))
+		emit.Array(w.BinWriter, params...)
+		emit.Opcodes(w.BinWriter, opcode.LDSFLD1, opcode.LDSFLD0)
+		emit.Int(w.BinWriter, 3)
+		emit.Opcodes(w.BinWriter, opcode.PACK)
+		emit.AppCallNoArgs(w.BinWriter, ctrHash, updateMethodName, callflag.All)
 	}
+
+	res, err := c.Client.InvokeScript(w.Bytes(), []transaction.Signer{{
+		Account: c.CommitteeAcc.Contract.ScriptHash(),
+		Scopes:  transaction.Global,
+	}})
+	if err != nil {
+		return fmt.Errorf("can't update alphabet contracts: %w", err)
+	}
+	if res.State != vm.HaltState.String() {
+		return fmt.Errorf("can't update alphabet contracts: %s", res.FaultException)
+	}
+
+	w.Reset()
+	totalGasCost += res.GasConsumed
+	w.WriteBytes(res.Script)
 
 	for _, ctrName := range contractList {
 		cs := c.getContract(ctrName)
@@ -557,14 +578,26 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 }
 
 func (c *initializeContext) getAlphabetDeployParameters(i, n int) []smartcontract.Parameter {
+	items := c.getAlphabetDeployItems(i, n)
 	return []smartcontract.Parameter{
-		newContractParameter(smartcontract.BoolType, false),
-		newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
-		newContractParameter(smartcontract.Hash160Type, c.Contracts[proxyContract].Hash),
-		newContractParameter(smartcontract.StringType, innerring.GlagoliticLetter(i).String()),
-		newContractParameter(smartcontract.IntegerType, int64(i)),
-		newContractParameter(smartcontract.IntegerType, int64(n)),
+		newContractParameter(smartcontract.BoolType, items[0]),
+		newContractParameter(smartcontract.Hash160Type, items[1]),
+		newContractParameter(smartcontract.Hash160Type, items[2]),
+		newContractParameter(smartcontract.StringType, items[3]),
+		newContractParameter(smartcontract.IntegerType, items[4]),
+		newContractParameter(smartcontract.IntegerType, items[5]),
 	}
+}
+
+func (c *initializeContext) getAlphabetDeployItems(i, n int) []interface{} {
+	items := make([]interface{}, 6)
+	items[0] = false
+	items[1] = c.Contracts[netmapContract].Hash
+	items[2] = c.Contracts[proxyContract].Hash
+	items[3] = innerring.GlagoliticLetter(i).String()
+	items[4] = int64(i)
+	items[5] = int64(n)
+	return items
 }
 
 func newContractParameter(typ smartcontract.ParamType, value interface{}) smartcontract.Parameter {
