@@ -48,6 +48,13 @@ var setNetmapStatusCmd = &cobra.Command{
 	Run:   setNetmapStatus,
 }
 
+var setShardModeCmd = &cobra.Command{
+	Use:   "set-mode",
+	Short: "Set work mode of the shard",
+	Long:  "Set work mode of the shard",
+	Run:   setShardMode,
+}
+
 var listShardsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List shards of the storage node",
@@ -67,6 +74,12 @@ const (
 	netmapStatusOnline      = "online"
 	netmapStatusOffline     = "offline"
 	netmapStatusMaintenance = "maintenance"
+
+	shardModeFlag = "mode"
+	shardIDFlag   = "id"
+
+	shardModeReadOnly  = "read-only"
+	shardModeReadWrite = "read-write"
 )
 
 const (
@@ -85,7 +98,16 @@ var (
 	healthCheckIRVar bool
 )
 
-var netmapStatus string
+// control netmap vars
+var (
+	netmapStatus string
+)
+
+// control shard vars
+var (
+	shardMode string
+	shardID   string
+)
 
 func initControlHealthCheckCmd() {
 	initCommonFlagsWithoutRPC(healthCheckCmd)
@@ -94,6 +116,21 @@ func initControlHealthCheckCmd() {
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.BoolVar(&healthCheckIRVar, healthcheckIRFlag, false, "Communicate with IR node")
+}
+
+func initControlSetShardModeCmd() {
+	initCommonFlagsWithoutRPC(setShardModeCmd)
+
+	flags := setShardModeCmd.Flags()
+
+	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
+	flags.StringVarP(&shardID, shardIDFlag, "", "", "ID of the shard in base58 encoding")
+	flags.StringVarP(&shardMode, shardModeFlag, "", "",
+		fmt.Sprintf("new shard mode keyword ('%s', '%s')",
+			shardModeReadWrite,
+			shardModeReadOnly,
+		),
+	)
 }
 
 func initControlShardsListCmd() {
@@ -147,6 +184,7 @@ func init() {
 	rootCmd.AddCommand(controlCmd)
 
 	shardsCmd.AddCommand(listShardsCmd)
+	shardsCmd.AddCommand(setShardModeCmd)
 
 	controlCmd.AddCommand(
 		healthCheckCmd,
@@ -161,6 +199,7 @@ func init() {
 	initControlDropObjectsCmd()
 	initControlSnapshotCmd()
 	initControlShardsListCmd()
+	initControlSetShardModeCmd()
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
@@ -443,4 +482,52 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 			mode,
 		)
 	}
+}
+
+func setShardMode(cmd *cobra.Command, _ []string) {
+	key, err := getKey()
+	exitOnErr(cmd, err)
+
+	var mode control.ShardMode
+
+	switch shardMode {
+	default:
+		exitOnErr(cmd, fmt.Errorf("unsupported mode %s", mode))
+	case shardModeReadWrite:
+		mode = control.ShardMode_READ_WRITE
+	case shardModeReadOnly:
+		mode = control.ShardMode_READ_ONLY
+	}
+
+	req := new(control.SetShardModeRequest)
+
+	body := new(control.SetShardModeRequest_Body)
+	req.SetBody(body)
+
+	rawID, err := base58.Decode(shardID)
+	exitOnErr(cmd, errf("incorrect shard ID encoding: %w", err))
+
+	body.SetMode(mode)
+	body.SetShardID(rawID)
+
+	err = controlSvc.SignMessage(key, req)
+	exitOnErr(cmd, errf("could not sign request: %w", err))
+
+	cli, err := getControlSDKClient(key)
+	exitOnErr(cmd, err)
+
+	resp, err := control.SetShardMode(cli.Raw(), req)
+	exitOnErr(cmd, errf("rpc error: %w", err))
+
+	sign := resp.GetSignature()
+
+	err = signature.VerifyDataWithSource(
+		resp,
+		func() ([]byte, []byte) {
+			return sign.GetKey(), sign.GetSign()
+		},
+	)
+	exitOnErr(cmd, errf("invalid response signature: %w", err))
+
+	cmd.Println("Shard mode update request successfully sent.")
 }
