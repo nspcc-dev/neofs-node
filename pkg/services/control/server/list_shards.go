@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,17 +25,26 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 
 	shardInfos := make([]*control.ShardInfo, 0, len(info.Shards))
 
-	for _, shard := range info.Shards {
+	for _, sh := range info.Shards {
 		si := new(control.ShardInfo)
 
-		si.SetID(*shard.ID)
-		si.SetMetabasePath(shard.MetaBaseInfo.Path)
-		si.SetBlobstorPath(shard.BlobStorInfo.RootPath)
-		si.SetWriteCachePath(shard.WriteCacheInfo.Path)
+		si.SetID(*sh.ID)
+		si.SetMetabasePath(sh.MetaBaseInfo.Path)
+		si.SetBlobstorPath(sh.BlobStorInfo.RootPath)
+		si.SetWriteCachePath(sh.WriteCacheInfo.Path)
 
-		// FIXME: use real shard mode when there are more than just `read-write`
-		// after https://github.com/nspcc-dev/neofs-node/issues/1044
-		si.SetMode(control.ShardMode_READ_WRITE)
+		var mode control.ShardMode
+
+		switch sh.Mode {
+		case shard.ModeReadWrite:
+			mode = control.ShardMode_READ_WRITE
+		case shard.ModeReadOnly:
+			mode = control.ShardMode_READ_ONLY
+		default:
+			mode = control.ShardMode_SHARD_MODE_UNDEFINED
+		}
+
+		si.SetMode(mode)
 
 		shardInfos = append(shardInfos, si)
 	}
