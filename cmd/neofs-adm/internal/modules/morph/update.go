@@ -17,5 +17,5 @@ func updateContracts(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	return wCtx.deployContracts(updateMethodName)
+	return wCtx.updateContracts()
 }
