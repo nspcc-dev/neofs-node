@@ -1,50 +1,41 @@
 package shard
 
+import "errors"
+
 // Mode represents enumeration of Shard work modes.
 type Mode uint32
+
+// ErrReadOnlyMode is returned when it is impossible to apply operation
+// that changes shard's memory due to the "read-only" shard's mode.
+var ErrReadOnlyMode = errors.New("shard is in read-only mode")
 
 // TODO: more detailed description of shard modes.
 
 const (
-	_ Mode = iota
+	// ModeReadWrite is a Mode value for shard that is available
+	// for read and write operations. Default shard mode.
+	ModeReadWrite Mode = iota
 
-	// ModeActive is a Mode value for active shard.
-	ModeActive
-
-	// ModeInactive is a Mode value for inactive shard.
-	ModeInactive
-
-	// ModeReadOnly is a Mode value for read-only shard.
+	// ModeReadOnly is a Mode value for shard that does not
+	// accept write operation but is readable.
 	ModeReadOnly
-
-	// ModeFault is a Mode value for faulty shard.
-	ModeFault
-
-	// ModeEvacuate is a Mode value for evacuating shard.
-	ModeEvacuate
 )
 
 func (m Mode) String() string {
 	switch m {
 	default:
 		return "UNDEFINED"
-	case ModeActive:
-		return "ACTIVE"
-	case ModeInactive:
-		return "INACTIVE"
+	case ModeReadWrite:
+		return "READ_WRITE"
 	case ModeReadOnly:
 		return "READ_ONLY"
-	case ModeFault:
-		return "FAULT"
-	case ModeEvacuate:
-		return "EVACUATE"
 	}
 }
 
 // SetMode sets mode of the shard.
 //
 // Returns any error encountered that did not allow
-// to set shard mode.
+// setting shard mode.
 func (s *Shard) SetMode(m Mode) error {
 	s.mode.Store(uint32(m))
 
