@@ -43,7 +43,13 @@ func (p *InhumePrm) MarkAsGarbage(addr ...*objectSDK.Address) *InhumePrm {
 
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from blobStor and metabase until `Delete` operation.
+//
+// Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
+	if s.getMode() == ModeReadOnly {
+		return nil, ErrReadOnlyMode
+	}
+
 	if s.hasWriteCache() {
 		for i := range prm.target {
 			_ = s.writeCache.Delete(prm.target[i])

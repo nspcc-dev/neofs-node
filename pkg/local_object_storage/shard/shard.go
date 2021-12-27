@@ -20,8 +20,6 @@ type Shard struct {
 
 	gc *gc
 
-	mode *atomic.Uint32
-
 	writeCache writecache.Cache
 
 	blobStor *blobstor.BlobStor
@@ -36,6 +34,8 @@ type Option func(*cfg)
 type ExpiredObjectsCallback func(context.Context, []*object.Address)
 
 type cfg struct {
+	mode *atomic.Uint32
+
 	refillMetabase bool
 
 	rmBatchSize int
@@ -59,6 +59,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
+		mode:        atomic.NewUint32(uint32(ModeReadWrite)),
 		rmBatchSize: 100,
 		log:         zap.L(),
 		gcCfg:       defaultGCCfg(),
@@ -86,7 +87,6 @@ func New(opts ...Option) *Shard {
 
 	s := &Shard{
 		cfg:        c,
-		mode:       atomic.NewUint32(0), // TODO: init with particular mode
 		blobStor:   bs,
 		metaBase:   mb,
 		writeCache: writeCache,
@@ -194,6 +194,15 @@ func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
 func WithRefillMetabase(v bool) Option {
 	return func(c *cfg) {
 		c.refillMetabase = v
+	}
+}
+
+// WithMode returns option to set shard's mode. Mode must be one of the predefined:
+//	- ModeReadWrite;
+//	- ModeReadOnly.
+func WithMode(v Mode) Option {
+	return func(c *cfg) {
+		c.mode.Store(uint32(v))
 	}
 }
 

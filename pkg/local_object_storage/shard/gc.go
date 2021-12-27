@@ -171,7 +171,12 @@ func (gc *gc) stop() {
 
 // iterates over metabase graveyard and deletes objects
 // with GC-marked graves.
+// Does nothing if shard is in "read-only" mode.
 func (s *Shard) removeGarbage() {
+	if s.getMode() == ModeReadOnly {
+		return
+	}
+
 	buf := make([]*object.Address, 0, s.rmBatchSize)
 
 	// iterate over metabase graveyard and accumulate
