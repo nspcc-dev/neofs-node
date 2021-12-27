@@ -327,8 +327,8 @@ func (x *ShardInfo) SetMetabasePath(v string) {
 	x.MetabasePath = v
 }
 
-// SetBlobstorePath sets path to shard's blobstore.
-func (x *ShardInfo) SetBlobstorePath(v string) {
+// SetBlobstorPath sets path to shard's blobstor.
+func (x *ShardInfo) SetBlobstorPath(v string) {
 	x.BlobstorPath = v
 }
 
@@ -346,7 +346,7 @@ const (
 	_ = iota
 	shardInfoIDFNum
 	shardInfoMetabaseFNum
-	shardInfoBlobstoreFNum
+	shardInfoBlobstorFNum
 	shardInfoWriteCacheFNum
 	shardInfoModeFNum
 )
@@ -364,7 +364,7 @@ func (x *ShardInfo) StableSize() int {
 
 	size += proto.BytesSize(shardInfoIDFNum, x.Shard_ID)
 	size += proto.StringSize(shardInfoMetabaseFNum, x.MetabasePath)
-	size += proto.StringSize(shardInfoBlobstoreFNum, x.BlobstorPath)
+	size += proto.StringSize(shardInfoBlobstorFNum, x.BlobstorPath)
 	size += proto.StringSize(shardInfoWriteCacheFNum, x.WritecachePath)
 	size += proto.EnumSize(shardInfoModeFNum, int32(x.Mode))
 
@@ -408,7 +408,7 @@ func (x *ShardInfo) StableMarshal(buf []byte) ([]byte, error) {
 
 	offset += n
 
-	n, err = proto.StringMarshal(shardInfoBlobstoreFNum, buf[offset:], x.BlobstorPath)
+	n, err = proto.StringMarshal(shardInfoBlobstorFNum, buf[offset:], x.BlobstorPath)
 	if err != nil {
 		return nil, err
 	}

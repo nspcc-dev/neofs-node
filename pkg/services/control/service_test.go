@@ -101,7 +101,7 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 
 	for i := range b1.Shards {
 		if b1.Shards[i].GetMetabasePath() != b2.Shards[i].GetMetabasePath() ||
-			b1.Shards[i].GetBlobstorePath() != b2.Shards[i].GetBlobstorePath() ||
+			b1.Shards[i].GetBlobstorPath() != b2.Shards[i].GetBlobstorPath() ||
 			b1.Shards[i].GetWritecachePath() != b2.Shards[i].GetWritecachePath() ||
 			!bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[i].GetShard_ID()) {
 			return false
