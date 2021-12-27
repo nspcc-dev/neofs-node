@@ -128,7 +128,7 @@ message ShardInfo {
     // Path to shard's metabase.
     string metabase_path = 2 [json_name = "metabasePath"];
 
-    // Path to shard's blobstore.
+    // Path to shard's blobstor.
     string blobstor_path = 3 [json_name = "blobstorPath"];
 
     // Path to shard's write-cache, empty if disabled.
