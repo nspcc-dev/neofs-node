@@ -120,3 +120,32 @@ func generateListShardsResponseBody() *control.ListShardsResponse_Body {
 
 	return body
 }
+
+func TestSetShardModeRequest_Body_StableMarshal(t *testing.T) {
+	testStableMarshal(t,
+		generateSetShardModeRequestBody(),
+		new(control.SetShardModeRequest_Body),
+		func(m1, m2 protoMessage) bool {
+			return equalSetShardModeRequestBodies(
+				m1.(*control.SetShardModeRequest_Body),
+				m2.(*control.SetShardModeRequest_Body),
+			)
+		},
+	)
+}
+
+func generateSetShardModeRequestBody() *control.SetShardModeRequest_Body {
+	body := new(control.SetShardModeRequest_Body)
+	body.SetShardID([]byte{0, 1, 2, 3, 4})
+	body.SetMode(control.ShardMode_READ_WRITE)
+
+	return body
+}
+
+func equalSetShardModeRequestBodies(b1, b2 *control.SetShardModeRequest_Body) bool {
+	if b1.GetMode() != b2.GetMode() || !bytes.Equal(b1.Shard_ID, b2.Shard_ID) {
+		return false
+	}
+
+	return true
+}
