@@ -9,6 +9,7 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,6 +32,7 @@ func TestEngineSection(t *testing.T) {
 		require.False(t, handlerCalled)
 
 		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, engineconfig.ShardPoolSize(empty))
+		require.EqualValues(t, shard.ModeReadWrite, shardconfig.From(empty).Mode())
 	})
 
 	const path = "../../../../config/example/node"
@@ -80,6 +82,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
 
 				require.Equal(t, false, sc.RefillMetabase())
+				require.Equal(t, shard.ModeReadOnly, sc.Mode())
 			case 1:
 				require.Equal(t, true, sc.UseWriteCache())
 
@@ -108,6 +111,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())
 
 				require.Equal(t, true, sc.RefillMetabase())
+				require.Equal(t, shard.ModeReadWrite, sc.Mode())
 			}
 		})
 
