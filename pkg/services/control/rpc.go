@@ -13,6 +13,7 @@ const (
 	rpcSetNetmapStatus = "SetNetmapStatus"
 	rpcDropObjects     = "DropObjects"
 	rpcListShards      = "ListShards"
+	rpcSetShardMode    = "SetShardMode"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -116,6 +117,27 @@ func ListShards(
 		m: req,
 	}
 	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcListShards), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.m, nil
+}
+
+// SetShardMode executes ControlService.SetShardMode RPC.
+func SetShardMode(
+	cli *client.Client,
+	req *SetShardModeRequest,
+	opts ...client.CallOption,
+) (*SetShardModeResponse, error) {
+	wResp := &setShardModeResponseWrapper{
+		m: new(SetShardModeResponse),
+	}
+
+	wReq := &requestWrapper{
+		m: req,
+	}
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcSetShardMode), wReq, wResp, opts...)
 	if err != nil {
 		return nil, err
 	}

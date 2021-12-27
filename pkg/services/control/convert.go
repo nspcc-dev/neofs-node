@@ -111,3 +111,22 @@ func (w *listShardsRequestWrapper) FromGRPCMessage(m grpc.Message) error {
 
 	return nil
 }
+
+type setShardModeResponseWrapper struct {
+	m *SetShardModeResponse
+}
+
+func (w *setShardModeResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.m
+}
+
+func (w *setShardModeResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	var ok bool
+
+	w.m, ok = m.(*SetShardModeResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, w.m)
+	}
+
+	return nil
+}
