@@ -3,6 +3,19 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.2] - 2021-12-28
+
+### Fixed
+- Goroutine leak due to infinite response message await ([neofs-api-go#366](https://github.com/nspcc-dev/neofs-api-go/pull/366))
+- Inconsistency in placement function ([neofs-sdk-go#108](https://github.com/nspcc-dev/neofs-sdk-go/pull/108))
+
+### Added
+- `ListShards` RPC in control API, available in CLI (#1043)
+- Epoch metric in Storage and Inner Ring applications (#1054)
+
+### Changed
+- Some object replication related logs were moved to DEBUG level (#1052)
+
 ## [0.27.1] - 2021-12-20
 
 ### Fixed
@@ -829,6 +842,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 First public review release.
 
 [Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...master
+[0.27.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.0...v0.26.1
