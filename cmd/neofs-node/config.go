@@ -316,6 +316,7 @@ func initCfg(path string) *cfg {
 
 	if metricsconfig.Address(c.appCfg) != "" {
 		c.metricsCollector = metrics.NewStorageMetrics()
+		netState.metrics = c.metricsCollector
 	}
 
 	c.onShutdown(c.clientCache.CloseAll) // clean up connections

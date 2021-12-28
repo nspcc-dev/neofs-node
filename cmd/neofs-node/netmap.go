@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -30,6 +31,8 @@ type networkState struct {
 	controlNetStatus atomic.Value // control.NetmapStatus
 
 	nodeInfo atomic.Value // *netmapSDK.NodeInfo
+
+	metrics *metrics.StorageMetrics
 }
 
 func newNetworkState() *networkState {
@@ -44,6 +47,9 @@ func (s *networkState) CurrentEpoch() uint64 {
 
 func (s *networkState) setCurrentEpoch(v uint64) {
 	s.epoch.Store(v)
+	if s.metrics != nil {
+		s.metrics.SetEpoch(v)
+	}
 }
 
 func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
