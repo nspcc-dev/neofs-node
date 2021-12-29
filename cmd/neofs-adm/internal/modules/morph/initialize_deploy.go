@@ -104,6 +104,9 @@ func (c *initializeContext) deployNNS(method string) error {
 	}
 
 	params := getContractDeployParameters(cs.RawNEF, cs.RawManifest, nil)
+	if method == updateMethodName {
+		params = params[:len(params)-1] // update has only NEF and manifest args
+	}
 
 	signer := transaction.Signer{
 		Account: c.CommitteeAcc.Contract.ScriptHash(),
