@@ -109,7 +109,7 @@ func ListShards(
 	req *ListShardsRequest,
 	opts ...client.CallOption,
 ) (*ListShardsResponse, error) {
-	wResp := &listShardsRequestWrapper{
+	wResp := &listShardsResponseWrapper{
 		m: new(ListShardsResponse),
 	}
 

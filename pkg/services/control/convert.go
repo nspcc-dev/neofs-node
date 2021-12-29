@@ -93,15 +93,15 @@ func (w *dropObjectsResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	return nil
 }
 
-type listShardsRequestWrapper struct {
+type listShardsResponseWrapper struct {
 	m *ListShardsResponse
 }
 
-func (w *listShardsRequestWrapper) ToGRPCMessage() grpc.Message {
+func (w *listShardsResponseWrapper) ToGRPCMessage() grpc.Message {
 	return w.m
 }
 
-func (w *listShardsRequestWrapper) FromGRPCMessage(m grpc.Message) error {
+func (w *listShardsResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	var ok bool
 
 	w.m, ok = m.(*ListShardsResponse)
