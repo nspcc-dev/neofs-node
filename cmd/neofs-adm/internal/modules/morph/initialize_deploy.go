@@ -569,9 +569,7 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			newContractParameter(smartcontract.ArrayType, keysParam),
 			newContractParameter(smartcontract.ArrayType, configParam))
 	case proxyContract:
-		items = []smartcontract.Parameter{
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
-		}
+		items = nil
 	case reputationContract:
 	case subnetContract:
 	default:
