@@ -38,7 +38,25 @@ const (
 	basicACLPrivate  = "private"
 	basicACLReadOnly = "public-read"
 	basicACLPublic   = "public-read-write"
+	basicACLAppend   = "public-append"
+
+	basicACLNoFinalPrivate  = "eacl-private"
+	basicACLNoFinalReadOnly = "eacl-public-read"
+	basicACLNoFinalPublic   = "eacl-public-read-write"
+	basicACLNoFinalAppend   = "eacl-public-append"
 )
+
+var wellKnownBasicACL = map[string]uint32{
+	basicACLPublic:   acl.PublicBasicRule,
+	basicACLPrivate:  acl.PrivateBasicRule,
+	basicACLReadOnly: acl.ReadOnlyBasicRule,
+	basicACLAppend:   acl.PublicAppendRule,
+
+	basicACLNoFinalPublic:   acl.EACLPublicBasicRule,
+	basicACLNoFinalPrivate:  acl.EACLPrivateBasicRule,
+	basicACLNoFinalReadOnly: acl.EACLReadOnlyBasicRule,
+	basicACLNoFinalAppend:   acl.EACLPublicAppendRule,
+}
 
 const sessionTokenFlag = "session"
 
@@ -440,7 +458,7 @@ func initContainerCreateCmd() {
 
 	flags := createContainerCmd.Flags()
 
-	flags.StringVar(&containerACL, "basic-acl", basicACLPrivate, fmt.Sprintf("hex encoded basic ACL value or keywords '%s', '%s', '%s'", basicACLPublic, basicACLPrivate, basicACLReadOnly))
+	flags.StringVar(&containerACL, "basic-acl", basicACLPrivate, fmt.Sprintf("hex encoded basic ACL value or keywords like '%s', '%s', '%s'", basicACLPublic, basicACLPrivate, basicACLNoFinalReadOnly))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	flags.StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
@@ -651,23 +669,18 @@ func parseAttributes(attributes []string) ([]*container.Attribute, error) {
 }
 
 func parseBasicACL(basicACL string) (uint32, error) {
-	switch basicACL {
-	case basicACLPublic:
-		return acl.PublicBasicRule, nil
-	case basicACLPrivate:
-		return acl.PrivateBasicRule, nil
-	case basicACLReadOnly:
-		return acl.ReadOnlyBasicRule, nil
-	default:
-		basicACL = strings.Trim(strings.ToLower(basicACL), "0x")
-
-		value, err := strconv.ParseUint(basicACL, 16, 32)
-		if err != nil {
-			return 0, fmt.Errorf("can't parse basic ACL: %s", basicACL)
-		}
-
-		return uint32(value), nil
+	if value, ok := wellKnownBasicACL[basicACL]; ok {
+		return value, nil
 	}
+
+	basicACL = strings.Trim(strings.ToLower(basicACL), "0x")
+
+	value, err := strconv.ParseUint(basicACL, 16, 32)
+	if err != nil {
+		return 0, fmt.Errorf("can't parse basic ACL: %s", basicACL)
+	}
+
+	return uint32(value), nil
 }
 
 func parseNonce(nonce string) (uuid.UUID, error) {
@@ -731,17 +744,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	cmd.Println("owner ID:", cnr.OwnerID())
 
 	basicACL := cnr.BasicACL()
-	cmd.Printf("basic ACL: %s", strconv.FormatUint(uint64(basicACL), 16))
-	switch basicACL {
-	case acl.PublicBasicRule:
-		cmd.Printf(" (%s)\n", basicACLPublic)
-	case acl.PrivateBasicRule:
-		cmd.Printf(" (%s)\n", basicACLPrivate)
-	case acl.ReadOnlyBasicRule:
-		cmd.Printf(" (%s)\n", basicACLReadOnly)
-	default:
-		cmd.Println()
-	}
+	prettyPrintBasicACL(cmd, basicACL)
 
 	for _, attribute := range cnr.Attributes() {
 		if attribute.Key() == container.AttributeTimestamp {
@@ -820,4 +823,15 @@ func printJSONMarshaler(cmd *cobra.Command, j json.Marshaler, entity string) {
 		return
 	}
 	cmd.Println(buf)
+}
+
+func prettyPrintBasicACL(cmd *cobra.Command, basicACL uint32) {
+	cmd.Printf("basic ACL: %.8x", basicACL)
+	for k, v := range wellKnownBasicACL {
+		if v == basicACL {
+			cmd.Printf(" (%s)\n", k)
+			return
+		}
+	}
+	cmd.Println()
 }

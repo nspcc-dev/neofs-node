@@ -13,7 +13,7 @@ require (
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.98.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.11.1
-	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211228125935-3edaf9ecb644
+	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20211230072947-1fe37df88f80
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
