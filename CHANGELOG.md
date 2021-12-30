@@ -3,6 +3,16 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.3] - 2021-12-30
+
+### Added
+- `SetShardMode` RPC in control API, available in CLI (#1044)
+- Support of basic ACL constants without final flag in CLI (#1066)
+
+### Changed
+- `neofs-adm` updates contracts in single tx (#1035)
+- Proxy contract arguments for deployment in `neofs-adm` (#1056)
+
 ## [0.27.2] - 2021-12-28
 
 ### Fixed
@@ -841,7 +851,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...master
+[0.27.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.2...v0.27.3
 [0.27.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.26.1...v0.27.0
