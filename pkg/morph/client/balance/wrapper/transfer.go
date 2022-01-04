@@ -28,7 +28,7 @@ func (w *Wrapper) TransferX(p TransferPrm) error {
 	if err != nil {
 		return err
 	}
-	to, err := address.StringToUint160(p.From.String())
+	to, err := address.StringToUint160(p.To.String())
 	if err != nil {
 		return err
 	}
