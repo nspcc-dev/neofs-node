@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,4 +76,66 @@ func TestCompression(t *testing.T) {
 	testPut(t, blobStor, 2)
 	testGet(t, blobStor, 2)
 	require.NoError(t, blobStor.Close())
+}
+
+func TestBlobstor_needsCompression(t *testing.T) {
+	const smallSizeLimit = 512
+	newBlobStor := func(t *testing.T, compress bool, ct ...string) *BlobStor {
+		dir, err := os.MkdirTemp("", "neofs*")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = os.RemoveAll(dir) })
+
+		bs := New(WithCompressObjects(compress),
+			WithRootPath(dir),
+			WithSmallSizeLimit(smallSizeLimit),
+			WithBlobovniczaShallowWidth(1),
+			WithUncompressableContentTypes(ct))
+		require.NoError(t, bs.Open())
+		require.NoError(t, bs.Init())
+		return bs
+	}
+
+	newObjectWithCt := func(contentType string) *object.Object {
+		obj := testObjectRaw(smallSizeLimit + 1)
+		if contentType != "" {
+			a := objectSDK.NewAttribute()
+			a.SetKey(objectSDK.AttributeContentType)
+			a.SetValue(contentType)
+			obj.SetAttributes(a)
+		}
+		return obj.Object()
+	}
+
+	t.Run("content-types specified", func(t *testing.T) {
+		b := newBlobStor(t, true, "audio/*", "*/x-mpeg", "*/mpeg", "application/x-midi")
+
+		obj := newObjectWithCt("video/mpeg")
+		require.False(t, b.needsCompression(obj))
+
+		obj = newObjectWithCt("audio/aiff")
+		require.False(t, b.needsCompression(obj))
+
+		obj = newObjectWithCt("application/x-midi")
+		require.False(t, b.needsCompression(obj))
+
+		obj = newObjectWithCt("text/plain")
+		require.True(t, b.needsCompression(obj))
+
+		obj = newObjectWithCt("")
+		require.True(t, b.needsCompression(obj))
+	})
+	t.Run("content-types omitted", func(t *testing.T) {
+		b := newBlobStor(t, true)
+		obj := newObjectWithCt("video/mpeg")
+		require.True(t, b.needsCompression(obj))
+	})
+	t.Run("compress disabled", func(t *testing.T) {
+		b := newBlobStor(t, false, "video/mpeg")
+
+		obj := newObjectWithCt("video/mpeg")
+		require.False(t, b.needsCompression(obj))
+
+		obj = newObjectWithCt("text/plain")
+		require.False(t, b.needsCompression(obj))
+	})
 }

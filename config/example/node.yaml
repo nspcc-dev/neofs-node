@@ -146,6 +146,9 @@ storage:
       blobstor:
         path: tmp/0/blob  # blobstor path
         compress: true  # turn on/off zstd(level 3) compression of stored objects
+        compression_exclude_content_types:
+          - audio/*
+          - video/*
 
       gc:
         remover_batch_size: 150  # number of objects to be removed by the garbage collector

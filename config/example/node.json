@@ -136,6 +136,9 @@
           "path": "tmp/0/blob",
           "perm": "0644",
           "compress": true,
+          "compression_exclude_content_types": [
+            "audio/*", "video/*"
+          ],
           "depth": 5,
           "small_object_size": 102400,
           "blobovnicza": {

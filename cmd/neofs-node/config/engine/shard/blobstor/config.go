@@ -88,6 +88,15 @@ func (x *Config) Compress() bool {
 	)
 }
 
+// UncompressableContentTypes returns value of "compress_skip_content_types" config parameter.
+//
+// Returns nil if a value is missing or is invalid.
+func (x *Config) UncompressableContentTypes() []string {
+	return config.StringSliceSafe(
+		(*config.Config)(x),
+		"compression_exclude_content_types")
+}
+
 // SmallSizeLimit returns value of "small_object_size" config parameter.
 //
 // Returns SmallSizeLimitDefault if value is not a positive number.

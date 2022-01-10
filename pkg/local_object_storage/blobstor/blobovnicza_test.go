@@ -31,7 +31,7 @@ func testAddress() *objectSDK.Address {
 	return addr
 }
 
-func testObject(sz uint64) *object.Object {
+func testObjectRaw(sz uint64) *object.RawObject {
 	raw := object.NewRaw()
 
 	addr := testAddress()
@@ -46,7 +46,11 @@ func testObject(sz uint64) *object.Object {
 		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
 	}
 
-	return raw.Object()
+	return raw
+}
+
+func testObject(sz uint64) *object.Object {
+	return testObjectRaw(sz).Object()
 }
 
 func TestBlobovniczas(t *testing.T) {

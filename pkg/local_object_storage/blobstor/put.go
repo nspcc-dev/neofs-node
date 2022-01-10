@@ -2,7 +2,9 @@ package blobstor
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
@@ -32,15 +34,43 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, fmt.Errorf("could not marshal the object: %w", err)
 	}
 
-	return b.PutRaw(prm.obj.Address(), data)
+	return b.PutRaw(prm.obj.Address(), data, b.needsCompression(prm.obj))
+}
+
+func (b *BlobStor) needsCompression(obj *object.Object) bool {
+	if !b.compressionEnabled || len(b.uncompressableContentTypes) == 0 {
+		return b.compressionEnabled
+	}
+
+	for _, attr := range obj.Attributes() {
+		if attr.Key() == objectSDK.AttributeContentType {
+			for _, value := range b.uncompressableContentTypes {
+				match := false
+				switch {
+				case len(value) > 0 && value[len(value)-1] == '*':
+					match = strings.HasPrefix(attr.Value(), value[:len(value)-1])
+				case len(value) > 0 && value[0] == '*':
+					match = strings.HasSuffix(attr.Value(), value[1:])
+				default:
+					match = attr.Value() == value
+				}
+				if match {
+					return false
+				}
+			}
+		}
+	}
+
+	return b.compressionEnabled
 }
 
 // PutRaw saves already marshaled object in BLOB storage.
-func (b *BlobStor) PutRaw(addr *objectSDK.Address, data []byte) (*PutRes, error) {
+func (b *BlobStor) PutRaw(addr *objectSDK.Address, data []byte, compress bool) (*PutRes, error) {
 	big := b.isBig(data)
 
-	// compress object data
-	data = b.compressor(data)
+	if compress {
+		data = b.compressor(data)
+	}
 
 	if big {
 		// save object in shallow dir
