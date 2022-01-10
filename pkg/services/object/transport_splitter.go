@@ -154,7 +154,7 @@ func (s *searchStreamMsgSizeCtrl) Send(resp *object.SearchResponse) error {
 
 	var newResp *object.SearchResponse
 
-	for ln := uint64(len(ids)); len(ids) > 0; {
+	for ln := uint64(len(ids)); ; {
 		if newResp == nil {
 			newResp = new(object.SearchResponse)
 			newResp.SetBody(body)
@@ -174,6 +174,10 @@ func (s *searchStreamMsgSizeCtrl) Send(resp *object.SearchResponse) error {
 		}
 
 		ids = ids[cut:]
+
+		if len(ids) == 0 {
+			break
+		}
 	}
 
 	return nil
