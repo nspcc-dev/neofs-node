@@ -352,16 +352,6 @@ func initObjectService(c *cfg) {
 		},
 	)
 
-	respSvc := objectService.NewResponseService(
-		splitSvc,
-		c.respSvc,
-	)
-
-	signSvc := objectService.NewSignService(
-		&c.key.PrivateKey,
-		respSvc,
-	)
-
 	aclSvc := acl.New(
 		acl.WithSenderClassifier(
 			acl.NewSenderClassifier(
@@ -373,7 +363,7 @@ func initObjectService(c *cfg) {
 		acl.WithContainerSource(
 			c.cfgObject.cnrSource,
 		),
-		acl.WithNextService(signSvc),
+		acl.WithNextService(splitSvc),
 		acl.WithLocalStorage(ls),
 		acl.WithEACLValidatorOptions(
 			eacl.WithEACLSource(c.cfgObject.eaclSource),
@@ -382,9 +372,19 @@ func initObjectService(c *cfg) {
 		acl.WithNetmapState(c.cfgNetmap.state),
 	)
 
-	var firstSvc objectService.ServiceServer = aclSvc
+	respSvc := objectService.NewResponseService(
+		aclSvc,
+		c.respSvc,
+	)
+
+	signSvc := objectService.NewSignService(
+		&c.key.PrivateKey,
+		respSvc,
+	)
+
+	var firstSvc objectService.ServiceServer = signSvc
 	if c.metricsCollector != nil {
-		firstSvc = objectService.NewMetricCollector(aclSvc, c.metricsCollector)
+		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
 
 	server := objectTransportGRPC.New(firstSvc)
