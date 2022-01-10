@@ -66,7 +66,7 @@ func TestIterateObjects(t *testing.T) {
 	}
 
 	for _, v := range mObjs {
-		_, err := blobStor.PutRaw(v.addr, v.data)
+		_, err := blobStor.PutRaw(v.addr, v.data, true)
 		require.NoError(t, err)
 	}
 

@@ -125,7 +125,7 @@ func (c *cache) flushBigObjects() {
 					return nil
 				}
 
-				if _, err := c.blobstor.PutRaw(addr, data); err != nil {
+				if _, err := c.blobstor.PutRaw(addr, data, true); err != nil {
 					c.log.Error("cant flush object to blobstor", zap.Error(err))
 					return nil
 				}
