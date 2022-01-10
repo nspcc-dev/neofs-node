@@ -70,6 +70,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, "tmp/0/blob", blob.Path())
 				require.EqualValues(t, 0644, blob.Perm())
 				require.Equal(t, true, blob.Compress())
+				require.Equal(t, []string{"audio/*", "video/*"}, blob.UncompressableContentTypes())
 				require.EqualValues(t, 5, blob.ShallowDepth())
 				require.EqualValues(t, 102400, blob.SmallSizeLimit())
 
@@ -99,6 +100,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, "tmp/1/blob", blob.Path())
 				require.EqualValues(t, 0644, blob.Perm())
 				require.Equal(t, false, blob.Compress())
+				require.Equal(t, []string(nil), blob.UncompressableContentTypes())
 				require.EqualValues(t, 5, blob.ShallowDepth())
 				require.EqualValues(t, 102400, blob.SmallSizeLimit())
 

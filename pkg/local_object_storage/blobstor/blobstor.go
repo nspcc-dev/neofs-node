@@ -28,6 +28,8 @@ type cfg struct {
 
 	compressionEnabled bool
 
+	uncompressableContentTypes []string
+
 	compressor func([]byte) []byte
 
 	decompressor func([]byte) ([]byte, error)
@@ -114,6 +116,14 @@ func WithShallowDepth(depth int) Option {
 func WithCompressObjects(comp bool) Option {
 	return func(c *cfg) {
 		c.compressionEnabled = comp
+	}
+}
+
+// WithUncompressableContentTypes returns option to disable decompression
+// for specific content types as seen by object.AttributeContentType attribute.
+func WithUncompressableContentTypes(values []string) Option {
+	return func(c *cfg) {
+		c.uncompressableContentTypes = values
 	}
 }
 
