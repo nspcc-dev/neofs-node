@@ -536,7 +536,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	var irf irFetcher
 
-	if !server.mainNotaryConfig.disabled {
+	if server.withoutMainNet || !server.mainNotaryConfig.disabled {
+		// if mainchain is disabled we should use NeoFSAlphabetList client method according to its docs
+		// (naming `...WithNotary` will not always be correct)
 		irf = NewIRFetcherWithNotary(server.morphClient)
 	} else {
 		irf = NewIRFetcherWithoutNotary(server.netmapClient)
