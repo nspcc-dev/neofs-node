@@ -99,6 +99,11 @@ func (c *cache) persistBigObject(objInfo objectInfo) {
 		err := c.fsTree.Put(objInfo.obj.Address(), objInfo.data)
 		if err == nil {
 			metaIndex = 1
+			if c.blobstor.NeedsCompression(objInfo.obj) {
+				c.mtx.Lock()
+				c.compressFlags[objInfo.addr] = struct{}{}
+				c.mtx.Unlock()
+			}
 			c.objCounters.IncFS()
 			storagelog.Write(c.log, storagelog.AddressField(objInfo.addr), storagelog.OpField("fstree PUT"))
 		}

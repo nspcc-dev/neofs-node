@@ -125,9 +125,19 @@ func (c *cache) flushBigObjects() {
 					return nil
 				}
 
-				if _, err := c.blobstor.PutRaw(addr, data, true); err != nil {
+				c.mtx.Lock()
+				_, compress := c.compressFlags[sAddr]
+				c.mtx.Unlock()
+
+				if _, err := c.blobstor.PutRaw(addr, data, compress); err != nil {
 					c.log.Error("cant flush object to blobstor", zap.Error(err))
 					return nil
+				}
+
+				if compress {
+					c.mtx.Lock()
+					delete(c.compressFlags, sAddr)
+					c.mtx.Unlock()
 				}
 
 				// mark object as flushed
