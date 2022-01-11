@@ -40,8 +40,7 @@ func initMorphComponents(c *cfg) {
 			fatalOnErr(errors.New("missing Neo RPC endpoints"))
 		}
 
-		crand := rand.New() // math/rand with cryptographic source
-		crand.Shuffle(len(addresses), func(i, j int) {
+		rand.Shuffle(len(addresses), func(i, j int) {
 			addresses[i], addresses[j] = addresses[j], addresses[i]
 		})
 
@@ -185,8 +184,7 @@ func listenMorphNotifications(c *cfg) {
 	endpoints := morphconfig.NotificationEndpoint(c.appCfg)
 	timeout := morphconfig.DialTimeout(c.appCfg)
 
-	crand := rand.New() // math/rand with cryptographic source
-	crand.Shuffle(len(endpoints), func(i, j int) {
+	rand.Shuffle(len(endpoints), func(i, j int) {
 		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
 	})
 
