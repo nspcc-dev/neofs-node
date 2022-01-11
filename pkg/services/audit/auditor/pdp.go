@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/tzhash/tz"
@@ -88,16 +89,18 @@ func (c *Context) splitPayload(id *object.ID) []uint64 {
 	)
 
 	for i := uint64(0); i < hashRangeNumber; i++ {
-		var nextLn uint64
 		if i < hashRangeNumber-1 {
-			nextLn = randUint64(size-prev-(hashRangeNumber-i)) + 1
+			max := size - prev - (hashRangeNumber - i)
+			if max == 0 {
+				prev++
+			} else {
+				prev += rand.Uint64()%max + 1
+			}
 		} else {
-			nextLn = size - prev
+			prev = size
 		}
 
-		notches = append(notches, prev+nextLn)
-
-		prev += nextLn
+		notches = append(notches, prev)
 	}
 
 	return notches
@@ -107,13 +110,16 @@ func (c *Context) collectHashes(p *gamePair) {
 	fn := func(n *netmap.Node, rngs []*object.Range, hashWriter func([]byte)) {
 		// TODO: add order randomization
 		for i := range rngs {
-			sleepDur := time.Duration(randUint64(c.maxPDPSleep))
+			var sleepDur time.Duration
+			if c.maxPDPSleep > 0 {
+				sleepDur = time.Duration(rand.Uint64() % c.maxPDPSleep)
+			}
 
 			c.log.Debug("sleep before get range hash",
 				zap.Stringer("interval", sleepDur),
 			)
 
-			time.Sleep(time.Duration(sleepDur))
+			time.Sleep(sleepDur)
 
 			h, err := c.cnrCom.GetRangeHash(c.task, n, p.id, rngs[i])
 			if err != nil {
