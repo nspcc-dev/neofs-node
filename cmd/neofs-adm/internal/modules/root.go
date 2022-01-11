@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph"
 	"github.com/nspcc-dev/neofs-node/misc"
+	"github.com/nspcc-dev/neofs-node/pkg/util/autocomplete"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,7 +35,7 @@ func init() {
 	rootCmd.AddCommand(config.RootCmd)
 	rootCmd.AddCommand(morph.RootCmd)
 
-	rootCmd.AddCommand(completionCmd)
+	rootCmd.AddCommand(autocomplete.Command("neofs-adm"))
 }
 
 func Execute() error {
