@@ -110,32 +110,32 @@ func TestBlobstor_needsCompression(t *testing.T) {
 		b := newBlobStor(t, true, "audio/*", "*/x-mpeg", "*/mpeg", "application/x-midi")
 
 		obj := newObjectWithCt("video/mpeg")
-		require.False(t, b.needsCompression(obj))
+		require.False(t, b.NeedsCompression(obj))
 
 		obj = newObjectWithCt("audio/aiff")
-		require.False(t, b.needsCompression(obj))
+		require.False(t, b.NeedsCompression(obj))
 
 		obj = newObjectWithCt("application/x-midi")
-		require.False(t, b.needsCompression(obj))
+		require.False(t, b.NeedsCompression(obj))
 
 		obj = newObjectWithCt("text/plain")
-		require.True(t, b.needsCompression(obj))
+		require.True(t, b.NeedsCompression(obj))
 
 		obj = newObjectWithCt("")
-		require.True(t, b.needsCompression(obj))
+		require.True(t, b.NeedsCompression(obj))
 	})
 	t.Run("content-types omitted", func(t *testing.T) {
 		b := newBlobStor(t, true)
 		obj := newObjectWithCt("video/mpeg")
-		require.True(t, b.needsCompression(obj))
+		require.True(t, b.NeedsCompression(obj))
 	})
 	t.Run("compress disabled", func(t *testing.T) {
 		b := newBlobStor(t, false, "video/mpeg")
 
 		obj := newObjectWithCt("video/mpeg")
-		require.False(t, b.needsCompression(obj))
+		require.False(t, b.NeedsCompression(obj))
 
 		obj = newObjectWithCt("text/plain")
-		require.False(t, b.needsCompression(obj))
+		require.False(t, b.NeedsCompression(obj))
 	})
 }
