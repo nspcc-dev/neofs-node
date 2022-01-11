@@ -31,9 +31,13 @@ type Cache interface {
 type cache struct {
 	options
 
-	// mtx protects mem field, statistics and counters.
+	// mtx protects mem field, statistics, counters and compressFlags.
 	mtx sync.RWMutex
 	mem []objectInfo
+
+	// compressFlags maps address of a big object to boolean value indicating
+	// whether object should be compressed.
+	compressFlags map[string]struct{}
 
 	// curMemSize is the current size of all objects cached in memory.
 	curMemSize uint64
@@ -80,6 +84,7 @@ func New(opts ...Option) Cache {
 		closeCh:  make(chan struct{}),
 		evictCh:  make(chan []byte),
 
+		compressFlags: make(map[string]struct{}),
 		options: options{
 			log:             zap.NewNop(),
 			maxMemSize:      maxInMemorySizeBytes,
