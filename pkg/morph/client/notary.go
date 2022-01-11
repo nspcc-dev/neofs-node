@@ -361,9 +361,6 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
 }
 
-// randSource is a source of random numbers.
-var randSource = rand.New()
-
 // NotaryInvokeNotAlpha does the same as NotaryInvoke but does not use client's
 // private key in Invocation script. It means that main TX of notary request is
 // not expected to be signed by the current node.
@@ -380,7 +377,7 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, false, contract, randSource.Uint32(), nil, method, args...)
+	return c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)
 }
 
 // NotarySignAndInvokeTX signs and sends notary request that was received from

@@ -68,8 +68,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
 
 		flat := placement.FlattenNodes(objectPlacement)
 
-		crand := rand.New() // math/rand with cryptographic source
-		crand.Shuffle(len(flat), func(i, j int) {
+		rand.Shuffle(len(flat), func(i, j int) {
 			flat[i], flat[j] = flat[j], flat[i]
 		})
 

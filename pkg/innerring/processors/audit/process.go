@@ -69,10 +69,9 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		}
 
 		n := nodes.Flatten()
-		crand := rand.New() // math/rand with cryptographic source
 
 		// shuffle nodes to ask a random one
-		crand.Shuffle(len(n), func(i, j int) {
+		rand.Shuffle(len(n), func(i, j int) {
 			n[i], n[j] = n[j], n[i]
 		})
 

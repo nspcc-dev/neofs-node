@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/cli/input"
@@ -206,7 +205,7 @@ var cmdSubnetCreate = &cobra.Command{
 		)
 
 		for {
-			num = uint32(rand.Uint64(rand.New(), math.MaxUint32))
+			num = rand.Uint32()
 
 			id.SetNumber(num)
 
