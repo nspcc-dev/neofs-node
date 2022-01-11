@@ -3,6 +3,29 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.4] - 2022-01-13
+
+### Fixed
+- ACL check did not produce status code (#1062)
+- Asset transfer wrapper used incorrect receiver (#1069)
+- Empty search response missed meta header and body (#1063)
+- IR node in single chain environment used incorrect source of IR list (#1025)
+- Incorrect message sequence in object.Range request (#1077)
+
+### Added
+- Option to disable compression of object based on their content-type attribute
+  (#1060)
+
+### Changed
+- Factor out autocomplete command in CLI and Adm (#1041)
+- Single crypto rand source (#851)
+
+### Upgrading from v0.27.3
+To disable compression for object with specific content-types, specify them
+as a string array in blobstor section:
+`NEOFS_STORAGE_SHARD_N_BLOBSTOR_COMPRESSION_EXCLUDE_CONTENT_TYPES`. Use
+asterisk as wildcard, e.g. `video/*`.
+
 ## [0.27.3] - 2021-12-30
 
 ### Added
@@ -851,7 +874,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...master
+[0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
 [0.27.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.2...v0.27.3
 [0.27.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.0...v0.27.1
