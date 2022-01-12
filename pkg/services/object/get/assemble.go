@@ -160,10 +160,7 @@ func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
 
 	exec.overtakePayloadDirectly(chain, rngs, false)
 
-	exec.status = statusOK
-	exec.err = nil
-
-	return true
+	return exec.status == statusOK
 }
 
 func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, []*objectSDK.Range, bool) {
