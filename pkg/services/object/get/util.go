@@ -23,7 +23,7 @@ type clientCacheWrapper struct {
 }
 
 type clientWrapper struct {
-	client coreclient.Client
+	client coreclient.MultiAddressClient
 }
 
 type storageEngineWrapper struct {

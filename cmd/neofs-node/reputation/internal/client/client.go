@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 type commonPrm struct {
-	cli client.Client
+	cli coreclient.Client
 
 	ctx context.Context
 
@@ -22,7 +23,7 @@ type commonPrm struct {
 // SetClient sets base client for NeoFS API communication.
 //
 // Required parameter.
-func (x *commonPrm) SetClient(cli client.Client) {
+func (x *commonPrm) SetClient(cli coreclient.Client) {
 	x.cli = cli
 }
 

@@ -46,7 +46,7 @@ const (
 	basicACLNoFinalAppend   = "eacl-public-append"
 )
 
-var wellKnownBasicACL = map[string]uint32{
+var wellKnownBasicACL = map[string]acl.BasicACL{
 	basicACLPublic:   acl.PublicBasicRule,
 	basicACLPrivate:  acl.PrivateBasicRule,
 	basicACLReadOnly: acl.ReadOnlyBasicRule,
@@ -668,7 +668,7 @@ func parseAttributes(attributes []string) ([]*container.Attribute, error) {
 	return result, nil
 }
 
-func parseBasicACL(basicACL string) (uint32, error) {
+func parseBasicACL(basicACL string) (acl.BasicACL, error) {
 	if value, ok := wellKnownBasicACL[basicACL]; ok {
 		return value, nil
 	}
@@ -680,7 +680,7 @@ func parseBasicACL(basicACL string) (uint32, error) {
 		return 0, fmt.Errorf("can't parse basic ACL: %s", basicACL)
 	}
 
-	return uint32(value), nil
+	return acl.BasicACL(value), nil
 }
 
 func parseNonce(nonce string) (uuid.UUID, error) {
@@ -744,7 +744,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	cmd.Println("owner ID:", cnr.OwnerID())
 
 	basicACL := cnr.BasicACL()
-	prettyPrintBasicACL(cmd, basicACL)
+	prettyPrintBasicACL(cmd, acl.BasicACL(basicACL))
 
 	for _, attribute := range cnr.Attributes() {
 		if attribute.Key() == container.AttributeTimestamp {
@@ -825,7 +825,7 @@ func printJSONMarshaler(cmd *cobra.Command, j json.Marshaler, entity string) {
 	cmd.Println(buf)
 }
 
-func prettyPrintBasicACL(cmd *cobra.Command, basicACL uint32) {
+func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {
 	cmd.Printf("basic ACL: %.8x", basicACL)
 	for k, v := range wellKnownBasicACL {
 		if v == basicACL {

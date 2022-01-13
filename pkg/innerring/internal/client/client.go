@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -16,11 +17,11 @@ import (
 type Client struct {
 	key *ecdsa.PrivateKey
 
-	c client.Client
+	c clientcore.Client
 }
 
 // WrapBasicClient wraps client.Client instance to use it for NeoFS API RPC.
-func (x *Client) WrapBasicClient(c client.Client) {
+func (x *Client) WrapBasicClient(c clientcore.Client) {
 	x.c = c
 }
 

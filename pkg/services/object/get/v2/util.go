@@ -48,7 +48,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
 			key, err := s.keyStorage.GetKey(nil)
@@ -178,7 +178,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			return nil, err
 		}
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -333,7 +333,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*objectSDK.Object, error) {
 			var err error
 
 			key, err := s.keyStorage.GetKey(nil)
@@ -511,8 +511,8 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 	return sh
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.Client, []byte) (*objectSDK.Object, error)) getsvc.RequestForwarder {
-	return func(info client.NodeInfo, c client.Client) (*objectSDK.Object, error) {
+func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) (*objectSDK.Object, error)) getsvc.RequestForwarder {
+	return func(info client.NodeInfo, c client.MultiAddressClient) (*objectSDK.Object, error) {
 		var (
 			firstErr error
 			res      *objectSDK.Object

@@ -14,7 +14,7 @@ type PutInitPrm struct {
 
 	traverseOpts []placement.Option
 
-	relay func(client.NodeInfo, client.Client) error
+	relay func(client.NodeInfo, client.MultiAddressClient) error
 }
 
 type PutChunkPrm struct {
@@ -45,7 +45,7 @@ func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
 	return p
 }
 
-func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.Client) error) *PutInitPrm {
+func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.MultiAddressClient) error) *PutInitPrm {
 	if p != nil {
 		p.relay = f
 	}

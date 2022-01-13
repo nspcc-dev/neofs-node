@@ -19,7 +19,7 @@ type Streamer struct {
 
 	target transformer.ObjectTarget
 
-	relay func(client.NodeInfo, client.Client) error
+	relay func(client.NodeInfo, client.MultiAddressClient) error
 
 	maxPayloadSz uint64 // network config
 }

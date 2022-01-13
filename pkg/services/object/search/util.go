@@ -26,7 +26,7 @@ type clientConstructorWrapper struct {
 }
 
 type clientWrapper struct {
-	client client.Client
+	client client.MultiAddressClient
 }
 
 type storageEngineWrapper engine.StorageEngine

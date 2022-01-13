@@ -238,7 +238,7 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 }
 
-func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c client.Client) {
+func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) {
 	req := new(ircontrol.HealthCheckRequest)
 
 	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
@@ -430,7 +430,7 @@ func listShards(cmd *cobra.Command, _ []string) {
 
 // getControlSDKClient is the same getSDKClient but with
 // another RPC endpoint flag.
-func getControlSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
+func getControlSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
 	netAddr, err := getEndpointAddress(controlRPC)
 	if err != nil {
 		return nil, err
