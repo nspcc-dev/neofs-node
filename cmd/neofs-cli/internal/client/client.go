@@ -7,7 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -39,10 +38,6 @@ func BalanceOf(prm BalanceOfPrm) (res BalanceOfRes, err error) {
 	res.cliRes, err = prm.cli.GetBalance(context.Background(), prm.ownerID,
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -70,10 +65,6 @@ func ListContainers(prm ListContainersPrm) (res ListContainersRes, err error) {
 	res.cliRes, err = prm.cli.ListContainers(context.Background(), prm.ownerID,
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -114,10 +105,6 @@ func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
 		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -145,10 +132,6 @@ func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
 	res.cliRes, err = prm.cli.GetContainer(context.Background(), prm.cnrID,
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -172,16 +155,10 @@ type DeleteContainerRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func DeleteContainer(prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
-	var cliRes *client.ContainerDeleteRes
-
-	cliRes, err = prm.cli.DeleteContainer(context.Background(), prm.cnrID,
+	_, err = prm.cli.DeleteContainer(context.Background(), prm.cnrID,
 		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(cliRes.Status())
-	}
 
 	return
 }
@@ -209,10 +186,6 @@ func EACL(prm EACLPrm) (res EACLRes, err error) {
 	res.cliRes, err = prm.cli.EACL(context.Background(), prm.cnrID,
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -242,16 +215,10 @@ type SetEACLRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func SetEACL(prm SetEACLPrm) (res SetEACLRes, err error) {
-	var cliRes *client.SetEACLRes
-
-	cliRes, err = prm.cli.SetEACL(context.Background(), prm.eaclTable,
+	_, err = prm.cli.SetEACL(context.Background(), prm.eaclTable,
 		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(cliRes.Status())
-	}
 
 	return
 }
@@ -278,10 +245,6 @@ func NetworkInfo(prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
 	res.cliRes, err = prm.cli.NetworkInfo(context.Background(),
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -313,10 +276,6 @@ func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
 	res.cliRes, err = prm.cli.EndpointInfo(context.Background(),
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -348,10 +307,6 @@ func CreateSession(prm CreateSessionPrm) (res CreateSessionRes, err error) {
 	res.cliRes, err = prm.cli.CreateSession(context.Background(), math.MaxUint64,
 		client.WithKey(prm.privKey),
 	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -399,10 +354,6 @@ func PutObject(prm PutObjectPrm) (res PutObjectRes, err error) {
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -436,10 +387,6 @@ func DeleteObject(prm DeleteObjectPrm) (res DeleteObjectRes, err error) {
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -457,7 +404,7 @@ type GetObjectRes struct {
 	cliRes *client.ObjectGetRes
 }
 
-// Object returns header of the request object.
+// Header returns header of the request object.
 func (x GetObjectRes) Header() *object.Object {
 	return x.cliRes.Object()
 }
@@ -480,10 +427,6 @@ func GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -533,10 +476,6 @@ func HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -578,10 +517,6 @@ func SearchObjects(prm SearchObjectsPrm) (res SearchObjectsRes, err error) {
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -643,10 +578,6 @@ func HashPayloadRanges(prm HashPayloadRangesPrm) (res HashPayloadRangesRes, err 
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
-	}
 
 	return
 }
@@ -683,17 +614,11 @@ func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 	cliPrm.WithDataWriter(prm.wrt)
 	cliPrm.WithRange(prm.rng)
 
-	var cliRes *client.ObjectRangeRes
-
-	cliRes, err = prm.cli.ObjectPayloadRangeData(context.Background(), &cliPrm, append(prm.opts,
+	_, err = prm.cli.ObjectPayloadRangeData(context.Background(), &cliPrm, append(prm.opts,
 		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(cliRes.Status())
-	}
 
 	return
 }

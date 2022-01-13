@@ -5,10 +5,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
+	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
-	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
@@ -43,7 +43,7 @@ type RemoteProvider struct {
 	key *ecdsa.PrivateKey
 }
 
-func (rp RemoteProvider) WithClient(c apiClient.Client) reputationcommon.WriterProvider {
+func (rp RemoteProvider) WithClient(c coreclient.Client) reputationcommon.WriterProvider {
 	return &TrustWriterProvider{
 		client: c,
 		key:    rp.key,
@@ -51,7 +51,7 @@ func (rp RemoteProvider) WithClient(c apiClient.Client) reputationcommon.WriterP
 }
 
 type TrustWriterProvider struct {
-	client apiClient.Client
+	client coreclient.Client
 	key    *ecdsa.PrivateKey
 }
 
@@ -71,7 +71,7 @@ func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputa
 
 type RemoteTrustWriter struct {
 	eiCtx  eigentrustcalc.Context
-	client apiClient.Client
+	client coreclient.Client
 	key    *ecdsa.PrivateKey
 }
 

@@ -127,7 +127,7 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	return fromPutResponse(resp), nil
 }
 
-func (s *streamer) relayRequest(info client.NodeInfo, c client.Client) error {
+func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClient) error {
 	// open stream
 	resp := new(object.PutResponse)
 

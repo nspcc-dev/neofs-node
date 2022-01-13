@@ -9,13 +9,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type ClientConstructor interface {
-	Get(clientcore.NodeInfo) (client.Client, error)
+	Get(clientcore.NodeInfo) (clientcore.Client, error)
 }
 
 // RemoteHeader represents utility for getting

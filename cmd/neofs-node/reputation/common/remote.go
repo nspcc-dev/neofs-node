@@ -8,18 +8,17 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
-	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
 type clientCache interface {
-	Get(client.NodeInfo) (apiClient.Client, error)
+	Get(client.NodeInfo) (client.Client, error)
 }
 
 // clientKeyRemoteProvider must provide remote writer and take into account
 // that requests must be sent via passed api client and must be signed with
 // passed private key.
 type clientKeyRemoteProvider interface {
-	WithClient(apiClient.Client) reputationcommon.WriterProvider
+	WithClient(client.Client) reputationcommon.WriterProvider
 }
 
 // remoteTrustProvider is implementation of reputation RemoteWriterProvider interface.

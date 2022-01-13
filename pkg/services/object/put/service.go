@@ -29,7 +29,7 @@ type Service struct {
 type Option func(*cfg)
 
 type ClientConstructor interface {
-	Get(client.NodeInfo) (client.Client, error)
+	Get(client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 type cfg struct {
