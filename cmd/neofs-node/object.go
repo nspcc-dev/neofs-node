@@ -172,13 +172,13 @@ func (f *innerRingFetcherWithoutNotary) InnerRingKeys() ([][]byte, error) {
 
 type coreClientConstructor reputationClientConstructor
 
-func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.Client, error) {
+func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.MultiAddressClient, error) {
 	c, err := (*reputationClientConstructor)(x).Get(info)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.(coreclient.Client), nil
+	return c.(coreclient.MultiAddressClient), nil
 }
 
 func initObjectService(c *cfg) {
@@ -440,12 +440,12 @@ type reputationClientConstructor struct {
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(coreclient.NodeInfo) (client.Client, error)
+		Get(coreclient.NodeInfo) (coreclient.Client, error)
 	}
 }
 
 type reputationClient struct {
-	coreclient.Client
+	coreclient.MultiAddressClient
 
 	prm truststorage.UpdatePrm
 
@@ -461,7 +461,7 @@ func (c *reputationClient) submitResult(err error) {
 }
 
 func (c *reputationClient) PutObject(ctx context.Context, prm *client.PutObjectParams, opts ...client.CallOption) (*client.ObjectPutRes, error) {
-	res, err := c.Client.PutObject(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.PutObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
@@ -469,7 +469,7 @@ func (c *reputationClient) PutObject(ctx context.Context, prm *client.PutObjectP
 }
 
 func (c *reputationClient) DeleteObject(ctx context.Context, prm *client.DeleteObjectParams, opts ...client.CallOption) (*client.ObjectDeleteRes, error) {
-	res, err := c.Client.DeleteObject(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.DeleteObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
@@ -477,7 +477,7 @@ func (c *reputationClient) DeleteObject(ctx context.Context, prm *client.DeleteO
 }
 
 func (c *reputationClient) GetObject(ctx context.Context, prm *client.GetObjectParams, opts ...client.CallOption) (*client.ObjectGetRes, error) {
-	res, err := c.Client.GetObject(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.GetObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
@@ -485,7 +485,7 @@ func (c *reputationClient) GetObject(ctx context.Context, prm *client.GetObjectP
 }
 
 func (c *reputationClient) HeadObject(ctx context.Context, prm *client.ObjectHeaderParams, opts ...client.CallOption) (*client.ObjectHeadRes, error) {
-	res, err := c.Client.HeadObject(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.HeadObject(ctx, prm, opts...)
 
 	c.submitResult(err)
 
@@ -493,7 +493,7 @@ func (c *reputationClient) HeadObject(ctx context.Context, prm *client.ObjectHea
 }
 
 func (c *reputationClient) ObjectPayloadRangeData(ctx context.Context, prm *client.RangeDataParams, opts ...client.CallOption) (*client.ObjectRangeRes, error) {
-	res, err := c.Client.ObjectPayloadRangeData(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.ObjectPayloadRangeData(ctx, prm, opts...)
 
 	c.submitResult(err)
 
@@ -501,7 +501,7 @@ func (c *reputationClient) ObjectPayloadRangeData(ctx context.Context, prm *clie
 }
 
 func (c *reputationClient) HashObjectPayloadRanges(ctx context.Context, prm *client.RangeChecksumParams, opts ...client.CallOption) (*client.ObjectRangeHashRes, error) {
-	res, err := c.Client.HashObjectPayloadRanges(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.HashObjectPayloadRanges(ctx, prm, opts...)
 
 	c.submitResult(err)
 
@@ -509,14 +509,14 @@ func (c *reputationClient) HashObjectPayloadRanges(ctx context.Context, prm *cli
 }
 
 func (c *reputationClient) SearchObjects(ctx context.Context, prm *client.SearchObjectParams, opts ...client.CallOption) (*client.ObjectSearchRes, error) {
-	res, err := c.Client.SearchObjects(ctx, prm, opts...)
+	res, err := c.MultiAddressClient.SearchObjects(ctx, prm, opts...)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (client.Client, error) {
+func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.Client, error) {
 	cl, err := c.basicConstructor.Get(info)
 	if err != nil {
 		return nil, err
@@ -532,9 +532,9 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (client.Clie
 				prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
 
 				return &reputationClient{
-					Client: cl.(coreclient.Client),
-					prm:    prm,
-					cons:   c,
+					MultiAddressClient: cl.(coreclient.MultiAddressClient),
+					prm:                prm,
+					cons:               c,
 				}, nil
 			}
 		}

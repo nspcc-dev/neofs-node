@@ -24,7 +24,7 @@ type (
 	ClientCache struct {
 		log   *zap.Logger
 		cache interface {
-			Get(clientcore.NodeInfo) (client.Client, error)
+			Get(clientcore.NodeInfo) (clientcore.Client, error)
 			CloseAll()
 		}
 		key *ecdsa.PrivateKey
@@ -51,7 +51,7 @@ func newClientCache(p *clientCacheParams) *ClientCache {
 	}
 }
 
-func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
+func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	// Because cache is used by `ClientCache` exclusively,
 	// client will always have valid key.
 	return c.cache.Get(info)

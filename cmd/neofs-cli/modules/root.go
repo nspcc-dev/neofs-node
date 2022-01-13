@@ -289,7 +289,7 @@ func getEndpointAddress(endpointFlag string) (addr network.Address, err error) {
 }
 
 type clientWithKey interface {
-	SetClient(client.Client)
+	SetClient(*client.Client)
 	SetKey(*ecdsa.PrivateKey)
 }
 
@@ -325,7 +325,7 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
-func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
+func getSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
 	netAddr, err := getEndpointAddress(rpc)
 	if err != nil {
 		return nil, err
@@ -334,6 +334,7 @@ func getSDKClient(key *ecdsa.PrivateKey) (client.Client, error) {
 	options := []client.Option{
 		client.WithAddress(netAddr.HostAddr()),
 		client.WithDefaultPrivateKey(key),
+		client.WithNeoFSErrorParsing(),
 	}
 
 	if netAddr.TLSEnabled() {

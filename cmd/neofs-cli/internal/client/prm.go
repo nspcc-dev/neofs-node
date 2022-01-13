@@ -15,13 +15,13 @@ import (
 // here are small structures with public setters to share between parameter structures
 
 type commonPrm struct {
-	cli client.Client
+	cli *client.Client
 
 	privKey *ecdsa.PrivateKey
 }
 
 // SetClient sets base client for NeoFS API communication.
-func (x *commonPrm) SetClient(cli client.Client) {
+func (x *commonPrm) SetClient(cli *client.Client) {
 	x.cli = cli
 }
 

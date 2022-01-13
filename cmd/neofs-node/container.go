@@ -249,7 +249,7 @@ type remoteLoadAnnounceProvider struct {
 	netmapKeys netmapCore.AnnouncedKeys
 
 	clientCache interface {
-		Get(client.NodeInfo) (apiClient.Client, error)
+		Get(client.NodeInfo) (client.Client, error)
 	}
 
 	deadEndProvider loadcontroller.WriterProvider
@@ -284,7 +284,7 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 }
 
 type remoteLoadAnnounceWriterProvider struct {
-	client apiClient.Client
+	client client.Client
 	key    *ecdsa.PrivateKey
 }
 
@@ -299,7 +299,7 @@ func (p *remoteLoadAnnounceWriterProvider) InitWriter(ctx context.Context) (load
 type remoteLoadAnnounceWriter struct {
 	ctx context.Context
 
-	client apiClient.Client
+	client client.Client
 	key    *ecdsa.PrivateKey
 
 	buf []containerSDK.UsedSpaceAnnouncement

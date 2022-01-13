@@ -32,7 +32,7 @@ type RangeHashPrm struct {
 	salt []byte
 }
 
-type RequestForwarder func(coreclient.NodeInfo, coreclient.Client) (*objectSDK.Object, error)
+type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) (*objectSDK.Object, error)
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {

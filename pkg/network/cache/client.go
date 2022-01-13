@@ -14,7 +14,7 @@ type (
 	// already created clients.
 	ClientCache struct {
 		mu      *sync.RWMutex
-		clients map[string]client.Client
+		clients map[string]clientcore.Client
 		opts    []client.Option
 	}
 )
@@ -24,13 +24,13 @@ type (
 func NewSDKClientCache(opts ...client.Option) *ClientCache {
 	return &ClientCache{
 		mu:      new(sync.RWMutex),
-		clients: make(map[string]client.Client),
+		clients: make(map[string]clientcore.Client),
 		opts:    opts,
 	}
 }
 
 // Get function returns existing client or creates a new one.
-func (c *ClientCache) Get(info clientcore.NodeInfo) (client.Client, error) {
+func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	netAddr := info.AddressGroup()
 
 	// multiaddr is used as a key in client cache since

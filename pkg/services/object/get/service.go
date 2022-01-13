@@ -99,7 +99,7 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 }
 
 type ClientConstructor interface {
-	Get(client.NodeInfo) (client.Client, error)
+	Get(client.NodeInfo) (client.MultiAddressClient, error)
 }
 
 // WithClientConstructor returns option to set constructor of remote node clients.

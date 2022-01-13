@@ -44,7 +44,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 			return nil, err
 		}
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.Client, pubkey []byte) ([]*objectSDK.ID, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) ([]*objectSDK.ID, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -114,8 +114,8 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	return p, nil
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.Client, []byte) ([]*objectSDK.ID, error)) searchsvc.RequestForwarder {
-	return func(info client.NodeInfo, c client.Client) ([]*objectSDK.ID, error) {
+func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) ([]*objectSDK.ID, error)) searchsvc.RequestForwarder {
+	return func(info client.NodeInfo, c client.MultiAddressClient) ([]*objectSDK.ID, error) {
 		var (
 			firstErr error
 			res      []*objectSDK.ID
