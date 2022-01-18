@@ -27,11 +27,10 @@ import (
 )
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
-	return newCustomShard(t, enableWriteCache, writecache.WithMaxMemSize(0))
+	return newCustomShard(t, t.TempDir(), enableWriteCache, writecache.WithMaxMemSize(0))
 }
 
-func newCustomShard(t testing.TB, enableWriteCache bool, wcOpts ...writecache.Option) *shard.Shard {
-	rootPath := t.Name()
+func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts ...writecache.Option) *shard.Shard {
 	if enableWriteCache {
 		rootPath = path.Join(rootPath, "wc")
 	} else {

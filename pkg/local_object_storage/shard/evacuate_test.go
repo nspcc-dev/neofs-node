@@ -39,7 +39,7 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 	if !hasWriteCache {
 		sh = newShard(t, false)
 	} else {
-		sh = newCustomShard(t, true,
+		sh = newCustomShard(t, t.TempDir(), true,
 			writecache.WithSmallObjectSize(wcSmallObjectSize),
 			writecache.WithMaxObjectSize(wcBigObjectSize))
 	}
