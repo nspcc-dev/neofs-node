@@ -42,7 +42,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 
 		res, err := testHead(t, sh, headPrm, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj.Object(), res.Object())
+		require.Equal(t, obj.CutPayload().Object(), res.Object())
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
@@ -75,7 +75,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 
 		head, err := sh.Head(headPrm)
 		require.NoError(t, err)
-		require.Equal(t, parent.Object(), head.Object())
+		require.Equal(t, parent.CutPayload().Object(), head.Object())
 	})
 }
 

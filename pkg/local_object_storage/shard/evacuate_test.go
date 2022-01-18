@@ -4,21 +4,44 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEvacuate(t *testing.T) {
-	sh := newShard(t, false)
+	t.Run("without write-cache", func(t *testing.T) {
+		testEvacuate(t, 10, false)
+	})
+	t.Run("with write-cache", func(t *testing.T) {
+		// Put a bit more objects to write-cache to facilitate race-conditions.
+		testEvacuate(t, 100, true)
+	})
+}
+
+func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
+	const (
+		wcSmallObjectSize = 1024          // 1 KiB, goes to write-cache memory
+		wcBigObjectSize   = 4 * 1024      // 4 KiB, goes to write-cache FSTree
+		bsSmallObjectSize = 10 * 1024     // 10 KiB, goes to blobovnicza DB
+		bsBigObjectSize   = 1024*1024 + 1 // > 1 MiB, goes to blobovnicza FSTree
+	)
+
+	var sh *shard.Shard
+	if !hasWriteCache {
+		sh = newShard(t, false)
+	} else {
+		sh = newCustomShard(t, true,
+			writecache.WithSmallObjectSize(wcSmallObjectSize),
+			writecache.WithMaxObjectSize(wcBigObjectSize))
+	}
 	defer releaseShard(sh, t)
 
 	out := filepath.Join(t.TempDir(), "dump")
@@ -36,12 +59,25 @@ func TestEvacuate(t *testing.T) {
 	require.Equal(t, 0, res.Count())
 	require.NoError(t, sh.SetMode(shard.ModeReadWrite))
 
-	const objCount = 10
+	// Approximate object header size.
+	const headerSize = 400
+
 	objects := make([]*object.Object, objCount)
 	for i := 0; i < objCount; i++ {
 		cid := cidtest.ID()
-		obj := generateRawObjectWithCID(t, cid)
-		addAttribute(obj, "foo", strconv.FormatUint(rand.Uint64(), 10))
+		var size int
+		switch i % 6 {
+		case 0, 1:
+			size = wcSmallObjectSize - headerSize
+		case 2, 3:
+			size = bsSmallObjectSize - headerSize
+		case 4:
+			size = wcBigObjectSize - headerSize
+		default:
+			size = bsBigObjectSize - headerSize
+		}
+		data := make([]byte, size)
+		obj := generateRawObjectWithPayload(cid, data)
 		objects[i] = obj.Object()
 
 		prm := new(shard.PutPrm).WithObject(objects[i])
