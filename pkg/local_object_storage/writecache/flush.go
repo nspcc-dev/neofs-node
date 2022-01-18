@@ -63,6 +63,13 @@ func (c *cache) flush() {
 		m = m[:0]
 		sz := 0
 
+		c.modeMtx.RLock()
+		if c.mode == ModeReadOnly {
+			c.modeMtx.RUnlock()
+			time.Sleep(time.Second)
+			continue
+		}
+
 		// We put objects in batches of fixed size to not interfere with main put cycle a lot.
 		_ = c.db.View(func(tx *bbolt.Tx) error {
 			b := tx.Bucket(defaultBucket)
@@ -90,6 +97,7 @@ func (c *cache) flush() {
 			select {
 			case c.flushCh <- obj:
 			case <-c.closeCh:
+				c.modeMtx.RUnlock()
 				return
 			}
 		}
@@ -98,6 +106,7 @@ func (c *cache) flush() {
 		for i := range m {
 			c.flushed.Add(m[i].addr, true)
 		}
+		c.modeMtx.RUnlock()
 
 		c.log.Debug("flushed items from write-cache",
 			zap.Int("count", len(m)),
@@ -116,8 +125,13 @@ func (c *cache) flushBigObjects() {
 	for {
 		select {
 		case <-tick.C:
-			evictNum := 0
+			c.modeMtx.RLock()
+			if c.mode == ModeReadOnly {
+				c.modeMtx.RUnlock()
+				break
+			}
 
+			evictNum := 0
 			_ = c.fsTree.Iterate(func(addr *objectSDK.Address, data []byte) error {
 				sAddr := addr.String()
 
@@ -150,6 +164,7 @@ func (c *cache) flushBigObjects() {
 
 			// evict objects which were successfully written to BlobStor
 			c.evictObjects(evictNum)
+			c.modeMtx.RUnlock()
 		case <-c.closeCh:
 		}
 	}

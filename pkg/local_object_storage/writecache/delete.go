@@ -12,6 +12,12 @@ import (
 
 // Delete removes object from write-cache.
 func (c *cache) Delete(addr *objectSDK.Address) error {
+	c.modeMtx.RLock()
+	defer c.modeMtx.RUnlock()
+	if c.mode == ModeReadOnly {
+		return ErrReadOnly
+	}
+
 	saddr := addr.String()
 
 	// Check memory cache.

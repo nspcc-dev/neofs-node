@@ -21,6 +21,7 @@ type Cache interface {
 	Head(*objectSDK.Address) (*object.Object, error)
 	Delete(*objectSDK.Address) error
 	Put(*object.Object) error
+	SetMode(Mode)
 	DumpInfo() Info
 
 	Init() error
@@ -34,6 +35,9 @@ type cache struct {
 	// mtx protects mem field, statistics, counters and compressFlags.
 	mtx sync.RWMutex
 	mem []objectInfo
+
+	mode    Mode
+	modeMtx sync.RWMutex
 
 	// compressFlags maps address of a big object to boolean value indicating
 	// whether object should be compressed.
@@ -83,6 +87,7 @@ func New(opts ...Option) Cache {
 		metaCh:   make(chan *object.Object),
 		closeCh:  make(chan struct{}),
 		evictCh:  make(chan []byte),
+		mode:     ModeReadWrite,
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
