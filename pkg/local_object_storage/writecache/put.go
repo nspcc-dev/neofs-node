@@ -12,6 +12,12 @@ var ErrBigObject = errors.New("too big object")
 
 // Put puts object to write-cache.
 func (c *cache) Put(o *object.Object) error {
+	c.modeMtx.RLock()
+	defer c.modeMtx.RUnlock()
+	if c.mode == ModeReadOnly {
+		return ErrReadOnly
+	}
+
 	sz := uint64(o.ToV2().StableSize())
 	if sz > c.maxObjectSize {
 		return ErrBigObject

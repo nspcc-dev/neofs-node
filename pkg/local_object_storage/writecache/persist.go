@@ -19,37 +19,51 @@ func (c *cache) persistLoop() {
 	for {
 		select {
 		case <-tick.C:
-			c.mtx.RLock()
-			m := c.mem
-			c.mtx.RUnlock()
-
-			sort.Slice(m, func(i, j int) bool { return m[i].addr < m[j].addr })
-
-			start := time.Now()
-			c.persistSmallObjects(m)
-			c.log.Debug("persisted items to disk",
-				zap.Duration("took", time.Since(start)),
-				zap.Int("total", len(m)))
-
-			for i := range m {
-				storagelog.Write(c.log,
-					storagelog.AddressField(m[i].addr),
-					storagelog.OpField("in-mem DELETE persist"),
-				)
+			c.modeMtx.RLock()
+			if c.mode == ModeReadOnly {
+				c.modeMtx.RUnlock()
+				continue
 			}
-
-			c.mtx.Lock()
-			c.curMemSize = 0
-			n := copy(c.mem, c.mem[len(m):])
-			c.mem = c.mem[:n]
-			for i := range c.mem {
-				c.curMemSize += uint64(len(c.mem[i].data))
-			}
-			c.mtx.Unlock()
+			c.persistMemoryCache()
+			c.modeMtx.RUnlock()
 		case <-c.closeCh:
 			return
 		}
 	}
+}
+
+func (c *cache) persistMemoryCache() {
+	c.mtx.RLock()
+	m := c.mem
+	c.mtx.RUnlock()
+
+	if len(m) == 0 {
+		return
+	}
+
+	sort.Slice(m, func(i, j int) bool { return m[i].addr < m[j].addr })
+
+	start := time.Now()
+	c.persistSmallObjects(m)
+	c.log.Debug("persisted items to disk",
+		zap.Duration("took", time.Since(start)),
+		zap.Int("total", len(m)))
+
+	for i := range m {
+		storagelog.Write(c.log,
+			storagelog.AddressField(m[i].addr),
+			storagelog.OpField("in-mem DELETE persist"),
+		)
+	}
+
+	c.mtx.Lock()
+	c.curMemSize = 0
+	n := copy(c.mem, c.mem[len(m):])
+	c.mem = c.mem[:n]
+	for i := range c.mem {
+		c.curMemSize += uint64(len(c.mem[i].data))
+	}
+	c.mtx.Unlock()
 }
 
 // persistSmallObjects persists small objects to the write-cache database and

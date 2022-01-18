@@ -1,6 +1,10 @@
 package shard
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+)
 
 // Mode represents enumeration of Shard work modes.
 type Mode uint32
@@ -39,6 +43,15 @@ func (m Mode) String() string {
 func (s *Shard) SetMode(m Mode) error {
 	s.m.Lock()
 	defer s.m.Unlock()
+
+	if s.hasWriteCache() {
+		switch m {
+		case ModeReadOnly:
+			s.writeCache.SetMode(writecache.ModeReadOnly)
+		case ModeReadWrite:
+			s.writeCache.SetMode(writecache.ModeReadWrite)
+		}
+	}
 
 	s.info.Mode = m
 
