@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,6 +78,7 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 			size = bsBigObjectSize - headerSize
 		}
 		data := make([]byte, size)
+		rand.Read(data)
 		obj := generateRawObjectWithPayload(cid, data)
 		objects[i] = obj.Object()
 
@@ -212,7 +214,8 @@ func checkRestore(t *testing.T, sh *shard.Shard, prm *shard.RestorePrm, objects 
 	require.Equal(t, len(objects), res.Count())
 
 	for i := range objects {
-		_, err := sh.Get(new(shard.GetPrm).WithAddress(objects[i].Address()))
+		res, err := sh.Get(new(shard.GetPrm).WithAddress(objects[i].Address()))
 		require.NoError(t, err)
+		require.Equal(t, objects[i], res.Object())
 	}
 }
