@@ -140,6 +140,9 @@ func (c *cache) Init() error {
 
 // Close closes db connection and stops services. Executes ObjectCounters.FlushAndClose op.
 func (c *cache) Close() error {
+	// Finish all in-progress operations.
+	c.SetMode(ModeReadOnly)
+
 	close(c.closeCh)
 	c.objCounters.FlushAndClose()
 	return c.db.Close()
