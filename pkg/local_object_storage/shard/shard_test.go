@@ -27,6 +27,10 @@ import (
 )
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
+	return newCustomShard(t, enableWriteCache, writecache.WithMaxMemSize(0))
+}
+
+func newCustomShard(t testing.TB, enableWriteCache bool, wcOpts ...writecache.Option) *shard.Shard {
 	rootPath := t.Name()
 	if enableWriteCache {
 		rootPath = path.Join(rootPath, "wc")
@@ -46,8 +50,7 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 		),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
-			writecache.WithMaxMemSize(0), // disable memory batches
-			writecache.WithPath(path.Join(rootPath, "wcache")),
+			append(wcOpts, writecache.WithPath(path.Join(rootPath, "wcache")))...,
 		),
 	}
 
@@ -69,12 +72,17 @@ func generateRawObject(t *testing.T) *object.RawObject {
 }
 
 func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
+	data := owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)
+	return generateRawObjectWithPayload(cid, data)
+}
+
+func generateRawObjectWithPayload(cid *cid.ID, data []byte) *object.RawObject {
 	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
 
 	csum := new(checksum.Checksum)
-	csum.SetSHA256(sha256.Sum256(owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)))
+	csum.SetSHA256(sha256.Sum256(data))
 
 	csumTZ := new(checksum.Checksum)
 	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))
@@ -84,6 +92,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
 	obj.SetVersion(version)
+	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)
 

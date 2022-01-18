@@ -11,6 +11,37 @@ import (
 // ErrNoDefaultBucket is returned by IterateDB when default bucket for objects is missing.
 var ErrNoDefaultBucket = errors.New("no default bucket")
 
+// Iterate iterates over all objects present in write cache.
+// This is very difficult to do correctly unless write-cache is put in read-only mode.
+// Thus we silently fail if shard is not in read-only mode to avoid reporting misleading results.
+func (c *cache) Iterate(f func([]byte) error) error {
+	c.modeMtx.RLock()
+	defer c.modeMtx.RUnlock()
+	if c.mode != ModeReadOnly {
+		return nil
+	}
+
+	err := c.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(defaultBucket)
+		return b.ForEach(func(k, data []byte) error {
+			if _, ok := c.flushed.Peek(string(k)); ok {
+				return nil
+			}
+			return f(data)
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	return c.fsTree.Iterate(func(addr *object.Address, data []byte) error {
+		if _, ok := c.flushed.Peek(addr.String()); ok {
+			return nil
+		}
+		return f(data)
+	})
+}
+
 // IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.
 // It is assumed that db is an underlying database of some WriteCache instance.
 //

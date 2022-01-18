@@ -20,6 +20,7 @@ type Cache interface {
 	Get(*objectSDK.Address) (*object.Object, error)
 	Head(*objectSDK.Address) (*object.Object, error)
 	Delete(*objectSDK.Address) error
+	Iterate(func(data []byte) error) error
 	Put(*object.Object) error
 	SetMode(Mode)
 	DumpInfo() Info
