@@ -175,6 +175,7 @@ func (c *cache) flushWorker(num int) {
 		// TODO(fyrchik): do this once in N iterations depending on load
 		select {
 		case obj = <-priorityCh:
+			metaOnly = num%3 == 1
 		default:
 			select {
 			case obj = <-c.directCh:
