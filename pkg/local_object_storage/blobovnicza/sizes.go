@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strconv"
-
-	"go.etcd.io/bbolt"
 )
 
 const firstBucketBound = uint64(32 * 1 << 10) // 32KB
@@ -50,25 +48,4 @@ func (b *Blobovnicza) decSize(sz uint64) {
 
 func (b *Blobovnicza) full() bool {
 	return b.filled.Load() >= b.fullSizeLimit
-}
-
-func (b *Blobovnicza) syncFullnessCounter(tx *bbolt.Tx) error {
-	sz := uint64(0)
-
-	if err := b.iterateBucketKeys(func(lower, upper uint64, key []byte) (bool, error) {
-		buck := tx.Bucket(key)
-		if buck == nil {
-			return false, fmt.Errorf("bucket not found %s", stringifyBounds(lower, upper))
-		}
-
-		sz += uint64(buck.Stats().KeyN) * (upper + lower) / 2
-
-		return false, nil
-	}); err != nil {
-		return err
-	}
-
-	b.filled.Store(sz)
-
-	return nil
 }
