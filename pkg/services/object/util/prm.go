@@ -8,6 +8,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
+// maxLocalTTL is maximum TTL for an operation to be considered local.
+const maxLocalTTL = 1
+
 type CommonPrm struct {
 	local bool
 
@@ -103,7 +106,7 @@ func CommonPrmFromV2(req interface {
 	ttl := meta.GetTTL()
 
 	prm := &CommonPrm{
-		local: ttl <= 1, // FIXME: use constant
+		local: ttl <= maxLocalTTL,
 		xhdrs: make([]*sessionsdk.XHeader, 0, len(xHdrs)),
 		ttl:   ttl - 1, // decrease TTL for new requests
 	}
