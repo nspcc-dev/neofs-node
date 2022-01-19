@@ -44,20 +44,10 @@ const (
 	generateKeyDefault   = false
 	generateKeyUsage     = "generate new private key"
 
-	binaryKey          = "binary-key"
-	binaryKeyShorthand = ""
-	binaryKeyDefault   = ""
-	binaryKeyUsage     = "path to the raw private key file"
-
 	walletPath          = "wallet"
 	walletPathShorthand = "w"
 	walletPathDefault   = ""
-	walletPathUsage     = "path to the wallet"
-
-	wif          = "wif"
-	wifShorthand = ""
-	wifDefault   = ""
-	wifUsage     = "WIF or NEP-2"
+	walletPathUsage     = "WIF (NEP-2) string or path to the wallet or binary key"
 
 	address          = "address"
 	addressShorthand = ""
@@ -183,29 +173,34 @@ func getKey() (*ecdsa.PrivateKey, error) {
 		return &priv.PrivateKey, nil
 	}
 
-	if keyPath := viper.GetString(binaryKey); keyPath != "" {
-		return getKeyFromFile(keyPath)
+	// Ideally we want to touch file-system on the last step.
+	// However, asking for NEP-2 password seems to be confusing if we provide a wallet.
+	// Thus we try keys in the following order:
+	// 1. WIF
+	// 2. Raw binary key
+	// 3. Wallet file
+	// 4. NEP-2 encrypted WIF.
+	keyDesc := viper.GetString(walletPath)
+	priv, err := keys.NewPrivateKeyFromWIF(keyDesc)
+	if err == nil {
+		return &priv.PrivateKey, nil
 	}
 
-	if walletPath := viper.GetString(walletPath); walletPath != "" {
-		w, err := wallet.NewWalletFromFile(walletPath)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
-		}
+	p, err := getKeyFromFile(keyDesc)
+	if err == nil {
+		return p, nil
+	}
+
+	w, err := wallet.NewWalletFromFile(keyDesc)
+	if err == nil {
 		return getKeyFromWallet(w, viper.GetString(address))
 	}
 
-	wif := viper.GetString(wif)
-	if len(wif) == nep2Base58Length {
-		return getKeyFromNEP2(wif)
+	if len(keyDesc) == nep2Base58Length {
+		return getKeyFromNEP2(keyDesc)
 	}
 
-	priv, err := keys.NewPrivateKeyFromWIF(wif)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
-	}
-
-	return &priv.PrivateKey, nil
+	return nil, errInvalidKey
 }
 
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
@@ -404,9 +399,7 @@ func initCommonFlags(cmd *cobra.Command) {
 	ff := cmd.Flags()
 
 	ff.BoolP(generateKey, generateKeyShorthand, generateKeyDefault, generateKeyUsage)
-	ff.StringP(binaryKey, binaryKeyShorthand, binaryKeyDefault, binaryKeyUsage)
 	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
-	ff.StringP(wif, wifShorthand, wifDefault, wifUsage)
 	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
 	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
 	ff.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
@@ -417,9 +410,7 @@ func bindCommonFlags(cmd *cobra.Command) {
 	ff := cmd.Flags()
 
 	_ = viper.BindPFlag(generateKey, ff.Lookup(generateKey))
-	_ = viper.BindPFlag(binaryKey, ff.Lookup(binaryKey))
 	_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
-	_ = viper.BindPFlag(wif, ff.Lookup(wif))
 	_ = viper.BindPFlag(address, ff.Lookup(address))
 	_ = viper.BindPFlag(rpc, ff.Lookup(rpc))
 	_ = viper.BindPFlag(verbose, ff.Lookup(verbose))

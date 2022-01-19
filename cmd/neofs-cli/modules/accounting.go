@@ -23,9 +23,7 @@ var accountingCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		flags := cmd.Flags()
 
-		_ = viper.BindPFlag(binaryKey, flags.Lookup(binaryKey))
 		_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
-		_ = viper.BindPFlag(wif, flags.Lookup(wif))
 		_ = viper.BindPFlag(address, flags.Lookup(address))
 		_ = viper.BindPFlag(rpc, flags.Lookup(rpc))
 		_ = viper.BindPFlag(verbose, flags.Lookup(verbose))
@@ -68,9 +66,7 @@ var accountingBalanceCmd = &cobra.Command{
 func initAccountingBalanceCmd() {
 	ff := accountingBalanceCmd.Flags()
 
-	ff.StringP(binaryKey, binaryKeyShorthand, binaryKeyDefault, binaryKeyUsage)
 	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
-	ff.StringP(wif, wifShorthand, wifDefault, wifUsage)
 	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
 	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
 	ff.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
