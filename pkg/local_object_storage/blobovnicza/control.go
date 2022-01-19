@@ -1,7 +1,6 @@
 package blobovnicza
 
 import (
-	"errors"
 	"fmt"
 	"path"
 
@@ -49,32 +48,34 @@ func (b *Blobovnicza) Init() error {
 		zap.Uint64("storage size limit", b.fullSizeLimit),
 	)
 
-	return b.boltDB.Update(func(tx *bbolt.Tx) error {
+	if size := b.filled.Load(); size != 0 {
+		b.log.Debug("already initialized", zap.Uint64("size", size))
+		return nil
+	}
+
+	var size uint64
+
+	err := b.boltDB.Update(func(tx *bbolt.Tx) error {
 		return b.iterateBucketKeys(func(lower, upper uint64, key []byte) (bool, error) {
 			// create size range bucket
 
+			rangeStr := stringifyBounds(lower, upper)
 			b.log.Debug("creating bucket for size range",
-				zap.String("range", stringifyBounds(lower, upper)),
-			)
+				zap.String("range", rangeStr))
 
-			_, err := tx.CreateBucket(key)
-			if errors.Is(err, bbolt.ErrBucketExists) {
-				// => "smallest" bucket exists => already initialized => do nothing
-				// TODO: consider separate bucket structure allocation step
-				//  and state initialization/activation
-
-				b.log.Debug("bucket already exists, initializing state")
-
-				return true, b.syncFullnessCounter(tx)
-			}
-
+			buck, err := tx.CreateBucketIfNotExists(key)
 			if err != nil {
-				return false, fmt.Errorf("(%T) could not create bucket for bounds [%d:%d]: %w",
-					b, lower, upper, err)
+				return false, fmt.Errorf("(%T) could not create bucket for bounds %s: %w",
+					b, rangeStr, err)
 			}
+
+			size += uint64(buck.Stats().KeyN) * (upper + lower) / 2
 			return false, nil
 		})
 	})
+
+	b.filled.Store(size)
+	return err
 }
 
 // Close releases all internal database resources.

@@ -33,9 +33,7 @@ func (b *Blobovnicza) iterateBounds(f func(uint64, uint64) (bool, error)) error 
 	for upper := firstBucketBound; upper <= max(objLimitBound, firstBucketBound); upper *= 2 {
 		var lower uint64
 
-		if upper == firstBucketBound {
-			lower = 0
-		} else {
+		if upper != firstBucketBound {
 			lower = upper/2 + 1
 		}
 
