@@ -75,23 +75,20 @@ func Select(db *DB, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, er
 func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	res = new(SelectRes)
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	if blindlyProcess(prm.filters) {
+		return res, nil
+	}
+
+	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.addrList, err = db.selectObjects(tx, prm.cid, prm.filters)
 
 		return err
 	})
-
-	return res, err
 }
 
 func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
 	if cid == nil {
 		return nil, ErrMissingContainerID
-	}
-
-	// TODO: consider the option of moving this check to a level higher than the metabase
-	if blindlyProcess(fs) {
-		return nil, nil
 	}
 
 	group, err := groupFilters(fs)
