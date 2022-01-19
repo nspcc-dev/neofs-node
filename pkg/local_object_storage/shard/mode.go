@@ -13,8 +13,6 @@ type Mode uint32
 // that changes shard's memory due to the "read-only" shard's mode.
 var ErrReadOnlyMode = errors.New("shard is in read-only mode")
 
-// TODO: more detailed description of shard modes.
-
 const (
 	// ModeReadWrite is a Mode value for shard that is available
 	// for read and write operations. Default shard mode.
