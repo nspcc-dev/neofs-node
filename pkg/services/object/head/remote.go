@@ -32,6 +32,8 @@ type RemoteHeadPrm struct {
 	node *netmap.NodeInfo
 }
 
+const remoteOpTTL = 1
+
 var ErrNotFound = errors.New("object header not found")
 
 // NewRemoteHeader creates, initializes and returns new RemoteHeader instance.
@@ -85,7 +87,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 	headPrm.SetClient(c)
 	headPrm.SetPrivateKey(key)
 	headPrm.SetAddress(prm.commonHeadPrm.addr)
-	headPrm.SetTTL(1) // FIXME: use constant
+	headPrm.SetTTL(remoteOpTTL)
 
 	res, err := internalclient.HeadObject(headPrm)
 	if err != nil {
