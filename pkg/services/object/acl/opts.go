@@ -29,10 +29,10 @@ func WithNextService(v objectSvc.ServiceServer) Option {
 	}
 }
 
-// WithEACLValidatorOptions returns options to set eACL validator options.
-func WithEACLValidatorOptions(v ...eacl.Option) Option {
+// WithEACLSource returns option to set source of eACL tables.
+func WithEACLSource(v eacl.Source) Option {
 	return func(c *cfg) {
-		c.eACLOpts = v
+		c.eaclSource = v
 	}
 }
 

@@ -12,8 +12,8 @@ require (
 	github.com/multiformats/go-multiaddr v0.4.0
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.98.0
-	github.com/nspcc-dev/neofs-api-go/v2 v2.11.1
-	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20220113123743-7f3162110659
+	github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220114101721-227a871a04ac
+	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20220119080627-f83ff628fb19
 	github.com/nspcc-dev/tzhash v1.4.0
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
@@ -32,3 +32,4 @@ require (
 
 // Used for debug reasons
 // replace github.com/nspcc-dev/neofs-api-go => ../neofs-api-go
+// replace github.com/nspcc-dev/neofs-sdk-go => ../neofs-sdk-go

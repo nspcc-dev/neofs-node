@@ -12,14 +12,16 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
-	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	acl "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl/validator"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl/validator/headers"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
@@ -95,9 +97,9 @@ type cfg struct {
 }
 
 type eACLCfg struct {
-	eACLOpts []eacl.Option
+	eaclSource eacl.Source
 
-	eACL *eacl.Validator
+	eACL *validator.Validator
 
 	localStorage *engine.StorageEngine
 
@@ -130,7 +132,7 @@ func New(opts ...Option) Service {
 		opts[i](cfg)
 	}
 
-	cfg.eACL = eacl.NewValidator(cfg.eACLOpts...)
+	cfg.eACL = validator.New()
 
 	return Service{
 		cfg: cfg,
@@ -605,9 +607,28 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		return true
 	}
 
+	var (
+		table *acl.Table
+		err   error
+	)
+
 	// if bearer token is not allowed, then ignore it
 	if !reqInfo.basicACL.BearerAllowed(reqInfo.operation) {
 		reqInfo.bearer = nil
+
+		table, err = cfg.eaclSource.GetEACL(reqInfo.cid)
+		if err != nil {
+			return errors.Is(err, container.ErrEACLNotFound)
+		}
+	} else {
+		if reqInfo.bearer == nil {
+			table, err = cfg.eaclSource.GetEACL(reqInfo.cid)
+			if err != nil {
+				return errors.Is(err, container.ErrEACLNotFound)
+			}
+		} else {
+			table = acl.NewTableFromV2(reqInfo.bearer.GetBody().GetEACL())
+		}
 	}
 
 	// if bearer token is not present, isValidBearer returns true
@@ -615,37 +636,23 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		return false
 	}
 
-	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
-
 	addr := objectSDK.NewAddress()
 	addr.SetContainerID(reqInfo.cid)
 	addr.SetObjectID(reqInfo.oid)
 
-	hdrSrcOpts = append(hdrSrcOpts,
-		eaclV2.WithLocalObjectStorage(cfg.localStorage),
-		eaclV2.WithAddress(addr.ToV2()),
-	)
-
-	if req, ok := msg.(eaclV2.Request); ok {
-		hdrSrcOpts = append(hdrSrcOpts, eaclV2.WithServiceRequest(req))
-	} else {
-		hdrSrcOpts = append(hdrSrcOpts,
-			eaclV2.WithServiceResponse(
-				msg.(eaclV2.Response),
-				reqInfo.srcRequest.(eaclV2.Request),
-			),
-		)
-	}
-
-	action := cfg.eACL.CalculateAction(new(eacl.ValidationUnit).
+	action := cfg.eACL.CalculateAction(new(validator.ValidationUnit).
 		WithRole(reqInfo.requestRole).
 		WithOperation(reqInfo.operation).
 		WithContainerID(reqInfo.cid).
 		WithSenderKey(reqInfo.senderKey).
 		WithHeaderSource(
-			eaclV2.NewMessageHeaderSource(hdrSrcOpts...),
+			headers.NewMessageHeaderSource(
+				headers.WithObjectStorage(sdkStorage{s: cfg.localStorage}),
+				headers.WithAddress(addr),
+				headers.WithMessageAndRequest(msg, reqInfo.srcRequest),
+			),
 		).
-		WithBearerToken(reqInfo.bearer),
+		WithEACLTable(table),
 	)
 
 	return action == acl.ActionAllow
