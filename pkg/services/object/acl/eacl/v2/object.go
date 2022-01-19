@@ -40,9 +40,12 @@ func u64Value(v uint64) string {
 }
 
 func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eaclSDK.Header {
-	// TODO: optimize allocs
-	res := make([]eaclSDK.Header, 0)
+	var count int
+	for obj := obj; obj != nil; obj = obj.GetParent() {
+		count += 9 + len(obj.Attributes())
+	}
 
+	res := make([]eaclSDK.Header, 0, count)
 	for ; obj != nil; obj = obj.GetParent() {
 		res = append(res,
 			cidHeader(addr.ContainerID()),
@@ -85,13 +88,9 @@ func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eaclSDK.He
 		)
 
 		attrs := obj.Attributes()
-		hs := make([]eaclSDK.Header, 0, len(attrs))
-
 		for i := range attrs {
-			hs = append(hs, attrs[i])
+			res = append(res, attrs[i])
 		}
-
-		res = append(res, hs...)
 	}
 
 	return res
