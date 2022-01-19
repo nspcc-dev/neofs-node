@@ -79,12 +79,14 @@ func (c *cache) persistSmallObjects(objs []objectInfo) {
 	if err != nil {
 		overflowIndex = 0
 	} else {
-		c.evictObjects(overflowIndex)
+		c.evictObjects(len(objs) - overflowIndex)
 	}
 
 	for i := 0; i < overflowIndex; i++ {
 		storagelog.Write(c.log, storagelog.AddressField(objs[i].addr), storagelog.OpField("db PUT"))
 		c.objCounters.IncDB()
+	}
+	for i := overflowIndex; i < len(objs); i++ {
 		c.flushed.Add(objs[i].addr, true)
 	}
 
