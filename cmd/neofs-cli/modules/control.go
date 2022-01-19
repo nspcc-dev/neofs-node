@@ -25,9 +25,7 @@ var controlCmd = &cobra.Command{
 		ff := cmd.Flags()
 
 		_ = viper.BindPFlag(generateKey, ff.Lookup(generateKey))
-		_ = viper.BindPFlag(binaryKey, ff.Lookup(binaryKey))
 		_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
-		_ = viper.BindPFlag(wif, ff.Lookup(wif))
 		_ = viper.BindPFlag(address, ff.Lookup(address))
 		_ = viper.BindPFlag(controlRPC, ff.Lookup(controlRPC))
 		_ = viper.BindPFlag(verbose, ff.Lookup(verbose))

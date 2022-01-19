@@ -33,9 +33,7 @@ var (
 			flags := cmd.Flags()
 
 			_ = viper.BindPFlag(generateKey, flags.Lookup(generateKey))
-			_ = viper.BindPFlag(binaryKey, flags.Lookup(binaryKey))
 			_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
-			_ = viper.BindPFlag(wif, flags.Lookup(wif))
 			_ = viper.BindPFlag(address, flags.Lookup(address))
 			_ = viper.BindPFlag(verbose, flags.Lookup(verbose))
 		},
@@ -194,9 +192,7 @@ func initCommonFlagsWithoutRPC(cmd *cobra.Command) {
 	flags := cmd.Flags()
 
 	flags.BoolP(generateKey, generateKeyShorthand, generateKeyDefault, generateKeyUsage)
-	flags.StringP(binaryKey, binaryKeyShorthand, binaryKeyDefault, binaryKeyUsage)
 	flags.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
-	flags.StringP(wif, wifShorthand, wifDefault, wifUsage)
 	flags.StringP(address, addressShorthand, addressDefault, addressUsage)
 	flags.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
 }
