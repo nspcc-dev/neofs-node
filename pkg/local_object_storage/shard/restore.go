@@ -15,8 +15,9 @@ var ErrInvalidMagic = errors.New("invalid magic")
 
 // RestorePrm groups the parameters of Restore operation.
 type RestorePrm struct {
-	path   string
-	stream io.Reader
+	path         string
+	stream       io.Reader
+	ignoreErrors bool
 }
 
 // WithPath is a Restore option to set the destination path.
@@ -32,14 +33,27 @@ func (p *RestorePrm) WithStream(r io.Reader) *RestorePrm {
 	return p
 }
 
+// WithIgnoreErrors is a Restore option which allows to ignore errors encountered during restore.
+// Corrupted objects will not be processed.
+func (p *RestorePrm) WithIgnoreErrors(ignore bool) *RestorePrm {
+	p.ignoreErrors = ignore
+	return p
+}
+
 // RestoreRes groups the result fields of Restore operation.
 type RestoreRes struct {
-	count int
+	count  int
+	failed int
 }
 
 // Count return amount of object written.
 func (r *RestoreRes) Count() int {
 	return r.count
+}
+
+// FailCount return amount of object skipped.
+func (r *RestoreRes) FailCount() int {
+	return r.failed
 }
 
 // Restore restores objects from the dump prepared by Evacuate.
@@ -71,7 +85,7 @@ func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {
 		return nil, ErrInvalidMagic
 	}
 
-	var count int
+	var count, failCount int
 	var data []byte
 	var size [4]byte
 	for {
@@ -100,6 +114,10 @@ func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {
 		obj := object.New()
 		err = obj.Unmarshal(data)
 		if err != nil {
+			if prm.ignoreErrors {
+				failCount++
+				continue
+			}
 			return nil, err
 		}
 
@@ -111,5 +129,5 @@ func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {
 		count++
 	}
 
-	return &RestoreRes{count: count}, nil
+	return &RestoreRes{count: count, failed: failCount}, nil
 }
