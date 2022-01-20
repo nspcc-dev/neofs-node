@@ -69,15 +69,36 @@ func addressFromString(s string) (*objectSDK.Address, error) {
 	return addr, nil
 }
 
-// Iterate iterates over all stored objects.
-func (t *FSTree) Iterate(f func(addr *objectSDK.Address, data []byte) error) error {
-	return t.iterate(0, []string{t.RootPath}, f)
+// IterationPrm contains iteraction parameters.
+type IterationPrm struct {
+	handler      func(addr *objectSDK.Address, data []byte) error
+	ignoreErrors bool
 }
 
-func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address, []byte) error) error {
+// WithHandler sets a function to call on each object.
+func (p *IterationPrm) WithHandler(f func(addr *objectSDK.Address, data []byte) error) *IterationPrm {
+	p.handler = f
+	return p
+}
+
+// WithIgnoreErrors sets a flag indicating whether errors should be ignored.
+func (p *IterationPrm) WithIgnoreErrors(ignore bool) *IterationPrm {
+	p.ignoreErrors = ignore
+	return p
+}
+
+// Iterate iterates over all stored objects.
+func (t *FSTree) Iterate(prm *IterationPrm) error {
+	return t.iterate(0, []string{t.RootPath}, prm)
+}
+
+func (t *FSTree) iterate(depth int, curPath []string, prm *IterationPrm) error {
 	curName := strings.Join(curPath[1:], "")
 	des, err := os.ReadDir(path.Join(curPath...))
 	if err != nil {
+		if prm.ignoreErrors {
+			return nil
+		}
 		return err
 	}
 
@@ -89,8 +110,10 @@ func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address,
 		curPath[l] = des[i].Name()
 
 		if !isLast && des[i].IsDir() {
-			err := t.iterate(depth+1, curPath, f)
+			err := t.iterate(depth+1, curPath, prm)
 			if err != nil {
+				// Must be error from handler in case errors are ignored.
+				// Need to report.
 				return err
 			}
 		}
@@ -106,10 +129,14 @@ func (t *FSTree) iterate(depth int, curPath []string, f func(*objectSDK.Address,
 
 		data, err := os.ReadFile(path.Join(curPath...))
 		if err != nil {
+			if prm.ignoreErrors {
+				continue
+			}
 			return err
 		}
 
-		if err := f(addr, data); err != nil {
+		if err := prm.handler(addr, data); err != nil {
+			// Error occurred in handler, outside of our scope, needs to be reported.
 			return err
 		}
 	}
