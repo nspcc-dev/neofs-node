@@ -5,8 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
@@ -39,9 +39,9 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eacl.Header {
+func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eaclSDK.Header {
 	// TODO: optimize allocs
-	res := make([]eacl.Header, 0)
+	res := make([]eaclSDK.Header, 0)
 
 	for ; obj != nil; obj = obj.GetParent() {
 		res = append(res,
@@ -85,7 +85,7 @@ func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eacl.Heade
 		)
 
 		attrs := obj.Attributes()
-		hs := make([]eacl.Header, 0, len(attrs))
+		hs := make([]eaclSDK.Header, 0, len(attrs))
 
 		for i := range attrs {
 			hs = append(hs, attrs[i])
