@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	v2signature "github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -95,9 +96,9 @@ type cfg struct {
 }
 
 type eACLCfg struct {
-	eACLOpts []eacl.Option
+	eaclSource eacl.Source
 
-	eACL *eacl.Validator
+	eACL *acl.Validator
 
 	localStorage *engine.StorageEngine
 
@@ -130,7 +131,7 @@ func New(opts ...Option) Service {
 		opts[i](cfg)
 	}
 
-	cfg.eACL = eacl.NewValidator(cfg.eACLOpts...)
+	cfg.eACL = acl.NewValidator()
 
 	return Service{
 		cfg: cfg,
@@ -610,6 +611,20 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		reqInfo.bearer = nil
 	}
 
+	var (
+		table *acl.Table
+		err   error
+	)
+
+	if reqInfo.bearer == nil {
+		table, err = cfg.eaclSource.GetEACL(reqInfo.cid)
+		if err != nil {
+			return errors.Is(err, container.ErrEACLNotFound)
+		}
+	} else {
+		table = acl.NewTableFromV2(reqInfo.bearer.GetBody().GetEACL())
+	}
+
 	// if bearer token is not present, isValidBearer returns true
 	if !isValidBearer(reqInfo, cfg.state) {
 		return false
@@ -637,7 +652,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		)
 	}
 
-	action := cfg.eACL.CalculateAction(new(eacl.ValidationUnit).
+	action := cfg.eACL.CalculateAction(new(acl.ValidationUnit).
 		WithRole(reqInfo.requestRole).
 		WithOperation(reqInfo.operation).
 		WithContainerID(reqInfo.cid).
@@ -645,7 +660,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		WithHeaderSource(
 			eaclV2.NewMessageHeaderSource(hdrSrcOpts...),
 		).
-		WithBearerToken(reqInfo.bearer),
+		WithEACLTable(table),
 	)
 
 	return action == acl.ActionAllow
