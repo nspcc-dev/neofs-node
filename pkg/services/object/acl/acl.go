@@ -20,7 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	acl "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
@@ -65,10 +65,10 @@ type (
 
 	requestInfo struct {
 		basicACL    basicACLHelper
-		requestRole acl.Role
+		requestRole eaclSDK.Role
 		isInnerRing bool
-		operation   acl.Operation // put, get, head, etc.
-		cnrOwner    *owner.ID     // container owner
+		operation   eaclSDK.Operation // put, get, head, etc.
+		cnrOwner    *owner.ID         // container owner
 
 		cid *cid.ID
 
@@ -98,7 +98,7 @@ type cfg struct {
 type eACLCfg struct {
 	eaclSource eacl.Source
 
-	eACL *acl.Validator
+	eACL *eaclSDK.Validator
 
 	localStorage *engine.StorageEngine
 
@@ -131,7 +131,7 @@ func New(opts ...Option) Service {
 		opts[i](cfg)
 	}
 
-	cfg.eACL = acl.NewValidator()
+	cfg.eACL = eaclSDK.NewValidator()
 
 	return Service{
 		cfg: cfg,
@@ -153,7 +153,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationGet)
+	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationGet)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (b Service) Head(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationHead)
+	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationHead)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, id, acl.OperationSearch)
+	reqInfo, err := b.findRequestInfo(req, id, eaclSDK.OperationSearch)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func (b Service) Delete(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationDelete)
+	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationDelete)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRange)
+	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationRange)
 	if err != nil {
 		return err
 	}
@@ -347,7 +347,7 @@ func (b Service) GetRangeHash(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, acl.OperationRangeHash)
+	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationRangeHash)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 			src:     request,
 		}
 
-		reqInfo, err := p.source.findRequestInfo(req, cid, acl.OperationPut)
+		reqInfo, err := p.source.findRequestInfo(req, cid, eaclSDK.OperationPut)
 		if err != nil {
 			return err
 		}
@@ -442,7 +442,7 @@ func (g *searchStreamBasicChecker) Send(resp *object.SearchResponse) error {
 func (b Service) findRequestInfo(
 	req metaWithToken,
 	cid *cid.ID,
-	op acl.Operation) (info requestInfo, err error) {
+	op eaclSDK.Operation) (info requestInfo, err error) {
 	cnr, err := b.containers.Get(cid) // fetch actual container
 	if err != nil || cnr.OwnerID() == nil {
 		return info, ErrUnknownContainer
@@ -454,7 +454,7 @@ func (b Service) findRequestInfo(
 		return info, err
 	}
 
-	if role == acl.RoleUnknown {
+	if role == eaclSDK.RoleUnknown {
 		return info, ErrUnknownRole
 	}
 
@@ -561,17 +561,17 @@ func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 // main check function for basic ACL
 func basicACLCheck(info requestInfo) bool {
 	// check basic ACL permissions
-	var checkFn func(acl.Operation) bool
+	var checkFn func(eaclSDK.Operation) bool
 
 	switch info.requestRole {
-	case acl.RoleUser:
+	case eaclSDK.RoleUser:
 		checkFn = info.basicACL.UserAllowed
-	case acl.RoleSystem:
+	case eaclSDK.RoleSystem:
 		checkFn = info.basicACL.SystemAllowed
 		if info.isInnerRing {
 			checkFn = info.basicACL.InnerRingAllowed
 		}
-	case acl.RoleOthers:
+	case eaclSDK.RoleOthers:
 		checkFn = info.basicACL.OthersAllowed
 	default:
 		// log there
@@ -584,7 +584,7 @@ func basicACLCheck(info requestInfo) bool {
 func stickyBitCheck(info requestInfo, owner *owner.ID) bool {
 	// According to NeoFS specification sticky bit has no effect on system nodes
 	// for correct intra-container work with objects (in particular, replication).
-	if info.requestRole == acl.RoleSystem {
+	if info.requestRole == eaclSDK.RoleSystem {
 		return true
 	}
 
@@ -612,7 +612,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 	}
 
 	var (
-		table *acl.Table
+		table *eaclSDK.Table
 		err   error
 	)
 
@@ -622,7 +622,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 			return errors.Is(err, container.ErrEACLNotFound)
 		}
 	} else {
-		table = acl.NewTableFromV2(reqInfo.bearer.GetBody().GetEACL())
+		table = eaclSDK.NewTableFromV2(reqInfo.bearer.GetBody().GetEACL())
 	}
 
 	// if bearer token is not present, isValidBearer returns true
@@ -652,7 +652,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		)
 	}
 
-	action := cfg.eACL.CalculateAction(new(acl.ValidationUnit).
+	action := cfg.eACL.CalculateAction(new(eaclSDK.ValidationUnit).
 		WithRole(reqInfo.requestRole).
 		WithOperation(reqInfo.operation).
 		WithContainerID(reqInfo.cid).
@@ -663,12 +663,12 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 		WithEACLTable(table),
 	)
 
-	return action == acl.ActionAllow
+	return action == eaclSDK.ActionAllow
 }
 
 // sourceVerbOfRequest looks for verb in session token and if it is not found,
 // returns reqVerb.
-func sourceVerbOfRequest(req metaWithToken, reqVerb acl.Operation) acl.Operation {
+func sourceVerbOfRequest(req metaWithToken, reqVerb eaclSDK.Operation) eaclSDK.Operation {
 	if req.token != nil {
 		switch v := req.token.GetBody().GetContext().(type) {
 		case *session.ObjectSessionContext:
@@ -681,24 +681,24 @@ func sourceVerbOfRequest(req metaWithToken, reqVerb acl.Operation) acl.Operation
 	return reqVerb
 }
 
-func tokenVerbToOperation(verb session.ObjectSessionVerb) acl.Operation {
+func tokenVerbToOperation(verb session.ObjectSessionVerb) eaclSDK.Operation {
 	switch verb {
 	case session.ObjectVerbGet:
-		return acl.OperationGet
+		return eaclSDK.OperationGet
 	case session.ObjectVerbPut:
-		return acl.OperationPut
+		return eaclSDK.OperationPut
 	case session.ObjectVerbHead:
-		return acl.OperationHead
+		return eaclSDK.OperationHead
 	case session.ObjectVerbSearch:
-		return acl.OperationSearch
+		return eaclSDK.OperationSearch
 	case session.ObjectVerbDelete:
-		return acl.OperationDelete
+		return eaclSDK.OperationDelete
 	case session.ObjectVerbRange:
-		return acl.OperationRange
+		return eaclSDK.OperationRange
 	case session.ObjectVerbRangeHash:
-		return acl.OperationRangeHash
+		return eaclSDK.OperationRangeHash
 	default:
-		return acl.OperationUnknown
+		return eaclSDK.OperationUnknown
 	}
 }
 

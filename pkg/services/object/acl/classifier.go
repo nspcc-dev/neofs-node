@@ -13,7 +13,7 @@ import (
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	acl "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/signature"
@@ -52,7 +52,7 @@ func NewSenderClassifier(l *zap.Logger, ir InnerRingFetcher, nm core.Source) Sen
 func (c SenderClassifier) Classify(
 	req metaWithToken,
 	cid *cid.ID,
-	cnr *container.Container) (role acl.Role, isIR bool, key []byte, err error) {
+	cnr *container.Container) (role eaclSDK.Role, isIR bool, key []byte, err error) {
 	if cid == nil {
 		return 0, false, nil, fmt.Errorf("%w: container id is not set", ErrMalformedRequest)
 	}
@@ -68,7 +68,7 @@ func (c SenderClassifier) Classify(
 
 	// if request owner is the same as container owner, return RoleUser
 	if ownerID.Equal(cnr.OwnerID()) {
-		return acl.RoleUser, false, ownerKeyInBytes, nil
+		return eaclSDK.RoleUser, false, ownerKeyInBytes, nil
 	}
 
 	isInnerRingNode, err := c.isInnerRingKey(ownerKeyInBytes)
@@ -77,7 +77,7 @@ func (c SenderClassifier) Classify(
 		c.log.Debug("can't check if request from inner ring",
 			zap.String("error", err.Error()))
 	} else if isInnerRingNode {
-		return acl.RoleSystem, true, ownerKeyInBytes, nil
+		return eaclSDK.RoleSystem, true, ownerKeyInBytes, nil
 	}
 
 	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, cid.ToV2().GetValue(), cnr)
@@ -88,11 +88,11 @@ func (c SenderClassifier) Classify(
 		c.log.Debug("can't check if request from container node",
 			zap.String("error", err.Error()))
 	} else if isContainerNode {
-		return acl.RoleSystem, false, ownerKeyInBytes, nil
+		return eaclSDK.RoleSystem, false, ownerKeyInBytes, nil
 	}
 
 	// if none of above, return RoleOthers
-	return acl.RoleOthers, false, ownerKeyInBytes, nil
+	return eaclSDK.RoleOthers, false, ownerKeyInBytes, nil
 }
 
 func requestOwner(req metaWithToken) (*owner.ID, *keys.PublicKey, error) {
