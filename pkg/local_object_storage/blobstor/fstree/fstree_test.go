@@ -6,10 +6,13 @@ import (
 	"errors"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,13 +94,13 @@ func TestFSTree(t *testing.T) {
 
 	t.Run("iterate", func(t *testing.T) {
 		n := 0
-		err := fs.Iterate(func(addr *objectSDK.Address, data []byte) error {
+		err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
 			n++
 			expected, ok := store[addr.String()]
 			require.True(t, ok, "object %s was not found", addr.String())
 			require.Equal(t, data, expected)
 			return nil
-		})
+		}))
 
 		require.NoError(t, err)
 		require.Equal(t, count, n)
@@ -105,15 +108,53 @@ func TestFSTree(t *testing.T) {
 		t.Run("leave early", func(t *testing.T) {
 			n := 0
 			errStop := errors.New("stop")
-			err := fs.Iterate(func(addr *objectSDK.Address, data []byte) error {
+			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
 				if n++; n == count-1 {
 					return errStop
 				}
 				return nil
-			})
+			}))
 
 			require.True(t, errors.Is(err, errStop))
 			require.Equal(t, count-1, n)
+		})
+
+		t.Run("ignore errors", func(t *testing.T) {
+			n := 0
+
+			// Unreadable directory.
+			require.NoError(t, os.Mkdir(filepath.Join(fs.RootPath, "ZZ"), 0))
+
+			// Unreadable file.
+			p := fs.treePath(objecttest.Address())
+			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
+			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, 0))
+
+			// Invalid address.
+			p = fs.treePath(objecttest.Address()) + ".invalid"
+			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
+			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, fs.Permissions))
+
+			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+				n++
+				return nil
+			}).WithIgnoreErrors(true))
+			require.NoError(t, err)
+			require.Equal(t, count, n)
+
+			t.Run("error from handler is returned", func(t *testing.T) {
+				expectedErr := errors.New("expected error")
+				n := 0
+				err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+					n++
+					if n == count/2 { // process some iterations
+						return expectedErr
+					}
+					return nil
+				}).WithIgnoreErrors(true))
+				require.True(t, errors.Is(err, expectedErr), "got: %v")
+				require.Equal(t, count/2, n)
+			})
 		})
 	})
 

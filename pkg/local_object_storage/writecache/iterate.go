@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
 )
@@ -34,12 +35,12 @@ func (c *cache) Iterate(f func([]byte) error) error {
 		return err
 	}
 
-	return c.fsTree.Iterate(func(addr *object.Address, data []byte) error {
+	return c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr *object.Address, data []byte) error {
 		if _, ok := c.flushed.Peek(addr.String()); ok {
 			return nil
 		}
 		return f(data)
-	})
+	}))
 }
 
 // IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.
