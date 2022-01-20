@@ -32,7 +32,8 @@ type IterationHandler func(IterationElement) error
 
 // IteratePrm groups the parameters of Iterate operation.
 type IteratePrm struct {
-	handler IterationHandler
+	handler      IterationHandler
+	ignoreErrors bool
 }
 
 // IterateRes groups resulting values of Iterate operation.
@@ -41,6 +42,11 @@ type IterateRes struct{}
 // SetIterationHandler sets the action to be performed on each iteration.
 func (i *IteratePrm) SetIterationHandler(h IterationHandler) {
 	i.handler = h
+}
+
+// IgnoreErrors sets the flag signifying whether errors should be ignored.
+func (i *IteratePrm) IgnoreErrors() {
+	i.ignoreErrors = true
 }
 
 // Iterate traverses the storage over the stored objects and calls the handler
@@ -53,13 +59,16 @@ func (i *IteratePrm) SetIterationHandler(h IterationHandler) {
 func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 	var elem IterationElement
 
-	err := b.blobovniczas.iterateBlobovniczas(func(p string, blz *blobovnicza.Blobovnicza) error {
+	err := b.blobovniczas.iterateBlobovniczas(prm.ignoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
 		err := blobovnicza.IterateObjects(blz, func(data []byte) error {
 			var err error
 
 			// decompress the data
 			elem.data, err = b.decompressor(data)
 			if err != nil {
+				if prm.ignoreErrors {
+					return nil
+				}
 				return fmt.Errorf("could not decompress object data: %w", err)
 			}
 
@@ -83,11 +92,15 @@ func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 		// decompress the data
 		elem.data, err = b.decompressor(data)
 		if err != nil {
+			if prm.ignoreErrors {
+				return nil
+			}
 			return fmt.Errorf("could not decompress object data: %w", err)
 		}
 
 		return prm.handler(elem)
-	}))
+	}).WithIgnoreErrors(prm.ignoreErrors))
+
 	if err != nil {
 		return nil, fmt.Errorf("fs tree iterator failure: %w", err)
 	}
