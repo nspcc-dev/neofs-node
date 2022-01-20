@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -120,6 +121,8 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().Bool("version", false, "Application version and NeoFS API compatibility")
+
+	rootCmd.AddCommand(acl.Cmd)
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) {
