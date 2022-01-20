@@ -84,6 +84,8 @@ type IteratePrm struct {
 	withoutData bool
 
 	handler IterationHandler
+
+	ignoreErrors bool
 }
 
 // DecodeAddresses sets flag to unmarshal object addresses.
@@ -99,6 +101,11 @@ func (x *IteratePrm) WithoutData() {
 // SetHandler sets handler to be called iteratively.
 func (x *IteratePrm) SetHandler(h IterationHandler) {
 	x.handler = h
+}
+
+// IgnoreErrors makes all errors to be ignored.
+func (x *IteratePrm) IgnoreErrors() {
+	x.ignoreErrors = true
 }
 
 // IterateRes groups resulting values of Iterate operation.
@@ -124,6 +131,9 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
 					}
 
 					if err := addressFromKey(elem.addr, k); err != nil {
+						if prm.ignoreErrors {
+							return nil
+						}
 						return fmt.Errorf("could not decode address key: %w", err)
 					}
 				}
