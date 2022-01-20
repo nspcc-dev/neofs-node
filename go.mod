@@ -32,3 +32,4 @@ require (
 
 // Used for debug reasons
 // replace github.com/nspcc-dev/neofs-api-go => ../neofs-api-go
+// replace github.com/nspcc-dev/neofs-sdk-go => ../neofs-sdk-go
