@@ -14,8 +14,9 @@ var dumpMagic = []byte("NEOF")
 
 // EvacuatePrm groups the parameters of Evacuate operation.
 type EvacuatePrm struct {
-	path   string
-	stream io.Writer
+	path         string
+	stream       io.Writer
+	ignoreErrors bool
 }
 
 // WithPath is an Evacuate option to set the destination path.
@@ -28,6 +29,13 @@ func (p *EvacuatePrm) WithPath(path string) *EvacuatePrm {
 // It takes priority over `path` option.
 func (p *EvacuatePrm) WithStream(r io.Writer) *EvacuatePrm {
 	p.stream = r
+	return p
+}
+
+// WithIgnoreErrors is an Evacuate option to allow ignore all errors during iteration.
+// This includes invalid blobovniczas as well as corrupted objects.
+func (p *EvacuatePrm) WithIgnoreErrors(ignore bool) *EvacuatePrm {
+	p.ignoreErrors = ignore
 	return p
 }
 
@@ -86,7 +94,7 @@ func (s *Shard) Evacuate(prm *EvacuatePrm) (*EvacuateRes, error) {
 
 			count++
 			return nil
-		}))
+		}).WithIgnoreErrors(prm.ignoreErrors))
 		if err != nil {
 			return nil, err
 		}
@@ -94,6 +102,9 @@ func (s *Shard) Evacuate(prm *EvacuatePrm) (*EvacuateRes, error) {
 
 	var pi blobstor.IteratePrm
 
+	if prm.ignoreErrors {
+		pi.IgnoreErrors()
+	}
 	pi.SetIterationHandler(func(elem blobstor.IterationElement) error {
 		data := elem.ObjectData()
 

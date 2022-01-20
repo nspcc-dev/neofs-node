@@ -1,6 +1,7 @@
 package shard_test
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -10,10 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,8 +46,11 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 		sh = newShard(t, false)
 	} else {
 		sh = newCustomShard(t, t.TempDir(), true,
-			writecache.WithSmallObjectSize(wcSmallObjectSize),
-			writecache.WithMaxObjectSize(wcBigObjectSize))
+			[]writecache.Option{
+				writecache.WithSmallObjectSize(wcSmallObjectSize),
+				writecache.WithMaxObjectSize(wcBigObjectSize),
+			},
+			nil)
 	}
 	defer releaseShard(sh, t)
 
@@ -150,7 +159,7 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 				require.Error(t, err)
 
 				t.Run("skip errors", func(t *testing.T) {
-					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false)
+					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false, nil, nil)
 					defer releaseShard(sh, t)
 
 					res, err := sh.Restore(new(shard.RestorePrm).WithPath(out).WithIgnoreErrors(true))
@@ -228,4 +237,116 @@ func checkRestore(t *testing.T, sh *shard.Shard, prm *shard.RestorePrm, objects 
 		require.NoError(t, err)
 		require.Equal(t, objects[i], res.Object())
 	}
+}
+
+func TestEvacuateIgnoreErrors(t *testing.T) {
+	const (
+		wcSmallObjectSize = 512                    // goes to write-cache memory
+		wcBigObjectSize   = wcSmallObjectSize << 1 // goes to write-cache FSTree
+		bsSmallObjectSize = wcSmallObjectSize << 2 // goes to blobovnicza DB
+
+		objCount   = 10
+		headerSize = 400
+	)
+
+	dir := t.TempDir()
+	bsPath := filepath.Join(dir, "blob")
+	bsOpts := []blobstor.Option{
+		blobstor.WithSmallSizeLimit(bsSmallObjectSize),
+		blobstor.WithRootPath(bsPath),
+		blobstor.WithCompressObjects(true),
+		blobstor.WithShallowDepth(1),
+		blobstor.WithBlobovniczaShallowDepth(1),
+		blobstor.WithBlobovniczaShallowWidth(2),
+		blobstor.WithBlobovniczaOpenedCacheSize(1),
+	}
+	wcPath := filepath.Join(dir, "writecache")
+	wcOpts := []writecache.Option{
+		writecache.WithPath(wcPath),
+		writecache.WithSmallObjectSize(wcSmallObjectSize),
+		writecache.WithMaxObjectSize(wcBigObjectSize),
+	}
+	sh := newCustomShard(t, dir, true, wcOpts, bsOpts)
+
+	objects := make([]*object.Object, objCount)
+	for i := 0; i < objCount; i++ {
+		size := (wcSmallObjectSize << (i % 4)) - headerSize
+		obj := generateRawObjectWithPayload(cidtest.ID(), make([]byte, size))
+		objects[i] = obj.Object()
+
+		prm := new(shard.PutPrm).WithObject(objects[i])
+		_, err := sh.Put(prm)
+		require.NoError(t, err)
+	}
+
+	releaseShard(sh, t)
+
+	b := bytes.NewBuffer(nil)
+	badObject := make([]byte, 1000)
+	enc, err := zstd.NewWriter(b)
+	require.NoError(t, err)
+	corruptedData := enc.EncodeAll(badObject, nil)
+	for i := 4; i < len(corruptedData); i++ {
+		corruptedData[i] ^= 0xFF
+	}
+
+	// There are 3 different types of errors to consider.
+	// To setup envirionment we use implementation details so this test must be updated
+	// if any of them are changed.
+	{
+		// 1. Invalid object in fs tree.
+		// 1.1. Invalid compressed data.
+		addr := cidtest.ID().String() + "." + generateOID().String()
+		dirName := filepath.Join(bsPath, addr[:2])
+		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(dirName, addr[2:]), corruptedData, os.ModePerm))
+
+		// 1.2. Unreadable file.
+		addr = cidtest.ID().String() + "." + generateOID().String()
+		dirName = filepath.Join(bsPath, addr[:2])
+		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
+
+		fname := filepath.Join(dirName, addr[2:])
+		require.NoError(t, ioutil.WriteFile(fname, []byte{}, 0))
+
+		// 1.3. Unreadable dir.
+		require.NoError(t, os.MkdirAll(filepath.Join(bsPath, "ZZ"), 0))
+	}
+
+	bsOpts = append(bsOpts, blobstor.WithBlobovniczaShallowWidth(3))
+	sh = newCustomShard(t, dir, true, wcOpts, bsOpts)
+	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
+
+	{
+		// 2. Invalid object in blobovnicza.
+		// 2.1. Invalid blobovnicza.
+		bTree := filepath.Join(bsPath, "blobovnicza")
+		data := make([]byte, 1024)
+		rand.Read(data)
+		require.NoError(t, ioutil.WriteFile(filepath.Join(bTree, "0", "2"), data, 0))
+
+		// 2.2. Invalid object in valid blobovnicza.
+		prm := new(blobovnicza.PutPrm)
+		prm.SetAddress(objectSDK.NewAddress())
+		prm.SetMarshaledObject(corruptedData)
+		b := blobovnicza.New(blobovnicza.WithPath(filepath.Join(bTree, "1", "2")))
+		require.NoError(t, b.Open())
+		_, err := b.Put(prm)
+		require.NoError(t, err)
+		require.NoError(t, b.Close())
+	}
+
+	{
+		// 3. Invalid object in write-cache. Note that because shard is read-only
+		//    the object won't be flushed.
+		addr := cidtest.ID().String() + "." + objecttest.ID().String()
+		dir := filepath.Join(wcPath, addr[:1])
+		require.NoError(t, os.MkdirAll(dir, os.ModePerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(dir, addr[1:]), nil, 0))
+	}
+
+	out := filepath.Join(t.TempDir(), "out.dump")
+	res, err := sh.Evacuate(new(shard.EvacuatePrm).WithPath(out).WithIgnoreErrors(true))
+	require.NoError(t, err)
+	require.Equal(t, objCount, res.Count())
 }
