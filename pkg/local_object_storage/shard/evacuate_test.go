@@ -143,11 +143,21 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 			})
 			t.Run("invalid object", func(t *testing.T) {
 				out := out + ".wrongobj"
-				fileData := append(fileData, 1, 0, 0, 0, 0xFF)
+				fileData := append(fileData, 1, 0, 0, 0, 0xFF, 4, 0, 0, 0, 1, 2, 3, 4)
 				require.NoError(t, ioutil.WriteFile(out, fileData, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
 				require.Error(t, err)
+
+				t.Run("skip errors", func(t *testing.T) {
+					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false)
+					defer releaseShard(sh, t)
+
+					res, err := sh.Restore(new(shard.RestorePrm).WithPath(out).WithIgnoreErrors(true))
+					require.NoError(t, err)
+					require.Equal(t, objCount, res.Count())
+					require.Equal(t, 2, res.FailCount())
+				})
 			})
 		})
 
