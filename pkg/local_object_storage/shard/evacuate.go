@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 )
 
 var dumpMagic = []byte("NEOF")
@@ -72,7 +73,7 @@ func (s *Shard) Evacuate(prm *EvacuatePrm) (*EvacuateRes, error) {
 	var count int
 
 	if s.hasWriteCache() {
-		err := s.writeCache.Iterate(func(data []byte) error {
+		err := s.writeCache.Iterate(new(writecache.IterationPrm).WithHandler(func(data []byte) error {
 			var size [4]byte
 			binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
 			if _, err := w.Write(size[:]); err != nil {
@@ -85,7 +86,7 @@ func (s *Shard) Evacuate(prm *EvacuatePrm) (*EvacuateRes, error) {
 
 			count++
 			return nil
-		})
+		}))
 		if err != nil {
 			return nil, err
 		}
