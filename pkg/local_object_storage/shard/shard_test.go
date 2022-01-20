@@ -27,10 +27,12 @@ import (
 )
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
-	return newCustomShard(t, t.TempDir(), enableWriteCache, writecache.WithMaxMemSize(0))
+	return newCustomShard(t, t.TempDir(), enableWriteCache,
+		[]writecache.Option{writecache.WithMaxMemSize(0)},
+		nil)
 }
 
-func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts ...writecache.Option) *shard.Shard {
+func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, bsOpts []blobstor.Option) *shard.Shard {
 	if enableWriteCache {
 		rootPath = path.Join(rootPath, "wc")
 	} else {
@@ -40,16 +42,20 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 	opts := []shard.Option{
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(
-			blobstor.WithRootPath(path.Join(rootPath, "blob")),
-			blobstor.WithBlobovniczaShallowWidth(2),
-			blobstor.WithBlobovniczaShallowDepth(2),
+			append([]blobstor.Option{
+				blobstor.WithRootPath(path.Join(rootPath, "blob")),
+				blobstor.WithBlobovniczaShallowWidth(2),
+				blobstor.WithBlobovniczaShallowDepth(2),
+			}, bsOpts...)...,
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(path.Join(rootPath, "meta")),
 		),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
-			append(wcOpts, writecache.WithPath(path.Join(rootPath, "wcache")))...,
+			append(
+				[]writecache.Option{writecache.WithPath(path.Join(rootPath, "wcache"))},
+				wcOpts...)...,
 		),
 	}
 
