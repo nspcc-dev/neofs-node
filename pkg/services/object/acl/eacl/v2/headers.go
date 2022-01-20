@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -47,7 +46,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewMessageHeaderSource(opts ...Option) eacl.TypedHeaderSource {
+func NewMessageHeaderSource(opts ...Option) eaclSDK.TypedHeaderSource {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -59,7 +58,7 @@ func NewMessageHeaderSource(opts ...Option) eacl.TypedHeaderSource {
 	}
 }
 
-func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eacl.Header, bool) {
+func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Header, bool) {
 	switch typ {
 	default:
 		return nil, true
@@ -70,10 +69,10 @@ func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eacl.Heade
 	}
 }
 
-func requestHeaders(msg xHeaderSource) []eacl.Header {
+func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
 	xHdrs := msg.GetXHeaders()
 
-	res := make([]eacl.Header, 0, len(xHdrs))
+	res := make([]eaclSDK.Header, 0, len(xHdrs))
 
 	for i := range xHdrs {
 		res = append(res, sessionSDK.NewXHeaderFromV2(xHdrs[i]))
@@ -82,7 +81,7 @@ func requestHeaders(msg xHeaderSource) []eacl.Header {
 	return res
 }
 
-func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
+func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 	var addr *objectSDK.Address
 	if h.addr != nil {
 		addr = objectSDK.NewAddressFromV2(h.addr)
@@ -119,7 +118,7 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 				return hs, true
 			}
 		case *objectV2.SearchRequest:
-			return []eacl.Header{cidHeader(
+			return []eaclSDK.Header{cidHeader(
 				cid.NewFromV2(
 					req.GetBody().GetContainerID()),
 			)}, true
@@ -165,7 +164,7 @@ func (h *headerSource) objectHeaders() ([]eacl.Header, bool) {
 	return nil, true
 }
 
-func (h *headerSource) localObjectHeaders(addrV2 *refs.Address) ([]eacl.Header, bool) {
+func (h *headerSource) localObjectHeaders(addrV2 *refs.Address) ([]eaclSDK.Header, bool) {
 	addr := objectSDK.NewAddressFromV2(addrV2)
 
 	obj, err := h.storage.Head(addr)
@@ -176,22 +175,22 @@ func (h *headerSource) localObjectHeaders(addrV2 *refs.Address) ([]eacl.Header, 
 	return addressHeaders(addr), false
 }
 
-func cidHeader(cid *cid.ID) eacl.Header {
+func cidHeader(cid *cid.ID) eaclSDK.Header {
 	return &sysObjHdr{
 		k: acl.FilterObjectContainerID,
 		v: cidValue(cid),
 	}
 }
 
-func oidHeader(oid *objectSDK.ID) eacl.Header {
+func oidHeader(oid *objectSDK.ID) eaclSDK.Header {
 	return &sysObjHdr{
 		k: acl.FilterObjectID,
 		v: idValue(oid),
 	}
 }
 
-func addressHeaders(addr *objectSDK.Address) []eacl.Header {
-	res := make([]eacl.Header, 1, 2)
+func addressHeaders(addr *objectSDK.Address) []eaclSDK.Header {
+	res := make([]eaclSDK.Header, 1, 2)
 	res[0] = cidHeader(addr.ContainerID())
 
 	if oid := addr.ObjectID(); oid != nil {

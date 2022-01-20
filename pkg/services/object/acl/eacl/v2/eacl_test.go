@@ -10,10 +10,8 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	eacl2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
@@ -24,20 +22,6 @@ type testLocalStorage struct {
 	expAddr *objectSDK.Address
 
 	obj *object.Object
-}
-
-type testEACLStorage struct {
-	t *testing.T
-
-	expCID *cid.ID
-
-	table *eacl.Table
-}
-
-func (s *testEACLStorage) GetEACL(id *cid.ID) (*eacl.Table, error) {
-	require.True(s.t, s.expCID.Equal(id))
-
-	return s.table, nil
 }
 
 func (s *testLocalStorage) Head(addr *objectSDK.Address) (*object.Object, error) {
@@ -109,18 +93,18 @@ func TestHeadRequest(t *testing.T) {
 	attr.SetValue(attrVal)
 	obj.SetAttributes(attr)
 
-	table := new(eacl.Table)
+	table := new(eaclSDK.Table)
 
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 	senderKey := priv.PublicKey()
 
-	r := eacl.NewRecord()
-	r.SetOperation(eacl.OperationHead)
-	r.SetAction(eacl.ActionDeny)
-	r.AddFilter(eacl.HeaderFromObject, eacl.MatchStringEqual, attrKey, attrVal)
-	r.AddFilter(eacl.HeaderFromRequest, eacl.MatchStringEqual, xKey, xVal)
-	eacl.AddFormedTarget(r, eacl.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
+	r := eaclSDK.NewRecord()
+	r.SetOperation(eaclSDK.OperationHead)
+	r.SetAction(eaclSDK.ActionDeny)
+	r.AddFilter(eaclSDK.HeaderFromObject, eaclSDK.MatchStringEqual, attrKey, attrVal)
+	r.AddFilter(eaclSDK.HeaderFromRequest, eaclSDK.MatchStringEqual, xKey, xVal)
+	eaclSDK.AddFormedTarget(r, eaclSDK.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
 
 	table.AddRecord(r)
 
@@ -131,36 +115,29 @@ func TestHeadRequest(t *testing.T) {
 	}
 
 	cid := addr.ContainerID()
-	unit := new(eacl2.ValidationUnit).
+	unit := new(eaclSDK.ValidationUnit).
 		WithContainerID(cid).
-		WithOperation(eacl.OperationHead).
+		WithOperation(eaclSDK.OperationHead).
 		WithSenderKey(senderKey.Bytes()).
 		WithHeaderSource(
 			NewMessageHeaderSource(
 				WithObjectStorage(lStorage),
 				WithServiceRequest(req),
 			),
-		)
+		).
+		WithEACLTable(table)
 
-	eStorage := &testEACLStorage{
-		t:      t,
-		expCID: cid,
-		table:  table,
-	}
+	validator := eaclSDK.NewValidator()
 
-	validator := eacl2.NewValidator(
-		eacl2.WithEACLSource(eStorage),
-	)
-
-	require.Equal(t, eacl.ActionDeny, validator.CalculateAction(unit))
+	require.Equal(t, eaclSDK.ActionDeny, validator.CalculateAction(unit))
 
 	meta.SetXHeaders(nil)
 
-	require.Equal(t, eacl.ActionAllow, validator.CalculateAction(unit))
+	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit))
 
 	meta.SetXHeaders(xHdrs)
 
 	obj.SetAttributes(nil)
 
-	require.Equal(t, eacl.ActionAllow, validator.CalculateAction(unit))
+	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit))
 }
