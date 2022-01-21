@@ -122,14 +122,7 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 		return err
 	}
 
-	wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(pub))
-	if err != nil {
-		// TODO: check via NeoFSID
-		return err
-	}
-
-	id2 := owner.NewID()
-	id2.SetNeo3Wallet(wallet)
+	id2 := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(pub))
 
 	if !id.Equal(id2) {
 		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, id, id2)

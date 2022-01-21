@@ -116,10 +116,7 @@ var listContainersCmd = &cobra.Command{
 		exitOnErr(cmd, err)
 
 		if containerOwner == "" {
-			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
-			exitOnErr(cmd, err)
-
-			oid = owner.NewIDFromNeo3Wallet(wallet)
+			oid = owner.NewIDFromPublicKey(&key.PublicKey)
 		} else {
 			oid, err = ownerFromString(containerOwner)
 			exitOnErr(cmd, err)

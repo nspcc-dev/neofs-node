@@ -41,10 +41,7 @@ var accountingBalanceCmd = &cobra.Command{
 		exitOnErr(cmd, err)
 
 		if balanceOwner == "" {
-			wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
-			exitOnErr(cmd, err)
-
-			oid = owner.NewIDFromNeo3Wallet(wallet)
+			oid = owner.NewIDFromPublicKey(&key.PublicKey)
 		} else {
 			oid, err = ownerFromString(balanceOwner)
 			exitOnErr(cmd, err)
