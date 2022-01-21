@@ -34,16 +34,10 @@ func testObjectID(t *testing.T) *object.ID {
 	return id
 }
 
-func blankValidObject(t *testing.T, key *ecdsa.PrivateKey) *RawObject {
-	wallet, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
-	require.NoError(t, err)
-
-	ownerID := owner.NewID()
-	ownerID.SetNeo3Wallet(wallet)
-
+func blankValidObject(key *ecdsa.PrivateKey) *RawObject {
 	obj := NewRaw()
 	obj.SetContainerID(cidtest.ID())
-	obj.SetOwnerID(ownerID)
+	obj.SetOwnerID(owner.NewIDFromPublicKey(&key.PublicKey))
 
 	return obj
 }
@@ -94,11 +88,10 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		w, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(ownerKey.PublicKey()))
-		require.NoError(t, err)
+		oid := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(ownerKey.PublicKey()))
 
 		tok := sessiontest.Token()
-		tok.SetOwnerID(owner.NewIDFromNeo3Wallet(w))
+		tok.SetOwnerID(oid)
 
 		obj := NewRaw()
 		obj.SetContainerID(cidtest.ID())
@@ -111,7 +104,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {
-		obj := blankValidObject(t, &ownerKey.PrivateKey)
+		obj := blankValidObject(&ownerKey.PrivateKey)
 
 		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
 
@@ -188,7 +181,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("expiration", func(t *testing.T) {
 		fn := func(val string) *Object {
-			obj := blankValidObject(t, &ownerKey.PrivateKey)
+			obj := blankValidObject(&ownerKey.PrivateKey)
 
 			a := object.NewAttribute()
 			a.SetKey(objectV2.SysAttributeExpEpoch)
@@ -222,7 +215,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("attributes", func(t *testing.T) {
 		t.Run("duplication", func(t *testing.T) {
-			obj := blankValidObject(t, &ownerKey.PrivateKey)
+			obj := blankValidObject(&ownerKey.PrivateKey)
 
 			a1 := object.NewAttribute()
 			a1.SetKey("key1")
@@ -244,7 +237,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		})
 
 		t.Run("empty value", func(t *testing.T) {
-			obj := blankValidObject(t, &ownerKey.PrivateKey)
+			obj := blankValidObject(&ownerKey.PrivateKey)
 
 			a := object.NewAttribute()
 			a.SetKey("key")

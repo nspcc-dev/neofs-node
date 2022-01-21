@@ -780,12 +780,7 @@ func isOwnerFromKey(id *owner.ID, key *keys.PublicKey) bool {
 		return false
 	}
 
-	wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(key))
-	if err != nil {
-		return false
-	}
-
-	return id.Equal(owner.NewIDFromNeo3Wallet(wallet))
+	return id.Equal(owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)))
 }
 
 // originalBearerToken goes down to original request meta header and fetches

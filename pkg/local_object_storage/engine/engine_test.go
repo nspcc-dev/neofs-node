@@ -88,11 +88,8 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	version.SetMajor(2)
 	version.SetMinor(1)
 
-	w, err := owner.NEO3WalletFromPublicKey(&test.DecodeKey(-1).PublicKey)
-	require.NoError(t, err)
-
 	csum := new(checksum.Checksum)
-	csum.SetSHA256(sha256.Sum256(w.Bytes()))
+	csum.SetSHA256(sha256.Sum256(owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)))
 
 	csumTZ := new(checksum.Checksum)
 	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))

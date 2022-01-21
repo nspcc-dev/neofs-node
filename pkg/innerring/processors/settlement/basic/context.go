@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
@@ -85,16 +84,12 @@ func bankOwnerID() (*owner.ID, error) {
 	u := util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // todo: define const
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
-	d, err := base58.Decode(address.Uint160ToString(u))
+	o := owner.NewID()
+
+	err := o.Parse(address.Uint160ToString(u))
 	if err != nil {
 		return nil, err
 	}
-
-	var w owner.NEO3Wallet
-	copy(w[:], d)
-
-	o := owner.NewID()
-	o.SetNeo3Wallet(&w)
 
 	return o, nil
 }

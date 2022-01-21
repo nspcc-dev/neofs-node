@@ -187,15 +187,7 @@ func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
 		return nil, err
 	}
 
-	w, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(pub))
-	if err != nil {
-		return nil, err
-	}
-
-	id := owner.NewID()
-	id.SetNeo3Wallet(w)
-
-	return id, nil
+	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(pub)), nil
 }
 
 func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {

@@ -204,13 +204,8 @@ func (x putSubnetEvent) ReadCreator(id *owner.ID) error {
 		return err
 	}
 
-	wal, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(key))
-	if err != nil {
-		return err
-	}
-
 	// it would be better if we could do it not like this
-	*id = *owner.NewIDFromNeo3Wallet(wal)
+	*id = *owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key))
 
 	return nil
 }
