@@ -150,7 +150,7 @@ func (s *SignService) Search(req *object.SearchRequest, stream SearchStream) err
 				return stream.Send(new(object.SearchResponse))
 			}
 
-			return nil
+			return err
 		},
 	)
 }
