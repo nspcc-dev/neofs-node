@@ -228,15 +228,11 @@ func initCfg(path string) *cfg {
 
 	key := nodeconfig.Key(appCfg)
 
-	neo3Wallet, err := owner.NEO3WalletFromPublicKey(&key.PrivateKey.PublicKey)
-	fatalOnErr(err)
-
-	ownerIDFromKey := owner.NewID()
-	ownerIDFromKey.SetNeo3Wallet(neo3Wallet)
+	ownerIDFromKey := owner.NewIDFromPublicKey(&key.PrivateKey.PublicKey)
 
 	var logPrm logger.Prm
 
-	err = logPrm.SetLevelString(
+	err := logPrm.SetLevelString(
 		loggerconfig.Level(appCfg),
 	)
 	fatalOnErr(err)

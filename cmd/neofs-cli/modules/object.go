@@ -594,13 +594,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 }
 
 func getOwnerID(key *ecdsa.PrivateKey) (*owner.ID, error) {
-	w, err := owner.NEO3WalletFromPublicKey(&key.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	ownerID := owner.NewID()
-	ownerID.SetNeo3Wallet(w)
-	return ownerID, nil
+	return owner.NewIDFromPublicKey(&key.PublicKey), nil
 }
 
 var searchUnaryOpVocabulary = map[string]object.SearchMatchType{

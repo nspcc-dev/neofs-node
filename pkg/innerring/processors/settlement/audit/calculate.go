@@ -319,13 +319,5 @@ func ownerFromKey(key []byte) (*owner.ID, error) {
 		return nil, err
 	}
 
-	n3wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(pubKey))
-	if err != nil {
-		return nil, err
-	}
-
-	o := owner.NewID()
-	o.SetNeo3Wallet(n3wallet)
-
-	return o, nil
+	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(pubKey)), nil
 }

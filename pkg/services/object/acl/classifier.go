@@ -113,16 +113,8 @@ func requestOwner(req metaWithToken) (*owner.ID, *keys.PublicKey, error) {
 	}
 
 	key := unmarshalPublicKey(bodySignature.Key())
-	neo3wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(key))
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't create neo3 wallet: %w", err)
-	}
 
-	// form user from public key
-	user := new(owner.ID)
-	user.SetNeo3Wallet(neo3wallet)
-
-	return user, key, nil
+	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)), key, nil
 }
 
 func originalBodySignature(v *session.RequestVerificationHeader) *signature.Signature {

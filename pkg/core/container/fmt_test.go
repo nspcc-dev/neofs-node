@@ -26,10 +26,9 @@ func TestCheckFormat(t *testing.T) {
 
 	require.Error(t, CheckFormat(c))
 
-	wallet, err := owner.NEO3WalletFromPublicKey(&test.DecodeKey(-1).PublicKey)
-	require.NoError(t, err)
+	oid := owner.NewIDFromPublicKey(&test.DecodeKey(-1).PublicKey)
 
-	c.SetOwnerID(owner.NewIDFromNeo3Wallet(wallet))
+	c.SetOwnerID(oid)
 
 	// set incorrect nonce
 	cV2 := c.ToV2()

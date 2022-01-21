@@ -192,12 +192,6 @@ var cmdSubnetCreate = &cobra.Command{
 			return fmt.Errorf("read private key: %w", err)
 		}
 
-		// calculate wallet address from key
-		n3Wallet, err := owner.NEO3WalletFromPublicKey(&key.PrivateKey.PublicKey)
-		if err != nil {
-			return fmt.Errorf("wallet from key: %w", err)
-		}
-
 		// generate subnet ID and marshal it
 		var (
 			id  subnetid.ID
@@ -220,7 +214,7 @@ var cmdSubnetCreate = &cobra.Command{
 		}
 
 		// declare creator ID and encode it
-		creator := *owner.NewIDFromNeo3Wallet(n3Wallet)
+		creator := *owner.NewIDFromPublicKey(&key.PrivateKey.PublicKey)
 
 		// fill subnet info and encode it
 		var info subnet.Info

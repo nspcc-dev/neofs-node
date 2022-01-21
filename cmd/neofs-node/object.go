@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -183,12 +182,6 @@ func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.MultiA
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore, c.cfgNetmap.state)
-	nodeOwner := owner.NewID()
-
-	neo3Wallet, err := owner.NEO3WalletFromPublicKey((*ecdsa.PublicKey)(c.key.PublicKey()))
-	fatalOnErr(err)
-
-	nodeOwner.SetNeo3Wallet(neo3Wallet)
 
 	clientConstructor := &reputationClientConstructor{
 		log:              c.log,
