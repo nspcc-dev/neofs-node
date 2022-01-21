@@ -1,13 +1,11 @@
 package internal
 
 import (
-	"crypto/ecdsa"
 	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
@@ -16,27 +14,11 @@ import (
 
 type commonPrm struct {
 	cli *client.Client
-
-	privKey *ecdsa.PrivateKey
 }
 
 // SetClient sets base client for NeoFS API communication.
 func (x *commonPrm) SetClient(cli *client.Client) {
 	x.cli = cli
-}
-
-// SetKey sets private key to sign the request(s).
-func (x *commonPrm) SetKey(key *ecdsa.PrivateKey) {
-	x.privKey = key
-}
-
-type ownerIDPrm struct {
-	ownerID *owner.ID
-}
-
-// SetOwner sets identifier of NeoFS user.
-func (x *ownerIDPrm) SetOwner(id *owner.ID) {
-	x.ownerID = id
 }
 
 type containerIDPrm struct {

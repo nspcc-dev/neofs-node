@@ -11,10 +11,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type multiClient struct {
@@ -92,90 +88,9 @@ func (x *multiClient) PutObject(ctx context.Context, p *client.PutObjectParams, 
 	return
 }
 
-func (x *multiClient) GetBalance(ctx context.Context, id *owner.ID, opts ...client.CallOption) (res *client.BalanceOfRes, err error) {
+func (x *multiClient) AnnounceContainerUsedSpace(ctx context.Context, prm client.AnnounceSpacePrm) (res *client.AnnounceSpaceRes, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.GetBalance(ctx, id, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) PutContainer(ctx context.Context, cnr *container.Container, opts ...client.CallOption) (res *client.ContainerPutRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.PutContainer(ctx, cnr, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) GetContainer(ctx context.Context, id *cid.ID, opts ...client.CallOption) (res *client.ContainerGetRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.GetContainer(ctx, id, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) ListContainers(ctx context.Context, id *owner.ID, opts ...client.CallOption) (res *client.ContainerListRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ListContainers(ctx, id, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) DeleteContainer(ctx context.Context, id *cid.ID, opts ...client.CallOption) (res *client.ContainerDeleteRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.DeleteContainer(ctx, id, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) EACL(ctx context.Context, id *cid.ID, opts ...client.CallOption) (res *client.EACLRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.EACL(ctx, id, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) SetEACL(ctx context.Context, t *eacl.Table, opts ...client.CallOption) (res *client.SetEACLRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.SetEACL(ctx, t, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) AnnounceContainerUsedSpace(ctx context.Context, as []container.UsedSpaceAnnouncement, opts ...client.CallOption) (res *client.AnnounceSpaceRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.AnnounceContainerUsedSpace(ctx, as, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) EndpointInfo(ctx context.Context, opts ...client.CallOption) (res *client.EndpointInfoRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.EndpointInfo(ctx, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) NetworkInfo(ctx context.Context, opts ...client.CallOption) (res *client.NetworkInfoRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.NetworkInfo(ctx, opts...)
+		res, err = c.AnnounceContainerUsedSpace(ctx, prm)
 		return err
 	})
 
@@ -236,27 +151,18 @@ func (x *multiClient) SearchObjects(ctx context.Context, p *client.SearchObjectP
 	return
 }
 
-func (x *multiClient) CreateSession(ctx context.Context, exp uint64, opts ...client.CallOption) (res *client.CreateSessionRes, err error) {
+func (x *multiClient) AnnounceLocalTrust(ctx context.Context, prm client.AnnounceLocalTrustPrm) (res *client.AnnounceLocalTrustRes, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.CreateSession(ctx, exp, opts...)
+		res, err = c.AnnounceLocalTrust(ctx, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) AnnounceLocalTrust(ctx context.Context, p client.AnnounceLocalTrustPrm, opts ...client.CallOption) (res *client.AnnounceLocalTrustRes, err error) {
+func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, prm client.AnnounceIntermediateTrustPrm) (res *client.AnnounceIntermediateTrustRes, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.AnnounceLocalTrust(ctx, p, opts...)
-		return err
-	})
-
-	return
-}
-
-func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, p client.AnnounceIntermediateTrustPrm, opts ...client.CallOption) (res *client.AnnounceIntermediateTrustRes, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.AnnounceIntermediateTrust(ctx, p, opts...)
+		res, err = c.AnnounceIntermediateTrust(ctx, prm)
 		return err
 	})
 

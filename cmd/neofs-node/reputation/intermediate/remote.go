@@ -98,7 +98,7 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	p.SetPrivateKey(rtp.key)
 	p.SetEpoch(rtp.eiCtx.Epoch())
 	p.SetIteration(rtp.eiCtx.I())
-	p.SetTrust(apiPeerToPeerTrust)
+	p.SetTrust(*apiPeerToPeerTrust)
 
 	_, err := internalclient.AnnounceIntermediate(p)
 

@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"io"
-	"math"
 
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -18,12 +17,12 @@ import (
 // BalanceOfPrm groups parameters of BalanceOf operation.
 type BalanceOfPrm struct {
 	commonPrm
-	ownerIDPrm
+	client.GetBalancePrm
 }
 
 // BalanceOfRes groups resulting values of BalanceOf operation.
 type BalanceOfRes struct {
-	cliRes *client.BalanceOfRes
+	cliRes *client.GetBalanceRes
 }
 
 // Balance returns current balance.
@@ -35,9 +34,7 @@ func (x BalanceOfRes) Balance() *accounting.Decimal {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func BalanceOf(prm BalanceOfPrm) (res BalanceOfRes, err error) {
-	res.cliRes, err = prm.cli.GetBalance(context.Background(), prm.ownerID,
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.GetBalance(context.Background(), prm.GetBalancePrm)
 
 	return
 }
@@ -45,7 +42,7 @@ func BalanceOf(prm BalanceOfPrm) (res BalanceOfRes, err error) {
 // ListContainersPrm groups parameters of ListContainers operation.
 type ListContainersPrm struct {
 	commonPrm
-	ownerIDPrm
+	client.ContainerListPrm
 }
 
 // ListContainersRes groups resulting values of ListContainers operation.
@@ -55,16 +52,14 @@ type ListContainersRes struct {
 
 // IDList returns list of identifiers of user's containers.
 func (x ListContainersRes) IDList() []*cid.ID {
-	return x.cliRes.IDList()
+	return x.cliRes.Containers()
 }
 
 // ListContainers requests list of NeoFS user's containers.
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func ListContainers(prm ListContainersPrm) (res ListContainersRes, err error) {
-	res.cliRes, err = prm.cli.ListContainers(context.Background(), prm.ownerID,
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.ListContainers(context.Background(), prm.ContainerListPrm)
 
 	return
 }
@@ -72,14 +67,7 @@ func ListContainers(prm ListContainersPrm) (res ListContainersRes, err error) {
 // PutContainerPrm groups parameters of PutContainer operation.
 type PutContainerPrm struct {
 	commonPrm
-	sessionTokenPrm
-
-	cnr *container.Container
-}
-
-// SetContainer sets container structure.
-func (x *PutContainerPrm) SetContainer(cnr *container.Container) {
-	x.cnr = cnr
+	client.ContainerPutPrm
 }
 
 // PutContainerRes groups resulting values of PutContainer operation.
@@ -101,10 +89,7 @@ func (x PutContainerRes) ID() *cid.ID {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
-	res.cliRes, err = prm.cli.PutContainer(context.Background(), prm.cnr,
-		client.WithKey(prm.privKey),
-		client.WithSession(prm.sessionToken),
-	)
+	res.cliRes, err = prm.cli.PutContainer(context.Background(), prm.ContainerPutPrm)
 
 	return
 }
@@ -112,7 +97,12 @@ func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
 // GetContainerPrm groups parameters of GetContainer operation.
 type GetContainerPrm struct {
 	commonPrm
-	containerIDPrm
+	cliPrm client.ContainerGetPrm
+}
+
+// SetContainer sets identifier of the container to be read.
+func (x *GetContainerPrm) SetContainer(id cid.ID) {
+	x.cliPrm.SetContainer(id)
 }
 
 // GetContainerRes groups resulting values of GetContainer operation.
@@ -129,9 +119,7 @@ func (x GetContainerRes) Container() *container.Container {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
-	res.cliRes, err = prm.cli.GetContainer(context.Background(), prm.cnrID,
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.GetContainer(context.Background(), prm.cliPrm)
 
 	return
 }
@@ -139,8 +127,7 @@ func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
 // DeleteContainerPrm groups parameters of DeleteContainerPrm operation.
 type DeleteContainerPrm struct {
 	commonPrm
-	sessionTokenPrm
-	containerIDPrm
+	client.ContainerDeletePrm
 }
 
 // DeleteContainerRes groups resulting values of DeleteContainer operation.
@@ -155,10 +142,7 @@ type DeleteContainerRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func DeleteContainer(prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
-	_, err = prm.cli.DeleteContainer(context.Background(), prm.cnrID,
-		client.WithKey(prm.privKey),
-		client.WithSession(prm.sessionToken),
-	)
+	_, err = prm.cli.DeleteContainer(context.Background(), prm.ContainerDeletePrm)
 
 	return
 }
@@ -166,7 +150,7 @@ func DeleteContainer(prm DeleteContainerPrm) (res DeleteContainerRes, err error)
 // EACLPrm groups parameters of EACL operation.
 type EACLPrm struct {
 	commonPrm
-	containerIDPrm
+	client.EACLPrm
 }
 
 // EACLRes groups resulting values of EACL operation.
@@ -183,9 +167,7 @@ func (x EACLRes) EACL() *eacl.Table {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func EACL(prm EACLPrm) (res EACLRes, err error) {
-	res.cliRes, err = prm.cli.EACL(context.Background(), prm.cnrID,
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.EACL(context.Background(), prm.EACLPrm)
 
 	return
 }
@@ -193,14 +175,7 @@ func EACL(prm EACLPrm) (res EACLRes, err error) {
 // SetEACLPrm groups parameters of SetEACL operation.
 type SetEACLPrm struct {
 	commonPrm
-	sessionTokenPrm
-
-	eaclTable *eacl.Table
-}
-
-// SetEACLTable sets eACL table structure.
-func (x *SetEACLPrm) SetEACLTable(table *eacl.Table) {
-	x.eaclTable = table
+	client.SetEACLPrm
 }
 
 // SetEACLRes groups resulting values of SetEACL operation.
@@ -215,10 +190,7 @@ type SetEACLRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func SetEACL(prm SetEACLPrm) (res SetEACLRes, err error) {
-	_, err = prm.cli.SetEACL(context.Background(), prm.eaclTable,
-		client.WithKey(prm.privKey),
-		client.WithSession(prm.sessionToken),
-	)
+	_, err = prm.cli.SetEACL(context.Background(), prm.SetEACLPrm)
 
 	return
 }
@@ -226,6 +198,7 @@ func SetEACL(prm SetEACLPrm) (res SetEACLRes, err error) {
 // NetworkInfoPrm groups parameters of NetworkInfo operation.
 type NetworkInfoPrm struct {
 	commonPrm
+	client.NetworkInfoPrm
 }
 
 // NetworkInfoRes groups resulting values of NetworkInfo operation.
@@ -242,9 +215,7 @@ func (x NetworkInfoRes) NetworkInfo() *netmap.NetworkInfo {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func NetworkInfo(prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
-	res.cliRes, err = prm.cli.NetworkInfo(context.Background(),
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.NetworkInfo(context.Background(), prm.NetworkInfoPrm)
 
 	return
 }
@@ -252,6 +223,7 @@ func NetworkInfo(prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
 // NodeInfoPrm groups parameters of NodeInfo operation.
 type NodeInfoPrm struct {
 	commonPrm
+	client.EndpointInfoPrm
 }
 
 // NodeInfoRes groups resulting values of NodeInfo operation.
@@ -261,21 +233,19 @@ type NodeInfoRes struct {
 
 // NodeInfo returns information about the node from netmap.
 func (x NodeInfoRes) NodeInfo() *netmap.NodeInfo {
-	return x.cliRes.Info().NodeInfo()
+	return x.cliRes.NodeInfo()
 }
 
 // LatestVersion returns latest NeoFS API version in use.
 func (x NodeInfoRes) LatestVersion() *version.Version {
-	return x.cliRes.Info().LatestVersion()
+	return x.cliRes.LatestVersion()
 }
 
 // NodeInfo requests information about the remote server from NeoFS netmap.
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
-	res.cliRes, err = prm.cli.EndpointInfo(context.Background(),
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.EndpointInfo(context.Background(), prm.EndpointInfoPrm)
 
 	return
 }
@@ -283,6 +253,7 @@ func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
 // CreateSessionPrm groups parameters of CreateSession operation.
 type CreateSessionPrm struct {
 	commonPrm
+	client.CreateSessionPrm
 }
 
 // CreateSessionRes groups resulting values of CreateSession operation.
@@ -297,16 +268,14 @@ func (x CreateSessionRes) ID() []byte {
 
 // SessionKey returns public session key in a binary format.
 func (x CreateSessionRes) SessionKey() []byte {
-	return x.cliRes.SessionKey()
+	return x.cliRes.PublicKey()
 }
 
 // CreateSession opens new unlimited session with the remote node.
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func CreateSession(prm CreateSessionPrm) (res CreateSessionRes, err error) {
-	res.cliRes, err = prm.cli.CreateSession(context.Background(), math.MaxUint64,
-		client.WithKey(prm.privKey),
-	)
+	res.cliRes, err = prm.cli.CreateSession(context.Background(), prm.CreateSessionPrm)
 
 	return
 }
@@ -350,7 +319,6 @@ func PutObject(prm PutObjectPrm) (res PutObjectRes, err error) {
 	putPrm.WithPayloadReader(prm.rdr)
 
 	res.cliRes, err = prm.cli.PutObject(context.Background(), &putPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
@@ -383,7 +351,6 @@ func DeleteObject(prm DeleteObjectPrm) (res DeleteObjectRes, err error) {
 	delPrm.WithAddress(prm.objAddr)
 
 	res.cliRes, err = prm.cli.DeleteObject(context.Background(), &delPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
@@ -423,7 +390,6 @@ func GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 	getPrm.WithRawFlag(prm.raw)
 
 	res.cliRes, err = prm.cli.GetObject(context.Background(), &getPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
@@ -472,7 +438,6 @@ func HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 	}
 
 	res.cliRes, err = prm.cli.HeadObject(context.Background(), &cliPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
@@ -513,7 +478,6 @@ func SearchObjects(prm SearchObjectsPrm) (res SearchObjectsRes, err error) {
 	cliPrm.WithContainerID(prm.cnrID)
 
 	res.cliRes, err = prm.cli.SearchObjects(context.Background(), &cliPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
@@ -574,7 +538,6 @@ func HashPayloadRanges(prm HashPayloadRangesPrm) (res HashPayloadRangesRes, err 
 	}
 
 	res.cliRes, err = prm.cli.HashObjectPayloadRanges(context.Background(), &cliPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
@@ -615,7 +578,6 @@ func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 	cliPrm.WithRange(prm.rng)
 
 	_, err = prm.cli.ObjectPayloadRangeData(context.Background(), &cliPrm, append(prm.opts,
-		client.WithKey(prm.privKey),
 		client.WithSession(prm.sessionToken),
 		client.WithBearer(prm.bearerToken),
 	)...)
