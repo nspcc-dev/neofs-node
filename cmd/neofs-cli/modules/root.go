@@ -303,7 +303,6 @@ func getEndpointAddress(endpointFlag string) (addr network.Address, err error) {
 
 type clientWithKey interface {
 	SetClient(*client.Client)
-	SetKey(*ecdsa.PrivateKey)
 }
 
 // reads private key from command args and call prepareAPIClientWithKey with it.
@@ -321,7 +320,6 @@ func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...c
 
 	for _, d := range dst {
 		d.SetClient(cli)
-		d.SetKey(key)
 	}
 }
 

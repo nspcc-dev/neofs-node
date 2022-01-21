@@ -125,7 +125,7 @@ var listContainersCmd = &cobra.Command{
 		var prm internalclient.ListContainersPrm
 
 		prepareAPIClientWithKey(cmd, key, &prm)
-		prm.SetOwner(oid)
+		prm.SetAccount(*oid)
 
 		res, err := internalclient.ListContainers(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
@@ -161,22 +161,35 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		tok, err := getSessionToken(sessionTokenPath)
 		exitOnErr(cmd, err)
 
+		key, err := getKey()
+		exitOnErr(cmd, err)
+
+		var idOwner *owner.ID
+
+		if idOwner = tok.OwnerID(); idOwner == nil {
+			idOwner = owner.NewIDFromPublicKey(&key.PublicKey)
+		}
+
 		cnr := container.New()
+		cnr.SetVersion(versionSDK.Current())
 		cnr.SetPlacementPolicy(placementPolicy)
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
 		cnr.SetNonceUUID(nonce)
 		cnr.SetSessionToken(tok)
-		cnr.SetOwnerID(tok.OwnerID())
+		cnr.SetOwnerID(idOwner)
 
 		var (
 			putPrm internalclient.PutContainerPrm
 			getPrm internalclient.GetContainerPrm
 		)
 
-		prepareAPIClient(cmd, &putPrm, &getPrm)
-		putPrm.SetContainer(cnr)
-		putPrm.SetSessionToken(tok)
+		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm)
+		putPrm.SetContainer(*cnr)
+
+		if tok != nil {
+			putPrm.SetSessionToken(*tok)
+		}
 
 		res, err := internalclient.PutContainer(putPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
@@ -188,7 +201,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		if containerAwait {
 			cmd.Println("awaiting...")
 
-			getPrm.SetContainerID(id)
+			getPrm.SetContainer(*id)
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
@@ -223,8 +236,11 @@ Only owner of the container has a permission to remove container.`,
 		)
 
 		prepareAPIClient(cmd, &delPrm, &getPrm)
-		delPrm.SetContainerID(id)
-		delPrm.SetSessionToken(tok)
+		delPrm.SetContainer(*id)
+
+		if tok != nil {
+			delPrm.SetSessionToken(*tok)
+		}
 
 		_, err = internalclient.DeleteContainer(delPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
@@ -234,7 +250,7 @@ Only owner of the container has a permission to remove container.`,
 		if containerAwait {
 			cmd.Println("awaiting...")
 
-			getPrm.SetContainerID(id)
+			getPrm.SetContainer(*id)
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
@@ -301,7 +317,7 @@ var getContainerInfoCmd = &cobra.Command{
 			var prm internalclient.GetContainerPrm
 
 			prepareAPIClient(cmd, &prm)
-			prm.SetContainerID(id)
+			prm.SetContainer(*id)
 
 			res, err := internalclient.GetContainer(prm)
 			exitOnErr(cmd, errf("rpc error: %w", err))
@@ -342,7 +358,7 @@ var getExtendedACLCmd = &cobra.Command{
 		var eaclPrm internalclient.EACLPrm
 
 		prepareAPIClient(cmd, &eaclPrm)
-		eaclPrm.SetContainerID(id)
+		eaclPrm.SetContainer(*id)
 
 		res, err := internalclient.EACL(eaclPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
@@ -405,8 +421,11 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		)
 
 		prepareAPIClient(cmd, &setEACLPrm, &getEACLPrm)
-		setEACLPrm.SetSessionToken(tok)
-		setEACLPrm.SetEACLTable(eaclTable)
+		setEACLPrm.SetTable(*eaclTable)
+
+		if tok != nil {
+			setEACLPrm.SetSessionToken(*tok)
+		}
 
 		_, err = internalclient.SetEACL(setEACLPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
@@ -417,7 +436,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 			cmd.Println("awaiting...")
 
-			getEACLPrm.SetContainerID(id)
+			getEACLPrm.SetContainer(*id)
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)

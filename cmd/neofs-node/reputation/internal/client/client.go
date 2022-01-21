@@ -52,8 +52,8 @@ func (x *AnnounceLocalPrm) SetEpoch(epoch uint64) {
 }
 
 // SetTrusts sets list of local trust values.
-func (x *AnnounceLocalPrm) SetTrusts(ts []*reputation.Trust) {
-	x.cliPrm.SetTrusts(ts)
+func (x *AnnounceLocalPrm) SetTrusts(ts []reputation.Trust) {
+	x.cliPrm.SetValues(ts)
 }
 
 // AnnounceLocalRes groups resulting values of AnnounceLocal operation.
@@ -67,7 +67,7 @@ type AnnounceLocalRes struct{}
 func AnnounceLocal(prm AnnounceLocalPrm) (res AnnounceLocalRes, err error) {
 	var cliRes *client.AnnounceLocalTrustRes
 
-	cliRes, err = prm.cli.AnnounceLocalTrust(prm.ctx, prm.cliPrm, prm.opts...)
+	cliRes, err = prm.cli.AnnounceLocalTrust(prm.ctx, prm.cliPrm)
 	if err == nil {
 		// pull out an error from status
 		err = apistatus.ErrFromStatus(cliRes.Status())
@@ -94,8 +94,8 @@ func (x *AnnounceIntermediatePrm) SetIteration(iter uint32) {
 }
 
 // SetTrust sets current global trust value computed at the iteration.
-func (x *AnnounceIntermediatePrm) SetTrust(t *reputation.PeerToPeerTrust) {
-	x.cliPrm.SetTrust(t)
+func (x *AnnounceIntermediatePrm) SetTrust(t reputation.PeerToPeerTrust) {
+	x.cliPrm.SetCurrentValue(t)
 }
 
 // AnnounceIntermediateRes groups resulting values of AnnounceIntermediate operation.
@@ -110,7 +110,7 @@ type AnnounceIntermediateRes struct{}
 func AnnounceIntermediate(prm AnnounceIntermediatePrm) (res AnnounceIntermediateRes, err error) {
 	var cliRes *client.AnnounceIntermediateTrustRes
 
-	cliRes, err = prm.cli.AnnounceIntermediateTrust(prm.ctx, prm.cliPrm, prm.opts...)
+	cliRes, err = prm.cli.AnnounceIntermediateTrust(prm.ctx, prm.cliPrm)
 	if err == nil {
 		// pull out an error from status
 		err = apistatus.ErrFromStatus(cliRes.Status())
