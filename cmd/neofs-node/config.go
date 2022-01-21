@@ -301,6 +301,7 @@ func initCfg(path string) *cfg {
 		},
 		clientCache: cache.NewSDKClientCache(
 			apiclient.WithDialTimeout(apiclientconfig.DialTimeout(appCfg)),
+			apiclient.WithDefaultPrivateKey(&key.PrivateKey),
 		),
 		persistate: persistate,
 

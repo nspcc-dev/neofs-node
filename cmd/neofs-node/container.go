@@ -279,20 +279,17 @@ func (r *remoteLoadAnnounceProvider) InitRemote(srv loadroute.ServerInfo) (loadc
 
 	return &remoteLoadAnnounceWriterProvider{
 		client: c,
-		key:    r.key,
 	}, nil
 }
 
 type remoteLoadAnnounceWriterProvider struct {
 	client client.Client
-	key    *ecdsa.PrivateKey
 }
 
 func (p *remoteLoadAnnounceWriterProvider) InitWriter(ctx context.Context) (loadcontroller.Writer, error) {
 	return &remoteLoadAnnounceWriter{
 		ctx:    ctx,
 		client: p.client,
-		key:    p.key,
 	}, nil
 }
 
@@ -300,7 +297,6 @@ type remoteLoadAnnounceWriter struct {
 	ctx context.Context
 
 	client client.Client
-	key    *ecdsa.PrivateKey
 
 	buf []containerSDK.UsedSpaceAnnouncement
 }
@@ -312,7 +308,11 @@ func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) err
 }
 
 func (r *remoteLoadAnnounceWriter) Close() error {
-	_, err := r.client.AnnounceContainerUsedSpace(r.ctx, r.buf, apiClient.WithKey(r.key))
+	var cliPrm apiClient.AnnounceSpacePrm
+
+	cliPrm.SetValues(r.buf)
+
+	_, err := r.client.AnnounceContainerUsedSpace(r.ctx, cliPrm)
 	return err
 }
 

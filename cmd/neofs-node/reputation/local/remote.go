@@ -67,7 +67,7 @@ type RemoteTrustWriter struct {
 	client coreclient.Client
 	key    *ecdsa.PrivateKey
 
-	buf []*reputationapi.Trust
+	buf []reputationapi.Trust
 }
 
 func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
@@ -79,7 +79,7 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	apiTrust.SetValue(t.Value().Float64())
 	apiTrust.SetPeer(apiPeer)
 
-	rtp.buf = append(rtp.buf, apiTrust)
+	rtp.buf = append(rtp.buf, *apiTrust)
 
 	return nil
 }

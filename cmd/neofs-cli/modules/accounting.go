@@ -50,7 +50,7 @@ var accountingBalanceCmd = &cobra.Command{
 		var prm internalclient.BalanceOfPrm
 
 		prepareAPIClientWithKey(cmd, key, &prm)
-		prm.SetOwner(oid)
+		prm.SetAccount(*oid)
 
 		res, err := internalclient.BalanceOf(prm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
