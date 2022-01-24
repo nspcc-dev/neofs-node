@@ -12,49 +12,49 @@ import (
 
 var dumpMagic = []byte("NEOF")
 
-// EvacuatePrm groups the parameters of Evacuate operation.
-type EvacuatePrm struct {
+// DumpPrm groups the parameters of Dump operation.
+type DumpPrm struct {
 	path         string
 	stream       io.Writer
 	ignoreErrors bool
 }
 
-// WithPath is an Evacuate option to set the destination path.
-func (p *EvacuatePrm) WithPath(path string) *EvacuatePrm {
+// WithPath is an Dump option to set the destination path.
+func (p *DumpPrm) WithPath(path string) *DumpPrm {
 	p.path = path
 	return p
 }
 
-// WithStream is an Evacuate option to set the destination stream.
+// WithStream is an Dump option to set the destination stream.
 // It takes priority over `path` option.
-func (p *EvacuatePrm) WithStream(r io.Writer) *EvacuatePrm {
+func (p *DumpPrm) WithStream(r io.Writer) *DumpPrm {
 	p.stream = r
 	return p
 }
 
-// WithIgnoreErrors is an Evacuate option to allow ignore all errors during iteration.
+// WithIgnoreErrors is an Dump option to allow ignore all errors during iteration.
 // This includes invalid blobovniczas as well as corrupted objects.
-func (p *EvacuatePrm) WithIgnoreErrors(ignore bool) *EvacuatePrm {
+func (p *DumpPrm) WithIgnoreErrors(ignore bool) *DumpPrm {
 	p.ignoreErrors = ignore
 	return p
 }
 
-// EvacuateRes groups the result fields of Evacuate operation.
-type EvacuateRes struct {
+// DumpRes groups the result fields of Dump operation.
+type DumpRes struct {
 	count int
 }
 
 // Count return amount of object written.
-func (r *EvacuateRes) Count() int {
+func (r *DumpRes) Count() int {
 	return r.count
 }
 
 var ErrMustBeReadOnly = errors.New("shard must be in read-only mode")
 
-// Evacuate dumps all objects from the shard to a file or stream.
+// Dump dumps all objects from the shard to a file or stream.
 //
 // Returns any error encountered.
-func (s *Shard) Evacuate(prm *EvacuatePrm) (*EvacuateRes, error) {
+func (s *Shard) Dump(prm *DumpPrm) (*DumpRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -126,5 +126,5 @@ func (s *Shard) Evacuate(prm *EvacuatePrm) (*EvacuateRes, error) {
 		return nil, err
 	}
 
-	return &EvacuateRes{count: count}, nil
+	return &DumpRes{count: count}, nil
 }
