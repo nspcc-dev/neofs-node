@@ -25,6 +25,9 @@ service ControlService {
 
     // Sets mode of the shard.
     rpc SetShardMode (SetShardModeRequest) returns (SetShardModeResponse);
+
+    // Dump objects from the shard.
+    rpc DumpShard (DumpShardRequest) returns (DumpShardResponse);
 }
 
 // Health check request.
@@ -196,6 +199,40 @@ message SetShardModeResponse {
     }
 
     // Body of set shard mode response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// DumpShard request.
+message DumpShardRequest {
+    // Request body structure.
+    message Body {
+        // ID of the shard.
+        bytes shard_ID = 1;
+
+        // Path to the output.
+        string filepath = 2;
+
+        // Flag indicating whether object read errors should be ignored.
+        bool ignore_errors = 3;
+    }
+
+    // Body of dump shard request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// DumpShard response.
+message DumpShardResponse {
+    // Response body structure.
+    message Body {
+    }
+
+    // Body of dump shard response message.
     Body body = 1;
 
     // Body signature.
