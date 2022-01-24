@@ -349,7 +349,7 @@ func (x *SetNetmapStatusRequest_Body) StableMarshal(buf []byte) ([]byte, error) 
 	return buf, nil
 }
 
-// StableSize returns binary size of health check response body
+// StableSize returns binary size of netmap status response body
 // in protobuf binary format.
 //
 // Structures with the same field values have the same binary size.
@@ -623,14 +623,14 @@ func (x *ListShardsRequest) SetBody(v *ListShardsRequest_Body) {
 	}
 }
 
-// SetSignature sets signature of the health check request body.
+// SetSignature sets signature of the list shards request body.
 func (x *ListShardsRequest) SetSignature(body *Signature) {
 	if x != nil {
 		x.Signature = body
 	}
 }
 
-// ReadSignedData reads signed data of list shard request to buf.
+// ReadSignedData reads signed data of list shards request to buf.
 //
 // If buffer length is less than x.SignedDataSize(), new buffer is allocated.
 //
@@ -643,7 +643,7 @@ func (x *ListShardsRequest) ReadSignedData(buf []byte) ([]byte, error) {
 }
 
 // SignedDataSize returns binary size of the signed data
-// of list shard request.
+// of list shards request.
 //
 // Structures with the same field values have the same signed data size.
 func (x *ListShardsRequest) SignedDataSize() int {
@@ -767,7 +767,7 @@ const (
 	setShardModeReqBodyModeFNum
 )
 
-// StableMarshal reads binary representation of list shards request body
+// StableMarshal reads binary representation of set shard mode request body
 // in protobuf binary format.
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
@@ -805,7 +805,7 @@ func (x *SetShardModeRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
-// StableSize returns binary size of list shards response body
+// StableSize returns binary size of set shard mode response body
 // in protobuf binary format.
 //
 // Structures with the same field values have the same binary size.
