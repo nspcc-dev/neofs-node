@@ -148,7 +148,7 @@ func SetShardMode(
 
 // DumpShard executes ControlService.DumpShard RPC.
 func DumpShard(cli *client.Client, req *DumpShardRequest, opts ...client.CallOption) (*DumpShardResponse, error) {
-	wResp := new(dumpShardResponseWrapper)
+	wResp := &dumpShardResponseWrapper{new(DumpShardResponse)}
 	wReq := &requestWrapper{m: req}
 
 	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcDumpShard), wReq, wResp, opts...)

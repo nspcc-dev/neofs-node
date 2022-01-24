@@ -182,6 +182,7 @@ func init() {
 
 	shardsCmd.AddCommand(listShardsCmd)
 	shardsCmd.AddCommand(setShardModeCmd)
+	shardsCmd.AddCommand(dumpShardCmd)
 
 	controlCmd.AddCommand(
 		healthCheckCmd,
@@ -197,6 +198,7 @@ func init() {
 	initControlSnapshotCmd()
 	initControlShardsListCmd()
 	initControlSetShardModeCmd()
+	initControlDumpShardCmd()
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
