@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"fmt"
-	"math"
+	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/spf13/cobra"
@@ -97,12 +98,8 @@ func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
 		cmd.Println("value:", decimal.Value())
 		cmd.Println("precision:", decimal.Precision())
 	} else {
-		// divider = 10^{precision}; v:365, p:2 => 365 / 10^2 = 3.65
-		divider := math.Pow(10, float64(decimal.Precision()))
+		amountF8 := precision.Convert(decimal.Precision(), 8, big.NewInt(decimal.Value()))
 
-		// %0.8f\n for precision 8
-		format := fmt.Sprintf("%%0.%df\n", decimal.Precision())
-
-		cmd.Printf(format, float64(decimal.Value())/divider)
+		cmd.Println(fixedn.ToString(amountF8, 8))
 	}
 }
