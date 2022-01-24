@@ -14,6 +14,7 @@ const (
 	rpcDropObjects     = "DropObjects"
 	rpcListShards      = "ListShards"
 	rpcSetShardMode    = "SetShardMode"
+	rpcDumpShard       = "DumpShard"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -143,4 +144,17 @@ func SetShardMode(
 	}
 
 	return wResp.m, nil
+}
+
+// DumpShard executes ControlService.DumpShard RPC.
+func DumpShard(cli *client.Client, req *DumpShardRequest, opts ...client.CallOption) (*DumpShardResponse, error) {
+	wResp := new(dumpShardResponseWrapper)
+	wReq := &requestWrapper{m: req}
+
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcDumpShard), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.DumpShardResponse, nil
 }
