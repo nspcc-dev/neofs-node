@@ -56,7 +56,7 @@ func (r *RestoreRes) FailCount() int {
 	return r.failed
 }
 
-// Restore restores objects from the dump prepared by Evacuate.
+// Restore restores objects from the dump prepared by Dump.
 //
 // Returns any error encountered.
 func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {

@@ -23,17 +23,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEvacuate(t *testing.T) {
+func TestDump(t *testing.T) {
 	t.Run("without write-cache", func(t *testing.T) {
-		testEvacuate(t, 10, false)
+		testDump(t, 10, false)
 	})
 	t.Run("with write-cache", func(t *testing.T) {
 		// Put a bit more objects to write-cache to facilitate race-conditions.
-		testEvacuate(t, 100, true)
+		testDump(t, 100, true)
 	})
 }
 
-func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
+func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	const (
 		wcSmallObjectSize = 1024          // 1 KiB, goes to write-cache memory
 		wcBigObjectSize   = 4 * 1024      // 4 KiB, goes to write-cache FSTree
@@ -55,16 +55,16 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 	defer releaseShard(sh, t)
 
 	out := filepath.Join(t.TempDir(), "dump")
-	prm := new(shard.EvacuatePrm).WithPath(out)
+	prm := new(shard.DumpPrm).WithPath(out)
 
 	t.Run("must be read-only", func(t *testing.T) {
-		_, err := sh.Evacuate(prm)
+		_, err := sh.Dump(prm)
 		require.True(t, errors.Is(err, shard.ErrMustBeReadOnly), "got: %v", err)
 	})
 
 	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
 	outEmpty := out + ".empty"
-	res, err := sh.Evacuate(new(shard.EvacuatePrm).WithPath(outEmpty))
+	res, err := sh.Dump(new(shard.DumpPrm).WithPath(outEmpty))
 	require.NoError(t, err)
 	require.Equal(t, 0, res.Count())
 	require.NoError(t, sh.SetMode(shard.ModeReadWrite))
@@ -99,11 +99,11 @@ func testEvacuate(t *testing.T, objCount int, hasWriteCache bool) {
 	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
 
 	t.Run("invalid path", func(t *testing.T) {
-		_, err := sh.Evacuate(new(shard.EvacuatePrm).WithPath("\x00"))
+		_, err := sh.Dump(new(shard.DumpPrm).WithPath("\x00"))
 		require.Error(t, err)
 	})
 
-	res, err = sh.Evacuate(prm)
+	res, err = sh.Dump(prm)
 	require.NoError(t, err)
 	require.Equal(t, objCount, res.Count())
 
@@ -209,7 +209,7 @@ func TestStream(t *testing.T) {
 	finish := make(chan struct{})
 
 	go func() {
-		res, err := sh1.Evacuate(new(shard.EvacuatePrm).WithStream(w))
+		res, err := sh1.Dump(new(shard.DumpPrm).WithStream(w))
 		require.NoError(t, err)
 		require.Equal(t, objCount, res.Count())
 		require.NoError(t, w.Close())
@@ -239,7 +239,7 @@ func checkRestore(t *testing.T, sh *shard.Shard, prm *shard.RestorePrm, objects 
 	}
 }
 
-func TestEvacuateIgnoreErrors(t *testing.T) {
+func TestDumpIgnoreErrors(t *testing.T) {
 	const (
 		wcSmallObjectSize = 512                    // goes to write-cache memory
 		wcBigObjectSize   = wcSmallObjectSize << 1 // goes to write-cache FSTree
@@ -346,7 +346,7 @@ func TestEvacuateIgnoreErrors(t *testing.T) {
 	}
 
 	out := filepath.Join(t.TempDir(), "out.dump")
-	res, err := sh.Evacuate(new(shard.EvacuatePrm).WithPath(out).WithIgnoreErrors(true))
+	res, err := sh.Dump(new(shard.DumpPrm).WithPath(out).WithIgnoreErrors(true))
 	require.NoError(t, err)
 	require.Equal(t, objCount, res.Count())
 }
