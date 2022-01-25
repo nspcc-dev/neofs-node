@@ -36,6 +36,8 @@ type ControlServiceClient interface {
 	SetShardMode(ctx context.Context, in *SetShardModeRequest, opts ...grpc.CallOption) (*SetShardModeResponse, error)
 	// Dump objects from the shard.
 	DumpShard(ctx context.Context, in *DumpShardRequest, opts ...grpc.CallOption) (*DumpShardResponse, error)
+	// Restore objects from dump.
+	RestoreShard(ctx context.Context, in *RestoreShardRequest, opts ...grpc.CallOption) (*RestoreShardResponse, error)
 }
 
 type controlServiceClient struct {
@@ -109,6 +111,15 @@ func (c *controlServiceClient) DumpShard(ctx context.Context, in *DumpShardReque
 	return out, nil
 }
 
+func (c *controlServiceClient) RestoreShard(ctx context.Context, in *RestoreShardRequest, opts ...grpc.CallOption) (*RestoreShardResponse, error) {
+	out := new(RestoreShardResponse)
+	err := c.cc.Invoke(ctx, "/control.ControlService/RestoreShard", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations should embed UnimplementedControlServiceServer
 // for forward compatibility
@@ -127,6 +138,8 @@ type ControlServiceServer interface {
 	SetShardMode(context.Context, *SetShardModeRequest) (*SetShardModeResponse, error)
 	// Dump objects from the shard.
 	DumpShard(context.Context, *DumpShardRequest) (*DumpShardResponse, error)
+	// Restore objects from dump.
+	RestoreShard(context.Context, *RestoreShardRequest) (*RestoreShardResponse, error)
 }
 
 // UnimplementedControlServiceServer should be embedded to have forward compatible implementations.
@@ -153,6 +166,9 @@ func (UnimplementedControlServiceServer) SetShardMode(context.Context, *SetShard
 }
 func (UnimplementedControlServiceServer) DumpShard(context.Context, *DumpShardRequest) (*DumpShardResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DumpShard not implemented")
+}
+func (UnimplementedControlServiceServer) RestoreShard(context.Context, *RestoreShardRequest) (*RestoreShardResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreShard not implemented")
 }
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -292,6 +308,24 @@ func _ControlService_DumpShard_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_RestoreShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreShardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).RestoreShard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.ControlService/RestoreShard",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).RestoreShard(ctx, req.(*RestoreShardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -326,6 +360,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DumpShard",
 			Handler:    _ControlService_DumpShard_Handler,
+		},
+		{
+			MethodName: "RestoreShard",
+			Handler:    _ControlService_RestoreShard_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

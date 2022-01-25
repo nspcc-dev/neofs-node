@@ -148,3 +148,21 @@ func (w *dumpShardResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	w.DumpShardResponse = r
 	return nil
 }
+
+type restoreShardResponseWrapper struct {
+	*RestoreShardResponse
+}
+
+func (w *restoreShardResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.RestoreShardResponse
+}
+
+func (w *restoreShardResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	r, ok := m.(*RestoreShardResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, (*RestoreShardResponse)(nil))
+	}
+
+	w.RestoreShardResponse = r
+	return nil
+}
