@@ -1079,3 +1079,172 @@ func (x *DumpShardResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *DumpShardResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
+
+// SetShardID sets shard ID for the restore shard request.
+func (x *RestoreShardRequest_Body) SetShardID(id []byte) {
+	x.Shard_ID = id
+}
+
+// SetFilepath sets filepath for the restore shard request.
+func (x *RestoreShardRequest_Body) SetFilepath(p string) {
+	x.Filepath = p
+}
+
+// SetIgnoreErrors sets ignore errors flag for the restore shard request.
+func (x *RestoreShardRequest_Body) SetIgnoreErrors(ignore bool) {
+	x.IgnoreErrors = ignore
+}
+
+const (
+	_ = iota
+	restoreShardReqBodyShardIDFNum
+	restoreShardReqBodyFilepathFNum
+	restoreShardReqBodyIgnoreErrorsFNum
+)
+
+// StableMarshal reads binary representation of request body binary format.
+//
+// If buffer length is less than StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *RestoreShardRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+	if x == nil {
+		return []byte{}, nil
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var (
+		offset, n int
+		err       error
+	)
+
+	n, err = proto.BytesMarshal(restoreShardReqBodyShardIDFNum, buf, x.Shard_ID)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	n, err = proto.StringMarshal(restoreShardReqBodyFilepathFNum, buf[offset:], x.Filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	_, err = proto.BoolMarshal(restoreShardReqBodyIgnoreErrorsFNum, buf[offset:], x.IgnoreErrors)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+// StableSize returns binary size of the request body in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *RestoreShardRequest_Body) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.BytesSize(restoreShardReqBodyShardIDFNum, x.Shard_ID)
+	size += proto.StringSize(restoreShardReqBodyFilepathFNum, x.Filepath)
+	size += proto.BoolSize(restoreShardReqBodyIgnoreErrorsFNum, x.IgnoreErrors)
+
+	return size
+}
+
+// SetBody sets request body.
+func (x *RestoreShardRequest) SetBody(v *RestoreShardRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets body signature of the request.
+func (x *RestoreShardRequest) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data from request to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *RestoreShardRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *RestoreShardRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// StableMarshal reads binary representation of the response body in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *RestoreShardResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+	return buf, nil
+}
+
+// StableSize returns binary size of the response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *RestoreShardResponse_Body) StableSize() int {
+	return 0
+}
+
+// SetBody sets response body.
+func (x *RestoreShardResponse) SetBody(v *RestoreShardResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets response body signature.
+func (x *RestoreShardResponse) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data from response to buf.
+//
+// If buffer length is less than SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *RestoreShardResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf)
+}
+
+// SignedDataSize returns binary size of the signed data.
+//
+// Structures with the same field values have the same signed data size.
+func (x *RestoreShardResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
