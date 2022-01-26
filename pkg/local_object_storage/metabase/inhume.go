@@ -6,21 +6,22 @@ import (
 	"fmt"
 
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // InhumePrm encapsulates parameters for Inhume operation.
 type InhumePrm struct {
-	tomb *objectSDK.Address
+	tomb *addressSDK.Address
 
-	target []*objectSDK.Address
+	target []*addressSDK.Address
 }
 
 // InhumeRes encapsulates results of Inhume operation.
 type InhumeRes struct{}
 
 // WithAddresses sets list of object addresses that should be inhumed.
-func (p *InhumePrm) WithAddresses(addrs ...*objectSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithAddresses(addrs ...*addressSDK.Address) *InhumePrm {
 	if p != nil {
 		p.target = addrs
 	}
@@ -32,7 +33,7 @@ func (p *InhumePrm) WithAddresses(addrs ...*objectSDK.Address) *InhumePrm {
 //
 // addr should not be nil.
 // Should not be called along with WithGCMark.
-func (p *InhumePrm) WithTombstoneAddress(addr *objectSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithTombstoneAddress(addr *addressSDK.Address) *InhumePrm {
 	if p != nil {
 		p.tomb = addr
 	}
@@ -54,7 +55,7 @@ func (p *InhumePrm) WithGCMark() *InhumePrm {
 // Inhume inhumes the object by specified address.
 //
 // tomb should not be nil.
-func Inhume(db *DB, target, tomb *objectSDK.Address) error {
+func Inhume(db *DB, target, tomb *addressSDK.Address) error {
 	_, err := db.Inhume(new(InhumePrm).
 		WithAddresses(target).
 		WithTombstoneAddress(tomb),

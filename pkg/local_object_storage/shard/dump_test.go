@@ -18,8 +18,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -327,7 +327,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 
 		// 2.2. Invalid object in valid blobovnicza.
 		prm := new(blobovnicza.PutPrm)
-		prm.SetAddress(objectSDK.NewAddress())
+		prm.SetAddress(addressSDK.NewAddress())
 		prm.SetMarshaledObject(corruptedData)
 		b := blobovnicza.New(blobovnicza.WithPath(filepath.Join(bTree, "1", "2")))
 		require.NoError(t, b.Open())

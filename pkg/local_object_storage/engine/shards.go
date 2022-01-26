@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
 )
@@ -99,7 +99,7 @@ func (e *StorageEngine) unsortedShards() []hashedShard {
 	return shards
 }
 
-func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler func(int, hashedShard) (stop bool)) {
+func (e *StorageEngine) iterateOverSortedShards(addr *addressSDK.Address, handler func(int, hashedShard) (stop bool)) {
 	for i, sh := range e.sortShardsByWeight(addr) {
 		if handler(i, sh) {
 			break

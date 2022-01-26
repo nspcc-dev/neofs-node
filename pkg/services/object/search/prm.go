@@ -5,6 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Prm groups parameters of Get service call.
@@ -23,12 +24,12 @@ type Prm struct {
 // IDListWriter is an interface of target component
 // to write list of object identifiers.
 type IDListWriter interface {
-	WriteIDs([]*objectSDK.ID) error
+	WriteIDs([]*oidSDK.ID) error
 }
 
 // RequestForwarder is a callback for forwarding of the
 // original Search requests.
-type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) ([]*objectSDK.ID, error)
+type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) ([]*oidSDK.ID, error)
 
 // SetCommonParameters sets common parameters of the operation.
 func (p *Prm) SetCommonParameters(common *util.CommonPrm) {

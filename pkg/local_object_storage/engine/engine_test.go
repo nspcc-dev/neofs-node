@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -77,11 +78,11 @@ func testNewShard(t *testing.T, id int) *shard.Shard {
 	return s
 }
 
-func testOID() *objectSDK.ID {
+func testOID() *oidSDK.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])
 
-	id := objectSDK.NewID()
+	id := oidSDK.NewID()
 	id.SetSHA256(cs)
 
 	return id

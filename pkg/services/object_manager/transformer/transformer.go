@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -23,7 +24,7 @@ type payloadSizeLimiter struct {
 
 	currentHashers, parentHashers []*payloadChecksumHasher
 
-	previous []*objectSDK.ID
+	previous []*oidSDK.ID
 
 	chunkWriter io.Writer
 

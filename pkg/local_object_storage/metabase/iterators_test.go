@@ -7,6 +7,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,8 +16,8 @@ func TestDB_IterateExpired(t *testing.T) {
 
 	const epoch = 13
 
-	mAlive := map[object.Type]*object.Address{}
-	mExpired := map[object.Type]*object.Address{}
+	mAlive := map[object.Type]*addressSDK.Address{}
+	mExpired := map[object.Type]*addressSDK.Address{}
 
 	for _, typ := range []object.Type{
 		object.TypeRegular,
@@ -45,7 +46,7 @@ func TestDB_IterateExpired(t *testing.T) {
 	require.Empty(t, mExpired)
 }
 
-func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uint64) *object.Address {
+func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uint64) *addressSDK.Address {
 	raw := generateRawObject(t)
 	raw.SetType(typ)
 	addAttribute(raw, objectV2.SysAttributeExpEpoch, strconv.FormatUint(expiresAt, 10))
@@ -79,13 +80,13 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 		WithGCMark(),
 	)
 
-	var handled []*object.Address
+	var handled []*addressSDK.Address
 
 	tss := map[string]struct{}{
 		ts.String(): {},
 	}
 
-	err = db.IterateCoveredByTombstones(tss, func(addr *object.Address) error {
+	err = db.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
 		handled = append(handled, addr)
 		return nil
 	})

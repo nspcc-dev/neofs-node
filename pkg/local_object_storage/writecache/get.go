@@ -2,12 +2,12 @@ package writecache
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // Get returns object from write-cache.
-func (c *cache) Get(addr *objectSDK.Address) (*object.Object, error) {
+func (c *cache) Get(addr *addressSDK.Address) (*object.Object, error) {
 	saddr := addr.String()
 
 	c.mtx.RLock()
@@ -42,7 +42,7 @@ func (c *cache) Get(addr *objectSDK.Address) (*object.Object, error) {
 }
 
 // Head returns object header from write-cache.
-func (c *cache) Head(addr *objectSDK.Address) (*object.Object, error) {
+func (c *cache) Head(addr *addressSDK.Address) (*object.Object, error) {
 	// TODO: easiest to implement solution is presented here, consider more efficient way, e.g.:
 	//  - provide header as common object.Object to Put, but marked to prevent correlation with full object
 	//    (all write-cache logic will automatically spread to headers, except flushing)

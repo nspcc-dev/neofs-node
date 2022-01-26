@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -125,7 +125,7 @@ func (c *cache) deleteFromDisk(keys [][]byte) error {
 	var lastErr error
 
 	for i := range keys {
-		addr := objectSDK.NewAddress()
+		addr := addressSDK.NewAddress()
 		addrStr := string(keys[i])
 
 		if err := addr.Parse(addrStr); err != nil {

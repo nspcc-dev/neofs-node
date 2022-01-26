@@ -3,7 +3,7 @@ package blobovnicza
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
@@ -57,7 +57,7 @@ func max(a, b uint64) uint64 {
 
 // IterationElement represents a unit of elements through which Iterate operation passes.
 type IterationElement struct {
-	addr *object.Address
+	addr *addressSDK.Address
 
 	data []byte
 }
@@ -68,7 +68,7 @@ func (x IterationElement) ObjectData() []byte {
 }
 
 // Address returns address of the stored object.
-func (x IterationElement) Address() *object.Address {
+func (x IterationElement) Address() *addressSDK.Address {
 	return x.addr
 }
 
@@ -125,7 +125,7 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
 			return buck.ForEach(func(k, v []byte) error {
 				if prm.decodeAddresses {
 					if elem.addr == nil {
-						elem.addr = object.NewAddress()
+						elem.addr = addressSDK.NewAddress()
 					}
 
 					if err := addressFromKey(elem.addr, k); err != nil {
@@ -164,7 +164,7 @@ func IterateObjects(blz *Blobovnicza, f func([]byte) error) error {
 }
 
 // IterateAddresses is a helper function which iterates over Blobovnicza and passes addresses of the objects to f.
-func IterateAddresses(blz *Blobovnicza, f func(*object.Address) error) error {
+func IterateAddresses(blz *Blobovnicza, f func(*addressSDK.Address) error) error {
 	var prm IteratePrm
 
 	prm.DecodeAddresses()

@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
@@ -44,7 +45,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 			return nil, err
 		}
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) ([]*objectSDK.ID, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) ([]*oidSDK.ID, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -72,7 +73,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 			// code below is copy-pasted from c.SearchObjects implementation,
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 			var (
-				searchResult []*objectSDK.ID
+				searchResult []*oidSDK.ID
 				resp         = new(objectV2.SearchResponse)
 			)
 
@@ -99,7 +100,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 				chunk := resp.GetBody().GetIDList()
 				for i := range chunk {
-					searchResult = append(searchResult, objectSDK.NewIDFromV2(chunk[i]))
+					searchResult = append(searchResult, oidSDK.NewIDFromV2(chunk[i]))
 				}
 			}
 
@@ -114,11 +115,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	return p, nil
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) ([]*objectSDK.ID, error)) searchsvc.RequestForwarder {
-	return func(info client.NodeInfo, c client.MultiAddressClient) ([]*objectSDK.ID, error) {
+func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) ([]*oidSDK.ID, error)) searchsvc.RequestForwarder {
+	return func(info client.NodeInfo, c client.MultiAddressClient) ([]*oidSDK.ID, error) {
 		var (
 			firstErr error
-			res      []*objectSDK.ID
+			res      []*oidSDK.ID
 
 			key = info.PublicKey()
 		)

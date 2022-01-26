@@ -21,7 +21,8 @@ import (
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 )
@@ -72,7 +73,7 @@ type (
 
 		cid *cid.ID
 
-		oid *objectSDK.ID
+		oid *objectSDKID.ID
 
 		senderKey []byte
 
@@ -517,23 +518,23 @@ func useObjectIDFromSession(req *requestInfo, token *session.SessionToken) {
 		return
 	}
 
-	req.oid = objectSDK.NewIDFromV2(
+	req.oid = objectSDKID.NewIDFromV2(
 		objCtx.GetAddress().GetObjectID(),
 	)
 }
 
-func getObjectIDFromRequestBody(body interface{}) *objectSDK.ID {
+func getObjectIDFromRequestBody(body interface{}) *objectSDKID.ID {
 	switch v := body.(type) {
 	default:
 		return nil
 	case interface {
 		GetObjectID() *refs.ObjectID
 	}:
-		return objectSDK.NewIDFromV2(v.GetObjectID())
+		return objectSDKID.NewIDFromV2(v.GetObjectID())
 	case interface {
 		GetAddress() *refs.Address
 	}:
-		return objectSDK.NewIDFromV2(v.GetAddress().GetObjectID())
+		return objectSDKID.NewIDFromV2(v.GetAddress().GetObjectID())
 	}
 }
 
@@ -632,7 +633,7 @@ func eACLCheck(msg interface{}, reqInfo requestInfo, cfg *eACLCfg) bool {
 
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
-	addr := objectSDK.NewAddress()
+	addr := objectSDKAddress.NewAddress()
 	addr.SetContainerID(reqInfo.cid)
 	addr.SetObjectID(reqInfo.oid)
 

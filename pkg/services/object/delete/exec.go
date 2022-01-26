@@ -10,6 +10,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -59,7 +61,7 @@ func (exec execCtx) isLocal() bool {
 	return exec.prm.common.LocalOnly()
 }
 
-func (exec *execCtx) address() *objectSDK.Address {
+func (exec *execCtx) address() *addressSDK.Address {
 	return exec.prm.addr
 }
 
@@ -71,8 +73,8 @@ func (exec *execCtx) commonParameters() *util.CommonPrm {
 	return exec.prm.common
 }
 
-func (exec *execCtx) newAddress(id *objectSDK.ID) *objectSDK.Address {
-	a := objectSDK.NewAddress()
+func (exec *execCtx) newAddress(id *oidSDK.ID) *addressSDK.Address {
+	a := addressSDK.NewAddress()
 	a.SetObjectID(id)
 	a.SetContainerID(exec.containerID())
 
@@ -123,7 +125,7 @@ func (exec *execCtx) collectMembers() (ok bool) {
 func (exec *execCtx) collectChain() bool {
 	var (
 		err   error
-		chain []*objectSDK.ID
+		chain []*oidSDK.ID
 	)
 
 	exec.log.Debug("assembling chain...")
@@ -204,7 +206,7 @@ func (exec *execCtx) supplementBySplitID() bool {
 	}
 }
 
-func (exec *execCtx) addMembers(incoming []*objectSDK.ID) {
+func (exec *execCtx) addMembers(incoming []*oidSDK.ID) {
 	members := exec.tombstone.Members()
 
 	for i := range members {

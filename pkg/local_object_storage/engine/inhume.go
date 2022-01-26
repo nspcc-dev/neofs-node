@@ -7,12 +7,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	tombstone *objectSDK.Address
-	addrs     []*objectSDK.Address
+	tombstone *addressSDK.Address
+	addrs     []*addressSDK.Address
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -23,7 +24,7 @@ type InhumeRes struct{}
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTarget(tombstone *objectSDK.Address, addrs ...*objectSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithTarget(tombstone *addressSDK.Address, addrs ...*addressSDK.Address) *InhumePrm {
 	if p != nil {
 		p.addrs = addrs
 		p.tombstone = tombstone
@@ -35,7 +36,7 @@ func (p *InhumePrm) WithTarget(tombstone *objectSDK.Address, addrs ...*objectSDK
 // MarkAsGarbage marks object to be physically removed from local storage.
 //
 // Should not be called along with WithTarget.
-func (p *InhumePrm) MarkAsGarbage(addrs ...*objectSDK.Address) *InhumePrm {
+func (p *InhumePrm) MarkAsGarbage(addrs ...*addressSDK.Address) *InhumePrm {
 	if p != nil {
 		p.addrs = addrs
 		p.tombstone = nil
@@ -85,7 +86,7 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 	return new(InhumeRes), nil
 }
 
-func (e *StorageEngine) inhumeAddr(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
+func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
 	root := false
 
 	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
@@ -133,7 +134,7 @@ func (e *StorageEngine) inhumeAddr(addr *objectSDK.Address, prm *shard.InhumePrm
 	return
 }
 
-func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*objectSDK.Address) {
+func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*addressSDK.Address) {
 	tss := make(map[string]struct{}, len(addrs))
 
 	for i := range addrs {

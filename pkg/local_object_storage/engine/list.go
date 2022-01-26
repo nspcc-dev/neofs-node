@@ -4,7 +4,7 @@ import (
 	"sort"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // ErrEndOfListing is returned from object listing with cursor
@@ -40,12 +40,12 @@ func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 
 // ListWithCursorRes contains values returned from ListWithCursor operation.
 type ListWithCursorRes struct {
-	addrList []*object.Address
+	addrList []*addressSDK.Address
 	cursor   *Cursor
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
-func (l ListWithCursorRes) AddressList() []*object.Address {
+func (l ListWithCursorRes) AddressList() []*addressSDK.Address {
 	return l.addrList
 }
 
@@ -62,7 +62,7 @@ func (l ListWithCursorRes) Cursor() *Cursor {
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
-	result := make([]*object.Address, 0, prm.count)
+	result := make([]*addressSDK.Address, 0, prm.count)
 
 	// 1. Get available shards and sort them.
 	e.mtx.RLock()

@@ -7,11 +7,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // HeadPrm groups the parameters of Head operation.
 type HeadPrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 	raw  bool
 }
 
@@ -23,7 +24,7 @@ type HeadRes struct {
 // WithAddress is a Head option to set the address of the requested object.
 //
 // Option is required.
-func (p *HeadPrm) WithAddress(addr *objectSDK.Address) *HeadPrm {
+func (p *HeadPrm) WithAddress(addr *addressSDK.Address) *HeadPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -134,7 +135,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 }
 
 // Head reads object header from local storage by provided address.
-func Head(storage *StorageEngine, addr *objectSDK.Address) (*object.Object, error) {
+func Head(storage *StorageEngine, addr *addressSDK.Address) (*object.Object, error) {
 	res, err := storage.Head(new(HeadPrm).
 		WithAddress(addr),
 	)
@@ -147,7 +148,7 @@ func Head(storage *StorageEngine, addr *objectSDK.Address) (*object.Object, erro
 
 // HeadRaw reads object header from local storage by provided address and raw
 // flag.
-func HeadRaw(storage *StorageEngine, addr *objectSDK.Address, raw bool) (*object.Object, error) {
+func HeadRaw(storage *StorageEngine, addr *addressSDK.Address, raw bool) (*object.Object, error) {
 	res, err := storage.Head(new(HeadPrm).
 		WithAddress(addr).
 		WithRaw(raw),

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
@@ -41,7 +42,7 @@ type cfg struct {
 	}
 
 	traverserGenerator interface {
-		GenerateTraverser(*objectSDK.Address, uint64) (*placement.Traverser, error)
+		GenerateTraverser(*addressSDK.Address, uint64) (*placement.Traverser, error)
 	}
 
 	currentEpochReceiver interface {

@@ -12,6 +12,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -27,8 +28,8 @@ func testSHA(t *testing.T) [sha256.Size]byte {
 	return cs
 }
 
-func testObjectID(t *testing.T) *object.ID {
-	id := object.NewID()
+func testObjectID(t *testing.T) *oidSDK.ID {
+	id := oidSDK.NewID()
 	id.SetSHA256(testSHA(t))
 
 	return id
@@ -118,7 +119,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj.Object())) // no tombstone content
 
 		content := object.NewTombstone()
-		content.SetMembers([]*object.ID{nil})
+		content.SetMembers([]*oidSDK.ID{nil})
 
 		data, err := content.Marshal()
 		require.NoError(t, err)
@@ -127,7 +128,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj.Object())) // no members in tombstone
 
-		content.SetMembers([]*object.ID{testObjectID(t)})
+		content.SetMembers([]*oidSDK.ID{testObjectID(t)})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)
@@ -160,7 +161,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj.Object()))
 
 		content := storagegroup.New()
-		content.SetMembers([]*object.ID{nil})
+		content.SetMembers([]*oidSDK.ID{nil})
 
 		data, err := content.Marshal()
 		require.NoError(t, err)
@@ -169,7 +170,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj.Object()))
 
-		content.SetMembers([]*object.ID{testObjectID(t)})
+		content.SetMembers([]*oidSDK.ID{testObjectID(t)})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)

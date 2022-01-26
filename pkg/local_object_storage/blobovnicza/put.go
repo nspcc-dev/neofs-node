@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 
 	objData []byte
 }
@@ -26,7 +26,7 @@ var ErrFull = errors.New("blobovnicza is full")
 var errNilAddress = errors.New("object address is nil")
 
 // SetAddress sets address of saving object.
-func (p *PutPrm) SetAddress(addr *objectSDK.Address) {
+func (p *PutPrm) SetAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
 
@@ -86,10 +86,10 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 	return nil, err
 }
 
-func addressKey(addr *objectSDK.Address) []byte {
+func addressKey(addr *addressSDK.Address) []byte {
 	return []byte(addr.String())
 }
 
-func addressFromKey(dst *objectSDK.Address, data []byte) error {
+func addressFromKey(dst *addressSDK.Address, data []byte) error {
 	return dst.Parse(string(data))
 }

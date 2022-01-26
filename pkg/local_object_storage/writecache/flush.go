@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -133,7 +133,7 @@ func (c *cache) flushBigObjects() {
 			}
 
 			evictNum := 0
-			_ = c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+			_ = c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
 				sAddr := addr.String()
 
 				if _, ok := c.store.flushed.Peek(sAddr); ok {

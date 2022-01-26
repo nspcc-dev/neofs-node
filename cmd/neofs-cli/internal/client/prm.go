@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
@@ -49,10 +49,10 @@ func (x *bearerTokenPrm) SetBearerToken(tok *token.BearerToken) {
 }
 
 type objectAddressPrm struct {
-	objAddr *object.Address
+	objAddr *addressSDK.Address
 }
 
-func (x *objectAddressPrm) SetAddress(addr *object.Address) {
+func (x *objectAddressPrm) SetAddress(addr *addressSDK.Address) {
 	x.objAddr = addr
 }
 

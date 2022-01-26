@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/spf13/cobra"
 )
 
@@ -54,7 +55,7 @@ func init() {
 }
 
 func objectInspectCmd(cmd *cobra.Command, _ []string) {
-	addr := object.NewAddress()
+	addr := addressSDK.NewAddress()
 	err := addr.Parse(vAddress)
 	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
 

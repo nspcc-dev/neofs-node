@@ -6,6 +6,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // SelectPrm groups the parameters of Select operation.
@@ -16,7 +17,7 @@ type SelectPrm struct {
 
 // SelectRes groups resulting values of Select operation.
 type SelectRes struct {
-	addrList []*objectSDK.Address
+	addrList []*addressSDK.Address
 }
 
 // WithContainerID is a Select option to set the container id to search in.
@@ -38,7 +39,7 @@ func (p *SelectPrm) WithFilters(fs objectSDK.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*objectSDK.Address {
+func (r *SelectRes) AddressList() []*addressSDK.Address {
 	return r.addrList
 }
 

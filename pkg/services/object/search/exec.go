@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -132,7 +133,7 @@ func (exec execCtx) remoteClient(info client.NodeInfo) (searchClient, bool) {
 	return nil, false
 }
 
-func (exec *execCtx) writeIDList(ids []*objectSDK.ID) {
+func (exec *execCtx) writeIDList(ids []*oidSDK.ID) {
 	err := exec.prm.writer.WriteIDs(ids)
 
 	switch {

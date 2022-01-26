@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +42,7 @@ func TestRefillMetabase(t *testing.T) {
 
 	type objAddr struct {
 		obj  *object.Object
-		addr *objectSDK.Address
+		addr *addressSDK.Address
 	}
 
 	mObjs := make(map[string]objAddr)
@@ -72,10 +73,10 @@ func TestRefillMetabase(t *testing.T) {
 
 	tombObj := tombObjRaw.Object()
 
-	tombMembers := make([]*objectSDK.Address, 0, len(tombstone.Members()))
+	tombMembers := make([]*addressSDK.Address, 0, len(tombstone.Members()))
 
 	for _, member := range tombstone.Members() {
-		a := objectSDK.NewAddress()
+		a := addressSDK.NewAddress()
 		a.SetObjectID(member)
 		a.SetContainerID(tombObj.ContainerID())
 
@@ -97,7 +98,7 @@ func TestRefillMetabase(t *testing.T) {
 
 	var headPrm HeadPrm
 
-	checkObj := func(addr *objectSDK.Address, expObj *object.Object) {
+	checkObj := func(addr *addressSDK.Address, expObj *object.Object) {
 		res, err := sh.Head(headPrm.WithAddress(addr))
 
 		if expObj == nil {

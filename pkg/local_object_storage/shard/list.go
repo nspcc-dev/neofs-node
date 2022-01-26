@@ -6,6 +6,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +36,7 @@ type ListWithCursorPrm struct {
 
 // ListWithCursorRes contains values returned from ListWithCursor operation.
 type ListWithCursorRes struct {
-	addrList []*object.Address
+	addrList []*addressSDK.Address
 	cursor   *Cursor
 }
 
@@ -54,7 +55,7 @@ func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
-func (r ListWithCursorRes) AddressList() []*object.Address {
+func (r ListWithCursorRes) AddressList() []*addressSDK.Address {
 	return r.addrList
 }
 
@@ -135,7 +136,7 @@ func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, erro
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]*object.Address, *Cursor, error) {
+func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]*addressSDK.Address, *Cursor, error) {
 	prm := new(ListWithCursorPrm).WithCount(count).WithCursor(cursor)
 	res, err := s.ListWithCursor(prm)
 	if err != nil {

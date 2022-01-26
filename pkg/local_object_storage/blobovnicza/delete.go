@@ -2,14 +2,14 @@ package blobovnicza
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // DeleteRes groups resulting values of Delete operation.
@@ -17,7 +17,7 @@ type DeleteRes struct {
 }
 
 // SetAddress sets address of the requested object.
-func (p *DeletePrm) SetAddress(addr *objectSDK.Address) {
+func (p *DeletePrm) SetAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
 

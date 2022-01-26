@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +23,8 @@ func TestListWithCursor(t *testing.T) {
 
 	const total = 20
 
-	expected := make([]*object.Address, 0, total)
-	got := make([]*object.Address, 0, total)
+	expected := make([]*addressSDK.Address, 0, total)
+	got := make([]*addressSDK.Address, 0, total)
 
 	for i := 0; i < total; i++ {
 		containerID := cidtest.ID()
@@ -58,7 +58,7 @@ func TestListWithCursor(t *testing.T) {
 	require.Equal(t, expected, got)
 }
 
-func sortAddresses(addr []*object.Address) []*object.Address {
+func sortAddresses(addr []*addressSDK.Address) []*addressSDK.Address {
 	sort.Slice(addr, func(i, j int) bool {
 		return addr[i].String() < addr[j].String()
 	})
