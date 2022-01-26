@@ -6,12 +6,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // Delete removes object from write-cache.
-func (c *cache) Delete(addr *objectSDK.Address) error {
+func (c *cache) Delete(addr *addressSDK.Address) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.mode == ModeReadOnly {

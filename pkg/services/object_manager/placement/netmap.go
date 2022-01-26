@@ -5,7 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type netMapBuilder struct {
@@ -34,7 +35,7 @@ func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
 	return s.nm, nil
 }
 
-func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+func (b *netMapBuilder) BuildPlacement(a *addressSDK.Address, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
 	if err != nil {
 		return nil, fmt.Errorf("could not get network map: %w", err)
@@ -48,7 +49,7 @@ func (b *netMapBuilder) BuildPlacement(a *object.Address, p *netmapSDK.Placement
 	return BuildObjectPlacement(nm, cn, a.ObjectID())
 }
 
-func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *object.ID) ([]netmapSDK.Nodes, error) {
+func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *oidSDK.ID) ([]netmapSDK.Nodes, error) {
 	objectID := id.ToV2()
 	if objectID == nil {
 		return cnrNodes.Replicas(), nil

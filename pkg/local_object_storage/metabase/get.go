@@ -6,12 +6,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 	raw  bool
 }
 
@@ -23,7 +24,7 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr *addressSDK.Address) *GetPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -48,7 +49,7 @@ func (r *GetRes) Header() *object.Object {
 }
 
 // Get reads the object from DB.
-func Get(db *DB, addr *objectSDK.Address) (*object.Object, error) {
+func Get(db *DB, addr *addressSDK.Address) (*object.Object, error) {
 	r, err := db.Get(new(GetPrm).WithAddress(addr))
 	if err != nil {
 		return nil, err
@@ -58,7 +59,7 @@ func Get(db *DB, addr *objectSDK.Address) (*object.Object, error) {
 }
 
 // GetRaw reads physically stored object from DB.
-func GetRaw(db *DB, addr *objectSDK.Address, raw bool) (*object.Object, error) {
+func GetRaw(db *DB, addr *addressSDK.Address, raw bool) (*object.Object, error) {
 	r, err := db.Get(new(GetPrm).WithAddress(addr).WithRaw(raw))
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	return
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr *objectSDK.Address, checkGraveyard, raw bool) (*object.Object, error) {
+func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bool) (*object.Object, error) {
 	obj := object.New()
 	key := objectKey(addr.ObjectID())
 	cid := addr.ContainerID()

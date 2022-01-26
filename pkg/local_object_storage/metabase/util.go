@@ -6,6 +6,8 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -105,18 +107,18 @@ func splitBucketName(cid *cid.ID) []byte {
 }
 
 // addressKey returns key for K-V tables when key is a whole address.
-func addressKey(addr *object.Address) []byte {
+func addressKey(addr *addressSDK.Address) []byte {
 	return []byte(addr.String())
 }
 
 // parses object address formed by addressKey.
-func addressFromKey(k []byte) (*object.Address, error) {
-	a := object.NewAddress()
+func addressFromKey(k []byte) (*addressSDK.Address, error) {
+	a := addressSDK.NewAddress()
 	return a, a.Parse(string(k))
 }
 
 // objectKey returns key for K-V tables when key is an object id.
-func objectKey(oid *object.ID) []byte {
+func objectKey(oid *oidSDK.ID) []byte {
 	return []byte(oid.String())
 }
 

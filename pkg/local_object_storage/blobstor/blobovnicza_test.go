@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,11 +22,11 @@ func testSHA256() (h [sha256.Size]byte) {
 	return h
 }
 
-func testAddress() *objectSDK.Address {
-	oid := objectSDK.NewID()
+func testAddress() *addressSDK.Address {
+	oid := oidSDK.NewID()
 	oid.SetSHA256(testSHA256())
 
-	addr := objectSDK.NewAddress()
+	addr := addressSDK.NewAddress()
 	addr.SetObjectID(oid)
 	addr.SetContainerID(cidtest.ID())
 
@@ -84,7 +86,7 @@ func TestBlobovniczas(t *testing.T) {
 
 	objSz := uint64(szLim / 2)
 
-	addrList := make([]*objectSDK.Address, 0)
+	addrList := make([]*addressSDK.Address, 0)
 	minFitObjNum := width * depth * szLim / objSz
 
 	for i := uint64(0); i < minFitObjNum; i++ {

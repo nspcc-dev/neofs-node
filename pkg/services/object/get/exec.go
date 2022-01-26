@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -93,7 +95,7 @@ func (exec execCtx) isRaw() bool {
 	return exec.prm.raw
 }
 
-func (exec execCtx) address() *objectSDK.Address {
+func (exec execCtx) address() *addressSDK.Address {
 	return exec.prm.addr
 }
 
@@ -158,7 +160,7 @@ func (exec *execCtx) initEpoch() bool {
 	}
 }
 
-func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Traverser, bool) {
+func (exec *execCtx) generateTraverser(addr *addressSDK.Address) (*placement.Traverser, bool) {
 	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr, exec.curProcEpoch)
 
 	switch {
@@ -176,7 +178,7 @@ func (exec *execCtx) generateTraverser(addr *objectSDK.Address) (*placement.Trav
 	}
 }
 
-func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range, withHdr bool) (*object.Object, bool) {
+func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool) (*object.Object, bool) {
 	w := NewSimpleObjectWriter()
 
 	p := exec.prm
@@ -184,7 +186,7 @@ func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range, withHdr bo
 	p.objWriter = w
 	p.SetRange(rng)
 
-	addr := objectSDK.NewAddress()
+	addr := addressSDK.NewAddress()
 	addr.SetContainerID(exec.address().ContainerID())
 	addr.SetObjectID(id)
 
@@ -205,8 +207,8 @@ func (exec *execCtx) getChild(id *objectSDK.ID, rng *objectSDK.Range, withHdr bo
 	return child, ok
 }
 
-func (exec *execCtx) headChild(id *objectSDK.ID) (*object.Object, bool) {
-	childAddr := objectSDK.NewAddress()
+func (exec *execCtx) headChild(id *oidSDK.ID) (*object.Object, bool) {
+	childAddr := addressSDK.NewAddress()
 	childAddr.SetContainerID(exec.containerID())
 	childAddr.SetObjectID(id)
 

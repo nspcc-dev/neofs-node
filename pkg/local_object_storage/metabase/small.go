@@ -3,13 +3,13 @@ package meta
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // IsSmallPrm groups the parameters of IsSmall operation.
 type IsSmallPrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // IsSmallRes groups resulting values of IsSmall operation.
@@ -18,7 +18,7 @@ type IsSmallRes struct {
 }
 
 // WithAddress is a IsSmall option to set the object address to check.
-func (p *IsSmallPrm) WithAddress(addr *objectSDK.Address) *IsSmallPrm {
+func (p *IsSmallPrm) WithAddress(addr *addressSDK.Address) *IsSmallPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -34,7 +34,7 @@ func (r *IsSmallRes) BlobovniczaID() *blobovnicza.ID {
 // IsSmall wraps work with DB.IsSmall method with specified
 // address and other parameters by default. Returns only
 // the blobovnicza identifier.
-func IsSmall(db *DB, addr *objectSDK.Address) (*blobovnicza.ID, error) {
+func IsSmall(db *DB, addr *addressSDK.Address) (*blobovnicza.ID, error) {
 	r, err := db.IsSmall(new(IsSmallPrm).WithAddress(addr))
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (db *DB) IsSmall(prm *IsSmallPrm) (res *IsSmallRes, err error) {
 	return
 }
 
-func (db *DB) isSmall(tx *bbolt.Tx, addr *objectSDK.Address) (*blobovnicza.ID, error) {
+func (db *DB) isSmall(tx *bbolt.Tx, addr *addressSDK.Address) (*blobovnicza.ID, error) {
 	smallBucket := tx.Bucket(smallBucketName(addr.ContainerID()))
 	if smallBucket == nil {
 		return nil, nil

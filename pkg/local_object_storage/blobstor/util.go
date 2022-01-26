@@ -4,14 +4,15 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 type address struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // SetAddress sets the address of the requested object.
-func (a *address) SetAddress(addr *objectSDK.Address) {
+func (a *address) SetAddress(addr *addressSDK.Address) {
 	a.addr = addr
 }
 

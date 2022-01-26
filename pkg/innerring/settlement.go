@@ -22,7 +22,7 @@ import (
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/zap"
@@ -167,7 +167,7 @@ func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo
 	return res, nil
 }
 
-func (s settlementDeps) SGInfo(addr *object.Address) (audit.SGInfo, error) {
+func (s settlementDeps) SGInfo(addr *addressSDK.Address) (audit.SGInfo, error) {
 	cn, nm, err := s.buildContainer(0, addr.ContainerID())
 	if err != nil {
 		return nil, err

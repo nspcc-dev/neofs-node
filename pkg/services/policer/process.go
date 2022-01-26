@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +21,7 @@ func (p *Policer) Run(ctx context.Context) {
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	var (
-		addrs  []*object.Address
+		addrs  []*addressSDK.Address
 		cursor *engine.Cursor
 		err    error
 	)

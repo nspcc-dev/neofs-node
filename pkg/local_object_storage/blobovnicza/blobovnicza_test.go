@@ -11,8 +11,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,18 +23,18 @@ func testSHA256() (h [sha256.Size]byte) {
 	return h
 }
 
-func testAddress() *objectSDK.Address {
-	oid := objectSDK.NewID()
+func testAddress() *addressSDK.Address {
+	oid := oidSDK.NewID()
 	oid.SetSHA256(testSHA256())
 
-	addr := objectSDK.NewAddress()
+	addr := addressSDK.NewAddress()
 	addr.SetObjectID(oid)
 	addr.SetContainerID(cidtest.ID())
 
 	return addr
 }
 
-func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error) *objectSDK.Address {
+func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error) *addressSDK.Address {
 	// create binary object
 	data := make([]byte, sz)
 
@@ -55,7 +56,7 @@ func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error)
 	return addr
 }
 
-func testGet(t *testing.T, blz *Blobovnicza, addr *objectSDK.Address, expObj []byte, expErr error) {
+func testGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, expObj []byte, expErr error) {
 	pGet := new(GetPrm)
 	pGet.SetAddress(addr)
 

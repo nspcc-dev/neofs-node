@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 type jobQueue struct {
 	localStorage *engine.StorageEngine
 }
 
-func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]*object.Address, *engine.Cursor, error) {
+func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]*addressSDK.Address, *engine.Cursor, error) {
 	prm := new(engine.ListWithCursorPrm)
 	prm.WithCursor(cursor)
 	prm.WithCount(count)

@@ -11,6 +11,8 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
@@ -104,7 +106,7 @@ func (x *GetObjectPrm) SetRawFlag() {
 // SetAddress sets object address.
 //
 // Required parameter.
-func (x *GetObjectPrm) SetAddress(addr *object.Address) {
+func (x *GetObjectPrm) SetAddress(addr *addressSDK.Address) {
 	x.cliPrm.WithAddress(addr)
 }
 
@@ -155,7 +157,7 @@ func (x *HeadObjectPrm) SetRawFlag() {
 // SetAddress sets object address.
 //
 // Required parameter.
-func (x *HeadObjectPrm) SetAddress(addr *object.Address) {
+func (x *HeadObjectPrm) SetAddress(addr *addressSDK.Address) {
 	x.cliPrm.WithAddress(addr)
 }
 
@@ -206,7 +208,7 @@ func (x *PayloadRangePrm) SetRawFlag() {
 // SetAddress sets object address.
 //
 // Required parameter.
-func (x *PayloadRangePrm) SetAddress(addr *object.Address) {
+func (x *PayloadRangePrm) SetAddress(addr *addressSDK.Address) {
 	x.cliPrm.WithAddress(addr)
 }
 
@@ -267,7 +269,7 @@ type PutObjectRes struct {
 }
 
 // ID returns identifier of the stored object.
-func (x PutObjectRes) ID() *object.ID {
+func (x PutObjectRes) ID() *oidSDK.ID {
 	return x.cliRes.ID()
 }
 
@@ -313,7 +315,7 @@ type SearchObjectsRes struct {
 }
 
 // IDList returns identifiers of the matched objects.
-func (x SearchObjectsRes) IDList() []*object.ID {
+func (x SearchObjectsRes) IDList() []*oidSDK.ID {
 	return x.cliRes.IDList()
 }
 

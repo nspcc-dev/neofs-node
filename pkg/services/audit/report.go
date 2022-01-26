@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Report tracks the progress of auditing container data.
@@ -48,7 +48,7 @@ func (r *Report) Complete() {
 }
 
 // PassedPoR updates list of passed storage groups.
-func (r *Report) PassedPoR(sg *object.ID) {
+func (r *Report) PassedPoR(sg *oidSDK.ID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -56,7 +56,7 @@ func (r *Report) PassedPoR(sg *object.ID) {
 }
 
 // FailedPoR updates list of failed storage groups.
-func (r *Report) FailedPoR(sg *object.ID) {
+func (r *Report) FailedPoR(sg *oidSDK.ID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

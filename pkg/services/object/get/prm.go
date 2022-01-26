@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // Prm groups parameters of Get service call.
@@ -44,7 +45,7 @@ type commonPrm struct {
 
 	common *util.CommonPrm
 
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 
 	raw bool
 
@@ -111,7 +112,7 @@ func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
 }
 
 // WithAddress sets object address to be read.
-func (p *commonPrm) WithAddress(addr *objectSDK.Address) {
+func (p *commonPrm) WithAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
 

@@ -11,7 +11,7 @@ import (
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -325,7 +325,7 @@ var dropObjectsCmd = &cobra.Command{
 		binAddrList := make([][]byte, 0, len(dropObjectsList))
 
 		for i := range dropObjectsList {
-			a := object.NewAddress()
+			a := addressSDK.NewAddress()
 
 			err := a.Parse(dropObjectsList[i])
 			if err != nil {

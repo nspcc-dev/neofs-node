@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -107,8 +107,8 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	}
 }
 
-func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*object.ID {
-	var sg []*object.ID
+func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*oidSDK.ID {
+	var sg []*oidSDK.ID
 
 	ln := len(shuffled)
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )

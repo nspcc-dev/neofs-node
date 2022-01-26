@@ -8,6 +8,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +20,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		total      = containers * 4 // regular + ts + sg + child
 	)
 
-	expected := make([]*objectSDK.Address, 0, total)
+	expected := make([]*addressSDK.Address, 0, total)
 
 	// fill metabase with objects
 	for i := 0; i < containers; i++ {
@@ -72,7 +73,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	t.Run("success with various count", func(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {
-			got := make([]*objectSDK.Address, 0, total)
+			got := make([]*addressSDK.Address, 0, total)
 
 			res, cursor, err := meta.ListWithCursor(db, uint32(countPerReq), nil)
 			require.NoError(t, err, "count:%d", countPerReq)
@@ -154,7 +155,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 }
 
-func sortAddresses(addr []*objectSDK.Address) []*objectSDK.Address {
+func sortAddresses(addr []*addressSDK.Address) []*addressSDK.Address {
 	sort.Slice(addr, func(i, j int) bool {
 		return addr[i].String() < addr[j].String()
 	})

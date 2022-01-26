@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	signature2 "github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/nspcc-dev/tzhash/tz"
 )
@@ -41,7 +42,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
-	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
+	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
 	p.WithRawFlag(body.GetRaw())
 	p.SetObjectWriter(&streamObjectWriter{stream})
 
@@ -165,7 +166,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
-	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
+	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
 	p.WithRawFlag(body.GetRaw())
 	p.SetChunkWriter(&streamObjectRangeWriter{stream})
 	p.SetRange(objectSDK.NewRangeFromV2(body.GetRange()))
@@ -264,7 +265,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	p.SetCommonParameters(commonPrm)
 
 	body := req.GetBody()
-	p.WithAddress(objectSDK.NewAddressFromV2(body.GetAddress()))
+	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
 
 	rngsV2 := body.GetRanges()
 	rngs := make([]*objectSDK.Range, 0, len(rngsV2))
@@ -321,7 +322,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 	body := req.GetBody()
 
-	objAddr := objectSDK.NewAddressFromV2(body.GetAddress())
+	objAddr := addressSDK.NewAddressFromV2(body.GetAddress())
 
 	p.WithAddress(objAddr)
 	p.WithRawFlag(body.GetRaw())

@@ -5,10 +5,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
-func (e *StorageEngine) exists(addr *objectSDK.Address) (bool, error) {
+func (e *StorageEngine) exists(addr *addressSDK.Address) (bool, error) {
 	shPrm := new(shard.ExistsPrm).WithAddress(addr)
 	alreadyRemoved := false
 	exists := false

@@ -4,6 +4,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // Object represents the NeoFS object.
@@ -16,13 +17,13 @@ type Object struct {
 }
 
 // Address returns address of the object.
-func (o *Object) Address() *object.Address {
+func (o *Object) Address() *addressSDK.Address {
 	if o != nil {
 		aV2 := new(refs.Address)
 		aV2.SetObjectID(o.ID().ToV2())
 		aV2.SetContainerID(o.ContainerID().ToV2())
 
-		return object.NewAddressFromV2(aV2)
+		return addressSDK.NewAddressFromV2(aV2)
 	}
 
 	return nil

@@ -7,6 +7,7 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"go.uber.org/zap"
 )
@@ -39,18 +40,18 @@ type cfg struct {
 		// must return (nil, nil) for PHY objects
 		splitInfo(*execCtx) (*objectSDK.SplitInfo, error)
 
-		children(*execCtx) ([]*objectSDK.ID, error)
+		children(*execCtx) ([]*oidSDK.ID, error)
 
 		// must return (nil, nil) for 1st object in chain
-		previous(*execCtx, *objectSDK.ID) (*objectSDK.ID, error)
+		previous(*execCtx, *oidSDK.ID) (*oidSDK.ID, error)
 	}
 
 	searcher interface {
-		splitMembers(*execCtx) ([]*objectSDK.ID, error)
+		splitMembers(*execCtx) ([]*oidSDK.ID, error)
 	}
 
 	placer interface {
-		put(*execCtx, bool) (*objectSDK.ID, error)
+		put(*execCtx, bool) (*oidSDK.ID, error)
 	}
 
 	netInfo NetworkInfo

@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
@@ -177,7 +178,7 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	buf := make([]*object.Address, 0, s.rmBatchSize)
+	buf := make([]*addressSDK.Address, 0, s.rmBatchSize)
 
 	// iterate over metabase graveyard and accumulate
 	// objects with GC mark (no more the s.rmBatchSize objects)
@@ -250,8 +251,8 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	s.expiredTombstonesCallback(ctx, expired)
 }
 
-func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, collectTombstones bool) ([]*object.Address, error) {
-	var expired []*object.Address
+func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, collectTombstones bool) ([]*addressSDK.Address, error) {
+	var expired []*addressSDK.Address
 
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
 		select {
@@ -276,11 +277,11 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, collectTomb
 //
 // Does not modify tss.
 func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
-	inhume := make([]*object.Address, 0, len(tss))
+	inhume := make([]*addressSDK.Address, 0, len(tss))
 
 	// Collect all objects covered by the tombstones.
 
-	err := s.metaBase.IterateCoveredByTombstones(tss, func(addr *object.Address) error {
+	err := s.metaBase.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
 		inhume = append(inhume, addr)
 		return nil
 	})
@@ -319,7 +320,7 @@ func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
 	for strAddr := range tss {
 		// parse address
 		// TODO: make type of map values *object.Address since keys are calculated from addresses
-		addr := object.NewAddress()
+		addr := addressSDK.NewAddress()
 
 		err = addr.Parse(strAddr)
 		if err != nil {

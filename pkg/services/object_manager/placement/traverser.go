@@ -8,7 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Builder is an interface of the
@@ -19,7 +20,7 @@ type Builder interface {
 	//
 	// Must return all container nodes if object identifier
 	// is nil.
-	BuildPlacement(*object.Address, *netmap.PlacementPolicy) ([]netmap.Nodes, error)
+	BuildPlacement(*addressSDK.Address, *netmap.PlacementPolicy) ([]netmap.Nodes, error)
 }
 
 // Option represents placement traverser option.
@@ -40,7 +41,7 @@ type cfg struct {
 
 	flatSuccess *uint32
 
-	addr *object.Address
+	addr *addressSDK.Address
 
 	policy *netmap.PlacementPolicy
 
@@ -56,7 +57,7 @@ var errNilPolicy = errors.New("placement policy is nil")
 func defaultCfg() *cfg {
 	return &cfg{
 		trackCopies: true,
-		addr:        object.NewAddress(),
+		addr:        addressSDK.NewAddress(),
 	}
 }
 
@@ -226,7 +227,7 @@ func ForContainer(cnr *container.Container) Option {
 }
 
 // ForObject is a processing object setting option.
-func ForObject(id *object.ID) Option {
+func ForObject(id *oidSDK.ID) Option {
 	return func(c *cfg) {
 		c.addr.SetObjectID(id)
 	}

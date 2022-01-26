@@ -10,11 +10,11 @@ import (
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
-func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
+func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
 	cnr, err := p.cnrSrc.Get(addr.ContainerID())
 	if err != nil {
 		p.log.Error("could not get container",
@@ -60,7 +60,7 @@ func (p *Policer) processObject(ctx context.Context, addr *object.Address) {
 	}
 }
 
-func (p *Policer) processNodes(ctx context.Context, addr *object.Address, nodes netmap.Nodes, shortage uint32) {
+func (p *Policer) processNodes(ctx context.Context, addr *addressSDK.Address, nodes netmap.Nodes, shortage uint32) {
 	log := p.log.With(
 		zap.Stringer("object", addr),
 	)

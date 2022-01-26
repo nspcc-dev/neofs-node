@@ -2,12 +2,12 @@ package engine
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addr []*objectSDK.Address
+	addr []*addressSDK.Address
 }
 
 // DeleteRes groups resulting values of Delete operation.
@@ -16,7 +16,7 @@ type DeleteRes struct{}
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addr ...*objectSDK.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addr ...*addressSDK.Address) *DeletePrm {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
 	}

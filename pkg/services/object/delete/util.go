@@ -9,6 +9,8 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type headSvcWrapper getsvc.Service
@@ -18,10 +20,10 @@ type searchSvcWrapper searchsvc.Service
 type putSvcWrapper putsvc.Service
 
 type simpleIDWriter struct {
-	ids []*objectSDK.ID
+	ids []*oidSDK.ID
 }
 
-func (w *headSvcWrapper) headAddress(exec *execCtx, addr *objectSDK.Address) (*object.Object, error) {
+func (w *headSvcWrapper) headAddress(exec *execCtx, addr *addressSDK.Address) (*object.Object, error) {
 	wr := getsvc.NewSimpleObjectWriter()
 
 	p := getsvc.HeadPrm{}
@@ -53,7 +55,7 @@ func (w *headSvcWrapper) splitInfo(exec *execCtx) (*objectSDK.SplitInfo, error) 
 	}
 }
 
-func (w *headSvcWrapper) children(exec *execCtx) ([]*objectSDK.ID, error) {
+func (w *headSvcWrapper) children(exec *execCtx) ([]*oidSDK.ID, error) {
 	a := exec.newAddress(exec.splitInfo.Link())
 
 	linking, err := w.headAddress(exec, a)
@@ -64,7 +66,7 @@ func (w *headSvcWrapper) children(exec *execCtx) ([]*objectSDK.ID, error) {
 	return linking.Children(), nil
 }
 
-func (w *headSvcWrapper) previous(exec *execCtx, id *objectSDK.ID) (*objectSDK.ID, error) {
+func (w *headSvcWrapper) previous(exec *execCtx, id *oidSDK.ID) (*oidSDK.ID, error) {
 	a := exec.newAddress(id)
 
 	h, err := w.headAddress(exec, a)
@@ -75,7 +77,7 @@ func (w *headSvcWrapper) previous(exec *execCtx, id *objectSDK.ID) (*objectSDK.I
 	return h.PreviousID(), nil
 }
 
-func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*objectSDK.ID, error) {
+func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*oidSDK.ID, error) {
 	fs := objectSDK.SearchFilters{}
 	fs.AddSplitIDFilter(objectSDK.MatchStringEqual, exec.splitInfo.SplitID())
 
@@ -95,13 +97,13 @@ func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*objectSDK.ID, error) 
 	return wr.ids, nil
 }
 
-func (s *simpleIDWriter) WriteIDs(ids []*objectSDK.ID) error {
+func (s *simpleIDWriter) WriteIDs(ids []*oidSDK.ID) error {
 	s.ids = append(s.ids, ids...)
 
 	return nil
 }
 
-func (w *putSvcWrapper) put(exec *execCtx, broadcast bool) (*objectSDK.ID, error) {
+func (w *putSvcWrapper) put(exec *execCtx, broadcast bool) (*oidSDK.ID, error) {
 	streamer, err := (*putsvc.Service)(w).Put(exec.context())
 	if err != nil {
 		return nil, err

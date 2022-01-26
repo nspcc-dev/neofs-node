@@ -17,6 +17,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/token"
@@ -669,7 +671,7 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 
 	oid, _ := cmd.Flags().GetString(searchOIDFlag)
 	if oid != "" {
-		id := object.NewID()
+		id := oidSDK.NewID()
 		if err := id.Parse(oid); err != nil {
 			return nil, fmt.Errorf("could not parse object ID: %w", err)
 		}
@@ -731,8 +733,8 @@ func getCID(cmd *cobra.Command) (*cid.ID, error) {
 	return id, nil
 }
 
-func getOID(cmd *cobra.Command) (*object.ID, error) {
-	oid := object.NewID()
+func getOID(cmd *cobra.Command) (*oidSDK.ID, error) {
+	oid := oidSDK.NewID()
 
 	err := oid.Parse(cmd.Flag("oid").Value.String())
 	if err != nil {
@@ -742,7 +744,7 @@ func getOID(cmd *cobra.Command) (*object.ID, error) {
 	return oid, nil
 }
 
-func getObjectAddress(cmd *cobra.Command) (*object.Address, error) {
+func getObjectAddress(cmd *cobra.Command) (*addressSDK.Address, error) {
 	cid, err := getCID(cmd)
 	if err != nil {
 		return nil, err
@@ -752,7 +754,7 @@ func getObjectAddress(cmd *cobra.Command) (*object.Address, error) {
 		return nil, err
 	}
 
-	objAddr := object.NewAddress()
+	objAddr := addressSDK.NewAddress()
 	objAddr.SetContainerID(cid)
 	objAddr.SetObjectID(oid)
 	return objAddr, nil

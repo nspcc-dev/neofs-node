@@ -13,37 +13,39 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
 type testLocalStorage struct {
 	t *testing.T
 
-	expAddr *objectSDK.Address
+	expAddr *objectSDKAddress.Address
 
 	obj *object.Object
 }
 
-func (s *testLocalStorage) Head(addr *objectSDK.Address) (*object.Object, error) {
+func (s *testLocalStorage) Head(addr *objectSDKAddress.Address) (*object.Object, error) {
 	require.True(s.t, addr.ContainerID().Equal(addr.ContainerID()) && addr.ObjectID().Equal(addr.ObjectID()))
 
 	return s.obj, nil
 }
 
-func testID(t *testing.T) *objectSDK.ID {
+func testID(t *testing.T) *objectSDKID.ID {
 	cs := [sha256.Size]byte{}
 
 	_, err := rand.Read(cs[:])
 	require.NoError(t, err)
 
-	id := objectSDK.NewID()
+	id := objectSDKID.NewID()
 	id.SetSHA256(cs)
 
 	return id
 }
 
-func testAddress(t *testing.T) *objectSDK.Address {
-	addr := objectSDK.NewAddress()
+func testAddress(t *testing.T) *objectSDKAddress.Address {
+	addr := objectSDKAddress.NewAddress()
 	addr.SetObjectID(testID(t))
 	addr.SetContainerID(cidtest.ID())
 

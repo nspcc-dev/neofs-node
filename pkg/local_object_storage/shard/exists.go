@@ -2,12 +2,12 @@ package shard
 
 import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
 type ExistsPrm struct {
-	addr *object.Address
+	addr *addressSDK.Address
 }
 
 // ExistsRes groups resulting values of Exists operation.
@@ -16,7 +16,7 @@ type ExistsRes struct {
 }
 
 // WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr *object.Address) *ExistsPrm {
+func (p *ExistsPrm) WithAddress(addr *addressSDK.Address) *ExistsPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -41,6 +41,6 @@ func (s *Shard) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 	}, err
 }
 
-func (s *Shard) objectExists(addr *object.Address) (bool, error) {
+func (s *Shard) objectExists(addr *addressSDK.Address) (bool, error) {
 	return meta.Exists(s.metaBase, addr)
 }

@@ -9,6 +9,7 @@ import (
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -33,7 +34,7 @@ type SelectPrm struct {
 
 // SelectRes groups resulting values of Select operation.
 type SelectRes struct {
-	addrList []*object.Address
+	addrList []*addressSDK.Address
 }
 
 // WithContainerID is a Select option to set the container id to search in.
@@ -55,14 +56,14 @@ func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*object.Address {
+func (r *SelectRes) AddressList() []*addressSDK.Address {
 	return r.addrList
 }
 
 var ErrMissingContainerID = errors.New("missing container id field")
 
 // Select selects the objects from DB with filtering.
-func Select(db *DB, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func Select(db *DB, cid *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
 	r, err := db.Select(new(SelectPrm).WithFilters(fs).WithContainerID(cid))
 	if err != nil {
 		return nil, err
@@ -86,7 +87,7 @@ func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	})
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
 	if cid == nil {
 		return nil, ErrMissingContainerID
 	}
@@ -118,7 +119,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 		}
 	}
 
-	res := make([]*object.Address, 0, len(mAddr))
+	res := make([]*addressSDK.Address, 0, len(mAddr))
 
 	for a, ind := range mAddr {
 		if ind != expLen {
@@ -490,7 +491,7 @@ func (db *DB) selectObjectID(
 }
 
 // matchSlowFilters return true if object header is matched by all slow filters.
-func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *object.Address, f object.SearchFilters) bool {
+func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *addressSDK.Address, f object.SearchFilters) bool {
 	if len(f) == 0 {
 		return true
 	}

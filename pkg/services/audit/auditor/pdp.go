@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )
@@ -81,7 +82,7 @@ func (c *Context) distributeRanges(p *gamePair) {
 	}
 }
 
-func (c *Context) splitPayload(id *object.ID) []uint64 {
+func (c *Context) splitPayload(id *oidSDK.ID) []uint64 {
 	var (
 		prev    uint64
 		size    = c.objectSize(id)

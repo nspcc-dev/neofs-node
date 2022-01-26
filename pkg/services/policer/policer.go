@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -35,7 +35,7 @@ type Option func(*cfg)
 
 // RedundantCopyCallback is a callback to pass
 // the redundant local copy of the object.
-type RedundantCopyCallback func(*object.Address)
+type RedundantCopyCallback func(*addressSDK.Address)
 
 type cfg struct {
 	headTimeout time.Duration
