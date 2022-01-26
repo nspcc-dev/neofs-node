@@ -33,8 +33,8 @@ var controlCmd = &cobra.Command{
 
 var healthCheckCmd = &cobra.Command{
 	Use:   "healthcheck",
-	Short: "Health check of the storage node",
-	Long:  "Health check of the storage node",
+	Short: "Health check of the NeoFS node",
+	Long:  "Health check of the NeoFS node. Checks storage node by default, use --ir flag to work with Inner Ring.",
 	Run:   healthCheck,
 }
 
