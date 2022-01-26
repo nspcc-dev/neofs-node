@@ -174,7 +174,10 @@ func getKey() (*ecdsa.PrivateKey, error) {
 		}
 		return &priv.PrivateKey, nil
 	}
+	return getKeyNoGenerate()
+}
 
+func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
 	// Ideally we want to touch file-system on the last step.
 	// However, asking for NEP-2 password seems to be confusing if we provide a wallet.
 	// Thus we try keys in the following order:
