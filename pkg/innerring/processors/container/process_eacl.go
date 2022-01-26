@@ -78,6 +78,12 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		}
 	}
 
+	// statement below is a little hack, but if we write token from event to container,
+	// checkKeyOwnership method will work just as it should:
+	//  * tok == nil => we will check if key is a container owner's key
+	//  * tok != nil => we will check if token was signed correctly (context is checked at the statement above)
+	cnr.SetSessionToken(tok)
+
 	// check key ownership
 	return cp.checkKeyOwnership(cnr, key)
 }
