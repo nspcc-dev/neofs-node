@@ -24,7 +24,6 @@ var controlCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		ff := cmd.Flags()
 
-		_ = viper.BindPFlag(generateKey, ff.Lookup(generateKey))
 		_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
 		_ = viper.BindPFlag(address, ff.Lookup(address))
 		_ = viper.BindPFlag(controlRPC, ff.Lookup(controlRPC))
@@ -201,7 +200,7 @@ func init() {
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
+	key, err := getKeyNoGenerate()
 	exitOnErr(cmd, err)
 
 	cli, err := getControlSDKClient(key)
@@ -261,7 +260,7 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 }
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
+	key, err := getKeyNoGenerate()
 	exitOnErr(cmd, err)
 
 	var status control.NetmapStatus
@@ -315,7 +314,7 @@ var dropObjectsCmd = &cobra.Command{
 	Short: "Drop objects from the node's local storage",
 	Long:  "Drop objects from the node's local storage",
 	Run: func(cmd *cobra.Command, args []string) {
-		key, err := getKey()
+		key, err := getKeyNoGenerate()
 		exitOnErr(cmd, err)
 
 		binAddrList := make([][]byte, 0, len(dropObjectsList))
@@ -369,7 +368,7 @@ var snapshotCmd = &cobra.Command{
 	Short: "Get network map snapshot",
 	Long:  "Get network map snapshot",
 	Run: func(cmd *cobra.Command, args []string) {
-		key, err := getKey()
+		key, err := getKeyNoGenerate()
 		exitOnErr(cmd, err)
 
 		req := new(control.NetmapSnapshotRequest)
@@ -399,7 +398,7 @@ var snapshotCmd = &cobra.Command{
 }
 
 func listShards(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
+	key, err := getKeyNoGenerate()
 	exitOnErr(cmd, err)
 
 	req := new(control.ListShardsRequest)
@@ -483,7 +482,7 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 }
 
 func setShardMode(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
+	key, err := getKeyNoGenerate()
 	exitOnErr(cmd, err)
 
 	var mode control.ShardMode
