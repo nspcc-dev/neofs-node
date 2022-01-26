@@ -92,6 +92,16 @@ func Test_getKey(t *testing.T) {
 
 		in.WriteString("pass\r")
 		checkKey(t, nep2, nep2Key)
+
+		t.Run("password from config", func(t *testing.T) {
+			viper.Set(password, "invalid")
+			in.WriteString("pass\r")
+			checkKeyError(t, nep2, errInvalidPassword)
+
+			viper.Set(password, "pass")
+			in.WriteString("invalid\r")
+			checkKey(t, nep2, nep2Key)
+		})
 	})
 
 	t.Run("raw key", func(t *testing.T) {

@@ -54,6 +54,8 @@ const (
 	addressDefault   = ""
 	addressUsage     = "address of wallet account"
 
+	password = "password"
+
 	rpc          = "rpc-endpoint"
 	rpcShorthand = "r"
 	rpcDefault   = ""
@@ -203,6 +205,13 @@ func getKey() (*ecdsa.PrivateKey, error) {
 	return nil, errInvalidKey
 }
 
+func getPassword() (string, error) {
+	if pass := viper.GetString(password); pass != "" {
+		return pass, nil
+	}
+	return input.ReadPassword("Enter password > ")
+}
+
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
 	data, err := os.ReadFile(keyPath)
 	if err != nil {
@@ -218,7 +227,7 @@ func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
 }
 
 func getKeyFromNEP2(encryptedWif string) (*ecdsa.PrivateKey, error) {
-	pass, err := input.ReadPassword("Enter password > ")
+	pass, err := getPassword()
 	if err != nil {
 		printVerbose("Can't read password: %v", err)
 		return nil, errInvalidPassword
@@ -256,7 +265,7 @@ func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, erro
 		return nil, errInvalidAddress
 	}
 
-	pass, err := input.ReadPassword("Enter password > ")
+	pass, err := getPassword()
 	if err != nil {
 		printVerbose("Can't read password: %v", err)
 		return nil, errInvalidPassword
