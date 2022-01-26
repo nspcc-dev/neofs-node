@@ -3,6 +3,8 @@ package getsvc
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -59,7 +61,7 @@ func (exec *execCtx) assemble() {
 	}
 }
 
-func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, children []*objectSDK.ID) {
+func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []*oidSDK.ID) {
 	log := exec.log.With(zap.Stringer("child ID", id))
 
 	log.Debug("starting assembling from child")
@@ -118,7 +120,7 @@ func (exec *execCtx) initFromChild(id *objectSDK.ID) (prev *objectSDK.ID, childr
 	return child.PreviousID(), child.Children()
 }
 
-func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*objectSDK.Range, checkRight bool) {
+func (exec *execCtx) overtakePayloadDirectly(children []*oidSDK.ID, rngs []*objectSDK.Range, checkRight bool) {
 	withRng := len(rngs) > 0 && exec.ctxRange() != nil
 
 	for i := range children {
@@ -141,7 +143,7 @@ func (exec *execCtx) overtakePayloadDirectly(children []*objectSDK.ID, rngs []*o
 	exec.err = nil
 }
 
-func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
+func (exec *execCtx) overtakePayloadInReverse(prev *oidSDK.ID) bool {
 	chain, rngs, ok := exec.buildChainInReverse(prev)
 	if !ok {
 		return false
@@ -163,9 +165,9 @@ func (exec *execCtx) overtakePayloadInReverse(prev *objectSDK.ID) bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, []*objectSDK.Range, bool) {
+func (exec *execCtx) buildChainInReverse(prev *oidSDK.ID) ([]*oidSDK.ID, []*objectSDK.Range, bool) {
 	var (
-		chain   = make([]*objectSDK.ID, 0)
+		chain   = make([]*oidSDK.ID, 0)
 		rngs    = make([]*objectSDK.Range, 0)
 		seekRng = exec.ctxRange()
 		from    = seekRng.GetOffset()
@@ -216,7 +218,7 @@ func (exec *execCtx) buildChainInReverse(prev *objectSDK.ID) ([]*objectSDK.ID, [
 	return chain, rngs, true
 }
 
-func equalAddresses(a, b *objectSDK.Address) bool {
+func equalAddresses(a, b *addressSDK.Address) bool {
 	return a.ContainerID().Equal(b.ContainerID()) &&
 		a.ObjectID().Equal(b.ObjectID())
 }

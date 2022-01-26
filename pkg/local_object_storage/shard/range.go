@@ -5,6 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // RngPrm groups the parameters of GetRange operation.
@@ -13,7 +14,7 @@ type RngPrm struct {
 
 	off uint64
 
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // RngRes groups resulting values of GetRange operation.
@@ -24,7 +25,7 @@ type RngRes struct {
 // WithAddress is a Rng option to set the address of the requested object.
 //
 // Option is required.
-func (p *RngPrm) WithAddress(addr *objectSDK.Address) *RngPrm {
+func (p *RngPrm) WithAddress(addr *addressSDK.Address) *RngPrm {
 	if p != nil {
 		p.addr = addr
 	}

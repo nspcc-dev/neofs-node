@@ -10,23 +10,24 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
-func testOID() *objectSDK.ID {
+func testOID() *oidSDK.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])
 
-	id := objectSDK.NewID()
+	id := oidSDK.NewID()
 	id.SetSHA256(cs)
 
 	return id
 }
 
-func testAddress() *objectSDK.Address {
-	a := objectSDK.NewAddress()
+func testAddress() *addressSDK.Address {
+	a := addressSDK.NewAddress()
 	a.SetObjectID(testOID())
 	a.SetContainerID(cidtest.ID())
 
@@ -56,7 +57,7 @@ func TestFSTree(t *testing.T) {
 	}
 
 	const count = 3
-	var addrs []*objectSDK.Address
+	var addrs []*addressSDK.Address
 
 	store := map[string][]byte{}
 
@@ -93,7 +94,7 @@ func TestFSTree(t *testing.T) {
 
 	t.Run("iterate", func(t *testing.T) {
 		n := 0
-		err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+		err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
 			n++
 			expected, ok := store[addr.String()]
 			require.True(t, ok, "object %s was not found", addr.String())
@@ -107,7 +108,7 @@ func TestFSTree(t *testing.T) {
 		t.Run("leave early", func(t *testing.T) {
 			n := 0
 			errStop := errors.New("stop")
-			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
 				if n++; n == count-1 {
 					return errStop
 				}
@@ -134,7 +135,7 @@ func TestFSTree(t *testing.T) {
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
 			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, fs.Permissions))
 
-			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
 				n++
 				return nil
 			}).WithIgnoreErrors(true))
@@ -144,7 +145,7 @@ func TestFSTree(t *testing.T) {
 			t.Run("error from handler is returned", func(t *testing.T) {
 				expectedErr := errors.New("expected error")
 				n := 0
-				err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *objectSDK.Address, data []byte) error {
+				err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
 					n++
 					if n == count/2 { // process some iterations
 						return expectedErr

@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +20,7 @@ func TestHeadRaw(t *testing.T) {
 	parent := generateRawObjectWithCID(t, cid)
 	addAttribute(parent, "foo", "bar")
 
-	parentAddr := objectSDK.NewAddress()
+	parentAddr := addressSDK.NewAddress()
 	parentAddr.SetContainerID(cid)
 	parentAddr.SetObjectID(parent.ID())
 

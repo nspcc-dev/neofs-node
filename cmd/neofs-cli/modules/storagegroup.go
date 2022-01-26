@@ -9,6 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupAPI "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/spf13/cobra"
 )
@@ -136,7 +138,7 @@ type sgHeadReceiver struct {
 	prm internalclient.HeadObjectPrm
 }
 
-func (c sgHeadReceiver) Head(addr *objectSDK.Address) (interface{}, error) {
+func (c sgHeadReceiver) Head(addr *addressSDK.Address) (interface{}, error) {
 	c.prm.SetAddress(addr)
 
 	res, err := internalclient.HeadObject(c.prm)
@@ -163,10 +165,10 @@ func putSG(cmd *cobra.Command, _ []string) {
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
-	members := make([]*objectSDK.ID, 0, len(sgMembers))
+	members := make([]*oidSDK.ID, 0, len(sgMembers))
 
 	for i := range sgMembers {
-		id := objectSDK.NewID()
+		id := oidSDK.NewID()
 
 		err = id.Parse(sgMembers[i])
 		exitOnErr(cmd, errf("could not parse object ID: %w", err))
@@ -207,8 +209,8 @@ func putSG(cmd *cobra.Command, _ []string) {
 	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cid)
 }
 
-func getSGID() (*objectSDK.ID, error) {
-	oid := objectSDK.NewID()
+func getSGID() (*oidSDK.ID, error) {
+	oid := oidSDK.NewID()
 	err := oid.Parse(sgID)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse storage group ID: %w", err)
@@ -224,7 +226,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 	id, err := getSGID()
 	exitOnErr(cmd, err)
 
-	addr := objectSDK.NewAddress()
+	addr := addressSDK.NewAddress()
 	addr.SetContainerID(cid)
 	addr.SetObjectID(id)
 
@@ -288,7 +290,7 @@ func delSG(cmd *cobra.Command, _ []string) {
 	id, err := getSGID()
 	exitOnErr(cmd, err)
 
-	addr := objectSDK.NewAddress()
+	addr := addressSDK.NewAddress()
 	addr.SetContainerID(cid)
 	addr.SetObjectID(id)
 

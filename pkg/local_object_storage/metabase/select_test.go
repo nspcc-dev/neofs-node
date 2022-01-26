@@ -8,6 +8,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
@@ -320,7 +321,7 @@ func TestDB_SelectInhume(t *testing.T) {
 		raw2.Object().Address(),
 	)
 
-	tombstone := objectSDK.NewAddress()
+	tombstone := addressSDK.NewAddress()
 	tombstone.SetContainerID(cid)
 	tombstone.SetObjectID(testOID())
 

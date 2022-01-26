@@ -7,12 +7,13 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addrs []*objectSDK.Address
+	addrs []*addressSDK.Address
 }
 
 // DeleteRes groups resulting values of Delete operation.
@@ -21,7 +22,7 @@ type DeleteRes struct{}
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addrs ...*objectSDK.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addrs ...*addressSDK.Address) *DeletePrm {
 	if p != nil {
 		p.addrs = addrs
 	}
@@ -30,7 +31,7 @@ func (p *DeletePrm) WithAddresses(addrs ...*objectSDK.Address) *DeletePrm {
 }
 
 // Delete removes objects from DB.
-func Delete(db *DB, addrs ...*objectSDK.Address) error {
+func Delete(db *DB, addrs ...*addressSDK.Address) error {
 	_, err := db.Delete(new(DeletePrm).WithAddresses(addrs...))
 	return err
 }
@@ -38,7 +39,7 @@ func Delete(db *DB, addrs ...*objectSDK.Address) error {
 type referenceNumber struct {
 	all, cur int
 
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 
 	obj *object.Object
 }
@@ -52,7 +53,7 @@ func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	})
 }
 
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*objectSDK.Address) error {
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*addressSDK.Address) error {
 	refCounter := make(referenceCounter, len(addrs))
 
 	for i := range addrs {
@@ -74,7 +75,7 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*objectSDK.Address) error {
 	return nil
 }
 
-func (db *DB) delete(tx *bbolt.Tx, addr *objectSDK.Address, refCounter referenceCounter) error {
+func (db *DB) delete(tx *bbolt.Tx, addr *addressSDK.Address, refCounter referenceCounter) error {
 	// remove record from graveyard
 	graveyard := tx.Bucket(graveyardBucketName)
 	if graveyard != nil {
@@ -158,7 +159,7 @@ func (db *DB) deleteObject(
 }
 
 // parentLength returns amount of available children from parentid index.
-func parentLength(tx *bbolt.Tx, addr *objectSDK.Address) int {
+func parentLength(tx *bbolt.Tx, addr *addressSDK.Address) int {
 	bkt := tx.Bucket(parentBucketName(addr.ContainerID()))
 	if bkt == nil {
 		return 0

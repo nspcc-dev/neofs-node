@@ -5,11 +5,12 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // GetRangePrm groups the parameters of GetRange operation.
 type GetRangePrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 
 	rng *objectSDK.Range
 }
@@ -20,7 +21,7 @@ type GetRangeRes struct {
 }
 
 // SetAddress sets address of the requested object.
-func (p *GetRangePrm) SetAddress(addr *objectSDK.Address) {
+func (p *GetRangePrm) SetAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
 

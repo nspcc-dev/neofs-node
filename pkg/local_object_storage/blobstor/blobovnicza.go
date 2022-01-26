@@ -13,7 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
@@ -132,7 +132,7 @@ func indexSlice(number uint64) []uint64 {
 // save object in the maximum weight blobobnicza.
 //
 // returns error if could not save object in any blobovnicza.
-func (b *blobovniczas) put(addr *objectSDK.Address, data []byte) (*blobovnicza.ID, error) {
+func (b *blobovniczas) put(addr *addressSDK.Address, data []byte) (*blobovnicza.ID, error) {
 	prm := new(blobovnicza.PutPrm)
 	prm.SetAddress(addr)
 	prm.SetMarshaledObject(data)
@@ -648,7 +648,7 @@ func (b *blobovniczas) iterateBlobovniczas(ignoreErrors bool, f func(string, *bl
 }
 
 // iterator over the paths of blobovniczas sorted by weight.
-func (b *blobovniczas) iterateSortedLeaves(addr *objectSDK.Address, f func(string) (bool, error)) error {
+func (b *blobovniczas) iterateSortedLeaves(addr *addressSDK.Address, f func(string) (bool, error)) error {
 	_, err := b.iterateSorted(
 		addr,
 		make([]string, 0, b.blzShallowDepth),
@@ -660,7 +660,7 @@ func (b *blobovniczas) iterateSortedLeaves(addr *objectSDK.Address, f func(strin
 }
 
 // iterator over directories with blobovniczas sorted by weight.
-func (b *blobovniczas) iterateDeepest(addr *objectSDK.Address, f func(string) (bool, error)) error {
+func (b *blobovniczas) iterateDeepest(addr *addressSDK.Address, f func(string) (bool, error)) error {
 	depth := b.blzShallowDepth
 	if depth > 0 {
 		depth--
@@ -677,7 +677,7 @@ func (b *blobovniczas) iterateDeepest(addr *objectSDK.Address, f func(string) (b
 }
 
 // iterator over particular level of directories.
-func (b *blobovniczas) iterateSorted(addr *objectSDK.Address, curPath []string, execDepth uint64, f func([]string) (bool, error)) (bool, error) {
+func (b *blobovniczas) iterateSorted(addr *addressSDK.Address, curPath []string, execDepth uint64, f func([]string) (bool, error)) (bool, error) {
 	indices := indexSlice(b.blzShallowWidth)
 
 	hrw.SortSliceByValue(indices, addressHash(addr, filepath.Join(curPath...)))
@@ -906,7 +906,7 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 }
 
 // returns hash of the object address.
-func addressHash(addr *objectSDK.Address, path string) uint64 {
+func addressHash(addr *addressSDK.Address, path string) uint64 {
 	var a string
 
 	if addr != nil {

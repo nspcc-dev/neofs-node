@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func TestDB_IterateOverGraveyard(t *testing.T) {
 
 	var (
 		counterAll         int
-		buriedTS, buriedGC []*object.Address
+		buriedTS, buriedGC []*addressSDK.Address
 	)
 
 	err = db.IterateOverGraveyard(func(g *meta.Grave) error {
@@ -60,6 +60,6 @@ func TestDB_IterateOverGraveyard(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 2, counterAll)
-	require.Equal(t, []*object.Address{obj1.Object().Address()}, buriedTS)
-	require.Equal(t, []*object.Address{obj2.Object().Address()}, buriedGC)
+	require.Equal(t, []*addressSDK.Address{obj1.Object().Address()}, buriedTS)
+	require.Equal(t, []*addressSDK.Address{obj2.Object().Address()}, buriedGC)
 }

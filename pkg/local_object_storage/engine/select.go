@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // SelectPrm groups the parameters of Select operation.
@@ -17,7 +18,7 @@ type SelectPrm struct {
 
 // SelectRes groups resulting values of Select operation.
 type SelectRes struct {
-	addrList []*object.Address
+	addrList []*addressSDK.Address
 }
 
 // WithContainerID is a Select option to set the container id to search in.
@@ -39,7 +40,7 @@ func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*object.Address {
+func (r *SelectRes) AddressList() []*addressSDK.Address {
 	return r.addrList
 }
 
@@ -62,7 +63,7 @@ func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
 
-	addrList := make([]*object.Address, 0)
+	addrList := make([]*addressSDK.Address, 0)
 	uniqueMap := make(map[string]struct{})
 
 	var outError error
@@ -119,7 +120,7 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
-	addrList := make([]*object.Address, 0, limit)
+	addrList := make([]*addressSDK.Address, 0, limit)
 	uniqueMap := make(map[string]struct{})
 	ln := uint64(0)
 
@@ -151,7 +152,7 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 }
 
 // Select selects objects from local storage using provided filters.
-func Select(storage *StorageEngine, cid *cid.ID, fs object.SearchFilters) ([]*object.Address, error) {
+func Select(storage *StorageEngine, cid *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
 	res, err := storage.Select(new(SelectPrm).
 		WithContainerID(cid).
 		WithFilters(fs),
@@ -165,7 +166,7 @@ func Select(storage *StorageEngine, cid *cid.ID, fs object.SearchFilters) ([]*ob
 
 // List returns `limit` available physically storage object addresses in
 // engine. If limit is zero, then returns all available object addresses.
-func List(storage *StorageEngine, limit uint64) ([]*object.Address, error) {
+func List(storage *StorageEngine, limit uint64) ([]*addressSDK.Address, error) {
 	res, err := storage.List(limit)
 	if err != nil {
 		return nil, err

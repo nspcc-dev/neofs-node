@@ -12,6 +12,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 )
@@ -32,7 +33,7 @@ type cfg struct {
 
 // DeleteHandler is an interface of delete queue processor.
 type DeleteHandler interface {
-	DeleteObjects(*object.Address, ...*object.Address)
+	DeleteObjects(*addressSDK.Address, ...*addressSDK.Address)
 }
 
 var errNilObject = errors.New("object is nil")
@@ -158,14 +159,14 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 		// mark all objects from tombstone body as removed in storage engine
 		cid := o.ContainerID()
 		idList := tombstone.Members()
-		addrList := make([]*object.Address, 0, len(idList))
+		addrList := make([]*addressSDK.Address, 0, len(idList))
 
 		for _, id := range idList {
 			if id == nil {
 				return fmt.Errorf("(%T) empty member in tombstone", v)
 			}
 
-			a := object.NewAddress()
+			a := addressSDK.NewAddress()
 			a.SetContainerID(cid)
 			a.SetObjectID(id)
 

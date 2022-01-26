@@ -7,7 +7,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
@@ -23,7 +24,7 @@ func (s *sysObjHdr) Value() string {
 	return s.v
 }
 
-func idValue(id *objectSDK.ID) string {
+func idValue(id *objectSDKID.ID) string {
 	return id.String()
 }
 
@@ -39,7 +40,7 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object, addr *objectSDK.Address) []eaclSDK.Header {
+func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eaclSDK.Header {
 	var count int
 	for obj := obj; obj != nil; obj = obj.GetParent() {
 		count += 9 + len(obj.Attributes())

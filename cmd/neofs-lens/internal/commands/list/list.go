@@ -6,7 +6,7 @@ import (
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/spf13/cobra"
 )
 
@@ -40,7 +40,7 @@ var Command = &cobra.Command{
 		// other targets can be supported
 		w := cmd.OutOrStderr()
 
-		wAddr := func(addr *object.Address) error {
+		wAddr := func(addr *addressSDK.Address) error {
 			_, err := io.WriteString(w, addr.String()+"\n")
 			return err
 		}

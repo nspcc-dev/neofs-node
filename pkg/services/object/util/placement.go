@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 type localPlacement struct {
@@ -42,7 +42,7 @@ func NewLocalPlacement(b placement.Builder, s netmap.AnnouncedKeys) placement.Bu
 	}
 }
 
-func (p *localPlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+func (p *localPlacement) BuildPlacement(addr *addressSDK.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	vs, err := p.builder.BuildPlacement(addr, policy)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
@@ -76,7 +76,7 @@ func NewRemotePlacementBuilder(b placement.Builder, s netmap.AnnouncedKeys) plac
 	}
 }
 
-func (p *remotePlacement) BuildPlacement(addr *object.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+func (p *remotePlacement) BuildPlacement(addr *addressSDK.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	vs, err := p.builder.BuildPlacement(addr, policy)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
@@ -123,7 +123,7 @@ func (g *TraverserGenerator) WithTraverseOptions(opts ...placement.Option) *Trav
 
 // GenerateTraverser generates placement Traverser for provided object address
 // using epoch-th network map.
-func (g *TraverserGenerator) GenerateTraverser(addr *object.Address, epoch uint64) (*placement.Traverser, error) {
+func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch uint64) (*placement.Traverser, error) {
 	// get network map by epoch
 	nm, err := g.netMapSrc.GetNetMapByEpoch(epoch)
 	if err != nil {

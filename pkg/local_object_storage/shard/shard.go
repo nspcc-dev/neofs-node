@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +31,7 @@ type Shard struct {
 type Option func(*cfg)
 
 // ExpiredObjectsCallback is a callback handling list of expired objects.
-type ExpiredObjectsCallback func(context.Context, []*object.Address)
+type ExpiredObjectsCallback func(context.Context, []*addressSDK.Address)
 
 type cfg struct {
 	m sync.RWMutex

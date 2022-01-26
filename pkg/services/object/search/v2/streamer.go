@@ -4,14 +4,14 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type streamWriter struct {
 	stream objectSvc.SearchStream
 }
 
-func (s *streamWriter) WriteIDs(ids []*objectSDK.ID) error {
+func (s *streamWriter) WriteIDs(ids []*oidSDK.ID) error {
 	r := new(object.SearchResponse)
 
 	body := new(object.SearchResponseBody)

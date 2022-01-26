@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
@@ -42,12 +42,12 @@ func (l *ListPrm) WithCursor(cursor *Cursor) *ListPrm {
 
 // ListRes contains values returned from ListWithCursor operation.
 type ListRes struct {
-	addrList []*object.Address
+	addrList []*addressSDK.Address
 	cursor   *Cursor
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
-func (l ListRes) AddressList() []*object.Address {
+func (l ListRes) AddressList() []*addressSDK.Address {
 	return l.addrList
 }
 
@@ -62,7 +62,7 @@ func (l ListRes) Cursor() *Cursor {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]*object.Address, *Cursor, error) {
+func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]*addressSDK.Address, *Cursor, error) {
 	r, err := db.ListWithCursor(new(ListPrm).WithCount(count).WithCursor(cursor))
 	if err != nil {
 		return nil, nil, err
@@ -87,9 +87,9 @@ func (db *DB) ListWithCursor(prm *ListPrm) (res *ListRes, err error) {
 	return res, err
 }
 
-func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor *Cursor) ([]*object.Address, *Cursor, error) {
+func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor *Cursor) ([]*addressSDK.Address, *Cursor, error) {
 	threshold := cursor == nil // threshold is a flag to ignore cursor
-	result := make([]*object.Address, 0, count)
+	result := make([]*addressSDK.Address, 0, count)
 	var bucketName []byte
 
 	c := tx.Cursor()
@@ -142,11 +142,11 @@ loop:
 func selectNFromBucket(tx *bbolt.Tx,
 	name []byte, // bucket name
 	prefix string, // string of CID, optimization
-	to []*object.Address, // listing result
+	to []*addressSDK.Address, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
 	threshold bool, // ignore cursor and start immediately
-) ([]*object.Address, *Cursor) {
+) ([]*addressSDK.Address, *Cursor) {
 	bkt := tx.Bucket(name)
 	if bkt == nil {
 		return to, cursor
@@ -171,7 +171,7 @@ func selectNFromBucket(tx *bbolt.Tx,
 		if count >= limit {
 			break
 		}
-		a := object.NewAddress()
+		a := addressSDK.NewAddress()
 		if err := a.Parse(prefix + string(k)); err != nil {
 			break
 		}

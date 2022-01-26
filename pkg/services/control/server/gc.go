@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // DeletedObjectHandler is a handler of objects to be removed.
-type DeletedObjectHandler func([]*object.Address) error
+type DeletedObjectHandler func([]*objectSDKAddress.Address) error
 
 // DropObjects marks objects to be removed from the local node.
 //
@@ -26,10 +26,10 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 	}
 
 	binAddrList := req.GetBody().GetAddressList()
-	addrList := make([]*object.Address, 0, len(binAddrList))
+	addrList := make([]*objectSDKAddress.Address, 0, len(binAddrList))
 
 	for i := range binAddrList {
-		a := object.NewAddress()
+		a := objectSDKAddress.NewAddress()
 
 		err := a.Unmarshal(binAddrList[i])
 		if err != nil {

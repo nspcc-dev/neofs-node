@@ -11,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
@@ -305,7 +307,7 @@ type PutObjectRes struct {
 }
 
 // ID returns identifier of the created object.
-func (x PutObjectRes) ID() *object.ID {
+func (x PutObjectRes) ID() *oidSDK.ID {
 	return x.cliRes.ID()
 }
 
@@ -338,7 +340,7 @@ type DeleteObjectRes struct {
 }
 
 // TombstoneAddress returns address of the created object with tombstone.
-func (x DeleteObjectRes) TombstoneAddress() *object.Address {
+func (x DeleteObjectRes) TombstoneAddress() *addressSDK.Address {
 	return x.cliRes.TombstoneAddress()
 }
 
@@ -464,7 +466,7 @@ type SearchObjectsRes struct {
 }
 
 // IDList returns identifiers of the matched objects.
-func (x SearchObjectsRes) IDList() []*object.ID {
+func (x SearchObjectsRes) IDList() []*oidSDK.ID {
 	return x.cliRes.IDList()
 }
 

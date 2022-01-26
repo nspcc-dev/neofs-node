@@ -3,7 +3,7 @@ package audit
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // CalculatorPrm groups the parameters of Calculator's constructor.
@@ -39,7 +39,7 @@ type SGInfo interface {
 // SGStorage is an interface of storage of the storage groups.
 type SGStorage interface {
 	// Must return information about the storage group by address.
-	SGInfo(*object.Address) (SGInfo, error)
+	SGInfo(*addressSDK.Address) (SGInfo, error)
 }
 
 // FeeFetcher wraps AuditFee method that returns audit fee price from

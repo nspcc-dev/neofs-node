@@ -3,7 +3,7 @@ package neofsapiclient
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 type contextPrm struct {
@@ -16,11 +16,11 @@ func (x *contextPrm) SetContext(ctx context.Context) {
 }
 
 type objectAddressPrm struct {
-	objAddr *object.Address
+	objAddr *addressSDK.Address
 }
 
 // SetAddress sets address of the object.
-func (x *objectAddressPrm) SetAddress(addr *object.Address) {
+func (x *objectAddressPrm) SetAddress(addr *addressSDK.Address) {
 	x.objAddr = addr
 }
 

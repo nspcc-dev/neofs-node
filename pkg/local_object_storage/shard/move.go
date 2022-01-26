@@ -2,13 +2,13 @@ package shard
 
 import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
 // ToMoveItPrm encapsulates parameters for ToMoveIt operation.
 type ToMoveItPrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // ToMoveItRes encapsulates results of ToMoveIt operation.
@@ -16,7 +16,7 @@ type ToMoveItRes struct{}
 
 // WithAddress sets object address that should be marked to move into another
 // shard.
-func (p *ToMoveItPrm) WithAddress(addr *objectSDK.Address) *ToMoveItPrm {
+func (p *ToMoveItPrm) WithAddress(addr *addressSDK.Address) *ToMoveItPrm {
 	if p != nil {
 		p.addr = addr
 	}

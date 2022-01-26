@@ -8,6 +8,8 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -15,7 +17,7 @@ import (
 type ExpiredObject struct {
 	typ object.Type
 
-	addr *object.Address
+	addr *addressSDK.Address
 }
 
 // Type returns type of the expired object.
@@ -24,7 +26,7 @@ func (e *ExpiredObject) Type() object.Type {
 }
 
 // Address returns address of the expired object.
-func (e *ExpiredObject) Address() *object.Address {
+func (e *ExpiredObject) Address() *addressSDK.Address {
 	return e.addr
 }
 
@@ -67,7 +69,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 			}
 
 			return bktExpired.ForEach(func(idKey, _ []byte) error {
-				id := object.NewID()
+				id := oidSDK.NewID()
 
 				err = id.Parse(string(idKey))
 				if err != nil {
@@ -81,7 +83,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
 				}
 
-				addr := object.NewAddress()
+				addr := addressSDK.NewAddress()
 				addr.SetContainerID(cnrID)
 				addr.SetObjectID(id)
 
@@ -118,13 +120,13 @@ func objectType(tx *bbolt.Tx, cid *cid.ID, oidBytes []byte) object.Type {
 // Returns other errors of h directly.
 //
 // Does not modify tss.
-func (db *DB) IterateCoveredByTombstones(tss map[string]struct{}, h func(*object.Address) error) error {
+func (db *DB) IterateCoveredByTombstones(tss map[string]struct{}, h func(*addressSDK.Address) error) error {
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateCoveredByTombstones(tx, tss, h)
 	})
 }
 
-func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, h func(*object.Address) error) error {
+func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, h func(*addressSDK.Address) error) error {
 	bktGraveyard := tx.Bucket(graveyardBucketName)
 	if bktGraveyard == nil {
 		return nil

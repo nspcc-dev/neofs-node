@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
@@ -25,7 +25,7 @@ type Service struct {
 type Option func(*cfg)
 
 type searchClient interface {
-	searchObjects(*execCtx, client.NodeInfo) ([]*object.ID, error)
+	searchObjects(*execCtx, client.NodeInfo) ([]*oidSDK.ID, error)
 }
 
 type ClientConstructor interface {
@@ -36,7 +36,7 @@ type cfg struct {
 	log *logger.Logger
 
 	localStorage interface {
-		search(*execCtx) ([]*object.ID, error)
+		search(*execCtx) ([]*oidSDK.ID, error)
 	}
 
 	clientConstructor interface {

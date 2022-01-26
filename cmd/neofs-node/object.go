@@ -38,7 +38,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"go.uber.org/zap"
@@ -99,7 +99,7 @@ type localObjectInhumer struct {
 	log *logger.Logger
 }
 
-func (r *localObjectInhumer) DeleteObjects(ts *objectSDK.Address, addr ...*objectSDK.Address) {
+func (r *localObjectInhumer) DeleteObjects(ts *addressSDK.Address, addr ...*addressSDK.Address) {
 	prm := new(engine.InhumePrm)
 
 	for _, a := range addr {
@@ -238,7 +238,7 @@ func initObjectService(c *cfg) {
 			policerconfig.HeadTimeout(c.appCfg),
 		),
 		policer.WithReplicator(repl),
-		policer.WithRedundantCopyCallback(func(addr *objectSDK.Address) {
+		policer.WithRedundantCopyCallback(func(addr *addressSDK.Address) {
 			_, err := ls.Inhume(new(engine.InhumePrm).MarkAsGarbage(addr))
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",

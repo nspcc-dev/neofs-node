@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
@@ -377,7 +378,7 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 
 // updateBlobovniczaID for existing objects if they were moved from from
 // one blobovnicza to another.
-func updateBlobovniczaID(tx *bbolt.Tx, addr *objectSDK.Address, id *blobovnicza.ID) error {
+func updateBlobovniczaID(tx *bbolt.Tx, addr *addressSDK.Address, id *blobovnicza.ID) error {
 	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.ContainerID()))
 	if err != nil {
 		return err
@@ -388,7 +389,7 @@ func updateBlobovniczaID(tx *bbolt.Tx, addr *objectSDK.Address, id *blobovnicza.
 
 // updateSpliInfo for existing objects if storage filled with extra information
 // about last object in split hierarchy or linking object.
-func updateSplitInfo(tx *bbolt.Tx, addr *objectSDK.Address, from *objectSDK.SplitInfo) error {
+func updateSplitInfo(tx *bbolt.Tx, addr *addressSDK.Address, from *objectSDK.SplitInfo) error {
 	bkt := tx.Bucket(rootBucketName(addr.ContainerID()))
 	if bkt == nil {
 		// if object doesn't exists and we want to update split info on it

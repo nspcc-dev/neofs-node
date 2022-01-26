@@ -7,13 +7,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // RngPrm groups the parameters of GetRange operation.
 type RngPrm struct {
 	off, ln uint64
 
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // RngRes groups resulting values of GetRange operation.
@@ -24,7 +25,7 @@ type RngRes struct {
 // WithAddress is a GetRng option to set the address of the requested object.
 //
 // Option is required.
-func (p *RngPrm) WithAddress(addr *objectSDK.Address) *RngPrm {
+func (p *RngPrm) WithAddress(addr *addressSDK.Address) *RngPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -139,7 +140,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 }
 
 // GetRange reads object payload range from local storage by provided address.
-func GetRange(storage *StorageEngine, addr *objectSDK.Address, rng *objectSDK.Range) ([]byte, error) {
+func GetRange(storage *StorageEngine, addr *addressSDK.Address, rng *objectSDK.Range) ([]byte, error) {
 	res, err := storage.GetRange(new(RngPrm).
 		WithAddress(addr).
 		WithPayloadRange(rng),

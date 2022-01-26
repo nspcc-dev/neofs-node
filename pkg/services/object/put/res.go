@@ -1,13 +1,13 @@
 package putsvc
 
 import (
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type PutResponse struct {
-	id *object.ID
+	id *oidSDK.ID
 }
 
-func (r *PutResponse) ObjectID() *object.ID {
+func (r *PutResponse) ObjectID() *oidSDK.ID {
 	return r.id
 }

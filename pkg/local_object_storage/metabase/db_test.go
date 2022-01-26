@@ -13,6 +13,8 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -25,7 +27,7 @@ func putBig(db *meta.DB, obj *object.Object) error {
 	return meta.Put(db, obj, nil)
 }
 
-func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs objectSDK.SearchFilters, exp ...*objectSDK.Address) {
+func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs objectSDK.SearchFilters, exp ...*addressSDK.Address) {
 	res, err := meta.Select(db, cid, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
@@ -35,11 +37,11 @@ func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs objectSDK.SearchFilte
 	}
 }
 
-func testOID() *objectSDK.ID {
+func testOID() *oidSDK.ID {
 	cs := [sha256.Size]byte{}
 	_, _ = rand.Read(cs[:])
 
-	id := objectSDK.NewID()
+	id := oidSDK.NewID()
 	id.SetSHA256(cs)
 
 	return id
@@ -87,8 +89,8 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	return obj
 }
 
-func generateAddress() *objectSDK.Address {
-	addr := objectSDK.NewAddress()
+func generateAddress() *addressSDK.Address {
+	addr := addressSDK.NewAddress()
 	addr.SetContainerID(cidtest.ID())
 	addr.SetObjectID(testOID())
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
@@ -13,7 +13,7 @@ import (
 type Grave struct {
 	gcMark bool
 
-	addr *object.Address
+	addr *addressSDK.Address
 }
 
 // WithGCMark returns true if grave marked for GC to be removed.
@@ -22,7 +22,7 @@ func (g *Grave) WithGCMark() bool {
 }
 
 // Address returns buried object address.
-func (g *Grave) Address() *object.Address {
+func (g *Grave) Address() *addressSDK.Address {
 	return g.addr
 }
 

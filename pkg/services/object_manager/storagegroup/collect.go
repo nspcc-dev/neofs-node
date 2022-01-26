@@ -6,7 +6,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/tzhash/tz"
 )
@@ -15,12 +16,12 @@ import (
 // with information about members collected via HeadReceiver.
 //
 // Resulting storage group consists of physically stored objects only.
-func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []*objectSDK.ID) (*storagegroup.StorageGroup, error) {
+func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []*oidSDK.ID) (*storagegroup.StorageGroup, error) {
 	var (
 		sumPhySize uint64
-		phyMembers []*objectSDK.ID
+		phyMembers []*oidSDK.ID
 		phyHashes  [][]byte
-		addr       = objectSDK.NewAddress()
+		addr       = addressSDK.NewAddress()
 		sg         = storagegroup.New()
 	)
 

@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"go.uber.org/zap"
 )
@@ -213,7 +213,7 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 
 	sumPassSGSize := uint64(0)
 
-	addr := object.NewAddress()
+	addr := addressSDK.NewAddress()
 	addr.SetContainerID(ctx.containerID())
 
 	for _, sgID := range ctx.auditResult.PassSG() {

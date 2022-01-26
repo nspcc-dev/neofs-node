@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
@@ -46,7 +46,7 @@ func (b *BlobStor) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 }
 
 // checks if object is presented in shallow dir.
-func (b *BlobStor) existsBig(addr *object.Address) (bool, error) {
+func (b *BlobStor) existsBig(addr *addressSDK.Address) (bool, error) {
 	_, err := b.fsTree.Exists(addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		return false, nil
@@ -56,7 +56,7 @@ func (b *BlobStor) existsBig(addr *object.Address) (bool, error) {
 }
 
 // checks if object is presented in blobovnicza.
-func (b *BlobStor) existsSmall(addr *object.Address) (bool, error) {
+func (b *BlobStor) existsSmall(_ *addressSDK.Address) (bool, error) {
 	// TODO: implement
 	return false, nil
 }

@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +45,7 @@ func TestIterateObjects(t *testing.T) {
 
 	type addrData struct {
 		big  bool
-		addr *object.Address
+		addr *addressSDK.Address
 		data []byte
 	}
 
@@ -113,7 +114,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	require.NoError(t, bs.Open())
 	require.NoError(t, bs.Init())
 
-	addrs := make([]*object.Address, objCount)
+	addrs := make([]*addressSDK.Address, objCount)
 	for i := range addrs {
 		addrs[i] = objecttest.Address()
 		obj := object.NewRaw()
@@ -170,7 +171,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	prm.IgnoreErrors()
 
 	t.Run("skip invalid objects", func(t *testing.T) {
-		actual := make([]*object.Address, 0, len(addrs))
+		actual := make([]*addressSDK.Address, 0, len(addrs))
 		prm.SetIterationHandler(func(e IterationElement) error {
 			obj := object.New()
 			err := obj.Unmarshal(e.data)
@@ -178,7 +179,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 				return err
 			}
 
-			addr := object.NewAddress()
+			addr := addressSDK.NewAddress()
 			addr.SetContainerID(obj.ContainerID())
 			addr.SetObjectID(obj.ID())
 			actual = append(actual, addr)

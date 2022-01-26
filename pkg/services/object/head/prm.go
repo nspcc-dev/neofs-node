@@ -1,14 +1,14 @@
 package headsvc
 
 import (
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 type Prm struct {
-	addr *object.Address
+	addr *addressSDK.Address
 }
 
-func (p *Prm) WithAddress(v *object.Address) *Prm {
+func (p *Prm) WithAddress(v *addressSDK.Address) *Prm {
 	if p != nil {
 		p.addr = v
 	}

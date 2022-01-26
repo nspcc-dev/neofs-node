@@ -11,6 +11,8 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Client represents NeoFS API client cut down to the needs of a purely IR application.
@@ -48,7 +50,7 @@ type SearchSGRes struct {
 }
 
 // IDList returns list of IDs of storage groups in container.
-func (x SearchSGRes) IDList() []*object.ID {
+func (x SearchSGRes) IDList() []*oid.ID {
 	return x.cliRes.IDList()
 }
 
@@ -163,7 +165,7 @@ func (x Client) HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 // GetObjectPayload reads object by address from NeoFS via Client and returns its payload.
 //
 // Returns any error prevented the operation from completing correctly in error return.
-func GetObjectPayload(ctx context.Context, c Client, addr *object.Address) ([]byte, error) {
+func GetObjectPayload(ctx context.Context, c Client, addr *addressSDK.Address) ([]byte, error) {
 	var prm GetObjectPrm
 
 	prm.SetContext(ctx)
@@ -177,7 +179,7 @@ func GetObjectPayload(ctx context.Context, c Client, addr *object.Address) ([]by
 	return obj.Object().Payload(), nil
 }
 
-func headObject(ctx context.Context, c Client, addr *object.Address, raw bool, ttl uint32) (*object.Object, error) {
+func headObject(ctx context.Context, c Client, addr *addressSDK.Address, raw bool, ttl uint32) (*object.Object, error) {
 	var prm HeadObjectPrm
 
 	prm.SetContext(ctx)
@@ -197,13 +199,13 @@ func headObject(ctx context.Context, c Client, addr *object.Address, raw bool, t
 }
 
 // GetRawObjectHeaderLocally reads raw short object header from server's local storage by address via Client.
-func GetRawObjectHeaderLocally(ctx context.Context, c Client, addr *object.Address) (*object.Object, error) {
+func GetRawObjectHeaderLocally(ctx context.Context, c Client, addr *addressSDK.Address) (*object.Object, error) {
 	return headObject(ctx, c, addr, true, 1)
 }
 
 // GetObjectHeaderFromContainer reads short object header by address via Client with TTL = 10
 // for deep traversal of the container.
-func GetObjectHeaderFromContainer(ctx context.Context, c Client, addr *object.Address) (*object.Object, error) {
+func GetObjectHeaderFromContainer(ctx context.Context, c Client, addr *addressSDK.Address) (*object.Object, error) {
 	return headObject(ctx, c, addr, false, 10)
 }
 
@@ -265,7 +267,7 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 // from the remote server's local storage via Client.
 //
 // Returns any error prevented the operation from completing correctly in error return.
-func HashObjectRange(ctx context.Context, c Client, addr *object.Address, rng *object.Range) ([]byte, error) {
+func HashObjectRange(ctx context.Context, c Client, addr *addressSDK.Address, rng *object.Range) ([]byte, error) {
 	var prm HashPayloadRangePrm
 
 	prm.SetContext(ctx)

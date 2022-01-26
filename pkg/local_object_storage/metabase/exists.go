@@ -8,12 +8,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
 type ExistsPrm struct {
-	addr *objectSDK.Address
+	addr *addressSDK.Address
 }
 
 // ExistsRes groups resulting values of Exists operation.
@@ -24,7 +25,7 @@ type ExistsRes struct {
 var ErrLackSplitInfo = errors.New("no split info on parent object")
 
 // WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr *objectSDK.Address) *ExistsPrm {
+func (p *ExistsPrm) WithAddress(addr *addressSDK.Address) *ExistsPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -38,7 +39,7 @@ func (p *ExistsRes) Exists() bool {
 }
 
 // Exists checks if object is presented in DB.
-func Exists(db *DB, addr *objectSDK.Address) (bool, error) {
+func Exists(db *DB, addr *addressSDK.Address) (bool, error) {
 	r, err := db.Exists(new(ExistsPrm).WithAddress(addr))
 	if err != nil {
 		return false, err
@@ -61,7 +62,7 @@ func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 	return
 }
 
-func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err error) {
+func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err error) {
 	// check graveyard first
 	switch inGraveyard(tx, addr) {
 	case 1:
@@ -100,7 +101,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr *objectSDK.Address) (exists bool, err er
 //  * 0 if object is not in graveyard;
 //  * 1 if object is in graveyard with GC mark;
 //  * 2 if object is in graveyard with tombstone.
-func inGraveyard(tx *bbolt.Tx, addr *objectSDK.Address) uint8 {
+func inGraveyard(tx *bbolt.Tx, addr *addressSDK.Address) uint8 {
 	graveyard := tx.Bucket(graveyardBucketName)
 	if graveyard == nil {
 		return 0

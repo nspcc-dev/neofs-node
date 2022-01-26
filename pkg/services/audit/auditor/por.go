@@ -7,7 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )
@@ -35,7 +35,7 @@ func (c *Context) executePoR() {
 	c.report.SetPoRCounters(c.porRequests.Load(), c.porRetries.Load())
 }
 
-func (c *Context) checkStorageGroupPoR(ind int, sg *object.ID) {
+func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 	storageGroup, err := c.cnrCom.GetSG(c.task, sg) // get storage group
 	if err != nil {
 		c.log.Warn("can't get storage group",
