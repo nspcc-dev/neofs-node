@@ -20,7 +20,6 @@ storage:
   shard_num: 1
   shard:
     0:
-      use_write_cache: false
       metabase:
         path: <storage-path>/metabase
         perm: 0600
@@ -31,6 +30,8 @@ storage:
           opened_cache_capacity: 32
           depth: 1
           width: 1
+      writecache:
+        enabled: false
       gc:
         remover_batch_size: 100
         remover_sleep_interval: 1m
