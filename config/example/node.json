@@ -119,8 +119,8 @@
       "0": {
         "mode": "read-only",
         "resync_metabase": false,
-        "use_write_cache": false,
         "writecache": {
+          "enabled": false,
           "path": "tmp/0/cache",
           "memcache_capacity": 2147483648,
           "small_object_size": 16384,
@@ -156,8 +156,8 @@
       "1": {
         "mode": "read-write",
         "resync_metabase": true,
-        "use_write_cache": true,
         "writecache": {
+          "enabled": true,
           "path": "tmp/1/cache",
           "memcache_capacity": 2147483648,
           "small_object_size": 16384,
