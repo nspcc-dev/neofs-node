@@ -20,16 +20,6 @@ func From(c *config.Config) *Config {
 	return (*Config)(c)
 }
 
-// UseWriteCache returns value of "use_write_cache" config parameter.
-//
-// Panics if value is not a valid bool.
-func (x *Config) UseWriteCache() bool {
-	return config.Bool(
-		(*config.Config)(x),
-		"use_write_cache",
-	)
-}
-
 // BlobStor returns "blobstor" subsection as a blobstorconfig.Config.
 func (x *Config) BlobStor() *blobstorconfig.Config {
 	return blobstorconfig.From(

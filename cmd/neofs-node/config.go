@@ -373,10 +373,8 @@ func initShardOptions(c *cfg) {
 	engineconfig.IterateShards(c.appCfg, require, func(sc *shardconfig.Config) {
 		var writeCacheOpts []writecache.Option
 
-		useWriteCache := sc.UseWriteCache()
-		if useWriteCache {
-			writeCacheCfg := sc.WriteCache()
-
+		writeCacheCfg := sc.WriteCache()
+		if writeCacheCfg.Enabled() {
 			writeCacheOpts = []writecache.Option{
 				writecache.WithPath(writeCacheCfg.Path()),
 				writecache.WithLogger(c.log),
@@ -421,7 +419,7 @@ func initShardOptions(c *cfg) {
 					Timeout: 100 * time.Millisecond,
 				}),
 			),
-			shard.WithWriteCache(useWriteCache),
+			shard.WithWriteCache(writeCacheCfg.Enabled()),
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(gcCfg.RemoverBatchSize()),
 			shard.WithGCRemoverSleepInterval(gcCfg.RemoverSleepInterval()),

@@ -31,6 +31,13 @@ func From(c *config.Config) *Config {
 	return (*Config)(c)
 }
 
+// Enabled returns true if write-cache is enabled and false otherwise.
+//
+// Panics if value is not a boolean.
+func (x *Config) Enabled() bool {
+	return config.Bool((*config.Config)(x), "enabled")
+}
+
 // Path returns value of "path" config parameter.
 //
 // Panics if value is not a non-empty string.

@@ -55,7 +55,7 @@ func TestEngineSection(t *testing.T) {
 
 			switch num {
 			case 0:
-				require.Equal(t, false, sc.UseWriteCache())
+				require.Equal(t, false, wc.Enabled())
 
 				require.Equal(t, "tmp/0/cache", wc.Path())
 				require.EqualValues(t, 2147483648, wc.MemSize())
@@ -85,7 +85,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, false, sc.RefillMetabase())
 				require.Equal(t, shard.ModeReadOnly, sc.Mode())
 			case 1:
-				require.Equal(t, true, sc.UseWriteCache())
+				require.Equal(t, true, wc.Enabled())
 
 				require.Equal(t, "tmp/1/cache", wc.Path())
 				require.EqualValues(t, 2147483648, wc.MemSize())
