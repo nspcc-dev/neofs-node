@@ -117,6 +117,9 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
+	rootCmd.PersistentFlags().BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
+
+	_ = viper.BindPFlag(verbose, rootCmd.PersistentFlags().Lookup(verbose))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -409,7 +412,6 @@ func parseXHeaders() []*session.XHeader {
 // - WIF;
 // - address;
 // - RPC;
-// - verbose;
 func initCommonFlags(cmd *cobra.Command) {
 	ff := cmd.Flags()
 
@@ -417,7 +419,6 @@ func initCommonFlags(cmd *cobra.Command) {
 	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
 	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
 	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
-	ff.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
 }
 
 // bind common command flags to the viper
@@ -428,7 +429,6 @@ func bindCommonFlags(cmd *cobra.Command) {
 	_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
 	_ = viper.BindPFlag(address, ff.Lookup(address))
 	_ = viper.BindPFlag(rpc, ff.Lookup(rpc))
-	_ = viper.BindPFlag(verbose, ff.Lookup(verbose))
 }
 
 func bindAPIFlags(cmd *cobra.Command) {
