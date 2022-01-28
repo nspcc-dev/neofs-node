@@ -37,7 +37,6 @@ var (
 			_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
 			_ = viper.BindPFlag(wif, flags.Lookup(wif))
 			_ = viper.BindPFlag(address, flags.Lookup(address))
-			_ = viper.BindPFlag(verbose, flags.Lookup(verbose))
 		},
 	}
 
@@ -198,7 +197,6 @@ func initCommonFlagsWithoutRPC(cmd *cobra.Command) {
 	flags.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
 	flags.StringP(wif, wifShorthand, wifDefault, wifUsage)
 	flags.StringP(address, addressShorthand, addressDefault, addressUsage)
-	flags.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
 }
 
 func initUtilSignBearerCmd() {

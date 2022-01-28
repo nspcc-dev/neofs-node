@@ -30,7 +30,6 @@ var controlCmd = &cobra.Command{
 		_ = viper.BindPFlag(wif, ff.Lookup(wif))
 		_ = viper.BindPFlag(address, ff.Lookup(address))
 		_ = viper.BindPFlag(controlRPC, ff.Lookup(controlRPC))
-		_ = viper.BindPFlag(verbose, ff.Lookup(verbose))
 	},
 }
 

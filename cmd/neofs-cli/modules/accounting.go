@@ -28,7 +28,6 @@ var accountingCmd = &cobra.Command{
 		_ = viper.BindPFlag(wif, flags.Lookup(wif))
 		_ = viper.BindPFlag(address, flags.Lookup(address))
 		_ = viper.BindPFlag(rpc, flags.Lookup(rpc))
-		_ = viper.BindPFlag(verbose, flags.Lookup(verbose))
 	},
 }
 
@@ -73,7 +72,6 @@ func initAccountingBalanceCmd() {
 	ff.StringP(wif, wifShorthand, wifDefault, wifUsage)
 	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
 	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
-	ff.BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
 
 	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
 }
