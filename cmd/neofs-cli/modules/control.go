@@ -27,7 +27,6 @@ var controlCmd = &cobra.Command{
 		_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
 		_ = viper.BindPFlag(address, ff.Lookup(address))
 		_ = viper.BindPFlag(controlRPC, ff.Lookup(controlRPC))
-		_ = viper.BindPFlag(verbose, ff.Lookup(verbose))
 	},
 }
 
