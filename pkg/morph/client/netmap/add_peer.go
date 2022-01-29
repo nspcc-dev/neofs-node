@@ -24,12 +24,12 @@ func (a *AddPeerArgs) SetInfo(v []byte) {
 func (c *Client) AddPeer(args AddPeerArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.addPeerMethod)
+	prm.SetMethod(addPeerMethod)
 	prm.SetArgs(args.info)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.addPeerMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", addPeerMethod, err)
 	}
 	return nil
 }

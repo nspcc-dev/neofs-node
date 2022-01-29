@@ -14,85 +14,22 @@ import (
 // and can lead to panic.
 type Client struct {
 	client *client.StaticClient // static NeoFS contract client
-
-	*cfg // contract method names
 }
 
-// Option is a client configuration change function.
-type Option func(*cfg)
-
-type cfg struct {
-	alphabetUpdateMethod,
-	chequeMethod,
-	bindKeysMethod,
-	unbindKeysMethod string
-}
-
-func defaultConfig() *cfg {
-	const (
-		defaultBindKeysMethod       = "bind"
-		defaultUnbindKeysMethod     = "unbind"
-		defaultAlphabetUpdateMethod = "alphabetUpdate"
-		defaultChequeMethod         = "cheque"
-	)
-
-	return &cfg{
-		alphabetUpdateMethod: defaultAlphabetUpdateMethod,
-		chequeMethod:         defaultChequeMethod,
-		bindKeysMethod:       defaultBindKeysMethod,
-		unbindKeysMethod:     defaultUnbindKeysMethod,
-	}
-}
+const (
+	bindKeysMethod       = "bind"
+	unbindKeysMethod     = "unbind"
+	alphabetUpdateMethod = "alphabetUpdate"
+	chequeMethod         = "cheque"
+)
 
 // New creates, initializes and returns the Client instance.
 //
 // If StaticClient is nil, panic occurs.
-//
-// Other values are set according to provided options, or by default:
-//  * key binding method name: bind;
-//  * key unbinding method name: unbind;
-//
-// If desired option satisfies the default value, it can be omitted.
-// If multiple options of the same config value are supplied,
-// the option with the highest index in the arguments will be used.
-func New(c *client.StaticClient, opts ...Option) *Client {
+func New(c *client.StaticClient) *Client {
 	if c == nil {
 		panic("static client is nil")
 	}
 
-	res := &Client{
-		client: c,
-		cfg:    defaultConfig(), // build default configuration
-	}
-
-	// apply options
-	for _, opt := range opts {
-		opt(res.cfg)
-	}
-
-	return res
-}
-
-// WithBindKeysMethod returns a client constructor option that
-// specifies the method name of key binding operation.
-//
-// Ignores empty value.
-func WithBindKeysMethod(n string) Option {
-	return func(c *cfg) {
-		if n != "" {
-			c.bindKeysMethod = n
-		}
-	}
-}
-
-// WithUnbindKeysMethod returns a client constructor option that
-// specifies the method name of key unbinding operation.
-//
-// Ignores empty value.
-func WithUnbindKeysMethod(n string) Option {
-	return func(c *cfg) {
-		if n != "" {
-			c.unbindKeysMethod = n
-		}
-	}
+	return &Client{client: c}
 }

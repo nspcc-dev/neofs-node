@@ -35,19 +35,19 @@ func (l *ListValues) CIDList() [][]byte {
 func (c *Client) List(args ListArgs) (*ListValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listMethod)
+	invokePrm.SetMethod(listMethod)
 	invokePrm.SetArgs(args.ownerID)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.listMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", listMethod, ln)
 	}
 
 	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", c.listMethod, err)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listMethod, err)
 	}
 
 	res := &ListValues{
@@ -57,7 +57,7 @@ func (c *Client) List(args ListArgs) (*ListValues, error) {
 	for i := range prms {
 		cid, err := client.BytesFromStackItem(prms[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.listMethod, err)
+			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listMethod, err)
 		}
 
 		res.cidList = append(res.cidList, cid)

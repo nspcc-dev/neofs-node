@@ -59,17 +59,17 @@ func (x Client) ManageAdmins(prm ManageAdminsPrm) (*ManageAdminsPrm, error) {
 		args = append(args, prm.group, prm.admin)
 
 		if prm.rm {
-			method = "removeClientAdmin"
+			method = removeClientAdminMethod
 		} else {
-			method = "addClientAdmin"
+			method = addClientAdminMethod
 		}
 	} else {
 		args = append(args, prm.admin)
 
 		if prm.rm {
-			method = "removeNodeAdmin"
+			method = removeNodeAdminMethod
 		} else {
-			method = "addNodeAdmin"
+			method = addNodeAdminMethod
 		}
 	}
 

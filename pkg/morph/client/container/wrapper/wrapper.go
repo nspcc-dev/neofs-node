@@ -82,19 +82,10 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		opts[i](o)
 	}
 
-	// below is working but not the best solution to customize fee for PutNamed operation
-	// It is done like that because container package doesn't provide option to specify the fee.
-	// In the future, we will possibly get rid of the container package at all.
-	const methodNamePutNamed = "putNamed"
-
-	var (
-		staticOpts = o.staticOpts
-		cnrOpts    = make([]container.Option, 0, 1)
-	)
+	staticOpts := o.staticOpts
 
 	if o.feePutNamedSet {
-		staticOpts = append(staticOpts, client.WithCustomFee(methodNamePutNamed, o.feePutNamed))
-		cnrOpts = append(cnrOpts, container.WithPutNamedMethod(methodNamePutNamed))
+		staticOpts = append(staticOpts, client.WithCustomFee(container.PutNamedMethod, o.feePutNamed))
 	}
 
 	staticClient, err := client.NewStatic(cli, contract, fee, staticOpts...)
@@ -102,7 +93,7 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create container static client: %w", err)
 	}
 
-	enhancedContainerClient, err := container.New(staticClient, cnrOpts...)
+	enhancedContainerClient, err := container.New(staticClient)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container morph client: %w", err)
 	}

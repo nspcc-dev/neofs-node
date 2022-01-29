@@ -40,7 +40,7 @@ func (c *ChequePrm) SetLock(lock util.Uint160) {
 func (x *Client) Cheque(args ChequePrm) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(x.chequeMethod)
+	prm.SetMethod(chequeMethod)
 	prm.SetArgs(args.id, args.user.BytesBE(), args.amount, args.lock.BytesBE())
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
@@ -70,7 +70,7 @@ func (a *AlphabetUpdatePrm) SetPubs(pubs keys.PublicKeys) {
 func (x *Client) AlphabetUpdate(args AlphabetUpdatePrm) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(x.alphabetUpdateMethod)
+	prm.SetMethod(alphabetUpdateMethod)
 	prm.SetArgs(args.id, args.pubs)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 

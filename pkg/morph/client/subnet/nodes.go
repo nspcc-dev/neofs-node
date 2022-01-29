@@ -35,9 +35,9 @@ func (x Client) ManageNodes(prm ManageNodesPrm) (*ManageNodesRes, error) {
 	var method string
 
 	if prm.rm {
-		method = "removeNode"
+		method = removeNodeMethod
 	} else {
-		method = "addNode"
+		method = addNodeMethod
 	}
 
 	var prmInvoke client.InvokePrm

@@ -25,22 +25,22 @@ func (e EpochValues) Number() int64 {
 // method of NeoFS Netmap contract.
 func (c *Client) Epoch(_ EpochArgs) (*EpochValues, error) {
 	prm := client.TestInvokePrm{}
-	prm.SetMethod(c.epochMethod)
+	prm.SetMethod(epochMethod)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			c.epochMethod, err)
+			epochMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
-			c.epochMethod, ln)
+			epochMethod, ln)
 	}
 
 	num, err := client.IntFromStackItem(items[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get number from stack item (%s): %w", c.epochMethod, err)
+		return nil, fmt.Errorf("could not get number from stack item (%s): %w", epochMethod, err)
 	}
 
 	return &EpochValues{
@@ -67,23 +67,23 @@ func (e EpochBlockValues) Block() int64 {
 // method of NeoFS Netmap contract.
 func (c *Client) LastEpochBlock(_ EpochBlockArgs) (*EpochBlockValues, error) {
 	prm := client.TestInvokePrm{}
-	prm.SetMethod(c.lastEpochBlockMethod)
+	prm.SetMethod(lastEpochBlockMethod)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			c.lastEpochBlockMethod, err)
+			lastEpochBlockMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
-			c.lastEpochBlockMethod, ln)
+			lastEpochBlockMethod, ln)
 	}
 
 	block, err := client.IntFromStackItem(items[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get number from stack item (%s): %w",
-			c.lastEpochBlockMethod, err)
+			lastEpochBlockMethod, err)
 	}
 
 	return &EpochBlockValues{

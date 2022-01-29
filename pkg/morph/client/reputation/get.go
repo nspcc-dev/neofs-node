@@ -49,15 +49,15 @@ func (g GetResult) Reputations() [][]byte {
 func (c *Client) Get(args GetArgs) (*GetResult, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.getMethod)
+	invokePrm.SetMethod(getMethod)
 	invokePrm.SetArgs(int64(args.epoch), args.peerID)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
 	}
 
-	return parseReputations(prms, c.getMethod)
+	return parseReputations(prms, getMethod)
 }
 
 // GetByID invokes the call of "get reputation value by reputation id" method
@@ -65,15 +65,15 @@ func (c *Client) Get(args GetArgs) (*GetResult, error) {
 func (c *Client) GetByID(args GetByIDArgs) (*GetResult, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.getByIDMethod)
+	invokePrm.SetMethod(getByIDMethod)
 	invokePrm.SetArgs(args.id)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getByIDMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getByIDMethod, err)
 	}
 
-	return parseReputations(prms, c.getByIDMethod)
+	return parseReputations(prms, getByIDMethod)
 }
 
 func parseReputations(items []stackitem.Item, method string) (*GetResult, error) {

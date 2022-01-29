@@ -57,43 +57,43 @@ func (g *EACLValues) SessionToken() []byte {
 func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.eaclMethod)
+	invokePrm.SetMethod(eaclMethod)
 	invokePrm.SetArgs(args.cid)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.eaclMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", eaclMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.eaclMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", eaclMethod, ln)
 	}
 
 	arr, err := client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get item array of eACL (%s): %w", c.eaclMethod, err)
+		return nil, fmt.Errorf("could not get item array of eACL (%s): %w", eaclMethod, err)
 	}
 
 	if len(arr) != 4 {
-		return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", c.eaclMethod, len(arr))
+		return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", eaclMethod, len(arr))
 	}
 
 	eacl, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of eACL (%s): %w", c.eaclMethod, err)
+		return nil, fmt.Errorf("could not get byte array of eACL (%s): %w", eaclMethod, err)
 	}
 
 	sig, err := client.BytesFromStackItem(arr[1])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of eACL signature (%s): %w", c.eaclMethod, err)
+		return nil, fmt.Errorf("could not get byte array of eACL signature (%s): %w", eaclMethod, err)
 	}
 
 	pub, err := client.BytesFromStackItem(arr[2])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of eACL public key (%s): %w", c.eaclMethod, err)
+		return nil, fmt.Errorf("could not get byte array of eACL public key (%s): %w", eaclMethod, err)
 	}
 
 	tok, err := client.BytesFromStackItem(arr[3])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of eACL session token (%s): %w", c.eaclMethod, err)
+		return nil, fmt.Errorf("could not get byte array of eACL session token (%s): %w", eaclMethod, err)
 	}
 
 	return &EACLValues{
