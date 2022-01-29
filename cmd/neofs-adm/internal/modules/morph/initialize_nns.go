@@ -20,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 const defaultNameServiceDomainPrice = 10_0000_0000
@@ -74,7 +75,7 @@ func (c *initializeContext) setNNS() error {
 	if err != nil {
 		return err
 	}
-	c.Command.Printf("NNS: Set %s -> %s\n", groupKeyDomain, hex.EncodeToString(groupKey.Bytes()))
+	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
 
 	return c.awaitTx()
 }
@@ -89,13 +90,13 @@ func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.Publi
 }
 
 func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (int64, error) {
-	isAvail, err := c.Client.NNSIsAvailable(nnsHash, groupKeyDomain)
+	isAvail, err := c.Client.NNSIsAvailable(nnsHash, morphClient.NNSGroupKeyName)
 	if err != nil {
 		return 0, err
 	}
 
 	if !isAvail {
-		currentPub, err := nnsResolveKey(c.Client, nnsHash, groupKeyDomain)
+		currentPub, err := nnsResolveKey(c.Client, nnsHash, morphClient.NNSGroupKeyName)
 		if err != nil {
 			return 0, err
 		}
@@ -108,7 +109,7 @@ func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHas
 	sysFee := int64(native.GASFactor)
 	if isAvail {
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
-			groupKeyDomain, c.CommitteeAcc.Contract.ScriptHash(),
+			morphClient.NNSGroupKeyName, c.CommitteeAcc.Contract.ScriptHash(),
 			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 		sysFee += defaultRegisterSysfee

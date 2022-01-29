@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -266,7 +267,7 @@ func (c *initializeContext) getSigner() transaction.Signer {
 		return signer
 	}
 
-	groupKey, err := nnsResolveKey(c.Client, nnsCs.Hash, groupKeyDomain)
+	groupKey, err := nnsResolveKey(c.Client, nnsCs.Hash, morphClient.NNSGroupKeyName)
 	if err == nil {
 		c.groupKey = groupKey
 
