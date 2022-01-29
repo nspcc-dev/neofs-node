@@ -85,8 +85,6 @@ func (e *notHaltStateError) Error() string {
 
 var errEmptyInvocationScript = errors.New("got empty invocation script from neo node")
 
-var errScriptDecode = errors.New("could not decode invocation script from neo node")
-
 // implementation of error interface for NeoFS-specific errors.
 type neofsError struct {
 	err error
