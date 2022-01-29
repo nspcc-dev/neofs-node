@@ -28,6 +28,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 )
 
@@ -274,7 +275,7 @@ func (c *initializeContext) updateContracts() error {
 	if err != nil {
 		return err
 	}
-	c.Command.Printf("NNS: Set %s -> %s\n", groupKeyDomain, hex.EncodeToString(groupKey.Bytes()))
+	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
 
 	totalGasCost += sysFee
 	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost); err != nil {
