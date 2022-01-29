@@ -65,9 +65,7 @@ func (s StaticClient) Morph() *Client {
 
 // InvokePrm groups parameters of the Invoke operation.
 type InvokePrm struct {
-	// required parameters
-	method string
-	args   []interface{}
+	TestInvokePrm
 
 	// optional parameters
 	InvokePrmOptional
@@ -82,16 +80,6 @@ type InvokePrmOptional struct {
 	// `validUntilBlock` values by all notification
 	// receivers.
 	hash *util.Uint256
-}
-
-// SetMethod sets method of the contract to call.
-func (i *InvokePrm) SetMethod(method string) {
-	i.method = method
-}
-
-// SetArgs sets arguments of the contact call.
-func (i *InvokePrm) SetArgs(args ...interface{}) {
-	i.args = args
 }
 
 // SetHash sets optional hash of the transaction.
