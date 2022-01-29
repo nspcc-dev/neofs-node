@@ -263,7 +263,7 @@ func (s *Server) handleSubnetCreation(e event.Event) {
 // catchSubnetRemoval catches event of subnet removal from listener and queues the processing.
 func (s *Server) catchSubnetRemoval(e event.Event) {
 	err := s.subnetHandler.workerPool.Submit(func() {
-		s.handleSubnetCreation(e)
+		s.handleSubnetRemoval(e)
 	})
 	if err != nil {
 		s.log.Error("subnet removal queue failure",
