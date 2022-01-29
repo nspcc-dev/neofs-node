@@ -48,8 +48,6 @@ const (
 
 	// NotaryNonAlphabet makes client to not use its internal key for signing the notary requests.
 	NotaryNonAlphabet
-
-	lastMode
 )
 
 // SetMode makes client to work with non-notary sidechain.

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -132,9 +131,7 @@ type cfgGRPC struct {
 type cfgMorph struct {
 	client *client.Client
 
-	notaryEnabled         bool
-	notaryDepositAmount   fixedn.Fixed8
-	notaryDepositDuration uint32
+	notaryEnabled bool
 
 	disableCache bool
 

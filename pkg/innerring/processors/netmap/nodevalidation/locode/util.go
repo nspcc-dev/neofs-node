@@ -13,10 +13,6 @@ func countryValue(r Record) string {
 	return r.CountryName()
 }
 
-func locationCodeValue(r Record) string {
-	return r.LocationCode().String()
-}
-
 func locationValue(r Record) string {
 	return r.LocationName()
 }

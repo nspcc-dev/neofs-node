@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -23,8 +22,6 @@ type cfg struct {
 	dialTimeout time.Duration // client dial timeout
 
 	logger *logger.Logger // logging component
-
-	gas util.Uint160 // native gas script-hash
 
 	waitInterval time.Duration
 

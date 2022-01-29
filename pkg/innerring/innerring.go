@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
@@ -134,7 +133,6 @@ type (
 		cfg  *viper.Viper
 		key  *keys.PrivateKey
 		name string
-		gas  util.Uint160
 		sgn  *transaction.Signer
 		from uint32 // block height
 	}
