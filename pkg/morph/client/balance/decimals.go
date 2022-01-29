@@ -27,18 +27,18 @@ func (d *DecimalsValues) Decimals() int64 {
 func (c *Client) Decimals(args DecimalsArgs) (*DecimalsValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.decimalsMethod)
+	invokePrm.SetMethod(decimalsMethod)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.decimalsMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", decimalsMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.decimalsMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", decimalsMethod, ln)
 	}
 
 	decimals, err := client.IntFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", c.decimalsMethod, err)
+		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", decimalsMethod, err)
 	}
 
 	return &DecimalsValues{

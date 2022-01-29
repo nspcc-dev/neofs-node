@@ -42,14 +42,14 @@ func (p *DeleteArgs) SetSessionToken(v []byte) {
 func (c *Client) Delete(args DeleteArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.deleteMethod)
+	prm.SetMethod(deleteMethod)
 	prm.SetArgs(args.cid, args.sig, args.token)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.deleteMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", deleteMethod, err)
 	}
 	return nil
 }

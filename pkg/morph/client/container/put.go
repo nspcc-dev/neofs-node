@@ -61,11 +61,11 @@ func (c *Client) Put(args PutArgs) error {
 	)
 
 	if args.name != "" {
-		method = c.putNamedMethod
+		method = PutNamedMethod
 
 		prm.SetArgs(args.cnr, args.sig, args.publicKey, args.token, args.name, args.zone)
 	} else {
-		method = c.putMethod
+		method = putMethod
 
 		prm.SetArgs(args.cnr, args.sig, args.publicKey, args.token)
 	}

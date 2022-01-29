@@ -38,7 +38,7 @@ type PutRes struct{}
 
 // Put creates subnet though the call of the corresponding method of the Subnet contract.
 func (x Client) Put(prm PutPrm) (*PutRes, error) {
-	prm.cliPrm.SetMethod("put")
+	prm.cliPrm.SetMethod(putMethod)
 	prm.cliPrm.SetArgs(prm.args[:]...)
 
 	err := x.client.Invoke(prm.cliPrm)

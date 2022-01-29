@@ -32,13 +32,13 @@ func (p *PutArgs) SetValue(v []byte) {
 func (c *Client) Put(args PutArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.putMethod)
+	prm.SetMethod(putMethod)
 	prm.SetArgs(int64(args.epoch), args.peerID, args.value)
 
 	err := c.client.Invoke(prm)
 
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.putMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
 	}
 	return nil
 }

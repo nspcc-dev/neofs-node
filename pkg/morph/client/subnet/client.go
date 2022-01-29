@@ -24,6 +24,25 @@ type InitPrm struct {
 	mode    Mode
 }
 
+const (
+	deleteMethod = "delete"
+	getMethod    = "get"
+	putMethod    = "put"
+
+	removeClientAdminMethod = "removeClientAdmin"
+	addClientAdminMethod    = "addClientAdmin"
+
+	userAllowedMethod = "userAllowed"
+	removeUserMethod  = "removeUser"
+	addUserMethod     = "addUser"
+
+	removeNodeAdminMethod = "removeNodeAdmin"
+	addNodeAdminMethod    = "addNodeAdmin"
+	nodeAllowedMethod     = "nodeAllowed"
+	removeNodeMethod      = "removeNode"
+	addNodeMethod         = "addNode"
+)
+
 // SetBaseClient sets basic morph client.
 func (x *InitPrm) SetBaseClient(base *client.Client) {
 	x.base = base

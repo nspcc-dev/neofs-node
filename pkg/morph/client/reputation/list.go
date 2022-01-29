@@ -33,19 +33,19 @@ func (l ListByEpochResult) IDs() [][]byte {
 func (c *Client) ListByEpoch(args ListByEpochArgs) (*ListByEpochResult, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listByEpochMethod)
+	invokePrm.SetMethod(listByEpochMethod)
 	invokePrm.SetArgs(int64(args.epoch))
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByEpochMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listByEpochMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.listByEpochMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", listByEpochMethod, ln)
 	}
 
 	items, err := client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", c.listByEpochMethod, err)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listByEpochMethod, err)
 	}
 
 	res := &ListByEpochResult{
@@ -55,7 +55,7 @@ func (c *Client) ListByEpoch(args ListByEpochArgs) (*ListByEpochResult, error) {
 	for i := range items {
 		rawReputation, err := client.BytesFromStackItem(items[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.listByEpochMethod, err)
+			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listByEpochMethod, err)
 		}
 
 		res.ids = append(res.ids, rawReputation)

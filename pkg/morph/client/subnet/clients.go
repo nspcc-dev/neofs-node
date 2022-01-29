@@ -35,7 +35,7 @@ func (x UserAllowedRes) Allowed() bool {
 func (x *Client) UserAllowed(prm UserAllowedPrm) (*UserAllowedRes, error) {
 	args := client.TestInvokePrm{}
 
-	args.SetMethod("userAllowed")
+	args.SetMethod(userAllowedMethod)
 	args.SetArgs(prm.args[:]...)
 
 	res, err := x.client.TestInvoke(args)
@@ -95,9 +95,9 @@ func (x Client) ManageClients(prm ManageClientsPrm) (*ManageClientsRes, error) {
 	var method string
 
 	if prm.rm {
-		method = "removeUser"
+		method = removeUserMethod
 	} else {
-		method = "addUser"
+		method = addUserMethod
 	}
 
 	var prmInvoke client.InvokePrm

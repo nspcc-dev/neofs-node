@@ -65,14 +65,14 @@ func (v *ListResultsByNodeArgs) SetNodeKey(key []byte) {
 func (c *Client) ListAuditResults(args ListResultsArgs) (*ListResultsValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listResultsMethod)
+	invokePrm.SetMethod(listResultsMethod)
 
 	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listResultsMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listResultsMethod, err)
 	}
 
-	return parseAuditResults(items, c.listResultsMethod)
+	return parseAuditResults(items, listResultsMethod)
 }
 
 // ListAuditResultsByEpoch performs the test invoke of "list audit result IDs
@@ -80,15 +80,15 @@ func (c *Client) ListAuditResults(args ListResultsArgs) (*ListResultsValues, err
 func (c *Client) ListAuditResultsByEpoch(args ListResultsByEpochArgs) (*ListResultsValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listByEpochResultsMethod)
+	invokePrm.SetMethod(listByEpochResultsMethod)
 	invokePrm.SetArgs(args.epoch)
 
 	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByEpochResultsMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listByEpochResultsMethod, err)
 	}
 
-	return parseAuditResults(items, c.listByEpochResultsMethod)
+	return parseAuditResults(items, listByEpochResultsMethod)
 }
 
 // ListAuditResultsByCID performs the test invoke of "list audit result IDs
@@ -96,15 +96,15 @@ func (c *Client) ListAuditResultsByEpoch(args ListResultsByEpochArgs) (*ListResu
 func (c *Client) ListAuditResultsByCID(args ListResultsByCIDArgs) (*ListResultsValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listByCIDResultsMethod)
+	invokePrm.SetMethod(listByCIDResultsMethod)
 	invokePrm.SetArgs(args.epoch, args.cid)
 
 	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByCIDResultsMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listByCIDResultsMethod, err)
 	}
 
-	return parseAuditResults(items, c.listByCIDResultsMethod)
+	return parseAuditResults(items, listByCIDResultsMethod)
 }
 
 // ListAuditResultsByNode performs the test invoke of "list audit result IDs
@@ -112,15 +112,15 @@ func (c *Client) ListAuditResultsByCID(args ListResultsByCIDArgs) (*ListResultsV
 func (c *Client) ListAuditResultsByNode(args ListResultsByNodeArgs) (*ListResultsValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listByNodeResultsMethod)
+	invokePrm.SetMethod(listByNodeResultsMethod)
 	invokePrm.SetArgs(args.epoch, args.cid, args.nodeKey)
 
 	items, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listByNodeResultsMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listByNodeResultsMethod, err)
 	}
 
-	return parseAuditResults(items, c.listByNodeResultsMethod)
+	return parseAuditResults(items, listByNodeResultsMethod)
 }
 
 func parseAuditResults(items []stackitem.Item, method string) (*ListResultsValues, error) {

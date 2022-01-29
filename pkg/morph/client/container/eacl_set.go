@@ -50,14 +50,14 @@ func (p *SetEACLArgs) SetSessionToken(v []byte) {
 func (c *Client) SetEACL(args SetEACLArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.setEACLMethod)
+	prm.SetMethod(setEACLMethod)
 	prm.SetArgs(args.eacl, args.sig, args.pubkey, args.token)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.setEACLMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", setEACLMethod, err)
 	}
 	return nil
 }

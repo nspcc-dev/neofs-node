@@ -32,7 +32,7 @@ func (c *Client) UpdateInnerRing(p UpdateIRPrm) error {
 
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.updateInnerRing)
+	prm.SetMethod(updateInnerRingMethod)
 	prm.SetArgs(args)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
@@ -43,14 +43,14 @@ func (c *Client) UpdateInnerRing(p UpdateIRPrm) error {
 // netmap contract.
 func (c *Client) InnerRingList() (keys.PublicKeys, error) {
 	invokePrm := client.TestInvokePrm{}
-	invokePrm.SetMethod(c.innerRingList)
+	invokePrm.SetMethod(innerRingListMethod)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.innerRingList, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", innerRingListMethod, err)
 	}
 
-	return irKeysFromStackItem(prms, c.innerRingList)
+	return irKeysFromStackItem(prms, innerRingListMethod)
 }
 
 func irKeysFromStackItem(stack []stackitem.Item, method string) (keys.PublicKeys, error) {
