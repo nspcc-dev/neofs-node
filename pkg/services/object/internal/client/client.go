@@ -58,6 +58,11 @@ func (x *commonPrm) SetBearerToken(tok *token.BearerToken) {
 	x.opts = append(x.opts, client.WithBearer(tok))
 }
 
+// SetTTL sets time-to-live call option.
+func (x *commonPrm) SetTTL(ttl uint32) {
+	x.opts = append(x.opts, client.WithTTL(ttl))
+}
+
 // SetXHeaders sets request X-Headers.
 //
 // By default X-Headers will  not be attached to the request.
@@ -69,8 +74,6 @@ func (x *commonPrm) SetXHeaders(xhdrs []*session.XHeader) {
 
 type readPrmCommon struct {
 	commonPrm
-
-	ttl uint32
 }
 
 // SetNetmapEpoch sets the epoch number to be used to locate the object.
@@ -82,13 +85,6 @@ func (x *readPrmCommon) SetNetmapEpoch(epoch uint64) {
 	xNetmapEpoch.SetValue(strconv.FormatUint(epoch, 10))
 
 	x.opts = append(x.opts, client.WithXHeader(xNetmapEpoch))
-}
-
-// SetTTL sets request TTL value.
-//
-// Required parameter.
-func (x *readPrmCommon) SetTTL(ttl uint32) {
-	x.opts = append(x.opts, client.WithTTL(ttl))
 }
 
 // GetObjectPrm groups parameters of GetObject operation.
