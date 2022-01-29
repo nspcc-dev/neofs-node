@@ -43,6 +43,7 @@ linters:
     - gofmt
     - whitespace
     - goimports
+    - unused
   disable-all: true
   fast: false
 
