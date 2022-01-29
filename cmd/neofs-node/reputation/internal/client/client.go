@@ -15,8 +15,6 @@ type commonPrm struct {
 
 	ctx context.Context
 
-	epoch uint64
-
 	opts []client.CallOption
 }
 
