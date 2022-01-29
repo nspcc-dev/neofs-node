@@ -48,14 +48,9 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create netmap static client: %w", err)
 	}
 
-	enhancedNetmapClient, err := netmap.New(staticClient)
-	if err != nil {
-		return nil, fmt.Errorf("can't create netmap morph client: %w", err)
-	}
-
 	return &Wrapper{
 		StaticClient: staticClient,
-		client:       enhancedNetmapClient,
+		client:       netmap.New(staticClient),
 	}, nil
 }
 

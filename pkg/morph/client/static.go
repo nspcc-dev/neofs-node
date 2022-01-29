@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
@@ -34,10 +33,6 @@ type staticOpts struct {
 // StaticClientOption allows to set an optional
 // parameter of StaticClient.
 type StaticClientOption func(*staticOpts)
-
-// ErrNilStaticClient is returned by functions that expect
-// a non-nil StaticClient pointer, but received nil.
-var ErrNilStaticClient = errors.New("static client is nil")
 
 // NewStatic creates, initializes and returns the StaticClient instance.
 //

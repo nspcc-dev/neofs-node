@@ -65,13 +65,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("could not create static client of reputation contract: %w", err)
 	}
 
-	enhancedRepurationClient, err := reputation.New(staticClient)
-	if err != nil {
-		return nil, fmt.Errorf("could not create reputation contract client: %w", err)
-	}
-
 	return &ClientWrapper{
 		StaticClient: staticClient,
-		client:       enhancedRepurationClient,
+		client:       reputation.New(staticClient),
 	}, nil
 }
