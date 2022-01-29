@@ -57,43 +57,43 @@ func (g *GetValues) SessionToken() []byte {
 func (c *Client) Get(args GetArgs) (*GetValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.getMethod)
+	invokePrm.SetMethod(getMethod)
 	invokePrm.SetArgs(args.cid)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.getMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getMethod, ln)
 	}
 
 	arr, err := client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get item array of container (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
 	}
 
 	if len(arr) != 4 {
-		return nil, fmt.Errorf("unexpected container stack item count (%s): %d", c.getMethod, len(arr))
+		return nil, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
 	}
 
 	cnrBytes, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not get byte array of container (%s): %w", getMethod, err)
 	}
 
 	sig, err := client.BytesFromStackItem(arr[1])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container signature (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not get byte array of container signature (%s): %w", getMethod, err)
 	}
 
 	pub, err := client.BytesFromStackItem(arr[2])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of public key (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not get byte array of public key (%s): %w", getMethod, err)
 	}
 
 	tok, err := client.BytesFromStackItem(arr[3])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", c.getMethod, err)
+		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", getMethod, err)
 	}
 
 	return &GetValues{

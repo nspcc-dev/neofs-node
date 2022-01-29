@@ -48,14 +48,14 @@ func (p *PutSizeArgs) SetReporterKey(v []byte) {
 func (c *Client) PutSize(args PutSizeArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.putSizeMethod)
+	prm.SetMethod(putSizeMethod)
 	prm.SetArgs(args.epoch, args.cid, args.size, args.reporterKey)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.putSizeMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", putSizeMethod, err)
 	}
 	return nil
 }
@@ -89,19 +89,19 @@ func (v *ListSizesValues) IDList() [][]byte {
 func (c *Client) ListSizes(args ListSizesArgs) (*ListSizesValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.listSizesMethod)
+	invokePrm.SetMethod(listSizesMethod)
 	invokePrm.SetArgs(args.epoch)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.listSizesMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listSizesMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.listSizesMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", listSizesMethod, ln)
 	}
 
 	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", c.listSizesMethod, err)
+		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listSizesMethod, err)
 	}
 
 	res := &ListSizesValues{
@@ -111,7 +111,7 @@ func (c *Client) ListSizes(args ListSizesArgs) (*ListSizesValues, error) {
 	for i := range prms {
 		id, err := client.BytesFromStackItem(prms[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get ID byte array from stack item (%s): %w", c.listSizesMethod, err)
+			return nil, fmt.Errorf("could not get ID byte array from stack item (%s): %w", listSizesMethod, err)
 		}
 
 		res.ids = append(res.ids, id)
@@ -159,33 +159,33 @@ func (v *GetSizeValues) Estimations() Estimations {
 func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.getSizeMethod)
+	invokePrm.SetMethod(getSizeMethod)
 	invokePrm.SetArgs(args.id)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getSizeMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getSizeMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.getSizeMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getSizeMethod, ln)
 	}
 
 	prms, err = client.ArrayFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get stack items of estimation fields from stack item (%s): %w", c.getSizeMethod, err)
+		return nil, fmt.Errorf("could not get stack items of estimation fields from stack item (%s): %w", getSizeMethod, err)
 	} else if ln := len(prms); ln != 2 {
-		return nil, fmt.Errorf("unexpected stack item count of estimations fields (%s)", c.getSizeMethod)
+		return nil, fmt.Errorf("unexpected stack item count of estimations fields (%s)", getSizeMethod)
 	}
 
 	es := Estimations{}
 
 	es.ContainerID, err = client.BytesFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get container ID byte array from stack item (%s): %w", c.getSizeMethod, err)
+		return nil, fmt.Errorf("could not get container ID byte array from stack item (%s): %w", getSizeMethod, err)
 	}
 
 	prms, err = client.ArrayFromStackItem(prms[1])
 	if err != nil {
-		return nil, fmt.Errorf("could not get estimation list array from stack item (%s): %w", c.getSizeMethod, err)
+		return nil, fmt.Errorf("could not get estimation list array from stack item (%s): %w", getSizeMethod, err)
 	}
 
 	es.Estimations = make([]Estimation, 0, len(prms))
@@ -193,21 +193,21 @@ func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
 	for i := range prms {
 		arr, err := client.ArrayFromStackItem(prms[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get estimation struct from stack item (%s): %w", c.getSizeMethod, err)
+			return nil, fmt.Errorf("could not get estimation struct from stack item (%s): %w", getSizeMethod, err)
 		} else if ln := len(arr); ln != 2 {
-			return nil, fmt.Errorf("unexpected stack item count of estimation fields (%s)", c.getSizeMethod)
+			return nil, fmt.Errorf("unexpected stack item count of estimation fields (%s)", getSizeMethod)
 		}
 
 		e := Estimation{}
 
 		e.Reporter, err = client.BytesFromStackItem(arr[0])
 		if err != nil {
-			return nil, fmt.Errorf("could not get reporter byte array from stack item (%s): %w", c.getSizeMethod, err)
+			return nil, fmt.Errorf("could not get reporter byte array from stack item (%s): %w", getSizeMethod, err)
 		}
 
 		e.Size, err = client.IntFromStackItem(arr[1])
 		if err != nil {
-			return nil, fmt.Errorf("could not get estimation size from stack item (%s): %w", c.getSizeMethod, err)
+			return nil, fmt.Errorf("could not get estimation size from stack item (%s): %w", getSizeMethod, err)
 		}
 
 		es.Estimations = append(es.Estimations, e)

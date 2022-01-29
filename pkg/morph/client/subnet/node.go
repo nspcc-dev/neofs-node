@@ -35,7 +35,7 @@ func (x NodeAllowedRes) Allowed() bool {
 
 // NodeAllowed checks if the node is included in the subnetwork.
 func (x *Client) NodeAllowed(prm NodeAllowedPrm) (*NodeAllowedRes, error) {
-	prm.cliPrm.SetMethod("nodeAllowed")
+	prm.cliPrm.SetMethod(nodeAllowedMethod)
 	prm.cliPrm.SetArgs(prm.args[:]...)
 
 	res, err := x.client.TestInvoke(prm.cliPrm)

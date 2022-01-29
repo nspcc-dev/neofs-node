@@ -32,7 +32,7 @@ var errEmptyResponse = errors.New("empty response")
 func (x *Client) Get(prm GetPrm) (*GetRes, error) {
 	var prmGet client.TestInvokePrm
 
-	prmGet.SetMethod("get")
+	prmGet.SetMethod(getMethod)
 	prmGet.SetArgs(prm.args[:]...)
 
 	res, err := x.client.TestInvoke(prmGet)

@@ -30,12 +30,12 @@ func (e *StopEstimation) SetEpoch(v int64) {
 func (c *Client) StartEstimation(args StartEstimation) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.startEstimation)
+	prm.SetMethod(startEstimationMethod)
 	prm.SetArgs(args.epoch)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.startEstimation, err)
+		return fmt.Errorf("could not invoke method (%s): %w", startEstimationMethod, err)
 	}
 	return nil
 }
@@ -43,12 +43,12 @@ func (c *Client) StartEstimation(args StartEstimation) error {
 func (c *Client) StopEstimation(args StopEstimation) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.stopEstimation)
+	prm.SetMethod(stopEstimationMethod)
 	prm.SetArgs(args.epoch)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.stopEstimation, err)
+		return fmt.Errorf("could not invoke method (%s): %w", stopEstimationMethod, err)
 	}
 	return nil
 }

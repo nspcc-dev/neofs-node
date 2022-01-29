@@ -45,13 +45,13 @@ func (x *commonBindArgs) SetKeys(v [][]byte) {
 func (x *Client) AddKeys(args AddKeysArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(x.addKeysMethod)
+	prm.SetMethod(addKeysMethod)
 	prm.SetArgs(args.ownerID, args.keys)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", x.addKeysMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", addKeysMethod, err)
 	}
 
 	return nil
@@ -62,13 +62,13 @@ func (x *Client) AddKeys(args AddKeysArgs) error {
 func (x *Client) RemoveKeys(args RemoveKeysArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(x.removeKeysMethod)
+	prm.SetMethod(removeKeysMethod)
 	prm.SetArgs(args.ownerID, args.keys)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", x.removeKeysMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", removeKeysMethod, err)
 	}
 
 	return nil

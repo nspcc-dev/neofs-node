@@ -35,19 +35,19 @@ func (l *KeyListingValues) Keys() [][]byte {
 func (x *Client) AccountKeys(args KeyListingArgs) (*KeyListingValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(x.keyListingMethod)
+	invokePrm.SetMethod(keyListingMethod)
 	invokePrm.SetArgs(args.ownerID)
 
 	items, err := x.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", x.keyListingMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", keyListingMethod, err)
 	} else if ln := len(items); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", x.keyListingMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", keyListingMethod, ln)
 	}
 
 	items, err = client.ArrayFromStackItem(items[0])
 	if err != nil {
-		return nil, fmt.Errorf("1st stack item must be an array (%s)", x.keyListingMethod)
+		return nil, fmt.Errorf("1st stack item must be an array (%s)", keyListingMethod)
 	}
 
 	keys := make([][]byte, 0, len(items))
@@ -55,7 +55,7 @@ func (x *Client) AccountKeys(args KeyListingArgs) (*KeyListingValues, error) {
 	for i := range items {
 		key, err := client.BytesFromStackItem(items[i])
 		if err != nil {
-			return nil, fmt.Errorf("invalid stack item, expected byte array (%s)", x.keyListingMethod)
+			return nil, fmt.Errorf("invalid stack item, expected byte array (%s)", keyListingMethod)
 		}
 
 		keys = append(keys, key)

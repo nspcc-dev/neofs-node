@@ -33,19 +33,19 @@ func (v *GetAuditResultValue) Result() []byte {
 func (c *Client) GetAuditResult(args GetAuditResultArgs) (*GetAuditResultValue, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.getResultMethod)
+	invokePrm.SetMethod(getResultMethod)
 	invokePrm.SetArgs(args.id)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.getResultMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getResultMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.getResultMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getResultMethod, ln)
 	}
 
 	resultBytes, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", c.getResultMethod, err)
+		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", getResultMethod, err)
 	}
 
 	return &GetAuditResultValue{

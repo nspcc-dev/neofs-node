@@ -28,7 +28,7 @@ type DeleteRes struct{}
 
 // Delete removes subnet though the call of the corresponding method of the Subnet contract.
 func (x Client) Delete(prm DeletePrm) (*DeleteRes, error) {
-	prm.cliPrm.SetMethod("delete")
+	prm.cliPrm.SetMethod(deleteMethod)
 	prm.cliPrm.SetArgs(prm.args[:]...)
 
 	err := x.client.Invoke(prm.cliPrm)

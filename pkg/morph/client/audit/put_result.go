@@ -25,14 +25,14 @@ func (g *PutAuditResultArgs) SetRawResult(v []byte) {
 func (c *Client) PutAuditResult(args PutAuditResultArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.putResultMethod)
+	prm.SetMethod(putResultMethod)
 	prm.SetArgs(args.rawResult)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.putResultMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", putResultMethod, err)
 	}
 	return nil
 }

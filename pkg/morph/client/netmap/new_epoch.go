@@ -24,12 +24,12 @@ func (a *NewEpochArgs) SetEpochNumber(v int64) {
 func (c *Client) NewEpoch(args NewEpochArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.newEpochMethod)
+	prm.SetMethod(newEpochMethod)
 	prm.SetArgs(args.number)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.newEpochMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", newEpochMethod, err)
 	}
 	return nil
 }

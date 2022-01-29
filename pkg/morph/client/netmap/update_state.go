@@ -32,13 +32,13 @@ func (u *UpdateStateArgs) SetState(v int64) {
 func (c *Client) UpdateState(args UpdateStateArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.updateStateMethod)
+	prm.SetMethod(updateStateMethod)
 	prm.SetArgs(args.state, args.key)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.updateStateMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", updateStateMethod, err)
 	}
 
 	return nil

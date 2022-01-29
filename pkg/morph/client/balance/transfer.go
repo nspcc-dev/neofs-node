@@ -49,13 +49,13 @@ func (t *TransferXArgs) SetDetails(v []byte) {
 func (c *Client) TransferX(args TransferXArgs) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.transferXMethod)
+	prm.SetMethod(transferXMethod)
 	prm.SetArgs(args.sender, args.recipient, args.amount, args.details)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", c.transferXMethod, err)
+		return fmt.Errorf("could not invoke method (%s): %w", transferXMethod, err)
 	}
 
 	return nil
@@ -89,7 +89,7 @@ func (m *MintPrm) SetID(id []byte) {
 func (c *Client) Mint(args MintPrm) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.mintMethod)
+	prm.SetMethod(mintMethod)
 	prm.SetArgs(args.to, args.amount, args.id)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
@@ -124,7 +124,7 @@ func (b *BurnPrm) SetID(id []byte) {
 func (c *Client) Burn(args BurnPrm) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.burnMethod)
+	prm.SetMethod(burnMethod)
 	prm.SetArgs(args.to, args.amount, args.id)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
@@ -171,7 +171,7 @@ func (l *LockPrm) SetDueEpoch(dueEpoch int64) {
 func (c *Client) Lock(args LockPrm) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.lockMethod)
+	prm.SetMethod(lockMethod)
 	prm.SetArgs(args.id, args.user, args.lock, args.amount, args.dueEpoch)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 

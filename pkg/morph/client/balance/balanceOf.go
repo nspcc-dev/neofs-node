@@ -35,19 +35,19 @@ func (g *GetBalanceOfValues) Amount() *big.Int {
 func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
 	invokePrm := client.TestInvokePrm{}
 
-	invokePrm.SetMethod(c.balanceOfMethod)
+	invokePrm.SetMethod(balanceOfMethod)
 	invokePrm.SetArgs(args.wallet)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", c.balanceOfMethod, err)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", balanceOfMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", c.balanceOfMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", balanceOfMethod, ln)
 	}
 
 	amount, err := client.BigIntFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", c.balanceOfMethod, err)
+		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", balanceOfMethod, err)
 	}
 
 	return &GetBalanceOfValues{

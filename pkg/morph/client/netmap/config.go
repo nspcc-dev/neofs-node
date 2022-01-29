@@ -34,18 +34,18 @@ func (c ConfigValues) Value() interface{} {
 func (c *Client) Config(args ConfigArgs, assert func(stackitem.Item) (interface{}, error)) (*ConfigValues, error) {
 	prm := client.TestInvokePrm{}
 
-	prm.SetMethod(c.configMethod)
+	prm.SetMethod(configMethod)
 	prm.SetArgs(args.key)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			c.configMethod, err)
+			configMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
-			c.configMethod, ln)
+			configMethod, ln)
 	}
 
 	val, err := assert(items[0])
@@ -86,7 +86,7 @@ func (s *SetConfigPrm) SetValue(value interface{}) {
 func (c *Client) SetConfig(args SetConfigPrm) error {
 	prm := client.InvokePrm{}
 
-	prm.SetMethod(c.setConfigMethod)
+	prm.SetMethod(setConfigMethod)
 	prm.SetArgs(args.id, args.key, args.value)
 	prm.InvokePrmOptional = args.InvokePrmOptional
 
@@ -148,23 +148,23 @@ func (x ListConfigValues) IterateRecords(f func(key, value []byte) error) error 
 func (c *Client) ListConfig(_ ListConfigArgs) (*ListConfigValues, error) {
 	prm := client.TestInvokePrm{}
 
-	prm.SetMethod(c.configListMethod)
+	prm.SetMethod(configListMethod)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			c.configListMethod, err)
+			configListMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
-			c.configListMethod, ln)
+			configListMethod, ln)
 	}
 
 	arr, err := client.ArrayFromStackItem(items[0])
 	if err != nil {
 		return nil, fmt.Errorf("record list (%s): %w",
-			c.configListMethod, err)
+			configListMethod, err)
 	}
 
 	return &ListConfigValues{
