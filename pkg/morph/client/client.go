@@ -33,11 +33,16 @@ import (
 // expression (or just declaring a Client variable) is unsafe
 // and can lead to panic.
 type Client struct {
-	// two mutual exclusive modes, exactly one must be non-nil
+	cache
 
+	// two mutual exclusive modes, exactly one must be non-nil
 	*singleClient // works with single neo-go client
 
 	*multiClient // creates and caches single clients
+}
+
+type cache struct {
+	nnsHash util.Uint160
 }
 
 type singleClient struct {
