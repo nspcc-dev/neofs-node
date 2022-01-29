@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	nns "github.com/nspcc-dev/neo-go/examples/nft-nd-nns"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -32,6 +33,8 @@ const (
 	NNSReputationContractName = "reputation.neofs"
 	// NNSSubnetworkContractName is a name of the subnet contract in NNS.
 	NNSSubnetworkContractName = "subnet.neofs"
+	// NNSGroupKeyName is a name for the NeoFS group key record in NNS.
+	NNSGroupKeyName = "group.neofs"
 )
 
 var (
@@ -58,29 +61,47 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 		})
 	}
 
-	if c.nnsHash.Equals(util.Uint160{}) {
-		cs, err := c.client.GetContractStateByID(nnsContractID)
-		if err != nil {
-			return sh, fmt.Errorf("NNS contract state: %w", err)
-		}
-		c.nnsHash = cs.Hash
+	nnsHash, err := c.NNSHash()
+	if err != nil {
+		return util.Uint160{}, err
 	}
 
-	sh, err = nnsResolve(c.client, c.nnsHash, name)
+	sh, err = nnsResolve(c.client, nnsHash, name)
 	if err != nil {
 		return sh, fmt.Errorf("NNS.resolve: %w", err)
 	}
 	return sh, nil
 }
 
-func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+// NNSHash returns NNS contract hash.
+func (c *Client) NNSHash() (util.Uint160, error) {
+	if c.multiClient != nil {
+		var sh util.Uint160
+		return sh, c.multiClient.iterateClients(func(c *Client) error {
+			var err error
+			sh, err = c.NNSHash()
+			return err
+		})
+	}
+
+	if c.nnsHash.Equals(util.Uint160{}) {
+		cs, err := c.client.GetContractStateByID(nnsContractID)
+		if err != nil {
+			return util.Uint160{}, fmt.Errorf("NNS contract state: %w", err)
+		}
+		c.nnsHash = cs.Hash
+	}
+	return c.nnsHash, nil
+}
+
+func nnsResolveItem(c *client.Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
 	found, err := exists(c, nnsHash, domain)
 	if err != nil {
-		return util.Uint160{}, fmt.Errorf("could not check presence in NNS contract for %s: %w", domain, err)
+		return nil, fmt.Errorf("could not check presence in NNS contract for %s: %w", domain, err)
 	}
 
 	if !found {
-		return util.Uint160{}, ErrNNSRecordNotFound
+		return nil, ErrNNSRecordNotFound
 	}
 
 	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
@@ -94,19 +115,26 @@ func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (util.Uin
 		},
 	}, nil)
 	if err != nil {
-		return util.Uint160{}, err
+		return nil, err
 	}
 	if result.State != vm.HaltState.String() {
-		return util.Uint160{}, fmt.Errorf("invocation failed: %s", result.FaultException)
+		return nil, fmt.Errorf("invocation failed: %s", result.FaultException)
 	}
 	if len(result.Stack) == 0 {
-		return util.Uint160{}, errEmptyResultStack
+		return nil, errEmptyResultStack
+	}
+	return result.Stack[0], nil
+}
+
+func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+	res, err := nnsResolveItem(c, nnsHash, domain)
+	if err != nil {
+		return util.Uint160{}, err
 	}
 
 	// Parse the result of resolving NNS record.
 	// It works with multiple formats (corresponding to multiple NNS versions).
 	// If array of hashes is provided, it returns only the first one.
-	res := result.Stack[0]
 	if arr, ok := res.Value().([]stackitem.Item); ok {
 		if len(arr) == 0 {
 			return util.Uint160{}, errors.New("NNS record is missing")
@@ -145,4 +173,34 @@ func exists(c *client.Client, nnsHash util.Uint160, domain string) (bool, error)
 	// not available means that it is taken
 	// and, therefore, exists
 	return !available, nil
+}
+
+// ContractGroupKey returns public key designating NeoFS contract group.
+func (c *Client) ContractGroupKey() (*keys.PublicKey, error) {
+	if c.groupKey != nil {
+		return c.groupKey, nil
+	}
+
+	nnsHash, err := c.NNSHash()
+	if err != nil {
+		return nil, err
+	}
+
+	item, err := nnsResolveItem(c.client, nnsHash, NNSGroupKeyName)
+	if err != nil {
+		return nil, err
+	}
+
+	bs, err := item.TryBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	pub, err := keys.NewPublicKeyFromString(string(bs))
+	if err != nil {
+		return nil, err
+	}
+
+	c.groupKey = pub
+	return pub, nil
 }

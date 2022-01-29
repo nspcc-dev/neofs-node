@@ -42,7 +42,8 @@ type Client struct {
 }
 
 type cache struct {
-	nnsHash util.Uint160
+	nnsHash  util.Uint160
+	groupKey *keys.PublicKey
 }
 
 type singleClient struct {
