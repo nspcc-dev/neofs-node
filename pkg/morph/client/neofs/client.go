@@ -24,12 +24,6 @@ const (
 )
 
 // New creates, initializes and returns the Client instance.
-//
-// If StaticClient is nil, panic occurs.
 func New(c *client.StaticClient) *Client {
-	if c == nil {
-		panic("static client is nil")
-	}
-
 	return &Client{client: c}
 }

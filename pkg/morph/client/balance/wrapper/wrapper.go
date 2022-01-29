@@ -67,13 +67,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("could not create static client of Balance contract: %w", err)
 	}
 
-	enhancedBalanceClient, err := balance.New(staticClient)
-	if err != nil {
-		return nil, fmt.Errorf("could not create Balance contract client: %w", err)
-	}
-
 	return &Wrapper{
 		StaticClient: staticClient,
-		client:       enhancedBalanceClient,
+		client:       balance.New(staticClient),
 	}, nil
 }

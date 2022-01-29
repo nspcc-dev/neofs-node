@@ -93,13 +93,8 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create container static client: %w", err)
 	}
 
-	enhancedContainerClient, err := container.New(staticClient)
-	if err != nil {
-		return nil, fmt.Errorf("can't create container morph client: %w", err)
-	}
-
 	return &Wrapper{
 		StaticClient: staticClient,
-		client:       enhancedContainerClient,
+		client:       container.New(staticClient),
 	}, nil
 }
