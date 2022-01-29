@@ -140,6 +140,9 @@ func initSubnetClientCheckNotary(c *morphsubnet.Client, key *keys.PrivateKey, ch
 		return err
 	}
 
+	// Error means group was not set in NNS, continue with Global scope in this case.
+	_ = cMorph.SetGroupSignerScope()
+
 	// read contract address
 	contractAddr, err := cMorph.NNSContractAddress(client.NNSSubnetworkContractName)
 	if err != nil {
