@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	nns "github.com/nspcc-dev/neo-go/examples/nft-nd-nns"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -175,8 +176,27 @@ func exists(c *client.Client, nnsHash util.Uint160, domain string) (bool, error)
 	return !available, nil
 }
 
-// ContractGroupKey returns public key designating NeoFS contract group.
-func (c *Client) ContractGroupKey() (*keys.PublicKey, error) {
+// SetGroupSignerScope makes the default signer scope include all NeoFS contracts.
+// Should be called for side-chain client only.
+func (c *Client) SetGroupSignerScope() error {
+	if c.multiClient != nil {
+		return c.multiClient.iterateClients(func(c *Client) error {
+			return wrapNeoFSError(c.SetGroupSignerScope())
+		})
+	}
+
+	pub, err := c.contractGroupKey()
+	if err != nil {
+		return err
+	}
+
+	c.signer.Scopes = transaction.CustomGroups
+	c.signer.AllowedGroups = []*keys.PublicKey{pub}
+	return nil
+}
+
+// contractGroupKey returns public key designating NeoFS contract group.
+func (c *Client) contractGroupKey() (*keys.PublicKey, error) {
 	if c.groupKey != nil {
 		return c.groupKey, nil
 	}

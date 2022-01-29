@@ -364,6 +364,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	if err != nil {
 		return nil, err
 	}
+	if err := server.morphClient.SetGroupSignerScope(); err != nil {
+		morphChain.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+	}
 
 	server.withoutMainNet = cfg.GetBool("without_mainnet")
 
