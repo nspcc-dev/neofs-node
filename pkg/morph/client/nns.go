@@ -58,12 +58,15 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 		})
 	}
 
-	cs, err := c.client.GetContractStateByID(nnsContractID) // cache it?
-	if err != nil {
-		return sh, fmt.Errorf("NNS contract state: %w", err)
+	if c.nnsHash.Equals(util.Uint160{}) {
+		cs, err := c.client.GetContractStateByID(nnsContractID)
+		if err != nil {
+			return sh, fmt.Errorf("NNS contract state: %w", err)
+		}
+		c.nnsHash = cs.Hash
 	}
 
-	sh, err = nnsResolve(c.client, cs.Hash, name)
+	sh, err = nnsResolve(c.client, c.nnsHash, name)
 	if err != nil {
 		return sh, fmt.Errorf("NNS.resolve: %w", err)
 	}
