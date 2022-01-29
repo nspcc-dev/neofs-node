@@ -36,14 +36,8 @@ const (
 )
 
 // New creates, initializes and returns the Client instance.
-//
-// If StaticClient is nil, client.ErrNilStaticClient is returned.
-func New(c *client.StaticClient) (*Client, error) {
-	if c == nil {
-		return nil, client.ErrNilStaticClient
-	}
-
-	return &Client{client: c}, nil
+func New(c *client.StaticClient) *Client {
+	return &Client{client: c}
 }
 
 // Morph returns raw morph client.
