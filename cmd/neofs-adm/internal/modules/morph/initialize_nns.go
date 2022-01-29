@@ -21,7 +21,6 @@ import (
 )
 
 const defaultNameServiceDomainPrice = 10_0000_0000
-const defaultNameServiceSysfee = 4000_0000
 const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
 
 func (c *initializeContext) setNNS() error {
