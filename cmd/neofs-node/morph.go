@@ -51,6 +51,9 @@ func initMorphComponents(c *cfg) {
 			client.WithMaxConnectionPerHost(morphconfig.MaxConnPerHost(c.appCfg)),
 		)
 		if err == nil {
+			if err := cli.SetGroupSignerScope(); err != nil {
+				c.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+			}
 			handler(cli)
 
 			return
