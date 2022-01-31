@@ -6,35 +6,28 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// ListByEpochArgs groups the arguments of
-// "list reputation ids by epoch" test invoke call.
-type ListByEpochArgs struct {
-	epoch uint64
-}
+type (
+	// ID is an ID of the reputation record in reputation contract.
+	ID []byte
 
-// ListByEpochResult groups the stack parameters
-// returned by "list reputation ids by epoch" test invoke.
-type ListByEpochResult struct {
-	ids [][]byte
-}
+	// ListByEpochArgs groups the arguments of
+	// "list reputation ids by epoch" test invoke call.
+	ListByEpochArgs struct {
+		epoch uint64
+	}
+)
 
 // SetEpoch sets epoch of expected reputation ids.
 func (l *ListByEpochArgs) SetEpoch(v uint64) {
 	l.epoch = v
 }
 
-// IDs returns slice of reputation id values.
-func (l ListByEpochResult) IDs() [][]byte {
-	return l.ids
-}
-
 // ListByEpoch invokes the call of "list reputation ids by epoch" method of
 // reputation contract.
-func (c *Client) ListByEpoch(args ListByEpochArgs) (*ListByEpochResult, error) {
+func (c *Client) ListByEpoch(p ListByEpochArgs) ([]ID, error) {
 	invokePrm := client.TestInvokePrm{}
-
 	invokePrm.SetMethod(listByEpochMethod)
-	invokePrm.SetArgs(int64(args.epoch))
+	invokePrm.SetArgs(int64(p.epoch))
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
@@ -48,18 +41,15 @@ func (c *Client) ListByEpoch(args ListByEpochArgs) (*ListByEpochResult, error) {
 		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listByEpochMethod, err)
 	}
 
-	res := &ListByEpochResult{
-		ids: make([][]byte, 0, len(items)),
-	}
-
+	result := make([]ID, 0, len(items))
 	for i := range items {
 		rawReputation, err := client.BytesFromStackItem(items[i])
 		if err != nil {
 			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listByEpochMethod, err)
 		}
 
-		res.ids = append(res.ids, rawReputation)
+		result = append(result, rawReputation)
 	}
 
-	return res, nil
+	return result, nil
 }

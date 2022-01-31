@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
-	rptwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
+	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
@@ -32,7 +32,7 @@ import (
 )
 
 func initReputationService(c *cfg) {
-	wrap, err := rptwrapper.NewFromMorph(c.cfgMorph.client, c.cfgReputation.scriptHash, 0, rptwrapper.TryNotary())
+	wrap, err := repClient.NewFromMorph(c.cfgMorph.client, c.cfgReputation.scriptHash, 0, repClient.TryNotary())
 	fatalOnErr(err)
 
 	localKey := c.key.PublicKey().Bytes()

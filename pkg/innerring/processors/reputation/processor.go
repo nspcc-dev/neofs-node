@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	reputationWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
+	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
@@ -32,7 +32,7 @@ type (
 		epochState    EpochState
 		alphabetState AlphabetState
 
-		reputationWrp *reputationWrapper.ClientWrapper
+		reputationWrp *repClient.Client
 
 		mngBuilder common.ManagerBuilder
 
@@ -45,7 +45,7 @@ type (
 		PoolSize          int
 		EpochState        EpochState
 		AlphabetState     AlphabetState
-		ReputationWrapper *reputationWrapper.ClientWrapper
+		ReputationWrapper *repClient.Client
 		ManagerBuilder    common.ManagerBuilder
 		NotaryDisabled    bool
 	}

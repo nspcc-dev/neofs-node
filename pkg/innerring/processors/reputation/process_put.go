@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
+	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -83,7 +83,7 @@ func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
 		// put event was received via Notary service
 		err = rp.reputationWrp.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 	} else {
-		args := wrapper.PutArgs{}
+		args := repClient.PutPrm{}
 		args.SetEpoch(e.Epoch())
 		args.SetPeerID(id)
 		args.SetValue(e.Value())
