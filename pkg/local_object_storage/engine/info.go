@@ -17,7 +17,9 @@ func (e *StorageEngine) DumpInfo() (i Info) {
 	i.Shards = make([]shard.Info, 0, len(e.shards))
 
 	for _, sh := range e.shards {
-		i.Shards = append(i.Shards, sh.DumpInfo())
+		info := sh.DumpInfo()
+		info.ErrorCount = sh.errorCount.Load()
+		i.Shards = append(i.Shards, info)
 	}
 
 	return

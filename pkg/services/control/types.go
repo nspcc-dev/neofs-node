@@ -342,6 +342,11 @@ func (x *ShardInfo) SetMode(v ShardMode) {
 	x.Mode = v
 }
 
+// SetErrorCount sets shard's error counter.
+func (x *ShardInfo) SetErrorCount(count uint32) {
+	x.ErrorCount = count
+}
+
 const (
 	_ = iota
 	shardInfoIDFNum
@@ -349,6 +354,7 @@ const (
 	shardInfoBlobstorFNum
 	shardInfoWriteCacheFNum
 	shardInfoModeFNum
+	shardInfoErrorCountFNum
 )
 
 // StableSize returns binary size of shard information
@@ -367,6 +373,7 @@ func (x *ShardInfo) StableSize() int {
 	size += proto.StringSize(shardInfoBlobstorFNum, x.BlobstorPath)
 	size += proto.StringSize(shardInfoWriteCacheFNum, x.WritecachePath)
 	size += proto.EnumSize(shardInfoModeFNum, int32(x.Mode))
+	size += proto.UInt32Size(shardInfoErrorCountFNum, x.ErrorCount)
 
 	return size
 }
@@ -422,7 +429,14 @@ func (x *ShardInfo) StableMarshal(buf []byte) ([]byte, error) {
 
 	offset += n
 
-	_, err = proto.EnumMarshal(shardInfoModeFNum, buf[offset:], int32(x.Mode))
+	n, err = proto.EnumMarshal(shardInfoModeFNum, buf[offset:], int32(x.Mode))
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	_, err = proto.EnumMarshal(shardInfoErrorCountFNum, buf[offset:], int32(x.ErrorCount))
 	if err != nil {
 		return nil, err
 	}
