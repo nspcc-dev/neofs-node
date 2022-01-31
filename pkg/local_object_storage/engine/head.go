@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // HeadPrm groups the parameters of Head operation.
@@ -85,7 +84,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 		WithAddress(prm.addr).
 		WithRaw(prm.raw)
 
-	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.Head(shPrm)
 		if err != nil {
 			switch {
@@ -111,13 +110,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 
 				return true // stop, return it back
 			default:
-				// TODO: smth wrong with shard, need to be processed, but
-				// still go to next shard
-				e.log.Warn("could not head object from shard",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
-
+				e.reportShardError(sh, "could not head object from shard", err)
 				return false
 			}
 		}

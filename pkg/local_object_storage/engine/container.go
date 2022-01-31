@@ -72,14 +72,11 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 
 	var res ContainerSizeRes
 
-	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
-		size, err := shard.ContainerSize(s, prm.cid)
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+		size, err := shard.ContainerSize(sh.Shard, prm.cid)
 		if err != nil {
-			e.log.Warn("can't get container size",
-				zap.Stringer("shard_id", s.ID()),
-				zap.Stringer("container_id", prm.cid),
-				zap.String("error", err.Error()))
-
+			e.reportShardError(sh, "can't get container size", err,
+				zap.Stringer("container_id", prm.cid))
 			return false
 		}
 
@@ -122,13 +119,10 @@ func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 
 	uniqueIDs := make(map[string]*cid.ID)
 
-	e.iterateOverUnsortedShards(func(s *shard.Shard) (stop bool) {
-		cnrs, err := shard.ListContainers(s)
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+		cnrs, err := shard.ListContainers(sh.Shard)
 		if err != nil {
-			e.log.Warn("can't get list of containers",
-				zap.Stringer("shard_id", s.ID()),
-				zap.String("error", err.Error()))
-
+			e.reportShardError(sh, "can't get list of containers", err)
 			return false
 		}
 

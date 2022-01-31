@@ -9,13 +9,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/atomic"
 )
 
 var errShardNotFound = errors.New("shard not found")
 
-type hashedShard struct {
-	sh *shard.Shard
-}
+type hashedShard shardWrapper
 
 // AddShard adds a new shard to the storage engine.
 //
@@ -37,10 +36,13 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 
 	strID := id.String()
 
-	e.shards[strID] = shard.New(append(opts,
-		shard.WithID(id),
-		shard.WithExpiredObjectsCallback(e.processExpiredTombstones),
-	)...)
+	e.shards[strID] = shardWrapper{
+		errorCount: atomic.NewUint32(0),
+		Shard: shard.New(append(opts,
+			shard.WithID(id),
+			shard.WithExpiredObjectsCallback(e.processExpiredTombstones),
+		)...),
+	}
 
 	e.shardPools[strID] = pool
 
@@ -75,8 +77,8 @@ func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []hashedShard {
 	weights := make([]float64, 0, len(e.shards))
 
 	for _, sh := range e.shards {
-		shards = append(shards, hashedShard{sh})
-		weights = append(weights, e.shardWeight(sh))
+		shards = append(shards, hashedShard(sh))
+		weights = append(weights, e.shardWeight(sh.Shard))
 	}
 
 	hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(objAddr.String())))
@@ -91,23 +93,23 @@ func (e *StorageEngine) unsortedShards() []hashedShard {
 	shards := make([]hashedShard, 0, len(e.shards))
 
 	for _, sh := range e.shards {
-		shards = append(shards, hashedShard{sh})
+		shards = append(shards, hashedShard(sh))
 	}
 
 	return shards
 }
 
-func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler func(int, *shard.Shard) (stop bool)) {
+func (e *StorageEngine) iterateOverSortedShards(addr *object.Address, handler func(int, hashedShard) (stop bool)) {
 	for i, sh := range e.sortShardsByWeight(addr) {
-		if handler(i, sh.sh) {
+		if handler(i, sh) {
 			break
 		}
 	}
 }
 
-func (e *StorageEngine) iterateOverUnsortedShards(handler func(*shard.Shard) (stop bool)) {
+func (e *StorageEngine) iterateOverUnsortedShards(handler func(hashedShard) (stop bool)) {
 	for _, sh := range e.unsortedShards() {
-		if handler(sh.sh) {
+		if handler(sh) {
 			break
 		}
 	}
@@ -131,6 +133,6 @@ func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode) error {
 
 func (s hashedShard) Hash() uint64 {
 	return hrw.Hash(
-		[]byte(s.sh.ID().String()),
+		[]byte(s.Shard.ID().String()),
 	)
 }

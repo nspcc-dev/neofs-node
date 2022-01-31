@@ -3,7 +3,6 @@ package engine
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -46,15 +45,10 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 	existsPrm := new(shard.ExistsPrm)
 
 	for i := range prm.addr {
-		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh *shard.Shard) (stop bool) {
+		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh hashedShard) (stop bool) {
 			resExists, err := sh.Exists(existsPrm.WithAddress(prm.addr[i]))
 			if err != nil {
-				// TODO: smth wrong with shard, need to be processed
-				e.log.Warn("could not check object existence",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
-
+				e.reportShardError(sh, "could not check object existence", err)
 				return false
 			} else if !resExists.Exists() {
 				return false
@@ -62,11 +56,7 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 
 			_, err = sh.Inhume(shPrm.MarkAsGarbage(prm.addr[i]))
 			if err != nil {
-				// TODO: smth wrong with shard, need to be processed
-				e.log.Warn("could not inhume object in shard",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
+				e.reportShardError(sh, "could not inhume object in shard", err)
 			}
 
 			return err == nil

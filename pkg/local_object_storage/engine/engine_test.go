@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +33,7 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 			log: zap.L(),
 		},
 		mtx:        new(sync.RWMutex),
-		shards:     make(map[string]*shard.Shard, len(shards)),
+		shards:     make(map[string]shardWrapper, len(shards)),
 		shardPools: make(map[string]util.WorkerPool, len(shards)),
 	}
 
@@ -42,7 +43,10 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 			panic(err)
 		}
 
-		engine.shards[s.ID().String()] = s
+		engine.shards[s.ID().String()] = shardWrapper{
+			errorCount: atomic.NewUint32(0),
+			Shard:      s,
+		}
 		engine.shardPools[s.ID().String()] = pool
 	}
 
