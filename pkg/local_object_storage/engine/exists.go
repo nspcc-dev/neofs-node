@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 func (e *StorageEngine) exists(addr *objectSDK.Address) (bool, error) {
@@ -14,7 +13,7 @@ func (e *StorageEngine) exists(addr *objectSDK.Address) (bool, error) {
 	alreadyRemoved := false
 	exists := false
 
-	e.iterateOverSortedShards(addr, func(_ int, sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.Exists(shPrm)
 		if err != nil {
 			if errors.Is(err, object.ErrAlreadyRemoved) {
@@ -23,11 +22,7 @@ func (e *StorageEngine) exists(addr *objectSDK.Address) (bool, error) {
 				return true
 			}
 
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not check existence of object in shard",
-				zap.Stringer("shard", sh.ID()),
-				zap.String("error", err.Error()),
-			)
+			e.reportShardError(sh, "could not check existence of object in shard", err)
 		}
 
 		if res != nil && !exists {

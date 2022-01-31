@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // SelectPrm groups the parameters of Select operation.
@@ -72,7 +71,7 @@ func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 		WithContainerID(prm.cid).
 		WithFilters(prm.filters)
 
-	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
 			switch {
@@ -82,11 +81,7 @@ func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 
 				return true
 			default:
-				// TODO: smth wrong with shard, need to be processed
-				e.log.Warn("could not select objects from shard",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
+				e.reportShardError(sh, "could not select objects from shard", err)
 				return false
 			}
 		} else {
@@ -129,14 +124,10 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 	ln := uint64(0)
 
 	// consider iterating over shuffled shards
-	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.List() // consider limit result of shard iterator
 		if err != nil {
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not select objects from shard",
-				zap.Stringer("shard", sh.ID()),
-				zap.String("error", err.Error()),
-			)
+			e.reportShardError(sh, "could not select objects from shard", err)
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
 				if _, ok := uniqueMap[addr.String()]; !ok {

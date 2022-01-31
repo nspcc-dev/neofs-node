@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // InhumePrm encapsulates parameters for inhume operation.
@@ -89,7 +88,7 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 func (e *StorageEngine) inhumeAddr(addr *objectSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
 	root := false
 
-	e.iterateOverSortedShards(addr, func(_ int, sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
 			// if object is root we continue since information about it
 			// can be presented in other shards
@@ -111,12 +110,7 @@ func (e *StorageEngine) inhumeAddr(addr *objectSDK.Address, prm *shard.InhumePrm
 
 				var siErr *objectSDK.SplitInfoError
 				if !errors.As(err, &siErr) {
-					// TODO: smth wrong with shard, need to be processed
-					e.log.Warn("could not check for presents in shard",
-						zap.Stringer("shard", sh.ID()),
-						zap.String("error", err.Error()),
-					)
-
+					e.reportShardError(sh, "could not check for presents in shard", err)
 					return
 				}
 
@@ -128,11 +122,7 @@ func (e *StorageEngine) inhumeAddr(addr *objectSDK.Address, prm *shard.InhumePrm
 
 		_, err := sh.Inhume(prm)
 		if err != nil {
-			// TODO: smth wrong with shard, need to be processed
-			e.log.Warn("could not inhume object in shard",
-				zap.Stringer("shard", sh.ID()),
-				zap.String("error", err.Error()),
-			)
+			e.reportShardError(sh, "could not inhume object in shard", err)
 		} else {
 			ok = true
 		}
@@ -150,7 +140,7 @@ func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*o
 		tss[addrs[i].String()] = struct{}{}
 	}
 
-	e.iterateOverUnsortedShards(func(sh *shard.Shard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		sh.HandleExpiredTombstones(tss)
 
 		select {
