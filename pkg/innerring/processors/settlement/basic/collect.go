@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"go.uber.org/zap"
 )
 
@@ -76,7 +76,7 @@ func (inc *IncomeSettlementContext) Collect() {
 // avgEstimation returns estimation value for single container. Right now it
 // simply calculates average of all announcements, however it can be smarter and
 // base result on reputation of announcers and clever math.
-func (inc *IncomeSettlementContext) avgEstimation(e *wrapper.Estimations) (avg uint64) {
+func (inc *IncomeSettlementContext) avgEstimation(e *cntClient.Estimations) (avg uint64) {
 	if len(e.Values) == 0 {
 		return 0
 	}

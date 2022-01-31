@@ -4,7 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
 )
@@ -37,7 +37,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		return
 	}
 
-	prm := wrapper.StartEstimationPrm{}
+	prm := cntClient.StartEstimationPrm{}
 
 	prm.SetEpoch(epoch - 1)
 	prm.SetHash(ev.TxHash())

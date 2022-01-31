@@ -3,64 +3,31 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
-// EACLArgs groups the arguments
-// of get eACL test invoke call.
-type EACLArgs struct {
-	cid []byte // container identifier
-}
+// GetEACL reads the extended ACL table from NeoFS system
+// through Container contract call.
+func (c *Client) GetEACL(cid *cid.ID) (*eacl.Table, error) {
+	if cid == nil {
+		return nil, errNilArgument
+	}
 
-// EACLValues groups the stack parameters
-// returned by get eACL test invoke.
-type EACLValues struct {
-	eacl []byte // extended ACL table
+	v2 := cid.ToV2()
+	if v2 == nil {
+		return nil, errUnsupported // use other major version if there any
+	}
 
-	signature []byte // RFC-6979 signature of extended ACL table
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(eaclMethod)
+	prm.SetArgs(v2.GetValue())
 
-	publicKey []byte // public key of the extended ACL table signer
-
-	token []byte // token of the session within which the eACL table was set
-}
-
-// SetCID sets the container identifier
-// in a binary format.
-func (g *EACLArgs) SetCID(v []byte) {
-	g.cid = v
-}
-
-// EACL returns the eACL table
-// in a binary format.
-func (g *EACLValues) EACL() []byte {
-	return g.eacl
-}
-
-// Signature returns RFC-6979 signature of extended ACL table.
-func (g *EACLValues) Signature() []byte {
-	return g.signature
-}
-
-// PublicKey of the signature.
-func (g *EACLValues) PublicKey() []byte {
-	return g.publicKey
-}
-
-// SessionToken returns token of the session within which
-// the eACl table was set in a NeoFS API binary format.
-func (g *EACLValues) SessionToken() []byte {
-	return g.token
-}
-
-// EACL performs the test invoke of get eACL
-// method of NeoFS Container contract.
-func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
-	invokePrm.SetMethod(eaclMethod)
-	invokePrm.SetArgs(args.cid)
-
-	prms, err := c.client.TestInvoke(invokePrm)
+	prms, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", eaclMethod, err)
 	} else if ln := len(prms); ln != 1 {
@@ -76,7 +43,7 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", eaclMethod, len(arr))
 	}
 
-	eacl, err := client.BytesFromStackItem(arr[0])
+	rawEACL, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get byte array of eACL (%s): %w", eaclMethod, err)
 	}
@@ -86,20 +53,45 @@ func (c *Client) EACL(args EACLArgs) (*EACLValues, error) {
 		return nil, fmt.Errorf("could not get byte array of eACL signature (%s): %w", eaclMethod, err)
 	}
 
+	// Client may not return errors if the table is missing, so check this case additionally.
+	// The absence of a signature in the response can be taken as an eACL absence criterion,
+	// since unsigned table cannot be approved in the storage by design.
+	if len(sig) == 0 {
+		return nil, container.ErrEACLNotFound
+	}
+
 	pub, err := client.BytesFromStackItem(arr[2])
 	if err != nil {
 		return nil, fmt.Errorf("could not get byte array of eACL public key (%s): %w", eaclMethod, err)
 	}
 
-	tok, err := client.BytesFromStackItem(arr[3])
+	binToken, err := client.BytesFromStackItem(arr[3])
 	if err != nil {
 		return nil, fmt.Errorf("could not get byte array of eACL session token (%s): %w", eaclMethod, err)
 	}
 
-	return &EACLValues{
-		eacl:      eacl,
-		signature: sig,
-		publicKey: pub,
-		token:     tok,
-	}, nil
+	table := eacl.NewTable()
+	if err = table.Unmarshal(rawEACL); err != nil {
+		// use other major version if there any
+		return nil, err
+	}
+
+	if len(binToken) > 0 {
+		tok := session.NewToken()
+
+		err = tok.Unmarshal(binToken)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
+		}
+
+		table.SetSessionToken(tok)
+	}
+
+	tableSignature := signature.New()
+	tableSignature.SetKey(pub)
+	tableSignature.SetSign(sig)
+
+	table.SetSignature(tableSignature)
+
+	return table, nil
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
-	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"go.uber.org/zap"
@@ -32,8 +32,8 @@ type (
 
 		newEpochHandlers []newEpochHandler
 
-		cnrWrapper *container.Wrapper // to invoke stop container estimation
-		epoch      epochState         // to specify which epoch to stop, and epoch duration
+		cnrWrapper *container.Client // to invoke stop container estimation
+		epoch      epochState        // to specify which epoch to stop, and epoch duration
 
 		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
 		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks

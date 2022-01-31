@@ -7,7 +7,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -262,7 +262,7 @@ func (s *lruNetmapSource) Epoch() (uint64, error) {
 // that implements container lister.
 type ttlContainerLister ttlNetCache
 
-func newCachedContainerLister(w *wrapper.Wrapper) *ttlContainerLister {
+func newCachedContainerLister(c *cntClient.Client) *ttlContainerLister {
 	const (
 		containerListerCacheSize = 100
 		containerListerCacheTTL  = 30 * time.Second
@@ -283,7 +283,7 @@ func newCachedContainerLister(w *wrapper.Wrapper) *ttlContainerLister {
 			}
 		}
 
-		return w.List(id)
+		return c.List(id)
 	})
 
 	return (*ttlContainerLister)(lruCnrListerCache)

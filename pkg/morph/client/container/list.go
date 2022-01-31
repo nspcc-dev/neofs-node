@@ -3,65 +3,56 @@ package container
 import (
 	"fmt"
 
+	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
-// ListArgs groups the arguments
-// of list containers test invoke call.
-type ListArgs struct {
-	ownerID []byte // container owner identifier
-}
+// List returns a list of container identifiers belonging
+// to the specified owner of NeoFS system. The list is composed
+// through Container contract call.
+//
+// Returns the identifiers of all NeoFS containers if pointer
+// to owner identifier is nil.
+func (c *Client) List(ownerID *owner.ID) ([]*cid.ID, error) {
+	var rawID []byte
+	if ownerID == nil {
+		rawID = []byte{}
+	} else if v2 := ownerID.ToV2(); v2 == nil {
+		return nil, errUnsupported // use other major version if there any
+	} else {
+		rawID = v2.GetValue()
+	}
 
-// ListValues groups the stack parameters
-// returned by list containers test invoke.
-type ListValues struct {
-	cidList [][]byte // list of container identifiers
-}
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(listMethod)
+	prm.SetArgs(rawID)
 
-// SetOwnerID sets the container owner identifier
-// in a binary format.
-func (l *ListArgs) SetOwnerID(v []byte) {
-	l.ownerID = v
-}
-
-// CIDList returns the list of container
-// identifiers in a binary format.
-func (l *ListValues) CIDList() [][]byte {
-	return l.cidList
-}
-
-// List performs the test invoke of list container
-// method of NeoFS Container contract.
-func (c *Client) List(args ListArgs) (*ListValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
-	invokePrm.SetMethod(listMethod)
-	invokePrm.SetArgs(args.ownerID)
-
-	prms, err := c.client.TestInvoke(invokePrm)
+	res, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listMethod, err)
-	} else if ln := len(prms); ln != 1 {
+	} else if ln := len(res); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d", listMethod, ln)
 	}
 
-	prms, err = client.ArrayFromStackItem(prms[0])
+	res, err = client.ArrayFromStackItem(res[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listMethod, err)
 	}
 
-	res := &ListValues{
-		cidList: make([][]byte, 0, len(prms)),
-	}
-
-	for i := range prms {
-		cid, err := client.BytesFromStackItem(prms[i])
+	cidList := make([]*cid.ID, 0, len(res))
+	for i := range res {
+		rawCid, err := client.BytesFromStackItem(res[i])
 		if err != nil {
 			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listMethod, err)
 		}
 
-		res.cidList = append(res.cidList, cid)
+		v2 := new(v2refs.ContainerID)
+		v2.SetValue(rawCid)
+
+		cidList = append(cidList, cid.NewFromV2(v2))
 	}
 
-	return res, nil
+	return cidList, nil
 }

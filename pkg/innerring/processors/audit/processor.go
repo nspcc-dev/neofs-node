@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
@@ -41,7 +41,7 @@ type (
 		sgSrc         SGSource
 		searchTimeout time.Duration
 
-		containerClient *wrapContainer.Wrapper
+		containerClient *cntClient.Client
 		netmapClient    *nmClient.Client
 
 		taskManager       TaskManager
@@ -53,7 +53,7 @@ type (
 	Params struct {
 		Log              *zap.Logger
 		NetmapClient     *nmClient.Client
-		ContainerClient  *wrapContainer.Wrapper
+		ContainerClient  *cntClient.Client
 		IRList           Indexer
 		SGSource         SGSource
 		RPCSearchTimeout time.Duration

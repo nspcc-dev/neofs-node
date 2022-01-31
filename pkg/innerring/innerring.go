@@ -31,7 +31,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
-	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -469,21 +469,21 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	// form morph container client's options
-	morphCnrOpts := make([]cntWrapper.Option, 0, 3)
+	morphCnrOpts := make([]cntClient.Option, 0, 3)
 	morphCnrOpts = append(morphCnrOpts,
-		cntWrapper.TryNotary(),
-		cntWrapper.AsAlphabet(),
+		cntClient.TryNotary(),
+		cntClient.AsAlphabet(),
 	)
 
 	if server.sideNotaryConfig.disabled {
 		// in non-notary environments we customize fee for named container registration
 		// because it takes much more additional GAS than other operations.
 		morphCnrOpts = append(morphCnrOpts,
-			cntWrapper.WithCustomFeeForNamedPut(server.feeConfig.NamedContainerRegistrationFee()),
+			cntClient.WithCustomFeeForNamedPut(server.feeConfig.NamedContainerRegistrationFee()),
 		)
 	}
 
-	cnrClient, err := cntWrapper.NewFromMorph(server.morphClient, server.contracts.container, fee, morphCnrOpts...)
+	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, fee, morphCnrOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +602,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	settlementDeps := &settlementDeps{
 		globalConfig:  globalConfig,
 		log:           server.log,
-		cnrSrc:        cntWrapper.AsContainerSource(cnrClient),
+		cnrSrc:        cntClient.AsContainerSource(cnrClient),
 		auditClient:   server.auditClient,
 		nmSrc:         server.netmapClient,
 		clientCache:   clientCache,
