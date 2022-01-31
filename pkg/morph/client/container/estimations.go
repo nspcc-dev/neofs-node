@@ -6,33 +6,33 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// StartEstimation groups parameters of StartEstimation operation.
-type StartEstimation struct {
-	epoch int64
+// StartEstimationPrm groups parameters of StartEstimation operation.
+type StartEstimationPrm struct {
+	commonEstimationPrm
+}
+
+// StopEstimationPrm groups parameters of StopEstimation operation.
+type StopEstimationPrm struct {
+	commonEstimationPrm
+}
+
+type commonEstimationPrm struct {
+	epoch uint64
 
 	client.InvokePrmOptional
 }
 
-func (e *StartEstimation) SetEpoch(v int64) {
-	e.epoch = v
+// SetEpoch sets epoch.
+func (p *commonEstimationPrm) SetEpoch(epoch uint64) {
+	p.epoch = epoch
 }
 
-type StopEstimation struct {
-	epoch int64
-
-	client.InvokePrmOptional
-}
-
-func (e *StopEstimation) SetEpoch(v int64) {
-	e.epoch = v
-}
-
-func (c *Client) StartEstimation(args StartEstimation) error {
+// StartEstimation votes to produce start estimation notification.
+func (c *Client) StartEstimation(p StartEstimationPrm) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(startEstimationMethod)
-	prm.SetArgs(args.epoch)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(int64(p.epoch))
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", startEstimationMethod, err)
@@ -40,12 +40,12 @@ func (c *Client) StartEstimation(args StartEstimation) error {
 	return nil
 }
 
-func (c *Client) StopEstimation(args StopEstimation) error {
+// StopEstimation votes to produce stop estimation notification.
+func (c *Client) StopEstimation(p StopEstimationPrm) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(stopEstimationMethod)
-	prm.SetArgs(args.epoch)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(int64(p.epoch))
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", stopEstimationMethod, err)

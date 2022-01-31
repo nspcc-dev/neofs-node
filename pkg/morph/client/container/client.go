@@ -1,6 +1,11 @@
 package container
 
 import (
+	"errors"
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -31,16 +36,86 @@ const (
 	listSizesMethod = "listContainerSizes"
 	getSizeMethod   = "getContainerSize"
 
-	// PutNamedMethod is method name for container put with an alias. It is exported to provide custom fee.
-	PutNamedMethod = "putNamed"
+	// putNamedMethod is method name for container put with an alias. It is exported to provide custom fee.
+	putNamedMethod = "putNamed"
 )
 
-// New creates, initializes and returns the Client instance.
-func New(c *client.StaticClient) *Client {
-	return &Client{client: c}
+var (
+	errNilArgument = errors.New("empty argument")
+	errUnsupported = errors.New("unsupported structure version")
+)
+
+// NewFromMorph returns the wrapper instance from the raw morph client.
+//
+// Specified fee is used for all operations by default. If WithCustomFeeForNamedPut is provided,
+// the customized fee is used for Put operations with named containers.
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*Client, error) {
+	o := defaultOpts()
+
+	for i := range opts {
+		opts[i](o)
+	}
+
+	if o.feePutNamedSet {
+		o.staticOpts = append(o.staticOpts, client.WithCustomFee(putNamedMethod, o.feePutNamed))
+	}
+
+	sc, err := client.NewStatic(cli, contract, fee, o.staticOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("can't create container static client: %w", err)
+	}
+
+	return &Client{client: sc}, nil
 }
 
 // Morph returns raw morph client.
 func (c Client) Morph() *client.Client {
 	return c.client.Morph()
+}
+
+// ContractAddress returns the address of the associated contract.
+func (c Client) ContractAddress() util.Uint160 {
+	return c.client.ContractAddress()
+}
+
+// Option allows to set an optional
+// parameter of Wrapper.
+type Option func(*opts)
+
+type opts struct {
+	feePutNamedSet bool
+	feePutNamed    fixedn.Fixed8
+
+	staticOpts []client.StaticClientOption
+}
+
+func defaultOpts() *opts {
+	return new(opts)
+}
+
+// TryNotary returns option to enable
+// notary invocation tries.
+func TryNotary() Option {
+	return func(o *opts) {
+		o.staticOpts = append(o.staticOpts, client.TryNotary())
+	}
+}
+
+// AsAlphabet returns option to sign main TX
+// of notary requests with client's private
+// key.
+//
+// Considered to be used by IR nodes only.
+func AsAlphabet() Option {
+	return func(o *opts) {
+		o.staticOpts = append(o.staticOpts, client.AsAlphabet())
+	}
+}
+
+// WithCustomFeeForNamedPut returns option to specify custom fee for each Put operation with named container.
+func WithCustomFeeForNamedPut(fee fixedn.Fixed8) Option {
+	return func(o *opts) {
+		o.feePutNamed = fee
+		o.feePutNamedSet = true
+	}
 }

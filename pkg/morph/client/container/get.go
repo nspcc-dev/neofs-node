@@ -2,72 +2,63 @@ package container
 
 import (
 	"fmt"
+	"strings"
 
+	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
-// GetArgs groups the arguments
-// of get container test invoke call.
-type GetArgs struct {
-	cid []byte // container identifier
+type containerSource Client
+
+func (x *containerSource) Get(cid *cid.ID) (*container.Container, error) {
+	return Get((*Client)(x), cid)
 }
 
-// GetValues groups the stack parameters
-// returned by get container test invoke.
-type GetValues struct {
-	cnr []byte // container in a binary form
-
-	signature []byte // RFC-6979 signature of container
-
-	publicKey []byte // public key of the container signer
-
-	token []byte // token of the session within which the container was created
+// AsContainerSource provides container Source interface
+// from Wrapper instance.
+func AsContainerSource(w *Client) core.Source {
+	return (*containerSource)(w)
 }
 
-// SetCID sets the container identifier
-// in a binary format.
-func (g *GetArgs) SetCID(v []byte) {
-	g.cid = v
+// Get marshals container ID, and passes it to Wrapper's Get method.
+//
+// Returns error if cid is nil.
+func Get(c *Client, cid *cid.ID) (*container.Container, error) {
+	return c.Get(cid.ToV2().GetValue())
 }
 
-// Container returns the container
-// in a binary format.
-func (g *GetValues) Container() []byte {
-	return g.cnr
-}
+// Get reads the container from NeoFS system by binary identifier
+// through Container contract call.
+//
+// If an empty slice is returned for the requested identifier,
+// storage.ErrNotFound error is returned.
+func (c *Client) Get(cid []byte) (*container.Container, error) {
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(getMethod)
+	prm.SetArgs(cid)
 
-// Signature returns RFC-6979 signature of the container.
-func (g *GetValues) Signature() []byte {
-	return g.signature
-}
-
-// PublicKey returns public key related to signature.
-func (g *GetValues) PublicKey() []byte {
-	return g.publicKey
-}
-
-// SessionToken returns token of the session within which
-// the container was created in a NeoFS API binary format.
-func (g *GetValues) SessionToken() []byte {
-	return g.token
-}
-
-// Get performs the test invoke of get container
-// method of NeoFS Container contract.
-func (c *Client) Get(args GetArgs) (*GetValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
-	invokePrm.SetMethod(getMethod)
-	invokePrm.SetArgs(args.cid)
-
-	prms, err := c.client.TestInvoke(invokePrm)
+	res, err := c.client.TestInvoke(prm)
 	if err != nil {
+		// TODO(fyrchik): reuse messages from container contract.
+		// Currently there are some dependency problems:
+		// github.com/nspcc-dev/neofs-node/pkg/innerring imports
+		//        github.com/nspcc-dev/neofs-sdk-go/audit imports
+		//        github.com/nspcc-dev/neofs-api-go/v2/audit: ambiguous import: found package github.com/nspcc-dev/neofs-api-go/v2/audit in multiple modules:
+		//        github.com/nspcc-dev/neofs-api-go v1.27.1 (/home/dzeta/go/pkg/mod/github.com/nspcc-dev/neofs-api-go@v1.27.1/v2/audit)
+		//        github.com/nspcc-dev/neofs-api-go/v2 v2.11.0-pre.0.20211201134523-3604d96f3fe1 (/home/dzeta/go/pkg/mod/github.com/nspcc-dev/neofs-api-go/v2@v2.11.0-pre.0.20211201134523-3604d96f3fe1/audit)
+		if strings.Contains(err.Error(), "container does not exist") {
+			return nil, core.ErrNotFound
+		}
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
-	} else if ln := len(prms); ln != 1 {
+	} else if ln := len(res); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getMethod, ln)
 	}
 
-	arr, err := client.ArrayFromStackItem(prms[0])
+	arr, err := client.ArrayFromStackItem(res[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
 	}
@@ -81,7 +72,7 @@ func (c *Client) Get(args GetArgs) (*GetValues, error) {
 		return nil, fmt.Errorf("could not get byte array of container (%s): %w", getMethod, err)
 	}
 
-	sig, err := client.BytesFromStackItem(arr[1])
+	sigBytes, err := client.BytesFromStackItem(arr[1])
 	if err != nil {
 		return nil, fmt.Errorf("could not get byte array of container signature (%s): %w", getMethod, err)
 	}
@@ -91,15 +82,32 @@ func (c *Client) Get(args GetArgs) (*GetValues, error) {
 		return nil, fmt.Errorf("could not get byte array of public key (%s): %w", getMethod, err)
 	}
 
-	tok, err := client.BytesFromStackItem(arr[3])
+	tokBytes, err := client.BytesFromStackItem(arr[3])
 	if err != nil {
 		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", getMethod, err)
 	}
 
-	return &GetValues{
-		cnr:       cnrBytes,
-		signature: sig,
-		publicKey: pub,
-		token:     tok,
-	}, nil
+	cnr := container.New()
+	if err := cnr.Unmarshal(cnrBytes); err != nil {
+		// use other major version if there any
+		return nil, fmt.Errorf("can't unmarshal container: %w", err)
+	}
+
+	if len(tokBytes) > 0 {
+		tok := session.NewToken()
+
+		err = tok.Unmarshal(tokBytes)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
+		}
+
+		cnr.SetSessionToken(tok)
+	}
+
+	sig := signature.New()
+	sig.SetKey(pub)
+	sig.SetSign(sigBytes)
+	cnr.SetSignature(sig)
+
+	return cnr, nil
 }

@@ -14,7 +14,7 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	cntrwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -384,7 +384,7 @@ func initObjectService(c *cfg) {
 }
 
 type morphEACLFetcher struct {
-	w *cntrwrp.Wrapper
+	w *cntClient.Client
 }
 
 type signedEACLTable eaclSDK.Table

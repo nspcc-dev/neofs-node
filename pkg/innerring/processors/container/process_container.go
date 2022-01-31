@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -130,7 +130,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	var err error
 
-	prm := wrapper.PutPrm{}
+	prm := cntClient.PutPrm{}
 
 	prm.SetContainer(e.Container())
 	prm.SetKey(e.PublicKey())
@@ -243,7 +243,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	var err error
 
-	prm := wrapper.DeletePrm{}
+	prm := cntClient.DeletePrm{}
 
 	prm.SetCID(e.ContainerID())
 	prm.SetSignature(e.Signature())
