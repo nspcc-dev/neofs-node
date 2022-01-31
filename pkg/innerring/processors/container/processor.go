@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -26,7 +26,7 @@ type (
 		pool           *ants.Pool
 		alphabetState  AlphabetState
 		cnrClient      *wrapper.Wrapper // notary must be enabled
-		idClient       *neofsid.ClientWrapper
+		idClient       *neofsid.Client
 		subnetClient   *morphsubnet.Client
 		netState       NetworkState
 		notaryDisabled bool
@@ -38,7 +38,7 @@ type (
 		PoolSize        int
 		AlphabetState   AlphabetState
 		ContainerClient *wrapper.Wrapper
-		NeoFSIDClient   *neofsid.ClientWrapper
+		NeoFSIDClient   *neofsid.Client
 		SubnetClient    *morphsubnet.Client
 		NetworkState    NetworkState
 		NotaryDisabled  bool

@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
-	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
@@ -51,7 +51,7 @@ type (
 		mintEmitValue       fixedn.Fixed8
 		gasBalanceThreshold int64
 
-		neofsIDClient *neofsid.ClientWrapper
+		neofsIDClient *neofsid.Client
 	}
 
 	// Params of the processor constructor.
@@ -59,7 +59,7 @@ type (
 		Log                 *zap.Logger
 		PoolSize            int
 		NeoFSContract       util.Uint160
-		NeoFSIDClient       *neofsid.ClientWrapper
+		NeoFSIDClient       *neofsid.Client
 		BalanceClient       *balance.Client
 		NetmapClient        *nmWrapper.Wrapper
 		MorphClient         *client.Client

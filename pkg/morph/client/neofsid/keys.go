@@ -1,44 +1,31 @@
 package neofsid
 
 import (
+	"crypto/elliptic"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
-// KeyListingArgs groups the arguments
-// of key listing call.
-type KeyListingArgs struct {
-	ownerID []byte // account identifier
+// AccountKeysPrm groups parameters of AccountKeys operation.
+type AccountKeysPrm struct {
+	id *owner.ID
 }
 
-// KeyListingValues groups the stack parameters
-// returned by key listing call.
-type KeyListingValues struct {
-	keys [][]byte // list of user public keys in binary format
+// SetID sets owner ID.
+func (a *AccountKeysPrm) SetID(id *owner.ID) {
+	a.id = id
 }
 
-// SetOwnerID sets the NeoFS account identifier
-// in a binary format.
-func (l *KeyListingArgs) SetOwnerID(v []byte) {
-	l.ownerID = v
-}
+// AccountKeys requests public keys of NeoFS account from NeoFS ID contract.
+func (x *Client) AccountKeys(p AccountKeysPrm) (keys.PublicKeys, error) {
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(keyListingMethod)
+	prm.SetArgs(p.id.ToV2().GetValue())
 
-// Keys returns the list of account keys
-// in a binary format.
-func (l *KeyListingValues) Keys() [][]byte {
-	return l.keys
-}
-
-// AccountKeys requests public keys of NeoFS account
-// through method of NeoFS ID contract.
-func (x *Client) AccountKeys(args KeyListingArgs) (*KeyListingValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
-	invokePrm.SetMethod(keyListingMethod)
-	invokePrm.SetArgs(args.ownerID)
-
-	items, err := x.client.TestInvoke(invokePrm)
+	items, err := x.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", keyListingMethod, err)
 	} else if ln := len(items); ln != 1 {
@@ -50,18 +37,18 @@ func (x *Client) AccountKeys(args KeyListingArgs) (*KeyListingValues, error) {
 		return nil, fmt.Errorf("1st stack item must be an array (%s)", keyListingMethod)
 	}
 
-	keys := make([][]byte, 0, len(items))
-
+	pubs := make(keys.PublicKeys, len(items))
 	for i := range items {
-		key, err := client.BytesFromStackItem(items[i])
+		rawPub, err := client.BytesFromStackItem(items[i])
 		if err != nil {
 			return nil, fmt.Errorf("invalid stack item, expected byte array (%s)", keyListingMethod)
 		}
 
-		keys = append(keys, key)
+		pubs[i], err = keys.NewPublicKeyFromBytes(rawPub, elliptic.P256())
+		if err != nil {
+			return nil, fmt.Errorf("received invalid key (%s): %w", keyListingMethod, err)
+		}
 	}
 
-	return &KeyListingValues{
-		keys: keys,
-	}, nil
+	return pubs, nil
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
@@ -95,25 +95,22 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 		return
 	}
 
-	prm := neofsid.ManageKeysPrm{}
-
+	prm := neofsid.CommonBindPrm{}
 	prm.SetOwnerID(wallet)
 	prm.SetKeys(e.Keys())
-	prm.SetAdd(e.bind)
 	prm.SetHash(e.bindCommon.TxHash())
 
-	err = np.neofsIDClient.ManageKeys(prm)
+	var typ string
+	if e.bind {
+		typ = "bind"
+		err = np.neofsIDClient.AddKeys(prm)
+	} else {
+		typ = "unbind"
+		err = np.neofsIDClient.RemoveKeys(prm)
+	}
+
 	if err != nil {
-		var typ string
-
-		if e.bind {
-			typ = "bind"
-		} else {
-			typ = "unbind"
-		}
-
 		np.log.Error(fmt.Sprintf("could not approve %s", typ),
-			zap.String("error", err.Error()),
-		)
+			zap.String("error", err.Error()))
 	}
 }
