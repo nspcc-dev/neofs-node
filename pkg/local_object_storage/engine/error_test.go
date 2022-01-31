@@ -114,6 +114,12 @@ func TestErrorReporting(t *testing.T) {
 			checkShardState(t, e, id[0], errThreshold+i, shard.ModeReadOnly)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
 		}
+
+		require.NoError(t, e.SetShardMode(id[0], shard.ModeReadWrite, false))
+		checkShardState(t, e, id[0], errThreshold+1, shard.ModeReadWrite)
+
+		require.NoError(t, e.SetShardMode(id[0], shard.ModeReadWrite, true))
+		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
 	})
 }
 

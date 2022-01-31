@@ -118,12 +118,15 @@ func (e *StorageEngine) iterateOverUnsortedShards(handler func(hashedShard) (sto
 // SetShardMode sets mode of the shard with provided identifier.
 //
 // Returns an error if shard mode was not set, or shard was not found in storage engine.
-func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode) error {
+func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode, resetErrorCounter bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
 	for shID, sh := range e.shards {
 		if id.String() == shID {
+			if resetErrorCounter {
+				sh.errorCount.Store(0)
+			}
 			return sh.SetMode(m)
 		}
 	}

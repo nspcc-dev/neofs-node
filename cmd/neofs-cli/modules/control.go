@@ -71,8 +71,9 @@ const (
 	netmapStatusOffline     = "offline"
 	netmapStatusMaintenance = "maintenance"
 
-	shardModeFlag = "mode"
-	shardIDFlag   = "id"
+	shardModeFlag        = "mode"
+	shardIDFlag          = "id"
+	shardClearErrorsFlag = "clear-errors"
 
 	shardModeReadOnly  = "read-only"
 	shardModeReadWrite = "read-write"
@@ -127,6 +128,7 @@ func initControlSetShardModeCmd() {
 			shardModeReadOnly,
 		),
 	)
+	flags.Bool(shardClearErrorsFlag, false, "Set shard error count to 0")
 }
 
 func initControlShardsListCmd() {
@@ -509,6 +511,9 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 
 	body.SetMode(mode)
 	body.SetShardID(rawID)
+
+	reset, _ := cmd.Flags().GetBool(shardClearErrorsFlag)
+	body.ClearErrorCounter(reset)
 
 	err = controlSvc.SignMessage(key, req)
 	exitOnErr(cmd, errf("could not sign request: %w", err))
