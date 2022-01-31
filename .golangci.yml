@@ -47,9 +47,3 @@ linters:
   disable-all: true
   fast: false
 
-issues:
-  # Excluding configuration per-path, per-linter, per-text and per-source
-  exclude-rules:
-    - path: policy/grammar\.go # ignore structtag issues there
-      linters:
-        - govet
