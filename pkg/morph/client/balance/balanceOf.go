@@ -4,39 +4,22 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
-// GetBalanceOfArgs groups the arguments
-// of "balance of" test invoke call.
-type GetBalanceOfArgs struct {
-	wallet []byte // wallet script hash
-}
+// BalanceOf receives the amount of funds in the client's account
+// through the Balance contract call, and returns it.
+func (c *Client) BalanceOf(id *owner.ID) (*big.Int, error) {
+	h, err := address.StringToUint160(id.String())
+	if err != nil {
+		return nil, err
+	}
 
-// GetBalanceOfValues groups the stack parameters
-// returned by "balance of" test invoke.
-type GetBalanceOfValues struct {
-	amount *big.Int // wallet funds amount
-}
-
-// SetWallet sets the wallet script hash
-// in a binary format.
-func (g *GetBalanceOfArgs) SetWallet(v []byte) {
-	g.wallet = v
-}
-
-// Amount returns the amount of funds.
-func (g *GetBalanceOfValues) Amount() *big.Int {
-	return g.amount
-}
-
-// BalanceOf performs the test invoke of "balance of"
-// method of NeoFS Balance contract.
-func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
 	invokePrm := client.TestInvokePrm{}
-
 	invokePrm.SetMethod(balanceOfMethod)
-	invokePrm.SetArgs(args.wallet)
+	invokePrm.SetArgs(h.BytesBE())
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
@@ -49,8 +32,5 @@ func (c *Client) BalanceOf(args GetBalanceOfArgs) (*GetBalanceOfValues, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", balanceOfMethod, err)
 	}
-
-	return &GetBalanceOfValues{
-		amount: amount,
-	}, nil
+	return amount, nil
 }

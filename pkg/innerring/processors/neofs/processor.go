@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -39,7 +39,7 @@ type (
 		log                 *zap.Logger
 		pool                *ants.Pool
 		neofsContract       util.Uint160
-		balanceClient       *balanceWrapper.Wrapper
+		balanceClient       *balance.Client
 		netmapClient        *nmWrapper.Wrapper
 		morphClient         *client.Client
 		epochState          EpochState
@@ -60,7 +60,7 @@ type (
 		PoolSize            int
 		NeoFSContract       util.Uint160
 		NeoFSIDClient       *neofsid.ClientWrapper
-		BalanceClient       *balanceWrapper.Wrapper
+		BalanceClient       *balance.Client
 		NetmapClient        *nmWrapper.Wrapper
 		MorphClient         *client.Client
 		EpochState          EpochState

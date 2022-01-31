@@ -2,7 +2,7 @@ package neofs
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	balancewrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
@@ -20,7 +20,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 		return
 	}
 
-	prm := balancewrp.MintPrm{}
+	prm := balance.MintPrm{}
 
 	prm.SetTo(deposit.To())
 	prm.SetAmount(np.converter.ToBalancePrecision(deposit.Amount()))
@@ -95,7 +95,7 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 
 	curEpoch := np.epochState.EpochCounter()
 
-	prm := balancewrp.LockPrm{}
+	prm := balance.LockPrm{}
 
 	prm.SetID(withdraw.ID())
 	prm.SetUser(withdraw.User())
@@ -117,7 +117,7 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 		return
 	}
 
-	prm := balancewrp.BurnPrm{}
+	prm := balance.BurnPrm{}
 
 	prm.SetTo(cheque.LockAccount())
 	prm.SetAmount(np.converter.ToBalancePrecision(cheque.Amount()))

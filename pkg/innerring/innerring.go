@@ -30,7 +30,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
-	balanceWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
 	neofsidWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
@@ -76,7 +76,7 @@ type (
 		precision     precision.Fixed8Converter
 		auditClient   *auditWrapper.ClientWrapper
 		healthStatus  atomic.Value
-		balanceClient *balanceWrapper.Wrapper
+		balanceClient *balanceClient.Client
 		netmapClient  *nmWrapper.Wrapper
 		persistate    *state.PersistentStorage
 
@@ -493,7 +493,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceWrapper.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceWrapper.TryNotary(), balanceWrapper.AsAlphabet())
+	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceClient.TryNotary(), balanceClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}

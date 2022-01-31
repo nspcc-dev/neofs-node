@@ -15,7 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
-	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
@@ -46,7 +46,7 @@ type settlementDeps struct {
 
 	clientCache *ClientCache
 
-	balanceClient *balanceClient.Wrapper
+	balanceClient *balanceClient.Client
 }
 
 type auditSettlementDeps struct {

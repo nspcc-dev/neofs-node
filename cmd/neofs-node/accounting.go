@@ -2,7 +2,7 @@ package main
 
 import (
 	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	accounting "github.com/nspcc-dev/neofs-node/pkg/services/accounting/morph"
@@ -13,7 +13,7 @@ func initAccountingService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	balanceMorphWrapper, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgAccounting.scriptHash, 0)
+	balanceMorphWrapper, err := balance.NewFromMorph(c.cfgMorph.client, c.cfgAccounting.scriptHash, 0)
 	fatalOnErr(err)
 
 	server := accountingTransportGRPC.New(

@@ -6,42 +6,22 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// DecimalsArgs groups the arguments
-// of decimals test invoke call.
-type DecimalsArgs struct {
-}
-
-// DecimalsValues groups the stack parameters
-// returned by decimals test invoke.
-type DecimalsValues struct {
-	decimals int64 // decimals value
-}
-
-// Decimals returns the decimals value.
-func (d *DecimalsValues) Decimals() int64 {
-	return d.decimals
-}
-
-// Decimals performs the test invoke of decimals
-// method of NeoFS Balance contract.
-func (c *Client) Decimals(args DecimalsArgs) (*DecimalsValues, error) {
+// Decimals decimal precision of currency transactions
+// through the Balance contract call, and returns it.
+func (c *Client) Decimals() (uint32, error) {
 	invokePrm := client.TestInvokePrm{}
-
 	invokePrm.SetMethod(decimalsMethod)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", decimalsMethod, err)
+		return 0, fmt.Errorf("could not perform test invocation (%s): %w", decimalsMethod, err)
 	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", decimalsMethod, ln)
+		return 0, fmt.Errorf("unexpected stack item count (%s): %d", decimalsMethod, ln)
 	}
 
 	decimals, err := client.IntFromStackItem(prms[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get integer stack item from stack item (%s): %w", decimalsMethod, err)
+		return 0, fmt.Errorf("could not get integer stack item from stack item (%s): %w", decimalsMethod, err)
 	}
-
-	return &DecimalsValues{
-		decimals: decimals,
-	}, nil
+	return uint32(decimals), nil
 }
