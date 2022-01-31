@@ -1,82 +1,128 @@
 package container
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-// PutArgs groups the arguments
-// of put container invocation call.
-type PutArgs struct {
-	cnr []byte // container in a binary format
+// Put marshals container, and passes it to Wrapper's Put method
+// along with sig.Key() and sig.Sign().
+//
+// Returns error if container is nil.
+func Put(c *Client, cnr *container.Container) (*cid.ID, error) {
+	if cnr == nil {
+		return nil, errNilArgument
+	}
 
-	sig []byte // binary container signature
+	data, err := cnr.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("can't marshal container: %w", err)
+	}
 
-	publicKey []byte // public key of container owner
+	binToken, err := cnr.SessionToken().Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal session token: %w", err)
+	}
 
-	token []byte // binary session token
+	sig := cnr.Signature()
 
-	name, zone string // native name and zone
+	name, zone := container.GetNativeNameWithZone(cnr)
+
+	err = c.Put(PutPrm{
+		cnr:   data,
+		key:   sig.Key(),
+		sig:   sig.Sign(),
+		token: binToken,
+		name:  name,
+		zone:  zone,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	id := cid.New()
+	id.SetSHA256(sha256.Sum256(data))
+
+	return id, nil
+}
+
+// PutPrm groups parameters of Put operation.
+type PutPrm struct {
+	cnr   []byte
+	key   []byte
+	sig   []byte
+	token []byte
+	name  string
+	zone  string
 
 	client.InvokePrmOptional
 }
 
-// SetPublicKey sets the public key of container owner
-// in a binary format.
-func (p *PutArgs) SetPublicKey(v []byte) {
-	p.publicKey = v
+// SetContainer sets container data.
+func (p *PutPrm) SetContainer(cnr []byte) {
+	p.cnr = cnr
 }
 
-// SetContainer sets the container structure
-// in a binary format.
-func (p *PutArgs) SetContainer(v []byte) {
-	p.cnr = v
+// SetKey sets public key.
+func (p *PutPrm) SetKey(key []byte) {
+	p.key = key
 }
 
-// SetSignature sets the container structure
-// owner's signature.
-func (p *PutArgs) SetSignature(v []byte) {
-	p.sig = v
+// SetSignature sets signature.
+func (p *PutPrm) SetSignature(sig []byte) {
+	p.sig = sig
 }
 
-// SetSessionToken sets token of the session
-// within which the container was created
-// in a binary format.
-func (p *PutArgs) SetSessionToken(v []byte) {
-	p.token = v
+// SetToken sets session token.
+func (p *PutPrm) SetToken(token []byte) {
+	p.token = token
 }
 
-// SetNativeNameWithZone sets container native name and its zone.
-func (p *PutArgs) SetNativeNameWithZone(name, zone string) {
-	p.name, p.zone = name, zone
+// SetName sets native name.
+func (p *PutPrm) SetName(name string) {
+	p.name = name
 }
 
-// Put invokes the call of put (named if name is set) container method
-// of NeoFS Container contract.
-func (c *Client) Put(args PutArgs) error {
+// SetZone sets zone.
+func (p *PutPrm) SetZone(zone string) {
+	p.zone = zone
+}
+
+// Put saves binary container with its session token, key and signature
+// in NeoFS system through Container contract call.
+//
+// Returns calculated container identifier and any error
+// encountered that caused the saving to interrupt.
+//
+// If TryNotary is provided, calls notary contract.
+func (c *Client) Put(p PutPrm) error {
+	if len(p.sig) == 0 || len(p.key) == 0 {
+		return errNilArgument
+	}
+
 	var (
 		method string
 		prm    client.InvokePrm
 	)
 
-	if args.name != "" {
-		method = PutNamedMethod
-
-		prm.SetArgs(args.cnr, args.sig, args.publicKey, args.token, args.name, args.zone)
+	if p.name != "" {
+		method = putNamedMethod
+		prm.SetArgs(p.cnr, p.sig, p.key, p.token, p.name, p.zone)
 	} else {
 		method = putMethod
-
-		prm.SetArgs(args.cnr, args.sig, args.publicKey, args.token)
+		prm.SetArgs(p.cnr, p.sig, p.key, p.token)
 	}
 
 	prm.SetMethod(method)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", method, err)
 	}
-
 	return nil
 }

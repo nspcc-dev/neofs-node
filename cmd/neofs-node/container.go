@@ -14,7 +14,7 @@ import (
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
@@ -43,15 +43,15 @@ const (
 func initContainerService(c *cfg) {
 	// container wrapper that tries to invoke notary
 	// requests if chain is configured so
-	wrap, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, wrapper.TryNotary())
+	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, cntClient.TryNotary())
 	fatalOnErr(err)
 
 	// container wrapper that always sends non-notary
 	// requests
-	wrapperNoNotary, err := wrapper.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
+	wrapperNoNotary, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
-	cnrSrc := wrapper.AsContainerSource(wrap)
+	cnrSrc := cntClient.AsContainerSource(wrap)
 
 	eACLFetcher := &morphEACLFetcher{
 		w: wrap,
@@ -209,7 +209,7 @@ func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationPar
 type morphLoadWriter struct {
 	log *logger.Logger
 
-	cnrMorphClient *wrapper.Wrapper
+	cnrMorphClient *cntClient.Client
 
 	key []byte
 }
@@ -221,7 +221,7 @@ func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
 		zap.Uint64("size", a.UsedSpace()),
 	)
 
-	prm := wrapper.AnnounceLoadPrm{}
+	prm := cntClient.AnnounceLoadPrm{}
 
 	prm.SetAnnouncement(a)
 	prm.SetReporter(w.key)
@@ -561,7 +561,7 @@ func (x *morphContainerReader) List(id *owner.ID) ([]*cid.ID, error) {
 }
 
 type morphContainerWriter struct {
-	neoClient *wrapper.Wrapper
+	neoClient *cntClient.Client
 
 	cacheEnabled bool
 	containers   *ttlContainerStorage
@@ -570,7 +570,7 @@ type morphContainerWriter struct {
 }
 
 func (m morphContainerWriter) Put(cnr *containerSDK.Container) (*cid.ID, error) {
-	containerID, err := wrapper.Put(m.neoClient, cnr)
+	containerID, err := cntClient.Put(m.neoClient, cnr)
 	if err != nil {
 		return nil, err
 	}
@@ -583,7 +583,7 @@ func (m morphContainerWriter) Put(cnr *containerSDK.Container) (*cid.ID, error) 
 }
 
 func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error {
-	err := wrapper.Delete(m.neoClient, witness)
+	err := cntClient.Delete(m.neoClient, witness)
 	if err != nil {
 		return err
 	}
@@ -602,7 +602,7 @@ func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error
 }
 
 func (m morphContainerWriter) PutEACL(table *eaclSDK.Table) error {
-	err := wrapper.PutEACL(m.neoClient, table)
+	err := cntClient.PutEACL(m.neoClient, table)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -60,7 +60,7 @@ type (
 		alphabetState AlphabetState
 
 		netmapClient *nmClient.Client
-		containerWrp *container.Wrapper
+		containerWrp *container.Client
 
 		subnetContract util.Uint160
 
@@ -86,7 +86,7 @@ type (
 		AlphabetState    AlphabetState
 		CleanupEnabled   bool
 		CleanupThreshold uint64 // in epochs
-		ContainerWrapper *container.Wrapper
+		ContainerWrapper *container.Client
 		SubnetContract   *util.Uint160
 
 		HandleAudit             event.Handler

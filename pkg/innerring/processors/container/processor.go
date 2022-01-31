@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -25,7 +25,7 @@ type (
 		log            *zap.Logger
 		pool           *ants.Pool
 		alphabetState  AlphabetState
-		cnrClient      *wrapper.Wrapper // notary must be enabled
+		cnrClient      *container.Client // notary must be enabled
 		idClient       *neofsid.Client
 		subnetClient   *morphsubnet.Client
 		netState       NetworkState
@@ -37,7 +37,7 @@ type (
 		Log             *zap.Logger
 		PoolSize        int
 		AlphabetState   AlphabetState
-		ContainerClient *wrapper.Wrapper
+		ContainerClient *container.Client
 		NeoFSIDClient   *neofsid.Client
 		SubnetClient    *morphsubnet.Client
 		NetworkState    NetworkState

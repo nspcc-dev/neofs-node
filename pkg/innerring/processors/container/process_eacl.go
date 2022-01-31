@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -57,7 +57,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 	}
 
 	// receive owner of the related container
-	cnr, err := wrapper.Get(cp.cnrClient, table.CID())
+	cnr, err := cntClient.Get(cp.cnrClient, table.CID())
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
@@ -91,7 +91,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	var err error
 
-	prm := wrapper.PutEACLPrm{}
+	prm := cntClient.PutEACLPrm{}
 
 	prm.SetTable(e.Table())
 	prm.SetKey(e.PublicKey())

@@ -3,94 +3,61 @@ package container
 import (
 	"fmt"
 
+	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
-// PutSizeArgs groups the arguments
-// of "put container size" invocation call.
-type PutSizeArgs struct {
-	epoch int64
-
-	size int64
-
-	cid []byte
-
-	reporterKey []byte
+// AnnounceLoadPrm groups parameters of AnnounceLoad operation.
+type AnnounceLoadPrm struct {
+	a   container.UsedSpaceAnnouncement
+	key []byte
 
 	client.InvokePrmOptional
 }
 
-// SetEpoch sets the number of the epoch when
-// size was estimated.
-func (p *PutSizeArgs) SetEpoch(v uint64) {
-	p.epoch = int64(v)
+// SetAnnouncement sets announcement.
+func (a2 *AnnounceLoadPrm) SetAnnouncement(a container.UsedSpaceAnnouncement) {
+	a2.a = a
 }
 
-// SetSize sets estimation of the container size.
-func (p *PutSizeArgs) SetSize(v uint64) {
-	p.size = int64(v)
+// SetReporter sets public key of the reporter.
+func (a2 *AnnounceLoadPrm) SetReporter(key []byte) {
+	a2.key = key
 }
 
-// SetContainerID sets identifier of the container
-// being evaluated.
-func (p *PutSizeArgs) SetContainerID(v []byte) {
-	p.cid = v
-}
+// AnnounceLoad saves container size estimation calculated by storage node
+// with key in NeoFS system through Container contract call.
+//
+// Returns any error encountered that caused the saving to interrupt.
+func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
+	v2 := p.a.ContainerID().ToV2()
+	if v2 == nil {
+		return errUnsupported // use other major version if there any
+	}
 
-// SetReporterKey ыуеы public key of the storage node
-// that collected size estimation.
-func (p *PutSizeArgs) SetReporterKey(v []byte) {
-	p.reporterKey = v
-}
-
-// PutSize invokes the call of put container size method
-// of NeoFS Container contract.
-func (c *Client) PutSize(args PutSizeArgs) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(putSizeMethod)
-	prm.SetArgs(args.epoch, args.cid, args.size, args.reporterKey)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(int64(p.a.Epoch()), v2.GetValue(), int64(p.a.UsedSpace()), p.key)
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
-
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", putSizeMethod, err)
 	}
 	return nil
 }
 
-// ListSizesArgs groups the arguments
-// of "list container sizes" test invoke call..
-type ListSizesArgs struct {
-	epoch int64
-}
+// EstimationID is an identity of container load estimation inside Container contract.
+type EstimationID []byte
 
-// SetEpoch sets the number of the epoch to select
-// the estimations.
-func (p *ListSizesArgs) SetEpoch(v uint64) {
-	p.epoch = int64(v)
-}
-
-// ListSizesValues groups the stack items
-// returned by "list container sizes" test invoke.
-type ListSizesValues struct {
-	ids [][]byte
-}
-
-// IDList returns list of identifiers of the
-// container load estimations.
-func (v *ListSizesValues) IDList() [][]byte {
-	return v.ids
-}
-
-// ListSizes performs the test invoke of "list container sizes"
-// method of NeoFS Container contract.
-func (c *Client) ListSizes(args ListSizesArgs) (*ListSizesValues, error) {
+// ListLoadEstimationsByEpoch returns a list of container load estimations for to the specified epoch.
+// The list is composed through Container contract call.
+func (c *Client) ListLoadEstimationsByEpoch(epoch uint64) ([]EstimationID, error) {
 	invokePrm := client.TestInvokePrm{}
-
 	invokePrm.SetMethod(listSizesMethod)
-	invokePrm.SetArgs(args.epoch)
+	invokePrm.SetArgs(int64(epoch))
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
@@ -104,65 +71,42 @@ func (c *Client) ListSizes(args ListSizesArgs) (*ListSizesValues, error) {
 		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listSizesMethod, err)
 	}
 
-	res := &ListSizesValues{
-		ids: make([][]byte, 0, len(prms)),
-	}
-
+	res := make([]EstimationID, 0, len(prms))
 	for i := range prms {
 		id, err := client.BytesFromStackItem(prms[i])
 		if err != nil {
 			return nil, fmt.Errorf("could not get ID byte array from stack item (%s): %w", listSizesMethod, err)
 		}
 
-		res.ids = append(res.ids, id)
+		res = append(res, id)
 	}
 
 	return res, nil
 }
 
-// GetSizeArgs groups the arguments
-// of "get container size" test invoke call..
-type GetSizeArgs struct {
-	id []byte
-}
-
-// SetID sets identifier of the container estimation.
-func (p *GetSizeArgs) SetID(v []byte) {
-	p.id = v
-}
-
+// Estimation is a structure of single container load estimation
+// reported by storage node.
 type Estimation struct {
-	Size int64
+	Size uint64
 
 	Reporter []byte
 }
 
+// Estimations is a structure of grouped container load estimation inside Container contract.
 type Estimations struct {
-	ContainerID []byte
+	ContainerID *cid.ID
 
-	Estimations []Estimation
+	Values []Estimation
 }
 
-// GetSizeValues groups the stack items
-// returned by "get container size" test invoke.
-type GetSizeValues struct {
-	est Estimations
-}
+// GetUsedSpaceEstimations returns a list of container load estimations by ID.
+// The list is composed through Container contract call.
+func (c *Client) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error) {
+	prm := client.TestInvokePrm{}
+	prm.SetMethod(getSizeMethod)
+	prm.SetArgs([]byte(id))
 
-// Estimations returns list of the container load estimations.
-func (v *GetSizeValues) Estimations() Estimations {
-	return v.est
-}
-
-// GetContainerSize performs the test invoke of "get container size"
-// method of NeoFS Container contract.
-func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
-	invokePrm.SetMethod(getSizeMethod)
-	invokePrm.SetArgs(args.id)
-
-	prms, err := c.client.TestInvoke(invokePrm)
+	prms, err := c.client.TestInvoke(prm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getSizeMethod, err)
 	} else if ln := len(prms); ln != 1 {
@@ -176,9 +120,7 @@ func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
 		return nil, fmt.Errorf("unexpected stack item count of estimations fields (%s)", getSizeMethod)
 	}
 
-	es := Estimations{}
-
-	es.ContainerID, err = client.BytesFromStackItem(prms[0])
+	rawCID, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get container ID byte array from stack item (%s): %w", getSizeMethod, err)
 	}
@@ -188,7 +130,12 @@ func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
 		return nil, fmt.Errorf("could not get estimation list array from stack item (%s): %w", getSizeMethod, err)
 	}
 
-	es.Estimations = make([]Estimation, 0, len(prms))
+	v2 := new(v2refs.ContainerID)
+	v2.SetValue(rawCID)
+	res := &Estimations{
+		ContainerID: cid.NewFromV2(v2),
+		Values:      make([]Estimation, 0, len(prms)),
+	}
 
 	for i := range prms {
 		arr, err := client.ArrayFromStackItem(prms[i])
@@ -198,22 +145,21 @@ func (c *Client) GetContainerSize(args GetSizeArgs) (*GetSizeValues, error) {
 			return nil, fmt.Errorf("unexpected stack item count of estimation fields (%s)", getSizeMethod)
 		}
 
-		e := Estimation{}
-
-		e.Reporter, err = client.BytesFromStackItem(arr[0])
+		reporter, err := client.BytesFromStackItem(arr[0])
 		if err != nil {
 			return nil, fmt.Errorf("could not get reporter byte array from stack item (%s): %w", getSizeMethod, err)
 		}
 
-		e.Size, err = client.IntFromStackItem(arr[1])
+		sz, err := client.IntFromStackItem(arr[1])
 		if err != nil {
 			return nil, fmt.Errorf("could not get estimation size from stack item (%s): %w", getSizeMethod, err)
 		}
 
-		es.Estimations = append(es.Estimations, e)
+		res.Values = append(res.Values, Estimation{
+			Reporter: reporter,
+			Size:     uint64(sz),
+		})
 	}
 
-	return &GetSizeValues{
-		est: es,
-	}, nil
+	return res, nil
 }

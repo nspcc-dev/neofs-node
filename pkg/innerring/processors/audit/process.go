@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -47,7 +47,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
 
 	for i := range containers {
-		cnr, err := wrapper.Get(ap.containerClient, containers[i]) // get container structure
+		cnr, err := cntClient.Get(ap.containerClient, containers[i]) // get container structure
 		if err != nil {
 			log.Error("can't get container info, ignore",
 				zap.Stringer("cid", containers[i]),
