@@ -33,7 +33,7 @@ import (
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
-	neofsidWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
@@ -503,7 +503,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	neofsIDClient, err := neofsidWrapper.NewFromMorph(server.morphClient, server.contracts.neofsID, fee, neofsidWrapper.TryNotary(), neofsidWrapper.AsAlphabet())
+	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, fee, neofsid.TryNotary(), neofsid.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}

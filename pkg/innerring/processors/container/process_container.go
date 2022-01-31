@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	neofsid "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
