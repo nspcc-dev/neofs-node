@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"go.uber.org/zap"
 )

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	"github.com/panjf2000/ants/v2"
@@ -26,7 +26,7 @@ type (
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
-		neofsClient   *neofscontract.ClientWrapper
+		neofsClient   *neofscontract.Client
 		alphabetState AlphabetState
 		converter     PrecisionConverter
 	}
@@ -35,7 +35,7 @@ type (
 	Params struct {
 		Log           *zap.Logger
 		PoolSize      int
-		NeoFSClient   *neofscontract.ClientWrapper
+		NeoFSClient   *neofscontract.Client
 		AlphabetState AlphabetState
 		Converter     PrecisionConverter
 	}
