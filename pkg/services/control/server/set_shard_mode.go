@@ -33,7 +33,7 @@ func (s *Server) SetShardMode(_ context.Context, req *control.SetShardModeReques
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unknown shard mode: %s", requestedMode))
 	}
 
-	err = s.s.SetShardMode(requestedShard, mode)
+	err = s.s.SetShardMode(requestedShard, mode, false)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

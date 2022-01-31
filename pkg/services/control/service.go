@@ -761,10 +761,16 @@ func (x *SetShardModeRequest_Body) SetMode(v ShardMode) {
 	x.Mode = v
 }
 
+// ClearErrorCounter sets flag signifying whether error counter for shard should be cleared.
+func (x *SetShardModeRequest_Body) ClearErrorCounter(reset bool) {
+	x.ResetErrorCounter = reset
+}
+
 const (
 	_ = iota
 	setShardModeReqBodyShardIDFNum
 	setShardModeReqBodyModeFNum
+	setShardModeReqBodyResetCounterFNum
 )
 
 // StableMarshal reads binary representation of set shard mode request body
@@ -797,7 +803,14 @@ func (x *SetShardModeRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
 
 	offset += n
 
-	_, err = proto.EnumMarshal(setShardModeReqBodyModeFNum, buf[offset:], int32(x.Mode))
+	n, err = proto.EnumMarshal(setShardModeReqBodyModeFNum, buf[offset:], int32(x.Mode))
+	if err != nil {
+		return nil, err
+	}
+
+	offset += n
+
+	_, err = proto.BoolMarshal(setShardModeReqBodyResetCounterFNum, buf[offset:], x.ResetErrorCounter)
 	if err != nil {
 		return nil, err
 	}
@@ -818,6 +831,7 @@ func (x *SetShardModeRequest_Body) StableSize() int {
 
 	size += proto.BytesSize(setShardModeReqBodyShardIDFNum, x.Shard_ID)
 	size += proto.EnumSize(setShardModeReqBodyModeFNum, int32(x.Mode))
+	size += proto.BoolSize(setShardModeReqBodyResetCounterFNum, x.ResetErrorCounter)
 
 	return size
 }

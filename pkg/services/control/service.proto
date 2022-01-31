@@ -186,6 +186,9 @@ message SetShardModeRequest {
 
         // Mode that requested to be set.
         ShardMode mode = 2;
+
+        // Flag signifying whether error counter should be set to 0.
+        bool resetErrorCounter = 3;
     }
 
     // Body of set shard mode request message.
