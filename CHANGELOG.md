@@ -3,6 +3,48 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.5] - 2022-01-31
+
+### Fixed
+- Flush small objects when persist write cache (#1088)
+- Empty response body in object.Search request (#1098)
+- Inner ring correctly checks session token in container.SetEACL request (#1110)
+- Printing in verbose mode in CLI (#1120)
+- Subnet removal event processing (#1123)
+
+### Added
+- Password support in CLI config (#1103)
+- Shard dump restore commands in CLI (#1085, #1086)
+- `acl extended create` command in CLI (#1092)
+
+### Changed
+- Adopt new `owner.ID` API from SDK (#1100)
+- Use `go install` instead of `go get` in Makefile (#1102)
+- Storage node returns Fixed12 decimal on accounting.Balance request. CLI
+  prints Fixed8 rounded value by default. (#1084)
+- Support new update interface for NNS contract in NeoFS Adm (#1091)
+- Rename `use_write_cache` to `writecache.enabled` in stoarge config (#1117)
+- Preallocate slice in `headersFromObject` (#1115)
+- Unify collection of expired objects (#1115)
+- Calculate blobovnicza size at initialization properly (#1115)
+- Process fast search filters outside bbolt transaction (#1115)
+- Update TZHash library to v1.5.1
+
+### Removed
+- `--wif` and `--binary-key` keys from CLI (#1083)
+- Extended ACL validator moved to SDK library (#1096)
+- `--generate-key` flag in CLI control commands (#1103)
+- Various unused code (#1123)
+
+### Upgrading from v0.27.4
+Use `--wallet` key in CLI to provide WIF or binary key file instead of `--wif`
+and `--binary-key`.
+
+Replace `NEOFS_STORAGE_SHARD_N_USE_WRITE_CACHE` with 
+`NEOFS_STORAGE_SHARD_N_WRITECACHE_ENABLED` in Storage node config.
+
+Specify `password: xxx` in config file for NeoFS CLI to avoid password input.
+
 ## [0.27.4] - 2022-01-13
 
 ### Fixed
@@ -874,7 +916,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...master
+[0.27.5]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
 [0.27.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.2...v0.27.3
 [0.27.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.1...v0.27.2
