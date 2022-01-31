@@ -1,6 +1,10 @@
 package audit
 
 import (
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -25,7 +29,12 @@ const (
 	listByNodeResultsMethod  = "listByNode"
 )
 
-// New creates, initializes and returns the Client instance.
-func New(c *client.StaticClient) *Client {
-	return &Client{client: c}
+// NewFromMorph returns the wrapper instance from the raw morph client.
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...client.StaticClientOption) (*Client, error) {
+	sc, err := client.NewStatic(cli, contract, fee, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("could not create static client of audit contract: %w", err)
+	}
+
+	return &Client{client: sc}, nil
 }

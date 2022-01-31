@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
-	auditwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -151,7 +151,7 @@ func (s *Server) WriteReport(r *audit.Report) error {
 	res := r.Result()
 	res.SetPublicKey(s.pubKey)
 
-	prm := auditwrp.PutPrm{}
+	prm := auditClient.PutPrm{}
 	prm.SetResult(res)
 
 	return s.auditClient.PutAuditResult(prm)

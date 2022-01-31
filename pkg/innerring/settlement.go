@@ -14,7 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -40,7 +40,7 @@ type settlementDeps struct {
 
 	cnrSrc container.Source
 
-	auditClient *auditClient.ClientWrapper
+	auditClient *auditClient.Client
 
 	nmSrc netmap.Source
 
