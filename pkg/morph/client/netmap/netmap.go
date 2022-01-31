@@ -5,13 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
-
-// GetNetMapValues groups the stack parameters
-// returned by get network map test invoke.
-type GetNetMapValues struct {
-	peers [][]byte
-}
 
 // State is an enumeration of various states of the NeoFS node.
 type State int64
@@ -48,117 +43,27 @@ const (
 	peerWithStateFixedPrmNumber = 2
 )
 
-// Peers return the list of peers from
-// network map in a binary format.
-func (g GetNetMapValues) Peers() [][]byte {
-	return g.peers
-}
-
-// GetNetMapArgs groups the arguments
-// of get network map test invoke call.
-type GetNetMapArgs struct{}
-
-// NetMap performs the test invoke of get network map
-// method of NeoFS Netmap contract.
-func (c *Client) NetMap(_ GetNetMapArgs) (*GetNetMapValues, error) {
+// GetNetMapByEpoch receives information list about storage nodes
+// through the Netmap contract call, composes network map
+// from them and returns it. Returns snapshot of the specified epoch number.
+func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error) {
 	invokePrm := client.TestInvokePrm{}
-	invokePrm.SetMethod(netMapMethod)
-
-	prms, err := c.client.TestInvoke(invokePrm)
-	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			netMapMethod, err)
-	}
-
-	return peersFromStackItems(prms, netMapMethod)
-}
-
-// GetSnapshotArgs groups the arguments
-// of get netmap snapshot test invoke call.
-type GetSnapshotArgs struct {
-	diff uint64
-}
-
-// SetDiff sets argument for snapshot method of
-// netmap contract.
-func (g *GetSnapshotArgs) SetDiff(d uint64) {
-	g.diff = d
-}
-
-// Snapshot performs the test invoke of get snapshot of network map
-// from NeoFS Netmap contract. Contract saves only one previous epoch,
-// so all invokes with diff > 1 return error.
-func (c *Client) Snapshot(a GetSnapshotArgs) (*GetNetMapValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
-	invokePrm.SetMethod(snapshotMethod)
-	invokePrm.SetArgs(int64(a.diff))
-
-	prms, err := c.client.TestInvoke(invokePrm)
-	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
-			netMapMethod, err)
-	}
-
-	return peersFromStackItems(prms, snapshotMethod)
-}
-
-// EpochSnapshotArgs groups the arguments
-// of snapshot by epoch test invoke call.
-type EpochSnapshotArgs struct {
-	epoch uint64
-}
-
-// SetEpoch sets epoch number to get snapshot.
-func (a *EpochSnapshotArgs) SetEpoch(d uint64) {
-	a.epoch = d
-}
-
-// EpochSnapshotValues groups the stack parameters
-// returned by snapshot by epoch test invoke.
-type EpochSnapshotValues struct {
-	*GetNetMapValues
-}
-
-// EpochSnapshot performs the test invoke of get snapshot of network map by epoch
-// from NeoFS Netmap contract.
-func (c *Client) EpochSnapshot(args EpochSnapshotArgs) (*EpochSnapshotValues, error) {
-	invokePrm := client.TestInvokePrm{}
-
 	invokePrm.SetMethod(epochSnapshotMethod)
-	invokePrm.SetArgs(int64(args.epoch))
+	invokePrm.SetArgs(int64(epoch))
 
-	prms, err := c.client.TestInvoke(invokePrm)
+	res, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			epochSnapshotMethod, err)
 	}
 
-	nmVals, err := peersFromStackItems(prms, epochSnapshotMethod)
-	if err != nil {
-		return nil, err
-	}
-
-	return &EpochSnapshotValues{
-		GetNetMapValues: nmVals,
-	}, nil
+	return unmarshalNetmap(res, epochSnapshotMethod)
 }
 
-// GetNetMapCandidatesArgs groups the arguments
-// of get network map candidates test invoke call.
-type GetNetMapCandidatesArgs struct{}
-
-// GetNetMapCandidatesValues groups the stack parameters
-// returned by get network map candidates test invoke.
-type GetNetMapCandidatesValues struct {
-	netmapNodes []*PeerWithState
-}
-
-func (g GetNetMapCandidatesValues) NetmapNodes() []*PeerWithState {
-	return g.netmapNodes
-}
-
-func (c *Client) Candidates(_ GetNetMapCandidatesArgs) (*GetNetMapCandidatesValues, error) {
+// GetCandidates receives information list about candidates
+// for the next epoch network map through the Netmap contract
+// call, composes network map from them and returns it.
+func (c *Client) GetCandidates() (*netmap.Netmap, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(netMapCandidatesMethod)
 
@@ -172,10 +77,49 @@ func (c *Client) Candidates(_ GetNetMapCandidatesArgs) (*GetNetMapCandidatesValu
 		return nil, fmt.Errorf("could not parse contract response: %w", err)
 	}
 
-	return candVals, nil
+	return unmarshalCandidates(candVals)
 }
 
-func peersWithStateFromStackItems(stack []stackitem.Item, method string) (*GetNetMapCandidatesValues, error) {
+// NetMap performs the test invoke of get network map
+// method of NeoFS Netmap contract.
+func (c *Client) NetMap() ([][]byte, error) {
+	invokePrm := client.TestInvokePrm{}
+	invokePrm.SetMethod(netMapMethod)
+
+	prms, err := c.client.TestInvoke(invokePrm)
+	if err != nil {
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+			netMapMethod, err)
+	}
+
+	return peersFromStackItems(prms, netMapMethod)
+}
+
+func unmarshalCandidates(rawCandidate []*PeerWithState) (*netmap.Netmap, error) {
+	candidates := make([]netmap.NodeInfo, 0, len(rawCandidate))
+
+	for _, candidate := range rawCandidate {
+		nodeInfo := netmap.NewNodeInfo()
+		if err := nodeInfo.Unmarshal(candidate.Peer()); err != nil {
+			return nil, fmt.Errorf("can't unmarshal peer info: %w", err)
+		}
+
+		switch candidate.State() {
+		case Online:
+			nodeInfo.SetState(netmap.NodeStateOnline)
+		case Offline:
+			nodeInfo.SetState(netmap.NodeStateOffline)
+		default:
+			nodeInfo.SetState(0)
+		}
+
+		candidates = append(candidates, *nodeInfo)
+	}
+
+	return netmap.NewNetmap(netmap.NodesFromInfo(candidates))
+}
+
+func peersWithStateFromStackItems(stack []stackitem.Item, method string) ([]*PeerWithState, error) {
 	if ln := len(stack); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
@@ -185,17 +129,14 @@ func peersWithStateFromStackItems(stack []stackitem.Item, method string) (*GetNe
 		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", method, err)
 	}
 
-	res := &GetNetMapCandidatesValues{
-		netmapNodes: make([]*PeerWithState, 0, len(netmapNodes)),
-	}
-
+	res := make([]*PeerWithState, 0, len(netmapNodes))
 	for i := range netmapNodes {
 		node, err := peerWithStateFromStackItem(netmapNodes[i])
 		if err != nil {
 			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
 		}
 
-		res.netmapNodes = append(res.netmapNodes, node)
+		res = append(res, node)
 	}
 
 	return res, nil
@@ -238,7 +179,7 @@ func peerWithStateFromStackItem(prm stackitem.Item) (*PeerWithState, error) {
 	return &res, nil
 }
 
-func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValues, error) {
+func peersFromStackItems(stack []stackitem.Item, method string) ([][]byte, error) {
 	if ln := len(stack); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
 			method, ln)
@@ -250,9 +191,7 @@ func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValue
 			method, err)
 	}
 
-	res := &GetNetMapValues{
-		peers: make([][]byte, 0, len(peers)),
-	}
+	res := make([][]byte, 0, len(peers))
 
 	for i := range peers {
 		peer, err := peerInfoFromStackItem(peers[i])
@@ -260,7 +199,7 @@ func peersFromStackItems(stack []stackitem.Item, method string) (*GetNetMapValue
 			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
 		}
 
-		res.peers = append(res.peers, peer)
+		res = append(res, peer)
 	}
 
 	return res, nil

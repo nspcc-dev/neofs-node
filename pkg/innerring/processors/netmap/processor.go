@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	container "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	subnetEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
@@ -59,7 +59,7 @@ type (
 		epochState    EpochState
 		alphabetState AlphabetState
 
-		netmapClient *nmWrapper.Wrapper
+		netmapClient *nmClient.Client
 		containerWrp *container.Wrapper
 
 		subnetContract util.Uint160
@@ -80,7 +80,7 @@ type (
 	Params struct {
 		Log              *zap.Logger
 		PoolSize         int
-		NetmapClient     *nmWrapper.Wrapper
+		NetmapClient     *nmClient.Client
 		EpochTimer       EpochTimerReseter
 		EpochState       EpochState
 		AlphabetState    AlphabetState

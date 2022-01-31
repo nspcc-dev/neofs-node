@@ -3,7 +3,7 @@ package main
 import (
 	"sync"
 
-	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 )
 
@@ -13,13 +13,13 @@ type (
 	EigenTrustDuration struct {
 		sync.Mutex
 
-		nm  *wrapNetmap.Wrapper
+		nm  *nmClient.Client
 		val uint32
 	}
 )
 
 // NewEigenTrustDuration returns instance of EigenTrustDuration.
-func NewEigenTrustDuration(nm *wrapNetmap.Wrapper) *EigenTrustDuration {
+func NewEigenTrustDuration(nm *nmClient.Client) *EigenTrustDuration {
 	return &EigenTrustDuration{
 		nm: nm,
 	}

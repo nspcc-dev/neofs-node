@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"go.uber.org/zap"
 )
 
@@ -86,7 +86,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 			)
 
 			if gp.notaryDisabled {
-				updPrm := wrapper.UpdateIRPrm{}
+				updPrm := nmClient.UpdateIRPrm{}
 
 				updPrm.SetKeys(newInnerRing)
 				updPrm.SetHash(txHash)

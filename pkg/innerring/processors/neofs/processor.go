@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
-	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"github.com/panjf2000/ants/v2"
@@ -40,7 +40,7 @@ type (
 		pool                *ants.Pool
 		neofsContract       util.Uint160
 		balanceClient       *balance.Client
-		netmapClient        *nmWrapper.Wrapper
+		netmapClient        *nmClient.Client
 		morphClient         *client.Client
 		epochState          EpochState
 		alphabetState       AlphabetState
@@ -61,7 +61,7 @@ type (
 		NeoFSContract       util.Uint160
 		NeoFSIDClient       *neofsid.Client
 		BalanceClient       *balance.Client
-		NetmapClient        *nmWrapper.Wrapper
+		NetmapClient        *nmClient.Client
 		MorphClient         *client.Client
 		EpochState          EpochState
 		AlphabetState       AlphabetState

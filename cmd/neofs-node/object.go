@@ -15,7 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntrwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	nmwrp "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -151,7 +151,7 @@ func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
 }
 
 type innerRingFetcherWithoutNotary struct {
-	nm *nmwrp.Wrapper
+	nm *nmClient.Client
 }
 
 func (f *innerRingFetcherWithoutNotary) InnerRingKeys() ([][]byte, error) {

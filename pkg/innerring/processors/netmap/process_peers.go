@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	subnetEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"

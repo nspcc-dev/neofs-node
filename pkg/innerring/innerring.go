@@ -34,7 +34,7 @@ import (
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
-	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -77,7 +77,7 @@ type (
 		auditClient   *auditWrapper.ClientWrapper
 		healthStatus  atomic.Value
 		balanceClient *balanceClient.Client
-		netmapClient  *nmWrapper.Wrapper
+		netmapClient  *nmClient.Client
 		persistate    *state.PersistentStorage
 
 		// metrics
@@ -488,7 +488,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	server.netmapClient, err = nmWrapper.NewFromMorph(server.morphClient, server.contracts.netmap, fee, nmWrapper.TryNotary(), nmWrapper.AsAlphabet())
+	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, fee, nmClient.TryNotary(), nmClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
