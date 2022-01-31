@@ -25,6 +25,9 @@ type Info struct {
 
 	// Weight parameters of the shard.
 	WeightValues WeightValues
+
+	// ErrorCount contains amount of errors occurred in shard operations.
+	ErrorCount uint32
 }
 
 // DumpInfo returns information about the Shard.
