@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
+	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -20,7 +20,7 @@ import (
 type FinalWriterProviderPrm struct {
 	PrivatKey *ecdsa.PrivateKey
 	PubKey    []byte
-	Client    *wrapper.ClientWrapper
+	Client    *repClient.Client
 }
 
 // NewFinalWriterProvider creates a new instance of the FinalWriterProvider.
@@ -64,13 +64,13 @@ func (fwp FinalWriterProvider) InitIntermediateWriter(
 type FinalWriter struct {
 	privatKey *ecdsa.PrivateKey
 	pubKey    []byte
-	client    *wrapper.ClientWrapper
+	client    *repClient.Client
 
 	l *logger.Logger
 }
 
 func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error {
-	args := wrapper.PutArgs{}
+	args := repClient.PutPrm{}
 
 	var trustedPublicKey [33]byte
 	copy(trustedPublicKey[:], t.Peer().Bytes())

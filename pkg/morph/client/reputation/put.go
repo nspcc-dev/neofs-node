@@ -4,39 +4,47 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
-// PutArgs groups the arguments of "put reputation value" invocation call.
-type PutArgs struct {
-	epoch  uint64
-	peerID []byte
-	value  []byte
-}
+type (
+	// PutPrm groups the arguments of "put reputation value" invocation call.
+	PutPrm struct {
+		epoch  uint64
+		peerID reputation.PeerID
+		value  reputation.GlobalTrust
+	}
+)
 
 // SetEpoch sets epoch of reputation value.
-func (p *PutArgs) SetEpoch(v uint64) {
+func (p *PutPrm) SetEpoch(v uint64) {
 	p.epoch = v
 }
 
 // SetPeerID sets peer id of reputation value.
-func (p *PutArgs) SetPeerID(v []byte) {
+func (p *PutPrm) SetPeerID(v reputation.PeerID) {
 	p.peerID = v
 }
 
-// SetValue sets marshaled reputation value.
-func (p *PutArgs) SetValue(v []byte) {
+// SetValue sets reputation value.
+func (p *PutPrm) SetValue(v reputation.GlobalTrust) {
 	p.value = v
 }
 
 // Put invokes direct call of "put reputation value" method of reputation contract.
-func (c *Client) Put(args PutArgs) error {
+//
+// If TryNotary is provided, calls notary contract.
+func (c *Client) Put(p PutPrm) error {
+	data, err := p.value.Marshal()
+	if err != nil {
+		return fmt.Errorf("can't marshal global trust value: %w", err)
+	}
+
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(putMethod)
-	prm.SetArgs(int64(args.epoch), args.peerID, args.value)
+	prm.SetArgs(int64(p.epoch), p.peerID.ToV2().GetPublicKey(), data)
 
-	err := c.client.Invoke(prm)
-
+	err = c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
 	}
