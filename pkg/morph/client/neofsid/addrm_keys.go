@@ -6,19 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// AddKeysArgs groups the arguments
-// of key binding call.
-type AddKeysArgs struct {
-	commonBindArgs
-}
-
-// RemoveKeysArgs groups the arguments
-// of key unbinding call.
-type RemoveKeysArgs struct {
-	commonBindArgs
-}
-
-type commonBindArgs struct {
+type CommonBindPrm struct {
 	ownerID []byte // NeoFS account identifier
 
 	keys [][]byte // list of serialized public keys
@@ -26,28 +14,27 @@ type commonBindArgs struct {
 	client.InvokePrmOptional
 }
 
-func (x *commonBindArgs) SetOptionalPrm(prm client.InvokePrmOptional) {
+func (x *CommonBindPrm) SetOptionalPrm(prm client.InvokePrmOptional) {
 	x.InvokePrmOptional = prm
 }
 
 // SetOwnerID sets NeoFS account identifier.
-func (x *commonBindArgs) SetOwnerID(v []byte) {
+func (x *CommonBindPrm) SetOwnerID(v []byte) {
 	x.ownerID = v
 }
 
 // SetKeys sets list of public keys in a binary format.
-func (x *commonBindArgs) SetKeys(v [][]byte) {
+func (x *CommonBindPrm) SetKeys(v [][]byte) {
 	x.keys = v
 }
 
-// AddKeys invokes the call of key adding method
-// of NeoFS contract.
-func (x *Client) AddKeys(args AddKeysArgs) error {
+// AddKeys adds a list of public keys to/from NeoFS account.
+func (x *Client) AddKeys(p CommonBindPrm) error {
 	prm := client.InvokePrm{}
 
 	prm.SetMethod(addKeysMethod)
-	prm.SetArgs(args.ownerID, args.keys)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(p.ownerID, p.keys)
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
@@ -57,9 +44,8 @@ func (x *Client) AddKeys(args AddKeysArgs) error {
 	return nil
 }
 
-// RemoveKeys invokes the call of key removing method
-// of NeoFS contract.
-func (x *Client) RemoveKeys(args RemoveKeysArgs) error {
+// RemoveKeys removes a list of public keys to/from NeoFS account.
+func (x *Client) RemoveKeys(args CommonBindPrm) error {
 	prm := client.InvokePrm{}
 
 	prm.SetMethod(removeKeysMethod)
