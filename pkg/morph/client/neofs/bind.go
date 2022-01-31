@@ -6,18 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// BindKeysArgs groups the arguments
-// of key binding call.
-type BindKeysArgs struct {
-	commonBindArgs
-}
-
-// UnbindKeysArgs groups the arguments
-// of key unbinding call.
-type UnbindKeysArgs struct {
-	commonBindArgs
-}
-
 type commonBindArgs struct {
 	scriptHash []byte // script hash of account identifier
 
@@ -41,14 +29,17 @@ func (x *commonBindArgs) SetKeys(v [][]byte) {
 	x.keys = v
 }
 
-// BindKeys invokes the call of key binding method
-// of NeoFS contract.
-func (x *Client) BindKeys(args BindKeysArgs) error {
-	prm := client.InvokePrm{}
+// BindKeysPrm groups parameters of BindKeys operation.
+type BindKeysPrm struct {
+	commonBindArgs
+}
 
+// BindKeys binds list of public keys from NeoFS account by script hash.
+func (x *Client) BindKeys(p BindKeysPrm) error {
+	prm := client.InvokePrm{}
 	prm.SetMethod(bindKeysMethod)
-	prm.SetArgs(args.scriptHash, args.keys)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(p.scriptHash, p.keys)
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := x.client.Invoke(prm)
 	if err != nil {
@@ -58,11 +49,15 @@ func (x *Client) BindKeys(args BindKeysArgs) error {
 	return nil
 }
 
+// UnbindKeysPrm groups parameters of UnbindKeys operation.
+type UnbindKeysPrm struct {
+	commonBindArgs
+}
+
 // UnbindKeys invokes the call of key unbinding method
 // of NeoFS contract.
-func (x *Client) UnbindKeys(args UnbindKeysArgs) error {
+func (x *Client) UnbindKeys(args UnbindKeysPrm) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(unbindKeysMethod)
 	prm.SetArgs(args.scriptHash, args.keys)
 	prm.InvokePrmOptional = args.InvokePrmOptional

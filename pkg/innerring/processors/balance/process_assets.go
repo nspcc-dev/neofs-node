@@ -1,7 +1,7 @@
 package balance
 
 import (
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	"go.uber.org/zap"
 )

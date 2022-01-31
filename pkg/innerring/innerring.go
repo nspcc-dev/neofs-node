@@ -32,7 +32,7 @@ import (
 	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	neofsWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
+	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	neofsidWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid/wrapper"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	repWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation/wrapper"
@@ -508,8 +508,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		return nil, err
 	}
 
-	neofsClient, err := neofsWrapper.NewFromMorph(server.mainnetClient, server.contracts.neofs,
-		server.feeConfig.MainChainFee(), neofsWrapper.TryNotary(), neofsWrapper.AsAlphabet())
+	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.contracts.neofs,
+		server.feeConfig.MainChainFee(), neofsClient.TryNotary(), neofsClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +665,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		// create governance processor
 		governanceProcessor, err := governance.New(&governance.Params{
 			Log:            log,
-			NeoFSClient:    neofsClient,
+			NeoFSClient:    neofsCli,
 			NetmapClient:   server.netmapClient,
 			AlphabetState:  server,
 			EpochState:     server,
@@ -748,7 +748,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	balanceProcessor, err := balance.New(&balance.Params{
 		Log:           log,
 		PoolSize:      cfg.GetInt("workers.balance"),
-		NeoFSClient:   neofsClient,
+		NeoFSClient:   neofsCli,
 		AlphabetState: server,
 		Converter:     &server.precision,
 	})
