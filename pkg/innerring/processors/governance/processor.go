@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
-	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
 	"github.com/panjf2000/ants/v2"
@@ -58,7 +58,7 @@ type (
 		log          *zap.Logger
 		pool         *ants.Pool
 		neofsClient  *neofscontract.Client
-		netmapClient *nmWrapper.Wrapper
+		netmapClient *nmClient.Client
 
 		alphabetState AlphabetState
 		epochState    EpochState
@@ -85,7 +85,7 @@ type (
 		MorphClient   *client.Client
 		MainnetClient *client.Client
 		NeoFSClient   *neofscontract.Client
-		NetmapClient  *nmWrapper.Wrapper
+		NetmapClient  *nmClient.Client
 
 		NotaryDisabled bool
 	}

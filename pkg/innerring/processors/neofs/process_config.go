@@ -1,7 +1,7 @@
 package neofs
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
 )
@@ -14,7 +14,7 @@ func (np *Processor) processConfig(config *neofsEvent.Config) {
 		return
 	}
 
-	prm := wrapper.SetConfigPrm{}
+	prm := nmClient.SetConfigPrm{}
 
 	prm.SetID(config.ID())
 	prm.SetKey(config.Key())

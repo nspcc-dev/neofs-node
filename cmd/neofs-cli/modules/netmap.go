@@ -7,7 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
@@ -171,7 +171,7 @@ var netInfoCmd = &cobra.Command{
 
 		cmd.Println("NeoFS network configuration")
 
-		err = wrapper.WriteConfig((*netCfgWriter)(cmd), func(f func(key []byte, val []byte) error) error {
+		err = nmClient.WriteConfig((*netCfgWriter)(cmd), func(f func(key []byte, val []byte) error) error {
 			var err error
 
 			netCfg.IterateParameters(func(prm *netmap.NetworkParameter) bool {

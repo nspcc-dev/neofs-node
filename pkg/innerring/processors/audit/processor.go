@@ -9,7 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	wrapContainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
-	wrapNetmap "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -42,7 +42,7 @@ type (
 		searchTimeout time.Duration
 
 		containerClient *wrapContainer.Wrapper
-		netmapClient    *wrapNetmap.Wrapper
+		netmapClient    *nmClient.Client
 
 		taskManager       TaskManager
 		reporter          audit.Reporter
@@ -52,7 +52,7 @@ type (
 	// Params of the processor constructor.
 	Params struct {
 		Log              *zap.Logger
-		NetmapClient     *wrapNetmap.Wrapper
+		NetmapClient     *nmClient.Client
 		ContainerClient  *wrapContainer.Wrapper
 		IRList           Indexer
 		SGSource         SGSource

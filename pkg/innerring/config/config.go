@@ -14,16 +14,16 @@ Implemented as a part of https://github.com/nspcc-dev/neofs-node/issues/363
 
 import (
 	"github.com/nspcc-dev/neofs-node/misc"
-	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/spf13/viper"
 )
 
 type GlobalConfig struct {
 	cfg *viper.Viper
-	nm  *netmapClient.Wrapper
+	nm  *netmapClient.Client
 }
 
-func NewGlobalConfigReader(cfg *viper.Viper, nm *netmapClient.Wrapper) *GlobalConfig {
+func NewGlobalConfigReader(cfg *viper.Viper, nm *netmapClient.Client) *GlobalConfig {
 	return &GlobalConfig{
 		cfg: cfg,
 		nm:  nm,

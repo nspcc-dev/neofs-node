@@ -28,7 +28,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	nmwrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
@@ -155,7 +155,7 @@ type cfgContainer struct {
 
 type cfgNetmap struct {
 	scriptHash neogoutil.Uint160
-	wrapper    *nmwrapper.Wrapper
+	wrapper    *nmClient.Client
 
 	parsers map[event.Type]event.NotificationParser
 
@@ -478,7 +478,7 @@ func (c *cfg) bootstrap() error {
 	ni := c.cfgNodeInfo.localInfo
 	ni.SetState(netmap.NodeStateOnline)
 
-	prm := nmwrapper.AddPeerPrm{}
+	prm := nmClient.AddPeerPrm{}
 	prm.SetNodeInfo(&ni)
 
 	return c.cfgNetmap.wrapper.AddPeer(prm)

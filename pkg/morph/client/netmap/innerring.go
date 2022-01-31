@@ -22,16 +22,14 @@ func (u *UpdateIRPrm) SetKeys(keys keys.PublicKeys) {
 	u.keys = keys
 }
 
-// UpdateInnerRing updates inner ring members in netmap contract.
+// UpdateInnerRing updates inner ring keys.
 func (c *Client) UpdateInnerRing(p UpdateIRPrm) error {
 	args := make([][]byte, len(p.keys))
-
 	for i := range args {
 		args[i] = p.keys[i].Bytes()
 	}
 
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(updateInnerRingMethod)
 	prm.SetArgs(args)
 	prm.InvokePrmOptional = p.InvokePrmOptional
@@ -39,9 +37,8 @@ func (c *Client) UpdateInnerRing(p UpdateIRPrm) error {
 	return c.client.Invoke(prm)
 }
 
-// InnerRingList returns public keys of inner ring members in
-// netmap contract.
-func (c *Client) InnerRingList() (keys.PublicKeys, error) {
+// GetInnerRingList return current IR list.
+func (c *Client) GetInnerRingList() (keys.PublicKeys, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(innerRingListMethod)
 

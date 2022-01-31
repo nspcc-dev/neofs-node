@@ -11,7 +11,7 @@ import (
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -317,7 +317,7 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
-	prm := wrapper.UpdatePeerPrm{}
+	prm := nmClient.UpdatePeerPrm{}
 
 	prm.SetKey(c.key.PublicKey().Bytes())
 	prm.SetState(apiState)

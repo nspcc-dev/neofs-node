@@ -3,7 +3,7 @@ package innerring
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 )
 
 // NewIRFetcherWithNotary creates IrFetcherWithNotary.
@@ -26,7 +26,7 @@ func NewIRFetcherWithNotary(cli *client.Client) *IrFetcherWithNotary {
 // contract.
 //
 // Passed netmap wrapper is required. Panics if nil.
-func NewIRFetcherWithoutNotary(nm *nmWrapper.Wrapper) *IrFetcherWithoutNotary {
+func NewIRFetcherWithoutNotary(nm *nmClient.Client) *IrFetcherWithoutNotary {
 	if nm == nil {
 		panic("could not init IRFetcher without notary: netmap wrapper must not be nil")
 	}
@@ -42,7 +42,7 @@ type IrFetcherWithNotary struct {
 // IrFetcherWithoutNotary fetches keys using netmap contract. Must be created
 // with NewIRFetcherWithoutNotary.
 type IrFetcherWithoutNotary struct {
-	nm *nmWrapper.Wrapper
+	nm *nmClient.Client
 }
 
 // InnerRingKeys fetches list of innerring keys from NeoFSAlphabet

@@ -2,7 +2,7 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
+	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
