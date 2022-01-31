@@ -59,9 +59,9 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 
 	finished := false
 
-	e.iterateOverSortedShards(prm.obj.Address(), func(ind int, s *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(prm.obj.Address(), func(ind int, sh hashedShard) (stop bool) {
 		e.mtx.RLock()
-		pool := e.shardPools[s.ID().String()]
+		pool := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
 
 		exitCh := make(chan struct{})
@@ -69,7 +69,7 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 		if err := pool.Submit(func() {
 			defer close(exitCh)
 
-			exists, err := s.Exists(existPrm)
+			exists, err := sh.Exists(existPrm)
 			if err != nil {
 				return // this is not ErrAlreadyRemoved error so we can go to the next shard
 			}
@@ -79,10 +79,10 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 					toMoveItPrm := new(shard.ToMoveItPrm)
 					toMoveItPrm.WithAddress(prm.obj.Address())
 
-					_, err = s.ToMoveIt(toMoveItPrm)
+					_, err = sh.ToMoveIt(toMoveItPrm)
 					if err != nil {
 						e.log.Warn("could not mark object for shard relocation",
-							zap.Stringer("shard", s.ID()),
+							zap.Stringer("shard", sh.ID()),
 							zap.String("error", err.Error()),
 						)
 					}
@@ -96,10 +96,10 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 			putPrm := new(shard.PutPrm)
 			putPrm.WithObject(prm.obj)
 
-			_, err = s.Put(putPrm)
+			_, err = sh.Put(putPrm)
 			if err != nil {
 				e.log.Warn("could not put object in shard",
-					zap.Stringer("shard", s.ID()),
+					zap.Stringer("shard", sh.ID()),
 					zap.String("error", err.Error()),
 				)
 

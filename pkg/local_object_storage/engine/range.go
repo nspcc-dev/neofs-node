@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // RngPrm groups the parameters of GetRange operation.
@@ -88,7 +87,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 		WithAddress(prm.addr).
 		WithRange(prm.off, prm.ln)
 
-	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
+	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.GetRange(shPrm)
 		if err != nil {
 			switch {
@@ -116,13 +115,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 
 				return true // stop, return it back
 			default:
-				// TODO: smth wrong with shard, need to be processed, but
-				// still go to next shard
-				e.log.Warn("could not get object from shard",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
-
+				e.reportShardError(sh, "could not get object from shard", err)
 				return false
 			}
 		}
