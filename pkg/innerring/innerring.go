@@ -29,7 +29,7 @@ import (
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit/wrapper"
+	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/container/wrapper"
 	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
@@ -74,7 +74,7 @@ type (
 		epochDuration atomic.Uint64
 		statusIndex   *innerRingIndexer
 		precision     precision.Fixed8Converter
-		auditClient   *auditWrapper.ClientWrapper
+		auditClient   *auditClient.Client
 		healthStatus  atomic.Value
 		balanceClient *balanceClient.Client
 		netmapClient  *nmClient.Client
@@ -463,7 +463,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 
 	// do not use TryNotary() in audit wrapper
 	// audit operations do not require multisignatures
-	server.auditClient, err = auditWrapper.NewFromMorph(server.morphClient, server.contracts.audit, fee)
+	server.auditClient, err = auditClient.NewFromMorph(server.morphClient, server.contracts.audit, fee)
 	if err != nil {
 		return nil, err
 	}
