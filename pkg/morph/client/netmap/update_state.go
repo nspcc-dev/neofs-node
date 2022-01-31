@@ -4,42 +4,36 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-// UpdateStateArgs groups the arguments
-// of update state invocation call.
-type UpdateStateArgs struct {
-	key []byte // peer public key
-
-	state int64 // new peer state
+// UpdatePeerPrm groups parameters of UpdatePeerState operation.
+type UpdatePeerPrm struct {
+	key   []byte
+	state netmap.NodeState
 
 	client.InvokePrmOptional
 }
 
-// SetPublicKey sets peer public key
-// in a binary format.
-func (u *UpdateStateArgs) SetPublicKey(v []byte) {
-	u.key = v
+// SetKey sets public key.
+func (u *UpdatePeerPrm) SetKey(key []byte) {
+	u.key = key
 }
 
-// SetState sets the new peer state.
-func (u *UpdateStateArgs) SetState(v int64) {
-	u.state = v
+// SetState sets node state.
+func (u *UpdatePeerPrm) SetState(state netmap.NodeState) {
+	u.state = state
 }
 
-// UpdateState invokes the call of update state method
-// of NeoFS Netmap contract.
-func (c *Client) UpdateState(args UpdateStateArgs) error {
+// UpdatePeerState changes peer status through Netmap contract call.
+func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(updateStateMethod)
-	prm.SetArgs(args.state, args.key)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(int64(p.state.ToV2()), p.key)
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
-	err := c.client.Invoke(prm)
-	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", updateStateMethod, err)
+	if err := c.client.Invoke(prm); err != nil {
+		return fmt.Errorf("could not invoke smart contract: %w", err)
 	}
-
 	return nil
 }
