@@ -4,16 +4,16 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/accounting"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance/wrapper"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	accountingSvc "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type morphExecutor struct {
-	client *wrapper.Wrapper
+	client *balance.Client
 }
 
-func NewExecutor(client *wrapper.Wrapper) accountingSvc.ServiceExecutor {
+func NewExecutor(client *balance.Client) accountingSvc.ServiceExecutor {
 	return &morphExecutor{
 		client: client,
 	}
