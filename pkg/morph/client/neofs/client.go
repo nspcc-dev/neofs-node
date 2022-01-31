@@ -1,6 +1,10 @@
 package neofscontract
 
 import (
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -23,7 +27,52 @@ const (
 	chequeMethod         = "cheque"
 )
 
-// New creates, initializes and returns the Client instance.
-func New(c *client.StaticClient) *Client {
-	return &Client{client: c}
+// NewFromMorph wraps client to work with NeoFS contract.
+func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*Client, error) {
+	o := defaultOpts()
+
+	for i := range opts {
+		opts[i](o)
+	}
+
+	sc, err := client.NewStatic(cli, contract, fee, ([]client.StaticClientOption)(*o)...)
+	if err != nil {
+		return nil, fmt.Errorf("could not create client of NeoFS contract: %w", err)
+	}
+
+	return &Client{client: sc}, nil
+}
+
+// ContractAddress returns the address of the associated contract.
+func (x *Client) ContractAddress() util.Uint160 {
+	return x.client.ContractAddress()
+}
+
+// Option allows to set an optional
+// parameter of ClientWrapper.
+type Option func(*opts)
+
+type opts []client.StaticClientOption
+
+func defaultOpts() *opts {
+	return new(opts)
+}
+
+// TryNotary returns option to enable
+// notary invocation tries.
+func TryNotary() Option {
+	return func(o *opts) {
+		*o = append(*o, client.TryNotary())
+	}
+}
+
+// AsAlphabet returns option to sign main TX
+// of notary requests with client's private
+// key.
+//
+// Considered to be used by IR nodes only.
+func AsAlphabet() Option {
+	return func(o *opts) {
+		*o = append(*o, client.AsAlphabet())
+	}
 }

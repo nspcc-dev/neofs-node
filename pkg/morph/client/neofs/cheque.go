@@ -6,7 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// ChequePrm groups the arguments of Cheque operation.
+// ChequePrm groups parameters of Cheque operation.
 type ChequePrm struct {
 	id     []byte
 	user   util.Uint160
@@ -37,18 +37,16 @@ func (c *ChequePrm) SetLock(lock util.Uint160) {
 }
 
 // Cheque invokes `cheque` method of NeoFS contract.
-func (x *Client) Cheque(args ChequePrm) error {
+func (x *Client) Cheque(p ChequePrm) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(chequeMethod)
-	prm.SetArgs(args.id, args.user.BytesBE(), args.amount, args.lock.BytesBE())
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(p.id, p.user.BytesBE(), p.amount, p.lock.BytesBE())
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return x.client.Invoke(prm)
 }
 
-// AlphabetUpdatePrm groups the arguments
-// of alphabet nodes update invocation call.
+// AlphabetUpdatePrm groups parameters of AlphabetUpdate operation.
 type AlphabetUpdatePrm struct {
 	id   []byte
 	pubs keys.PublicKeys
@@ -67,12 +65,11 @@ func (a *AlphabetUpdatePrm) SetPubs(pubs keys.PublicKeys) {
 }
 
 // AlphabetUpdate update list of alphabet nodes.
-func (x *Client) AlphabetUpdate(args AlphabetUpdatePrm) error {
+func (x *Client) AlphabetUpdate(p AlphabetUpdatePrm) error {
 	prm := client.InvokePrm{}
-
 	prm.SetMethod(alphabetUpdateMethod)
-	prm.SetArgs(args.id, args.pubs)
-	prm.InvokePrmOptional = args.InvokePrmOptional
+	prm.SetArgs(p.id, p.pubs)
+	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return x.client.Invoke(prm)
 }

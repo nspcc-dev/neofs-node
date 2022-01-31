@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs/wrapper"
+	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	nmWrapper "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap/wrapper"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
@@ -57,7 +57,7 @@ type (
 	Processor struct {
 		log          *zap.Logger
 		pool         *ants.Pool
-		neofsClient  *neofscontract.ClientWrapper
+		neofsClient  *neofscontract.Client
 		netmapClient *nmWrapper.Wrapper
 
 		alphabetState AlphabetState
@@ -84,7 +84,7 @@ type (
 
 		MorphClient   *client.Client
 		MainnetClient *client.Client
-		NeoFSClient   *neofscontract.ClientWrapper
+		NeoFSClient   *neofscontract.Client
 		NetmapClient  *nmWrapper.Wrapper
 
 		NotaryDisabled bool
