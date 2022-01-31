@@ -136,6 +136,9 @@ message ShardInfo {
 
     // Work mode of the shard.
     ShardMode mode = 5;
+
+    // Amount of errors occured.
+    uint32 errorCount = 6;
 }
 
 // Work mode of the shard.

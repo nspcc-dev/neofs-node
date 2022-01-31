@@ -45,6 +45,7 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 		}
 
 		si.SetMode(mode)
+		si.SetErrorCount(sh.ErrorCount)
 
 		shardInfos = append(shardInfos, si)
 	}
