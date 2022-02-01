@@ -31,6 +31,7 @@ func TestEngineSection(t *testing.T) {
 
 		require.False(t, handlerCalled)
 
+		require.EqualValues(t, 0, engineconfig.ShardErrorThreshold(empty))
 		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, engineconfig.ShardPoolSize(empty))
 		require.EqualValues(t, shard.ModeReadWrite, shardconfig.From(empty).Mode())
 	})
@@ -40,6 +41,7 @@ func TestEngineSection(t *testing.T) {
 	var fileConfigTest = func(c *config.Config) {
 		num := 0
 
+		require.EqualValues(t, 100, engineconfig.ShardErrorThreshold(c))
 		require.EqualValues(t, 15, engineconfig.ShardPoolSize(c))
 
 		engineconfig.IterateShards(c, true, func(sc *shardconfig.Config) {

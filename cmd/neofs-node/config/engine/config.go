@@ -58,3 +58,10 @@ func ShardPoolSize(c *config.Config) uint32 {
 
 	return ShardPoolSizeDefault
 }
+
+// ShardErrorThreshold returns value of "shard_ro_error_threshold" config parameter from "storage" section.
+//
+// Returns 0 if the value is missing.
+func ShardErrorThreshold(c *config.Config) uint32 {
+	return config.Uint32Safe(c.Sub(subsection), "shard_ro_error_threshold")
+}
