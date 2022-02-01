@@ -331,6 +331,7 @@ func initLocalStorage(c *cfg) {
 	engineOpts := []engine.Option{
 		engine.WithLogger(c.log),
 		engine.WithShardPoolSize(engineconfig.ShardPoolSize(c.appCfg)),
+		engine.WithErrorThreshold(engineconfig.ShardErrorThreshold(c.appCfg)),
 	}
 	if c.metricsCollector != nil {
 		engineOpts = append(engineOpts, engine.WithMetrics(c.metricsCollector))
