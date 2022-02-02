@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 
@@ -20,7 +19,7 @@ import (
 func Test_getKey(t *testing.T) {
 	dir := t.TempDir()
 
-	wallPath := path.Join(dir, "wallet.json")
+	wallPath := filepath.Join(dir, "wallet.json")
 	w, err := wallet.NewWallet(wallPath)
 	require.NoError(t, err)
 
@@ -37,7 +36,7 @@ func Test_getKey(t *testing.T) {
 	require.NoError(t, w.Save())
 	w.Close()
 
-	keyPath := path.Join(dir, "binary.key")
+	keyPath := filepath.Join(dir, "binary.key")
 	rawKey, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 	require.NoError(t, ioutil.WriteFile(keyPath, rawKey.Bytes(), os.ModePerm))

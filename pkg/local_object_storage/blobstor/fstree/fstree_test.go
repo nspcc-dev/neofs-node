@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 
@@ -43,7 +42,7 @@ func TestAddressToString(t *testing.T) {
 }
 
 func TestFSTree(t *testing.T) {
-	tmpDir := path.Join(os.TempDir(), "neofs.fstree.test")
+	tmpDir := filepath.Join(os.TempDir(), "neofs.fstree.test")
 	require.NoError(t, os.Mkdir(tmpDir, os.ModePerm))
 	t.Cleanup(func() { require.NoError(t, os.RemoveAll(tmpDir)) })
 

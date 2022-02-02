@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -192,7 +192,7 @@ loop:
 
 	wallets := make([]*wallet.Wallet, size)
 	for i := 0; i < size; i++ {
-		p := path.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
+		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		if err != nil {
 			return nil, fmt.Errorf("can't open wallet: %w", err)

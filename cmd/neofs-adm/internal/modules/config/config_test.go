@@ -2,7 +2,7 @@ package config
 
 import (
 	"bytes"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -25,7 +25,7 @@ func TestGenerateConfigExample(t *testing.T) {
 	require.NoError(t, v.ReadConfig(bytes.NewBufferString(configText)))
 
 	require.Equal(t, "https://neo.rpc.node:30333", v.GetString("rpc-endpoint"))
-	require.Equal(t, path.Join(appDir, "alphabet-wallets"), v.GetString("alphabet-wallets"))
+	require.Equal(t, filepath.Join(appDir, "alphabet-wallets"), v.GetString("alphabet-wallets"))
 	require.Equal(t, 67108864, v.GetInt("network.max_object_size"))
 	require.Equal(t, 240, v.GetInt("network.epoch_duration"))
 	require.Equal(t, 100000000, v.GetInt("network.basic_income_rate"))

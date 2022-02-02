@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"text/template"
 
@@ -51,7 +50,7 @@ func initConfig(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	pathDir := path.Dir(configPath)
+	pathDir := filepath.Dir(configPath)
 	err = os.MkdirAll(pathDir, 0700)
 	if err != nil {
 		return fmt.Errorf("create dir %s: %w", pathDir, err)
@@ -97,7 +96,7 @@ func defaultConfigPath() (string, error) {
 		return "", fmt.Errorf("getting home dir path: %w", err)
 	}
 
-	return path.Join(home, ".neofs", "adm", "config.yml"), nil
+	return filepath.Join(home, ".neofs", "adm", "config.yml"), nil
 }
 
 // generateConfigExample builds .yml representation of the config file. It is
@@ -122,7 +121,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("making absolute path for %s: %w", appDir, err)
 	}
-	tmpl.AlphabetDir = path.Join(appDir, "alphabet-wallets")
+	tmpl.AlphabetDir = filepath.Join(appDir, "alphabet-wallets")
 
 	var i innerring.GlagoliticLetter
 	for i = 0; i < innerring.GlagoliticLetter(credSize); i++ {

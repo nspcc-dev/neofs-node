@@ -3,7 +3,7 @@ package blobstor
 import (
 	"encoding/hex"
 	"io/fs"
-	"path"
+	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -132,7 +132,7 @@ func WithUncompressableContentTypes(values []string) Option {
 func WithRootPath(rootDir string) Option {
 	return func(c *cfg) {
 		c.fsTree.RootPath = rootDir
-		c.blzRootPath = path.Join(rootDir, blobovniczaDir)
+		c.blzRootPath = filepath.Join(rootDir, blobovniczaDir)
 	}
 }
 
