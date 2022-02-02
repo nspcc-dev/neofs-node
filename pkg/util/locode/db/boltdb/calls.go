@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
@@ -20,7 +20,7 @@ func (db *DB) Open() error {
 	// copy-paste from metabase:
 	// consider universal Open/Close for BoltDB wrappers
 
-	err := util.MkdirAllX(path.Dir(db.path), db.mode)
+	err := util.MkdirAllX(filepath.Dir(db.path), db.mode)
 	if err != nil {
 		return fmt.Errorf("could not create dir for BoltDB: %w", err)
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -94,7 +93,7 @@ func (t *FSTree) Iterate(prm *IterationPrm) error {
 
 func (t *FSTree) iterate(depth int, curPath []string, prm *IterationPrm) error {
 	curName := strings.Join(curPath[1:], "")
-	des, err := os.ReadDir(path.Join(curPath...))
+	des, err := os.ReadDir(filepath.Join(curPath...))
 	if err != nil {
 		if prm.ignoreErrors {
 			return nil
@@ -127,7 +126,7 @@ func (t *FSTree) iterate(depth int, curPath []string, prm *IterationPrm) error {
 			continue
 		}
 
-		data, err := os.ReadFile(path.Join(curPath...))
+		data, err := os.ReadFile(filepath.Join(curPath...))
 		if err != nil {
 			if prm.ignoreErrors {
 				continue
@@ -157,7 +156,7 @@ func (t *FSTree) treePath(addr *objectSDK.Address) string {
 
 	dirs = append(dirs, sAddr)
 
-	return path.Join(dirs...)
+	return filepath.Join(dirs...)
 }
 
 // Delete removes object with the specified address from storage.
@@ -187,7 +186,7 @@ func (t *FSTree) Exists(addr *objectSDK.Address) (string, error) {
 func (t *FSTree) Put(addr *objectSDK.Address, data []byte) error {
 	p := t.treePath(addr)
 
-	if err := util.MkdirAllX(path.Dir(p), t.Permissions); err != nil {
+	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
 		return err
 	}
 

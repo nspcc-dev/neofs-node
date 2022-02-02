@@ -2,7 +2,7 @@ package blobovnicza
 
 import (
 	"fmt"
-	"path"
+	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
@@ -21,7 +21,7 @@ func (b *Blobovnicza) Open() error {
 	var err error
 
 	if !b.boltOptions.ReadOnly {
-		err = util.MkdirAllX(path.Dir(b.path), b.perm)
+		err = util.MkdirAllX(filepath.Dir(b.path), b.perm)
 		if err != nil {
 			return err
 		}

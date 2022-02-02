@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,27 +34,27 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 
 func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, bsOpts []blobstor.Option) *shard.Shard {
 	if enableWriteCache {
-		rootPath = path.Join(rootPath, "wc")
+		rootPath = filepath.Join(rootPath, "wc")
 	} else {
-		rootPath = path.Join(rootPath, "nowc")
+		rootPath = filepath.Join(rootPath, "nowc")
 	}
 
 	opts := []shard.Option{
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(
 			append([]blobstor.Option{
-				blobstor.WithRootPath(path.Join(rootPath, "blob")),
+				blobstor.WithRootPath(filepath.Join(rootPath, "blob")),
 				blobstor.WithBlobovniczaShallowWidth(2),
 				blobstor.WithBlobovniczaShallowDepth(2),
 			}, bsOpts...)...,
 		),
 		shard.WithMetaBaseOptions(
-			meta.WithPath(path.Join(rootPath, "meta")),
+			meta.WithPath(filepath.Join(rootPath, "meta")),
 		),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
 			append(
-				[]writecache.Option{writecache.WithPath(path.Join(rootPath, "wcache"))},
+				[]writecache.Option{writecache.WithPath(filepath.Join(rootPath, "wcache"))},
 				wcOpts...)...,
 		),
 	}

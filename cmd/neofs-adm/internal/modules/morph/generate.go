@@ -3,7 +3,7 @@ package morph
 import (
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -62,7 +62,7 @@ func initializeWallets(walletDir string, size int) ([]string, error) {
 			return nil, fmt.Errorf("can't fetch password: %w", err)
 		}
 
-		p := path.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
+		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
 		// TODO(@fyrchik): file is created with 0666 permissions, consider changing.
 		w, err := wallet.NewWallet(p)
 		if err != nil {

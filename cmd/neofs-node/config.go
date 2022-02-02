@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"net"
-	"path"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -390,7 +390,7 @@ func initShardOptions(c *cfg) {
 
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.Perm()
-		fatalOnErr(util.MkdirAllX(path.Dir(metaPath), metaPerm))
+		fatalOnErr(util.MkdirAllX(filepath.Dir(metaPath), metaPerm))
 
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),

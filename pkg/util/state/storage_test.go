@@ -1,7 +1,7 @@
 package state_test
 
 import (
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestPersistentStorage_UInt32(t *testing.T) {
-	storage, err := state.NewPersistentStorage(path.Join(t.TempDir(), ".storage"))
+	storage, err := state.NewPersistentStorage(filepath.Join(t.TempDir(), ".storage"))
 	require.NoError(t, err)
 	defer storage.Close()
 

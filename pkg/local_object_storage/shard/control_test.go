@@ -2,7 +2,7 @@ package shard
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -19,7 +19,7 @@ func TestRefillMetabase(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	blobOpts := []blobstor.Option{
-		blobstor.WithRootPath(path.Join(p, "blob")),
+		blobstor.WithRootPath(filepath.Join(p, "blob")),
 		blobstor.WithBlobovniczaShallowWidth(1),
 		blobstor.WithBlobovniczaShallowDepth(1),
 	}
@@ -27,7 +27,7 @@ func TestRefillMetabase(t *testing.T) {
 	sh := New(
 		WithBlobStorOptions(blobOpts...),
 		WithMetaBaseOptions(
-			meta.WithPath(path.Join(p, "meta")),
+			meta.WithPath(filepath.Join(p, "meta")),
 		),
 	)
 
@@ -141,7 +141,7 @@ func TestRefillMetabase(t *testing.T) {
 	sh = New(
 		WithBlobStorOptions(blobOpts...),
 		WithMetaBaseOptions(
-			meta.WithPath(path.Join(p, "meta_restored")),
+			meta.WithPath(filepath.Join(p, "meta_restored")),
 		),
 	)
 
