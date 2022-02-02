@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -88,7 +88,7 @@ var errPutFailed = errors.New("could not save the object in any blobovnicza")
 
 func newBlobovniczaTree(c *cfg) (blz *blobovniczas) {
 	cache, err := simplelru.NewLRU(c.openedCacheSize, func(key interface{}, value interface{}) {
-		if _, ok := blz.active[path.Dir(key.(string))]; ok {
+		if _, ok := blz.active[filepath.Dir(key.(string))]; ok {
 			return
 		} else if err := value.(*blobovnicza.Blobovnicza).Close(); err != nil {
 			c.log.Error("could not close Blobovnicza",
@@ -156,7 +156,7 @@ func (b *blobovniczas) put(addr *objectSDK.Address, data []byte) (*blobovnicza.I
 			// check if blobovnicza is full
 			if errors.Is(err, blobovnicza.ErrFull) {
 				b.log.Debug("blobovnicza overflowed",
-					zap.String("path", path.Join(p, u64ToHexString(active.ind))),
+					zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
 				)
 
 				if err := b.updateActive(p, &active.ind); err != nil {
@@ -172,14 +172,14 @@ func (b *blobovniczas) put(addr *objectSDK.Address, data []byte) (*blobovnicza.I
 			}
 
 			b.log.Debug("could not put object to active blobovnicza",
-				zap.String("path", path.Join(p, u64ToHexString(active.ind))),
+				zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
 				zap.String("error", err.Error()),
 			)
 
 			return false, nil
 		}
 
-		p = path.Join(p, u64ToHexString(active.ind))
+		p = filepath.Join(p, u64ToHexString(active.ind))
 
 		id = blobovnicza.NewIDFromBytes([]byte(p))
 
@@ -217,7 +217,7 @@ func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
 	activeCache := make(map[string]struct{})
 
 	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
-		dirPath := path.Dir(p)
+		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
 
@@ -267,7 +267,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 	activeCache := make(map[string]struct{})
 
 	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
-		dirPath := path.Dir(p)
+		dirPath := filepath.Dir(p)
 
 		// don't process active blobovnicza of the level twice
 		_, ok := activeCache[dirPath]
@@ -319,7 +319,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 	activeCache := make(map[string]struct{})
 
 	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
-		dirPath := path.Dir(p)
+		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
 
@@ -351,7 +351,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 //
 // returns no error if object was removed from some blobovnicza of the same level.
 func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath string, tryActive bool, dp *DeleteSmallPrm) (*DeleteSmallRes, error) {
-	lvlPath := path.Dir(blzPath)
+	lvlPath := filepath.Dir(blzPath)
 
 	log := b.log.With(
 		zap.String("path", blzPath),
@@ -394,7 +394,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 	// check if it makes sense to try to open the blob
 	// (blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
-	if u64FromHexString(path.Base(blzPath)) > active.ind {
+	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
 		log.Debug("index is too big")
 		return nil, object.ErrNotFound
 	}
@@ -412,7 +412,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 //
 // returns error if object could not be read from any blobovnicza of the same level.
 func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath string, tryActive bool) (*GetSmallRes, error) {
-	lvlPath := path.Dir(blzPath)
+	lvlPath := filepath.Dir(blzPath)
 
 	log := b.log.With(
 		zap.String("path", blzPath),
@@ -456,7 +456,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 	// check if it makes sense to try to open the blob
 	// (blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
-	if u64FromHexString(path.Base(blzPath)) > active.ind {
+	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
 		log.Debug("index is too big")
 		return nil, object.ErrNotFound
 	}
@@ -474,7 +474,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 //
 // returns error if object could not be read from any blobovnicza of the same level.
 func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
-	lvlPath := path.Dir(blzPath)
+	lvlPath := filepath.Dir(blzPath)
 
 	log := b.log.With(
 		zap.String("path", blzPath),
@@ -528,7 +528,7 @@ func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, 
 	// check if it makes sense to try to open the blob
 	// (blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
-	if u64FromHexString(path.Base(blzPath)) > active.ind {
+	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
 		log.Debug("index is too big")
 		return nil, object.ErrNotFound
 	}
@@ -653,7 +653,7 @@ func (b *blobovniczas) iterateSortedLeaves(addr *objectSDK.Address, f func(strin
 		addr,
 		make([]string, 0, b.blzShallowDepth),
 		b.blzShallowDepth,
-		func(p []string) (bool, error) { return f(path.Join(p...)) },
+		func(p []string) (bool, error) { return f(filepath.Join(p...)) },
 	)
 
 	return err
@@ -670,7 +670,7 @@ func (b *blobovniczas) iterateDeepest(addr *objectSDK.Address, f func(string) (b
 		addr,
 		make([]string, 0, depth),
 		depth,
-		func(p []string) (bool, error) { return f(path.Join(p...)) },
+		func(p []string) (bool, error) { return f(filepath.Join(p...)) },
 	)
 
 	return err
@@ -680,7 +680,7 @@ func (b *blobovniczas) iterateDeepest(addr *objectSDK.Address, f func(string) (b
 func (b *blobovniczas) iterateSorted(addr *objectSDK.Address, curPath []string, execDepth uint64, f func([]string) (bool, error)) (bool, error) {
 	indices := indexSlice(b.blzShallowWidth)
 
-	hrw.SortSliceByValue(indices, addressHash(addr, path.Join(curPath...)))
+	hrw.SortSliceByValue(indices, addressHash(addr, filepath.Join(curPath...)))
 
 	exec := uint64(len(curPath)) == execDepth
 
@@ -754,7 +754,7 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	}
 
 	var err error
-	if active.blz, err = b.openBlobovnicza(path.Join(p, u64ToHexString(active.ind))); err != nil {
+	if active.blz, err = b.openBlobovnicza(filepath.Join(p, u64ToHexString(active.ind))); err != nil {
 		return active, err
 	}
 
@@ -773,7 +773,7 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	b.active[p] = active
 
 	b.log.Debug("blobovnicza successfully activated",
-		zap.String("path", path.Join(p, u64ToHexString(active.ind))),
+		zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
 	)
 
 	return active, nil
@@ -887,7 +887,7 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 	}
 
 	blz := blobovnicza.New(append(b.blzOpts,
-		blobovnicza.WithPath(path.Join(b.blzRootPath, p)),
+		blobovnicza.WithPath(filepath.Join(b.blzRootPath, p)),
 	)...)
 
 	if err := blz.Open(); err != nil {

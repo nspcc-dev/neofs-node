@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -42,7 +42,7 @@ func TestGenerateAlphabet(t *testing.T) {
 	})
 	t.Run("missing directory", func(t *testing.T) {
 		buf.Reset()
-		dir := path.Join(os.TempDir(), "notexist."+strconv.FormatUint(rand.Uint64(), 10))
+		dir := filepath.Join(os.TempDir(), "notexist."+strconv.FormatUint(rand.Uint64(), 10))
 		v.Set(alphabetWalletsFlag, dir)
 		require.NoError(t, cmd.Flags().Set(alphabetSizeFlag, "1"))
 		buf.WriteString("pass\r")
@@ -59,7 +59,7 @@ func TestGenerateAlphabet(t *testing.T) {
 	require.NoError(t, generateAlphabetCreds(cmd, nil))
 
 	for i := uint64(0); i < size; i++ {
-		p := path.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
+		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "wallet doesn't exist")
 		require.Equal(t, 3, len(w.Accounts), "not all accounts were created")
@@ -91,7 +91,7 @@ func setupTestTerminal(t *testing.T) *bytes.Buffer {
 }
 
 func newTempDir(t *testing.T) string {
-	dir := path.Join(os.TempDir(), "neofs-adm.test."+strconv.FormatUint(rand.Uint64(), 10))
+	dir := filepath.Join(os.TempDir(), "neofs-adm.test."+strconv.FormatUint(rand.Uint64(), 10))
 	require.NoError(t, os.Mkdir(dir, os.ModePerm))
 	t.Cleanup(func() {
 		require.NoError(t, os.RemoveAll(dir))
