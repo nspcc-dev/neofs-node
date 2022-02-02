@@ -69,10 +69,12 @@ func (c *initializeContext) setNNS() error {
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 	}
 
-	err = c.updateNNSGroup(nnsCs.Hash, c.ContractWallet.Accounts[0].PrivateKey().PublicKey())
+	groupKey := c.ContractWallet.Accounts[0].PrivateKey().PublicKey()
+	err = c.updateNNSGroup(nnsCs.Hash, groupKey)
 	if err != nil {
 		return err
 	}
+	c.Command.Printf("NNS: Set %s -> %s\n", groupKeyDomain, hex.EncodeToString(groupKey.Bytes()))
 
 	return c.awaitTx()
 }

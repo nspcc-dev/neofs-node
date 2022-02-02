@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
@@ -29,19 +27,6 @@ func forceNewEpochCmd(cmd *cobra.Command, args []string) error {
 	nmHash, err := nnsResolveHash(wCtx.Client, cs.Hash, netmapContract+".neofs")
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
-	}
-
-	signer := transaction.Signer{
-		Account: wCtx.CommitteeAcc.Contract.ScriptHash(),
-		Scopes:  transaction.Global, // Scope is important, as we have nested call to container contract.
-	}
-
-	groupKey, err := nnsResolveKey(wCtx.Client, cs.Hash, groupKeyDomain)
-	if err != nil {
-		cmd.Println("Can't resolve neofs contract group key, using Global scope")
-	} else {
-		signer.Scopes = transaction.CustomGroups
-		signer.AllowedGroups = keys.PublicKeys{groupKey}
 	}
 
 	res, err := wCtx.Client.InvokeFunction(nmHash, "epoch", []smartcontract.Parameter{}, nil)
