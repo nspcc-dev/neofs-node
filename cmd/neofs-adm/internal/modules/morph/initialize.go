@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
@@ -21,8 +22,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+type cache struct {
+	nnsCs    *state.Contract
+	groupKey *keys.PublicKey
+}
+
 type initializeContext struct {
 	clientContext
+	cache
 	// CommitteeAcc is used for retrieving committee address and verification script.
 	CommitteeAcc *wallet.Account
 	// ConsensusAcc is used for retrieving committee address and verification script.
@@ -227,6 +234,48 @@ func (c *initializeContext) awaitTx() error {
 	return c.clientContext.awaitTx(c.Command)
 }
 
+func (c *initializeContext) nnsContractState() (*state.Contract, error) {
+	if c.nnsCs != nil {
+		return c.nnsCs, nil
+	}
+
+	cs, err := c.Client.GetContractStateByID(1)
+	if err != nil {
+		return nil, err
+	}
+
+	c.nnsCs = cs
+	return cs, nil
+}
+
+func (c *initializeContext) getSigner() transaction.Signer {
+	if c.groupKey != nil {
+		return transaction.Signer{
+			Scopes:        transaction.CustomGroups,
+			AllowedGroups: keys.PublicKeys{c.groupKey},
+		}
+	}
+
+	signer := transaction.Signer{
+		Account: c.CommitteeAcc.Contract.ScriptHash(),
+		Scopes:  transaction.Global, // Scope is important, as we have nested call to container contract.
+	}
+
+	nnsCs, err := c.nnsContractState()
+	if err != nil {
+		return signer
+	}
+
+	groupKey, err := nnsResolveKey(c.Client, nnsCs.Hash, groupKeyDomain)
+	if err == nil {
+		c.groupKey = groupKey
+
+		signer.Scopes = transaction.CustomGroups
+		signer.AllowedGroups = keys.PublicKeys{groupKey}
+	}
+	return signer
+}
+
 func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 	if len(c.Hashes) == 0 {
 		return nil
@@ -266,10 +315,7 @@ loop:
 
 func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64) error {
 	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []client.SignerAccount{{
-		Signer: transaction.Signer{
-			Account: c.CommitteeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.Global,
-		},
+		Signer:  c.getSigner(),
 		Account: c.CommitteeAcc,
 	}})
 	if err != nil {

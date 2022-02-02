@@ -3,6 +3,7 @@ package morph
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -98,13 +99,13 @@ func (c *initializeContext) deployNNS(method string) error {
 	cs := c.getContract(nnsContract)
 	h := cs.Hash
 
-	realCs, err := c.Client.GetContractStateByID(1)
+	nnsCs, err := c.nnsContractState()
 	if err == nil {
-		if realCs.NEF.Checksum == cs.NEF.Checksum {
+		if nnsCs.NEF.Checksum == cs.NEF.Checksum {
 			c.Command.Println("NNS contract is already deployed.")
 			return nil
 		}
-		h = realCs.Hash
+		h = nnsCs.Hash
 	}
 
 	err = c.addManifestGroup(h, cs)
@@ -121,10 +122,6 @@ func (c *initializeContext) deployNNS(method string) error {
 
 	mgmtHash := c.nativeHash(nativenames.Management)
 	if method == updateMethodName {
-		nnsCs, err := c.Client.GetContractStateByID(1)
-		if err != nil {
-			return fmt.Errorf("can't resolve NNS hash for contract update: %w", err)
-		}
 		mgmtHash = nnsCs.Hash
 	}
 
@@ -155,7 +152,7 @@ func (c *initializeContext) updateContracts() error {
 	mgmtHash := c.nativeHash(nativenames.Management)
 	alphaCs := c.getContract(alphabetContract)
 
-	nnsCs, err := c.Client.GetContractStateByID(1)
+	nnsCs, err := c.nnsContractState()
 	if err != nil {
 		return err
 	}
@@ -272,10 +269,12 @@ func (c *initializeContext) updateContracts() error {
 		}
 	}
 
-	sysFee, err := c.emitUpdateNNSGroupScript(w, nnsHash, c.ContractWallet.Accounts[0].PrivateKey().PublicKey())
+	groupKey := c.ContractWallet.Accounts[0].PrivateKey().PublicKey()
+	sysFee, err := c.emitUpdateNNSGroupScript(w, nnsHash, groupKey)
 	if err != nil {
 		return err
 	}
+	c.Command.Printf("NNS: Set %s -> %s\n", groupKeyDomain, hex.EncodeToString(groupKey.Bytes()))
 
 	totalGasCost += sysFee
 	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost); err != nil {
