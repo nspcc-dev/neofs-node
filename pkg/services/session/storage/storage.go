@@ -49,3 +49,15 @@ func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *PrivateToken {
 
 	return t
 }
+
+// RemoveOld removes all tokens expired since provided epoch.
+func (s *TokenStore) RemoveOld(epoch uint64) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	for k, tok := range s.tokens {
+		if tok.ExpiredAt() <= epoch {
+			delete(s.tokens, k)
+		}
+	}
+}
