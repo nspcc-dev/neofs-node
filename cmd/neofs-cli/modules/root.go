@@ -215,9 +215,11 @@ func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
 }
 
 func getPassword() (string, error) {
-	if pass := viper.GetString(password); pass != "" {
-		return pass, nil
+	// this check allows empty passwords
+	if viper.IsSet(password) {
+		return viper.GetString(password), nil
 	}
+
 	return input.ReadPassword("Enter password > ")
 }
 
