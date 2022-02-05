@@ -12,26 +12,26 @@
 
 # Overview
 
-NeoFS Nodes are organized in peer-to-peer network that takes care of storing and
+NeoFS Nodes are organized in a peer-to-peer network that takes care of storing and
 distributing user's data. Any Neo user may participate in the network and get
 paid for providing storage resources to other users or store his data in NeoFS
 and pay a competitive price for it.
 
 Users can reliably store object data in the NeoFS network and have a transparent
-data placement process due to decentralized architecture and flexible storage
+data placement process due to a decentralized architecture and flexible storage
 policies. Each node is responsible for executing the storage policies that the
 users select for geographical location, reliability level, number of nodes, type
 of disks, capacity, etc. Thus, NeoFS gives full control over data to users.
 
 Deep [Neo Blockchain](https://neo.org) integration allows NeoFS to be used by
-dApp directly from
+dApps directly from
 [NeoVM](https://docs.neo.org/docs/en-us/basic/technology/neovm.html) on the
 [Smart Contract](https://docs.neo.org/docs/en-us/intro/glossary.html)
 code level. This way dApps are not limited to on-chain storage and can
 manipulate large amounts of data without paying a prohibitive price.
 
-NeoFS has native [gRPC API](https://github.com/nspcc-dev/neofs-api) and popular
-protocol gates such as [AWS S3](https://github.com/nspcc-dev/neofs-s3-gw),
+NeoFS has a native [gRPC API](https://github.com/nspcc-dev/neofs-api) and has 
+protocol gates for popular protocols such as [AWS S3](https://github.com/nspcc-dev/neofs-s3-gw),
 [HTTP](https://github.com/nspcc-dev/neofs-http-gw),
 [FUSE](https://wikipedia.org/wiki/Filesystem_in_Userspace) and
 [sFTP](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol) allowing
@@ -40,9 +40,9 @@ developers to integrate applications without rewriting their code.
 # Supported platforms
 
 For now we only support GNU/Linux on amd64 CPUs with AVX/AVX2 instructions. More
-platforms will be officially supported after '1.0' release.
+platforms will be officially supported after the '1.0' release.
 
-Latest version of neofs-node works with neofs-contract 
+The latest version of neofs-node works with neofs-contract 
 [v0.13.0](https://github.com/nspcc-dev/neofs-contract/releases/tag/v0.13.0).
 
 # Contributing
