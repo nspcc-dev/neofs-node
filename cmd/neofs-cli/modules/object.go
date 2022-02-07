@@ -37,6 +37,8 @@ const (
 
 const bearerTokenFlag = "bearer"
 
+const sessionTokenLifetime = 10 // in epochs
+
 var (
 	// objectCmd represents the object command
 	objectCmd = &cobra.Command{
@@ -299,16 +301,25 @@ func prepareSessionPrmWithOwner(
 	ownerID *owner.ID,
 	prms ...clientKeySession,
 ) {
-	var sessionPrm internalclient.CreateSessionPrm
+	var (
+		sessionPrm internalclient.CreateSessionPrm
+		netInfoPrm internalclient.NetworkInfoPrm
+	)
 
-	cws := make([]clientWithKey, 1, len(prms)+1)
+	cws := make([]clientWithKey, 2, len(prms)+2)
 	cws[0] = &sessionPrm
+	cws[1] = &netInfoPrm
 
 	for i := range prms {
 		cws = append(cws, prms[i])
 	}
 
 	prepareAPIClientWithKey(cmd, key, cws...)
+
+	ni, err := internalclient.NetworkInfo(netInfoPrm)
+	exitOnErr(cmd, errf("read network info: %w", err))
+
+	sessionPrm.SetExp(ni.NetworkInfo().CurrentEpoch() + sessionTokenLifetime)
 
 	sessionRes, err := internalclient.CreateSession(sessionPrm)
 	exitOnErr(cmd, errf("open session: %w", err))
