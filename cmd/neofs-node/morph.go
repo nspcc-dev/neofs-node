@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -35,30 +34,22 @@ const (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	fn := func(addresses []string, dialTimeout time.Duration, handler func(*client.Client)) {
-		if len(addresses) == 0 {
-			fatalOnErr(errors.New("missing Neo RPC endpoints"))
-		}
+	addresses := morphconfig.RPCEndpoint(c.appCfg)
+	if len(addresses) == 0 {
+		fatalOnErr(errors.New("missing Neo RPC endpoints"))
+	}
 
-		rand.Shuffle(len(addresses), func(i, j int) {
-			addresses[i], addresses[j] = addresses[j], addresses[i]
-		})
+	rand.Shuffle(len(addresses), func(i, j int) {
+		addresses[i], addresses[j] = addresses[j], addresses[i]
+	})
 
-		cli, err := client.New(c.key, addresses[0],
-			client.WithDialTimeout(dialTimeout),
-			client.WithLogger(c.log),
-			client.WithExtraEndpoints(addresses[1:]),
-			client.WithMaxConnectionPerHost(morphconfig.MaxConnPerHost(c.appCfg)),
-		)
-		if err == nil {
-			if err := cli.SetGroupSignerScope(); err != nil {
-				c.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
-			}
-			handler(cli)
-
-			return
-		}
-
+	cli, err := client.New(c.key, addresses[0],
+		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
+		client.WithLogger(c.log),
+		client.WithExtraEndpoints(addresses[1:]),
+		client.WithMaxConnectionPerHost(morphconfig.MaxConnPerHost(c.appCfg)),
+	)
+	if err != nil {
 		c.log.Info("failed to create neo RPC client",
 			zap.Any("endpoints", addresses),
 			zap.String("error", err.Error()),
@@ -67,26 +58,27 @@ func initMorphComponents(c *cfg) {
 		fatalOnErr(err)
 	}
 
-	fn(morphconfig.RPCEndpoint(c.appCfg), morphconfig.DialTimeout(c.appCfg), func(cli *client.Client) {
-		c.cfgMorph.client = cli
+	if err := cli.SetGroupSignerScope(); err != nil {
+		c.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+	}
+	
+	c.cfgMorph.client = cli
+	c.cfgMorph.notaryEnabled = cli.ProbeNotary()
 
-		c.cfgMorph.notaryEnabled = cli.ProbeNotary()
+	lookupScriptHashesInNNS(c) // smart contract auto negotiation
 
-		lookupScriptHashesInNNS(c) // smart contract auto negotiation
-
-		if c.cfgMorph.notaryEnabled {
-			err = c.cfgMorph.client.EnableNotarySupport(
-				client.WithProxyContract(
-					c.cfgMorph.proxyScriptHash,
-				),
-			)
-			fatalOnErr(err)
-		}
-
-		c.log.Debug("notary support",
-			zap.Bool("sidechain_enabled", c.cfgMorph.notaryEnabled),
+	if c.cfgMorph.notaryEnabled {
+		err = c.cfgMorph.client.EnableNotarySupport(
+			client.WithProxyContract(
+				c.cfgMorph.proxyScriptHash,
+			),
 		)
-	})
+		fatalOnErr(err)
+	}
+
+	c.log.Debug("notary support",
+		zap.Bool("sidechain_enabled", c.cfgMorph.notaryEnabled),
+	)
 
 	wrap, err := nmClient.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0, nmClient.TryNotary())
 	fatalOnErr(err)
