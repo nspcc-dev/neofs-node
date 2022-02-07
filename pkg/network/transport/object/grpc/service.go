@@ -28,7 +28,6 @@ func New(c objectSvc.ServiceServer) *Server {
 func (s *Server) Put(gStream objectGRPC.ObjectService_PutServer) error {
 	stream, err := s.srv.Put(gStream.Context())
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return err
 	}
 
@@ -76,7 +75,6 @@ func (s *Server) Delete(ctx context.Context, req *objectGRPC.DeleteRequest) (*ob
 
 	resp, err := s.srv.Delete(ctx, delReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -92,7 +90,6 @@ func (s *Server) Head(ctx context.Context, req *objectGRPC.HeadRequest) (*object
 
 	resp, err := s.srv.Head(ctx, searchReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -108,7 +105,6 @@ func (s *Server) GetRangeHash(ctx context.Context, req *objectGRPC.GetRangeHashR
 
 	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 

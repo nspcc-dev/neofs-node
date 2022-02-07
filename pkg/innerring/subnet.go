@@ -312,5 +312,5 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 		return
 	}
 
-	// TODO: handle removal of the subnet in netmap candidates
+	// TODO: #1162 handle removal of the subnet in netmap candidates
 }

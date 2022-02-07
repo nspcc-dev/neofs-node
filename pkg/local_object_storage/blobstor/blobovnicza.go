@@ -249,8 +249,6 @@ func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all blobovniczas are processed descending weight.
-//
-// TODO:quite similar to GET, can be unified
 func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err error) {
 	bPrm := new(blobovnicza.DeletePrm)
 	bPrm.SetAddress(prm.addr)
@@ -304,8 +302,6 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all blobovniczas are processed descending weight.
-//
-// TODO:quite similar to GET, can be unified
 func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, err error) {
 	if prm.blobovniczaID != nil {
 		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())

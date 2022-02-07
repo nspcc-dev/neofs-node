@@ -30,7 +30,6 @@ func (s *Server) Balance(ctx context.Context, req *accountingGRPC.BalanceRequest
 
 	resp, err := s.srv.Balance(ctx, balReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 

@@ -45,11 +45,11 @@ func NewService(opts ...Option) *Service {
 func setMeta(resp util.ResponseMessage, cfg *cfg) {
 	meta := new(session.ResponseMetaHeader)
 	meta.SetVersion(cfg.version)
-	meta.SetTTL(1) // FIXME: TTL must be calculated
+	meta.SetTTL(1) // FIXME: #1160 TTL must be calculated
 	meta.SetEpoch(cfg.state.CurrentEpoch())
 
 	if origin := resp.GetMetaHeader(); origin != nil {
-		// FIXME: what if origin is set by local server?
+		// FIXME: #1160 what if origin is set by local server?
 		meta.SetOrigin(origin)
 	}
 

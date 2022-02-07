@@ -121,8 +121,6 @@ type (
 		// Set of component runners which
 		// should report start errors
 		// to the application.
-		//
-		// TODO: unify with workers.
 		runners []func(chan<- error)
 
 		subnetHandler
@@ -830,8 +828,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	if err != nil {
 		return nil, err
 	}
-
-	// todo: create vivid id component
 
 	// initialize epoch timers
 	server.epochTimer = newEpochTimer(&epochTimerArgs{

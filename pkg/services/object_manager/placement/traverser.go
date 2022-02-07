@@ -162,7 +162,6 @@ func (t *Traverser) Next() []Node {
 	for i := 0; i < count; i++ {
 		err := nodes[i].addresses.FromIterator(t.vectors[0][i])
 		if err != nil {
-			// TODO: log error
 			return nil
 		}
 

@@ -23,7 +23,6 @@ func (s *Server) Get(req *objectGRPC.GetRequest, gStream objectGRPC.ObjectServic
 		return err
 	}
 
-	// TODO: think about how we transport errors through gRPC
 	return s.srv.Get(
 		getReq,
 		&getStreamerV2{

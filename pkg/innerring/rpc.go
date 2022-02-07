@@ -145,7 +145,6 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *oidSDK.
 	var obj *object.Object
 
 	if relay {
-		// todo: function sets hardcoded TTL value, but instead we can set TTL based on container length
 		obj, err = neofsapiclient.GetObjectHeaderFromContainer(cctx, cli, objAddress)
 	} else {
 		obj, err = neofsapiclient.GetRawObjectHeaderLocally(cctx, cli, objAddress)

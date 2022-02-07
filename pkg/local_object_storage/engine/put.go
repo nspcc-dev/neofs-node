@@ -49,7 +49,7 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
-	_, err := e.exists(prm.obj.Address()) // todo: make this check parallel
+	_, err := e.exists(prm.obj.Address()) // TODO: #1146 make this check parallel
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,6 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 
 			finished = true
 		}); err != nil {
-			// TODO: log errors except ErrOverload when errors of util.WorkerPool will be documented
 			close(exitCh)
 		}
 

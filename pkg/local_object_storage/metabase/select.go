@@ -128,7 +128,6 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 
 		addr, err := addressFromKey([]byte(a))
 		if err != nil {
-			// TODO: storage was broken, so we need to handle it
 			return nil, err
 		}
 
@@ -219,7 +218,6 @@ func (db *DB) selectFastFilter(
 	}
 }
 
-// TODO: move to DB struct
 var mBucketNaming = map[string][]func(*cid.ID) []byte{
 	v2object.TypeRegular.String():      {primaryBucketName, parentBucketName},
 	v2object.TypeTombstone.String():    {tombstoneBucketName},
@@ -577,7 +575,7 @@ func blindlyProcess(fs object.SearchFilters) bool {
 			return true
 		}
 
-		// TODO: check other cases
+		// TODO: #1148 check other cases
 		//  e.g. (a == b) && (a != b)
 	}
 
@@ -586,6 +584,6 @@ func blindlyProcess(fs object.SearchFilters) bool {
 
 // returns true if string key is a reserved system filter key.
 func isSystemKey(key string) bool {
-	// FIXME: version-dependent approach
+	// FIXME: #1147 version-dependent approach
 	return strings.HasPrefix(key, v2object.ReservedFilterPrefix)
 }

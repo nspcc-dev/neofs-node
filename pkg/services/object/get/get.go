@@ -28,10 +28,11 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 	for _, rng := range prm.rngs {
 		h := prm.hashGen()
 
-		// TODO: calculating of homomorphic hash (TZ) for "big" ranges can be optimized
-		//  by "smaller" range hash requests spawn and response concatenation.
-		//  NOTE: for non-homomorphic hashes (SHA256) this won't work with split-range.
-
+		// For big ranges we could fetch range-hashes from different nodes and concatenate them locally.
+		// However,
+		// 1. Potential gains are insignificant when operating in the Internet given typical latencies and losses.
+		// 2. Parallel solution is more complex in terms of code.
+		// 3. TZ-hash is likely to be disabled in private installations.
 		rngPrm := RangePrm{
 			commonPrm: prm.commonPrm,
 		}

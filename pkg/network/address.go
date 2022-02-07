@@ -85,7 +85,7 @@ const (
 // indicating that TLS is enabled. If multiaddress is provided
 // the argument is returned unchanged.
 func parseURI(s string) (string, bool, error) {
-	// TODO: code is copy-pasted from client.WithURIAddress function.
+	// TODO: #1151 code is copy-pasted from client.WithNetworkURIAddress function.
 	//  Would be nice to share the code.
 	uri, err := url.ParseRequestURI(s)
 	if err != nil {

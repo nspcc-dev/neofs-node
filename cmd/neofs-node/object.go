@@ -394,7 +394,7 @@ func (s *signedEACLTable) ReadSignedData(_ []byte) ([]byte, error) {
 }
 
 func (s *signedEACLTable) SignedDataSize() int {
-	// TODO: add eacl.Table.Size method
+	// TODO: #1147 add eacl.Table.Size method
 	return (*eaclSDK.Table)(s).ToV2().StableSize()
 }
 

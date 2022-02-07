@@ -135,7 +135,7 @@ func GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
 		err = apistatus.ErrFromStatus(res.cliRes.Status())
 	}
 
-	// FIXME: object.ErrAlreadyRemoved never returns
+	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
 	return
 }
@@ -186,7 +186,7 @@ func HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
 		err = apistatus.ErrFromStatus(res.cliRes.Status())
 	}
 
-	// FIXME: object.ErrAlreadyRemoved never returns
+	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
 	return
 }
@@ -244,7 +244,7 @@ func PayloadRange(prm PayloadRangePrm) (res PayloadRangeRes, err error) {
 		err = apistatus.ErrFromStatus(res.cliRes.Status())
 	}
 
-	// FIXME: object.ErrAlreadyRemoved never returns
+	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
 	return
 }

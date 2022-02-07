@@ -191,7 +191,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 
 	if token != nil {
 		// check token context
-		// TODO: think how to avoid version casts
+		// TODO: #1147 think how to avoid version casts
 		idV2 := new(refs.ContainerID)
 		idV2.SetValue(binCID)
 

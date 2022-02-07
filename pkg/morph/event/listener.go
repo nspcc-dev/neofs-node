@@ -272,7 +272,6 @@ loop:
 				continue loop
 			}
 
-			// TODO: consider asynchronous execution
 			for i := range l.blockHandlers {
 				l.blockHandlers[i](b)
 			}

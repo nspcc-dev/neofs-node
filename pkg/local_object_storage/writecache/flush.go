@@ -188,7 +188,7 @@ func (c *cache) flushWorker(num int) {
 		metaOnly := false
 
 		// Give priority to direct put.
-		// TODO(fyrchik): do this once in N iterations depending on load
+		// TODO(fyrchik): #1150 do this once in N iterations depending on load
 		select {
 		case obj = <-priorityCh:
 			metaOnly = num%3 == 1
