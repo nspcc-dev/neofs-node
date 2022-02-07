@@ -276,7 +276,7 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, collectTomb
 // If successful, marks tombstones themselves as garbage.
 //
 // Does not modify tss.
-func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
+func (s *Shard) HandleExpiredTombstones(tss map[string]*addressSDK.Address) {
 	inhume := make([]*addressSDK.Address, 0, len(tss))
 
 	// Collect all objects covered by the tombstones.
@@ -317,21 +317,7 @@ func (s *Shard) HandleExpiredTombstones(tss map[string]struct{}) {
 
 	inhume = inhume[:0]
 
-	for strAddr := range tss {
-		// parse address
-		// TODO: make type of map values *object.Address since keys are calculated from addresses
-		addr := addressSDK.NewAddress()
-
-		err = addr.Parse(strAddr)
-		if err != nil {
-			s.log.Error("could not parse tombstone address",
-				zap.String("text", strAddr),
-				zap.String("error", err.Error()),
-			)
-
-			continue // try process other tombstones
-		}
-
+	for _, addr := range tss {
 		inhume = append(inhume, addr)
 	}
 

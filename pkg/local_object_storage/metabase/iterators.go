@@ -120,13 +120,13 @@ func objectType(tx *bbolt.Tx, cid *cid.ID, oidBytes []byte) object.Type {
 // Returns other errors of h directly.
 //
 // Does not modify tss.
-func (db *DB) IterateCoveredByTombstones(tss map[string]struct{}, h func(*addressSDK.Address) error) error {
+func (db *DB) IterateCoveredByTombstones(tss map[string]*addressSDK.Address, h func(*addressSDK.Address) error) error {
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateCoveredByTombstones(tx, tss, h)
 	})
 }
 
-func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]struct{}, h func(*addressSDK.Address) error) error {
+func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]*addressSDK.Address, h func(*addressSDK.Address) error) error {
 	bktGraveyard := tx.Bucket(graveyardBucketName)
 	if bktGraveyard == nil {
 		return nil
