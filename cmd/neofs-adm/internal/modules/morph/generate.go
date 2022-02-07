@@ -3,6 +3,7 @@ package morph
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
@@ -69,7 +70,13 @@ func initializeWallets(walletDir string, size int) ([]string, error) {
 		}
 
 		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
-		// TODO(@fyrchik): file is created with 0666 permissions, consider changing.
+		f, err := os.OpenFile(p, os.O_CREATE, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("can't create wallet file: %w", err)
+		}
+		if err := f.Close(); err != nil {
+			return nil, fmt.Errorf("can't close wallet file: %w", err)
+		}
 		w, err := wallet.NewWallet(p)
 		if err != nil {
 			return nil, fmt.Errorf("can't create wallet: %w", err)
