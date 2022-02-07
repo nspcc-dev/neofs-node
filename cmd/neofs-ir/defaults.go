@@ -23,7 +23,11 @@ func newConfig(path string) (*viper.Viper, error) {
 
 	if path != "" {
 		v.SetConfigFile(path)
-		v.SetConfigType("yml") // fixme: for now
+		if strings.HasSuffix(path, ".json") {
+			v.SetConfigType("json")
+		} else {
+			v.SetConfigType("yml")
+		}
 		err = v.ReadInConfig()
 	}
 
