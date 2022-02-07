@@ -135,10 +135,10 @@ func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePr
 }
 
 func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*addressSDK.Address) {
-	tss := make(map[string]struct{}, len(addrs))
+	tss := make(map[string]*addressSDK.Address, len(addrs))
 
 	for i := range addrs {
-		tss[addrs[i].String()] = struct{}{}
+		tss[addrs[i].String()] = addrs[i]
 	}
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
