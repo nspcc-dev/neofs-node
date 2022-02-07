@@ -89,6 +89,9 @@ func storageConfig(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	historyPath := filepath.Join(os.TempDir(), "neofs-adm.history")
+	readline.SetHistoryPath(historyPath)
+
 	var c config
 
 	c.Wallet.Path, _ = cmd.Flags().GetString(walletFlag)
@@ -217,8 +220,11 @@ func getWalletAccount(w *wallet.Wallet, prompt string) string {
 }
 
 func getString(prompt string) string {
-	s, err := input.ReadLine(prompt)
+	s, err := readline.Line(prompt)
 	fatalOnErr(err)
+	if s != "" {
+		_ = readline.AddHistory(s)
+	}
 	return s
 }
 
@@ -258,6 +264,8 @@ func getPath(prompt string) string {
 	if p == "" {
 		return p
 	}
+
+	_ = readline.AddHistory(p)
 
 	abs, err := filepath.Abs(p)
 	if err != nil {
