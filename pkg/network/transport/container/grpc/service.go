@@ -30,7 +30,6 @@ func (s *Server) Put(ctx context.Context, req *containerGRPC.PutRequest) (*conta
 
 	resp, err := s.srv.Put(ctx, putReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -46,7 +45,6 @@ func (s *Server) Delete(ctx context.Context, req *containerGRPC.DeleteRequest) (
 
 	resp, err := s.srv.Delete(ctx, delReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -62,7 +60,6 @@ func (s *Server) Get(ctx context.Context, req *containerGRPC.GetRequest) (*conta
 
 	resp, err := s.srv.Get(ctx, getReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -78,7 +75,6 @@ func (s *Server) List(ctx context.Context, req *containerGRPC.ListRequest) (*con
 
 	resp, err := s.srv.List(ctx, listReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -94,7 +90,6 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *containerGRPC.SetExten
 
 	resp, err := s.srv.SetExtendedACL(ctx, setEACLReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -110,7 +105,6 @@ func (s *Server) GetExtendedACL(ctx context.Context, req *containerGRPC.GetExten
 
 	resp, err := s.srv.GetExtendedACL(ctx, getEACLReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -126,7 +120,6 @@ func (s *Server) AnnounceUsedSpace(ctx context.Context, req *containerGRPC.Annou
 
 	resp, err := s.srv.AnnounceUsedSpace(ctx, announceReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 

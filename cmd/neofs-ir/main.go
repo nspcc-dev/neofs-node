@@ -93,7 +93,6 @@ func main() {
 	select {
 	case <-ctx.Done():
 	case err := <-intErr:
-		// todo: restart application instead of shutdown
 		log.Info("internal error", zap.String("msg", err.Error()))
 	}
 

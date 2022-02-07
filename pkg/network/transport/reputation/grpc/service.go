@@ -29,7 +29,6 @@ func (s *Server) AnnounceLocalTrust(ctx context.Context, r *reputation2.Announce
 
 	resp, err := s.srv.AnnounceLocalTrust(ctx, req)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -44,7 +43,6 @@ func (s *Server) AnnounceIntermediateResult(ctx context.Context, r *reputation2.
 
 	resp, err := s.srv.AnnounceIntermediateResult(ctx, req)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 

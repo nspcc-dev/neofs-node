@@ -23,7 +23,6 @@ func (s *Server) GetRange(req *objectGRPC.GetRangeRequest, gStream objectGRPC.Ob
 		return err
 	}
 
-	// TODO: think about how we transport errors through gRPC
 	return s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{

@@ -37,7 +37,7 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	// same host may have different connections(with tls or not),
 	// therefore, host+port pair is not unique
 
-	// FIXME: we should calculate map key regardless of the address order,
+	// FIXME: #1157 we should calculate map key regardless of the address order,
 	//  but network.StringifyGroup is order-dependent.
 	//  This works until the same mixed group is transmitted
 	//  (for a network map, it seems to be true).

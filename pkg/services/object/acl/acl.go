@@ -461,7 +461,6 @@ func (b Service) findRequestInfo(
 
 	// find verb from token if it is present
 	verb := sourceVerbOfRequest(req, op)
-	// todo: check verb sanity, if it was generated correctly. Do we need it ?
 
 	info.basicACL = basicACLHelper(cnr.BasicACL())
 	info.requestRole = role
@@ -750,7 +749,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 	// 3. Then check if container owner signed this token.
 	tokenIssuerKey := unmarshalPublicKey(token.GetSignature().GetKey())
 	if !isOwnerFromKey(reqInfo.cnrOwner, tokenIssuerKey) {
-		// todo: in this case we can issue all owner keys from neofs.id and check once again
+		// TODO: #1156 in this case we can issue all owner keys from neofs.id and check once again
 		return false
 	}
 
@@ -759,7 +758,7 @@ func isValidBearer(reqInfo requestInfo, st netmap.State) bool {
 	if tokenOwnerField != nil { // see bearer token owner field description
 		requestSenderKey := unmarshalPublicKey(reqInfo.senderKey)
 		if !isOwnerFromKey(tokenOwnerField, requestSenderKey) {
-			// todo: in this case we can issue all owner keys from neofs.id and check once again
+			// TODO: #1156 in this case we can issue all owner keys from neofs.id and check once again
 			return false
 		}
 	}

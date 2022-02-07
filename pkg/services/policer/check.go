@@ -93,8 +93,6 @@ func (p *Policer) processNodes(ctx context.Context, addr *addressSDK.Address, no
 			cancel()
 
 			if err != nil {
-				// FIXME: this is a temporary solution to resolve 404 response from remote node
-				// We need to distinguish problem nodes from nodes without an object.
 				if strings.Contains(err.Error(), headsvc.ErrNotFound.Error()) {
 					continue
 				} else {

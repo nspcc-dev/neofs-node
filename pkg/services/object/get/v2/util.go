@@ -62,7 +62,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 				// compose meta header of the local server
 				metaHdr := new(session.RequestMetaHeader)
 				metaHdr.SetTTL(meta.GetTTL() - 1)
-				// TODO: think how to set the other fields
+				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
 
 				req.SetMetaHeader(metaHdr)
@@ -187,7 +187,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				// compose meta header of the local server
 				metaHdr := new(session.RequestMetaHeader)
 				metaHdr.SetTTL(meta.GetTTL() - 1)
-				// TODO: think how to set the other fields
+				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
 
 				req.SetMetaHeader(metaHdr)
@@ -347,7 +347,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				// compose meta header of the local server
 				metaHdr := new(session.RequestMetaHeader)
 				metaHdr.SetTTL(meta.GetTTL() - 1)
-				// TODO: think how to set the other fields
+				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
 
 				req.SetMetaHeader(metaHdr)

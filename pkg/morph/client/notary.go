@@ -876,7 +876,7 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 		return 0, 0, nil
 	}
 
-	// TODO: cache values since some operations uses same TX as triggers
+	// TODO: #1151 cache values since some operations uses same TX as triggers
 	nonce = binary.LittleEndian.Uint32(hash.BytesLE())
 
 	height, err := c.client.GetTransactionHeight(hash)

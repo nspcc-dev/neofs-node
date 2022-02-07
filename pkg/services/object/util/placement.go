@@ -54,7 +54,6 @@ func (p *localPlacement) BuildPlacement(addr *addressSDK.Address, policy *netmap
 
 			err := addr.FromIterator(vs[i][j])
 			if err != nil {
-				// TODO: log error
 				continue
 			}
 
@@ -88,7 +87,6 @@ func (p *remotePlacement) BuildPlacement(addr *addressSDK.Address, policy *netma
 
 			err := addr.FromIterator(vs[i][j])
 			if err != nil {
-				// TODO: log error
 				continue
 			}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 )
 
-// FIXME: (temp solution) we need to pass session token from header
+// FIXME: #1159 (temp solution) we need to pass session token from header
 type ContextWithToken struct {
 	context.Context
 

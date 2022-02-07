@@ -377,11 +377,11 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 		Value: value,
 	}
 
-	// todo: add more types
+	// TODO: #1141 add more types
 	switch v := value.(type) {
 	case []byte:
 		result.Type = sc.ByteArrayType
-	case int64: // TODO: add other numerical types
+	case int64:
 		result.Type = sc.IntegerType
 	case [][]byte:
 		arr := make([]sc.Parameter, 0, len(v))
@@ -412,7 +412,7 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 
 		return toStackParameter(arr)
 	case bool:
-		// FIXME: there are some problems with BoolType in neo-go,
+		// FIXME: #1141 there are some problems with BoolType in neo-go,
 		//  so we use compatible type
 		result.Type = sc.IntegerType
 

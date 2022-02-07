@@ -74,7 +74,7 @@ func (np *Processor) checkBindCommon(e *bindCommonContext) error {
 
 func (np *Processor) approveBindCommon(e *bindCommonContext) {
 	// calculate wallet address
-	// TODO: implement some utilities in API Go lib to do it
+	// TODO: nspcc-dev/neofs-sdk-go#134 implement some utilities in API Go lib to do it
 	scriptHash := e.User()
 
 	u160, err := util.Uint160DecodeBytesBE(scriptHash)

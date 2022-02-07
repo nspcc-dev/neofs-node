@@ -45,8 +45,6 @@ const tzChecksumSize = 64
 // of the writing object and writes generated objects to targets from initializer.
 //
 // Objects w/ payload size less or equal than max size remain untouched.
-//
-// TODO: describe behavior in details.
 func NewPayloadSizeLimiter(maxSize uint64, targetInit TargetInitializer) ObjectTarget {
 	return &payloadSizeLimiter{
 		maxSize:    maxSize,

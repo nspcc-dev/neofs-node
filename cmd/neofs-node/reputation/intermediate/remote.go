@@ -58,7 +58,7 @@ type TrustWriterProvider struct {
 func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputationcommon.Writer, error) {
 	eiContext, ok := ctx.(eigentrustcalc.Context)
 	if !ok {
-		// TODO: think if this can be done without such limitation
+		// TODO: #1164 think if this can be done without such limitation
 		panic(ErrIncorrectContextPanicMsg)
 	}
 

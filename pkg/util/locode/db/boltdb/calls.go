@@ -114,8 +114,6 @@ func (db *DB) Put(key locodedb.Key, rec locodedb.Record) error {
 			return fmt.Errorf("could not create country bucket: %w", err)
 		}
 
-		// TODO: write country name once in Country bucket
-
 		locationKey, err := locationBucketKey(key.LocationCode())
 		if err != nil {
 			return err
