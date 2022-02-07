@@ -22,14 +22,20 @@ type clientContext struct {
 func getN3Client(v *viper.Viper) (*client.Client, error) {
 	// number of opened connections
 	// by neo-go client per one host
-	const maxConnsPerHost = 10
+	const (
+		maxConnsPerHost = 10
+		requestTimeout  = time.Second * 10
+	)
 
-	ctx := context.Background() // FIXME(@fyrchik): timeout context
+	ctx := context.Background()
 	endpoint := v.GetString(endpointFlag)
 	if endpoint == "" {
 		return nil, errors.New("missing endpoint")
 	}
-	c, err := client.New(ctx, endpoint, client.Options{MaxConnsPerHost: maxConnsPerHost})
+	c, err := client.New(ctx, endpoint, client.Options{
+		MaxConnsPerHost: maxConnsPerHost,
+		RequestTimeout:  requestTimeout,
+	})
 	if err != nil {
 		return nil, err
 	}
