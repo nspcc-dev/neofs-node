@@ -76,8 +76,8 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			default:
 			}
 
-			// TODO: consider parallel execution
-			// TODO: consider optimization: if status == SPLIT we can continue until
+			// TODO: #1142 consider parallel execution
+			// TODO: #1142 consider optimization: if status == SPLIT we can continue until
 			//  we reach the best result - split info with linking object ID.
 			var info client.NodeInfo
 

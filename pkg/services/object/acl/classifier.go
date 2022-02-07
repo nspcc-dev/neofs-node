@@ -40,7 +40,6 @@ type (
 	}
 )
 
-// fixme: update classifier constructor
 func NewSenderClassifier(l *zap.Logger, ir InnerRingFetcher, nm core.Source) SenderClassifier {
 	return SenderClassifier{
 		log:       l,
@@ -64,7 +63,7 @@ func (c SenderClassifier) Classify(
 
 	ownerKeyInBytes := ownerKey.Bytes()
 
-	// todo: get owner from neofs.id if present
+	// TODO: #1156 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
 	if ownerID.Equal(cnr.OwnerID()) {
@@ -204,7 +203,7 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *keys.PublicKey, er
 	tokenOwner := owner.NewIDFromV2(token.GetBody().GetOwnerID())
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
-		// todo: in this case we can issue all owner keys from neofs.id and check once again
+		// TODO: #1156 in this case we can issue all owner keys from neofs.id and check once again
 		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
 	}
 

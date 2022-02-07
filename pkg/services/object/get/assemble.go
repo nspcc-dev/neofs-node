@@ -36,7 +36,7 @@ func (exec *execCtx) assemble() {
 				exec.overtakePayloadDirectly(children, nil, true)
 			}
 		} else {
-			// TODO: choose one-by-one restoring algorithm according to size
+			// TODO: #1155 choose one-by-one restoring algorithm according to size
 			//  * if size > MAX => go right-to-left with HEAD and back with GET
 			//  * else go right-to-left with GET and compose in single object before writing
 
@@ -47,7 +47,7 @@ func (exec *execCtx) assemble() {
 		}
 	} else if prev != nil {
 		if ok := exec.writeCollectedHeader(); ok {
-			// TODO: choose one-by-one restoring algorithm according to size
+			// TODO: #1155 choose one-by-one restoring algorithm according to size
 			//  * if size > MAX => go right-to-left with HEAD and back with GET
 			//  * else go right-to-left with GET and compose in single object before writing
 

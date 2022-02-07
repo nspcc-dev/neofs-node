@@ -30,7 +30,6 @@ func (s *Server) Create(ctx context.Context, req *sessionGRPC.CreateRequest) (*s
 
 	resp, err := s.srv.Create(ctx, createReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 

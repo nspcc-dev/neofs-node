@@ -76,7 +76,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			default:
 			}
 
-			// TODO: consider parallel execution
+			// TODO: #1142 consider parallel execution
 			var info client.NodeInfo
 
 			client.NodeInfoFromNetmapElement(&info, addrs[i])

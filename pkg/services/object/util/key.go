@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	// todo(alexvanin): should be a part of status API
 	errNoSessionToken      = errors.New("session token does not exist")
 	errSessionTokenExpired = errors.New("session token has been expired")
 )

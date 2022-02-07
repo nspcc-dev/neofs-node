@@ -43,7 +43,7 @@ func (c *cache) Get(addr *addressSDK.Address) (*object.Object, error) {
 
 // Head returns object header from write-cache.
 func (c *cache) Head(addr *addressSDK.Address) (*object.Object, error) {
-	// TODO: easiest to implement solution is presented here, consider more efficient way, e.g.:
+	// TODO: #1149 easiest to implement solution is presented here, consider more efficient way, e.g.:
 	//  - provide header as common object.Object to Put, but marked to prevent correlation with full object
 	//    (all write-cache logic will automatically spread to headers, except flushing)
 	//  - cut header from in-memory objects directly and persist headers into particular bucket of DB

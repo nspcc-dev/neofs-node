@@ -81,11 +81,11 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettleme
 }
 
 func bankOwnerID() (*owner.ID, error) {
-	u := util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // todo: define const
+	u := util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 	o := owner.NewID()
-
+	// TODO: nspcc-dev/neofs-sdk-go#134 use `SetScriptHash` method.
 	err := o.Parse(address.Uint160ToString(u))
 	if err != nil {
 		return nil, err

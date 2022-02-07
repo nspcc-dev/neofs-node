@@ -32,7 +32,6 @@ func (s *Server) LocalNodeInfo(
 
 	resp, err := s.srv.LocalNodeInfo(ctx, nodeInfoReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 
@@ -48,7 +47,6 @@ func (s *Server) NetworkInfo(ctx context.Context, req *netmapGRPC.NetworkInfoReq
 
 	resp, err := s.srv.NetworkInfo(ctx, netInfoReq)
 	if err != nil {
-		// TODO: think about how we transport errors through gRPC
 		return nil, err
 	}
 

@@ -53,7 +53,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				// compose meta header of the local server
 				metaHdr := new(session.RequestMetaHeader)
 				metaHdr.SetTTL(meta.GetTTL() - 1)
-				// TODO: think how to set the other fields
+				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
 
 				req.SetMetaHeader(metaHdr)

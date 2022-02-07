@@ -23,7 +23,6 @@ func (s *Server) Search(req *objectGRPC.SearchRequest, gStream objectGRPC.Object
 		return err
 	}
 
-	// TODO: think about how we transport errors through gRPC
 	return s.srv.Search(
 		searchReq,
 		&searchStreamerV2{

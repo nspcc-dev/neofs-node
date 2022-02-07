@@ -112,7 +112,7 @@ func (v *FormatValidator) validateSignatureKey(obj *Object) error {
 		return v.checkOwnerKey(obj.OwnerID(), obj.Signature().Key())
 	}
 
-	// FIXME: perform token verification
+	// FIXME: #1159 perform token verification
 
 	return nil
 }
@@ -269,8 +269,6 @@ func (v *FormatValidator) checkOwner(obj *Object) error {
 }
 
 // WithNetState returns options to set network state interface.
-//
-// FIXME: network state is a required parameter.
 func WithNetState(netState netmap.State) FormatValidatorOption {
 	return func(c *cfg) {
 		c.netState = netState

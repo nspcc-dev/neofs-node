@@ -30,7 +30,7 @@ func (b *BlobStor) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 	// check presence in shallow dir first (cheaper)
 	exists, err := b.existsBig(prm.addr)
 	if !exists {
-		// TODO: do smth if err != nil
+		// TODO: #1143 do smth if err != nil
 
 		// check presence in blobovnicza
 		exists, err = b.existsSmall(prm.addr)
@@ -57,6 +57,6 @@ func (b *BlobStor) existsBig(addr *addressSDK.Address) (bool, error) {
 
 // checks if object is presented in blobovnicza.
 func (b *BlobStor) existsSmall(_ *addressSDK.Address) (bool, error) {
-	// TODO: implement
+	// TODO: #1143 implement
 	return false, nil
 }

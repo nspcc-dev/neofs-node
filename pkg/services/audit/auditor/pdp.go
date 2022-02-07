@@ -109,7 +109,7 @@ func (c *Context) splitPayload(id *oidSDK.ID) []uint64 {
 
 func (c *Context) collectHashes(p *gamePair) {
 	fn := func(n *netmap.Node, rngs []*object.Range, hashWriter func([]byte)) {
-		// TODO: add order randomization
+		// TODO: #1163 add order randomization
 		for i := range rngs {
 			var sleepDur time.Duration
 			if c.maxPDPSleep > 0 {
