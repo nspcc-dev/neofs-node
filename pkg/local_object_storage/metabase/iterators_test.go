@@ -82,8 +82,8 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 
 	var handled []*addressSDK.Address
 
-	tss := map[string]struct{}{
-		ts.String(): {},
+	tss := map[string]*addressSDK.Address{
+		ts.String(): ts,
 	}
 
 	err = db.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
