@@ -89,7 +89,7 @@ func TestGenerateAlphabet(t *testing.T) {
 	}
 
 	t.Run("check contract group wallet", func(t *testing.T) {
-		p := filepath.Join(walletDir, contractWalletName)
+		p := filepath.Join(walletDir, contractWalletFilename)
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "contract wallet doesn't exist")
 		require.Equal(t, 1, len(w.Accounts), "contract wallet must have 1 accout")
