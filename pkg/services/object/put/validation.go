@@ -31,8 +31,8 @@ type validatingTarget struct {
 
 // errors related to invalid payload size
 var (
-	errExceedingMaxSize = errors.New("payload size is greater than the limit")
-	errWrongPayloadSize = errors.New("wrong payload size")
+	ErrExceedingMaxSize = errors.New("payload size is greater than the limit")
+	ErrWrongPayloadSize = errors.New("wrong payload size")
 )
 
 func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
@@ -41,12 +41,12 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 
 	// check chunk size
 	if chunkLn > t.payloadSz {
-		return errWrongPayloadSize
+		return ErrWrongPayloadSize
 	}
 
 	// check payload size limit
 	if t.payloadSz > t.maxPayloadSz {
-		return errExceedingMaxSize
+		return ErrExceedingMaxSize
 	}
 
 	cs := obj.PayloadChecksum()
@@ -84,7 +84,7 @@ func (t *validatingTarget) Write(p []byte) (n int, err error) {
 
 	// check if new chunk will overflow payload size
 	if t.writtenPayload+chunkLn > t.payloadSz {
-		return 0, errWrongPayloadSize
+		return 0, ErrWrongPayloadSize
 	}
 
 	_, err = t.hash.Write(p)
@@ -103,7 +103,7 @@ func (t *validatingTarget) Write(p []byte) (n int, err error) {
 func (t *validatingTarget) Close() (*transformer.AccessIdentifiers, error) {
 	// check payload size correctness
 	if t.payloadSz != t.writtenPayload {
-		return nil, errWrongPayloadSize
+		return nil, ErrWrongPayloadSize
 	}
 
 	if !bytes.Equal(t.hash.Sum(nil), t.checksum) {
