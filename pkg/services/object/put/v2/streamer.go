@@ -1,7 +1,6 @@
 package putsvc
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -31,15 +30,6 @@ type sizes struct {
 	writtenPayload uint64 // sum size of already cached chunks
 }
 
-// TODO: errors are copy-pasted from putsvc package
-//  consider replacing to core library
-
-// errors related to invalid payload size
-var (
-	errExceedingMaxSize = errors.New("payload size is greater than the limit")
-	errWrongPayloadSize = errors.New("wrong payload size")
-)
-
 func (s *streamer) Send(req *object.PutRequest) (err error) {
 	switch v := req.GetBody().GetObjectPart().(type) {
 	case *object.PutObjectPartInit:
@@ -64,7 +54,7 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 
 			// check payload size limit overflow
 			if s.payloadSz > maxSz {
-				return errExceedingMaxSize
+				return putsvc.ErrExceedingMaxSize
 			}
 
 			s.init = req
@@ -75,7 +65,7 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 
 			// check payload size overflow
 			if s.writtenPayload > s.payloadSz {
-				return errWrongPayloadSize
+				return putsvc.ErrWrongPayloadSize
 			}
 		}
 
@@ -115,7 +105,7 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 	if s.saveChunks {
 		// check payload size correctness
 		if s.writtenPayload != s.payloadSz {
-			return nil, errWrongPayloadSize
+			return nil, putsvc.ErrWrongPayloadSize
 		}
 	}
 
