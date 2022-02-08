@@ -16,25 +16,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-const contractWalletName = "contract.json"
+const (
+	contractWalletFilename    = "contract.json"
+	contractWalletPasswordKey = "credentials.contract"
+)
 
 func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
-	var (
-		password string
-		err      error
-	)
-
-	if key := "credentials.contract"; viper.IsSet(key) {
-		password = viper.GetString(key)
-	} else {
-		prompt := "Password for contract wallet > "
-		password, err = input.ReadPassword(prompt)
-		if err != nil {
-			return nil, err
-		}
+	password, err := getPassword(contractWalletPasswordKey, "Password for contract wallet > ")
+	if err != nil {
+		return nil, err
 	}
 
-	w, err := wallet.NewWallet(path.Join(walletDir, contractWalletName))
+	w, err := wallet.NewWallet(path.Join(walletDir, contractWalletFilename))
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +51,7 @@ func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
 }
 
 func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, error) {
-	p := path.Join(walletDir, contractWalletName)
+	p := path.Join(walletDir, contractWalletFilename)
 	w, err := wallet.NewWalletFromFile(p)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -66,22 +59,16 @@ func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, e
 		}
 
 		cmd.Printf("Contract group wallet is missing, initialize at %s\n",
-			filepath.Join(walletDir, contractWalletName))
+			filepath.Join(walletDir, contractWalletFilename))
 		w, err = initializeContractWallet(walletDir)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var password string
-	if key := "credentials.contract"; viper.IsSet(key) {
-		password = viper.GetString(key)
-	} else {
-		prompt := "Password for contract wallet > "
-		password, err = input.ReadPassword(prompt)
-		if err != nil {
-			return nil, fmt.Errorf("can't fetch password: %w", err)
-		}
+	password, err := getPassword(contractWalletPasswordKey, "Password for contract wallet > ")
+	if err != nil {
+		return nil, err
 	}
 
 	for i := range w.Accounts {
@@ -91,6 +78,15 @@ func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, e
 	}
 
 	return w, nil
+}
+
+func getPassword(key string, promps string) (string, error) {
+	if viper.IsSet(key) {
+		return viper.GetString(key), nil
+	}
+
+	prompt := "Password for contract wallet > "
+	return input.ReadPassword(prompt)
 }
 
 func (c *initializeContext) addManifestGroup(h util.Uint160, cs *contractState) error {
