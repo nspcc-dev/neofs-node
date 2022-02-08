@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	containerContract "github.com/nspcc-dev/neofs-contract/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -43,14 +44,7 @@ func (c *Client) Get(cid []byte) (*container.Container, error) {
 
 	res, err := c.client.TestInvoke(prm)
 	if err != nil {
-		// TODO(fyrchik): reuse messages from container contract.
-		// Currently there are some dependency problems:
-		// github.com/nspcc-dev/neofs-node/pkg/innerring imports
-		//        github.com/nspcc-dev/neofs-sdk-go/audit imports
-		//        github.com/nspcc-dev/neofs-api-go/v2/audit: ambiguous import: found package github.com/nspcc-dev/neofs-api-go/v2/audit in multiple modules:
-		//        github.com/nspcc-dev/neofs-api-go v1.27.1 (/home/dzeta/go/pkg/mod/github.com/nspcc-dev/neofs-api-go@v1.27.1/v2/audit)
-		//        github.com/nspcc-dev/neofs-api-go/v2 v2.11.0-pre.0.20211201134523-3604d96f3fe1 (/home/dzeta/go/pkg/mod/github.com/nspcc-dev/neofs-api-go/v2@v2.11.0-pre.0.20211201134523-3604d96f3fe1/audit)
-		if strings.Contains(err.Error(), "container does not exist") {
+		if strings.Contains(err.Error(), containerContract.NotFoundError) {
 			return nil, core.ErrNotFound
 		}
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
