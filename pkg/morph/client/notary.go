@@ -876,13 +876,24 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 		return 0, 0, nil
 	}
 
-	// TODO: #1151 cache values since some operations uses same TX as triggers
 	nonce = binary.LittleEndian.Uint32(hash.BytesLE())
 
-	height, err := c.client.GetTransactionHeight(hash)
+	height, err := c.getTransactionHeight(hash)
 	if err != nil {
 		return 0, 0, fmt.Errorf("could not get transaction height: %w", err)
 	}
 
 	return nonce, height + c.notary.txValidTime, nil
+}
+
+func (c *Client) getTransactionHeight(h util.Uint256) (uint32, error) {
+	if rh, ok := c.txHeights.Get(h); ok {
+		return rh.(uint32), nil
+	}
+	height, err := c.client.GetTransactionHeight(h)
+	if err != nil {
+		return 0, err
+	}
+	c.txHeights.Add(h, height)
+	return height, nil
 }

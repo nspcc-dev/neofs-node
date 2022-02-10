@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
@@ -83,6 +84,7 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 
 	if cfg.singleCli != nil {
 		return &Client{
+			cache:        initClientCache(),
 			singleClient: blankSingleClient(cfg.singleCli, wallet.NewAccountFromPrivateKey(key), cfg),
 		}, nil
 	}
@@ -90,6 +92,7 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 	endpoints := append(cfg.extraEndpoints, endpoint)
 
 	return &Client{
+		cache: initClientCache(),
 		multiClient: &multiClient{
 			cfg:       *cfg,
 			account:   wallet.NewAccountFromPrivateKey(key),
@@ -97,6 +100,13 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 			clients:   make(map[string]*Client, len(endpoints)),
 		},
 	}, nil
+}
+
+func initClientCache() cache {
+	c, _ := lru.New(100) // returns error only if size is negative
+	return cache{
+		txHeights: c,
+	}
 }
 
 // WithContext returns a client constructor option that
