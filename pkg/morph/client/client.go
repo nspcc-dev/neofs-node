@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -42,8 +43,9 @@ type Client struct {
 }
 
 type cache struct {
-	nnsHash  util.Uint160
-	groupKey *keys.PublicKey
+	nnsHash   util.Uint160
+	groupKey  *keys.PublicKey
+	txHeights *lru.Cache
 }
 
 type singleClient struct {
