@@ -79,12 +79,8 @@ morph:
   dial_timeout: 30s  # timeout for side chain NEO RPC client connection
   disable_cache: true  # do not use TTL cache for side chain GET operations
   rpc_endpoint:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
-    - https://rpc1.morph.fs.neo.org:40341
-    - https://rpc2.morph.fs.neo.org:40341
-  notification_endpoint:  # side chain NEO RPC notification endpoints; are shuffled and used only the first non-error one
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
-  max_connections_per_host: 11  # maximum of open connections per one host
 
 mainchain:  # DEPRECATED section, is not used and not read
   dial_timeout: 30s  # timeout for main chain NEO RPC client connection

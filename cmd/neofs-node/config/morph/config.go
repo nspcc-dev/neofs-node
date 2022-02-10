@@ -37,19 +37,6 @@ func RPCEndpoint(c *config.Config) []string {
 	return v
 }
 
-// NotificationEndpoint returns list of values of "notification_endpoint" config
-// parameter from "morph" section.
-//
-// Throws panic if list is empty.
-func NotificationEndpoint(c *config.Config) []string {
-	v := config.StringSliceSafe(c.Sub(subsection), "notification_endpoint")
-	if len(v) == 0 {
-		panic(fmt.Errorf("no morph chain notification endpoints, see `morph.notification_endpoint` section"))
-	}
-
-	return v
-}
-
 // DialTimeout returns value of "dial_timeout" config parameter
 // from "morph" section.
 //
@@ -67,15 +54,4 @@ func DialTimeout(c *config.Config) time.Duration {
 // from "morph" section.
 func DisableCache(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "disable_cache")
-}
-
-// MaxConnPerHost return value of "max_connections_per_host" config
-// parameter from "morph" section.
-func MaxConnPerHost(c *config.Config) int {
-	v := config.Uint32Safe(c.Sub(subsection), "max_connections_per_host")
-	if v > 0 {
-		return int(v)
-	}
-
-	return MaxConnPerHostDefault
 }

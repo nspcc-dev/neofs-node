@@ -921,12 +921,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 }
 
 func createListener(ctx context.Context, cli *client.Client, p *chainParams) (event.Listener, error) {
-	// config name left unchanged for compatibility, may be its better to rename it to "endpoints"
-	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.notification")
-	if len(endpoints) == 0 {
-		return nil, errors.New("missing morph notification endpoints")
-	}
-
 	var (
 		sub subscriber.Subscriber
 		err error

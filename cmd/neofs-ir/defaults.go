@@ -48,13 +48,9 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("node.persistent_state.path", ".neofs-ir-state")
 
 	cfg.SetDefault("morph.endpoint.client", "")
-	cfg.SetDefault("morph.endpoint.notification", "")
-	cfg.SetDefault("morph.dial_timeout", "10s")
 	cfg.SetDefault("morph.validators", []string{})
 
 	cfg.SetDefault("mainnet.endpoint.client", "")
-	cfg.SetDefault("mainnet.endpoint.notification", "")
-	cfg.SetDefault("mainnet.dial_timeout", "10s")
 
 	cfg.SetDefault("wallet.path", "")     // inner ring node NEP-6 wallet
 	cfg.SetDefault("wallet.address", "")  // account address
