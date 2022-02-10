@@ -47,7 +47,6 @@ func initMorphComponents(c *cfg) {
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
 		client.WithLogger(c.log),
 		client.WithExtraEndpoints(addresses[1:]),
-		client.WithMaxConnectionPerHost(morphconfig.MaxConnPerHost(c.appCfg)),
 	)
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",
@@ -176,38 +175,17 @@ func listenMorphNotifications(c *cfg) {
 		subs subscriber.Subscriber
 	)
 
-	endpoints := morphconfig.NotificationEndpoint(c.appCfg)
-	timeout := morphconfig.DialTimeout(c.appCfg)
-
-	rand.Shuffle(len(endpoints), func(i, j int) {
-		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
-	})
-
 	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
 		fromSideChainBlock = 0
 		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
 	}
 
-	for i := range endpoints {
-		subs, err = subscriber.New(c.ctx, &subscriber.Params{
-			Log:            c.log,
-			Endpoint:       endpoints[i],
-			DialTimeout:    timeout,
-			StartFromBlock: fromSideChainBlock,
-		})
-		if err == nil {
-			c.log.Info("websocket neo event listener established",
-				zap.String("endpoint", endpoints[i]))
-
-			break
-		}
-
-		c.log.Info("failed to establish websocket neo event listener, trying another",
-			zap.String("endpoint", endpoints[i]),
-			zap.String("error", err.Error()))
-	}
-
+	subs, err = subscriber.New(c.ctx, &subscriber.Params{
+		Log:            c.log,
+		StartFromBlock: fromSideChainBlock,
+		Client:         c.cfgMorph.client,
+	})
 	fatalOnErr(err)
 
 	lis, err := event.NewListener(event.ListenerParams{

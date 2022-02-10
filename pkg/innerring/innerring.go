@@ -353,14 +353,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		from: fromSideChainBlock,
 	}
 
-	// create morph listener
-	server.morphListener, err = createListener(ctx, morphChain)
+	// create morph client
+	server.morphClient, err = createClient(ctx, morphChain)
 	if err != nil {
 		return nil, err
 	}
 
-	// create morph client
-	server.morphClient, err = createClient(ctx, morphChain)
+	// create morph listener
+	server.morphListener, err = createListener(ctx, server.morphClient, morphChain)
 	if err != nil {
 		return nil, err
 	}
@@ -388,14 +388,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		}
 		mainnetChain.from = fromMainChainBlock
 
-		// create mainnet listener
-		server.mainnetListener, err = createListener(ctx, mainnetChain)
+		// create mainnet client
+		server.mainnetClient, err = createClient(ctx, mainnetChain)
 		if err != nil {
 			return nil, err
 		}
 
-		// create mainnet client
-		server.mainnetClient, err = createClient(ctx, mainnetChain)
+		// create mainnet listener
+		server.mainnetListener, err = createListener(ctx, server.mainnetClient, mainnetChain)
 		if err != nil {
 			return nil, err
 		}
@@ -920,7 +920,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	return server, nil
 }
 
-func createListener(ctx context.Context, p *chainParams) (event.Listener, error) {
+func createListener(ctx context.Context, cli *client.Client, p *chainParams) (event.Listener, error) {
 	// config name left unchanged for compatibility, may be its better to rename it to "endpoints"
 	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.notification")
 	if len(endpoints) == 0 {
@@ -932,23 +932,13 @@ func createListener(ctx context.Context, p *chainParams) (event.Listener, error)
 		err error
 	)
 
-	dialTimeout := p.cfg.GetDuration(p.name + ".dial_timeout")
-
-	for i := range endpoints {
-		sub, err = subscriber.New(ctx, &subscriber.Params{
-			Log:            p.log,
-			Endpoint:       endpoints[i],
-			DialTimeout:    dialTimeout,
-			StartFromBlock: p.from,
-		})
-		if err == nil {
-			break
-		}
-
-		p.log.Info("failed to establish websocket neo event listener, trying another",
-			zap.String("endpoint", endpoints[i]),
-			zap.String("error", err.Error()),
-		)
+	sub, err = subscriber.New(ctx, &subscriber.Params{
+		Log:            p.log,
+		StartFromBlock: p.from,
+		Client:         cli,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	listener, err := event.NewListener(event.ListenerParams{
