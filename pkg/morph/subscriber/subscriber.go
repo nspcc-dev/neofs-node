@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"go.uber.org/zap"
 )
 
@@ -28,10 +27,9 @@ type (
 	subscriber struct {
 		*sync.RWMutex
 		log    *zap.Logger
-		client *client.WSClient
+		client *client.Client
 
 		notifyChan chan *subscriptions.NotificationEvent
-		notifyIDs  map[util.Uint160]string
 
 		blockChan chan *block.Block
 
@@ -41,9 +39,8 @@ type (
 	// Params is a group of Subscriber constructor parameters.
 	Params struct {
 		Log            *zap.Logger
-		Endpoint       string
-		DialTimeout    time.Duration
 		StartFromBlock uint32
+		Client         *client.Client
 	}
 )
 
@@ -51,56 +48,40 @@ var (
 	errNilParams = errors.New("chain/subscriber: config was not provided to the constructor")
 
 	errNilLogger = errors.New("chain/subscriber: logger was not provided to the constructor")
+
+	errNilClient = errors.New("chain/subscriber: client was not provided to the constructor")
 )
 
 func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan *subscriptions.NotificationEvent, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	notifyIDs := make(map[util.Uint160]string, len(contracts))
+	notifyIDs := make(map[util.Uint160]struct{}, len(contracts))
 
 	for i := range contracts {
-		// do not subscribe to already subscribed contracts
-		if _, ok := s.notifyIDs[contracts[i]]; ok {
-			continue
-		}
-
 		// subscribe to contract notifications
-		id, err := s.client.SubscribeForExecutionNotifications(&contracts[i], nil)
+		err := s.client.SubscribeForExecutionNotifications(contracts[i])
 		if err != nil {
 			// if there is some error, undo all subscriptions and return error
-			for _, id := range notifyIDs {
-				_ = s.client.Unsubscribe(id)
+			for hash := range notifyIDs {
+				_ = s.client.UnsubscribeContract(hash)
 			}
 
 			return nil, err
 		}
 
 		// save notification id
-		notifyIDs[contracts[i]] = id
-	}
-
-	// update global map of subscribed contracts
-	for contract, id := range notifyIDs {
-		s.notifyIDs[contract] = id
+		notifyIDs[contracts[i]] = struct{}{}
 	}
 
 	return s.notifyChan, nil
 }
 
 func (s *subscriber) UnsubscribeForNotification() {
-	s.Lock()
-	defer s.Unlock()
-
-	for i := range s.notifyIDs {
-		err := s.client.Unsubscribe(s.notifyIDs[i])
-		if err != nil {
-			s.log.Error("unsubscribe for notification",
-				zap.String("event", s.notifyIDs[i]),
-				zap.Error(err))
-		}
-
-		delete(s.notifyIDs, i)
+	err := s.client.UnsubscribeAll()
+	if err != nil {
+		s.log.Error("unsubscribe for notification",
+			zap.Error(err))
 	}
 }
 
@@ -109,7 +90,7 @@ func (s *subscriber) Close() {
 }
 
 func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
-	if _, err := s.client.SubscribeForNewBlocks(nil); err != nil {
+	if err := s.client.SubscribeForNewBlocks(); err != nil {
 		return nil, fmt.Errorf("could not subscribe for new block events: %w", err)
 	}
 
@@ -117,7 +98,7 @@ func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
 }
 
 func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *subscriptions.NotaryRequestEvent, error) {
-	if _, err := s.client.SubscribeForNotaryRequests(nil, &mainTXSigner); err != nil {
+	if err := s.client.SubscribeForNotaryRequests(mainTXSigner); err != nil {
 		return nil, fmt.Errorf("could not subscribe for notary request events: %w", err)
 	}
 
@@ -125,11 +106,13 @@ func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-ch
 }
 
 func (s *subscriber) routeNotifications(ctx context.Context) {
+	notificationChan := s.client.NotificationChannel()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case notification, ok := <-s.client.Notifications:
+		case notification, ok := <-notificationChan:
 			if !ok {
 				s.log.Warn("remote notification channel has been closed")
 				close(s.notifyChan)
@@ -186,24 +169,11 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		return nil, errNilParams
 	case p.Log == nil:
 		return nil, errNilLogger
+	case p.Client == nil:
+		return nil, errNilClient
 	}
 
-	wsClient, err := client.NewWS(ctx, p.Endpoint, client.Options{
-		DialTimeout: p.DialTimeout,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if err := wsClient.Init(); err != nil {
-		return nil, fmt.Errorf("could not init ws client: %w", err)
-	}
-
-	p.Log.Debug("event subscriber awaits RPC node",
-		zap.String("endpoint", p.Endpoint),
-		zap.Uint32("min_block_height", p.StartFromBlock))
-
-	err = awaitHeight(wsClient, p.StartFromBlock)
+	err := awaitHeight(p.Client, p.StartFromBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -211,9 +181,8 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 	sub := &subscriber{
 		RWMutex:    new(sync.RWMutex),
 		log:        p.Log,
-		client:     wsClient,
+		client:     p.Client,
 		notifyChan: make(chan *subscriptions.NotificationEvent),
-		notifyIDs:  make(map[util.Uint160]string),
 		blockChan:  make(chan *block.Block),
 		notaryChan: make(chan *subscriptions.NotaryRequestEvent),
 	}
@@ -231,12 +200,12 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 // This function is required to avoid connections to unsynced RPC nodes, because
 // they can produce events from the past that should not be processed by
 // NeoFS nodes.
-func awaitHeight(wsClient *client.WSClient, startFrom uint32) error {
+func awaitHeight(cli *client.Client, startFrom uint32) error {
 	if startFrom == 0 {
 		return nil
 	}
 
-	height, err := wsClient.GetBlockCount()
+	height, err := cli.BlockCount()
 	if err != nil {
 		return fmt.Errorf("could not get block height: %w", err)
 	}
