@@ -1,0 +1,7 @@
+---
+
+wallet: wallets/wallet.json                 # path to the NEP-6 wallet file or path to private key file or WIF
+address: Nf5YDCHrrtFCbetGT8TF1kwH1SjnJjT9N1 # account address in the NEP-6 wallet, omit for default address
+password: secret                            # account password, use "" for empty password
+rpc-endpoint: s01.neofs.devenv:8080         # NeoFS API endpoint of NeoFS node
+endpoint: localhost:8090                    # Control API endpoint of NeoFS node
