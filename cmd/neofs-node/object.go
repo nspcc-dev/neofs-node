@@ -19,6 +19,7 @@ import (
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
+	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	deletesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/delete/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -194,7 +195,7 @@ func initObjectService(c *cfg) {
 
 	coreConstructor := (*coreClientConstructor)(clientConstructor)
 
-	var irFetcher acl.InnerRingFetcher
+	var irFetcher v2.InnerRingFetcher
 
 	if c.cfgMorph.client.ProbeNotary() {
 		irFetcher = &innerRingFetcherWithNotary{
@@ -345,21 +346,22 @@ func initObjectService(c *cfg) {
 		},
 	)
 
-	aclSvc := acl.New(
-		acl.WithSenderClassifier(
-			acl.NewSenderClassifier(
-				c.log,
-				irFetcher,
-				c.cfgNetmap.wrapper,
-			),
-		),
-		acl.WithContainerSource(
+	aclSvc := v2.New(
+		v2.WithLogger(c.log),
+		v2.WithIRFetcher(irFetcher),
+		v2.WithNetmapClient(c.cfgNetmap.wrapper),
+		v2.WithContainerSource(
 			c.cfgObject.cnrSource,
 		),
-		acl.WithNextService(splitSvc),
-		acl.WithLocalStorage(ls),
-		acl.WithEACLSource(c.cfgObject.eaclSource),
-		acl.WithNetmapState(c.cfgNetmap.state),
+		v2.WithNextService(splitSvc),
+		v2.WithEACLChecker(
+			acl.NewChecker(new(acl.CheckerPrm).
+				SetNetmapState(c.cfgNetmap.state).
+				SetEACLSource(c.cfgObject.eaclSource).
+				SetValidator(eaclSDK.NewValidator()).
+				SetLocalStorage(ls),
+			),
+		),
 	)
 
 	respSvc := objectService.NewResponseService(

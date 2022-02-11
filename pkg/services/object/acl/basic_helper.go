@@ -28,17 +28,15 @@ const (
 
 const leftACLBitPos = opOffset + bitsPerOp*opNumber - 1
 
-var (
-	order = map[eacl.Operation]uint8{
-		eacl.OperationRangeHash: 0,
-		eacl.OperationRange:     1,
-		eacl.OperationSearch:    2,
-		eacl.OperationDelete:    3,
-		eacl.OperationPut:       4,
-		eacl.OperationHead:      5,
-		eacl.OperationGet:       6,
-	}
-)
+var order = map[eacl.Operation]uint8{
+	eacl.OperationRangeHash: 0,
+	eacl.OperationRange:     1,
+	eacl.OperationSearch:    2,
+	eacl.OperationDelete:    3,
+	eacl.OperationPut:       4,
+	eacl.OperationHead:      5,
+	eacl.OperationGet:       6,
+}
 
 // returns true if n-th left bit is set (starting at 0).
 func isLeftBitSet(value basicACLHelper, n uint8) bool {

@@ -3,71 +3,66 @@ package acl
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	sessiontest "github.com/nspcc-dev/neofs-api-go/v2/session/test"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/stretchr/testify/require"
 )
 
-func TestOriginalTokens(t *testing.T) {
-	sToken := sessiontest.GenerateSessionToken(false)
-	bToken := acltest.GenerateBearerToken(false)
+type emptyEACLSource struct{}
 
-	for i := 0; i < 10; i++ {
-		metaHeaders := testGenerateMetaHeader(uint32(i), bToken, sToken)
-		require.Equal(t, sToken, originalSessionToken(metaHeaders), i)
-		require.Equal(t, bToken, originalBearerToken(metaHeaders), i)
-	}
+func (e emptyEACLSource) GetEACL(_ *cidSDK.ID) (*eaclSDK.Table, error) {
+	return nil, nil
 }
 
-func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Token) *session.RequestMetaHeader {
-	metaHeader := new(session.RequestMetaHeader)
-	metaHeader.SetBearerToken(b)
-	metaHeader.SetSessionToken(s)
+type emptyNetmapState struct{}
 
-	for i := uint32(0); i < depth; i++ {
-		link := metaHeader
-		metaHeader = new(session.RequestMetaHeader)
-		metaHeader.SetOrigin(link)
-	}
-
-	return metaHeader
+func (e emptyNetmapState) CurrentEpoch() uint64 {
+	return 0
 }
 
 func TestStickyCheck(t *testing.T) {
+	checker := NewChecker(new(CheckerPrm).
+		SetLocalStorage(&engine.StorageEngine{}).
+		SetValidator(eaclSDK.NewValidator()).
+		SetEACLSource(emptyEACLSource{}).
+		SetNetmapState(emptyNetmapState{}),
+	)
+
 	t.Run("system role", func(t *testing.T) {
-		var info requestInfo
+		var info v2.RequestInfo
 
-		info.senderKey = make([]byte, 33) // any non-empty key
-		info.requestRole = eacl.RoleSystem
+		info.SetSenderKey(make([]byte, 33)) // any non-empty key
+		info.SetRequestRole(eaclSDK.RoleSystem)
 
-		info.basicACL.SetSticky()
-		require.True(t, stickyBitCheck(info, ownertest.ID()))
+		setSticky(&info, true)
 
-		info.basicACL.ResetSticky()
-		require.True(t, stickyBitCheck(info, ownertest.ID()))
+		require.True(t, checker.StickyBitCheck(info, ownertest.ID()))
+
+		setSticky(&info, false)
+
+		require.True(t, checker.StickyBitCheck(info, ownertest.ID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
-		var info requestInfo
+		var info v2.RequestInfo
 
-		info.requestRole = eacl.RoleOthers // should be non-system role
+		info.SetRequestRole(eaclSDK.RoleOthers) // should be non-system role
 
 		assertFn := func(isSticky, withKey, withOwner, expected bool) {
 			if isSticky {
-				info.basicACL.SetSticky()
+				setSticky(&info, true)
 			} else {
-				info.basicACL.ResetSticky()
+				setSticky(&info, false)
 			}
 
 			if withKey {
-				info.senderKey = make([]byte, 33)
+				info.SetSenderKey(make([]byte, 33))
 			} else {
-				info.senderKey = nil
+				info.SetSenderKey(nil)
 			}
 
 			var ownerID *owner.ID
@@ -76,7 +71,7 @@ func TestStickyCheck(t *testing.T) {
 				ownerID = ownertest.ID()
 			}
 
-			require.Equal(t, expected, stickyBitCheck(info, ownerID))
+			require.Equal(t, expected, checker.StickyBitCheck(info, ownerID))
 		}
 
 		assertFn(true, false, false, false)
@@ -87,4 +82,16 @@ func TestStickyCheck(t *testing.T) {
 		assertFn(false, false, true, true)
 		assertFn(false, true, true, true)
 	})
+}
+
+func setSticky(req *v2.RequestInfo, enabled bool) {
+	bh := basicACLHelper(req.BasicACL())
+
+	if enabled {
+		bh.SetSticky()
+	} else {
+		bh.ResetSticky()
+	}
+
+	req.SetBasicACL(uint32(bh))
 }

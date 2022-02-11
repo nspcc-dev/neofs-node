@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -22,7 +21,7 @@ type cfg struct {
 
 	msg xHeaderSource
 
-	addr *refs.Address
+	addr *objectSDKAddress.Address
 }
 
 type ObjectStorage interface {
@@ -83,11 +82,6 @@ func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
 }
 
 func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
-	var addr *objectSDKAddress.Address
-	if h.addr != nil {
-		addr = objectSDKAddress.NewAddressFromV2(h.addr)
-	}
-
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
@@ -101,20 +95,20 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 			*objectV2.GetRangeRequest,
 			*objectV2.GetRangeHashRequest,
 			*objectV2.DeleteRequest:
-			return addressHeaders(objectSDKAddress.NewAddressFromV2(h.addr)), true
+			return addressHeaders(h.addr), true
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				if addr == nil {
-					addr = objectSDKAddress.NewAddress()
+				if h.addr == nil {
+					addr := objectSDKAddress.NewAddress()
 					addr.SetContainerID(cid.NewFromV2(v.GetHeader().GetContainerID()))
 					addr.SetObjectID(objectSDKID.NewIDFromV2(v.GetObjectID()))
 				}
 
-				hs := headersFromObject(object.NewFromV2(oV2), addr)
+				hs := headersFromObject(object.NewFromV2(oV2), h.addr)
 
 				return hs, true
 			}
@@ -135,7 +129,7 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				return headersFromObject(object.NewFromV2(oV2), addr), true
+				return headersFromObject(object.NewFromV2(oV2), h.addr), true
 			}
 		case *objectV2.HeadResponse:
 			oV2 := new(objectV2.Object)
@@ -146,7 +140,7 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 			case *objectV2.ShortHeader:
 				hdr = new(objectV2.Header)
 
-				hdr.SetContainerID(h.addr.GetContainerID())
+				hdr.SetContainerID(h.addr.ContainerID().ToV2())
 				hdr.SetVersion(v.GetVersion())
 				hdr.SetCreationEpoch(v.GetCreationEpoch())
 				hdr.SetOwnerID(v.GetOwnerID())
@@ -158,16 +152,14 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 
 			oV2.SetHeader(hdr)
 
-			return headersFromObject(object.NewFromV2(oV2), addr), true
+			return headersFromObject(object.NewFromV2(oV2), h.addr), true
 		}
 	}
 
 	return nil, true
 }
 
-func (h *headerSource) localObjectHeaders(addrV2 *refs.Address) ([]eaclSDK.Header, bool) {
-	addr := objectSDKAddress.NewAddressFromV2(addrV2)
-
+func (h *headerSource) localObjectHeaders(addr *objectSDKAddress.Address) ([]eaclSDK.Header, bool) {
 	obj, err := h.storage.Head(addr)
 	if err == nil {
 		return headersFromObject(obj, addr), true
@@ -176,10 +168,10 @@ func (h *headerSource) localObjectHeaders(addrV2 *refs.Address) ([]eaclSDK.Heade
 	return addressHeaders(addr), false
 }
 
-func cidHeader(cid *cid.ID) eaclSDK.Header {
+func cidHeader(idCnr *cid.ID) eaclSDK.Header {
 	return &sysObjHdr{
 		k: acl.FilterObjectContainerID,
-		v: cidValue(cid),
+		v: cidValue(idCnr),
 	}
 }
 
