@@ -63,7 +63,7 @@ func (c SenderClassifier) Classify(
 
 	ownerKeyInBytes := ownerKey.Bytes()
 
-	// TODO: #1156 get owner from neofs.id if present
+	// TODO: #767 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
 	if ownerID.Equal(cnr.OwnerID()) {
@@ -203,7 +203,7 @@ func ownerFromToken(token *session.SessionToken) (*owner.ID, *keys.PublicKey, er
 	tokenOwner := owner.NewIDFromV2(token.GetBody().GetOwnerID())
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
-		// TODO: #1156 in this case we can issue all owner keys from neofs.id and check once again
+		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
 	}
 
