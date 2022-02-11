@@ -1,0 +1,28 @@
+package v2
+
+import (
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
+)
+
+// ACLChecker is an interface that must provide
+// ACL related checks.
+type ACLChecker interface {
+	// CheckBasicACL must return true only if request
+	// passes basic ACL validation.
+	CheckBasicACL(RequestInfo) bool
+	// CheckEACL must return true only if request
+	// passes extended ACL validation.
+	CheckEACL(interface{}, RequestInfo) bool
+	// StickyBitCheck must return true only if sticky bit
+	// is disabled or enabled but request contains correct
+	// owner field.
+	StickyBitCheck(RequestInfo, *owner.ID) bool
+}
+
+// InnerRingFetcher is an interface that must provide
+// Inner Ring information.
+type InnerRingFetcher interface {
+	// InnerRingKeys must return list of public keys of
+	// the actual inner ring.
+	InnerRingKeys() ([][]byte, error)
+}

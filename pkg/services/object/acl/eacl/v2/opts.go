@@ -1,8 +1,8 @@
 package v2
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 func WithObjectStorage(v ObjectStorage) Option {
@@ -36,7 +36,7 @@ func WithServiceResponse(resp Response, req Request) Option {
 	}
 }
 
-func WithAddress(v *refs.Address) Option {
+func WithAddress(v *addressSDK.Address) Option {
 	return func(c *cfg) {
 		c.addr = v
 	}
