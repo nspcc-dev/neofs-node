@@ -240,6 +240,7 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 
 	cliPrm.WithAddress(prm.objAddr)
 	cliPrm.WithRangeList(prm.rng)
+	cliPrm.TZ()
 
 	cliRes, err := x.c.HashObjectPayloadRanges(prm.ctx, &cliPrm,
 		client.WithKey(x.key),
