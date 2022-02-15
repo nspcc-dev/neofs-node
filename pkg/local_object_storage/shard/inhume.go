@@ -1,6 +1,8 @@
 package shard
 
 import (
+	"fmt"
+
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
@@ -44,6 +46,9 @@ func (p *InhumePrm) MarkAsGarbage(addr ...*addressSDK.Address) *InhumePrm {
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from blobStor and metabase until `Delete` operation.
 //
+// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
+// if at least one object is locked.
+//
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 	if s.GetMode() == ModeReadOnly {
@@ -69,6 +74,8 @@ func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.String("error", err.Error()),
 		)
+
+		return nil, fmt.Errorf("metabase inhume: %w", err)
 	}
 
 	return new(InhumeRes), nil
