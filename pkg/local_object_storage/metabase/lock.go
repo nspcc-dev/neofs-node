@@ -2,9 +2,9 @@ package meta
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -22,13 +22,10 @@ func bucketNameLockers(idCnr cid.ID) []byte {
 	return []byte(idCnr.String() + bucketNameSuffixLockers)
 }
 
-// ErrLockIrregularObject is returned when trying to lock an irregular object.
-var ErrLockIrregularObject = errors.New("locking irregular object")
-
 // Lock marks objects as locked with another object. All objects are from the
 // specified container.
 //
-// Allows locking regular objects only (otherwise returns ErrLockIrregularObject).
+// Allows locking regular objects only (otherwise returns apistatus.IrregularObjectLock).
 //
 // Locked list should be unique. Panics if it is empty.
 func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
@@ -45,7 +42,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		}
 
 		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
-			return ErrLockIrregularObject
+			return apistatus.IrregularObjectLock{}
 		}
 
 		bucketLocked, err := tx.CreateBucketIfNotExists(bucketNameLocked)
