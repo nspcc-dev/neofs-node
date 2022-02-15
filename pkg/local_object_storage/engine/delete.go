@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
@@ -27,6 +30,9 @@ func (p *DeletePrm) WithAddresses(addr ...*addressSDK.Address) *DeletePrm {
 // Delete marks the objects to be removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
+//
+// Returns apistatus.ObjectLocked if at least one object is locked.
+// In this case no object from the list is marked to be deleted.
 func (e *StorageEngine) Delete(prm *DeletePrm) (res *DeleteRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.delete(prm)
@@ -43,6 +49,10 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 
 	shPrm := new(shard.InhumePrm)
 	existsPrm := new(shard.ExistsPrm)
+	var locked struct {
+		is  bool
+		err apistatus.ObjectLocked
+	}
 
 	for i := range prm.addr {
 		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh hashedShard) (stop bool) {
@@ -57,10 +67,18 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 			_, err = sh.Inhume(shPrm.MarkAsGarbage(prm.addr[i]))
 			if err != nil {
 				e.reportShardError(sh, "could not inhume object in shard", err)
+
+				locked.is = errors.As(err, &locked.err)
+
+				return locked.is
 			}
 
-			return err == nil
+			return true
 		})
+	}
+
+	if locked.is {
+		return nil, locked.err
 	}
 
 	return nil, nil
