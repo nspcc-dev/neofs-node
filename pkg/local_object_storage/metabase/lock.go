@@ -97,3 +97,16 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		return nil
 	})
 }
+
+// checks if specified object is locked in the specified container.
+func objectLocked(tx *bbolt.Tx, idCnr cid.ID, idObj oid.ID) bool {
+	bucketLocked := tx.Bucket(bucketNameLocked)
+	if bucketLocked != nil {
+		bucketLockedContainer := bucketLocked.Bucket([]byte(idCnr.String()))
+		if bucketLockedContainer != nil {
+			return bucketLockedContainer.Get(objectKey(&idObj)) != nil
+		}
+	}
+
+	return false
+}
