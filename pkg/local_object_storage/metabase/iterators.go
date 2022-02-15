@@ -112,7 +112,8 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 }
 
 // IterateCoveredByTombstones iterates over all objects in DB which are covered
-// by tombstone with string address from tss.
+// by tombstone with string address from tss. Locked objects are not included
+// (do not confuse with objects of type LOCK).
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
@@ -135,6 +136,10 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]*addressSD
 			addr, err := addressFromKey(k)
 			if err != nil {
 				return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
+			}
+
+			if objectLocked(tx, *addr.ContainerID(), *addr.ObjectID()) {
+				return nil
 			}
 
 			return h(addr)
