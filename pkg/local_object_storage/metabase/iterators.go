@@ -38,7 +38,8 @@ type ExpiredObjectHandler func(*ExpiredObject) error
 var ErrInterruptIterator = errors.New("iterator is interrupted")
 
 // IterateExpired iterates over all objects in DB which are out of date
-// relative to epoch.
+// relative to epoch. Locked objects are not included (do not confuse
+// with objects of type LOCK).
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
@@ -81,6 +82,14 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 				err = cnrID.Parse(string(cidBytes))
 				if err != nil {
 					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
+				}
+
+				// Ignore locked objects.
+				//
+				// To slightly optimize performance we can check only REGULAR objects
+				// (only they can be locked), but it's more reliable.
+				if objectLocked(tx, *cnrID, *id) {
+					return nil
 				}
 
 				addr := addressSDK.NewAddress()
