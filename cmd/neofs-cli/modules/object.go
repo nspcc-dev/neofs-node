@@ -861,16 +861,7 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	cmd.Printf("Size: %d\n", obj.PayloadSize())
 	cmd.Printf("HomoHash: %s\n", hex.EncodeToString(obj.PayloadHomomorphicHash().Sum()))
 	cmd.Printf("Checksum: %s\n", hex.EncodeToString(obj.PayloadChecksum().Sum()))
-	switch obj.Type() {
-	case object.TypeRegular:
-		cmd.Println("Type: regular")
-	case object.TypeTombstone:
-		cmd.Println("Type: tombstone")
-	case object.TypeStorageGroup:
-		cmd.Println("Type: storage group")
-	default:
-		cmd.Println("Type: unknown")
-	}
+	cmd.Printf("Type: %s\n", obj.Type())
 
 	cmd.Println("Attributes:")
 	for _, attr := range obj.Attributes() {
