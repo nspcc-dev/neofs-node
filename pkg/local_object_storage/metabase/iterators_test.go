@@ -72,6 +72,7 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	ts := generateAddress()
 	protected1 := generateAddress()
 	protected2 := generateAddress()
+	protectedLocked := generateAddress()
 	garbage := generateAddress()
 
 	prm := new(meta.InhumePrm)
@@ -80,7 +81,7 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 
 	_, err = db.Inhume(prm.
 		WithTombstoneAddress(ts).
-		WithAddresses(protected1, protected2),
+		WithAddresses(protected1, protected2, protectedLocked),
 	)
 	require.NoError(t, err)
 
@@ -88,6 +89,7 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 		WithAddresses(garbage).
 		WithGCMark(),
 	)
+	require.NoError(t, err)
 
 	var handled []*addressSDK.Address
 
@@ -101,7 +103,22 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Len(t, handled, 2)
+	require.Len(t, handled, 3)
 	require.Contains(t, handled, protected1)
 	require.Contains(t, handled, protected2)
+	require.Contains(t, handled, protectedLocked)
+
+	err = db.Lock(*protectedLocked.ContainerID(), *generateAddress().ObjectID(), []oid.ID{*protectedLocked.ObjectID()})
+	require.NoError(t, err)
+
+	handled = handled[:0]
+
+	err = db.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
+		handled = append(handled, addr)
+		return nil
+	})
+	require.NoError(t, err)
+
+	require.Len(t, handled, 2)
+	require.NotContains(t, handled, protectedLocked)
 }
