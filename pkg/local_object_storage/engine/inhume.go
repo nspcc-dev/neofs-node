@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
@@ -50,6 +51,9 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from shard until `Delete` operation.
 //
+// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
+// if at least one object is locked.
+//
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 	err = e.execIfNotBlocked(func() error {
@@ -74,10 +78,14 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}
 
-		ok := e.inhumeAddr(prm.addrs[i], shPrm, true)
-		if !ok {
-			ok = e.inhumeAddr(prm.addrs[i], shPrm, false)
-			if !ok {
+		switch e.inhumeAddr(prm.addrs[i], shPrm, true) {
+		case 1:
+			return nil, apistatus.ObjectLocked{}
+		case 0:
+			switch e.inhumeAddr(prm.addrs[i], shPrm, false) {
+			case 1:
+				return nil, apistatus.ObjectLocked{}
+			case 0:
 				return nil, errInhumeFailure
 			}
 		}
@@ -86,8 +94,13 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 	return new(InhumeRes), nil
 }
 
-func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePrm, checkExists bool) (ok bool) {
+// Returns:
+//   0 - fail
+//   1 - object locked
+//   2 - ok
+func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePrm, checkExists bool) (status uint8) {
 	root := false
+	var errLocked apistatus.ObjectLocked
 
 	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
@@ -105,7 +118,7 @@ func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePr
 			if err != nil {
 				if errors.Is(err, object.ErrAlreadyRemoved) {
 					// inhumed once - no need to be inhumed again
-					ok = true
+					status = 2
 					return true
 				}
 
@@ -124,11 +137,18 @@ func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePr
 		_, err := sh.Inhume(prm)
 		if err != nil {
 			e.reportShardError(sh, "could not inhume object in shard", err)
-		} else {
-			ok = true
+
+			if errors.As(err, &errLocked) {
+				status = 1
+				return true
+			}
+
+			return false
 		}
 
-		return err == nil
+		status = 2
+
+		return true
 	})
 
 	return
