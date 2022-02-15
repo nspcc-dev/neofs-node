@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -36,12 +37,14 @@ func TestDB_Lock(t *testing.T) {
 			err := meta.Put(db, obj, nil)
 			require.NoError(t, err, typ)
 
+			var e apistatus.IrregularObjectLock
+
 			// try to lock it
 			err = db.Lock(cnr, *oidtest.ID(), []oid.ID{*obj.ID()})
 			if typ == object.TypeRegular {
 				require.NoError(t, err, typ)
 			} else {
-				require.ErrorIs(t, err, meta.ErrLockIrregularObject, typ)
+				require.ErrorAs(t, err, &e, typ)
 			}
 		}
 	})
