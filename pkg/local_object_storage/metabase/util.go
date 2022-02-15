@@ -132,3 +132,31 @@ func resetBucket(b *bbolt.Bucket) error {
 		return b.DeleteBucket(k)
 	})
 }
+
+// if meets irregular object container in objs - returns its type, otherwise returns object.TypeRegular.
+//
+// firstIrregularObjectType(tx, cnr, obj) usage allows getting object type.
+func firstIrregularObjectType(tx *bbolt.Tx, idCnr cid.ID, objs ...[]byte) object.Type {
+	if len(objs) == 0 {
+		panic("empty object list in firstIrregularObjectType")
+	}
+
+	irregularTypeBuckets := [...]struct {
+		typ  object.Type
+		name []byte
+	}{
+		{object.TypeTombstone, tombstoneBucketName(&idCnr)},
+		{object.TypeStorageGroup, storageGroupBucketName(&idCnr)},
+		{object.TypeLock, bucketNameLockers(idCnr)},
+	}
+
+	for i := range objs {
+		for j := range irregularTypeBuckets {
+			if inBucket(tx, irregularTypeBuckets[j].name, objs[i]) {
+				return irregularTypeBuckets[j].typ
+			}
+		}
+	}
+
+	return object.TypeRegular
+}

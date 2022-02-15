@@ -88,7 +88,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 				addr.SetObjectID(id)
 
 				return h(&ExpiredObject{
-					typ:  objectType(tx, cnrID, idKey),
+					typ:  firstIrregularObjectType(tx, *cnrID, idKey),
 					addr: addr,
 				})
 			})
@@ -100,17 +100,6 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 	}
 
 	return err
-}
-
-func objectType(tx *bbolt.Tx, cid *cid.ID, oidBytes []byte) object.Type {
-	switch {
-	default:
-		return object.TypeRegular
-	case inBucket(tx, tombstoneBucketName(cid), oidBytes):
-		return object.TypeTombstone
-	case inBucket(tx, storageGroupBucketName(cid), oidBytes):
-		return object.TypeStorageGroup
-	}
 }
 
 // IterateCoveredByTombstones iterates over all objects in DB which are covered
