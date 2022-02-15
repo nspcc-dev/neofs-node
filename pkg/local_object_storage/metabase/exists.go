@@ -88,13 +88,8 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 		return false, objectSDK.NewSplitInfoError(splitInfo)
 	}
 
-	// if parent bucket is empty, then check if object exists in tombstone bucket
-	if inBucket(tx, tombstoneBucketName(addr.ContainerID()), objKey) {
-		return true, nil
-	}
-
-	// if parent bucket is empty, then check if object exists in storage group bucket
-	return inBucket(tx, storageGroupBucketName(addr.ContainerID()), objKey), nil
+	// if parent bucket is empty, then check if object exists in typed buckets
+	return firstIrregularObjectType(tx, *addr.ContainerID(), objKey) != objectSDK.TypeRegular, nil
 }
 
 // inGraveyard returns:

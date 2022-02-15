@@ -199,7 +199,7 @@ func uniqueIndexes(obj *objectSDK.Object, si *objectSDK.SplitInfo, id *blobovnic
 		case objectSDK.TypeStorageGroup:
 			bucketName = storageGroupBucketName(addr.ContainerID())
 		case objectSDK.TypeLock:
-			bucketName = bucketNameLocked(*addr.ContainerID())
+			bucketName = bucketNameLockers(*addr.ContainerID())
 		default:
 			return nil, ErrUnknownObjectType
 		}

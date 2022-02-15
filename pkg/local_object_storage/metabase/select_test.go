@@ -162,6 +162,11 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	err = putBig(db, leftChild)
 	require.NoError(t, err)
 
+	lock := generateObjectWithCID(t, cid)
+	lock.SetType(objectSDK.TypeLock)
+	err = putBig(db, lock)
+	require.NoError(t, err)
+
 	parent := generateObjectWithCID(t, cid)
 
 	rightChild := generateObjectWithCID(t, cid)
@@ -201,6 +206,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(leftChild),
 			object.AddressOf(rightChild),
 			object.AddressOf(link),
+			object.AddressOf(lock),
 		)
 
 		fs = objectSDK.SearchFilters{}
@@ -224,6 +230,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		testSelect(t, db, cid, fs,
 			object.AddressOf(ts),
 			object.AddressOf(sg),
+			object.AddressOf(lock),
 		)
 
 		fs = objectSDK.SearchFilters{}
@@ -245,6 +252,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(link),
 			object.AddressOf(parent),
 			object.AddressOf(sg),
+			object.AddressOf(lock),
 		)
 
 		fs = objectSDK.SearchFilters{}
@@ -266,6 +274,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(link),
 			object.AddressOf(parent),
 			object.AddressOf(ts),
+			object.AddressOf(lock),
 		)
 
 		fs = objectSDK.SearchFilters{}
@@ -299,6 +308,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(rightChild),
 			object.AddressOf(link),
 			object.AddressOf(parent),
+			object.AddressOf(lock),
 		)
 	})
 }
@@ -494,6 +504,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 	err = putBig(db, sg)
 	require.NoError(t, err)
 
+	lock := generateObjectWithCID(t, cid)
+	lock.SetType(objectSDK.TypeLock)
+	err = putBig(db, lock)
+	require.NoError(t, err)
+
 	t.Run("not present", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchNotPresent, nil)
@@ -516,6 +531,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 			object.AddressOf(parent),
 			object.AddressOf(sg),
 			object.AddressOf(ts),
+			object.AddressOf(lock),
 		)
 	})
 
@@ -530,6 +546,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 			object.AddressOf(parent),
 			object.AddressOf(sg),
 			object.AddressOf(ts),
+			object.AddressOf(lock),
 		)
 	})
 
@@ -544,6 +561,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 			object.AddressOf(regular),
 			object.AddressOf(parent),
 			object.AddressOf(sg),
+			object.AddressOf(lock),
 		)
 	})
 
@@ -558,6 +576,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 			object.AddressOf(regular),
 			object.AddressOf(parent),
 			object.AddressOf(ts),
+			object.AddressOf(lock),
 		)
 	})
 
@@ -570,6 +589,22 @@ func TestDB_SelectObjectID(t *testing.T) {
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, parent.ID())
 		testSelect(t, db, cid, fs,
 			object.AddressOf(regular),
+			object.AddressOf(sg),
+			object.AddressOf(ts),
+			object.AddressOf(lock),
+		)
+	})
+
+	t.Run("lock objects", func(t *testing.T) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, lock.ID())
+		testSelect(t, db, cid, fs, object.AddressOf(lock))
+
+		fs = objectSDK.SearchFilters{}
+		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, lock.ID())
+		testSelect(t, db, cid, fs,
+			object.AddressOf(regular),
+			object.AddressOf(parent),
 			object.AddressOf(sg),
 			object.AddressOf(ts),
 		)

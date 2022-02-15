@@ -257,6 +257,8 @@ func delUniqueIndexes(obj *objectSDK.Object, isParent bool) ([]namedBucketItem, 
 			bucketName = tombstoneBucketName(addr.ContainerID())
 		case objectSDK.TypeStorageGroup:
 			bucketName = storageGroupBucketName(addr.ContainerID())
+		case objectSDK.TypeLock:
+			bucketName = bucketNameLockers(*addr.ContainerID())
 		default:
 			return nil, ErrUnknownObjectType
 		}

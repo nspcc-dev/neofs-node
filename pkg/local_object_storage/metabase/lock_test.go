@@ -3,7 +3,6 @@ package meta_test
 import (
 	"testing"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,7 +33,7 @@ func TestDB_Lock(t *testing.T) {
 			obj.SetContainerID(&cnr)
 
 			// save irregular object
-			err := meta.Put(db, objectCore.NewFromSDK(obj.Object()), nil)
+			err := meta.Put(db, obj, nil)
 			require.NoError(t, err, typ)
 
 			// try to lock it

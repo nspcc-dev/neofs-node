@@ -76,7 +76,7 @@ func TestDB_Containers(t *testing.T) {
 func TestDB_ContainersCount(t *testing.T) {
 	db := newDB(t)
 
-	const R, T, SG = 10, 11, 12 // amount of object per type
+	const R, T, SG, L = 10, 11, 12, 13 // amount of object per type
 
 	uploadObjects := [...]struct {
 		amount int
@@ -85,9 +85,10 @@ func TestDB_ContainersCount(t *testing.T) {
 		{R, objectSDK.TypeRegular},
 		{T, objectSDK.TypeTombstone},
 		{SG, objectSDK.TypeStorageGroup},
+		{L, objectSDK.TypeLock},
 	}
 
-	expected := make([]*cid.ID, 0, R+T+SG)
+	expected := make([]*cid.ID, 0, R+T+SG+L)
 
 	for _, upload := range uploadObjects {
 		for i := 0; i < upload.amount; i++ {
