@@ -6,6 +6,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,4 +87,21 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	res, err = db.Exists(existsPrm.WithAddress(addr1))
 	require.NoError(t, err)
 	require.False(t, res.Exists())
+}
+
+func TestInhumeLocked(t *testing.T) {
+	db := newDB(t)
+
+	locked := *objecttest.Address()
+
+	err := db.Lock(*locked.ContainerID(), *oidtest.ID(), []oid.ID{*locked.ObjectID()})
+	require.NoError(t, err)
+
+	var prm meta.InhumePrm
+	prm.WithAddresses(&locked)
+
+	_, err = db.Inhume(&prm)
+
+	var e apistatus.ObjectLocked
+	require.ErrorAs(t, err, &e)
 }

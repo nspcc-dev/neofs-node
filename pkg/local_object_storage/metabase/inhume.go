@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
@@ -69,6 +70,9 @@ const inhumeGCMarkValue = "GCMARK"
 var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // Inhume marks objects as removed but not removes it from metabase.
+//
+// Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
+// if at least one object is locked.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		graveyard, err := tx.CreateBucketIfNotExists(graveyardBucketName)
@@ -96,6 +100,11 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 		}
 
 		for i := range prm.target {
+			// prevent locked objects to be inhumed
+			if objectLocked(tx, *prm.target[i].ContainerID(), *prm.target[i].ObjectID()) {
+				return apistatus.ObjectLocked{}
+			}
+
 			obj, err := db.get(tx, prm.target[i], false, true)
 
 			// if object is stored and it is regular object then update bucket
