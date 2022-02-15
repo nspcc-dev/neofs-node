@@ -198,6 +198,8 @@ func uniqueIndexes(obj *objectSDK.Object, si *objectSDK.SplitInfo, id *blobovnic
 			bucketName = tombstoneBucketName(addr.ContainerID())
 		case objectSDK.TypeStorageGroup:
 			bucketName = storageGroupBucketName(addr.ContainerID())
+		case objectSDK.TypeLock:
+			bucketName = bucketNameLocked(*addr.ContainerID())
 		default:
 			return nil, ErrUnknownObjectType
 		}
