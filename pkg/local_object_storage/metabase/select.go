@@ -153,6 +153,7 @@ func (db *DB) selectAll(tx *bbolt.Tx, cid *cid.ID, to map[string]int) {
 	selectAllFromBucket(tx, tombstoneBucketName(cid), prefix, to, 0)
 	selectAllFromBucket(tx, storageGroupBucketName(cid), prefix, to, 0)
 	selectAllFromBucket(tx, parentBucketName(cid), prefix, to, 0)
+	selectAllFromBucket(tx, bucketNameLockers(*cid), prefix, to, 0)
 }
 
 // selectAllFromBucket goes through all keys in bucket and adds them in a
@@ -207,6 +208,7 @@ func (db *DB) selectFastFilter(
 		selectAllFromBucket(tx, primaryBucketName(cid), prefix, to, fNum)
 		selectAllFromBucket(tx, tombstoneBucketName(cid), prefix, to, fNum)
 		selectAllFromBucket(tx, storageGroupBucketName(cid), prefix, to, fNum)
+		selectAllFromBucket(tx, bucketNameLockers(*cid), prefix, to, fNum)
 	default: // user attribute
 		bucketName := attributeBucketName(cid, f.Header())
 
@@ -222,6 +224,9 @@ var mBucketNaming = map[string][]func(*cid.ID) []byte{
 	v2object.TypeRegular.String():      {primaryBucketName, parentBucketName},
 	v2object.TypeTombstone.String():    {tombstoneBucketName},
 	v2object.TypeStorageGroup.String(): {storageGroupBucketName},
+	v2object.TypeLock.String(): {func(id *cid.ID) []byte {
+		return bucketNameLockers(*id)
+	}},
 }
 
 func allBucketNames(cid *cid.ID) (names [][]byte) {

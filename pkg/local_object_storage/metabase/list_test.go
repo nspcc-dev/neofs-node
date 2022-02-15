@@ -18,7 +18,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	const (
 		containers = 5
-		total      = containers * 4 // regular + ts + sg + child
+		total      = containers * 5 // regular + ts + sg + child + lock
 	)
 
 	expected := make([]*addressSDK.Address, 0, total)
@@ -44,6 +44,13 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		// add one storage group
 		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeStorageGroup)
+		err = putBig(db, obj)
+		require.NoError(t, err)
+		expected = append(expected, object.AddressOf(obj))
+
+		// add one lock
+		obj = generateObjectWithCID(t, containerID)
+		obj.SetType(objectSDK.TypeLock)
 		err = putBig(db, obj)
 		require.NoError(t, err)
 		expected = append(expected, object.AddressOf(obj))

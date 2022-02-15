@@ -113,6 +113,12 @@ func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bo
 		return obj, obj.Unmarshal(data)
 	}
 
+	// if not found then check in locker index
+	data = getFromBucket(tx, bucketNameLockers(*cid), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
 	// if not found then check if object is a virtual
 	return getVirtualObject(tx, cid, key, raw)
 }

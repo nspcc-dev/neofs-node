@@ -55,6 +55,18 @@ func TestDB_Exists(t *testing.T) {
 		require.True(t, exists)
 	})
 
+	t.Run("lock object", func(t *testing.T) {
+		lock := generateObject(t)
+		lock.SetType(objectSDK.TypeLock)
+
+		err := putBig(db, lock)
+		require.NoError(t, err)
+
+		exists, err := meta.Exists(db, object.AddressOf(lock))
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+
 	t.Run("virtual object", func(t *testing.T) {
 		cid := cidtest.ID()
 		parent := generateObjectWithCID(t, cid)

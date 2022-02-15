@@ -57,8 +57,8 @@ func (l ListRes) Cursor() *Cursor {
 }
 
 // ListWithCursor lists physical objects available in metabase starting from
-// cursor. Includes regular, tombstone and storage group objects. Does not
-// include inhumed objects. Use cursor value from response for consecutive requests.
+// cursor. Includes objects of all types. Does not include inhumed objects.
+// Use cursor value from response for consecutive requests.
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
@@ -72,8 +72,8 @@ func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]*addressSDK.Address
 }
 
 // ListWithCursor lists physical objects available in metabase starting from
-// cursor. Includes regular, tombstone and storage group objects. Does not
-// include inhumed objects. Use cursor value from response for consecutive requests.
+// cursor. Includes objects of all types. Does not include inhumed objects.
+// Use cursor value from response for consecutive requests.
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
@@ -107,7 +107,11 @@ loop:
 		}
 
 		switch postfix {
-		case "", storageGroupPostfix, tombstonePostfix:
+		case
+			"",
+			storageGroupPostfix,
+			bucketNameSuffixLockers,
+			tombstonePostfix:
 		default:
 			continue
 		}

@@ -58,6 +58,18 @@ func TestDB_Get(t *testing.T) {
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
+	t.Run("put lock object", func(t *testing.T) {
+		raw.SetType(objectSDK.TypeLock)
+		raw.SetID(testOID())
+
+		err := putBig(db, raw.Object())
+		require.NoError(t, err)
+
+		newObj, err := meta.Get(db, object.AddressOf(raw))
+		require.NoError(t, err)
+		require.Equal(t, raw.CutPayload().Object(), newObj)
+	})
+
 	t.Run("put virtual object", func(t *testing.T) {
 		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
