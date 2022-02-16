@@ -101,19 +101,12 @@ type localObjectInhumer struct {
 	log *logger.Logger
 }
 
-func (r *localObjectInhumer) DeleteObjects(ts *addressSDK.Address, addr ...*addressSDK.Address) {
+func (r *localObjectInhumer) DeleteObjects(ts *addressSDK.Address, addr ...*addressSDK.Address) error {
 	prm := new(engine.InhumePrm)
+	prm.WithTarget(ts, addr...)
 
-	for _, a := range addr {
-		prm.WithTarget(ts, a)
-
-		if _, err := r.storage.Inhume(prm); err != nil {
-			r.log.Error("could not delete object",
-				zap.Stringer("address", a),
-				zap.String("error", err.Error()),
-			)
-		}
-	}
+	_, err := r.storage.Inhume(prm)
+	return err
 }
 
 type delNetInfo struct {
@@ -267,6 +260,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetmapKeys(c),
 		putsvc.WithFormatValidatorOpts(
 			objectCore.WithDeleteHandler(objInhumer),
+			objectCore.WithLocker(ls),
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote),

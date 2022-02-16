@@ -42,7 +42,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		}
 
 		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
-			return apistatus.IrregularObjectLock{}
+			return apistatus.LockNonRegularObject{}
 		}
 
 		bucketLocked, err := tx.CreateBucketIfNotExists(bucketNameLocked)

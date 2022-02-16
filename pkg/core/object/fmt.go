@@ -11,8 +11,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 )
@@ -29,11 +31,26 @@ type cfg struct {
 	deleteHandler DeleteHandler
 
 	netState netmap.State
+
+	locker Locker
 }
 
 // DeleteHandler is an interface of delete queue processor.
 type DeleteHandler interface {
-	DeleteObjects(*addressSDK.Address, ...*addressSDK.Address)
+	// DeleteObjects objects places objects to removal queue.
+	//
+	// Returns apistatus.IrregularObjectLock if at least one object
+	// is locked.
+	DeleteObjects(*addressSDK.Address, ...*addressSDK.Address) error
+}
+
+// Locker is an object lock storage interface.
+type Locker interface {
+	// Lock list of objects as locked by locker in the specified container.
+	//
+	// Returns apistatus.IrregularObjectLock if at least object in locked
+	// list is irregular (not type of REGULAR).
+	Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 }
 
 var errNilObject = errors.New("object is nil")
@@ -135,6 +152,8 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 // ValidateContent validates payload content according to object type.
 func (v *FormatValidator) ValidateContent(o *object.Object) error {
 	switch o.Type() {
+	case object.TypeRegular:
+		// ignore regular objects, they do not need payload formatting
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
 			return fmt.Errorf("(%T) empty payload in tombstone", v)
@@ -174,7 +193,10 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		}
 
 		if v.deleteHandler != nil {
-			v.deleteHandler.DeleteObjects(AddressOf(o), addrList...)
+			err = v.deleteHandler.DeleteObjects(AddressOf(o), addrList...)
+			if err != nil {
+				return fmt.Errorf("delete objects from %s object content: %w", o.Type(), err)
+			}
 		}
 	case object.TypeStorageGroup:
 		if len(o.Payload()) == 0 {
@@ -190,6 +212,28 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		for _, id := range sg.Members() {
 			if id == nil {
 				return fmt.Errorf("(%T) empty member in SG", v)
+			}
+		}
+	case object.TypeLock:
+		if len(o.Payload()) == 0 {
+			return errors.New("empty payload in lock")
+		}
+
+		var lock object.Lock
+
+		err := lock.Unmarshal(o.Payload())
+		if err != nil {
+			return fmt.Errorf("decode lock payload: %w", err)
+		}
+
+		if v.locker != nil {
+			// mark all objects from lock list as locked in storage engine
+			locklist := make([]oid.ID, lock.NumberOfMembers())
+			lock.ReadMembers(locklist)
+
+			err = v.locker.Lock(*o.ContainerID(), *o.ID(), locklist)
+			if err != nil {
+				return fmt.Errorf("lock objects from %s object content: %w", o.Type(), err)
 			}
 		}
 	default:
@@ -279,5 +323,12 @@ func WithNetState(netState netmap.State) FormatValidatorOption {
 func WithDeleteHandler(v DeleteHandler) FormatValidatorOption {
 	return func(c *cfg) {
 		c.deleteHandler = v
+	}
+}
+
+// WithLocker returns option to set object lock storage.
+func WithLocker(v Locker) FormatValidatorOption {
+	return func(c *cfg) {
+		c.locker = v
 	}
 }

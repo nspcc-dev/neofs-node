@@ -37,7 +37,7 @@ func TestDB_Lock(t *testing.T) {
 			err := meta.Put(db, obj, nil)
 			require.NoError(t, err, typ)
 
-			var e apistatus.IrregularObjectLock
+			var e apistatus.LockNonRegularObject
 
 			// try to lock it
 			err = db.Lock(cnr, *oidtest.ID(), []oid.ID{*obj.ID()})
