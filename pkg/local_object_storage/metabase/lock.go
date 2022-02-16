@@ -74,14 +74,10 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 			}
 
 			// update the list of lockers
-			if exLockers == nil {
-				updLockers = keyLocker
-			} else {
-				updLockers, err = encodeList(append(exLockers, keyLocker))
-				if err != nil {
-					// maybe continue for the best effort?
-					return fmt.Errorf("encode list of object lockers: %w", err)
-				}
+			updLockers, err = encodeList(append(exLockers, keyLocker))
+			if err != nil {
+				// maybe continue for the best effort?
+				return fmt.Errorf("encode list of object lockers: %w", err)
 			}
 
 			// write updated list of lockers
