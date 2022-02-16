@@ -148,6 +148,13 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 				if targetIsTomb {
 					continue
 				}
+			} else {
+				// garbage object can probably lock some objects, so they should become
+				// unlocked after its decay
+				err = freePotentialLocks(tx, *prm.target[i].ContainerID(), *prm.target[i].ObjectID())
+				if err != nil {
+					return fmt.Errorf("free potential locks: %w", err)
+				}
 			}
 
 			// consider checking if target is already in graveyard?
