@@ -32,11 +32,11 @@ func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 	for i := range locked {
 		switch e.lockSingle(idCnr, locker, locked[i], true) {
 		case 1:
-			return apistatus.ObjectLocked{}
+			return apistatus.IrregularObjectLock{}
 		case 0:
-			switch e.lockSingle(idCnr, locker, locked[i], true) {
+			switch e.lockSingle(idCnr, locker, locked[i], false) {
 			case 1:
-				return apistatus.ObjectLocked{}
+				return apistatus.IrregularObjectLock{}
 			case 0:
 				return errLockFailed
 			}
@@ -48,12 +48,12 @@ func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 
 // Returns:
 //   0 - fail
-//   1 - object locked
+//   1 - locking irregular object
 //   2 - ok
 func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) (status uint8) {
 	// code is pretty similar to inhumeAddr, maybe unify?
 	root := false
-	var errLocked apistatus.ObjectLocked
+	var errIrregular apistatus.IrregularObjectLock
 
 	var addrLocked address.Address
 	addrLocked.SetContainerID(&idCnr)
@@ -89,7 +89,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 		if err != nil {
 			e.reportShardError(sh, "could not lock object in shard", err)
 
-			if errors.As(err, &errLocked) {
+			if errors.As(err, &errIrregular) {
 				status = 1
 				return true
 			}
