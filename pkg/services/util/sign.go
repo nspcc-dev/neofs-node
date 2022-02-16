@@ -107,13 +107,9 @@ func (s *RequestMessageStreamer) CloseAndRecv() (ResponseMessage, error) {
 			return nil, err
 		}
 
-		var st apistatus.ServerInternal // specific API status should be set according to error
-
-		apistatus.WriteInternalServerErr(&st, err)
-
 		resp = s.respCons()
 
-		setStatusV2(resp, st)
+		setStatusV2(resp, err)
 	}
 
 	if err = signResponse(s.key, resp, s.statusSupported); err != nil {
@@ -164,13 +160,9 @@ func (s *SignService) HandleServerStreamRequest(
 			return err
 		}
 
-		var st apistatus.ServerInternal // specific API status should be set according to error
-
-		apistatus.WriteInternalServerErr(&st, err)
-
 		resp := blankResp()
 
-		setStatusV2(resp, st)
+		setStatusV2(resp, err)
 
 		_ = signResponse(s.key, resp, false) // panics or returns nil with false arg
 
@@ -204,13 +196,9 @@ func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, h
 			return nil, err
 		}
 
-		var st apistatus.ServerInternal // specific API status should be set according to error
-
-		apistatus.WriteInternalServerErr(&st, err)
-
 		resp = blankResp()
 
-		setStatusV2(resp, st)
+		setStatusV2(resp, err)
 	}
 
 	// sign the response
@@ -229,8 +217,13 @@ func isStatusSupported(req RequestMessage) bool {
 	return mjr > 2 || mjr == 2 && version.GetMinor() >= 11
 }
 
-func setStatusV2(resp ResponseMessage, st apistatus.Status) {
-	session.SetStatus(resp, apistatus.ToStatusV2(st))
+func setStatusV2(resp ResponseMessage, err error) {
+	// unwrap error
+	for e := errors.Unwrap(err); e != nil; e = errors.Unwrap(err) {
+		err = e
+	}
+
+	session.SetStatus(resp, apistatus.ToStatusV2(apistatus.ErrToStatus(err)))
 }
 
 // signs response with private key via signature.SignServiceMessage.
