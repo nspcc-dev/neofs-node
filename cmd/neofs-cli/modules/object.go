@@ -246,6 +246,7 @@ func init() {
 		objectHeadCmd,
 		objectHashCmd,
 		objectRangeCmd,
+		cmdObjectLock,
 	}
 
 	rootCmd.AddCommand(objectCmd)
@@ -276,6 +277,7 @@ func init() {
 	initObjectHeadCmd()
 	initObjectHashCmd()
 	initObjectRangeCmd()
+	initCommandObjectLock()
 }
 
 type clientKeySession interface {
