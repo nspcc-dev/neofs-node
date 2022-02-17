@@ -31,10 +31,14 @@ func TestNodeSection(t *testing.T) {
 		attribute := Attributes(empty)
 		relay := Relay(empty)
 		persistatePath := PersistentState(empty).Path()
+		notificationEnabled := Notification(empty).Enabled()
+		notificationDefaultTopic := Notification(empty).DefaultTopic()
 
 		require.Empty(t, attribute)
 		require.Equal(t, false, relay)
 		require.Equal(t, PersistentStatePathDefault, persistatePath)
+		require.Equal(t, false, notificationEnabled)
+		require.Equal(t, "", notificationDefaultTopic)
 
 		var subnetCfg SubnetConfig
 
@@ -60,6 +64,8 @@ func TestNodeSection(t *testing.T) {
 		relay := Relay(c)
 		wKey := Wallet(c)
 		persistatePath := PersistentState(c).Path()
+		notificationEnabled := Notification(c).Enabled()
+		notificationDefaultTopic := Notification(c).DefaultTopic()
 
 		expectedAddr := []struct {
 			str  string
@@ -113,6 +119,8 @@ func TestNodeSection(t *testing.T) {
 			address.Uint160ToString(wKey.GetScriptHash()))
 
 		require.Equal(t, "/state", persistatePath)
+		require.Equal(t, true, notificationEnabled)
+		require.Equal(t, "topic", notificationDefaultTopic)
 
 		var subnetCfg SubnetConfig
 
