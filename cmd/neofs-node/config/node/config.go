@@ -17,9 +17,16 @@ type PersistentStateConfig struct {
 	cfg *config.Config
 }
 
+// NotificationConfig is a wrapper over "notification" config section
+// which provides access to object notification configuration of node.
+type NotificationConfig struct {
+	cfg *config.Config
+}
+
 const (
 	subsection                = "node"
 	persistentStateSubsection = "persistent_state"
+	notificationSubsection    = "notification"
 
 	attributePrefix = "attribute"
 
@@ -171,4 +178,28 @@ func (x SubnetConfig) IterateSubnets(f func(string)) {
 	for i := range ids {
 		f(ids[i])
 	}
+}
+
+// Notification returns structure that provides access to "notification"
+// subsection of "node" section.
+func Notification(c *config.Config) NotificationConfig {
+	return NotificationConfig{
+		c.Sub(subsection).Sub(notificationSubsection),
+	}
+}
+
+// Enabled returns value of "enabled" config parameter from "notification"
+// subsection of "node" section.
+//
+// Returns false if value is not presented.
+func (n NotificationConfig) Enabled() bool {
+	return config.BoolSafe(n.cfg, "enabled")
+}
+
+// DefaultTopic returns value of "default_topic" config parameter from
+// "notification" subsection of "node" section.
+//
+// Returns empty string if value is not presented.
+func (n NotificationConfig) DefaultTopic() string {
+	return config.StringSafe(n.cfg, "default_topic")
 }

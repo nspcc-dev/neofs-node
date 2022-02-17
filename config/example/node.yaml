@@ -31,6 +31,9 @@ node:
       - 123
       - 456
       - 789
+  notification:
+    enabled: true
+    default_topic: "topic"
 
 grpc:
   num: 2  # total number of listener endpoints
