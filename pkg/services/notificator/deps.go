@@ -12,7 +12,7 @@ type NotificationSource interface {
 // NotificationWriter notifies all the subscribers
 // about new object notifications.
 type NotificationWriter interface {
-	// Notify must send string representation of the object
-	// address into the specified topic.
+	// Notify must notify about an event generated
+	// from an object with a specific topic.
 	Notify(topic string, address *objectSDKAddress.Address)
 }
