@@ -33,5 +33,3 @@ require (
 	google.golang.org/protobuf v1.27.1
 )
 
-// Used for debug reasons
-// replace github.com/nspcc-dev/neofs-api-go => ../neofs-api-go
