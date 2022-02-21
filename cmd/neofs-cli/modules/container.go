@@ -842,7 +842,7 @@ func printJSONMarshaler(cmd *cobra.Command, j json.Marshaler, entity string) {
 }
 
 func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {
-	cmd.Printf("basic ACL: %.8x", basicACL)
+	cmd.Printf("basic ACL: %s", basicACL)
 	for k, v := range wellKnownBasicACL {
 		if v == basicACL {
 			cmd.Printf(" (%s)\n", k)
