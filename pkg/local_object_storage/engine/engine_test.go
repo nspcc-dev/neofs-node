@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -16,7 +17,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
@@ -27,6 +30,49 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
+
+func BenchmarkExists(b *testing.B) {
+	b.Run("2 shards", func(b *testing.B) {
+		benchmarkExists(b, 2)
+	})
+	b.Run("4 shards", func(b *testing.B) {
+		benchmarkExists(b, 4)
+	})
+	b.Run("8 shards", func(b *testing.B) {
+		benchmarkExists(b, 8)
+	})
+}
+
+func benchmarkExists(b *testing.B, shardNum int) {
+	shards := make([]*shard.Shard, shardNum)
+	for i := 0; i < shardNum; i++ {
+		shards[i] = testNewShard(b, i)
+	}
+
+	e := testNewEngineWithShards(shards...)
+	b.Cleanup(func() {
+		_ = e.Close()
+		_ = os.RemoveAll(b.Name())
+	})
+
+	addr := objecttest.Address()
+	for i := 0; i < 100; i++ {
+		obj := generateRawObjectWithCID(b, cidtest.ID())
+		err := Put(e, obj.Object())
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ok, err := e.exists(addr)
+		if err != nil || ok {
+			b.Fatalf("%t %v", ok, err)
+		}
+	}
+}
 
 func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	engine := &StorageEngine{
@@ -54,7 +100,7 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	return engine
 }
 
-func testNewShard(t *testing.T, id int) *shard.Shard {
+func testNewShard(t testing.TB, id int) *shard.Shard {
 	sid, err := generateShardID()
 	require.NoError(t, err)
 
@@ -88,7 +134,7 @@ func testOID() *oidSDK.ID {
 	return id
 }
 
-func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
+func generateRawObjectWithCID(t testing.TB, cid *cid.ID) *object.RawObject {
 	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
