@@ -94,7 +94,7 @@ func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 		return obj.Object(), nil
 	}
 
-	obj, err := s.fetchObjectData(prm.addr, big, small)
+	obj, _, err := s.fetchObjectData(prm.addr, false, big, small)
 
 	return &RngRes{
 		obj: obj,

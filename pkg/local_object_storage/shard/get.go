@@ -18,12 +18,14 @@ type storFetcher = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Ob
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	addr *objectSDK.Address
+	addr     *objectSDK.Address
+	skipMeta bool
 }
 
 // GetRes groups resulting values of Get operation.
 type GetRes struct {
-	obj *object.Object
+	obj     *object.Object
+	hasMeta bool
 }
 
 // WithAddress is a Get option to set the address of the requested object.
@@ -37,9 +39,21 @@ func (p *GetPrm) WithAddress(addr *objectSDK.Address) *GetPrm {
 	return p
 }
 
+// WithIgnoreMeta is a Get option try to fetch object from blobstor directly,
+// without accessing metabase.
+func (p *GetPrm) WithIgnoreMeta(ignore bool) *GetPrm {
+	p.skipMeta = ignore
+	return p
+}
+
 // Object returns the requested object.
 func (r *GetRes) Object() *object.Object {
 	return r.obj
+}
+
+// HasMeta returns true if info about the object was found in the metabase.
+func (r *GetRes) HasMeta() bool {
+	return r.hasMeta
 }
 
 // Get reads an object from shard.
@@ -76,15 +90,16 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 		return res.Object(), nil
 	}
 
-	obj, err := s.fetchObjectData(prm.addr, big, small)
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, prm.skipMeta, big, small)
 
 	return &GetRes{
-		obj: obj,
+		obj:     obj,
+		hasMeta: hasMeta,
 	}, err
 }
 
 // fetchObjectData looks through writeCache and blobStor to find object.
-func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher) (*object.Object, error) {
+func (s *Shard) fetchObjectData(addr *objectSDK.Address, skipMeta bool, big, small storFetcher) (*object.Object, bool, error) {
 	var (
 		err error
 		res *object.Object
@@ -93,7 +108,7 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher)
 	if s.hasWriteCache() {
 		res, err = s.writeCache.Get(addr)
 		if err == nil {
-			return res, nil
+			return res, false, nil
 		}
 
 		if errors.Is(err, object.ErrNotFound) {
@@ -103,18 +118,27 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher)
 		}
 	}
 
+	if skipMeta {
+		res, err = small(s.blobStor, nil)
+		if err == nil {
+			return res, false, err
+		}
+		res, err = big(s.blobStor, nil)
+		return res, false, err
+	}
+
 	exists, err := meta.Exists(s.metaBase, addr)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if !exists {
-		return nil, object.ErrNotFound
+		return nil, false, object.ErrNotFound
 	}
 
 	blobovniczaID, err := meta.IsSmall(s.metaBase, addr)
 	if err != nil {
-		return nil, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
+		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
 	if blobovniczaID != nil {
@@ -123,5 +147,5 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, big, small storFetcher)
 		res, err = big(s.blobStor, nil)
 	}
 
-	return res, err
+	return res, true, err
 }
