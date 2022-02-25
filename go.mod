@@ -14,10 +14,10 @@ require (
 	github.com/multiformats/go-multiaddr v0.4.0
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.98.0
-	github.com/nspcc-dev/neofs-api-go/v2 v2.11.2-0.20220127135316-32dd0bb3f9c5
+	github.com/nspcc-dev/neofs-api-go/v2 v2.12.0
 	github.com/nspcc-dev/neofs-contract v0.14.2
-	github.com/nspcc-dev/neofs-sdk-go v0.0.0-20220201141054-6a7ba33b59ef
-	github.com/nspcc-dev/tzhash v1.5.1
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.1.0.20220225083115-4fba1af6aa08
+	github.com/nspcc-dev/tzhash v1.5.2
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
 	github.com/prometheus/client_golang v1.11.0

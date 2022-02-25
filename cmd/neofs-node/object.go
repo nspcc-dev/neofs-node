@@ -36,6 +36,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -449,57 +450,55 @@ func (c *reputationClient) submitResult(err error) {
 	c.cons.trustStorage.Update(prm)
 }
 
-func (c *reputationClient) PutObject(ctx context.Context, prm *client.PutObjectParams, opts ...client.CallOption) (*client.ObjectPutRes, error) {
-	res, err := c.MultiAddressClient.PutObject(ctx, prm, opts...)
+func (c *reputationClient) ObjectPutInit(ctx context.Context, prm client.PrmObjectPutInit) (*client.ObjectWriter, error) {
+	res, err := c.MultiAddressClient.ObjectPutInit(ctx, prm)
+
+	// FIXME: (neofs-node#1193) here we submit only initialization errors, writing errors are not processed
+	c.submitResult(err)
+
+	return res, err
+}
+
+func (c *reputationClient) ObjectDelete(ctx context.Context, prm client.PrmObjectDelete) (*client.ResObjectDelete, error) {
+	res, err := c.MultiAddressClient.ObjectDelete(ctx, prm)
+	if err != nil {
+		c.submitResult(err)
+	} else {
+		c.submitResult(apistatus.ErrFromStatus(res.Status()))
+	}
+
+	return res, err
+}
+
+func (c *reputationClient) GetObjectInit(ctx context.Context, prm client.PrmObjectGet) (*client.ObjectReader, error) {
+	res, err := c.MultiAddressClient.ObjectGetInit(ctx, prm)
+
+	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
+	c.submitResult(err)
+
+	return res, err
+}
+
+func (c *reputationClient) ObjectHead(ctx context.Context, prm client.PrmObjectHead) (*client.ResObjectHead, error) {
+	res, err := c.MultiAddressClient.ObjectHead(ctx, prm)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClient) DeleteObject(ctx context.Context, prm *client.DeleteObjectParams, opts ...client.CallOption) (*client.ObjectDeleteRes, error) {
-	res, err := c.MultiAddressClient.DeleteObject(ctx, prm, opts...)
+func (c *reputationClient) ObjectHash(ctx context.Context, prm client.PrmObjectHash) (*client.ResObjectHash, error) {
+	res, err := c.MultiAddressClient.ObjectHash(ctx, prm)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClient) GetObject(ctx context.Context, prm *client.GetObjectParams, opts ...client.CallOption) (*client.ObjectGetRes, error) {
-	res, err := c.MultiAddressClient.GetObject(ctx, prm, opts...)
+func (c *reputationClient) ObjectSearchInit(ctx context.Context, prm client.PrmObjectSearch) (*client.ObjectListReader, error) {
+	res, err := c.MultiAddressClient.ObjectSearchInit(ctx, prm)
 
-	c.submitResult(err)
-
-	return res, err
-}
-
-func (c *reputationClient) HeadObject(ctx context.Context, prm *client.ObjectHeaderParams, opts ...client.CallOption) (*client.ObjectHeadRes, error) {
-	res, err := c.MultiAddressClient.HeadObject(ctx, prm, opts...)
-
-	c.submitResult(err)
-
-	return res, err
-}
-
-func (c *reputationClient) ObjectPayloadRangeData(ctx context.Context, prm *client.RangeDataParams, opts ...client.CallOption) (*client.ObjectRangeRes, error) {
-	res, err := c.MultiAddressClient.ObjectPayloadRangeData(ctx, prm, opts...)
-
-	c.submitResult(err)
-
-	return res, err
-}
-
-func (c *reputationClient) HashObjectPayloadRanges(ctx context.Context, prm *client.RangeChecksumParams, opts ...client.CallOption) (*client.ObjectRangeHashRes, error) {
-	res, err := c.MultiAddressClient.HashObjectPayloadRanges(ctx, prm, opts...)
-
-	c.submitResult(err)
-
-	return res, err
-}
-
-func (c *reputationClient) SearchObjects(ctx context.Context, prm *client.SearchObjectParams, opts ...client.CallOption) (*client.ObjectSearchRes, error) {
-	res, err := c.MultiAddressClient.SearchObjects(ctx, prm, opts...)
-
+	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
 	c.submitResult(err)
 
 	return res, err

@@ -79,79 +79,79 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 	return firstErr
 }
 
-func (x *multiClient) PutObject(ctx context.Context, p *client.PutObjectParams, opts ...client.CallOption) (res *client.ObjectPutRes, err error) {
+func (x *multiClient) ObjectPutInit(ctx context.Context, p client.PrmObjectPutInit) (res *client.ObjectWriter, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.PutObject(ctx, p, opts...)
+		res, err = c.ObjectPutInit(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) AnnounceContainerUsedSpace(ctx context.Context, prm client.AnnounceSpacePrm) (res *client.AnnounceSpaceRes, err error) {
+func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, prm client.PrmAnnounceSpace) (res *client.ResAnnounceSpace, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.AnnounceContainerUsedSpace(ctx, prm)
+		res, err = c.ContainerAnnounceUsedSpace(ctx, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) DeleteObject(ctx context.Context, p *client.DeleteObjectParams, opts ...client.CallOption) (res *client.ObjectDeleteRes, err error) {
+func (x *multiClient) ObjectDelete(ctx context.Context, p client.PrmObjectDelete) (res *client.ResObjectDelete, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.DeleteObject(ctx, p, opts...)
+		res, err = c.ObjectDelete(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) GetObject(ctx context.Context, p *client.GetObjectParams, opts ...client.CallOption) (res *client.ObjectGetRes, err error) {
+func (x *multiClient) ObjectGetInit(ctx context.Context, p client.PrmObjectGet) (res *client.ObjectReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.GetObject(ctx, p, opts...)
+		res, err = c.ObjectGetInit(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectPayloadRangeData(ctx context.Context, p *client.RangeDataParams, opts ...client.CallOption) (res *client.ObjectRangeRes, err error) {
+func (x *multiClient) ObjectRangeInit(ctx context.Context, p client.PrmObjectRange) (res *client.ObjectRangeReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectPayloadRangeData(ctx, p, opts...)
+		res, err = c.ObjectRangeInit(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) HeadObject(ctx context.Context, p *client.ObjectHeaderParams, opts ...client.CallOption) (res *client.ObjectHeadRes, err error) {
+func (x *multiClient) ObjectHead(ctx context.Context, p client.PrmObjectHead) (res *client.ResObjectHead, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.HeadObject(ctx, p, opts...)
+		res, err = c.ObjectHead(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) HashObjectPayloadRanges(ctx context.Context, p *client.RangeChecksumParams, opts ...client.CallOption) (res *client.ObjectRangeHashRes, err error) {
+func (x *multiClient) ObjectHash(ctx context.Context, p client.PrmObjectHash) (res *client.ResObjectHash, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.HashObjectPayloadRanges(ctx, p, opts...)
+		res, err = c.ObjectHash(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) SearchObjects(ctx context.Context, p *client.SearchObjectParams, opts ...client.CallOption) (res *client.ObjectSearchRes, err error) {
+func (x *multiClient) ObjectSearchInit(ctx context.Context, p client.PrmObjectSearch) (res *client.ObjectListReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.SearchObjects(ctx, p, opts...)
+		res, err = c.ObjectSearchInit(ctx, p)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) AnnounceLocalTrust(ctx context.Context, prm client.AnnounceLocalTrustPrm) (res *client.AnnounceLocalTrustRes, err error) {
+func (x *multiClient) AnnounceLocalTrust(ctx context.Context, prm client.PrmAnnounceLocalTrust) (res *client.ResAnnounceLocalTrust, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
 		res, err = c.AnnounceLocalTrust(ctx, prm)
 		return err
@@ -160,7 +160,7 @@ func (x *multiClient) AnnounceLocalTrust(ctx context.Context, prm client.Announc
 	return
 }
 
-func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, prm client.AnnounceIntermediateTrustPrm) (res *client.AnnounceIntermediateTrustRes, err error) {
+func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, prm client.PrmAnnounceIntermediateTrust) (res *client.ResAnnounceIntermediateTrust, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
 		res, err = c.AnnounceIntermediateTrust(ctx, prm)
 		return err

@@ -187,10 +187,6 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm)
 		putPrm.SetContainer(*cnr)
 
-		if tok != nil {
-			putPrm.SetSessionToken(*tok)
-		}
-
 		res, err := internalclient.PutContainer(putPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
@@ -422,10 +418,6 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		prepareAPIClient(cmd, &setEACLPrm, &getEACLPrm)
 		setEACLPrm.SetTable(*eaclTable)
-
-		if tok != nil {
-			setEACLPrm.SetSessionToken(*tok)
-		}
 
 		_, err = internalclient.SetEACL(setEACLPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
@@ -754,8 +746,8 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	id := container.CalculateID(cnr)
 	cmd.Println("container ID:", id)
 
-	version := cnr.Version()
-	cmd.Printf("version: %d.%d\n", version.Major(), version.Minor())
+	v := cnr.Version()
+	cmd.Printf("version: %d.%d\n", v.Major(), v.Minor())
 
 	cmd.Println("owner ID:", cnr.OwnerID())
 

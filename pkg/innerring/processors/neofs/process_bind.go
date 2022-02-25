@@ -4,12 +4,11 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"go.uber.org/zap"
 )
 
@@ -74,7 +73,6 @@ func (np *Processor) checkBindCommon(e *bindCommonContext) error {
 
 func (np *Processor) approveBindCommon(e *bindCommonContext) {
 	// calculate wallet address
-	// TODO: nspcc-dev/neofs-sdk-go#134 implement some utilities in API Go lib to do it
 	scriptHash := e.User()
 
 	u160, err := util.Uint160DecodeBytesBE(scriptHash)
@@ -86,17 +84,8 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 		return
 	}
 
-	wallet, err := base58.Decode(address.Uint160ToString(u160))
-	if err != nil {
-		np.log.Error("could not decode wallet address",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
 	prm := neofsid.CommonBindPrm{}
-	prm.SetOwnerID(wallet)
+	prm.SetOwnerID(owner.ScriptHashToIDBytes(u160))
 	prm.SetKeys(e.Keys())
 	prm.SetHash(e.bindCommon.TxHash())
 

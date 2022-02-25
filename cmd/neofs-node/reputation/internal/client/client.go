@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"crypto/ecdsa"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -14,8 +13,6 @@ type commonPrm struct {
 	cli coreclient.Client
 
 	ctx context.Context
-
-	opts []client.CallOption
 }
 
 // SetClient sets base client for NeoFS API communication.
@@ -32,18 +29,11 @@ func (x *commonPrm) SetContext(ctx context.Context) {
 	x.ctx = ctx
 }
 
-// SetPrivateKey sets private key to sign the request(s).
-//
-// Required parameter.
-func (x *commonPrm) SetPrivateKey(key *ecdsa.PrivateKey) {
-	x.opts = append(x.opts, client.WithKey(key))
-}
-
 // AnnounceLocalPrm groups parameters of AnnounceLocal operation.
 type AnnounceLocalPrm struct {
 	commonPrm
 
-	cliPrm client.AnnounceLocalTrustPrm
+	cliPrm client.PrmAnnounceLocalTrust
 }
 
 // SetEpoch sets epoch in which the trust was assessed.
@@ -65,7 +55,7 @@ type AnnounceLocalRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func AnnounceLocal(prm AnnounceLocalPrm) (res AnnounceLocalRes, err error) {
-	var cliRes *client.AnnounceLocalTrustRes
+	var cliRes *client.ResAnnounceLocalTrust
 
 	cliRes, err = prm.cli.AnnounceLocalTrust(prm.ctx, prm.cliPrm)
 	if err == nil {
@@ -80,7 +70,7 @@ func AnnounceLocal(prm AnnounceLocalPrm) (res AnnounceLocalRes, err error) {
 type AnnounceIntermediatePrm struct {
 	commonPrm
 
-	cliPrm client.AnnounceIntermediateTrustPrm
+	cliPrm client.PrmAnnounceIntermediateTrust
 }
 
 // SetEpoch sets number of the epoch when the trust calculation's iteration was executed.
@@ -108,7 +98,7 @@ type AnnounceIntermediateRes struct{}
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func AnnounceIntermediate(prm AnnounceIntermediatePrm) (res AnnounceIntermediateRes, err error) {
-	var cliRes *client.AnnounceIntermediateTrustRes
+	var cliRes *client.ResAnnounceIntermediateTrust
 
 	cliRes, err = prm.cli.AnnounceIntermediateTrust(prm.ctx, prm.cliPrm)
 	if err == nil {

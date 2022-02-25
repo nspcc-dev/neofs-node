@@ -12,18 +12,18 @@ import (
 // Client is an interface of NeoFS storage
 // node's client.
 type Client interface {
-	AnnounceContainerUsedSpace(context.Context, client.AnnounceSpacePrm) (*client.AnnounceSpaceRes, error)
+	ContainerAnnounceUsedSpace(context.Context, client.PrmAnnounceSpace) (*client.ResAnnounceSpace, error)
 
-	PutObject(context.Context, *client.PutObjectParams, ...client.CallOption) (*client.ObjectPutRes, error)
-	DeleteObject(context.Context, *client.DeleteObjectParams, ...client.CallOption) (*client.ObjectDeleteRes, error)
-	GetObject(context.Context, *client.GetObjectParams, ...client.CallOption) (*client.ObjectGetRes, error)
-	HeadObject(context.Context, *client.ObjectHeaderParams, ...client.CallOption) (*client.ObjectHeadRes, error)
-	SearchObjects(context.Context, *client.SearchObjectParams, ...client.CallOption) (*client.ObjectSearchRes, error)
-	ObjectPayloadRangeData(context.Context, *client.RangeDataParams, ...client.CallOption) (*client.ObjectRangeRes, error)
-	HashObjectPayloadRanges(context.Context, *client.RangeChecksumParams, ...client.CallOption) (*client.ObjectRangeHashRes, error)
+	ObjectPutInit(context.Context, client.PrmObjectPutInit) (*client.ObjectWriter, error)
+	ObjectDelete(context.Context, client.PrmObjectDelete) (*client.ResObjectDelete, error)
+	ObjectGetInit(context.Context, client.PrmObjectGet) (*client.ObjectReader, error)
+	ObjectHead(context.Context, client.PrmObjectHead) (*client.ResObjectHead, error)
+	ObjectSearchInit(context.Context, client.PrmObjectSearch) (*client.ObjectListReader, error)
+	ObjectRangeInit(context.Context, client.PrmObjectRange) (*client.ObjectRangeReader, error)
+	ObjectHash(context.Context, client.PrmObjectHash) (*client.ResObjectHash, error)
 
-	AnnounceLocalTrust(context.Context, client.AnnounceLocalTrustPrm) (*client.AnnounceLocalTrustRes, error)
-	AnnounceIntermediateTrust(context.Context, client.AnnounceIntermediateTrustPrm) (*client.AnnounceIntermediateTrustRes, error)
+	AnnounceLocalTrust(context.Context, client.PrmAnnounceLocalTrust) (*client.ResAnnounceLocalTrust, error)
+	AnnounceIntermediateTrust(context.Context, client.PrmAnnounceIntermediateTrust) (*client.ResAnnounceIntermediateTrust, error)
 
 	Raw() *rawclient.Client
 

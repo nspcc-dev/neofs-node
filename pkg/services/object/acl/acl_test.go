@@ -24,7 +24,7 @@ func TestOriginalTokens(t *testing.T) {
 	}
 }
 
-func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.SessionToken) *session.RequestMetaHeader {
+func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Token) *session.RequestMetaHeader {
 	metaHeader := new(session.RequestMetaHeader)
 	metaHeader.SetBearerToken(b)
 	metaHeader.SetSessionToken(s)

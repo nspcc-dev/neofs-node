@@ -4,7 +4,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -45,7 +44,7 @@ func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []*oidSDK.ID) (
 	}
 
 	cs := checksum.New()
-	tzHash := [client.TZSize]byte{}
+	tzHash := [64]byte{}
 	copy(tzHash[:], sumHash)
 	cs.SetTillichZemor(tzHash)
 
