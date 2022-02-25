@@ -140,7 +140,7 @@ func New(opts ...Option) Service {
 }
 
 func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStream) error {
-	cid, err := getContainerIDFromRequest(request)
+	idCnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (b Service) Get(request *object.GetRequest, stream objectSvc.GetObjectStrea
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationGet)
+	reqInfo, err := b.findRequestInfo(req, idCnr, eaclSDK.OperationGet)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (b Service) Put(ctx context.Context) (objectSvc.PutObjectStream, error) {
 func (b Service) Head(
 	ctx context.Context,
 	request *object.HeadRequest) (*object.HeadResponse, error) {
-	cid, err := getContainerIDFromRequest(request)
+	idCnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ func (b Service) Head(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationHead)
+	reqInfo, err := b.findRequestInfo(req, idCnr, eaclSDK.OperationHead)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (b Service) Search(request *object.SearchRequest, stream objectSvc.SearchSt
 func (b Service) Delete(
 	ctx context.Context,
 	request *object.DeleteRequest) (*object.DeleteResponse, error) {
-	cid, err := getContainerIDFromRequest(request)
+	idCnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (b Service) Delete(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationDelete)
+	reqInfo, err := b.findRequestInfo(req, idCnr, eaclSDK.OperationDelete)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (b Service) Delete(
 }
 
 func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetObjectRangeStream) error {
-	cid, err := getContainerIDFromRequest(request)
+	idCnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return err
 	}
@@ -310,7 +310,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationRange)
+	reqInfo, err := b.findRequestInfo(req, idCnr, eaclSDK.OperationRange)
 	if err != nil {
 		return err
 	}
@@ -334,7 +334,7 @@ func (b Service) GetRange(request *object.GetRangeRequest, stream objectSvc.GetO
 func (b Service) GetRangeHash(
 	ctx context.Context,
 	request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	cid, err := getContainerIDFromRequest(request)
+	idCnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func (b Service) GetRangeHash(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationRangeHash)
+	reqInfo, err := b.findRequestInfo(req, idCnr, eaclSDK.OperationRangeHash)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +373,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 
 	part := body.GetObjectPart()
 	if part, ok := part.(*object.PutObjectPartInit); ok {
-		cid, err := getContainerIDFromRequest(request)
+		idCnr, err := getContainerIDFromRequest(request)
 		if err != nil {
 			return err
 		}
@@ -392,7 +392,7 @@ func (p putStreamBasicChecker) Send(request *object.PutRequest) error {
 			src:     request,
 		}
 
-		reqInfo, err := p.source.findRequestInfo(req, cid, eaclSDK.OperationPut)
+		reqInfo, err := p.source.findRequestInfo(req, idCnr, eaclSDK.OperationPut)
 		if err != nil {
 			return err
 		}
@@ -507,7 +507,7 @@ func getContainerIDFromRequest(req interface{}) (id *cid.ID, err error) {
 	}
 }
 
-func useObjectIDFromSession(req *requestInfo, token *session.SessionToken) {
+func useObjectIDFromSession(req *requestInfo, token *session.Token) {
 	if token == nil {
 		return
 	}
@@ -795,7 +795,7 @@ func originalBearerToken(header *session.RequestMetaHeader) *bearer.BearerToken 
 
 // originalSessionToken goes down to original request meta header and fetches
 // session token from there.
-func originalSessionToken(header *session.RequestMetaHeader) *session.SessionToken {
+func originalSessionToken(header *session.RequestMetaHeader) *session.Token {
 	for header.GetOrigin() != nil {
 		header = header.GetOrigin()
 	}

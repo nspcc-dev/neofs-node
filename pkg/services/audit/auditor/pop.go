@@ -1,15 +1,15 @@
 package auditor
 
 import (
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )
 
 const (
 	hashRangeNumber    = 4
-	minGamePayloadSize = hashRangeNumber * client.TZSize
+	minGamePayloadSize = hashRangeNumber * tz.Size
 )
 
 func (c *Context) executePoP() {

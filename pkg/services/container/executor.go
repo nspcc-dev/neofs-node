@@ -12,7 +12,7 @@ import (
 type ContextWithToken struct {
 	context.Context
 
-	SessionToken *session.SessionToken
+	SessionToken *session.Token
 }
 
 type ServiceExecutor interface {
@@ -40,7 +40,7 @@ func NewExecutionService(exec ServiceExecutor) Server {
 func contextWithTokenFromRequest(ctx context.Context, req interface {
 	GetMetaHeader() *session.RequestMetaHeader
 }) ContextWithToken {
-	var tok *session.SessionToken
+	var tok *session.Token
 
 	for meta := req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		tok = meta.GetSessionToken()

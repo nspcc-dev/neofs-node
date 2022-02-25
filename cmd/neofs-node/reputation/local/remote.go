@@ -89,7 +89,6 @@ func (rtp *RemoteTrustWriter) Close() error {
 
 	prm.SetContext(rtp.ctx)
 	prm.SetClient(rtp.client)
-	prm.SetPrivateKey(rtp.key)
 	prm.SetEpoch(rtp.ctx.Epoch())
 	prm.SetTrusts(rtp.buf)
 

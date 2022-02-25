@@ -39,8 +39,6 @@ type payloadChecksumHasher struct {
 	checksumWriter func([]byte)
 }
 
-const tzChecksumSize = 64
-
 // NewPayloadSizeLimiter returns ObjectTarget instance that restricts payload length
 // of the writing object and writes generated objects to targets from initializer.
 //
@@ -148,11 +146,11 @@ func payloadHashersForObject(obj *object.RawObject) []*payloadChecksumHasher {
 		{
 			hasher: tz.New(),
 			checksumWriter: func(cs []byte) {
-				if ln := len(cs); ln != tzChecksumSize {
-					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", ln, tzChecksumSize))
+				if ln := len(cs); ln != tz.Size {
+					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", tz.Size, ln))
 				}
 
-				csTZ := [tzChecksumSize]byte{}
+				csTZ := [tz.Size]byte{}
 				copy(csTZ[:], cs)
 
 				checksum := checksum.New()

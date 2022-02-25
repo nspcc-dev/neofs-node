@@ -308,11 +308,11 @@ func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) err
 }
 
 func (r *remoteLoadAnnounceWriter) Close() error {
-	var cliPrm apiClient.AnnounceSpacePrm
+	var cliPrm apiClient.PrmAnnounceSpace
 
 	cliPrm.SetValues(r.buf)
 
-	_, err := r.client.AnnounceContainerUsedSpace(r.ctx, cliPrm)
+	_, err := r.client.ContainerAnnounceUsedSpace(r.ctx, cliPrm)
 	return err
 }
 
@@ -515,7 +515,7 @@ func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *cid.ID,
 	return false, nil
 }
 
-func (c *usedSpaceService) processLoadValue(ctx context.Context, a containerSDK.UsedSpaceAnnouncement,
+func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.UsedSpaceAnnouncement,
 	route []loadroute.ServerInfo, w loadcontroller.Writer) error {
 	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), a.ContainerID(), route[0].PublicKey())
 	if err != nil {
