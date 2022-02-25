@@ -3,7 +3,9 @@ package neofsapiclient
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
+	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
@@ -46,12 +48,12 @@ func (x *SearchSGPrm) SetContainerID(id *cid.ID) {
 
 // SearchSGRes groups resulting values of SearchSG operation.
 type SearchSGRes struct {
-	cliRes *client.ObjectSearchRes
+	cliRes []*oid.ID
 }
 
 // IDList returns list of IDs of storage groups in container.
 func (x SearchSGRes) IDList() []*oid.ID {
-	return x.cliRes.IDList()
+	return x.cliRes
 }
 
 var sgFilter = storagegroup.SearchQuery()
@@ -59,21 +61,49 @@ var sgFilter = storagegroup.SearchQuery()
 // SearchSG lists objects of storage group type in the container.
 //
 // Returns any error prevented the operation from completing correctly in error return.
-func (x Client) SearchSG(prm SearchSGPrm) (res SearchSGRes, err error) {
-	var cliPrm client.SearchObjectParams
+func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
+	var cliPrm client.PrmObjectSearch
 
-	cliPrm.WithContainerID(prm.cnrID)
-	cliPrm.WithSearchFilters(sgFilter)
+	cliPrm.InContainer(*prm.cnrID)
+	cliPrm.SetFilters(sgFilter)
 
-	res.cliRes, err = x.c.SearchObjects(prm.ctx, &cliPrm,
-		client.WithKey(x.key),
-	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	rdr, err := x.c.ObjectSearchInit(prm.ctx, cliPrm)
+	if err != nil {
+		return nil, fmt.Errorf("init object search: %w", err)
 	}
 
-	return
+	rdr.UseKey(*x.key)
+
+	buf := make([]oid.ID, 10)
+	var list []*oid.ID
+	var n int
+	var ok bool
+
+	for {
+		n, ok = rdr.Read(buf)
+		if !ok {
+			break
+		}
+
+		for i := 0; i < n; i++ {
+			v := buf[i]
+			list = append(list, &v)
+		}
+	}
+
+	res, err := rdr.Close()
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(res.Status())
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("read object list: %w", err)
+	}
+
+	return &SearchSGRes{
+		cliRes: list,
+	}, nil
 }
 
 // GetObjectPrm groups parameters of GetObject operation.
@@ -83,31 +113,59 @@ type GetObjectPrm struct {
 
 // GetObjectRes groups resulting values of GetObject operation.
 type GetObjectRes struct {
-	cliRes *client.ObjectGetRes
+	obj *object.Object
 }
 
 // Object returns received object.
 func (x GetObjectRes) Object() *object.Object {
-	return x.cliRes.Object()
+	return x.obj
 }
 
 // GetObject reads the object by address.
 //
 // Returns any error prevented the operation from completing correctly in error return.
-func (x Client) GetObject(prm GetObjectPrm) (res GetObjectRes, err error) {
-	var cliPrm client.GetObjectParams
+func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
+	var cliPrm client.PrmObjectGet
 
-	cliPrm.WithAddress(prm.objAddr)
-
-	res.cliRes, err = x.c.GetObject(prm.ctx, &cliPrm,
-		client.WithKey(x.key),
-	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	if id := prm.objAddr.ContainerID(); id != nil {
+		cliPrm.FromContainer(*id)
 	}
 
-	return
+	if id := prm.objAddr.ObjectID(); id != nil {
+		cliPrm.ByID(*id)
+	}
+
+	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
+	if err == nil {
+		return nil, fmt.Errorf("init object search: %w", err)
+	}
+
+	rdr.UseKey(*x.key)
+
+	var obj object.Object
+
+	if !rdr.ReadHeader(&obj) {
+		res, err := rdr.Close()
+		if err == nil {
+			// pull out an error from status
+			err = apistatus.ErrFromStatus(res.Status())
+		}
+
+		return nil, fmt.Errorf("read object header: %w", err)
+	}
+
+	buf := make([]byte, obj.PayloadSize())
+
+	_, err = rdr.Read(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("read payload: %w", err)
+	}
+
+	object.NewRawFrom(&obj).SetPayload(buf)
+
+	return &GetObjectRes{
+		obj: &obj,
+	}, nil
 }
 
 // HeadObjectPrm groups parameters of HeadObject operation.
@@ -116,7 +174,7 @@ type HeadObjectPrm struct {
 
 	raw bool
 
-	ttl uint32
+	local bool
 }
 
 // SetRawFlag sets flag of raw request.
@@ -126,40 +184,61 @@ func (x *HeadObjectPrm) SetRawFlag() {
 
 // SetTTL sets request TTL value.
 func (x *HeadObjectPrm) SetTTL(ttl uint32) {
-	x.ttl = ttl
+	x.local = ttl < 2
 }
 
 // HeadObjectRes groups resulting values of HeadObject operation.
 type HeadObjectRes struct {
-	cliRes *client.ObjectHeadRes
+	hdr *object.Object
 }
 
 // Header returns received object header.
 func (x HeadObjectRes) Header() *object.Object {
-	return x.cliRes.Object()
+	return x.hdr
 }
 
 // HeadObject reads short object header by address.
 //
 // Returns any error prevented the operation from completing correctly in error return.
 // For raw requests, returns *object.SplitInfoError error if requested object is virtual.
-func (x Client) HeadObject(prm HeadObjectPrm) (res HeadObjectRes, err error) {
-	var cliPrm client.ObjectHeaderParams
+func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
+	var cliPrm client.PrmObjectHead
 
-	cliPrm.WithAddress(prm.objAddr)
-	cliPrm.WithRawFlag(prm.raw)
-	cliPrm.WithMainFields()
-
-	res.cliRes, err = x.c.HeadObject(prm.ctx, &cliPrm,
-		client.WithKey(x.key),
-		client.WithTTL(prm.ttl),
-	)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.cliRes.Status())
+	if prm.raw {
+		cliPrm.MarkRaw()
 	}
 
-	return
+	if prm.local {
+		cliPrm.MarkLocal()
+	}
+
+	if id := prm.objAddr.ContainerID(); id != nil {
+		cliPrm.FromContainer(*id)
+	}
+
+	if id := prm.objAddr.ObjectID(); id != nil {
+		cliPrm.ByID(*id)
+	}
+
+	cliRes, err := x.c.ObjectHead(prm.ctx, cliPrm)
+	if err == nil {
+		// pull out an error from status
+		err = apistatus.ErrFromStatus(cliRes.Status())
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
+	}
+
+	var hdr object.Object
+
+	if !cliRes.ReadHeader(&hdr) {
+		return nil, errors.New("missing object header in the response")
+	}
+
+	return &HeadObjectRes{
+		hdr: &hdr,
+	}, nil
 }
 
 // GetObjectPayload reads object by address from NeoFS via Client and returns its payload.
@@ -231,21 +310,25 @@ func (x HashPayloadRangeRes) Hash() []byte {
 	return x.h
 }
 
-// HashObjectRange requests to calculate Tillich-Zemor hash of the payload range of the object
+// HashPayloadRange requests to calculate Tillich-Zemor hash of the payload range of the object
 // from the remote server's local storage.
 //
 // Returns any error prevented the operation from completing correctly in error return.
 func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeRes, err error) {
-	var cliPrm client.RangeChecksumParams
+	var cliPrm client.PrmObjectHash
 
-	cliPrm.WithAddress(prm.objAddr)
-	cliPrm.WithRangeList(prm.rng)
-	cliPrm.TZ()
+	if id := prm.objAddr.ContainerID(); id != nil {
+		cliPrm.FromContainer(*id)
+	}
 
-	cliRes, err := x.c.HashObjectPayloadRanges(prm.ctx, &cliPrm,
-		client.WithKey(x.key),
-		client.WithTTL(1),
-	)
+	if id := prm.objAddr.ObjectID(); id != nil {
+		cliPrm.ByID(*id)
+	}
+
+	cliPrm.SetRangeList(prm.rng.GetOffset(), prm.rng.GetLength())
+	cliPrm.TillichZemorAlgo()
+
+	cliRes, err := x.c.ObjectHash(prm.ctx, cliPrm)
 	if err == nil {
 		// pull out an error from status
 		err = apistatus.ErrFromStatus(cliRes.Status())
@@ -253,9 +336,9 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 			return
 		}
 
-		hs := cliRes.Hashes()
+		hs := cliRes.Checksums()
 		if ln := len(hs); ln != 1 {
-			err = fmt.Errorf("wrong number of hashes %d", ln)
+			err = fmt.Errorf("wrong number of checksums %d", ln)
 		} else {
 			res.h = hs[0]
 		}

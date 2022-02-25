@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -74,9 +73,6 @@ func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *n
 	if err != nil {
 		return nil, fmt.Errorf("can't build object placement: %w", err)
 	}
-
-	getParams := new(client.GetObjectParams)
-	getParams.WithAddress(addr)
 
 	var info clientcore.NodeInfo
 

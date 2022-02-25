@@ -18,27 +18,27 @@ import (
 
 type mock struct{}
 
-func (m mock) Put(c *containerSDK.Container) (*cid.ID, error) {
+func (m mock) Put(_ *containerSDK.Container) (*cid.ID, error) {
 	return new(cid.ID), nil
 }
 
-func (m mock) Delete(witness containerCore.RemovalWitness) error {
+func (m mock) Delete(_ containerCore.RemovalWitness) error {
 	return nil
 }
 
-func (m mock) PutEACL(table *eacl.Table) error {
+func (m mock) PutEACL(_ *eacl.Table) error {
 	return nil
 }
 
-func (m mock) Get(id *cid.ID) (*containerSDK.Container, error) {
+func (m mock) Get(_ *cid.ID) (*containerSDK.Container, error) {
 	panic("implement me")
 }
 
-func (m mock) GetEACL(id *cid.ID) (*eacl.Table, error) {
+func (m mock) GetEACL(_ *cid.ID) (*eacl.Table, error) {
 	panic("implement me")
 }
 
-func (m mock) List(id *owner.ID) ([]*cid.ID, error) {
+func (m mock) List(_ *owner.ID) ([]*cid.ID, error) {
 	panic("implement me")
 }
 
@@ -90,11 +90,11 @@ func TestInvalidToken(t *testing.T) {
 	}
 }
 
-func generateToken(ctx session.SessionTokenContext) *session.SessionToken {
-	body := new(session.SessionTokenBody)
+func generateToken(ctx session.TokenContext) *session.Token {
+	body := new(session.TokenBody)
 	body.SetContext(ctx)
 
-	tok := new(session.SessionToken)
+	tok := new(session.Token)
 	tok.SetBody(body)
 
 	return tok

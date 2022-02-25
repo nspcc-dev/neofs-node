@@ -79,17 +79,15 @@ type commonObjectPrm struct {
 	sessionTokenPrm
 	bearerTokenPrm
 
-	opts []client.CallOption
+	local bool
 }
 
 // SetTTL sets request TTL value.
 func (x *commonObjectPrm) SetTTL(ttl uint32) {
-	x.opts = append(x.opts, client.WithTTL(ttl))
+	x.local = ttl < 2
 }
 
 // SetXHeaders sets request X-Headers.
-func (x *commonObjectPrm) SetXHeaders(xhdrs []*session.XHeader) {
-	for _, xhdr := range xhdrs {
-		x.opts = append(x.opts, client.WithXHeader(xhdr))
-	}
+func (x *commonObjectPrm) SetXHeaders(_ []*session.XHeader) {
+	// FIXME: (neofs-node#1194) not supported by client
 }

@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -60,10 +59,8 @@ type (
 )
 
 func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettlementContext, error) {
-	bankingAccount, err := bankOwnerID()
-	if err != nil {
-		return nil, err // should never happen
-	}
+	bankingAccount := owner.NewID()
+	bankingAccount.SetScriptHash(util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
 
 	return &IncomeSettlementContext{
 		log:             p.Log,
@@ -78,18 +75,4 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettleme
 		bankOwner:       bankingAccount,
 		distributeTable: NewNodeSizeTable(),
 	}, nil
-}
-
-func bankOwnerID() (*owner.ID, error) {
-	u := util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-
-	o := owner.NewID()
-	// TODO: nspcc-dev/neofs-sdk-go#134 use `SetScriptHash` method.
-	err := o.Parse(address.Uint160ToString(u))
-	if err != nil {
-		return nil, err
-	}
-
-	return o, nil
 }

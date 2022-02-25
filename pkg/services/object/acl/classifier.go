@@ -28,7 +28,7 @@ type (
 
 	metaWithToken struct {
 		vheader *session.RequestVerificationHeader
-		token   *session.SessionToken
+		token   *session.Token
 		bearer  *bearer.BearerToken
 		src     interface{}
 	}
@@ -188,7 +188,7 @@ func lookupKeyInContainer(
 	return false, nil
 }
 
-func ownerFromToken(token *session.SessionToken) (*owner.ID, *keys.PublicKey, error) {
+func ownerFromToken(token *session.Token) (*owner.ID, *keys.PublicKey, error) {
 	// 1. First check signature of session token.
 	signWrapper := v2signature.StableMarshalerWrapper{SM: token.GetBody()}
 	if err := sigutil.VerifyDataWithSource(signWrapper, func() (key, sig []byte) {

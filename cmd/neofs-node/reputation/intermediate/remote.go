@@ -95,7 +95,6 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 
 	p.SetContext(rtp.eiCtx)
 	p.SetClient(rtp.client)
-	p.SetPrivateKey(rtp.key)
 	p.SetEpoch(rtp.eiCtx.Epoch())
 	p.SetIteration(rtp.eiCtx.I())
 	p.SetTrust(*apiPeerToPeerTrust)
