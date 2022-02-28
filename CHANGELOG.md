@@ -3,6 +3,22 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.6] - 2022-03-28
+
+### Fixed
+- Allow empty passwords in neofs-cli config (#1136)
+- Set correct audit range hash type in neofs-ir (#1180)
+- Read objects directly from blobstor in case of shard inconsistency (#1186)
+- Fix `-w` flag in subnet commands of neofs-adm (#1223)
+- Do not use explicit mutex lock in chain caches (#1236)
+- Force gRPC server stop if it can't shut down gracefully in storage node (#1270)
+- Return non-zero exit code in `acl extended create` command failures and fix
+  help message (#1259)
+
+### Added
+- Interactive storage node configurator in neofs-adm (#1090)
+- Logs in metabase operations (#1188)
+
 ## [0.27.5] - 2022-01-31
 
 ### Fixed
@@ -916,7 +932,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...master
+[0.27.6]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...v0.27.6
 [0.27.5]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
 [0.27.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.2...v0.27.3
