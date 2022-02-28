@@ -164,6 +164,11 @@ func (s *Server) ResetEpochTimer() error {
 	return s.epochTimer.Reset()
 }
 
+// ResetOnDeltaTimers resets OnDelta block timers of the epoch.
+func (s *Server) ResetOnDeltaTimers() error {
+	return s.epochTimer.ResetOnDelta()
+}
+
 func (s *Server) setHealthStatus(hs control.HealthStatus) {
 	s.healthStatus.Store(hs)
 }

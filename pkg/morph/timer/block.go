@@ -134,6 +134,27 @@ func (t *BlockTimer) Reset() error {
 	return nil
 }
 
+// ResetOnDelta resets only timers that were registered
+// via OnDelta call.
+//
+// Returns BlockMeter's error upon occurrence.
+func (t *BlockTimer) ResetOnDelta() error {
+	d, err := t.dur()
+	if err != nil {
+		return err
+	}
+
+	t.mtx.Lock()
+
+	for i := range t.ps {
+		t.ps[i].resetWithBaseInterval(d)
+	}
+
+	t.mtx.Unlock()
+
+	return nil
+}
+
 func (t *BlockTimer) resetWithBaseInterval(d uint32) {
 	t.rolledBack = false
 	t.baseDur = d

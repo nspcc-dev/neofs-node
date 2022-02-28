@@ -20,6 +20,7 @@ type (
 	// EpochTimerReseter is a callback interface for tickers component.
 	EpochTimerReseter interface {
 		ResetEpochTimer() error
+		ResetOnDeltaTimers() error
 	}
 
 	// EpochState is a callback interface for inner ring global state.

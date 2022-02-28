@@ -14,6 +14,8 @@ import (
 func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	epoch := ev.EpochNumber()
 
+	prevEpochDuration := np.epochState.EpochDuration()
+
 	epochDuration, err := np.netmapClient.EpochDuration()
 	if err != nil {
 		np.log.Warn("can't get epoch duration",
@@ -23,9 +25,20 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	}
 
 	np.epochState.SetEpochCounter(epoch)
-	if err := np.epochTimer.ResetEpochTimer(); err != nil {
-		np.log.Warn("can't reset epoch timer",
-			zap.String("error", err.Error()))
+
+	// reset epoch timer only if the value has changed.
+	// `NewEpoch` notification is included in the next
+	// block => resetting may lead to a progress erasing
+	// in epoch timer => epoch may be one block longer
+	// that expected
+	if epochDuration != prevEpochDuration {
+		if err := np.epochTimer.ResetEpochTimer(); err != nil {
+			np.log.Warn("can't reset epoch timer", zap.Error(err))
+		}
+	} else {
+		if err := np.epochTimer.ResetOnDeltaTimers(); err != nil {
+			np.log.Warn("can't reset OnDelta epoch timers", zap.Error(err))
+		}
 	}
 
 	// get new netmap snapshot
