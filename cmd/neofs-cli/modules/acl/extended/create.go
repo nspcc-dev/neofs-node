@@ -29,7 +29,10 @@ Operation is an object service verb: 'get', 'head', 'put', 'search', 'delete', '
 
 Filter consists of <typ>:<key><match><value>
   Typ is 'obj' for object applied filter or 'req' for request applied filter. 
-  Key is a valid unicode string corresponding to object or request header key.
+  Key is a valid unicode string corresponding to object or request header key. 
+    Well-known system object headers start with '$Object:' prefix.
+    User defined headers start without prefix.
+    Read more about filter keys at github.com/nspcc-dev/neofs-api/blob/master/proto-docs/acl.md#message-eaclrecordfilter
   Match is '==' for matching and '!=' for non-matching filter.
   Value is a valid unicode string corresponding to object or request header value.
 
