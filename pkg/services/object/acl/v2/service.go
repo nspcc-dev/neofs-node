@@ -425,7 +425,10 @@ func (b Service) findRequestInfo(
 	}
 
 	// find verb from token if it is present
-	verb := sourceVerbOfRequest(req, op)
+	verb, isUnknown := sourceVerbOfRequest(req.token, op)
+	if !isUnknown && verb != op && !isVerbCompatible(verb, op) {
+		return info, ErrInvalidVerb
+	}
 
 	info.basicACL = cnr.BasicACL()
 	info.requestRole = res.role

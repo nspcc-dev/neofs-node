@@ -102,18 +102,17 @@ func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
 }
 
 // sourceVerbOfRequest looks for verb in session token and if it is not found,
-// returns reqVerb.
-func sourceVerbOfRequest(req MetaWithToken, reqVerb eaclSDK.Operation) eaclSDK.Operation {
-	if req.token != nil {
-		switch v := req.token.Context().(type) {
-		case *sessionSDK.ObjectContext:
-			return tokenVerbToOperation(v)
-		default:
-			// do nothing, return request verb
+// returns reqVerb. Second return value is true if operation is unknown.
+func sourceVerbOfRequest(tok *sessionSDK.Token, reqVerb eaclSDK.Operation) (eaclSDK.Operation, bool) {
+	ctx, ok := tok.Context().(*sessionSDK.ObjectContext)
+	if ok {
+		op := tokenVerbToOperation(ctx)
+		if op != eaclSDK.OperationUnknown {
+			return op, false
 		}
 	}
 
-	return reqVerb
+	return reqVerb, true
 }
 
 func useObjectIDFromSession(req *RequestInfo, token *sessionSDK.Token) {
@@ -194,4 +193,19 @@ func isOwnerFromKey(id *owner.ID, key *keys.PublicKey) bool {
 	}
 
 	return id.Equal(owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)))
+}
+
+// isVerbCompatible checks that tokenVerb operation can create auxiliary op operation.
+func isVerbCompatible(tokenVerb, op eaclSDK.Operation) bool {
+	switch tokenVerb {
+	case eaclSDK.OperationGet:
+		return op == eaclSDK.OperationGet || op == eaclSDK.OperationHead
+	case eaclSDK.OperationDelete:
+		return op == eaclSDK.OperationPut || op == eaclSDK.OperationHead ||
+			op == eaclSDK.OperationSearch
+	case eaclSDK.OperationRange, eaclSDK.OperationRangeHash:
+		return op == eaclSDK.OperationRange || op == eaclSDK.OperationHead
+	default:
+		return tokenVerb == op
+	}
 }
