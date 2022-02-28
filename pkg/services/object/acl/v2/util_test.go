@@ -7,6 +7,7 @@ import (
 	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessiontest "github.com/nspcc-dev/neofs-api-go/v2/session/test"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/stretchr/testify/require"
@@ -35,4 +36,42 @@ func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Session
 	}
 
 	return metaHeader
+}
+
+func TestIsVerbCompatible(t *testing.T) {
+	// Source: https://nspcc.ru/upload/neofs-spec-latest.pdf#page=28
+	table := map[eacl.Operation][]eacl.Operation{
+		eacl.OperationPut:       {eacl.OperationPut},
+		eacl.OperationDelete:    {eacl.OperationPut, eacl.OperationHead, eacl.OperationSearch},
+		eacl.OperationHead:      {eacl.OperationHead},
+		eacl.OperationRange:     {eacl.OperationRange, eacl.OperationHead},
+		eacl.OperationRangeHash: {eacl.OperationRange, eacl.OperationHead},
+		eacl.OperationGet:       {eacl.OperationGet, eacl.OperationHead},
+		eacl.OperationSearch:    {eacl.OperationSearch},
+	}
+
+	ops := []eacl.Operation{
+		eacl.OperationPut,
+		eacl.OperationDelete,
+		eacl.OperationHead,
+		eacl.OperationRange,
+		eacl.OperationRangeHash,
+		eacl.OperationGet,
+		eacl.OperationSearch,
+	}
+
+	for _, opToken := range ops {
+		for _, op := range ops {
+			var contains bool
+			for _, o := range table[opToken] {
+				if o == op {
+					contains = true
+					break
+				}
+			}
+
+			require.Equal(t, contains, isVerbCompatible(opToken, op),
+				"%s in token, %s executing", opToken, op)
+		}
+	}
 }
