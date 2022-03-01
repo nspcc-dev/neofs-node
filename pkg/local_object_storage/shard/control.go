@@ -26,7 +26,6 @@ func (s *Shard) Open() error {
 			return fmt.Errorf("could not open %T: %w", component, err)
 		}
 	}
-
 	return nil
 }
 

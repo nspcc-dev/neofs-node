@@ -96,7 +96,7 @@ func New(opts ...Option) *Shard {
 	return s
 }
 
-// WithID returns option to set shard identifier.
+// WithID returns option to set the default shard identifier.
 func WithID(id *ID) Option {
 	return func(c *cfg) {
 		c.info.ID = id
