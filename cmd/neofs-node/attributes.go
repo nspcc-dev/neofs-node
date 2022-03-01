@@ -17,6 +17,10 @@ const (
 )
 
 func parseAttributes(c *config.Config) []*netmap.NodeAttribute {
+	if nodeconfig.Relay(c) {
+		return nil
+	}
+
 	stringAttributes := nodeconfig.Attributes(c)
 
 	attrs, err := attributes.ParseV2Attributes(stringAttributes, nil)
