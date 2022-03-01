@@ -23,3 +23,25 @@ func (id ID) String() string {
 func (s *Shard) ID() *ID {
 	return s.info.ID
 }
+
+// UpdateID reads shard ID saved in the metabase and updates it if it is missing.
+func (s *Shard) UpdateID() (err error) {
+	if err = s.metaBase.Open(); err != nil {
+		return err
+	}
+	defer func() {
+		cErr := s.metaBase.Close()
+		if err == nil {
+			err = cErr
+		}
+	}()
+	id, err := s.metaBase.ReadShardID()
+	if err != nil {
+		return err
+	}
+	if len(id) != 0 {
+		s.info.ID = NewIDFromBytes(id)
+		return nil
+	}
+	return s.metaBase.WriteShardID(*s.info.ID)
+}
