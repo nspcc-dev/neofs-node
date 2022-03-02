@@ -92,7 +92,6 @@ func bootUp(c *cfg) {
 	makeAndWaitNotaryDeposit(c)
 	bootstrapNode(c)
 	startWorkers(c)
-	startBlockTimers(c)
 }
 
 func wait(c *cfg) {
