@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
@@ -48,9 +49,17 @@ type referenceCounter map[string]*referenceNumber
 
 // Delete removed object records from metabase indexes.
 func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
-	return new(DeleteRes), db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return db.deleteGroup(tx, prm.addrs)
 	})
+	if err == nil {
+		for i := range prm.addrs {
+			storagelog.Write(db.log,
+				storagelog.AddressField(prm.addrs[i]),
+				storagelog.OpField("metabase DELETE"))
+		}
+	}
+	return new(DeleteRes), err
 }
 
 func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []*addressSDK.Address) error {

@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -69,6 +70,11 @@ func (db *DB) Put(prm *PutPrm) (res *PutRes, err error) {
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		return db.put(tx, prm.obj, prm.id, nil)
 	})
+	if err == nil {
+		storagelog.Write(db.log,
+			storagelog.AddressField(prm.obj.Address()),
+			storagelog.OpField("metabase PUT"))
+	}
 
 	return
 }
