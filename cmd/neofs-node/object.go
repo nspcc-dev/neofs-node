@@ -405,15 +405,7 @@ func (s *morphEACLFetcher) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 		return nil, err
 	}
 
-	sig := table.Signature()
-
-	if err := signature.VerifyDataWithSource(
-		(*signedEACLTable)(table),
-		func() ([]byte, []byte) {
-			return sig.Key(), sig.Sign()
-		},
-		signature.SignWithRFC6979(),
-	); err != nil {
+	if err := signature.VerifyData((*signedEACLTable)(table), table.Signature(), signature.SignWithRFC6979()); err != nil {
 		return nil, fmt.Errorf("incorrect signature: %w", err)
 	}
 
