@@ -46,9 +46,6 @@ type Controller struct {
 
 	opts *options
 
-	// Number of iterations
-	iterationNumber uint32
-
 	mtx  sync.Mutex
 	mCtx map[uint64]*iterContextCancel
 }
@@ -75,11 +72,6 @@ func New(prm Prm, opts ...Option) *Controller {
 		panicOnPrmValue("DaughtersTrustCalculator", prm.DaughtersTrustCalculator)
 	}
 
-	iterations, err := prm.IterationsProvider.EigenTrustIterations()
-	if err != nil {
-		panic(fmt.Errorf("could not init EigenTrust controller: could not get num of iterations: %w", err))
-	}
-
 	o := defaultOpts()
 
 	for _, opt := range opts {
@@ -87,9 +79,8 @@ func New(prm Prm, opts ...Option) *Controller {
 	}
 
 	return &Controller{
-		iterationNumber: uint32(iterations),
-		prm:             prm,
-		opts:            o,
-		mCtx:            make(map[uint64]*iterContextCancel),
+		prm:  prm,
+		opts: o,
+		mCtx: make(map[uint64]*iterContextCancel),
 	}
 }

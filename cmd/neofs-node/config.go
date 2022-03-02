@@ -31,7 +31,6 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -134,8 +133,7 @@ type cfgMorph struct {
 
 	disableCache bool
 
-	blockTimers     []*timer.BlockTimer // all combined timers
-	eigenTrustTimer *timer.BlockTimer   // timer for EigenTrust iterations
+	eigenTrustTicker *eigenTrustTickers // timers for EigenTrust iterations
 
 	proxyScriptHash neogoutil.Uint160
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/ticker"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -215,36 +216,40 @@ func initReputationService(c *cfg) {
 	}
 
 	// initialize eigen trust block timer
-	durationMeter := NewEigenTrustDuration(c.cfgNetmap.wrapper)
-
-	newEigenTrustIterTimer(c, durationMeter, func() {
-		epoch, err := c.cfgNetmap.wrapper.Epoch()
-		if err != nil {
-			c.log.Debug(
-				"could not get current epoch",
-				zap.String("error", err.Error()),
-			)
-
-			return
-		}
-
-		eigenTrustController.Continue(
-			eigentrustctrl.ContinuePrm{
-				Epoch: epoch - 1,
-			},
-		)
-	})
+	newEigenTrustIterTimer(c)
 
 	addNewEpochAsyncNotificationHandler(
 		c,
 		func(e event.Event) {
-			durationMeter.Update() // recalculate duration of one iteration round
+			epoch := e.(netmap.NewEpoch).EpochNumber()
 
-			err := c.cfgMorph.eigenTrustTimer.Reset() // start iteration rounds again
+			log := c.log.With(zap.Uint64("epoch", epoch))
+
+			duration, err := c.cfgNetmap.wrapper.EpochDuration()
 			if err != nil {
-				c.log.Warn("can't reset block timer to start eigen trust calculations again",
-					zap.String("error", err.Error()))
+				log.Debug("could not fetch epoch duration", zap.Error(err))
+				return
 			}
+
+			iterations, err := c.cfgNetmap.wrapper.EigenTrustIterations()
+			if err != nil {
+				log.Debug("could not fetch iteration number", zap.Error(err))
+				return
+			}
+
+			epochTimer, err := ticker.NewIterationsTicker(duration, iterations, func() {
+				eigenTrustController.Continue(
+					eigentrustctrl.ContinuePrm{
+						Epoch: epoch - 1,
+					},
+				)
+			})
+			if err != nil {
+				log.Debug("could not create fixed epoch timer", zap.Error(err))
+				return
+			}
+
+			c.cfgMorph.eigenTrustTicker.addEpochTimer(epoch, epochTimer)
 		},
 	)
 }

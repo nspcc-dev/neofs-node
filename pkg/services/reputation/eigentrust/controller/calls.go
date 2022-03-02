@@ -17,7 +17,8 @@ type iterContext struct {
 
 	eigentrust.EpochIteration
 
-	last bool
+	iterationNumber uint32
+	last            bool
 }
 
 func (x iterContext) Last() bool {
@@ -42,11 +43,20 @@ func (c *Controller) Continue(prm ContinuePrm) {
 
 			iterCtx.Context, iterCtx.cancel = context.WithCancel(context.Background())
 			iterCtx.EpochIteration.SetEpoch(prm.Epoch)
+
+			iterations, err := c.prm.IterationsProvider.EigenTrustIterations()
+			if err != nil {
+				c.opts.log.Error("could not get EigenTrust iteration number",
+					zap.Error(err),
+				)
+			} else {
+				iterCtx.iterationNumber = uint32(iterations)
+			}
 		} else {
 			iterCtx.cancel()
 		}
 
-		iterCtx.last = iterCtx.I() == c.iterationNumber-1
+		iterCtx.last = iterCtx.I() == iterCtx.iterationNumber-1
 
 		err := c.prm.WorkerPool.Submit(func() {
 			c.prm.DaughtersTrustCalculator.Calculate(iterCtx.iterContext)
@@ -66,16 +76,6 @@ func (c *Controller) Continue(prm ContinuePrm) {
 			// number as already processed, but in any case it grows up
 			// In this case and worker pool failure we can mark epoch
 			delete(c.mCtx, prm.Epoch)
-
-			iterations, err := c.prm.IterationsProvider.EigenTrustIterations()
-			if err != nil {
-				c.opts.log.Debug(
-					"could not get iteration numbers",
-					zap.String("error", err.Error()),
-				)
-			} else {
-				c.iterationNumber = uint32(iterations)
-			}
 		}
 	}
 
