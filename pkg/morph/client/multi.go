@@ -15,6 +15,8 @@ type multiClient struct {
 
 	sharedNotary *notary // notary config needed for single client construction
 
+	sharedCache cache
+
 	endpoints  []string
 	clientsMtx sync.Mutex
 	clients    map[string]*Client
@@ -41,6 +43,7 @@ func (x *multiClient) createForAddress(addr string) (*Client, error) {
 	sCli.notary = x.sharedNotary
 
 	c := &Client{
+		cache:        x.sharedCache,
 		singleClient: sCli,
 	}
 
