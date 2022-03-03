@@ -33,13 +33,11 @@ func testAddress() *addressSDK.Address {
 	return addr
 }
 
-func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, assertErrPut, assertErrGet func(error) bool) *addressSDK.Address {
+func testPutGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, sz uint64, assertErrPut, assertErrGet func(error) bool) *addressSDK.Address {
 	// create binary object
 	data := make([]byte, sz)
+	rand.Read(data)
 
-	addr := testAddress()
-
-	// try to save object in Blobovnicza
 	pPut := new(PutPrm)
 	pPut.SetAddress(addr)
 	pPut.SetMarshaledObject(data)
@@ -106,7 +104,7 @@ func TestBlobovnicza(t *testing.T) {
 	filled := uint64(15 * 1 << 10)
 
 	// test object 15KB
-	addr := testPutGet(t, blz, filled, nil, nil)
+	addr := testPutGet(t, blz, testAddress(), filled, nil, nil)
 
 	// remove the object
 	dPrm := new(DeletePrm)
@@ -120,11 +118,11 @@ func TestBlobovnicza(t *testing.T) {
 
 	// fill Blobovnicza fully
 	for ; filled < sizeLim; filled += objSizeLim {
-		testPutGet(t, blz, objSizeLim, nil, nil)
+		testPutGet(t, blz, testAddress(), objSizeLim, nil, nil)
 	}
 
 	// from now objects should not be saved
-	testPutGet(t, blz, 1024, func(err error) bool {
+	testPutGet(t, blz, testAddress(), 1024, func(err error) bool {
 		return errors.Is(err, ErrFull)
 	}, nil)
 
