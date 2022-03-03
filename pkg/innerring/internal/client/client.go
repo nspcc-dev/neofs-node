@@ -135,7 +135,7 @@ func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	}
 
 	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
-	if err == nil {
+	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
 
