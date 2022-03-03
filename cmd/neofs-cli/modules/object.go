@@ -283,22 +283,23 @@ type clientKeySession interface {
 	SetSessionToken(*session.Token)
 }
 
-func prepareSessionPrm(cmd *cobra.Command, prms ...clientKeySession) {
+func prepareSessionPrm(cmd *cobra.Command, addr *addressSDK.Address, prms ...clientKeySession) {
 	key, err := getKey()
 	exitOnErr(cmd, errf("get private key: %w", err))
 
-	prepareSessionPrmWithKey(cmd, key, prms...)
+	prepareSessionPrmWithKey(cmd, addr, key, prms...)
 }
 
-func prepareSessionPrmWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, prms ...clientKeySession) {
+func prepareSessionPrmWithKey(cmd *cobra.Command, addr *addressSDK.Address, key *ecdsa.PrivateKey, prms ...clientKeySession) {
 	ownerID, err := getOwnerID(key)
 	exitOnErr(cmd, errf("owner ID from key: %w", err))
 
-	prepareSessionPrmWithOwner(cmd, key, ownerID, prms...)
+	prepareSessionPrmWithOwner(cmd, addr, key, ownerID, prms...)
 }
 
 func prepareSessionPrmWithOwner(
 	cmd *cobra.Command,
+	addr *addressSDK.Address,
 	key *ecdsa.PrivateKey,
 	ownerID *owner.ID,
 	prms ...clientKeySession,
@@ -348,6 +349,7 @@ func prepareSessionPrmWithOwner(
 		default:
 			panic("invalid client parameter type")
 		}
+		objectContext.ApplyTo(addr)
 
 		tok := session.NewToken()
 		tok.SetID(sessionRes.ID())
@@ -435,7 +437,9 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PutObjectPrm
 
-	prepareSessionPrmWithOwner(cmd, key, ownerID, &prm)
+	sessionObjectCtxAddress := addressSDK.NewAddress()
+	sessionObjectCtxAddress.SetContainerID(cid)
+	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetHeader(obj.Object())
 	prm.SetPayloadReader(f)
@@ -453,7 +457,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.DeleteObjectPrm
 
-	prepareSessionPrm(cmd, &prm)
+	prepareSessionPrm(cmd, objAddr, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetAddress(objAddr)
 
@@ -487,7 +491,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.GetObjectPrm
 
-	prepareSessionPrm(cmd, &prm)
+	prepareSessionPrm(cmd, objAddr, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
 	prm.SetAddress(objAddr)
 	prm.SetPayloadWriter(out)
@@ -521,7 +525,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.HeadObjectPrm
 
-	prepareSessionPrm(cmd, &prm)
+	prepareSessionPrm(cmd, objAddr, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
 	prm.SetAddress(objAddr)
 	prm.SetMainOnlyFlag(mainOnly)
@@ -548,7 +552,9 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.SearchObjectsPrm
 
-	prepareSessionPrm(cmd, &prm)
+	sessionObjectCtxAddress := addressSDK.NewAddress()
+	sessionObjectCtxAddress.SetContainerID(cid)
+	prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetContainerID(cid)
 	prm.SetFilters(sf)
@@ -591,7 +597,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		objPrms = append(objPrms, &headPrm)
 	}
 
-	prepareSessionPrm(cmd, sesPrms...)
+	prepareSessionPrm(cmd, objAddr, sesPrms...)
 	prepareObjectPrm(cmd, objPrms...)
 
 	tz := typ == hashTz
@@ -983,7 +989,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PayloadRangePrm
 
-	prepareSessionPrm(cmd, &prm)
+	prepareSessionPrm(cmd, objAddr, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
 	prm.SetAddress(objAddr)
 	prm.SetRange(ranges[0])

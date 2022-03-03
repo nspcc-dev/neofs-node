@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
@@ -11,6 +12,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	storagegroupAPI "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/spf13/cobra"
 )
@@ -135,10 +137,14 @@ func init() {
 }
 
 type sgHeadReceiver struct {
-	prm internalclient.HeadObjectPrm
+	cmd     *cobra.Command
+	key     *ecdsa.PrivateKey
+	ownerID *owner.ID
+	prm     internalclient.HeadObjectPrm
 }
 
 func (c sgHeadReceiver) Head(addr *addressSDK.Address) (interface{}, error) {
+	prepareSessionPrmWithOwner(c.cmd, addr, c.key, c.ownerID, &c.prm)
 	c.prm.SetAddress(addr)
 
 	res, err := internalclient.HeadObject(c.prm)
@@ -181,13 +187,18 @@ func putSG(cmd *cobra.Command, _ []string) {
 		putPrm  internalclient.PutObjectPrm
 	)
 
-	prepareSessionPrmWithOwner(cmd, key, ownerID, &headPrm, &putPrm)
+	sessionObjectCtxAddress := addressSDK.NewAddress()
+	sessionObjectCtxAddress.SetContainerID(cid)
+	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &putPrm)
 	prepareObjectPrm(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
-		prm: headPrm,
+		cmd:     cmd,
+		key:     key,
+		ownerID: ownerID,
+		prm:     headPrm,
 	}, cid, members)
 	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
 
@@ -234,7 +245,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.GetObjectPrm
 
-	prepareSessionPrm(cmd, &prm)
+	prepareSessionPrm(cmd, addr, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
 	prm.SetAddress(addr)
 	prm.SetPayloadWriter(buf)
@@ -266,7 +277,9 @@ func listSG(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.SearchObjectsPrm
 
-	prepareSessionPrm(cmd, &prm)
+	sessionObjectCtxAddress := addressSDK.NewAddress()
+	sessionObjectCtxAddress.SetContainerID(cid)
+	prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetContainerID(cid)
 	prm.SetFilters(storagegroup.SearchQuery())
@@ -296,7 +309,7 @@ func delSG(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.DeleteObjectPrm
 
-	prepareSessionPrm(cmd, &prm)
+	prepareSessionPrm(cmd, addr, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetAddress(addr)
 
