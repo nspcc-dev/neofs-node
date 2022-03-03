@@ -81,13 +81,12 @@ func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 
 	for {
 		n, ok = rdr.Read(buf)
-		if !ok {
-			break
-		}
-
 		for i := 0; i < n; i++ {
 			v := buf[i]
 			list = append(list, &v)
+		}
+		if !ok {
+			break
 		}
 	}
 
