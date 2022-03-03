@@ -321,17 +321,46 @@ func prepareSessionPrmWithOwner(
 	ni, err := internalclient.NetworkInfo(netInfoPrm)
 	exitOnErr(cmd, errf("read network info: %w", err))
 
-	sessionPrm.SetExp(ni.NetworkInfo().CurrentEpoch() + sessionTokenLifetime)
+	cur := ni.NetworkInfo().CurrentEpoch()
+	exp := cur + sessionTokenLifetime
+	sessionPrm.SetExp(exp)
 
 	sessionRes, err := internalclient.CreateSession(sessionPrm)
 	exitOnErr(cmd, errf("open session: %w", err))
 
-	tok := session.NewToken()
-	tok.SetID(sessionRes.ID())
-	tok.SetSessionKey(sessionRes.SessionKey())
-	tok.SetOwnerID(ownerID)
-
 	for i := range prms {
+		objectContext := session.NewObjectContext()
+		switch prms[i].(type) {
+		case *internalclient.GetObjectPrm:
+			objectContext.ForGet()
+		case *internalclient.HeadObjectPrm:
+			objectContext.ForHead()
+		case *internalclient.PutObjectPrm:
+			objectContext.ForPut()
+		case *internalclient.DeleteObjectPrm:
+			objectContext.ForDelete()
+		case *internalclient.SearchObjectsPrm:
+			objectContext.ForSearch()
+		case *internalclient.PayloadRangePrm:
+			objectContext.ForRange()
+		case *internalclient.HashPayloadRangesPrm:
+			objectContext.ForRangeHash()
+		default:
+			panic("invalid client parameter type")
+		}
+
+		tok := session.NewToken()
+		tok.SetID(sessionRes.ID())
+		tok.SetSessionKey(sessionRes.SessionKey())
+		tok.SetOwnerID(ownerID)
+		tok.SetContext(objectContext)
+		tok.SetExp(exp)
+		tok.SetIat(cur)
+		tok.SetNbf(cur)
+
+		err = tok.Sign(key)
+		exitOnErr(cmd, errf("session token signing: %w", err))
+
 		prms[i].SetSessionToken(tok)
 	}
 }
