@@ -30,6 +30,8 @@ type commonPrm struct {
 	tokenBearer *token.BearerToken
 
 	local bool
+
+	xHeaders []*session.XHeader
 }
 
 // SetClient sets base client for NeoFS API communication.
@@ -75,8 +77,21 @@ func (x *commonPrm) SetTTL(ttl uint32) {
 // SetXHeaders sets request X-Headers.
 //
 // By default X-Headers will  not be attached to the request.
-func (x *commonPrm) SetXHeaders(_ []*session.XHeader) {
-	// FIXME: (neofs-node#1194) not supported by client
+func (x *commonPrm) SetXHeaders(hs []*session.XHeader) {
+	x.xHeaders = hs
+}
+
+func (x commonPrm) xHeadersPrm() (res []string) {
+	if len(x.xHeaders) > 0 {
+		res = make([]string, len(x.xHeaders)*2)
+
+		for i := range x.xHeaders {
+			res[2*i] = x.xHeaders[i].Key()
+			res[2*i+1] = x.xHeaders[i].Value()
+		}
+	}
+
+	return
 }
 
 type readPrmCommon struct {
@@ -147,6 +162,8 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
 	}
+
+	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cliPrm)
 	if err == nil {
@@ -243,6 +260,8 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
 	}
 
+	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+
 	cliRes, err := prm.cli.ObjectHead(prm.ctx, prm.cliPrm)
 	if err == nil {
 		// pull out an error from status
@@ -335,6 +354,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	}
 
 	prm.cliPrm.SetLength(prm.ln)
+	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cliPrm)
 	if err != nil {
@@ -406,6 +426,8 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		w.WithBearerToken(*prm.tokenBearer)
 	}
 
+	w.WithXHeaders(prm.xHeadersPrm()...)
+
 	if w.WriteHeader(*prm.obj) {
 		w.WritePayloadChunk(prm.obj.Payload())
 	}
@@ -475,6 +497,8 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	if prm.tokenBearer != nil {
 		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
 	}
+
+	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cliPrm)
 	if err != nil {

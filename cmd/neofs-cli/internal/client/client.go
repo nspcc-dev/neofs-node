@@ -337,6 +337,8 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		wrt.MarkLocal()
 	}
 
+	wrt.WithXHeaders(prm.xHeadersPrm()...)
+
 	if wrt.WriteHeader(*prm.hdr) {
 		sz := prm.hdr.PayloadSize()
 
@@ -434,6 +436,8 @@ func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 		delPrm.WithBearerToken(*prm.bearerToken)
 	}
 
+	delPrm.WithXHeaders(prm.xHeadersPrm()...)
+
 	cliRes, err := prm.cli.ObjectDelete(context.Background(), delPrm)
 	if err != nil {
 		return nil, fmt.Errorf("remove object via client: %w", err)
@@ -509,6 +513,8 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if prm.local {
 		getPrm.MarkLocal()
 	}
+
+	getPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectGetInit(context.Background(), getPrm)
 	if err != nil {
@@ -586,6 +592,8 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
+	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+
 	res, err := prm.cli.ObjectHead(context.Background(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header via client: %w", err)
@@ -648,6 +656,8 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	if prm.local {
 		cliPrm.MarkLocal()
 	}
+
+	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectSearchInit(context.Background(), cliPrm)
 	if err != nil {
@@ -760,6 +770,8 @@ func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) 
 		cliPrm.WithBearerToken(*prm.bearerToken)
 	}
 
+	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+
 	res, err := prm.cli.ObjectHash(context.Background(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read payload hashes via client: %w", err)
@@ -815,6 +827,8 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 
 	cliPrm.SetOffset(prm.rng.GetOffset())
 	cliPrm.SetLength(prm.rng.GetLength())
+
+	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectRangeInit(context.Background(), cliPrm)
 	if err != nil {

@@ -80,6 +80,8 @@ type commonObjectPrm struct {
 	bearerTokenPrm
 
 	local bool
+
+	xHeaders []*session.XHeader
 }
 
 // SetTTL sets request TTL value.
@@ -88,6 +90,19 @@ func (x *commonObjectPrm) SetTTL(ttl uint32) {
 }
 
 // SetXHeaders sets request X-Headers.
-func (x *commonObjectPrm) SetXHeaders(_ []*session.XHeader) {
-	// FIXME: (neofs-node#1194) not supported by client
+func (x *commonObjectPrm) SetXHeaders(hs []*session.XHeader) {
+	x.xHeaders = hs
+}
+
+func (x commonObjectPrm) xHeadersPrm() (res []string) {
+	if x.xHeaders != nil {
+		res = make([]string, len(x.xHeaders)*2)
+
+		for i := range x.xHeaders {
+			res[2*i] = x.xHeaders[i].Key()
+			res[2*i+1] = x.xHeaders[i].Value()
+		}
+	}
+
+	return
 }
