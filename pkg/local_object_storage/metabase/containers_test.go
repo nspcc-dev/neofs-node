@@ -21,11 +21,11 @@ func TestDB_Containers(t *testing.T) {
 	cids := make(map[string]int, N)
 
 	for i := 0; i < N; i++ {
-		obj := generateRawObject(t)
+		obj := generateObject(t)
 
 		cids[obj.ContainerID().String()] = 0
 
-		err := putBig(db, obj.Object())
+		err := putBig(db, obj)
 		require.NoError(t, err)
 	}
 
@@ -41,7 +41,7 @@ func TestDB_Containers(t *testing.T) {
 	}
 
 	t.Run("Inhume", func(t *testing.T) {
-		obj := generateRawObject(t).Object()
+		obj := generateObject(t)
 
 		require.NoError(t, putBig(db, obj))
 
@@ -49,7 +49,7 @@ func TestDB_Containers(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, cnrs, obj.ContainerID())
 
-		require.NoError(t, meta.Inhume(db, obj.Address(), generateAddress()))
+		require.NoError(t, meta.Inhume(db, object.AddressOf(obj), generateAddress()))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestDB_Containers(t *testing.T) {
 	})
 
 	t.Run("ToMoveIt", func(t *testing.T) {
-		obj := generateRawObject(t).Object()
+		obj := generateObject(t)
 
 		require.NoError(t, putBig(db, obj))
 
@@ -65,7 +65,7 @@ func TestDB_Containers(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, cnrs, obj.ContainerID())
 
-		require.NoError(t, meta.ToMoveIt(db, obj.Address()))
+		require.NoError(t, meta.ToMoveIt(db, object.AddressOf(obj)))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -91,10 +91,10 @@ func TestDB_ContainersCount(t *testing.T) {
 
 	for _, upload := range uploadObjects {
 		for i := 0; i < upload.amount; i++ {
-			obj := generateRawObject(t)
+			obj := generateObject(t)
 			obj.SetType(upload.typ)
 
-			err := putBig(db, obj.Object())
+			err := putBig(db, obj)
 			require.NoError(t, err)
 
 			expected = append(expected, obj.ContainerID())
@@ -124,7 +124,7 @@ func TestDB_ContainerSize(t *testing.T) {
 	)
 
 	cids := make(map[*cid.ID]int, C)
-	objs := make(map[*cid.ID][]*object.RawObject, C*N)
+	objs := make(map[*cid.ID][]*objectSDK.Object, C*N)
 
 	for i := 0; i < C; i++ {
 		cid := cidtest.ID()
@@ -133,18 +133,18 @@ func TestDB_ContainerSize(t *testing.T) {
 		for j := 0; j < N; j++ {
 			size := rand.Intn(1024)
 
-			parent := generateRawObjectWithCID(t, cid)
+			parent := generateObjectWithCID(t, cid)
 			parent.SetPayloadSize(uint64(size / 2))
 
-			obj := generateRawObjectWithCID(t, cid)
+			obj := generateObjectWithCID(t, cid)
 			obj.SetPayloadSize(uint64(size))
 			obj.SetParentID(parent.ID())
-			obj.SetParent(parent.Object().SDK())
+			obj.SetParent(parent)
 
 			cids[cid] += size
 			objs[cid] = append(objs[cid], obj)
 
-			err := putBig(db, obj.Object())
+			err := putBig(db, obj)
 			require.NoError(t, err)
 		}
 	}
@@ -162,7 +162,7 @@ func TestDB_ContainerSize(t *testing.T) {
 			for _, obj := range list {
 				require.NoError(t, meta.Inhume(
 					db,
-					obj.Object().Address(),
+					object.AddressOf(obj),
 					generateAddress(),
 				))
 

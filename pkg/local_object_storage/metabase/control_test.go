@@ -15,8 +15,8 @@ func TestReset(t *testing.T) {
 	err := db.Reset()
 	require.NoError(t, err)
 
-	obj := generateRawObject(t).Object()
-	addr := obj.Address()
+	obj := generateObject(t)
+	addr := object.AddressOf(obj)
 
 	addrToInhume := generateAddress()
 

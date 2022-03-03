@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -17,7 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
@@ -73,16 +72,16 @@ func releaseShard(s *shard.Shard, t testing.TB) {
 	os.RemoveAll(strings.Split(t.Name(), string(os.PathSeparator))[0])
 }
 
-func generateRawObject(t *testing.T) *object.RawObject {
-	return generateRawObjectWithCID(t, cidtest.ID())
+func generateObject(t *testing.T) *object.Object {
+	return generateObjectWithCID(t, cidtest.ID())
 }
 
-func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
+func generateObjectWithCID(t *testing.T, cid *cid.ID) *object.Object {
 	data := owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)
-	return generateRawObjectWithPayload(cid, data)
+	return generateObjectWithPayload(cid, data)
 }
 
-func generateRawObjectWithPayload(cid *cid.ID, data []byte) *object.RawObject {
+func generateObjectWithPayload(cid *cid.ID, data []byte) *object.Object {
 	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
@@ -93,7 +92,7 @@ func generateRawObjectWithPayload(cid *cid.ID, data []byte) *object.RawObject {
 	csumTZ := new(checksum.Checksum)
 	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))
 
-	obj := object.NewRaw()
+	obj := object.New()
 	obj.SetID(generateOID())
 	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
@@ -105,8 +104,8 @@ func generateRawObjectWithPayload(cid *cid.ID, data []byte) *object.RawObject {
 	return obj
 }
 
-func addAttribute(obj *object.RawObject, key, val string) {
-	attr := objectSDK.NewAttribute()
+func addAttribute(obj *object.Object, key, val string) {
+	attr := object.NewAttribute()
 	attr.SetKey(key)
 	attr.SetValue(val)
 
@@ -115,7 +114,7 @@ func addAttribute(obj *object.RawObject, key, val string) {
 	obj.SetAttributes(attrs...)
 }
 
-func addPayload(obj *object.RawObject, size int) {
+func addPayload(obj *object.Object, size int) {
 	buf := make([]byte, size)
 	_, _ = rand.Read(buf)
 

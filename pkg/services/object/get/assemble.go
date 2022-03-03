@@ -71,7 +71,7 @@ func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []*
 		return
 	}
 
-	par := child.GetParent()
+	par := child.Parent()
 	if par == nil {
 		exec.status = statusUndefined
 
@@ -115,7 +115,7 @@ func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []*
 		payload = child.Payload()
 	}
 
-	object.NewRawFromObject(exec.collectedObject).SetPayload(payload)
+	exec.collectedObject.SetPayload(payload)
 
 	return child.PreviousID(), child.Children()
 }

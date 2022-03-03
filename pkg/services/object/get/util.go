@@ -5,15 +5,14 @@ import (
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	internal "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type SimpleObjectWriter struct {
-	obj *object.RawObject
+	obj *object.Object
 
 	pld []byte
 }
@@ -48,12 +47,12 @@ type nmSrcWrapper struct {
 
 func NewSimpleObjectWriter() *SimpleObjectWriter {
 	return &SimpleObjectWriter{
-		obj: object.NewRaw(),
+		obj: object.New(),
 	}
 }
 
 func (s *SimpleObjectWriter) WriteHeader(obj *object.Object) error {
-	s.obj = object.NewRawFromObject(obj)
+	s.obj = obj
 
 	s.pld = make([]byte, 0, obj.PayloadSize())
 
@@ -70,7 +69,7 @@ func (s *SimpleObjectWriter) Object() *object.Object {
 		s.obj.SetPayload(s.pld)
 	}
 
-	return s.obj.Object()
+	return s.obj
 }
 
 func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
@@ -84,7 +83,7 @@ func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
 	}, nil
 }
 
-func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*objectSDK.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, error) {
 	if exec.isForwardingEnabled() {
 		return exec.prm.forwarder(info, c.client)
 	}
@@ -211,11 +210,11 @@ func (w *partWriter) WriteHeader(o *object.Object) error {
 	return w.headWriter.WriteHeader(o)
 }
 
-func payloadOnlyObject(payload []byte) *objectSDK.Object {
-	rawObj := object.NewRaw()
-	rawObj.SetPayload(payload)
+func payloadOnlyObject(payload []byte) *object.Object {
+	obj := object.New()
+	obj.SetPayload(payload)
 
-	return rawObj.Object().SDK()
+	return obj
 }
 
 func (h *hasherWrapper) WriteChunk(p []byte) error {

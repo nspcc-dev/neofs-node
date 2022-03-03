@@ -6,13 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -27,7 +26,7 @@ func putBig(db *meta.DB, obj *object.Object) error {
 	return meta.Put(db, obj, nil)
 }
 
-func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs objectSDK.SearchFilters, exp ...*addressSDK.Address) {
+func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs object.SearchFilters, exp ...*addressSDK.Address) {
 	res, err := meta.Select(db, cid, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
@@ -62,11 +61,11 @@ func newDB(t testing.TB) *meta.DB {
 	return bdb
 }
 
-func generateRawObject(t *testing.T) *object.RawObject {
-	return generateRawObjectWithCID(t, cidtest.ID())
+func generateObject(t *testing.T) *object.Object {
+	return generateObjectWithCID(t, cidtest.ID())
 }
 
-func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
+func generateObjectWithCID(t *testing.T, cid *cid.ID) *object.Object {
 	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
@@ -77,7 +76,7 @@ func generateRawObjectWithCID(t *testing.T, cid *cid.ID) *object.RawObject {
 	csumTZ := new(checksum.Checksum)
 	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))
 
-	obj := object.NewRaw()
+	obj := object.New()
 	obj.SetID(testOID())
 	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
@@ -97,8 +96,8 @@ func generateAddress() *addressSDK.Address {
 	return addr
 }
 
-func addAttribute(obj *object.RawObject, key, val string) {
-	attr := objectSDK.NewAttribute()
+func addAttribute(obj *object.Object, key, val string) {
+	attr := object.NewAttribute()
 	attr.SetKey(key)
 	attr.SetValue(val)
 

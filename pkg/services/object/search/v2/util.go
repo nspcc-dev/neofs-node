@@ -18,7 +18,7 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -110,7 +110,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 	body := req.GetBody()
 	p.WithContainerID(cid.NewFromV2(body.GetContainerID()))
-	p.WithSearchFilters(objectSDK.NewSearchFiltersFromV2(body.GetFilters()))
+	p.WithSearchFilters(object.NewSearchFiltersFromV2(body.GetFilters()))
 
 	return p, nil
 }

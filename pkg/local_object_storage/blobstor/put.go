@@ -35,14 +35,14 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, fmt.Errorf("could not marshal the object: %w", err)
 	}
 
-	return b.PutRaw(prm.obj.Address(), data, b.NeedsCompression(prm.obj))
+	return b.PutRaw(object.AddressOf(prm.obj), data, b.NeedsCompression(prm.obj))
 }
 
 // NeedsCompression returns true if object should be compressed.
 // For object to be compressed 2 conditions must hold:
 // 1. Compression is enabled in settings.
 // 2. Object MIME Content-Type is allowed for compression.
-func (b *BlobStor) NeedsCompression(obj *object.Object) bool {
+func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 	if !b.compressionEnabled || len(b.uncompressableContentTypes) == 0 {
 		return b.compressionEnabled
 	}

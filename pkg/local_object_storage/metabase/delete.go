@@ -42,7 +42,7 @@ type referenceNumber struct {
 
 	addr *addressSDK.Address
 
-	obj *object.Object
+	obj *objectSDK.Object
 }
 
 type referenceCounter map[string]*referenceNumber
@@ -105,14 +105,14 @@ func (db *DB) delete(tx *bbolt.Tx, addr *addressSDK.Address, refCounter referenc
 	}
 
 	// if object is an only link to a parent, then remove parent
-	if parent := obj.GetParent(); parent != nil {
-		parAddr := parent.Address()
+	if parent := obj.Parent(); parent != nil {
+		parAddr := object.AddressOf(parent)
 		sParAddr := parAddr.String()
 
 		nRef, ok := refCounter[sParAddr]
 		if !ok {
 			nRef = &referenceNumber{
-				all:  parentLength(tx, parent.Address()),
+				all:  parentLength(tx, parAddr),
 				addr: parAddr,
 				obj:  parent,
 			}
@@ -129,7 +129,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr *addressSDK.Address, refCounter referenc
 
 func (db *DB) deleteObject(
 	tx *bbolt.Tx,
-	obj *object.Object,
+	obj *objectSDK.Object,
 	isParent bool,
 ) error {
 	uniqueIndexes, err := delUniqueIndexes(obj, isParent)
@@ -239,8 +239,8 @@ func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	_ = bkt.Put(item.key, encodedLst) // ignore error, best effort there
 }
 
-func delUniqueIndexes(obj *object.Object, isParent bool) ([]namedBucketItem, error) {
-	addr := obj.Address()
+func delUniqueIndexes(obj *objectSDK.Object, isParent bool) ([]namedBucketItem, error) {
+	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
 	addrKey := addressKey(addr)
 

@@ -80,7 +80,7 @@ func (s *Shard) refillMetabase() error {
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	return blobstor.IterateObjects(s.blobStor, func(obj *object.Object, blzID *blobovnicza.ID) error {
+	return blobstor.IterateObjects(s.blobStor, func(obj *objectSDK.Object, blzID *blobovnicza.ID) error {
 		if obj.Type() == objectSDK.TypeTombstone {
 			tombstone := objectSDK.NewTombstone()
 
@@ -88,7 +88,7 @@ func (s *Shard) refillMetabase() error {
 				return fmt.Errorf("could not unmarshal tombstone content: %w", err)
 			}
 
-			tombAddr := obj.Address()
+			tombAddr := object.AddressOf(obj)
 			cid := tombAddr.ContainerID()
 			memberIDs := tombstone.Members()
 			tombMembers := make([]*addressSDK.Address, 0, len(memberIDs))

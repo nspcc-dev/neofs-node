@@ -5,12 +5,11 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
@@ -25,7 +24,7 @@ type Service struct {
 type Option func(*cfg)
 
 type getClient interface {
-	getObject(*execCtx, client.NodeInfo) (*objectSDK.Object, error)
+	getObject(*execCtx, client.NodeInfo) (*object.Object, error)
 }
 
 type cfg struct {

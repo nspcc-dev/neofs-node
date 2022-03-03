@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // ErrInvalidMagic is returned when dump format is invalid.

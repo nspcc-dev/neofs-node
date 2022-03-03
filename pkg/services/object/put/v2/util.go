@@ -2,9 +2,9 @@ package putsvc
 
 import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 func (s *streamer) toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.PutRequest) (*putsvc.PutInitPrm, error) {
@@ -20,7 +20,7 @@ func (s *streamer) toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.Put
 
 	return new(putsvc.PutInitPrm).
 		WithObject(
-			object.NewRawFromV2(oV2),
+			object.NewFromV2(oV2),
 		).
 		WithRelay(s.relayRequest).
 		WithCommonPrm(commonPrm), nil

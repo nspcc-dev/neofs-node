@@ -34,7 +34,7 @@ type execCtx struct {
 
 	log *logger.Logger
 
-	collectedObject *object.Object
+	collectedObject *objectSDK.Object
 
 	curOff uint64
 
@@ -99,9 +99,9 @@ func (exec execCtx) address() *addressSDK.Address {
 	return exec.prm.addr
 }
 
-func (exec execCtx) isChild(obj *object.Object) bool {
-	par := obj.GetParent()
-	return par != nil && equalAddresses(exec.address(), par.Address())
+func (exec execCtx) isChild(obj *objectSDK.Object) bool {
+	par := obj.Parent()
+	return par != nil && equalAddresses(exec.address(), object.AddressOf(par))
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
@@ -178,7 +178,7 @@ func (exec *execCtx) generateTraverser(addr *addressSDK.Address) (*placement.Tra
 	}
 }
 
-func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool) (*object.Object, bool) {
+func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, bool) {
 	w := NewSimpleObjectWriter()
 
 	p := exec.prm
@@ -207,7 +207,7 @@ func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool)
 	return child, ok
 }
 
-func (exec *execCtx) headChild(id *oidSDK.ID) (*object.Object, bool) {
+func (exec *execCtx) headChild(id *oidSDK.ID) (*objectSDK.Object, bool) {
 	childAddr := addressSDK.NewAddress()
 	childAddr.SetContainerID(exec.containerID())
 	childAddr.SetObjectID(id)
@@ -288,7 +288,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	}
 
 	err := exec.prm.objWriter.WriteHeader(
-		object.NewRawFromObject(exec.collectedObject).CutPayload().Object(),
+		exec.collectedObject.CutPayload(),
 	)
 
 	switch {
@@ -307,7 +307,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) writeObjectPayload(obj *object.Object) bool {
+func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
 	if exec.headOnly() {
 		return true
 	}

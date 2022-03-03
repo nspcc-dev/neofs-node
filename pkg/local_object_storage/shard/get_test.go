@@ -31,67 +31,67 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	getPrm := new(shard.GetPrm)
 
 	t.Run("small object", func(t *testing.T) {
-		obj := generateRawObject(t)
+		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
-		putPrm.WithObject(obj.Object())
+		putPrm.WithObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.WithAddress(obj.Object().Address())
+		getPrm.WithAddress(object.AddressOf(obj))
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj.Object(), res.Object())
+		require.Equal(t, obj, res.Object())
 	})
 
 	t.Run("big object", func(t *testing.T) {
-		obj := generateRawObject(t)
+		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 		obj.SetID(generateOID())
 		addPayload(obj, 1<<20) // big obj
 
-		putPrm.WithObject(obj.Object())
+		putPrm.WithObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.WithAddress(obj.Object().Address())
+		getPrm.WithAddress(object.AddressOf(obj))
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj.Object(), res.Object())
+		require.Equal(t, obj, res.Object())
 	})
 
 	t.Run("parent object", func(t *testing.T) {
-		obj := generateRawObject(t)
+		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateRawObjectWithCID(t, cid)
+		parent := generateObjectWithCID(t, cid)
 		addAttribute(parent, "parent", "attribute")
 
-		child := generateRawObjectWithCID(t, cid)
-		child.SetParent(parent.Object().SDK())
+		child := generateObjectWithCID(t, cid)
+		child.SetParent(parent)
 		child.SetParentID(parent.ID())
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
 
-		putPrm.WithObject(child.Object())
+		putPrm.WithObject(child)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.WithAddress(child.Object().Address())
+		getPrm.WithAddress(object.AddressOf(child))
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
-		require.True(t, binaryEqual(child.Object(), res.Object()))
+		require.True(t, binaryEqual(child, res.Object()))
 
-		getPrm.WithAddress(parent.Object().Address())
+		getPrm.WithAddress(object.AddressOf(parent))
 
 		_, err = testGet(t, sh, getPrm, hasWriteCache)
 
@@ -121,7 +121,7 @@ func testGet(t *testing.T, sh *shard.Shard, getPrm *shard.GetPrm, hasWriteCache 
 
 // binary equal is used when object contains empty lists in the structure and
 // requre.Equal fails on comparing <nil> and []{} lists.
-func binaryEqual(a, b *object.Object) bool {
+func binaryEqual(a, b *objectSDK.Object) bool {
 	binaryA, err := a.Marshal()
 	if err != nil {
 		return false

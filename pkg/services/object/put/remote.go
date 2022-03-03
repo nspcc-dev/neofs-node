@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type remoteTarget struct {
@@ -43,8 +43,8 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteHeader(obj *object.RawObject) error {
-	t.obj = obj.Object()
+func (t *remoteTarget) WriteHeader(obj *object.Object) error {
+	t.obj = obj
 
 	return nil
 }
@@ -68,7 +68,7 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 	prm.SetSessionToken(t.commonPrm.SessionToken())
 	prm.SetBearerToken(t.commonPrm.BearerToken())
 	prm.SetXHeaders(t.commonPrm.XHeaders())
-	prm.SetObject(t.obj.SDK())
+	prm.SetObject(t.obj)
 
 	res, err := internalclient.PutObject(prm)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	if err := t.WriteHeader(object.NewRawFromObject(p.obj)); err != nil {
+	if err := t.WriteHeader(p.obj); err != nil {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)

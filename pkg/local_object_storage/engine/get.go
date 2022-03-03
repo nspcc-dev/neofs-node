@@ -18,7 +18,7 @@ type GetPrm struct {
 
 // GetRes groups resulting values of Get operation.
 type GetRes struct {
-	obj *object.Object
+	obj *objectSDK.Object
 }
 
 // WithAddress is a Get option to set the address of the requested object.
@@ -33,7 +33,7 @@ func (p *GetPrm) WithAddress(addr *addressSDK.Address) *GetPrm {
 }
 
 // Object returns the requested object.
-func (r *GetRes) Object() *object.Object {
+func (r *GetRes) Object() *objectSDK.Object {
 	return r.obj
 }
 
@@ -60,7 +60,7 @@ func (e *StorageEngine) get(prm *GetPrm) (*GetRes, error) {
 	}
 
 	var (
-		obj   *object.Object
+		obj   *objectSDK.Object
 		siErr *objectSDK.SplitInfoError
 
 		outSI    *objectSDK.SplitInfo
@@ -145,7 +145,7 @@ func (e *StorageEngine) get(prm *GetPrm) (*GetRes, error) {
 }
 
 // Get reads object from local storage by provided address.
-func Get(storage *StorageEngine, addr *addressSDK.Address) (*object.Object, error) {
+func Get(storage *StorageEngine, addr *addressSDK.Address) (*objectSDK.Object, error) {
 	res, err := storage.Get(new(GetPrm).
 		WithAddress(addr),
 	)

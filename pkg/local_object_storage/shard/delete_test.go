@@ -25,7 +25,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 
 	cid := cidtest.ID()
 
-	obj := generateRawObjectWithCID(t, cid)
+	obj := generateObjectWithCID(t, cid)
 	addAttribute(obj, "foo", "bar")
 
 	putPrm := new(shard.PutPrm)
@@ -34,11 +34,11 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	t.Run("big object", func(t *testing.T) {
 		addPayload(obj, 1<<20)
 
-		putPrm.WithObject(obj.Object())
-		getPrm.WithAddress(obj.Object().Address())
+		putPrm.WithObject(obj)
+		getPrm.WithAddress(object.AddressOf(obj))
 
 		delPrm := new(shard.DeletePrm)
-		delPrm.WithAddresses(obj.Object().Address())
+		delPrm.WithAddresses(object.AddressOf(obj))
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
@@ -57,11 +57,11 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		obj.SetID(generateOID())
 		addPayload(obj, 1<<5)
 
-		putPrm.WithObject(obj.Object())
-		getPrm.WithAddress(obj.Object().Address())
+		putPrm.WithObject(obj)
+		getPrm.WithAddress(object.AddressOf(obj))
 
 		delPrm := new(shard.DeletePrm)
-		delPrm.WithAddresses(obj.Object().Address())
+		delPrm.WithAddresses(object.AddressOf(obj))
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)

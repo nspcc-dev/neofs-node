@@ -3,6 +3,7 @@ package shard_test
 import (
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
@@ -37,17 +38,17 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 		cid := cidtest.ID()
 
 		for j := 0; j < N; j++ {
-			obj := generateRawObjectWithCID(t, cid)
+			obj := generateObjectWithCID(t, cid)
 			addPayload(obj, 1<<2)
 
 			// add parent as virtual object, it must be ignored in List()
-			parent := generateRawObjectWithCID(t, cid)
-			obj.SetParentID(parent.Object().ID())
-			obj.SetParent(parent.Object().SDK())
+			parent := generateObjectWithCID(t, cid)
+			obj.SetParentID(parent.ID())
+			obj.SetParent(parent)
 
-			objs[obj.Object().Address().String()] = 0
+			objs[object.AddressOf(obj).String()] = 0
 
-			putPrm.WithObject(obj.Object())
+			putPrm.WithObject(obj)
 
 			_, err := sh.Put(putPrm)
 			require.NoError(t, err)

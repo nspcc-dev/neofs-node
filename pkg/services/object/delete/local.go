@@ -1,7 +1,7 @@
 package deletesvc
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -39,7 +39,7 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		return false
 	}
 
-	exec.tombstone = objectSDK.NewTombstone()
+	exec.tombstone = object.NewTombstone()
 	exec.tombstone.SetExpirationEpoch(
 		exec.svc.netInfo.CurrentEpoch() + tsLifetime,
 	)

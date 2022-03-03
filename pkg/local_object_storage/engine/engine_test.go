@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -18,7 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -57,7 +56,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 
 	addr := objecttest.Address()
 	for i := 0; i < 100; i++ {
-		obj := generateRawObjectWithCID(b, cidtest.ID())
+		obj := generateObjectWithCID(b, cidtest.ID())
 		err := Put(e, obj.Object())
 		if err != nil {
 			b.Fatal(err)
@@ -134,7 +133,7 @@ func testOID() *oidSDK.ID {
 	return id
 }
 
-func generateRawObjectWithCID(t testing.TB, cid *cid.ID) *object.RawObject {
+func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.RawObject {
 	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
@@ -145,7 +144,7 @@ func generateRawObjectWithCID(t testing.TB, cid *cid.ID) *object.RawObject {
 	csumTZ := new(checksum.Checksum)
 	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))
 
-	obj := object.NewRaw()
+	obj := object.New()
 	obj.SetID(testOID())
 	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
@@ -157,8 +156,8 @@ func generateRawObjectWithCID(t testing.TB, cid *cid.ID) *object.RawObject {
 	return obj
 }
 
-func addAttribute(obj *object.RawObject, key, val string) {
-	attr := objectSDK.NewAttribute()
+func addAttribute(obj *object.Object, key, val string) {
+	attr := object.NewAttribute()
 	attr.SetKey(key)
 	attr.SetValue(val)
 

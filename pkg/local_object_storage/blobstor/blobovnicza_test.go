@@ -33,8 +33,8 @@ func testAddress() *addressSDK.Address {
 	return addr
 }
 
-func testObjectRaw(sz uint64) *object.RawObject {
-	raw := object.NewRaw()
+func testObject(sz uint64) *objectSDK.Object {
+	raw := objectSDK.New()
 
 	addr := testAddress()
 	raw.SetID(addr.ObjectID())
@@ -49,10 +49,6 @@ func testObjectRaw(sz uint64) *object.RawObject {
 	}
 
 	return raw
-}
-
-func testObject(sz uint64) *object.Object {
-	return testObjectRaw(sz).Object()
 }
 
 func TestBlobovniczas(t *testing.T) {
@@ -91,19 +87,21 @@ func TestBlobovniczas(t *testing.T) {
 
 	for i := uint64(0); i < minFitObjNum; i++ {
 		obj := testObject(objSz)
-		addrList = append(addrList, obj.Address())
+		addr := object.AddressOf(obj)
+
+		addrList = append(addrList, addr)
 
 		d, err := obj.Marshal()
 		require.NoError(t, err)
 
 		// save object in blobovnicza
-		id, err := b.put(obj.Address(), d)
+		id, err := b.put(addr, d)
 		require.NoError(t, err)
 
 		// get w/ blobovnicza ID
 		prm := new(GetSmallPrm)
 		prm.SetBlobovniczaID(id)
-		prm.SetAddress(obj.Address())
+		prm.SetAddress(addr)
 
 		res, err := b.get(prm)
 		require.NoError(t, err)
@@ -119,7 +117,7 @@ func TestBlobovniczas(t *testing.T) {
 		// get range w/ blobovnicza ID
 		rngPrm := new(GetRangeSmallPrm)
 		rngPrm.SetBlobovniczaID(id)
-		rngPrm.SetAddress(obj.Address())
+		rngPrm.SetAddress(addr)
 
 		payload := obj.Payload()
 		pSize := uint64(len(obj.Payload()))

@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 )
 
 // HeadReceiver is an interface of entity that can receive
@@ -16,7 +14,7 @@ import (
 type HeadReceiver interface {
 	// Head must return one of:
 	// * object header (*object.Object);
-	// * structured information about split-chain (*objectSDK.SplitInfo).
+	// * structured information about split-chain (*object.SplitInfo).
 	Head(*addressSDK.Address) (interface{}, error)
 }
 
@@ -88,7 +86,7 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 		panic(fmt.Sprintf("unexpected result of %T: %T", r, v))
 	case *object.Object:
 		return h(res, false), nil
-	case *objectSDK.SplitInfo:
+	case *object.SplitInfo:
 		switch {
 		default:
 			return false, errors.New("lack of split information")
