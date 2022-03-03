@@ -166,7 +166,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
 
 	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cliPrm)
-	if err == nil {
+	if err != nil {
 		return nil, fmt.Errorf("init object reading: %w", err)
 	}
 
