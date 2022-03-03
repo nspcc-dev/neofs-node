@@ -9,10 +9,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -86,11 +85,11 @@ func TestHeadRequest(t *testing.T) {
 
 	meta.SetXHeaders(xHdrs)
 
-	obj := object.NewRaw()
+	obj := object.New()
 
 	attrKey := "attr_key"
 	attrVal := "attr_val"
-	attr := objectSDK.NewAttribute()
+	attr := object.NewAttribute()
 	attr.SetKey(attrKey)
 	attr.SetValue(attrVal)
 	obj.SetAttributes(attr)
@@ -113,7 +112,7 @@ func TestHeadRequest(t *testing.T) {
 	lStorage := &testLocalStorage{
 		t:       t,
 		expAddr: addr,
-		obj:     obj.Object(),
+		obj:     obj,
 	}
 
 	cid := addr.ContainerID()

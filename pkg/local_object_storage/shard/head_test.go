@@ -30,39 +30,39 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	headPrm := new(shard.HeadPrm)
 
 	t.Run("regular object", func(t *testing.T) {
-		obj := generateRawObject(t)
+		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 
-		putPrm.WithObject(obj.Object())
+		putPrm.WithObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		headPrm.WithAddress(obj.Object().Address())
+		headPrm.WithAddress(object.AddressOf(obj))
 
 		res, err := testHead(t, sh, headPrm, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj.CutPayload().Object(), res.Object())
+		require.Equal(t, obj.CutPayload(), res.Object())
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
 		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateRawObjectWithCID(t, cid)
+		parent := generateObjectWithCID(t, cid)
 		addAttribute(parent, "foo", "bar")
 
-		child := generateRawObjectWithCID(t, cid)
-		child.SetParent(parent.Object().SDK())
+		child := generateObjectWithCID(t, cid)
+		child.SetParent(parent)
 		child.SetParentID(parent.ID())
 		child.SetSplitID(splitID)
 
-		putPrm.WithObject(child.Object())
+		putPrm.WithObject(child)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		headPrm.WithAddress(parent.Object().Address())
+		headPrm.WithAddress(object.AddressOf(parent))
 		headPrm.WithRaw(true)
 
 		var siErr *objectSDK.SplitInfoError
@@ -70,12 +70,12 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		_, err = testHead(t, sh, headPrm, hasWriteCache)
 		require.True(t, errors.As(err, &siErr))
 
-		headPrm.WithAddress(parent.Object().Address())
+		headPrm.WithAddress(object.AddressOf(parent))
 		headPrm.WithRaw(false)
 
 		head, err := sh.Head(headPrm)
 		require.NoError(t, err)
-		require.Equal(t, parent.CutPayload().Object(), head.Object())
+		require.Equal(t, parent.CutPayload(), head.Object())
 	})
 }
 

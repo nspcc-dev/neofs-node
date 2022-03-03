@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
@@ -572,7 +573,7 @@ func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.
 	}
 
 	// unmarshal the object
-	obj := object.New()
+	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
@@ -605,7 +606,7 @@ func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *GetRang
 	}
 
 	// unmarshal the object
-	obj := object.New()
+	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}

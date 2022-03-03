@@ -2,8 +2,8 @@ package getsvc
 
 import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type streamObjectWriter struct {

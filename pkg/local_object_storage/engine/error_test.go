@@ -13,6 +13,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -61,16 +62,16 @@ func TestErrorReporting(t *testing.T) {
 	t.Run("ignore errors by default", func(t *testing.T) {
 		e, dir, id := newEngineWithErrorThreshold(t, "", 0)
 
-		obj := generateRawObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
-		prm := new(shard.PutPrm).WithObject(obj.Object())
+		prm := new(shard.PutPrm).WithObject(obj)
 		e.mtx.RLock()
 		_, err := e.shards[id[0].String()].Shard.Put(prm)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(&GetPrm{addr: obj.Object().Address()})
+		_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
@@ -79,7 +80,7 @@ func TestErrorReporting(t *testing.T) {
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < 3; i++ {
-			_, err = e.Get(&GetPrm{addr: obj.Object().Address()})
+			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, shard.ModeReadWrite)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
@@ -90,16 +91,16 @@ func TestErrorReporting(t *testing.T) {
 
 		e, dir, id := newEngineWithErrorThreshold(t, "", errThreshold)
 
-		obj := generateRawObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
-		prm := new(shard.PutPrm).WithObject(obj.Object())
+		prm := new(shard.PutPrm).WithObject(obj)
 		e.mtx.RLock()
 		_, err := e.shards[id[0].String()].Put(prm)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(&GetPrm{addr: obj.Object().Address()})
+		_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
@@ -108,14 +109,14 @@ func TestErrorReporting(t *testing.T) {
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < errThreshold; i++ {
-			_, err = e.Get(&GetPrm{addr: obj.Object().Address()})
+			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, shard.ModeReadWrite)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
 		}
 
 		for i := uint32(0); i < 2; i++ {
-			_, err = e.Get(&GetPrm{addr: obj.Object().Address()})
+			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, shard.ModeReadOnly)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
@@ -137,9 +138,9 @@ func TestBlobstorFailback(t *testing.T) {
 
 	e, _, id := newEngineWithErrorThreshold(t, dir, 1)
 
-	objs := make([]*object.Object, 0, 2)
+	objs := make([]*objectSDK.Object, 0, 2)
 	for _, size := range []int{15, errSmallSize + 1} {
-		obj := generateRawObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
 		prm := new(shard.PutPrm).WithObject(obj.Object())
@@ -151,9 +152,10 @@ func TestBlobstorFailback(t *testing.T) {
 	}
 
 	for i := range objs {
-		_, err = e.Get(&GetPrm{addr: objs[i].Address()})
+		addr := object.AddressOf(objs[i])
+		_, err = e.Get(&GetPrm{addr: addr})
 		require.NoError(t, err)
-		_, err = e.GetRange(&RngPrm{addr: objs[i].Address()})
+		_, err = e.GetRange(&RngPrm{addr: addr})
 		require.NoError(t, err)
 	}
 
@@ -170,15 +172,16 @@ func TestBlobstorFailback(t *testing.T) {
 	e, _, id = newEngineWithErrorThreshold(t, dir, 1)
 
 	for i := range objs {
-		getRes, err := e.Get(&GetPrm{addr: objs[i].Address()})
+		addr := object.AddressOf(objs[i])
+		getRes, err := e.Get(&GetPrm{addr: addr})
 		require.NoError(t, err)
 		require.Equal(t, objs[i], getRes.Object())
 
-		rngRes, err := e.GetRange(&RngPrm{addr: objs[i].Address(), off: 1, ln: 10})
+		rngRes, err := e.GetRange(&RngPrm{addr: addr, off: 1, ln: 10})
 		require.NoError(t, err)
 		require.Equal(t, objs[i].Payload()[1:11], rngRes.Object().Payload())
 
-		_, err = e.GetRange(&RngPrm{addr: objs[i].Address(), off: errSmallSize + 10, ln: 1})
+		_, err = e.GetRange(&RngPrm{addr: addr, off: errSmallSize + 10, ln: 1})
 		require.True(t, errors.Is(err, object.ErrRangeOutOfBounds), "got: %v", err)
 	}
 

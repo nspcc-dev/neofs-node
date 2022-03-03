@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	object2 "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -47,14 +48,13 @@ func TestDB_IterateExpired(t *testing.T) {
 }
 
 func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uint64) *addressSDK.Address {
-	raw := generateRawObject(t)
-	raw.SetType(typ)
-	addAttribute(raw, objectV2.SysAttributeExpEpoch, strconv.FormatUint(expiresAt, 10))
+	obj := generateObject(t)
+	obj.SetType(typ)
+	addAttribute(obj, objectV2.SysAttributeExpEpoch, strconv.FormatUint(expiresAt, 10))
 
-	obj := raw.Object()
 	require.NoError(t, putBig(db, obj))
 
-	return obj.Address()
+	return object2.AddressOf(obj)
 }
 
 func TestDB_IterateCoveredByTombstones(t *testing.T) {

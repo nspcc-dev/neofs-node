@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // GetBigPrm groups the parameters of GetBig operation.
@@ -42,7 +43,7 @@ func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	}
 
 	// unmarshal the object
-	obj := object.New()
+	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
 	}

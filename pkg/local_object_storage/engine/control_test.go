@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
@@ -19,9 +20,9 @@ func TestExecBlocks(t *testing.T) {
 	})
 
 	// put some object
-	obj := generateRawObjectWithCID(t, cidtest.ID()).Object()
+	obj := generateObjectWithCID(t, cidtest.ID())
 
-	addr := obj.Address()
+	addr := object.AddressOf(obj)
 
 	require.NoError(t, Put(e, obj))
 

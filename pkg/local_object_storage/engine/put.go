@@ -5,12 +5,13 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	obj *object.Object
+	obj *objectSDK.Object
 }
 
 // PutRes groups resulting values of Put operation.
@@ -21,7 +22,7 @@ var errPutShard = errors.New("could not put object to any shard")
 // WithObject is a Put option to set object to save.
 //
 // Option is required.
-func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
+func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
 	if p != nil {
 		p.obj = obj
 	}
@@ -49,19 +50,21 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
+	addr := object.AddressOf(prm.obj)
+
 	// In #1146 this check was parallelized, however, it became
 	// much slower on fast machines for 4 shards.
-	_, err := e.exists(prm.obj.Address())
+	_, err := e.exists(addr)
 	if err != nil {
 		return nil, err
 	}
 
 	existPrm := new(shard.ExistsPrm)
-	existPrm.WithAddress(prm.obj.Address())
+	existPrm.WithAddress(addr)
 
 	finished := false
 
-	e.iterateOverSortedShards(prm.obj.Address(), func(ind int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(ind int, sh hashedShard) (stop bool) {
 		e.mtx.RLock()
 		pool := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
@@ -79,7 +82,7 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 			if exists.Exists() {
 				if ind != 0 {
 					toMoveItPrm := new(shard.ToMoveItPrm)
-					toMoveItPrm.WithAddress(prm.obj.Address())
+					toMoveItPrm.WithAddress(addr)
 
 					_, err = sh.ToMoveIt(toMoveItPrm)
 					if err != nil {
@@ -126,7 +129,7 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 }
 
 // Put writes provided object to local storage.
-func Put(storage *StorageEngine, obj *object.Object) error {
+func Put(storage *StorageEngine, obj *objectSDK.Object) error {
 	_, err := storage.Put(new(PutPrm).
 		WithObject(obj),
 	)

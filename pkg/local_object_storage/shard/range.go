@@ -1,10 +1,9 @@
 package shard
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
@@ -73,7 +72,7 @@ func (r *RngRes) HasMeta() bool {
 func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 	var big, small storFetcher
 
-	rng := objectSDK.NewRange()
+	rng := object.NewRange()
 	rng.SetOffset(prm.off)
 	rng.SetLength(prm.ln)
 
@@ -87,10 +86,10 @@ func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 			return nil, err
 		}
 
-		obj := object.NewRaw()
+		obj := object.New()
 		obj.SetPayload(res.RangeData())
 
-		return obj.Object(), nil
+		return obj, nil
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
@@ -104,10 +103,10 @@ func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 			return nil, err
 		}
 
-		obj := object.NewRaw()
+		obj := object.New()
 		obj.SetPayload(res.RangeData())
 
-		return obj.Object(), nil
+		return obj, nil
 	}
 
 	obj, hasMeta, err := s.fetchObjectData(prm.addr, prm.skipMeta, big, small)

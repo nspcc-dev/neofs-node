@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -19,16 +20,16 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	fs := objectSDK.SearchFilters{}
 	fs.AddRootFilter()
 
-	tombstoneID := generateRawObjectWithCID(t, cid).Object().Address()
-	parent := generateRawObjectWithCID(t, cid)
+	tombstoneID := object.AddressOf(generateObjectWithCID(t, cid))
+	parent := generateObjectWithCID(t, cid)
 
-	child := generateRawObjectWithCID(t, cid)
-	child.SetParent(parent.Object().SDK())
+	child := generateObjectWithCID(t, cid)
+	child.SetParent(parent)
 	child.SetParentID(parent.ID())
 	child.SetSplitID(splitID)
 
-	link := generateRawObjectWithCID(t, cid)
-	link.SetParent(parent.Object().SDK())
+	link := generateObjectWithCID(t, cid)
+	link.SetParent(parent)
 	link.SetParentID(parent.ID())
 	link.SetChildren(child.ID())
 	link.SetSplitID(splitID)
@@ -37,10 +38,10 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShardNum(t, 1)
 		defer e.Close()
 
-		err := Put(e, parent.Object())
+		err := Put(e, parent)
 		require.NoError(t, err)
 
-		inhumePrm := new(InhumePrm).WithTarget(tombstoneID, parent.Object().Address())
+		inhumePrm := new(InhumePrm).WithTarget(tombstoneID, object.AddressOf(parent))
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 
@@ -56,15 +57,15 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShards(s1, s2)
 		defer e.Close()
 
-		putChild := new(shard.PutPrm).WithObject(child.Object())
+		putChild := new(shard.PutPrm).WithObject(child)
 		_, err := s1.Put(putChild)
 		require.NoError(t, err)
 
-		putLink := new(shard.PutPrm).WithObject(link.Object())
+		putLink := new(shard.PutPrm).WithObject(link)
 		_, err = s2.Put(putLink)
 		require.NoError(t, err)
 
-		inhumePrm := new(InhumePrm).WithTarget(tombstoneID, parent.Object().Address())
+		inhumePrm := new(InhumePrm).WithTarget(tombstoneID, object.AddressOf(parent))
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 

@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -35,7 +36,7 @@ var (
 	ErrWrongPayloadSize = errors.New("wrong payload size")
 )
 
-func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
+func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 	t.payloadSz = obj.PayloadSize()
 	chunkLn := uint64(len(obj.Payload()))
 
@@ -61,7 +62,7 @@ func (t *validatingTarget) WriteHeader(obj *object.RawObject) error {
 
 	t.checksum = cs.Sum()
 
-	if err := t.fmt.Validate(obj.Object()); err != nil {
+	if err := t.fmt.Validate(obj); err != nil {
 		return fmt.Errorf("(%T) coult not validate object format: %w", t, err)
 	}
 

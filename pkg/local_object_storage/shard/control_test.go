@@ -41,19 +41,17 @@ func TestRefillMetabase(t *testing.T) {
 	const objNum = 5
 
 	type objAddr struct {
-		obj  *object.Object
+		obj  *objectSDK.Object
 		addr *addressSDK.Address
 	}
 
 	mObjs := make(map[string]objAddr)
 
 	for i := uint64(0); i < objNum; i++ {
-		rawObj := objecttest.Raw()
-		rawObj.SetType(objectSDK.TypeRegular)
+		obj := objecttest.Object()
+		obj.SetType(objectSDK.TypeRegular)
 
-		obj := object.NewFromSDK(rawObj.Object())
-
-		addr := obj.Address()
+		addr := object.AddressOf(obj)
 
 		mObjs[addr.String()] = objAddr{
 			obj:  obj,
@@ -61,17 +59,15 @@ func TestRefillMetabase(t *testing.T) {
 		}
 	}
 
-	tombObjRaw := object.NewRawFrom(objecttest.Raw())
-	tombObjRaw.SetType(objectSDK.TypeTombstone)
+	tombObj := objecttest.Object()
+	tombObj.SetType(objectSDK.TypeTombstone)
 
 	tombstone := objecttest.Tombstone()
 
 	tombData, err := tombstone.Marshal()
 	require.NoError(t, err)
 
-	tombObjRaw.SetPayload(tombData)
-
-	tombObj := tombObjRaw.Object()
+	tombObj.SetPayload(tombData)
 
 	tombMembers := make([]*addressSDK.Address, 0, len(tombstone.Members()))
 
@@ -93,12 +89,12 @@ func TestRefillMetabase(t *testing.T) {
 	_, err = sh.Put(putPrm.WithObject(tombObj))
 	require.NoError(t, err)
 
-	_, err = sh.Inhume(new(InhumePrm).WithTarget(tombObj.Address(), tombMembers...))
+	_, err = sh.Inhume(new(InhumePrm).WithTarget(object.AddressOf(tombObj), tombMembers...))
 	require.NoError(t, err)
 
 	var headPrm HeadPrm
 
-	checkObj := func(addr *addressSDK.Address, expObj *object.Object) {
+	checkObj := func(addr *addressSDK.Address, expObj *objectSDK.Object) {
 		res, err := sh.Head(headPrm.WithAddress(addr))
 
 		if expObj == nil {
@@ -107,7 +103,7 @@ func TestRefillMetabase(t *testing.T) {
 		}
 
 		require.NoError(t, err)
-		require.Equal(t, object.NewRawFromObject(expObj).CutPayload().Object(), res.Object())
+		require.Equal(t, expObj.CutPayload(), res.Object())
 	}
 
 	checkAllObjs := func(exists bool) {
@@ -133,7 +129,7 @@ func TestRefillMetabase(t *testing.T) {
 	}
 
 	checkAllObjs(true)
-	checkObj(tombObj.Address(), tombObj)
+	checkObj(object.AddressOf(tombObj), tombObj)
 	checkTombMembers(true)
 
 	err = sh.Close()
@@ -155,13 +151,13 @@ func TestRefillMetabase(t *testing.T) {
 	defer sh.Close()
 
 	checkAllObjs(false)
-	checkObj(tombObj.Address(), nil)
+	checkObj(object.AddressOf(tombObj), nil)
 	checkTombMembers(false)
 
 	err = sh.refillMetabase()
 	require.NoError(t, err)
 
 	checkAllObjs(true)
-	checkObj(tombObj.Address(), tombObj)
+	checkObj(object.AddressOf(tombObj), tombObj)
 	checkTombMembers(true)
 }

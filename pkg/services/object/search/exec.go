@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -64,7 +64,7 @@ func (exec *execCtx) containerID() *cid.ID {
 	return exec.prm.cid
 }
 
-func (exec *execCtx) searchFilters() objectSDK.SearchFilters {
+func (exec *execCtx) searchFilters() object.SearchFilters {
 	return exec.prm.filters
 }
 

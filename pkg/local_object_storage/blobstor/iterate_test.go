@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
@@ -117,7 +117,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	addrs := make([]*addressSDK.Address, objCount)
 	for i := range addrs {
 		addrs[i] = objecttest.Address()
-		obj := object.NewRaw()
+		obj := object.New()
 		obj.SetContainerID(addrs[i].ContainerID())
 		obj.SetID(addrs[i].ObjectID())
 		obj.SetPayload(make([]byte, smallSize<<(i%2)))

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type distributedTarget struct {
@@ -18,7 +19,7 @@ type distributedTarget struct {
 
 	remotePool, localPool util.WorkerPool
 
-	obj *object.RawObject
+	obj *objectSDK.Object
 
 	chunks [][]byte
 
@@ -54,7 +55,7 @@ func (x errIncompletePut) Error() string {
 	return commonMsg
 }
 
-func (t *distributedTarget) WriteHeader(obj *object.RawObject) error {
+func (t *distributedTarget) WriteHeader(obj *objectSDK.Object) error {
 	t.obj = obj
 
 	return nil
@@ -81,7 +82,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 	t.obj.SetPayload(payload)
 
-	if err := t.fmt.ValidateContent(t.obj.Object()); err != nil {
+	if err := t.fmt.ValidateContent(t.obj); err != nil {
 		return nil, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 	}
 

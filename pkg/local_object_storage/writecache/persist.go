@@ -4,6 +4,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -112,7 +113,7 @@ func (c *cache) persistBigObject(objInfo objectInfo) {
 	cacheSz := c.estimateCacheSize()
 	metaIndex := 0
 	if c.incSizeFS(cacheSz) <= c.maxCacheSize {
-		err := c.fsTree.Put(objInfo.obj.Address(), objInfo.data)
+		err := c.fsTree.Put(object.AddressOf(objInfo.obj), objInfo.data)
 		if err == nil {
 			metaIndex = 1
 			if c.blobstor.NeedsCompression(objInfo.obj) {

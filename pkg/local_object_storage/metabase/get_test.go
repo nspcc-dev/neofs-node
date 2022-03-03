@@ -14,67 +14,67 @@ import (
 func TestDB_Get(t *testing.T) {
 	db := newDB(t)
 
-	raw := generateRawObject(t)
+	raw := generateObject(t)
 
 	// equal fails on diff of <nil> attributes and <{}> attributes,
 	/* so we make non empty attribute slice in parent*/
 	addAttribute(raw, "foo", "bar")
 
 	t.Run("object not found", func(t *testing.T) {
-		_, err := meta.Get(db, raw.Object().Address())
+		_, err := meta.Get(db, object.AddressOf(raw))
 		require.Error(t, err)
 	})
 
 	t.Run("put regular object", func(t *testing.T) {
-		err := putBig(db, raw.Object())
+		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, raw.Object().Address())
+		newObj, err := meta.Get(db, object.AddressOf(raw))
 		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload().Object(), newObj)
+		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put tombstone object", func(t *testing.T) {
 		raw.SetType(objectSDK.TypeTombstone)
 		raw.SetID(testOID())
 
-		err := putBig(db, raw.Object())
+		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, raw.Object().Address())
+		newObj, err := meta.Get(db, object.AddressOf(raw))
 		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload().Object(), newObj)
+		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put storage group object", func(t *testing.T) {
 		raw.SetType(objectSDK.TypeStorageGroup)
 		raw.SetID(testOID())
 
-		err := putBig(db, raw.Object())
+		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, raw.Object().Address())
+		newObj, err := meta.Get(db, object.AddressOf(raw))
 		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload().Object(), newObj)
+		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
 		cid := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateRawObjectWithCID(t, cid)
+		parent := generateObjectWithCID(t, cid)
 		addAttribute(parent, "foo", "bar")
 
-		child := generateRawObjectWithCID(t, cid)
-		child.SetParent(parent.Object().SDK())
+		child := generateObjectWithCID(t, cid)
+		child.SetParent(parent)
 		child.SetParentID(parent.ID())
 		child.SetSplitID(splitID)
 
-		err := putBig(db, child.Object())
+		err := putBig(db, child)
 		require.NoError(t, err)
 
 		t.Run("raw is true", func(t *testing.T) {
-			_, err = meta.GetRaw(db, parent.Object().Address(), true)
+			_, err = meta.GetRaw(db, object.AddressOf(parent), true)
 			require.Error(t, err)
 
 			siErr, ok := err.(*objectSDK.SplitInfoError)
@@ -85,13 +85,13 @@ func TestDB_Get(t *testing.T) {
 			require.Nil(t, siErr.SplitInfo().Link())
 		})
 
-		newParent, err := meta.GetRaw(db, parent.Object().Address(), false)
+		newParent, err := meta.GetRaw(db, object.AddressOf(parent), false)
 		require.NoError(t, err)
-		require.True(t, binaryEqual(parent.CutPayload().Object(), newParent))
+		require.True(t, binaryEqual(parent.CutPayload(), newParent))
 
-		newChild, err := meta.GetRaw(db, child.Object().Address(), true)
+		newChild, err := meta.GetRaw(db, object.AddressOf(child), true)
 		require.NoError(t, err)
-		require.True(t, binaryEqual(child.CutPayload().Object(), newChild))
+		require.True(t, binaryEqual(child.CutPayload(), newChild))
 	})
 
 	t.Run("get removed object", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestDB_Get(t *testing.T) {
 
 // binary equal is used when object contains empty lists in the structure and
 // requre.Equal fails on comparing <nil> and []{} lists.
-func binaryEqual(a, b *object.Object) bool {
+func binaryEqual(a, b *objectSDK.Object) bool {
 	binaryA, err := a.Marshal()
 	if err != nil {
 		return false

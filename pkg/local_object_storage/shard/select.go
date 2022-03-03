@@ -5,14 +5,14 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
 	cid     *cid.ID
-	filters objectSDK.SearchFilters
+	filters object.SearchFilters
 }
 
 // SelectRes groups resulting values of Select operation.
@@ -30,7 +30,7 @@ func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
 }
 
 // WithFilters is a Select option to set the object filters.
-func (p *SelectPrm) WithFilters(fs objectSDK.SearchFilters) *SelectPrm {
+func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 	if p != nil {
 		p.filters = fs
 	}

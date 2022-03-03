@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
@@ -17,7 +18,7 @@ type HeadPrm struct {
 
 // HeadRes groups resulting values of Head operation.
 type HeadRes struct {
-	obj *object.Object
+	obj *objectSDK.Object
 }
 
 // WithAddress is a Head option to set the address of the requested object.
@@ -43,7 +44,7 @@ func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
 }
 
 // Object returns the requested object header.
-func (r *HeadRes) Object() *object.Object {
+func (r *HeadRes) Object() *objectSDK.Object {
 	return r.obj
 }
 

@@ -195,7 +195,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 
 	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
-	object.NewRawFrom(&obj).SetPayload(buf)
+	obj.SetPayload(buf)
 
 	return &GetObjectRes{
 		obj: &obj,

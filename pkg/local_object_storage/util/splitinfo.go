@@ -1,12 +1,12 @@
 package util
 
 import (
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // MergeSplitInfo ignores conflicts and rewrites `to` with non empty values
 // from `from`.
-func MergeSplitInfo(from, to *objectSDK.SplitInfo) *objectSDK.SplitInfo {
+func MergeSplitInfo(from, to *object.SplitInfo) *object.SplitInfo {
 	to.SetSplitID(from.SplitID()) // overwrite SplitID and ignore conflicts
 
 	if lp := from.LastPart(); lp != nil {

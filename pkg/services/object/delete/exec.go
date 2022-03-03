@@ -5,11 +5,10 @@ import (
 	"strconv"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -31,11 +30,11 @@ type execCtx struct {
 
 	log *logger.Logger
 
-	tombstone *objectSDK.Tombstone
+	tombstone *object.Tombstone
 
-	splitInfo *objectSDK.SplitInfo
+	splitInfo *object.SplitInfo
 
-	tombstoneObj *object.RawObject
+	tombstoneObj *object.Object
 }
 
 const (
@@ -240,13 +239,13 @@ func (exec *execCtx) initTombstoneObject() bool {
 		tombOwnerID = exec.svc.netInfo.LocalNodeID()
 	}
 
-	exec.tombstoneObj = object.NewRaw()
+	exec.tombstoneObj = object.New()
 	exec.tombstoneObj.SetContainerID(exec.containerID())
 	exec.tombstoneObj.SetOwnerID(tombOwnerID)
-	exec.tombstoneObj.SetType(objectSDK.TypeTombstone)
+	exec.tombstoneObj.SetType(object.TypeTombstone)
 	exec.tombstoneObj.SetPayload(payload)
 
-	a := objectSDK.NewAttribute()
+	a := object.NewAttribute()
 	a.SetKey(objectV2.SysAttributeExpEpoch)
 	a.SetValue(strconv.FormatUint(exec.tombstone.ExpirationEpoch(), 10))
 

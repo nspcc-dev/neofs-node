@@ -3,8 +3,8 @@ package v2
 import (
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 

@@ -4,7 +4,7 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -16,7 +16,7 @@ type Prm struct {
 
 	cid *cid.ID
 
-	filters objectSDK.SearchFilters
+	filters object.SearchFilters
 
 	forwarder RequestForwarder
 }
@@ -53,6 +53,6 @@ func (p *Prm) WithContainerID(id *cid.ID) {
 }
 
 // WithSearchFilters sets search filters.
-func (p *Prm) WithSearchFilters(fs objectSDK.SearchFilters) {
+func (p *Prm) WithSearchFilters(fs object.SearchFilters) {
 	p.filters = fs
 }

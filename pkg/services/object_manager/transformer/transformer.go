@@ -6,9 +6,8 @@ import (
 	"hash"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 )
@@ -20,7 +19,7 @@ type payloadSizeLimiter struct {
 
 	target ObjectTarget
 
-	current, parent *object.RawObject
+	current, parent *object.Object
 
 	currentHashers, parentHashers []*payloadChecksumHasher
 
@@ -28,9 +27,9 @@ type payloadSizeLimiter struct {
 
 	chunkWriter io.Writer
 
-	splitID *objectSDK.SplitID
+	splitID *object.SplitID
 
-	parAttrs []*objectSDK.Attribute
+	parAttrs []*object.Attribute
 }
 
 type payloadChecksumHasher struct {
@@ -47,11 +46,11 @@ func NewPayloadSizeLimiter(maxSize uint64, targetInit TargetInitializer) ObjectT
 	return &payloadSizeLimiter{
 		maxSize:    maxSize,
 		targetInit: targetInit,
-		splitID:    objectSDK.NewSplitID(),
+		splitID:    object.NewSplitID(),
 	}
 }
 
-func (s *payloadSizeLimiter) WriteHeader(hdr *object.RawObject) error {
+func (s *payloadSizeLimiter) WriteHeader(hdr *object.Object) error {
 	s.current = fromObject(hdr)
 
 	s.initialize()
@@ -86,8 +85,8 @@ func (s *payloadSizeLimiter) initialize() {
 	s.initializeCurrent()
 }
 
-func fromObject(obj *object.RawObject) *object.RawObject {
-	res := object.NewRaw()
+func fromObject(obj *object.Object) *object.Object {
+	res := object.New()
 	res.SetContainerID(obj.ContainerID())
 	res.SetOwnerID(obj.OwnerID())
 	res.SetAttributes(obj.Attributes()...)
@@ -125,7 +124,7 @@ func (s *payloadSizeLimiter) initializeCurrent() {
 	s.chunkWriter = io.MultiWriter(ws...)
 }
 
-func payloadHashersForObject(obj *object.RawObject) []*payloadChecksumHasher {
+func payloadHashersForObject(obj *object.Object) []*payloadChecksumHasher {
 	return []*payloadChecksumHasher{
 		{
 			hasher: sha256.New(),
@@ -171,7 +170,7 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 	if withParent {
 		writeHashes(s.parentHashers)
 		s.parent.SetPayloadSize(s.written)
-		s.current.SetParent(s.parent.SDK().Object())
+		s.current.SetParent(s.parent)
 	}
 
 	// release current object
@@ -209,7 +208,7 @@ func writeHashes(hashers []*payloadChecksumHasher) {
 	}
 }
 
-func (s *payloadSizeLimiter) initializeLinking(parHdr *objectSDK.Object) {
+func (s *payloadSizeLimiter) initializeLinking(parHdr *object.Object) {
 	s.current = fromObject(s.current)
 	s.current.SetParent(parHdr)
 	s.current.SetChildren(s.previous...)

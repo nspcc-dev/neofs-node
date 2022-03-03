@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
@@ -69,7 +69,7 @@ func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) st
 		prm: RangePrm{
 			commonPrm: prm,
 		},
-		infoSplit: objectSDK.NewSplitInfo(),
+		infoSplit: object.NewSplitInfo(),
 	}
 
 	for i := range opts {
