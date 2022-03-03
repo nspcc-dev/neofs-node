@@ -18,7 +18,7 @@ type HeadPrm struct {
 
 // HeadRes groups resulting values of Head operation.
 type HeadRes struct {
-	head *object.Object
+	head *objectSDK.Object
 }
 
 // WithAddress is a Head option to set the address of the requested object.
@@ -46,7 +46,7 @@ func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
 // Header returns the requested object header.
 //
 // Instance has empty payload.
-func (r *HeadRes) Header() *object.Object {
+func (r *HeadRes) Header() *objectSDK.Object {
 	return r.head
 }
 
@@ -74,7 +74,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 	}
 
 	var (
-		head  *object.Object
+		head  *objectSDK.Object
 		siErr *objectSDK.SplitInfoError
 
 		outSI    *objectSDK.SplitInfo
@@ -135,7 +135,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 }
 
 // Head reads object header from local storage by provided address.
-func Head(storage *StorageEngine, addr *addressSDK.Address) (*object.Object, error) {
+func Head(storage *StorageEngine, addr *addressSDK.Address) (*objectSDK.Object, error) {
 	res, err := storage.Head(new(HeadPrm).
 		WithAddress(addr),
 	)
@@ -148,7 +148,7 @@ func Head(storage *StorageEngine, addr *addressSDK.Address) (*object.Object, err
 
 // HeadRaw reads object header from local storage by provided address and raw
 // flag.
-func HeadRaw(storage *StorageEngine, addr *addressSDK.Address, raw bool) (*object.Object, error) {
+func HeadRaw(storage *StorageEngine, addr *addressSDK.Address, raw bool) (*objectSDK.Object, error) {
 	res, err := storage.Head(new(HeadPrm).
 		WithAddress(addr).
 		WithRaw(raw),

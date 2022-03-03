@@ -5,13 +5,14 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // ErrBigObject is returned when object is too big to be placed in cache.
 var ErrBigObject = errors.New("too big object")
 
 // Put puts object to write-cache.
-func (c *cache) Put(o *object.Object) error {
+func (c *cache) Put(o *objectSDK.Object) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.mode == ModeReadOnly {
@@ -29,7 +30,7 @@ func (c *cache) Put(o *object.Object) error {
 	}
 
 	oi := objectInfo{
-		addr: o.Address().String(),
+		addr: object.AddressOf(o).String(),
 		obj:  o,
 		data: data,
 	}

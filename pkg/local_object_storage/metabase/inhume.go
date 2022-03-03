@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
@@ -100,7 +100,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 
 			// if object is stored and it is regular object then update bucket
 			// with container size estimations
-			if err == nil && obj.Type() == objectSDK.TypeRegular {
+			if err == nil && obj.Type() == object.TypeRegular {
 				err := changeContainerSize(
 					tx,
 					obj.ContainerID(),

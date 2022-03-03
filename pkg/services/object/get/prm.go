@@ -4,9 +4,8 @@ import (
 	"hash"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
@@ -19,7 +18,7 @@ type Prm struct {
 type RangePrm struct {
 	commonPrm
 
-	rng *objectSDK.Range
+	rng *object.Range
 }
 
 // RangeHashPrm groups parameters of GetRange service call.
@@ -28,12 +27,12 @@ type RangeHashPrm struct {
 
 	hashGen func() hash.Hash
 
-	rngs []*objectSDK.Range
+	rngs []*object.Range
 
 	salt []byte
 }
 
-type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) (*objectSDK.Object, error)
+type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) (*object.Object, error)
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
@@ -83,12 +82,12 @@ func (p *RangePrm) SetChunkWriter(w ChunkWriter) {
 }
 
 // SetRange sets range of the requested payload data.
-func (p *RangePrm) SetRange(rng *objectSDK.Range) {
+func (p *RangePrm) SetRange(rng *object.Range) {
 	p.rng = rng
 }
 
 // SetRangeList sets list of object payload ranges.
-func (p *RangeHashPrm) SetRangeList(rngs []*objectSDK.Range) {
+func (p *RangeHashPrm) SetRangeList(rngs []*object.Range) {
 	p.rngs = rngs
 }
 

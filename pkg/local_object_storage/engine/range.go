@@ -20,7 +20,7 @@ type RngPrm struct {
 
 // RngRes groups resulting values of GetRange operation.
 type RngRes struct {
-	obj *object.Object
+	obj *objectSDK.Object
 }
 
 // WithAddress is a GetRng option to set the address of the requested object.
@@ -49,7 +49,7 @@ func (p *RngPrm) WithPayloadRange(rng *objectSDK.Range) *RngPrm {
 // Object returns the requested object part.
 //
 // Instance payload contains the requested range of the original object.
-func (r *RngRes) Object() *object.Object {
+func (r *RngRes) Object() *objectSDK.Object {
 	return r.obj
 }
 
@@ -78,7 +78,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	}
 
 	var (
-		obj   *object.Object
+		obj   *objectSDK.Object
 		siErr *objectSDK.SplitInfoError
 
 		outSI    *objectSDK.SplitInfo

@@ -8,13 +8,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
 )
 
 // storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
 // method. It represents generalization of `getSmall` and `getBig` methods.
-type storFetcher = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error)
+type storFetcher = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error)
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
@@ -24,7 +25,7 @@ type GetPrm struct {
 
 // GetRes groups resulting values of Get operation.
 type GetRes struct {
-	obj     *object.Object
+	obj     *objectSDK.Object
 	hasMeta bool
 }
 
@@ -47,7 +48,7 @@ func (p *GetPrm) WithIgnoreMeta(ignore bool) *GetPrm {
 }
 
 // Object returns the requested object.
-func (r *GetRes) Object() *object.Object {
+func (r *GetRes) Object() *objectSDK.Object {
 	return r.obj
 }
 
@@ -65,7 +66,7 @@ func (r *GetRes) HasMeta() bool {
 func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	var big, small storFetcher
 
-	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*object.Object, error) {
+	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*objectSDK.Object, error) {
 		getBigPrm := new(blobstor.GetBigPrm)
 		getBigPrm.SetAddress(prm.addr)
 
@@ -77,7 +78,7 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 		return res.Object(), nil
 	}
 
-	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
+	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
 		getSmallPrm := new(blobstor.GetSmallPrm)
 		getSmallPrm.SetAddress(prm.addr)
 		getSmallPrm.SetBlobovniczaID(id)
@@ -99,10 +100,10 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 }
 
 // fetchObjectData looks through writeCache and blobStor to find object.
-func (s *Shard) fetchObjectData(addr *addressSDK.Address, skipMeta bool, big, small storFetcher) (*object.Object, bool, error) {
+func (s *Shard) fetchObjectData(addr *addressSDK.Address, skipMeta bool, big, small storFetcher) (*objectSDK.Object, bool, error) {
 	var (
 		err error
-		res *object.Object
+		res *objectSDK.Object
 	)
 
 	if s.hasWriteCache() {

@@ -35,8 +35,8 @@ func testObjectID(t *testing.T) *oidSDK.ID {
 	return id
 }
 
-func blankValidObject(key *ecdsa.PrivateKey) *RawObject {
-	obj := NewRaw()
+func blankValidObject(key *ecdsa.PrivateKey) *object.Object {
+	obj := object.New()
 	obj.SetContainerID(cidtest.ID())
 	obj.SetOwnerID(owner.NewIDFromPublicKey(&key.PublicKey))
 
@@ -68,24 +68,24 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("nil identifier", func(t *testing.T) {
-		obj := NewRaw()
+		obj := object.New()
 
-		require.True(t, errors.Is(v.Validate(obj.Object()), errNilID))
+		require.True(t, errors.Is(v.Validate(obj), errNilID))
 	})
 
 	t.Run("nil container identifier", func(t *testing.T) {
-		obj := NewRaw()
+		obj := object.New()
 		obj.SetID(testObjectID(t))
 
-		require.True(t, errors.Is(v.Validate(obj.Object()), errNilCID))
+		require.True(t, errors.Is(v.Validate(obj), errNilCID))
 	})
 
 	t.Run("unsigned object", func(t *testing.T) {
-		obj := NewRaw()
+		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
 		obj.SetID(testObjectID(t))
 
-		require.Error(t, v.Validate(obj.Object()))
+		require.Error(t, v.Validate(obj))
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
@@ -94,29 +94,29 @@ func TestFormatValidator_Validate(t *testing.T) {
 		tok := sessiontest.Token()
 		tok.SetOwnerID(oid)
 
-		obj := NewRaw()
+		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
 		obj.SetSessionToken(sessiontest.Token())
 		obj.SetOwnerID(tok.OwnerID())
 
-		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
+		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
 
-		require.NoError(t, v.Validate(obj.Object()))
+		require.NoError(t, v.Validate(obj))
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {
 		obj := blankValidObject(&ownerKey.PrivateKey)
 
-		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
+		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
 
-		require.NoError(t, v.Validate(obj.Object()))
+		require.NoError(t, v.Validate(obj))
 	})
 
 	t.Run("tombstone content", func(t *testing.T) {
-		obj := NewRaw()
+		obj := object.New()
 		obj.SetType(object.TypeTombstone)
 
-		require.Error(t, v.ValidateContent(obj.Object())) // no tombstone content
+		require.Error(t, v.ValidateContent(obj)) // no tombstone content
 
 		content := object.NewTombstone()
 		content.SetMembers([]*oidSDK.ID{nil})
@@ -126,7 +126,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj.Object())) // no members in tombstone
+		require.Error(t, v.ValidateContent(obj)) // no members in tombstone
 
 		content.SetMembers([]*oidSDK.ID{testObjectID(t)})
 
@@ -135,7 +135,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj.Object())) // no expiration epoch in tombstone
+		require.Error(t, v.ValidateContent(obj)) // no expiration epoch in tombstone
 
 		expirationAttribute := object.NewAttribute()
 		expirationAttribute.SetKey(objectV2.SysAttributeExpEpoch)
@@ -143,7 +143,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetAttributes(expirationAttribute)
 
-		require.Error(t, v.ValidateContent(obj.Object())) // different expiration values
+		require.Error(t, v.ValidateContent(obj)) // different expiration values
 
 		content.SetExpirationEpoch(10)
 		data, err = content.Marshal()
@@ -151,14 +151,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.NoError(t, v.ValidateContent(obj.Object())) // all good
+		require.NoError(t, v.ValidateContent(obj)) // all good
 	})
 
 	t.Run("storage group content", func(t *testing.T) {
-		obj := NewRaw()
+		obj := object.New()
 		obj.SetType(object.TypeStorageGroup)
 
-		require.Error(t, v.ValidateContent(obj.Object()))
+		require.Error(t, v.ValidateContent(obj))
 
 		content := storagegroup.New()
 		content.SetMembers([]*oidSDK.ID{nil})
@@ -168,7 +168,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj.Object()))
+		require.Error(t, v.ValidateContent(obj))
 
 		content.SetMembers([]*oidSDK.ID{testObjectID(t)})
 
@@ -177,11 +177,11 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.NoError(t, v.ValidateContent(obj.Object()))
+		require.NoError(t, v.ValidateContent(obj))
 	})
 
 	t.Run("expiration", func(t *testing.T) {
-		fn := func(val string) *Object {
+		fn := func(val string) *object.Object {
 			obj := blankValidObject(&ownerKey.PrivateKey)
 
 			a := object.NewAttribute()
@@ -190,9 +190,9 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			obj.SetAttributes(a)
 
-			require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj.SDK()))
+			require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
 
-			return obj.Object()
+			return obj
 		}
 
 		t.Run("invalid attribute value", func(t *testing.T) {
@@ -228,12 +228,12 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			obj.SetAttributes(a1, a2)
 
-			err := v.checkAttributes(obj.Object())
+			err := v.checkAttributes(obj)
 			require.NoError(t, err)
 
 			a2.SetKey(a1.Key())
 
-			err = v.checkAttributes(obj.Object())
+			err = v.checkAttributes(obj)
 			require.Equal(t, errDuplAttr, err)
 		})
 
@@ -245,7 +245,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			obj.SetAttributes(a)
 
-			err := v.checkAttributes(obj.Object())
+			err := v.checkAttributes(obj)
 			require.Equal(t, errEmptyAttrVal, err)
 		})
 	})

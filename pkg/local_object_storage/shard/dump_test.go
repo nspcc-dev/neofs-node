@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -72,7 +73,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	// Approximate object header size.
 	const headerSize = 400
 
-	objects := make([]*object.Object, objCount)
+	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
 		cid := cidtest.ID()
 		var size int
@@ -88,8 +89,8 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		}
 		data := make([]byte, size)
 		rand.Read(data)
-		obj := generateRawObjectWithPayload(cid, data)
-		objects[i] = obj.Object()
+		obj := generateObjectWithPayload(cid, data)
+		objects[i] = obj
 
 		prm := new(shard.PutPrm).WithObject(objects[i])
 		_, err := sh.Put(prm)
@@ -192,11 +193,11 @@ func TestStream(t *testing.T) {
 	defer releaseShard(sh2, t)
 
 	const objCount = 5
-	objects := make([]*object.Object, objCount)
+	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
 		cid := cidtest.ID()
-		obj := generateRawObjectWithCID(t, cid)
-		objects[i] = obj.Object()
+		obj := generateObjectWithCID(t, cid)
+		objects[i] = obj
 
 		prm := new(shard.PutPrm).WithObject(objects[i])
 		_, err := sh1.Put(prm)
@@ -227,13 +228,13 @@ func TestStream(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
-func checkRestore(t *testing.T, sh *shard.Shard, prm *shard.RestorePrm, objects []*object.Object) {
+func checkRestore(t *testing.T, sh *shard.Shard, prm *shard.RestorePrm, objects []*objectSDK.Object) {
 	res, err := sh.Restore(prm)
 	require.NoError(t, err)
 	require.Equal(t, len(objects), res.Count())
 
 	for i := range objects {
-		res, err := sh.Get(new(shard.GetPrm).WithAddress(objects[i].Address()))
+		res, err := sh.Get(new(shard.GetPrm).WithAddress(object.AddressOf(objects[i])))
 		require.NoError(t, err)
 		require.Equal(t, objects[i], res.Object())
 	}
@@ -268,11 +269,11 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	}
 	sh := newCustomShard(t, dir, true, wcOpts, bsOpts)
 
-	objects := make([]*object.Object, objCount)
+	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
 		size := (wcSmallObjectSize << (i % 4)) - headerSize
-		obj := generateRawObjectWithPayload(cidtest.ID(), make([]byte, size))
-		objects[i] = obj.Object()
+		obj := generateObjectWithPayload(cidtest.ID(), make([]byte, size))
+		objects[i] = obj
 
 		prm := new(shard.PutPrm).WithObject(objects[i])
 		_, err := sh.Put(prm)

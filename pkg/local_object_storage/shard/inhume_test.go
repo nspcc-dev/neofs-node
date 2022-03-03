@@ -25,19 +25,19 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 
 	cid := cidtest.ID()
 
-	obj := generateRawObjectWithCID(t, cid)
+	obj := generateObjectWithCID(t, cid)
 	addAttribute(obj, "foo", "bar")
 
-	ts := generateRawObjectWithCID(t, cid)
+	ts := generateObjectWithCID(t, cid)
 
 	putPrm := new(shard.PutPrm)
-	putPrm.WithObject(obj.Object())
+	putPrm.WithObject(obj)
 
 	inhPrm := new(shard.InhumePrm)
-	inhPrm.WithTarget(ts.Object().Address(), obj.Object().Address())
+	inhPrm.WithTarget(object.AddressOf(ts), object.AddressOf(obj))
 
 	getPrm := new(shard.GetPrm)
-	getPrm.WithAddress(obj.Object().Address())
+	getPrm.WithAddress(object.AddressOf(obj))
 
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)

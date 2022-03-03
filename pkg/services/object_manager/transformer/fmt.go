@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -15,7 +14,7 @@ import (
 type formatter struct {
 	prm *FormatterParams
 
-	obj *object.RawObject
+	obj *object.Object
 
 	sz uint64
 }
@@ -48,7 +47,7 @@ func NewFormatTarget(p *FormatterParams) ObjectTarget {
 	}
 }
 
-func (f *formatter) WriteHeader(obj *object.RawObject) error {
+func (f *formatter) WriteHeader(obj *object.Object) error {
 	f.obj = obj
 
 	return nil
@@ -72,26 +71,26 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 
 	var (
 		parID  *oidSDK.ID
-		parHdr *objectSDK.Object
+		parHdr *object.Object
 	)
 
 	if par := f.obj.Parent(); par != nil && par.Signature() == nil {
-		rawPar := objectSDK.NewRawFromV2(par.ToV2())
+		rawPar := object.NewFromV2(par.ToV2())
 
 		rawPar.SetSessionToken(f.prm.SessionToken)
 		rawPar.SetCreationEpoch(curEpoch)
 
-		if err := objectSDK.SetIDWithSignature(f.prm.Key, rawPar); err != nil {
+		if err := object.SetIDWithSignature(f.prm.Key, rawPar); err != nil {
 			return nil, fmt.Errorf("could not finalize parent object: %w", err)
 		}
 
 		parID = rawPar.ID()
-		parHdr = rawPar.Object()
+		parHdr = rawPar
 
 		f.obj.SetParent(parHdr)
 	}
 
-	if err := objectSDK.SetIDWithSignature(f.prm.Key, f.obj.SDK()); err != nil {
+	if err := object.SetIDWithSignature(f.prm.Key, f.obj); err != nil {
 		return nil, fmt.Errorf("could not finalize object: %w", err)
 	}
 

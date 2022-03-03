@@ -160,7 +160,7 @@ func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		return nil, fmt.Errorf("read payload: %w", err)
 	}
 
-	object.NewRawFrom(&obj).SetPayload(buf)
+	obj.SetPayload(buf)
 
 	return &GetObjectRes{
 		obj: &obj,

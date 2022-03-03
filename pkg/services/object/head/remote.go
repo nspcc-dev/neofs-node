@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
@@ -94,5 +94,5 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 		return nil, fmt.Errorf("(%T) could not head object in %s: %w", h, info.AddressGroup(), err)
 	}
 
-	return object.NewFromSDK(res.Header()), nil
+	return res.Header(), nil
 }

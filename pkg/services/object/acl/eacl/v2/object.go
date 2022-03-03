@@ -4,9 +4,9 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -42,12 +42,12 @@ func u64Value(v uint64) string {
 
 func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eaclSDK.Header {
 	var count int
-	for obj := obj; obj != nil; obj = obj.GetParent() {
+	for obj := obj; obj != nil; obj = obj.Parent() {
 		count += 9 + len(obj.Attributes())
 	}
 
 	res := make([]eaclSDK.Header, 0, count)
-	for ; obj != nil; obj = obj.GetParent() {
+	for ; obj != nil; obj = obj.Parent() {
 		res = append(res,
 			cidHeader(addr.ContainerID()),
 			// owner ID

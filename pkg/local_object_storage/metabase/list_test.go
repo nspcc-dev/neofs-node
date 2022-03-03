@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -27,46 +28,46 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		containerID := cidtest.ID()
 
 		// add one regular object
-		obj := generateRawObjectWithCID(t, containerID)
+		obj := generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeRegular)
-		err := putBig(db, obj.Object())
+		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, obj.Object().Address())
+		expected = append(expected, object.AddressOf(obj))
 
 		// add one tombstone
-		obj = generateRawObjectWithCID(t, containerID)
+		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeTombstone)
-		err = putBig(db, obj.Object())
+		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, obj.Object().Address())
+		expected = append(expected, object.AddressOf(obj))
 
 		// add one storage group
-		obj = generateRawObjectWithCID(t, containerID)
+		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeStorageGroup)
-		err = putBig(db, obj.Object())
+		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, obj.Object().Address())
+		expected = append(expected, object.AddressOf(obj))
 
 		// add one inhumed (do not include into expected)
-		obj = generateRawObjectWithCID(t, containerID)
+		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeRegular)
-		err = putBig(db, obj.Object())
+		err = putBig(db, obj)
 		require.NoError(t, err)
-		ts := generateRawObjectWithCID(t, containerID)
-		err = meta.Inhume(db, obj.Object().Address(), ts.Object().Address())
+		ts := generateObjectWithCID(t, containerID)
+		err = meta.Inhume(db, object.AddressOf(obj), object.AddressOf(ts))
 		require.NoError(t, err)
 
 		// add one child object (do not include parent into expected)
 		splitID := objectSDK.NewSplitID()
-		parent := generateRawObjectWithCID(t, containerID)
+		parent := generateObjectWithCID(t, containerID)
 		addAttribute(parent, "foo", "bar")
-		child := generateRawObjectWithCID(t, containerID)
-		child.SetParent(parent.Object().SDK())
+		child := generateObjectWithCID(t, containerID)
+		child.SetParent(parent)
 		child.SetParentID(parent.ID())
 		child.SetSplitID(splitID)
-		err = putBig(db, child.Object())
+		err = putBig(db, child)
 		require.NoError(t, err)
-		expected = append(expected, child.Object().Address())
+		expected = append(expected, object.AddressOf(child))
 	}
 
 	expected = sortAddresses(expected)
@@ -113,10 +114,10 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 	// fill metabase with objects
 	for i := 0; i < total; i++ {
-		obj := generateRawObject(t)
-		err := putBig(db, obj.Object())
+		obj := generateObject(t)
+		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected[obj.Object().Address().String()] = 0
+		expected[object.AddressOf(obj).String()] = 0
 	}
 
 	// get half of the objects
@@ -130,8 +131,8 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 	// add new objects
 	for i := 0; i < total; i++ {
-		obj := generateRawObject(t)
-		err = putBig(db, obj.Object())
+		obj := generateObject(t)
+		err = putBig(db, obj)
 		require.NoError(t, err)
 	}
 

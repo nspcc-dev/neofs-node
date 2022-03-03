@@ -2,12 +2,13 @@ package writecache
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // Get returns object from write-cache.
-func (c *cache) Get(addr *addressSDK.Address) (*object.Object, error) {
+func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 	saddr := addr.String()
 
 	c.mtx.RLock()
@@ -22,7 +23,7 @@ func (c *cache) Get(addr *addressSDK.Address) (*object.Object, error) {
 
 	value, err := Get(c.db, []byte(saddr))
 	if err == nil {
-		obj := object.New()
+		obj := objectSDK.New()
 		c.flushed.Get(saddr)
 		return obj, obj.Unmarshal(value)
 	}
@@ -32,7 +33,7 @@ func (c *cache) Get(addr *addressSDK.Address) (*object.Object, error) {
 		return nil, object.ErrNotFound
 	}
 
-	obj := object.New()
+	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
 		return nil, err
 	}
@@ -42,7 +43,7 @@ func (c *cache) Get(addr *addressSDK.Address) (*object.Object, error) {
 }
 
 // Head returns object header from write-cache.
-func (c *cache) Head(addr *addressSDK.Address) (*object.Object, error) {
+func (c *cache) Head(addr *addressSDK.Address) (*objectSDK.Object, error) {
 	// TODO: #1149 easiest to implement solution is presented here, consider more efficient way, e.g.:
 	//  - provide header as common object.Object to Put, but marked to prevent correlation with full object
 	//    (all write-cache logic will automatically spread to headers, except flushing)
@@ -55,7 +56,7 @@ func (c *cache) Head(addr *addressSDK.Address) (*object.Object, error) {
 	}
 
 	// NOTE: resetting the payload via the setter can lead to data corruption of in-memory objects, but ok for others
-	return object.NewRawFromObject(obj).CutPayload().Object(), nil
+	return obj.CutPayload(), nil
 }
 
 // Get fetches object from the underlying database.

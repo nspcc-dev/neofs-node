@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/stretchr/testify/require"
@@ -28,11 +29,11 @@ func TestListWithCursor(t *testing.T) {
 
 	for i := 0; i < total; i++ {
 		containerID := cidtest.ID()
-		obj := generateRawObjectWithCID(t, containerID)
-		prm := new(PutPrm).WithObject(obj.Object())
+		obj := generateObjectWithCID(t, containerID)
+		prm := new(PutPrm).WithObject(obj)
 		_, err := e.Put(prm)
 		require.NoError(t, err)
-		expected = append(expected, obj.Object().Address())
+		expected = append(expected, object.AddressOf(obj))
 	}
 
 	expected = sortAddresses(expected)

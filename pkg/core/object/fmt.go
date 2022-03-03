@@ -68,7 +68,7 @@ func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
 // Does not validate payload checksum and content.
 //
 // Returns nil error if object has valid structure.
-func (v *FormatValidator) Validate(obj *Object) error {
+func (v *FormatValidator) Validate(obj *object.Object) error {
 	if obj == nil {
 		return errNilObject
 	} else if obj.ID() == nil {
@@ -93,18 +93,18 @@ func (v *FormatValidator) Validate(obj *Object) error {
 		return fmt.Errorf("object did not pass expiration check: %w", err)
 	}
 
-	if err := object.CheckHeaderVerificationFields(obj.SDK()); err != nil {
+	if err := object.CheckHeaderVerificationFields(obj); err != nil {
 		return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
 	}
 
-	if obj = obj.GetParent(); obj != nil {
+	if obj = obj.Parent(); obj != nil {
 		return v.Validate(obj)
 	}
 
 	return nil
 }
 
-func (v *FormatValidator) validateSignatureKey(obj *Object) error {
+func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	token := obj.SessionToken()
 	key := obj.Signature().Key()
 
@@ -133,7 +133,7 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 }
 
 // ValidateContent validates payload content according to object type.
-func (v *FormatValidator) ValidateContent(o *Object) error {
+func (v *FormatValidator) ValidateContent(o *object.Object) error {
 	switch o.Type() {
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
@@ -174,7 +174,7 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 		}
 
 		if v.deleteHandler != nil {
-			v.deleteHandler.DeleteObjects(o.Address(), addrList...)
+			v.deleteHandler.DeleteObjects(AddressOf(o), addrList...)
 		}
 	case object.TypeStorageGroup:
 		if len(o.Payload()) == 0 {
@@ -201,7 +201,7 @@ func (v *FormatValidator) ValidateContent(o *Object) error {
 
 var errExpired = errors.New("object has expired")
 
-func (v *FormatValidator) checkExpiration(obj *Object) error {
+func (v *FormatValidator) checkExpiration(obj *object.Object) error {
 	exp, err := expirationEpochAttribute(obj)
 	if err != nil {
 		if errors.Is(err, errNoExpirationEpoch) {
@@ -218,7 +218,7 @@ func (v *FormatValidator) checkExpiration(obj *Object) error {
 	return nil
 }
 
-func expirationEpochAttribute(obj *Object) (uint64, error) {
+func expirationEpochAttribute(obj *object.Object) (uint64, error) {
 	for _, a := range obj.Attributes() {
 		if a.Key() != objectV2.SysAttributeExpEpoch {
 			continue
@@ -235,7 +235,7 @@ var (
 	errEmptyAttrVal = errors.New("empty attribute value")
 )
 
-func (v *FormatValidator) checkAttributes(obj *Object) error {
+func (v *FormatValidator) checkAttributes(obj *object.Object) error {
 	as := obj.Attributes()
 
 	mUnique := make(map[string]struct{}, len(as))
@@ -259,7 +259,7 @@ func (v *FormatValidator) checkAttributes(obj *Object) error {
 
 var errIncorrectOwner = errors.New("incorrect object owner")
 
-func (v *FormatValidator) checkOwner(obj *Object) error {
+func (v *FormatValidator) checkOwner(obj *object.Object) error {
 	// TODO: use appropriate functionality after neofs-api-go#352
 	if len(obj.OwnerID().ToV2().GetValue()) != owner.NEO3WalletSize {
 		return errIncorrectOwner

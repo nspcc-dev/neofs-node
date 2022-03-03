@@ -2,15 +2,15 @@ package putsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type PutInitPrm struct {
 	common *util.CommonPrm
 
-	hdr *object.RawObject
+	hdr *object.Object
 
 	traverseOpts []placement.Option
 
@@ -37,7 +37,7 @@ func (p *PutInitPrm) WithTraverseOption(opt placement.Option) *PutInitPrm {
 	return p
 }
 
-func (p *PutInitPrm) WithObject(v *object.RawObject) *PutInitPrm {
+func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 	if p != nil {
 		p.hdr = v
 	}

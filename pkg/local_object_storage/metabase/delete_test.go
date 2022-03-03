@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -14,19 +15,19 @@ func TestDB_Delete(t *testing.T) {
 	db := newDB(t)
 
 	cid := cidtest.ID()
-	parent := generateRawObjectWithCID(t, cid)
+	parent := generateObjectWithCID(t, cid)
 	addAttribute(parent, "foo", "bar")
 
-	child := generateRawObjectWithCID(t, cid)
-	child.SetParent(parent.Object().SDK())
+	child := generateObjectWithCID(t, cid)
+	child.SetParent(parent)
 	child.SetParentID(parent.ID())
 
 	// put object with parent
-	err := putBig(db, child.Object())
+	err := putBig(db, child)
 	require.NoError(t, err)
 
 	// fill ToMoveIt index
-	err = meta.ToMoveIt(db, child.Object().Address())
+	err = meta.ToMoveIt(db, object.AddressOf(child))
 	require.NoError(t, err)
 
 	// check if Movable list is not empty
@@ -35,20 +36,20 @@ func TestDB_Delete(t *testing.T) {
 	require.Len(t, l, 1)
 
 	// try to remove parent unsuccessfully
-	err = meta.Delete(db, parent.Object().Address())
+	err = meta.Delete(db, object.AddressOf(parent))
 	require.Error(t, err)
 
 	// inhume parent and child so they will be on graveyard
-	ts := generateRawObjectWithCID(t, cid)
+	ts := generateObjectWithCID(t, cid)
 
-	err = meta.Inhume(db, child.Object().Address(), ts.Object().Address())
+	err = meta.Inhume(db, object.AddressOf(child), object.AddressOf(ts))
 	require.NoError(t, err)
 
-	err = meta.Inhume(db, child.Object().Address(), ts.Object().Address())
+	err = meta.Inhume(db, object.AddressOf(child), object.AddressOf(ts))
 	require.NoError(t, err)
 
 	// delete object
-	err = meta.Delete(db, child.Object().Address())
+	err = meta.Delete(db, object.AddressOf(child))
 	require.NoError(t, err)
 
 	// check if there is no data in Movable index
@@ -57,11 +58,11 @@ func TestDB_Delete(t *testing.T) {
 	require.Len(t, l, 0)
 
 	// check if they removed from graveyard
-	ok, err := meta.Exists(db, child.Object().Address())
+	ok, err := meta.Exists(db, object.AddressOf(child))
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	ok, err = meta.Exists(db, parent.Object().Address())
+	ok, err = meta.Exists(db, object.AddressOf(parent))
 	require.NoError(t, err)
 	require.False(t, ok)
 }
@@ -72,32 +73,32 @@ func TestDeleteAllChildren(t *testing.T) {
 	cid := cidtest.ID()
 
 	// generate parent object
-	parent := generateRawObjectWithCID(t, cid)
+	parent := generateObjectWithCID(t, cid)
 
 	// generate 2 children
-	child1 := generateRawObjectWithCID(t, cid)
-	child1.SetParent(parent.Object().SDK())
+	child1 := generateObjectWithCID(t, cid)
+	child1.SetParent(parent)
 	child1.SetParentID(parent.ID())
 
-	child2 := generateRawObjectWithCID(t, cid)
-	child2.SetParent(parent.Object().SDK())
+	child2 := generateObjectWithCID(t, cid)
+	child2.SetParent(parent)
 	child2.SetParentID(parent.ID())
 
 	// put children
-	require.NoError(t, putBig(db, child1.Object()))
-	require.NoError(t, putBig(db, child2.Object()))
+	require.NoError(t, putBig(db, child1))
+	require.NoError(t, putBig(db, child2))
 
 	// Exists should return split info for parent
-	_, err := meta.Exists(db, parent.Object().Address())
+	_, err := meta.Exists(db, object.AddressOf(parent))
 	siErr := objectSDK.NewSplitInfoError(nil)
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call
-	err = meta.Delete(db, child1.Object().Address(), child2.Object().Address())
+	err = meta.Delete(db, object.AddressOf(child1), object.AddressOf(child2))
 	require.NoError(t, err)
 
 	// parent should not be found now
-	ex, err := meta.Exists(db, parent.Object().Address())
+	ex, err := meta.Exists(db, object.AddressOf(parent))
 	require.NoError(t, err)
 	require.False(t, ex)
 }

@@ -12,21 +12,21 @@ import (
 func TestDB_Inhume(t *testing.T) {
 	db := newDB(t)
 
-	raw := generateRawObject(t)
+	raw := generateObject(t)
 	addAttribute(raw, "foo", "bar")
 
 	tombstoneID := generateAddress()
 
-	err := putBig(db, raw.Object())
+	err := putBig(db, raw)
 	require.NoError(t, err)
 
-	err = meta.Inhume(db, raw.Object().Address(), tombstoneID)
+	err = meta.Inhume(db, object.AddressOf(raw), tombstoneID)
 	require.NoError(t, err)
 
-	_, err = meta.Exists(db, raw.Object().Address())
+	_, err = meta.Exists(db, object.AddressOf(raw))
 	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
 
-	_, err = meta.Get(db, raw.Object().Address())
+	_, err = meta.Get(db, object.AddressOf(raw))
 	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
 }
 

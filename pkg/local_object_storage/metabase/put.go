@@ -22,7 +22,7 @@ type (
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	obj *object.Object
+	obj *objectSDK.Object
 
 	id *blobovnicza.ID
 }
@@ -31,7 +31,7 @@ type PutPrm struct {
 type PutRes struct{}
 
 // WithObject is a Put option to set object to save.
-func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
+func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
 	if p != nil {
 		p.obj = obj
 	}
@@ -55,7 +55,7 @@ var (
 )
 
 // Put saves the object in DB.
-func Put(db *DB, obj *object.Object, id *blobovnicza.ID) error {
+func Put(db *DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
 	_, err := db.Put(new(PutPrm).
 		WithObject(obj).
 		WithBlobovniczaID(id),
@@ -72,17 +72,17 @@ func (db *DB) Put(prm *PutPrm) (res *PutRes, err error) {
 	})
 	if err == nil {
 		storagelog.Write(db.log,
-			storagelog.AddressField(prm.obj.Address()),
+			storagelog.AddressField(prm.obj),
 			storagelog.OpField("metabase PUT"))
 	}
 
 	return
 }
 
-func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *objectSDK.SplitInfo) error {
+func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID, si *objectSDK.SplitInfo) error {
 	isParent := si != nil
 
-	exists, err := db.exists(tx, obj.Address())
+	exists, err := db.exists(tx, object.AddressOf(obj))
 
 	if errors.As(err, &splitInfoError) {
 		exists = true // object exists, however it is virtual
@@ -97,26 +97,26 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 		// to another, then it calls metabase.Put method with new blobovniczaID
 		// and this code should be triggered
 		if !isParent && id != nil {
-			return updateBlobovniczaID(tx, obj.Address(), id)
+			return updateBlobovniczaID(tx, object.AddressOf(obj), id)
 		}
 
 		// when storage already has last object in split hierarchy and there is
 		// a linking object to put (or vice versa), we should update split info
 		// with object ids of these objects
 		if isParent {
-			return updateSplitInfo(tx, obj.Address(), si)
+			return updateSplitInfo(tx, object.AddressOf(obj), si)
 		}
 
 		return nil
 	}
 
-	if obj.GetParent() != nil && !isParent { // limit depth by two
+	if par := obj.Parent(); par != nil && !isParent { // limit depth by two
 		parentSI, err := splitInfoFromObject(obj)
 		if err != nil {
 			return err
 		}
 
-		err = db.put(tx, obj.GetParent(), id, parentSI)
+		err = db.put(tx, par, id, parentSI)
 		if err != nil {
 			return err
 		}
@@ -181,9 +181,9 @@ func (db *DB) put(tx *bbolt.Tx, obj *object.Object, id *blobovnicza.ID, si *obje
 }
 
 // builds list of <unique> indexes from the object.
-func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.ID) ([]namedBucketItem, error) {
+func uniqueIndexes(obj *objectSDK.Object, si *objectSDK.SplitInfo, id *blobovnicza.ID) ([]namedBucketItem, error) {
 	isParent := si != nil
-	addr := obj.Address()
+	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
 	result := make([]namedBucketItem, 0, 3)
 
@@ -202,7 +202,7 @@ func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.
 			return nil, ErrUnknownObjectType
 		}
 
-		rawObject, err := object.NewRawFromObject(obj).CutPayload().Marshal()
+		rawObject, err := obj.CutPayload().Marshal()
 		if err != nil {
 			return nil, fmt.Errorf("can't marshal object header: %w", err)
 		}
@@ -248,9 +248,9 @@ func uniqueIndexes(obj *object.Object, si *objectSDK.SplitInfo, id *blobovnicza.
 }
 
 // builds list of <list> indexes from the object.
-func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
+func listIndexes(obj *objectSDK.Object) ([]namedBucketItem, error) {
 	result := make([]namedBucketItem, 0, 3)
-	addr := obj.Address()
+	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
 
 	// index payload hashes
@@ -282,8 +282,8 @@ func listIndexes(obj *object.Object) ([]namedBucketItem, error) {
 }
 
 // builds list of <fake bucket tree> indexes from the object.
-func fkbtIndexes(obj *object.Object) ([]namedBucketItem, error) {
-	addr := obj.Address()
+func fkbtIndexes(obj *objectSDK.Object) ([]namedBucketItem, error) {
+	addr := object.AddressOf(obj)
 	objKey := []byte(addr.ObjectID().String())
 
 	attrs := obj.Attributes()
@@ -429,7 +429,7 @@ func updateSplitInfo(tx *bbolt.Tx, addr *addressSDK.Address, from *objectSDK.Spl
 
 // splitInfoFromObject returns split info based on last or linkin object.
 // Otherwise returns nil, nil.
-func splitInfoFromObject(obj *object.Object) (*objectSDK.SplitInfo, error) {
+func splitInfoFromObject(obj *objectSDK.Object) (*objectSDK.SplitInfo, error) {
 	if obj.Parent() == nil {
 		return nil, nil
 	}
@@ -451,12 +451,12 @@ func splitInfoFromObject(obj *object.Object) (*objectSDK.SplitInfo, error) {
 
 // isLinkObject returns true if object contains parent header and list
 // of children.
-func isLinkObject(obj *object.Object) bool {
+func isLinkObject(obj *objectSDK.Object) bool {
 	return len(obj.Children()) > 0 && obj.Parent() != nil
 }
 
 // isLastObject returns true if object contains only parent header without list
 // of children.
-func isLastObject(obj *object.Object) bool {
+func isLastObject(obj *objectSDK.Object) bool {
 	return len(obj.Children()) == 0 && obj.Parent() != nil
 }

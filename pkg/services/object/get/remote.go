@@ -33,7 +33,7 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool
 	case err == nil:
 		exec.status = statusOK
 		exec.err = nil
-		exec.collectedObject = object.NewFromSDK(obj)
+		exec.collectedObject = obj
 		exec.writeCollectedObject()
 	case errors.Is(err, object.ErrAlreadyRemoved):
 		exec.status = statusINHUMED

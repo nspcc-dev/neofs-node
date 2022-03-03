@@ -3,8 +3,7 @@ package transformer
 import (
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -14,7 +13,7 @@ import (
 type AccessIdentifiers struct {
 	par, self *oidSDK.ID
 
-	parHdr *objectSDK.Object
+	parHdr *object.Object
 }
 
 // ObjectTarget is an interface of the object writer.
@@ -27,7 +26,7 @@ type ObjectTarget interface {
 	// that depends on the implementation.
 	//
 	// Must not be called after Close call.
-	WriteHeader(*object.RawObject) error
+	WriteHeader(*object.Object) error
 
 	// Write writes object payload chunk.
 	//
@@ -93,7 +92,7 @@ func (a *AccessIdentifiers) WithParentID(v *oidSDK.ID) *AccessIdentifiers {
 }
 
 // Parent return identifier of the parent of the written object.
-func (a *AccessIdentifiers) Parent() *objectSDK.Object {
+func (a *AccessIdentifiers) Parent() *object.Object {
 	if a != nil {
 		return a.parHdr
 	}
@@ -102,7 +101,7 @@ func (a *AccessIdentifiers) Parent() *objectSDK.Object {
 }
 
 // WithParent returns AccessIdentifiers with passed parent identifier.
-func (a *AccessIdentifiers) WithParent(v *objectSDK.Object) *AccessIdentifiers {
+func (a *AccessIdentifiers) WithParent(v *object.Object) *AccessIdentifiers {
 	res := a
 	if res == nil {
 		res = new(AccessIdentifiers)

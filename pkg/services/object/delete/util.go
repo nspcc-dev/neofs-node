@@ -3,12 +3,11 @@ package deletesvc
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -40,10 +39,10 @@ func (w *headSvcWrapper) headAddress(exec *execCtx, addr *addressSDK.Address) (*
 	return wr.Object(), nil
 }
 
-func (w *headSvcWrapper) splitInfo(exec *execCtx) (*objectSDK.SplitInfo, error) {
+func (w *headSvcWrapper) splitInfo(exec *execCtx) (*object.SplitInfo, error) {
 	_, err := w.headAddress(exec, exec.address())
 
-	var errSplitInfo *objectSDK.SplitInfoError
+	var errSplitInfo *object.SplitInfoError
 
 	switch {
 	case err == nil:
@@ -78,8 +77,8 @@ func (w *headSvcWrapper) previous(exec *execCtx, id *oidSDK.ID) (*oidSDK.ID, err
 }
 
 func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*oidSDK.ID, error) {
-	fs := objectSDK.SearchFilters{}
-	fs.AddSplitIDFilter(objectSDK.MatchStringEqual, exec.splitInfo.SplitID())
+	fs := object.SearchFilters{}
+	fs.AddSplitIDFilter(object.MatchStringEqual, exec.splitInfo.SplitID())
 
 	wr := new(simpleIDWriter)
 

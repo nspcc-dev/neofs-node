@@ -7,9 +7,8 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -149,13 +148,13 @@ func (c sgHeadReceiver) Head(addr *addressSDK.Address) (interface{}, error) {
 
 	res, err := internalclient.HeadObject(c.prm)
 
-	var errSplitInfo *objectSDK.SplitInfoError
+	var errSplitInfo *object.SplitInfoError
 
 	switch {
 	default:
 		return nil, err
 	case err == nil:
-		return object.NewFromSDK(res.Header()), nil
+		return res.Header(), nil
 	case errors.As(err, &errSplitInfo):
 		return errSplitInfo.SplitInfo(), nil
 	}
@@ -205,12 +204,12 @@ func putSG(cmd *cobra.Command, _ []string) {
 	sgContent, err := sg.Marshal()
 	exitOnErr(cmd, errf("could not marshal storage group: %w", err))
 
-	obj := objectSDK.NewRaw()
+	obj := object.New()
 	obj.SetContainerID(cid)
 	obj.SetOwnerID(ownerID)
-	obj.SetType(objectSDK.TypeStorageGroup)
+	obj.SetType(object.TypeStorageGroup)
 
-	putPrm.SetHeader(obj.Object())
+	putPrm.SetHeader(obj)
 	putPrm.SetPayloadReader(bytes.NewReader(sgContent))
 
 	res, err := internalclient.PutObject(putPrm)

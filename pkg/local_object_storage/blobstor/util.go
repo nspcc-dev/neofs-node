@@ -1,9 +1,8 @@
 package blobstor
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
@@ -53,11 +52,11 @@ func (v *rwBlobovniczaID) SetBlobovniczaID(id *blobovnicza.ID) {
 }
 
 type roRange struct {
-	rng *objectSDK.Range
+	rng *object.Range
 }
 
 // Range returns range of the object payload.
-func (r roRange) Range() *objectSDK.Range {
+func (r roRange) Range() *object.Range {
 	return r.rng
 }
 
@@ -66,7 +65,7 @@ type rwRange struct {
 }
 
 // SetRange sets range of the object payload.
-func (r *rwRange) SetRange(rng *objectSDK.Range) {
+func (r *rwRange) SetRange(rng *object.Range) {
 	r.rng = rng
 }
 

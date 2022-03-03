@@ -16,13 +16,12 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	signature2 "github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/nspcc-dev/tzhash/tz"
@@ -49,7 +48,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
 			var err error
 
 			key, err := s.keyStorage.GetKey(nil)
@@ -139,15 +138,15 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 					payload = append(payload, v.GetChunk()...)
 				case *objectV2.SplitInfo:
-					si := objectSDK.NewSplitInfoFromV2(v)
-					return nil, objectSDK.NewSplitInfoError(si)
+					si := object.NewSplitInfoFromV2(v)
+					return nil, object.NewSplitInfoError(si)
 				}
 			}
 
 			obj.SetPayload(payload)
 
 			// convert the object
-			return objectSDK.NewFromV2(obj), nil
+			return object.NewFromV2(obj), nil
 		}))
 	}
 
@@ -169,7 +168,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
 	p.WithRawFlag(body.GetRaw())
 	p.SetChunkWriter(&streamObjectRangeWriter{stream})
-	p.SetRange(objectSDK.NewRangeFromV2(body.GetRange()))
+	p.SetRange(object.NewRangeFromV2(body.GetRange()))
 
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
@@ -179,7 +178,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			return nil, err
 		}
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -239,16 +238,16 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				case *objectV2.GetRangePartChunk:
 					payload = append(payload, v.GetChunk()...)
 				case *objectV2.SplitInfo:
-					si := objectSDK.NewSplitInfoFromV2(v)
+					si := object.NewSplitInfoFromV2(v)
 
-					return nil, objectSDK.NewSplitInfoError(si)
+					return nil, object.NewSplitInfoError(si)
 				}
 			}
 
-			obj := objectSDK.NewRaw()
+			obj := object.New()
 			obj.SetPayload(payload)
 
-			return obj.Object(), nil
+			return obj, nil
 		}))
 	}
 
@@ -268,10 +267,10 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
 
 	rngsV2 := body.GetRanges()
-	rngs := make([]*objectSDK.Range, 0, len(rngsV2))
+	rngs := make([]*object.Range, 0, len(rngsV2))
 
 	for i := range rngsV2 {
-		rngs = append(rngs, objectSDK.NewRangeFromV2(rngsV2[i]))
+		rngs = append(rngs, object.NewRangeFromV2(rngsV2[i]))
 	}
 
 	p.SetRangeList(rngs)
@@ -334,7 +333,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*objectSDK.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
 			var err error
 
 			key, err := s.keyStorage.GetKey(nil)
@@ -429,27 +428,27 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 					return nil, fmt.Errorf("incorrect object header signature: %w", err)
 				}
 			case *objectV2.SplitInfo:
-				si := objectSDK.NewSplitInfoFromV2(v)
+				si := object.NewSplitInfoFromV2(v)
 
-				return nil, objectSDK.NewSplitInfoError(si)
+				return nil, object.NewSplitInfoError(si)
 			}
 
-			obj := new(objectV2.Object)
-			obj.SetHeader(hdr)
-			obj.SetSignature(idSig)
+			objv2 := new(objectV2.Object)
+			objv2.SetHeader(hdr)
+			objv2.SetSignature(idSig)
 
-			raw := object.NewRawFromV2(obj)
-			raw.SetID(objAddr.ObjectID())
+			obj := object.NewFromV2(objv2)
+			obj.SetID(objAddr.ObjectID())
 
 			// convert the object
-			return raw.Object().SDK(), nil
+			return obj, nil
 		}))
 	}
 
 	return p, nil
 }
 
-func splitInfoResponse(info *objectSDK.SplitInfo) *objectV2.GetResponse {
+func splitInfoResponse(info *object.SplitInfo) *objectV2.GetResponse {
 	resp := new(objectV2.GetResponse)
 
 	body := new(objectV2.GetResponseBody)
@@ -460,7 +459,7 @@ func splitInfoResponse(info *objectSDK.SplitInfo) *objectV2.GetResponse {
 	return resp
 }
 
-func splitInfoRangeResponse(info *objectSDK.SplitInfo) *objectV2.GetRangeResponse {
+func splitInfoRangeResponse(info *object.SplitInfo) *objectV2.GetRangeResponse {
 	resp := new(objectV2.GetRangeResponse)
 
 	body := new(objectV2.GetRangeResponseBody)
@@ -471,7 +470,7 @@ func splitInfoRangeResponse(info *objectSDK.SplitInfo) *objectV2.GetRangeRespons
 	return resp
 }
 
-func setSplitInfoHeadResponse(info *objectSDK.SplitInfo, resp *objectV2.HeadResponse) {
+func setSplitInfoHeadResponse(info *object.SplitInfo, resp *objectV2.HeadResponse) {
 	resp.GetBody().SetHeaderPart(info.ToV2())
 }
 
@@ -512,11 +511,11 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 	return sh
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) (*objectSDK.Object, error)) getsvc.RequestForwarder {
-	return func(info client.NodeInfo, c client.MultiAddressClient) (*objectSDK.Object, error) {
+func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) (*object.Object, error)) getsvc.RequestForwarder {
+	return func(info client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var (
 			firstErr error
-			res      *objectSDK.Object
+			res      *object.Object
 
 			key = info.PublicKey()
 		)

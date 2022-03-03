@@ -29,19 +29,19 @@ func TestCompression(t *testing.T) {
 		return bs
 	}
 
-	bigObj := make([]*object.Object, objCount)
-	smallObj := make([]*object.Object, objCount)
+	bigObj := make([]*objectSDK.Object, objCount)
+	smallObj := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
 		bigObj[i] = testObject(smallSizeLimit * 2)
 		smallObj[i] = testObject(smallSizeLimit / 2)
 	}
 
 	testGet := func(t *testing.T, b *BlobStor, i int) {
-		res1, err := b.GetSmall(&GetSmallPrm{address: address{smallObj[i].Address()}})
+		res1, err := b.GetSmall(&GetSmallPrm{address: address{object.AddressOf(smallObj[i])}})
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i], res1.Object())
 
-		res2, err := b.GetBig(&GetBigPrm{address: address{bigObj[i].Address()}})
+		res2, err := b.GetBig(&GetBigPrm{address: address{object.AddressOf(bigObj[i])}})
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i], res2.Object())
 	}
@@ -95,15 +95,15 @@ func TestBlobstor_needsCompression(t *testing.T) {
 		return bs
 	}
 
-	newObjectWithCt := func(contentType string) *object.Object {
-		obj := testObjectRaw(smallSizeLimit + 1)
+	newObjectWithCt := func(contentType string) *objectSDK.Object {
+		obj := testObject(smallSizeLimit + 1)
 		if contentType != "" {
 			a := objectSDK.NewAttribute()
 			a.SetKey(objectSDK.AttributeContentType)
 			a.SetValue(contentType)
 			obj.SetAttributes(a)
 		}
-		return obj.Object()
+		return obj
 	}
 
 	t.Run("content-types specified", func(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"go.uber.org/zap"
@@ -38,7 +38,7 @@ type cfg struct {
 
 	header interface {
 		// must return (nil, nil) for PHY objects
-		splitInfo(*execCtx) (*objectSDK.SplitInfo, error)
+		splitInfo(*execCtx) (*object.SplitInfo, error)
 
 		children(*execCtx) ([]*oidSDK.ID, error)
 

@@ -430,7 +430,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 		expAttr.SetValue(strconv.FormatUint(expiresOn, 10))
 	}
 
-	obj := object.NewRaw()
+	obj := object.New()
 	obj.SetContainerID(cid)
 	obj.SetOwnerID(ownerID)
 	obj.SetAttributes(attrs...)
@@ -441,7 +441,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	sessionObjectCtxAddress.SetContainerID(cid)
 	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &prm)
 	prepareObjectPrm(cmd, &prm)
-	prm.SetHeader(obj.Object())
+	prm.SetHeader(obj)
 	prm.SetPayloadReader(f)
 
 	res, err := internalclient.PutObject(prm)
