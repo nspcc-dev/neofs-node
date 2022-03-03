@@ -1,6 +1,7 @@
 package blobovnicza
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
@@ -51,6 +52,7 @@ func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 					zap.String("binary size", stringifyByteSize(uint64(len(data)))),
 					zap.String("range", stringifyBounds(lower, upper)),
 				)
+				data = slice.Copy(data)
 			}
 
 			return stop, nil
