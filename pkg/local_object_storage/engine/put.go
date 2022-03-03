@@ -49,7 +49,9 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
-	_, err := e.exists(prm.obj.Address()) // TODO: #1146 make this check parallel
+	// In #1146 this check was parallelized, however, it became
+	// much slower on fast machines for 4 shards.
+	_, err := e.exists(prm.obj.Address())
 	if err != nil {
 		return nil, err
 	}
