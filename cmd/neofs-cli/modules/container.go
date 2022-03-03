@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -276,7 +277,9 @@ var listContainerObjectsCmd = &cobra.Command{
 
 		var prm internalclient.SearchObjectsPrm
 
-		prepareSessionPrm(cmd, &prm)
+		sessionObjectCtxAddress := addressSDK.NewAddress()
+		sessionObjectCtxAddress.SetContainerID(id)
+		prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
 		prepareObjectPrm(cmd, &prm)
 		prm.SetContainerID(id)
 		prm.SetFilters(*filters)
