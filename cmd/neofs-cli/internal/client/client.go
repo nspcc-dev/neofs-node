@@ -584,6 +584,14 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.ByID(*id)
 	}
 
+	if prm.sessionToken != nil {
+		cliPrm.WithinSession(*prm.sessionToken)
+	}
+
+	if prm.bearerToken != nil {
+		cliPrm.WithBearerToken(*prm.bearerToken)
+	}
+
 	if prm.raw {
 		cliPrm.MarkRaw()
 	}
@@ -815,6 +823,14 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 
 	if id := prm.objAddr.ObjectID(); id != nil {
 		cliPrm.ByID(*id)
+	}
+
+	if prm.sessionToken != nil {
+		cliPrm.WithinSession(*prm.sessionToken)
+	}
+
+	if prm.bearerToken != nil {
+		cliPrm.WithBearerToken(*prm.bearerToken)
 	}
 
 	if prm.raw {
