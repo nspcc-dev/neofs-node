@@ -92,12 +92,12 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 	endpoints := append(cfg.extraEndpoints, endpoint)
 
 	return &Client{
-		cache: initClientCache(),
 		multiClient: &multiClient{
-			cfg:       *cfg,
-			account:   wallet.NewAccountFromPrivateKey(key),
-			endpoints: endpoints,
-			clients:   make(map[string]*Client, len(endpoints)),
+			cfg:         *cfg,
+			account:     wallet.NewAccountFromPrivateKey(key),
+			endpoints:   endpoints,
+			clients:     make(map[string]*Client, len(endpoints)),
+			sharedCache: initClientCache(),
 		},
 	}, nil
 }
