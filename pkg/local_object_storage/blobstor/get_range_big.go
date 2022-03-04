@@ -27,6 +27,10 @@ func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
+		if errors.Is(err, fstree.ErrFileNotFound) {
+			return nil, object.ErrNotFound
+		}
+
 		return nil, fmt.Errorf("could not read object from fs tree: %w", err)
 	}
 
