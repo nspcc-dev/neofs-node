@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -137,7 +138,7 @@ func TestBlobstorFailback(t *testing.T) {
 	e, _, id := newEngineWithErrorThreshold(t, dir, 1)
 
 	objs := make([]*object.Object, 0, 2)
-	for _, size := range []int{1, errSmallSize + 1} {
+	for _, size := range []int{15, errSmallSize + 1} {
 		obj := generateRawObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
@@ -151,6 +152,8 @@ func TestBlobstorFailback(t *testing.T) {
 
 	for i := range objs {
 		_, err = e.Get(&GetPrm{addr: objs[i].Address()})
+		require.NoError(t, err)
+		_, err = e.GetRange(&RngPrm{addr: objs[i].Address()})
 		require.NoError(t, err)
 	}
 
@@ -167,12 +170,19 @@ func TestBlobstorFailback(t *testing.T) {
 	e, _, id = newEngineWithErrorThreshold(t, dir, 1)
 
 	for i := range objs {
-		actual, err := e.Get(&GetPrm{addr: objs[i].Address()})
+		getRes, err := e.Get(&GetPrm{addr: objs[i].Address()})
 		require.NoError(t, err)
-		require.Equal(t, objs[i], actual.Object())
+		require.Equal(t, objs[i], getRes.Object())
+
+		rngRes, err := e.GetRange(&RngPrm{addr: objs[i].Address(), off: 1, ln: 10})
+		require.NoError(t, err)
+		require.Equal(t, objs[i].Payload()[1:11], rngRes.Object().Payload())
+
+		_, err = e.GetRange(&RngPrm{addr: objs[i].Address(), off: errSmallSize + 10, ln: 1})
+		require.True(t, errors.Is(err, object.ErrRangeOutOfBounds), "got: %v", err)
 	}
 
-	checkShardState(t, e, id[0], 2, shard.ModeReadOnly)
+	checkShardState(t, e, id[0], 4, shard.ModeReadOnly)
 	checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
 }
 
