@@ -1,9 +1,11 @@
 package blobstor
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 )
 
 // GetRangeBigPrm groups the parameters of GetRangeBig operation.
