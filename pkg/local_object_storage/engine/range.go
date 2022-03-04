@@ -82,6 +82,8 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 
 		outSI    *objectSDK.SplitInfo
 		outError = object.ErrNotFound
+
+		shardWithMeta hashedShard
 	)
 
 	shPrm := new(shard.RngPrm).
@@ -91,6 +93,9 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
 		res, err := sh.GetRange(shPrm)
 		if err != nil {
+			if res.HasMeta() {
+				shardWithMeta = hashedShard{sh: sh}
+			}
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
@@ -137,7 +142,27 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	}
 
 	if obj == nil {
-		return nil, outError
+		if shardWithMeta.sh == nil || !errors.Is(outError, object.ErrNotFound) {
+			return nil, outError
+		}
+
+		// If the object is not found but is present in metabase,
+		// try to fetch it from blobstor directly. If it is found in any
+		// blobstor, increase the error counter for the shard which contains the meta.
+		shPrm = shPrm.WithIgnoreMeta(true)
+
+		e.iterateOverSortedShards(prm.addr, func(_ int, sh *shard.Shard) (stop bool) {
+			res, err := sh.GetRange(shPrm)
+			if errors.Is(err, object.ErrRangeOutOfBounds) {
+				outError = object.ErrRangeOutOfBounds
+				return true
+			}
+			obj = res.Object()
+			return err == nil
+		})
+		if obj == nil {
+			return nil, outError
+		}
 	}
 
 	return &RngRes{

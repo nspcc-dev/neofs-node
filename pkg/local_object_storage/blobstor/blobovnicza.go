@@ -325,11 +325,15 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 
 		res, err = b.getRangeFromLevel(prm, p, !ok)
 		if err != nil {
-			if !errors.Is(err, object.ErrNotFound) {
+			outOfBounds := errors.Is(err, object.ErrRangeOutOfBounds)
+			if !errors.Is(err, object.ErrNotFound) && !outOfBounds {
 				b.log.Debug("could not get object from level",
 					zap.String("level", p),
 					zap.String("error", err.Error()),
 				)
+			}
+			if outOfBounds {
+				return true, err
 			}
 		}
 

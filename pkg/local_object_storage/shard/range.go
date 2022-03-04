@@ -14,11 +14,14 @@ type RngPrm struct {
 	off uint64
 
 	addr *objectSDK.Address
+
+	skipMeta bool
 }
 
 // RngRes groups resulting values of GetRange operation.
 type RngRes struct {
-	obj *object.Object
+	obj     *object.Object
+	hasMeta bool
 }
 
 // WithAddress is a Rng option to set the address of the requested object.
@@ -41,11 +44,23 @@ func (p *RngPrm) WithRange(off uint64, ln uint64) *RngPrm {
 	return p
 }
 
+// WithIgnoreMeta is a Get option try to fetch object from blobstor directly,
+// without accessing metabase.
+func (p *RngPrm) WithIgnoreMeta(ignore bool) *RngPrm {
+	p.skipMeta = ignore
+	return p
+}
+
 // Object returns the requested object part.
 //
 // Instance payload contains the requested range of the original object.
 func (r *RngRes) Object() *object.Object {
 	return r.obj
+}
+
+// HasMeta returns true if info about the object was found in the metabase.
+func (r *RngRes) HasMeta() bool {
+	return r.hasMeta
 }
 
 // GetRange reads part of an object from shard.
@@ -94,9 +109,10 @@ func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 		return obj.Object(), nil
 	}
 
-	obj, _, err := s.fetchObjectData(prm.addr, false, big, small)
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, prm.skipMeta, big, small)
 
 	return &RngRes{
-		obj: obj,
+		obj:     obj,
+		hasMeta: hasMeta,
 	}, err
 }

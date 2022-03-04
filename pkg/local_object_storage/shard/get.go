@@ -120,7 +120,7 @@ func (s *Shard) fetchObjectData(addr *objectSDK.Address, skipMeta bool, big, sma
 
 	if skipMeta {
 		res, err = small(s.blobStor, nil)
-		if err == nil {
+		if err == nil || errors.Is(err, object.ErrRangeOutOfBounds) {
 			return res, false, err
 		}
 		res, err = big(s.blobStor, nil)
