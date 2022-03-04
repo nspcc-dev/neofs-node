@@ -592,7 +592,7 @@ func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *GetRang
 	// we don't use GetRange call for now since blobovnicza
 	// stores data that is compressed on BlobStor side.
 	// If blobovnicza learns to do the compression itself,
-	// wecan start using GetRange.
+	// we can start using GetRange.
 	res, err := blz.Get(gPrm)
 	if err != nil {
 		return nil, err
