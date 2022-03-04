@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	"go.uber.org/zap"
 )
 
 // RngPrm groups the parameters of GetRange operation.
@@ -82,6 +83,9 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 
 		outSI    *objectSDK.SplitInfo
 		outError = object.ErrNotFound
+
+		shardWithMeta hashedShard
+		metaError     error
 	)
 
 	shPrm := new(shard.RngPrm).
@@ -91,6 +95,10 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.GetRange(shPrm)
 		if err != nil {
+			if res.HasMeta() {
+				shardWithMeta = sh
+				metaError = err
+			}
 			switch {
 			case errors.Is(err, object.ErrNotFound):
 				return false // ignore, go to next shard
@@ -131,7 +139,29 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	}
 
 	if obj == nil {
-		return nil, outError
+		if shardWithMeta.Shard == nil || !errors.Is(outError, object.ErrNotFound) {
+			return nil, outError
+		}
+
+		// If the object is not found but is present in metabase,
+		// try to fetch it from blobstor directly. If it is found in any
+		// blobstor, increase the error counter for the shard which contains the meta.
+		shPrm = shPrm.WithIgnoreMeta(true)
+
+		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+			res, err := sh.GetRange(shPrm)
+			if errors.Is(err, object.ErrRangeOutOfBounds) {
+				outError = object.ErrRangeOutOfBounds
+				return true
+			}
+			obj = res.Object()
+			return err == nil
+		})
+		if obj == nil {
+			return nil, outError
+		}
+		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
+			metaError, zap.Stringer("address", prm.addr))
 	}
 
 	return &RngRes{
