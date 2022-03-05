@@ -10,7 +10,7 @@ import (
 // Lock marks objects as locked with another object. All objects from the
 // specified container.
 //
-// Allows locking regular objects only (otherwise returns apistatus.IrregularObjectLock).
+// Allows locking regular objects only (otherwise returns apistatus.LockNonRegularObject).
 //
 // Locked list should be unique. Panics if it is empty.
 func (s *Shard) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
