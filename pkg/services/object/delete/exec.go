@@ -255,7 +255,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 }
 
 func (exec *execCtx) saveTombstone() bool {
-	id, err := exec.svc.placer.put(exec, false)
+	id, err := exec.svc.placer.put(exec)
 
 	switch {
 	default:
@@ -276,23 +276,4 @@ func (exec *execCtx) saveTombstone() bool {
 	}
 
 	return true
-}
-
-func (exec *execCtx) broadcastTombstone() bool {
-	_, err := exec.svc.placer.put(exec, true)
-
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not save the tombstone",
-			zap.String("error", err.Error()),
-		)
-	case err == nil:
-		exec.status = statusOK
-		exec.err = nil
-	}
-
-	return err == nil
 }

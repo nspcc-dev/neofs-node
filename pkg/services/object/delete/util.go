@@ -6,7 +6,6 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -102,7 +101,7 @@ func (s *simpleIDWriter) WriteIDs(ids []*oidSDK.ID) error {
 	return nil
 }
 
-func (w *putSvcWrapper) put(exec *execCtx, broadcast bool) (*oidSDK.ID, error) {
+func (w *putSvcWrapper) put(exec *execCtx) (*oidSDK.ID, error) {
 	streamer, err := (*putsvc.Service)(w).Put(exec.context())
 	if err != nil {
 		return nil, err
@@ -113,10 +112,6 @@ func (w *putSvcWrapper) put(exec *execCtx, broadcast bool) (*oidSDK.ID, error) {
 	initPrm := new(putsvc.PutInitPrm).
 		WithCommonPrm(exec.commonParameters()).
 		WithObject(exec.tombstoneObj.CutPayload())
-
-	if broadcast {
-		initPrm.WithTraverseOption(placement.WithoutSuccessTracking())
-	}
 
 	err = streamer.Init(initPrm)
 	if err != nil {

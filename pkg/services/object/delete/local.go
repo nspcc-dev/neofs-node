@@ -16,14 +16,7 @@ func (exec *execCtx) executeLocal() {
 
 	exec.log.Debug("tombstone structure successfully formed, saving...")
 
-	ok = exec.saveTombstone()
-	if !ok {
-		return
-	}
-
-	exec.log.Debug("tombstone successfilly saved, broadcasting...")
-
-	exec.broadcastTombstone()
+	exec.saveTombstone()
 }
 
 func (exec *execCtx) formTombstone() (ok bool) {
