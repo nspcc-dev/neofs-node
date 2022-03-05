@@ -25,7 +25,7 @@ func bucketNameLockers(idCnr cid.ID) []byte {
 // Lock marks objects as locked with another object. All objects are from the
 // specified container.
 //
-// Allows locking regular objects only (otherwise returns apistatus.IrregularObjectLock).
+// Allows locking regular objects only (otherwise returns apistatus.LockNonRegularObject).
 //
 // Locked list should be unique. Panics if it is empty.
 func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {

@@ -39,7 +39,7 @@ type cfg struct {
 type DeleteHandler interface {
 	// DeleteObjects objects places objects to removal queue.
 	//
-	// Returns apistatus.IrregularObjectLock if at least one object
+	// Returns apistatus.LockNonRegularObject if at least one object
 	// is locked.
 	DeleteObjects(*addressSDK.Address, ...*addressSDK.Address) error
 }
@@ -48,7 +48,7 @@ type DeleteHandler interface {
 type Locker interface {
 	// Lock list of objects as locked by locker in the specified container.
 	//
-	// Returns apistatus.IrregularObjectLock if at least object in locked
+	// Returns apistatus.LockNonRegularObject if at least object in locked
 	// list is irregular (not type of REGULAR).
 	Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 }
