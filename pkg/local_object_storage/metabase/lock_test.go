@@ -29,7 +29,7 @@ func TestDB_Lock(t *testing.T) {
 			object.TypeLock,
 			object.TypeRegular,
 		} {
-			obj := objecttest.Raw()
+			obj := objecttest.Object()
 			obj.SetType(typ)
 			obj.SetContainerID(&cnr)
 

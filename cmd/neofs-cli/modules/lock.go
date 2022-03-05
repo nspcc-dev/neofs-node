@@ -41,7 +41,7 @@ var cmdObjectLock = &cobra.Command{
 		var lock object.Lock
 		lock.WriteMembers(lockList)
 
-		obj := object.NewRaw()
+		obj := object.New()
 		obj.SetContainerID(&cnr)
 		obj.SetOwnerID(idOwner)
 		obj.SetType(object.TypeLock)
@@ -51,7 +51,7 @@ var cmdObjectLock = &cobra.Command{
 
 		prepareSessionPrmWithOwner(cmd, objectcore.AddressOf(obj), key, idOwner, &prm)
 		prepareObjectPrm(cmd, &prm)
-		prm.SetHeader(obj.Object())
+		prm.SetHeader(obj)
 
 		_, err = internalclient.PutObject(prm)
 		exitOnErr(cmd, errf("Store lock object in NeoFS: %w", err))
