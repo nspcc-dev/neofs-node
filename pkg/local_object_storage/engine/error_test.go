@@ -143,12 +143,12 @@ func TestBlobstorFailback(t *testing.T) {
 		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
-		prm := new(shard.PutPrm).WithObject(obj.Object())
+		prm := new(shard.PutPrm).WithObject(obj)
 		e.mtx.RLock()
 		_, err = e.shards[id[0].String()].Shard.Put(prm)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
-		objs = append(objs, obj.Object())
+		objs = append(objs, obj)
 	}
 
 	for i := range objs {

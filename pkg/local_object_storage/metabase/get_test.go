@@ -62,12 +62,12 @@ func TestDB_Get(t *testing.T) {
 		raw.SetType(objectSDK.TypeLock)
 		raw.SetID(testOID())
 
-		err := putBig(db, raw.Object())
+		err := putBig(db, raw)
 		require.NoError(t, err)
 
 		newObj, err := meta.Get(db, object.AddressOf(raw))
 		require.NoError(t, err)
-		require.Equal(t, raw.CutPayload().Object(), newObj)
+		require.Equal(t, raw.CutPayload(), newObj)
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
