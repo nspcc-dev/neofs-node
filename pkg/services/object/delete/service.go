@@ -51,7 +51,7 @@ type cfg struct {
 	}
 
 	placer interface {
-		put(*execCtx, bool) (*oidSDK.ID, error)
+		put(*execCtx) (*oidSDK.ID, error)
 	}
 
 	netInfo NetworkInfo

@@ -29,14 +29,6 @@ func (p *PutInitPrm) WithCommonPrm(v *util.CommonPrm) *PutInitPrm {
 	return p
 }
 
-func (p *PutInitPrm) WithTraverseOption(opt placement.Option) *PutInitPrm {
-	if p != nil {
-		p.traverseOpts = append(p.traverseOpts, opt)
-	}
-
-	return p
-}
-
 func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 	if p != nil {
 		p.hdr = v

@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type Streamer struct {
@@ -160,9 +161,15 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 		}
 	}
 
+	// enable additional container broadcast on non-local operation
+	// if object has TOMBSTONE type.
+	withBroadcast := !prm.common.LocalOnly() && prm.hdr.Type() == object.TypeTombstone
+
 	return &distributedTarget{
 		traversal: traversal{
 			opts: prm.traverseOpts,
+
+			extraBroadcastEnabled: withBroadcast,
 		},
 		remotePool: p.remotePool,
 		localPool:  p.localPool,
