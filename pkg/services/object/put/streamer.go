@@ -162,8 +162,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 	}
 
 	// enable additional container broadcast on non-local operation
-	// if object has TOMBSTONE type.
-	withBroadcast := !prm.common.LocalOnly() && prm.hdr.Type() == object.TypeTombstone
+	// if object has TOMBSTONE or LOCK type.
+	typ := prm.hdr.Type()
+	withBroadcast := !prm.common.LocalOnly() && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
 		traversal: traversal{
