@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cheggaaa/pb"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -123,6 +124,8 @@ const (
 
 const putExpiresOnFlag = "expires-on"
 
+const noProgressFlag = "no-progress"
+
 var putExpiredOn uint64
 
 func initObjectPutCmd() {
@@ -141,6 +144,7 @@ func initObjectPutCmd() {
 	flags.Bool("disable-filename", false, "Do not set well-known filename attribute")
 	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
 	flags.Uint64VarP(&putExpiredOn, putExpiresOnFlag, "e", 0, "Last epoch in the life of the object")
+	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 }
 
 func initObjectDeleteCmd() {
@@ -169,6 +173,7 @@ func initObjectGetCmd() {
 	flags.String("file", "", "File to write object payload to. Default: stdout.")
 	flags.String("header", "", "File to write header to. Default: stdout.")
 	flags.Bool(rawFlag, false, rawFlagDesc)
+	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 }
 
 func initObjectSearchCmd() {
@@ -442,11 +447,31 @@ func putObject(cmd *cobra.Command, _ []string) {
 	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetHeader(obj)
-	prm.SetPayloadReader(f)
+
+	var p *pb.ProgressBar
+
+	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
+	if noProgress {
+		prm.SetPayloadReader(f)
+	} else {
+		fi, err := f.Stat()
+		if err != nil {
+			cmd.PrintErrf("Failed to get file size, progress bar is disabled: %v\n", err)
+			prm.SetPayloadReader(f)
+		} else {
+			p = pb.New64(fi.Size())
+			p.Output = cmd.OutOrStdout()
+			prm.SetPayloadReader(p.NewProxyReader(f))
+			p.Start()
+		}
+	}
 
 	res, err := internalclient.PutObject(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
+	if p != nil {
+		p.Finish()
+	}
 	cmd.Printf("[%s] Object successfully stored\n", filename)
 	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cid)
 }
@@ -494,7 +519,21 @@ func getObject(cmd *cobra.Command, _ []string) {
 	prepareSessionPrm(cmd, objAddr, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
 	prm.SetAddress(objAddr)
-	prm.SetPayloadWriter(out)
+
+	var p *pb.ProgressBar
+	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
+
+	if filename == "" || noProgress {
+		prm.SetPayloadWriter(out)
+	} else {
+		p = pb.New64(0)
+		p.Output = cmd.OutOrStdout()
+		prm.SetPayloadWriter(p.NewProxyWriter(out))
+		prm.SetHeaderCallback(func(o *object.Object) {
+			p.SetTotal64(int64(o.PayloadSize()))
+			p.Start()
+		})
+	}
 
 	res, err := internalclient.GetObject(prm)
 	if err != nil {
@@ -506,6 +545,9 @@ func getObject(cmd *cobra.Command, _ []string) {
 	}
 
 	if filename != "" {
+		if p != nil {
+			p.Finish()
+		}
 		cmd.Printf("[%s] Object successfully saved\n", filename)
 	}
 
