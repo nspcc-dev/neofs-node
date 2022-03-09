@@ -464,6 +464,13 @@ type GetObjectPrm struct {
 	objectAddressPrm
 	rawPrm
 	payloadWriterPrm
+	headerCallback func(*object.Object)
+}
+
+// SetHeaderCallback sets callback which is called on the object after the header is received,
+// but before the payload is written.
+func (p *GetObjectPrm) SetHeaderCallback(f func(*object.Object)) {
+	p.headerCallback = f
 }
 
 // GetObjectRes groups resulting values of GetObject operation.
@@ -526,6 +533,9 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if !rdr.ReadHeader(&hdr) {
 		_, err = rdr.Close()
 		return nil, fmt.Errorf("read object header: %w", err)
+	}
+	if prm.headerCallback != nil {
+		prm.headerCallback(&hdr)
 	}
 
 	sz := hdr.PayloadSize()

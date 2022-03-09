@@ -3,6 +3,7 @@ module github.com/nspcc-dev/neofs-node
 go 1.16
 
 require (
+	github.com/cheggaaa/pb v1.0.29
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/golang/snappy v0.0.3 // indirect
