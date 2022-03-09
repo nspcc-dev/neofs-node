@@ -773,6 +773,7 @@ var cmdSubnetNode = &cobra.Command{
 	Short: "Manage nodes of the NeoFS subnet.",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
+			flagSubnetWallet,
 			flagSubnetNode,
 			flagSubnetNodeSubnet,
 		)
@@ -885,8 +886,10 @@ func init() {
 
 	// subnet node flags
 	nodeFlags := cmdSubnetNode.PersistentFlags()
+	nodeFlags.StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
+	_ = cmdSubnetNode.MarkFlagRequired(flagSubnetWallet)
 	nodeFlags.String(flagSubnetNode, "", "Hex-encoded public key of the node")
-	_ = cmdSubnetAdmin.MarkFlagRequired(flagSubnetNode)
+	_ = cmdSubnetNode.MarkFlagRequired(flagSubnetNode)
 	nodeFlags.String(flagSubnetNodeSubnet, "", "ID of the subnet to manage nodes")
 	_ = cmdSubnetNode.MarkFlagRequired(flagSubnetNodeSubnet)
 
