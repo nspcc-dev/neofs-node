@@ -217,7 +217,9 @@ func (s *Shard) removeGarbage() {
 }
 
 func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
-	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, false)
+	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
+		return typ != object.TypeTombstone && typ != object.TypeLock
+	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
 			s.log.Warn("iterator over expired objects failed", zap.String("error", err.Error()))
@@ -240,10 +242,12 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 }
 
 func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
-	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, true)
+	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
+		return typ == object.TypeTombstone
+	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
-			s.log.Warn("iterator over expired tombstones failes", zap.String("error", err.Error()))
+			s.log.Warn("iterator over expired tombstones failed", zap.String("error", err.Error()))
 		}
 		return
 	}
@@ -251,7 +255,21 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	s.expiredTombstonesCallback(ctx, expired)
 }
 
-func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, collectTombstones bool) ([]*addressSDK.Address, error) {
+func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
+	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
+		return typ == object.TypeLock
+	})
+	if err != nil || len(expired) == 0 {
+		if err != nil {
+			s.log.Warn("iterator over expired locks failed", zap.String("error", err.Error()))
+		}
+		return
+	}
+
+	s.expiredLocksCallback(ctx, expired)
+}
+
+func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond func(object.Type) bool) ([]*addressSDK.Address, error) {
 	var expired []*addressSDK.Address
 
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
@@ -259,7 +277,7 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, collectTomb
 		case <-ctx.Done():
 			return meta.ErrInterruptIterator
 		default:
-			if (expiredObject.Type() == object.TypeTombstone) == collectTombstones {
+			if typeCond(expiredObject.Type()) {
 				expired = append(expired, expiredObject.Address())
 			}
 			return nil
@@ -327,6 +345,32 @@ func (s *Shard) HandleExpiredTombstones(tss map[string]*addressSDK.Address) {
 	_, err = s.metaBase.Inhume(&pInhume)
 	if err != nil {
 		s.log.Warn("could not mark tombstones as garbage",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+}
+
+// HandleExpiredLocks unlocks all objects which were locked by lockers.
+// If successful, marks lockers themselves as garbage.
+func (s *Shard) HandleExpiredLocks(lockers []*addressSDK.Address) {
+	err := s.metaBase.FreeLockedBy(lockers)
+	if err != nil {
+		s.log.Warn("failure to unlock objects",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	var pInhume meta.InhumePrm
+	pInhume.WithAddresses(lockers...)
+	pInhume.WithGCMark()
+
+	_, err = s.metaBase.Inhume(&pInhume)
+	if err != nil {
+		s.log.Warn("failure to mark lockers as garbage",
 			zap.String("error", err.Error()),
 		)
 

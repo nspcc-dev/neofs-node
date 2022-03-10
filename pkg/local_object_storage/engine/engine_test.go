@@ -6,13 +6,11 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -74,14 +72,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 }
 
 func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
-	engine := &StorageEngine{
-		cfg: &cfg{
-			log: zap.L(),
-		},
-		mtx:        new(sync.RWMutex),
-		shards:     make(map[string]shardWrapper, len(shards)),
-		shardPools: make(map[string]util.WorkerPool, len(shards)),
-	}
+	engine := New()
 
 	for _, s := range shards {
 		pool, err := ants.NewPool(10, ants.WithNonblocking(true))
@@ -121,6 +112,32 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 	require.NoError(t, s.Init())
 
 	return s
+}
+
+func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.Option) *StorageEngine {
+	engine := New()
+	for i := 0; i < num; i++ {
+		sid, err := generateShardID()
+		require.NoError(t, err)
+
+		err = engine.addShard(sid, append([]shard.Option{
+			shard.WithBlobStorOptions(
+				blobstor.WithRootPath(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", sid))),
+				blobstor.WithBlobovniczaShallowWidth(1),
+				blobstor.WithBlobovniczaShallowDepth(1),
+				blobstor.WithRootPerm(0700),
+			),
+			shard.WithMetaBaseOptions(
+				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", sid))),
+				meta.WithPermissions(0700),
+			)}, extraOpts(i)...)...)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, engine.Open())
+	require.NoError(t, engine.Init())
+
+	return engine
 }
 
 func testOID() *oidSDK.ID {

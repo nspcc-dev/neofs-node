@@ -64,6 +64,7 @@ func (s *Shard) Init() error {
 				handlers: []eventHandler{
 					s.collectExpiredObjects,
 					s.collectExpiredTombstones,
+					s.collectExpiredLocks,
 				},
 			},
 		},

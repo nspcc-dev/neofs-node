@@ -7,6 +7,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -88,6 +89,22 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		}
 
 		return nil
+	})
+}
+
+// FreeLockedBy unlocks all objects in DB which are locked by lockers.
+func (db *DB) FreeLockedBy(lockers []*addressSDK.Address) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		var err error
+
+		for _, addr := range lockers {
+			err = freePotentialLocks(tx, *addr.ContainerID(), *addr.ObjectID())
+			if err != nil {
+				return err
+			}
+		}
+
+		return err
 	})
 }
 
