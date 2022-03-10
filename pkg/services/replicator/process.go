@@ -52,7 +52,9 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 
 	obj, err := engine.Get(p.localStorage, task.addr)
 	if err != nil {
-		p.log.Error("could not get object from local storage")
+		p.log.Error("could not get object from local storage",
+			zap.Stringer("object", task.addr),
+			zap.Error(err))
 
 		return
 	}
