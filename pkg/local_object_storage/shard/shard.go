@@ -55,6 +55,8 @@ type cfg struct {
 	gcCfg *gcCfg
 
 	expiredTombstonesCallback ExpiredObjectsCallback
+
+	expiredLocksCallback ExpiredObjectsCallback
 }
 
 func defaultCfg() *cfg {
@@ -181,11 +183,19 @@ func WithGCRemoverSleepInterval(dur time.Duration) Option {
 	}
 }
 
-// WithExpiredObjectsCallback returns option to specify callback
+// WithExpiredTombstonesCallback returns option to specify callback
 // of the expired tombstones handler.
-func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
+func WithExpiredTombstonesCallback(cb ExpiredObjectsCallback) Option {
 	return func(c *cfg) {
 		c.expiredTombstonesCallback = cb
+	}
+}
+
+// WithExpiredLocksCallback returns option to specify callback
+// of the expired LOCK objects handler.
+func WithExpiredLocksCallback(cb ExpiredObjectsCallback) Option {
+	return func(c *cfg) {
+		c.expiredLocksCallback = cb
 	}
 }
 

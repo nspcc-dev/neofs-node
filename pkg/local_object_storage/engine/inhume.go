@@ -172,3 +172,17 @@ func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*a
 		}
 	})
 }
+
+func (e *StorageEngine) processExpiredLocks(ctx context.Context, lockers []*addressSDK.Address) {
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+		sh.HandleExpiredLocks(lockers)
+
+		select {
+		case <-ctx.Done():
+			e.log.Info("interrupt processing the expired locks by context")
+			return true
+		default:
+			return false
+		}
+	})
+}

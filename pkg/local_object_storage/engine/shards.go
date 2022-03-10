@@ -21,31 +21,36 @@ type hashedShard shardWrapper
 // Returns any error encountered that did not allow adding a shard.
 // Otherwise returns the ID of the added shard.
 func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
-	e.mtx.Lock()
-	defer e.mtx.Unlock()
-
-	pool, err := ants.NewPool(int(e.shardPoolSize), ants.WithNonblocking(true))
-	if err != nil {
-		return nil, err
-	}
-
 	id, err := generateShardID()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate shard ID: %w", err)
 	}
 
+	return id, e.addShard(id, opts...)
+}
+
+func (e *StorageEngine) addShard(id *shard.ID, opts ...shard.Option) error {
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
+
+	pool, err := ants.NewPool(int(e.shardPoolSize), ants.WithNonblocking(true))
+	if err != nil {
+		return err
+	}
+
 	sh := shard.New(append(opts,
 		shard.WithID(id),
-		shard.WithExpiredObjectsCallback(e.processExpiredTombstones),
+		shard.WithExpiredTombstonesCallback(e.processExpiredTombstones),
+		shard.WithExpiredLocksCallback(e.processExpiredLocks),
 	)...)
 
 	if err := sh.UpdateID(); err != nil {
-		return nil, fmt.Errorf("could not open shard: %w", err)
+		return fmt.Errorf("could not open shard: %w", err)
 	}
 
 	strID := sh.ID().String()
 	if _, ok := e.shards[strID]; ok {
-		return nil, fmt.Errorf("shard with id %s was already added", strID)
+		return fmt.Errorf("shard with id %s was already added", strID)
 	}
 
 	e.shards[strID] = shardWrapper{
@@ -55,7 +60,7 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 
 	e.shardPools[strID] = pool
 
-	return sh.ID(), nil
+	return nil
 }
 
 func generateShardID() (*shard.ID, error) {
