@@ -1,8 +1,10 @@
 package cache
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"sync"
+	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -15,13 +17,19 @@ type (
 	ClientCache struct {
 		mu      *sync.RWMutex
 		clients map[string]clientcore.Client
-		opts    []client.Option
+		opts    ClientCacheOpts
+	}
+
+	ClientCacheOpts struct {
+		DialTimeout      time.Duration
+		Key              *ecdsa.PrivateKey
+		ResponseCallback func(client.ResponseMetaInfo) error
 	}
 )
 
 // NewSDKClientCache creates instance of client cache.
 // `opts` are used for new client creation.
-func NewSDKClientCache(opts ...client.Option) *ClientCache {
+func NewSDKClientCache(opts ClientCacheOpts) *ClientCache {
 	return &ClientCache{
 		mu:      new(sync.RWMutex),
 		clients: make(map[string]clientcore.Client),
@@ -62,9 +70,9 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 		return cli, nil
 	}
 
-	cli := newMultiClient(netAddr, append(c.opts,
-		client.WithResponseInfoHandler(clientcore.AssertKeyResponseCallback(info.PublicKey())),
-	))
+	newClientOpts := c.opts
+	newClientOpts.ResponseCallback = clientcore.AssertKeyResponseCallback(info.PublicKey())
+	cli := newMultiClient(netAddr, newClientOpts)
 
 	c.clients[cacheKey] = cli
 
@@ -79,10 +87,7 @@ func (c *ClientCache) CloseAll() {
 
 	{
 		for _, cl := range c.clients {
-			con := cl.Conn()
-			if con != nil {
-				_ = con.Close()
-			}
+			_ = cl.Close()
 		}
 	}
 

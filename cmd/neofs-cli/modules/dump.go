@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
@@ -45,7 +46,11 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 	cli, err := getControlSDKClient(key)
 	exitOnErr(cmd, err)
 
-	resp, err := control.DumpShard(cli.Raw(), req)
+	var resp *control.DumpShardResponse
+	err = cli.ExecRaw(func(client *client.Client) error {
+		resp, err = control.DumpShard(client, req)
+		return err
+	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()

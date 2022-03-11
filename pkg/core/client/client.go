@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"io"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -13,7 +12,6 @@ import (
 // node's client.
 type Client interface {
 	ContainerAnnounceUsedSpace(context.Context, client.PrmAnnounceSpace) (*client.ResAnnounceSpace, error)
-
 	ObjectPutInit(context.Context, client.PrmObjectPutInit) (*client.ObjectWriter, error)
 	ObjectDelete(context.Context, client.PrmObjectDelete) (*client.ResObjectDelete, error)
 	ObjectGetInit(context.Context, client.PrmObjectGet) (*client.ObjectReader, error)
@@ -21,13 +19,10 @@ type Client interface {
 	ObjectSearchInit(context.Context, client.PrmObjectSearch) (*client.ObjectListReader, error)
 	ObjectRangeInit(context.Context, client.PrmObjectRange) (*client.ObjectRangeReader, error)
 	ObjectHash(context.Context, client.PrmObjectHash) (*client.ResObjectHash, error)
-
 	AnnounceLocalTrust(context.Context, client.PrmAnnounceLocalTrust) (*client.ResAnnounceLocalTrust, error)
 	AnnounceIntermediateTrust(context.Context, client.PrmAnnounceIntermediateTrust) (*client.ResAnnounceIntermediateTrust, error)
-
-	Raw() *rawclient.Client
-
-	Conn() io.Closer
+	ExecRaw(f func(client *rawclient.Client) error) error
+	Close() error
 }
 
 // MultiAddressClient is an interface of the
@@ -37,7 +32,7 @@ type MultiAddressClient interface {
 
 	// RawForAddress must return rawclient.Client
 	// for the passed network.Address.
-	RawForAddress(network.Address) *rawclient.Client
+	RawForAddress(network.Address, func(cli *rawclient.Client) error) error
 }
 
 // NodeInfo groups information about NeoFS storage node needed for Client construction.

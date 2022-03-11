@@ -44,7 +44,7 @@ type (
 func newClientCache(p *clientCacheParams) *ClientCache {
 	return &ClientCache{
 		log:          p.Log,
-		cache:        cache.NewSDKClientCache(),
+		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{}),
 		key:          p.Key,
 		sgTimeout:    p.SGTimeout,
 		headTimeout:  p.HeadTimeout,
