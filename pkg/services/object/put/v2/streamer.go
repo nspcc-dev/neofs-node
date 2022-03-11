@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
+	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -140,7 +141,10 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 
 		var stream *rpc.PutRequestWriter
 
-		stream, err = rpc.PutObject(c.RawForAddress(addr), resp)
+		err = c.RawForAddress(addr, func(cli *rawclient.Client) error {
+			stream, err = rpc.PutObject(cli, resp)
+			return err
+		})
 		if err != nil {
 			err = fmt.Errorf("stream opening failed: %w", err)
 			return

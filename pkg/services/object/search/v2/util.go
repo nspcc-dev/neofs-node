@@ -65,7 +65,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				return nil, err
 			}
 
-			stream, err := rpc.SearchObjects(c.RawForAddress(addr), req, rpcclient.WithContext(stream.Context()))
+			var searchStream *rpc.SearchResponseReader
+			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
+				searchStream, err = rpc.SearchObjects(cli, req, rpcclient.WithContext(stream.Context()))
+				return err
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -79,7 +83,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 			for {
 				// receive message from server stream
-				err := stream.Read(resp)
+				err := searchStream.Read(resp)
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						break

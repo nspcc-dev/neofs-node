@@ -77,7 +77,11 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 
 			// open stream
-			stream, err := rpc.GetObject(c.RawForAddress(addr), req, rpcclient.WithContext(stream.Context()))
+			var getStream *rpc.GetResponseReader
+			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
+				getStream, err = rpc.GetObject(cli, req, rpcclient.WithContext(stream.Context()))
+				return err
+			})
 			if err != nil {
 				return nil, fmt.Errorf("stream opening failed: %w", err)
 			}
@@ -91,7 +95,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 			for {
 				// receive message from server stream
-				err := stream.Read(resp)
+				err := getStream.Read(resp)
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if !headWas {
@@ -202,7 +206,11 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 
 			// open stream
-			stream, err := rpc.GetObjectRange(c.RawForAddress(addr), req, rpcclient.WithContext(stream.Context()))
+			var rangeStream *rpc.ObjectRangeResponseReader
+			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
+				rangeStream, err = rpc.GetObjectRange(cli, req, rpcclient.WithContext(stream.Context()))
+				return err
+			})
 			if err != nil {
 				return nil, fmt.Errorf("could not create Get payload range stream: %w", err)
 			}
@@ -213,7 +221,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 
 			for {
 				// receive message from server stream
-				err := stream.Read(resp)
+				err := rangeStream.Read(resp)
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						break
@@ -362,18 +370,22 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 
 			// send Head request
-			resp, err := rpc.HeadObject(c.RawForAddress(addr), req, rpcclient.WithContext(ctx))
+			var headResp *objectV2.HeadResponse
+			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
+				headResp, err = rpc.HeadObject(cli, req, rpcclient.WithContext(ctx))
+				return err
+			})
 			if err != nil {
 				return nil, fmt.Errorf("sending the request failed: %w", err)
 			}
 
 			// verify response key
-			if err = internal.VerifyResponseKeyV2(pubkey, resp); err != nil {
+			if err = internal.VerifyResponseKeyV2(pubkey, headResp); err != nil {
 				return nil, err
 			}
 
 			// verify response structure
-			if err := signature.VerifyServiceMessage(resp); err != nil {
+			if err := signature.VerifyServiceMessage(headResp); err != nil {
 				return nil, fmt.Errorf("response verification failed: %w", err)
 			}
 
@@ -382,7 +394,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				idSig *refs.Signature
 			)
 
-			switch v := resp.GetBody().GetHeaderPart().(type) {
+			switch v := headResp.GetBody().GetHeaderPart().(type) {
 			case nil:
 				return nil, fmt.Errorf("unexpected header type %T", v)
 			case *objectV2.ShortHeader:

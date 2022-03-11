@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/mr-tron/base58"
+	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
@@ -223,7 +224,11 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	err = controlSvc.SignMessage(key, req)
 	exitOnErr(cmd, errf("could not sign message: %w", err))
 
-	resp, err := control.HealthCheck(cli.Raw(), req)
+	var resp *control.HealthCheckResponse
+	err = cli.ExecRaw(func(client *rawclient.Client) error {
+		resp, err = control.HealthCheck(client, req)
+		return err
+	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
@@ -248,7 +253,11 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 	err := ircontrolsrv.SignMessage(key, req)
 	exitOnErr(cmd, errf("could not sign request: %w", err))
 
-	resp, err := ircontrol.HealthCheck(c.Raw(), req)
+	var resp *ircontrol.HealthCheckResponse
+	err = c.ExecRaw(func(client *rawclient.Client) error {
+		resp, err = ircontrol.HealthCheck(client, req)
+		return err
+	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
@@ -294,7 +303,11 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	cli, err := getControlSDKClient(key)
 	exitOnErr(cmd, err)
 
-	resp, err := control.SetNetmapStatus(cli.Raw(), req)
+	var resp *control.SetNetmapStatusResponse
+	err = cli.ExecRaw(func(client *rawclient.Client) error {
+		resp, err = control.SetNetmapStatus(client, req)
+		return err
+	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
@@ -351,7 +364,11 @@ var dropObjectsCmd = &cobra.Command{
 		cli, err := getControlSDKClient(key)
 		exitOnErr(cmd, err)
 
-		resp, err := control.DropObjects(cli.Raw(), req)
+		var resp *control.DropObjectsResponse
+		err = cli.ExecRaw(func(client *rawclient.Client) error {
+			resp, err = control.DropObjects(client, req)
+			return err
+		})
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		sign := resp.GetSignature()
@@ -385,7 +402,11 @@ var snapshotCmd = &cobra.Command{
 		cli, err := getControlSDKClient(key)
 		exitOnErr(cmd, err)
 
-		resp, err := control.NetmapSnapshot(cli.Raw(), req)
+		var resp *control.NetmapSnapshotResponse
+		err = cli.ExecRaw(func(client *rawclient.Client) error {
+			resp, err = control.NetmapSnapshot(client, req)
+			return err
+		})
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		sign := resp.GetSignature()
@@ -415,7 +436,11 @@ func listShards(cmd *cobra.Command, _ []string) {
 	cli, err := getControlSDKClient(key)
 	exitOnErr(cmd, err)
 
-	resp, err := control.ListShards(cli.Raw(), req)
+	var resp *control.ListShardsResponse
+	err = cli.ExecRaw(func(client *rawclient.Client) error {
+		resp, err = control.ListShards(client, req)
+		return err
+	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()
@@ -433,26 +458,27 @@ func listShards(cmd *cobra.Command, _ []string) {
 // getControlSDKClient is the same getSDKClient but with
 // another RPC endpoint flag.
 func getControlSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
+	var (
+		c       client.Client
+		prmInit client.PrmInit
+		prmDial client.PrmDial
+	)
+
 	netAddr, err := getEndpointAddress(controlRPC)
 	if err != nil {
 		return nil, err
 	}
 
-	options := []client.Option{
-		client.WithAddress(netAddr.HostAddr()),
-		client.WithDefaultPrivateKey(key),
-	}
+	prmInit.SetDefaultPrivateKey(*key)
+	prmDial.SetServerURI(netAddr.HostAddr())
 
 	if netAddr.TLSEnabled() {
-		options = append(options, client.WithTLSConfig(&tls.Config{}))
+		prmDial.SetTLSConfig(&tls.Config{})
 	}
 
-	c, err := client.New(options...)
-	if err != nil {
-		return nil, fmt.Errorf("coult not init api client:%w", err)
-	}
+	c.Init(prmInit)
 
-	return c, err
+	return &c, c.Dial(prmDial)
 }
 
 func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
@@ -522,7 +548,11 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	cli, err := getControlSDKClient(key)
 	exitOnErr(cmd, err)
 
-	resp, err := control.SetShardMode(cli.Raw(), req)
+	var resp *control.SetShardModeResponse
+	err = cli.ExecRaw(func(client *rawclient.Client) error {
+		resp, err = control.SetShardMode(client, req)
+		return err
+	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	sign := resp.GetSignature()

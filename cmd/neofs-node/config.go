@@ -43,7 +43,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
-	apiclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -302,10 +301,10 @@ func initCfg(path string) *cfg {
 			scriptHash: contractsconfig.Reputation(appCfg),
 			workerPool: reputationWorkerPool,
 		},
-		clientCache: cache.NewSDKClientCache(
-			apiclient.WithDialTimeout(apiclientconfig.DialTimeout(appCfg)),
-			apiclient.WithDefaultPrivateKey(&key.PrivateKey),
-		),
+		clientCache: cache.NewSDKClientCache(cache.ClientCacheOpts{
+			DialTimeout: apiclientconfig.DialTimeout(appCfg),
+			Key:         &key.PrivateKey,
+		}),
 		persistate: persistate,
 
 		ownerIDFromKey: ownerIDFromKey,

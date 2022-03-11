@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"io"
 	"sync"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
@@ -20,10 +19,10 @@ type multiClient struct {
 
 	addr network.AddressGroup
 
-	opts []client.Option
+	opts ClientCacheOpts
 }
 
-func newMultiClient(addr network.AddressGroup, opts []client.Option) *multiClient {
+func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClient {
 	return &multiClient{
 		clients: make(map[string]clientcore.Client),
 		addr:    addr,
@@ -33,21 +32,39 @@ func newMultiClient(addr network.AddressGroup, opts []client.Option) *multiClien
 
 // note: must be wrapped into mutex lock.
 func (x *multiClient) createForAddress(addr network.Address) clientcore.Client {
-	opts := append(x.opts, client.WithAddress(addr.HostAddr()))
+	var (
+		c       client.Client
+		prmInit client.PrmInit
+		prmDial client.PrmDial
+	)
 
+	prmDial.SetServerURI(addr.HostAddr())
 	if addr.TLSEnabled() {
-		opts = append(opts, client.WithTLSConfig(&tls.Config{}))
+		prmDial.SetTLSConfig(&tls.Config{})
 	}
 
-	c, err := client.New(opts...)
+	if x.opts.Key != nil {
+		prmInit.SetDefaultPrivateKey(*x.opts.Key)
+	}
+
+	if x.opts.DialTimeout > 0 {
+		prmDial.SetTimeout(x.opts.DialTimeout)
+	}
+
+	if x.opts.ResponseCallback != nil {
+		prmInit.SetResponseInfoCallback(x.opts.ResponseCallback)
+	}
+
+	c.Init(prmInit)
+	err := c.Dial(prmDial)
 	if err != nil {
 		// client never returns an error
 		panic(err)
 	}
 
-	x.clients[addr.String()] = c
+	x.clients[addr.String()] = &c
 
-	return c
+	return &c
 }
 
 func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Client) error) error {
@@ -169,12 +186,8 @@ func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, prm client.
 	return
 }
 
-func (x *multiClient) Raw() *rawclient.Client {
-	panic("multiClient.Raw() must not be called")
-}
-
-func (x *multiClient) Conn() io.Closer {
-	return x
+func (x *multiClient) ExecRaw(f func(client *rawclient.Client) error) error {
+	panic("multiClient.ExecRaw() must not be called")
 }
 
 func (x *multiClient) Close() error {
@@ -182,7 +195,7 @@ func (x *multiClient) Close() error {
 
 	{
 		for _, c := range x.clients {
-			_ = c.Conn().Close()
+			_ = c.Close()
 		}
 	}
 
@@ -191,8 +204,8 @@ func (x *multiClient) Close() error {
 	return nil
 }
 
-func (x *multiClient) RawForAddress(addr network.Address) *rawclient.Client {
-	return x.client(addr).Raw()
+func (x *multiClient) RawForAddress(addr network.Address, f func(client *rawclient.Client) error) error {
+	return x.client(addr).ExecRaw(f)
 }
 
 func (x *multiClient) client(addr network.Address) clientcore.Client {

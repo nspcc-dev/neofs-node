@@ -339,27 +339,32 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
 func getSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
+	var (
+		c       client.Client
+		prmInit client.PrmInit
+		prmDial client.PrmDial
+	)
+
 	netAddr, err := getEndpointAddress(rpc)
 	if err != nil {
 		return nil, err
 	}
 
-	options := []client.Option{
-		client.WithAddress(netAddr.HostAddr()),
-		client.WithDefaultPrivateKey(key),
-		client.WithNeoFSErrorParsing(),
-	}
+	prmInit.SetDefaultPrivateKey(*key)
+	prmInit.ResolveNeoFSFailures()
+	prmDial.SetServerURI(netAddr.HostAddr())
 
 	if netAddr.TLSEnabled() {
-		options = append(options, client.WithTLSConfig(&tls.Config{}))
+		prmDial.SetTLSConfig(&tls.Config{})
 	}
 
-	c, err := client.New(options...)
+	c.Init(prmInit)
+	err = c.Dial(prmDial)
 	if err != nil {
 		return nil, fmt.Errorf("coult not init api client:%w", err)
 	}
 
-	return c, err
+	return &c, err
 }
 
 func getTTL() uint32 {
