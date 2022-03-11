@@ -126,7 +126,7 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 	}
 
 	s.contracts.alphabet.iterate(func(letter GlagoliticLetter, contract util.Uint160) {
-		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, vubP, voteMethod, int64(epoch), validators)
+		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),

@@ -34,7 +34,7 @@ const (
 func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(epochSnapshotMethod)
-	invokePrm.SetArgs(int64(epoch))
+	invokePrm.SetArgs(epoch)
 
 	res, err := c.client.TestInvoke(invokePrm)
 	if err != nil {

@@ -42,7 +42,7 @@ func (c *Client) Put(p PutPrm) error {
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(putMethod)
-	prm.SetArgs(int64(p.epoch), p.peerID.ToV2().GetPublicKey(), data)
+	prm.SetArgs(p.epoch, p.peerID.ToV2().GetPublicKey(), data)
 
 	err = c.client.Invoke(prm)
 	if err != nil {

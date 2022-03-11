@@ -27,7 +27,7 @@ func (l *ListByEpochArgs) SetEpoch(v uint64) {
 func (c *Client) ListByEpoch(p ListByEpochArgs) ([]ID, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(listByEpochMethod)
-	invokePrm.SetArgs(int64(p.epoch))
+	invokePrm.SetArgs(p.epoch)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {

@@ -31,7 +31,7 @@ func (p *commonEstimationPrm) SetEpoch(epoch uint64) {
 func (c *Client) StartEstimation(p StartEstimationPrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(startEstimationMethod)
-	prm.SetArgs(int64(p.epoch))
+	prm.SetArgs(p.epoch)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
@@ -44,7 +44,7 @@ func (c *Client) StartEstimation(p StartEstimationPrm) error {
 func (c *Client) StopEstimation(p StopEstimationPrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(stopEstimationMethod)
-	prm.SetArgs(int64(p.epoch))
+	prm.SetArgs(p.epoch)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
