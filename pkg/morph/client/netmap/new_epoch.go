@@ -11,7 +11,7 @@ import (
 func (c *Client) NewEpoch(epoch uint64) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(newEpochMethod)
-	prm.SetArgs(int64(epoch))
+	prm.SetArgs(epoch)
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", newEpochMethod, err)

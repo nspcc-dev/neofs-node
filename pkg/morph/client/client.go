@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -445,12 +446,18 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 		Value: value,
 	}
 
-	// TODO: #1141 add more types
 	switch v := value.(type) {
 	case []byte:
 		result.Type = sc.ByteArrayType
+	case int:
+		result.Type = sc.IntegerType
+		result.Value = big.NewInt(int64(v))
 	case int64:
 		result.Type = sc.IntegerType
+		result.Value = big.NewInt(v)
+	case uint64:
+		result.Type = sc.IntegerType
+		result.Value = new(big.Int).SetUint64(v)
 	case [][]byte:
 		arr := make([]sc.Parameter, 0, len(v))
 		for i := range v {
@@ -471,7 +478,7 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 		result.Value = v.BytesBE()
 	case noderoles.Role:
 		result.Type = sc.IntegerType
-		result.Value = int64(v)
+		result.Value = big.NewInt(int64(v))
 	case keys.PublicKeys:
 		arr := make([][]byte, 0, len(v))
 		for i := range v {

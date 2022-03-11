@@ -41,7 +41,7 @@ func (g *GetByIDPrm) SetID(v ID) {
 func (c *Client) Get(p GetPrm) ([]reputation.GlobalTrust, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(getMethod)
-	invokePrm.SetArgs(int64(p.epoch), p.peerID.ToV2().GetPublicKey())
+	invokePrm.SetArgs(p.epoch, p.peerID.ToV2().GetPublicKey())
 
 	res, err := c.client.TestInvoke(invokePrm)
 	if err != nil {

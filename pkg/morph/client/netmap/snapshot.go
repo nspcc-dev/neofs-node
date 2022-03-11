@@ -25,7 +25,7 @@ func (c *Client) Snapshot() (*netmap.Netmap, error) {
 func (c *Client) getNetMap(diff uint64) (*netmap.Netmap, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(snapshotMethod)
-	prm.SetArgs(int64(diff))
+	prm.SetArgs(diff)
 
 	res, err := c.client.TestInvoke(prm)
 	if err != nil {

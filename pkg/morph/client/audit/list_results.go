@@ -25,7 +25,7 @@ func (c *Client) ListAllAuditResultID() ([]ResultID, error) {
 func (c *Client) ListAuditResultIDByEpoch(epoch uint64) ([]ResultID, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(listByEpochResultsMethod)
-	prm.SetArgs(int64(epoch))
+	prm.SetArgs(epoch)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
@@ -44,7 +44,7 @@ func (c *Client) ListAuditResultIDByCID(epoch uint64, cid *cid.ID) ([]ResultID, 
 
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(listByCIDResultsMethod)
-	prm.SetArgs(int64(epoch), v2.GetValue())
+	prm.SetArgs(epoch, v2.GetValue())
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
@@ -63,7 +63,7 @@ func (c *Client) ListAuditResultIDByNode(epoch uint64, cid *cid.ID, nodeKey []by
 
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(listByNodeResultsMethod)
-	prm.SetArgs(int64(epoch), v2.GetValue(), nodeKey)
+	prm.SetArgs(epoch, v2.GetValue(), nodeKey)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {

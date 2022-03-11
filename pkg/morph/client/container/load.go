@@ -39,7 +39,7 @@ func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(putSizeMethod)
-	prm.SetArgs(int64(p.a.Epoch()), v2.GetValue(), int64(p.a.UsedSpace()), p.key)
+	prm.SetArgs(p.a.Epoch(), v2.GetValue(), p.a.UsedSpace(), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
@@ -57,7 +57,7 @@ type EstimationID []byte
 func (c *Client) ListLoadEstimationsByEpoch(epoch uint64) ([]EstimationID, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(listSizesMethod)
-	invokePrm.SetArgs(int64(epoch))
+	invokePrm.SetArgs(epoch)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
