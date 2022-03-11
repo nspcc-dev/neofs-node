@@ -117,18 +117,15 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.Option) *StorageEngine {
 	engine := New()
 	for i := 0; i < num; i++ {
-		sid, err := generateShardID()
-		require.NoError(t, err)
-
-		err = engine.addShard(sid, append([]shard.Option{
+		_, err := engine.AddShard(append([]shard.Option{
 			shard.WithBlobStorOptions(
-				blobstor.WithRootPath(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", sid))),
+				blobstor.WithRootPath(filepath.Join(t.Name(), fmt.Sprintf("blobstor%d", i))),
 				blobstor.WithBlobovniczaShallowWidth(1),
 				blobstor.WithBlobovniczaShallowDepth(1),
 				blobstor.WithRootPerm(0700),
 			),
 			shard.WithMetaBaseOptions(
-				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", sid))),
+				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),
 				meta.WithPermissions(0700),
 			)}, extraOpts(i)...)...)
 		require.NoError(t, err)
