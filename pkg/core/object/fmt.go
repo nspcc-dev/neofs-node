@@ -227,8 +227,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		}
 
 		if v.locker != nil {
+			num := lock.NumberOfMembers()
+			if num == 0 {
+				return errors.New("missing locked members")
+			}
+
 			// mark all objects from lock list as locked in storage engine
-			locklist := make([]oid.ID, lock.NumberOfMembers())
+			locklist := make([]oid.ID, num)
 			lock.ReadMembers(locklist)
 
 			err = v.locker.Lock(*o.ContainerID(), *o.ID(), locklist)
