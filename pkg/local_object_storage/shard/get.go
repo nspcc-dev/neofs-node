@@ -122,18 +122,21 @@ func (s *Shard) fetchObjectData(addr *addressSDK.Address, skipMeta bool, big, sm
 		}
 	}
 
-	if skipMeta {
+	var exists bool
+	if !skipMeta {
+		exists, err = meta.Exists(s.metaBase, addr)
+		if err != nil && s.GetMode() != ModeDegraded {
+			return res, false, err
+		}
+	}
+
+	if skipMeta || err != nil {
 		res, err = small(s.blobStor, nil)
 		if err == nil || errors.Is(err, object.ErrRangeOutOfBounds) {
 			return res, false, err
 		}
 		res, err = big(s.blobStor, nil)
 		return res, false, err
-	}
-
-	exists, err := meta.Exists(s.metaBase, addr)
-	if err != nil {
-		return nil, false, err
 	}
 
 	if !exists {
