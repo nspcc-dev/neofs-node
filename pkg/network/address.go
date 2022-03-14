@@ -3,11 +3,11 @@ package network
 import (
 	"fmt"
 	"net"
-	"net/url"
 	"strings"
 
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 )
 
 /*
@@ -59,7 +59,7 @@ func (a *Address) FromString(s string) error {
 			host   string
 			hasTLS bool
 		)
-		host, hasTLS, err = parseURI(s)
+		host, hasTLS, err = client.ParseURI(s)
 		if err != nil {
 			host = s
 		}
@@ -80,38 +80,6 @@ const (
 	grpcScheme    = "grpc"
 	grpcTLSScheme = "grpcs"
 )
-
-// parseURI parses s as address and returns a host and a flag
-// indicating that TLS is enabled. If multiaddress is provided
-// the argument is returned unchanged.
-func parseURI(s string) (string, bool, error) {
-	// TODO: #1151 code is copy-pasted from client.WithNetworkURIAddress function.
-	//  Would be nice to share the code.
-	uri, err := url.ParseRequestURI(s)
-	if err != nil {
-		return s, false, nil
-	}
-
-	// check if passed string was parsed correctly
-	// URIs that do not start with a slash after the scheme are interpreted as:
-	// `scheme:opaque` => if `opaque` is not empty, then it is supposed that URI
-	// is in `host:port` format
-	if uri.Host == "" {
-		uri.Host = uri.Scheme
-		uri.Scheme = grpcScheme // assume GRPC by default
-		if uri.Opaque != "" {
-			uri.Host = net.JoinHostPort(uri.Host, uri.Opaque)
-		}
-	}
-
-	switch uri.Scheme {
-	case grpcTLSScheme, grpcScheme:
-	default:
-		return "", false, fmt.Errorf("unsupported scheme: %s", uri.Scheme)
-	}
-
-	return uri.Host, uri.Scheme == grpcTLSScheme, nil
-}
 
 // multiaddrStringFromHostAddr converts "localhost:8080" to "/dns4/localhost/tcp/8080"
 func multiaddrStringFromHostAddr(host string) (string, error) {
