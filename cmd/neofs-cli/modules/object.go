@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
@@ -1096,7 +1097,7 @@ func printSplitInfoErr(cmd *cobra.Command, err error) bool {
 	ok := errors.As(err, &errSplitInfo)
 
 	if ok {
-		cmd.Println("Object is complex, split information received.")
+		cmd.PrintErrln("Object is complex, split information received.")
 		printSplitInfo(cmd, errSplitInfo.SplitInfo())
 	}
 
@@ -1104,15 +1105,33 @@ func printSplitInfoErr(cmd *cobra.Command, err error) bool {
 }
 
 func printSplitInfo(cmd *cobra.Command, info *object.SplitInfo) {
-	if splitID := info.SplitID(); splitID != nil {
-		cmd.Println("Split ID:", splitID)
-	}
+	bs, err := marshalSplitInfo(cmd, info)
+	exitOnErr(cmd, fmt.Errorf("can't marshal split info: %w", err))
 
-	if link := info.Link(); link != nil {
-		cmd.Println("Linking object:", link)
-	}
+	cmd.Println(string(bs))
+}
 
-	if last := info.LastPart(); last != nil {
-		cmd.Println("Last object:", last)
+func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error) {
+	toJSON, _ := cmd.Flags().GetBool("json")
+	toProto, _ := cmd.Flags().GetBool("proto")
+	switch {
+	case toJSON && toProto:
+		return nil, errors.New("'--json' and '--proto' flags are mutually exclusive")
+	case toJSON:
+		return info.MarshalJSON()
+	case toProto:
+		return info.Marshal()
+	default:
+		b := bytes.NewBuffer(nil)
+		if splitID := info.SplitID(); splitID != nil {
+			b.WriteString("Split ID: " + splitID.String() + "\n")
+		}
+		if link := info.Link(); link != nil {
+			b.WriteString("Linking object: " + link.String() + "\n")
+		}
+		if last := info.LastPart(); last != nil {
+			b.WriteString("Last object: " + last.String() + "\n")
+		}
+		return b.Bytes(), nil
 	}
 }
