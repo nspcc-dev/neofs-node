@@ -5,15 +5,16 @@ go 1.16
 require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
+	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/klauspost/compress v1.13.4
+	github.com/klauspost/compress v1.14.4
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.4.0
-	github.com/nats-io/nats-server/v2 v2.7.2 // indirect
-	github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d
+	github.com/nats-io/nats-server/v2 v2.7.4 // indirect
+	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.98.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.12.0
