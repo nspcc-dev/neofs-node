@@ -559,15 +559,17 @@ func getObject(cmd *cobra.Command, _ []string) {
 		exitOnErr(cmd, errf("rpc error: %w", err))
 	}
 
+	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" {
 		if p != nil {
 			p.Finish()
 		}
-		cmd.Printf("[%s] Object successfully saved\n", filename)
+		if hdrFile != "" || !strictOutput(cmd) {
+			cmd.Printf("[%s] Object successfully saved\n", filename)
+		}
 	}
 
 	// Print header only if file is not streamed to stdout.
-	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" || hdrFile != "" {
 		err = saveAndPrintHeader(cmd, res.Header(), hdrFile)
 		exitOnErr(cmd, err)
@@ -1000,6 +1002,12 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 	}
 
 	return nil
+}
+
+func strictOutput(cmd *cobra.Command) bool {
+	toJSON, _ := cmd.Flags().GetBool("json")
+	toProto, _ := cmd.Flags().GetBool("proto")
+	return toJSON || toProto
 }
 
 func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
