@@ -327,7 +327,7 @@ func initObjectService(c *cfg) {
 	)
 
 	// build service pipeline
-	// grpc | <metrics> | acl | signature | response | split
+	// grpc | <metrics> | signature | response | acl | split
 
 	splitSvc := objectService.NewTransportSplitter(
 		c.cfgGRPC.maxChunkSize,
