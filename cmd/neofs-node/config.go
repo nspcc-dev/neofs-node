@@ -98,6 +98,8 @@ type cfg struct {
 
 	cfgObject cfgObject
 
+	cfgNotifications cfgNotifications
+
 	metricsCollector *metrics.StorageMetrics
 
 	workers []worker
@@ -183,6 +185,12 @@ type cfgObject struct {
 	pool cfgObjectRoutines
 
 	cfgLocalStorage cfgLocalStorage
+}
+
+type cfgNotifications struct {
+	enabled      bool
+	nw           notificationWriter
+	defaultTopic string
 }
 
 type cfgLocalStorage struct {
