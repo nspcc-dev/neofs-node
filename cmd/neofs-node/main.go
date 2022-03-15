@@ -80,7 +80,7 @@ func initApp(c *cfg) {
 	initProfiler(c)
 	initMetrics(c)
 	initControlService(c)
-	initNotification(c)
+	initNotifications(c)
 
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())

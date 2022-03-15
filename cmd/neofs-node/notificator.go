@@ -106,7 +106,7 @@ func (n notificationWriter) Notify(topic string, address *addressSDK.Address) {
 	}
 }
 
-func initNotification(c *cfg) {
+func initNotifications(c *cfg) {
 	if nodeconfig.Notification(c.appCfg).Enabled() {
 		topic := nodeconfig.Notification(c.appCfg).DefaultTopic()
 		pubKey := base58.Encode(c.cfgNodeInfo.localInfo.PublicKey())
