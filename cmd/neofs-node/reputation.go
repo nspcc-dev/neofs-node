@@ -260,7 +260,7 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *v2reputa
 	}
 
 	for _, trust := range body.GetTrusts() {
-		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0].PublicKey()), passedRoute, w)
+		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(&trust, passedRoute[0].PublicKey()), passedRoute, w)
 		if err != nil {
 			return nil, fmt.Errorf("could not write one of local trusts: %w", err)
 		}

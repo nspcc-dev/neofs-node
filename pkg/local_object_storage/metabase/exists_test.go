@@ -99,7 +99,7 @@ func TestDB_Exists(t *testing.T) {
 		link := generateObjectWithCID(t, cid)
 		link.SetParent(parent)
 		link.SetParentID(parent.ID())
-		link.SetChildren(child.ID())
+		link.SetChildren(*child.ID())
 		link.SetSplitID(splitID)
 
 		t.Run("direct order", func(t *testing.T) {

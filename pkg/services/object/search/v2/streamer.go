@@ -11,16 +11,16 @@ type streamWriter struct {
 	stream objectSvc.SearchStream
 }
 
-func (s *streamWriter) WriteIDs(ids []*oidSDK.ID) error {
+func (s *streamWriter) WriteIDs(ids []oidSDK.ID) error {
 	r := new(object.SearchResponse)
 
 	body := new(object.SearchResponseBody)
 	r.SetBody(body)
 
-	idsV2 := make([]*refs.ObjectID, len(ids))
+	idsV2 := make([]refs.ObjectID, len(ids))
 
 	for i := range ids {
-		idsV2[i] = ids[i].ToV2()
+		idsV2[i] = *ids[i].ToV2()
 	}
 
 	body.SetIDList(idsV2)

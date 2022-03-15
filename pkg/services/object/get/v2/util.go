@@ -275,10 +275,10 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
 
 	rngsV2 := body.GetRanges()
-	rngs := make([]*object.Range, 0, len(rngsV2))
+	rngs := make([]object.Range, len(rngsV2))
 
 	for i := range rngsV2 {
-		rngs = append(rngs, object.NewRangeFromV2(rngsV2[i]))
+		rngs[i] = *object.NewRangeFromV2(&rngsV2[i])
 	}
 
 	p.SetRangeList(rngs)

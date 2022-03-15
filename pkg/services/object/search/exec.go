@@ -133,7 +133,7 @@ func (exec execCtx) remoteClient(info client.NodeInfo) (searchClient, bool) {
 	return nil, false
 }
 
-func (exec *execCtx) writeIDList(ids []*oidSDK.ID) {
+func (exec *execCtx) writeIDList(ids []oidSDK.ID) {
 	err := exec.prm.writer.WriteIDs(ids)
 
 	switch {

@@ -474,11 +474,11 @@ func (x *SearchObjectsPrm) SetFilters(fs object.SearchFilters) {
 
 // SearchObjectsRes groups resulting values of SearchObjects operation.
 type SearchObjectsRes struct {
-	ids []*oidSDK.ID
+	ids []oidSDK.ID
 }
 
 // IDList returns identifiers of the matched objects.
-func (x SearchObjectsRes) IDList() []*oidSDK.ID {
+func (x SearchObjectsRes) IDList() []oidSDK.ID {
 	return x.ids
 }
 
@@ -510,7 +510,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	}
 
 	buf := make([]oidSDK.ID, 10)
-	var ids []*oidSDK.ID
+	var ids []oidSDK.ID
 	var n int
 	var ok bool
 
@@ -519,7 +519,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		if n > 0 {
 			for i := range buf[:n] {
 				v := buf[i]
-				ids = append(ids, &v)
+				ids = append(ids, v)
 			}
 		}
 

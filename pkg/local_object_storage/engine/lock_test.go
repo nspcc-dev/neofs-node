@@ -102,7 +102,7 @@ func TestLockUserScenario(t *testing.T) {
 	tombObj := generateObjectWithCID(t, cnr)
 	tombObj.SetType(object.TypeTombstone)
 	tombObj.SetID(tombForLockID)
-	tombObj.SetAttributes(&a)
+	tombObj.SetAttributes(a)
 
 	err = Put(e, tombObj)
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestLockExpiration(t *testing.T) {
 
 	lock := generateObjectWithCID(t, cnr)
 	lock.SetType(object.TypeLock)
-	lock.SetAttributes(&a)
+	lock.SetAttributes(a)
 
 	err = Put(e, lock)
 	require.NoError(t, err)

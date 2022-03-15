@@ -24,7 +24,7 @@ import (
 )
 
 type idsErr struct {
-	ids []*oidSDK.ID
+	ids []oidSDK.ID
 	err error
 }
 
@@ -46,7 +46,7 @@ type testClientCache struct {
 }
 
 type simpleIDWriter struct {
-	ids []*oidSDK.ID
+	ids []oidSDK.ID
 }
 
 type testEpochReceiver uint64
@@ -55,7 +55,7 @@ func (e testEpochReceiver) currentEpoch() (uint64, error) {
 	return uint64(e), nil
 }
 
-func (s *simpleIDWriter) WriteIDs(ids []*oidSDK.ID) error {
+func (s *simpleIDWriter) WriteIDs(ids []oidSDK.ID) error {
 	s.ids = append(s.ids, ids...)
 	return nil
 }
@@ -95,7 +95,7 @@ func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
 	return v, nil
 }
 
-func (s *testStorage) search(exec *execCtx) ([]*oidSDK.ID, error) {
+func (s *testStorage) search(exec *execCtx) ([]oidSDK.ID, error) {
 	v, ok := s.items[exec.containerID().String()]
 	if !ok {
 		return nil, nil
@@ -104,7 +104,7 @@ func (s *testStorage) search(exec *execCtx) ([]*oidSDK.ID, error) {
 	return v.ids, v.err
 }
 
-func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]*oidSDK.ID, error) {
+func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]oidSDK.ID, error) {
 	v, ok := c.items[exec.containerID().String()]
 	if !ok {
 		return nil, nil
@@ -113,7 +113,7 @@ func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]*oi
 	return v.ids, v.err
 }
 
-func (c *testStorage) addResult(addr *cid.ID, ids []*oidSDK.ID, err error) {
+func (c *testStorage) addResult(addr *cid.ID, ids []oidSDK.ID, err error) {
 	c.items[addr.String()] = idsErr{
 		ids: ids,
 		err: err,
@@ -125,11 +125,10 @@ func testSHA256() (cs [sha256.Size]byte) {
 	return cs
 }
 
-func generateIDs(num int) []*oidSDK.ID {
-	res := make([]*oidSDK.ID, num)
+func generateIDs(num int) []oidSDK.ID {
+	res := make([]oidSDK.ID, num)
 
 	for i := 0; i < num; i++ {
-		res[i] = oidSDK.NewID()
 		res[i].SetSHA256(testSHA256())
 	}
 
@@ -227,12 +226,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	placementDim := []int{2}
 
-	rs := make([]*netmap.Replica, 0, len(placementDim))
+	rs := make([]netmap.Replica, len(placementDim))
 	for i := range placementDim {
-		r := netmap.NewReplica()
-		r.SetCount(uint32(placementDim[i]))
-
-		rs = append(rs, r)
+		rs[i].SetCount(uint32(placementDim[i]))
 	}
 
 	pp := netmap.NewPlacementPolicy()
@@ -315,13 +311,10 @@ func TestGetFromPastEpoch(t *testing.T) {
 
 	placementDim := []int{2, 2}
 
-	rs := make([]*netmap.Replica, 0, len(placementDim))
+	rs := make([]netmap.Replica, len(placementDim))
 
 	for i := range placementDim {
-		r := netmap.NewReplica()
-		r.SetCount(uint32(placementDim[i]))
-
-		rs = append(rs, r)
+		rs[i].SetCount(uint32(placementDim[i]))
 	}
 
 	pp := netmap.NewPlacementPolicy()
@@ -393,7 +386,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 	commonPrm := new(util.CommonPrm)
 	p.SetCommonParameters(commonPrm)
 
-	assertContains := func(idsList ...[]*oidSDK.ID) {
+	assertContains := func(idsList ...[]oidSDK.ID) {
 		var sz int
 
 		for _, ids := range idsList {

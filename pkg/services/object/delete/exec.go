@@ -124,13 +124,13 @@ func (exec *execCtx) collectMembers() (ok bool) {
 func (exec *execCtx) collectChain() bool {
 	var (
 		err   error
-		chain []*oidSDK.ID
+		chain []oidSDK.ID
 	)
 
 	exec.log.Debug("assembling chain...")
 
 	for prev := exec.splitInfo.LastPart(); prev != nil; {
-		chain = append(chain, prev)
+		chain = append(chain, *prev)
 		prev, err = exec.svc.header.previous(exec, prev)
 
 		switch {
@@ -174,7 +174,7 @@ func (exec *execCtx) collectChildren() bool {
 		exec.status = statusOK
 		exec.err = nil
 
-		exec.addMembers(append(children, exec.splitInfo.Link()))
+		exec.addMembers(append(children, *exec.splitInfo.Link()))
 
 		return true
 	}
@@ -205,12 +205,12 @@ func (exec *execCtx) supplementBySplitID() bool {
 	}
 }
 
-func (exec *execCtx) addMembers(incoming []*oidSDK.ID) {
+func (exec *execCtx) addMembers(incoming []oidSDK.ID) {
 	members := exec.tombstone.Members()
 
 	for i := range members {
 		for j := 0; j < len(incoming); j++ { // don't use range, slice mutates in body
-			if members[i].Equal(incoming[j]) {
+			if members[i].Equal(&incoming[j]) {
 				incoming = append(incoming[:j], incoming[j+1:]...)
 				j--
 			}
@@ -245,7 +245,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 	exec.tombstoneObj.SetType(object.TypeTombstone)
 	exec.tombstoneObj.SetPayload(payload)
 
-	a := object.NewAttribute()
+	var a object.Attribute
 	a.SetKey(objectV2.SysAttributeExpEpoch)
 	a.SetValue(strconv.FormatUint(exec.tombstone.ExpirationEpoch(), 10))
 

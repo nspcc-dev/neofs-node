@@ -40,7 +40,7 @@ func (exec *execCtx) assemble() {
 			//  * if size > MAX => go right-to-left with HEAD and back with GET
 			//  * else go right-to-left with GET and compose in single object before writing
 
-			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
+			if ok := exec.overtakePayloadInReverse(&children[len(children)-1]); ok {
 				// payload of all children except the last are written, write last payload
 				exec.writeObjectPayload(exec.collectedObject)
 			}
@@ -61,7 +61,7 @@ func (exec *execCtx) assemble() {
 	}
 }
 
-func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []*oidSDK.ID) {
+func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []oidSDK.ID) {
 	log := exec.log.With(zap.Stringer("child ID", id))
 
 	log.Debug("starting assembling from child")
@@ -120,16 +120,16 @@ func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []*
 	return child.PreviousID(), child.Children()
 }
 
-func (exec *execCtx) overtakePayloadDirectly(children []*oidSDK.ID, rngs []*objectSDK.Range, checkRight bool) {
+func (exec *execCtx) overtakePayloadDirectly(children []oidSDK.ID, rngs []objectSDK.Range, checkRight bool) {
 	withRng := len(rngs) > 0 && exec.ctxRange() != nil
 
 	for i := range children {
 		var r *objectSDK.Range
 		if withRng {
-			r = rngs[i]
+			r = &rngs[i]
 		}
 
-		child, ok := exec.getChild(children[i], r, !withRng && checkRight)
+		child, ok := exec.getChild(&children[i], r, !withRng && checkRight)
 		if !ok {
 			return
 		}
@@ -165,10 +165,10 @@ func (exec *execCtx) overtakePayloadInReverse(prev *oidSDK.ID) bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) buildChainInReverse(prev *oidSDK.ID) ([]*oidSDK.ID, []*objectSDK.Range, bool) {
+func (exec *execCtx) buildChainInReverse(prev *oidSDK.ID) ([]oidSDK.ID, []objectSDK.Range, bool) {
 	var (
-		chain   = make([]*oidSDK.ID, 0)
-		rngs    = make([]*objectSDK.Range, 0)
+		chain   = make([]oidSDK.ID, 0)
+		rngs    = make([]objectSDK.Range, 0)
 		seekRng = exec.ctxRange()
 		from    = seekRng.GetOffset()
 		to      = from + seekRng.GetLength()
@@ -201,15 +201,15 @@ func (exec *execCtx) buildChainInReverse(prev *oidSDK.ID) ([]*oidSDK.ID, []*obje
 					sz = to - off - exec.curOff
 				}
 
-				r := objectSDK.NewRange()
-				r.SetOffset(off)
-				r.SetLength(sz)
+				index := len(rngs)
+				rngs = append(rngs, objectSDK.Range{})
+				rngs[index].SetOffset(off)
+				rngs[index].SetLength(sz)
 
-				rngs = append(rngs, r)
-				chain = append(chain, head.ID())
+				chain = append(chain, *head.ID())
 			}
 		} else {
-			chain = append(chain, head.ID())
+			chain = append(chain, *head.ID())
 		}
 
 		prev = head.PreviousID()

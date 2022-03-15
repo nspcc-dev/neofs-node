@@ -75,7 +75,7 @@ func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
 	res := make([]eaclSDK.Header, 0, len(xHdrs))
 
 	for i := range xHdrs {
-		res = append(res, sessionSDK.NewXHeaderFromV2(xHdrs[i]))
+		res = append(res, sessionSDK.NewXHeaderFromV2(&xHdrs[i]))
 	}
 
 	return res

@@ -31,7 +31,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	link := generateObjectWithCID(t, cid)
 	link.SetParent(parent)
 	link.SetParentID(parent.ID())
-	link.SetChildren(child.ID())
+	link.SetChildren(*child.ID())
 	link.SetSplitID(splitID)
 
 	t.Run("delete small object", func(t *testing.T) {

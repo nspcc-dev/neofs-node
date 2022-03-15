@@ -45,7 +45,7 @@ func newUniqueAddressWriter(w IDListWriter) IDListWriter {
 	}
 }
 
-func (w *uniqueIDWriter) WriteIDs(list []*oidSDK.ID) error {
+func (w *uniqueIDWriter) WriteIDs(list []oidSDK.ID) error {
 	w.mtx.Lock()
 
 	for i := 0; i < len(list); i++ { // don't use range, slice mutates in body
@@ -80,7 +80,7 @@ func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, erro
 	}, nil
 }
 
-func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]*oidSDK.ID, error) {
+func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oidSDK.ID, error) {
 	if exec.prm.forwarder != nil {
 		return exec.prm.forwarder(info, c.client)
 	}
@@ -111,7 +111,7 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]*o
 	return res.IDList(), nil
 }
 
-func (e *storageEngineWrapper) search(exec *execCtx) ([]*oidSDK.ID, error) {
+func (e *storageEngineWrapper) search(exec *execCtx) ([]oidSDK.ID, error) {
 	r, err := (*engine.StorageEngine)(e).Select(new(engine.SelectPrm).
 		WithFilters(exec.searchFilters()).
 		WithContainerID(exec.containerID()),
@@ -123,11 +123,11 @@ func (e *storageEngineWrapper) search(exec *execCtx) ([]*oidSDK.ID, error) {
 	return idsFromAddresses(r.AddressList()), nil
 }
 
-func idsFromAddresses(addrs []*addressSDK.Address) []*oidSDK.ID {
-	ids := make([]*oidSDK.ID, len(addrs))
+func idsFromAddresses(addrs []*addressSDK.Address) []oidSDK.ID {
+	ids := make([]oidSDK.ID, len(addrs))
 
 	for i := range addrs {
-		ids[i] = addrs[i].ObjectID()
+		ids[i] = *addrs[i].ObjectID()
 	}
 
 	return ids

@@ -194,7 +194,7 @@ func generateAddress() *addressSDK.Address {
 	return addr
 }
 
-func generateObject(addr *addressSDK.Address, prev *oidSDK.ID, payload []byte, children ...*oidSDK.ID) *objectSDK.Object {
+func generateObject(addr *addressSDK.Address, prev *oidSDK.ID, payload []byte, children ...oidSDK.ID) *objectSDK.Object {
 	obj := objectSDK.New()
 	obj.SetContainerID(addr.ContainerID())
 	obj.SetID(addr.ObjectID())
@@ -427,7 +427,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 	return mNodes, mAddr
 }
 
-func generateChain(ln int, cid *cid.ID) ([]*objectSDK.Object, []*oidSDK.ID, []byte) {
+func generateChain(ln int, cid *cid.ID) ([]*objectSDK.Object, []oidSDK.ID, []byte) {
 	curID := generateID()
 	var prevID *oidSDK.ID
 
@@ -435,11 +435,11 @@ func generateChain(ln int, cid *cid.ID) ([]*objectSDK.Object, []*oidSDK.ID, []by
 	addr.SetContainerID(cid)
 
 	res := make([]*objectSDK.Object, 0, ln)
-	ids := make([]*oidSDK.ID, 0, ln)
+	ids := make([]oidSDK.ID, 0, ln)
 	payload := make([]byte, 0, ln*10)
 
 	for i := 0; i < ln; i++ {
-		ids = append(ids, curID)
+		ids = append(ids, *curID)
 		addr.SetObjectID(curID)
 
 		payloadPart := make([]byte, 10)
@@ -760,11 +760,11 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				child1Addr := addressSDK.NewAddress()
 				child1Addr.SetContainerID(cid)
-				child1Addr.SetObjectID(childIDs[0])
+				child1Addr.SetObjectID(&childIDs[0])
 
 				child2Addr := addressSDK.NewAddress()
 				child2Addr.SetContainerID(cid)
-				child2Addr.SetObjectID(childIDs[1])
+				child2Addr.SetObjectID(&childIDs[1])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -836,11 +836,11 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				child1Addr := addressSDK.NewAddress()
 				child1Addr.SetContainerID(cid)
-				child1Addr.SetObjectID(childIDs[0])
+				child1Addr.SetObjectID(&childIDs[0])
 
 				child2Addr := addressSDK.NewAddress()
 				child2Addr.SetContainerID(cid)
-				child2Addr.SetObjectID(childIDs[1])
+				child2Addr.SetObjectID(&childIDs[1])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))

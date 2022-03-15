@@ -51,15 +51,12 @@ func testAddress(t *testing.T) *objectSDKAddress.Address {
 	return addr
 }
 
-func testXHeaders(strs ...string) []*session.XHeader {
-	res := make([]*session.XHeader, 0, len(strs)/2)
+func testXHeaders(strs ...string) []session.XHeader {
+	res := make([]session.XHeader, len(strs)/2)
 
 	for i := 0; i < len(strs); i += 2 {
-		x := new(session.XHeader)
-		x.SetKey(strs[i])
-		x.SetValue(strs[i+1])
-
-		res = append(res, x)
+		res[i/2].SetKey(strs[i])
+		res[i/2].SetValue(strs[i+1])
 	}
 
 	return res
@@ -89,7 +86,7 @@ func TestHeadRequest(t *testing.T) {
 
 	attrKey := "attr_key"
 	attrVal := "attr_val"
-	attr := object.NewAttribute()
+	var attr object.Attribute
 	attr.SetKey(attrKey)
 	attr.SetValue(attrVal)
 	obj.SetAttributes(attr)
@@ -138,7 +135,7 @@ func TestHeadRequest(t *testing.T) {
 
 	meta.SetXHeaders(xHdrs)
 
-	obj.SetAttributes(nil)
+	obj.SetAttributes()
 
 	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit))
 }

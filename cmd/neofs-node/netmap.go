@@ -354,7 +354,7 @@ func (n *netInfo) Dump(ver *refs.Version) (*netmapV2.NetworkInfo, error) {
 		}
 
 		var (
-			ps     []*netmapV2.NetworkParameter
+			ps     []netmapV2.NetworkParameter
 			netCfg netmapV2.NetworkConfig
 		)
 
@@ -364,7 +364,7 @@ func (n *netInfo) Dump(ver *refs.Version) (*netmapV2.NetworkInfo, error) {
 			p.SetKey(key)
 			p.SetValue(value)
 
-			ps = append(ps, &p)
+			ps = append(ps, p)
 
 			return nil
 		}); err != nil {

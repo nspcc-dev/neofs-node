@@ -18,7 +18,7 @@ type searchSvcWrapper searchsvc.Service
 type putSvcWrapper putsvc.Service
 
 type simpleIDWriter struct {
-	ids []*oidSDK.ID
+	ids []oidSDK.ID
 }
 
 func (w *headSvcWrapper) headAddress(exec *execCtx, addr *addressSDK.Address) (*object.Object, error) {
@@ -53,7 +53,7 @@ func (w *headSvcWrapper) splitInfo(exec *execCtx) (*object.SplitInfo, error) {
 	}
 }
 
-func (w *headSvcWrapper) children(exec *execCtx) ([]*oidSDK.ID, error) {
+func (w *headSvcWrapper) children(exec *execCtx) ([]oidSDK.ID, error) {
 	a := exec.newAddress(exec.splitInfo.Link())
 
 	linking, err := w.headAddress(exec, a)
@@ -75,7 +75,7 @@ func (w *headSvcWrapper) previous(exec *execCtx, id *oidSDK.ID) (*oidSDK.ID, err
 	return h.PreviousID(), nil
 }
 
-func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*oidSDK.ID, error) {
+func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oidSDK.ID, error) {
 	fs := object.SearchFilters{}
 	fs.AddSplitIDFilter(object.MatchStringEqual, exec.splitInfo.SplitID())
 
@@ -95,7 +95,7 @@ func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]*oidSDK.ID, error) {
 	return wr.ids, nil
 }
 
-func (s *simpleIDWriter) WriteIDs(ids []*oidSDK.ID) error {
+func (s *simpleIDWriter) WriteIDs(ids []oidSDK.ID) error {
 	s.ids = append(s.ids, ids...)
 
 	return nil

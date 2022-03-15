@@ -71,9 +71,10 @@ func TestRefillMetabase(t *testing.T) {
 
 	tombMembers := make([]*addressSDK.Address, 0, len(tombstone.Members()))
 
-	for _, member := range tombstone.Members() {
+	members := tombstone.Members()
+	for i := range tombstone.Members() {
 		a := addressSDK.NewAddress()
-		a.SetObjectID(member)
+		a.SetObjectID(&members[i])
 		a.SetContainerID(tombObj.ContainerID())
 
 		tombMembers = append(tombMembers, a)

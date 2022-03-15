@@ -25,7 +25,7 @@ type Service struct {
 type Option func(*cfg)
 
 type searchClient interface {
-	searchObjects(*execCtx, client.NodeInfo) ([]*oidSDK.ID, error)
+	searchObjects(*execCtx, client.NodeInfo) ([]oidSDK.ID, error)
 }
 
 type ClientConstructor interface {
@@ -36,7 +36,7 @@ type cfg struct {
 	log *logger.Logger
 
 	localStorage interface {
-		search(*execCtx) ([]*oidSDK.ID, error)
+		search(*execCtx) ([]oidSDK.ID, error)
 	}
 
 	clientConstructor interface {
