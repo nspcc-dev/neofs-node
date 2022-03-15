@@ -38,19 +38,19 @@ type Option func(*opts)
 var errConnIsClosed = errors.New("connection to the server is closed")
 
 // Notify sends object address's string representation to the provided topic.
-// Uses first 4 bytes of object ID as a message ID to support 'exactly once message'
-// delivery.
+// Uses first 4 bytes of object ID as a message ID to support 'exactly once'
+// message delivery.
 //
 // Returns error only if:
-// 1. underlying connection was closed and has not established again;
-// 2. NATS server could not respond that is has saved the message.
+// 1. underlying connection was closed and has not been established again;
+// 2. NATS server could not respond that it has saved the message.
 func (n *Writer) Notify(topic string, address *addressSDK.Address) error {
 	if !n.nc.IsConnected() {
 		return errConnIsClosed
 	}
 
 	// use first 4 byte of the encoded string as
-	// message ID for the exactly-once delivery
+	// message ID for the 'exactly once' delivery
 	messageID := address.ObjectID().String()[:4]
 
 	// check if the stream was previously created
