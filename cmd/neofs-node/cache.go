@@ -98,14 +98,12 @@ func (c *ttlNetCache) keys() []interface{} {
 
 // entity that provides LRU cache interface.
 type lruNetCache struct {
-	mtx sync.Mutex
-
 	cache *lru.Cache
 
 	netRdr netValueReader
 }
 
-// complicates netValueReader with LRU caching mechanism.
+// newNetworkLRUCache returns wrapper over netValueReader with LRU cache.
 func newNetworkLRUCache(sz int, netRdr netValueReader) *lruNetCache {
 	cache, err := lru.New(sz)
 	fatalOnErr(err)
@@ -122,9 +120,6 @@ func newNetworkLRUCache(sz int, netRdr netValueReader) *lruNetCache {
 //
 // returned value should not be modified.
 func (c *lruNetCache) get(key interface{}) (interface{}, error) {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
 	val, ok := c.cache.Get(key)
 	if ok {
 		return val, nil
