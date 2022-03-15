@@ -3,13 +3,20 @@ package putsvc
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
+// ObjectStorage is an object storage interface.
+type ObjectStorage interface {
+	// Put must save passed object
+	// and return any appeared error.
+	Put(o *objectSDK.Object) error
+}
+
 type localTarget struct {
-	storage *engine.StorageEngine
+	storage ObjectStorage
 
 	obj *object.Object
 
@@ -31,7 +38,7 @@ func (t *localTarget) Write(p []byte) (n int, err error) {
 }
 
 func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {
-	if err := engine.Put(t.storage, t.obj); err != nil {
+	if err := t.storage.Put(t.obj); err != nil {
 		return nil, fmt.Errorf("(%T) could not put object to local storage: %w", t, err)
 	}
 
