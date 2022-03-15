@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -43,8 +44,11 @@ type Client struct {
 }
 
 type cache struct {
-	nnsHash   util.Uint160
-	groupKey  *keys.PublicKey
+	// mtx protects primitive values.
+	mtx      sync.RWMutex
+	nnsHash  util.Uint160
+	groupKey *keys.PublicKey
+	// txHeights is a thread-safe LRU cache for transaction heights.
 	txHeights *lru.Cache
 }
 
