@@ -50,7 +50,7 @@ func (c *Context) processObjectPlacement(id *oidSDK.ID, nodes netmap.Nodes, repl
 
 	for i := 0; ok < replicas && i < len(nodes); i++ {
 		// try to get object header from node
-		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id, false)
+		hdr, err := c.cnrCom.GetHeader(c.task, &nodes[i], id, false)
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
 				zap.Stringer("id", id),
@@ -95,9 +95,9 @@ func (c *Context) processObjectPlacement(id *oidSDK.ID, nodes netmap.Nodes, repl
 
 	if unpairedCandidate1 >= 0 {
 		if unpairedCandidate2 >= 0 {
-			c.composePair(id, nodes[unpairedCandidate1], nodes[unpairedCandidate2])
+			c.composePair(id, &nodes[unpairedCandidate1], &nodes[unpairedCandidate2])
 		} else if pairedCandidate >= 0 {
-			c.composePair(id, nodes[unpairedCandidate1], nodes[pairedCandidate])
+			c.composePair(id, &nodes[unpairedCandidate1], &nodes[pairedCandidate])
 		}
 	}
 }
@@ -143,7 +143,7 @@ func (c *Context) iterateSGMembersPlacementRand(f func(*oidSDK.ID, int, netmap.N
 }
 
 func (c *Context) iterateSGMembersRand(f func(*oidSDK.ID) bool) {
-	c.iterateSGInfo(func(members []*oidSDK.ID) bool {
+	c.iterateSGInfo(func(members []oidSDK.ID) bool {
 		ln := len(members)
 
 		processed := make(map[uint64]struct{}, ln-1)
@@ -152,7 +152,7 @@ func (c *Context) iterateSGMembersRand(f func(*oidSDK.ID) bool) {
 			ind := nextRandUint64(uint64(ln), processed)
 			processed[ind] = struct{}{}
 
-			if f(members[ind]) {
+			if f(&members[ind]) {
 				return true
 			}
 		}
@@ -161,7 +161,7 @@ func (c *Context) iterateSGMembersRand(f func(*oidSDK.ID) bool) {
 	})
 }
 
-func (c *Context) iterateSGInfo(f func([]*oidSDK.ID) bool) {
+func (c *Context) iterateSGInfo(f func([]oidSDK.ID) bool) {
 	c.sgMembersMtx.RLock()
 	defer c.sgMembersMtx.RUnlock()
 
@@ -169,8 +169,8 @@ func (c *Context) iterateSGInfo(f func([]*oidSDK.ID) bool) {
 	// but list of storage groups is already expected
 	// to be shuffled since it is a Search response
 	// with unpredictable order
-	for _, members := range c.sgMembersCache {
-		if f(members) {
+	for i := range c.sgMembersCache {
+		if f(c.sgMembersCache[i]) {
 			return
 		}
 	}

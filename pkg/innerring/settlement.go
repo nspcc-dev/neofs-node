@@ -160,7 +160,7 @@ func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo
 
 	for i := range ns {
 		res = append(res, &nodeInfoWrapper{
-			ni: ns[i],
+			ni: &ns[i],
 		})
 	}
 

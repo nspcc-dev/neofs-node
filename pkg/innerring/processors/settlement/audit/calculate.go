@@ -216,13 +216,14 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 	addr := addressSDK.NewAddress()
 	addr.SetContainerID(ctx.containerID())
 
-	for _, sgID := range ctx.auditResult.PassSG() {
-		addr.SetObjectID(sgID)
+	passSG := ctx.auditResult.PassSG()
+	for i := range passSG {
+		addr.SetObjectID(&passSG[i])
 
 		sgInfo, err := c.prm.SGStorage.SGInfo(addr)
 		if err != nil {
 			ctx.log.Error("could not get SG info",
-				zap.Stringer("id", sgID),
+				zap.Stringer("id", &passSG[i]), // stringer defined on pointer
 			)
 
 			return false // we also can continue and calculate at least some part
