@@ -600,9 +600,9 @@ func getSessionToken(path string) (*session.Token, error) {
 	return tok, nil
 }
 
-func prettyPrintContainerList(cmd *cobra.Command, list []*cid.ID) {
+func prettyPrintContainerList(cmd *cobra.Command, list []cid.ID) {
 	for i := range list {
-		cmd.Println(list[i])
+		cmd.Println(&list[i]) // stringer defined on pointer
 	}
 }
 
@@ -644,8 +644,8 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 	return nil, errors.New("can't parse placement policy")
 }
 
-func parseAttributes(attributes []string) ([]*container.Attribute, error) {
-	result := make([]*container.Attribute, 0, len(attributes)+2) // name + timestamp attributes
+func parseAttributes(attributes []string) ([]container.Attribute, error) {
+	result := make([]container.Attribute, len(attributes), len(attributes)+2) // name + timestamp attributes
 
 	for i := range attributes {
 		kvPair := strings.Split(attributes[i], attributeDelimiter)
@@ -653,27 +653,22 @@ func parseAttributes(attributes []string) ([]*container.Attribute, error) {
 			return nil, errors.New("invalid container attribute")
 		}
 
-		parsedAttribute := container.NewAttribute()
-		parsedAttribute.SetKey(kvPair[0])
-		parsedAttribute.SetValue(kvPair[1])
-
-		result = append(result, parsedAttribute)
+		result[i].SetKey(kvPair[0])
+		result[i].SetValue(kvPair[1])
 	}
 
 	if !containerNoTimestamp {
-		timestamp := container.NewAttribute()
-		timestamp.SetKey(container.AttributeTimestamp)
-		timestamp.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
-
-		result = append(result, timestamp)
+		index := len(result)
+		result = append(result, container.Attribute{})
+		result[index].SetKey(container.AttributeTimestamp)
+		result[index].SetValue(strconv.FormatInt(time.Now().Unix(), 10))
 	}
 
 	if containerName != "" {
-		cnrName := container.NewAttribute()
-		cnrName.SetKey(container.AttributeName)
-		cnrName.SetValue(containerName)
-
-		result = append(result, cnrName)
+		index := len(result)
+		result = append(result, container.Attribute{})
+		result[index].SetKey(container.AttributeName)
+		result[index].SetValue(containerName)
 	}
 
 	return result, nil

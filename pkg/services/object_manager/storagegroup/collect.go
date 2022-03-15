@@ -15,10 +15,10 @@ import (
 // with information about members collected via HeadReceiver.
 //
 // Resulting storage group consists of physically stored objects only.
-func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []*oidSDK.ID) (*storagegroup.StorageGroup, error) {
+func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []oidSDK.ID) (*storagegroup.StorageGroup, error) {
 	var (
 		sumPhySize uint64
-		phyMembers []*oidSDK.ID
+		phyMembers []oidSDK.ID
 		phyHashes  [][]byte
 		addr       = addressSDK.NewAddress()
 		sg         = storagegroup.New()
@@ -27,10 +27,10 @@ func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []*oidSDK.ID) (
 	addr.SetContainerID(cid)
 
 	for i := range members {
-		addr.SetObjectID(members[i])
+		addr.SetObjectID(&members[i])
 
 		if err := objutil.IterateAllSplitLeaves(r, addr, func(leaf *object.Object) {
-			phyMembers = append(phyMembers, leaf.ID())
+			phyMembers = append(phyMembers, *leaf.ID())
 			sumPhySize += leaf.PayloadSize()
 			phyHashes = append(phyHashes, leaf.PayloadHomomorphicHash().Sum())
 		}); err != nil {

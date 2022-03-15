@@ -414,22 +414,24 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	expiresOn, _ := cmd.Flags().GetUint64(putExpiresOnFlag)
 	if expiresOn > 0 {
-		var expAttr *object.Attribute
+		var expAttrFound bool
+		expAttrValue := strconv.FormatUint(expiresOn, 10)
 
-		for _, a := range attrs {
-			if a.Key() == objectV2.SysAttributeExpEpoch {
-				expAttr = a
+		for i := range attrs {
+			if attrs[i].Key() == objectV2.SysAttributeExpEpoch {
+				attrs[i].SetValue(expAttrValue)
+				expAttrFound = true
 				break
 			}
 		}
 
-		if expAttr == nil {
-			expAttr = object.NewAttribute()
-			expAttr.SetKey(objectV2.SysAttributeExpEpoch)
-			attrs = append(attrs, expAttr)
+		if !expAttrFound {
+			index := len(attrs)
+			attrs = append(attrs, object.Attribute{})
+			attrs[index].SetKey(objectV2.SysAttributeExpEpoch)
+			attrs[index].SetValue(expAttrValue)
 		}
 
-		expAttr.SetValue(strconv.FormatUint(expiresOn, 10))
 	}
 
 	obj := object.New()
@@ -719,7 +721,7 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 	return fs, nil
 }
 
-func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
+func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 	var rawAttrs []string
 
 	raw := cmd.Flag("attributes").Value.String()
@@ -727,33 +729,31 @@ func parseObjectAttrs(cmd *cobra.Command) ([]*object.Attribute, error) {
 		rawAttrs = strings.Split(raw, ",")
 	}
 
-	attrs := make([]*object.Attribute, 0, len(rawAttrs)+2) // name + timestamp attributes
+	attrs := make([]object.Attribute, len(rawAttrs), len(rawAttrs)+2) // name + timestamp attributes
 	for i := range rawAttrs {
 		kv := strings.SplitN(rawAttrs[i], "=", 2)
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid attribute format: %s", rawAttrs[i])
 		}
-		attr := object.NewAttribute()
-		attr.SetKey(kv[0])
-		attr.SetValue(kv[1])
-		attrs = append(attrs, attr)
+		attrs[i].SetKey(kv[0])
+		attrs[i].SetValue(kv[1])
 	}
 
 	disableFilename, _ := cmd.Flags().GetBool("disable-filename")
 	if !disableFilename {
 		filename := filepath.Base(cmd.Flag("file").Value.String())
-		attr := object.NewAttribute()
-		attr.SetKey(object.AttributeFileName)
-		attr.SetValue(filename)
-		attrs = append(attrs, attr)
+		index := len(attrs)
+		attrs = append(attrs, object.Attribute{})
+		attrs[index].SetKey(object.AttributeFileName)
+		attrs[index].SetValue(filename)
 	}
 
 	disableTime, _ := cmd.Flags().GetBool("disable-timestamp")
 	if !disableTime {
-		attr := object.NewAttribute()
-		attr.SetKey(object.AttributeTimestamp)
-		attr.SetValue(strconv.FormatInt(time.Now().Unix(), 10))
-		attrs = append(attrs, attr)
+		index := len(attrs)
+		attrs = append(attrs, object.Attribute{})
+		attrs[index].SetKey(object.AttributeTimestamp)
+		attrs[index].SetValue(strconv.FormatInt(time.Now().Unix(), 10))
 	}
 
 	return attrs, nil
@@ -894,7 +894,7 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 	}
 
 	for _, child := range obj.Children() {
-		cmd.Printf("Split ChildID: %s\n", child)
+		cmd.Printf("Split ChildID: %s\n", &child) // stringer defined on pointer
 	}
 
 	if signature := obj.Signature(); signature != nil {

@@ -136,7 +136,7 @@ func CommonPrmFromV2(req interface {
 				return nil, err
 			}
 		default:
-			xhdr := sessionsdk.NewXHeaderFromV2(xHdrs[i])
+			xhdr := sessionsdk.NewXHeaderFromV2(&xHdrs[i])
 
 			prm.xhdrs = append(prm.xhdrs, xhdr)
 		}

@@ -74,7 +74,7 @@ func TestParseTable(t *testing.T) {
 
 				actualRecord := eaclTable.Records()[len(eaclTable.Records())-1]
 
-				equalRecords(t, expectedRecord, actualRecord)
+				equalRecords(t, expectedRecord, &actualRecord)
 			}
 		})
 	}

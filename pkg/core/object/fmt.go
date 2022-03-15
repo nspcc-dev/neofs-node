@@ -180,14 +180,10 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		idList := tombstone.Members()
 		addrList := make([]*addressSDK.Address, 0, len(idList))
 
-		for _, id := range idList {
-			if id == nil {
-				return fmt.Errorf("(%T) empty member in tombstone", v)
-			}
-
+		for i := range idList {
 			a := addressSDK.NewAddress()
 			a.SetContainerID(cid)
-			a.SetObjectID(id)
+			a.SetObjectID(&idList[i])
 
 			addrList = append(addrList, a)
 		}
@@ -207,12 +203,6 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
 			return fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
-		}
-
-		for _, id := range sg.Members() {
-			if id == nil {
-				return fmt.Errorf("(%T) empty member in SG", v)
-			}
 		}
 	case object.TypeLock:
 		if len(o.Payload()) == 0 {

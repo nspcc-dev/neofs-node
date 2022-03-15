@@ -56,7 +56,7 @@ type ListContainersRes struct {
 }
 
 // IDList returns list of identifiers of user's containers.
-func (x ListContainersRes) IDList() []*cid.ID {
+func (x ListContainersRes) IDList() []cid.ID {
 	return x.cliRes.Containers()
 }
 
