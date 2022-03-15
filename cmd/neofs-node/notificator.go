@@ -131,6 +131,15 @@ func initNotifications(c *cfg) {
 			panic("could not created object notificator: " + err.Error())
 		}
 
+		c.cfgNotifications = cfgNotifications{
+			enabled: true,
+			nw: notificationWriter{
+				l: c.log,
+				w: natsSvc,
+			},
+			defaultTopic: topic,
+		}
+
 		n := notificator.New(new(notificator.Prm).
 			SetLogger(c.log).
 			SetNotificationSource(
@@ -139,10 +148,7 @@ func initNotifications(c *cfg) {
 					l:            c.log,
 					defaultTopic: topic,
 				}).
-			SetWriter(notificationWriter{
-				l: c.log,
-				w: natsSvc,
-			}),
+			SetWriter(c.cfgNotifications.nw),
 		)
 
 		addNewEpochAsyncNotificationHandler(c, func(e event.Event) {

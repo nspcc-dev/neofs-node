@@ -76,11 +76,11 @@ func initApp(c *cfg) {
 	initContainerService(c)
 	initSessionService(c)
 	initReputationService(c)
+	initNotifications(c)
 	initObjectService(c)
 	initProfiler(c)
 	initMetrics(c)
 	initControlService(c)
-	initNotifications(c)
 
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
 	fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())
