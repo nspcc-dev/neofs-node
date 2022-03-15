@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -37,7 +36,7 @@ type cfg struct {
 
 	maxSizeSrc MaxSizeSource
 
-	localStore *engine.StorageEngine
+	localStore ObjectStorage
 
 	cnrSrc container.Source
 
@@ -99,7 +98,7 @@ func WithMaxSizeSource(v MaxSizeSource) Option {
 	}
 }
 
-func WithLocalStorage(v *engine.StorageEngine) Option {
+func WithObjectStorage(v ObjectStorage) Option {
 	return func(c *cfg) {
 		c.localStore = v
 	}
