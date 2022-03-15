@@ -170,15 +170,11 @@ func putSG(cmd *cobra.Command, _ []string) {
 	cid, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
-	members := make([]*oidSDK.ID, 0, len(sgMembers))
+	members := make([]oidSDK.ID, len(sgMembers))
 
 	for i := range sgMembers {
-		id := oidSDK.NewID()
-
-		err = id.Parse(sgMembers[i])
+		err = members[i].Parse(sgMembers[i])
 		exitOnErr(cmd, errf("could not parse object ID: %w", err))
-
-		members = append(members, id)
 	}
 
 	var (
@@ -265,7 +261,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 		cmd.Println("Members:")
 
 		for i := range members {
-			cmd.Printf("\t%s\n", members[i])
+			cmd.Printf("\t%s\n", &members[i]) // stringer defined on pointer
 		}
 	}
 }

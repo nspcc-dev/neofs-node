@@ -79,7 +79,7 @@ func stateFromAPI(s netmapAPI.NodeState) control.NetmapStatus {
 	}
 }
 
-func attributesFromAPI(apiAttrs []*netmapAPI.NodeAttribute) []*control.NodeInfo_Attribute {
+func attributesFromAPI(apiAttrs []netmapAPI.NodeAttribute) []*control.NodeInfo_Attribute {
 	attrs := make([]*control.NodeInfo_Attribute, 0, len(apiAttrs))
 
 	for _, apiAttr := range apiAttrs {

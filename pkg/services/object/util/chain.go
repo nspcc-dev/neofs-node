@@ -95,7 +95,7 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 			addr.SetContainerID(cid)
 			addr.SetObjectID(res.Link())
 
-			chain := make([]*oidSDK.ID, 0)
+			chain := make([]oidSDK.ID, 0)
 
 			if _, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 				children := member.Children()
@@ -114,7 +114,7 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 			var reverseChain []*object.Object
 
 			for i := range chain {
-				addr.SetObjectID(chain[i])
+				addr.SetObjectID(&chain[i])
 
 				if stop, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 					if !reverseDirection {
