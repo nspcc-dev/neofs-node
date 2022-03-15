@@ -3,6 +3,58 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.0-rc.1] - 2022-03-18
+
+Native RFC-6979 signatures of messages and tokens, LOCK object types, 
+experimental notifications over NATS with NeoFS API v2.12 support
+
+### Fixed
+- Allow empty passwords in neofs-cli config (#1136)
+- Remove session tokens from local storage of storage node after expiration (#1133)
+- Set correct audit range hash type in neofs-ir (#1180)
+- Readme typos (#1167)
+- LOCODE attribute and announced address are not mandatory for relay node config (#1114)
+- Read objects directly from blobstor in case of shard inconsistency (#1186)
+- Shard ID is now consistent between restarts (#1204)
+- Check session token verb (#1191)
+- Fix `-w` flag in subnet commands of neofs-adm (#1223)
+- Do not use explicit mutex lock in chain caches (#1236)
+- Fix data race leading to reputation data loss (#1210)
+
+### Added
+- Look for `CustomGroup` scope in NNS contract before contract invocation (#749)
+- Interactive storage node configurator in neofs-adm (#1090)
+- Cache of notary transaction heights (#1151)
+- Logs for metabase PUT and DELETE operations (#1188)
+- NATS notifications (#1183)
+- LOCK object type (#1175, #1176, #1181)
+- Progress bar for object upload/download in neofs-cli (#1185)
+- Support of new status codes (#1247)
+
+### Changed
+- Update neofs-api-go and neofs-sdk-go (#1101, #1131, #1195, #1209, #1231)
+- Use `path/filepath` package for OS path management (#1132)
+- Shard sets mode to `read-only` if it hits threshold limit (#1118)
+- Use request timeout in chain client of neofs-adm (#1115)
+- Generate wallets with 0644 permissions in neofs-adm (#1115)
+- Use cache of parsed addresses in GC (#1115)
+- Determine config type based on file extension in neofs-ir (#1115)
+- Reuse some error defined in contracts (#1115)
+- Improved neofs-cli usability (#1103)
+- Refactor v2 / SDK packages in eACL (#596)
+
+### Removed
+- Remove some wrappers from `morph` package (#625)
+- `GetRange` method in blobovnicza (#1115)
+- Deprecated structures from SDK v1.0.0 rc (#1181)
+
+### Updating from neofs-node v0.27.5
+Set shard error threshold for read-only mode switch with 
+`NEOFS_STORAGE_SHARD_RO_ERROR_THRESHOLD` (default: 0, deactivated). 
+
+Set NATS configuration for notifications in `NEOFS_NODE_NOTIFICATION` section.
+See example config for more details.
+
 ## [0.27.5] - 2022-01-31
 
 ### Fixed
@@ -916,7 +968,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...master
+[0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...v0.28.0-rc.1
 [0.27.5]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
 [0.27.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.2...v0.27.3
