@@ -282,7 +282,9 @@ func (s *Server) Stop() {
 	s.setHealthStatus(control.HealthStatus_SHUTTING_DOWN)
 
 	go s.morphListener.Stop()
-	go s.mainnetListener.Stop()
+	if !s.withoutMainNet {
+		go s.mainnetListener.Stop()
+	}
 
 	for _, c := range s.closers {
 		if err := c(); err != nil {
