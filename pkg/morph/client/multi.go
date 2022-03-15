@@ -23,8 +23,6 @@ type multiClient struct {
 }
 
 // createForAddress creates single Client instance using provided endpoint.
-//
-// note: must be wrapped into mutex lock.
 func (x *multiClient) createForAddress(addr string) (*Client, error) {
 	cli, err := client.New(x.cfg.ctx, addr, client.Options{
 		DialTimeout:     x.cfg.dialTimeout,
@@ -39,15 +37,25 @@ func (x *multiClient) createForAddress(addr string) (*Client, error) {
 		return nil, err
 	}
 
-	sCli := blankSingleClient(cli, x.account, &x.cfg)
-	sCli.notary = x.sharedNotary
+	var c *Client
 
-	c := &Client{
-		cache:        x.sharedCache,
-		singleClient: sCli,
+	x.clientsMtx.Lock()
+	// While creating 2 clients in parallel is ok, we don't want to
+	// use a client missing from `x.clients` map as it can lead
+	// to unexpected bugs.
+	if x.clients[addr] == nil {
+		sCli := blankSingleClient(cli, x.account, &x.cfg)
+		sCli.notary = x.sharedNotary
+
+		c = &Client{
+			cache:        x.sharedCache,
+			singleClient: sCli,
+		}
+		x.clients[addr] = c
+	} else {
+		c = x.clients[addr]
 	}
-
-	x.clients[addr] = c
+	x.clientsMtx.Unlock()
 
 	return c, nil
 }
@@ -66,13 +74,11 @@ func (x *multiClient) iterateClients(f func(*Client) error) error {
 		}
 
 		x.clientsMtx.Lock()
-
 		c, cached := x.clients[x.endpoints[i]]
+		x.clientsMtx.Unlock()
 		if !cached {
 			c, err = x.createForAddress(x.endpoints[i])
 		}
-
-		x.clientsMtx.Unlock()
 
 		if !cached && err != nil {
 			x.cfg.logger.Error("could not open morph client connection",
