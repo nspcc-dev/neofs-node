@@ -35,7 +35,7 @@ func (x db) Get(lc *locodestd.LOCODE) (locode.Record, error) {
 }
 
 func addAttrKV(n *netmap.NodeInfo, key, val string) {
-	a := netmap.NewNodeAttribute()
+	var a netmap.NodeAttribute
 
 	a.SetKey(key)
 	a.SetValue(val)

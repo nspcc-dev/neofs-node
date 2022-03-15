@@ -67,7 +67,7 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 			continue
 		}
 
-		a := netmap.NewNodeAttribute()
+		var a netmap.NodeAttribute
 		a.SetKey(attrKey)
 		a.SetValue(attrVal)
 
@@ -86,8 +86,8 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	return nil
 }
 
-func uniqueAttributes(as []*netmap.NodeAttribute) map[string]*netmap.NodeAttribute {
-	mAttr := make(map[string]*netmap.NodeAttribute, len(as))
+func uniqueAttributes(as []netmap.NodeAttribute) map[string]netmap.NodeAttribute {
+	mAttr := make(map[string]netmap.NodeAttribute, len(as))
 
 	for _, attr := range as {
 		mAttr[attr.Key()] = attr

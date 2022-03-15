@@ -64,7 +64,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]Se
 	}
 
 	// make a copy to keep order consistency of the origin netmap after sorting
-	nodes := make([]*apiNetmap.Node, len(nm.Nodes))
+	nodes := make([]apiNetmap.Node, len(nm.Nodes))
 
 	copy(nodes, nm.Nodes)
 

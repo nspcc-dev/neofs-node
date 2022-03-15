@@ -52,7 +52,7 @@ func (r *Report) PassedPoR(sg *oidSDK.ID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.res.SetPassSG(append(r.res.PassSG(), sg))
+	r.res.SetPassSG(append(r.res.PassSG(), *sg))
 }
 
 // FailedPoR updates list of failed storage groups.
@@ -60,7 +60,7 @@ func (r *Report) FailedPoR(sg *oidSDK.ID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.res.SetFailSG(append(r.res.FailSG(), sg))
+	r.res.SetFailSG(append(r.res.FailSG(), *sg))
 }
 
 // SetPlacementCounters sets counters of compliance with placement.
