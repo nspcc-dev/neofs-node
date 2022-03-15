@@ -119,7 +119,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj)) // no tombstone content
 
 		content := object.NewTombstone()
-		content.SetMembers([]*oidSDK.ID{nil})
+		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
 
 		data, err := content.Marshal()
 		require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj)) // no members in tombstone
 
-		content.SetMembers([]*oidSDK.ID{testObjectID(t)})
+		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj)) // no expiration epoch in tombstone
 
-		expirationAttribute := object.NewAttribute()
+		var expirationAttribute object.Attribute
 		expirationAttribute.SetKey(objectV2.SysAttributeExpEpoch)
 		expirationAttribute.SetValue(strconv.Itoa(10))
 
@@ -161,7 +161,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj))
 
 		content := storagegroup.New()
-		content.SetMembers([]*oidSDK.ID{nil})
+		content.SetMembers([]oidSDK.ID{})
 
 		data, err := content.Marshal()
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj))
 
-		content.SetMembers([]*oidSDK.ID{testObjectID(t)})
+		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		fn := func(val string) *object.Object {
 			obj := blankValidObject(&ownerKey.PrivateKey)
 
-			a := object.NewAttribute()
+			var a object.Attribute
 			a.SetKey(objectV2.SysAttributeExpEpoch)
 			a.SetValue(val)
 
@@ -218,11 +218,11 @@ func TestFormatValidator_Validate(t *testing.T) {
 		t.Run("duplication", func(t *testing.T) {
 			obj := blankValidObject(&ownerKey.PrivateKey)
 
-			a1 := object.NewAttribute()
+			var a1 object.Attribute
 			a1.SetKey("key1")
 			a1.SetValue("val1")
 
-			a2 := object.NewAttribute()
+			var a2 object.Attribute
 			a2.SetKey("key2")
 			a2.SetValue("val2")
 
@@ -232,6 +232,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, err)
 
 			a2.SetKey(a1.Key())
+			obj.SetAttributes(a1, a2)
 
 			err = v.checkAttributes(obj)
 			require.Equal(t, errDuplAttr, err)
@@ -240,7 +241,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		t.Run("empty value", func(t *testing.T) {
 			obj := blankValidObject(&ownerKey.PrivateKey)
 
-			a := object.NewAttribute()
+			var a object.Attribute
 			a.SetKey("key")
 
 			obj.SetAttributes(a)

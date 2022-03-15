@@ -23,13 +23,13 @@ type payloadSizeLimiter struct {
 
 	currentHashers, parentHashers []*payloadChecksumHasher
 
-	previous []*oidSDK.ID
+	previous []oidSDK.ID
 
 	chunkWriter io.Writer
 
 	splitID *object.SplitID
 
-	parAttrs []*object.Attribute
+	parAttrs []object.Attribute
 }
 
 type payloadChecksumHasher struct {
@@ -79,7 +79,7 @@ func (s *payloadSizeLimiter) initialize() {
 		}
 
 		// set previous object to the last previous identifier
-		s.current.SetPreviousID(s.previous[ln-1])
+		s.current.SetPreviousID(&s.previous[ln-1])
 	}
 
 	s.initializeCurrent()
@@ -187,7 +187,7 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 	}
 
 	// save identifier of the released object
-	s.previous = append(s.previous, ids.SelfID())
+	s.previous = append(s.previous, *ids.SelfID())
 
 	if withParent {
 		// generate and release linking object

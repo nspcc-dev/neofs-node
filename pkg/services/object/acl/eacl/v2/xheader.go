@@ -5,7 +5,7 @@ import (
 )
 
 type xHeaderSource interface {
-	GetXHeaders() []*session.XHeader
+	GetXHeaders() []session.XHeader
 }
 
 type requestXHeaderSource struct {
@@ -18,9 +18,9 @@ type responseXHeaderSource struct {
 	req Request
 }
 
-func (s *requestXHeaderSource) GetXHeaders() []*session.XHeader {
+func (s *requestXHeaderSource) GetXHeaders() []session.XHeader {
 	ln := 0
-	xHdrs := make([][]*session.XHeader, 0)
+	xHdrs := make([][]session.XHeader, 0)
 
 	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		x := meta.GetXHeaders()
@@ -30,7 +30,7 @@ func (s *requestXHeaderSource) GetXHeaders() []*session.XHeader {
 		xHdrs = append(xHdrs, x)
 	}
 
-	res := make([]*session.XHeader, 0, ln)
+	res := make([]session.XHeader, 0, ln)
 
 	for i := range xHdrs {
 		for j := range xHdrs[i] {
@@ -41,9 +41,9 @@ func (s *requestXHeaderSource) GetXHeaders() []*session.XHeader {
 	return res
 }
 
-func (s *responseXHeaderSource) GetXHeaders() []*session.XHeader {
+func (s *responseXHeaderSource) GetXHeaders() []session.XHeader {
 	ln := 0
-	xHdrs := make([][]*session.XHeader, 0)
+	xHdrs := make([][]session.XHeader, 0)
 
 	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		x := meta.GetXHeaders()
@@ -53,7 +53,7 @@ func (s *responseXHeaderSource) GetXHeaders() []*session.XHeader {
 		xHdrs = append(xHdrs, x)
 	}
 
-	res := make([]*session.XHeader, 0, ln)
+	res := make([]session.XHeader, 0, ln)
 
 	for i := range xHdrs {
 		for j := range xHdrs[i] {

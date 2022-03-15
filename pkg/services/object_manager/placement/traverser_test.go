@@ -40,7 +40,7 @@ func copyVectors(v []netmap.Nodes) []netmap.Nodes {
 
 func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Container) {
 	nodes := make([]netmap.Nodes, 0, len(rs))
-	replicas := make([]*netmap.Replica, 0, len(rs))
+	replicas := make([]netmap.Replica, 0, len(rs))
 	num := uint32(0)
 
 	for i := range ss {
@@ -53,7 +53,7 @@ func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Conta
 
 		nodes = append(nodes, netmap.NodesFromInfo(ns))
 
-		s := new(netmap.Replica)
+		var s netmap.Replica
 		s.SetCount(uint32(rs[i]))
 
 		replicas = append(replicas, s)

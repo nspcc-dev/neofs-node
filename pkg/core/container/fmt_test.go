@@ -42,7 +42,7 @@ func TestCheckFormat(t *testing.T) {
 	require.NoError(t, CheckFormat(c))
 
 	// set empty value attribute
-	attr1 := container.NewAttribute()
+	var attr1 container.Attribute
 	attr1.SetKey("attr")
 	attrs := container.Attributes{attr1}
 
@@ -51,11 +51,11 @@ func TestCheckFormat(t *testing.T) {
 	require.ErrorIs(t, CheckFormat(c), errEmptyAttribute)
 
 	// add same key attribute
-	attr2 := container.NewAttribute()
+	var attr2 container.Attribute
 	attr2.SetKey(attr1.Key())
 	attr2.SetValue("val")
 
-	attr1.SetValue(attr2.Value())
+	attrs[0].SetValue(attr2.Value())
 
 	attrs = append(attrs, attr2)
 
@@ -63,7 +63,9 @@ func TestCheckFormat(t *testing.T) {
 
 	require.ErrorIs(t, CheckFormat(c), errRepeatedAttributes)
 
-	attr2.SetKey(attr1.Key() + "smth")
+	attrs[1].SetKey(attr1.Key() + "smth")
+
+	c.SetAttributes(attrs)
 
 	require.NoError(t, CheckFormat(c))
 }

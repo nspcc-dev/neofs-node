@@ -16,7 +16,7 @@ const (
 	defaultPrice    = 0
 )
 
-func parseAttributes(c *config.Config) []*netmap.NodeAttribute {
+func parseAttributes(c *config.Config) []netmap.NodeAttribute {
 	if nodeconfig.Relay(c) {
 		return nil
 	}
@@ -44,7 +44,7 @@ func listWellKnownAttrDesc() map[string]wellKnownNodeAttrDesc {
 	}
 }
 
-func addWellKnownAttributes(attrs []*netmap.NodeAttribute) []*netmap.NodeAttribute {
+func addWellKnownAttributes(attrs []netmap.NodeAttribute) []netmap.NodeAttribute {
 	mWellKnown := listWellKnownAttrDesc()
 
 	// check how user defined well-known attributes
@@ -59,11 +59,10 @@ func addWellKnownAttributes(attrs []*netmap.NodeAttribute) []*netmap.NodeAttribu
 		}
 
 		// set default value of the attribute
-		a := netmap.NewNodeAttribute()
-		a.SetKey(key)
-		a.SetValue(desc.defaultVal)
-
-		attrs = append(attrs, a)
+		index := len(attrs)
+		attrs = append(attrs, netmap.NodeAttribute{})
+		attrs[index].SetKey(key)
+		attrs[index].SetValue(desc.defaultVal)
 	}
 
 	return attrs

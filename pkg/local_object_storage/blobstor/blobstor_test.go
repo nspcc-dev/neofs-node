@@ -98,7 +98,7 @@ func TestBlobstor_needsCompression(t *testing.T) {
 	newObjectWithCt := func(contentType string) *objectSDK.Object {
 		obj := testObject(smallSizeLimit + 1)
 		if contentType != "" {
-			a := objectSDK.NewAttribute()
+			var a objectSDK.Attribute
 			a.SetKey(objectSDK.AttributeContentType)
 			a.SetValue(contentType)
 			obj.SetAttributes(a)

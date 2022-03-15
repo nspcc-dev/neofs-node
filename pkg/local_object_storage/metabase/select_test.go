@@ -178,7 +178,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	link := generateObjectWithCID(t, cid)
 	link.SetParent(parent)
 	link.SetParentID(parent.ID())
-	link.SetChildren(leftChild.ID(), rightChild.ID())
+	link.SetChildren(*leftChild.ID(), *rightChild.ID())
 
 	err = putBig(db, link)
 	require.NoError(t, err)

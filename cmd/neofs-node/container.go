@@ -468,7 +468,7 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *container
 	}
 
 	for _, aV2 := range req.GetBody().GetAnnouncements() {
-		if err := c.processLoadValue(ctx, *containerSDK.NewAnnouncementFromV2(aV2), passedRoute, w); err != nil {
+		if err := c.processLoadValue(ctx, *containerSDK.NewAnnouncementFromV2(&aV2), passedRoute, w); err != nil {
 			return nil, err
 		}
 	}

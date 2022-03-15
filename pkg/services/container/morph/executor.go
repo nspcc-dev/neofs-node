@@ -126,9 +126,9 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 		return nil, err
 	}
 
-	cidList := make([]*refs.ContainerID, 0, len(cnrs))
+	cidList := make([]refs.ContainerID, len(cnrs))
 	for i := range cnrs {
-		cidList = append(cidList, cnrs[i].ToV2())
+		cidList[i] = *cnrs[i].ToV2()
 	}
 
 	res := new(container.ListResponseBody)

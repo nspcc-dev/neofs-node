@@ -21,7 +21,7 @@ var (
 
 // ParseV2Attributes parses strings like "K1:V1/K2:V2/K3:V3" into netmap
 // attributes. Supports escaped symbols "\:", "\/" and "\\".
-func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, error) {
+func ParseV2Attributes(attrs []string, excl []string) ([]netmap.NodeAttribute, error) {
 	restricted := make(map[string]struct{}, len(excl))
 	for i := range excl {
 		restricted[excl[i]] = struct{}{}
@@ -82,7 +82,12 @@ func ParseV2Attributes(attrs []string, excl []string) ([]*netmap.NodeAttribute, 
 		}
 	}
 
-	return result, nil
+	nresult := make([]netmap.NodeAttribute, len(result))
+	for i := range result {
+		nresult[i] = *result[i]
+	}
+
+	return nresult, nil
 }
 
 func replaceEscaping(target string, rollback bool) (s string) {

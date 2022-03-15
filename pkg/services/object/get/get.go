@@ -37,7 +37,7 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			commonPrm: prm.commonPrm,
 		}
 
-		rngPrm.SetRange(rng)
+		rngPrm.SetRange(&rng)
 		rngPrm.SetChunkWriter(&hasherWrapper{
 			hash: util.NewSaltingWriter(h, prm.salt),
 		})

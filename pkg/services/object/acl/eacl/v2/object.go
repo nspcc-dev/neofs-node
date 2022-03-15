@@ -90,7 +90,7 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 
 		attrs := obj.Attributes()
 		for i := range attrs {
-			res = append(res, attrs[i])
+			res = append(res, &attrs[i]) // only pointer attrs can implement eaclSDK.Header interface
 		}
 	}
 

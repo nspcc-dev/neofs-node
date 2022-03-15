@@ -97,7 +97,7 @@ func generateAddress() *addressSDK.Address {
 }
 
 func addAttribute(obj *object.Object, key, val string) {
-	attr := object.NewAttribute()
+	var attr object.Attribute
 	attr.SetKey(key)
 	attr.SetValue(val)
 

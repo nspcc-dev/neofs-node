@@ -27,7 +27,7 @@ type RangeHashPrm struct {
 
 	hashGen func() hash.Hash
 
-	rngs []*object.Range
+	rngs []object.Range
 
 	salt []byte
 }
@@ -87,7 +87,7 @@ func (p *RangePrm) SetRange(rng *object.Range) {
 }
 
 // SetRangeList sets list of object payload ranges.
-func (p *RangeHashPrm) SetRangeList(rngs []*object.Range) {
+func (p *RangeHashPrm) SetRangeList(rngs []object.Range) {
 	p.rngs = rngs
 }
 

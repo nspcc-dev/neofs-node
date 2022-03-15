@@ -40,14 +40,14 @@ type cfg struct {
 		// must return (nil, nil) for PHY objects
 		splitInfo(*execCtx) (*object.SplitInfo, error)
 
-		children(*execCtx) ([]*oidSDK.ID, error)
+		children(*execCtx) ([]oidSDK.ID, error)
 
 		// must return (nil, nil) for 1st object in chain
 		previous(*execCtx, *oidSDK.ID) (*oidSDK.ID, error)
 	}
 
 	searcher interface {
-		splitMembers(*execCtx) ([]*oidSDK.ID, error)
+		splitMembers(*execCtx) ([]oidSDK.ID, error)
 	}
 
 	placer interface {
