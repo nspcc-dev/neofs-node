@@ -1,7 +1,6 @@
 package main
 
 import (
-	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -25,8 +24,6 @@ type valueWithTime struct {
 
 // entity that provides TTL cache interface.
 type ttlNetCache struct {
-	mtx sync.Mutex
-
 	ttl time.Duration
 
 	sz int
@@ -55,9 +52,6 @@ func newNetworkTTLCache(sz int, ttl time.Duration, netRdr netValueReader) *ttlNe
 //
 // returned value should not be modified.
 func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
 	val, ok := c.cache.Peek(key)
 	if ok {
 		valWithTime := val.(*valueWithTime)
@@ -83,16 +77,10 @@ func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
 }
 
 func (c *ttlNetCache) remove(key interface{}) {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
 	c.cache.Remove(key)
 }
 
 func (c *ttlNetCache) keys() []interface{} {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
 	return c.cache.Keys()
 }
 
