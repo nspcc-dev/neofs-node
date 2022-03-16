@@ -35,5 +35,3 @@ require (
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 )
-
-replace github.com/nspcc-dev/neofs-sdk-go => github.com/alexvanin/neofs-sdk-go v0.0.0-20220315105558-a684dd7186a2
