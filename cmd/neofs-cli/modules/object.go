@@ -109,6 +109,8 @@ var (
 	}
 )
 
+const notificationFlag = "notify"
+
 const (
 	hashSha256 = "sha256"
 	hashTz     = "tz"
@@ -145,6 +147,8 @@ func initObjectPutCmd() {
 	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
 	flags.Uint64VarP(&putExpiredOn, putExpiresOnFlag, "e", 0, "Last epoch in the life of the object")
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
+
+	flags.String(notificationFlag, "", "Object notification in the form of *epoch*:*topic*; '-' topic means using default")
 }
 
 func initObjectDeleteCmd() {
@@ -443,6 +447,13 @@ func putObject(cmd *cobra.Command, _ []string) {
 	obj.SetContainerID(cid)
 	obj.SetOwnerID(ownerID)
 	obj.SetAttributes(attrs...)
+
+	notificationInfo, err := parseObjectNotifications(cmd)
+	exitOnErr(cmd, errf("can't parse object notification information: %w", err))
+
+	if notificationInfo != nil {
+		obj.SetNotification(*notificationInfo)
+	}
 
 	var prm internalclient.PutObjectPrm
 
@@ -799,6 +810,42 @@ func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 	}
 
 	return attrs, nil
+}
+
+func parseObjectNotifications(cmd *cobra.Command) (*object.NotificationInfo, error) {
+	const (
+		separator       = ":"
+		useDefaultTopic = "-"
+	)
+
+	raw := cmd.Flag(notificationFlag).Value.String()
+	if raw == "" {
+		return nil, nil
+	}
+
+	rawSlice := strings.Split(raw, separator)
+	if len(rawSlice) != 2 {
+		return nil, fmt.Errorf("notification must be in the form of: *epoch*%s*topic*, got %s", separator, raw)
+	}
+
+	ni := new(object.NotificationInfo)
+
+	epoch, err := strconv.ParseUint(rawSlice[0], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse notification epoch %s: %w", rawSlice[0], err)
+	}
+
+	ni.SetEpoch(epoch)
+
+	if rawSlice[1] == "" {
+		return nil, fmt.Errorf("incorrect empty topic: use %s to force using default topic", useDefaultTopic)
+	}
+
+	if rawSlice[1] != useDefaultTopic {
+		ni.SetTopic(rawSlice[1])
+	}
+
+	return ni, nil
 }
 
 func getCID(cmd *cobra.Command) (*cid.ID, error) {
