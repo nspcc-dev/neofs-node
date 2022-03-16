@@ -223,7 +223,7 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 		sgInfo, err := c.prm.SGStorage.SGInfo(addr)
 		if err != nil {
 			ctx.log.Error("could not get SG info",
-				zap.Stringer("id", &passSG[i]), // stringer defined on pointer
+				zap.String("id", passSG[i].String()),
 			)
 
 			return false // we also can continue and calculate at least some part

@@ -60,7 +60,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 		if err != nil {
 			c.log.Info("can't build placement for storage group member",
 				zap.Stringer("sg", sg),
-				zap.Stringer("member_id", &members[i]), // stringer defined on pointer
+				zap.String("member_id", members[i].String()),
 			)
 
 			continue
@@ -82,7 +82,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 			if err != nil {
 				c.log.Debug("can't head object",
 					zap.String("remote_node", hex.EncodeToString(flat[j].PublicKey())),
-					zap.Stringer("oid", &members[i])) // stringer defined on pointer
+					zap.String("oid", members[i].String()))
 
 				continue
 			}
@@ -99,7 +99,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 				})
 				if err != nil {
 					c.log.Debug("can't concatenate tz hash",
-						zap.Stringer("oid", &members[i]), // stringer defined on pointer
+						zap.String("oid", members[i].String()),
 						zap.String("error", err.Error()))
 
 					break

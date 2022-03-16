@@ -602,7 +602,7 @@ func getSessionToken(path string) (*session.Token, error) {
 
 func prettyPrintContainerList(cmd *cobra.Command, list []cid.ID) {
 	for i := range list {
-		cmd.Println(&list[i]) // stringer defined on pointer
+		cmd.Println(list[i].String())
 	}
 }
 

@@ -894,7 +894,7 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 	}
 
 	for _, child := range obj.Children() {
-		cmd.Printf("Split ChildID: %s\n", &child) // stringer defined on pointer
+		cmd.Printf("Split ChildID: %s\n", child.String())
 	}
 
 	if signature := obj.Signature(); signature != nil {

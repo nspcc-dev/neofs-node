@@ -261,7 +261,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 		cmd.Println("Members:")
 
 		for i := range members {
-			cmd.Printf("\t%s\n", &members[i]) // stringer defined on pointer
+			cmd.Printf("\t%s\n", members[i].String())
 		}
 	}
 }
