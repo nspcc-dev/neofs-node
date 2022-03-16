@@ -440,7 +440,6 @@ func putObject(cmd *cobra.Command, _ []string) {
 			attrs[index].SetKey(objectV2.SysAttributeExpEpoch)
 			attrs[index].SetValue(expAttrValue)
 		}
-
 	}
 
 	obj := object.New()
@@ -823,7 +822,7 @@ func parseObjectNotifications(cmd *cobra.Command) (*object.NotificationInfo, err
 		return nil, nil
 	}
 
-	rawSlice := strings.Split(raw, separator)
+	rawSlice := strings.SplitN(raw, separator, 2)
 	if len(rawSlice) != 2 {
 		return nil, fmt.Errorf("notification must be in the form of: *epoch*%s*topic*, got %s", separator, raw)
 	}
