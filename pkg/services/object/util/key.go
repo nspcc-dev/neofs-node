@@ -2,16 +2,11 @@ package util
 
 import (
 	"crypto/ecdsa"
-	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-)
-
-var (
-	errNoSessionToken      = errors.New("session token does not exist")
-	errSessionTokenExpired = errors.New("session token has been expired")
 )
 
 // KeyStorage represents private key storage of the local node.
@@ -41,11 +36,16 @@ func (s *KeyStorage) GetKey(token *session.Token) (*ecdsa.PrivateKey, error) {
 		pToken := s.tokenStore.Get(token.OwnerID(), token.ID())
 		if pToken != nil {
 			if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
-				return nil, errSessionTokenExpired
+				var errExpired apistatus.SessionTokenExpired
+
+				return nil, errExpired
 			}
 			return pToken.SessionKey(), nil
 		}
-		return nil, errNoSessionToken
+
+		var errNotFound apistatus.SessionTokenNotFound
+
+		return nil, errNotFound
 	}
 
 	return s.key, nil
