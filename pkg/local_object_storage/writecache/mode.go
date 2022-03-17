@@ -14,6 +14,9 @@ const (
 
 	// ModeReadOnly is a mode in which write-cache doesn't flush anything to a metabase.
 	ModeReadOnly
+
+	// ModeDegraded is similar to a shard's degraded mode.
+	ModeDegraded
 )
 
 // ErrReadOnly is returned when Put/Write is performed in a read-only mode.
@@ -49,4 +52,10 @@ func (c *cache) SetMode(m Mode) {
 		c.log.Info("waiting for channels to flush")
 		time.Sleep(time.Second)
 	}
+}
+
+// readOnly returns true if current mode is read-only.
+// `c.modeMtx` must be taken.
+func (c *cache) readOnly() bool {
+	return c.mode != ModeReadWrite
 }

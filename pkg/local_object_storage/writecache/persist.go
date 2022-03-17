@@ -21,7 +21,7 @@ func (c *cache) persistLoop() {
 		select {
 		case <-tick.C:
 			c.modeMtx.RLock()
-			if c.mode == ModeReadOnly {
+			if c.readOnly() {
 				c.modeMtx.RUnlock()
 				continue
 			}

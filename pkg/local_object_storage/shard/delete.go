@@ -31,7 +31,7 @@ func (p *DeletePrm) WithAddresses(addr ...*addressSDK.Address) *DeletePrm {
 // Delete removes data from the shard's writeCache, metaBase and
 // blobStor.
 func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
-	if s.GetMode() == ModeReadOnly {
+	if s.GetMode() != ModeReadWrite {
 		return nil, ErrReadOnlyMode
 	}
 

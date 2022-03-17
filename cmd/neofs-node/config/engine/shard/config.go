@@ -77,6 +77,8 @@ func (x *Config) Mode() (m shard.Mode) {
 		m = shard.ModeReadWrite
 	case "read-only":
 		m = shard.ModeReadOnly
+	case "degraded":
+		m = shard.ModeDegraded
 	default:
 		panic(fmt.Sprintf("unknown shard mode: %s", s))
 	}

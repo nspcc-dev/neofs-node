@@ -14,7 +14,7 @@ import (
 //
 // Locked list should be unique. Panics if it is empty.
 func (s *Shard) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
-	if s.GetMode() == ModeReadOnly {
+	if s.GetMode() != ModeReadWrite {
 		return ErrReadOnlyMode
 	}
 

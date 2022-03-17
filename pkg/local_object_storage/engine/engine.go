@@ -50,13 +50,13 @@ func (e *StorageEngine) reportShardError(
 		return
 	}
 
-	err = sh.SetMode(shard.ModeReadOnly)
+	err = sh.SetMode(shard.ModeDegraded)
 	if err != nil {
-		e.log.Error("failed to move shard in read-only mode",
+		e.log.Error("failed to move shard in degraded mode",
 			zap.Uint32("error count", errCount),
 			zap.Error(err))
 	} else {
-		e.log.Info("shard is moved in read-only due to error threshold",
+		e.log.Info("shard is moved in degraded mode due to error threshold",
 			zap.Stringer("shard_id", sh.ID()),
 			zap.Uint32("error count", errCount))
 	}

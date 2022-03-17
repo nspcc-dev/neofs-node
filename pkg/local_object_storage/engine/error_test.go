@@ -118,7 +118,7 @@ func TestErrorReporting(t *testing.T) {
 		for i := uint32(0); i < 2; i++ {
 			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
-			checkShardState(t, e, id[0], errThreshold+i, shard.ModeReadOnly)
+			checkShardState(t, e, id[0], errThreshold+i, shard.ModeDegraded)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
 		}
 
@@ -185,7 +185,7 @@ func TestBlobstorFailback(t *testing.T) {
 		require.True(t, errors.Is(err, object.ErrRangeOutOfBounds), "got: %v", err)
 	}
 
-	checkShardState(t, e, id[0], 4, shard.ModeReadOnly)
+	checkShardState(t, e, id[0], 4, shard.ModeDegraded)
 	checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
 }
 

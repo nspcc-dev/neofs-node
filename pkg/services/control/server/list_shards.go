@@ -40,6 +40,8 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 			mode = control.ShardMode_READ_WRITE
 		case shard.ModeReadOnly:
 			mode = control.ShardMode_READ_ONLY
+		case shard.ModeDegraded:
+			mode = control.ShardMode_DEGRADED
 		default:
 			mode = control.ShardMode_SHARD_MODE_UNDEFINED
 		}

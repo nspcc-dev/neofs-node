@@ -36,7 +36,7 @@ func (p *IterationPrm) WithIgnoreErrors(ignore bool) *IterationPrm {
 func (c *cache) Iterate(prm *IterationPrm) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
-	if c.mode != ModeReadOnly {
+	if !c.readOnly() {
 		return nil
 	}
 
