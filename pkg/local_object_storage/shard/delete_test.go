@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +51,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		require.NoError(t, err)
 
 		_, err = sh.Get(getPrm)
-		require.EqualError(t, err, object.ErrNotFound.Error())
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
 	t.Run("small object", func(t *testing.T) {
@@ -73,6 +74,6 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		require.NoError(t, err)
 
 		_, err = sh.Get(getPrm)
-		require.EqualError(t, err, object.ErrNotFound.Error())
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }

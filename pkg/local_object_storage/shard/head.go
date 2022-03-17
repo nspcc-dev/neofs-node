@@ -1,11 +1,10 @@
 package shard
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
@@ -51,6 +50,9 @@ func (r *HeadRes) Object() *objectSDK.Object {
 // Head reads header of the object from the shard.
 //
 // Returns any error encountered.
+//
+// Returns apistatus.ObjectNotFound if object is missing in Shard.
+// Returns apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
 func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
 	// object can be saved in write-cache (if enabled) or in metabase
 
@@ -61,7 +63,7 @@ func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
 			return &HeadRes{
 				obj: header,
 			}, nil
-		} else if !errors.Is(err, object.ErrNotFound) {
+		} else if !writecache.IsErrNotFound(err) {
 			// in this case we think that object is presented in write-cache, but corrupted
 			return nil, fmt.Errorf("could not read header from write-cache: %w", err)
 		}

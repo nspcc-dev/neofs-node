@@ -1,7 +1,7 @@
 package blobovnicza
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -32,7 +32,7 @@ func (p *GetRes) Object() []byte {
 // Returns any error encountered that
 // did not allow to completely read the object.
 //
-// Returns ErrNotFound if requested object is not
+// Returns apistatus.ObjectNotFound if requested object is not
 // presented in Blobovnicza.
 func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 	var (
@@ -60,7 +60,9 @@ func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 	}
 
 	if data == nil {
-		return nil, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, errNotFound
 	}
 
 	return &GetRes{

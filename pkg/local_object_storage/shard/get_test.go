@@ -110,10 +110,10 @@ func testGet(t *testing.T, sh *shard.Shard, getPrm *shard.GetPrm, hasWriteCache 
 	res, err := sh.Get(getPrm)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
-			if errors.Is(err, object.ErrNotFound) {
+			if shard.IsErrNotFound(err) {
 				res, err = sh.Get(getPrm)
 			}
-			return !errors.Is(err, object.ErrNotFound)
+			return !shard.IsErrNotFound(err)
 		}, time.Second, time.Millisecond*100)
 	}
 	return res, err

@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
@@ -62,7 +64,8 @@ func (r *GetRes) HasMeta() bool {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns object.ErrNotFound if requested object is missing in shard.
+// Returns apistatus.ObjectNotFound if requested object is missing in shard.
+// Returns apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
 func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	var big, small storFetcher
 
@@ -112,7 +115,7 @@ func (s *Shard) fetchObjectData(addr *addressSDK.Address, skipMeta bool, big, sm
 			return res, false, nil
 		}
 
-		if errors.Is(err, object.ErrNotFound) {
+		if writecache.IsErrNotFound(err) {
 			s.log.Debug("object is missing in write-cache")
 		} else {
 			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
@@ -134,7 +137,9 @@ func (s *Shard) fetchObjectData(addr *addressSDK.Address, skipMeta bool, big, sm
 	}
 
 	if !exists {
-		return nil, false, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, false, errNotFound
 	}
 
 	blobovniczaID, err := meta.IsSmall(s.metaBase, addr)

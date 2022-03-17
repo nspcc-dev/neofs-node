@@ -148,8 +148,8 @@ func (x GetObjectRes) Object() *object.Object {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 // Returns:
-//  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
-//  object.ErrAlreadyRemoved error if requested object is marked to be removed.
+//  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
+//  error of type *apistatus.ObjectAlreadyRemoved if requested object is marked to be removed.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if prm.tokenSession != nil {
 		prm.cliPrm.WithinSession(*prm.tokenSession)
@@ -192,8 +192,6 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("read payload: %w", err)
 	}
-
-	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
 	obj.SetPayload(buf)
 
@@ -245,8 +243,8 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 // Returns:
-//  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
-//  object.ErrAlreadyRemoved error if requested object is marked to be removed.
+//  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
+//  error of type *apistatus.ObjectAlreadyRemoved if requested object is marked to be removed.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
@@ -271,8 +269,6 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 	}
-
-	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
 	var hdr object.Object
 
@@ -338,8 +334,8 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 //
 // Returns any error prevented the operation from completing correctly in error return.
 // Returns:
-//  error of type *object.SplitInfoError if object if raw flag is set and requested object is virtual;
-//  object.ErrAlreadyRemoved error if requested object is marked to be removed.
+//  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
+//  error of type *apistatus.ObjectAlreadyRemoved if requested object is marked to be removed.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
@@ -367,8 +363,6 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read payload: %w", err)
 	}
-
-	// FIXME: #1158 object.ErrAlreadyRemoved never returns
 
 	return &PayloadRangeRes{
 		data: data,

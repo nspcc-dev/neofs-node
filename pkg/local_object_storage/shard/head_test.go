@@ -83,10 +83,10 @@ func testHead(t *testing.T, sh *shard.Shard, headPrm *shard.HeadPrm, hasWriteCac
 	res, err := sh.Head(headPrm)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
-			if errors.Is(err, object.ErrNotFound) {
+			if shard.IsErrNotFound(err) {
 				res, err = sh.Head(headPrm)
 			}
-			return !errors.Is(err, object.ErrNotFound)
+			return !shard.IsErrNotFound(err)
 		}, time.Second, time.Millisecond*100)
 	}
 	return res, err

@@ -3,14 +3,16 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // Delete removes object from write-cache.
+//
+// Returns apistatus.ObjectNotFound is object is missing in write-cache.
 func (c *cache) Delete(addr *addressSDK.Address) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
@@ -58,7 +60,9 @@ func (c *cache) Delete(addr *addressSDK.Address) error {
 
 	err := c.fsTree.Delete(addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
-		err = object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		err = errNotFound
 	}
 
 	if err == nil {

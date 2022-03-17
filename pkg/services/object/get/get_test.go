@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -106,7 +107,9 @@ func newTestClient() *testClient {
 func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, error) {
 	v, ok := c.results[exec.address().String()]
 	if !ok {
-		return nil, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, errNotFound
 	}
 
 	if v.err != nil {
@@ -131,7 +134,9 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, error) {
 	)
 
 	if _, ok = s.inhumed[sAddr]; ok {
-		return nil, object.ErrAlreadyRemoved
+		var errRemoved apistatus.ObjectAlreadyRemoved
+
+		return nil, errRemoved
 	}
 
 	if info, ok := s.virtual[sAddr]; ok {
@@ -142,7 +147,9 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, error) {
 		return cutToRange(obj, exec.ctxRange()), nil
 	}
 
-	return nil, object.ErrNotFound
+	var errNotFound apistatus.ObjectNotFound
+
+	return nil, errNotFound
 }
 
 func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
@@ -309,19 +316,19 @@ func TestGetLocalOnly(t *testing.T) {
 
 		err := svc.Get(ctx, p)
 
-		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		rngPrm := newRngPrm(false, nil, 0, 0)
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
-		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		headPrm := newHeadPrm(false, nil)
 		headPrm.WithAddress(addr)
 
 		err = svc.Head(ctx, headPrm)
-		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 	})
 
 	t.Run("404", func(t *testing.T) {
@@ -336,20 +343,20 @@ func TestGetLocalOnly(t *testing.T) {
 
 		err := svc.Get(ctx, p)
 
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		rngPrm := newRngPrm(false, nil, 0, 0)
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
 
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		headPrm := newHeadPrm(false, nil)
 		headPrm.WithAddress(addr)
 
 		err = svc.Head(ctx, headPrm)
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
 	t.Run("VIRTUAL", func(t *testing.T) {
@@ -599,7 +606,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		c1.addResult(addr, nil, errors.New("any error"))
 
 		c2 := newTestClient()
-		c2.addResult(addr, nil, object.ErrAlreadyRemoved)
+		c2.addResult(addr, nil, new(apistatus.ObjectAlreadyRemoved))
 
 		svc := newSvc(builder, &testClientCache{
 			clients: map[string]*testClient{
@@ -612,19 +619,19 @@ func TestGetRemoteSmall(t *testing.T) {
 		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
-		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+		require.ErrorAs(t, err, new(*apistatus.ObjectAlreadyRemoved))
 
 		rngPrm := newRngPrm(false, nil, 0, 0)
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
-		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+		require.ErrorAs(t, err, new(*apistatus.ObjectAlreadyRemoved))
 
 		headPrm := newHeadPrm(false, nil)
 		headPrm.WithAddress(addr)
 
 		err = svc.Head(ctx, headPrm)
-		require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+		require.ErrorAs(t, err, new(*apistatus.ObjectAlreadyRemoved))
 	})
 
 	t.Run("404", func(t *testing.T) {
@@ -656,19 +663,19 @@ func TestGetRemoteSmall(t *testing.T) {
 		p.WithAddress(addr)
 
 		err := svc.Get(ctx, p)
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		rngPrm := newRngPrm(false, nil, 0, 0)
 		rngPrm.WithAddress(addr)
 
 		err = svc.GetRange(ctx, rngPrm)
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		headPrm := newHeadPrm(false, nil)
 		headPrm.WithAddress(addr)
 
 		err = svc.Head(ctx, headPrm)
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
 	t.Run("VIRTUAL", func(t *testing.T) {
@@ -700,11 +707,11 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
-				c1.addResult(splitAddr, nil, object.ErrNotFound)
+				c1.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				c2 := newTestClient()
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
-				c2.addResult(splitAddr, nil, object.ErrNotFound)
+				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
@@ -726,13 +733,13 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 				rngPrm := newRngPrm(false, nil, 0, 0)
 				rngPrm.WithAddress(addr)
 
 				err = svc.GetRange(ctx, rngPrm)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
@@ -776,7 +783,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
 				c2.addResult(linkAddr, linkingObj, nil)
 				c2.addResult(child1Addr, children[0], nil)
-				c2.addResult(child2Addr, nil, object.ErrNotFound)
+				c2.addResult(child2Addr, nil, apistatus.ObjectNotFound{})
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
@@ -800,13 +807,13 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 				rngPrm := newRngPrm(false, NewSimpleObjectWriter(), 0, 1)
 				rngPrm.WithAddress(addr)
 
 				err = svc.GetRange(ctx, rngPrm)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
 			t.Run("OK", func(t *testing.T) {
@@ -913,11 +920,11 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
-				c1.addResult(splitAddr, nil, object.ErrNotFound)
+				c1.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				c2 := newTestClient()
 				c2.addResult(addr, nil, objectSDK.NewSplitInfoError(splitInfo))
-				c2.addResult(splitAddr, nil, object.ErrNotFound)
+				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
@@ -939,13 +946,13 @@ func TestGetRemoteSmall(t *testing.T) {
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 				rngPrm := newRngPrm(false, nil, 0, 0)
 				rngPrm.WithAddress(addr)
 
 				err = svc.GetRange(ctx, rngPrm)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
@@ -1000,19 +1007,19 @@ func TestGetRemoteSmall(t *testing.T) {
 				testHeadVirtual(svc, addr, splitInfo)
 
 				headSvc := newTestClient()
-				headSvc.addResult(preRightAddr, nil, object.ErrNotFound)
+				headSvc.addResult(preRightAddr, nil, apistatus.ObjectNotFound{})
 
 				p := newPrm(false, NewSimpleObjectWriter())
 				p.WithAddress(addr)
 
 				err := svc.Get(ctx, p)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 				rngPrm := newRngPrm(false, nil, 0, 1)
 				rngPrm.WithAddress(addr)
 
 				err = svc.GetRange(ctx, rngPrm)
-				require.True(t, errors.Is(err, object.ErrNotFound))
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			})
 
 			t.Run("OK", func(t *testing.T) {
@@ -1180,7 +1187,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 	p.WithAddress(addr)
 
 	err := svc.Get(ctx, p)
-	require.True(t, errors.Is(err, object.ErrNotFound))
+	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 	commonPrm.SetNetmapLookupDepth(1)
 
@@ -1203,7 +1210,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 	rp.SetRange(r)
 
 	err = svc.GetRange(ctx, rp)
-	require.True(t, errors.Is(err, object.ErrNotFound))
+	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 	w = NewSimpleObjectWriter()
 	rp.SetChunkWriter(w)
@@ -1220,7 +1227,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 	hp.WithAddress(addr)
 
 	err = svc.Head(ctx, hp)
-	require.True(t, errors.Is(err, object.ErrNotFound))
+	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 	w = NewSimpleObjectWriter()
 	hp.SetHeaderWriter(w)

@@ -20,9 +20,13 @@ func TestReset(t *testing.T) {
 
 	addrToInhume := generateAddress()
 
-	assertExists := func(addr *addressSDK.Address, expExists bool, expErr error) {
+	assertExists := func(addr *addressSDK.Address, expExists bool, assertErr func(error) bool) {
 		exists, err := meta.Exists(db, addr)
-		require.ErrorIs(t, err, expErr)
+		if assertErr != nil {
+			require.True(t, assertErr(err))
+		} else {
+			require.NoError(t, err)
+		}
 		require.Equal(t, expExists, exists)
 	}
 
@@ -36,7 +40,7 @@ func TestReset(t *testing.T) {
 	require.NoError(t, err)
 
 	assertExists(addr, true, nil)
-	assertExists(addrToInhume, false, object.ErrAlreadyRemoved)
+	assertExists(addrToInhume, false, meta.IsErrRemoved)
 
 	err = db.Reset()
 	require.NoError(t, err)

@@ -3,9 +3,9 @@ package blobstor
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
 // DeleteBigPrm groups the parameters of DeleteBig operation.
@@ -21,11 +21,13 @@ type DeleteBigRes struct{}
 // Returns any error encountered that did not allow
 // to completely remove the object.
 //
-// Returns ErrNotFound if there is no object to delete.
+// Returns apistatus.ObjectNotFound if there is no object to delete.
 func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
 	err := b.fsTree.Delete(prm.addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
-		err = object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		err = errNotFound
 	}
 
 	if err == nil {

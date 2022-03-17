@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -114,7 +113,7 @@ func (s *Shard) refillMetabase() error {
 		}
 
 		err := meta.Put(s.metaBase, obj, blzID)
-		if err != nil && !errors.Is(err, object.ErrAlreadyRemoved) {
+		if err != nil && !meta.IsErrRemoved(err) {
 			return err
 		}
 

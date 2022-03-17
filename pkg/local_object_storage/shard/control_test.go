@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -99,7 +100,7 @@ func TestRefillMetabase(t *testing.T) {
 		res, err := sh.Head(headPrm.WithAddress(addr))
 
 		if expObj == nil {
-			require.ErrorIs(t, err, object.ErrNotFound)
+			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			return
 		}
 
@@ -122,9 +123,9 @@ func TestRefillMetabase(t *testing.T) {
 			_, err := sh.Head(headPrm.WithAddress(member))
 
 			if exists {
-				require.ErrorIs(t, err, object.ErrAlreadyRemoved)
+				require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 			} else {
-				require.ErrorIs(t, err, object.ErrNotFound)
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 			}
 		}
 	}
