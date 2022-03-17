@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -116,7 +115,7 @@ func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePr
 				WithAddress(addr),
 			)
 			if err != nil {
-				if errors.Is(err, object.ErrAlreadyRemoved) {
+				if shard.IsErrRemoved(err) {
 					// inhumed once - no need to be inhumed again
 					status = 2
 					return true

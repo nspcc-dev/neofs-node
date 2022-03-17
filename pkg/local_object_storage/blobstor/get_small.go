@@ -18,6 +18,8 @@ type GetSmallRes struct {
 //
 // Returns any error encountered that
 // did not allow to completely read the object.
+//
+// Returns apistatus.ObjectNotFound if requested object is missing in blobovnicza(s).
 func (b *BlobStor) GetSmall(prm *GetSmallPrm) (*GetSmallRes, error) {
 	return b.blobovniczas.get(prm)
 }

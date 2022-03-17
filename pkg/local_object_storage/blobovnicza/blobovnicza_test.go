@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -34,7 +33,7 @@ func testAddress() *addressSDK.Address {
 	return addr
 }
 
-func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error) *addressSDK.Address {
+func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, assertErrPut, assertErrGet func(error) bool) *addressSDK.Address {
 	// create binary object
 	data := make([]byte, sz)
 
@@ -45,26 +44,34 @@ func testPutGet(t *testing.T, blz *Blobovnicza, sz uint64, expPut, expGet error)
 	pPut.SetAddress(addr)
 	pPut.SetMarshaledObject(data)
 	_, err := blz.Put(pPut)
-	require.True(t, errors.Is(err, expPut))
+	if assertErrPut != nil {
+		require.True(t, assertErrPut(err))
+	} else {
+		require.NoError(t, err)
+	}
 
-	if expPut != nil {
+	if assertErrPut != nil {
 		return nil
 	}
 
-	testGet(t, blz, addr, data, expGet)
+	testGet(t, blz, addr, data, assertErrGet)
 
 	return addr
 }
 
-func testGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, expObj []byte, expErr error) {
+func testGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, expObj []byte, assertErr func(error) bool) {
 	pGet := new(GetPrm)
 	pGet.SetAddress(addr)
 
 	// try to read object from Blobovnicza
 	res, err := blz.Get(pGet)
-	require.True(t, errors.Is(err, expErr))
+	if assertErr != nil {
+		require.True(t, assertErr(err))
+	} else {
+		require.NoError(t, err)
+	}
 
-	if expErr == nil {
+	if assertErr == nil {
 		require.Equal(t, expObj, res.Object())
 	}
 }
@@ -94,7 +101,7 @@ func TestBlobovnicza(t *testing.T) {
 	require.NoError(t, blz.Init())
 
 	// try to read non-existent address
-	testGet(t, blz, testAddress(), nil, object.ErrNotFound)
+	testGet(t, blz, testAddress(), nil, IsErrNotFound)
 
 	filled := uint64(15 * 1 << 10)
 
@@ -109,7 +116,7 @@ func TestBlobovnicza(t *testing.T) {
 	require.NoError(t, err)
 
 	// should return 404
-	testGet(t, blz, addr, nil, object.ErrNotFound)
+	testGet(t, blz, addr, nil, IsErrNotFound)
 
 	// fill Blobovnicza fully
 	for ; filled < sizeLim; filled += objSizeLim {
@@ -117,7 +124,9 @@ func TestBlobovnicza(t *testing.T) {
 	}
 
 	// from now objects should not be saved
-	testPutGet(t, blz, 1024, ErrFull, nil)
+	testPutGet(t, blz, 1024, func(err error) bool {
+		return errors.Is(err, ErrFull)
+	}, nil)
 
 	require.NoError(t, blz.Close())
 }

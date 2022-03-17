@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -14,6 +15,7 @@ func (exec *execCtx) executeLocal() {
 	exec.collectedObject, err = exec.svc.localStorage.get(exec)
 
 	var errSplitInfo *objectSDK.SplitInfoError
+	var errRemoved apistatus.ObjectAlreadyRemoved
 
 	switch {
 	default:
@@ -27,9 +29,9 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusOK
 		exec.err = nil
 		exec.writeCollectedObject()
-	case errors.Is(err, object.ErrAlreadyRemoved):
+	case errors.As(err, &errRemoved):
 		exec.status = statusINHUMED
-		exec.err = object.ErrAlreadyRemoved
+		exec.err = errRemoved
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())

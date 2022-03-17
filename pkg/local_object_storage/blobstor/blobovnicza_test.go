@@ -2,13 +2,13 @@ package blobstor
 
 import (
 	"crypto/sha256"
-	"errors"
 	"math/rand"
 	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -153,9 +153,9 @@ func TestBlobovniczas(t *testing.T) {
 		gPrm.SetAddress(addrList[i])
 
 		_, err = b.get(gPrm)
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
 		_, err = b.delete(dPrm)
-		require.True(t, errors.Is(err, object.ErrNotFound))
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
 }

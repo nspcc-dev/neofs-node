@@ -17,7 +17,7 @@ type DeleteSmallRes struct{}
 // Returns any error encountered that did not allow
 // to completely remove the object.
 //
-// Returns ErrObjectNotFound if there is no object to delete.
+// Returns apistatus.ObjectNotFound if there is no object to delete.
 func (b *BlobStor) DeleteSmall(prm *DeleteSmallPrm) (*DeleteSmallRes, error) {
 	return b.blobovniczas.delete(prm)
 }

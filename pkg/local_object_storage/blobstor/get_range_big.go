@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -26,12 +27,15 @@ type GetRangeBigRes struct {
 // did not allow to completely read the object payload range.
 //
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
+// Returns apistatus.ObjectNotFound if object is missing.
 func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
 		if errors.Is(err, fstree.ErrFileNotFound) {
-			return nil, object.ErrNotFound
+			var errNotFound apistatus.ObjectNotFound
+
+			return nil, errNotFound
 		}
 
 		return nil, fmt.Errorf("could not read object from fs tree: %w", err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
@@ -97,7 +98,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr *addressSDK.Address, refCounter referenc
 	// unmarshal object, work only with physically stored (raw == true) objects
 	obj, err := db.get(tx, addr, false, true)
 	if err != nil {
-		if errors.Is(err, object.ErrNotFound) {
+		if errors.As(err, new(apistatus.ObjectNotFound)) {
 			return nil
 		}
 

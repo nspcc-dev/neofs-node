@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.uber.org/zap"
@@ -58,8 +59,8 @@ func (r *RngRes) Object() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns ErrNotFound if requested object is missing in local storage.
-// Returns ErrAlreadyRemoved if requested object is inhumed.
+// Returns apistatus.ObjectNotFound if requested object is missing in local storage.
+// Returns apistatus.ObjectAlreadyRemoved if requested object is inhumed.
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).
@@ -81,8 +82,10 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 		obj   *objectSDK.Object
 		siErr *objectSDK.SplitInfoError
 
+		errNotFound apistatus.ObjectNotFound
+
 		outSI    *objectSDK.SplitInfo
-		outError = object.ErrNotFound
+		outError error = errNotFound
 
 		shardWithMeta hashedShard
 		metaError     error
@@ -100,7 +103,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 				metaError = err
 			}
 			switch {
-			case errors.Is(err, object.ErrNotFound):
+			case shard.IsErrNotFound(err):
 				return false // ignore, go to next shard
 			case errors.As(err, &siErr):
 				siErr = err.(*objectSDK.SplitInfoError)
@@ -118,7 +121,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 
 				return false
 			case
-				errors.Is(err, object.ErrAlreadyRemoved),
+				shard.IsErrRemoved(err),
 				errors.Is(err, object.ErrRangeOutOfBounds):
 				outError = err
 
@@ -139,7 +142,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 	}
 
 	if obj == nil {
-		if shardWithMeta.Shard == nil || !errors.Is(outError, object.ErrNotFound) {
+		if shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
 			return nil, outError
 		}
 

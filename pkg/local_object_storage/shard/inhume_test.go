@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -49,5 +50,5 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	require.NoError(t, err)
 
 	_, err = sh.Get(getPrm)
-	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
+	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 }

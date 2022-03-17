@@ -167,6 +167,9 @@ func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo
 	return res, nil
 }
 
+// SGInfo returns audit.SGInfo by object address.
+//
+// Returns apistatus.ObjectNotFound if storage group is missing.
 func (s settlementDeps) SGInfo(addr *addressSDK.Address) (audit.SGInfo, error) {
 	cn, nm, err := s.buildContainer(0, addr.ContainerID())
 	if err != nil {

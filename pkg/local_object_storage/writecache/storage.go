@@ -7,10 +7,10 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -103,7 +103,9 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 		for i := range keys {
 			has := b.Get(keys[i])
 			if has == nil {
-				return object.ErrNotFound
+				var errNotFound apistatus.ObjectNotFound
+
+				return errNotFound
 			}
 			if err := b.Delete(keys[i]); err != nil {
 				return err

@@ -3,7 +3,7 @@ package meta
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -69,6 +69,9 @@ func GetRaw(db *DB, addr *addressSDK.Address, raw bool) (*objectSDK.Object, erro
 }
 
 // Get returns object header for specified address.
+//
+// Returns apistatus.ObjectNotFound if object is missing in DB.
+// Returns apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	res = new(GetRes)
 
@@ -89,9 +92,13 @@ func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bo
 	if checkGraveyard {
 		switch inGraveyard(tx, addr) {
 		case 1:
-			return nil, object.ErrNotFound
+			var errNotFound apistatus.ObjectNotFound
+
+			return nil, errNotFound
 		case 2:
-			return nil, object.ErrAlreadyRemoved
+			var errRemoved apistatus.ObjectAlreadyRemoved
+
+			return nil, errRemoved
 		}
 	}
 
@@ -139,7 +146,9 @@ func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*objectS
 
 	parentBucket := tx.Bucket(parentBucketName(cid))
 	if parentBucket == nil {
-		return nil, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, errNotFound
 	}
 
 	relativeLst, err := decodeList(parentBucket.Get(key))
@@ -148,7 +157,9 @@ func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*objectS
 	}
 
 	if len(relativeLst) == 0 { // this should never happen though
-		return nil, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, errNotFound
 	}
 
 	// pick last item, for now there is not difference which address to pick
@@ -167,7 +178,9 @@ func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*objectS
 	par := child.Parent()
 
 	if par == nil { // this should never happen though
-		return nil, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, errNotFound
 	}
 
 	return par, nil
@@ -179,5 +192,7 @@ func getSplitInfoError(tx *bbolt.Tx, cid *cid.ID, key []byte) error {
 		return objectSDK.NewSplitInfoError(splitInfo)
 	}
 
-	return object.ErrNotFound
+	var errNotFound apistatus.ObjectNotFound
+
+	return errNotFound
 }

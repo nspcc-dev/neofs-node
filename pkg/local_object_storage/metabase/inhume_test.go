@@ -1,7 +1,6 @@
 package meta_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -28,10 +27,10 @@ func TestDB_Inhume(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = meta.Exists(db, object.AddressOf(raw))
-	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
+	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	_, err = meta.Get(db, object.AddressOf(raw))
-	require.EqualError(t, err, object.ErrAlreadyRemoved.Error())
+	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 }
 
 func TestInhumeTombOnTomb(t *testing.T) {
@@ -56,7 +55,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 
 	// addr1 should become inhumed {addr1:addr2}
 	_, err = db.Exists(existsPrm.WithAddress(addr1))
-	require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	// try to inhume addr3 via addr1
 	_, err = db.Inhume(inhumePrm.
@@ -73,7 +72,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 
 	// addr3 should be inhumed {addr3: addr1}
 	_, err = db.Exists(existsPrm.WithAddress(addr3))
-	require.True(t, errors.Is(err, object.ErrAlreadyRemoved))
+	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	// try to inhume addr1 (which is already a tombstone in graveyard)
 	_, err = db.Inhume(inhumePrm.

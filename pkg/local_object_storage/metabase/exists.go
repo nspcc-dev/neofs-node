@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -39,6 +39,8 @@ func (p *ExistsRes) Exists() bool {
 }
 
 // Exists checks if object is presented in DB.
+//
+// See DB.Exists docs.
 func Exists(db *DB, addr *addressSDK.Address) (bool, error) {
 	r, err := db.Exists(new(ExistsPrm).WithAddress(addr))
 	if err != nil {
@@ -50,6 +52,8 @@ func Exists(db *DB, addr *addressSDK.Address) (bool, error) {
 
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
+//
+// Returns apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 	res = new(ExistsRes)
 
@@ -66,9 +70,13 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 	// check graveyard first
 	switch inGraveyard(tx, addr) {
 	case 1:
-		return false, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return false, errNotFound
 	case 2:
-		return false, object.ErrAlreadyRemoved
+		var errRemoved apistatus.ObjectAlreadyRemoved
+
+		return false, errRemoved
 	}
 
 	objKey := objectKey(addr.ObjectID())

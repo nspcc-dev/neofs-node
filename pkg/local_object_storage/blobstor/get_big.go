@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -24,14 +24,16 @@ type GetBigRes struct {
 // Returns any error encountered that
 // did not allow to completely read the object.
 //
-// Returns ErrNotFound if requested object is not
+// Returns apistatus.ObjectNotFound if requested object is not
 // presented in shallow dir.
 func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
 		if errors.Is(err, fstree.ErrFileNotFound) {
-			return nil, object.ErrNotFound
+			var errNotFound apistatus.ObjectNotFound
+
+			return nil, errNotFound
 		}
 
 		return nil, fmt.Errorf("could not read object from fs tree: %w", err)

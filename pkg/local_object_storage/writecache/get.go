@@ -1,13 +1,15 @@
 package writecache
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"go.etcd.io/bbolt"
 )
 
 // Get returns object from write-cache.
+//
+// Returns apistatus.ObjectNotFound if requested object is missing in write-cache.
 func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 	saddr := addr.String()
 
@@ -30,7 +32,9 @@ func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 
 	data, err := c.fsTree.Get(addr)
 	if err != nil {
-		return nil, object.ErrNotFound
+		var errNotFound apistatus.ObjectNotFound
+
+		return nil, errNotFound
 	}
 
 	obj := objectSDK.New()
@@ -43,6 +47,8 @@ func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 }
 
 // Head returns object header from write-cache.
+//
+// Returns apistatus.ObjectNotFound if requested object is missing in write-cache.
 func (c *cache) Head(addr *addressSDK.Address) (*objectSDK.Object, error) {
 	// TODO: #1149 easiest to implement solution is presented here, consider more efficient way, e.g.:
 	//  - provide header as common object.Object to Put, but marked to prevent correlation with full object
@@ -61,6 +67,8 @@ func (c *cache) Head(addr *addressSDK.Address) (*objectSDK.Object, error) {
 
 // Get fetches object from the underlying database.
 // Key should be a stringified address.
+//
+// Returns apistatus.ObjectNotFound if requested object is missing in db.
 func Get(db *bbolt.DB, key []byte) ([]byte, error) {
 	var value []byte
 	err := db.View(func(tx *bbolt.Tx) error {
@@ -70,7 +78,9 @@ func Get(db *bbolt.DB, key []byte) ([]byte, error) {
 		}
 		value = b.Get(key)
 		if value == nil {
-			return object.ErrNotFound
+			var errNotFound apistatus.ObjectNotFound
+
+			return errNotFound
 		}
 		value = cloneBytes(value)
 		return nil

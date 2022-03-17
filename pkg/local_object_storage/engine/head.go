@@ -3,9 +3,9 @@ package engine
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
@@ -55,8 +55,8 @@ func (r *HeadRes) Header() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object header.
 //
-// Returns object.ErrNotFound if requested object is missing in local storage.
-// Returns object.ErrAlreadyRemoved if requested object was inhumed.
+// Returns apistatus.ObjectNotFound if requested object is missing in local storage.
+// Returns apistatus.ObjectAlreadyRemoved if requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {
@@ -77,8 +77,10 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 		head  *objectSDK.Object
 		siErr *objectSDK.SplitInfoError
 
+		errNotFound apistatus.ObjectNotFound
+
 		outSI    *objectSDK.SplitInfo
-		outError = object.ErrNotFound
+		outError error = errNotFound
 	)
 
 	shPrm := new(shard.HeadPrm).
@@ -89,7 +91,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 		res, err := sh.Head(shPrm)
 		if err != nil {
 			switch {
-			case errors.Is(err, object.ErrNotFound):
+			case shard.IsErrNotFound(err):
 				return false // ignore, go to next shard
 			case errors.As(err, &siErr):
 				siErr = err.(*objectSDK.SplitInfoError)
@@ -106,7 +108,7 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 				}
 
 				return false
-			case errors.Is(err, object.ErrAlreadyRemoved):
+			case shard.IsErrRemoved(err):
 				outError = err
 
 				return true // stop, return it back

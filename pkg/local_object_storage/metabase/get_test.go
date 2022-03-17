@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
@@ -112,12 +113,12 @@ func TestDB_Get(t *testing.T) {
 
 		require.NoError(t, meta.Inhume(db, obj, ts))
 		_, err := meta.Get(db, obj)
-		require.ErrorIs(t, err, object.ErrAlreadyRemoved)
+		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		obj = generateAddress()
 		require.NoError(t, meta.Inhume(db, obj, nil))
 		_, err = meta.Get(db, obj)
-		require.ErrorIs(t, err, object.ErrNotFound)
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }
 

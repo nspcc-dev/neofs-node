@@ -7,12 +7,12 @@ import (
 	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	coreObject "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	neofsapiclient "github.com/nspcc-dev/neofs-node/pkg/innerring/internal/client"
 	auditproc "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -60,6 +60,8 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 
 // GetSG polls the container from audit task to get the object by id.
 // Returns storage groups structure from received object.
+//
+// Returns apistatus.ObjectNotFound if storage group is missing.
 func (c *ClientCache) GetSG(task *audit.Task, id *oidSDK.ID) (*storagegroup.StorageGroup, error) {
 	sgAddress := new(addressSDK.Address)
 	sgAddress.SetContainerID(task.ContainerID())
@@ -115,7 +117,9 @@ func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *n
 		return sg, nil
 	}
 
-	return nil, coreObject.ErrNotFound
+	var errNotFound apistatus.ObjectNotFound
+
+	return nil, errNotFound
 }
 
 // GetHeader requests node from the container under audit to return object header by id.
