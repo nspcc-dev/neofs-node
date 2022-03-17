@@ -53,7 +53,7 @@ func Exists(db *DB, addr *addressSDK.Address) (bool, error) {
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
 //
-// Returns apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 	res = new(ExistsRes)
 

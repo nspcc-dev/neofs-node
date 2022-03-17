@@ -55,8 +55,8 @@ func (r *HeadRes) Header() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object header.
 //
-// Returns apistatus.ObjectNotFound if requested object is missing in local storage.
-// Returns apistatus.ObjectAlreadyRemoved if requested object was inhumed.
+// Returns an error of type apistatus.ObjectNotFound if requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {

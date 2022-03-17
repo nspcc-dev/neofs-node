@@ -34,7 +34,7 @@ func (p *ExistsRes) Exists() bool {
 // Returns any error encountered that does not allow to
 // unambiguously determine the presence of an object.
 //
-// Returns apistatus.ObjectAlreadyRemoved if object has been marked as removed.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
 func (s *Shard) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 	exists, err := s.objectExists(prm.addr)
 

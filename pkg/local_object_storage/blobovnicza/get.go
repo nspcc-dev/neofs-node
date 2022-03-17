@@ -32,7 +32,7 @@ func (p *GetRes) Object() []byte {
 // Returns any error encountered that
 // did not allow to completely read the object.
 //
-// Returns apistatus.ObjectNotFound if requested object is not
+// Returns an error of type apistatus.ObjectNotFound if requested object is not
 // presented in Blobovnicza.
 func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 	var (

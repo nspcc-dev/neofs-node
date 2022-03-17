@@ -64,8 +64,8 @@ func (r *GetRes) HasMeta() bool {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns apistatus.ObjectNotFound if requested object is missing in shard.
-// Returns apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
+// Returns an error of type apistatus.ObjectNotFound if requested object is missing in shard.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
 func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 	var big, small storFetcher
 

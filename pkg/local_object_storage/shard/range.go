@@ -69,8 +69,8 @@ func (r *RngRes) HasMeta() bool {
 // did not allow to completely read the object part.
 //
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
-// Returns apistatus.ObjectNotFound if requested object is missing.
-// Returns apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
+// Returns an error of type apistatus.ObjectNotFound if requested object is missing.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
 func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 	var big, small storFetcher
 

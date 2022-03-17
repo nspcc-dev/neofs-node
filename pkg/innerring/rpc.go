@@ -61,7 +61,7 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 // GetSG polls the container from audit task to get the object by id.
 // Returns storage groups structure from received object.
 //
-// Returns apistatus.ObjectNotFound if storage group is missing.
+// Returns an error of type apistatus.ObjectNotFound if storage group is missing.
 func (c *ClientCache) GetSG(task *audit.Task, id *oidSDK.ID) (*storagegroup.StorageGroup, error) {
 	sgAddress := new(addressSDK.Address)
 	sgAddress.SetContainerID(task.ContainerID())

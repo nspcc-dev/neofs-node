@@ -37,7 +37,7 @@ func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 //
-// Returns apistatus.ObjectAlreadyRemoved if object has been marked as removed.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
 func (e *StorageEngine) Put(prm *PutPrm) (res *PutRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.put(prm)
