@@ -7,6 +7,7 @@ import (
 	containerContract "github.com/nspcc-dev/neofs-contract/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -45,7 +46,9 @@ func (c *Client) Get(cid []byte) (*container.Container, error) {
 	res, err := c.client.TestInvoke(prm)
 	if err != nil {
 		if strings.Contains(err.Error(), containerContract.NotFoundError) {
-			return nil, core.ErrNotFound
+			var errNotFound apistatus.ContainerNotFound
+
+			return nil, errNotFound
 		}
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
 	} else if ln := len(res); ln != 1 {

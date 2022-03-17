@@ -3,6 +3,7 @@ package container
 import (
 	"errors"
 
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
@@ -14,15 +15,18 @@ type Source interface {
 	// It returns the pointer to requested container and any error encountered.
 	//
 	// Get must return exactly one non-nil value.
-	// Get must return ErrNotFound if the container is not in storage.
+	// Get must return apistatus.ContainerNotFound if the container is not in storage.
 	//
 	// Implementations must not retain the container pointer and modify
 	// the container through it.
 	Get(*cid.ID) (*container.Container, error)
 }
 
-// ErrNotFound is the error returned when container was not found in storage.
-var ErrNotFound = errors.New("container not found")
+// IsErrNotFound checks if error returned by Source.Get corresponds
+// to missing container.
+func IsErrNotFound(err error) bool {
+	return errors.As(err, new(apistatus.ContainerNotFound))
+}
 
 // ErrEACLNotFound is returned by eACL storage implementations when
 // requested eACL table is not in storage.

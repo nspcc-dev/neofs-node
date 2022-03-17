@@ -2,7 +2,6 @@ package policer
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -21,7 +20,7 @@ func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
 			zap.Stringer("cid", addr.ContainerID()),
 			zap.String("error", err.Error()),
 		)
-		if errors.Is(err, container.ErrNotFound) {
+		if container.IsErrNotFound(err) {
 			prm := new(engine.InhumePrm)
 			prm.MarkAsGarbage(addr)
 			_, err := p.jobQueue.localStorage.Inhume(prm)
