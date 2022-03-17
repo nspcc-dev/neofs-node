@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/mr-tron/base58"
@@ -18,8 +17,6 @@ type TokenStore struct {
 
 	tokens map[key]*PrivateToken
 }
-
-var ErrNotFound = errors.New("private token not found")
 
 // New creates, initializes and returns a new TokenStore instance.
 //
