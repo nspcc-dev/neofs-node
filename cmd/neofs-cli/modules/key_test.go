@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,10 +12,63 @@ import (
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/token"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/term"
 )
+
+const repoRoot = "../../../"
+
+func TestBearer(t *testing.T) {
+	p1, _ := keys.NewPrivateKeyFromWIF("Ky9aa3orjw59JPdYBPaUUx4eVNfaKR7ovnUmzDfgV1c1erypq4C9")
+	p2, _ := keys.NewPrivateKeyFromWIF("L23RiMvtgNrsqR9i5YiVkMzGWYxyAqh8qyzWu9gYrr8tzTgHa8KR")
+
+	raw, _ := ioutil.ReadFile(repoRoot + "wallet.key")
+	p, _ := keys.NewPrivateKeyFromBytes(raw)
+	tok := token.NewBearerToken()
+
+	//own := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(p.PublicKey()))
+	//tok.SetOwner(own)
+
+	tb := eacl.NewTable()
+	cid := containerIDSDK.New()
+	require.NoError(t, cid.Parse("6Vuz8pxni4m1GLjwCRJXA2HCPV9XEdsWFKYf45puQKQp"))
+	tb.SetCID(cid)
+
+	r := eacl.NewRecord()
+	r.SetAction(eacl.ActionAllow)
+	r.SetOperation(eacl.OperationPut)
+	tgt := eacl.NewTarget()
+	tgt.SetRole(eacl.RoleUnknown)
+	tgt.SetBinaryKeys([][]byte{p1.PublicKey().Bytes()})
+	r.SetTargets(*tgt)
+	tb.AddRecord(r)
+
+	r = eacl.NewRecord()
+	r.SetAction(eacl.ActionDeny)
+	r.SetOperation(eacl.OperationPut)
+	tgt = eacl.NewTarget()
+	tgt.SetRole(eacl.RoleUnknown)
+	tgt.SetBinaryKeys([][]byte{p2.PublicKey().Bytes()})
+	r.SetTargets(*tgt)
+	tb.AddRecord(r)
+
+	tb.SetVersion(*version.Current())
+	tok.SetEACLTable(tb)
+	tok.SetLifetime(10000, 0, 0)
+
+	require.NoError(t, tok.SignTokenWC(&p.PrivateKey))
+	//tok.Signature().SetScheme(signature.ECDSAWithSHA512)
+	data, err := tok.MarshalJSON()
+	require.NoError(t, err)
+	fmt.Println(p.WIF())
+	fmt.Println(string(data))
+	require.NoError(t, ioutil.WriteFile(repoRoot+"bearer.json", data, os.ModePerm))
+}
 
 func Test_getKey(t *testing.T) {
 	dir := t.TempDir()

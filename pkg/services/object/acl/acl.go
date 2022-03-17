@@ -84,6 +84,7 @@ func (c *Checker) CheckBasicACL(info v2.RequestInfo) bool {
 	// check basic ACL permissions
 	var checkFn func(eaclSDK.Operation) bool
 
+	fmt.Println(info.RequestRole().String())
 	switch info.RequestRole() {
 	case eaclSDK.RoleUser:
 		checkFn = basicACLHelper(info.BasicACL()).UserAllowed
