@@ -16,7 +16,7 @@ import (
 func (c *cache) Delete(addr *addressSDK.Address) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
-	if c.mode == ModeReadOnly {
+	if c.readOnly() {
 		return ErrReadOnly
 	}
 

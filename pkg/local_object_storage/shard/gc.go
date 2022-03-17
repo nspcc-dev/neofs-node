@@ -174,7 +174,7 @@ func (gc *gc) stop() {
 // with GC-marked graves.
 // Does nothing if shard is in "read-only" mode.
 func (s *Shard) removeGarbage() {
-	if s.GetMode() == ModeReadOnly {
+	if s.GetMode() != ModeReadWrite {
 		return
 	}
 

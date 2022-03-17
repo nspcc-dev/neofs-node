@@ -78,6 +78,7 @@ const (
 
 	shardModeReadOnly  = "read-only"
 	shardModeReadWrite = "read-write"
+	shardModeDegraded  = "degraded"
 )
 
 const (
@@ -124,9 +125,10 @@ func initControlSetShardModeCmd() {
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.StringVarP(&shardID, shardIDFlag, "", "", "ID of the shard in base58 encoding")
 	flags.StringVarP(&shardMode, shardModeFlag, "", "",
-		fmt.Sprintf("new shard mode keyword ('%s', '%s')",
+		fmt.Sprintf("new shard mode keyword ('%s', '%s', '%s')",
 			shardModeReadWrite,
 			shardModeReadOnly,
+			shardModeDegraded,
 		),
 	)
 	flags.Bool(shardClearErrorsFlag, false, "Set shard error count to 0")
@@ -490,6 +492,8 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 			mode = "read-write"
 		case control.ShardMode_READ_ONLY:
 			mode = "read-only"
+		case control.ShardMode_DEGRADED:
+			mode = "degraded"
 		default:
 			mode = "unknown"
 		}
@@ -526,6 +530,8 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 		mode = control.ShardMode_READ_WRITE
 	case shardModeReadOnly:
 		mode = control.ShardMode_READ_ONLY
+	case shardModeDegraded:
+		mode = control.ShardMode_DEGRADED
 	}
 
 	req := new(control.SetShardModeRequest)

@@ -15,7 +15,7 @@ var ErrBigObject = errors.New("too big object")
 func (c *cache) Put(o *objectSDK.Object) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
-	if c.mode == ModeReadOnly {
+	if c.readOnly() {
 		return ErrReadOnly
 	}
 

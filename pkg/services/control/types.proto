@@ -151,4 +151,7 @@ enum ShardMode {
 
     // Read-only.
     READ_ONLY = 2;
+
+    // Degraded.
+    DEGRADED = 3;
 }

@@ -65,7 +65,7 @@ func (c *cache) flush() {
 		sz := 0
 
 		c.modeMtx.RLock()
-		if c.mode == ModeReadOnly {
+		if c.readOnly() {
 			c.modeMtx.RUnlock()
 			time.Sleep(time.Second)
 			continue
@@ -127,7 +127,7 @@ func (c *cache) flushBigObjects() {
 		select {
 		case <-tick.C:
 			c.modeMtx.RLock()
-			if c.mode == ModeReadOnly {
+			if c.readOnly() {
 				c.modeMtx.RUnlock()
 				break
 			}

@@ -21,6 +21,12 @@ const (
 	// ModeReadOnly is a Mode value for shard that does not
 	// accept write operation but is readable.
 	ModeReadOnly
+
+	// ModeDegraded is a Mode value for shard that is set automatically
+	// after a certain number of errors is encountered. It is the same as
+	// `ModeReadOnly` but also enables fallback algorithms for getting object
+	// in case metabase is corrupted.
+	ModeDegraded
 )
 
 func (m Mode) String() string {
@@ -31,6 +37,8 @@ func (m Mode) String() string {
 		return "READ_WRITE"
 	case ModeReadOnly:
 		return "READ_ONLY"
+	case ModeDegraded:
+		return "DEGRADED"
 	}
 }
 
@@ -46,6 +54,8 @@ func (s *Shard) SetMode(m Mode) error {
 		switch m {
 		case ModeReadOnly:
 			s.writeCache.SetMode(writecache.ModeReadOnly)
+		case ModeDegraded:
+			s.writeCache.SetMode(writecache.ModeDegraded)
 		case ModeReadWrite:
 			s.writeCache.SetMode(writecache.ModeReadWrite)
 		}
