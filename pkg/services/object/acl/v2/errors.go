@@ -11,8 +11,6 @@ var (
 	ErrMalformedRequest = errors.New("malformed request")
 	// ErrUnknownRole is returned when role of the sender is unknown.
 	ErrUnknownRole = errors.New("can't classify request sender")
-	// ErrUnknownContainer is returned when container fetching errors appeared.
-	ErrUnknownContainer = errors.New("can't fetch container info")
 	// ErrInvalidVerb is returned when session token verb doesn't include necessary operation.
 	ErrInvalidVerb = errors.New("session token verb is invalid")
 )

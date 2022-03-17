@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -410,8 +411,10 @@ func (b Service) findRequestInfo(
 	cid *cidSDK.ID,
 	op eaclSDK.Operation) (info RequestInfo, err error) {
 	cnr, err := b.containers.Get(cid) // fetch actual container
-	if err != nil || cnr.OwnerID() == nil {
-		return info, ErrUnknownContainer
+	if err != nil {
+		return info, err
+	} else if cnr.OwnerID() == nil {
+		return info, errors.New("missing owner in container descriptor")
 	}
 
 	// find request role and key
