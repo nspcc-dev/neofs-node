@@ -3,6 +3,8 @@ package v2
 import (
 	"errors"
 	"fmt"
+
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
 var (
@@ -15,26 +17,18 @@ var (
 	ErrInvalidVerb = errors.New("session token verb is invalid")
 )
 
-type accessErr struct {
-	RequestInfo
-
-	failedCheckTyp string
-}
-
-func (a *accessErr) Error() string {
-	return fmt.Sprintf("access to operation %v is denied by %s check", a.operation, a.failedCheckTyp)
-}
+const accessDeniedReasonFmt = "access to operation %v is denied by %s check"
 
 func basicACLErr(info RequestInfo) error {
-	return &accessErr{
-		RequestInfo:    info,
-		failedCheckTyp: "basic ACL",
-	}
+	var errAccessDenied apistatus.ObjectAccessDenied
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedReasonFmt, info.operation, "basic ACL"))
+
+	return errAccessDenied
 }
 
 func eACLErr(info RequestInfo) error {
-	return &accessErr{
-		RequestInfo:    info,
-		failedCheckTyp: "extended ACL",
-	}
+	var errAccessDenied apistatus.ObjectAccessDenied
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedReasonFmt, info.operation, "extended ACL"))
+
+	return errAccessDenied
 }
