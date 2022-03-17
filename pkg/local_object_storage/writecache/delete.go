@@ -12,7 +12,7 @@ import (
 
 // Delete removes object from write-cache.
 //
-// Returns apistatus.ObjectNotFound is object is missing in write-cache.
+// Returns an error of type apistatus.ObjectNotFound if object is missing in write-cache.
 func (c *cache) Delete(addr *addressSDK.Address) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()

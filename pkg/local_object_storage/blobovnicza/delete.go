@@ -26,7 +26,7 @@ func (p *DeletePrm) SetAddress(addr *addressSDK.Address) {
 // Returns any error encountered that
 // did not allow to completely delete the object.
 //
-// Returns apistatus.ObjectNotFound if the object to be deleted is not in blobovnicza.
+// Returns an error of type apistatus.ObjectNotFound if the object to be deleted is not in blobovnicza.
 //
 // Should not be called in read-only configuration.
 func (b *Blobovnicza) Delete(prm *DeletePrm) (*DeleteRes, error) {

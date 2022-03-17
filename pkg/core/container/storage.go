@@ -15,7 +15,7 @@ type Source interface {
 	// It returns the pointer to requested container and any error encountered.
 	//
 	// Get must return exactly one non-nil value.
-	// Get must return apistatus.ContainerNotFound if the container is not in storage.
+	// Get must return an error of type apistatus.ContainerNotFound if the container is not in storage.
 	//
 	// Implementations must not retain the container pointer and modify
 	// the container through it.

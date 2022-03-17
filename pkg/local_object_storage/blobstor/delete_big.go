@@ -21,7 +21,7 @@ type DeleteBigRes struct{}
 // Returns any error encountered that did not allow
 // to completely remove the object.
 //
-// Returns apistatus.ObjectNotFound if there is no object to delete.
+// Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
 func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
 	err := b.fsTree.Delete(prm.addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {

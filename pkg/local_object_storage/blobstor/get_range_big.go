@@ -27,7 +27,7 @@ type GetRangeBigRes struct {
 // did not allow to completely read the object payload range.
 //
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
-// Returns apistatus.ObjectNotFound if object is missing.
+// Returns an error of type apistatus.ObjectNotFound if object is missing.
 func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)

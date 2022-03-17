@@ -21,7 +21,7 @@ type GetRangeSmallRes struct {
 // did not allow to completely read the object payload range.
 //
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
-// Returns apistatus.ObjectNotFound if requested object is missing in blobovnicza(s).
+// Returns an error of type apistatus.ObjectNotFound if requested object is missing in blobovnicza(s).
 func (b *BlobStor) GetRangeSmall(prm *GetRangeSmallPrm) (*GetRangeSmallRes, error) {
 	return b.blobovniczas.getRange(prm)
 }

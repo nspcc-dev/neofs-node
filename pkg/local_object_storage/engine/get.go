@@ -42,8 +42,8 @@ func (r *GetRes) Object() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns apistatus.ObjectNotFound if requested object is missing in local storage.
-// Returns apistatus.ObjectAlreadyRemoved if object has been marked as removed.
+// Returns an error of type apistatus.ObjectNotFound if requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Get(prm *GetPrm) (res *GetRes, err error) {

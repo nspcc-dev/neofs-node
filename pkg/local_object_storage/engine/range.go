@@ -59,8 +59,8 @@ func (r *RngRes) Object() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns apistatus.ObjectNotFound if requested object is missing in local storage.
-// Returns apistatus.ObjectAlreadyRemoved if requested object is inhumed.
+// Returns an error of type apistatus.ObjectNotFound if requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object is inhumed.
 // Returns ErrRangeOutOfBounds if requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).

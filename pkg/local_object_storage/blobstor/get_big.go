@@ -24,7 +24,7 @@ type GetBigRes struct {
 // Returns any error encountered that
 // did not allow to completely read the object.
 //
-// Returns apistatus.ObjectNotFound if requested object is not
+// Returns an error of type apistatus.ObjectNotFound if requested object is not
 // presented in shallow dir.
 func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
 	// get compressed object data

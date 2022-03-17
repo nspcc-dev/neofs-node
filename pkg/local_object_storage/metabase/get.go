@@ -70,8 +70,8 @@ func GetRaw(db *DB, addr *addressSDK.Address, raw bool) (*objectSDK.Object, erro
 
 // Get returns object header for specified address.
 //
-// Returns apistatus.ObjectNotFound if object is missing in DB.
-// Returns apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
+// Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	res = new(GetRes)
 
