@@ -20,17 +20,17 @@ import (
 // new(Writer) or Writer{} construction leads to undefined
 // behaviour and is not safe.
 type Writer struct {
-	log *zap.Logger
-	js  nats.JetStreamContext
-	nc  *nats.Conn
+	js nats.JetStreamContext
+	nc *nats.Conn
 
 	m              *sync.RWMutex
 	createdStreams map[string]struct{}
+	opts
 }
 
 type opts struct {
-	logger *zap.Logger
-	nOpts  []nats.Option
+	log   *zap.Logger
+	nOpts []nats.Option
 }
 
 type Option func(*opts)
@@ -79,51 +79,54 @@ func (n *Writer) Notify(topic string, address *addressSDK.Address) error {
 	return nil
 }
 
-// New creates and inits new Writer.
-// Connection is closed when passed context is done.
-//
-// Returns error only if fails to open connection to a NATS server
-// with provided configuration.
-func New(ctx context.Context, endpoint string, oo ...Option) (*Writer, error) {
-	opts := &opts{
-		logger: zap.L(),
-		nOpts:  make([]nats.Option, 0, len(oo)+3),
+// New creates new Writer.
+func New(oo ...Option) *Writer {
+	w := &Writer{
+		m:              &sync.RWMutex{},
+		createdStreams: make(map[string]struct{}),
+		opts: opts{
+			log:   zap.L(),
+			nOpts: make([]nats.Option, 0, len(oo)+3),
+		},
 	}
 
 	for _, o := range oo {
-		o(opts)
+		o(&w.opts)
 	}
 
-	opts.nOpts = append(opts.nOpts,
+	w.opts.nOpts = append(w.opts.nOpts,
 		nats.NoCallbacksAfterClientClose(), // do not call callbacks when it was planned writer stop
 		nats.DisconnectErrHandler(func(conn *nats.Conn, err error) {
-			opts.logger.Error("nats: connection was lost", zap.Error(err))
+			w.log.Error("nats: connection was lost", zap.Error(err))
 		}),
 		nats.ReconnectHandler(func(conn *nats.Conn) {
-			opts.logger.Warn("nats: reconnected to the server")
+			w.log.Warn("nats: reconnected to the server")
 		}),
 	)
 
-	nc, err := nats.Connect(endpoint, opts.nOpts...)
+	return w
+}
+
+// Connect tries to connect to a specified NATS endpoint.
+//
+// Connection is closed when passed context is done.
+func (n *Writer) Connect(ctx context.Context, endpoint string) error {
+	nc, err := nats.Connect(endpoint, n.opts.nOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to server: %w", err)
+		return fmt.Errorf("could not connect to server: %w", err)
 	}
 
+	n.nc = nc
+
 	// usage w/o options is error-free
-	js, _ := nc.JetStream()
+	n.js, _ = nc.JetStream()
 
 	go func() {
 		<-ctx.Done()
-		opts.logger.Info("nats: closing connection as the context is done")
+		n.opts.log.Info("nats: closing connection as the context is done")
 
 		nc.Close()
 	}()
 
-	return &Writer{
-		js:             js,
-		nc:             nc,
-		log:            opts.logger,
-		m:              &sync.RWMutex{},
-		createdStreams: make(map[string]struct{}),
-	}, nil
+	return nil
 }

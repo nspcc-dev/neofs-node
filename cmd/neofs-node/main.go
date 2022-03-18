@@ -89,6 +89,7 @@ func initApp(c *cfg) {
 }
 
 func bootUp(c *cfg) {
+	connectNats(c)
 	serveGRPC(c)
 	makeAndWaitNotaryDeposit(c)
 	bootstrapNode(c)

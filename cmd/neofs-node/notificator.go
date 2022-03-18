@@ -115,9 +115,7 @@ func initNotifications(c *cfg) {
 			topic = pubKey
 		}
 
-		natsSvc, err := nats.New(
-			c.ctx,
-			nodeconfig.Notification(c.appCfg).Endpoint(),
+		natsSvc := nats.New(
 			nats.WithConnectionName("NeoFS Storage Node: "+pubKey), // connection name is used in the server side logs
 			nats.WithTimeout(nodeconfig.Notification(c.appCfg).Timeout()),
 			nats.WithClientCert(
@@ -127,9 +125,6 @@ func initNotifications(c *cfg) {
 			nats.WithRootCA(nodeconfig.Notification(c.appCfg).CAPath()),
 			nats.WithLogger(c.log),
 		)
-		if err != nil {
-			panic("could not created object notificator: " + err.Error())
-		}
 
 		c.cfgNotifications = cfgNotifications{
 			enabled: true,
@@ -156,5 +151,17 @@ func initNotifications(c *cfg) {
 
 			n.ProcessEpoch(ev.EpochNumber())
 		})
+	}
+}
+
+func connectNats(c *cfg) {
+	if !c.cfgNotifications.enabled {
+		return
+	}
+
+	endpoint := nodeconfig.Notification(c.appCfg).Endpoint()
+	err := c.cfgNotifications.nw.w.Connect(c.ctx, endpoint)
+	if err != nil {
+		panic(fmt.Sprintf("could not connect to a nats endpoint %s: %v", endpoint, err))
 	}
 }
