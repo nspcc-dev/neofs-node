@@ -9,7 +9,7 @@ DEBUG ?= false
 HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 
-GO_VERSION ?= 1.16
+GO_VERSION ?= 1.17
 ARCH = amd64
 
 BIN = bin
