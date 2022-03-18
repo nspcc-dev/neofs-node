@@ -33,6 +33,6 @@ func WithConnectionName(name string) Option {
 
 func WithLogger(logger *zap.Logger) Option {
 	return func(o *opts) {
-		o.logger = logger
+		o.log = logger
 	}
 }
