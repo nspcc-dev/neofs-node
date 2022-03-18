@@ -1,9 +1,10 @@
-package storage
+package temporary
 
 import (
 	"sync"
 
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
@@ -12,26 +13,30 @@ type key struct {
 	ownerID string
 }
 
+// TokenStore is an in-memory session token store.
+// It allows creating (storing), retrieving and
+// expiring (removing) session tokens.
+// Must be created only via calling NewTokenStore.
 type TokenStore struct {
 	mtx *sync.RWMutex
 
-	tokens map[key]*PrivateToken
+	tokens map[key]*storage.PrivateToken
 }
 
-// New creates, initializes and returns a new TokenStore instance.
+// NewTokenStore creates, initializes and returns a new TokenStore instance.
 //
 // The elements of the instance are stored in the map.
-func New() *TokenStore {
+func NewTokenStore() *TokenStore {
 	return &TokenStore{
 		mtx:    new(sync.RWMutex),
-		tokens: make(map[key]*PrivateToken),
+		tokens: make(map[key]*storage.PrivateToken),
 	}
 }
 
 // Get returns private token corresponding to the given identifiers.
 //
 // Returns nil is there is no element in storage.
-func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *PrivateToken {
+func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *storage.PrivateToken {
 	ownerBytes, err := ownerID.Marshal()
 	if err != nil {
 		panic(err)

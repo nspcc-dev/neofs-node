@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ func TestNewKeyStorage(t *testing.T) {
 	nodeKey, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
-	tokenStor := tokenStorage.New()
+	tokenStor := tokenStorage.NewTokenStore()
 	stor := util.NewKeyStorage(&nodeKey.PrivateKey, tokenStor, mockedNetworkState{42})
 
 	t.Run("node key", func(t *testing.T) {

@@ -6,11 +6,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	sessionTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
 	sessionSvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
 )
 
 func initSessionService(c *cfg) {
-	c.privateTokenStore = storage.New()
+	c.privateTokenStore = temporary.NewTokenStore()
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
 		c.privateTokenStore.RemoveOld(ev.(netmap.NewEpoch).EpochNumber())
 	})

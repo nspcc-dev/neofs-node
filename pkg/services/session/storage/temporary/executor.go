@@ -1,4 +1,4 @@
-package storage
+package temporary
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
@@ -32,14 +33,15 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 		return nil, err
 	}
 
+	privateToken := new(storage.PrivateToken)
+	privateToken.SetSessionKey(&sk.PrivateKey)
+	privateToken.SetExpiredAt(body.GetExpiration())
+
 	s.mtx.Lock()
 	s.tokens[key{
 		tokenID: base58.Encode(uidBytes),
 		ownerID: base58.Encode(ownerBytes),
-	}] = &PrivateToken{
-		sessionKey: &sk.PrivateKey,
-		exp:        body.GetExpiration(),
-	}
+	}] = privateToken
 	s.mtx.Unlock()
 
 	res := new(session.CreateResponseBody)
