@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
@@ -13,13 +13,13 @@ import (
 type KeyStorage struct {
 	key *ecdsa.PrivateKey
 
-	tokenStore *storage.TokenStore
+	tokenStore *temporary.TokenStore
 
 	networkState netmap.State
 }
 
 // NewKeyStorage creates, initializes and returns new KeyStorage instance.
-func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore *storage.TokenStore, net netmap.State) *KeyStorage {
+func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore *temporary.TokenStore, net netmap.State) *KeyStorage {
 	return &KeyStorage{
 		key:          localKey,
 		tokenStore:   tokenStore,
