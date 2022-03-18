@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -392,11 +391,11 @@ func (c *initializeContext) readContracts(names []string) error {
 	if c.ContractPath != "" && fi.IsDir() {
 		for _, ctrName := range names {
 			cs := new(contractState)
-			cs.RawNEF, err = ioutil.ReadFile(filepath.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
+			cs.RawNEF, err = os.ReadFile(filepath.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
 			if err != nil {
 				return fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
 			}
-			cs.RawManifest, err = ioutil.ReadFile(filepath.Join(c.ContractPath, ctrName, "config.json"))
+			cs.RawManifest, err = os.ReadFile(filepath.Join(c.ContractPath, ctrName, "config.json"))
 			if err != nil {
 				return fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
 			}
@@ -481,12 +480,12 @@ func readContractsFromArchive(file io.Reader, names []string) (map[string]*contr
 
 		switch {
 		case strings.HasSuffix(h.Name, filepath.Join(ctrName, ctrName+"_contract.nef")):
-			cs.RawNEF, err = ioutil.ReadAll(r)
+			cs.RawNEF, err = io.ReadAll(r)
 			if err != nil {
 				return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
 			}
 		case strings.HasSuffix(h.Name, "config.json"):
-			cs.RawManifest, err = ioutil.ReadAll(r)
+			cs.RawManifest, err = io.ReadAll(r)
 			if err != nil {
 				return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
 			}

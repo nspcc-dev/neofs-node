@@ -3,7 +3,7 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,7 +39,7 @@ func Test_getKey(t *testing.T) {
 	keyPath := filepath.Join(dir, "binary.key")
 	rawKey, err := keys.NewPrivateKey()
 	require.NoError(t, err)
-	require.NoError(t, ioutil.WriteFile(keyPath, rawKey.Bytes(), os.ModePerm))
+	require.NoError(t, os.WriteFile(keyPath, rawKey.Bytes(), os.ModePerm))
 
 	wifKey, err := keys.NewPrivateKey()
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func Test_getKey(t *testing.T) {
 	in := bytes.NewBuffer(nil)
 	input.Terminal = term.NewTerminal(input.ReadWriter{
 		Reader: in,
-		Writer: ioutil.Discard,
+		Writer: io.Discard,
 	}, "")
 
 	checkKeyError(t, filepath.Join(dir, "badfile"), errInvalidKey)

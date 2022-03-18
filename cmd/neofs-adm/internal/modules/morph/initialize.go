@@ -3,7 +3,7 @@ package morph
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -186,7 +186,7 @@ func (c *initializeContext) nativeHash(name string) util.Uint160 {
 }
 
 func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
-	walletFiles, err := ioutil.ReadDir(walletDir)
+	walletFiles, err := os.ReadDir(walletDir)
 	if err != nil {
 		return nil, fmt.Errorf("can't read alphabet wallets dir: %w", err)
 	}

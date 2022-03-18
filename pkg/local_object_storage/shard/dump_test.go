@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -126,19 +125,19 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		t.Run("invalid file", func(t *testing.T) {
 			t.Run("invalid magic", func(t *testing.T) {
 				out := out + ".wrongmagic"
-				require.NoError(t, ioutil.WriteFile(out, []byte{0, 0, 0, 0}, os.ModePerm))
+				require.NoError(t, os.WriteFile(out, []byte{0, 0, 0, 0}, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
 				require.True(t, errors.Is(err, shard.ErrInvalidMagic), "got: %v", err)
 			})
 
-			fileData, err := ioutil.ReadFile(out)
+			fileData, err := os.ReadFile(out)
 			require.NoError(t, err)
 
 			t.Run("incomplete size", func(t *testing.T) {
 				out := out + ".wrongsize"
 				fileData := append(fileData, 1)
-				require.NoError(t, ioutil.WriteFile(out, fileData, os.ModePerm))
+				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
 				require.True(t, errors.Is(err, io.ErrUnexpectedEOF), "got: %v", err)
@@ -146,7 +145,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			t.Run("incomplete object data", func(t *testing.T) {
 				out := out + ".wrongsize"
 				fileData := append(fileData, 1, 0, 0, 0)
-				require.NoError(t, ioutil.WriteFile(out, fileData, os.ModePerm))
+				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
 				require.True(t, errors.Is(err, io.EOF), "got: %v", err)
@@ -154,7 +153,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			t.Run("invalid object", func(t *testing.T) {
 				out := out + ".wrongobj"
 				fileData := append(fileData, 1, 0, 0, 0, 0xFF, 4, 0, 0, 0, 1, 2, 3, 4)
-				require.NoError(t, ioutil.WriteFile(out, fileData, os.ModePerm))
+				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
 				require.Error(t, err)
@@ -300,7 +299,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		addr := cidtest.ID().String() + "." + generateOID().String()
 		dirName := filepath.Join(bsPath, addr[:2])
 		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
-		require.NoError(t, ioutil.WriteFile(filepath.Join(dirName, addr[2:]), corruptedData, os.ModePerm))
+		require.NoError(t, os.WriteFile(filepath.Join(dirName, addr[2:]), corruptedData, os.ModePerm))
 
 		// 1.2. Unreadable file.
 		addr = cidtest.ID().String() + "." + generateOID().String()
@@ -308,7 +307,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
 
 		fname := filepath.Join(dirName, addr[2:])
-		require.NoError(t, ioutil.WriteFile(fname, []byte{}, 0))
+		require.NoError(t, os.WriteFile(fname, []byte{}, 0))
 
 		// 1.3. Unreadable dir.
 		require.NoError(t, os.MkdirAll(filepath.Join(bsPath, "ZZ"), 0))
@@ -324,7 +323,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		bTree := filepath.Join(bsPath, "blobovnicza")
 		data := make([]byte, 1024)
 		rand.Read(data)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(bTree, "0", "2"), data, 0))
+		require.NoError(t, os.WriteFile(filepath.Join(bTree, "0", "2"), data, 0))
 
 		// 2.2. Invalid object in valid blobovnicza.
 		prm := new(blobovnicza.PutPrm)
@@ -343,7 +342,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		addr := cidtest.ID().String() + "." + objecttest.ID().String()
 		dir := filepath.Join(wcPath, addr[:1])
 		require.NoError(t, os.MkdirAll(dir, os.ModePerm))
-		require.NoError(t, ioutil.WriteFile(filepath.Join(dir, addr[1:]), nil, 0))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, addr[1:]), nil, 0))
 	}
 
 	out := filepath.Join(t.TempDir(), "out.dump")

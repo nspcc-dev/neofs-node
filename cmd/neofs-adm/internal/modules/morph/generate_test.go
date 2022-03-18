@@ -2,7 +2,7 @@ package morph
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -101,7 +101,7 @@ func setupTestTerminal(t *testing.T) *bytes.Buffer {
 	in := bytes.NewBuffer(nil)
 	input.Terminal = term.NewTerminal(input.ReadWriter{
 		Reader: in,
-		Writer: ioutil.Discard,
+		Writer: io.Discard,
 	}, "")
 
 	t.Cleanup(func() { input.Terminal = nil })
