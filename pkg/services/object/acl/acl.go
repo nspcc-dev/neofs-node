@@ -57,6 +57,15 @@ type Checker struct {
 	state        netmap.State
 }
 
+// Various EACL check errors.
+var (
+	errEACLDeniedByRule       = errors.New("denied by rule")
+	errBearerExpired          = errors.New("bearer token has expired")
+	errBearerInvalidSignature = errors.New("bearer token has invalid signature")
+	errBearerNotSignedByOwner = errors.New("bearer token is not signed by the container owner")
+	errBearerInvalidOwner     = errors.New("bearer token owner differs from the request sender")
+)
+
 // NewChecker creates Checker.
 // Panics if at least one of the parameter is nil.
 func NewChecker(prm *CheckerPrm) *Checker {
@@ -124,9 +133,9 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner *owner.ID) bool {
 }
 
 // CheckEACL is a main check function for extended ACL.
-func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) bool {
+func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	if basicACLHelper(reqInfo.BasicACL()).Final() {
-		return true
+		return nil
 	}
 
 	// if bearer token is not allowed, then ignore it
@@ -142,15 +151,18 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) bool {
 	if reqInfo.Bearer().Empty() {
 		table, err = c.eaclSrc.GetEACL(reqInfo.ContainerID())
 		if err != nil {
-			return errors.Is(err, container.ErrEACLNotFound)
+			if errors.Is(err, container.ErrEACLNotFound) {
+				return nil
+			}
+			return err
 		}
 	} else {
 		table = reqInfo.Bearer().EACLTable()
 	}
 
 	// if bearer token is not present, isValidBearer returns true
-	if !isValidBearer(reqInfo, c.state) {
-		return false
+	if err := isValidBearer(reqInfo, c.state); err != nil {
+		return err
 	}
 
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
@@ -186,36 +198,39 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) bool {
 		WithEACLTable(table),
 	)
 
-	return action == eaclSDK.ActionAllow
+	if action != eaclSDK.ActionAllow {
+		return errEACLDeniedByRule
+	}
+	return nil
 }
 
-// isValidBearer returns true if bearer token correctly signed by authorized
+// isValidBearer checks whether bearer token was correctly signed by authorized
 // entity. This method might be defined on whole ACL service because it will
 // require fetching current epoch to check lifetime.
-func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) bool {
+func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	token := reqInfo.Bearer()
 
 	// 0. Check if bearer token is present in reqInfo. It might be non nil
 	// empty structure.
 	if token == nil || token.Empty() {
-		return true
+		return nil
 	}
 
 	// 1. First check token lifetime. Simplest verification.
 	if !isValidLifetime(token, st.CurrentEpoch()) {
-		return false
+		return errBearerExpired
 	}
 
 	// 2. Then check if bearer token is signed correctly.
 	if err := token.VerifySignature(); err != nil {
-		return false // invalid signature
+		return errBearerInvalidSignature
 	}
 
 	// 3. Then check if container owner signed this token.
 	tokenIssuerKey := unmarshalPublicKey(token.Signature().Key())
 	if !isOwnerFromKey(reqInfo.ContainerOwner(), tokenIssuerKey) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-		return false
+		return errBearerNotSignedByOwner
 	}
 
 	// 4. Then check if request sender has rights to use this token.
@@ -224,11 +239,11 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) bool {
 		requestSenderKey := unmarshalPublicKey(reqInfo.SenderKey())
 		if !isOwnerFromKey(tokenOwnerField, requestSenderKey) {
 			// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-			return false
+			return errBearerInvalidOwner
 		}
 	}
 
-	return true
+	return nil
 }
 
 func isValidLifetime(t *bearerSDK.BearerToken, epoch uint64) bool {

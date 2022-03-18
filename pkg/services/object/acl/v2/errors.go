@@ -17,18 +17,19 @@ var (
 	ErrInvalidVerb = errors.New("session token verb is invalid")
 )
 
-const accessDeniedReasonFmt = "access to operation %v is denied by %s check"
+const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
+const accessDeniedEACLReasonFmt = "access to operation %s is denied by extended ACL check: %v"
 
 func basicACLErr(info RequestInfo) error {
 	var errAccessDenied apistatus.ObjectAccessDenied
-	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedReasonFmt, info.operation, "basic ACL"))
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedACLReasonFmt, info.operation))
 
 	return errAccessDenied
 }
 
-func eACLErr(info RequestInfo) error {
+func eACLErr(info RequestInfo, err error) error {
 	var errAccessDenied apistatus.ObjectAccessDenied
-	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedReasonFmt, info.operation, "extended ACL"))
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedEACLReasonFmt, info.operation, err))
 
 	return errAccessDenied
 }

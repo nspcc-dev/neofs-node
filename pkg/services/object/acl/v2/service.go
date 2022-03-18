@@ -131,8 +131,8 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return basicACLErr(reqInfo)
-	} else if !b.checker.CheckEACL(request, reqInfo) {
-		return eACLErr(reqInfo)
+	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
+		return eACLErr(reqInfo, err)
 	}
 
 	return b.next.Get(request, &getStreamBasicChecker{
@@ -178,14 +178,14 @@ func (b Service) Head(
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return nil, basicACLErr(reqInfo)
-	} else if !b.checker.CheckEACL(request, reqInfo) {
-		return nil, eACLErr(reqInfo)
+	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
+		return nil, eACLErr(reqInfo, err)
 	}
 
 	resp, err := b.next.Head(ctx, request)
 	if err == nil {
-		if !b.checker.CheckEACL(resp, reqInfo) {
-			err = eACLErr(reqInfo)
+		if err = b.checker.CheckEACL(resp, reqInfo); err != nil {
+			err = eACLErr(reqInfo, err)
 		}
 	}
 
@@ -216,8 +216,8 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return basicACLErr(reqInfo)
-	} else if !b.checker.CheckEACL(request, reqInfo) {
-		return eACLErr(reqInfo)
+	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
+		return eACLErr(reqInfo, err)
 	}
 
 	return b.next.Search(request, &searchStreamBasicChecker{
@@ -254,8 +254,8 @@ func (b Service) Delete(
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return nil, basicACLErr(reqInfo)
-	} else if !b.checker.CheckEACL(request, reqInfo) {
-		return nil, eACLErr(reqInfo)
+	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
+		return nil, eACLErr(reqInfo, err)
 	}
 
 	return b.next.Delete(ctx, request)
@@ -286,8 +286,8 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return basicACLErr(reqInfo)
-	} else if !b.checker.CheckEACL(request, reqInfo) {
-		return eACLErr(reqInfo)
+	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
+		return eACLErr(reqInfo, err)
 	}
 
 	return b.next.GetRange(request, &rangeStreamBasicChecker{
@@ -324,8 +324,8 @@ func (b Service) GetRangeHash(
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return nil, basicACLErr(reqInfo)
-	} else if !b.checker.CheckEACL(request, reqInfo) {
-		return nil, eACLErr(reqInfo)
+	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
+		return nil, eACLErr(reqInfo, err)
 	}
 
 	return b.next.GetRangeHash(ctx, request)
@@ -368,8 +368,8 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 
 		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, ownerID) {
 			return basicACLErr(reqInfo)
-		} else if !p.source.checker.CheckEACL(request, reqInfo) {
-			return eACLErr(reqInfo)
+		} else if err := p.source.checker.CheckEACL(request, reqInfo); err != nil {
+			return eACLErr(reqInfo, err)
 		}
 	}
 
@@ -382,8 +382,8 @@ func (p putStreamBasicChecker) CloseAndRecv() (*objectV2.PutResponse, error) {
 
 func (g *getStreamBasicChecker) Send(resp *objectV2.GetResponse) error {
 	if _, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
-		if !g.checker.CheckEACL(resp, g.info) {
-			return eACLErr(g.info)
+		if err := g.checker.CheckEACL(resp, g.info); err != nil {
+			return eACLErr(g.info, err)
 		}
 	}
 
@@ -391,16 +391,16 @@ func (g *getStreamBasicChecker) Send(resp *objectV2.GetResponse) error {
 }
 
 func (g *rangeStreamBasicChecker) Send(resp *objectV2.GetRangeResponse) error {
-	if !g.checker.CheckEACL(resp, g.info) {
-		return eACLErr(g.info)
+	if err := g.checker.CheckEACL(resp, g.info); err != nil {
+		return eACLErr(g.info, err)
 	}
 
 	return g.GetObjectRangeStream.Send(resp)
 }
 
 func (g *searchStreamBasicChecker) Send(resp *objectV2.SearchResponse) error {
-	if !g.checker.CheckEACL(resp, g.info) {
-		return eACLErr(g.info)
+	if err := g.checker.CheckEACL(resp, g.info); err != nil {
+		return eACLErr(g.info, err)
 	}
 
 	return g.SearchStream.Send(resp)
