@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -123,7 +122,7 @@ func createEACL(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = ioutil.WriteFile(outArg, buf.Bytes(), 0644)
+	err = os.WriteFile(outArg, buf.Bytes(), 0644)
 	if err != nil {
 		cmd.PrintErrln(err)
 		os.Exit(1)
@@ -135,7 +134,7 @@ func getRulesFromFile(filename string) ([]string, error) {
 		return nil, nil
 	}
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,7 @@ package inspect
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
@@ -111,7 +111,7 @@ func printObjectInfo(cmd *cobra.Command, data []byte) {
 	}
 
 	if vOut != "" {
-		err := ioutil.WriteFile(vOut, obj.Payload(), 0644)
+		err := os.WriteFile(vOut, obj.Payload(), 0644)
 		common.ExitOnErr(cmd, common.Errf("couldn't write payload: %w", err))
 	}
 }

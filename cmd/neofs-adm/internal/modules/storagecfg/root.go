@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net"
@@ -200,7 +199,7 @@ func storageConfig(cmd *cobra.Command, args []string) {
 	}
 
 	out := applyTemplate(c)
-	fatalOnErr(ioutil.WriteFile(outPath, out, 0644))
+	fatalOnErr(os.WriteFile(outPath, out, 0644))
 
 	cmd.Println("Node is ready for work! Run `neofs-node -config " + outPath + "`")
 }

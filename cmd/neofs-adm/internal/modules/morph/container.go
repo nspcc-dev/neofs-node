@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -112,7 +112,7 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filename, out, 0o660)
+	return os.WriteFile(filename, out, 0o660)
 }
 
 func restoreContainers(cmd *cobra.Command, _ []string) error {
@@ -136,7 +136,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't fetch container contract hash: %w", err)
 	}
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("can't read dump file: %w", err)
 	}
