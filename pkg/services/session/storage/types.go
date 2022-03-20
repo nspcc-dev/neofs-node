@@ -11,14 +11,13 @@ type PrivateToken struct {
 	exp uint64
 }
 
-// SetSessionKey sets a private session key.
-func (t *PrivateToken) SetSessionKey(sessionKey *ecdsa.PrivateKey) {
-	t.sessionKey = sessionKey
-}
-
-// SetExpiredAt sets epoch number until token is valid.
-func (t *PrivateToken) SetExpiredAt(exp uint64) {
-	t.exp = exp
+// NewPrivateToken returns new private token based on the
+// passed values.
+func NewPrivateToken(sk *ecdsa.PrivateKey, exp uint64) *PrivateToken {
+	return &PrivateToken{
+		sessionKey: sk,
+		exp:        exp,
+	}
 }
 
 // SessionKey returns the private session key.
