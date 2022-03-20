@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -18,14 +17,9 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 		panic(err)
 	}
 
-	uid, err := uuid.NewRandom()
+	uidBytes, err := storage.NewTokenID()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate token ID: %w", err)
-	}
-
-	uidBytes, err := uid.MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal token ID: %w", err)
 	}
 
 	sk, err := keys.NewPrivateKey()
@@ -33,15 +27,11 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 		return nil, err
 	}
 
-	privateToken := new(storage.PrivateToken)
-	privateToken.SetSessionKey(&sk.PrivateKey)
-	privateToken.SetExpiredAt(body.GetExpiration())
-
 	s.mtx.Lock()
 	s.tokens[key{
 		tokenID: base58.Encode(uidBytes),
 		ownerID: base58.Encode(ownerBytes),
-	}] = privateToken
+	}] = storage.NewPrivateToken(&sk.PrivateKey, body.GetExpiration())
 	s.mtx.Unlock()
 
 	res := new(session.CreateResponseBody)
