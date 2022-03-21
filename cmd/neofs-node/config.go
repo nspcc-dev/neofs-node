@@ -37,7 +37,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
-	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -89,7 +88,7 @@ type cfg struct {
 
 	cfgNetmap cfgNetmap
 
-	privateTokenStore *tokenStorage.TokenStore
+	privateTokenStore sessionStorage
 
 	cfgNodeInfo cfgNodeInfo
 
