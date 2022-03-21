@@ -200,16 +200,16 @@ func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	}
 
 	// remove element from the list
-	newLst := make([][]byte, 0, len(lst))
-
 	for i := range lst {
-		if !bytes.Equal(item.val, lst[i]) {
-			newLst = append(newLst, lst[i])
+		if bytes.Equal(item.val, lst[i]) {
+			copy(lst[i:], lst[i+1:])
+			lst = lst[:len(lst)-1]
+			break
 		}
 	}
 
 	// if list empty, remove the key from <list> bucket
-	if len(newLst) == 0 {
+	if len(lst) == 0 {
 		_ = bkt.Delete(item.key) // ignore error, best effort there
 
 		return nil
