@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/flynn-archive/go-shlex"
@@ -67,20 +68,20 @@ func createEACL(cmd *cobra.Command, _ []string) {
 
 	containerID := cid.New()
 	if err := containerID.Parse(cidArg); err != nil {
-		cmd.Printf("invalid container ID: %v", err)
-		return
+		cmd.Printf("invalid container ID: %v\n", err)
+		os.Exit(1)
 	}
 
 	rulesFile, err := getRulesFromFile(fileArg)
 	if err != nil {
-		cmd.Printf("can't read rules from file : %v", err)
-		return
+		cmd.Printf("can't read rules from file: %v\n", err)
+		os.Exit(1)
 	}
 
 	rules = append(rules, rulesFile...)
 	if len(rules) == 0 {
 		cmd.Println("no extended ACL rules has been provided")
-		return
+		os.Exit(1)
 	}
 
 	tb := eacl.NewTable()
@@ -88,14 +89,14 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	for _, ruleStr := range rules {
 		r, err := shlex.Split(ruleStr)
 		if err != nil {
-			cmd.Printf("can't parse rule '%s': %v)", ruleStr, err)
-			return
+			cmd.Printf("can't parse rule '%s': %v\n", ruleStr, err)
+			os.Exit(1)
 		}
 
 		err = parseTable(tb, r)
 		if err != nil {
-			cmd.Printf("can't create extended ACL record from rule '%s': %v", ruleStr, err)
-			return
+			cmd.Printf("can't create extended ACL record from rule '%s': %v\n", ruleStr, err)
+			os.Exit(1)
 		}
 	}
 
@@ -104,14 +105,14 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	data, err := tb.MarshalJSON()
 	if err != nil {
 		cmd.Println(err)
-		return
+		os.Exit(1)
 	}
 
 	buf := new(bytes.Buffer)
 	err = json.Indent(buf, data, "", "  ")
 	if err != nil {
 		cmd.Println(err)
-		return
+		os.Exit(1)
 	}
 
 	if len(outArg) == 0 {
@@ -122,6 +123,7 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	err = ioutil.WriteFile(outArg, buf.Bytes(), 0644)
 	if err != nil {
 		cmd.Println(err)
+		os.Exit(1)
 	}
 }
 
