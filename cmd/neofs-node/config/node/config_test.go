@@ -31,6 +31,7 @@ func TestNodeSection(t *testing.T) {
 
 		attribute := Attributes(empty)
 		relay := Relay(empty)
+		persisessionsPath := PersistentSessions(empty).Path()
 		persistatePath := PersistentState(empty).Path()
 		notificationDefaultEnabled := Notification(empty).Enabled()
 		notificationDefaultEndpoint := Notification(empty).Endpoint()
@@ -42,6 +43,7 @@ func TestNodeSection(t *testing.T) {
 
 		require.Empty(t, attribute)
 		require.Equal(t, false, relay)
+		require.Equal(t, "", persisessionsPath)
 		require.Equal(t, PersistentStatePathDefault, persistatePath)
 		require.Equal(t, false, notificationDefaultEnabled)
 		require.Equal(t, "", notificationDefaultEndpoint)
@@ -74,6 +76,7 @@ func TestNodeSection(t *testing.T) {
 		attributes := Attributes(c)
 		relay := Relay(c)
 		wKey := Wallet(c)
+		persisessionsPath := PersistentSessions(c).Path()
 		persistatePath := PersistentState(c).Path()
 		notificationEnabled := Notification(c).Enabled()
 		notificationEndpoint := Notification(c).Endpoint()
@@ -134,6 +137,7 @@ func TestNodeSection(t *testing.T) {
 			config.StringSafe(c.Sub("node").Sub("wallet"), "address"),
 			address.Uint160ToString(wKey.GetScriptHash()))
 
+		require.Equal(t, "/sessions", persisessionsPath)
 		require.Equal(t, "/state", persistatePath)
 		require.Equal(t, true, notificationEnabled)
 		require.Equal(t, "tls://localhost:4222", notificationEndpoint)

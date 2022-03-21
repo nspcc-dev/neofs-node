@@ -23,8 +23,10 @@ node:
   attribute_0: "Price:11"
   attribute_1: UN-LOCODE:RU MSK
   relay: true  # start Storage node in relay mode without bootstrapping into the Network map
-  persistent_state:  # path to persistent state file of Storage node
-    path: /state
+  persistent_sessions:
+    path: /sessions  # path to persistent session tokens file of Storage node
+  persistent_state:
+    path: /state  # path to persistent state file of Storage node
   subnet:
     exit_zero: true # toggle entrance to zero subnet (overrides corresponding attribute and occurrence in `entries`)
     entries: # list of IDs of subnets to enter in a text format of NeoFS API protocol (overrides corresponding attributes)
