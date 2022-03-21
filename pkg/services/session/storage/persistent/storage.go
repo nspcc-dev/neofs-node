@@ -1,6 +1,9 @@
 package persistent
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 
@@ -17,6 +20,11 @@ type TokenStore struct {
 	db *bbolt.DB
 
 	l *zap.Logger
+
+	// optional AES-256 algorithm
+	// encryption in Galois/Counter
+	// Mode
+	gcm cipher.AEAD
 }
 
 var sessionsBucket = []byte("sessions")
@@ -49,7 +57,38 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 		return nil, fmt.Errorf("could not init session bucket: %w", err)
 	}
 
-	return &TokenStore{db: db, l: cfg.l}, nil
+	ts := &TokenStore{db: db, l: cfg.l}
+
+	// enable encryption if it
+	// was configured so
+	if cfg.privateKey != nil {
+		rawKey, err := x509.MarshalECPrivateKey(cfg.privateKey)
+		if err != nil {
+			return nil, fmt.Errorf("could not marshal provided private key: %w", err)
+		}
+
+		// tagOffset is a constant offset for
+		// tags when marshalling ECDSA key in
+		// ASN.1 DER form
+		const tagOffset = 7
+
+		// using first 32 bytes from
+		// the marshalled private key
+		// as a secret
+		c, err := aes.NewCipher(rawKey[tagOffset : tagOffset+32])
+		if err != nil {
+			return nil, fmt.Errorf("could not create cipher block: %w", err)
+		}
+
+		gcm, err := cipher.NewGCM(c)
+		if err != nil {
+			return nil, fmt.Errorf("could not wrapp cipher block in Galois Counter Mode: %w", err)
+		}
+
+		ts.gcm = gcm
+	}
+
+	return ts, nil
 }
 
 // Get returns private token corresponding to the given identifiers.
@@ -74,7 +113,7 @@ func (s *TokenStore) Get(ownerID *ownerSDK.ID, tokenID []byte) (t *storage.Priva
 			return nil
 		}
 
-		t, err = unpackToken(rawToken)
+		t, err = s.unpackToken(rawToken)
 		if err != nil {
 			return err
 		}
