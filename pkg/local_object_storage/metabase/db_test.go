@@ -46,10 +46,11 @@ func testOID() *oidSDK.ID {
 	return id
 }
 
-func newDB(t testing.TB) *meta.DB {
+func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	path := t.Name()
 
-	bdb := meta.New(meta.WithPath(path), meta.WithPermissions(0600))
+	bdb := meta.New(append([]meta.Option{meta.WithPath(path), meta.WithPermissions(0600)},
+		opts...)...)
 
 	require.NoError(t, bdb.Open())
 
@@ -61,11 +62,11 @@ func newDB(t testing.TB) *meta.DB {
 	return bdb
 }
 
-func generateObject(t *testing.T) *object.Object {
+func generateObject(t testing.TB) *object.Object {
 	return generateObjectWithCID(t, cidtest.ID())
 }
 
-func generateObjectWithCID(t *testing.T, cid *cid.ID) *object.Object {
+func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
 	version := version.New()
 	version.SetMajor(2)
 	version.SetMinor(1)
