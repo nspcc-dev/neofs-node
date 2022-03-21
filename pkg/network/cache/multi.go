@@ -67,6 +67,32 @@ func (x *multiClient) createForAddress(addr network.Address) clientcore.Client {
 	return &c
 }
 
+// updateGroup replaces current multiClient addresses with a new group.
+// Old addresses not present in group are removed.
+func (x *multiClient) updateGroup(group network.AddressGroup) {
+	// Firstly, remove old clients.
+	cache := make([]string, 0, group.Len())
+	group.IterateAddresses(func(a network.Address) bool {
+		cache = append(cache, a.String())
+		return false
+	})
+
+	x.mtx.Lock()
+	defer x.mtx.Unlock()
+loop:
+	for a := range x.clients {
+		for i := range cache {
+			if cache[i] == a {
+				continue loop
+			}
+		}
+		delete(x.clients, a)
+	}
+
+	// Then add new clients.
+	x.addr = group
+}
+
 func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Client) error) error {
 	var firstErr error
 
