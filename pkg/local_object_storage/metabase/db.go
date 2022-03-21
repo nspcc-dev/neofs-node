@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -30,6 +31,9 @@ type Option func(*cfg)
 type cfg struct {
 	boltOptions *bbolt.Options // optional
 
+	boltBatchSize  int
+	boltBatchDelay time.Duration
+
 	info Info
 
 	log *logger.Logger
@@ -40,8 +44,9 @@ func defaultCfg() *cfg {
 		info: Info{
 			Permission: os.ModePerm, // 0777
 		},
-
-		log: zap.L(),
+		boltBatchDelay: bbolt.DefaultMaxBatchDelay,
+		boltBatchSize:  bbolt.DefaultMaxBatchSize,
+		log:            zap.L(),
 	}
 }
 
@@ -142,5 +147,23 @@ func WithPath(path string) Option {
 func WithPermissions(perm fs.FileMode) Option {
 	return func(c *cfg) {
 		c.info.Permission = perm
+	}
+}
+
+// WithBatchSize returns option to specify maximum concurrent operations
+// to be processed in a single transactions.
+// This option is missing from `bbolt.Options` but is set right after DB is open.
+func WithBatchSize(s int) Option {
+	return func(c *cfg) {
+		c.boltBatchSize = s
+	}
+}
+
+// WithBatchDelay returns option to specify maximum time to wait before
+// the batch of concurrent transactions is processed.
+// This option is missing from `bbolt.Options` but is set right after DB is open.
+func WithBatchDelay(d time.Duration) Option {
+	return func(c *cfg) {
+		c.boltBatchDelay = d
 	}
 }
