@@ -379,7 +379,7 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 	}
 	r := io.NewBinReaderFromBuf(data)
 	l := r.ReadVarUint()
-	lst = make([][]byte, l)
+	lst = make([][]byte, l, l+1)
 	for i := range lst {
 		lst[i] = r.ReadVarBytes()
 	}
