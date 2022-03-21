@@ -1,8 +1,10 @@
 package meta
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	gio "io"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -377,16 +379,56 @@ func decodeList(data []byte) (lst [][]byte, err error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-	r := io.NewBinReaderFromBuf(data)
-	l := r.ReadVarUint()
-	lst = make([][]byte, l, l+1)
-	for i := range lst {
-		lst[i] = r.ReadVarBytes()
+
+	var offset uint64
+	size, n, err := getVarUint(data)
+	if err != nil {
+		return nil, err
 	}
-	if r.Err != nil {
-		return nil, r.Err
+
+	offset += uint64(n)
+	lst = make([][]byte, size, size+1)
+	for i := range lst {
+		sz, n, err := getVarUint(data[offset:])
+		if err != nil {
+			return nil, err
+		}
+		offset += uint64(n)
+
+		next := offset + sz
+		if uint64(len(data)) < next {
+			return nil, gio.ErrUnexpectedEOF
+		}
+		lst[i] = data[offset:next]
+		offset = next
 	}
 	return lst, nil
+}
+
+func getVarUint(data []byte) (uint64, int, error) {
+	if len(data) == 0 {
+		return 0, 0, gio.ErrUnexpectedEOF
+	}
+
+	switch b := data[0]; b {
+	case 0xfd:
+		if len(data) < 3 {
+			return 0, 1, gio.ErrUnexpectedEOF
+		}
+		return uint64(binary.LittleEndian.Uint16(data[1:])), 3, nil
+	case 0xfe:
+		if len(data) < 5 {
+			return 0, 1, gio.ErrUnexpectedEOF
+		}
+		return uint64(binary.LittleEndian.Uint32(data[1:])), 5, nil
+	case 0xff:
+		if len(data) < 9 {
+			return 0, 1, gio.ErrUnexpectedEOF
+		}
+		return binary.LittleEndian.Uint64(data[1:]), 9, nil
+	default:
+		return uint64(b), 1, nil
+	}
 }
 
 // updateBlobovniczaID for existing objects if they were moved from from
