@@ -133,36 +133,19 @@ func (db *DB) deleteObject(
 	obj *objectSDK.Object,
 	isParent bool,
 ) error {
-	uniqueIndexes, err := delUniqueIndexes(obj, isParent)
+	err := delUniqueIndexes(tx, obj, isParent)
 	if err != nil {
-		return fmt.Errorf("can' build unique indexes: %w", err)
+		return fmt.Errorf("can't remove unique indexes")
 	}
 
-	// delete unique indexes
-	for i := range uniqueIndexes {
-		delUniqueIndexItem(tx, uniqueIndexes[i])
-	}
-
-	// build list indexes
-	listIndexes, err := listIndexes(obj)
+	err = updateListIndexes(tx, obj, delListIndexItem)
 	if err != nil {
-		return fmt.Errorf("can' build list indexes: %w", err)
+		return fmt.Errorf("can't remove list indexes: %w", err)
 	}
 
-	// delete list indexes
-	for i := range listIndexes {
-		delListIndexItem(tx, listIndexes[i])
-	}
-
-	// build fake bucket tree indexes
-	fkbtIndexes, err := fkbtIndexes(obj)
+	err = updateFKBTIndexes(tx, obj, delFKBTIndexItem)
 	if err != nil {
-		return fmt.Errorf("can' build fake bucket tree indexes: %w", err)
-	}
-
-	// delete fkbt indexes
-	for i := range fkbtIndexes {
-		delFKBTIndexItem(tx, fkbtIndexes[i])
+		return fmt.Errorf("can't remove fake bucket tree indexes: %w", err)
 	}
 
 	return nil
@@ -190,29 +173,30 @@ func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	}
 }
 
-func delFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) {
+func delFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	bkt := tx.Bucket(item.name)
 	if bkt == nil {
-		return
+		return nil
 	}
 
 	fkbtRoot := bkt.Bucket(item.key)
 	if fkbtRoot == nil {
-		return
+		return nil
 	}
 
 	_ = fkbtRoot.Delete(item.val) // ignore error, best effort there
+	return nil
 }
 
-func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
+func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	bkt := tx.Bucket(item.name)
 	if bkt == nil {
-		return
+		return nil
 	}
 
 	lst, err := decodeList(bkt.Get(item.key))
 	if err != nil || len(lst) == 0 {
-		return
+		return nil
 	}
 
 	// remove element from the list
@@ -228,24 +212,23 @@ func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	if len(newLst) == 0 {
 		_ = bkt.Delete(item.key) // ignore error, best effort there
 
-		return
+		return nil
 	}
 
 	// if list is not empty, then update it
 	encodedLst, err := encodeList(lst)
 	if err != nil {
-		return // ignore error, best effort there
+		return nil // ignore error, best effort there
 	}
 
 	_ = bkt.Put(item.key, encodedLst) // ignore error, best effort there
+	return nil
 }
 
-func delUniqueIndexes(obj *objectSDK.Object, isParent bool) ([]namedBucketItem, error) {
+func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error {
 	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
 	addrKey := addressKey(addr)
-
-	result := make([]namedBucketItem, 0, 5)
 
 	// add value to primary unique bucket
 	if !isParent {
@@ -261,34 +244,32 @@ func delUniqueIndexes(obj *objectSDK.Object, isParent bool) ([]namedBucketItem, 
 		case objectSDK.TypeLock:
 			bucketName = bucketNameLockers(*addr.ContainerID())
 		default:
-			return nil, ErrUnknownObjectType
+			return ErrUnknownObjectType
 		}
 
-		result = append(result, namedBucketItem{
+		delUniqueIndexItem(tx, namedBucketItem{
 			name: bucketName,
 			key:  objKey,
 		})
 	} else {
-		result = append(result, namedBucketItem{
+		delUniqueIndexItem(tx, namedBucketItem{
 			name: parentBucketName(obj.ContainerID()),
 			key:  objKey,
 		})
 	}
 
-	result = append(result,
-		namedBucketItem{ // remove from small blobovnicza id index
-			name: smallBucketName(addr.ContainerID()),
-			key:  objKey,
-		},
-		namedBucketItem{ // remove from root index
-			name: rootBucketName(addr.ContainerID()),
-			key:  objKey,
-		},
-		namedBucketItem{ // remove from ToMoveIt index
-			name: toMoveItBucketName,
-			key:  addrKey,
-		},
-	)
+	delUniqueIndexItem(tx, namedBucketItem{ // remove from small blobovnicza id index
+		name: smallBucketName(addr.ContainerID()),
+		key:  objKey,
+	})
+	delUniqueIndexItem(tx, namedBucketItem{ // remove from root index
+		name: rootBucketName(addr.ContainerID()),
+		key:  objKey,
+	})
+	delUniqueIndexItem(tx, namedBucketItem{ // remove from ToMoveIt index
+		name: toMoveItBucketName,
+		key:  addrKey,
+	})
 
-	return result, nil
+	return nil
 }

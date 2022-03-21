@@ -129,46 +129,19 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID, si *o
 		}
 	}
 
-	// build unique indexes
-	uniqueIndexes, err := uniqueIndexes(obj, si, id)
+	err = putUniqueIndexes(tx, obj, si, id)
 	if err != nil {
-		return fmt.Errorf("can' build unique indexes: %w", err)
+		return fmt.Errorf("can't put unique indexes: %w", err)
 	}
 
-	// put unique indexes
-	for i := range uniqueIndexes {
-		err = putUniqueIndexItem(tx, uniqueIndexes[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	// build list indexes
-	listIndexes, err := listIndexes(obj)
+	err = updateListIndexes(tx, obj, putListIndexItem)
 	if err != nil {
-		return fmt.Errorf("can' build list indexes: %w", err)
+		return fmt.Errorf("can't put list indexes: %w", err)
 	}
 
-	// put list indexes
-	for i := range listIndexes {
-		err = putListIndexItem(tx, listIndexes[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	// build fake bucket tree indexes
-	fkbtIndexes, err := fkbtIndexes(obj)
+	err = updateFKBTIndexes(tx, obj, putFKBTIndexItem)
 	if err != nil {
-		return fmt.Errorf("can' build fake bucket tree indexes: %w", err)
-	}
-
-	// put fake bucket tree indexes
-	for i := range fkbtIndexes {
-		err = putFKBTIndexItem(tx, fkbtIndexes[i])
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("can't put fake bucket tree indexes: %w", err)
 	}
 
 	// update container volume size estimation
@@ -187,12 +160,15 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID, si *o
 	return nil
 }
 
-// builds list of <unique> indexes from the object.
-func uniqueIndexes(obj *objectSDK.Object, si *objectSDK.SplitInfo, id *blobovnicza.ID) ([]namedBucketItem, error) {
+func putUniqueIndexes(
+	tx *bbolt.Tx,
+	obj *objectSDK.Object,
+	si *objectSDK.SplitInfo,
+	id *blobovnicza.ID,
+) error {
 	isParent := si != nil
 	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
-	result := make([]namedBucketItem, 0, 3)
 
 	// add value to primary unique bucket
 	if !isParent {
@@ -208,27 +184,33 @@ func uniqueIndexes(obj *objectSDK.Object, si *objectSDK.SplitInfo, id *blobovnic
 		case objectSDK.TypeLock:
 			bucketName = bucketNameLockers(*addr.ContainerID())
 		default:
-			return nil, ErrUnknownObjectType
+			return ErrUnknownObjectType
 		}
 
 		rawObject, err := obj.CutPayload().Marshal()
 		if err != nil {
-			return nil, fmt.Errorf("can't marshal object header: %w", err)
+			return fmt.Errorf("can't marshal object header: %w", err)
 		}
 
-		result = append(result, namedBucketItem{
+		err = putUniqueIndexItem(tx, namedBucketItem{
 			name: bucketName,
 			key:  objKey,
 			val:  rawObject,
 		})
+		if err != nil {
+			return err
+		}
 
 		// index blobovniczaID if it is present
 		if id != nil {
-			result = append(result, namedBucketItem{
+			err = putUniqueIndexItem(tx, namedBucketItem{
 				name: smallBucketName(addr.ContainerID()),
 				key:  objKey,
 				val:  *id,
 			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -242,79 +224,94 @@ func uniqueIndexes(obj *objectSDK.Object, si *objectSDK.SplitInfo, id *blobovnic
 		if isParent {
 			splitInfo, err = si.Marshal()
 			if err != nil {
-				return nil, fmt.Errorf("can't marshal split info: %w", err)
+				return fmt.Errorf("can't marshal split info: %w", err)
 			}
 		}
 
-		result = append(result, namedBucketItem{
+		err = putUniqueIndexItem(tx, namedBucketItem{
 			name: rootBucketName(addr.ContainerID()),
 			key:  objKey,
 			val:  splitInfo,
 		})
+		if err != nil {
+			return err
+		}
 	}
 
-	return result, nil
+	return nil
 }
 
-// builds list of <list> indexes from the object.
-func listIndexes(obj *objectSDK.Object) ([]namedBucketItem, error) {
-	result := make([]namedBucketItem, 0, 3)
+type updateIndexItemFunc = func(tx *bbolt.Tx, item namedBucketItem) error
+
+func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
 	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
 
 	// index payload hashes
-	result = append(result, namedBucketItem{
+	err := f(tx, namedBucketItem{
 		name: payloadHashBucketName(addr.ContainerID()),
 		key:  obj.PayloadChecksum().Sum(),
 		val:  objKey,
 	})
+	if err != nil {
+		return err
+	}
 
 	// index parent ids
 	if obj.ParentID() != nil {
-		result = append(result, namedBucketItem{
+		err := f(tx, namedBucketItem{
 			name: parentBucketName(addr.ContainerID()),
 			key:  objectKey(obj.ParentID()),
 			val:  objKey,
 		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// index split ids
 	if obj.SplitID() != nil {
-		result = append(result, namedBucketItem{
+		err := f(tx, namedBucketItem{
 			name: splitBucketName(addr.ContainerID()),
 			key:  obj.SplitID().ToV2(),
 			val:  objKey,
 		})
+		if err != nil {
+			return err
+		}
 	}
 
-	return result, nil
+	return nil
 }
 
-// builds list of <fake bucket tree> indexes from the object.
-func fkbtIndexes(obj *objectSDK.Object) ([]namedBucketItem, error) {
+func updateFKBTIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
 	addr := object.AddressOf(obj)
 	objKey := []byte(addr.ObjectID().String())
 
 	attrs := obj.Attributes()
-	result := make([]namedBucketItem, 0, 1+len(attrs))
 
-	// owner
-	result = append(result, namedBucketItem{
+	err := f(tx, namedBucketItem{
 		name: ownerBucketName(addr.ContainerID()),
 		key:  []byte(obj.OwnerID().String()),
 		val:  objKey,
 	})
+	if err != nil {
+		return err
+	}
 
 	// user specified attributes
 	for i := range attrs {
-		result = append(result, namedBucketItem{
+		err := f(tx, namedBucketItem{
 			name: attributeBucketName(addr.ContainerID(), attrs[i].Key()),
 			key:  []byte(attrs[i].Value()),
 			val:  objKey,
 		})
+		if err != nil {
+			return err
+		}
 	}
 
-	return result, nil
+	return nil
 }
 
 func putUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
