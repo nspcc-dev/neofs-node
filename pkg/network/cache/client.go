@@ -2,12 +2,10 @@ package cache
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"sync"
 	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
@@ -16,7 +14,7 @@ type (
 	// already created clients.
 	ClientCache struct {
 		mu      *sync.RWMutex
-		clients map[string]clientcore.Client
+		clients map[string]*multiClient
 		opts    ClientCacheOpts
 	}
 
@@ -32,7 +30,7 @@ type (
 func NewSDKClientCache(opts ClientCacheOpts) *ClientCache {
 	return &ClientCache{
 		mu:      new(sync.RWMutex),
-		clients: make(map[string]clientcore.Client),
+		clients: make(map[string]*multiClient),
 		opts:    opts,
 	}
 }
@@ -40,22 +38,12 @@ func NewSDKClientCache(opts ClientCacheOpts) *ClientCache {
 // Get function returns existing client or creates a new one.
 func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	netAddr := info.AddressGroup()
-
-	// multiaddr is used as a key in client cache since
-	// same host may have different connections(with tls or not),
-	// therefore, host+port pair is not unique
-
-	// FIXME: #1157 we should calculate map key regardless of the address order,
-	//  but network.StringifyGroup is order-dependent.
-	//  This works until the same mixed group is transmitted
-	//  (for a network map, it seems to be true).
-	cacheKey := hex.EncodeToString(info.PublicKey()) + network.StringifyGroup(netAddr)
+	cacheKey := string(info.PublicKey())
 
 	c.mu.RLock()
 	if cli, ok := c.clients[cacheKey]; ok {
-		// todo: check underlying connection neofs-api-go#196
 		c.mu.RUnlock()
-
+		cli.updateGroup(netAddr)
 		return cli, nil
 	}
 
@@ -67,6 +55,7 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	// check once again if client is missing in cache, concurrent routine could
 	// create client while this routine was locked on `c.mu.Lock()`.
 	if cli, ok := c.clients[cacheKey]; ok {
+		// No need to update address group as the client has just been created.
 		return cli, nil
 	}
 
