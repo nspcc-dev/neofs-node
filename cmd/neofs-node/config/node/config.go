@@ -12,6 +12,12 @@ import (
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 )
 
+// PersistentSessionsConfig is a wrapper over "persistent_sessions" config section
+// which provides access to persistent session tokens storage configuration of node.
+type PersistentSessionsConfig struct {
+	cfg *config.Config
+}
+
 // PersistentStateConfig is a wrapper over "persistent_state" config section
 // which provides access to persistent state storage configuration of node.
 type PersistentStateConfig struct {
@@ -25,9 +31,10 @@ type NotificationConfig struct {
 }
 
 const (
-	subsection                = "node"
-	persistentStateSubsection = "persistent_state"
-	notificationSubsection    = "notification"
+	subsection                   = "node"
+	persistentSessionsSubsection = "persistent_sessions"
+	persistentStateSubsection    = "persistent_state"
+	notificationSubsection       = "notification"
 
 	attributePrefix = "attribute"
 
@@ -135,6 +142,21 @@ func Attributes(c *config.Config) (attrs []string) {
 // Returns false if value is not set.
 func Relay(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "relay")
+}
+
+// PersistentSessions returns structure that provides access to "persistent_sessions"
+// subsection of "node" section.
+func PersistentSessions(c *config.Config) PersistentSessionsConfig {
+	return PersistentSessionsConfig{
+		c.Sub(subsection).Sub(persistentSessionsSubsection),
+	}
+}
+
+// Path returns value of "path" config parameter.
+//
+// Returns PersistentStatePathDefault if value is not a non-empty string.
+func (p PersistentSessionsConfig) Path() string {
+	return config.String(p.cfg, "path")
 }
 
 // PersistentState returns structure that provides access to "persistent_state"

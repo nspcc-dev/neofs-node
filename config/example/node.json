@@ -26,6 +26,9 @@
     "attribute_0": "Price:11",
     "attribute_1": "UN-LOCODE:RU MSK",
     "relay": true,
+    "persistent_sessions": {
+      "path": "/sessions"
+    },
     "persistent_state": {
       "path": "/state"
     },
