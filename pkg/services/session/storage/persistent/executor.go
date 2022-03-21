@@ -33,7 +33,7 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 		return nil, err
 	}
 
-	value, err := packToken(body.GetExpiration(), &sk.PrivateKey)
+	value, err := s.packToken(body.GetExpiration(), &sk.PrivateKey)
 	if err != nil {
 		return nil, err
 	}

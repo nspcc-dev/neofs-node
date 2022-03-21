@@ -12,10 +12,17 @@ import (
 
 const expOffset = 8
 
-func packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
+func (s *TokenStore) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
 	rawKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal private key: %w", err)
+	}
+
+	if s.gcm != nil {
+		rawKey, err = s.encrypt(rawKey)
+		if err != nil {
+			return nil, fmt.Errorf("could not encrypt session key: %w", err)
+		}
 	}
 
 	res := make([]byte, expOffset, expOffset+len(rawKey))
@@ -26,10 +33,20 @@ func packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
 	return res, nil
 }
 
-func unpackToken(raw []byte) (*storage.PrivateToken, error) {
-	epoch := binary.LittleEndian.Uint64(raw[:expOffset])
+func (s *TokenStore) unpackToken(raw []byte) (*storage.PrivateToken, error) {
+	var err error
 
-	key, err := x509.ParseECPrivateKey(raw[expOffset:])
+	epoch := epochFromToken(raw)
+	rawKey := raw[expOffset:]
+
+	if s.gcm != nil {
+		rawKey, err = s.decrypt(rawKey)
+		if err != nil {
+			return nil, fmt.Errorf("could not decrypt session key: %w", err)
+		}
+	}
+
+	key, err := x509.ParseECPrivateKey(rawKey)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal private key: %w", err)
 	}

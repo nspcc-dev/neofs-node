@@ -1,14 +1,16 @@
 package persistent
 
 import (
+	"crypto/ecdsa"
 	"time"
 
 	"go.uber.org/zap"
 )
 
 type cfg struct {
-	l       *zap.Logger
-	timeout time.Duration
+	l          *zap.Logger
+	timeout    time.Duration
+	privateKey *ecdsa.PrivateKey
 }
 
 // Option allows setting optional parameters of the TokenStore.
@@ -34,5 +36,13 @@ func WithLogger(v *zap.Logger) Option {
 func WithTimeout(v time.Duration) Option {
 	return func(c *cfg) {
 		c.timeout = v
+	}
+}
+
+// WithEncryptionKey return an option to encrypt private
+// session keys using provided private key.
+func WithEncryptionKey(k *ecdsa.PrivateKey) Option {
+	return func(c *cfg) {
+		c.privateKey = k
 	}
 }
