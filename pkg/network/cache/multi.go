@@ -235,16 +235,21 @@ func (x *multiClient) RawForAddress(addr network.Address, f func(client *rawclie
 }
 
 func (x *multiClient) client(addr network.Address) clientcore.Client {
-	x.mtx.Lock()
-
 	strAddr := addr.String()
 
+	x.mtx.RLock()
 	c, cached := x.clients[strAddr]
-	if !cached {
-		c = x.createForAddress(addr)
-	}
+	x.mtx.RUnlock()
 
-	x.mtx.Unlock()
+	if !cached {
+		x.mtx.Lock()
+
+		c, cached = x.clients[strAddr]
+		if !cached {
+			c = x.createForAddress(addr)
+		}
+		x.mtx.Unlock()
+	}
 
 	return c
 }
