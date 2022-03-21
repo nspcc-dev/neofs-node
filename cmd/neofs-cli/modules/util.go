@@ -515,17 +515,22 @@ func exitOnErr(cmd *cobra.Command, err error) {
 	const (
 		_ = iota
 		internal
+		aclDenied
 	)
 
 	var (
 		code int
 
 		internalErr = new(sdkstatus.ServerInternal)
+		accessErr   = new(sdkstatus.ObjectAccessDenied)
 	)
 
 	switch {
 	case errors.As(err, &internalErr):
 		code = internal
+	case errors.As(err, &accessErr):
+		code = aclDenied
+		err = fmt.Errorf("%w: %s", err, accessErr.Reason())
 	default:
 		code = internal
 	}
