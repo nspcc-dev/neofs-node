@@ -55,16 +55,16 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 		return nil, errNilAddress
 	}
 
+	sz := uint64(len(prm.objData))
+	bucketName := bucketForSize(sz)
+	key := addressKey(addr)
+
 	err := b.boltDB.Batch(func(tx *bbolt.Tx) error {
 		if b.full() {
 			return ErrFull
 		}
 
-		// calculate size
-		sz := uint64(len(prm.objData))
-
-		// get bucket for size
-		buck := tx.Bucket(bucketForSize(sz))
+		buck := tx.Bucket(bucketName)
 		if buck == nil {
 			// expected to happen:
 			//  - before initialization step (incorrect usage by design)
@@ -73,15 +73,15 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 		}
 
 		// save the object in bucket
-		if err := buck.Put(addressKey(addr), prm.objData); err != nil {
+		if err := buck.Put(key, prm.objData); err != nil {
 			return fmt.Errorf("(%T) could not save object in bucket: %w", b, err)
 		}
 
-		// increase fullness counter
-		b.incSize(sz)
-
 		return nil
 	})
+	if err == nil {
+		b.incSize(sz)
+	}
 
 	return nil, err
 }
