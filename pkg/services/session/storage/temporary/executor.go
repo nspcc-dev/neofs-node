@@ -40,3 +40,7 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 
 	return res, nil
 }
+
+func (s *TokenStore) Close() error {
+	return nil
+}
