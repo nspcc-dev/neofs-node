@@ -483,11 +483,6 @@ func (x GetObjectRes) Header() *object.Object {
 	return x.hdr
 }
 
-// maximum size of the buffer use for io.Copy*.
-// Chosen small due to the expected low volume of NeoFS CLI process resources.
-// TODO: (neofs-node#1198) explore better values or configure it
-const maxPayloadBufferSize = 1024
-
 // GetObject reads the object by address.
 //
 // Interrupts on any writer error. If successful, payload is written to writer.
@@ -538,14 +533,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		prm.headerCallback(&hdr)
 	}
 
-	sz := hdr.PayloadSize()
-	if sz > maxPayloadBufferSize {
-		sz = maxPayloadBufferSize
-	}
-
-	buf := make([]byte, sz)
-
-	_, err = io.CopyBuffer(prm.wrt, rdr, buf)
+	_, err = io.Copy(prm.wrt, rdr)
 	if err != nil {
 		return nil, fmt.Errorf("copy payload: %w", err)
 	}
@@ -860,14 +848,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}
 
-	sz := prm.rng.GetLength()
-	if sz > maxPayloadBufferSize {
-		sz = maxPayloadBufferSize
-	}
-
-	buf := make([]byte, sz)
-
-	_, err = io.CopyBuffer(prm.wrt, rdr, buf)
+	_, err = io.Copy(prm.wrt, rdr)
 	if err != nil {
 		return nil, fmt.Errorf("copy payload: %w", err)
 	}
