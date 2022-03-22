@@ -76,11 +76,6 @@ func (a *Address) FromString(s string) error {
 	return err
 }
 
-const (
-	grpcScheme    = "grpc"
-	grpcTLSScheme = "grpcs"
-)
-
 // multiaddrStringFromHostAddr converts "localhost:8080" to "/dns4/localhost/tcp/8080"
 func multiaddrStringFromHostAddr(host string) (string, error) {
 	endpoint, port, err := net.SplitHostPort(host)
