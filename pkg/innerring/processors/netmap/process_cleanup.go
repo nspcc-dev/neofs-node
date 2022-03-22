@@ -25,13 +25,29 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 
 		np.log.Info("vote to remove node from netmap", zap.String("key", s))
 
-		prm := netmapclient.UpdatePeerPrm{}
+		// In notary environments we call UpdateStateIR method instead of UpdateState.
+		// It differs from UpdateState only by name, so we can do this in the same form.
+		// See https://github.com/nspcc-dev/neofs-contract/issues/225
+		const methodUpdateStateNotary = "updateStateIR"
 
-		prm.SetKey(key.Bytes())
-		prm.SetState(netmap.NodeStateOffline)
-		prm.SetHash(ev.TxHash())
+		if np.notaryDisabled {
+			prm := netmapclient.UpdatePeerPrm{}
 
-		err = np.netmapClient.UpdatePeerState(prm)
+			prm.SetKey(key.Bytes())
+			prm.SetState(netmap.NodeStateOffline)
+			prm.SetHash(ev.TxHash())
+
+			err = np.netmapClient.UpdatePeerState(prm)
+		} else {
+			err = np.netmapClient.Morph().NotaryInvoke(
+				np.netmapClient.ContractAddress(),
+				0,
+				uint32(ev.epoch),
+				nil,
+				methodUpdateStateNotary,
+				int64(netmap.NodeStateOffline.ToV2()), key.Bytes(),
+			)
+		}
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
 		}
