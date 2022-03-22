@@ -1114,7 +1114,7 @@ func printSplitInfoErr(cmd *cobra.Command, err error) bool {
 
 func printSplitInfo(cmd *cobra.Command, info *object.SplitInfo) {
 	bs, err := marshalSplitInfo(cmd, info)
-	exitOnErr(cmd, fmt.Errorf("can't marshal split info: %w", err))
+	exitOnErr(cmd, errf("can't marshal split info: %w", err))
 
 	cmd.Println(string(bs))
 }
