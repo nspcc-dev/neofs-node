@@ -34,7 +34,7 @@ Filter consists of <typ>:<key><match><value>
     Well-known system object headers start with '$Object:' prefix.
     User defined headers start without prefix.
     Read more about filter keys at github.com/nspcc-dev/neofs-api/blob/master/proto-docs/acl.md#message-eaclrecordfilter
-  Match is '==' for matching and '!=' for non-matching filter.
+  Match is '=' for matching and '!=' for non-matching filter.
   Value is a valid unicode string corresponding to object or request header value.
 
 Target is 
