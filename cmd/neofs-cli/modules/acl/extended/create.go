@@ -66,10 +66,13 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	outArg, _ := cmd.Flags().GetString("out")
 	cidArg, _ := cmd.Flags().GetString("cid")
 
-	containerID := cid.New()
-	if err := containerID.Parse(cidArg); err != nil {
-		cmd.PrintErrf("invalid container ID: %v\n", err)
-		os.Exit(1)
+	var containerID *cid.ID
+	if cidArg != "" {
+		containerID = cid.New()
+		if err := containerID.Parse(cidArg); err != nil {
+			cmd.PrintErrf("invalid container ID: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	rulesFile, err := getRulesFromFile(fileArg)
