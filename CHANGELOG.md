@@ -3,6 +3,18 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.0-rc.2] - 2022-03-24
+
+### Fixed
+- Respect format flags for `SplitInfo` output (#1233)
+- Return non-zero exit code in `acl extended create` command failures (#1259)
+- Output errors in neofs-cli to stderr where possible (#1259)
+
+### Added
+- Print details for AccessDenied errors in neofs-cli (#1252)
+- Split client creation into 2 stages (#1244)
+- Update morph client to work with v0.15.0 (#1253)
+
 ## [0.28.0-rc.1] - 2022-03-18
 
 Native RFC-6979 signatures of messages and tokens, LOCK object types, 
