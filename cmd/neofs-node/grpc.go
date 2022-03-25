@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -95,7 +96,19 @@ func stopGRPC(name string, s *grpc.Server, l *logger.Logger) {
 
 	l.Info("stopping gRPC server...")
 
-	s.GracefulStop()
+	// GracefulStop() may freeze forever, see #1270
+	done := make(chan struct{})
+	go func() {
+		s.GracefulStop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Minute):
+		l.Info("gRPC cannot shutdown gracefully, forcing stop")
+		s.Stop()
+	}
 
 	l.Info("gRPC server stopped successfully")
 }
