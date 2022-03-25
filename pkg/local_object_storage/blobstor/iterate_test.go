@@ -161,6 +161,10 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	require.NotEqual(t, "", p, "expected to not have at least 1 blobovnicza in cache")
 	require.NoError(t, os.Chmod(p, 0))
 
+	require.NoError(t, b.Close())
+	require.NoError(t, bs.Open())
+	require.NoError(t, bs.Init())
+
 	var prm IteratePrm
 	prm.SetIterationHandler(func(e IterationElement) error {
 		return nil

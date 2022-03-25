@@ -16,24 +16,24 @@ func noOpDecompressor(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func zstdCompressor() (func([]byte) []byte, error) {
+func zstdCompressor() (*zstd.Encoder, func([]byte) []byte, error) {
 	enc, err := zstd.NewWriter(nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return func(data []byte) []byte {
+	return enc, func(data []byte) []byte {
 		return enc.EncodeAll(data, make([]byte, 0, len(data)))
 	}, nil
 }
 
-func zstdDecompressor() (func([]byte) ([]byte, error), error) {
+func zstdDecompressor() (*zstd.Decoder, func([]byte) ([]byte, error), error) {
 	dec, err := zstd.NewReader(nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return func(data []byte) ([]byte, error) {
+	return dec, func(data []byte) ([]byte, error) {
 		return dec.DecodeAll(data, nil)
 	}, nil
 }

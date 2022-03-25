@@ -78,6 +78,8 @@ type blobovniczas struct {
 	// list of active (opened, non-filled) blobovniczas
 	activeMtx sync.RWMutex
 	active    map[string]blobovniczaWithIndex
+
+	onClose []func()
 }
 
 type blobovniczaWithIndex struct {
@@ -800,14 +802,21 @@ func (b *blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 func (b *blobovniczas) init() error {
 	b.log.Debug("initializing Blobovnicza's")
 
-	zstdC, err := zstdCompressor()
+	enc, zstdC, err := zstdCompressor()
 	if err != nil {
 		return fmt.Errorf("could not create zstd compressor: %v", err)
 	}
-	zstdD, err := zstdDecompressor()
+	b.onClose = append(b.onClose, func() {
+		if err := enc.Close(); err != nil {
+			b.log.Debug("can't close zstd compressor", zap.String("err", err.Error()))
+		}
+	})
+
+	dec, zstdD, err := zstdDecompressor()
 	if err != nil {
 		return fmt.Errorf("could not create zstd decompressor: %v", err)
 	}
+	b.onClose = append(b.onClose, dec.Close)
 
 	// Compression is always done based on config settings.
 	if b.compressionEnabled {
@@ -874,6 +883,10 @@ func (b *blobovniczas) close() error {
 	b.lruMtx.Unlock()
 
 	b.activeMtx.Unlock()
+
+	for i := range b.onClose {
+		b.onClose[i]()
+	}
 
 	return nil
 }
