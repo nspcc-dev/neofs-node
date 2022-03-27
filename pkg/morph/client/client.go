@@ -468,9 +468,7 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 
 // MagicNumber returns the magic number of the network
 // to which the underlying RPC node client is connected.
-//
-// Returns 0 in case of connection problems.
-func (c *Client) MagicNumber() (res uint64, err error) {
+func (c *Client) MagicNumber() (uint64, error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -478,7 +476,14 @@ func (c *Client) MagicNumber() (res uint64, err error) {
 		return 0, ErrConnectionLost
 	}
 
-	return uint64(c.client.GetNetwork()), nil
+	mNum, err := c.client.GetNetwork()
+	if err != nil {
+		// error appears only if client
+		// has not been initialized
+		panic(err)
+	}
+
+	return uint64(mNum), nil
 }
 
 // BlockCount returns block count of the network

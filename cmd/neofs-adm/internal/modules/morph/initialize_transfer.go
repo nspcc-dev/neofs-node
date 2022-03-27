@@ -91,7 +91,12 @@ func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accTyp
 }
 
 func (c *initializeContext) multiSign(tx *transaction.Transaction, accType string) error {
-	network := c.Client.GetNetwork()
+	network, err := c.Client.GetNetwork()
+	if err != nil {
+		// error appears only if client
+		// has not been initialized
+		panic(err)
+	}
 
 	// Use parameter context to avoid dealing with signature order.
 	pc := scContext.NewParameterContext("", network, tx)
