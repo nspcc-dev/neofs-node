@@ -124,7 +124,14 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't create tx: %w", err)
 	}
 
-	err = acc.SignTx(c.GetNetwork(), tx)
+	mn, err := c.GetNetwork()
+	if err != nil {
+		// error appears only if client
+		// has not been initialized
+		panic(err)
+	}
+
+	err = acc.SignTx(mn, tx)
 	if err != nil {
 		return fmt.Errorf("can't sign tx: %w", err)
 	}

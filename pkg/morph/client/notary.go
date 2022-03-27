@@ -380,11 +380,16 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 		return err
 	}
 
+	// error appears only if client
+	// is in inactive mode; that has
+	// been already checked above
+	magicNumber, _ := c.MagicNumber()
+
 	// mainTX is expected to be pre-validated: second witness must exist and be empty
 	mainTx.Scripts[1].VerificationScript = multiaddrAccount.GetVerificationScript()
 	mainTx.Scripts[1].InvocationScript = append(
 		[]byte{byte(opcode.PUSHDATA1), 64},
-		multiaddrAccount.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), mainTx)...,
+		multiaddrAccount.PrivateKey().SignHashable(uint32(magicNumber), mainTx)...,
 	)
 
 	resp, err := c.client.SignAndPushP2PNotaryRequest(mainTx,
@@ -618,10 +623,12 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 	// to pass Notary module verification
 	var invokeScript []byte
 
+	magicNumber, _ := c.MagicNumber()
+
 	if invokedByAlpha {
 		invokeScript = append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
-			multiaddr.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), tx)...,
+			multiaddr.PrivateKey().SignHashable(uint32(magicNumber), tx)...,
 		)
 	} else {
 		// we can't provide alphabet node signature
@@ -643,7 +650,7 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 		// then we have invoker witness
 		invokeScript = append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
-			c.acc.PrivateKey().SignHashable(uint32(c.client.GetNetwork()), tx)...,
+			c.acc.PrivateKey().SignHashable(uint32(magicNumber), tx)...,
 		)
 
 		w = append(w, transaction.Witness{
