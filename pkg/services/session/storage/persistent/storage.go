@@ -3,7 +3,6 @@ package persistent
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 
@@ -62,20 +61,10 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 	// enable encryption if it
 	// was configured so
 	if cfg.privateKey != nil {
-		rawKey, err := x509.MarshalECPrivateKey(cfg.privateKey)
-		if err != nil {
-			return nil, fmt.Errorf("could not marshal provided private key: %w", err)
-		}
+		rawKey := make([]byte, (cfg.privateKey.Curve.Params().N.BitLen()+7)/8)
+		cfg.privateKey.D.FillBytes(rawKey)
 
-		// tagOffset is a constant offset for
-		// tags when marshalling ECDSA key in
-		// ASN.1 DER form
-		const tagOffset = 7
-
-		// using first 32 bytes from
-		// the marshalled private key
-		// as a secret
-		c, err := aes.NewCipher(rawKey[tagOffset : tagOffset+32])
+		c, err := aes.NewCipher(rawKey)
 		if err != nil {
 			return nil, fmt.Errorf("could not create cipher block: %w", err)
 		}

@@ -10,7 +10,7 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-const expOffset = 8
+const keyOffset = 8
 
 func (s *TokenStore) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error) {
 	rawKey, err := x509.MarshalECPrivateKey(key)
@@ -25,7 +25,7 @@ func (s *TokenStore) packToken(exp uint64, key *ecdsa.PrivateKey) ([]byte, error
 		}
 	}
 
-	res := make([]byte, expOffset, expOffset+len(rawKey))
+	res := make([]byte, keyOffset, keyOffset+len(rawKey))
 	binary.LittleEndian.PutUint64(res, exp)
 
 	res = append(res, rawKey...)
@@ -37,7 +37,7 @@ func (s *TokenStore) unpackToken(raw []byte) (*storage.PrivateToken, error) {
 	var err error
 
 	epoch := epochFromToken(raw)
-	rawKey := raw[expOffset:]
+	rawKey := raw[keyOffset:]
 
 	if s.gcm != nil {
 		rawKey, err = s.decrypt(rawKey)
