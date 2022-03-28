@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
+	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -120,6 +121,7 @@ func init() {
 
 	rootCmd.AddCommand(acl.Cmd)
 	rootCmd.AddCommand(bearerCli.Cmd)
+	rootCmd.AddCommand(sessionCli.Cmd)
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) {

@@ -16,6 +16,7 @@ import (
 	"github.com/cheggaaa/pb"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -316,30 +317,11 @@ func prepareSessionPrmWithOwner(
 	ownerID *owner.ID,
 	prms ...clientKeySession,
 ) {
-	var (
-		sessionPrm internalclient.CreateSessionPrm
-		netInfoPrm internalclient.NetworkInfoPrm
-	)
+	cli, err := getSDKClient(key)
+	exitOnErr(cmd, errf("create API client: %w", err))
 
-	cws := make([]clientWithKey, 2, len(prms)+2)
-	cws[0] = &sessionPrm
-	cws[1] = &netInfoPrm
-
-	for i := range prms {
-		cws = append(cws, prms[i])
-	}
-
-	prepareAPIClientWithKey(cmd, key, cws...)
-
-	ni, err := internalclient.NetworkInfo(netInfoPrm)
-	exitOnErr(cmd, errf("read network info: %w", err))
-
-	cur := ni.NetworkInfo().CurrentEpoch()
-	exp := cur + sessionTokenLifetime
-	sessionPrm.SetExp(exp)
-
-	sessionRes, err := internalclient.CreateSession(sessionPrm)
-	exitOnErr(cmd, errf("open session: %w", err))
+	sessionToken, err := sessionCli.CreateSession(cli, ownerID, sessionTokenLifetime)
+	exitOnErr(cmd, err)
 
 	for i := range prms {
 		objectContext := session.NewObjectContext()
@@ -364,17 +346,18 @@ func prepareSessionPrmWithOwner(
 		objectContext.ApplyTo(addr)
 
 		tok := session.NewToken()
-		tok.SetID(sessionRes.ID())
-		tok.SetSessionKey(sessionRes.SessionKey())
-		tok.SetOwnerID(ownerID)
+		tok.SetID(sessionToken.ID())
+		tok.SetSessionKey(sessionToken.SessionKey())
+		tok.SetOwnerID(sessionToken.OwnerID())
 		tok.SetContext(objectContext)
-		tok.SetExp(exp)
-		tok.SetIat(cur)
-		tok.SetNbf(cur)
+		tok.SetExp(sessionToken.Exp())
+		tok.SetIat(sessionToken.Iat())
+		tok.SetNbf(sessionToken.Nbf())
 
 		err = tok.Sign(key)
 		exitOnErr(cmd, errf("session token signing: %w", err))
 
+		prms[i].SetClient(cli)
 		prms[i].SetSessionToken(tok)
 	}
 }
