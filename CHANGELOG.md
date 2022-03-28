@@ -7,7 +7,6 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Respect format flags for `SplitInfo` output (#1233)
-- Return non-zero exit code in `acl extended create` command failures (#1259)
 - Output errors in neofs-cli to stderr where possible (#1259)
 
 ### Added
@@ -21,23 +20,16 @@ Native RFC-6979 signatures of messages and tokens, LOCK object types,
 experimental notifications over NATS with NeoFS API v2.12 support
 
 ### Fixed
-- Allow empty passwords in neofs-cli config (#1136)
 - Remove session tokens from local storage of storage node after expiration (#1133)
-- Set correct audit range hash type in neofs-ir (#1180)
 - Readme typos (#1167)
 - LOCODE attribute and announced address are not mandatory for relay node config (#1114)
-- Read objects directly from blobstor in case of shard inconsistency (#1186)
 - Shard ID is now consistent between restarts (#1204)
 - Check session token verb (#1191)
-- Fix `-w` flag in subnet commands of neofs-adm (#1223)
-- Do not use explicit mutex lock in chain caches (#1236)
 - Fix data race leading to reputation data loss (#1210)
 
 ### Added
 - Look for `CustomGroup` scope in NNS contract before contract invocation (#749)
-- Interactive storage node configurator in neofs-adm (#1090)
 - Cache of notary transaction heights (#1151)
-- Logs for metabase PUT and DELETE operations (#1188)
 - NATS notifications (#1183)
 - LOCK object type (#1175, #1176, #1181)
 - Progress bar for object upload/download in neofs-cli (#1185)
@@ -66,6 +58,22 @@ Set shard error threshold for read-only mode switch with
 
 Set NATS configuration for notifications in `NEOFS_NODE_NOTIFICATION` section.
 See example config for more details.
+
+## [0.27.6] - 2022-03-28
+
+### Fixed
+- Allow empty passwords in neofs-cli config (#1136)
+- Set correct audit range hash type in neofs-ir (#1180)
+- Read objects directly from blobstor in case of shard inconsistency (#1186)
+- Fix `-w` flag in subnet commands of neofs-adm (#1223)
+- Do not use explicit mutex lock in chain caches (#1236)
+- Force gRPC server stop if it can't shut down gracefully in storage node (#1270)
+- Return non-zero exit code in `acl extended create` command failures and fix
+  help message (#1259)
+
+### Added
+- Interactive storage node configurator in neofs-adm (#1090)
+- Logs in metabase operations (#1188)
 
 ## [0.27.5] - 2022-01-31
 
@@ -980,8 +988,10 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...master
-[0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...v0.28.0-rc.1
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...master
+[0.28.0-rc.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...v0.28.0-rc.2
+[0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...v0.28.0-rc.1
+[0.27.6]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...v0.27.6
 [0.27.5]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
 [0.27.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.2...v0.27.3
