@@ -9,12 +9,9 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/nspcc-dev/neo-go/cli/flags"
-	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -56,8 +53,6 @@ const (
 	addressDefault   = ""
 	addressUsage     = "address of wallet account"
 
-	password = "password"
-
 	rpc          = "rpc-endpoint"
 	rpcShorthand = "r"
 	rpcDefault   = ""
@@ -94,11 +89,8 @@ and much more!`,
 }
 
 var (
-	errInvalidKey      = errors.New("provided key is incorrect")
 	errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 	errCantGenerateKey = errors.New("can't generate new private key")
-	errInvalidAddress  = errors.New("--address option must be specified and valid")
-	errInvalidPassword = errors.New("invalid password for the encrypted key")
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -171,8 +163,6 @@ func initConfig() {
 	}
 }
 
-const nep2Base58Length = 58
-
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
 	if viper.GetBool(generateKey) {
@@ -186,110 +176,7 @@ func getKey() (*ecdsa.PrivateKey, error) {
 }
 
 func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
-	// Ideally we want to touch file-system on the last step.
-	// However, asking for NEP-2 password seems to be confusing if we provide a wallet.
-	// Thus we try keys in the following order:
-	// 1. WIF
-	// 2. Raw binary key
-	// 3. Wallet file
-	// 4. NEP-2 encrypted WIF.
-	keyDesc := viper.GetString(walletPath)
-	priv, err := keys.NewPrivateKeyFromWIF(keyDesc)
-	if err == nil {
-		return &priv.PrivateKey, nil
-	}
-
-	p, err := getKeyFromFile(keyDesc)
-	if err == nil {
-		return p, nil
-	}
-
-	w, err := wallet.NewWalletFromFile(keyDesc)
-	if err == nil {
-		return getKeyFromWallet(w, viper.GetString(address))
-	}
-
-	if len(keyDesc) == nep2Base58Length {
-		return getKeyFromNEP2(keyDesc)
-	}
-
-	return nil, errInvalidKey
-}
-
-func getPassword() (string, error) {
-	// this check allows empty passwords
-	if viper.IsSet(password) {
-		return viper.GetString(password), nil
-	}
-
-	return input.ReadPassword("Enter password > ")
-}
-
-func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
-	data, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
-	}
-
-	priv, err := keys.NewPrivateKeyFromBytes(data)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errInvalidKey, err)
-	}
-
-	return &priv.PrivateKey, nil
-}
-
-func getKeyFromNEP2(encryptedWif string) (*ecdsa.PrivateKey, error) {
-	pass, err := getPassword()
-	if err != nil {
-		printVerbose("Can't read password: %v", err)
-		return nil, errInvalidPassword
-	}
-
-	k, err := keys.NEP2Decrypt(encryptedWif, pass, keys.NEP2ScryptParams())
-	if err != nil {
-		printVerbose("Invalid key or password: %v", err)
-		return nil, errInvalidPassword
-	}
-
-	return &k.PrivateKey, nil
-}
-
-func getKeyFromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, error) {
-	var (
-		addr util.Uint160
-		err  error
-	)
-
-	if addrStr == "" {
-		printVerbose("Using default wallet address")
-		addr = w.GetChangeAddress()
-	} else {
-		addr, err = flags.ParseAddress(addrStr)
-		if err != nil {
-			printVerbose("Can't parse address: %s", addrStr)
-			return nil, errInvalidAddress
-		}
-	}
-
-	acc := w.GetAccount(addr)
-	if acc == nil {
-		printVerbose("Can't find wallet account for %s", addrStr)
-		return nil, errInvalidAddress
-	}
-
-	pass, err := getPassword()
-	if err != nil {
-		printVerbose("Can't read password: %v", err)
-		return nil, errInvalidPassword
-	}
-
-	if err := acc.Decrypt(pass, keys.NEP2ScryptParams()); err != nil {
-		printVerbose("Can't decrypt account: %v", err)
-		return nil, errInvalidPassword
-	}
-
-	return &acc.PrivateKey().PrivateKey, nil
+	return key.Get(viper.GetString(walletPath), viper.GetString(address))
 }
 
 // getEndpointAddress returns network address structure that stores multiaddr
@@ -311,10 +198,10 @@ type clientWithKey interface {
 
 // reads private key from command args and call prepareAPIClientWithKey with it.
 func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
-	key, err := getKey()
+	p, err := getKey()
 	exitOnErr(cmd, errf("get private key: %w", err))
 
-	prepareAPIClientWithKey(cmd, key, dst...)
+	prepareAPIClientWithKey(cmd, p, dst...)
 }
 
 // creates NeoFS API client and writes it to target along with the private key.
