@@ -22,21 +22,6 @@ const (
 	Offline
 )
 
-// PeerWithState groups information about peer
-// and its state in network map.
-type PeerWithState struct {
-	peer  []byte
-	state State
-}
-
-func (ps PeerWithState) State() State {
-	return ps.state
-}
-
-func (ps PeerWithState) Peer() []byte {
-	return ps.peer
-}
-
 const (
 	nodeInfoFixedPrmNumber = 1
 
@@ -72,12 +57,12 @@ func (c *Client) GetCandidates() (*netmap.Netmap, error) {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", netMapCandidatesMethod, err)
 	}
 
-	candVals, err := peersWithStateFromStackItems(prms, netMapCandidatesMethod)
+	candVals, err := nodeInfosFromStackItems(prms, netMapCandidatesMethod)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse contract response: %w", err)
 	}
 
-	return unmarshalCandidates(candVals)
+	return netmap.NewNetmap(netmap.NodesFromInfo(candVals))
 }
 
 // NetMap performs the test invoke of get network map
@@ -95,31 +80,7 @@ func (c *Client) NetMap() ([][]byte, error) {
 	return peersFromStackItems(prms, netMapMethod)
 }
 
-func unmarshalCandidates(rawCandidate []*PeerWithState) (*netmap.Netmap, error) {
-	candidates := make([]netmap.NodeInfo, 0, len(rawCandidate))
-
-	for _, candidate := range rawCandidate {
-		nodeInfo := netmap.NewNodeInfo()
-		if err := nodeInfo.Unmarshal(candidate.Peer()); err != nil {
-			return nil, fmt.Errorf("can't unmarshal peer info: %w", err)
-		}
-
-		switch candidate.State() {
-		case Online:
-			nodeInfo.SetState(netmap.NodeStateOnline)
-		case Offline:
-			nodeInfo.SetState(netmap.NodeStateOffline)
-		default:
-			nodeInfo.SetState(0)
-		}
-
-		candidates = append(candidates, *nodeInfo)
-	}
-
-	return netmap.NewNetmap(netmap.NodesFromInfo(candidates))
-}
-
-func peersWithStateFromStackItems(stack []stackitem.Item, method string) ([]*PeerWithState, error) {
+func nodeInfosFromStackItems(stack []stackitem.Item, method string) ([]netmap.NodeInfo, error) {
 	if ln := len(stack); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
@@ -129,54 +90,52 @@ func peersWithStateFromStackItems(stack []stackitem.Item, method string) ([]*Pee
 		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", method, err)
 	}
 
-	res := make([]*PeerWithState, 0, len(netmapNodes))
+	res := make([]netmap.NodeInfo, len(netmapNodes))
 	for i := range netmapNodes {
-		node, err := peerWithStateFromStackItem(netmapNodes[i])
+		err := stackItemToNodeInfo(netmapNodes[i], &res[i])
 		if err != nil {
 			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
 		}
-
-		res = append(res, node)
 	}
 
 	return res, nil
 }
 
-func peerWithStateFromStackItem(prm stackitem.Item) (*PeerWithState, error) {
+func stackItemToNodeInfo(prm stackitem.Item, res *netmap.NodeInfo) error {
 	prms, err := client.ArrayFromStackItem(prm)
 	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array (PeerWithState): %w", err)
+		return fmt.Errorf("could not get stack item array (PeerWithState): %w", err)
 	} else if ln := len(prms); ln != peerWithStateFixedPrmNumber {
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			"unexpected stack item count (PeerWithState): expected %d, has %d",
 			peerWithStateFixedPrmNumber,
 			ln,
 		)
 	}
 
-	var res PeerWithState
-
-	// peer
-	if res.peer, err = peerInfoFromStackItem(prms[0]); err != nil {
-		return nil, fmt.Errorf("could not get bytes from 'node' field of PeerWithState: %w", err)
+	peer, err := peerInfoFromStackItem(prms[0])
+	if err != nil {
+		return fmt.Errorf("could not get bytes from 'node' field of PeerWithState: %w", err)
+	} else if err = res.Unmarshal(peer); err != nil {
+		return fmt.Errorf("can't unmarshal peer info: %w", err)
 	}
 
 	// state
 	state, err := client.IntFromStackItem(prms[1])
 	if err != nil {
-		return nil, fmt.Errorf("could not get int from 'state' field of PeerWithState: %w", err)
+		return fmt.Errorf("could not get int from 'state' field of PeerWithState: %w", err)
 	}
 
 	switch state {
 	case 1:
-		res.state = Online
+		res.SetState(netmap.NodeStateOnline)
 	case 2:
-		res.state = Offline
+		res.SetState(netmap.NodeStateOffline)
 	default:
-		res.state = Undefined
+		res.SetState(0)
 	}
 
-	return &res, nil
+	return nil
 }
 
 func peersFromStackItems(stack []stackitem.Item, method string) ([][]byte, error) {
