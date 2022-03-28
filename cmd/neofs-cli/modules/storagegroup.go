@@ -286,8 +286,8 @@ func listSG(cmd *cobra.Command, _ []string) {
 
 	cmd.Printf("Found %d storage groups.\n", len(ids))
 
-	for _, id := range ids {
-		cmd.Println(id)
+	for i := range ids {
+		cmd.Println(ids[i].String())
 	}
 }
 
