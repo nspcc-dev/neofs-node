@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/term"
@@ -55,13 +56,13 @@ func Test_getKey(t *testing.T) {
 		Writer: ioutil.Discard,
 	}, "")
 
-	checkKeyError(t, filepath.Join(dir, "badfile"), errInvalidKey)
+	checkKeyError(t, filepath.Join(dir, "badfile"), key.ErrInvalidKey)
 
 	t.Run("wallet", func(t *testing.T) {
-		checkKeyError(t, wallPath, errInvalidPassword)
+		checkKeyError(t, wallPath, key.ErrInvalidPassword)
 
 		in.WriteString("invalid\r")
-		checkKeyError(t, wallPath, errInvalidPassword)
+		checkKeyError(t, wallPath, key.ErrInvalidPassword)
 
 		in.WriteString("pass\r")
 		checkKey(t, wallPath, acc2.PrivateKey()) // default account
@@ -71,12 +72,12 @@ func Test_getKey(t *testing.T) {
 		checkKey(t, wallPath, acc1.PrivateKey())
 
 		viper.Set(address, "not an address")
-		checkKeyError(t, wallPath, errInvalidAddress)
+		checkKeyError(t, wallPath, key.ErrInvalidAddress)
 
 		acc, err := wallet.NewAccount()
 		require.NoError(t, err)
 		viper.Set(address, acc.Address)
-		checkKeyError(t, wallPath, errInvalidAddress)
+		checkKeyError(t, wallPath, key.ErrInvalidAddress)
 	})
 
 	t.Run("WIF", func(t *testing.T) {
@@ -84,20 +85,20 @@ func Test_getKey(t *testing.T) {
 	})
 
 	t.Run("NEP-2", func(t *testing.T) {
-		checkKeyError(t, nep2, errInvalidPassword)
+		checkKeyError(t, nep2, key.ErrInvalidPassword)
 
 		in.WriteString("invalid\r")
-		checkKeyError(t, nep2, errInvalidPassword)
+		checkKeyError(t, nep2, key.ErrInvalidPassword)
 
 		in.WriteString("pass\r")
 		checkKey(t, nep2, nep2Key)
 
 		t.Run("password from config", func(t *testing.T) {
-			viper.Set(password, "invalid")
+			viper.Set("password", "invalid")
 			in.WriteString("pass\r")
-			checkKeyError(t, nep2, errInvalidPassword)
+			checkKeyError(t, nep2, key.ErrInvalidPassword)
 
-			viper.Set(password, "pass")
+			viper.Set("password", "pass")
 			in.WriteString("invalid\r")
 			checkKey(t, nep2, nep2Key)
 		})
