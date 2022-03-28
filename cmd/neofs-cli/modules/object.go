@@ -624,8 +624,8 @@ func searchObject(cmd *cobra.Command, _ []string) {
 	ids := res.IDList()
 
 	cmd.Printf("Found %d objects.\n", len(ids))
-	for _, id := range ids {
-		cmd.Println(id)
+	for i := range ids {
+		cmd.Println(ids[i].String())
 	}
 }
 
