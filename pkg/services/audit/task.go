@@ -23,7 +23,7 @@ type Task struct {
 
 	cnrNodes netmap.ContainerNodes
 
-	sgList []*oidSDK.ID
+	sgList []oidSDK.ID
 }
 
 // WithReporter sets audit report writer.
@@ -111,7 +111,7 @@ func (t *Task) ContainerNodes() netmap.ContainerNodes {
 }
 
 // WithStorageGroupList sets list of storage groups from container under audit.
-func (t *Task) WithStorageGroupList(sgList []*oidSDK.ID) *Task {
+func (t *Task) WithStorageGroupList(sgList []oidSDK.ID) *Task {
 	if t != nil {
 		t.sgList = sgList
 	}
@@ -120,6 +120,6 @@ func (t *Task) WithStorageGroupList(sgList []*oidSDK.ID) *Task {
 }
 
 // StorageGroupList returns list of storage groups from container under audit.
-func (t *Task) StorageGroupList() []*oidSDK.ID {
+func (t *Task) StorageGroupList() []oidSDK.ID {
 	return t.sgList
 }

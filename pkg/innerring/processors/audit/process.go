@@ -107,8 +107,8 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	}
 }
 
-func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []*oidSDK.ID {
-	var sg []*oidSDK.ID
+func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []oidSDK.ID {
+	var sg []oidSDK.ID
 
 	ln := len(shuffled)
 
