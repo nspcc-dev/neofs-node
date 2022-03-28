@@ -28,7 +28,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]netmap.NodeAttribute, e
 	}
 
 	cache := make(map[string]*netmap.NodeAttribute, len(attrs))
-	result := make([]*netmap.NodeAttribute, 0, len(attrs))
+	result := make([]netmap.NodeAttribute, 0, len(attrs))
 
 	for i := range attrs {
 		line := strings.Trim(attrs[i], pairSeparator)
@@ -59,9 +59,9 @@ func ParseV2Attributes(attrs []string, excl []string) ([]netmap.NodeAttribute, e
 			}
 
 			if !present {
-				attribute = netmap.NewNodeAttribute()
+				result = append(result, netmap.NodeAttribute{})
+				attribute = &result[len(result)-1]
 				cache[key] = attribute
-				result = append(result, attribute)
 
 				// replace non-printable symbols with escaped symbols without escape character
 				key = replaceEscaping(key, true)
@@ -82,12 +82,7 @@ func ParseV2Attributes(attrs []string, excl []string) ([]netmap.NodeAttribute, e
 		}
 	}
 
-	nresult := make([]netmap.NodeAttribute, len(result))
-	for i := range result {
-		nresult[i] = *result[i]
-	}
-
-	return nresult, nil
+	return result, nil
 }
 
 func replaceEscaping(target string, rollback bool) (s string) {
