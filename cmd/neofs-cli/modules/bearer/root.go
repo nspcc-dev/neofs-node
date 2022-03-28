@@ -1,11 +1,11 @@
-package token
+package bearer
 
 import (
 	"github.com/spf13/cobra"
 )
 
 var Cmd = &cobra.Command{
-	Use:   "token",
+	Use:   "bearer",
 	Short: "Operations with bearer token",
 }
 

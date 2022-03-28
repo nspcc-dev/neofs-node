@@ -16,7 +16,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
-	tokenCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/token"
+	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -127,7 +127,7 @@ func init() {
 	rootCmd.Flags().Bool("version", false, "Application version and NeoFS API compatibility")
 
 	rootCmd.AddCommand(acl.Cmd)
-	rootCmd.AddCommand(tokenCli.Cmd)
+	rootCmd.AddCommand(bearerCli.Cmd)
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) {
