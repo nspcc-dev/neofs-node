@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"crypto/ecdsa"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -341,32 +341,11 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 // getSDKClient returns default neofs-api-go sdk client. Consider using
 // opts... to provide TTL or other global configuration flags.
 func getSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
-	var (
-		c       client.Client
-		prmInit client.PrmInit
-		prmDial client.PrmDial
-	)
-
 	netAddr, err := getEndpointAddress(rpc)
 	if err != nil {
 		return nil, err
 	}
-
-	prmInit.SetDefaultPrivateKey(*key)
-	prmInit.ResolveNeoFSFailures()
-	prmDial.SetServerURI(netAddr.HostAddr())
-
-	if netAddr.TLSEnabled() {
-		prmDial.SetTLSConfig(&tls.Config{})
-	}
-
-	c.Init(prmInit)
-	err = c.Dial(prmDial)
-	if err != nil {
-		return nil, fmt.Errorf("coult not init api client:%w", err)
-	}
-
-	return &c, err
+	return internalclient.GetSDKClient(key, netAddr)
 }
 
 func getTTL() uint32 {

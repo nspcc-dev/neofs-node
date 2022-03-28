@@ -5,13 +5,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 	"time"
 
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -160,12 +160,7 @@ func parseEpoch(cmd *cobra.Command, flag string) (uint64, bool, error) {
 
 // getCurrentEpoch returns current epoch.
 func getCurrentEpoch(endpoint string) (uint64, error) {
-	var (
-		c       client.Client
-		prmInit client.PrmInit
-		prmDial client.PrmDial
-		addr    network.Address
-	)
+	var addr network.Address
 
 	if err := addr.FromString(endpoint); err != nil {
 		return 0, fmt.Errorf("can't parse RPC endpoint: %w", err)
@@ -176,17 +171,9 @@ func getCurrentEpoch(endpoint string) (uint64, error) {
 		return 0, fmt.Errorf("can't generate key to sign query: %w", err)
 	}
 
-	prmInit.SetDefaultPrivateKey(*key)
-	prmInit.ResolveNeoFSFailures()
-	c.Init(prmInit)
-
-	prmDial.SetServerURI(addr.HostAddr())
-	if addr.TLSEnabled() {
-		prmDial.SetTLSConfig(&tls.Config{})
-	}
-
-	if err := c.Dial(prmDial); err != nil {
-		return 0, fmt.Errorf("can't initialize client: %w", err)
+	c, err := internalclient.GetSDKClient(key, addr)
+	if err != nil {
+		return 0, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
