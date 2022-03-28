@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -289,6 +290,23 @@ func init() {
 	initObjectHashCmd()
 	initObjectRangeCmd()
 	initCommandObjectLock()
+
+	for _, cmd := range []*cobra.Command{
+		objectPutCmd,
+		objectDelCmd,
+		objectGetCmd,
+		objectSearchCmd,
+		objectHeadCmd,
+		objectRangeCmd,
+		cmdObjectLock,
+	} {
+		cmd.Flags().StringVar(
+			&sessionTokenPath,
+			sessionTokenFlag,
+			"",
+			"path to a JSON-encoded container session token",
+		)
+	}
 }
 
 type clientKeySession interface {
@@ -320,8 +338,20 @@ func prepareSessionPrmWithOwner(
 	cli, err := getSDKClient(key)
 	exitOnErr(cmd, errf("create API client: %w", err))
 
-	sessionToken, err := sessionCli.CreateSession(cli, ownerID, sessionTokenLifetime)
-	exitOnErr(cmd, err)
+	var sessionToken *session.Token
+	if tokenPath, _ := cmd.Flags().GetString(sessionTokenFlag); len(tokenPath) != 0 {
+		data, err := ioutil.ReadFile(tokenPath)
+		exitOnErr(cmd, errf("can't read session token: %w", err))
+
+		sessionToken = session.NewToken()
+		if err := sessionToken.Unmarshal(data); err != nil {
+			err = sessionToken.UnmarshalJSON(data)
+			exitOnErr(cmd, errf("can't unmarshal session token: %w", err))
+		}
+	} else {
+		sessionToken, err = sessionCli.CreateSession(cli, ownerID, sessionTokenLifetime)
+		exitOnErr(cmd, err)
+	}
 
 	for i := range prms {
 		objectContext := session.NewObjectContext()
