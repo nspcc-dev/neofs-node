@@ -89,11 +89,11 @@ func (x SearchSGPrm) NodeInfo() client.NodeInfo {
 
 // SearchSGDst groups target values which Processor expects from SG searching to process.
 type SearchSGDst struct {
-	ids []*oidSDK.ID
+	ids []oidSDK.ID
 }
 
 // WriteIDList writes list of identifiers of storage group objects stored in the container.
-func (x *SearchSGDst) WriteIDList(ids []*oidSDK.ID) {
+func (x *SearchSGDst) WriteIDList(ids []oidSDK.ID) {
 	x.ids = ids
 }
 

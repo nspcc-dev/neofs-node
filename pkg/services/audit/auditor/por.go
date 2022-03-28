@@ -22,7 +22,7 @@ func (c *Context) executePoR() {
 		sg := sgs[i]
 
 		if err := c.porWorkerPool.Submit(func() {
-			c.checkStorageGroupPoR(i, sg)
+			c.checkStorageGroupPoR(i, &sg)
 			wg.Done()
 		}); err != nil {
 			wg.Done()

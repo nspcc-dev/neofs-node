@@ -48,11 +48,11 @@ func (x *SearchSGPrm) SetContainerID(id *cid.ID) {
 
 // SearchSGRes groups resulting values of SearchSG operation.
 type SearchSGRes struct {
-	cliRes []*oid.ID
+	cliRes []oid.ID
 }
 
 // IDList returns list of IDs of storage groups in container.
-func (x SearchSGRes) IDList() []*oid.ID {
+func (x SearchSGRes) IDList() []oid.ID {
 	return x.cliRes
 }
 
@@ -75,15 +75,14 @@ func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	rdr.UseKey(*x.key)
 
 	buf := make([]oid.ID, 10)
-	var list []*oid.ID
+	var list []oid.ID
 	var n int
 	var ok bool
 
 	for {
 		n, ok = rdr.Read(buf)
 		for i := 0; i < n; i++ {
-			v := buf[i]
-			list = append(list, &v)
+			list = append(list, buf[i])
 		}
 		if !ok {
 			break
