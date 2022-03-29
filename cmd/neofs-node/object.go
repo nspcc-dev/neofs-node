@@ -357,7 +357,7 @@ func initObjectService(c *cfg) {
 
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
-		v2.WithIRFetcher(irFetcher),
+		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
 		v2.WithNetmapSource(c.netMapSource),
 		v2.WithContainerSource(
 			c.cfgObject.cnrSource,
