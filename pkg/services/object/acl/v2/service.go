@@ -7,7 +7,7 @@ import (
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -63,7 +63,7 @@ type cfg struct {
 
 	irFetcher InnerRingFetcher
 
-	nm *netmapClient.Client
+	nm netmap.Source
 
 	next object.ServiceServer
 }
