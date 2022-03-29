@@ -417,6 +417,17 @@ func (b Service) findRequestInfo(
 		return info, errors.New("missing owner in container descriptor")
 	}
 
+	if req.token != nil && req.token.Exp() != 0 {
+		currentEpoch, err := b.nm.Epoch()
+		if err != nil {
+			return info, errors.New("can't fetch current epoch")
+		}
+		if req.token.Exp() < currentEpoch {
+			return info, fmt.Errorf("%w: token has expired (current epoch: %d, expired at %d)",
+				ErrMalformedRequest, currentEpoch, req.token.Exp())
+		}
+	}
+
 	// find request role and key
 	res, err := b.c.classify(req, cid, cnr)
 	if err != nil {
