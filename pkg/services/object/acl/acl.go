@@ -60,11 +60,12 @@ type Checker struct {
 
 // Various EACL check errors.
 var (
-	errEACLDeniedByRule       = errors.New("denied by rule")
-	errBearerExpired          = errors.New("bearer token has expired")
-	errBearerInvalidSignature = errors.New("bearer token has invalid signature")
-	errBearerNotSignedByOwner = errors.New("bearer token is not signed by the container owner")
-	errBearerInvalidOwner     = errors.New("bearer token owner differs from the request sender")
+	errEACLDeniedByRule         = errors.New("denied by rule")
+	errBearerExpired            = errors.New("bearer token has expired")
+	errBearerInvalidSignature   = errors.New("bearer token has invalid signature")
+	errBearerInvalidContainerID = errors.New("bearer token was created for another container")
+	errBearerNotSignedByOwner   = errors.New("bearer token is not signed by the container owner")
+	errBearerInvalidOwner       = errors.New("bearer token owner differs from the request sender")
 )
 
 // NewChecker creates Checker.
@@ -225,13 +226,19 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 		return errBearerInvalidSignature
 	}
 
-	// 3. Then check if container owner signed this token.
+	// 3. Then check if container is either empty or equal to the container in the request.
+	cnr, isSet := token.EACLTable().CID()
+	if isSet && !cnr.Equals(reqInfo.ContainerID()) {
+		return errBearerInvalidContainerID
+	}
+
+	// 4. Then check if container owner signed this token.
 	if !bearerSDK.ResolveIssuer(*token).Equals(ownerCnr) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
 
-	// 4. Then check if request sender has rights to use this token.
+	// 5. Then check if request sender has rights to use this token.
 	var keySender neofsecdsa.PublicKey
 
 	err := keySender.Decode(reqInfo.SenderKey())
