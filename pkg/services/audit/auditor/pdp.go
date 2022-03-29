@@ -108,9 +108,18 @@ func (c *Context) splitPayload(id *oidSDK.ID) []uint64 {
 }
 
 func (c *Context) collectHashes(p *gamePair) {
-	fn := func(n *netmap.Node, rngs []*object.Range, hashWriter func([]byte)) {
-		// TODO: #1163 add order randomization
-		for i := range rngs {
+	fn := func(n *netmap.Node, rngs []*object.Range) [][]byte {
+		// Here we randomize the order a bit: the hypothesis is that this
+		// makes it harder for an unscrupulous node to come up with a
+		// reliable cheating strategy.
+		order := make([]int, len(rngs))
+		for i := range order {
+			order[i] = i
+		}
+		rand.Shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
+
+		res := make([][]byte, len(rngs))
+		for _, i := range order {
 			var sleepDur time.Duration
 			if c.maxPDPSleep > 0 {
 				sleepDur = time.Duration(rand.Uint64() % c.maxPDPSleep)
@@ -129,24 +138,15 @@ func (c *Context) collectHashes(p *gamePair) {
 					zap.String("node", hex.EncodeToString(n.PublicKey())),
 					zap.String("error", err.Error()),
 				)
-				return
+				return res
 			}
-
-			hashWriter(h)
+			res[i] = h
 		}
+		return res
 	}
 
-	p.hh1 = make([][]byte, 0, len(p.rn1))
-
-	fn(p.n1, p.rn1, func(h []byte) {
-		p.hh1 = append(p.hh1, h)
-	})
-
-	p.hh2 = make([][]byte, 0, len(p.rn2))
-
-	fn(p.n2, p.rn2, func(h []byte) {
-		p.hh2 = append(p.hh2, h)
-	})
+	p.hh1 = fn(p.n1, p.rn1)
+	p.hh2 = fn(p.n2, p.rn2)
 }
 
 func (c *Context) analyzeHashes(p *gamePair) {
