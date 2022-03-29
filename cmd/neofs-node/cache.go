@@ -319,3 +319,39 @@ func (s *ttlContainerLister) InvalidateContainerListByCID(id *cid.ID) {
 		}
 	}
 }
+
+type cachedIRFetcher ttlNetCache
+
+func newCachedIRFetcher(f interface{ InnerRingKeys() ([][]byte, error) }) *cachedIRFetcher {
+	const (
+		irFetcherCacheSize = 1 // we intend to store only one value
+
+		// Without the cache in the testnet we can see several hundred simultaneous
+		// requests (neofs-node #1278), so limiting the request rate solves the issue.
+		//
+		// Exact request rate doesn't really matter because Inner Ring list update
+		// happens extremely rare, but there is no side chain events for that as
+		// for now (neofs-contract v0.15.0 notary disabled env) to monitor it.
+		irFetcherCacheTTL = 30 * time.Second
+	)
+
+	irFetcherCache := newNetworkTTLCache(irFetcherCacheSize, irFetcherCacheTTL,
+		func(key interface{}) (interface{}, error) {
+			return f.InnerRingKeys()
+		},
+	)
+
+	return (*cachedIRFetcher)(irFetcherCache)
+}
+
+// InnerRingKeys returns cached list of Inner Ring keys. If keys are missing in
+// the cache or expired, then it returns keys from side chain and updates
+// the cache.
+func (f *cachedIRFetcher) InnerRingKeys() ([][]byte, error) {
+	val, err := (*ttlNetCache)(f).get("")
+	if err != nil {
+		return nil, err
+	}
+
+	return val.([][]byte), nil
+}
