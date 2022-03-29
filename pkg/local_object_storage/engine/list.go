@@ -114,7 +114,16 @@ func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorR
 			continue
 		}
 
-		result = append(result, res.AddressList()...)
+		addressList := res.AddressList()
+		for j := range addressList {
+			_, err = e.exists(addressList[j])
+			if err != nil {
+				continue
+			}
+
+			result = append(result, addressList[j])
+		}
+
 		cursor.shardCursor = res.Cursor()
 		cursor.shardID = shardIDs[i]
 	}
