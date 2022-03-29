@@ -99,7 +99,7 @@ func initMorphComponents(c *cfg) {
 		netmapSource = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
 	}
 
-	c.cfgObject.netMapSource = netmapSource
+	c.netMapSource = netmapSource
 	c.cfgNetmap.wrapper = wrap
 }
 

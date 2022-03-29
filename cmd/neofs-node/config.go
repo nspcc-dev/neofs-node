@@ -116,6 +116,8 @@ type cfg struct {
 	clientCache *cache.ClientCache
 
 	persistate *state.PersistentStorage
+
+	netMapSource netmapCore.Source
 }
 
 type cfgGRPC struct {
@@ -175,8 +177,6 @@ type cfgNodeInfo struct {
 }
 
 type cfgObject struct {
-	netMapSource netmapCore.Source
-
 	cnrSource container.Source
 
 	eaclSource eacl.Source
