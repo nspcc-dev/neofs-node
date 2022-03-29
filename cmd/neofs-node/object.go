@@ -348,7 +348,7 @@ func initObjectService(c *cfg) {
 		acl.WithSenderClassifier(
 			acl.NewSenderClassifier(
 				c.log,
-				irFetcher,
+				newCachedIRFetcher(irFetcher),
 				c.netMapSource,
 			),
 		),
