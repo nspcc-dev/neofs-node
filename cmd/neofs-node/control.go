@@ -31,7 +31,7 @@ func initControlService(c *cfg) {
 		controlSvc.WithKey(&c.key.PrivateKey),
 		controlSvc.WithAuthorizedKeys(rawPubs),
 		controlSvc.WithHealthChecker(c),
-		controlSvc.WithNetMapSource(c.cfgNetmap.wrapper),
+		controlSvc.WithNetMapSource(c.netMapSource),
 		controlSvc.WithNodeState(c),
 		controlSvc.WithDeletedObjectHandler(func(addrList []*addressSDK.Address) error {
 			prm := new(engine.DeletePrm).WithAddresses(addrList...)

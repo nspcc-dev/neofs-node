@@ -181,7 +181,7 @@ func initObjectService(c *cfg) {
 
 	clientConstructor := &reputationClientConstructor{
 		log:              c.log,
-		nmSrc:            c.cfgObject.netMapSource,
+		nmSrc:            c.netMapSource,
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
 		basicConstructor: c.clientCache,
@@ -224,7 +224,7 @@ func initObjectService(c *cfg) {
 		policer.WithLocalStorage(ls),
 		policer.WithContainerSource(c.cfgObject.cnrSource),
 		policer.WithPlacementBuilder(
-			placement.NewNetworkMapSourceBuilder(c.cfgObject.netMapSource),
+			placement.NewNetworkMapSourceBuilder(c.netMapSource),
 		),
 		policer.WithRemoteHeader(
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
@@ -247,7 +247,7 @@ func initObjectService(c *cfg) {
 		policer.WithNodeLoader(c),
 	)
 
-	traverseGen := util.NewTraverserGenerator(c.cfgObject.netMapSource, c.cfgObject.cnrSource, c)
+	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
 
 	c.workers = append(c.workers, pol)
 
@@ -271,7 +271,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithMaxSizeSource(c),
 		putsvc.WithObjectStorage(os),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
-		putsvc.WithNetworkMapSource(c.cfgObject.netMapSource),
+		putsvc.WithNetworkMapSource(c.netMapSource),
 		putsvc.WithNetmapKeys(c),
 		putsvc.WithFormatValidatorOpts(
 			objectCore.WithDeleteHandler(objInhumer),
@@ -296,7 +296,7 @@ func initObjectService(c *cfg) {
 				placement.WithoutSuccessTracking(),
 			),
 		),
-		searchsvc.WithNetMapSource(c.cfgNetmap.wrapper),
+		searchsvc.WithNetMapSource(c.netMapSource),
 		searchsvc.WithKeyStorage(keyStorage),
 	)
 
@@ -314,7 +314,7 @@ func initObjectService(c *cfg) {
 				placement.SuccessAfter(1),
 			),
 		),
-		getsvc.WithNetMapSource(c.cfgNetmap.wrapper),
+		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
 	)
 
@@ -358,7 +358,7 @@ func initObjectService(c *cfg) {
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(irFetcher),
-		v2.WithNetmapSource(c.cfgNetmap.wrapper),
+		v2.WithNetmapSource(c.netMapSource),
 		v2.WithContainerSource(
 			c.cfgObject.cnrSource,
 		),
