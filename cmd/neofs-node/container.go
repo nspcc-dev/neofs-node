@@ -105,7 +105,7 @@ func initContainerService(c *cfg) {
 
 	loadPlacementBuilder := &loadPlacementBuilder{
 		log:    c.log,
-		nmSrc:  c.cfgNetmap.wrapper,
+		nmSrc:  c.netMapSource,
 		cnrSrc: cnrSrc,
 	}
 

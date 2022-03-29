@@ -38,8 +38,7 @@ func initReputationService(c *cfg) {
 
 	localKey := c.key.PublicKey().Bytes()
 
-	// consider sharing this between application components
-	nmSrc := newCachedNetmapStorage(c.cfgNetmap.state, c.cfgNetmap.wrapper)
+	nmSrc := c.netMapSource
 
 	// storing calculated trusts as a daughter
 	c.cfgReputation.localTrustStorage = truststorage.New(
