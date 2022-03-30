@@ -52,7 +52,7 @@ func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
 	}
 }
 
-func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.PutRequestBody) (*container.PutResponseBody, error) {
+func (s *morphExecutor) Put(_ context.Context, tokV2 *sessionV2.Token, body *container.PutRequestBody) (*container.PutResponseBody, error) {
 	sigV2 := body.GetSignature()
 	if sigV2 == nil {
 		// TODO(@cthulhu-rider): #1387 use "const" error
@@ -66,10 +66,10 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 
 	cnr.SetSignature(&sig)
 
-	if ctx.SessionToken != nil {
+	if tokV2 != nil {
 		var tok session.Container
 
-		err := tok.ReadFromV2(*ctx.SessionToken)
+		err := tok.ReadFromV2(*tokV2)
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
@@ -91,7 +91,7 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 	return res, nil
 }
 
-func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
+func (s *morphExecutor) Delete(_ context.Context, tokV2 *sessionV2.Token, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
 	idV2 := body.GetContainerID()
 	if idV2 == nil {
 		return nil, errors.New("missing container ID")
@@ -108,10 +108,10 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 
 	var tok *session.Container
 
-	if ctx.SessionToken != nil {
+	if tokV2 != nil {
 		tok = new(session.Container)
 
-		err := tok.ReadFromV2(*ctx.SessionToken)
+		err := tok.ReadFromV2(*tokV2)
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
@@ -201,7 +201,7 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 	return res, nil
 }
 
-func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
+func (s *morphExecutor) SetExtendedACL(ctx context.Context, tokV2 *sessionV2.Token, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
 	sigV2 := body.GetSignature()
 	if sigV2 == nil {
 		// TODO(@cthulhu-rider): #1387 use "const" error
@@ -215,10 +215,10 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 
 	table.SetSignature(&sig)
 
-	if ctx.SessionToken != nil {
+	if tokV2 != nil {
 		var tok session.Container
 
-		err := tok.ReadFromV2(*ctx.SessionToken)
+		err := tok.ReadFromV2(*tokV2)
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}

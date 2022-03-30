@@ -48,35 +48,35 @@ func TestInvalidToken(t *testing.T) {
 
 	tests := []struct {
 		name string
-		op   func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) error
+		op   func(e containerSvc.ServiceExecutor, tokV2 *session.Token) error
 	}{
 		{
 			name: "put",
-			op: func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) (err error) {
+			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.PutRequestBody
 				reqBody.SetSignature(new(refs.Signature))
 
-				_, err = e.Put(ctx, &reqBody)
+				_, err = e.Put(context.TODO(), tokV2, &reqBody)
 				return
 			},
 		},
 		{
 			name: "delete",
-			op: func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) (err error) {
+			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.DeleteRequestBody
 				reqBody.SetContainerID(&cnrV2)
 
-				_, err = e.Delete(ctx, &reqBody)
+				_, err = e.Delete(context.TODO(), tokV2, &reqBody)
 				return
 			},
 		},
 		{
 			name: "setEACL",
-			op: func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) (err error) {
+			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.SetExtendedACLRequestBody
 				reqBody.SetSignature(new(refs.Signature))
 
-				_, err = e.SetExtendedACL(ctx, &reqBody)
+				_, err = e.SetExtendedACL(context.TODO(), tokV2, &reqBody)
 				return
 			},
 		},
@@ -84,17 +84,12 @@ func TestInvalidToken(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := containerSvc.ContextWithToken{
-				Context:      context.Background(),
-				SessionToken: generateToken(new(session.ObjectSessionContext)),
-			}
-			require.Error(t, test.op(e, ctx))
+			tok := generateToken(new(session.ObjectSessionContext))
+			require.Error(t, test.op(e, tok))
 
-			ctx.SessionToken = &tokV2
-			require.NoError(t, test.op(e, ctx))
+			require.NoError(t, test.op(e, &tokV2))
 
-			ctx.SessionToken = nil
-			require.NoError(t, test.op(e, ctx))
+			require.NoError(t, test.op(e, nil))
 		})
 	}
 }
