@@ -241,7 +241,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 				zap.Uint32("block_index", b.Index))
 		}
 
-		s.tickTimers()
+		s.tickTimers(b.Index)
 	})
 
 	if !s.withoutMainNet {

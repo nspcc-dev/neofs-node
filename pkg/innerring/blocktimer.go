@@ -66,9 +66,9 @@ func (s *Server) startBlockTimers() error {
 	return nil
 }
 
-func (s *Server) tickTimers() {
+func (s *Server) tickTimers(h uint32) {
 	for i := range s.blockTimers {
-		s.blockTimers[i].Tick()
+		s.blockTimers[i].Tick(h)
 	}
 }
 
