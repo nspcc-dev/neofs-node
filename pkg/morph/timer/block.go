@@ -27,6 +27,8 @@ type BlockTimer struct {
 
 	cur, tgt uint32
 
+	last uint32
+
 	h BlockTickHandler
 
 	ps []BlockTimer
@@ -159,13 +161,18 @@ func (t *BlockTimer) reset() {
 // Tick ticks one block in the BlockTimer.
 //
 // Executes all callbacks which are awaiting execution at the new block.
-func (t *BlockTimer) Tick() {
+func (t *BlockTimer) Tick(h uint32) {
 	t.mtx.Lock()
-	t.tick()
+	t.tick(h)
 	t.mtx.Unlock()
 }
 
-func (t *BlockTimer) tick() {
+func (t *BlockTimer) tick(h uint32) {
+	if h != 0 && t.last == h {
+		return
+	}
+
+	t.last = h
 	t.cur++
 
 	if t.cur == t.tgt {
@@ -182,6 +189,6 @@ func (t *BlockTimer) tick() {
 	}
 
 	for i := range t.ps {
-		t.ps[i].tick()
+		t.ps[i].tick(h)
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 func tickN(t *timer.BlockTimer, n uint32) {
 	for i := uint32(0); i < n; i++ {
-		t.Tick()
+		t.Tick(0)
 	}
 }
 
@@ -157,5 +157,58 @@ func TestNewOneTickTimer(t *testing.T) {
 		tickN(bt, 10) // 10 more ticks must not affect counters
 		require.Equal(t, 1, baseCallCounter)
 		require.Equal(t, 1, detlaCallCounter)
+	})
+}
+
+func TestBlockTimer_TickSameHeight(t *testing.T) {
+	var baseCounter, deltaCounter int
+
+	blockDur := uint32(2)
+	bt := timer.NewBlockTimer(
+		func() (uint32, error) { return blockDur, nil },
+		func() { baseCounter++ })
+	bt.OnDelta(2, 1, func() {
+		deltaCounter++
+	})
+	require.NoError(t, bt.Reset())
+
+	check := func(t *testing.T, h uint32, base, delta int) {
+		for i := 0; i < 2*int(blockDur); i++ {
+			bt.Tick(h)
+			require.Equal(t, base, baseCounter)
+			require.Equal(t, delta, deltaCounter)
+		}
+	}
+
+	check(t, 1, 0, 0)
+	check(t, 2, 1, 0)
+	check(t, 3, 1, 0)
+	check(t, 4, 2, 1)
+
+	t.Run("works the same way after `Reset()`", func(t *testing.T) {
+		t.Run("same block duration", func(t *testing.T) {
+			require.NoError(t, bt.Reset())
+			baseCounter = 0
+			deltaCounter = 0
+
+			check(t, 1, 0, 0)
+			check(t, 2, 1, 0)
+			check(t, 3, 1, 0)
+			check(t, 4, 2, 1)
+		})
+		t.Run("different block duration", func(t *testing.T) {
+			blockDur = 3
+
+			require.NoError(t, bt.Reset())
+			baseCounter = 0
+			deltaCounter = 0
+
+			check(t, 1, 0, 0)
+			check(t, 2, 0, 0)
+			check(t, 3, 1, 0)
+			check(t, 4, 1, 0)
+			check(t, 5, 1, 0)
+			check(t, 6, 2, 1)
+		})
 	})
 }
