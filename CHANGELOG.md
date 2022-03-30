@@ -23,7 +23,6 @@ experimental notifications over NATS with NeoFS API v2.12 support
 - Remove session tokens from local storage of storage node after expiration (#1133)
 - Readme typos (#1167)
 - LOCODE attribute and announced address are not mandatory for relay node config (#1114)
-- Shard ID is now consistent between restarts (#1204)
 - Check session token verb (#1191)
 - Fix data race leading to reputation data loss (#1210)
 
@@ -58,6 +57,14 @@ Set shard error threshold for read-only mode switch with
 
 Set NATS configuration for notifications in `NEOFS_NODE_NOTIFICATION` section.
 See example config for more details.
+
+## [0.27.7] - 2022-03-30
+
+### Fixed
+- Shard ID is now consistent between restarts (#1204)
+
+### Added
+- More N3 RPC caches in object service (#1278)
 
 ## [0.27.6] - 2022-03-28
 
@@ -990,7 +997,8 @@ First public review release.
 
 [Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...master
 [0.28.0-rc.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...v0.28.0-rc.2
-[0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...v0.28.0-rc.1
+[0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.7...v0.28.0-rc.1
+[0.27.7]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...v0.27.7
 [0.27.6]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...v0.27.6
 [0.27.5]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
