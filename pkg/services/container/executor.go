@@ -8,19 +8,12 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 )
 
-// FIXME: #1159 (temp solution) we need to pass session token from header
-type ContextWithToken struct {
-	context.Context
-
-	SessionToken *session.Token
-}
-
 type ServiceExecutor interface {
-	Put(ContextWithToken, *container.PutRequestBody) (*container.PutResponseBody, error)
-	Delete(ContextWithToken, *container.DeleteRequestBody) (*container.DeleteResponseBody, error)
+	Put(context.Context, *session.Token, *container.PutRequestBody) (*container.PutResponseBody, error)
+	Delete(context.Context, *session.Token, *container.DeleteRequestBody) (*container.DeleteResponseBody, error)
 	Get(context.Context, *container.GetRequestBody) (*container.GetResponseBody, error)
 	List(context.Context, *container.ListRequestBody) (*container.ListResponseBody, error)
-	SetExtendedACL(ContextWithToken, *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error)
+	SetExtendedACL(context.Context, *session.Token, *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error)
 	GetExtendedACL(context.Context, *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error)
 }
 
@@ -37,23 +30,8 @@ func NewExecutionService(exec ServiceExecutor) Server {
 	}
 }
 
-func contextWithTokenFromRequest(ctx context.Context, req interface {
-	GetMetaHeader() *session.RequestMetaHeader
-}) ContextWithToken {
-	var tok *session.Token
-
-	for meta := req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
-		tok = meta.GetSessionToken()
-	}
-
-	return ContextWithToken{
-		Context:      ctx,
-		SessionToken: tok,
-	}
-}
-
 func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
-	respBody, err := s.exec.Put(contextWithTokenFromRequest(ctx, req), req.GetBody())
+	respBody, err := s.exec.Put(ctx, req.GetMetaHeader().GetOrigin().GetSessionToken(), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute Put request: %w", err)
 	}
@@ -65,7 +43,7 @@ func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*cont
 }
 
 func (s *executorSvc) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
-	respBody, err := s.exec.Delete(contextWithTokenFromRequest(ctx, req), req.GetBody())
+	respBody, err := s.exec.Delete(ctx, req.GetMetaHeader().GetOrigin().GetSessionToken(), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute Delete request: %w", err)
 	}
@@ -101,7 +79,7 @@ func (s *executorSvc) List(ctx context.Context, req *container.ListRequest) (*co
 }
 
 func (s *executorSvc) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
-	respBody, err := s.exec.SetExtendedACL(contextWithTokenFromRequest(ctx, req), req.GetBody())
+	respBody, err := s.exec.SetExtendedACL(ctx, req.GetMetaHeader().GetOrigin().GetSessionToken(), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute SetEACL request: %w", err)
 	}
