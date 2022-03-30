@@ -3,6 +3,14 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.27.7] - 2022-03-30
+
+### Fixed
+- Shard ID is now consistent between restarts (#1204)
+
+### Added
+- More N3 RPC caches in object service (#1278)
+
 ## [0.27.6] - 2022-03-28
 
 ### Fixed
@@ -932,7 +940,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.7...master
+[0.27.7]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...v0.27.7
 [0.27.6]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.5...v0.27.6
 [0.27.5]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.4...v0.27.5
 [0.27.4]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.3...v0.27.4
