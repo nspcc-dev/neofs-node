@@ -16,9 +16,13 @@ func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 	c.mtx.RLock()
 	for i := range c.mem {
 		if saddr == c.mem[i].addr {
-			obj := c.mem[i].obj
+			data := c.mem[i].data
 			c.mtx.RUnlock()
-			return obj, nil
+			// We unmarshal object instead of using cached value to avoid possibility
+			// of unintentional object corruption by caller.
+			// It is safe to unmarshal without mutex, as storage under `c.mem[i].data` slices is not reused.
+			obj := objectSDK.New()
+			return obj, obj.Unmarshal(data)
 		}
 	}
 	c.mtx.RUnlock()
@@ -50,18 +54,11 @@ func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 //
 // Returns an error of type apistatus.ObjectNotFound if requested object is missing in write-cache.
 func (c *cache) Head(addr *addressSDK.Address) (*objectSDK.Object, error) {
-	// TODO: #1149 easiest to implement solution is presented here, consider more efficient way, e.g.:
-	//  - provide header as common object.Object to Put, but marked to prevent correlation with full object
-	//    (all write-cache logic will automatically spread to headers, except flushing)
-	//  - cut header from in-memory objects directly and persist headers into particular bucket of DB
-	//    (explicit sync with full objects is needed)
-	//  - try to pull out binary header from binary full object (not sure if it is possible)
 	obj, err := c.Get(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: resetting the payload via the setter can lead to data corruption of in-memory objects, but ok for others
 	return obj.CutPayload(), nil
 }
 
