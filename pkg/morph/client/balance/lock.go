@@ -45,7 +45,7 @@ func (l *LockPrm) SetDueEpoch(dueEpoch int64) {
 func (c *Client) Lock(p LockPrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(lockMethod)
-	prm.SetArgs(p.id, p.user.BytesBE(), p.lock.BytesBE(), p.amount, p.dueEpoch)
+	prm.SetArgs(p.id, p.user, p.lock, p.amount, p.dueEpoch)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return c.client.Invoke(prm)

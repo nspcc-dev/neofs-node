@@ -36,7 +36,7 @@ func (c *Client) TransferX(p TransferPrm) error {
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(transferXMethod)
-	prm.SetArgs(from.BytesBE(), to.BytesBE(), p.Amount, p.Details)
+	prm.SetArgs(from, to, p.Amount, p.Details)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err = c.client.Invoke(prm)

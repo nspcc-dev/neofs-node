@@ -19,7 +19,7 @@ func (c *Client) BalanceOf(id *owner.ID) (*big.Int, error) {
 
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(balanceOfMethod)
-	invokePrm.SetArgs(h.BytesBE())
+	invokePrm.SetArgs(h)
 
 	prms, err := c.client.TestInvoke(invokePrm)
 	if err != nil {

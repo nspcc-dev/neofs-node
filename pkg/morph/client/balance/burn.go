@@ -33,7 +33,7 @@ func (b *BurnPrm) SetID(id []byte) {
 func (c *Client) Burn(p BurnPrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(burnMethod)
-	prm.SetArgs(p.to.BytesBE(), p.amount, p.id)
+	prm.SetArgs(p.to, p.amount, p.id)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return c.client.Invoke(prm)
