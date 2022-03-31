@@ -543,10 +543,16 @@ func (c *Client) NotificationChannel() <-chan client.Notification {
 
 // inactiveMode switches Client to an inactive mode:
 // - notification channel is closed;
-// - all the new RPC request would return ErrConnectionLost.
-//
-// Note: must be called only with held write switchLock.
+// - all the new RPC request would return ErrConnectionLost;
+// - inactiveModeCb is called if not nil.
 func (c *Client) inactiveMode() {
+	c.switchLock.Lock()
+	defer c.switchLock.Unlock()
+
 	close(c.notifications)
 	c.inactive = true
+
+	if c.cfg.inactiveModeCb != nil {
+		c.cfg.inactiveModeCb()
+	}
 }
