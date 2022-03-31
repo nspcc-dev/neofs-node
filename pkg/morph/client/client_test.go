@@ -34,13 +34,11 @@ func TestToStackParameter(t *testing.T) {
 		},
 		{
 			value:   false,
-			expType: sc.IntegerType,
-			expVal:  int64(0),
+			expType: sc.BoolType,
 		},
 		{
 			value:   true,
-			expType: sc.IntegerType,
-			expVal:  int64(1),
+			expType: sc.BoolType,
 		},
 	}
 
