@@ -47,6 +47,9 @@ func initMorphComponents(c *cfg) {
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
 		client.WithLogger(c.log),
 		client.WithExtraEndpoints(addresses[1:]),
+		client.WithConnLostCallback(func() {
+			c.internalErr <- errors.New("morph connection has been lost")
+		}),
 	)
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",

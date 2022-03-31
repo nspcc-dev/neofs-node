@@ -313,7 +313,7 @@ func (s *Server) registerStarter(f func() error) {
 }
 
 // New creates instance of inner ring sever structure.
-func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error) {
+func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- error) (*Server, error) {
 	var err error
 	server := &Server{log: log}
 
@@ -354,7 +354,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 	}
 
 	// create morph client
-	server.morphClient, err = createClient(ctx, morphChain)
+	server.morphClient, err = createClient(ctx, morphChain, errChan)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +389,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper) (*Server, error
 		mainnetChain.from = fromMainChainBlock
 
 		// create mainnet client
-		server.mainnetClient, err = createClient(ctx, mainnetChain)
+		server.mainnetClient, err = createClient(ctx, mainnetChain, errChan)
 		if err != nil {
 			return nil, err
 		}
@@ -946,7 +946,7 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 	return listener, err
 }
 
-func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
+func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
 	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
 	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.client")
 	if len(endpoints) == 0 {
@@ -961,6 +961,9 @@ func createClient(ctx context.Context, p *chainParams) (*client.Client, error) {
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
 		client.WithSigner(p.sgn),
 		client.WithExtraEndpoints(endpoints[1:]),
+		client.WithConnLostCallback(func() {
+			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
+		}),
 	)
 }
 
