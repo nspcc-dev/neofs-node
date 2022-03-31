@@ -69,7 +69,7 @@ func main() {
 
 	httpServers := initHTTPServers(cfg)
 
-	innerRing, err := innerring.New(ctx, log, cfg)
+	innerRing, err := innerring.New(ctx, log, cfg, intErr)
 	exitErr(err)
 
 	// start HTTP servers
