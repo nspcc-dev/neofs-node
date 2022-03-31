@@ -39,7 +39,7 @@ import (
 // expression (or just declaring a Client variable) is unsafe
 // and can lead to panic.
 type Client struct {
-	cache
+	cache cache
 
 	logger *logger.Logger // logging component
 
@@ -76,9 +76,48 @@ type Client struct {
 }
 
 type cache struct {
-	nnsHash   util.Uint160
-	groupKey  *keys.PublicKey
+	m *sync.RWMutex
+
+	nnsHash   *util.Uint160
+	gKey      *keys.PublicKey
 	txHeights *lru.Cache
+}
+
+func (c cache) nns() *util.Uint160 {
+	c.m.RLock()
+	defer c.m.RUnlock()
+
+	return c.nnsHash
+}
+
+func (c *cache) setNNSHash(nnsHash util.Uint160) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.nnsHash = &nnsHash
+}
+
+func (c cache) groupKey() *keys.PublicKey {
+	c.m.RLock()
+	defer c.m.RUnlock()
+
+	return c.gKey
+}
+
+func (c *cache) setGroupKey(groupKey *keys.PublicKey) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.gKey = groupKey
+}
+
+func (c *cache) invalidate() {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.nnsHash = nil
+	c.gKey = nil
+	c.txHeights.Purge()
 }
 
 var (

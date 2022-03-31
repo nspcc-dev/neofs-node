@@ -83,20 +83,18 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 		return util.Uint160{}, ErrConnectionLost
 	}
 
-	c.mtx.RLock()
-	nnsHash := c.nnsHash
-	c.mtx.RUnlock()
+	nnsHash := c.cache.nns()
 
-	if nnsHash.Equals(util.Uint160{}) {
+	if nnsHash == nil {
 		cs, err := c.client.GetContractStateByID(nnsContractID)
 		if err != nil {
 			return util.Uint160{}, fmt.Errorf("NNS contract state: %w", err)
 		}
-		c.mtx.Lock()
-		c.nnsHash = cs.Hash
-		c.mtx.Unlock()
+
+		c.cache.setNNSHash(cs.Hash)
+		nnsHash = &cs.Hash
 	}
-	return nnsHash, nil
+	return *nnsHash, nil
 }
 
 func nnsResolveItem(c *client.WSClient, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
@@ -202,12 +200,8 @@ func (c *Client) SetGroupSignerScope() error {
 
 // contractGroupKey returns public key designating NeoFS contract group.
 func (c *Client) contractGroupKey() (*keys.PublicKey, error) {
-	c.mtx.RLock()
-	pub := c.groupKey
-	c.mtx.RUnlock()
-
-	if pub != nil {
-		return pub, nil
+	if gKey := c.cache.groupKey(); gKey != nil {
+		return gKey, nil
 	}
 
 	nnsHash, err := c.NNSHash()
@@ -225,13 +219,11 @@ func (c *Client) contractGroupKey() (*keys.PublicKey, error) {
 		return nil, err
 	}
 
-	pub, err = keys.NewPublicKeyFromString(string(bs))
+	pub, err := keys.NewPublicKeyFromString(string(bs))
 	if err != nil {
 		return nil, err
 	}
 
-	c.mtx.Lock()
-	c.groupKey = pub
-	c.mtx.Unlock()
+	c.cache.setGroupKey(pub)
 	return pub, nil
 }

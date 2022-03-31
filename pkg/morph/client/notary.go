@@ -873,13 +873,13 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 }
 
 func (c *Client) getTransactionHeight(h util.Uint256) (uint32, error) {
-	if rh, ok := c.txHeights.Get(h); ok {
+	if rh, ok := c.cache.txHeights.Get(h); ok {
 		return rh.(uint32), nil
 	}
 	height, err := c.client.GetTransactionHeight(h)
 	if err != nil {
 		return 0, err
 	}
-	c.txHeights.Add(h, height)
+	c.cache.txHeights.Add(h, height)
 	return height, nil
 }
