@@ -19,6 +19,10 @@ import (
 // Option is a client configuration change function.
 type Option func(*cfg)
 
+// Callback is a function that is going to be called
+// on certain Client's state.
+type Callback func()
+
 // groups the configurations with default values.
 type cfg struct {
 	ctx context.Context // neo-go client context
@@ -34,6 +38,8 @@ type cfg struct {
 	extraEndpoints []string
 
 	singleCli *client.WSClient // neo-go client for single client mode
+
+	inactiveModeCb Callback
 }
 
 const (
@@ -215,5 +221,15 @@ func WithExtraEndpoints(endpoints []string) Option {
 func WithSingleClient(cli *client.WSClient) Option {
 	return func(c *cfg) {
 		c.singleCli = cli
+	}
+}
+
+// WithConnLostCallback return a client constructor option
+// that specifies a callback that is called when Client
+// unsuccessfully tried to connect to all the specified
+// endpoints.
+func WithConnLostCallback(cb Callback) Option {
+	return func(c *cfg) {
+		c.inactiveModeCb = cb
 	}
 }
