@@ -487,15 +487,8 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 
 		return toStackParameter(arr)
 	case bool:
-		// FIXME: #1141 there are some problems with BoolType in neo-go,
-		//  so we use compatible type
-		result.Type = sc.IntegerType
-
-		if v {
-			result.Value = int64(1)
-		} else {
-			result.Value = int64(0)
-		}
+		result.Type = sc.BoolType
+		result.Value = v
 	default:
 		return result, wrapNeoFSError(fmt.Errorf("chain/client: unsupported parameter %v", value))
 	}
