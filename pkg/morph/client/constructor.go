@@ -90,7 +90,7 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 	}
 
 	cli := &Client{
-		cache:                  initClientCache(),
+		cache:                  newClientCache(),
 		logger:                 cfg.logger,
 		acc:                    wallet.NewAccountFromPrivateKey(key),
 		signer:                 cfg.signer,
@@ -140,9 +140,10 @@ func newWSClient(cfg cfg, endpoint string) (*client.WSClient, error) {
 	)
 }
 
-func initClientCache() cache {
+func newClientCache() cache {
 	c, _ := lru.New(100) // returns error only if size is negative
 	return cache{
+		m:         &sync.RWMutex{},
 		txHeights: c,
 	}
 }

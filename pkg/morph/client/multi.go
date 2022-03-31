@@ -87,6 +87,7 @@ func (c *Client) switchRPC() bool {
 			continue
 		}
 
+		c.cache.invalidate()
 		c.client = cli
 
 		return true
