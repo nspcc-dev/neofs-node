@@ -33,7 +33,7 @@ func (m *MintPrm) SetID(id []byte) {
 func (c *Client) Mint(p MintPrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(mintMethod)
-	prm.SetArgs(p.to.BytesBE(), p.amount, p.id)
+	prm.SetArgs(p.to, p.amount, p.id)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return c.client.Invoke(prm)

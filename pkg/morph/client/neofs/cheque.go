@@ -40,7 +40,7 @@ func (c *ChequePrm) SetLock(lock util.Uint160) {
 func (x *Client) Cheque(p ChequePrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(chequeMethod)
-	prm.SetArgs(p.id, p.user.BytesBE(), p.amount, p.lock.BytesBE())
+	prm.SetArgs(p.id, p.user, p.amount, p.lock)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	return x.client.Invoke(prm)
