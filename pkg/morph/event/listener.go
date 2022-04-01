@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -85,6 +86,8 @@ type ListenerParams struct {
 	Logger *zap.Logger
 
 	Subscriber subscriber.Subscriber
+
+	WorkerPoolCapacity int
 }
 
 type listener struct {
@@ -108,6 +111,8 @@ type listener struct {
 	subscriber subscriber.Subscriber
 
 	blockHandlers []BlockHandler
+
+	pool *ants.Pool
 }
 
 const newListenerFailMsg = "could not instantiate Listener"
@@ -258,7 +263,12 @@ loop:
 				continue loop
 			}
 
-			l.parseAndHandleNotary(notaryEvent)
+			if err = l.pool.Submit(func() {
+				l.parseAndHandleNotary(notaryEvent)
+			}); err != nil {
+				l.log.Warn("listener worker pool drained",
+					zap.Int("capacity", l.pool.Cap()))
+			}
 		case b, ok := <-blockChan:
 			if !ok {
 				l.log.Warn("stop event listener by block channel")
@@ -272,8 +282,13 @@ loop:
 				continue loop
 			}
 
-			for i := range l.blockHandlers {
-				l.blockHandlers[i](b)
+			if err = l.pool.Submit(func() {
+				for i := range l.blockHandlers {
+					l.blockHandlers[i](b)
+				}
+			}); err != nil {
+				l.log.Warn("listener worker pool drained",
+					zap.Int("capacity", l.pool.Cap()))
 			}
 		}
 	}
@@ -586,6 +601,11 @@ func (l *listener) RegisterBlockHandler(handler BlockHandler) {
 
 // NewListener create the notification event listener instance and returns Listener interface.
 func NewListener(p ListenerParams) (Listener, error) {
+	// defaultPoolCap is a default worker
+	// pool capacity if it was not specified
+	// via params
+	const defaultPoolCap = 10
+
 	switch {
 	case p.Logger == nil:
 		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilLogger)
@@ -593,10 +613,21 @@ func NewListener(p ListenerParams) (Listener, error) {
 		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilSubscriber)
 	}
 
+	poolCap := p.WorkerPoolCapacity
+	if poolCap == 0 {
+		poolCap = defaultPoolCap
+	}
+
+	pool, err := ants.NewPool(poolCap, ants.WithNonblocking(true))
+	if err != nil {
+		return nil, fmt.Errorf("could not init worker pool: %w", err)
+	}
+
 	return &listener{
 		notificationParsers:  make(map[scriptHashWithType]NotificationParser),
 		notificationHandlers: make(map[scriptHashWithType][]Handler),
 		log:                  p.Logger,
 		subscriber:           p.Subscriber,
+		pool:                 pool,
 	}, nil
 }
