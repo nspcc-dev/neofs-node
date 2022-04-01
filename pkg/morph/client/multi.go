@@ -16,8 +16,11 @@ type multiClient struct {
 	sharedNotary *notary // notary config needed for single client construction
 
 	endpoints  []string
-	clientsMtx sync.Mutex
-	clients    map[string]*Client
+	clientsMtx sync.RWMutex
+	// lastSuccess is an index in endpoints array relating to a last
+	// used endpoint.
+	lastSuccess int
+	clients     map[string]*Client
 }
 
 // createForAddress creates single Client instance using provided endpoint.
@@ -58,29 +61,32 @@ func (x *multiClient) createForAddress(addr string) (*Client, error) {
 	return c, nil
 }
 
+// iterateClients executes f on each client until nil error is returned.
+// When nil error is returned, lastSuccess field is updated.
+// The iteration order is non-deterministic and shouldn't be relied upon.
 func (x *multiClient) iterateClients(f func(*Client) error) error {
 	var (
 		firstErr error
 		err      error
 	)
 
-	for i := range x.endpoints {
-		select {
-		case <-x.cfg.ctx.Done():
-			return x.cfg.ctx.Err()
-		default:
-		}
+	x.clientsMtx.RLock()
+	start := x.lastSuccess
+	x.clientsMtx.RUnlock()
 
-		x.clientsMtx.Lock()
-		c, cached := x.clients[x.endpoints[i]]
-		x.clientsMtx.Unlock()
+	for i := 0; i < len(x.endpoints); i++ {
+		index := (start + i) % len(x.endpoints)
+
+		x.clientsMtx.RLock()
+		c, cached := x.clients[x.endpoints[index]]
+		x.clientsMtx.RUnlock()
 		if !cached {
-			c, err = x.createForAddress(x.endpoints[i])
+			c, err = x.createForAddress(x.endpoints[index])
 		}
 
 		if !cached && err != nil {
 			x.cfg.logger.Error("could not open morph client connection",
-				zap.String("endpoint", x.endpoints[i]),
+				zap.String("endpoint", x.endpoints[index]),
 				zap.String("err", err.Error()),
 			)
 		} else {
@@ -88,6 +94,11 @@ func (x *multiClient) iterateClients(f func(*Client) error) error {
 		}
 
 		if err == nil {
+			if i != 0 {
+				x.clientsMtx.Lock()
+				x.lastSuccess = index
+				x.clientsMtx.Unlock()
+			}
 			return nil
 		}
 
