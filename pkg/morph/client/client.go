@@ -161,15 +161,6 @@ func wrapNeoFSError(err error) error {
 	return neofsError{err}
 }
 
-// unwraps NeoFS-specific error if err is type of neofsError. Otherwise, returns nil.
-func unwrapNeoFSError(err error) error {
-	if e := new(neofsError); errors.As(err, e) {
-		return e.err
-	}
-
-	return nil
-}
-
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
 func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
