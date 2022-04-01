@@ -921,6 +921,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 }
 
 func createListener(ctx context.Context, cli *client.Client, p *chainParams) (event.Listener, error) {
+	// listenerPoolCap is a capacity of a
+	// worker pool inside the listener. It
+	// is used to prevent blocking in neo-go:
+	// the client cannot make RPC requests if
+	// the notification channel is not being
+	// read by another goroutine.
+	const listenerPoolCap = 10
+
 	var (
 		sub subscriber.Subscriber
 		err error
@@ -936,8 +944,9 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 	}
 
 	listener, err := event.NewListener(event.ListenerParams{
-		Logger:     p.log,
-		Subscriber: sub,
+		Logger:             p.log.With(zap.String("chain", p.name)),
+		Subscriber:         sub,
+		WorkerPoolCapacity: listenerPoolCap,
 	})
 	if err != nil {
 		return nil, err
