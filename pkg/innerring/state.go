@@ -160,7 +160,8 @@ func (s *Server) WriteReport(r *audit.Report) error {
 // ResetEpochTimer resets block timer that produces events to update epoch
 // counter in netmap contract. Used to synchronize this even production
 // based on block with notification of last epoch.
-func (s *Server) ResetEpochTimer() error {
+func (s *Server) ResetEpochTimer(h uint32) error {
+	s.epochTimer.Tick(h)
 	return s.epochTimer.Reset()
 }
 
