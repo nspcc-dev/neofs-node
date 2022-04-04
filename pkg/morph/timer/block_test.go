@@ -13,6 +13,41 @@ func tickN(t *timer.BlockTimer, n uint32) {
 	}
 }
 
+// This test emulates inner-ring handling of a new epoch and a new block.
+// "resetting" consists of ticking the current height as well and invoking `Reset`.
+func TestIRBlockTimer_Reset(t *testing.T) {
+	var baseCounter [2]int
+	blockDur := uint32(3)
+
+	bt1 := timer.NewBlockTimer(
+		func() (uint32, error) { return blockDur, nil },
+		func() { baseCounter[0]++ })
+	bt2 := timer.NewBlockTimer(
+		func() (uint32, error) { return blockDur, nil },
+		func() { baseCounter[1]++ })
+
+	require.NoError(t, bt1.Reset())
+	require.NoError(t, bt2.Reset())
+
+	run := func(bt *timer.BlockTimer, direct bool) {
+		if direct {
+			bt.Tick(1)
+			require.NoError(t, bt.Reset())
+			bt.Tick(1)
+		} else {
+			bt.Tick(1)
+			bt.Tick(1)
+			require.NoError(t, bt.Reset())
+		}
+		bt.Tick(2)
+		bt.Tick(3)
+	}
+
+	run(bt1, true)
+	run(bt2, false)
+	require.Equal(t, baseCounter[0], baseCounter[1])
+}
+
 func TestBlockTimer(t *testing.T) {
 	blockDur := uint32(10)
 	baseCallCounter := uint32(0)

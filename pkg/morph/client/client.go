@@ -341,6 +341,18 @@ func (c *Client) TxHalt(h util.Uint256) (res bool, err error) {
 	return len(aer.Executions) > 0 && aer.Executions[0].VMState.HasFlag(vm.HaltState), nil
 }
 
+// TxHeight returns true if transaction has been successfully executed and persisted.
+func (c *Client) TxHeight(h util.Uint256) (res uint32, err error) {
+	if c.multiClient != nil {
+		return res, c.multiClient.iterateClients(func(c *Client) error {
+			res, err = c.TxHeight(h)
+			return err
+		})
+	}
+
+	return c.client.GetTransactionHeight(h)
+}
+
 // NeoFSAlphabetList returns keys that stored in NeoFS Alphabet role. Main chain
 // stores alphabet node keys of inner ring there, however side chain stores both
 // alphabet and non alphabet node keys of inner ring.

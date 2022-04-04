@@ -23,7 +23,15 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	}
 
 	np.epochState.SetEpochCounter(epoch)
-	if err := np.epochTimer.ResetEpochTimer(); err != nil {
+
+	h, err := np.netmapClient.Morph().TxHeight(ev.TxHash())
+	if err != nil {
+		np.log.Warn("can't get transaction height",
+			zap.String("hash", ev.TxHash().StringLE()),
+			zap.String("error", err.Error()))
+	}
+
+	if err := np.epochTimer.ResetEpochTimer(h); err != nil {
 		np.log.Warn("can't reset epoch timer",
 			zap.String("error", err.Error()))
 	}
