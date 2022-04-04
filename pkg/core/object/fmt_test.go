@@ -64,20 +64,20 @@ func TestFormatValidator_Validate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("nil input", func(t *testing.T) {
-		require.Error(t, v.Validate(nil))
+		require.Error(t, v.Validate(nil, true))
 	})
 
 	t.Run("nil identifier", func(t *testing.T) {
 		obj := object.New()
 
-		require.True(t, errors.Is(v.Validate(obj), errNilID))
+		require.True(t, errors.Is(v.Validate(obj, false), errNilID))
 	})
 
 	t.Run("nil container identifier", func(t *testing.T) {
 		obj := object.New()
 		obj.SetID(testObjectID(t))
 
-		require.True(t, errors.Is(v.Validate(obj), errNilCID))
+		require.True(t, errors.Is(v.Validate(obj, true), errNilCID))
 	})
 
 	t.Run("unsigned object", func(t *testing.T) {
@@ -85,7 +85,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetContainerID(cidtest.ID())
 		obj.SetID(testObjectID(t))
 
-		require.Error(t, v.Validate(obj))
+		require.Error(t, v.Validate(obj, true))
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
 
-		require.NoError(t, v.Validate(obj))
+		require.NoError(t, v.Validate(obj, false))
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {
@@ -109,7 +109,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
 
-		require.NoError(t, v.Validate(obj))
+		require.NoError(t, v.Validate(obj, false))
 	})
 
 	t.Run("tombstone content", func(t *testing.T) {
@@ -197,19 +197,19 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		t.Run("invalid attribute value", func(t *testing.T) {
 			val := "text"
-			err := v.Validate(fn(val))
+			err := v.Validate(fn(val), false)
 			require.Error(t, err)
 		})
 
 		t.Run("expired object", func(t *testing.T) {
 			val := strconv.FormatUint(curEpoch-1, 10)
-			err := v.Validate(fn(val))
+			err := v.Validate(fn(val), false)
 			require.True(t, errors.Is(err, errExpired))
 		})
 
 		t.Run("alive object", func(t *testing.T) {
 			val := strconv.FormatUint(curEpoch, 10)
-			err := v.Validate(fn(val))
+			err := v.Validate(fn(val), true)
 			require.NoError(t, err)
 		})
 	})
