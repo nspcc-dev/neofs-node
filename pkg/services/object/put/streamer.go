@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type Streamer struct {
@@ -86,6 +87,12 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	sessionKey, err := p.keyStorage.GetKey(sToken)
 	if err != nil {
 		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
+	}
+
+	// In case session token is missing, the line above returns the default key.
+	// If it isn't owner key, replication attempts will fail, thus this check.
+	if sToken == nil && !prm.hdr.OwnerID().Equal(owner.NewIDFromPublicKey(&sessionKey.PublicKey)) {
+		return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
 	}
 
 	p.target = transformer.NewPayloadSizeLimiter(
