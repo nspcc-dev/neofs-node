@@ -94,18 +94,21 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	if sToken == nil && !prm.hdr.OwnerID().Equal(owner.NewIDFromPublicKey(&sessionKey.PublicKey)) {
 		return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
 	}
-
-	p.target = transformer.NewPayloadSizeLimiter(
-		p.maxPayloadSz,
-		func() transformer.ObjectTarget {
-			return transformer.NewFormatTarget(&transformer.FormatterParams{
-				Key:          sessionKey,
-				NextTarget:   p.newCommonTarget(prm),
-				SessionToken: sToken,
-				NetworkState: p.networkState,
-			})
-		},
-	)
+	p.target = &validatingTarget{
+		fmt:              p.fmtValidator,
+		unpreparedObject: true,
+		nextTarget: transformer.NewPayloadSizeLimiter(
+			p.maxPayloadSz,
+			func() transformer.ObjectTarget {
+				return transformer.NewFormatTarget(&transformer.FormatterParams{
+					Key:          sessionKey,
+					NextTarget:   p.newCommonTarget(prm),
+					SessionToken: sToken,
+					NetworkState: p.networkState,
+				})
+			},
+		),
+	}
 
 	return nil
 }

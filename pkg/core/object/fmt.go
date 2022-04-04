@@ -83,12 +83,13 @@ func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
 // Validate validates object format.
 //
 // Does not validate payload checksum and content.
+// If unprepared is true, only fields set by user are validated.
 //
 // Returns nil error if object has valid structure.
-func (v *FormatValidator) Validate(obj *object.Object) error {
+func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	if obj == nil {
 		return errNilObject
-	} else if obj.ID() == nil {
+	} else if !unprepared && obj.ID() == nil {
 		return errNilID
 	} else if obj.ContainerID() == nil {
 		return errNilCID
@@ -102,20 +103,23 @@ func (v *FormatValidator) Validate(obj *object.Object) error {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
 
-	if err := v.validateSignatureKey(obj); err != nil {
-		return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
-	}
+	if !unprepared {
+		if err := v.validateSignatureKey(obj); err != nil {
+			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
+		}
 
-	if err := v.checkExpiration(obj); err != nil {
-		return fmt.Errorf("object did not pass expiration check: %w", err)
-	}
+		if err := v.checkExpiration(obj); err != nil {
+			return fmt.Errorf("object did not pass expiration check: %w", err)
+		}
 
-	if err := object.CheckHeaderVerificationFields(obj); err != nil {
-		return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
+		if err := object.CheckHeaderVerificationFields(obj); err != nil {
+			return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
+		}
 	}
 
 	if obj = obj.Parent(); obj != nil {
-		return v.Validate(obj)
+		// Parent object already exists.
+		return v.Validate(obj, false)
 	}
 
 	return nil
