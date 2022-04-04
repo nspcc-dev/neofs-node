@@ -106,6 +106,17 @@ var (
 		RunE: forceNewEpochCmd,
 	}
 
+	setPolicy = &cobra.Command{
+		Use:                   "set-policy [ExecFeeFactor=<n1>] [StoragePrice=<n2>] [FeePerByte=<n3>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Set global policy values",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: setPolicyCmd,
+	}
+
 	dumpContractHashesCmd = &cobra.Command{
 		Use:   "dump-hashes",
 		Short: "Dump deployed contract hashes.",
@@ -187,6 +198,10 @@ func init() {
 	RootCmd.AddCommand(forceNewEpoch)
 	forceNewEpoch.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	forceNewEpoch.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(setPolicy)
+	setPolicy.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
+	setPolicy.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 
 	RootCmd.AddCommand(dumpContractHashesCmd)
 	dumpContractHashesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
