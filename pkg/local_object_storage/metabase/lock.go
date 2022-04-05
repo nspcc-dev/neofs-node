@@ -150,7 +150,7 @@ func freePotentialLocks(tx *bbolt.Tx, idCnr cid.ID, locker oid.ID) error {
 							// exclude locker
 							keyLockers = append(keyLockers[:i], keyLockers[i+1:]...)
 
-							v, err = encodeList(append(keyLockers[:i], keyLockers[i+1:]...))
+							v, err = encodeList(keyLockers)
 							if err != nil {
 								return fmt.Errorf("encode updated list of lockers: %w", err)
 							}
