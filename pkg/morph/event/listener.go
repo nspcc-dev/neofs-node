@@ -90,7 +90,7 @@ type ListenerParams struct {
 type listener struct {
 	mtx *sync.RWMutex
 
-	once *sync.Once
+	startOnce, stopOnce *sync.Once
 
 	started bool
 
@@ -124,7 +124,7 @@ var (
 //
 // Returns an error if listener was already started.
 func (l listener) Listen(ctx context.Context) {
-	l.once.Do(func() {
+	l.startOnce.Do(func() {
 		if err := l.listen(ctx, nil); err != nil {
 			l.log.Error("could not start listen to events",
 				zap.String("error", err.Error()),
@@ -140,7 +140,7 @@ func (l listener) Listen(ctx context.Context) {
 //
 // Returns an error if listener was already started.
 func (l listener) ListenWithError(ctx context.Context, intError chan<- error) {
-	l.once.Do(func() {
+	l.startOnce.Do(func() {
 		if err := l.listen(ctx, intError); err != nil {
 			l.log.Error("could not start listen to events",
 				zap.String("error", err.Error()),
@@ -570,7 +570,9 @@ func (l listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 
 // Stop closes subscription channel with remote neo node.
 func (l listener) Stop() {
-	l.subscriber.Close()
+	l.stopOnce.Do(func() {
+		l.subscriber.Close()
+	})
 }
 
 func (l *listener) RegisterBlockHandler(handler BlockHandler) {
@@ -593,7 +595,8 @@ func NewListener(p ListenerParams) (Listener, error) {
 
 	return &listener{
 		mtx:                  new(sync.RWMutex),
-		once:                 new(sync.Once),
+		startOnce:            new(sync.Once),
+		stopOnce:             new(sync.Once),
 		notificationParsers:  make(map[scriptHashWithType]NotificationParser),
 		notificationHandlers: make(map[scriptHashWithType][]Handler),
 		log:                  p.Logger,
