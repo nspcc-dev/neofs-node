@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -292,17 +293,27 @@ func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 
 	at := trigger.Application
 
+	var retErr error
+
 loop:
 	for i := range c.Hashes {
-		_, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
+		res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
 		if err == nil {
+			if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vm.HaltState {
+				retErr = fmt.Errorf("tx persisted in %s state: %s",
+					res.Executions[0].VMState, res.Executions[0].FaultException)
+			}
 			continue loop
 		}
 		for {
 			select {
 			case <-tick.C:
-				_, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
+				res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
 				if err == nil {
+					if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vm.HaltState {
+						retErr = fmt.Errorf("tx persisted in %s state: %s",
+							res.Executions[0].VMState, res.Executions[0].FaultException)
+					}
 					continue loop
 				}
 			case <-timer.C:
@@ -311,7 +322,7 @@ loop:
 		}
 	}
 
-	return nil
+	return retErr
 }
 
 func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64) error {
