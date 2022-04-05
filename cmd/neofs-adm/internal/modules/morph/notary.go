@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -107,6 +108,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 	bw := io.NewBufBinWriter()
 	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,
 		accHash, notaryHash.BytesBE(), int64(gasAmount), []interface{}{nil, int64(height) + till})
+	emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	if bw.Err != nil {
 		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
 	}

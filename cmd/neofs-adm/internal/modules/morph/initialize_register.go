@@ -79,6 +79,7 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 		h := state.CreateContractHash(acc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
 		emit.AppCall(bw.BinWriter, neoHash, "transfer", callflag.All,
 			c.CommitteeAcc.Contract.ScriptHash(), h, int64(amount), nil)
+		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	}
 
 	if err := c.sendCommitteeTx(bw.Bytes(), -1); err != nil {

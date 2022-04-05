@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -184,6 +185,7 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 	bw := io.NewBufBinWriter()
 	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,
 		wCtx.CommitteeAcc.Contract.ScriptHash(), w.Accounts[0].Contract.ScriptHash(), int64(gasAmount), nil)
+	emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	if bw.Err != nil {
 		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
 	}
