@@ -46,7 +46,7 @@ func forceNewEpochCmd(cmd *cobra.Command, args []string) error {
 	// transaction locally.
 	bw := io.NewBufBinWriter()
 	emit.AppCall(bw.BinWriter, nmHash, "newEpoch", callflag.All, newEpoch)
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1); err != nil {
+	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1, true); err != nil {
 		return err
 	}
 

@@ -51,11 +51,7 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 		emit.AppCall(bw.BinWriter, policyHash, "set"+kv[0], callflag.All, int64(value))
 	}
 
-	// Unset group key to use `Global` signer scope. This function is unusual, because we
-	// work with native contract, not NeoFS one.
-	wCtx.groupKey = nil
-
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1); err != nil {
+	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1, false); err != nil {
 		return err
 	}
 

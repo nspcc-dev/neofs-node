@@ -41,7 +41,7 @@ func (c *initializeContext) setNNS() error {
 			"neofs", c.CommitteeAcc.Contract.ScriptHash(),
 			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-		if err := c.sendCommitteeTx(bw.Bytes(), -1); err != nil {
+		if err := c.sendCommitteeTx(bw.Bytes(), -1, true); err != nil {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
 		}
 		if err := c.awaitTx(); err != nil {
@@ -86,7 +86,7 @@ func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.Publi
 	if err != nil {
 		return err
 	}
-	return c.sendCommitteeTx(bw.Bytes(), sysFee)
+	return c.sendCommitteeTx(bw.Bytes(), sysFee, true)
 }
 
 func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (int64, error) {
@@ -161,7 +161,7 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 		return err
 	}
 	sysFee := int64(defaultRegisterSysfee + native.GASFactor)
-	return c.sendCommitteeTx(script, sysFee)
+	return c.sendCommitteeTx(script, sysFee, true)
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error) {

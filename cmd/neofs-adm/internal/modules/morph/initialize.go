@@ -250,8 +250,8 @@ func (c *initializeContext) nnsContractState() (*state.Contract, error) {
 	return cs, nil
 }
 
-func (c *initializeContext) getSigner() transaction.Signer {
-	if c.groupKey != nil {
+func (c *initializeContext) getSigner(tryGroup bool) transaction.Signer {
+	if tryGroup && c.groupKey != nil {
 		return transaction.Signer{
 			Scopes:        transaction.CustomGroups,
 			AllowedGroups: keys.PublicKeys{c.groupKey},
@@ -261,6 +261,10 @@ func (c *initializeContext) getSigner() transaction.Signer {
 	signer := transaction.Signer{
 		Account: c.CommitteeAcc.Contract.ScriptHash(),
 		Scopes:  transaction.Global, // Scope is important, as we have nested call to container contract.
+	}
+
+	if !tryGroup {
+		return signer
 	}
 
 	nnsCs, err := c.nnsContractState()
@@ -325,9 +329,12 @@ loop:
 	return retErr
 }
 
-func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64) error {
+// sendCommitteeTx creates transaction from script and sends it to RPC.
+// If sysFee is -1, it is calculated automatically. If tryGroup is false,
+// global scope is used for the signer (useful when working with native contracts).
+func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64, tryGroup bool) error {
 	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []client.SignerAccount{{
-		Signer:  c.getSigner(),
+		Signer:  c.getSigner(tryGroup),
 		Account: c.CommitteeAcc,
 	}})
 	if err != nil {
