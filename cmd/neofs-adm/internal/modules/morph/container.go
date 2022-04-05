@@ -190,7 +190,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 			panic(bw.Err)
 		}
 
-		if err := wCtx.sendCommitteeTx(bw.Bytes(), -1); err != nil {
+		if err := wCtx.sendCommitteeTx(bw.Bytes(), -1, true); err != nil {
 			return err
 		}
 	}

@@ -278,7 +278,7 @@ func (c *initializeContext) updateContracts() error {
 	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
 
 	totalGasCost += sysFee
-	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost); err != nil {
+	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost, false); err != nil {
 		return err
 	}
 	return c.awaitTx()
@@ -360,7 +360,7 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
-		if err := c.sendCommitteeTx(res.Script, res.GasConsumed); err != nil {
+		if err := c.sendCommitteeTx(res.Script, res.GasConsumed, false); err != nil {
 			return err
 		}
 	}
