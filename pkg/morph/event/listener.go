@@ -88,9 +88,9 @@ type ListenerParams struct {
 }
 
 type listener struct {
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
-	startOnce, stopOnce *sync.Once
+	startOnce, stopOnce sync.Once
 
 	started bool
 
@@ -123,7 +123,7 @@ var (
 // Executes once, all subsequent calls do nothing.
 //
 // Returns an error if listener was already started.
-func (l listener) Listen(ctx context.Context) {
+func (l *listener) Listen(ctx context.Context) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx, nil); err != nil {
 			l.log.Error("could not start listen to events",
@@ -139,7 +139,7 @@ func (l listener) Listen(ctx context.Context) {
 // Executes once, all subsequent calls do nothing.
 //
 // Returns an error if listener was already started.
-func (l listener) ListenWithError(ctx context.Context, intError chan<- error) {
+func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx, intError); err != nil {
 			l.log.Error("could not start listen to events",
@@ -184,7 +184,7 @@ func (l *listener) listen(ctx context.Context, intError chan<- error) error {
 	return nil
 }
 
-func (l listener) listenLoop(ctx context.Context, chEvent <-chan *subscriptions.NotificationEvent, intErr chan<- error) {
+func (l *listener) listenLoop(ctx context.Context, chEvent <-chan *subscriptions.NotificationEvent, intErr chan<- error) {
 	var (
 		blockChan <-chan *block.Block
 
@@ -279,7 +279,7 @@ loop:
 	}
 }
 
-func (l listener) parseAndHandleNotification(notifyEvent *subscriptions.NotificationEvent) {
+func (l *listener) parseAndHandleNotification(notifyEvent *subscriptions.NotificationEvent) {
 	log := l.log.With(
 		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
@@ -334,7 +334,7 @@ func (l listener) parseAndHandleNotification(notifyEvent *subscriptions.Notifica
 	}
 }
 
-func (l listener) parseAndHandleNotary(nr *subscriptions.NotaryRequestEvent) {
+func (l *listener) parseAndHandleNotary(nr *subscriptions.NotaryRequestEvent) {
 	// prepare the notary event
 	notaryEvent, err := l.notaryEventsPreparator.Prepare(nr.NotaryRequest)
 	if err != nil {
@@ -404,7 +404,7 @@ func (l listener) parseAndHandleNotary(nr *subscriptions.NotaryRequestEvent) {
 //
 // Ignores nil and already set parsers.
 // Ignores the parser if listener is started.
-func (l listener) SetNotificationParser(pi NotificationParserInfo) {
+func (l *listener) SetNotificationParser(pi NotificationParserInfo) {
 	log := l.log.With(
 		zap.String("contract", pi.ScriptHash().StringLE()),
 		zap.Stringer("event_type", pi.getType()),
@@ -437,7 +437,7 @@ func (l listener) SetNotificationParser(pi NotificationParserInfo) {
 //
 // Ignores nil handlers.
 // Ignores handlers of event without parser.
-func (l listener) RegisterNotificationHandler(hi NotificationHandlerInfo) {
+func (l *listener) RegisterNotificationHandler(hi NotificationHandlerInfo) {
 	log := l.log.With(
 		zap.String("contract", hi.ScriptHash().StringLE()),
 		zap.Stringer("event_type", hi.GetType()),
@@ -495,7 +495,7 @@ func (l *listener) EnableNotarySupport(mainTXSigner util.Uint160, alphaKeys clie
 //
 // Ignores nil and already set parsers.
 // Ignores the parser if listener is started.
-func (l listener) SetNotaryParser(pi NotaryParserInfo) {
+func (l *listener) SetNotaryParser(pi NotaryParserInfo) {
 	if !l.listenNotary {
 		return
 	}
@@ -533,7 +533,7 @@ func (l listener) SetNotaryParser(pi NotaryParserInfo) {
 //
 // Ignores nil handlers.
 // Ignores handlers of event without parser.
-func (l listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
+func (l *listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 	if !l.listenNotary {
 		return
 	}
@@ -569,7 +569,7 @@ func (l listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 }
 
 // Stop closes subscription channel with remote neo node.
-func (l listener) Stop() {
+func (l *listener) Stop() {
 	l.stopOnce.Do(func() {
 		l.subscriber.Close()
 	})
@@ -594,9 +594,6 @@ func NewListener(p ListenerParams) (Listener, error) {
 	}
 
 	return &listener{
-		mtx:                  new(sync.RWMutex),
-		startOnce:            new(sync.Once),
-		stopOnce:             new(sync.Once),
 		notificationParsers:  make(map[scriptHashWithType]NotificationParser),
 		notificationHandlers: make(map[scriptHashWithType][]Handler),
 		log:                  p.Logger,
