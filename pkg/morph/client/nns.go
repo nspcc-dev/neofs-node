@@ -97,6 +97,7 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 		c.mtx.Lock()
 		c.nnsHash = cs.Hash
 		c.mtx.Unlock()
+		nnsHash = cs.Hash
 	}
 	return nnsHash, nil
 }
