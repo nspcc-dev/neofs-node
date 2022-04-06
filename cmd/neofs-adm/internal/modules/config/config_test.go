@@ -39,6 +39,7 @@ func TestGenerateConfigExample(t *testing.T) {
 		key := "credentials." + i.String()
 		require.Equal(t, "password", v.GetString(key))
 	}
+	require.Equal(t, "password", v.GetString("credentials.contract"))
 
 	key := "credentials." + i.String()
 	require.Equal(t, "", v.GetString(key))

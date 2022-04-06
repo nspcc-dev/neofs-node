@@ -40,7 +40,8 @@ network:
     container_alias: {{ .ContainerAliasFee }}
     withdraw: {{ .WithdrawFee}}
 # if credentials section is omitted, then neofs-adm will require manual password input
-credentials:{{ range.Glagolitics}}
+credentials:
+  contract: password # wallet for contract group signature{{ range.Glagolitics}}
   {{.}}: password{{end}}
 `
 
