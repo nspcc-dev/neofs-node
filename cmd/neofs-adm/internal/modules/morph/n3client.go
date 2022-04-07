@@ -7,13 +7,10 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -25,7 +22,6 @@ import (
 // and sending signed transactions to chain.
 type Client interface {
 	GetBlockCount() (uint32, error)
-	GetDesignatedByRole(noderoles.Role, uint32) (keys.PublicKeys, error)
 	GetContractStateByID(int32) (*state.Contract, error)
 	GetContractStateByHash(util.Uint160) (*state.Contract, error)
 	GetNativeContracts() ([]state.NativeContract, error)
@@ -33,7 +29,6 @@ type Client interface {
 	GetApplicationLog(util.Uint256, *trigger.Type) (*result.ApplicationLog, error)
 	CreateTxFromScript([]byte, *wallet.Account, int64, int64, []client.SignerAccount) (*transaction.Transaction, error)
 	NEP17BalanceOf(util.Uint160, util.Uint160) (int64, error)
-	InvokeFunction(util.Uint160, string, []smartcontract.Parameter, []transaction.Signer) (*result.Invoke, error)
 	InvokeScript([]byte, []transaction.Signer) (*result.Invoke, error)
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
 }

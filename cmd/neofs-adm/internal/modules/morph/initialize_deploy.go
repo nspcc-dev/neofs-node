@@ -125,7 +125,7 @@ func (c *initializeContext) deployNNS(method string) error {
 		mgmtHash = nnsCs.Hash
 	}
 
-	res, err := c.Client.InvokeFunction(mgmtHash, method, params, []transaction.Signer{signer})
+	res, err := invokeFunction(c.Client, mgmtHash, method, params, []transaction.Signer{signer})
 	if err != nil {
 		return fmt.Errorf("can't deploy NNS contract: %w", err)
 	}
@@ -161,7 +161,7 @@ func (c *initializeContext) updateContracts() error {
 	totalGasCost := int64(0)
 	w := io2.NewBufBinWriter()
 
-	var keysParam []smartcontract.Parameter
+	var keysParam []interface{}
 
 	// Update script size for a single-node committee is close to the maximum allowed size of 65535.
 	// Because of this we want to reuse alphabet contract NEF and manifest for different updates.
@@ -184,10 +184,7 @@ func (c *initializeContext) updateContracts() error {
 			return fmt.Errorf("can't resolve hash for contract update: %w", err)
 		}
 
-		keysParam = append(keysParam, smartcontract.Parameter{
-			Type:  smartcontract.PublicKeyType,
-			Value: acc.PrivateKey().PublicKey().Bytes(),
-		})
+		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
 
 		params := c.getAlphabetDeployItems(i, len(c.Wallets))
 		emit.Array(w.BinWriter, params...)
@@ -243,7 +240,7 @@ func (c *initializeContext) updateContracts() error {
 			Scopes:  transaction.Global,
 		}
 
-		res, err := c.Client.InvokeFunction(invokeHash, method, params, []transaction.Signer{signer})
+		res, err := invokeFunction(c.Client, invokeHash, method, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
@@ -287,7 +284,7 @@ func (c *initializeContext) deployContracts() error {
 	mgmtHash := c.nativeHash(nativenames.Management)
 	alphaCs := c.getContract(alphabetContract)
 
-	var keysParam []smartcontract.Parameter
+	var keysParam []interface{}
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
@@ -298,15 +295,12 @@ func (c *initializeContext) deployContracts() error {
 		}
 
 		invokeHash := mgmtHash
-		keysParam = append(keysParam, smartcontract.Parameter{
-			Type:  smartcontract.PublicKeyType,
-			Value: acc.PrivateKey().PublicKey().Bytes(),
-		})
+		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
 
 		params := getContractDeployParameters(alphaCs.RawNEF, alphaCs.RawManifest,
-			c.getAlphabetDeployParameters(i, len(c.Wallets)))
+			c.getAlphabetDeployItems(i, len(c.Wallets)))
 
-		res, err := c.Client.InvokeFunction(invokeHash, deployMethodName, params, []transaction.Signer{{
+		res, err := invokeFunction(c.Client, invokeHash, deployMethodName, params, []transaction.Signer{{
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
 		}})
@@ -344,7 +338,7 @@ func (c *initializeContext) deployContracts() error {
 			Scopes:  transaction.Global,
 		}
 
-		res, err := c.Client.InvokeFunction(invokeHash, deployMethodName, params, []transaction.Signer{signer})
+		res, err := invokeFunction(c.Client, invokeHash, deployMethodName, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
@@ -497,43 +491,29 @@ func readContractsFromArchive(file io.Reader, names []string) (map[string]*contr
 	return m, nil
 }
 
-func getContractDeployParameters(rawNef, rawManif []byte, deployData []smartcontract.Parameter) []smartcontract.Parameter {
-	return []smartcontract.Parameter{
-		{
-			Type:  smartcontract.ByteArrayType,
-			Value: rawNef,
-		},
-		{
-			Type:  smartcontract.ByteArrayType,
-			Value: rawManif,
-		},
-		{
-			Type:  smartcontract.ArrayType,
-			Value: deployData,
-		},
-	}
+func getContractDeployParameters(rawNef, rawManif []byte, deployData []interface{}) []interface{} {
+	return []interface{}{rawNef, rawManif, deployData}
 }
 
-func (c *initializeContext) getContractDeployData(ctrName string, keysParam []smartcontract.Parameter) []smartcontract.Parameter {
-	items := make([]smartcontract.Parameter, 1, 6)
-	items[0] = newContractParameter(smartcontract.BoolType, false) // notaryDisabled is false
+func (c *initializeContext) getContractDeployData(ctrName string, keysParam []interface{}) []interface{} {
+	items := make([]interface{}, 1, 6)
+	items[0] = false // notaryDisabled is false
 
 	switch ctrName {
 	case neofsContract:
 		items = append(items,
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[processingContract].Hash),
-			newContractParameter(smartcontract.ArrayType, keysParam),
-			newContractParameter(smartcontract.ArrayType, smartcontract.Parameter{}))
+			c.Contracts[processingContract].Hash,
+			keysParam,
+			smartcontract.Parameter{})
 	case processingContract:
-		items = append(items, newContractParameter(smartcontract.Hash160Type, c.Contracts[neofsContract].Hash))
+		items = append(items, c.Contracts[neofsContract].Hash)
 		return items[1:] // no notary info
 	case auditContract:
-		items = append(items,
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash))
+		items = append(items, c.Contracts[netmapContract].Hash)
 	case balanceContract:
 		items = append(items,
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[containerContract].Hash))
+			c.Contracts[netmapContract].Hash,
+			c.Contracts[containerContract].Hash)
 	case containerContract:
 		// In case if NNS is updated multiple times, we can't calculate
 		// it's actual hash based on local data, thus query chain.
@@ -542,43 +522,33 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			panic("NNS is not yet deployed")
 		}
 		items = append(items,
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[balanceContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[neofsIDContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, nnsCs.Hash),
-			newContractParameter(smartcontract.StringType, "container"))
+			c.Contracts[netmapContract].Hash,
+			c.Contracts[balanceContract].Hash,
+			c.Contracts[neofsIDContract].Hash,
+			nnsCs.Hash,
+			"container")
 	case neofsIDContract:
 		items = append(items,
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[netmapContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[containerContract].Hash))
+			c.Contracts[netmapContract].Hash,
+			c.Contracts[containerContract].Hash)
 	case netmapContract:
-		configParam := []smartcontract.Parameter{
-			{Type: smartcontract.StringType, Value: netmapEpochKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(epochDurationInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapMaxObjectSizeKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(maxObjectSizeInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapAuditFeeKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(auditFeeInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapContainerFeeKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(containerFeeInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapContainerAliasFeeKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(containerAliasFeeInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapEigenTrustIterationsKey},
-			{Type: smartcontract.IntegerType, Value: int64(defaultEigenTrustIterations)},
-			{Type: smartcontract.StringType, Value: netmapEigenTrustAlphaKey},
-			{Type: smartcontract.StringType, Value: defaultEigenTrustAlpha},
-			{Type: smartcontract.StringType, Value: netmapBasicIncomeRateKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(incomeRateInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapInnerRingCandidateFeeKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(candidateFeeInitFlag)},
-			{Type: smartcontract.StringType, Value: netmapWithdrawFeeKey},
-			{Type: smartcontract.IntegerType, Value: viper.GetInt64(withdrawFeeInitFlag)},
+		configParam := []interface{}{
+			netmapEpochKey, viper.GetInt64(epochDurationInitFlag),
+			netmapMaxObjectSizeKey, viper.GetInt64(maxObjectSizeInitFlag),
+			netmapAuditFeeKey, viper.GetInt64(auditFeeInitFlag),
+			netmapContainerFeeKey, viper.GetInt64(containerFeeInitFlag),
+			netmapContainerAliasFeeKey, viper.GetInt64(containerAliasFeeInitFlag),
+			netmapEigenTrustIterationsKey, int64(defaultEigenTrustIterations),
+			netmapEigenTrustAlphaKey, defaultEigenTrustAlpha,
+			netmapBasicIncomeRateKey, viper.GetInt64(incomeRateInitFlag),
+			netmapInnerRingCandidateFeeKey, viper.GetInt64(candidateFeeInitFlag),
+			netmapWithdrawFeeKey, viper.GetInt64(withdrawFeeInitFlag),
 		}
 		items = append(items,
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[balanceContract].Hash),
-			newContractParameter(smartcontract.Hash160Type, c.Contracts[containerContract].Hash),
-			newContractParameter(smartcontract.ArrayType, keysParam),
-			newContractParameter(smartcontract.ArrayType, configParam))
+			c.Contracts[balanceContract].Hash,
+			c.Contracts[containerContract].Hash,
+			keysParam,
+			configParam)
 	case proxyContract:
 		items = nil
 	case reputationContract:
@@ -587,18 +557,6 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 		panic(fmt.Sprintf("invalid contract name: %s", ctrName))
 	}
 	return items
-}
-
-func (c *initializeContext) getAlphabetDeployParameters(i, n int) []smartcontract.Parameter {
-	items := c.getAlphabetDeployItems(i, n)
-	return []smartcontract.Parameter{
-		newContractParameter(smartcontract.BoolType, items[0]),
-		newContractParameter(smartcontract.Hash160Type, items[1]),
-		newContractParameter(smartcontract.Hash160Type, items[2]),
-		newContractParameter(smartcontract.StringType, items[3]),
-		newContractParameter(smartcontract.IntegerType, items[4]),
-		newContractParameter(smartcontract.IntegerType, items[5]),
-	}
 }
 
 func (c *initializeContext) getAlphabetDeployItems(i, n int) []interface{} {

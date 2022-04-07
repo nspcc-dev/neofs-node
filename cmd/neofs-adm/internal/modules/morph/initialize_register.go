@@ -1,6 +1,7 @@
 package morph
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
@@ -8,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -23,7 +23,7 @@ const initialAlphabetNEOAmount = native.NEOTotalSupply
 func (c *initializeContext) registerCandidates() error {
 	neoHash := c.nativeHash(nativenames.Neo)
 
-	res, err := c.Client.InvokeFunction(neoHash, "getCandidates", []smartcontract.Parameter{}, nil)
+	res, err := invokeFunction(c.Client, neoHash, "getCandidates", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (c *initializeContext) registerCandidates() error {
 		}
 	}
 
-	regPrice, err := getCandidateRegisterPrice(c.Client)
+	regPrice, err := c.getCandidateRegisterPrice()
 	if err != nil {
 		return fmt.Errorf("can't fetch registration price: %w", err)
 	}
@@ -84,11 +84,25 @@ func (c *initializeContext) transferNEOFinished(neoHash util.Uint160) (bool, err
 	return bal < native.NEOTotalSupply, err
 }
 
-func getCandidateRegisterPrice(c Client) (int64, error) {
-	switch ct := c.(type) {
+var errGetPriceInvalid = errors.New("`getRegisterPrice`: invalid response")
+
+func (c *initializeContext) getCandidateRegisterPrice() (int64, error) {
+	switch ct := c.Client.(type) {
 	case *client.Client:
 		return ct.GetCandidateRegisterPrice()
 	default:
-		panic("unimplemented")
+		neoHash := c.nativeHash(nativenames.Neo)
+		res, err := invokeFunction(c.Client, neoHash, "getRegisterPrice", nil, nil)
+		if err != nil {
+			return 0, err
+		}
+		if len(res.Stack) == 0 {
+			return 0, errGetPriceInvalid
+		}
+		bi, err := res.Stack[0].TryInteger()
+		if err != nil || !bi.IsInt64() {
+			return 0, errGetPriceInvalid
+		}
+		return bi.Int64(), nil
 	}
 }

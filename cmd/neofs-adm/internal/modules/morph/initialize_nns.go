@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -165,8 +164,8 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error) {
-	params := []smartcontract.Parameter{{Type: smartcontract.StringType, Value: "name.neofs"}}
-	res, err := c.Client.InvokeFunction(nnsHash, "isAvailable", params, nil)
+	params := []interface{}{"name.neofs"}
+	res, err := invokeFunction(c.Client, nnsHash, "isAvailable", params, nil)
 	if err != nil {
 		return false, err
 	}
@@ -185,16 +184,7 @@ func nnsResolveHash(c Client, nnsHash util.Uint160, domain string) (util.Uint160
 }
 
 func nnsResolve(c Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
-	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
-		{
-			Type:  smartcontract.StringType,
-			Value: domain,
-		},
-		{
-			Type:  smartcontract.IntegerType,
-			Value: int64(nns.TXT),
-		},
-	}, nil)
+	result, err := invokeFunction(c, nnsHash, "resolve", []interface{}{domain, int64(nns.TXT)}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("`resolve`: %w", err)
 	}
@@ -244,11 +234,24 @@ func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
 	return util.Uint160DecodeStringLE(string(bs))
 }
 
+var errNNSIsAvailableInvalid = errors.New("`isAvailable`: invalid response")
+
 func nnsIsAvailable(c Client, nnsHash util.Uint160, name string) (bool, error) {
 	switch ct := c.(type) {
 	case *client.Client:
 		return ct.NNSIsAvailable(nnsHash, name)
 	default:
-		panic("unimplemented")
+		res, err := invokeFunction(c, nnsHash, "isAvailable", []interface{}{name}, nil)
+		if err != nil {
+			return false, err
+		}
+		if len(res.Stack) == 0 {
+			return false, errNNSIsAvailableInvalid
+		}
+		b, err := res.Stack[0].TryBool()
+		if err != nil {
+			return b, errNNSIsAvailableInvalid
+		}
+		return b, nil
 	}
 }

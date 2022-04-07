@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -49,8 +48,7 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	res, err := c.InvokeFunction(ch, "list",
-		[]smartcontract.Parameter{{Type: smartcontract.StringType, Value: ""}}, nil)
+	res, err := invokeFunction(c, ch, "list", []interface{}{""}, nil)
 	if err != nil {
 		return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
 	}
