@@ -3,6 +3,46 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.0-rc.3] - 2022-04-08
+
+### Fixed
+- Check expiration epoch of provided session token (#1168)
+- Prevent corruption in `writecache.Head` (#1149)
+- Use separate caches in N3 RPC multi client (#1213)
+- `neofs-adm` fixes (#1288, #1294, #1295)
+- Don't stop notification listener twice (#1291)
+- Metabase panic (#1293)
+- Disallow to tick block timer twice on the same height (#1208)
+
+### Added
+- Persistent storage for session tokens (#1189)
+- Cache for Inner Ring list fetcher (#1278)
+- Degraded mode of storage engine (#1143)
+- Command to change native Policy contract in `neofs-adm` (#1289)
+- Single websocket endpoint pool for RPC and notifications (#1053)
+
+### Changed
+- Cache NeoFS clients based only on public key (#1157)
+- Make `blobovnicza.Put` idempotent (#1262)
+- Optimize metabase list operations (#1262)
+- PDP check ranges are now asked in random order (#1163)
+- Update go version up to v1.17 (#1250)
+
+### Removed
+- Reduced amount of slices with pointers (#1239)
+
+### Updating from v0.28.0-rc.2
+Remove `NEOFS_IR_MAINNET_ENDPOINT_NOTIFICATION`, 
+`NEOFS_IR_MORPH_ENDPOINT_NOTIFICATION`,  and `NEOFS_MORPH_NOTIFICATION_ENDPOINT`
+from Inner Ring and Storage configurations. 
+
+Specify _WebSocket_ endpoints in `NEOFS_IR_MAINNET_ENDPOINT_CLIENT`,
+`NEOFS_IR_MORPH_ENDPOINT_CLIENT`, and `NEOFS_MORPH_RPC_ENDPOINT` at Inner Ring
+and Storage configurations.
+
+Specify path to persistent session token db in Storage configuration with 
+`NEOFS_NODE_PERSISTENT_SESSIONS_PATH`.
+
 ## [0.28.0-rc.2] - 2022-03-24
 
 ### Fixed
@@ -995,7 +1035,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.3...master
+[0.28.0-rc.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...v0.28.0-rc.3
 [0.28.0-rc.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...v0.28.0-rc.2
 [0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.7...v0.28.0-rc.1
 [0.27.7]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.6...v0.27.7
