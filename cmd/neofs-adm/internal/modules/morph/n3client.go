@@ -3,6 +3,7 @@ package morph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
@@ -82,6 +83,10 @@ func (c *clientContext) sendTx(tx *transaction.Transaction, cmd *cobra.Command, 
 	h, err := c.Client.SendRawTransaction(tx)
 	if err != nil {
 		return err
+	}
+
+	if h != tx.Hash() {
+		return fmt.Errorf("sent and actual tx hashes mismatch:\n\tsent: %v\n\tactual: %v", tx.Hash().StringLE(), h.StringLE())
 	}
 
 	c.Hashes = append(c.Hashes, h)
