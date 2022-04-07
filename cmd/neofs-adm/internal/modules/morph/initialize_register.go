@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -35,7 +34,7 @@ func (c *initializeContext) registerCandidates() error {
 		}
 	}
 
-	regPrice, err := c.Client.GetCandidateRegisterPrice()
+	regPrice, err := getCandidateRegisterPrice(c.Client)
 	if err != nil {
 		return fmt.Errorf("can't fetch registration price: %w", err)
 	}
@@ -46,18 +45,9 @@ func (c *initializeContext) registerCandidates() error {
 		emit.AppCall(w.BinWriter, neoHash, "registerCandidate", callflag.States, acc.PrivateKey().PublicKey().Bytes())
 		emit.Opcodes(w.BinWriter, opcode.ASSERT)
 
-		h, err := c.Client.SignAndPushInvocationTx(w.Bytes(), acc, sysGas, 0, []client.SignerAccount{{
-			Signer: transaction.Signer{
-				Account: acc.Contract.ScriptHash(),
-				Scopes:  transaction.CalledByEntry,
-			},
-			Account: acc,
-		}})
-		if err != nil {
+		if err := c.sendSingleTx(w.Bytes(), sysGas, acc); err != nil {
 			return err
 		}
-
-		c.Hashes = append(c.Hashes, h)
 	}
 
 	return c.awaitTx()
@@ -92,4 +82,13 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 func (c *initializeContext) transferNEOFinished(neoHash util.Uint160) (bool, error) {
 	bal, err := c.Client.NEP17BalanceOf(neoHash, c.CommitteeAcc.Contract.ScriptHash())
 	return bal < native.NEOTotalSupply, err
+}
+
+func getCandidateRegisterPrice(c Client) (int64, error) {
+	switch ct := c.(type) {
+	case *client.Client:
+		return ct.GetCandidateRegisterPrice()
+	default:
+		panic("unimplemented")
+	}
 }

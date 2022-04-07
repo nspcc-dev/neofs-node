@@ -305,12 +305,11 @@ func (c *initializeContext) deployContracts() error {
 
 		params := getContractDeployParameters(alphaCs.RawNEF, alphaCs.RawManifest,
 			c.getAlphabetDeployParameters(i, len(c.Wallets)))
-		signer := transaction.Signer{
+
+		res, err := c.Client.InvokeFunction(invokeHash, deployMethodName, params, []transaction.Signer{{
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
-		}
-
-		res, err := c.Client.InvokeFunction(invokeHash, deployMethodName, params, []transaction.Signer{signer})
+		}})
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
@@ -318,15 +317,9 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
 		}
 
-		h, err := c.Client.SignAndPushInvocationTx(res.Script, acc, -1, 0, []client.SignerAccount{{
-			Signer:  signer,
-			Account: acc,
-		}})
-		if err != nil {
-			return fmt.Errorf("can't push deploy transaction: %w", err)
+		if err := c.sendSingleTx(res.Script, res.GasConsumed, acc); err != nil {
+			return err
 		}
-
-		c.Hashes = append(c.Hashes, h)
 	}
 
 	for _, ctrName := range contractList {

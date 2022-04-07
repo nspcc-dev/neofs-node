@@ -90,7 +90,7 @@ func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.Publi
 }
 
 func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (int64, error) {
-	isAvail, err := c.Client.NNSIsAvailable(nnsHash, morphClient.NNSGroupKeyName)
+	isAvail, err := nnsIsAvailable(c.Client, nnsHash, morphClient.NNSGroupKeyName)
 	if err != nil {
 		return 0, err
 	}
@@ -125,7 +125,7 @@ func getAlphabetNNSDomain(i int) string {
 }
 
 func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string) ([]byte, error) {
-	ok, err := c.Client.NNSIsAvailable(nnsHash, domain)
+	ok, err := nnsIsAvailable(c.Client, nnsHash, domain)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error
 var errMissingNNSRecord = errors.New("missing NNS record")
 
 // Returns errMissingNNSRecord if invocation fault exception contains "token not found".
-func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+func nnsResolveHash(c Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
 	item, err := nnsResolve(c, nnsHash, domain)
 	if err != nil {
 		return util.Uint160{}, err
@@ -184,7 +184,7 @@ func nnsResolveHash(c *client.Client, nnsHash util.Uint160, domain string) (util
 	return parseNNSResolveResult(item)
 }
 
-func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
+func nnsResolve(c Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
 	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
 		{
 			Type:  smartcontract.StringType,
@@ -210,7 +210,7 @@ func nnsResolve(c *client.Client, nnsHash util.Uint160, domain string) (stackite
 	return result.Stack[len(result.Stack)-1], nil
 }
 
-func nnsResolveKey(c *client.Client, nnsHash util.Uint160, domain string) (*keys.PublicKey, error) {
+func nnsResolveKey(c Client, nnsHash util.Uint160, domain string) (*keys.PublicKey, error) {
 	item, err := nnsResolve(c, nnsHash, domain)
 	if err != nil {
 		return nil, err
@@ -242,4 +242,13 @@ func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
 		return util.Uint160{}, errors.New("malformed response")
 	}
 	return util.Uint160DecodeStringLE(string(bs))
+}
+
+func nnsIsAvailable(c Client, nnsHash util.Uint160, name string) (bool, error) {
+	switch ct := c.(type) {
+	case *client.Client:
+		return ct.NNSIsAvailable(nnsHash, name)
+	default:
+		panic("unimplemented")
+	}
 }

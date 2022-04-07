@@ -5,21 +5,46 @@ import (
 	"errors"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+// Client represents N3 client interface capable of test-invoking scripts
+// and sending signed transactions to chain.
+type Client interface {
+	GetBlockCount() (uint32, error)
+	GetDesignatedByRole(noderoles.Role, uint32) (keys.PublicKeys, error)
+	GetContractStateByID(int32) (*state.Contract, error)
+	GetContractStateByHash(util.Uint160) (*state.Contract, error)
+	GetNativeContracts() ([]state.NativeContract, error)
+	GetNetwork() (netmode.Magic, error)
+	GetApplicationLog(util.Uint256, *trigger.Type) (*result.ApplicationLog, error)
+	CreateTxFromScript([]byte, *wallet.Account, int64, int64, []client.SignerAccount) (*transaction.Transaction, error)
+	NEP17BalanceOf(util.Uint160, util.Uint160) (int64, error)
+	InvokeFunction(util.Uint160, string, []smartcontract.Parameter, []transaction.Signer) (*result.Invoke, error)
+	InvokeScript([]byte, []transaction.Signer) (*result.Invoke, error)
+	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
+}
+
 type clientContext struct {
-	Client       *client.Client
+	Client       Client
 	Hashes       []util.Uint256
 	WaitDuration time.Duration
 	PollInterval time.Duration
 }
 
-func getN3Client(v *viper.Viper) (*client.Client, error) {
+func getN3Client(v *viper.Viper) (Client, error) {
 	// number of opened connections
 	// by neo-go client per one host
 	const (
@@ -45,7 +70,7 @@ func getN3Client(v *viper.Viper) (*client.Client, error) {
 	return c, nil
 }
 
-func defaultClientContext(c *client.Client) *clientContext {
+func defaultClientContext(c Client) *clientContext {
 	return &clientContext{
 		Client:       c,
 		WaitDuration: time.Second * 30,

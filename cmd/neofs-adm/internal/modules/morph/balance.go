@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -57,10 +56,12 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	gasHash, err := c.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return fmt.Errorf("can't fetch hash of the GAS contract: %w", err)
+	ns, err := getNativeHashes(c)
+	if err != nil || ns[nativenames.Gas].Equals(util.Uint160{}) {
+		return errors.New("can't fetch hash of the GAS contract")
 	}
+
+	gasHash := ns[nativenames.Gas]
 
 	if !notaryEnabled || dumpStorage || dumpAlphabet || dumpProxy {
 		nnsCs, err = c.GetContractStateByID(1)
@@ -169,7 +170,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func fetchIRNodes(c *client.Client, nmHash util.Uint160) ([]accBalancePair, error) {
+func fetchIRNodes(c Client, nmHash util.Uint160) ([]accBalancePair, error) {
 	var irList []accBalancePair
 
 	if notaryEnabled {
@@ -233,7 +234,7 @@ func printBalances(cmd *cobra.Command, prefix string, accounts []accBalancePair)
 	}
 }
 
-func fetchBalances(c *client.Client, gasHash util.Uint160, accounts []accBalancePair) error {
+func fetchBalances(c Client, gasHash util.Uint160, accounts []accBalancePair) error {
 	w := io.NewBufBinWriter()
 	for i := range accounts {
 		emit.AppCall(w.BinWriter, gasHash, "balanceOf", callflag.ReadStates, accounts[i].scriptHash)

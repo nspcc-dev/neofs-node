@@ -25,10 +25,7 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't to initialize context: %w", err)
 	}
 
-	policyHash, err := wCtx.Client.GetNativeContractHash(nativenames.Policy)
-	if err != nil {
-		return fmt.Errorf("can't get policy contract hash: %w", err)
-	}
+	policyHash := wCtx.nativeHash(nativenames.Policy)
 
 	bw := io.NewBufBinWriter()
 	for i := range args {
