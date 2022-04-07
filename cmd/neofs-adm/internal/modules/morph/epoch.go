@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -29,7 +28,7 @@ func forceNewEpochCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}
 
-	res, err := wCtx.Client.InvokeFunction(nmHash, "epoch", []smartcontract.Parameter{}, nil)
+	res, err := invokeFunction(wCtx.Client, nmHash, "epoch", nil, nil)
 	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
 		return errors.New("can't fetch current epoch from the netmap contract")
 	}

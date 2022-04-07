@@ -51,6 +51,7 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("initialization error: %w", err)
 	}
+	defer initCtx.close()
 
 	// 1. Transfer funds to committee accounts.
 	cmd.Println("Stage 1: transfer GAS to alphabet nodes.")
@@ -98,6 +99,16 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func (c *initializeContext) close() {
+	if local, ok := c.Client.(*localClient); ok {
+		err := local.dump()
+		if err != nil {
+			c.Command.PrintErrf("Can't write dump: %v\n", err)
+			os.Exit(1)
+		}
+	}
+}
+
 func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContext, error) {
 	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
 	wallets, err := openAlphabetWallets(walletDir)
@@ -110,7 +121,18 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
-	c, err := getN3Client(v)
+	var c Client
+	if v.GetString(localDumpFlag) != "" {
+		if cmd.Name() != "init" {
+			return nil, errors.New("dump creation is only supported for `init` command")
+		}
+		if v.GetString(endpointFlag) != "" {
+			return nil, fmt.Errorf("`%s` and `%s` flags are mutually exclusive", endpointFlag, localDumpFlag)
+		}
+		c, err = newLocalClient(v, wallets)
+	} else {
+		c, err = getN3Client(v)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("can't create N3 client: %w", err)
 	}
@@ -287,6 +309,12 @@ func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 		return nil
 	}
 
+	if local, ok := c.Client.(*localClient); ok {
+		if err := local.putTransactions(); err != nil {
+			return fmt.Errorf("can't persist transactions: %w", err)
+		}
+	}
+
 	cmd.Println("Waiting for transactions to persist...")
 
 	tick := time.NewTicker(c.PollInterval)
@@ -304,8 +332,8 @@ loop:
 		res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
 		if err == nil {
 			if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vm.HaltState {
-				retErr = fmt.Errorf("tx persisted in %s state: %s",
-					res.Executions[0].VMState, res.Executions[0].FaultException)
+				retErr = fmt.Errorf("tx %d persisted in %s state: %s",
+					i, res.Executions[0].VMState, res.Executions[0].FaultException)
 			}
 			continue loop
 		}
@@ -315,8 +343,8 @@ loop:
 				res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
 				if err == nil {
 					if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vm.HaltState {
-						retErr = fmt.Errorf("tx persisted in %s state: %s",
-							res.Executions[0].VMState, res.Executions[0].FaultException)
+						retErr = fmt.Errorf("tx %d persisted in %s state: %s",
+							i, res.Executions[0].VMState, res.Executions[0].FaultException)
 					}
 					continue loop
 				}

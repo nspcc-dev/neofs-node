@@ -35,6 +35,8 @@ const (
 	refillGasAmountFlag       = "gas"
 	walletAccountFlag         = "account"
 	notaryDepositTillFlag     = "till"
+	localDumpFlag             = "local-dump"
+	protoConfigPath           = "protocol"
 )
 
 var (
@@ -68,6 +70,8 @@ var (
 			_ = viper.BindPFlag(containerFeeInitFlag, cmd.Flags().Lookup(containerFeeCLIFlag))
 			_ = viper.BindPFlag(containerAliasFeeInitFlag, cmd.Flags().Lookup(containerAliasFeeCLIFlag))
 			_ = viper.BindPFlag(withdrawFeeInitFlag, cmd.Flags().Lookup(withdrawFeeCLIFlag))
+			_ = viper.BindPFlag(protoConfigPath, cmd.Flags().Lookup(protoConfigPath))
+			_ = viper.BindPFlag(localDumpFlag, cmd.Flags().Lookup(localDumpFlag))
 		},
 		RunE: initializeSideChainCmd,
 	}
@@ -197,6 +201,8 @@ func init() {
 	// Defaults are taken from neo-preodolenie.
 	initCmd.Flags().Uint64(containerFeeCLIFlag, 1000, "container registration fee")
 	initCmd.Flags().Uint64(containerAliasFeeCLIFlag, 500, "container alias fee")
+	initCmd.Flags().String(protoConfigPath, "", "path to the consensus node configuration")
+	initCmd.Flags().String(localDumpFlag, "", "path to the blocks dump file")
 
 	RootCmd.AddCommand(generateStorageCmd)
 	generateStorageCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")

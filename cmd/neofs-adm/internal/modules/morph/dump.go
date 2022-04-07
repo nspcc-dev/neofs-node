@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"text/tabwriter"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -160,8 +158,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}
 
-	res, err := c.InvokeFunction(nmHash, "listConfig",
-		[]smartcontract.Parameter{}, []transaction.Signer{{}})
+	res, err := invokeFunction(c, nmHash, "listConfig", nil, nil)
 	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
 		return errors.New("can't fetch list of network config keys from the netmap contract")
 	}

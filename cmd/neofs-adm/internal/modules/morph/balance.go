@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -57,11 +56,19 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	}
 
 	ns, err := getNativeHashes(c)
-	if err != nil || ns[nativenames.Gas].Equals(util.Uint160{}) {
-		return errors.New("can't fetch hash of the GAS contract")
+	if err != nil {
+		return fmt.Errorf("can't fetch the list of native contracts: %w", err)
 	}
 
-	gasHash := ns[nativenames.Gas]
+	gasHash, ok := ns[nativenames.Gas]
+	if !ok {
+		return fmt.Errorf("can't find the %s native contract hash", nativenames.Gas)
+	}
+
+	desigHash, ok := ns[nativenames.Designation]
+	if !ok {
+		return fmt.Errorf("can't find the %s native contract hash", nativenames.Designation)
+	}
 
 	if !notaryEnabled || dumpStorage || dumpAlphabet || dumpProxy {
 		nnsCs, err = c.GetContractStateByID(1)
@@ -75,7 +82,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	irList, err := fetchIRNodes(c, nmHash)
+	irList, err := fetchIRNodes(c, nmHash, desigHash)
 	if err != nil {
 		return err
 	}
@@ -86,7 +93,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	printBalances(cmd, "Inner ring nodes balances:", irList)
 
 	if dumpStorage {
-		res, err := c.InvokeFunction(nmHash, "netmap", []smartcontract.Parameter{}, nil)
+		res, err := invokeFunction(c, nmHash, "netmap", []interface{}{}, nil)
 		if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
 			return errors.New("can't fetch the list of storage nodes")
 		}
@@ -170,7 +177,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func fetchIRNodes(c Client, nmHash util.Uint160) ([]accBalancePair, error) {
+func fetchIRNodes(c Client, nmHash, desigHash util.Uint160) ([]accBalancePair, error) {
 	var irList []accBalancePair
 
 	if notaryEnabled {
@@ -179,7 +186,7 @@ func fetchIRNodes(c Client, nmHash util.Uint160) ([]accBalancePair, error) {
 			return nil, fmt.Errorf("can't get block height: %w", err)
 		}
 
-		arr, err := c.GetDesignatedByRole(noderoles.NeoFSAlphabet, height)
+		arr, err := getDesignatedByRole(c, desigHash, noderoles.NeoFSAlphabet, height)
 		if err != nil {
 			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
 		}
@@ -189,7 +196,7 @@ func fetchIRNodes(c Client, nmHash util.Uint160) ([]accBalancePair, error) {
 			irList[i].scriptHash = arr[i].GetScriptHash()
 		}
 	} else {
-		res, err := c.InvokeFunction(nmHash, "innerRingList", []smartcontract.Parameter{}, nil)
+		res, err := invokeFunction(c, nmHash, "innerRingList", []interface{}{}, nil)
 		if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
 			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
 		}
