@@ -344,6 +344,31 @@ func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64, tryGrou
 	return c.multiSignAndSend(tx, committeeAccountName)
 }
 
+// sendSingleTx creates transaction signed by a simple account and pushes in onto the chain.
+// It neither waits until tx persists nor checks the execution result.
+func (c *initializeContext) sendSingleTx(script []byte, sysFee int64, acc *wallet.Account) error {
+	tx, err := c.Client.CreateTxFromScript(script, acc, sysFee, 0, []client.SignerAccount{{
+		Signer: transaction.Signer{
+			Account: acc.Contract.ScriptHash(),
+			Scopes:  transaction.CalledByEntry,
+		},
+		Account: acc,
+	}})
+	if err != nil {
+		return err
+	}
+
+	magic, err := c.Client.GetNetwork()
+	if err != nil {
+		return fmt.Errorf("can't fetch network magic: %w", err)
+	}
+	if err := acc.SignTx(magic, tx); err != nil {
+		return fmt.Errorf("can't sign tx: %w", err)
+	}
+
+	return c.sendTx(tx, c.Command, false)
+}
+
 func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
 	for i := range w.Accounts {
 		if w.Accounts[i].Label == typ {
@@ -353,7 +378,7 @@ func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
 	return nil, fmt.Errorf("account for '%s' not found", typ)
 }
 
-func getNativeHashes(c *client.Client) (map[string]util.Uint160, error) {
+func getNativeHashes(c Client) (map[string]util.Uint160, error) {
 	ns, err := c.GetNativeContracts()
 	if err != nil {
 		return nil, fmt.Errorf("can't get native contract hashes: %w", err)

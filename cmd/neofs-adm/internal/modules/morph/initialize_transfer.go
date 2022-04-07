@@ -6,8 +6,13 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
 )
 
 const (
@@ -56,7 +61,7 @@ func (c *initializeContext) transferFunds() error {
 		},
 	)
 
-	tx, err := c.Client.CreateNEP17MultiTransferTx(c.ConsensusAcc, 0, transfers, []client.SignerAccount{{
+	tx, err := createNEP17MultiTransferTx(c.Client, c.ConsensusAcc, 0, transfers, []client.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: c.ConsensusAcc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
@@ -138,7 +143,11 @@ func (c *initializeContext) transferGASToProxy() error {
 		return err
 	}
 
-	tx, err := c.Client.CreateNEP17TransferTx(c.CommitteeAcc, proxyCs.Hash, gasHash, initialProxyGASAmount, 0, nil, nil)
+	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, 0, []client.TransferTarget{{
+		Token:   gasHash,
+		Address: proxyCs.Hash,
+		Amount:  initialProxyGASAmount,
+	}}, nil)
 	if err != nil {
 		return err
 	}
@@ -148,4 +157,26 @@ func (c *initializeContext) transferGASToProxy() error {
 	}
 
 	return c.awaitTx()
+}
+
+func createNEP17MultiTransferTx(c Client, acc *wallet.Account, netFee int64,
+	recipients []client.TransferTarget, cosigners []client.SignerAccount) (*transaction.Transaction, error) {
+	from := acc.Contract.ScriptHash()
+
+	w := io.NewBufBinWriter()
+	for i := range recipients {
+		emit.AppCall(w.BinWriter, recipients[i].Token, "transfer", callflag.All,
+			from, recipients[i].Address, recipients[i].Amount, recipients[i].Data)
+		emit.Opcodes(w.BinWriter, opcode.ASSERT)
+	}
+	if w.Err != nil {
+		return nil, fmt.Errorf("failed to create transfer script: %w", w.Err)
+	}
+	return c.CreateTxFromScript(w.Bytes(), acc, -1, netFee, append([]client.SignerAccount{{
+		Signer: transaction.Signer{
+			Account: from,
+			Scopes:  transaction.CalledByEntry,
+		},
+		Account: acc,
+	}}, cosigners...))
 }

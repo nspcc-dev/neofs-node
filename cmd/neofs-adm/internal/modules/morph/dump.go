@@ -44,7 +44,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 	irSize := 0
 	for ; irSize < lastGlagoliticLetter; irSize++ {
-		ok, err := c.NNSIsAvailable(cs.Hash, getAlphabetNNSDomain(irSize))
+		ok, err := nnsIsAvailable(c, cs.Hash, getAlphabetNNSDomain(irSize))
 		if err != nil {
 			return err
 		} else if ok {
