@@ -111,12 +111,12 @@ func (c *initializeContext) close() {
 
 func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContext, error) {
 	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
-	wallets, err := openAlphabetWallets(walletDir)
+	wallets, err := openAlphabetWallets(v, walletDir)
 	if err != nil {
 		return nil, err
 	}
 
-	w, err := openContractWallet(cmd, walletDir)
+	w, err := openContractWallet(v, cmd, walletDir)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (c *initializeContext) nativeHash(name string) util.Uint160 {
 	return c.Natives[name]
 }
 
-func openAlphabetWallets(walletDir string) ([]*wallet.Wallet, error) {
+func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, error) {
 	walletFiles, err := os.ReadDir(walletDir)
 	if err != nil {
 		return nil, fmt.Errorf("can't read alphabet wallets dir: %w", err)
@@ -231,13 +231,14 @@ loop:
 
 	wallets := make([]*wallet.Wallet, size)
 	for i := 0; i < size; i++ {
-		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
+		letter := innerring.GlagoliticLetter(i).String()
+		p := filepath.Join(walletDir, letter+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		if err != nil {
 			return nil, fmt.Errorf("can't open wallet: %w", err)
 		}
 
-		password, err := config.AlphabetPassword(viper.GetViper(), i)
+		password, err := config.GetPassword(v, letter)
 		if err != nil {
 			return nil, fmt.Errorf("can't fetch password: %w", err)
 		}

@@ -6,22 +6,22 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const (
 	contractWalletFilename    = "contract.json"
-	contractWalletPasswordKey = "credentials.contract"
+	contractWalletPasswordKey = "contract"
 )
 
-func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
-	password, err := getPassword(contractWalletPasswordKey, "Password for contract wallet > ")
+func initializeContractWallet(v *viper.Viper, walletDir string) (*wallet.Wallet, error) {
+	password, err := config.GetPassword(v, contractWalletPasswordKey)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
 	return w, nil
 }
 
-func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, error) {
+func openContractWallet(v *viper.Viper, cmd *cobra.Command, walletDir string) (*wallet.Wallet, error) {
 	p := filepath.Join(walletDir, contractWalletFilename)
 	w, err := wallet.NewWalletFromFile(p)
 	if err != nil {
@@ -58,10 +58,10 @@ func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, e
 		}
 
 		cmd.Printf("Contract group wallet is missing, initialize at %s\n", p)
-		return initializeContractWallet(walletDir)
+		return initializeContractWallet(v, walletDir)
 	}
 
-	password, err := getPassword(contractWalletPasswordKey, "Password for contract wallet > ")
+	password, err := config.GetPassword(v, contractWalletPasswordKey)
 	if err != nil {
 		return nil, err
 	}
@@ -73,15 +73,6 @@ func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, e
 	}
 
 	return w, nil
-}
-
-func getPassword(key string, promps string) (string, error) {
-	if viper.IsSet(key) {
-		return viper.GetString(key), nil
-	}
-
-	prompt := "Password for contract wallet > "
-	return input.ReadPassword(prompt)
 }
 
 func (c *initializeContext) addManifestGroup(h util.Uint160, cs *contractState) error {
