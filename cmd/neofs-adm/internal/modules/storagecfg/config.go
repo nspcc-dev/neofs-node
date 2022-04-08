@@ -40,9 +40,6 @@ morph:
   disable_cache: false  # use TTL cache for side chain GET operations
   rpc_endpoint:  # side chain N3 RPC endpoints
     {{- range .MorphRPC }}
-    - https://{{.}}{{end}}
-  notification_endpoint:  # side chain N3 RPC notification endpoints
-    {{- range .MorphRPC }}
     - wss://{{.}}/ws{{end}}
 {{if not .Relay }}
 storage:
