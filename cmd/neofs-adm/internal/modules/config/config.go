@@ -144,13 +144,12 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	return buf.String(), nil
 }
 
-func AlphabetPassword(v *viper.Viper, index int) (string, error) {
-	letter := innerring.GlagoliticLetter(index)
-	key := "credentials." + letter.String()
+func GetPassword(v *viper.Viper, name string) (string, error) {
+	key := "credentials." + name
 	if v.IsSet(key) {
 		return v.GetString(key), nil
 	}
 
-	prompt := "Password for " + letter.String() + " wallet > "
+	prompt := "Password for " + name + " wallet > "
 	return input.ReadPassword(prompt)
 }

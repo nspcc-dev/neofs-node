@@ -38,13 +38,14 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 		return errors.New("size must be > 0")
 	}
 
+	v := viper.GetViper()
 	walletDir := config.ResolveHomePath(viper.GetString(alphabetWalletsFlag))
-	pwds, err := initializeWallets(walletDir, int(size))
+	pwds, err := initializeWallets(v, walletDir, int(size))
 	if err != nil {
 		return err
 	}
 
-	w, err := initializeContractWallet(walletDir)
+	w, err := initializeContractWallet(v, walletDir)
 	if err != nil {
 		return err
 	}
@@ -59,13 +60,13 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func initializeWallets(walletDir string, size int) ([]string, error) {
+func initializeWallets(v *viper.Viper, walletDir string, size int) ([]string, error) {
 	wallets := make([]*wallet.Wallet, size)
 	pubs := make(keys.PublicKeys, size)
 	passwords := make([]string, size)
 
 	for i := range wallets {
-		password, err := config.AlphabetPassword(viper.GetViper(), i)
+		password, err := config.GetPassword(v, innerring.GlagoliticLetter(i).String())
 		if err != nil {
 			return nil, fmt.Errorf("can't fetch password: %w", err)
 		}
