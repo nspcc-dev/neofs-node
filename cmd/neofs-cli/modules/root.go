@@ -11,7 +11,6 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/nspcc-dev/neo-go/cli/flags"
-	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -25,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 )
 
 const (
@@ -222,7 +222,16 @@ func getPassword() (string, error) {
 		return viper.GetString(password), nil
 	}
 
-	return input.ReadPassword("Enter password > ")
+	f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	_, _ = f.WriteString("Enter password > ")
+	pass, err := term.ReadPassword(int(f.Fd()))
+	_, _ = f.WriteString("\n")
+	return string(pass), err
 }
 
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
