@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
@@ -27,7 +26,7 @@ func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
 		return nil, err
 	}
 
-	w, err := wallet.NewWallet(path.Join(walletDir, contractWalletFilename))
+	w, err := wallet.NewWallet(filepath.Join(walletDir, contractWalletFilename))
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +50,14 @@ func initializeContractWallet(walletDir string) (*wallet.Wallet, error) {
 }
 
 func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, error) {
-	p := path.Join(walletDir, contractWalletFilename)
+	p := filepath.Join(walletDir, contractWalletFilename)
 	w, err := wallet.NewWalletFromFile(p)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("can't open wallet: %w", err)
 		}
 
-		cmd.Printf("Contract group wallet is missing, initialize at %s\n",
-			filepath.Join(walletDir, contractWalletFilename))
+		cmd.Printf("Contract group wallet is missing, initialize at %s\n", p)
 		return initializeContractWallet(walletDir)
 	}
 
