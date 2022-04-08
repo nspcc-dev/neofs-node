@@ -113,19 +113,18 @@ func (c *initializeContext) deployNNS(method string) error {
 		return fmt.Errorf("can't sign manifest group: %v", err)
 	}
 
-	params := getContractDeployParameters(cs.RawNEF, cs.RawManifest, nil)
-
+	params := getContractDeployParameters(cs, nil)
 	signer := transaction.Signer{
 		Account: c.CommitteeAcc.Contract.ScriptHash(),
 		Scopes:  transaction.CalledByEntry,
 	}
 
-	mgmtHash := c.nativeHash(nativenames.Management)
+	invokeHash := c.nativeHash(nativenames.Management)
 	if method == updateMethodName {
-		mgmtHash = nnsCs.Hash
+		invokeHash = nnsCs.Hash
 	}
 
-	res, err := invokeFunction(c.Client, mgmtHash, method, params, []transaction.Signer{signer})
+	res, err := invokeFunction(c.Client, invokeHash, method, params, []transaction.Signer{signer})
 	if err != nil {
 		return fmt.Errorf("can't deploy NNS contract: %w", err)
 	}
@@ -233,8 +232,7 @@ func (c *initializeContext) updateContracts() error {
 			invokeHash = ctrHash
 		}
 
-		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
-			c.getContractDeployData(ctrName, keysParam))
+		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
 		signer := transaction.Signer{
 			Account: c.CommitteeAcc.Contract.ScriptHash(),
 			Scopes:  transaction.Global,
@@ -294,13 +292,10 @@ func (c *initializeContext) deployContracts() error {
 			continue
 		}
 
-		invokeHash := mgmtHash
 		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
+		params := getContractDeployParameters(alphaCs, c.getAlphabetDeployItems(i, len(c.Wallets)))
 
-		params := getContractDeployParameters(alphaCs.RawNEF, alphaCs.RawManifest,
-			c.getAlphabetDeployItems(i, len(c.Wallets)))
-
-		res, err := invokeFunction(c.Client, invokeHash, deployMethodName, params, []transaction.Signer{{
+		res, err := invokeFunction(c.Client, mgmtHash, deployMethodName, params, []transaction.Signer{{
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
 		}})
@@ -330,15 +325,13 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
-		invokeHash := mgmtHash
-		params := getContractDeployParameters(cs.RawNEF, cs.RawManifest,
-			c.getContractDeployData(ctrName, keysParam))
+		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
 		signer := transaction.Signer{
 			Account: c.CommitteeAcc.Contract.ScriptHash(),
 			Scopes:  transaction.Global,
 		}
 
-		res, err := invokeFunction(c.Client, invokeHash, deployMethodName, params, []transaction.Signer{signer})
+		res, err := invokeFunction(c.Client, mgmtHash, deployMethodName, params, []transaction.Signer{signer})
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
@@ -491,8 +484,8 @@ func readContractsFromArchive(file io.Reader, names []string) (map[string]*contr
 	return m, nil
 }
 
-func getContractDeployParameters(rawNef, rawManif []byte, deployData []interface{}) []interface{} {
-	return []interface{}{rawNef, rawManif, deployData}
+func getContractDeployParameters(cs *contractState, deployData []interface{}) []interface{} {
+	return []interface{}{cs.RawNEF, cs.RawManifest, deployData}
 }
 
 func (c *initializeContext) getContractDeployData(ctrName string, keysParam []interface{}) []interface{} {
@@ -568,11 +561,4 @@ func (c *initializeContext) getAlphabetDeployItems(i, n int) []interface{} {
 	items[4] = int64(i)
 	items[5] = int64(n)
 	return items
-}
-
-func newContractParameter(typ smartcontract.ParamType, value interface{}) smartcontract.Parameter {
-	return smartcontract.Parameter{
-		Type:  typ,
-		Value: value,
-	}
 }
