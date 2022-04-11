@@ -135,6 +135,15 @@ var (
 		RunE: dumpNetworkConfig,
 	}
 
+	dumpBalancesCmd = &cobra.Command{
+		Use:   "dump-balances",
+		Short: "Dump GAS balances",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: dumpBalances,
+	}
+
 	updateContractsCmd = &cobra.Command{
 		Use:   "update-contracts",
 		Short: "Update NeoFS contracts.",
@@ -208,6 +217,13 @@ func init() {
 
 	RootCmd.AddCommand(dumpNetworkConfigCmd)
 	dumpNetworkConfigCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(dumpBalancesCmd)
+	dumpBalancesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	dumpBalancesCmd.Flags().BoolP(dumpBalancesStorageFlag, "s", false, "dump balances of storage nodes from the current netmap")
+	dumpBalancesCmd.Flags().BoolP(dumpBalancesAlphabetFlag, "a", false, "dump balances of alphabet contracts")
+	dumpBalancesCmd.Flags().BoolP(dumpBalancesProxyFlag, "p", false, "dump balances of the proxy contract")
+	dumpBalancesCmd.Flags().Bool(dumpBalancesUseScriptHashFlag, false, "use script-hash format for addresses")
 
 	RootCmd.AddCommand(updateContractsCmd)
 	updateContractsCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
