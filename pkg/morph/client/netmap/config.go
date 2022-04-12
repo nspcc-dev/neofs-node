@@ -236,19 +236,19 @@ func WriteConfig(dst ConfigWriter, iterator func(func(key, val []byte) error) er
 		default:
 			dst.UnknownParameter(k, val)
 		case maxObjectSizeConfig:
-			dst.MaxObjectSize(bigint.FromBytes(val).Uint64())
+			dst.MaxObjectSize(bytesToUint64(val))
 		case basicIncomeRateConfig:
-			dst.BasicIncomeRate(bigint.FromBytes(val).Uint64())
+			dst.BasicIncomeRate(bytesToUint64(val))
 		case auditFeeConfig:
-			dst.AuditFee(bigint.FromBytes(val).Uint64())
+			dst.AuditFee(bytesToUint64(val))
 		case epochDurationConfig:
-			dst.EpochDuration(bigint.FromBytes(val).Uint64())
+			dst.EpochDuration(bytesToUint64(val))
 		case containerFeeConfig:
-			dst.ContainerFee(bigint.FromBytes(val).Uint64())
+			dst.ContainerFee(bytesToUint64(val))
 		case containerAliasFeeConfig:
-			dst.ContainerAliasFee(bigint.FromBytes(val).Uint64())
+			dst.ContainerAliasFee(bytesToUint64(val))
 		case etIterationsConfig:
-			dst.EigenTrustIterations(bigint.FromBytes(val).Uint64())
+			dst.EigenTrustIterations(bytesToUint64(val))
 		case etAlphaConfig:
 			v, err := strconv.ParseFloat(string(val), 64)
 			if err != nil {
@@ -257,13 +257,20 @@ func WriteConfig(dst ConfigWriter, iterator func(func(key, val []byte) error) er
 
 			dst.EigenTrustAlpha(v)
 		case irCandidateFeeConfig:
-			dst.InnerRingCandidateFee(bigint.FromBytes(val).Uint64())
+			dst.InnerRingCandidateFee(bytesToUint64(val))
 		case withdrawFeeConfig:
-			dst.WithdrawFee(bigint.FromBytes(val).Uint64())
+			dst.WithdrawFee(bytesToUint64(val))
 		}
 
 		return nil
 	})
+}
+
+func bytesToUint64(val []byte) uint64 {
+	if len(val) == 0 {
+		return 0
+	}
+	return bigint.FromBytes(val).Uint64()
 }
 
 // config performs the test invoke of get config value
