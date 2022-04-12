@@ -2,6 +2,7 @@ package modules
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph"
@@ -29,6 +30,9 @@ func init() {
 	cobra.OnInitialize(func() { initConfig(rootCmd) })
 	// we need to init viper config to bind viper and cobra configurations for
 	// rpc endpoint, alphabet wallet dir, key credentials, etc.
+
+	// use stdout as default output for cmd.Print()
+	rootCmd.SetOut(os.Stdout)
 
 	rootCmd.PersistentFlags().StringP(configFlag, "c", "", "config file")
 	rootCmd.Flags().Bool("version", false, "application version")
