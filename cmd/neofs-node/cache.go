@@ -158,11 +158,6 @@ func (s *ttlContainerStorage) Get(cid *cid.ID) (*containerSDK.Container, error) 
 	return val.(*containerSDK.Container), nil
 }
 
-// InvalidateContainer removes cached container value.
-func (s *ttlContainerStorage) InvalidateContainer(cid *cid.ID) {
-	(*ttlNetCache)(s).remove(cid.String())
-}
-
 type ttlEACLStorage ttlNetCache
 
 func newCachedEACLStorage(v eacl.Source) *ttlEACLStorage {
@@ -293,31 +288,6 @@ func (s *ttlContainerLister) List(id *owner.ID) ([]*cid.ID, error) {
 // InvalidateContainerList removes cached list of container IDs.
 func (s *ttlContainerLister) InvalidateContainerList(id *owner.ID) {
 	(*ttlNetCache)(s).remove(id.String())
-}
-
-// InvalidateContainerListByCID removes cached list of container IDs. To do that
-// function iterates over all available lists and removes the first list where
-// specified ID is present.
-func (s *ttlContainerLister) InvalidateContainerListByCID(id *cid.ID) {
-	cache := (*ttlNetCache)(s)
-	for _, key := range cache.keys() {
-		val, err := cache.get(key)
-		if err != nil {
-			continue
-		}
-
-		ids, ok := val.([]*cid.ID)
-		if !ok {
-			continue
-		}
-
-		for i := range ids {
-			if ids[i].Equal(id) {
-				cache.remove(key)
-				return
-			}
-		}
-	}
 }
 
 type cachedIRFetcher ttlNetCache
