@@ -85,7 +85,6 @@ func initContainerService(c *cfg) {
 		cnrWrt.cacheEnabled = true
 		cnrWrt.lists = cachedContainerLister
 		cnrWrt.eacls = cachedEACLStorage
-		cnrWrt.containers = cachedContainerStorage
 	}
 
 	localMetrics := &localStorageLoad{
@@ -564,7 +563,6 @@ type morphContainerWriter struct {
 	neoClient *cntClient.Client
 
 	cacheEnabled bool
-	containers   *ttlContainerStorage
 	eacls        *ttlEACLStorage
 	lists        *ttlContainerLister
 }
@@ -583,22 +581,7 @@ func (m morphContainerWriter) Put(cnr *containerSDK.Container) (*cid.ID, error) 
 }
 
 func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error {
-	err := cntClient.Delete(m.neoClient, witness)
-	if err != nil {
-		return err
-	}
-
-	if m.cacheEnabled {
-		containerID := witness.ContainerID()
-
-		m.containers.InvalidateContainer(containerID)
-		m.eacls.InvalidateEACL(containerID)
-		// it is faster to use slower invalidation by CID than making separate
-		// network request to fetch owner ID of the container.
-		m.lists.InvalidateContainerListByCID(containerID)
-	}
-
-	return nil
+	return cntClient.Delete(m.neoClient, witness)
 }
 
 func (m morphContainerWriter) PutEACL(table *eaclSDK.Table) error {
