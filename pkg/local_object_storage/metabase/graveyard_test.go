@@ -369,6 +369,58 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	require.False(t, iWasCalled)
 }
 
+func TestDB_DropGraves(t *testing.T) {
+	db := newDB(t)
+
+	// generate and put 2 objects
+	obj1 := generateObject(t)
+	obj2 := generateObject(t)
+
+	var err error
+
+	err = putBig(db, obj1)
+	require.NoError(t, err)
+
+	err = putBig(db, obj2)
+	require.NoError(t, err)
+
+	inhumePrm := new(meta.InhumePrm)
+
+	// inhume with tombstone
+	addrTombstone := generateAddress()
+
+	_, err = db.Inhume(inhumePrm.
+		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2)).
+		WithTombstoneAddress(addrTombstone),
+	)
+	require.NoError(t, err)
+
+	buriedTS := make([]meta.TombstonedObject, 0)
+	iterGravePRM := new(meta.GraveyardIterationPrm)
+	var counter int
+
+	err = db.IterateOverGraveyard(iterGravePRM.SetHandler(func(tomstoned meta.TombstonedObject) error {
+		buriedTS = append(buriedTS, tomstoned)
+		counter++
+
+		return nil
+	}))
+	require.NoError(t, err)
+	require.Equal(t, 2, counter)
+
+	err = db.DropGraves(buriedTS)
+	require.NoError(t, err)
+
+	counter = 0
+
+	err = db.IterateOverGraveyard(iterGravePRM.SetHandler(func(_ meta.TombstonedObject) error {
+		counter++
+		return nil
+	}))
+	require.NoError(t, err)
+	require.Zero(t, counter)
+}
+
 func equalAddresses(aa1 []*addressSDK.Address, aa2 []*addressSDK.Address) bool {
 	if len(aa1) != len(aa2) {
 		return false
