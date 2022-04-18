@@ -290,7 +290,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		objectIDs := res.IDList()
 
 		for i := range objectIDs {
-			cmd.Println(objectIDs[i])
+			cmd.Println(objectIDs[i].String())
 		}
 	},
 }
