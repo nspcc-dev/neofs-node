@@ -229,3 +229,25 @@ func graveFromKV(k, v []byte) (TombstonedObject, error) {
 		tomb: tomb,
 	}, nil
 }
+
+// DropGraves deletes tombstoned objects from the
+// graveyard bucket.
+//
+// Returns any error appeared during deletion process.
+func (db *DB) DropGraves(tss []TombstonedObject) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket(graveyardBucketName)
+		if bkt == nil {
+			return nil
+		}
+
+		for _, ts := range tss {
+			err := bkt.Delete(addressKey(ts.Address()))
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
