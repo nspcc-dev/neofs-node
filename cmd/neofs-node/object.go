@@ -318,6 +318,8 @@ func initObjectService(c *cfg) {
 		getsvc.WithKeyStorage(keyStorage),
 	)
 
+	*c.cfgObject.getSvc = *sGet // need smth better
+
 	sGetV2 := getsvcV2.NewService(
 		getsvcV2.WithInternalService(sGet),
 		getsvcV2.WithKeyStorage(keyStorage),

@@ -35,6 +35,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
+	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
+	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
@@ -175,6 +178,8 @@ type cfgNodeInfo struct {
 }
 
 type cfgObject struct {
+	getSvc *getsvc.Service
+
 	cnrSource container.Source
 
 	eaclSource eacl.Source
@@ -346,8 +351,21 @@ func initLocalStorage(c *cfg) {
 
 	ls := engine.New(engineOpts...)
 
+	// allocate memory for the service;
+	// service will be created later
+	c.cfgObject.getSvc = new(getsvc.Service)
+
+	var tssPrm tsourse.TombstoneSourcePrm
+	tssPrm.SetGetService(c.cfgObject.getSvc)
+	tombstoneSrc := tsourse.NewSource(tssPrm)
+
+	tombstoneSource := tombstone.NewChecker(
+		tombstone.WithLogger(c.log),
+		tombstone.WithTombstoneSource(tombstoneSrc),
+	)
+
 	for _, opts := range c.cfgObject.cfgLocalStorage.shardOpts {
-		id, err := ls.AddShard(opts...)
+		id, err := ls.AddShard(append(opts, shard.WithTombstoneSource(tombstoneSource))...)
 		fatalOnErr(err)
 
 		c.log.Info("shard attached to engine",
