@@ -25,10 +25,15 @@ type Shard struct {
 	blobStor *blobstor.BlobStor
 
 	metaBase *meta.DB
+
+	tsSource TombstoneSource
 }
 
 // Option represents Shard's constructor option.
 type Option func(*cfg)
+
+// ExpiredTombstonesCallback is a callback handling list of expired tombstones.
+type ExpiredTombstonesCallback func(context.Context, []meta.TombstonedObject)
 
 // ExpiredObjectsCallback is a callback handling list of expired objects.
 type ExpiredObjectsCallback func(context.Context, []*addressSDK.Address)
@@ -54,9 +59,11 @@ type cfg struct {
 
 	gcCfg *gcCfg
 
-	expiredTombstonesCallback ExpiredObjectsCallback
+	expiredTombstonesCallback ExpiredTombstonesCallback
 
 	expiredLocksCallback ExpiredObjectsCallback
+
+	tsSource TombstoneSource
 }
 
 func defaultCfg() *cfg {
@@ -91,6 +98,7 @@ func New(opts ...Option) *Shard {
 		blobStor:   bs,
 		metaBase:   mb,
 		writeCache: writeCache,
+		tsSource:   c.tsSource,
 	}
 
 	s.fillInfo()
@@ -184,7 +192,7 @@ func WithGCRemoverSleepInterval(dur time.Duration) Option {
 
 // WithExpiredTombstonesCallback returns option to specify callback
 // of the expired tombstones handler.
-func WithExpiredTombstonesCallback(cb ExpiredObjectsCallback) Option {
+func WithExpiredTombstonesCallback(cb ExpiredTombstonesCallback) Option {
 	return func(c *cfg) {
 		c.expiredTombstonesCallback = cb
 	}
@@ -211,6 +219,13 @@ func WithRefillMetabase(v bool) Option {
 func WithMode(v Mode) Option {
 	return func(c *cfg) {
 		c.info.Mode = v
+	}
+}
+
+// WithTombstoneSource returns option to set TombstoneSource.
+func WithTombstoneSource(v TombstoneSource) Option {
+	return func(c *cfg) {
+		c.tsSource = v
 	}
 }
 

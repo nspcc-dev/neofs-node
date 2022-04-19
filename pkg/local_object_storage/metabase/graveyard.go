@@ -2,10 +2,10 @@ package meta
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 

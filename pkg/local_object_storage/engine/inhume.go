@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -153,15 +154,9 @@ func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePr
 	return
 }
 
-func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []*addressSDK.Address) {
-	tss := make(map[string]*addressSDK.Address, len(addrs))
-
-	for i := range addrs {
-		tss[addrs[i].String()] = addrs[i]
-	}
-
+func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []meta.TombstonedObject) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
-		sh.HandleExpiredTombstones(tss)
+		sh.HandleExpiredTombstones(addrs)
 
 		select {
 		case <-ctx.Done():
