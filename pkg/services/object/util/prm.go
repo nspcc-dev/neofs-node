@@ -31,10 +31,10 @@ func (p *CommonPrm) TTL() uint32 {
 		return p.ttl
 	}
 
-	return 0
+	return 1
 }
 
-// Returns X-Headers for new requests.
+// XHeaders returns X-Headers for new requests.
 func (p *CommonPrm) XHeaders() []*sessionsdk.XHeader {
 	if p != nil {
 		return p.xhdrs
