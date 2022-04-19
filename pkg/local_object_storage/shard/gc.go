@@ -13,6 +13,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// TombstoneSource is an interface that checks
+// tombstone status in the NeoFS network.
+type TombstoneSource interface {
+	// IsTombstoneAvailable must return boolean value that means
+	// provided tombstone's presence in the NeoFS network at the
+	// time of the passed epoch.
+	IsTombstoneAvailable(ctx context.Context, addr *addressSDK.Address, epoch uint64) bool
+}
+
 // Event represents class of external events.
 type Event interface {
 	typ() eventType
@@ -238,17 +247,54 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 }
 
 func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
-	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ == object.TypeTombstone
-	})
-	if err != nil || len(expired) == 0 {
-		if err != nil {
-			s.log.Warn("iterator over expired tombstones failed", zap.String("error", err.Error()))
+	epoch := e.(newEpoch).epoch
+	log := s.log.With(zap.Uint64("epoch", epoch))
+
+	log.Debug("started expired tombstones handling")
+
+	const tssDeleteBatch = 50
+	tss := make([]meta.TombstonedObject, 0, tssDeleteBatch)
+	tssExp := make([]meta.TombstonedObject, 0, tssDeleteBatch)
+
+	iterPrm := new(meta.GraveyardIterationPrm).SetHandler(func(deletedObject meta.TombstonedObject) error {
+		tss = append(tss, deletedObject)
+
+		if len(tss) == tssDeleteBatch {
+			return meta.ErrInterruptIterator
 		}
-		return
+
+		return nil
+	})
+
+	for {
+		log.Debug("iterating tombstones")
+
+		err := s.metaBase.IterateOverGraveyard(iterPrm)
+		if err != nil {
+			log.Error("iterator over graveyard failed", zap.Error(err))
+			return
+		}
+
+		tssLen := len(tss)
+		if tssLen == 0 {
+			break
+		}
+
+		for _, ts := range tss {
+			if !s.tsSource.IsTombstoneAvailable(ctx, ts.Tombstone(), epoch) {
+				tssExp = append(tssExp, ts)
+			}
+		}
+
+		log.Debug("handling expired tombstones batch", zap.Int("number", tssLen))
+		s.expiredTombstonesCallback(ctx, tss)
+
+		iterPrm.SetOffset(tss[tssLen-1].Address())
+		tss = tss[:0]
+		tssExp = tssExp[:0]
 	}
 
-	s.expiredTombstonesCallback(ctx, expired)
+	log.Debug("finished expired tombstones handling")
 }
 
 func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
@@ -285,66 +331,37 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond fu
 	return expired, ctx.Err()
 }
 
-// HandleExpiredTombstones marks to be removed all objects that are
-// protected by tombstones with string addresses from tss.
-// If successful, marks tombstones themselves as garbage.
+// HandleExpiredTombstones marks tombstones themselves as garbage
+// and clears up corresponding graveyard records.
 //
 // Does not modify tss.
-func (s *Shard) HandleExpiredTombstones(tss map[string]*addressSDK.Address) {
-	inhume := make([]*addressSDK.Address, 0, len(tss))
-
-	// Collect all objects covered by the tombstones.
-
-	err := s.metaBase.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
-		inhume = append(inhume, addr)
-		return nil
-	})
-	if err != nil {
-		s.log.Warn("iterator over expired objects failed",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
-	// Mark collected objects as garbage.
-
+func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
+	// Mark tombstones as garbage.
 	var pInhume meta.InhumePrm
 
+	tsAddrs := make([]*addressSDK.Address, 0, len(tss))
+	for _, ts := range tss {
+		tsAddrs = append(tsAddrs, ts.Tombstone())
+	}
+
 	pInhume.WithGCMark()
-
-	if len(inhume) > 0 {
-		// inhume objects
-		pInhume.WithAddresses(inhume...)
-
-		_, err = s.metaBase.Inhume(&pInhume)
-		if err != nil {
-			s.log.Warn("could not inhume objects under the expired tombstone",
-				zap.String("error", err.Error()),
-			)
-
-			return
-		}
-	}
-
-	// Mark the tombstones as garbage.
-
-	inhume = inhume[:0]
-
-	for _, addr := range tss {
-		inhume = append(inhume, addr)
-	}
-
-	pInhume.WithAddresses(inhume...) // GC mark is already set above
+	pInhume.WithAddresses(tsAddrs...)
 
 	// inhume tombstones
-	_, err = s.metaBase.Inhume(&pInhume)
+	_, err := s.metaBase.Inhume(&pInhume)
 	if err != nil {
 		s.log.Warn("could not mark tombstones as garbage",
 			zap.String("error", err.Error()),
 		)
 
 		return
+	}
+
+	// drop just processed expired tombstones
+	// from graveyard
+	err = s.metaBase.DropGraves(tss)
+	if err != nil {
+		s.log.Warn("could not drop expired grave records", zap.Error(err))
 	}
 }
 
