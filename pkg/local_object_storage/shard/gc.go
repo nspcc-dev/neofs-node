@@ -64,7 +64,7 @@ type gc struct {
 }
 
 type gcCfg struct {
-	eventChanInit func() <-chan Event
+	eventChan <-chan Event
 
 	removerInterval time.Duration
 
@@ -78,9 +78,7 @@ func defaultGCCfg() *gcCfg {
 	close(ch)
 
 	return &gcCfg{
-		eventChanInit: func() <-chan Event {
-			return ch
-		},
+		eventChan:       ch,
 		removerInterval: 10 * time.Second,
 		log:             zap.L(),
 		workerPoolInit: func(int) util.WorkerPool {
@@ -105,10 +103,8 @@ func (gc *gc) init() {
 }
 
 func (gc *gc) listenEvents() {
-	eventChan := gc.eventChanInit()
-
 	for {
-		event, ok := <-eventChan
+		event, ok := <-gc.eventChan
 		if !ok {
 			gc.log.Warn("stop event listener by closed channel")
 			return
