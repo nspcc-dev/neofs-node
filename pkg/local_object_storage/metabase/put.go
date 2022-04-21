@@ -30,7 +30,7 @@ type PutPrm struct {
 	id *blobovnicza.ID
 }
 
-// PutRes groups resulting values of Put operation.
+// PutRes groups the resulting values of Put operation.
 type PutRes struct{}
 
 // WithObject is a Put option to set object to save.

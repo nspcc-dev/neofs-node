@@ -55,7 +55,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-// New creates and returns new Blobovnicza instance.
+// New creates and returns a new Blobovnicza instance.
 func New(opts ...Option) *Blobovnicza {
 	c := defaultCfg()
 
@@ -76,7 +76,7 @@ func WithPath(path string) Option {
 	}
 }
 
-// WithPermissions returns option to specify permission bits
+// WithPermissions returns an option to specify permission bits
 // of Blobovnicza's system path.
 func WithPermissions(perm fs.FileMode) Option {
 	return func(c *cfg) {
@@ -84,7 +84,7 @@ func WithPermissions(perm fs.FileMode) Option {
 	}
 }
 
-// WithObjectSizeLimit returns option to specify maximum size
+// WithObjectSizeLimit returns an option to specify the maximum size
 // of the objects stored in Blobovnicza.
 func WithObjectSizeLimit(lim uint64) Option {
 	return func(c *cfg) {
@@ -92,7 +92,7 @@ func WithObjectSizeLimit(lim uint64) Option {
 	}
 }
 
-// WithFullSizeLimit returns option to set maximum sum size
+// WithFullSizeLimit returns an option to set the maximum sum size
 // of all stored objects.
 func WithFullSizeLimit(lim uint64) Option {
 	return func(c *cfg) {
@@ -100,14 +100,14 @@ func WithFullSizeLimit(lim uint64) Option {
 	}
 }
 
-// WithLogger returns option to specify Blobovnicza's logger.
+// WithLogger returns an option to specify Blobovnicza's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l.With(zap.String("component", "Blobovnicza"))
 	}
 }
 
-// ReadOnly returns option to open Blobovnicza in read-only mode.
+// ReadOnly returns an option to open Blobovnicza in read-only mode.
 func ReadOnly() Option {
 	return func(c *cfg) {
 		c.boltOptions.ReadOnly = true

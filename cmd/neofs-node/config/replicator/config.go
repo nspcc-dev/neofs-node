@@ -13,10 +13,10 @@ const (
 	PutTimeoutDefault = 5 * time.Second
 )
 
-// PutTimeout returns value of "put_timeout" config parameter
+// PutTimeout returns the value of "put_timeout" config parameter
 // from "replicator" section.
 //
-// Returns PutTimeoutDefault if value is not positive duration.
+// Returns PutTimeoutDefault if the value is not positive duration.
 func PutTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "put_timeout")
 	if v > 0 {

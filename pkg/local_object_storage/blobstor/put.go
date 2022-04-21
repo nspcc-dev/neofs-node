@@ -17,7 +17,7 @@ type PutPrm struct {
 	rwObject
 }
 
-// PutRes groups resulting values of Put operation.
+// PutRes groups the resulting values of Put operation.
 type PutRes struct {
 	roBlobovniczaID
 }
@@ -40,8 +40,8 @@ func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
 	return b.PutRaw(object.AddressOf(prm.obj), data, b.NeedsCompression(prm.obj))
 }
 
-// NeedsCompression returns true if object should be compressed.
-// For object to be compressed 2 conditions must hold:
+// NeedsCompression returns true if the object should be compressed.
+// For an object to be compressed 2 conditions must hold:
 // 1. Compression is enabled in settings.
 // 2. Object MIME Content-Type is allowed for compression.
 func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
@@ -71,7 +71,7 @@ func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 	return b.compressionEnabled
 }
 
-// PutRaw saves already marshaled object in BLOB storage.
+// PutRaw saves an already marshaled object in BLOB storage.
 func (b *BlobStor) PutRaw(addr *addressSDK.Address, data []byte, compress bool) (*PutRes, error) {
 	big := b.isBig(data)
 

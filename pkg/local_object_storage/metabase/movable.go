@@ -12,7 +12,7 @@ type ToMoveItPrm struct {
 	addr *addressSDK.Address
 }
 
-// ToMoveItRes groups resulting values of ToMoveIt operation.
+// ToMoveItRes groups the resulting values of ToMoveIt operation.
 type ToMoveItRes struct{}
 
 // WithAddress sets address of the object to move into another shard.
@@ -29,7 +29,7 @@ type DoNotMovePrm struct {
 	addr *addressSDK.Address
 }
 
-// DoNotMoveRes groups resulting values of DoNotMove operation.
+// DoNotMoveRes groups the resulting values of DoNotMove operation.
 type DoNotMoveRes struct{}
 
 // WithAddress sets address of the object to prevent moving into another shard.
@@ -44,7 +44,7 @@ func (p *DoNotMovePrm) WithAddress(addr *addressSDK.Address) *DoNotMovePrm {
 // MovablePrm groups the parameters of Movable operation.
 type MovablePrm struct{}
 
-// MovableRes groups resulting values of Movable operation.
+// MovableRes groups the resulting values of Movable operation.
 type MovableRes struct {
 	addrList []*addressSDK.Address
 }

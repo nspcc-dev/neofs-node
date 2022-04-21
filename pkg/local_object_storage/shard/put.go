@@ -14,7 +14,7 @@ type PutPrm struct {
 	obj *object.Object
 }
 
-// PutRes groups resulting values of Put operation.
+// PutRes groups the resulting values of Put operation.
 type PutRes struct{}
 
 // WithObject is a Put option to set object to save.

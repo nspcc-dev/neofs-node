@@ -13,7 +13,7 @@ func tickN(t *timer.BlockTimer, n uint32) {
 	}
 }
 
-// This test emulates inner-ring handling of a new epoch and a new block.
+// This test emulates inner ring handling of a new epoch and a new block.
 // "resetting" consists of ticking the current height as well and invoking `Reset`.
 func TestIRBlockTimer_Reset(t *testing.T) {
 	var baseCounter [2]int

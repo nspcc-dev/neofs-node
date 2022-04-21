@@ -22,7 +22,7 @@ type Prm struct {
 }
 
 // Server represents a wrapper over http.Server
-// that provides interface to start and stop
+// that provides an interface to start and stop
 // listening routine.
 //
 // For correct operation, Server must be created

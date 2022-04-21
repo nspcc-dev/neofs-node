@@ -454,7 +454,7 @@ func (x *SetNetmapStatusResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
 
-// SetAddressList sets list of objects to be removed in NeoFS API binary format.
+// SetAddressList sets a list of objects to be removed in NeoFS API binary format.
 func (x *DropObjectsRequest_Body) SetAddressList(v [][]byte) {
 	if x != nil {
 		x.AddressList = v

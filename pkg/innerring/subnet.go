@@ -36,8 +36,8 @@ type subnetConfig struct {
 	queueSize uint32
 }
 
-// makes IR server to catch Subnet notifications from sidechain listener,
-// and to release corresponding processing queue on stop.
+// makes IR server to catch Subnet notifications from the sidechain listener,
+// and to release the corresponding processing queue on stop.
 func (s *Server) initSubnet(cfg subnetConfig) {
 	s.registerStarter(func() error {
 		var err error
@@ -92,11 +92,11 @@ const (
 	notarySubnetCreateEvName = "put"
 )
 
-// makes IR server to listen notifications of Subnet contract.
+// makes the IR server to listen to notifications of Subnet contract.
 // All required resources must be initialized before (initSubnet).
-// Works in one of two modes (configured): notary and non-notary.
+// It works in one of two modes (configured): notary and non-notary.
 //
-// All handlers are executed only if local node is an alphabet one.
+// All handlers are executed only if the local node is an alphabet one.
 //
 // Events (notary):
 //   * put (parser: subnetevents.ParseNotaryPut, handler: catchSubnetCreation);
@@ -183,15 +183,15 @@ type putSubnetEvent struct {
 	ev subnetevents.Put
 }
 
-// ReadID unmarshals subnet ID from a binary NeoFS API protocol's format.
+// ReadID unmarshals the subnet ID from a binary NeoFS API protocol's format.
 func (x putSubnetEvent) ReadID(id *subnetid.ID) error {
 	return id.Unmarshal(x.ev.ID())
 }
 
 var errMissingSubnetOwner = errors.New("missing subnet owner")
 
-// ReadCreator unmarshals subnet creator from a binary NeoFS API protocol's format.
-// Returns an error if byte array is empty.
+// ReadCreator unmarshals the subnet creator from a binary NeoFS API protocol's format.
+// Returns an error if the byte array is empty.
 func (x putSubnetEvent) ReadCreator(id *owner.ID) error {
 	data := x.ev.Owner()
 
@@ -210,12 +210,12 @@ func (x putSubnetEvent) ReadCreator(id *owner.ID) error {
 	return nil
 }
 
-// ReadInfo unmarshal subnet info from a binary NeoFS API protocol's format.
+// ReadInfo unmarshal the subnet info from a binary NeoFS API protocol's format.
 func (x putSubnetEvent) ReadInfo(info *subnet.Info) error {
 	return info.Unmarshal(x.ev.Info())
 }
 
-// handleSubnetCreation handles event of subnet creation parsed via subnetevents.ParsePut.
+// handleSubnetCreation handles an event of subnet creation parsed via subnetevents.ParsePut.
 //
 // Validates the event using irsubnet.PutValidator. Logs message about (dis)agreement.
 func (s *Server) handleSubnetCreation(e event.Event) {
@@ -260,7 +260,7 @@ func (s *Server) handleSubnetCreation(e event.Event) {
 	}
 }
 
-// catchSubnetRemoval catches event of subnet removal from listener and queues the processing.
+// catchSubnetRemoval catches an event of subnet removal from listener and queues the processing.
 func (s *Server) catchSubnetRemoval(e event.Event) {
 	err := s.subnetHandler.workerPool.Submit(func() {
 		s.handleSubnetRemoval(e)

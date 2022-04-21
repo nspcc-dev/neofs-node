@@ -2,11 +2,11 @@ package config
 
 /*
 Config package contains GlobalConfig structure that implements config
-reader from both local and global configurations. Most of the time inner ring
-does not need this, as for application it has static config with timeouts,
-caches sizes etc. However there are routines that use global configuration
+reader from both local and global configurations. Most of the time the inner ring
+does not need this; as for application, it has static config with timeouts,
+caches sizes etc. However, there are routines that use global configuration
 values that can be changed in runtime, e.g. basic income rate. Local
-configuration value overrides global one so it is easy to debug and test
+configuration value overrides the global one so it is easy to debug and test
 in different environments.
 
 Implemented as a part of https://github.com/nspcc-dev/neofs-node/issues/363

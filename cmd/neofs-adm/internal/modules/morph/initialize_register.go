@@ -18,7 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
-// initialAlphabetNEOAmount represents total amount of GAS distributed between alphabet nodes.
+// initialAlphabetNEOAmount represents the total amount of GAS distributed between alphabet nodes.
 const initialAlphabetNEOAmount = native.NEOTotalSupply
 
 func (c *initializeContext) registerCandidates() error {

@@ -3,7 +3,7 @@ package maddress
 // Validator is an utility that verifies node
 // multiaddress.
 //
-// For correct operation, Validator must be created
+// For correct operation, the Validator must be created
 // using the constructor (New). After successful creation,
 // the Validator is immediately ready to work through API.
 type Validator struct{}

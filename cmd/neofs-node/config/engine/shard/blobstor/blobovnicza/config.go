@@ -28,9 +28,9 @@ func From(c *config.Config) *Config {
 	return (*Config)(c)
 }
 
-// Size returns value of "size" config parameter.
+// Size returns the value of "size" config parameter.
 //
-// Returns SizeDefault if value is not a positive number.
+// Returns SizeDefault if the value is not a positive number.
 func (x *Config) Size() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
@@ -44,9 +44,9 @@ func (x *Config) Size() uint64 {
 	return SizeDefault
 }
 
-// ShallowDepth returns value of "depth" config parameter.
+// ShallowDepth returns the value of "depth" config parameter.
 //
-// Returns ShallowDepthDefault if value is not a positive number.
+// Returns ShallowDepthDefault if the value is not a positive number.
 func (x *Config) ShallowDepth() uint64 {
 	d := config.UintSafe(
 		(*config.Config)(x),
@@ -60,9 +60,9 @@ func (x *Config) ShallowDepth() uint64 {
 	return ShallowDepthDefault
 }
 
-// ShallowWidth returns value of "width" config parameter.
+// ShallowWidth returns the value of "width" config parameter.
 //
-// Returns ShallowWidthDefault if value is not a positive number.
+// Returns ShallowWidthDefault if the value is not a positive number.
 func (x *Config) ShallowWidth() uint64 {
 	d := config.UintSafe(
 		(*config.Config)(x),
@@ -76,9 +76,9 @@ func (x *Config) ShallowWidth() uint64 {
 	return ShallowWidthDefault
 }
 
-// OpenedCacheSize returns value of "opened_cache_capacity" config parameter.
+// OpenedCacheSize returns the value of "opened_cache_capacity" config parameter.
 //
-// Returns OpenedCacheSizeDefault if value is not a positive number.
+// Returns OpenedCacheSizeDefault if the value is not a positive number.
 func (x *Config) OpenedCacheSize() int {
 	d := config.IntSafe(
 		(*config.Config)(x),

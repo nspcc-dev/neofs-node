@@ -14,7 +14,7 @@ func (np *Processor) HandleNewEpochTick(ev event.Event) {
 	_ = ev.(timerEvent.NewEpochTick)
 	np.log.Info("tick", zap.String("type", "epoch"))
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := np.pool.Submit(func() { np.processNewEpochTick() })
 	if err != nil {
@@ -30,7 +30,7 @@ func (np *Processor) handleNewEpoch(ev event.Event) {
 		zap.String("type", "new epoch"),
 		zap.Uint64("value", epochEvent.EpochNumber()))
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := np.pool.Submit(func() {
 		np.processNewEpoch(epochEvent)
@@ -49,7 +49,7 @@ func (np *Processor) handleAddPeer(ev event.Event) {
 		zap.String("type", "add peer"),
 	)
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := np.pool.Submit(func() {
 		np.processAddPeer(newPeer)

@@ -19,8 +19,8 @@ describing the most significant changes done in this release. Add
 and changes. Describe each change in detail with a reference to GitHub issues if
 possible. 
 
-Update supported version of neofs-contract in `README.md` if there were 
-changes between releases.
+Update the supported version of neofs-contract in `README.md` if there were 
+changes in releases.
 
 ## Tag the release
 

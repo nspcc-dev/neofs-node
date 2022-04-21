@@ -24,7 +24,7 @@ const (
 	MaxConnPerHostDefault = 10
 )
 
-// RPCEndpoint returns list of values of "rpc_endpoint" config parameter
+// RPCEndpoint returns list of the values of "rpc_endpoint" config parameter
 // from "morph" section.
 //
 // Throws panic if list is empty.
@@ -37,10 +37,10 @@ func RPCEndpoint(c *config.Config) []string {
 	return v
 }
 
-// DialTimeout returns value of "dial_timeout" config parameter
+// DialTimeout returns the value of "dial_timeout" config parameter
 // from "morph" section.
 //
-// Returns DialTimeoutDefault if value is not positive duration.
+// Returns DialTimeoutDefault if the value is not positive duration.
 func DialTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "dial_timeout")
 	if v > 0 {
@@ -50,7 +50,7 @@ func DialTimeout(c *config.Config) time.Duration {
 	return DialTimeoutDefault
 }
 
-// DisableCache returns value of "disable_cache" config parameter
+// DisableCache returns the value of "disable_cache" config parameter
 // from "morph" section.
 func DisableCache(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "disable_cache")

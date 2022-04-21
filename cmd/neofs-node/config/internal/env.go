@@ -11,7 +11,7 @@ const EnvPrefix = "neofs"
 // EnvSeparator is a section separator in ENV variables.
 const EnvSeparator = "_"
 
-// Env returns ENV variable key for particular config parameter.
+// Env returns ENV variable key for a particular config parameter.
 func Env(path ...string) string {
 	return strings.ToUpper(
 		strings.Join(

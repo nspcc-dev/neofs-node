@@ -16,7 +16,7 @@ type commonPrm struct {
 	cli *client.Client
 }
 
-// SetClient sets base client for NeoFS API communication.
+// SetClient sets the base client for NeoFS API communication.
 func (x *commonPrm) SetClient(cli *client.Client) {
 	x.cli = cli
 }
@@ -25,7 +25,7 @@ type containerIDPrm struct {
 	cnrID *cid.ID
 }
 
-// SetContainerID sets container identifier.
+// SetContainerID sets the container identifier.
 func (x *containerIDPrm) SetContainerID(id *cid.ID) {
 	x.cnrID = id
 }
@@ -34,7 +34,7 @@ type sessionTokenPrm struct {
 	sessionToken *session.Token
 }
 
-// SetSessionToken sets token of the session within which request should be sent.
+// SetSessionToken sets the token of the session within which the request should be sent.
 func (x *sessionTokenPrm) SetSessionToken(tok *session.Token) {
 	x.sessionToken = tok
 }
@@ -43,7 +43,7 @@ type bearerTokenPrm struct {
 	bearerToken *token.BearerToken
 }
 
-// SetBearerToken sets bearer token to be attached to the request.
+// SetBearerToken sets the bearer token to be attached to the request.
 func (x *bearerTokenPrm) SetBearerToken(tok *token.BearerToken) {
 	x.bearerToken = tok
 }
@@ -69,7 +69,7 @@ type payloadWriterPrm struct {
 	wrt io.Writer
 }
 
-// SetPayloadWriter sets writer of the object payload.
+// SetPayloadWriter sets the writer of the object payload.
 func (x *payloadWriterPrm) SetPayloadWriter(wrt io.Writer) {
 	x.wrt = wrt
 }

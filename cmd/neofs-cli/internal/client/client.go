@@ -25,19 +25,19 @@ type BalanceOfPrm struct {
 	client.PrmBalanceGet
 }
 
-// BalanceOfRes groups resulting values of BalanceOf operation.
+// BalanceOfRes groups the resulting values of BalanceOf operation.
 type BalanceOfRes struct {
 	cliRes *client.ResBalanceGet
 }
 
-// Balance returns current balance.
+// Balance returns the current balance.
 func (x BalanceOfRes) Balance() *accounting.Decimal {
 	return x.cliRes.Amount()
 }
 
-// BalanceOf requests current balance of NeoFS user.
+// BalanceOf requests the current balance of a NeoFS user.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func BalanceOf(prm BalanceOfPrm) (res BalanceOfRes, err error) {
 	res.cliRes, err = prm.cli.BalanceGet(context.Background(), prm.PrmBalanceGet)
 
@@ -50,7 +50,7 @@ type ListContainersPrm struct {
 	client.PrmContainerList
 }
 
-// ListContainersRes groups resulting values of ListContainers operation.
+// ListContainersRes groups the resulting values of ListContainers operation.
 type ListContainersRes struct {
 	cliRes *client.ResContainerList
 }
@@ -60,9 +60,9 @@ func (x ListContainersRes) IDList() []cid.ID {
 	return x.cliRes.Containers()
 }
 
-// ListContainers requests list of NeoFS user's containers.
+// ListContainers requests a list of NeoFS user's containers.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func ListContainers(prm ListContainersPrm) (res ListContainersRes, err error) {
 	res.cliRes, err = prm.cli.ContainerList(context.Background(), prm.PrmContainerList)
 
@@ -75,7 +75,7 @@ type PutContainerPrm struct {
 	client.PrmContainerPut
 }
 
-// PutContainerRes groups resulting values of PutContainer operation.
+// PutContainerRes groups the resulting values of PutContainer operation.
 type PutContainerRes struct {
 	cliRes *client.ResContainerPut
 }
@@ -85,14 +85,14 @@ func (x PutContainerRes) ID() *cid.ID {
 	return x.cliRes.ID()
 }
 
-// PutContainer sends request to save container in NeoFS.
+// PutContainer sends a request to save the container in NeoFS.
 //
-// Operation is asynchronous and no guaranteed even in the absence of errors.
+// Operation is asynchronous and not guaranteed even in the absence of errors.
 // The required time is also not predictable.
 //
 // Success can be verified by reading by identifier.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
 	res.cliRes, err = prm.cli.ContainerPut(context.Background(), prm.PrmContainerPut)
 
@@ -110,7 +110,7 @@ func (x *GetContainerPrm) SetContainer(id cid.ID) {
 	x.cliPrm.SetContainer(id)
 }
 
-// GetContainerRes groups resulting values of GetContainer operation.
+// GetContainerRes groups the resulting values of GetContainer operation.
 type GetContainerRes struct {
 	cliRes *client.ResContainerGet
 }
@@ -120,9 +120,9 @@ func (x GetContainerRes) Container() *container.Container {
 	return x.cliRes.Container()
 }
 
-// GetContainer reads container from NeoFS by ID.
+// GetContainer reads a container from NeoFS by ID.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
 	res.cliRes, err = prm.cli.ContainerGet(context.Background(), prm.cliPrm)
 
@@ -135,17 +135,17 @@ type DeleteContainerPrm struct {
 	client.PrmContainerDelete
 }
 
-// DeleteContainerRes groups resulting values of DeleteContainer operation.
+// DeleteContainerRes groups the resulting values of DeleteContainer operation.
 type DeleteContainerRes struct{}
 
-// DeleteContainer sends request to remove container from NeoFS by ID.
+// DeleteContainer sends a request to remove a container from NeoFS by ID.
 //
-// Operation is asynchronous and no guaranteed even in the absence of errors.
+// Operation is asynchronous and not guaranteed even in the absence of errors.
 // The required time is also not predictable.
 //
 // Success can be verified by reading by identifier.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func DeleteContainer(prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
 	_, err = prm.cli.ContainerDelete(context.Background(), prm.PrmContainerDelete)
 
@@ -158,7 +158,7 @@ type EACLPrm struct {
 	client.PrmContainerEACL
 }
 
-// EACLRes groups resulting values of EACL operation.
+// EACLRes groups the resulting values of EACL operation.
 type EACLRes struct {
 	cliRes *client.ResContainerEACL
 }
@@ -170,7 +170,7 @@ func (x EACLRes) EACL() *eacl.Table {
 
 // EACL reads eACL table from NeoFS by container ID.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func EACL(prm EACLPrm) (res EACLRes, err error) {
 	res.cliRes, err = prm.cli.ContainerEACL(context.Background(), prm.PrmContainerEACL)
 
@@ -183,17 +183,17 @@ type SetEACLPrm struct {
 	client.PrmContainerSetEACL
 }
 
-// SetEACLRes groups resulting values of SetEACL operation.
+// SetEACLRes groups the resulting values of SetEACL operation.
 type SetEACLRes struct{}
 
-// SetEACL requests to save eACL table in NeoFS.
+// SetEACL requests to save an eACL table in NeoFS.
 //
 // Operation is asynchronous and no guaranteed even in the absence of errors.
 // The required time is also not predictable.
 //
 // Success can be verified by reading by container identifier.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func SetEACL(prm SetEACLPrm) (res SetEACLRes, err error) {
 	_, err = prm.cli.ContainerSetEACL(context.Background(), prm.PrmContainerSetEACL)
 
@@ -206,7 +206,7 @@ type NetworkInfoPrm struct {
 	client.PrmNetworkInfo
 }
 
-// NetworkInfoRes groups resulting values of NetworkInfo operation.
+// NetworkInfoRes groups the resulting values of NetworkInfo operation.
 type NetworkInfoRes struct {
 	cliRes *client.ResNetworkInfo
 }
@@ -218,7 +218,7 @@ func (x NetworkInfoRes) NetworkInfo() *netmap.NetworkInfo {
 
 // NetworkInfo reads information about the NeoFS network.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func NetworkInfo(prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
 	res.cliRes, err = prm.cli.NetworkInfo(context.Background(), prm.PrmNetworkInfo)
 
@@ -231,7 +231,7 @@ type NodeInfoPrm struct {
 	client.PrmEndpointInfo
 }
 
-// NodeInfoRes groups resulting values of NodeInfo operation.
+// NodeInfoRes groups the resulting values of NodeInfo operation.
 type NodeInfoRes struct {
 	cliRes *client.ResEndpointInfo
 }
@@ -241,14 +241,14 @@ func (x NodeInfoRes) NodeInfo() *netmap.NodeInfo {
 	return x.cliRes.NodeInfo()
 }
 
-// LatestVersion returns latest NeoFS API version in use.
+// LatestVersion returns the latest NeoFS API version in use.
 func (x NodeInfoRes) LatestVersion() *version.Version {
 	return x.cliRes.LatestVersion()
 }
 
 // NodeInfo requests information about the remote server from NeoFS netmap.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
 	res.cliRes, err = prm.cli.EndpointInfo(context.Background(), prm.PrmEndpointInfo)
 
@@ -261,7 +261,7 @@ type CreateSessionPrm struct {
 	client.PrmSessionCreate
 }
 
-// CreateSessionRes groups resulting values of CreateSession operation.
+// CreateSessionRes groups the resulting values of CreateSession operation.
 type CreateSessionRes struct {
 	cliRes *client.ResSessionCreate
 }
@@ -276,9 +276,9 @@ func (x CreateSessionRes) SessionKey() []byte {
 	return x.cliRes.PublicKey()
 }
 
-// CreateSession opens new unlimited session with the remote node.
+// CreateSession opens a new unlimited session with the remote node.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func CreateSession(prm CreateSessionPrm) (res CreateSessionRes, err error) {
 	res.cliRes, err = prm.cli.SessionCreate(context.Background(), prm.PrmSessionCreate)
 
@@ -304,7 +304,7 @@ func (x *PutObjectPrm) SetPayloadReader(rdr io.Reader) {
 	x.rdr = rdr
 }
 
-// PutObjectRes groups resulting values of PutObject operation.
+// PutObjectRes groups the resulting values of PutObject operation.
 type PutObjectRes struct {
 	id *oidSDK.ID
 }
@@ -316,7 +316,7 @@ func (x PutObjectRes) ID() *oidSDK.ID {
 
 // PutObject saves the object in NeoFS network.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	var putPrm client.PrmObjectPutInit
 
@@ -404,19 +404,19 @@ type DeleteObjectPrm struct {
 	objectAddressPrm
 }
 
-// DeleteObjectRes groups resulting values of DeleteObject operation.
+// DeleteObjectRes groups the resulting values of DeleteObject operation.
 type DeleteObjectRes struct {
 	addrTombstone *addressSDK.Address
 }
 
-// TombstoneAddress returns address of the created object with tombstone.
+// TombstoneAddress returns the address of the created object with tombstone.
 func (x DeleteObjectRes) TombstoneAddress() *addressSDK.Address {
 	return x.addrTombstone
 }
 
-// DeleteObject marks object to be removed from NeoFS through tombstone placement.
+// DeleteObject marks an object to be removed from NeoFS through tombstone placement.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 	var delPrm client.PrmObjectDelete
 
@@ -467,27 +467,27 @@ type GetObjectPrm struct {
 	headerCallback func(*object.Object)
 }
 
-// SetHeaderCallback sets callback which is called on the object after the header is received,
+// SetHeaderCallback sets callback which is called on the object after the header is received
 // but before the payload is written.
 func (p *GetObjectPrm) SetHeaderCallback(f func(*object.Object)) {
 	p.headerCallback = f
 }
 
-// GetObjectRes groups resulting values of GetObject operation.
+// GetObjectRes groups the resulting values of GetObject operation.
 type GetObjectRes struct {
 	hdr *object.Object
 }
 
-// Header returns header of the request object.
+// Header returns the header of the request object.
 func (x GetObjectRes) Header() *object.Object {
 	return x.hdr
 }
 
-// GetObject reads the object by address.
+// GetObject reads an object by address.
 //
-// Interrupts on any writer error. If successful, payload is written to writer.
+// Interrupts on any writer error. If successful, payload is written to the writer.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var getPrm client.PrmObjectGet
@@ -552,24 +552,24 @@ type HeadObjectPrm struct {
 	mainOnly bool
 }
 
-// SetMainOnlyFlag sets flag to get only main fields of object header in terms of NeoFS API.
+// SetMainOnlyFlag sets flag to get only main fields of an object header in terms of NeoFS API.
 func (x *HeadObjectPrm) SetMainOnlyFlag(v bool) {
 	x.mainOnly = v
 }
 
-// HeadObjectRes groups resulting values of HeadObject operation.
+// HeadObjectRes groups the resulting values of HeadObject operation.
 type HeadObjectRes struct {
 	hdr *object.Object
 }
 
-// Header returns requested object header.
+// Header returns the requested object header.
 func (x HeadObjectRes) Header() *object.Object {
 	return x.hdr
 }
 
-// HeadObject reads object header by address.
+// HeadObject reads an object header by address.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	var cliPrm client.PrmObjectHead
@@ -629,7 +629,7 @@ func (x *SearchObjectsPrm) SetFilters(filters object.SearchFilters) {
 	x.filters = filters
 }
 
-// SearchObjectsRes groups resulting values of SearchObjects operation.
+// SearchObjectsRes groups the resulting values of SearchObjects operation.
 type SearchObjectsRes struct {
 	ids []oidSDK.ID
 }
@@ -639,9 +639,9 @@ func (x SearchObjectsRes) IDList() []oidSDK.ID {
 	return x.ids
 }
 
-// SearchObjects selects objects from container which match the filters.
+// SearchObjects selects objects from the container which match the filters.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	var cliPrm client.PrmObjectSearch
 
@@ -712,7 +712,7 @@ func (x *HashPayloadRangesPrm) TZ() {
 	x.tz = true
 }
 
-// SetRanges sets list of payload ranges to hash.
+// SetRanges sets a list of payload ranges to hash.
 func (x *HashPayloadRangesPrm) SetRanges(rngs []*object.Range) {
 	x.rngs = rngs
 }
@@ -722,19 +722,19 @@ func (x *HashPayloadRangesPrm) SetSalt(salt []byte) {
 	x.salt = salt
 }
 
-// HashPayloadRangesRes groups resulting values of HashPayloadRanges operation.
+// HashPayloadRangesRes groups the resulting values of HashPayloadRanges operation.
 type HashPayloadRangesRes struct {
 	cliRes *client.ResObjectHash
 }
 
-// HashList returns list of hashes of the payload ranges keeping order.
+// HashList returns a list of hashes of the payload ranges keeping order.
 func (x HashPayloadRangesRes) HashList() [][]byte {
 	return x.cliRes.Checksums()
 }
 
 // HashPayloadRanges requests hashes (by default SHA256) of the object payload ranges.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // Returns an error if number of received hashes differs with the number of requested ranges.
 func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) {
 	var cliPrm client.PrmObjectHash
@@ -801,14 +801,14 @@ func (x *PayloadRangePrm) SetRange(rng *object.Range) {
 	x.rng = rng
 }
 
-// PayloadRangeRes groups resulting values of PayloadRange operation.
+// PayloadRangeRes groups the resulting values of PayloadRange operation.
 type PayloadRangeRes struct{}
 
-// PayloadRange reads object payload range from NeoFS and writes it to specified writer.
+// PayloadRange reads object payload range from NeoFS and writes it to the specified writer.
 //
 // Interrupts on any writer error.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	var cliPrm client.PrmObjectRange

@@ -21,7 +21,7 @@ type InhumePrm struct {
 // InhumeRes encapsulates results of Inhume operation.
 type InhumeRes struct{}
 
-// WithAddresses sets list of object addresses that should be inhumed.
+// WithAddresses sets a list of object addresses that should be inhumed.
 func (p *InhumePrm) WithAddresses(addrs ...*addressSDK.Address) *InhumePrm {
 	if p != nil {
 		p.target = addrs

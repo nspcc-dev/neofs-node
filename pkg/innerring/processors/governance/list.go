@@ -14,11 +14,11 @@ var (
 	errEmptySidechain = errors.New("sidechain list is empty")
 )
 
-// newAlphabetList returns updated list of sidechain keys with no more than 1\3
-// of new keys from mainnet list. Function returns `errEmptySidechain` if
-// sidechain list is empty. Function returns `errNotEnoughKeys` if mainnet
-// list contains less keys than sidechain list. Function returns (nil, nil) if
-// mainnet list contains all keys from sidechain list.
+// newAlphabetList returns an updated list of sidechain keys with no more than 1\3
+// of new keys from the mainnet list. The function returns `errEmptySidechain` if
+// the sidechain list is empty. The function returns `errNotEnoughKeys` if the mainnet
+// list contains less keys than the sidechain list. The function returns (nil, nil) if
+// the mainnet list contains all keys from the sidechain list.
 //
 // Sorts passed slices.
 func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error) {
@@ -84,8 +84,8 @@ func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error
 }
 
 // updateInnerRing function removes `before` keys from `innerRing` and adds
-// `after` keys in the list. If length of `before` and `after` is not the same
-// then function returns errNotEqualLen
+// `after` keys in the list. If the length of `before` and `after` is not the same,
+// the function returns errNotEqualLen
 func updateInnerRing(innerRing, before, after keys.PublicKeys) (keys.PublicKeys, error) {
 	lnBefore := len(before)
 	if lnBefore != len(after) {

@@ -5,7 +5,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Calculator represents component for calculating payments
+// Calculator represents a component for calculating payments
 // based on data audit results and sending remittances to the chain.
 type Calculator struct {
 	prm *CalculatorPrm
@@ -26,7 +26,7 @@ func defaultOptions() *options {
 	}
 }
 
-// NewCalculator creates, initializes and returns new Calculator instance.
+// NewCalculator creates, initializes and returns a new Calculator instance.
 func NewCalculator(p *CalculatorPrm, opts ...CalculatorOption) *Calculator {
 	o := defaultOptions()
 
@@ -40,7 +40,7 @@ func NewCalculator(p *CalculatorPrm, opts ...CalculatorOption) *Calculator {
 	}
 }
 
-// WithLogger returns option to specify logging component.
+// WithLogger returns an option to specify the logging component.
 func WithLogger(l *logger.Logger) CalculatorOption {
 	return func(o *options) {
 		o.log = l

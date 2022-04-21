@@ -11,7 +11,7 @@ import (
 func fromFile(path string) *config.Config {
 	var p config.Prm
 
-	os.Clearenv() // ENVs have priority over config files so we do this in tests
+	os.Clearenv() // ENVs have priority over config files, so we do this in tests
 
 	return config.New(p,
 		config.WithConfigFile(path),

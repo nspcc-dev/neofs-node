@@ -7,12 +7,12 @@ import (
 	locodecolumn "github.com/nspcc-dev/neofs-node/pkg/util/locode/column"
 )
 
-// Point represents 2D geographic point.
+// Point represents a 2D geographic point.
 type Point struct {
 	lat, lng float64
 }
 
-// NewPoint creates, initializes and returns new Point.
+// NewPoint creates, initializes and returns a new Point.
 func NewPoint(lat, lng float64) *Point {
 	return &Point{
 		lat: lat,
@@ -20,17 +20,17 @@ func NewPoint(lat, lng float64) *Point {
 	}
 }
 
-// Latitude returns Point's latitude.
+// Latitude returns the Point's latitude.
 func (p Point) Latitude() float64 {
 	return p.lat
 }
 
-// Longitude returns Point's longitude.
+// Longitude returns the Point's longitude.
 func (p Point) Longitude() float64 {
 	return p.lng
 }
 
-// PointFromCoordinates converts UN/LOCODE coordinates to Point.
+// PointFromCoordinates converts a UN/LOCODE coordinates to a Point.
 func PointFromCoordinates(crd *locodecolumn.Coordinates) (*Point, error) {
 	if crd == nil {
 		return nil, nil

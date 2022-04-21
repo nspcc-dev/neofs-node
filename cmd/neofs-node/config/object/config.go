@@ -28,9 +28,9 @@ func Put(c *config.Config) PutConfig {
 	}
 }
 
-// PoolSizeRemote returns value of "pool_size_remote" config parameter.
+// PoolSizeRemote returns the value of "pool_size_remote" config parameter.
 //
-// Returns PutPoolSizeDefault if value is not positive number.
+// Returns PutPoolSizeDefault if the value is not a positive number.
 func (g PutConfig) PoolSizeRemote() int {
 	v := config.Int(g.cfg, "pool_size_remote")
 	if v > 0 {

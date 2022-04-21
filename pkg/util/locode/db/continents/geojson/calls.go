@@ -12,8 +12,8 @@ import (
 
 const continentProperty = "Continent"
 
-// PointContinent goes through all polygons, and returns continent
-// in which point is located.
+// PointContinent goes through all polygons and returns the continent
+// in which the point is located.
 //
 // Returns locodedb.ContinentUnknown if no entry matches.
 //

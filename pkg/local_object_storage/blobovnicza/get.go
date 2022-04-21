@@ -13,12 +13,12 @@ type GetPrm struct {
 	addr *addressSDK.Address
 }
 
-// GetRes groups resulting values of Get operation.
+// GetRes groups the resulting values of Get operation.
 type GetRes struct {
 	obj []byte
 }
 
-// SetAddress sets address of the requested object.
+// SetAddress sets the address of the requested object.
 func (p *GetPrm) SetAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
@@ -28,12 +28,12 @@ func (p *GetRes) Object() []byte {
 	return p.obj
 }
 
-// Get reads the object from Blobovnicza by address.
+// Get reads an object from Blobovnicza by address.
 //
 // Returns any error encountered that
 // did not allow to completely read the object.
 //
-// Returns an error of type apistatus.ObjectNotFound if requested object is not
+// Returns an error of type apistatus.ObjectNotFound if the requested object is not
 // presented in Blobovnicza.
 func (b *Blobovnicza) Get(prm *GetPrm) (*GetRes, error) {
 	var (

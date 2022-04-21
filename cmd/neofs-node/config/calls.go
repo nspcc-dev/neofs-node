@@ -4,9 +4,9 @@ import (
 	"strings"
 )
 
-// Sub returns subsection of the Config by name.
+// Sub returns a subsection of the Config by name.
 //
-// Returns nil if subsection if missing.
+// Returns nil if subsection is missing.
 func (x *Config) Sub(name string) *Config {
 	// copy path in order to prevent consequent violations
 	ln := len(x.path)
@@ -29,7 +29,7 @@ func (x *Config) Sub(name string) *Config {
 	}
 }
 
-// Value returns configuration value by name.
+// Value returns the configuration value by name.
 //
 // Result can be casted to a particular type
 // via corresponding function (e.g. StringSlice).

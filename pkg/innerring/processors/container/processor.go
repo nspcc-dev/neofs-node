@@ -20,7 +20,7 @@ type (
 		IsAlphabet() bool
 	}
 
-	// Processor of events produced by container contract in morph chain.
+	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
 		log            *zap.Logger
 		pool           *ants.Pool
@@ -48,7 +48,7 @@ type (
 // NetworkState is an interface of a component
 // that provides access to network state.
 type NetworkState interface {
-	// Epoch must return number of the current epoch.
+	// Epoch must return the number of the current epoch.
 	//
 	// Must return any error encountered
 	// which did not allow reading the value.
@@ -62,7 +62,7 @@ const (
 	setEACLNotification = "setEACL"
 )
 
-// New creates container contract processor instance.
+// New creates a container contract processor instance.
 func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:

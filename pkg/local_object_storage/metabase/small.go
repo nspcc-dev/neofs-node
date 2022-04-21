@@ -12,7 +12,7 @@ type IsSmallPrm struct {
 	addr *addressSDK.Address
 }
 
-// IsSmallRes groups resulting values of IsSmall operation.
+// IsSmallRes groups the resulting values of IsSmall operation.
 type IsSmallRes struct {
 	id *blobovnicza.ID
 }

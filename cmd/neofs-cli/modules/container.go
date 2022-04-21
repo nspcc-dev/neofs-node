@@ -61,7 +61,7 @@ var wellKnownBasicACL = map[string]acl.BasicACL{
 
 const sessionTokenFlag = "session"
 
-// path to a file with encoded session token
+// path to a file with an encoded session token
 var sessionTokenPath string
 
 var (

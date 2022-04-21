@@ -10,14 +10,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
 )
 
-// DaughterTrustIteratorProvider is implementation of the
+// DaughterTrustIteratorProvider is an implementation of the
 // reputation/eigentrust/calculator's DaughterTrustIteratorProvider interface.
 type DaughterTrustIteratorProvider struct {
 	DaughterStorage *daughters.Storage
 	ConsumerStorage *consumerstorage.Storage
 }
 
-// InitDaughterIterator returns iterator over received
+// InitDaughterIterator returns an iterator over the received
 // local trusts for ctx.Epoch() epoch from daughter p.
 func (ip *DaughterTrustIteratorProvider) InitDaughterIterator(ctx eigentrustcalc.Context,
 	p reputation.PeerID) (eigentrustcalc.TrustIterator, error) {
@@ -34,7 +34,7 @@ func (ip *DaughterTrustIteratorProvider) InitDaughterIterator(ctx eigentrustcalc
 	return daughterIterator, nil
 }
 
-// InitAllDaughtersIterator returns iterator over all
+// InitAllDaughtersIterator returns an iterator over all
 // daughters of the current node(manager) and all local
 // trusts received from them for ctx.Epoch() epoch.
 func (ip *DaughterTrustIteratorProvider) InitAllDaughtersIterator(
@@ -49,7 +49,7 @@ func (ip *DaughterTrustIteratorProvider) InitAllDaughtersIterator(
 	return iter, nil
 }
 
-// InitConsumersIterator returns iterator over all daughters
+// InitConsumersIterator returns an iterator over all daughters
 // of the current node(manager) and all their consumers' local
 // trusts for ctx.Epoch() epoch and ctx.I() iteration.
 func (ip *DaughterTrustIteratorProvider) InitConsumersIterator(

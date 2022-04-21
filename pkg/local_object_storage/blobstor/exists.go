@@ -15,7 +15,7 @@ type ExistsPrm struct {
 	address
 }
 
-// ExistsRes groups resulting values of Exists operation.
+// ExistsRes groups the resulting values of Exists operation.
 type ExistsRes struct {
 	exists bool
 }
@@ -25,7 +25,7 @@ func (r ExistsRes) Exists() bool {
 	return r.exists
 }
 
-// Exists checks if object is presented in BLOB storage.
+// Exists checks if the object is presented in BLOB storage.
 //
 // Returns any error encountered that did not allow
 // to completely check object existence.

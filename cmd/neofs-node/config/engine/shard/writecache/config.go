@@ -33,14 +33,14 @@ func From(c *config.Config) *Config {
 
 // Enabled returns true if write-cache is enabled and false otherwise.
 //
-// Panics if value is not a boolean.
+// Panics if the value is not a boolean.
 func (x *Config) Enabled() bool {
 	return config.Bool((*config.Config)(x), "enabled")
 }
 
-// Path returns value of "path" config parameter.
+// Path returns the value of "path" config parameter.
 //
-// Panics if value is not a non-empty string.
+// Panics if the value is not a non-empty string.
 func (x *Config) Path() string {
 	p := config.String(
 		(*config.Config)(x),
@@ -54,9 +54,9 @@ func (x *Config) Path() string {
 	return p
 }
 
-// MemSize returns value of "memcache_capacity" config parameter.
+// MemSize returns the value of "memcache_capacity" config parameter.
 //
-// Returns MemSizeDefault if value is not a positive number.
+// Returns MemSizeDefault if the value is not a positive number.
 func (x *Config) MemSize() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
@@ -70,9 +70,9 @@ func (x *Config) MemSize() uint64 {
 	return MemSizeDefault
 }
 
-// SmallObjectSize returns value of "small_object_size" config parameter.
+// SmallObjectSize returns the value of "small_object_size" config parameter.
 //
-// Returns SmallSizeDefault if value is not a positive number.
+// Returns SmallSizeDefault if the value is not a positive number.
 func (x *Config) SmallObjectSize() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
@@ -86,9 +86,9 @@ func (x *Config) SmallObjectSize() uint64 {
 	return SmallSizeDefault
 }
 
-// MaxObjectSize returns value of "max_object_size" config parameter.
+// MaxObjectSize returns the value of "max_object_size" config parameter.
 //
-// Returns MaxSizeDefault if value is not a positive number.
+// Returns MaxSizeDefault if the value is not a positive number.
 func (x *Config) MaxObjectSize() uint64 {
 	s := config.SizeInBytesSafe(
 		(*config.Config)(x),
@@ -102,9 +102,9 @@ func (x *Config) MaxObjectSize() uint64 {
 	return MaxSizeDefault
 }
 
-// WorkersNumber returns value of "workers_number" config parameter.
+// WorkersNumber returns the value of "workers_number" config parameter.
 //
-// Returns WorkersNumberDefault if value is not a positive number.
+// Returns WorkersNumberDefault if the value is not a positive number.
 func (x *Config) WorkersNumber() int {
 	c := config.IntSafe(
 		(*config.Config)(x),
@@ -118,9 +118,9 @@ func (x *Config) WorkersNumber() int {
 	return WorkersNumberDefault
 }
 
-// SizeLimit returns value of "capacity" config parameter.
+// SizeLimit returns the value of "capacity" config parameter.
 //
-// Returns SizeLimitDefault if value is not a positive number.
+// Returns SizeLimitDefault if the value is not a positive number.
 func (x *Config) SizeLimit() uint64 {
 	c := config.SizeInBytesSafe(
 		(*config.Config)(x),

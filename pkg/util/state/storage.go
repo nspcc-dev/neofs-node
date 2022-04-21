@@ -17,7 +17,7 @@ type PersistentStorage struct {
 
 var stateBucket = []byte("state")
 
-// NewPersistentStorage creates new instance of a storage with 0600 rights.
+// NewPersistentStorage creates a new instance of a storage with 0600 rights.
 func NewPersistentStorage(path string) (*PersistentStorage, error) {
 	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
@@ -27,7 +27,7 @@ func NewPersistentStorage(path string) (*PersistentStorage, error) {
 	return &PersistentStorage{db: db}, nil
 }
 
-// SetUInt32 sets uint32 value in the storage.
+// SetUInt32 sets a uint32 value in the storage.
 func (p PersistentStorage) SetUInt32(key []byte, value uint32) error {
 	return p.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(stateBucket)
@@ -42,7 +42,7 @@ func (p PersistentStorage) SetUInt32(key []byte, value uint32) error {
 	})
 }
 
-// UInt32 returns uint32 value from persistent storage. If value is not exists,
+// UInt32 returns a uint32 value from persistent storage. If the value does not exist,
 // returns 0.
 func (p PersistentStorage) UInt32(key []byte) (n uint32, err error) {
 	err = p.db.View(func(tx *bbolt.Tx) error {

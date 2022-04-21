@@ -26,7 +26,7 @@ type coordinateCode struct {
 // of the location conforming to UN/LOCODE specification.
 type LongitudeCode coordinateCode
 
-// LongitudeHemisphere represents hemisphere of the earth
+// LongitudeHemisphere represents the hemisphere of the earth
 // // along the Greenwich meridian.
 type LongitudeHemisphere [hemisphereSymbols]uint8
 
@@ -34,7 +34,7 @@ type LongitudeHemisphere [hemisphereSymbols]uint8
 // of the location conforming to UN/LOCODE specification.
 type LatitudeCode coordinateCode
 
-// LatitudeHemisphere represents hemisphere of the earth
+// LatitudeHemisphere represents the hemisphere of the earth
 // along the equator.
 type LatitudeHemisphere [hemisphereSymbols]uint8
 
@@ -66,7 +66,7 @@ loop:
 	}, nil
 }
 
-// LongitudeFromString parses string and returns location's longitude.
+// LongitudeFromString parses a string and returns the location's longitude.
 func LongitudeFromString(s string) (*LongitudeCode, error) {
 	cc, err := coordinateFromString(s, lngDegDigits, []uint8{'W', 'E'})
 	if err != nil {
@@ -76,7 +76,7 @@ func LongitudeFromString(s string) (*LongitudeCode, error) {
 	return (*LongitudeCode)(cc), nil
 }
 
-// LatitudeFromString parses string and returns location's latitude.
+// LatitudeFromString parses a string and returns the location's latitude.
 func LatitudeFromString(s string) (*LatitudeCode, error) {
 	cc, err := coordinateFromString(s, latDegDigits, []uint8{'N', 'S'})
 	if err != nil {
@@ -90,13 +90,13 @@ func (cc *coordinateCode) degrees() []uint8 {
 	return cc.value[:cc.degDigits]
 }
 
-// Degrees returns longitude's degrees.
+// Degrees returns the longitude's degrees.
 func (lc *LongitudeCode) Degrees() (l [lngDegDigits]uint8) {
 	copy(l[:], (*coordinateCode)(lc).degrees())
 	return
 }
 
-// Degrees returns latitude's degrees.
+// Degrees returns the latitude's degrees.
 func (lc *LatitudeCode) Degrees() (l [latDegDigits]uint8) {
 	copy(l[:], (*coordinateCode)(lc).degrees())
 	return
@@ -110,22 +110,22 @@ func (cc *coordinateCode) minutes() (mnt [minutesDigits]uint8) {
 	return
 }
 
-// Minutes returns longitude's minutes.
+// Minutes returns the longitude's minutes.
 func (lc *LongitudeCode) Minutes() [minutesDigits]uint8 {
 	return (*coordinateCode)(lc).minutes()
 }
 
-// Minutes returns latitude's minutes.
+// Minutes returns the latitude's minutes.
 func (lc *LatitudeCode) Minutes() [minutesDigits]uint8 {
 	return (*coordinateCode)(lc).minutes()
 }
 
-// Hemisphere returns longitude's hemisphere code.
+// Hemisphere returns the longitude's hemisphere code.
 func (lc *LongitudeCode) Hemisphere() LongitudeHemisphere {
 	return (*coordinateCode)(lc).hemisphere()
 }
 
-// Hemisphere returns latitude's hemisphere code.
+// Hemisphere returns the latitude's hemisphere code.
 func (lc *LatitudeCode) Hemisphere() LatitudeHemisphere {
 	return (*coordinateCode)(lc).hemisphere()
 }
@@ -148,24 +148,24 @@ func (h LongitudeHemisphere) East() bool {
 	return h[0] == 'E'
 }
 
-// Coordinates represents coordinates of the location from UN/LOCODE table.
+// Coordinates represents the coordinates of the location from UN/LOCODE table.
 type Coordinates struct {
 	lat *LatitudeCode
 
 	lng *LongitudeCode
 }
 
-// Latitude returns location's latitude.
+// Latitude returns the location's latitude.
 func (c *Coordinates) Latitude() *LatitudeCode {
 	return c.lat
 }
 
-// Longitude returns location's longitude.
+// Longitude returns the location's longitude.
 func (c *Coordinates) Longitude() *LongitudeCode {
 	return c.lng
 }
 
-// CoordinatesFromString parses string and returns location's coordinates.
+// CoordinatesFromString parses a string and returns the location's coordinates.
 func CoordinatesFromString(s string) (*Coordinates, error) {
 	if len(s) == 0 {
 		return nil, nil

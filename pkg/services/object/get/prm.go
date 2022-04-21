@@ -86,7 +86,7 @@ func (p *RangePrm) SetRange(rng *object.Range) {
 	p.rng = rng
 }
 
-// SetRangeList sets list of object payload ranges.
+// SetRangeList sets a list of object payload ranges.
 func (p *RangeHashPrm) SetRangeList(rngs []object.Range) {
 	p.rngs = rngs
 }

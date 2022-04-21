@@ -19,12 +19,12 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 )
 
-// FormatValidator represents object format validator.
+// FormatValidator represents an object format validator.
 type FormatValidator struct {
 	*cfg
 }
 
-// FormatValidatorOption represents FormatValidator constructor option.
+// FormatValidatorOption represents a FormatValidator constructor option.
 type FormatValidatorOption func(*cfg)
 
 type cfg struct {
@@ -37,7 +37,7 @@ type cfg struct {
 
 // DeleteHandler is an interface of delete queue processor.
 type DeleteHandler interface {
-	// DeleteObjects objects places objects to removal queue.
+	// DeleteObjects places objects to a removal queue.
 	//
 	// Returns apistatus.LockNonRegularObject if at least one object
 	// is locked.
@@ -85,7 +85,7 @@ func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
 // Does not validate payload checksum and content.
 // If unprepared is true, only fields set by user are validated.
 //
-// Returns nil error if object has valid structure.
+// Returns nil error if the object has valid structure.
 func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	if obj == nil {
 		return errNilObject
@@ -153,7 +153,7 @@ func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
 	return nil
 }
 
-// ValidateContent validates payload content according to object type.
+// ValidateContent validates payload content according to the object type.
 func (v *FormatValidator) ValidateContent(o *object.Object) error {
 	switch o.Type() {
 	case object.TypeRegular:
@@ -169,7 +169,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return fmt.Errorf("(%T) could not unmarshal tombstone content: %w", v, err)
 		}
 
-		// check if tombstone has the same expiration in body and header
+		// check if the tombstone has the same expiration in the body and the header
 		exp, err := expirationEpochAttribute(o)
 		if err != nil {
 			return err
@@ -179,7 +179,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return errTombstoneExpiration
 		}
 
-		// mark all objects from tombstone body as removed in storage engine
+		// mark all objects from the tombstone body as removed in the storage engine
 		cid := o.ContainerID()
 		idList := tombstone.Members()
 		addrList := make([]*addressSDK.Address, 0, len(idList))
@@ -226,7 +226,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 				return errors.New("missing locked members")
 			}
 
-			// mark all objects from lock list as locked in storage engine
+			// mark all objects from lock list as locked in the storage engine
 			locklist := make([]oid.ID, num)
 			lock.ReadMembers(locklist)
 
@@ -303,7 +303,7 @@ func (v *FormatValidator) checkAttributes(obj *object.Object) error {
 var errIncorrectOwner = errors.New("incorrect object owner")
 
 func (v *FormatValidator) checkOwner(obj *object.Object) error {
-	// TODO: use appropriate functionality after neofs-api-go#352
+	// TODO: use an appropriate functionality after neofs-api-go#352
 	if len(obj.OwnerID().ToV2().GetValue()) != owner.NEO3WalletSize {
 		return errIncorrectOwner
 	}
@@ -311,21 +311,21 @@ func (v *FormatValidator) checkOwner(obj *object.Object) error {
 	return nil
 }
 
-// WithNetState returns options to set network state interface.
+// WithNetState returns options to set the network state interface.
 func WithNetState(netState netmap.State) FormatValidatorOption {
 	return func(c *cfg) {
 		c.netState = netState
 	}
 }
 
-// WithDeleteHandler returns option to set delete queue processor.
+// WithDeleteHandler returns an option to set delete queue processor.
 func WithDeleteHandler(v DeleteHandler) FormatValidatorOption {
 	return func(c *cfg) {
 		c.deleteHandler = v
 	}
 }
 
-// WithLocker returns option to set object lock storage.
+// WithLocker returns an option to set object lock storage.
 func WithLocker(v Locker) FormatValidatorOption {
 	return func(c *cfg) {
 		c.locker = v

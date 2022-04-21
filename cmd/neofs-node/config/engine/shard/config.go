@@ -52,9 +52,9 @@ func (x *Config) GC() *gcconfig.Config {
 	)
 }
 
-// RefillMetabase returns value of "resync_metabase" config parameter.
+// RefillMetabase returns the value of "resync_metabase" config parameter.
 //
-// Returns false if value is not a valid bool.
+// Returns false if the value is not a valid bool.
 func (x *Config) RefillMetabase() bool {
 	return config.BoolSafe(
 		(*config.Config)(x),
@@ -62,9 +62,9 @@ func (x *Config) RefillMetabase() bool {
 	)
 }
 
-// Mode return value of "mode" config parameter.
+// Mode return the value of "mode" config parameter.
 //
-// Panics if read value is not one of predefined
+// Panics if read the value is not one of predefined
 // shard modes.
 func (x *Config) Mode() (m shard.Mode) {
 	s := config.StringSafe(

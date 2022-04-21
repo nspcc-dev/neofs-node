@@ -13,10 +13,10 @@ const (
 	HeadTimeoutDefault = 5 * time.Second
 )
 
-// HeadTimeout returns value of "head_timeout" config parameter
+// HeadTimeout returns the value of "head_timeout" config parameter
 // from "policer" section.
 //
-// Returns HeadTimeoutDefault if value is not positive duration.
+// Returns HeadTimeoutDefault if the value is not positive duration.
 func HeadTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "head_timeout")
 	if v > 0 {

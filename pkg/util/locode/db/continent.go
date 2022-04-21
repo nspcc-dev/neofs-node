@@ -58,7 +58,7 @@ func (c Continent) String() string {
 }
 
 // ContinentFromString returns Continent value
-// corresponding to passed string representation.
+// corresponding to the passed string representation.
 func ContinentFromString(str string) Continent {
 	switch str {
 	default:

@@ -1,13 +1,13 @@
 # NeoFS subnetwork creation
 
 This is a short guide on how to create NeoFS subnetworks. This guide 
-considers that side chain and inner ring (alphabet nodes) have already 
-been deployed and side chain contains deployed `subnet` contract.
+considers that the sidechain and the inner ring (alphabet nodes) have already been 
+deployed and the sidechain contains a deployed `subnet` contract.
 
 ## Prerequisites
 
-To follow this guide you need:
-- neo-go side chain RPC endpoint;
+To follow this guide, you need:
+- neo-go sidechain RPC endpoint;
 - latest released version of [neofs-adm](https://github.com/nspcc-dev/neofs-node/releases);
 - wallet with NeoFS account.
 
@@ -21,13 +21,13 @@ $ neofs-adm morph subnet create \
 Create subnet request sent successfully. ID: 4223489767.
 ```
 
-**NOTE:** use `--notary` only in notary-enabled environmental. You need to
-have sufficient notary deposit (not expired with enough GAS balance). This
-is the only one command that requires alphabet signature and, therefore,
-the only one command that needs `--notary` flag. Your subnet ID will differ
+**NOTE:** use `--notary` only in a notary-enabled environment. You need to
+have a sufficient notary deposit (not expired, with enough GAS balance). This
+is the only command that requires an alphabet signature and, therefore,
+the only command that needs `--notary` flag. Your subnet ID will differ
 from the example.
 
-Default account in the wallet that was passed with `-w` flag is the owner
+The default account in the wallet that has been passed with `-w` flag is the owner
 of the just created subnetwork.
 
 You can check if your subnetwork was created successfully:

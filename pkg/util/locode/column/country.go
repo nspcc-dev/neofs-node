@@ -14,7 +14,7 @@ func (cc *CountryCode) Symbols() [countryCodeLen]uint8 {
 	return *cc
 }
 
-// CountryCodeFromString parses string and returns country code.
+// CountryCodeFromString parses a string and returns the country code.
 func CountryCodeFromString(s string) (*CountryCode, error) {
 	if len(s) != countryCodeLen {
 		return nil, locode.ErrInvalidString

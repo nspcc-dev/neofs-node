@@ -18,7 +18,7 @@ var (
 // CheckFormat conducts an initial check of the v2 container data.
 //
 // It is expected that if a container fails this test,
-// it will not be inner-ring approved.
+// it will not be approved by the inner ring.
 func CheckFormat(c *container.Container) error {
 	if c.PlacementPolicy() == nil {
 		return errNilPolicy

@@ -38,8 +38,8 @@ type putContainerContext struct {
 	name, zone string // from container structure
 }
 
-// Process new container from the user by checking container sanity
-// and sending approve tx back to morph.
+// Process a new container from the user by checking the container sanity
+// and sending approve tx back to the morph.
 func (cp *Processor) processContainerPut(put putEvent) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")

@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Logger represents the component
+// Logger represents a component
 // for writing messages to log.
 //
 // It is a type alias of
@@ -20,10 +20,10 @@ type Prm struct {
 }
 
 // ErrNilLogger is returned by functions that
-// expect a non-nil Logger, but received nil.
+// expect a non-nil Logger but received nil.
 var ErrNilLogger = errors.New("logger is nil")
 
-// SetLevelString sets minimum logging level.
+// SetLevelString sets the minimum logging level.
 //
 // Returns error of s is not a string representation of zap.Level
 // value (see zapcore.Level docs).

@@ -17,7 +17,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-// WithShutdownTimeout returns option to set shutdown timeout
+// WithShutdownTimeout returns an option to set shutdown timeout
 // of the internal HTTP server.
 func WithShutdownTimeout(dur time.Duration) Option {
 	return func(c *cfg) {

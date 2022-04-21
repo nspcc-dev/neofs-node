@@ -8,7 +8,7 @@ import (
 // IterationHandler is a callback of a certain block advance.
 type IterationHandler func()
 
-// IterationsTicker represents fixed tick number block timer.
+// IterationsTicker represents a fixed tick number block timer.
 //
 // It can tick the blocks and perform certain actions
 // on block time intervals.
@@ -25,12 +25,12 @@ type IterationsTicker struct {
 
 // NewIterationsTicker creates a new IterationsTicker.
 //
-// It guaranties that handler would be called the
+// It guaranties that a handler would be called the
 // specified amount of times in the specified amount
-// of blocks. After the last meaningful Tick IterationsTicker
+// of blocks. After the last meaningful Tick, IterationsTicker
 // becomes no-op timer.
 //
-// Returns error only if times is greater than totalBlocks.
+// Returns an error only if times is greater than totalBlocks.
 func NewIterationsTicker(totalBlocks uint64, times uint64, h IterationHandler) (*IterationsTicker, error) {
 	period := totalBlocks / times
 

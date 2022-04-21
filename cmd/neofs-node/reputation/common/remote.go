@@ -15,16 +15,16 @@ type clientCache interface {
 	Get(client.NodeInfo) (client.Client, error)
 }
 
-// clientKeyRemoteProvider must provide remote writer and take into account
-// that requests must be sent via passed api client and must be signed with
-// passed private key.
+// clientKeyRemoteProvider must provide a remote writer and take into account
+// that requests must be sent via the passed api client and must be signed with
+// the passed private key.
 type clientKeyRemoteProvider interface {
 	WithClient(client.Client) reputationcommon.WriterProvider
 }
 
-// remoteTrustProvider is implementation of reputation RemoteWriterProvider interface.
-// It caches clients, checks if it is the end of the route and checks either current
-// node is remote target or not.
+// remoteTrustProvider is an implementation of reputation RemoteWriterProvider interface.
+// It caches clients, checks if it is the end of the route and checks either the current
+// node is a remote target or not.
 //
 // remoteTrustProvider requires to be provided with clientKeyRemoteProvider.
 type remoteTrustProvider struct {

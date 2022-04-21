@@ -27,7 +27,7 @@ func (x *ManageNodesPrm) SetNode(id []byte) {
 	x.args[1] = id
 }
 
-// ManageNodesRes groups resulting values of node management methods of Subnet contract.
+// ManageNodesRes groups the resulting values of node management methods of Subnet contract.
 type ManageNodesRes struct{}
 
 // ManageNodes manages node list of the NeoFS subnet through Subnet contract calls.

@@ -16,7 +16,7 @@ type ExistsPrm struct {
 	addr *addressSDK.Address
 }
 
-// ExistsRes groups resulting values of Exists operation.
+// ExistsRes groups the resulting values of Exists operation.
 type ExistsRes struct {
 	exists bool
 }

@@ -13,7 +13,7 @@ import (
 
 var errInvalidRecord = errors.New("invalid table record")
 
-// IterateAll scans table record one-by-one, parses UN/LOCODE record
+// IterateAll scans a table record one-by-one, parses a UN/LOCODE record
 // from it and passes it to f.
 //
 // Returns f's errors directly.
@@ -64,8 +64,8 @@ type subDivRecord struct {
 	name string
 }
 
-// SubDivName scans table record to in-memory table (once),
-// and returns subdivision name on country and subdivision codes match.
+// SubDivName scans a table record to an in-memory table (once),
+// and returns the subdivision name of the country and the subdivision codes match.
 //
 // Returns locodedb.ErrSubDivNotFound if no entry matches.
 func (t *Table) SubDivName(countryCode *locodedb.CountryCode, code string) (string, error) {

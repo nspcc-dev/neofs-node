@@ -15,7 +15,7 @@ import (
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// FSTree represents object storage as filesystem tree.
+// FSTree represents an object storage as a filesystem tree.
 type FSTree struct {
 	Info
 
@@ -160,7 +160,7 @@ func (t *FSTree) treePath(addr *addressSDK.Address) string {
 	return filepath.Join(dirs...)
 }
 
-// Delete removes object with the specified address from storage.
+// Delete removes the object with the specified address from the storage.
 func (t *FSTree) Delete(addr *addressSDK.Address) error {
 	p, err := t.Exists(addr)
 	if err != nil {
@@ -170,7 +170,7 @@ func (t *FSTree) Delete(addr *addressSDK.Address) error {
 	return os.Remove(p)
 }
 
-// Exists returns path to file with object contents if it exists in storage
+// Exists returns the path to the file with object contents if it exists in the storage
 // and an error otherwise.
 func (t *FSTree) Exists(addr *addressSDK.Address) (string, error) {
 	p := t.treePath(addr)
@@ -183,7 +183,7 @@ func (t *FSTree) Exists(addr *addressSDK.Address) (string, error) {
 	return p, err
 }
 
-// Put puts object in storage.
+// Put puts an object in the storage.
 func (t *FSTree) Put(addr *addressSDK.Address, data []byte) error {
 	p := t.treePath(addr)
 
@@ -211,7 +211,7 @@ func (t *FSTree) PutStream(addr *addressSDK.Address, handler func(*os.File) erro
 	return handler(f)
 }
 
-// Get returns object from storage by address.
+// Get returns an object from the storage by address.
 func (t *FSTree) Get(addr *addressSDK.Address) ([]byte, error) {
 	p := t.treePath(addr)
 

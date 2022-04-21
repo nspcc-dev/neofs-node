@@ -23,7 +23,7 @@ func (x *CommonBindPrm) SetOwnerID(v []byte) {
 	x.ownerID = v
 }
 
-// SetKeys sets list of public keys in a binary format.
+// SetKeys sets a list of public keys in a binary format.
 func (x *CommonBindPrm) SetKeys(v [][]byte) {
 	x.keys = v
 }

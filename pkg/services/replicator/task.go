@@ -43,7 +43,7 @@ func (t *Task) WithObjectAddress(v *addressSDK.Address) *Task {
 	return t
 }
 
-// WithNodes sets list of potential object holders.
+// WithNodes sets a list of potential object holders.
 func (t *Task) WithNodes(v netmap.Nodes) *Task {
 	if t != nil {
 		t.nodes = v

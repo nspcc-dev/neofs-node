@@ -87,7 +87,7 @@ type RemoteTrustWriter struct {
 	log    *logger.Logger
 }
 
-// Write sends trust value to remote node via ReputationService.AnnounceIntermediateResult RPC.
+// Write sends a trust value to a remote node via ReputationService.AnnounceIntermediateResult RPC.
 func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	epoch := rtp.eiCtx.Epoch()
 	i := rtp.eiCtx.I()

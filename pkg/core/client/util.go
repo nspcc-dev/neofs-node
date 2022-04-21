@@ -33,7 +33,7 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 	return nil
 }
 
-// NodeInfoFromNetmapElement fills NodeInfo structure from the interface of parsed netmap member's descriptor.
+// NodeInfoFromNetmapElement fills NodeInfo structure from the interface of the parsed netmap member's descriptor.
 //
 // Args must not be nil.
 func NodeInfoFromNetmapElement(dst *NodeInfo, info interface {
@@ -43,7 +43,7 @@ func NodeInfoFromNetmapElement(dst *NodeInfo, info interface {
 	nodeInfoFromKeyAddr(dst, info.PublicKey(), info.Addresses())
 }
 
-// AssertKeyResponseCallback returns client response callback which checks if the response was signed by expected key.
+// AssertKeyResponseCallback returns client response callback which checks if the response was signed by the expected key.
 // Returns ErrWrongPublicKey in case of key mismatch.
 func AssertKeyResponseCallback(expectedKey []byte) func(client.ResponseMetaInfo) error {
 	return func(info client.ResponseMetaInfo) error {

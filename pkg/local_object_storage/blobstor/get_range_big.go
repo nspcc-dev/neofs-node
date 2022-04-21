@@ -16,7 +16,7 @@ type GetRangeBigPrm struct {
 	rwRange
 }
 
-// GetRangeBigRes groups resulting values of GetRangeBig operation.
+// GetRangeBigRes groups the resulting values of GetRangeBig operation.
 type GetRangeBigRes struct {
 	rangeData
 }
@@ -26,7 +26,7 @@ type GetRangeBigRes struct {
 // Returns any error encountered that
 // did not allow to completely read the object payload range.
 //
-// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
+// Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 // Returns an error of type apistatus.ObjectNotFound if object is missing.
 func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data

@@ -21,16 +21,16 @@ type (
 	// Contracts is an interface of the storage
 	// of the alphabet contract addresses.
 	Contracts interface {
-		// GetByIndex must return address of the
+		// GetByIndex must return the address of the
 		// alphabet contract by index of the glagolitic
 		// letter (e.g 0 for Az, 40 for Izhitsa).
 		//
-		// Must return false if index does not
-		// match to any alphabet contract.
+		// Must return false if the index does not
+		// match any alphabet contract.
 		GetByIndex(int) (util.Uint160, bool)
 	}
 
-	// Processor of events produced for alphabet contracts in sidechain.
+	// Processor of events produced for alphabet contracts in the sidechain.
 	Processor struct {
 		log               *zap.Logger
 		pool              *ants.Pool
@@ -53,7 +53,7 @@ type (
 	}
 )
 
-// New creates neofs mainnet contract processor instance.
+// New creates a neofs mainnet contract processor instance.
 func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:

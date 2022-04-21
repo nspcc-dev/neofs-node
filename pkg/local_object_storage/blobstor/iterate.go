@@ -16,13 +16,13 @@ type IterationElement struct {
 	blzID *blobovnicza.ID
 }
 
-// ObjectData returns stored object in a binary representation.
+// ObjectData returns the stored object in a binary representation.
 func (x IterationElement) ObjectData() []byte {
 	return x.data
 }
 
-// BlobovniczaID returns identifier of Blobovnicza in which object is stored.
-// Returns nil if object isn't in Blobovnicza.
+// BlobovniczaID returns the identifier of Blobovnicza in which object is stored.
+// Returns nil if the object isn't in Blobovnicza.
 func (x IterationElement) BlobovniczaID() *blobovnicza.ID {
 	return x.blzID
 }
@@ -36,7 +36,7 @@ type IteratePrm struct {
 	ignoreErrors bool
 }
 
-// IterateRes groups resulting values of Iterate operation.
+// IterateRes groups the resulting values of Iterate operation.
 type IterateRes struct{}
 
 // SetIterationHandler sets the action to be performed on each iteration.

@@ -15,17 +15,17 @@ type PutPrm struct {
 	objData []byte
 }
 
-// PutRes groups resulting values of Put operation.
+// PutRes groups the resulting values of Put operation.
 type PutRes struct {
 }
 
-// ErrFull is returned returned when trying to save an
+// ErrFull is returned when trying to save an
 // object to a filled blobovnicza.
 var ErrFull = errors.New("blobovnicza is full")
 
 var errNilAddress = errors.New("object address is nil")
 
-// SetAddress sets address of saving object.
+// SetAddress sets the address of the saving object.
 func (p *PutPrm) SetAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
@@ -35,7 +35,7 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 	p.objData = data
 }
 
-// Put saves object in Blobovnicza.
+// Put saves an object in Blobovnicza.
 //
 // If binary representation of the object is not set,
 // it is calculated via Marshal method.

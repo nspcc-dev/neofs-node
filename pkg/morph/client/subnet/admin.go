@@ -45,7 +45,7 @@ func (x *ManageAdminsPrm) SetGroup(id []byte) {
 	x.group = id
 }
 
-// ManageAdminsRes groups resulting values of node administer methods of Subnet contract.
+// ManageAdminsRes groups the resulting values of node administer methods of Subnet contract.
 type ManageAdminsRes struct{}
 
 // ManageAdmins manages admin list of the NeoFS subnet through Subnet contract calls.

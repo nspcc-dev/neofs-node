@@ -229,7 +229,7 @@ type UpdateNotaryListPrm struct {
 	hash util.Uint256
 }
 
-// SetList sets list of the new notary role keys.
+// SetList sets a list of the new notary role keys.
 func (u *UpdateNotaryListPrm) SetList(list keys.PublicKeys) {
 	u.list = list
 }
@@ -276,7 +276,7 @@ type UpdateAlphabetListPrm struct {
 	hash util.Uint256
 }
 
-// SetList sets list of the new alphabet role keys.
+// SetList sets a list of the new alphabet role keys.
 func (u *UpdateAlphabetListPrm) SetList(list keys.PublicKeys) {
 	u.list = list
 }
@@ -288,7 +288,7 @@ func (u *UpdateAlphabetListPrm) SetHash(hash util.Uint256) {
 }
 
 // UpdateNeoFSAlphabetList updates list of alphabet nodes in designate contract.
-// As for side chain list should contain all inner ring nodes.
+// As for sidechain list should contain all inner ring nodes.
 // Requires committee multi signature.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.

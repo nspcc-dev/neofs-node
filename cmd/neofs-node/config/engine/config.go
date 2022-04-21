@@ -11,7 +11,7 @@ const (
 	subsection = "storage"
 
 	// ShardPoolSizeDefault is a default value of routine pool size per-shard to
-	// process object PUT operations in storage engine.
+	// process object PUT operations in a storage engine.
 	ShardPoolSizeDefault = 20
 )
 
@@ -47,9 +47,9 @@ func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config))
 	}
 }
 
-// ShardPoolSize returns value of "shard_pool_size" config parameter from "storage" section.
+// ShardPoolSize returns the value of "shard_pool_size" config parameter from "storage" section.
 //
-// Returns ShardPoolSizeDefault if value is not a positive number.
+// Returns ShardPoolSizeDefault if the value is not a positive number.
 func ShardPoolSize(c *config.Config) uint32 {
 	v := config.Uint32Safe(c.Sub(subsection), "shard_pool_size")
 	if v > 0 {
@@ -59,9 +59,9 @@ func ShardPoolSize(c *config.Config) uint32 {
 	return ShardPoolSizeDefault
 }
 
-// ShardErrorThreshold returns value of "shard_ro_error_threshold" config parameter from "storage" section.
+// ShardErrorThreshold returns the value of "shard_ro_error_threshold" config parameter from "storage" section.
 //
-// Returns 0 if the value is missing.
+// Returns 0 if the the value is missing.
 func ShardErrorThreshold(c *config.Config) uint32 {
 	return config.Uint32Safe(c.Sub(subsection), "shard_ro_error_threshold")
 }

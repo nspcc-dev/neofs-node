@@ -17,9 +17,9 @@ var (
 // which provides access to gRPC server configurations.
 type Config config.Config
 
-// Endpoint returns value of "endpoint" config parameter.
+// Endpoint returns the value of "endpoint" config parameter.
 //
-// Panics if value is not a non-empty string.
+// Panics if the value is not a non-empty string.
 func (x *Config) Endpoint() string {
 	v := config.StringSafe(
 		(*config.Config)(x),
@@ -54,9 +54,9 @@ type TLSConfig struct {
 	cfg *config.Config
 }
 
-// KeyFile returns value of "key" config parameter.
+// KeyFile returns the value of "key" config parameter.
 //
-// Panics if value is not a non-empty string.
+// Panics if the value is not a non-empty string.
 func (tls TLSConfig) KeyFile() string {
 	v := config.StringSafe(tls.cfg, "key")
 	if v == "" {
@@ -66,9 +66,9 @@ func (tls TLSConfig) KeyFile() string {
 	return v
 }
 
-// CertificateFile returns value of "certificate" config parameter.
+// CertificateFile returns the value of "certificate" config parameter.
 //
-// Panics if value is not a non-empty string.
+// Panics if the value is not a non-empty string.
 func (tls TLSConfig) CertificateFile() string {
 	v := config.StringSafe(tls.cfg, "certificate")
 	if v == "" {

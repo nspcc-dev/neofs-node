@@ -10,10 +10,10 @@ const (
 	LevelDefault = "info"
 )
 
-// Level returns value of "level" config parameter
+// Level returns the value of "level" config parameter
 // from "logger" section.
 //
-// Returns LevelDefault if value is not a non-empty string.
+// Returns LevelDefault if the value is not a non-empty string.
 func Level(c *config.Config) string {
 	v := config.StringSafe(
 		c.Sub("logger"),

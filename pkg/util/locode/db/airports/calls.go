@@ -41,8 +41,8 @@ type record struct {
 	lng string
 }
 
-// Get scans records of the OpenFlights Airport to in-memory table (once),
-// and returns entry that matches passed UN/LOCODE record.
+// Get scans the records of the OpenFlights Airport to an in-memory table (once),
+// and returns an entry that matches the passed UN/LOCODE record.
 //
 // Records are matched if they have the same country code and either
 // same IATA code or same city name (location name in UN/LOCODE).
@@ -90,8 +90,8 @@ const (
 	countryFldNum
 )
 
-// CountryName scans records of the OpenFlights Country table to in-memory table (once),
-// and returns name of the country by code.
+// CountryName scans the records of the OpenFlights Country table to an in-memory table (once),
+// and returns the name of the country by code.
 //
 // Returns locodedb.ErrCountryNotFound if no entry matches.
 func (db *DB) CountryName(code *locodedb.CountryCode) (name string, err error) {

@@ -6,10 +6,10 @@ type DeleteSmallPrm struct {
 	rwBlobovniczaID
 }
 
-// DeleteSmallRes groups resulting values of DeleteSmall operation.
+// DeleteSmallRes groups the resulting values of DeleteSmall operation.
 type DeleteSmallRes struct{}
 
-// DeleteSmall removes object from blobovnicza of BLOB storage.
+// DeleteSmall removes an object from blobovnicza of BLOB storage.
 //
 // If blobovnicza ID is not set or set to nil, BlobStor tries to
 // find and remove object from any blobovnicza.

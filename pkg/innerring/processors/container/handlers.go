@@ -17,7 +17,7 @@ func (cp *Processor) handlePut(ev event.Event) {
 		zap.String("type", "container put"),
 		zap.String("id", base58.Encode(id[:])))
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := cp.pool.Submit(func() { cp.processContainerPut(put) })
 	if err != nil {
@@ -33,7 +33,7 @@ func (cp *Processor) handleDelete(ev event.Event) {
 		zap.String("type", "container delete"),
 		zap.String("id", base58.Encode(del.ContainerID())))
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := cp.pool.Submit(func() { cp.processContainerDelete(&del) })
 	if err != nil {
@@ -50,7 +50,7 @@ func (cp *Processor) handleSetEACL(ev event.Event) {
 		zap.String("type", "set EACL"),
 	)
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := cp.pool.Submit(func() {
 		cp.processSetEACL(e)

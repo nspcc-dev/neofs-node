@@ -14,7 +14,7 @@
 
 NeoFS Nodes are organized in a peer-to-peer network that takes care of storing
 and distributing user's data. Any Neo user may participate in the network and
-get paid for providing storage resources to other users or store his data in
+get paid for providing storage resources to other users or store their data in
 NeoFS and pay a competitive price for it.
 
 Users can reliably store object data in the NeoFS network and have a transparent
@@ -40,7 +40,7 @@ developers to integrate applications without rewriting their code.
 
 # Supported platforms
 
-For now we only support GNU/Linux on amd64 CPUs with AVX/AVX2 instructions. More
+Now, we only support GNU/Linux on amd64 CPUs with AVX/AVX2 instructions. More
 platforms will be officially supported after release `1.0`.
 
 The latest version of neofs-node works with neofs-contract 

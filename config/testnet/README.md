@@ -1,7 +1,7 @@
 # N3 Testnet Storage node configuration
 
 There is a prepared configuration for NeoFS Storage Node deployment in
-N3 Testnet. The easiest way to deploy Storage Node is to use prepared
+N3 Testnet. The easiest way to deploy a Storage Node is to use the prepared
 docker image and run it with docker-compose.
 
 ## Build image
@@ -19,20 +19,20 @@ Successfully tagged nspccdev/neofs-storage-testnet:0.25.1
 
 ## Deploy node
 
-To run storage node in N3 Testnet environment you should deposit GAS assets, 
+To run a storage node in N3 Testnet environment, you should deposit GAS assets, 
 update docker-compose file and start the node.
 
 ### Deposit
 
-Storage Node owner should deposit GAS to NeoFS smart contract. It generates a 
-bit of side chain GAS in node's wallet. Side chain GAS used to send bootstrap tx. 
+The Storage Node owner should deposit GAS to NeoFS smart contract. It generates a 
+bit of sidechain GAS in the node's wallet. Sidechain GAS is used to send bootstrap tx. 
 
-First obtain GAS in N3 Testnet chain. You can do that with
+First, obtain GAS in N3 Testnet chain. You can do that with
 [faucet](https://neowish.ngd.network) service.
 
-Then make a deposit by transferring GAS to NeoFS contract in N3 Testnet.
+Then, make a deposit by transferring GAS to NeoFS contract in N3 Testnet.
 You can provide scripthash in the `data` argument of transfer tx to make a
-deposit to specified account. Otherwise, deposit is made to tx sender.
+deposit to a specified account. Otherwise, deposit is made to the tx sender.
 
 NeoFS contract scripthash in N3 Testnet is `b65d8243ac63983206d17e5221af0653a7266fa1`, 
 so the address is `NadZ8YfvkddivcFFkztZgfwxZyKf1acpRF`.
@@ -49,7 +49,7 @@ neo-go wallet nep17 transfer -w wallet.json -r https://rpc01.testnet.n3.nspcc.ru
 
 ### Configure
 
-Then configure `node_config.env` file. Change endpoints values. Both
+Next, configure `node_config.env` file. Change endpoints values. Both
 should contain your **public** IP.
 
 ```
@@ -79,8 +79,8 @@ Subdivision: [SPE] Sankt-Peterburg
 Coordinates: 59.53, 30.15
 ```
 
-It is recommended to pass node's key as a file. To do so convert your wallet 
-WIF to 32-byte hex (via `neofs-cli` for example) and save it to file.
+It is recommended to pass the node's key as a file. To do so, convert your wallet 
+WIF to 32-byte hex (via `neofs-cli` for example) and save it to a file.
 
 ```
 // Print WIF in a 32-byte hex format
@@ -96,7 +96,7 @@ ScriptHash3.0BE dc4b0b44d01c16667880062e2fd4508f9939fedf
 $ echo '11ab917cd99170cb8d0d48e78fca317564e6b3aaff7f7058952d6175cdca0f56' | xxd -r -p > my_wallet.key
 ```
 
-Then specify path to this file in `docker-compose.yml`
+Then, specify the path to this file in `docker-compose.yml`
 ```yaml
      volumes:
       - neofs_storage:/storage
@@ -105,8 +105,8 @@ Then specify path to this file in `docker-compose.yml`
 
 
 NeoFS objects will be stored on your machine. By default, docker-compose 
-configured to store objects in named docker volume `neofs_storage`. You can 
-specify directory on the filesystem to store objects there.
+is configured to store objects in named docker volume `neofs_storage`. You can 
+specify a directory on the filesystem to store objects there.
 
 ```yaml
      volumes:
@@ -116,12 +116,12 @@ specify directory on the filesystem to store objects there.
 
 ### Start
 
-Run node with `docker-compose up` command and stop it with `docker-compose down`.
+Run the node with `docker-compose up` command and stop it with `docker-compose down`.
 
 ### Debug
 
-To print node logs use `docker logs neofs-testnet`. To print debug messages in 
-log, setup log level to debug with this env:
+To print node logs, use `docker logs neofs-testnet`. To print debug messages in 
+log, set up log level to debug with this env:
 
 ```yaml
      environment:

@@ -19,7 +19,7 @@ func defaultOpts() *options {
 	}
 }
 
-// WithExtraPaths returns option to add extra paths
+// WithExtraPaths returns an option to add extra paths
 // to UN/LOCODE tables in csv format.
 func WithExtraPaths(ps ...string) Option {
 	return func(o *options) {

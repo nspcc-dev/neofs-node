@@ -5,7 +5,7 @@ import (
 	"go.uber.org/atomic"
 )
 
-// WorkerPool represents the tool for control
+// WorkerPool represents a tool to control
 // the execution of go-routine pool.
 type WorkerPool interface {
 	// Submit queues a function for execution
@@ -22,7 +22,7 @@ type WorkerPool interface {
 	Release()
 }
 
-// pseudoWorkerPool represents pseudo worker pool which executes submitted job immediately in the caller's routine.
+// pseudoWorkerPool represents a pseudo worker pool which executes the submitted job immediately in the caller's routine.
 type pseudoWorkerPool struct {
 	closed atomic.Bool
 }
@@ -30,12 +30,12 @@ type pseudoWorkerPool struct {
 // ErrPoolClosed is returned when submitting task to a closed pool.
 var ErrPoolClosed = ants.ErrPoolClosed
 
-// NewPseudoWorkerPool returns new instance of a synchronous worker pool.
+// NewPseudoWorkerPool returns a new instance of a synchronous worker pool.
 func NewPseudoWorkerPool() WorkerPool {
 	return &pseudoWorkerPool{}
 }
 
-// Submit executes passed function immediately.
+// Submit executes the passed function immediately.
 //
 // Always returns nil.
 func (p *pseudoWorkerPool) Submit(fn func()) error {
@@ -48,7 +48,7 @@ func (p *pseudoWorkerPool) Submit(fn func()) error {
 	return nil
 }
 
-// Release implements WorkerPool interface.
+// Release implements the WorkerPool interface.
 func (p *pseudoWorkerPool) Release() {
 	p.closed.Store(true)
 }

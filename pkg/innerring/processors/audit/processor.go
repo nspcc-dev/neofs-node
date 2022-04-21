@@ -33,7 +33,7 @@ type (
 		Reset() int
 	}
 
-	// Processor of events related with data audit.
+	// Processor of events related to data audit.
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
@@ -77,22 +77,22 @@ func (x SearchSGPrm) Context() context.Context {
 	return x.ctx
 }
 
-// CID returns identifier of the container to search SG in.
+// CID returns the identifier of the container to search SG in.
 func (x SearchSGPrm) CID() *cid.ID {
 	return x.id
 }
 
-// NodeInfo returns information about storage node to communicate with.
+// NodeInfo returns information about a storage node to communicate with.
 func (x SearchSGPrm) NodeInfo() client.NodeInfo {
 	return x.info
 }
 
-// SearchSGDst groups target values which Processor expects from SG searching to process.
+// SearchSGDst groups the target values which Processor expects from SG searching to process.
 type SearchSGDst struct {
 	ids []oidSDK.ID
 }
 
-// WriteIDList writes list of identifiers of storage group objects stored in the container.
+// WriteIDList writes a list of identifiers of storage group objects stored in the container.
 func (x *SearchSGDst) WriteIDList(ids []oidSDK.ID) {
 	x.ids = ids
 }
@@ -112,8 +112,8 @@ type epochAuditReporter struct {
 }
 
 // ProcessorPoolSize limits pool size for audit Processor. Processor manages
-// audit tasks and fills queue for next epoch. This process must not be interrupted
-// by new audit epoch, so we limit pool size for processor to one.
+// audit tasks and fills queue for the next epoch. This process must not be interrupted
+// by a new audit epoch, so we limit the pool size for the processor to one.
 const ProcessorPoolSize = 1
 
 // New creates audit processor instance.

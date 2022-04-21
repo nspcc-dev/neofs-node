@@ -13,10 +13,10 @@ type DeleteBigPrm struct {
 	address
 }
 
-// DeleteBigRes groups resulting values of DeleteBig operation.
+// DeleteBigRes groups the resulting values of DeleteBig operation.
 type DeleteBigRes struct{}
 
-// DeleteBig removes object from shallow dir of BLOB storage.
+// DeleteBig removes an object from shallow dir of BLOB storage.
 //
 // Returns any error encountered that did not allow
 // to completely remove the object.

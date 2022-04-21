@@ -60,14 +60,14 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		Hash:       &txHash,
 	}
 
-	// 1. Vote to side chain committee via alphabet contracts.
+	// 1. Vote to sidechain committee via alphabet contracts.
 	err = gp.voter.VoteForSidechainValidator(votePrm)
 	if err != nil {
 		gp.log.Error("can't vote for side chain committee",
 			zap.String("error", err.Error()))
 	}
 
-	// 2. Update NeoFSAlphabet role in side chain.
+	// 2. Update NeoFSAlphabet role in the sidechain.
 	innerRing, err := gp.irFetcher.InnerRingKeys()
 	if err != nil {
 		gp.log.Error("can't fetch inner ring list from side chain",
@@ -109,7 +109,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	if !gp.notaryDisabled {
-		// 3. Update notary role in side chain.
+		// 3. Update notary role in the sidechain.
 
 		updPrm := client.UpdateNotaryListPrm{}
 
@@ -123,7 +123,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		}
 	}
 
-	// 4. Update NeoFS contract in main net.
+	// 4. Update NeoFS contract in the mainnet.
 	epoch := gp.epochState.EpochCounter()
 
 	buf := make([]byte, 8)

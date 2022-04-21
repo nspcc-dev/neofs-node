@@ -11,7 +11,7 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// Open opens underlying BoltDB instance.
+// Open opens an underlying BoltDB instance.
 //
 // Timeout of BoltDB opening is 3s (only for Linux or Darwin).
 //
@@ -33,7 +33,7 @@ func (db *DB) Open() error {
 	return nil
 }
 
-// Close closes underlying BoltDB instance.
+// Close closes an underlying BoltDB instance.
 //
 // Must not be called before successful Open call.
 func (db *DB) Close() error {
@@ -94,10 +94,10 @@ func recordFromValue(data []byte) (*locodedb.Record, error) {
 	return r, nil
 }
 
-// Put saves the record by key in underlying BoltDB instance.
+// Put saves the record by key in an underlying BoltDB instance.
 //
-// Country code from key is used for allocating the 1st level buckets.
-// Records are stored in country buckets by location code from key.
+// Country code from the key is used for allocating the 1st level buckets.
+// Records are stored in country buckets by the location code from the key.
 // The records are stored in internal binary JSON format.
 //
 // Must not be called before successful Open call.

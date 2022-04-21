@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// represents storage of the "small" objects.
+// represents the storage of the "small" objects.
 //
 // Each object is stored in Blobovnicza's (B-s).
 // B-s are structured in a multilevel directory hierarchy
@@ -44,7 +44,7 @@ import (
 // Elements of the deepest level are B-s.
 // B-s are allocated dynamically. At each moment of the time there is
 // an active B (ex. A), set of already filled B-s (ex. F) and
-// list of not yet initialized B-s (ex. X). After filling the active B
+// a list of not yet initialized B-s (ex. X). After filling the active B
 // it becomes full, and next B becomes initialized and active.
 //
 // Active B and some of the full B-s are cached (LRU). All cached

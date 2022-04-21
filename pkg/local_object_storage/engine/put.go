@@ -14,7 +14,7 @@ type PutPrm struct {
 	obj *objectSDK.Object
 }
 
-// PutRes groups resulting values of Put operation.
+// PutRes groups the resulting values of Put operation.
 type PutRes struct{}
 
 var errPutShard = errors.New("could not put object to any shard")
@@ -37,7 +37,7 @@ func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 //
-// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 func (e *StorageEngine) Put(prm *PutPrm) (res *PutRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.put(prm)

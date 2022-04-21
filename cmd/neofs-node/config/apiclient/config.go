@@ -13,10 +13,10 @@ const (
 	DialTimeoutDefault = 5 * time.Second
 )
 
-// DialTimeout returns value of "dial_timeout" config parameter
+// DialTimeout returns the value of "dial_timeout" config parameter
 // from "apiclient" section.
 //
-// Returns DialTimeoutDefault if value is not positive duration.
+// Returns DialTimeoutDefault if the value is not positive duration.
 func DialTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "dial_timeout")
 	if v > 0 {

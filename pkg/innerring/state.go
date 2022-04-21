@@ -139,13 +139,13 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 }
 
 // VoteForSidechainValidator calls vote method on alphabet contracts with
-// provided list of keys.
+// the provided list of keys.
 func (s *Server) VoteForSidechainValidator(prm governance.VoteValidatorPrm) error {
 	sort.Sort(prm.Validators)
 	return s.voteForSidechainValidator(prm)
 }
 
-// WriteReport composes audit result structure from audit report
+// WriteReport composes the audit result structure from the audit report
 // and sends it to Audit contract.
 func (s *Server) WriteReport(r *audit.Report) error {
 	res := r.Result()
@@ -157,9 +157,9 @@ func (s *Server) WriteReport(r *audit.Report) error {
 	return s.auditClient.PutAuditResult(prm)
 }
 
-// ResetEpochTimer resets block timer that produces events to update epoch
-// counter in netmap contract. Used to synchronize this even production
-// based on block with notification of last epoch.
+// ResetEpochTimer resets the block timer that produces events to update epoch
+// counter in the netmap contract. It is used to synchronize this even production
+// based on the block with a notification of the last epoch.
 func (s *Server) ResetEpochTimer(h uint32) error {
 	s.epochTimer.Tick(h)
 	return s.epochTimer.Reset()
@@ -169,7 +169,7 @@ func (s *Server) setHealthStatus(hs control.HealthStatus) {
 	s.healthStatus.Store(hs)
 }
 
-// HealthStatus returns current health status of IR application.
+// HealthStatus returns the current health status of the IR application.
 func (s *Server) HealthStatus() control.HealthStatus {
 	return s.healthStatus.Load().(control.HealthStatus)
 }

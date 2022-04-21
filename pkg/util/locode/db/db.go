@@ -59,14 +59,14 @@ var ErrCountryNotFound = errors.New("country not found")
 
 // NamesDB is an interface of the NeoFS location namespace.
 type NamesDB interface {
-	// Must resolve country code to country name.
+	// Must resolve a country code to a country name.
 	//
 	// Must return ErrCountryNotFound if there is no
-	// country with provided code.
+	// country with the provided code.
 	CountryName(*CountryCode) (string, error)
 
 	// Must resolve (country code, subdivision code) to
-	// subdivision name.
+	// a subdivision name.
 	//
 	// Must return ErrSubDivNotFound if either country or
 	// subdivision is not presented in database.
@@ -152,8 +152,8 @@ func FillDatabase(table SourceTable, airports AirportDB, continents ContinentsDB
 	})
 }
 
-// LocodeRecord returns record from the NeoFS location database
-// corresponding to string representation of UN/LOCODE.
+// LocodeRecord returns the record from the NeoFS location database
+// corresponding to the string representation of UN/LOCODE.
 func LocodeRecord(db DB, sLocode string) (*Record, error) {
 	lc, err := locode.FromString(sLocode)
 	if err != nil {
