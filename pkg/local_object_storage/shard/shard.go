@@ -167,11 +167,10 @@ func WithGCWorkerPoolInitializer(wpInit func(int) util.WorkerPool) Option {
 	}
 }
 
-// WithGCEventChannelInitializer returns option to set set initializer of
-// GC event channel.
-func WithGCEventChannelInitializer(chInit func() <-chan Event) Option {
+// WithGCEventChannel returns option to set a GC event channel.
+func WithGCEventChannel(eventChan <-chan Event) Option {
 	return func(c *cfg) {
-		c.gcCfg.eventChanInit = chInit
+		c.gcCfg.eventChan = eventChan
 	}
 }
 

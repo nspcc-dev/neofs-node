@@ -401,6 +401,11 @@ func initShardOptions(c *cfg) {
 		metaPerm := metabaseCfg.Perm()
 		fatalOnErr(util.MkdirAllX(filepath.Dir(metaPath), metaPerm))
 
+		gcEventChannel := make(chan shard.Event)
+		addNewEpochNotificationHandler(c, func(ev event.Event) {
+			gcEventChannel <- shard.EventNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
+		})
+
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithRefillMetabase(sc.RefillMetabase()),
@@ -435,15 +440,7 @@ func initShardOptions(c *cfg) {
 
 				return pool
 			}),
-			shard.WithGCEventChannelInitializer(func() <-chan shard.Event {
-				ch := make(chan shard.Event)
-
-				addNewEpochNotificationHandler(c, func(ev event.Event) {
-					ch <- shard.EventNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
-				})
-
-				return ch
-			}),
+			shard.WithGCEventChannel(gcEventChannel),
 		})
 	})
 

@@ -38,9 +38,7 @@ func TestLockUserScenario(t *testing.T) {
 
 	e := testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
 		return []shard.Option{
-			shard.WithGCEventChannelInitializer(func() <-chan shard.Event {
-				return chEvents[i]
-			}),
+			shard.WithGCEventChannel(chEvents[i]),
 			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 				pool, err := ants.NewPool(sz)
 				require.NoError(t, err)
@@ -136,9 +134,7 @@ func TestLockExpiration(t *testing.T) {
 
 	e := testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
 		return []shard.Option{
-			shard.WithGCEventChannelInitializer(func() <-chan shard.Event {
-				return chEvents[i]
-			}),
+			shard.WithGCEventChannel(chEvents[i]),
 			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 				pool, err := ants.NewPool(sz)
 				require.NoError(t, err)
