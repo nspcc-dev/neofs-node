@@ -286,8 +286,8 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 			}
 		}
 
-		log.Debug("handling expired tombstones batch", zap.Int("number", tssLen))
-		s.expiredTombstonesCallback(ctx, tss)
+		log.Debug("handling expired tombstones batch", zap.Int("number", len(tssExp)))
+		s.expiredTombstonesCallback(ctx, tssExp)
 
 		iterPrm.SetOffset(tss[tssLen-1].Address())
 		tss = tss[:0]
