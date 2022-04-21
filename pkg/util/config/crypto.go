@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 )
 
-// LoadAccount loads NEP-6 load, unlocks and returns provided account.
+// LoadAccount loads NEP-6 load, unlocks and returns the provided account.
 func LoadAccount(path, addr, password string) (*wallet.Account, error) {
 	w, err := wallet.NewWalletFromFile(path)
 	if err != nil {

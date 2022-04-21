@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// ProcessorPoolSize limits pool size for governance Processor. Processor manages
+// ProcessorPoolSize limits the pool size for governance Processor. Processor manages
 // governance sync tasks. This process must not be interrupted by other sync
-// operation, so we limit pool size for processor to one.
+// operation, so we limit the pool size for the processor to one.
 const ProcessorPoolSize = 1
 
 type (
@@ -91,7 +91,7 @@ type (
 	}
 )
 
-// New creates balance contract processor instance.
+// New creates a balance contract processor instance.
 func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:

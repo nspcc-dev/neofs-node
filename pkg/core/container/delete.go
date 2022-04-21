@@ -15,36 +15,36 @@ type RemovalWitness struct {
 	token *session.Token
 }
 
-// ContainerID returns identifier of the container
+// ContainerID returns the identifier of the container
 // to be removed.
 func (x RemovalWitness) ContainerID() *cid.ID {
 	return x.cid
 }
 
-// SetContainerID sets identifier of the container
+// SetContainerID sets the identifier of the container
 // to be removed.
 func (x *RemovalWitness) SetContainerID(id *cid.ID) {
 	x.cid = id
 }
 
-// Signature returns signature of the container identifier.
+// Signature returns the signature of the container identifier.
 func (x RemovalWitness) Signature() []byte {
 	return x.sig
 }
 
-// SetSignature sets signature of the container identifier.
+// SetSignature sets a signature of the container identifier.
 func (x *RemovalWitness) SetSignature(sig []byte) {
 	x.sig = sig
 }
 
-// SessionToken returns token of the session within
-// which container was removed.
+// SessionToken returns the token of the session within
+// which the container was removed.
 func (x RemovalWitness) SessionToken() *session.Token {
 	return x.token
 }
 
-// SetSessionToken sets token of the session within
-// which container was removed.
+// SetSessionToken sets the token of the session within
+// which the container was removed.
 func (x *RemovalWitness) SetSessionToken(tok *session.Token) {
 	x.token = tok
 }

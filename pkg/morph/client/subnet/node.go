@@ -23,7 +23,7 @@ func (x *NodeAllowedPrm) SetNode(id []byte) {
 	x.args[1] = id
 }
 
-// NodeAllowedRes groups resulting values of NodeAllowed method of Subnet contract.
+// NodeAllowedRes groups the resulting values of NodeAllowed method of Subnet contract.
 type NodeAllowedRes struct {
 	result bool
 }

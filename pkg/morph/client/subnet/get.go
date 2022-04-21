@@ -16,7 +16,7 @@ func (x *GetPrm) SetID(id []byte) {
 	x.args[0] = id
 }
 
-// GetRes groups resulting values of Get method of Subnet contract.
+// GetRes groups the resulting values of Get method of Subnet contract.
 type GetRes struct {
 	info []byte
 }

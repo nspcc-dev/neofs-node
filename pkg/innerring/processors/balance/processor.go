@@ -22,7 +22,7 @@ type (
 		ToFixed8(int64) int64
 	}
 
-	// Processor of events produced by balance contract in morph chain.
+	// Processor of events produced by balance contract in the morphchain.
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
@@ -45,7 +45,7 @@ const (
 	lockNotification = "Lock"
 )
 
-// New creates balance contract processor instance.
+// New creates a balance contract processor instance.
 func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:

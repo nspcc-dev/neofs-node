@@ -12,9 +12,9 @@ import (
 
 const (
 	gasInitialTotalSupply = 30000000 * native.GASFactor
-	// initialAlphabetGASAmount represents amount of GAS given to each alphabet node.
+	// initialAlphabetGASAmount represents the amount of GAS given to each alphabet node.
 	initialAlphabetGASAmount = 10_000 * native.GASFactor
-	// initialProxyGASAmount represents amount of GAS given to proxy contract.
+	// initialProxyGASAmount represents the amount of GAS given to a proxy contract.
 	initialProxyGASAmount = 50_000 * native.GASFactor
 )
 

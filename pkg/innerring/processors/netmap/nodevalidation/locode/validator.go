@@ -16,11 +16,11 @@ type Prm struct {
 	DB DB
 }
 
-// Validator is an utility that verifies and updates
+// Validator is a utility that verifies and updates
 // node attributes associated with its geographical location
 // (LOCODE).
 //
-// For correct operation, Validator must be created
+// For correct operation, the Validator must be created
 // using the constructor (New) based on the required parameters
 // and optional components. After successful creation,
 // the Validator is immediately ready to work through API.

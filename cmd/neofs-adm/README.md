@@ -5,14 +5,14 @@
 Admin tool provides an easier way to deploy and maintain private installation
 of NeoFS. Private installation provides a set of N3 consensus nodes, NeoFS 
 Alphabet, and Storage nodes. Admin tool generates consensus keys, initializes 
-side chain, and provides functions to update the network and register new
+the sidechain, and provides functions to update the network and register new
 Storage nodes.
 
 ## Build
 
 To build binary locally, use `make bin/neofs-adm` command. 
 
-For clean build inside a docker container use `make docker/bin/neofs-adm`. 
+For clean build inside a docker container, use `make docker/bin/neofs-adm`. 
 
 Build docker image with `make image-adm`.
 
@@ -25,18 +25,18 @@ contracts. Find them in the latest release of
 
 ### Config
 
-Config section provides `init` command that creates configuration file for the
+Config section provides `init` command that creates a configuration file for
 private installation deployment and updates. Config file is optional, all
 parameters can be passed by arguments or read from standard input (wallet 
 passwords).
 
 Config example:
 ```yaml
-rpc-endpoint: https://address:port # side chain RPC node endpoint
+rpc-endpoint: https://address:port # sidechain RPC node endpoint
 alphabet-wallets: /path            # path to consensus node / alphabet wallets storage
 network:
-  max_object_size: 67108864 # max size of single NeoFS object, bytes
-  epoch_duration: 240       # duration of NeoFS epoch in blocks, consider block generation frequency in side chain
+  max_object_size: 67108864 # max size of a single NeoFS object, bytes
+  epoch_duration: 240       # duration of a NeoFS epoch in blocks, consider block generation frequency in the sidechain
   basic_income_rate: 0      # basic income rate, for private consider 0
   fee:
     audit: 0     # network audit fee, for private installation consider 0
@@ -61,11 +61,11 @@ credentials:     # passwords for consensus node / alphabet wallets
 - `generate-alphabet` generates a set of wallets for consensus and 
   Alphabet nodes. 
 
-- `init` initializes side chain by deploying smart contracts and
+- `init` initializes the sidechain by deploying smart contracts and
   setting provided NeoFS network configuration.
 
-- `generate-storage-wallet` generates wallet for the Storage node that 
-  is ready for deployment. It also transfers a bit of side chain GAS, so this 
+- `generate-storage-wallet` generates a wallet for the Storage node that 
+  is ready for deployment. It also transfers a bit of sidechain GAS, so this 
   wallet can be used for NeoFS bootstrap.
 
 #### Network maintenance
@@ -73,20 +73,20 @@ credentials:     # passwords for consensus node / alphabet wallets
 - `force-new-epoch` increments NeoFS epoch number and executes new epoch
   handlers in NeoFS nodes.
 
-- `refill-gas` transfers side chain GAS to the specified wallet. 
+- `refill-gas` transfers sidechain GAS to the specified wallet. 
 
 - `update-contracts` updates contracts to a new version.
 
 #### Container migration
 
-If the network has to be redeployed, these commands will migrate all container meta
+If a network has to be redeployed, these commands will migrate all container meta
 info. These commands **do not migrate actual objects**.
 
 - `dump-containers` saves all containers and metadata registered in the container
   contract to a file.
 
 - `restore-containers` restores previously saved containers by their repeated registration in 
- container contract.
+ the container contract.
 
 #### Network info
 

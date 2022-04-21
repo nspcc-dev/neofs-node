@@ -21,9 +21,9 @@ func From(c *config.Config) *Config {
 	return (*Config)(c)
 }
 
-// Path returns value of "path" config parameter.
+// Path returns the value of "path" config parameter.
 //
-// Panics if value is not a non-empty string.
+// Panics if the value is not a non-empty string.
 func (x *Config) Path() string {
 	p := config.String(
 		(*config.Config)(x),
@@ -37,9 +37,9 @@ func (x *Config) Path() string {
 	return p
 }
 
-// Perm returns value of "perm" config parameter as a fs.FileMode.
+// Perm returns the value of "perm" config parameter as a fs.FileMode.
 //
-// Returns PermDefault if value is not a positive number.
+// Returns PermDefault if the value is not a positive number.
 func (x *Config) Perm() fs.FileMode {
 	p := config.UintSafe(
 		(*config.Config)(x),

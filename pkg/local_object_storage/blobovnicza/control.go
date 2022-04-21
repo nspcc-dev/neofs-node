@@ -9,9 +9,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// Open opens an internal database at configured path with configured permissions.
+// Open opens an internal database at the configured path with the configured permissions.
 //
-// If the database file does not exist then it will be created automatically.
+// If the database file does not exist, it will be created automatically.
 func (b *Blobovnicza) Open() error {
 	b.log.Debug("creating directory for BoltDB",
 		zap.String("path", b.path),
@@ -39,7 +39,7 @@ func (b *Blobovnicza) Open() error {
 
 // Init initializes internal database structure.
 //
-// If Blobovnicza is already initialized, then no action is taken.
+// If Blobovnicza is already initialized, no action is taken.
 //
 // Should not be called in read-only configuration.
 func (b *Blobovnicza) Init() error {

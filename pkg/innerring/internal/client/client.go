@@ -24,12 +24,12 @@ type Client struct {
 	c clientcore.Client
 }
 
-// WrapBasicClient wraps client.Client instance to use it for NeoFS API RPC.
+// WrapBasicClient wraps a client.Client instance to use it for NeoFS API RPC.
 func (x *Client) WrapBasicClient(c clientcore.Client) {
 	x.c = c
 }
 
-// SetPrivateKey sets private key to sign RPC requests.
+// SetPrivateKey sets a private key to sign RPC requests.
 func (x *Client) SetPrivateKey(key *ecdsa.PrivateKey) {
 	x.key = key
 }
@@ -41,17 +41,17 @@ type SearchSGPrm struct {
 	cnrID *cid.ID
 }
 
-// SetContainerID sets ID of the container to search for storage groups.
+// SetContainerID sets the ID of the container to search for storage groups.
 func (x *SearchSGPrm) SetContainerID(id *cid.ID) {
 	x.cnrID = id
 }
 
-// SearchSGRes groups resulting values of SearchSG operation.
+// SearchSGRes groups the resulting values of SearchSG operation.
 type SearchSGRes struct {
 	cliRes []oid.ID
 }
 
-// IDList returns list of IDs of storage groups in container.
+// IDList returns a list of IDs of storage groups in the container.
 func (x SearchSGRes) IDList() []oid.ID {
 	return x.cliRes
 }
@@ -60,7 +60,7 @@ var sgFilter = storagegroup.SearchQuery()
 
 // SearchSG lists objects of storage group type in the container.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	var cliPrm client.PrmObjectSearch
 
@@ -109,19 +109,19 @@ type GetObjectPrm struct {
 	getObjectPrm
 }
 
-// GetObjectRes groups resulting values of GetObject operation.
+// GetObjectRes groups the resulting values of GetObject operation.
 type GetObjectRes struct {
 	obj *object.Object
 }
 
-// Object returns received object.
+// Object returns the received object.
 func (x GetObjectRes) Object() *object.Object {
 	return x.obj
 }
 
 // GetObject reads the object by address.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
 
@@ -185,20 +185,20 @@ func (x *HeadObjectPrm) SetTTL(ttl uint32) {
 	x.local = ttl < 2
 }
 
-// HeadObjectRes groups resulting values of HeadObject operation.
+// HeadObjectRes groups the resulting values of HeadObject operation.
 type HeadObjectRes struct {
 	hdr *object.Object
 }
 
-// Header returns received object header.
+// Header returns the received object header.
 func (x HeadObjectRes) Header() *object.Object {
 	return x.hdr
 }
 
 // HeadObject reads short object header by address.
 //
-// Returns any error prevented the operation from completing correctly in error return.
-// For raw requests, returns *object.SplitInfoError error if requested object is virtual.
+// Returns any error which prevented the operation from completing correctly in error return.
+// For raw requests, returns *object.SplitInfoError error if the requested object is virtual.
 func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	var cliPrm client.PrmObjectHead
 
@@ -239,9 +239,9 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	}, nil
 }
 
-// GetObjectPayload reads object by address from NeoFS via Client and returns its payload.
+// GetObjectPayload reads an object by address from NeoFS via Client and returns its payload.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func GetObjectPayload(ctx context.Context, c Client, addr *addressSDK.Address) ([]byte, error) {
 	var prm GetObjectPrm
 
@@ -275,12 +275,12 @@ func headObject(ctx context.Context, c Client, addr *addressSDK.Address, raw boo
 	return obj.Header(), nil
 }
 
-// GetRawObjectHeaderLocally reads raw short object header from server's local storage by address via Client.
+// GetRawObjectHeaderLocally reads the raw short object header from the server's local storage by address via Client.
 func GetRawObjectHeaderLocally(ctx context.Context, c Client, addr *addressSDK.Address) (*object.Object, error) {
 	return headObject(ctx, c, addr, true, 1)
 }
 
-// GetObjectHeaderFromContainer reads short object header by address via Client with TTL = 10
+// GetObjectHeaderFromContainer reads the short object header by address via Client with TTL = 10
 // for deep traversal of the container.
 func GetObjectHeaderFromContainer(ctx context.Context, c Client, addr *addressSDK.Address) (*object.Object, error) {
 	return headObject(ctx, c, addr, false, 10)
@@ -298,12 +298,12 @@ func (x *HashPayloadRangePrm) SetRange(rng *object.Range) {
 	x.rng = rng
 }
 
-// HashPayloadRangeRes groups resulting values of HashPayloadRange operation.
+// HashPayloadRangeRes groups the resulting values of HashPayloadRange operation.
 type HashPayloadRangeRes struct {
 	h []byte
 }
 
-// Hash returns hash of the object payload range.
+// Hash returns the hash of the object payload range.
 func (x HashPayloadRangeRes) Hash() []byte {
 	return x.h
 }
@@ -311,7 +311,7 @@ func (x HashPayloadRangeRes) Hash() []byte {
 // HashPayloadRange requests to calculate Tillich-Zemor hash of the payload range of the object
 // from the remote server's local storage.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeRes, err error) {
 	var cliPrm client.PrmObjectHash
 
@@ -348,7 +348,7 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 // HashObjectRange reads Tillich-Zemor hash of the object payload range by address
 // from the remote server's local storage via Client.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func HashObjectRange(ctx context.Context, c Client, addr *addressSDK.Address, rng *object.Range) ([]byte, error) {
 	var prm HashPayloadRangePrm
 

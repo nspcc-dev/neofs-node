@@ -398,7 +398,7 @@ func (c *Client) TxHeight(h util.Uint256) (res uint32, err error) {
 }
 
 // NeoFSAlphabetList returns keys that stored in NeoFS Alphabet role. Main chain
-// stores alphabet node keys of inner ring there, however side chain stores both
+// stores alphabet node keys of inner ring there, however the sidechain stores both
 // alphabet and non alphabet node keys of inner ring.
 func (c *Client) NeoFSAlphabetList() (res keys.PublicKeys, err error) {
 	c.switchLock.RLock()

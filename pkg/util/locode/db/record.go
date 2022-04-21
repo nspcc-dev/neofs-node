@@ -33,12 +33,12 @@ func NewKey(lc locode.LOCODE) (*Key, error) {
 	}, nil
 }
 
-// CountryCode returns location's country code.
+// CountryCode returns the location's country code.
 func (k *Key) CountryCode() *CountryCode {
 	return k.cc
 }
 
-// LocationCode returns location code.
+// LocationCode returns the location code.
 func (k *Key) LocationCode() *LocationCode {
 	return k.lc
 }
@@ -60,7 +60,7 @@ type Record struct {
 
 var errParseCoordinates = errors.New("invalid coordinates")
 
-// NewRecord calculates Record from UN/LOCODE table record.
+// NewRecord calculates the Record from the UN/LOCODE table record.
 func NewRecord(r locode.Record) (*Record, error) {
 	crd, err := locodecolumn.CoordinatesFromString(r.Coordinates)
 	if err != nil {
@@ -79,42 +79,42 @@ func NewRecord(r locode.Record) (*Record, error) {
 	}, nil
 }
 
-// CountryName returns country name.
+// CountryName returns the country name.
 func (r *Record) CountryName() string {
 	return r.countryName
 }
 
-// SetCountryName sets country name.
+// SetCountryName sets the country name.
 func (r *Record) SetCountryName(name string) {
 	r.countryName = name
 }
 
-// LocationName returns location name.
+// LocationName returns the location name.
 func (r *Record) LocationName() string {
 	return r.locationName
 }
 
-// SetLocationName sets location name.
+// SetLocationName sets the location name.
 func (r *Record) SetLocationName(name string) {
 	r.locationName = name
 }
 
-// SubDivCode returns subdivision code.
+// SubDivCode returns the subdivision code.
 func (r *Record) SubDivCode() string {
 	return r.subDivCode
 }
 
-// SetSubDivCode sets subdivision code.
+// SetSubDivCode sets the subdivision code.
 func (r *Record) SetSubDivCode(name string) {
 	r.subDivCode = name
 }
 
-// SubDivName returns subdivision name.
+// SubDivName returns the subdivision name.
 func (r *Record) SubDivName() string {
 	return r.subDivName
 }
 
-// SetSubDivName sets subdivision name.
+// SetSubDivName sets the subdivision name.
 func (r *Record) SetSubDivName(name string) {
 	r.subDivName = name
 }
@@ -129,12 +129,12 @@ func (r *Record) SetGeoPoint(p *Point) {
 	r.p = p
 }
 
-// Continent returns location continent.
+// Continent returns the location continent.
 func (r *Record) Continent() *Continent {
 	return r.cont
 }
 
-// SetContinent sets location continent.
+// SetContinent sets the location continent.
 func (r *Record) SetContinent(c *Continent) {
 	r.cont = c
 }

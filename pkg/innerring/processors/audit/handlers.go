@@ -12,7 +12,7 @@ func (ap *Processor) handleNewAuditRound(ev event.Event) {
 
 	ap.log.Info("new round of audit", zap.Uint64("epoch", epoch))
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := ap.pool.Submit(func() { ap.processStartAudit(epoch) })
 	if err != nil {

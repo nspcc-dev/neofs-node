@@ -78,7 +78,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		}
 	}
 
-	// statement below is a little hack, but if we write token from event to container,
+	// statement below is a little hack, but if we write a token from an event to the container,
 	// checkKeyOwnership method will work just as it should:
 	//  * tok == nil => we will check if key is a container owner's key
 	//  * tok != nil => we will check if token was signed correctly (context is checked at the statement above)

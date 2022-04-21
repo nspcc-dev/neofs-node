@@ -11,7 +11,7 @@ import (
 	eigentrustctrl "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/controller"
 )
 
-// InitialTrustSource is implementation of the
+// InitialTrustSource is an implementation of the
 // reputation/eigentrust/calculator's InitialTrustSource interface.
 type InitialTrustSource struct {
 	NetMap netmap.Source
@@ -19,7 +19,7 @@ type InitialTrustSource struct {
 
 var ErrEmptyNetMap = errors.New("empty NepMap")
 
-// InitialTrust returns `initialTrust` as initial trust value.
+// InitialTrust returns `initialTrust` as an initial trust value.
 func (i InitialTrustSource) InitialTrust(reputation.PeerID) (reputation.TrustValue, error) {
 	nm, err := i.NetMap.GetNetMap(1)
 	if err != nil {
@@ -34,13 +34,13 @@ func (i InitialTrustSource) InitialTrust(reputation.PeerID) (reputation.TrustVal
 	return reputation.TrustOne.Div(nodeCount), nil
 }
 
-// DaughtersTrustCalculator wraps EigenTrust calculator and implements
+// DaughtersTrustCalculator wraps EigenTrust calculator and implements the
 // eigentrust/calculator's DaughtersTrustCalculator interface.
 type DaughtersTrustCalculator struct {
 	Calculator *eigencalc.Calculator
 }
 
-// Calculate converts and passes values to wrapped calculator.
+// Calculate converts and passes values to the wrapped calculator.
 func (c *DaughtersTrustCalculator) Calculate(ctx eigentrustctrl.IterationContext) {
 	calcPrm := eigencalc.CalculatePrm{}
 	epochIteration := eigentrust.EpochIteration{}

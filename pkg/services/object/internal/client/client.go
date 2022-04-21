@@ -132,7 +132,7 @@ func (x *GetObjectPrm) SetAddress(addr *addressSDK.Address) {
 	}
 }
 
-// GetObjectRes groups resulting values of GetObject operation.
+// GetObjectRes groups the resulting values of GetObject operation.
 type GetObjectRes struct {
 	obj *object.Object
 }
@@ -146,10 +146,10 @@ func (x GetObjectRes) Object() *object.Object {
 //
 // Client, context and key must be set.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
 //  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//  error of type *apistatus.ObjectAlreadyRemoved if requested object is marked to be removed.
+//  error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if prm.tokenSession != nil {
 		prm.cliPrm.WithinSession(*prm.tokenSession)
@@ -227,7 +227,7 @@ func (x *HeadObjectPrm) SetAddress(addr *addressSDK.Address) {
 	}
 }
 
-// HeadObjectRes groups resulting values of GetObject operation.
+// HeadObjectRes groups the resulting values of GetObject operation.
 type HeadObjectRes struct {
 	hdr *object.Object
 }
@@ -241,10 +241,10 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 // Client, context and key must be set.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
 //  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//  error of type *apistatus.ObjectAlreadyRemoved if requested object is marked to be removed.
+//  error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
@@ -318,7 +318,7 @@ func (x *PayloadRangePrm) SetRange(rng *object.Range) {
 	x.ln = rng.GetLength()
 }
 
-// PayloadRangeRes groups resulting values of GetObject operation.
+// PayloadRangeRes groups the resulting values of GetObject operation.
 type PayloadRangeRes struct {
 	data []byte
 }
@@ -332,10 +332,10 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 //
 // Client, context and key must be set.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
 //  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//  error of type *apistatus.ObjectAlreadyRemoved if requested object is marked to be removed.
+//  error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
@@ -383,7 +383,7 @@ func (x *PutObjectPrm) SetObject(obj *object.Object) {
 	x.obj = obj
 }
 
-// PutObjectRes groups resulting values of PutObject operation.
+// PutObjectRes groups the resulting values of PutObject operation.
 type PutObjectRes struct {
 	id *oidSDK.ID
 }
@@ -397,7 +397,7 @@ func (x PutObjectRes) ID() *oidSDK.ID {
 //
 // Client, context and key must be set.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	var prmCli client.PrmObjectPutInit
 
@@ -466,7 +466,7 @@ func (x *SearchObjectsPrm) SetFilters(fs object.SearchFilters) {
 	x.cliPrm.SetFilters(fs)
 }
 
-// SearchObjectsRes groups resulting values of SearchObjects operation.
+// SearchObjectsRes groups the resulting values of SearchObjects operation.
 type SearchObjectsRes struct {
 	ids []oidSDK.ID
 }
@@ -478,7 +478,7 @@ func (x SearchObjectsRes) IDList() []oidSDK.ID {
 
 // SearchObjects selects objects from container which match the filters.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()

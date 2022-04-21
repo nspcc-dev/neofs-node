@@ -6,12 +6,12 @@ import (
 	locodecolumn "github.com/nspcc-dev/neofs-node/pkg/util/locode/column"
 )
 
-// CountryCode represents country code for
-// storage in the NeoFS location database.
+// CountryCode represents a country code for
+// the storage in the NeoFS location database.
 type CountryCode locodecolumn.CountryCode
 
-// CountryCodeFromString parses string UN/LOCODE country code
-// and returns CountryCode.
+// CountryCodeFromString parses a string UN/LOCODE country code
+// and returns a CountryCode.
 func CountryCodeFromString(s string) (*CountryCode, error) {
 	cc, err := locodecolumn.CountryCodeFromString(s)
 	if err != nil {
@@ -21,7 +21,7 @@ func CountryCodeFromString(s string) (*CountryCode, error) {
 	return CountryFromColumn(cc)
 }
 
-// CountryFromColumn converts UN/LOCODE country code to CountryCode.
+// CountryFromColumn converts a UN/LOCODE country code to a CountryCode.
 func CountryFromColumn(cc *locodecolumn.CountryCode) (*CountryCode, error) {
 	return (*CountryCode)(cc), nil
 }

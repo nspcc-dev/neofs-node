@@ -1,24 +1,24 @@
 # Managing Subnetworks
 
 This is a short guide on how to manage NeoFS subnetworks. This guide
-considers that side chain and inner ring (alphabet nodes) have already
-been deployed and side chain contains deployed `subnet` contract.
+considers that the sidechain and the inner ring (alphabet nodes) have already been
+deployed, and the sidechain contains a deployed `subnet` contract.
 
 ## Prerequisites
 
-- neo-go side chain RPC endpoint;
+- neo-go sidechain RPC endpoint;
 - latest released version of [neofs-adm](https://github.com/nspcc-dev/neofs-node/releases);
 - [created](subnetwork-creation.md) subnetwork;
-- wallet with account that owns the subnetwork;
+- wallet with the account that owns the subnetwork;
 - public key of the Storage Node;
 - public keys of the node and client administrators;
 - owner IDs of the NeoFS users.
 
 ## Add node administrator
 
-Node administrators are the accounts that can manage (add and delete nodes)
-whitelist of the nodes that could be included to the subnetwork. Only subnet
-owner is allowed to add and remove node administrators from subnetwork.
+Node administrators are accounts that can manage (add and delete nodes)
+the whitelist of the nodes which can be included to a subnetwork. Only the subnet
+owner is allowed to add and remove node administrators from the subnetwork.
 
 ```shell
 $ neofs-adm morph subnet admin add \
@@ -33,7 +33,7 @@ Add admin request sent successfully.
 
 Adding a node to a subnetwork means that the node becomes able to service
 containers that have been created in that subnetwork. Addition only changes
-list of the allowed nodes. Node is not required to be bootstrapped at the
+the list of the allowed nodes. Node is not required to be bootstrapped at the
 moment of its inclusion.
 
 ```shell
@@ -45,14 +45,14 @@ $ neofs-adm morph subnet node add \
 Add node request sent successfully.
 ```
 
-**NOTE:** owner of the subnetwork is also allowed to add nodes.
+**NOTE:** the owner of the subnetwork is also allowed to add nodes.
 
 ## Add client administrator
 
-Client administrators are the accounts that can manage (add and delete
-nodes) whitelist of the clients that can creates containers in the
-subnetwork. Only subnet owner is allowed to add and remove client
-administrators from subnetwork.
+Client administrators are accounts that can manage (add and delete
+nodes) the whitelist of the clients that can create containers in the
+subnetwork. Only the subnet owner is allowed to add and remove client
+administrators from the subnetwork.
 
 ```shell
 $ neofs-adm morph subnet admin add \
@@ -65,8 +65,8 @@ $ neofs-adm morph subnet admin add \
 Add admin request sent successfully.
 ```
 
-**NOTE:** you do not need to create group explicitly, it would be created
-right after the first client admin has been added. Group ID is 4-byte
+**NOTE:** you do not need to create a group explicitly, it will be created
+right after the first client admin is added. Group ID is a 4-byte
 positive integer number.
 
 ## Add client
@@ -81,17 +81,17 @@ $ neofs-adm morph subnet client add \
 Add client request sent successfully.
 ```
 
-**NOTE:** owner of the subnetwork is also allowed to add clients. This is
+**NOTE:** the owner of the subnetwork is also allowed to add clients. This is
 the only one command that accepts `ownerID`, not the public key.
-Administrator can manage only his group (a group where that administrator
-has been added by subnet owner).
+Administrator can manage only their group (a group where that administrator
+has been added by the subnet owner).
 
 # Bootstrapping Storage Node
 
-After subnetwork [creation](subnetwork-creation.md) and inclusion node to it, the 
+After a subnetwork [is created](subnetwork-creation.md) and a node is included into it, the 
 node could be bootstrapped and service subnetwork containers.
 
-For bootstrapping you need to specify ID of the subnetwork in the node's 
+For bootstrapping, you need to specify the ID of the subnetwork in the node's 
 configuration: 
 
 ```yaml
@@ -108,7 +108,7 @@ node:
 **NOTE:** specifying subnetwork that is denied for the node is not an error:
 that configuration value would be ignored. You do not need to specify zero 
 (with 0 ID) subnetwork: its inclusion is implicit. On the contrary, to exclude
-node from the default zero subnetwork you need to specify it explicitly:
+a node from the default zero subnetwork, you need to specify it explicitly:
 
 ```yaml
 ...
@@ -122,11 +122,11 @@ node:
 
 # Creating container in non-zero subnetwork
 
-Creating containers without using `--subnet` flag is equivalent to the 
+Creating containers without using `--subnet` flag is equivalent to 
 creating container in the zero subnetwork.
 
-To create container in a private network your wallet must have been added to
-the client whitelist by client admins or subnet owners:
+To create a container in a private network, your wallet must be added to
+the client whitelist by the client admins or the subnet owners:
 
 ```shell
 $ neofs-cli container create \

@@ -6,17 +6,17 @@ import "github.com/nspcc-dev/neo-go/pkg/util"
 type netmapCleanupTick struct {
 	epoch uint64
 
-	// txHash is used in notary environmental
+	// txHash is used in notary environment
 	// for calculating unique but same for
 	// all notification receivers values.
 	txHash util.Uint256
 }
 
-// TxHash returns hash of the TX that triggers
+// TxHash returns the hash of the TX that triggers
 // synchronization process.
 func (s netmapCleanupTick) TxHash() util.Uint256 {
 	return s.txHash
 }
 
-// MorphEvent implements Event interface.
+// MorphEvent implements the Event interface.
 func (netmapCleanupTick) MorphEvent() {}

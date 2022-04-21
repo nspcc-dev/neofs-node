@@ -16,7 +16,7 @@ type HeadPrm struct {
 	raw  bool
 }
 
-// HeadRes groups resulting values of Head operation.
+// HeadRes groups the resulting values of Head operation.
 type HeadRes struct {
 	head *objectSDK.Object
 }
@@ -33,7 +33,7 @@ func (p *HeadPrm) WithAddress(addr *addressSDK.Address) *HeadPrm {
 }
 
 // WithRaw is a Head option to set raw flag value. If flag is unset, then Head
-// returns header of virtual object, otherwise it returns SplitInfo of virtual
+// returns the header of the virtual object, otherwise it returns SplitInfo of the virtual
 // object.
 func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
 	if p != nil {
@@ -55,8 +55,8 @@ func (r *HeadRes) Header() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object header.
 //
-// Returns an error of type apistatus.ObjectNotFound if requested object is missing in local storage.
-// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object was inhumed.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {

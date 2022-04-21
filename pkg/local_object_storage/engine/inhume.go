@@ -20,7 +20,7 @@ type InhumePrm struct {
 // InhumeRes encapsulates results of inhume operation.
 type InhumeRes struct{}
 
-// WithTarget sets list of objects that should be inhumed and tombstone address
+// WithTarget sets a list of objects that should be inhumed and tombstone address
 // as the reason for inhume operation.
 //
 // tombstone should not be nil, addr should not be empty.
@@ -34,7 +34,7 @@ func (p *InhumePrm) WithTarget(tombstone *addressSDK.Address, addrs ...*addressS
 	return p
 }
 
-// MarkAsGarbage marks object to be physically removed from local storage.
+// MarkAsGarbage marks an object to be physically removed from local storage.
 //
 // Should not be called along with WithTarget.
 func (p *InhumePrm) MarkAsGarbage(addrs ...*addressSDK.Address) *InhumePrm {
@@ -48,8 +48,8 @@ func (p *InhumePrm) MarkAsGarbage(addrs ...*addressSDK.Address) *InhumePrm {
 
 var errInhumeFailure = errors.New("inhume operation failed")
 
-// Inhume calls metabase. Inhume method to mark object as removed. It won't be
-// removed physically from shard until `Delete` operation.
+// Inhume calls metabase. Inhume method to mark an object as removed. It won't be
+// removed physically from the shard until `Delete` operation.
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.

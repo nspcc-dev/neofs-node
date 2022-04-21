@@ -110,7 +110,7 @@ func (t *Task) ContainerNodes() netmap.ContainerNodes {
 	return t.cnrNodes
 }
 
-// WithStorageGroupList sets list of storage groups from container under audit.
+// WithStorageGroupList sets a list of storage groups from container under audit.
 func (t *Task) WithStorageGroupList(sgList []oidSDK.ID) *Task {
 	if t != nil {
 		t.sgList = sgList

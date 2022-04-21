@@ -13,18 +13,18 @@ const (
 	DialTimeoutDefault = 5 * time.Second
 )
 
-// RPCEndpoint returns list of values of "rpc_endpoint" config parameter
+// RPCEndpoint returns a list of the values of "rpc_endpoint" config parameter
 // from "mainchain" section.
 //
-// Returns empty list if value is not a non-empty string array.
+// Returns empty list if the value is not a non-empty string array.
 func RPCEndpoint(c *config.Config) []string {
 	return config.StringSliceSafe(c.Sub(subsection), "rpc_endpoint")
 }
 
-// DialTimeout returns value of "dial_timeout" config parameter
+// DialTimeout returns the value of "dial_timeout" config parameter
 // from "mainchain" section.
 //
-// Returns DialTimeoutDefault if value is not positive duration.
+// Returns DialTimeoutDefault if the value is not positive duration.
 func DialTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "dial_timeout")
 	if v > 0 {

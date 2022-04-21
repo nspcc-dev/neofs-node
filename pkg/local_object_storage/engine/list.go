@@ -7,8 +7,8 @@ import (
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 )
 
-// ErrEndOfListing is returned from object listing with cursor
-// when storage can't return any more objects after provided
+// ErrEndOfListing is returned from an object listing with cursor
+// when the storage can't return any more objects after the provided
 // cursor. Use nil cursor object to start listing again.
 var ErrEndOfListing = shard.ErrEndOfListing
 
@@ -24,14 +24,14 @@ type ListWithCursorPrm struct {
 	cursor *Cursor
 }
 
-// WithCount sets maximum amount of addresses that ListWithCursor should return.
+// WithCount sets the maximum amount of addresses that ListWithCursor should return.
 func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
 	p.count = count
 	return p
 }
 
-// WithCursor sets cursor for ListWithCursor operation. For initial request
-// ignore this param or use nil value. For consecutive requests, use  value
+// WithCursor sets a cursor for ListWithCursor operation. For initial request
+// ignore this param or use nil value. For consecutive requests, use value
 // from ListWithCursorRes.
 func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 	p.cursor = cursor
@@ -54,9 +54,9 @@ func (l ListWithCursorRes) Cursor() *Cursor {
 	return l.cursor
 }
 
-// ListWithCursor lists physical objects available in engine starting
-// from cursor. Includes regular,tombstone and storage group objects.
-// Does not include inhumed objects. Use cursor value from response
+// ListWithCursor lists physical objects available in the engine starting
+// from the cursor. It includes regular, tombstone and storage group objects.
+// Does not include inhumed objects. Use cursor value from the response
 // for consecutive requests.
 //
 // Returns ErrEndOfListing if there are no more objects to return or count

@@ -15,10 +15,10 @@ func panicOnErr(err error) {
 	}
 }
 
-// StringSlice reads configuration value
-// from c by name and casts it to []string.
+// StringSlice reads a configuration value
+// from c by name and casts it to a []string.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func StringSlice(c *Config, name string) []string {
 	x, err := cast.ToStringSliceE(c.Value(name))
 	panicOnErr(err)
@@ -26,18 +26,18 @@ func StringSlice(c *Config, name string) []string {
 	return x
 }
 
-// StringSliceSafe reads configuration value
-// from c by name and casts it to []string.
+// StringSliceSafe reads a configuration value
+// from c by name and casts it to a []string.
 //
-// Returns nil if value can not be casted.
+// Returns nil if the value can not be casted.
 func StringSliceSafe(c *Config, name string) []string {
 	return cast.ToStringSlice(c.Value(name))
 }
 
-// String reads configuration value
-// from c by name and casts it to string.
+// String reads a configuration value
+// from c by name and casts it to a string.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func String(c *Config, name string) string {
 	x, err := cast.ToStringE(c.Value(name))
 	panicOnErr(err)
@@ -45,18 +45,18 @@ func String(c *Config, name string) string {
 	return x
 }
 
-// StringSafe reads configuration value
-// from c by name and casts it to string.
+// StringSafe reads a configuration value
+// from c by name and casts it to a string.
 //
-// Returns "" if value can not be casted.
+// Returns "" if the value can not be casted.
 func StringSafe(c *Config, name string) string {
 	return cast.ToString(c.Value(name))
 }
 
-// Duration reads configuration value
+// Duration reads a configuration value
 // from c by name and casts it to time.Duration.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func Duration(c *Config, name string) time.Duration {
 	x, err := cast.ToDurationE(c.Value(name))
 	panicOnErr(err)
@@ -64,18 +64,18 @@ func Duration(c *Config, name string) time.Duration {
 	return x
 }
 
-// DurationSafe reads configuration value
+// DurationSafe reads a configuration value
 // from c by name and casts it to time.Duration.
 //
-// Returns 0 if value can not be casted.
+// Returns 0 if the value can not be casted.
 func DurationSafe(c *Config, name string) time.Duration {
 	return cast.ToDuration(c.Value(name))
 }
 
-// Bool reads configuration value
+// Bool reads a configuration value
 // from c by name and casts it to bool.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func Bool(c *Config, name string) bool {
 	x, err := cast.ToBoolE(c.Value(name))
 	panicOnErr(err)
@@ -83,18 +83,18 @@ func Bool(c *Config, name string) bool {
 	return x
 }
 
-// BoolSafe reads configuration value
+// BoolSafe reads a configuration value
 // from c by name and casts it to bool.
 //
-// Returns false if value can not be casted.
+// Returns false if the value can not be casted.
 func BoolSafe(c *Config, name string) bool {
 	return cast.ToBool(c.Value(name))
 }
 
-// Uint32 reads configuration value
+// Uint32 reads a configuration value
 // from c by name and casts it to uint32.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func Uint32(c *Config, name string) uint32 {
 	x, err := cast.ToUint32E(c.Value(name))
 	panicOnErr(err)
@@ -102,18 +102,18 @@ func Uint32(c *Config, name string) uint32 {
 	return x
 }
 
-// Uint32Safe reads configuration value
+// Uint32Safe reads a configuration value
 // from c by name and casts it to uint32.
 //
-// Returns 0 if value can not be casted.
+// Returns 0 if the value can not be casted.
 func Uint32Safe(c *Config, name string) uint32 {
 	return cast.ToUint32(c.Value(name))
 }
 
-// Uint reads configuration value
+// Uint reads a configuration value
 // from c by name and casts it to uint64.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func Uint(c *Config, name string) uint64 {
 	x, err := cast.ToUint64E(c.Value(name))
 	panicOnErr(err)
@@ -121,18 +121,18 @@ func Uint(c *Config, name string) uint64 {
 	return x
 }
 
-// UintSafe reads configuration value
+// UintSafe reads a configuration value
 // from c by name and casts it to uint64.
 //
-// Returns 0 if value can not be casted.
+// Returns 0 if the value can not be casted.
 func UintSafe(c *Config, name string) uint64 {
 	return cast.ToUint64(c.Value(name))
 }
 
-// Int reads configuration value
+// Int reads a configuration value
 // from c by name and casts it to int64.
 //
-// Panics if value can not be casted.
+// Panics if the value can not be casted.
 func Int(c *Config, name string) int64 {
 	x, err := cast.ToInt64E(c.Value(name))
 	panicOnErr(err)
@@ -140,15 +140,15 @@ func Int(c *Config, name string) int64 {
 	return x
 }
 
-// IntSafe reads configuration value
+// IntSafe reads a configuration value
 // from c by name and casts it to int64.
 //
-// Returns 0 if value can not be casted.
+// Returns 0 if the value can not be casted.
 func IntSafe(c *Config, name string) int64 {
 	return cast.ToInt64(c.Value(name))
 }
 
-// SizeInBytesSafe reads configuration value
+// SizeInBytesSafe reads a configuration value
 // from c by name and casts it to size in bytes (uint64).
 //
 // The suffix can be single-letter (b, k, m, g, t) or with

@@ -10,16 +10,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// DaughterStorageWriterProvider is implementation of reputation.WriterProvider
+// DaughterStorageWriterProvider is an implementation of the reputation.WriterProvider
 // interface that provides DaughterTrustWriter writer.
 type DaughterStorageWriterProvider struct {
 	Log     *logger.Logger
 	Storage *daughters.Storage
 }
 
-// DaughterTrustWriter is implementation of reputation.Writer interface
+// DaughterTrustWriter is an implementation of the reputation.Writer interface
 // that writes passed daughter's Trust values to Daughter storage. After writing
-// that values can be used in eigenTrust algorithm's iterations.
+// that, values can be used in eigenTrust algorithm's iterations.
 type DaughterTrustWriter struct {
 	log     *logger.Logger
 	storage *daughters.Storage

@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	// lockAccountLifeTime defines amount of epochs when lock account is valid.
+	// lockAccountLifeTime defines the amount of epochs when lock account is valid.
 	lockAccountLifetime uint64 = 20
 )
 
-// Process deposit event by invoking balance contract and sending native
-// gas in morph chain.
+// Process deposit event by invoking a balance contract and sending native
+// gas in the sidechain.
 func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore deposit")
@@ -26,7 +26,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	prm.SetAmount(np.converter.ToBalancePrecision(deposit.Amount()))
 	prm.SetID(deposit.ID())
 
-	// send transferX to balance contract
+	// send transferX to a balance contract
 	err := np.balanceClient.Mint(prm)
 	if err != nil {
 		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
@@ -35,7 +35,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	curEpoch := np.epochState.EpochCounter()
 	receiver := deposit.To()
 
-	// check if receiver already received some mint GAS emissions
+	// check if the receiver has already received some mint GAS emissions
 	// we should lock there even though LRU cache is already thread save
 	// we lock there because GAS transfer AND cache update must be atomic
 	np.mintEmitLock.Lock()
@@ -52,7 +52,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	}
 
 	// get gas balance of the node
-	// before gas transfer check if the balance is greater than threshold
+	// before gas transfer check if the balance is greater than the threshold
 	balance, err := np.morphClient.GasBalance()
 	if err != nil {
 		np.log.Error("can't get gas balance of the node", zap.Error(err))
@@ -78,7 +78,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	np.mintEmitCache.Add(receiver.String(), curEpoch)
 }
 
-// Process withdraw event by locking assets in balance account.
+// Process withdraw event by locking assets in the balance account.
 func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore withdraw")
@@ -108,8 +108,8 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 	}
 }
 
-// Process cheque event by transferring assets from lock account back to
-// reserve account.
+// Process cheque event by transferring assets from the lock account back to
+// the reserve account.
 func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore cheque")

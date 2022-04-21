@@ -21,10 +21,10 @@ const (
 	GRPCEndpointDefault = ""
 )
 
-// AuthorizedKeys parses and returns array of "authorized_keys" config
+// AuthorizedKeys parses and returns an array of "authorized_keys" config
 // parameter from "control" section.
 //
-// Returns empty list if not set.
+// Returns an empty list if not set.
 func AuthorizedKeys(c *config.Config) keys.PublicKeys {
 	strKeys := config.StringSliceSafe(c.Sub(subsection), "authorized_keys")
 	pubs := make(keys.PublicKeys, 0, len(strKeys))
@@ -41,7 +41,7 @@ func AuthorizedKeys(c *config.Config) keys.PublicKeys {
 	return pubs
 }
 
-// GRPC returns structure that provides access to "grpc" subsection of
+// GRPC returns a structure that provides access to "grpc" subsection of
 // "control" section.
 func GRPC(c *config.Config) GRPCConfig {
 	return GRPCConfig{
@@ -49,9 +49,9 @@ func GRPC(c *config.Config) GRPCConfig {
 	}
 }
 
-// Endpoint returns value of "endpoint" config parameter.
+// Endpoint returns the value of "endpoint" config parameter.
 //
-// Returns GRPCEndpointDefault if value is not a non-empty string.
+// Returns GRPCEndpointDefault if the value is not a non-empty string.
 func (g GRPCConfig) Endpoint() string {
 	v := config.String(g.cfg, "endpoint")
 	if v != "" {

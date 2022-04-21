@@ -7,7 +7,7 @@ type GetRangeSmallPrm struct {
 	rwBlobovniczaID
 }
 
-// GetRangeSmallRes groups resulting values of GetRangeSmall operation.
+// GetRangeSmallRes groups the resulting values of GetRangeSmall operation.
 type GetRangeSmallRes struct {
 	rangeData
 }
@@ -20,8 +20,8 @@ type GetRangeSmallRes struct {
 // Returns any error encountered that
 // did not allow to completely read the object payload range.
 //
-// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
-// Returns an error of type apistatus.ObjectNotFound if requested object is missing in blobovnicza(s).
+// Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in blobovnicza(s).
 func (b *BlobStor) GetRangeSmall(prm *GetRangeSmallPrm) (*GetRangeSmallRes, error) {
 	return b.blobovniczas.getRange(prm)
 }

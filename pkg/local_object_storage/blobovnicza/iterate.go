@@ -106,7 +106,7 @@ func (x *IteratePrm) IgnoreErrors() {
 	x.ignoreErrors = true
 }
 
-// IterateRes groups resulting values of Iterate operation.
+// IterateRes groups the resulting values of Iterate operation.
 type IterateRes struct {
 }
 

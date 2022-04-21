@@ -18,7 +18,7 @@ type DeletePrm struct {
 	addrs []*addressSDK.Address
 }
 
-// DeleteRes groups resulting values of Delete operation.
+// DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct{}
 
 // WithAddresses is a Delete option to set the addresses of the objects to delete.

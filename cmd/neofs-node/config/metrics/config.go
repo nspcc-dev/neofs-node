@@ -16,10 +16,10 @@ const (
 	AddressDefault = ""
 )
 
-// ShutdownTimeout returns value of "shutdown_timeout" config parameter
+// ShutdownTimeout returns the  value of "shutdown_timeout" config parameter
 // from "metrics" section.
 //
-// Returns ShutdownTimeoutDefault if value is not positive duration.
+// Returns ShutdownTimeoutDefault if the  value is not positive duration.
 func ShutdownTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "shutdown_timeout")
 	if v > 0 {
@@ -29,10 +29,10 @@ func ShutdownTimeout(c *config.Config) time.Duration {
 	return ShutdownTimeoutDefault
 }
 
-// Address returns value of "address" config parameter
+// Address returns the  value of "address" config parameter
 // from "metrics" section.
 //
-// Returns AddressDefault if value is not set.
+// Returns AddressDefault if the  value is not set.
 func Address(c *config.Config) string {
 	v := config.StringSafe(c.Sub(subsection), "address")
 	if v != "" {

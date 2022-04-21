@@ -32,7 +32,7 @@ type shardWrapper struct {
 	*shard.Shard
 }
 
-// reportShardError checks that amount of errors doesn't exceed configured threshold.
+// reportShardError checks that the amount of errors doesn't exceed the configured threshold.
 // If it does, shard is set to read-only mode.
 func (e *StorageEngine) reportShardError(
 	sh hashedShard,

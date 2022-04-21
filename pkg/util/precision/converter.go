@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	// Converter is cached wrapper on `convert` function. It caches base and
+	// Converter is a cached wrapper on `convert` function. It caches base and
 	// target precisions and factor.
 	converter struct {
 		base   uint32 // base precision

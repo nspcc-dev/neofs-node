@@ -16,7 +16,7 @@ type GetPrm struct {
 	addr *addressSDK.Address
 }
 
-// GetRes groups resulting values of Get operation.
+// GetRes groups the resulting values of Get operation.
 type GetRes struct {
 	obj *objectSDK.Object
 }
@@ -42,8 +42,8 @@ func (r *GetRes) Object() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns an error of type apistatus.ObjectNotFound if requested object is missing in local storage.
-// Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Get(prm *GetPrm) (res *GetRes, err error) {

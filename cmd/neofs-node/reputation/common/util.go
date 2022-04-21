@@ -27,7 +27,7 @@ func (NopReputationWriter) Close() error {
 	return nil
 }
 
-// OnlyKeyRemoteServerInfo if implementation of reputation.ServerInfo
+// OnlyKeyRemoteServerInfo is an implementation of reputation.ServerInfo
 // interface but with only public key data.
 type OnlyKeyRemoteServerInfo struct {
 	Key []byte

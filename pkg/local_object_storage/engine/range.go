@@ -19,7 +19,7 @@ type RngPrm struct {
 	addr *addressSDK.Address
 }
 
-// RngRes groups resulting values of GetRange operation.
+// RngRes groups the resulting values of GetRange operation.
 type RngRes struct {
 	obj *objectSDK.Object
 }
@@ -59,9 +59,9 @@ func (r *RngRes) Object() *objectSDK.Object {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns an error of type apistatus.ObjectNotFound if requested object is missing in local storage.
-// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object is inhumed.
-// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in local storage.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object is inhumed.
+// Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) GetRange(prm *RngPrm) (res *RngRes, err error) {

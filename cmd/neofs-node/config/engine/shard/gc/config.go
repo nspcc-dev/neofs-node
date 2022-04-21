@@ -24,10 +24,10 @@ func From(c *config.Config) *Config {
 	return (*Config)(c)
 }
 
-// RemoverBatchSize returns value of "remover_batch_size"
+// RemoverBatchSize returns the value of "remover_batch_size"
 // config parameter.
 //
-// Returns RemoverBatchSizeDefault if value is not a positive number.
+// Returns RemoverBatchSizeDefault if the value is not a positive number.
 func (x *Config) RemoverBatchSize() int {
 	s := config.IntSafe(
 		(*config.Config)(x),
@@ -41,10 +41,10 @@ func (x *Config) RemoverBatchSize() int {
 	return RemoverBatchSizeDefault
 }
 
-// RemoverSleepInterval returns value of "remover_sleep_interval"
+// RemoverSleepInterval returns the value of "remover_sleep_interval"
 // config parameter.
 //
-// Returns RemoverSleepIntervalDefault if value is not a positive number.
+// Returns RemoverSleepIntervalDefault if the value is not a positive number.
 func (x *Config) RemoverSleepInterval() time.Duration {
 	s := config.DurationSafe(
 		(*config.Config)(x),

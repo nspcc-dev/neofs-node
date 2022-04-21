@@ -43,7 +43,7 @@ func NewFinalWriterProvider(prm FinalWriterProviderPrm, opts ...FinalWriterOptio
 	}
 }
 
-// FinalWriterProvider is implementation of reputation.eigentrust.calculator
+// FinalWriterProvider is an implementation of the reputation.eigentrust.calculator
 // IntermediateWriterProvider interface. It inits FinalWriter.
 type FinalWriterProvider struct {
 	prm  FinalWriterProviderPrm
@@ -60,7 +60,7 @@ func (fwp FinalWriterProvider) InitIntermediateWriter(
 	}, nil
 }
 
-// FinalWriter is implementation of reputation.eigentrust.calculator IntermediateWriter
+// FinalWriter is an implementation of the reputation.eigentrust.calculator IntermediateWriter
 // interface that writes GlobalTrust to contract directly.
 type FinalWriter struct {
 	privatKey *ecdsa.PrivateKey

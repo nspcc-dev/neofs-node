@@ -15,7 +15,7 @@ type HeadPrm struct {
 	raw  bool
 }
 
-// HeadRes groups resulting values of Head operation.
+// HeadRes groups the resulting values of Head operation.
 type HeadRes struct {
 	obj *objectSDK.Object
 }
@@ -52,7 +52,7 @@ func (r *HeadRes) Object() *objectSDK.Object {
 // Returns any error encountered.
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in Shard.
-// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
 	// object can be saved in write-cache (if enabled) or in metabase
 

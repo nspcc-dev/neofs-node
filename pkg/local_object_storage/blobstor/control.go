@@ -9,7 +9,7 @@ func (b *BlobStor) Open() error {
 
 // Init initializes internal data structures and system resources.
 //
-// If BlobStor is already initialized, then no action is taken.
+// If BlobStor is already initialized, no action is taken.
 func (b *BlobStor) Init() error {
 	b.log.Debug("initializing...")
 

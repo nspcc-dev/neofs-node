@@ -18,7 +18,7 @@ type RngPrm struct {
 	skipMeta bool
 }
 
-// RngRes groups resulting values of GetRange operation.
+// RngRes groups the resulting values of GetRange operation.
 type RngRes struct {
 	obj     *object.Object
 	hasMeta bool
@@ -68,9 +68,9 @@ func (r *RngRes) HasMeta() bool {
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
-// Returns ErrRangeOutOfBounds if requested object range is out of bounds.
-// Returns an error of type apistatus.ObjectNotFound if requested object is missing.
-// Returns an error of type apistatus.ObjectAlreadyRemoved if requested object has been marked as removed in shard.
+// Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing.
+// Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
 	var big, small storFetcher
 

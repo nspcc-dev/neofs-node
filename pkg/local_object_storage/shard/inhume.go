@@ -17,7 +17,7 @@ type InhumePrm struct {
 // InhumeRes encapsulates results of inhume operation.
 type InhumeRes struct{}
 
-// WithTarget sets list of objects that should be inhumed and tombstone address
+// WithTarget sets a list of objects that should be inhumed and tombstone address
 // as the reason for inhume operation.
 //
 // tombstone should not be nil, addr should not be empty.

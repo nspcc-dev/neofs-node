@@ -45,12 +45,12 @@ const (
 	NotificationTimeoutDefault = 5 * time.Second
 )
 
-// Key returns value of "key" config parameter
+// Key returns the  value of "key" config parameter
 // from "node" section.
 //
-// If value is not set, fallbacks to Wallet section.
+// If the  value is not set, fallbacks to Wallet section.
 //
-// Panics if value is incorrect filename of binary encoded private key.
+// Panics if the  value is incorrect filename of binary encoded private key.
 func Key(c *config.Config) *keys.PrivateKey {
 	v := config.StringSafe(c.Sub(subsection), "key")
 	if v == "" {
@@ -73,7 +73,7 @@ func Key(c *config.Config) *keys.PrivateKey {
 	return key
 }
 
-// Wallet returns value of node private key from "node" section.
+// Wallet returns the value of a node private key from "node" section.
 //
 // Panics if section contains invalid values.
 func Wallet(c *config.Config) *keys.PrivateKey {
@@ -103,10 +103,10 @@ func (x stringAddressGroup) NumberOfAddresses() int {
 	return len(x)
 }
 
-// BootstrapAddresses returns value of "addresses" config parameter
+// BootstrapAddresses returns the value of "addresses" config parameter
 // from "node" section as network.AddressGroup.
 //
-// Panics if value is not a string list of valid NeoFS network addresses.
+// Panics if the value is not a string list of valid NeoFS network addresses.
 func BootstrapAddresses(c *config.Config) (addr network.AddressGroup) {
 	v := config.StringSlice(c.Sub(subsection), "addresses")
 
@@ -136,10 +136,10 @@ func Attributes(c *config.Config) (attrs []string) {
 	return
 }
 
-// Relay returns value of "relay" config parameter
+// Relay returns the value of "relay" config parameter
 // from "node" section.
 //
-// Returns false if value is not set.
+// Returns false if the value is not set.
 func Relay(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "relay")
 }
@@ -152,9 +152,9 @@ func PersistentSessions(c *config.Config) PersistentSessionsConfig {
 	}
 }
 
-// Path returns value of "path" config parameter.
+// Path returns the value of "path" config parameter.
 //
-// Returns PersistentStatePathDefault if value is not a non-empty string.
+// Returns PersistentStatePathDefault if the value is not a non-empty string.
 func (p PersistentSessionsConfig) Path() string {
 	return config.String(p.cfg, "path")
 }
@@ -167,9 +167,9 @@ func PersistentState(c *config.Config) PersistentStateConfig {
 	}
 }
 
-// Path returns value of "path" config parameter.
+// Path returns the value of "path" config parameter.
 //
-// Returns PersistentStatePathDefault if value is not a non-empty string.
+// Returns PersistentStatePathDefault if the value is not a non-empty string.
 func (p PersistentStateConfig) Path() string {
 	v := config.String(p.cfg, "path")
 	if v != "" {
@@ -188,16 +188,16 @@ func (x *SubnetConfig) Init(root config.Config) {
 	*x = SubnetConfig(*root.Sub(subsection).Sub("subnet"))
 }
 
-// ExitZero returns value of "exit_zero" config parameter as bool.
-// Returns false if value can not be cast.
+// ExitZero returns the value of "exit_zero" config parameter as bool.
+// Returns false if the value can not be cast.
 func (x SubnetConfig) ExitZero() bool {
 	return config.BoolSafe((*config.Config)(&x), "exit_zero")
 }
 
-// IterateSubnets casts value of "entries" config parameter to string slice,
+// IterateSubnets casts the value of "entries" config parameter to string slice,
 // iterates over all of its elements and passes them to f.
 //
-// Does nothing if value can not be cast to string slice.
+// Does nothing if the value can not be cast to string slice.
 func (x SubnetConfig) IterateSubnets(f func(string)) {
 	ids := config.StringSliceSafe((*config.Config)(&x), "entries")
 
@@ -214,34 +214,34 @@ func Notification(c *config.Config) NotificationConfig {
 	}
 }
 
-// Enabled returns value of "enabled" config parameter from "notification"
+// Enabled returns the value of "enabled" config parameter from "notification"
 // subsection of "node" section.
 //
-// Returns false if value is not presented.
+// Returns false if the value is not presented.
 func (n NotificationConfig) Enabled() bool {
 	return config.BoolSafe(n.cfg, "enabled")
 }
 
-// DefaultTopic returns value of "default_topic" config parameter from
+// DefaultTopic returns the value of "default_topic" config parameter from
 // "notification" subsection of "node" section.
 //
-// Returns empty string if value is not presented.
+// Returns empty string if the value is not presented.
 func (n NotificationConfig) DefaultTopic() string {
 	return config.StringSafe(n.cfg, "default_topic")
 }
 
-// Endpoint returns value of "endpoint" config parameter from "notification"
+// Endpoint returns the value of "endpoint" config parameter from "notification"
 // subsection of "node" section.
 //
-// Returns empty string if value is not presented.
+// Returns empty string if the value is not presented.
 func (n NotificationConfig) Endpoint() string {
 	return config.StringSafe(n.cfg, "endpoint")
 }
 
-// Timeout returns value of "timeout" config parameter from "notification"
+// Timeout returns the value of "timeout" config parameter from "notification"
 // subsection of "node" section.
 //
-// Returns NotificationTimeoutDefault if value is not positive.
+// Returns NotificationTimeoutDefault if the value is not positive.
 func (n NotificationConfig) Timeout() time.Duration {
 	v := config.DurationSafe(n.cfg, "timeout")
 	if v > 0 {
@@ -251,26 +251,26 @@ func (n NotificationConfig) Timeout() time.Duration {
 	return NotificationTimeoutDefault
 }
 
-// CertPath returns value of "certificate_path" config parameter from "notification"
+// CertPath returns the value of "certificate_path" config parameter from "notification"
 // subsection of "node" section.
 //
-// Returns empty string if value is not presented.
+// Returns empty string if the value is not presented.
 func (n NotificationConfig) CertPath() string {
 	return config.StringSafe(n.cfg, "certificate")
 }
 
-// KeyPath returns value of "key_path" config parameter from
+// KeyPath returns the value of "key_path" config parameter from
 // "notification" subsection of "node" section.
 //
-// Returns empty string if value is not presented.
+// Returns empty string if the value is not presented.
 func (n NotificationConfig) KeyPath() string {
 	return config.StringSafe(n.cfg, "key")
 }
 
-// CAPath returns value of "ca_path" config parameter from
+// CAPath returns the value of "ca_path" config parameter from
 // "notification" subsection of "node" section.
 //
-// Returns empty string if value is not presented.
+// Returns empty string if the value is not presented.
 func (n NotificationConfig) CAPath() string {
 	return config.StringSafe(n.cfg, "ca")
 }

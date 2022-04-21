@@ -16,7 +16,7 @@ type GetPrm struct {
 	raw  bool
 }
 
-// GetRes groups resulting values of Get operation.
+// GetRes groups the resulting values of Get operation.
 type GetRes struct {
 	hdr *objectSDK.Object
 }

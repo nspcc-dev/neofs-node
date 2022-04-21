@@ -14,7 +14,7 @@ func (lc *LocationCode) Symbols() [locationCodeLen]uint8 {
 	return *lc
 }
 
-// LocationCodeFromString parses string and returns location code.
+// LocationCodeFromString parses a string and returns the location code.
 func LocationCodeFromString(s string) (*LocationCode, error) {
 	if len(s) != locationCodeLen {
 		return nil, locode.ErrInvalidString

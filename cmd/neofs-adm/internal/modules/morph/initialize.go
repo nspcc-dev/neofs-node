@@ -31,12 +31,12 @@ type cache struct {
 type initializeContext struct {
 	clientContext
 	cache
-	// CommitteeAcc is used for retrieving committee address and verification script.
+	// CommitteeAcc is used for retrieving the committee address and the verification script.
 	CommitteeAcc *wallet.Account
-	// ConsensusAcc is used for retrieving committee address and verification script.
+	// ConsensusAcc is used for retrieving the committee address and the verification script.
 	ConsensusAcc *wallet.Account
 	Wallets      []*wallet.Wallet
-	// ContractWallet is a wallet for providing contract group signature.
+	// ContractWallet is a wallet for providing the contract group signature.
 	ContractWallet *wallet.Wallet
 	// Accounts contains simple signature accounts in the same order as in Wallets.
 	Accounts     []*wallet.Account

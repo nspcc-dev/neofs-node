@@ -12,16 +12,16 @@ type DeletePrm struct {
 	addr *addressSDK.Address
 }
 
-// DeleteRes groups resulting values of Delete operation.
+// DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct {
 }
 
-// SetAddress sets address of the requested object.
+// SetAddress sets the address of the requested object.
 func (p *DeletePrm) SetAddress(addr *addressSDK.Address) {
 	p.addr = addr
 }
 
-// Delete removes object from Blobovnicza by address.
+// Delete removes an object from Blobovnicza by address.
 //
 // Returns any error encountered that
 // did not allow to completely delete the object.

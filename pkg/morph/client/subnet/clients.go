@@ -21,7 +21,7 @@ func (x *UserAllowedPrm) SetClient(id []byte) {
 	x.args[1] = id
 }
 
-// UserAllowedRes groups resulting values of UserAllowed method of Subnet contract.
+// UserAllowedRes groups the resulting values of UserAllowed method of Subnet contract.
 type UserAllowedRes struct {
 	result bool
 }
@@ -87,7 +87,7 @@ func (x *ManageClientsPrm) SetClient(id []byte) {
 	x.args[2] = id
 }
 
-// ManageClientsRes groups resulting values of client management methods of Subnet contract.
+// ManageClientsRes groups the resulting values of client management methods of Subnet contract.
 type ManageClientsRes struct{}
 
 // ManageClients manages client list of the NeoFS subnet through Subnet contract calls.

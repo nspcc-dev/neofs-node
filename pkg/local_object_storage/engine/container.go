@@ -19,12 +19,12 @@ type ContainerSizeRes struct {
 // ListContainersPrm groups parameters of ListContainers operation.
 type ListContainersPrm struct{}
 
-// ListContainersRes groups resulting values of ListContainers operation.
+// ListContainersRes groups the resulting values of ListContainers operation.
 type ListContainersRes struct {
 	containers []*cid.ID
 }
 
-// SetContainerID sets identifier of the container to estimate the size.
+// SetContainerID sets the identifier of the container to estimate the size.
 func (p *ContainerSizePrm) SetContainerID(cid *cid.ID) {
 	p.cid = cid
 }
@@ -34,12 +34,12 @@ func (r ContainerSizeRes) Size() uint64 {
 	return r.size
 }
 
-// Containers returns list of identifiers of the containers in which local objects are stored.
+// Containers returns a list of identifiers of the containers in which local objects are stored.
 func (r ListContainersRes) Containers() []*cid.ID {
 	return r.containers
 }
 
-// ContainerSize returns sum of estimation container sizes among all shards.
+// ContainerSize returns the sum of estimation container sizes among all shards.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) ContainerSize(prm ContainerSizePrm) (res *ContainerSizeRes, err error) {
@@ -88,7 +88,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 	return &res, nil
 }
 
-// ListContainers returns unique container IDs presented in the engine objects.
+// ListContainers returns a unique container IDs presented in the engine objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res *ListContainersRes, err error) {
@@ -100,7 +100,7 @@ func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res *ListContainers
 	return
 }
 
-// ListContainers calls ListContainers method on engine to get unique container IDs presented in the engine objects.
+// ListContainers calls ListContainers method on engine to get a unique container IDs presented in the engine objects.
 func ListContainers(e *StorageEngine) ([]*cid.ID, error) {
 	var prm ListContainersPrm
 

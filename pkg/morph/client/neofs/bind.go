@@ -24,7 +24,7 @@ func (x *commonBindArgs) SetScriptHash(v []byte) {
 	x.scriptHash = v
 }
 
-// SetKeys sets list of public keys in a binary format.
+// SetKeys sets a list of public keys in a binary format.
 func (x *commonBindArgs) SetKeys(v [][]byte) {
 	x.keys = v
 }

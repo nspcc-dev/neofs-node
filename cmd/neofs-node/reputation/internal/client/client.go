@@ -15,7 +15,7 @@ type commonPrm struct {
 	ctx context.Context
 }
 
-// SetClient sets base client for NeoFS API communication.
+// SetClient sets the base client for NeoFS API communication.
 //
 // Required parameter.
 func (x *commonPrm) SetClient(cli coreclient.Client) {
@@ -36,24 +36,24 @@ type AnnounceLocalPrm struct {
 	cliPrm client.PrmAnnounceLocalTrust
 }
 
-// SetEpoch sets epoch in which the trust was assessed.
+// SetEpoch sets the epoch in which the trust was assessed.
 func (x *AnnounceLocalPrm) SetEpoch(epoch uint64) {
 	x.cliPrm.SetEpoch(epoch)
 }
 
-// SetTrusts sets list of local trust values.
+// SetTrusts sets a list of local trust values.
 func (x *AnnounceLocalPrm) SetTrusts(ts []reputation.Trust) {
 	x.cliPrm.SetValues(ts)
 }
 
-// AnnounceLocalRes groups resulting values of AnnounceLocal operation.
+// AnnounceLocalRes groups the resulting values of AnnounceLocal operation.
 type AnnounceLocalRes struct{}
 
 // AnnounceLocal sends estimations of local trust to the remote node.
 //
 // Client, context and key must be set.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func AnnounceLocal(prm AnnounceLocalPrm) (res AnnounceLocalRes, err error) {
 	var cliRes *client.ResAnnounceLocalTrust
 
@@ -73,30 +73,30 @@ type AnnounceIntermediatePrm struct {
 	cliPrm client.PrmAnnounceIntermediateTrust
 }
 
-// SetEpoch sets number of the epoch when the trust calculation's iteration was executed.
+// SetEpoch sets the number of the epoch when the trust calculation's iteration was executed.
 func (x *AnnounceIntermediatePrm) SetEpoch(epoch uint64) {
 	x.cliPrm.SetEpoch(epoch)
 }
 
-// SetIteration sets number of the iteration of the trust calculation algorithm.
+// SetIteration sets the number of the iteration of the trust calculation algorithm.
 func (x *AnnounceIntermediatePrm) SetIteration(iter uint32) {
 	x.cliPrm.SetIteration(iter)
 }
 
-// SetTrust sets current global trust value computed at the iteration.
+// SetTrust sets the current global trust value computed at the iteration.
 func (x *AnnounceIntermediatePrm) SetTrust(t reputation.PeerToPeerTrust) {
 	x.cliPrm.SetCurrentValue(t)
 }
 
-// AnnounceIntermediateRes groups resulting values of AnnounceIntermediate operation.
+// AnnounceIntermediateRes groups the resulting values of AnnounceIntermediate operation.
 type AnnounceIntermediateRes struct{}
 
-// AnnounceIntermediate sends global trust value calculated at the specified iteration
+// AnnounceIntermediate sends the global trust value calculated at the specified iteration
 // and epoch to to the remote node.
 //
 // Client, context and key must be set.
 //
-// Returns any error prevented the operation from completing correctly in error return.
+// Returns any error which prevented the operation from completing correctly in error return.
 func AnnounceIntermediate(prm AnnounceIntermediatePrm) (res AnnounceIntermediateRes, err error) {
 	var cliRes *client.ResAnnounceIntermediateTrust
 

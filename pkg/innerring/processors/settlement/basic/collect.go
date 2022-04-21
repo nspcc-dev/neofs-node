@@ -73,9 +73,9 @@ func (inc *IncomeSettlementContext) Collect() {
 	common.TransferAssets(inc.exchange, txTable, common.BasicIncomeCollectionDetails(inc.epoch))
 }
 
-// avgEstimation returns estimation value for single container. Right now it
-// simply calculates average of all announcements, however it can be smarter and
-// base result on reputation of announcers and clever math.
+// avgEstimation returns estimation value for a single container. Right now it
+// simply calculates an average of all announcements, however it can be smarter and
+// base the result on reputation of the announcers and clever math.
 func (inc *IncomeSettlementContext) avgEstimation(e *cntClient.Estimations) (avg uint64) {
 	if len(e.Values) == 0 {
 		return 0

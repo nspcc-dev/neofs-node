@@ -16,7 +16,7 @@ type SelectPrm struct {
 	filters object.SearchFilters
 }
 
-// SelectRes groups resulting values of Select operation.
+// SelectRes groups the resulting values of Select operation.
 type SelectRes struct {
 	addrList []*addressSDK.Address
 }

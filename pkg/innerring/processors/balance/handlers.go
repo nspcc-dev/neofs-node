@@ -14,7 +14,7 @@ func (bp *Processor) handleLock(ev event.Event) {
 		zap.String("type", "lock"),
 		zap.String("value", hex.EncodeToString(lock.ID())))
 
-	// send event to the worker pool
+	// send an event to the worker pool
 
 	err := bp.pool.Submit(func() { bp.processLock(&lock) })
 	if err != nil {

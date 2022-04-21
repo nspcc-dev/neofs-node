@@ -23,7 +23,7 @@ func (x *DeletePrm) SetID(id []byte) {
 	x.args[0] = id
 }
 
-// DeleteRes groups resulting values of Delete method of Subnet contract.
+// DeleteRes groups the resulting values of Delete method of Subnet contract.
 type DeleteRes struct{}
 
 // Delete removes subnet though the call of the corresponding method of the Subnet contract.

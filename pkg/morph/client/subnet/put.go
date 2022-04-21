@@ -33,7 +33,7 @@ func (x *PutPrm) SetInfo(id []byte) {
 	x.args[2] = id
 }
 
-// PutRes groups resulting values of Put method of Subnet contract.
+// PutRes groups the resulting values of Put method of Subnet contract.
 type PutRes struct{}
 
 // Put creates subnet though the call of the corresponding method of the Subnet contract.

@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// CalculatePrm groups required parameters of
+// CalculatePrm groups the required parameters of
 // Calculator.CalculateForEpoch call.
 type CalculatePrm struct {
 	// Number of epoch to perform the calculation.

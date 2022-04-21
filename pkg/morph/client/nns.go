@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	nnsContractID = 1 // NNS contract must be deployed first in side chain
+	nnsContractID = 1 // NNS contract must be deployed first in the sidechain
 
 	// NNSAuditContractName is a name of the audit contract in NNS.
 	NNSAuditContractName = "audit.neofs"

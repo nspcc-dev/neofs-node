@@ -14,13 +14,13 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 // and adds a group of related attributes.
 //
 // If n contains at least one of the LOCODE-derived attributes,
-// an error returns.
+// an error is returned.
 //
 // If n contains UN-LOCODE attribute and its value does not
-// match the UN/LOCODE format, an error returns.
+// match the UN/LOCODE format, an error is returned.
 //
 // New attributes are formed from the record of DB instance (Prm).
-// If DB entry R was found w/o errors, then new attributes are:
+// If DB entry R was found w/o errors, new attributes are:
 //  * CountryCode: R.CountryCode().String();
 //  * Country: R.CountryName();
 //  * Location: Record.LocationName();
@@ -32,7 +32,7 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	mAttr := uniqueAttributes(n.Attributes())
 
-	// check if derived attributes are presented
+	// check if the derived attributes are presented
 	for attrKey := range v.mAttr {
 		if _, ok := mAttr[attrKey]; ok {
 			return fmt.Errorf("attribute derived from %s is presented: %s",

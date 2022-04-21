@@ -1,7 +1,7 @@
 package netmap
 
-// State groups current system state parameters.
+// State groups the current system state parameters.
 type State interface {
-	// CurrentEpoch returns number of current NeoFS epoch.
+	// CurrentEpoch returns the number of the current NeoFS epoch.
 	CurrentEpoch() uint64
 }
