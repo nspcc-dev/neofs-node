@@ -44,7 +44,7 @@ func NewSource(p TombstoneSourcePrm) Source {
 		panic("Tombstone source: nil object service")
 	}
 
-	return Source{s: p.s}
+	return Source(p)
 }
 
 type headerWriter struct {
