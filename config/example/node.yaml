@@ -67,6 +67,10 @@ control:
   grpc:
     endpoint: 127.0.0.1:8090  # endpoint that is listened by the Control Service
 
+tree:
+  grpc:
+    endpoint: 127.0.0.1:8091  # endpoint that is listened by the Tree Service
+
 contracts:  # side chain NEOFS contract script hashes; optional, override values retrieved from NNS contract
   balance: 5263abba1abedbf79bb57f3e40b50b4425d2d6cd
   container: 5d084790d7aa36cea7b53fe897380dab11d2cd3c
