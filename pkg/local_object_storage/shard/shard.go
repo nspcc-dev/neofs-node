@@ -2,11 +2,13 @@ package shard
 
 import (
 	"context"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -23,6 +25,8 @@ type Shard struct {
 	writeCache writecache.Cache
 
 	blobStor *blobstor.BlobStor
+
+	pilorama pilorama.ForestStorage
 
 	metaBase *meta.DB
 }
@@ -91,6 +95,7 @@ func New(opts ...Option) *Shard {
 		blobStor:   bs,
 		metaBase:   mb,
 		writeCache: writeCache,
+		pilorama:   pilorama.NewBoltForest(filepath.Join(bs.DumpInfo().RootPath, "pilorama.db")),
 	}
 
 	s.fillInfo()
