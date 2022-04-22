@@ -15,7 +15,7 @@ import (
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
 	components := []interface{ Open() error }{
-		s.blobStor, s.metaBase,
+		s.blobStor, s.metaBase, s.pilorama,
 	}
 
 	if s.hasWriteCache() {
@@ -41,7 +41,7 @@ func (s *Shard) Init() error {
 	}
 
 	components := []func() error{
-		s.blobStor.Init, fMetabase,
+		s.blobStor.Init, fMetabase, s.pilorama.Init,
 	}
 
 	if s.hasWriteCache() {
@@ -154,7 +154,7 @@ func (s *Shard) Close() error {
 		components = append(components, s.writeCache)
 	}
 
-	components = append(components, s.blobStor, s.metaBase)
+	components = append(components, s.pilorama, s.blobStor, s.metaBase)
 
 	for _, component := range components {
 		if err := component.Close(); err != nil {
