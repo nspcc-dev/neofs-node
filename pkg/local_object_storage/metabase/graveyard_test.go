@@ -142,6 +142,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 		WithAddresses(object.AddressOf(obj3), object.AddressOf(obj4)).
 		WithGCMark(),
 	)
+	require.NoError(t, err)
 
 	var (
 		counterAll         int
@@ -158,6 +159,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 
 		return nil
 	}))
+	require.NoError(t, err)
 
 	iterGCPRM := new(meta.GarbageIterationPrm)
 
@@ -167,7 +169,6 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 
 		return nil
 	}))
-
 	require.NoError(t, err)
 
 	// objects covered with a tombstone
