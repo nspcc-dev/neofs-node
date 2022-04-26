@@ -53,6 +53,7 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 		opts...)...)
 
 	require.NoError(t, bdb.Open())
+	require.NoError(t, bdb.Init())
 
 	t.Cleanup(func() {
 		bdb.Close()
