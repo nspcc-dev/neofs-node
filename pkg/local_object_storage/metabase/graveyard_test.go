@@ -183,8 +183,8 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	}
 
 	require.Equal(t, len(garbageExpected)+len(graveyardExpected), counterAll)
-	require.True(t, equalAddresses(graveyardExpected, buriedTS))
-	require.True(t, equalAddresses(garbageExpected, buriedGC))
+	require.ElementsMatch(t, graveyardExpected, buriedTS)
+	require.ElementsMatch(t, garbageExpected, buriedGC)
 }
 
 func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
@@ -265,7 +265,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.Equal(t, len(expectedGraveyard), counter)
-	require.True(t, equalAddresses(gotGraveyard, expectedGraveyard))
+	require.ElementsMatch(t, gotGraveyard, expectedGraveyard)
 
 	// last received object (last in db) as offset
 	// should lead to no iteration at all
@@ -353,7 +353,7 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.Equal(t, len(expectedGarbage), counter)
-	require.True(t, equalAddresses(gotGarbage, expectedGarbage))
+	require.ElementsMatch(t, gotGarbage, expectedGarbage)
 
 	// last received object (last in db) as offset
 	// should lead to no iteration at all
@@ -420,27 +420,4 @@ func TestDB_DropGraves(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.Zero(t, counter)
-}
-
-func equalAddresses(aa1 []*addressSDK.Address, aa2 []*addressSDK.Address) bool {
-	if len(aa1) != len(aa2) {
-		return false
-	}
-
-	for _, a1 := range aa1 {
-		found := false
-
-		for _, a2 := range aa2 {
-			if a1.String() == a2.String() {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return false
-		}
-	}
-
-	return true
 }
