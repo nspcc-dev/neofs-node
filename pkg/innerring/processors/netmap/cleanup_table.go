@@ -3,7 +3,6 @@ package netmap
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -47,11 +46,6 @@ func (c *cleanupTable) update(snapshot *netmap.Netmap, now uint64) {
 	newMap := make(map[string]epochStampWithNodeInfo, len(snapshot.Nodes))
 
 	for i := range snapshot.Nodes {
-		binNodeInfo, err := snapshot.Nodes[i].Marshal()
-		if err != nil {
-			panic(fmt.Errorf("could not marshal node info: %w", err)) // seems better than ignore
-		}
-
 		keyString := hex.EncodeToString(snapshot.Nodes[i].PublicKey())
 
 		access, ok := c.lastAccess[keyString]
@@ -61,7 +55,7 @@ func (c *cleanupTable) update(snapshot *netmap.Netmap, now uint64) {
 			access.epoch = now
 		}
 
-		access.binNodeInfo = binNodeInfo
+		access.binNodeInfo = snapshot.Nodes[i].Marshal()
 
 		newMap[keyString] = access
 	}

@@ -211,11 +211,6 @@ var cmdSubnetCreate = &cobra.Command{
 			}
 		}
 
-		binID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet ID: %w", err)
-		}
-
 		// declare creator ID and encode it
 		creator := *owner.NewIDFromPublicKey(&key.PrivateKey.PublicKey)
 
@@ -224,11 +219,6 @@ var cmdSubnetCreate = &cobra.Command{
 
 		info.SetID(id)
 		info.SetOwner(creator)
-
-		binInfo, err := info.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet info: %w", err)
-		}
 
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
@@ -241,9 +231,9 @@ var cmdSubnetCreate = &cobra.Command{
 		// prepare call parameters and create subnet
 		var prm morphsubnet.PutPrm
 
-		prm.SetID(binID)
+		prm.SetID(id.Marshal())
 		prm.SetOwner(key.PublicKey().Bytes())
-		prm.SetInfo(binInfo)
+		prm.SetInfo(info.Marshal())
 
 		_, err = cSubnet.Put(prm)
 		if err != nil {
@@ -297,11 +287,6 @@ var cmdSubnetRemove = &cobra.Command{
 			return errZeroSubnet
 		}
 
-		binID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet ID: %w", err)
-		}
-
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
 
@@ -313,7 +298,7 @@ var cmdSubnetRemove = &cobra.Command{
 		// prepare call parameters and remove subnet
 		var prm morphsubnet.DeletePrm
 
-		prm.SetID(binID)
+		prm.SetID(id.Marshal())
 
 		_, err = cSubnet.Delete(prm)
 		if err != nil {
@@ -354,11 +339,6 @@ var cmdSubnetGet = &cobra.Command{
 			return errZeroSubnet
 		}
 
-		binID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet ID: %w", err)
-		}
-
 		// initialize morph subnet client
 		var cSubnet morphsubnet.Client
 
@@ -378,7 +358,7 @@ var cmdSubnetGet = &cobra.Command{
 		// prepare call parameters and read subnet
 		var prm morphsubnet.GetPrm
 
-		prm.SetID(binID)
+		prm.SetID(id.Marshal())
 
 		res, err := cSubnet.Get(prm)
 		if err != nil {
@@ -455,11 +435,6 @@ func manageSubnetAdmins(cmd *cobra.Command, rm bool) error {
 		return errZeroSubnet
 	}
 
-	binID, err := id.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal subnet ID: %w", err)
-	}
-
 	// read admin key and decode it
 	binAdminKey, err := hex.DecodeString(viper.GetString(flagSubnetAdminID))
 	if err != nil {
@@ -492,7 +467,7 @@ func manageSubnetAdmins(cmd *cobra.Command, rm bool) error {
 		prm.SetGroup(binGroupID)
 	}
 
-	prm.SetSubnet(binID)
+	prm.SetSubnet(id.Marshal())
 	prm.SetAdmin(binAdminKey)
 
 	if rm {
@@ -601,22 +576,12 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 		return errZeroSubnet
 	}
 
-	binID, err := id.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal subnet ID: %w", err)
-	}
-
 	// read client ID and encode it
 	var clientID owner.ID
 
 	err = clientID.Parse(viper.GetString(flagSubnetClientID))
 	if err != nil {
 		return fmt.Errorf("decode client ID text: %w", err)
-	}
-
-	binClientID, err := clientID.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal client ID: %w", err)
 	}
 
 	// read group ID and encode it
@@ -635,8 +600,8 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 	var prm morphsubnet.ManageClientsPrm
 
 	prm.SetGroup(binGroupID)
-	prm.SetSubnet(binID)
-	prm.SetClient(binClientID)
+	prm.SetSubnet(id.Marshal())
+	prm.SetClient(clientID.Marshal())
 
 	if rm {
 		prm.SetRemove()
@@ -716,11 +681,6 @@ func manageSubnetNodes(cmd *cobra.Command, rm bool) error {
 		return errZeroSubnet
 	}
 
-	binID, err := id.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal subnet ID: %w", err)
-	}
-
 	// read node  ID and encode it
 	binNodeID, err := hex.DecodeString(viper.GetString(flagSubnetNode))
 	if err != nil {
@@ -734,7 +694,7 @@ func manageSubnetNodes(cmd *cobra.Command, rm bool) error {
 
 	var prm morphsubnet.ManageNodesPrm
 
-	prm.SetSubnet(binID)
+	prm.SetSubnet(id.Marshal())
 	prm.SetNode(binNodeID)
 
 	if rm {

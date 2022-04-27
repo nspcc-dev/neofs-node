@@ -36,6 +36,11 @@ require (
 	google.golang.org/protobuf v1.27.1
 )
 
+replace (
+	github.com/nspcc-dev/neofs-api-go/v2 => ../neofs-api-go
+	github.com/nspcc-dev/neofs-sdk-go => ../neofs-sdk-go
+)
+
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521073959-f0d4d129b7f1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

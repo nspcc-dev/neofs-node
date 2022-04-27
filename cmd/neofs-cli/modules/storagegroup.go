@@ -197,16 +197,13 @@ func putSG(cmd *cobra.Command, _ []string) {
 	}, cid, members)
 	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
 
-	sgContent, err := sg.Marshal()
-	exitOnErr(cmd, errf("could not marshal storage group: %w", err))
-
 	obj := object.New()
 	obj.SetContainerID(cid)
 	obj.SetOwnerID(ownerID)
 	obj.SetType(object.TypeStorageGroup)
 
 	putPrm.SetHeader(obj)
-	putPrm.SetPayloadReader(bytes.NewReader(sgContent))
+	putPrm.SetPayloadReader(bytes.NewReader(sg.Marshal()))
 
 	res, err := internalclient.PutObject(putPrm)
 	exitOnErr(cmd, errf("rpc error: %w", err))

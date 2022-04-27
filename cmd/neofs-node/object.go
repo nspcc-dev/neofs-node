@@ -404,7 +404,7 @@ type morphEACLFetcher struct {
 type signedEACLTable eaclSDK.Table
 
 func (s *signedEACLTable) ReadSignedData(_ []byte) ([]byte, error) {
-	return (*eaclSDK.Table)(s).Marshal()
+	return (*eaclSDK.Table)(s).Marshal(), nil
 }
 
 func (s *signedEACLTable) SignedDataSize() int {

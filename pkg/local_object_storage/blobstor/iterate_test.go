@@ -122,10 +122,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 		obj.SetID(addrs[i].ObjectID())
 		obj.SetPayload(make([]byte, smallSize<<(i%2)))
 
-		objData, err := obj.Marshal()
-		require.NoError(t, err)
-
-		_, err = bs.PutRaw(addrs[i], objData, true)
+		_, err := bs.PutRaw(addrs[i], obj.Marshal(), true)
 		require.NoError(t, err)
 	}
 

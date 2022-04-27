@@ -120,19 +120,13 @@ func TestFormatValidator_Validate(t *testing.T) {
 		content := object.NewTombstone()
 		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
 
-		data, err := content.Marshal()
-		require.NoError(t, err)
-
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		require.Error(t, v.ValidateContent(obj)) // no members in tombstone
 
 		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
 
-		data, err = content.Marshal()
-		require.NoError(t, err)
-
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		require.Error(t, v.ValidateContent(obj)) // no expiration epoch in tombstone
 
@@ -145,10 +139,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj)) // different expiration values
 
 		content.SetExpirationEpoch(10)
-		data, err = content.Marshal()
-		require.NoError(t, err)
 
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		require.NoError(t, v.ValidateContent(obj)) // all good
 	})
@@ -162,19 +154,13 @@ func TestFormatValidator_Validate(t *testing.T) {
 		content := storagegroup.New()
 		content.SetMembers([]oidSDK.ID{})
 
-		data, err := content.Marshal()
-		require.NoError(t, err)
-
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		require.Error(t, v.ValidateContent(obj))
 
 		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
 
-		data, err = content.Marshal()
-		require.NoError(t, err)
-
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		require.NoError(t, v.ValidateContent(obj))
 	})

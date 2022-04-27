@@ -43,8 +43,7 @@ func testObject(sz uint64) *objectSDK.Object {
 	raw.SetPayload(make([]byte, sz))
 
 	// fit the binary size to the required
-	data, _ := raw.Marshal()
-	if ln := uint64(len(data)); ln > sz {
+	if ln := uint64(len(raw.Marshal())); ln > sz {
 		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
 	}
 
@@ -91,11 +90,8 @@ func TestBlobovniczas(t *testing.T) {
 
 		addrList = append(addrList, addr)
 
-		d, err := obj.Marshal()
-		require.NoError(t, err)
-
 		// save object in blobovnicza
-		id, err := b.put(addr, d)
+		id, err := b.put(addr, obj.Marshal())
 		require.NoError(t, err)
 
 		// get w/ blobovnicza ID

@@ -81,11 +81,5 @@ func TestParseTable(t *testing.T) {
 }
 
 func equalRecords(t *testing.T, r1, r2 *eacl.Record) {
-	d1, err := r1.Marshal()
-	require.NoError(t, err)
-
-	d2, err := r2.Marshal()
-	require.NoError(t, err)
-
-	require.Equal(t, d1, d2)
+	require.Equal(t, r1.Marshal(), r2.Marshal())
 }

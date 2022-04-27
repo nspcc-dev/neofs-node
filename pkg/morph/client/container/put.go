@@ -18,25 +18,16 @@ func Put(c *Client, cnr *container.Container) (*cid.ID, error) {
 		return nil, errNilArgument
 	}
 
-	data, err := cnr.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("can't marshal container: %w", err)
-	}
-
-	binToken, err := cnr.SessionToken().Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal session token: %w", err)
-	}
-
+	data := cnr.Marshal()
 	sig := cnr.Signature()
 
 	name, zone := container.GetNativeNameWithZone(cnr)
 
-	err = c.Put(PutPrm{
+	err := c.Put(PutPrm{
 		cnr:   data,
 		key:   sig.Key(),
 		sig:   sig.Sign(),
-		token: binToken,
+		token: cnr.SessionToken().Marshal(),
 		name:  name,
 		zone:  zone,
 	})
