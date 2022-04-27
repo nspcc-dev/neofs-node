@@ -20,12 +20,7 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 			return nil
 		}
 
-		rawSubnetID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("could not marshal subnetwork ID: %w", err)
-		}
-
-		prm.SetID(rawSubnetID)
+		prm.SetID(id.Marshal())
 		prm.SetNode(n.PublicKey())
 
 		res, err := v.subnetClient.NodeAllowed(prm)

@@ -12,11 +12,6 @@ import (
 )
 
 func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
-	ownerBytes, err := owner.NewIDFromV2(body.GetOwnerID()).Marshal()
-	if err != nil {
-		panic(err)
-	}
-
 	uidBytes, err := storage.NewTokenID()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate token ID: %w", err)
@@ -30,7 +25,7 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 	s.mtx.Lock()
 	s.tokens[key{
 		tokenID: base58.Encode(uidBytes),
-		ownerID: base58.Encode(ownerBytes),
+		ownerID: base58.Encode(owner.NewIDFromV2(body.GetOwnerID()).Marshal()),
 	}] = storage.NewPrivateToken(&sk.PrivateKey, body.GetExpiration())
 	s.mtx.Unlock()
 

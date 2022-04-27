@@ -1,7 +1,6 @@
 package blobstor
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -31,13 +30,7 @@ type PutRes struct {
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
-	// marshal object
-	data, err := prm.obj.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal the object: %w", err)
-	}
-
-	return b.PutRaw(object.AddressOf(prm.obj), data, b.NeedsCompression(prm.obj))
+	return b.PutRaw(object.AddressOf(prm.obj), prm.obj.Marshal(), b.NeedsCompression(prm.obj))
 }
 
 // NeedsCompression returns true if object should be compressed.

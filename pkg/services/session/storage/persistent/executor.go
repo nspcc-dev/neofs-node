@@ -18,10 +18,7 @@ import (
 // Returns response that is filled with just created token's
 // ID and public key for it.
 func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
-	ownerBytes, err := owner.NewIDFromV2(body.GetOwnerID()).Marshal()
-	if err != nil {
-		panic(err)
-	}
+	ownerBytes := owner.NewIDFromV2(body.GetOwnerID()).Marshal()
 
 	uidBytes, err := storage.NewTokenID()
 	if err != nil {

@@ -65,10 +65,7 @@ func TestRefillMetabase(t *testing.T) {
 
 	tombstone := objecttest.Tombstone()
 
-	tombData, err := tombstone.Marshal()
-	require.NoError(t, err)
-
-	tombObj.SetPayload(tombData)
+	tombObj.SetPayload(tombstone.Marshal())
 
 	tombMembers := make([]*addressSDK.Address, 0, len(tombstone.Members()))
 
@@ -88,7 +85,7 @@ func TestRefillMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err = sh.Put(putPrm.WithObject(tombObj))
+	_, err := sh.Put(putPrm.WithObject(tombObj))
 	require.NoError(t, err)
 
 	_, err = sh.Inhume(new(InhumePrm).WithTarget(object.AddressOf(tombObj), tombMembers...))

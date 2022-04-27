@@ -79,7 +79,7 @@ func createSession(cmd *cobra.Command, _ []string) error {
 	if toJSON, _ := cmd.Flags().GetBool(jsonFlag); toJSON {
 		data, err = tok.MarshalJSON()
 	} else {
-		data, err = tok.Marshal()
+		data = tok.Marshal()
 	}
 	if err != nil {
 		return fmt.Errorf("can't marshal token: %w", err)

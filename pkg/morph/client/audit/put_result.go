@@ -30,17 +30,12 @@ func (p *PutPrm) SetResult(result *auditAPI.Result) {
 //
 // Returns encountered error that caused the saving to interrupt.
 func (c *Client) PutAuditResult(p PutPrm) error {
-	rawResult, err := p.result.Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal audit result: %w", err)
-	}
-
 	prm := client.InvokePrm{}
 	prm.SetMethod(putResultMethod)
-	prm.SetArgs(rawResult)
+	prm.SetArgs(p.result.Marshal())
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
-	err = c.client.Invoke(prm)
+	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", putResultMethod, err)
 	}

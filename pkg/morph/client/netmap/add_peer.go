@@ -26,14 +26,9 @@ func (c *Client) AddPeer(p AddPeerPrm) error {
 		return fmt.Errorf("nil node info (%s)", addPeerMethod)
 	}
 
-	rawNodeInfo, err := p.nodeInfo.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marshal node info (%s): %w", addPeerMethod, err)
-	}
-
 	prm := client.InvokePrm{}
 	prm.SetMethod(addPeerMethod)
-	prm.SetArgs(rawNodeInfo)
+	prm.SetArgs(p.nodeInfo.Marshal())
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {

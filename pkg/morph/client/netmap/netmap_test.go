@@ -28,9 +28,6 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 
 	items := make([]stackitem.Item, 4)
 	for i := range items {
-		data, err := expected[i].Marshal()
-		require.NoError(t, err)
-
 		state := int64(expected[i].State())
 		if state != 0 { // In contract online=1, offline=2, in API it is the other way.
 			state = 3 - state
@@ -38,7 +35,7 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 
 		items[i] = stackitem.NewStruct([]stackitem.Item{
 			stackitem.NewStruct([]stackitem.Item{
-				stackitem.NewByteArray(data),
+				stackitem.NewByteArray(expected[i].Marshal()),
 			}),
 			stackitem.NewBigInteger(big.NewInt(state)),
 		})

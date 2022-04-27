@@ -32,9 +32,6 @@ func TestParsePut(t *testing.T) {
 
 	value.SetTrust(&trust)
 
-	rawValue, err := value.Marshal()
-	require.NoError(t, err)
-
 	t.Run("wrong number of parameters", func(t *testing.T) {
 		prms := []stackitem.Item{
 			stackitem.NewMap(),
@@ -76,7 +73,7 @@ func TestParsePut(t *testing.T) {
 		ev, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epoch)),
 			stackitem.NewByteArray(rawPeerID[:]),
-			stackitem.NewByteArray(rawValue),
+			stackitem.NewByteArray(value.Marshal()),
 		}))
 		require.NoError(t, err)
 

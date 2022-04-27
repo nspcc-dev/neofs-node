@@ -24,15 +24,10 @@ func (c *cache) Put(o *objectSDK.Object) error {
 		return ErrBigObject
 	}
 
-	data, err := o.Marshal()
-	if err != nil {
-		return err
-	}
-
 	oi := objectInfo{
 		addr: object.AddressOf(o).String(),
 		obj:  o,
-		data: data,
+		data: o.Marshal(),
 	}
 
 	c.mtx.Lock()

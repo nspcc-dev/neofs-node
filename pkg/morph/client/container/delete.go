@@ -17,16 +17,11 @@ func Delete(c *Client, witness core.RemovalWitness) error {
 		return errNilArgument
 	}
 
-	binToken, err := witness.SessionToken().Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal session token: %w", err)
-	}
-
 	return c.Delete(
 		DeletePrm{
 			cid:       id.ToV2().GetValue(),
 			signature: witness.Signature(),
-			token:     binToken,
+			token:     witness.SessionToken().Marshal(),
 		})
 }
 

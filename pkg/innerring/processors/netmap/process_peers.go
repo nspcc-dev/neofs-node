@@ -68,14 +68,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	nodeInfo.SetAttributes(a...)
 
 	// marshal updated node info structure
-	nodeInfoBinary, err := nodeInfo.Marshal()
-	if err != nil {
-		np.log.Warn("could not marshal updated network map candidate",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
+	nodeInfoBinary := nodeInfo.Marshal()
 
 	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 

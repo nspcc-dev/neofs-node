@@ -28,10 +28,7 @@ func TestCleanupTable(t *testing.T) {
 	mapInfos := make(map[string][]byte)
 
 	for i := range infos {
-		binNodeInfo, err := infos[i].Marshal()
-		require.NoError(t, err)
-
-		mapInfos[hex.EncodeToString(infos[i].PublicKey())] = binNodeInfo
+		mapInfos[hex.EncodeToString(infos[i].PublicKey())] = infos[i].Marshal()
 	}
 
 	t.Run("update", func(t *testing.T) {

@@ -84,15 +84,12 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 //
 // Returns nil is there is no element in storage.
 func (s *TokenStore) Get(ownerID *ownerSDK.ID, tokenID []byte) (t *storage.PrivateToken) {
-	ownerBytes, err := ownerID.Marshal()
-	if err != nil {
-		panic(err)
-	}
+	var err error
 
 	err = s.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		ownerBucket := rootBucket.Bucket(ownerBytes)
+		ownerBucket := rootBucket.Bucket(ownerID.Marshal())
 		if ownerBucket == nil {
 			return nil
 		}
