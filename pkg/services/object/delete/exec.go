@@ -221,18 +221,6 @@ func (exec *execCtx) addMembers(incoming []oidSDK.ID) {
 }
 
 func (exec *execCtx) initTombstoneObject() bool {
-	payload, err := exec.tombstone.Marshal()
-	if err != nil {
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not marshal tombstone structure",
-			zap.String("error", err.Error()),
-		)
-
-		return false
-	}
-
 	tombOwnerID := exec.commonParameters().SessionToken().OwnerID()
 	if tombOwnerID == nil {
 		// make local node a tombstone object owner
@@ -243,7 +231,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 	exec.tombstoneObj.SetContainerID(exec.containerID())
 	exec.tombstoneObj.SetOwnerID(tombOwnerID)
 	exec.tombstoneObj.SetType(object.TypeTombstone)
-	exec.tombstoneObj.SetPayload(payload)
+	exec.tombstoneObj.SetPayload(exec.tombstone.Marshal())
 
 	var a object.Attribute
 	a.SetKey(objectV2.SysAttributeExpEpoch)

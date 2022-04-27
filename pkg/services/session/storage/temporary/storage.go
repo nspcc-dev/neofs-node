@@ -37,15 +37,10 @@ func NewTokenStore() *TokenStore {
 //
 // Returns nil is there is no element in storage.
 func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *storage.PrivateToken {
-	ownerBytes, err := ownerID.Marshal()
-	if err != nil {
-		panic(err)
-	}
-
 	s.mtx.RLock()
 	t := s.tokens[key{
 		tokenID: base58.Encode(tokenID),
-		ownerID: base58.Encode(ownerBytes),
+		ownerID: base58.Encode(ownerID.Marshal()),
 	}]
 	s.mtx.RUnlock()
 

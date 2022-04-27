@@ -336,8 +336,7 @@ var getContainerInfoCmd = &cobra.Command{
 				data, err = cnr.MarshalJSON()
 				exitOnErr(cmd, errf("can't JSON encode container: %w", err))
 			} else {
-				data, err = cnr.Marshal()
-				exitOnErr(cmd, errf("can't binary encode container: %w", err))
+				data = cnr.Marshal()
 			}
 
 			err = os.WriteFile(containerPathTo, data, 0644)
@@ -382,8 +381,7 @@ var getExtendedACLCmd = &cobra.Command{
 			data, err = eaclTable.MarshalJSON()
 			exitOnErr(cmd, errf("can't encode to JSON: %w", err))
 		} else {
-			data, err = eaclTable.Marshal()
-			exitOnErr(cmd, errf("can't encode to binary: %w", err))
+			data = eaclTable.Marshal()
 		}
 
 		cmd.Println("dumping data to file:", containerPathTo)
@@ -426,8 +424,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
 		if containerAwait {
-			exp, err := eaclTable.Marshal()
-			exitOnErr(cmd, errf("broken EACL table: %w", err))
+			exp := eaclTable.Marshal()
 
 			cmd.Println("awaiting...")
 
@@ -439,11 +436,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				res, err := internalclient.EACL(getEACLPrm)
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					got, err := res.EACL().Marshal()
-					if err != nil {
-						continue
-					}
-
+					got := res.EACL().Marshal()
 					if bytes.Equal(exp, got) {
 						cmd.Println("EACL has been persisted on sidechain")
 						return

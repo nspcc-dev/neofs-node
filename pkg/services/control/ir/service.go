@@ -89,10 +89,7 @@ func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf, int32(x.HealthStatus))
-	if err != nil {
-		return nil, err
-	}
+	proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf, int32(x.HealthStatus))
 
 	return buf, nil
 }

@@ -27,9 +27,7 @@ func TestParseRemoveNode(t *testing.T) {
 	subnetID := subnetid.ID{}
 	subnetID.SetNumber(123)
 
-	rawSubnetID, err := subnetID.Marshal()
-	require.NoError(t, err)
-
+	rawSubnetID := subnetID.Marshal()
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 

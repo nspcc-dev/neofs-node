@@ -1032,7 +1032,7 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	case toJSON:
 		return hdr.MarshalJSON()
 	case toProto:
-		return hdr.Marshal()
+		return hdr.Marshal(), nil
 	default:
 		return nil, nil
 	}
@@ -1141,7 +1141,7 @@ func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error
 	case toJSON:
 		return info.MarshalJSON()
 	case toProto:
-		return info.Marshal()
+		return info.Marshal(), nil
 	default:
 		b := bytes.NewBuffer(nil)
 		if splitID := info.SplitID(); splitID != nil {

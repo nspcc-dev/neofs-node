@@ -124,7 +124,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	if toJSON {
 		data, err = json.Marshal(b)
 	} else {
-		data, err = b.Marshal(nil)
+		data = b.Marshal(nil)
 	}
 	if err != nil {
 		return fmt.Errorf("can't mashal token: %w", err)

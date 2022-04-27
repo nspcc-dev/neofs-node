@@ -346,10 +346,7 @@ var dropObjectsCmd = &cobra.Command{
 				exitOnErr(cmd, fmt.Errorf("could not parse address #%d: %w", i, err))
 			}
 
-			binAddr, err := a.Marshal()
-			exitOnErr(cmd, errf("could not marshal the address: %w", err))
-
-			binAddrList = append(binAddrList, binAddr)
+			binAddrList = append(binAddrList, a.Marshal())
 		}
 
 		req := new(control.DropObjectsRequest)

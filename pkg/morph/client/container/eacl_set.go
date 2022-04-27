@@ -18,24 +18,14 @@ func PutEACL(c *Client, table *eacl.Table) error {
 		return errNilArgument
 	}
 
-	data, err := table.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marshal eacl table: %w", err)
-	}
-
-	binToken, err := table.SessionToken().Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal session token: %w", err)
-	}
-
 	sig := table.Signature()
 
 	return c.PutEACL(
 		PutEACLPrm{
-			table: data,
+			table: table.Marshal(),
 			key:   sig.Key(),
 			sig:   sig.Sign(),
-			token: binToken,
+			token: table.SessionToken().Marshal(),
 		})
 }
 

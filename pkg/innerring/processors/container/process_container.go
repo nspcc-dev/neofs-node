@@ -292,18 +292,8 @@ func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error 
 		return nil
 	}
 
-	rawSubID, err := subID.Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal container subnetwork: %w", err)
-	}
-
-	ownerID, err := cnr.OwnerID().Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal container ownerID: %w", err)
-	}
-
-	prm.SetID(rawSubID)
-	prm.SetClient(ownerID)
+	prm.SetID(subID.Marshal())
+	prm.SetClient(cnr.OwnerID().Marshal())
 
 	res, err := subCli.UserAllowed(prm)
 	if err != nil {
