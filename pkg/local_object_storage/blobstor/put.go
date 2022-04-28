@@ -2,8 +2,10 @@ package blobstor
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -73,13 +75,19 @@ func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 func (b *BlobStor) PutRaw(addr *addressSDK.Address, data []byte, compress bool) (*PutRes, error) {
 	big := b.isBig(data)
 
-	if compress {
-		data = b.compressor(data)
-	}
-
 	if big {
-		// save object in shallow dir
-		err := b.fsTree.Put(addr, data)
+		var err error
+		if compress {
+			err = b.fsTree.PutStream(addr, func(f *os.File) error {
+				enc, _ := zstd.NewWriter(f) // nil error if no options are provided
+				if _, err := enc.Write(data); err != nil {
+					return err
+				}
+				return enc.Close()
+			})
+		} else {
+			err = b.fsTree.Put(addr, data)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -87,6 +95,10 @@ func (b *BlobStor) PutRaw(addr *addressSDK.Address, data []byte, compress bool) 
 		storagelog.Write(b.log, storagelog.AddressField(addr), storagelog.OpField("fstree PUT"))
 
 		return new(PutRes), nil
+	}
+
+	if compress {
+		data = b.compressor(data)
 	}
 
 	// save object in blobovnicza
