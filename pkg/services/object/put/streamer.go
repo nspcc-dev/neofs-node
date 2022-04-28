@@ -184,7 +184,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 		},
 		remotePool: p.remotePool,
 		localPool:  p.localPool,
-		nodeTargetInitializer: func(node nodeDesc) transformer.ObjectTarget {
+		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {
 			if node.local {
 				return &localTarget{
 					storage: p.localStore,

@@ -19,22 +19,12 @@ type localTarget struct {
 	storage ObjectStorage
 
 	obj *object.Object
-
-	payload []byte
 }
 
 func (t *localTarget) WriteHeader(obj *object.Object) error {
 	t.obj = obj
 
-	t.payload = make([]byte, 0, obj.PayloadSize())
-
 	return nil
-}
-
-func (t *localTarget) Write(p []byte) (n int, err error) {
-	t.payload = append(t.payload, p...)
-
-	return len(p), nil
 }
 
 func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {

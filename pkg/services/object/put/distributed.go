@@ -15,6 +15,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type preparedObjectTarget interface {
+	WriteHeader(*objectSDK.Object) error
+	Close() (*transformer.AccessIdentifiers, error)
+}
+
 type distributedTarget struct {
 	traversal traversal
 
@@ -24,7 +29,7 @@ type distributedTarget struct {
 
 	payload []byte
 
-	nodeTargetInitializer func(nodeDesc) transformer.ObjectTarget
+	nodeTargetInitializer func(nodeDesc) preparedObjectTarget
 
 	isLocalKey func([]byte) bool
 
