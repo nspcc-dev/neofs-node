@@ -130,7 +130,7 @@ func payloadHashersForObject(obj *object.Object) []*payloadChecksumHasher {
 			hasher: sha256.New(),
 			checksumWriter: func(cs []byte) {
 				if ln := len(cs); ln != sha256.Size {
-					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", ln, sha256.Size))
+					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", sha256.Size, ln))
 				}
 
 				csSHA := [sha256.Size]byte{}
