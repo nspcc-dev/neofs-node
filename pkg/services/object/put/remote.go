@@ -13,8 +13,6 @@ import (
 )
 
 type remoteTarget struct {
-	transformer.ObjectTarget
-
 	ctx context.Context
 
 	keyStorage *util.KeyStorage
