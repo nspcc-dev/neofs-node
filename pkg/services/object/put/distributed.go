@@ -22,7 +22,7 @@ type distributedTarget struct {
 
 	obj *objectSDK.Object
 
-	chunks [][]byte
+	payload []byte
 
 	nodeTargetInitializer func(nodeDesc) transformer.ObjectTarget
 
@@ -107,25 +107,13 @@ func (t *distributedTarget) WriteHeader(obj *objectSDK.Object) error {
 }
 
 func (t *distributedTarget) Write(p []byte) (n int, err error) {
-	t.chunks = append(t.chunks, p)
+	t.payload = append(t.payload, p...)
 
 	return len(p), nil
 }
 
 func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
-	sz := 0
-
-	for i := range t.chunks {
-		sz += len(t.chunks[i])
-	}
-
-	payload := make([]byte, 0, sz)
-
-	for i := range t.chunks {
-		payload = append(payload, t.chunks[i]...)
-	}
-
-	t.obj.SetPayload(payload)
+	t.obj.SetPayload(t.payload)
 
 	if err := t.fmt.ValidateContent(t.obj); err != nil {
 		return nil, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
