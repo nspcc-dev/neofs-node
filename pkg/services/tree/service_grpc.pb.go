@@ -33,7 +33,7 @@ type TreeServiceClient interface {
 	// GetNodeByPath returns list of IDs corresponding to a specific filepath.
 	GetNodeByPath(ctx context.Context, in *GetNodeByPathRequest, opts ...grpc.CallOption) (*GetNodeByPathResponse, error)
 	// GetSubTree returns tree corresponding to a specific node.
-	GetSubTree(ctx context.Context, in *GetSubTreeRequest, opts ...grpc.CallOption) (*GetSubTreeResponse, error)
+	GetSubTree(ctx context.Context, in *GetSubTreeRequest, opts ...grpc.CallOption) (TreeService_GetSubTreeClient, error)
 	// Apply pushes log operation from another node to the current.
 	// The request must be signed by a container node.
 	Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error)
@@ -92,13 +92,36 @@ func (c *treeServiceClient) GetNodeByPath(ctx context.Context, in *GetNodeByPath
 	return out, nil
 }
 
-func (c *treeServiceClient) GetSubTree(ctx context.Context, in *GetSubTreeRequest, opts ...grpc.CallOption) (*GetSubTreeResponse, error) {
-	out := new(GetSubTreeResponse)
-	err := c.cc.Invoke(ctx, "/tree.TreeService/GetSubTree", in, out, opts...)
+func (c *treeServiceClient) GetSubTree(ctx context.Context, in *GetSubTreeRequest, opts ...grpc.CallOption) (TreeService_GetSubTreeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &TreeService_ServiceDesc.Streams[0], "/tree.TreeService/GetSubTree", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &treeServiceGetSubTreeClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type TreeService_GetSubTreeClient interface {
+	Recv() (*GetSubTreeResponse, error)
+	grpc.ClientStream
+}
+
+type treeServiceGetSubTreeClient struct {
+	grpc.ClientStream
+}
+
+func (x *treeServiceGetSubTreeClient) Recv() (*GetSubTreeResponse, error) {
+	m := new(GetSubTreeResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *treeServiceClient) Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error) {
@@ -125,7 +148,7 @@ type TreeServiceServer interface {
 	// GetNodeByPath returns list of IDs corresponding to a specific filepath.
 	GetNodeByPath(context.Context, *GetNodeByPathRequest) (*GetNodeByPathResponse, error)
 	// GetSubTree returns tree corresponding to a specific node.
-	GetSubTree(context.Context, *GetSubTreeRequest) (*GetSubTreeResponse, error)
+	GetSubTree(*GetSubTreeRequest, TreeService_GetSubTreeServer) error
 	// Apply pushes log operation from another node to the current.
 	// The request must be signed by a container node.
 	Apply(context.Context, *ApplyRequest) (*ApplyResponse, error)
@@ -150,8 +173,8 @@ func (UnimplementedTreeServiceServer) Move(context.Context, *MoveRequest) (*Move
 func (UnimplementedTreeServiceServer) GetNodeByPath(context.Context, *GetNodeByPathRequest) (*GetNodeByPathResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodeByPath not implemented")
 }
-func (UnimplementedTreeServiceServer) GetSubTree(context.Context, *GetSubTreeRequest) (*GetSubTreeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetSubTree not implemented")
+func (UnimplementedTreeServiceServer) GetSubTree(*GetSubTreeRequest, TreeService_GetSubTreeServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetSubTree not implemented")
 }
 func (UnimplementedTreeServiceServer) Apply(context.Context, *ApplyRequest) (*ApplyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Apply not implemented")
@@ -258,22 +281,25 @@ func _TreeService_GetNodeByPath_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TreeService_GetSubTree_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetSubTreeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _TreeService_GetSubTree_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetSubTreeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(TreeServiceServer).GetSubTree(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/tree.TreeService/GetSubTree",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TreeServiceServer).GetSubTree(ctx, req.(*GetSubTreeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(TreeServiceServer).GetSubTree(m, &treeServiceGetSubTreeServer{stream})
+}
+
+type TreeService_GetSubTreeServer interface {
+	Send(*GetSubTreeResponse) error
+	grpc.ServerStream
+}
+
+type treeServiceGetSubTreeServer struct {
+	grpc.ServerStream
+}
+
+func (x *treeServiceGetSubTreeServer) Send(m *GetSubTreeResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _TreeService_Apply_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -322,14 +348,16 @@ var TreeService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _TreeService_GetNodeByPath_Handler,
 		},
 		{
-			MethodName: "GetSubTree",
-			Handler:    _TreeService_GetSubTree_Handler,
-		},
-		{
 			MethodName: "Apply",
 			Handler:    _TreeService_Apply_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetSubTree",
+			Handler:       _TreeService_GetSubTree_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "pkg/services/tree/service.proto",
 }

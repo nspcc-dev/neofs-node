@@ -76,3 +76,17 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 	}
 	return pilorama.Meta{}, err
 }
+
+// TreeGetChildren implements the pilorama.Forest interface.
+func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pilorama.Node) ([]uint64, error) {
+	var err error
+	var nodes []uint64
+	for _, sh := range e.sortShardsByWeight(cid) {
+		nodes, err = sh.TreeGetChildren(cid, treeID, nodeID)
+		if err != nil {
+			continue
+		}
+		return nodes, nil
+	}
+	return nil, err
+}
