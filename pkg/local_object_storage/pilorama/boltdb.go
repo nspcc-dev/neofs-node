@@ -398,7 +398,7 @@ func (t *boltForest) TreeGetByPath(cid *cidSDK.ID, treeID string, attr string, p
 	})
 }
 
-// TreeGetMeta implements the forest interface.
+// TreeGetMeta implements the Forest interface.
 func (t *boltForest) TreeGetMeta(cid *cidSDK.ID, treeID string, nodeID Node) (Meta, error) {
 	key := metaKey(make([]byte, 9), nodeID)
 
@@ -414,6 +414,31 @@ func (t *boltForest) TreeGetMeta(cid *cidSDK.ID, treeID string, nodeID Node) (Me
 	})
 
 	return m, err
+}
+
+// TreeGetChildren implements the Forest interface.
+func (t *boltForest) TreeGetChildren(cid *cidSDK.ID, treeID string, nodeID Node) ([]uint64, error) {
+	key := make([]byte, 9)
+	key[0] = 'c'
+	binary.LittleEndian.PutUint64(key[1:], nodeID)
+
+	var children []uint64
+
+	err := t.db.View(func(tx *bbolt.Tx) error {
+		treeRoot := tx.Bucket(bucketName(cid, treeID))
+		if treeRoot == nil {
+			return ErrTreeNotFound
+		}
+
+		b := treeRoot.Bucket(dataBucket)
+		c := b.Cursor()
+		for k, _ := c.Seek(key); len(k) == 17 && binary.LittleEndian.Uint64(k[1:]) == nodeID; k, _ = c.Next() {
+			children = append(children, binary.LittleEndian.Uint64(k[9:]))
+		}
+		return nil
+	})
+
+	return children, err
 }
 
 func (t *boltForest) getPathPrefix(bTree *bbolt.Bucket, attr string, path []string) (int, Node, error) {
