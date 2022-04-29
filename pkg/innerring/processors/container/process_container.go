@@ -319,7 +319,7 @@ func checkHomomorphicHashing(ns NetworkState, cnr *containerSDK.Container) error
 		return fmt.Errorf("could not get setting in contract: %w", err)
 	}
 
-	if cnrSetting := cnr.HomomorphicHashingDisabled(); netSetting != cnrSetting {
+	if cnrSetting := !cnr.HomomorphicHashingState(); netSetting != cnrSetting {
 		return fmt.Errorf("network setting: %t, container setting: %t", netSetting, cnrSetting)
 	}
 
