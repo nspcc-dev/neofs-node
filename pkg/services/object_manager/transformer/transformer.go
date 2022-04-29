@@ -9,11 +9,12 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/tzhash/tz"
 )
 
 type payloadSizeLimiter struct {
 	maxSize, written uint64
+
+	withoutHomomorphicHash bool
 
 	targetInit func() ObjectTarget
 
@@ -41,12 +42,16 @@ type payloadChecksumHasher struct {
 // NewPayloadSizeLimiter returns ObjectTarget instance that restricts payload length
 // of the writing object and writes generated objects to targets from initializer.
 //
+// Calculates and adds homomorphic hash to resulting objects only if withoutHomomorphicHash
+// is false.
+//
 // Objects w/ payload size less or equal than max size remain untouched.
-func NewPayloadSizeLimiter(maxSize uint64, targetInit TargetInitializer) ObjectTarget {
+func NewPayloadSizeLimiter(maxSize uint64, withoutHomomorphicHash bool, targetInit TargetInitializer) ObjectTarget {
 	return &payloadSizeLimiter{
-		maxSize:    maxSize,
-		targetInit: targetInit,
-		splitID:    object.NewSplitID(),
+		maxSize:                maxSize,
+		withoutHomomorphicHash: withoutHomomorphicHash,
+		targetInit:             targetInit,
+		splitID:                object.NewSplitID(),
 	}
 }
 
@@ -106,7 +111,7 @@ func (s *payloadSizeLimiter) initializeCurrent() {
 	s.target = s.targetInit()
 
 	// create payload hashers
-	s.currentHashers = payloadHashersForObject(s.current)
+	s.currentHashers = payloadHashersForObject(s.current, s.withoutHomomorphicHash)
 
 	// compose multi-writer from target and all payload hashers
 	ws := make([]io.Writer, 0, 1+len(s.currentHashers)+len(s.parentHashers))
@@ -124,9 +129,28 @@ func (s *payloadSizeLimiter) initializeCurrent() {
 	s.chunkWriter = io.MultiWriter(ws...)
 }
 
-func payloadHashersForObject(obj *object.Object) []*payloadChecksumHasher {
-	return []*payloadChecksumHasher{
-		{
+func payloadHashersForObject(obj *object.Object, withoutHomomorphicHash bool) []*payloadChecksumHasher {
+	hashers := make([]*payloadChecksumHasher, 0, 2)
+
+	hashers = append(hashers, &payloadChecksumHasher{
+		hasher: sha256.New(),
+		checksumWriter: func(cs []byte) {
+			if ln := len(cs); ln != sha256.Size {
+				panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", sha256.Size, ln))
+			}
+
+			csSHA := [sha256.Size]byte{}
+			copy(csSHA[:], cs)
+
+			checksum := checksum.New()
+			checksum.SetSHA256(csSHA)
+
+			obj.SetPayloadChecksum(checksum)
+		},
+	})
+
+	if !withoutHomomorphicHash {
+		hashers = append(hashers, &payloadChecksumHasher{
 			hasher: sha256.New(),
 			checksumWriter: func(cs []byte) {
 				if ln := len(cs); ln != sha256.Size {
@@ -141,24 +165,10 @@ func payloadHashersForObject(obj *object.Object) []*payloadChecksumHasher {
 
 				obj.SetPayloadChecksum(checksum)
 			},
-		},
-		{
-			hasher: tz.New(),
-			checksumWriter: func(cs []byte) {
-				if ln := len(cs); ln != tz.Size {
-					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", tz.Size, ln))
-				}
-
-				csTZ := [tz.Size]byte{}
-				copy(csTZ[:], cs)
-
-				checksum := checksum.New()
-				checksum.SetTillichZemor(csTZ)
-
-				obj.SetPayloadHomomorphicHash(checksum)
-			},
-		},
+		})
 	}
+
+	return hashers
 }
 
 func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
