@@ -98,6 +98,62 @@ func testForestTreeMove(t *testing.T, s Forest) {
 	})
 }
 
+func TestMemoryForest_TreeGetChildren(t *testing.T) {
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			testForestTreeGetChildren(t, providers[i].construct(t))
+		})
+	}
+}
+
+func testForestTreeGetChildren(t *testing.T, s Forest) {
+	cid := cidtest.ID()
+	treeID := "version"
+
+	treeAdd := func(t *testing.T, child, parent Node) {
+		_, err := s.TreeMove(cid, treeID, &Move{
+			Parent: parent,
+			Child:  child,
+		})
+		require.NoError(t, err)
+	}
+
+	// 0
+	// |- 10
+	// |  |- 3
+	// |  |- 6
+	// |     |- 11
+	// |- 2
+	// |- 7
+	treeAdd(t, 10, 0)
+	treeAdd(t, 3, 10)
+	treeAdd(t, 6, 10)
+	treeAdd(t, 11, 6)
+	treeAdd(t, 2, 0)
+	treeAdd(t, 7, 0)
+
+	testGetChildren := func(t *testing.T, nodeID Node, expected []Node) {
+		actual, err := s.TreeGetChildren(cid, treeID, nodeID)
+		require.NoError(t, err)
+		require.ElementsMatch(t, expected, actual)
+	}
+
+	testGetChildren(t, 0, []uint64{10, 2, 7})
+	testGetChildren(t, 10, []uint64{3, 6})
+	testGetChildren(t, 3, nil)
+	testGetChildren(t, 6, []uint64{11})
+	testGetChildren(t, 11, nil)
+	testGetChildren(t, 2, nil)
+	testGetChildren(t, 7, nil)
+	t.Run("missing node", func(t *testing.T) {
+		testGetChildren(t, 42, nil)
+	})
+	t.Run("missing tree", func(t *testing.T) {
+		_, err := s.TreeGetChildren(cid, treeID+"123", 0)
+		require.ErrorIs(t, err, ErrTreeNotFound)
+	})
+}
+
 func TestForest_TreeAdd(t *testing.T) {
 	for i := range providers {
 		t.Run(providers[i].name, func(t *testing.T) {
