@@ -21,7 +21,7 @@ service TreeService {
   // GetNodeByPath returns list of IDs corresponding to a specific filepath.
   rpc GetNodeByPath (GetNodeByPathRequest) returns (GetNodeByPathResponse);
   // GetSubTree returns tree corresponding to a specific node.
-  rpc GetSubTree (GetSubTreeRequest) returns (GetSubTreeResponse);
+  rpc GetSubTree (GetSubTreeRequest) returns (stream GetSubTreeResponse);
 
   /* Synchronization API */
 
@@ -153,7 +153,10 @@ message GetSubTreeRequest {
   message Body {
     bytes container_id = 1;
     string tree_id = 2;
-    repeated uint64 nodes = 3;
+    uint64 root_id = 3;
+    // Optional depth of the traversal. Zero means return only root.
+    // Maximum depth is 10.
+    uint32 depth = 4;
   }
 
   Body body = 1;
@@ -161,12 +164,11 @@ message GetSubTreeRequest {
 }
 
 message GetSubTreeResponse {
-  message Info {
-    uint64 node_id = 1;
-    repeated KeyValue meta = 2;
-  }
   message Body {
-    repeated Info info = 1;
+    uint64 node_id = 1;
+    uint64 parent_id = 2;
+    uint64 timestamp = 3;
+    repeated KeyValue meta = 4;
   }
 
   Body body = 1;

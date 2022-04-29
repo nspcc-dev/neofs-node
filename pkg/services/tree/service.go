@@ -22,6 +22,9 @@ type Service struct {
 	closeCh     chan struct{}
 }
 
+// MaxGetSubTreeDepth represents maximum allowed traversal depth in GetSubTree RPC.
+const MaxGetSubTreeDepth = 10
+
 var _ TreeServiceServer = (*Service)(nil)
 
 // New creates new tree service instance.
@@ -63,7 +66,7 @@ func (s *Service) Add(_ context.Context, req *AddRequest) (*AddResponse, error) 
 	log, err := s.forest.TreeMove(cid, b.GetTreeId(), &pilorama.Move{
 		Parent: b.GetParentId(),
 		Child:  pilorama.RootID,
-		Meta:   pilorama.Meta{Items: constructMeta(b.GetMeta())},
+		Meta:   pilorama.Meta{Items: protoToMeta(b.GetMeta())},
 	})
 	if err != nil {
 		return nil, err
@@ -86,7 +89,7 @@ func (s *Service) AddByPath(_ context.Context, req *AddByPathRequest) (*AddByPat
 		return nil, err
 	}
 
-	meta := constructMeta(b.GetMeta())
+	meta := protoToMeta(b.GetMeta())
 
 	attr := b.GetPathAttribute()
 	if len(attr) == 0 {
@@ -158,7 +161,7 @@ func (s *Service) Move(_ context.Context, req *MoveRequest) (*MoveResponse, erro
 	log, err := s.forest.TreeMove(cid, b.GetTreeId(), &pilorama.Move{
 		Parent: b.GetParentId(),
 		Child:  b.GetNodeId(),
-		Meta:   pilorama.Meta{Items: constructMeta(b.GetMeta())},
+		Meta:   pilorama.Meta{Items: protoToMeta(b.GetMeta())},
 	})
 	if err != nil {
 		return nil, err
@@ -192,22 +195,19 @@ func (s *Service) GetNodeByPath(_ context.Context, req *GetNodeByPathRequest) (*
 		var x GetNodeByPathResponse_Info
 		x.NodeId = node
 		x.Timestamp = m.Time
-		for _, kv := range m.Items {
-			needAttr := b.AllAttributes
-			if !needAttr {
+		if b.AllAttributes {
+			x.Meta = metaToProto(m.Items)
+		} else {
+			for _, kv := range m.Items {
 				for _, attr := range b.GetAttributes() {
 					if kv.Key == attr {
-						needAttr = true
+						x.Meta = append(x.Meta, &KeyValue{
+							Key:   kv.Key,
+							Value: kv.Value,
+						})
 						break
 					}
 				}
-			}
-
-			if needAttr {
-				x.Meta = append(x.Meta, &KeyValue{
-					Key:   kv.Key,
-					Value: kv.Value,
-				})
 			}
 		}
 		info = append(info, &x)
@@ -220,8 +220,52 @@ func (s *Service) GetNodeByPath(_ context.Context, req *GetNodeByPathRequest) (*
 	}, nil
 }
 
-func (s *Service) GetSubTree(_ context.Context, req *GetSubTreeRequest) (*GetSubTreeResponse, error) {
-	return nil, errors.New("GetSubTree is unimplemented")
+type nodeDepthPair struct {
+	nodes []uint64
+	depth uint32
+}
+
+func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeServer) error {
+	b := req.GetBody()
+	if b.GetDepth() > MaxGetSubTreeDepth {
+		return fmt.Errorf("too big depth: max=%d, got=%d", MaxGetSubTreeDepth, b.GetDepth())
+	}
+
+	cid := getCID(b.GetContainerId())
+	queue := []nodeDepthPair{{[]uint64{b.GetRootId()}, 0}}
+
+	for len(queue) != 0 {
+		for _, nodeID := range queue[0].nodes {
+			m, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), nodeID)
+			if err != nil {
+				return err
+			}
+			err = srv.Send(&GetSubTreeResponse{
+				Body: &GetSubTreeResponse_Body{
+					NodeId:    b.GetRootId(),
+					ParentId:  b.GetRootId(),
+					Timestamp: m.Time,
+					Meta:      metaToProto(m.Items),
+				},
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		if queue[0].depth < b.GetDepth() {
+			for _, nodeID := range queue[0].nodes {
+				children, err := s.forest.TreeGetChildren(cid, b.GetTreeId(), nodeID)
+				if err != nil {
+					return err
+				}
+				queue = append(queue, nodeDepthPair{children, queue[0].depth + 1})
+			}
+		}
+
+		queue = queue[1:]
+	}
+	return nil
 }
 
 // Apply locally applies operation from the remote node to the tree.
@@ -266,11 +310,24 @@ func getCID(rawCID []byte) *cidSDK.ID {
 	return cidSDK.NewFromV2(&cidV2)
 }
 
-func constructMeta(arr []*KeyValue) []pilorama.KeyValue {
+func protoToMeta(arr []*KeyValue) []pilorama.KeyValue {
 	meta := make([]pilorama.KeyValue, len(arr))
 	for i, kv := range arr {
-		meta[i].Key = kv.Key
-		meta[i].Value = kv.Value
+		if kv != nil {
+			meta[i].Key = kv.Key
+			meta[i].Value = kv.Value
+		}
+	}
+	return meta
+}
+
+func metaToProto(arr []pilorama.KeyValue) []*KeyValue {
+	meta := make([]*KeyValue, len(arr))
+	for i, kv := range arr {
+		meta[i] = &KeyValue{
+			Key:   kv.Key,
+			Value: kv.Value,
+		}
 	}
 	return meta
 }
