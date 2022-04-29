@@ -10,16 +10,17 @@ import (
 )
 
 const (
-	maxObjectSizeConfig     = "MaxObjectSize"
-	basicIncomeRateConfig   = "BasicIncomeRate"
-	auditFeeConfig          = "AuditFee"
-	epochDurationConfig     = "EpochDuration"
-	containerFeeConfig      = "ContainerFee"
-	containerAliasFeeConfig = "ContainerAliasFee"
-	etIterationsConfig      = "EigenTrustIterations"
-	etAlphaConfig           = "EigenTrustAlpha"
-	irCandidateFeeConfig    = "InnerRingCandidateFee"
-	withdrawFeeConfig       = "WithdrawFee"
+	maxObjectSizeConfig           = "MaxObjectSize"
+	basicIncomeRateConfig         = "BasicIncomeRate"
+	auditFeeConfig                = "AuditFee"
+	epochDurationConfig           = "EpochDuration"
+	containerFeeConfig            = "ContainerFee"
+	containerAliasFeeConfig       = "ContainerAliasFee"
+	etIterationsConfig            = "EigenTrustIterations"
+	etAlphaConfig                 = "EigenTrustAlpha"
+	irCandidateFeeConfig          = "InnerRingCandidateFee"
+	withdrawFeeConfig             = "WithdrawFee"
+	homomorphicHashingDisabledKey = "HomomorphicHashingDisabled"
 )
 
 // MaxObjectSize receives max object size configuration
@@ -109,6 +110,17 @@ func (c *Client) EigenTrustAlpha() (float64, error) {
 	return strconv.ParseFloat(strAlpha, 64)
 }
 
+// HomomorphicHashDisabled returns global configuration value of homomorphic hashing
+// settings.
+func (c *Client) HomomorphicHashDisabled() (bool, error) {
+	hashingDisabled, err := c.readBoolConfig(homomorphicHashingDisabledKey)
+	if err != nil {
+		return false, fmt.Errorf("(%T) could not get homomorphic hash state: %w", c, err)
+	}
+
+	return hashingDisabled, nil
+}
+
 // InnerRingCandidateFee returns global configuration value of fee paid by
 // node to be in inner ring candidates list.
 func (c *Client) InnerRingCandidateFee() (uint64, error) {
@@ -149,6 +161,16 @@ func (c *Client) readStringConfig(key string) (string, error) {
 
 	// StringAssert is guaranteed to return string if the error is nil.
 	return v.(string), nil
+}
+
+func (c *Client) readBoolConfig(key string) (bool, error) {
+	v, err := c.config([]byte(key), BoolAssert)
+	if err != nil {
+		return false, err
+	}
+
+	// BoolAssert is guaranteed to return bool if the error is nil.
+	return v.(bool), nil
 }
 
 // SetConfigPrm groups parameters of SetConfig operation.
@@ -326,6 +348,11 @@ func IntegerAssert(item stackitem.Item) (interface{}, error) {
 // StringAssert converts stack item to string.
 func StringAssert(item stackitem.Item) (interface{}, error) {
 	return client.StringFromStackItem(item)
+}
+
+// BoolAssert converts stack item to bool.
+func BoolAssert(item stackitem.Item) (interface{}, error) {
+	return client.BoolFromStackItem(item)
 }
 
 // iterateRecords iterates over all config records and passes them to f.
