@@ -3,6 +3,30 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.0] - 2022-04-29 - Heuksando (흑산도, 黑山島)
+
+### Added
+
+- `morph dump-balances` command to NeoFS Adm (#1308)
+- Ability to provide session token from file in NeoFS CLI (#1216)
+
+### Fixed
+
+- Panic in `netmap netinfo` command of NeoFS CLI (#1312)
+- Container cache invalidation on DELETE op (#1313)
+- Subscription to side-chain events in shards (#1321)
+- Trusted object creation without session token (#1283)
+- Storing invalid objects during trusted PUT op (#1286)
+- RAM overhead when writing objects to local storage (#1343)
+
+### Changed
+
+- NeoFS Adm output from stderr to stdout (#1311)
+- Node's object GC mechanism (#1318)
+
+### Updating from v0.28.0-rc.3
+Clean up all metabases  and re-sync them using `resync_metabase` config flag.
+
 ## [0.28.0-rc.3] - 2022-04-08
 
 ### Fixed
@@ -1035,7 +1059,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.3...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0...master
+[0.28.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.3...v0.28.0
 [0.28.0-rc.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...v0.28.0-rc.3
 [0.28.0-rc.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...v0.28.0-rc.2
 [0.28.0-rc.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.27.7...v0.28.0-rc.1
