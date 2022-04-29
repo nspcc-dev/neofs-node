@@ -53,6 +53,14 @@ type NetworkState interface {
 	// Must return any error encountered
 	// which did not allow reading the value.
 	Epoch() (uint64, error)
+
+	// HomomorphicHashDisabled must return boolean that
+	// represents homomorphic network state:
+	// 	* true if hashing is disabled;
+	// 	* false if hashing is enabled.
+	//
+	// which did not allow reading the value.
+	HomomorphicHashDisabled() (bool, error)
 }
 
 const (

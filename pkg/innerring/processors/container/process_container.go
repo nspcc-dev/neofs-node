@@ -82,6 +82,12 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("incorrect subnetwork: %w", err)
 	}
 
+	// check homomorphic hashing setting
+	err = checkHomomorphicHashing(cp.netState, cnr)
+	if err != nil {
+		return fmt.Errorf("incorrect homomorphic hashing setting: %w", err)
+	}
+
 	// check native name and zone
 	err = checkNNS(ctx, cnr)
 	if err != nil {
@@ -233,6 +239,19 @@ func checkSubnet(subCli *morphsubnet.Client, cnr containerSDK.Container) error {
 
 	if !res.Allowed() {
 		return fmt.Errorf("user is not allowed to create containers in %v subnetwork", subID)
+	}
+
+	return nil
+}
+
+func checkHomomorphicHashing(ns NetworkState, cnr containerSDK.Container) error {
+	netSetting, err := ns.HomomorphicHashDisabled()
+	if err != nil {
+		return fmt.Errorf("could not get setting in contract: %w", err)
+	}
+
+	if cnrSetting := containerSDK.IsHomomorphicHashingDisabled(cnr); netSetting != cnrSetting {
+		return fmt.Errorf("network setting: %t, container setting: %t", netSetting, cnrSetting)
 	}
 
 	return nil
