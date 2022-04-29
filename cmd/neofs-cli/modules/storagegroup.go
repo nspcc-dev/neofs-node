@@ -178,23 +178,28 @@ func putSG(cmd *cobra.Command, _ []string) {
 	}
 
 	var (
-		headPrm internalclient.HeadObjectPrm
-		putPrm  internalclient.PutObjectPrm
+		headPrm   internalclient.HeadObjectPrm
+		putPrm    internalclient.PutObjectPrm
+		getCnrPrm internalclient.GetContainerPrm
 	)
 
 	sessionObjectCtxAddress := addressSDK.NewAddress()
 	sessionObjectCtxAddress.SetContainerID(cid)
 	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &putPrm)
+	prepareAPIClientWithKey(cmd, key, &getCnrPrm)
 	prepareObjectPrm(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)
+
+	resGetCnr, err := internalclient.GetContainer(getCnrPrm)
+	exitOnErr(cmd, errf("get container RPC call: %w", err))
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
 		cmd:     cmd,
 		key:     key,
 		ownerID: ownerID,
 		prm:     headPrm,
-	}, cid, members)
+	}, cid, members, resGetCnr.Container().HomomorphicHashingState())
 	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
 
 	obj := object.New()
@@ -205,11 +210,11 @@ func putSG(cmd *cobra.Command, _ []string) {
 	putPrm.SetHeader(obj)
 	putPrm.SetPayloadReader(bytes.NewReader(sg.Marshal()))
 
-	res, err := internalclient.PutObject(putPrm)
+	resPut, err := internalclient.PutObject(putPrm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Println("Storage group successfully stored")
-	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cid)
+	cmd.Printf("  ID: %s\n  CID: %s\n", resPut.ID(), cid)
 }
 
 func getSGID() (*oidSDK.ID, error) {
