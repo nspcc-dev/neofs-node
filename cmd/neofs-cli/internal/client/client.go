@@ -9,7 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -123,7 +123,7 @@ type GetContainerRes struct {
 }
 
 // Container returns structured of the requested container.
-func (x GetContainerRes) Container() container.Container {
+func (x GetContainerRes) Container() containerSDK.Container {
 	return x.cliRes.Container()
 }
 
@@ -832,4 +832,38 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	}
 
 	return new(PayloadRangeRes), nil
+}
+
+// SyncContainerPrm groups parameters of SyncContainerSettings operation.
+type SyncContainerPrm struct {
+	commonPrm
+	c *containerSDK.Container
+}
+
+// SetContainer sets a container that is required to be synced.
+func (s *SyncContainerPrm) SetContainer(c *containerSDK.Container) {
+	s.c = c
+}
+
+// SyncContainerRes groups resulting values of SyncContainerSettings
+// operation.
+type SyncContainerRes struct{}
+
+// SyncContainerSettings reads global network config from NeoFS and
+// syncs container settings with it.
+//
+// Interrupts on any writer error.
+//
+// Panics if a container passed as a parameter is nil.
+func SyncContainerSettings(prm SyncContainerPrm) (*SyncContainerRes, error) {
+	if prm.c == nil {
+		panic("sync container settings with the network: nil container")
+	}
+
+	err := client.SyncContainerWithNetwork(context.Background(), prm.c, prm.cli)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(SyncContainerRes), nil
 }
