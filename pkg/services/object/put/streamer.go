@@ -119,6 +119,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		unpreparedObject: true,
 		nextTarget: transformer.NewPayloadSizeLimiter(
 			p.maxPayloadSz,
+			!prm.cnr.HomomorphicHashingState(),
 			func() transformer.ObjectTarget {
 				return transformer.NewFormatTarget(&transformer.FormatterParams{
 					Key:          sessionKey,
@@ -148,7 +149,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 
 	// get container to store the object
-	cnr, err := p.cnrSrc.Get(idCnr)
+	prm.cnr, err = p.cnrSrc.Get(idCnr)
 	if err != nil {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
@@ -156,7 +157,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	// add common options
 	prm.traverseOpts = append(prm.traverseOpts,
 		// set processing container
-		placement.ForContainer(cnr),
+		placement.ForContainer(prm.cnr),
 	)
 
 	if id, ok := prm.hdr.ID(); ok {
