@@ -80,6 +80,13 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
+		var syncContainerPrm internalclient.SyncContainerPrm
+		syncContainerPrm.SetClient(cli)
+		syncContainerPrm.SetContainer(&cnr)
+
+		_, err = internalclient.SyncContainerSettings(syncContainerPrm)
+		common.ExitOnErr(cmd, "syncing container's settings rpc error: %w", err)
+
 		var putPrm internalclient.PutContainerPrm
 		putPrm.SetClient(cli)
 		putPrm.SetContainer(cnr)
@@ -89,7 +96,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		}
 
 		res, err := internalclient.PutContainer(putPrm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		common.ExitOnErr(cmd, "put container rpc error: %w", err)
 
 		id := res.ID()
 
