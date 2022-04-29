@@ -14,6 +14,7 @@ import (
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -76,9 +77,17 @@ func putSG(cmd *cobra.Command, _ []string) {
 	}
 
 	var (
-		headPrm internalclient.HeadObjectPrm
-		putPrm  internalclient.PutObjectPrm
+		headPrm   internalclient.HeadObjectPrm
+		putPrm    internalclient.PutObjectPrm
+		getCnrPrm internalclient.GetContainerPrm
 	)
+
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	getCnrPrm.SetClient(cli)
+	getCnrPrm.SetContainer(cnr)
+
+	resGetCnr, err := internalclient.GetContainer(getCnrPrm)
+	common.ExitOnErr(cmd, "get container RPC call: %w", err)
 
 	sessionCli.Prepare(cmd, cnr, nil, pk, &putPrm)
 	objectCli.Prepare(cmd, &headPrm, &putPrm)
@@ -90,10 +99,8 @@ func putSG(cmd *cobra.Command, _ []string) {
 		key:     pk,
 		ownerID: &ownerID,
 		prm:     headPrm,
-	}, cnr, members)
+	}, cnr, members, !container.IsHomomorphicHashingDisabled(resGetCnr.Container()))
 	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
-
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(cli)
