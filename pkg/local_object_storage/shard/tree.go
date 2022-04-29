@@ -31,3 +31,8 @@ func (s *Shard) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []
 func (s *Shard) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID pilorama.Node) (pilorama.Meta, error) {
 	return s.pilorama.TreeGetMeta(cid, treeID, nodeID)
 }
+
+// TreeGetChildren implements the pilorama.Forest interface.
+func (s *Shard) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pilorama.Node) ([]uint64, error) {
+	return s.pilorama.TreeGetChildren(cid, treeID, nodeID)
+}

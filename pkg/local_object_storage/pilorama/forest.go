@@ -112,3 +112,21 @@ func (f *memoryForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (M
 
 	return s.getMeta(nodeID), nil
 }
+
+// TreeGetChildren implements the Forest interface.
+func (f *memoryForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error) {
+	fullID := cid.String() + "/" + treeID
+	s, ok := f.treeMap[fullID]
+	if !ok {
+		return nil, ErrTreeNotFound
+	}
+
+	children, ok := s.childMap[nodeID]
+	if !ok {
+		return nil, nil
+	}
+
+	res := make([]Node, len(children))
+	copy(res, children)
+	return res, nil
+}

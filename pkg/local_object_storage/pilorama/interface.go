@@ -20,6 +20,8 @@ type Forest interface {
 	TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) ([]Node, error)
 	// TreeGetMeta returns meta information of the node with the specified ID.
 	TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, error)
+	// TreeGetChildren returns children of the node with the specified ID. The order is arbitrary.
+	TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error)
 }
 
 type ForestStorage interface {
