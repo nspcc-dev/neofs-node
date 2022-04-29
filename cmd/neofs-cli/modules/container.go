@@ -192,7 +192,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			syncContainerPrm internalclient.SyncContainerPrm
 		)
 
-		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm, syncContainerPrm)
+		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm, &syncContainerPrm)
 		syncContainerPrm.SetContainer(cnr)
 		putPrm.SetContainer(*cnr)
 
