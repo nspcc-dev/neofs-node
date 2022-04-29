@@ -2,7 +2,6 @@ package shard_test
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"math/rand"
 	"os"
@@ -59,7 +58,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 
 	t.Run("must be read-only", func(t *testing.T) {
 		_, err := sh.Dump(prm)
-		require.True(t, errors.Is(err, shard.ErrMustBeReadOnly), "got: %v", err)
+		require.ErrorIs(t, err, shard.ErrMustBeReadOnly)
 	})
 
 	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
@@ -119,7 +118,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 
 		t.Run("invalid path", func(t *testing.T) {
 			_, err := sh.Restore(new(shard.RestorePrm))
-			require.True(t, errors.Is(err, os.ErrNotExist), "got: %v", err)
+			require.ErrorIs(t, err, os.ErrNotExist)
 		})
 
 		t.Run("invalid file", func(t *testing.T) {
@@ -128,7 +127,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				require.NoError(t, os.WriteFile(out, []byte{0, 0, 0, 0}, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
-				require.True(t, errors.Is(err, shard.ErrInvalidMagic), "got: %v", err)
+				require.ErrorIs(t, err, shard.ErrInvalidMagic)
 			})
 
 			fileData, err := os.ReadFile(out)
@@ -140,7 +139,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
-				require.True(t, errors.Is(err, io.ErrUnexpectedEOF), "got: %v", err)
+				require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 			})
 			t.Run("incomplete object data", func(t *testing.T) {
 				out := out + ".wrongsize"
@@ -148,7 +147,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
 				_, err := sh.Restore(new(shard.RestorePrm).WithPath(out))
-				require.True(t, errors.Is(err, io.EOF), "got: %v", err)
+				require.ErrorIs(t, err, io.EOF)
 			})
 			t.Run("invalid object", func(t *testing.T) {
 				out := out + ".wrongobj"
@@ -175,7 +174,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			require.NoError(t, sh.SetMode(shard.ModeReadOnly))
 
 			_, err := sh.Restore(prm)
-			require.True(t, errors.Is(err, shard.ErrReadOnlyMode), "got: %v", err)
+			require.ErrorIs(t, err, shard.ErrReadOnlyMode)
 		})
 
 		require.NoError(t, sh.SetMode(shard.ModeReadWrite))

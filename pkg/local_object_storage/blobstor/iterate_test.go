@@ -204,6 +204,6 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 			return nil
 		})
 		_, err := bs.Iterate(prm)
-		require.True(t, errors.Is(err, expectedErr), "got: %v")
+		require.ErrorIs(t, err, expectedErr)
 	})
 }

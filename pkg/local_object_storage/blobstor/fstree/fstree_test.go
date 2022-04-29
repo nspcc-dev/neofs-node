@@ -115,7 +115,7 @@ func TestFSTree(t *testing.T) {
 				return nil
 			}))
 
-			require.True(t, errors.Is(err, errStop))
+			require.ErrorIs(t, err, errStop)
 			require.Equal(t, count-1, n)
 		})
 
@@ -152,7 +152,7 @@ func TestFSTree(t *testing.T) {
 					}
 					return nil
 				}).WithIgnoreErrors(true))
-				require.True(t, errors.Is(err, expectedErr), "got: %v")
+				require.ErrorIs(t, err, expectedErr)
 				require.Equal(t, count/2, n)
 			})
 		})
