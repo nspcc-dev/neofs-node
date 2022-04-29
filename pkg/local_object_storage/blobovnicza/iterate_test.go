@@ -53,5 +53,5 @@ func TestBlobovniczaIterate(t *testing.T) {
 		handler:         func(IterationElement) error { return expectedErr },
 		ignoreErrors:    true,
 	})
-	require.True(t, errors.Is(err, expectedErr), "got: %v")
+	require.ErrorIs(t, err, expectedErr)
 }

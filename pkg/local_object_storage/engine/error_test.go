@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -182,7 +181,7 @@ func TestBlobstorFailback(t *testing.T) {
 		require.Equal(t, objs[i].Payload()[1:11], rngRes.Object().Payload())
 
 		_, err = e.GetRange(&RngPrm{addr: addr, off: errSmallSize + 10, ln: 1})
-		require.True(t, errors.Is(err, object.ErrRangeOutOfBounds), "got: %v", err)
+		require.ErrorIs(t, err, object.ErrRangeOutOfBounds)
 	}
 
 	checkShardState(t, e, id[0], 4, shard.ModeDegraded)

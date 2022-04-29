@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"errors"
 	"strconv"
 	"testing"
 
@@ -70,14 +69,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("nil identifier", func(t *testing.T) {
 		obj := object.New()
 
-		require.True(t, errors.Is(v.Validate(obj, false), errNilID))
+		require.ErrorIs(t, v.Validate(obj, false), errNilID)
 	})
 
 	t.Run("nil container identifier", func(t *testing.T) {
 		obj := object.New()
 		obj.SetID(testObjectID(t))
 
-		require.True(t, errors.Is(v.Validate(obj, true), errNilCID))
+		require.ErrorIs(t, v.Validate(obj, true), errNilCID)
 	})
 
 	t.Run("unsigned object", func(t *testing.T) {
@@ -204,7 +203,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		t.Run("expired object", func(t *testing.T) {
 			val := strconv.FormatUint(curEpoch-1, 10)
 			err := v.Validate(fn(val), false)
-			require.True(t, errors.Is(err, errExpired))
+			require.ErrorIs(t, err, errExpired)
 		})
 
 		t.Run("alive object", func(t *testing.T) {

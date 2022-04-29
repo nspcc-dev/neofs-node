@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -122,7 +121,7 @@ func Test_getKey(t *testing.T) {
 func checkKeyError(t *testing.T, desc string, err error) {
 	viper.Set(walletPath, desc)
 	_, actualErr := getKey()
-	require.True(t, errors.Is(actualErr, err), "got: %v", actualErr)
+	require.ErrorIs(t, actualErr, err)
 }
 
 func checkKey(t *testing.T, desc string, expected *keys.PrivateKey) {

@@ -183,7 +183,7 @@ func TestGetLocalOnly(t *testing.T) {
 		p := newPrm(cid, w)
 
 		err := svc.Search(ctx, p)
-		require.True(t, errors.Is(err, testErr))
+		require.ErrorIs(t, err, testErr)
 	})
 }
 
