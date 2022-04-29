@@ -1,7 +1,6 @@
 package pilorama
 
 import (
-	"errors"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -184,10 +183,10 @@ func testForestTreeAdd(t *testing.T, s Forest) {
 
 	t.Run("other trees are unaffected", func(t *testing.T) {
 		_, err := s.TreeGetByPath(cid, treeID+"123", AttributeFilename, []string{"file.txt"}, false)
-		require.True(t, errors.Is(err, ErrTreeNotFound), "got: %v", err)
+		require.ErrorIs(t, err, ErrTreeNotFound)
 
 		_, err = s.TreeGetMeta(cid, treeID+"123", 0)
-		require.True(t, errors.Is(err, ErrTreeNotFound), "got: %v", err)
+		require.ErrorIs(t, err, ErrTreeNotFound)
 	})
 }
 
