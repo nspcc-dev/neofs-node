@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -119,6 +120,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		unpreparedObject: true,
 		nextTarget: transformer.NewPayloadSizeLimiter(
 			p.maxPayloadSz,
+			containerSDK.IsHomomorphicHashingDisabled(prm.cnr),
 			func() transformer.ObjectTarget {
 				return transformer.NewFormatTarget(&transformer.FormatterParams{
 					Key:          sessionKey,
@@ -148,15 +150,17 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 
 	// get container to store the object
-	cnr, err := p.cnrSrc.Get(idCnr)
+	cnrInfo, err := p.cnrSrc.Get(idCnr)
 	if err != nil {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
 
+	prm.cnr = cnrInfo.Value
+
 	// add common options
 	prm.traverseOpts = append(prm.traverseOpts,
 		// set processing container
-		placement.ForContainer(cnr.Value),
+		placement.ForContainer(prm.cnr),
 	)
 
 	if id, ok := prm.hdr.ID(); ok {
