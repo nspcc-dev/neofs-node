@@ -181,15 +181,20 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetOwnerID(idOwner)
 
 		var (
-			putPrm internalclient.PutContainerPrm
-			getPrm internalclient.GetContainerPrm
+			putPrm           internalclient.PutContainerPrm
+			getPrm           internalclient.GetContainerPrm
+			syncContainerPrm internalclient.SyncContainerPrm
 		)
 
-		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm)
+		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm, &syncContainerPrm)
+		syncContainerPrm.SetContainer(cnr)
 		putPrm.SetContainer(*cnr)
 
+		_, err = internalclient.SyncContainerSettings(syncContainerPrm)
+		exitOnErr(cmd, errf("syncing container's settings rpc error: %w", err))
+
 		res, err := internalclient.PutContainer(putPrm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		exitOnErr(cmd, errf("put container rpc error: %w", err))
 
 		id := res.ID()
 
