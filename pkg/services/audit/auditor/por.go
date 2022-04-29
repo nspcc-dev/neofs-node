@@ -55,6 +55,8 @@ func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 		accRequests, accRetries uint32
 	)
 
+	homomorphicHashingEnabled := c.task.ContainerStructure().HomomorphicHashingState()
+
 	for i := range members {
 		objectPlacement, err := c.buildPlacement(members[i])
 		if err != nil {
@@ -91,18 +93,22 @@ func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 			// update cache for PoR and PDP audit checks
 			c.updateHeadResponses(hdr)
 
-			cs, _ := hdr.PayloadHomomorphicHash()
+			if homomorphicHashingEnabled {
+				cs, _ := hdr.PayloadHomomorphicHash()
+				if len(tzHash) == 0 {
+					tzHash = cs.Value()
+				} else {
+					tzHash, err = tz.Concat([][]byte{
+						tzHash,
+						cs.Value(),
+					})
+					if err != nil {
+						c.log.Debug("can't concatenate tz hash",
+							zap.String("oid", members[i].String()),
+							zap.String("error", err.Error()))
 
-			if len(tzHash) == 0 {
-				tzHash = cs.Value()
-			} else {
-				tzHash, err = tz.Concat([][]byte{tzHash, cs.Value()})
-				if err != nil {
-					c.log.Debug("can't concatenate tz hash",
-						zap.Stringer("oid", members[i]),
-						zap.String("error", err.Error()))
-
-					break
+						break
+					}
 				}
 			}
 
@@ -117,7 +123,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 
 	sizeCheck := storageGroup.ValidationDataSize() == totalSize
 	cs, _ := storageGroup.ValidationDataHash()
-	tzCheck := bytes.Equal(tzHash, cs.Value())
+	tzCheck := !homomorphicHashingEnabled || bytes.Equal(tzHash, cs.Value())
 
 	if sizeCheck && tzCheck {
 		c.report.PassedPoR(sg) // write report
