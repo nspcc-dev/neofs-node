@@ -15,7 +15,7 @@ import (
 // with information about members collected via HeadReceiver.
 //
 // Resulting storage group consists of physically stored objects only.
-func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []oidSDK.ID) (*storagegroup.StorageGroup, error) {
+func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []oidSDK.ID, calcHomoHash bool) (*storagegroup.StorageGroup, error) {
 	var (
 		sumPhySize uint64
 		phyMembers []oidSDK.ID
@@ -32,25 +32,31 @@ func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []oidSDK.ID) (*
 		if err := objutil.IterateAllSplitLeaves(r, addr, func(leaf *object.Object) {
 			phyMembers = append(phyMembers, *leaf.ID())
 			sumPhySize += leaf.PayloadSize()
-			phyHashes = append(phyHashes, leaf.PayloadHomomorphicHash().Sum())
+
+			if calcHomoHash {
+				phyHashes = append(phyHashes, leaf.PayloadHomomorphicHash().Sum())
+			}
 		}); err != nil {
 			return nil, err
 		}
 	}
 
-	sumHash, err := tz.Concat(phyHashes)
-	if err != nil {
-		return nil, err
-	}
-
-	cs := checksum.New()
-	tzHash := [64]byte{}
-	copy(tzHash[:], sumHash)
-	cs.SetTillichZemor(tzHash)
-
 	sg.SetMembers(phyMembers)
 	sg.SetValidationDataSize(sumPhySize)
-	sg.SetValidationDataHash(cs)
+
+	if calcHomoHash {
+		sumHash, err := tz.Concat(phyHashes)
+		if err != nil {
+			return nil, err
+		}
+
+		cs := checksum.New()
+		tzHash := [64]byte{}
+		copy(tzHash[:], sumHash)
+		cs.SetTillichZemor(tzHash)
+
+		sg.SetValidationDataHash(cs)
+	}
 
 	return sg, nil
 }
