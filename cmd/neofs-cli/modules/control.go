@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"crypto/ecdsa"
-	"crypto/tls"
 	"fmt"
 
 	"github.com/mr-tron/base58"
@@ -457,30 +456,9 @@ func listShards(cmd *cobra.Command, _ []string) {
 	prettyPrintShards(cmd, resp.GetBody().GetShards())
 }
 
-// getControlSDKClient is the same getSDKClient but with
-// another RPC endpoint flag.
+// getControlSDKClient calls getSDKClientFlag with "endpoint" flag.
 func getControlSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
-	var (
-		c       client.Client
-		prmInit client.PrmInit
-		prmDial client.PrmDial
-	)
-
-	netAddr, err := getEndpointAddress(controlRPC)
-	if err != nil {
-		return nil, err
-	}
-
-	prmInit.SetDefaultPrivateKey(*key)
-	prmDial.SetServerURI(netAddr.HostAddr())
-
-	if netAddr.TLSEnabled() {
-		prmDial.SetTLSConfig(&tls.Config{})
-	}
-
-	c.Init(prmInit)
-
-	return &c, c.Dial(prmDial)
+	return getSDKClientFlag(key, controlRPC)
 }
 
 func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {

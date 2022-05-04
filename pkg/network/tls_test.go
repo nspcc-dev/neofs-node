@@ -24,6 +24,6 @@ func TestAddress_TLSEnabled(t *testing.T) {
 		err := addr.FromString(test.input)
 		require.NoError(t, err)
 
-		require.Equal(t, test.wantTLS, addr.TLSEnabled(), test.input)
+		require.Equal(t, test.wantTLS, addr.isTLSEnabled(), test.input)
 	}
 }

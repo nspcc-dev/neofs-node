@@ -89,12 +89,10 @@ func TestNodeSection(t *testing.T) {
 		expectedAddr := []struct {
 			str  string
 			host string
-			tls  bool
 		}{
 			{
 				str:  "/dns4/localhost/tcp/8083/tls",
-				host: "localhost:8083",
-				tls:  true,
+				host: "grpcs://localhost:8083",
 			},
 			{
 				str:  "/dns4/s01.neofs.devenv/tcp/8080",
@@ -118,8 +116,7 @@ func TestNodeSection(t *testing.T) {
 
 		addrs.IterateAddresses(func(addr network.Address) bool {
 			require.Equal(t, expectedAddr[ind].str, addr.String())
-			require.Equal(t, expectedAddr[ind].host, addr.HostAddr())
-			require.Equal(t, expectedAddr[ind].tls, addr.TLSEnabled())
+			require.Equal(t, expectedAddr[ind].host, addr.URIAddr())
 
 			ind++
 
