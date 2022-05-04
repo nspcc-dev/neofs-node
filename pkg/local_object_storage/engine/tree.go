@@ -3,6 +3,7 @@ package engine
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"go.uber.org/zap"
 )
 
 var _ pilorama.Forest = (*StorageEngine)(nil)
@@ -14,6 +15,10 @@ func (e *StorageEngine) TreeMove(cid cidSDK.ID, treeID string, m *pilorama.Move)
 	for _, sh := range e.sortShardsByWeight(cid) {
 		lm, err = sh.TreeMove(cid, treeID, m)
 		if err != nil {
+			e.log.Debug("can't put node in a tree",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.String("err", err.Error()))
 			continue
 		}
 		return lm, nil
@@ -28,6 +33,10 @@ func (e *StorageEngine) TreeAddByPath(cid cidSDK.ID, treeID string, attr string,
 	for _, sh := range e.sortShardsByWeight(cid) {
 		lm, err = sh.TreeAddByPath(cid, treeID, attr, path, m)
 		if err != nil {
+			e.log.Debug("can't put node in a tree",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.String("err", err.Error()))
 			continue
 		}
 		return lm, nil
@@ -41,6 +50,10 @@ func (e *StorageEngine) TreeApply(cid cidSDK.ID, treeID string, m *pilorama.Move
 	for _, sh := range e.sortShardsByWeight(cid) {
 		err = sh.TreeApply(cid, treeID, m)
 		if err != nil {
+			e.log.Debug("can't put node in a tree",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.String("err", err.Error()))
 			continue
 		}
 		return nil
@@ -56,6 +69,10 @@ func (e *StorageEngine) TreeGetByPath(cid cidSDK.ID, treeID string, attr string,
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetByPath(cid, treeID, attr, path, latest)
 		if err != nil {
+			e.log.Debug("can't put node in a tree",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.String("err", err.Error()))
 			continue
 		}
 		return nodes, nil
@@ -70,6 +87,10 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 	for _, sh := range e.sortShardsByWeight(cid) {
 		m, err = sh.TreeGetMeta(cid, treeID, nodeID)
 		if err != nil {
+			e.log.Debug("can't put node in a tree",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.String("err", err.Error()))
 			continue
 		}
 		return m, nil
@@ -84,6 +105,10 @@ func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pil
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetChildren(cid, treeID, nodeID)
 		if err != nil {
+			e.log.Debug("can't put node in a tree",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.String("err", err.Error()))
 			continue
 		}
 		return nodes, nil
