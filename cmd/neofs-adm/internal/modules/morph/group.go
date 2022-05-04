@@ -60,10 +60,7 @@ func openContractWallet(cmd *cobra.Command, walletDir string) (*wallet.Wallet, e
 
 		cmd.Printf("Contract group wallet is missing, initialize at %s\n",
 			filepath.Join(walletDir, contractWalletFilename))
-		w, err = initializeContractWallet(walletDir)
-		if err != nil {
-			return nil, err
-		}
+		return initializeContractWallet(walletDir)
 	}
 
 	password, err := getPassword(contractWalletPasswordKey, "Password for contract wallet > ")
