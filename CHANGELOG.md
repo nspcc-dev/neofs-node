@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Fixed
+- Loss of the connection scheme during address parsing in NeoFS CLI (#1351)
+
 ## [0.28.0] - 2022-04-29 - Heuksando (흑산도, 黑山島)
 
 ### Added

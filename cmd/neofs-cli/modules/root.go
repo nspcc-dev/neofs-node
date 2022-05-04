@@ -188,7 +188,7 @@ func getEndpointAddress(endpointFlag string) (addr network.Address, err error) {
 
 	err = addr.FromString(endpoint)
 	if err != nil {
-		err = errInvalidEndpoint
+		err = fmt.Errorf("%v: %w", errInvalidEndpoint, err)
 	}
 
 	return
@@ -227,13 +227,19 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 	prm.SetBearerToken(btok)
 }
 
-// getSDKClient returns default neofs-api-go sdk client. Consider using
-// opts... to provide TTL or other global configuration flags.
+// getSDKClient calls getSDKGClientFlag with "rpc-endpoint" flag.
 func getSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
-	netAddr, err := getEndpointAddress(rpc)
+	return getSDKClientFlag(key, rpc)
+}
+
+// getSDKClientFlag returns NeoFS API client connection to the network address
+// set by the given flag.
+func getSDKClientFlag(key *ecdsa.PrivateKey, endpointFlag string) (*client.Client, error) {
+	netAddr, err := getEndpointAddress(endpointFlag)
 	if err != nil {
 		return nil, err
 	}
+
 	return internalclient.GetSDKClient(key, netAddr)
 }
 

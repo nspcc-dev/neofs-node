@@ -57,7 +57,7 @@ func (x AddressGroup) Len() int {
 // Less returns true if i-th address in AddressGroup supports TLS
 // and j-th one doesn't.
 func (x AddressGroup) Less(i, j int) bool {
-	return x[i].TLSEnabled() && !x[j].TLSEnabled()
+	return x[i].isTLSEnabled() && !x[j].isTLSEnabled()
 }
 
 // Swap swaps i-th and j-th addresses in AddressGroup.

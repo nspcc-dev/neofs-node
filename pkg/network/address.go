@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 
 	"github.com/multiformats/go-multiaddr"
@@ -33,10 +34,12 @@ func (a Address) equal(addr Address) bool {
 	return a.ma.Equal(addr.ma)
 }
 
-// HostAddr returns host address in string format.
+// URIAddr returns Address as a URI.
 //
 // Panics if host address cannot be fetched from Address.
-func (a Address) HostAddr() string {
+//
+// See also FromString.
+func (a Address) URIAddr() string {
 	_, host, err := manet.DialArgs(a.ma)
 	if err != nil {
 		// the only correct way to construct Address is AddressFromString
@@ -44,7 +47,14 @@ func (a Address) HostAddr() string {
 		panic(fmt.Errorf("could not get host addr: %w", err))
 	}
 
-	return host
+	if !a.isTLSEnabled() {
+		return host
+	}
+
+	return (&url.URL{
+		Scheme: "grpcs",
+		Host:   host,
+	}).String()
 }
 
 // FromString restores Address from a string representation.

@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"sync"
 
@@ -38,10 +37,7 @@ func (x *multiClient) createForAddress(addr network.Address) clientcore.Client {
 		prmDial client.PrmDial
 	)
 
-	prmDial.SetServerURI(addr.HostAddr())
-	if addr.TLSEnabled() {
-		prmDial.SetTLSConfig(&tls.Config{})
-	}
+	prmDial.SetServerURI(addr.URIAddr())
 
 	if x.opts.Key != nil {
 		prmInit.SetDefaultPrivateKey(*x.opts.Key)

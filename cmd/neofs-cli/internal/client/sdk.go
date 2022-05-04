@@ -2,7 +2,6 @@ package internal
 
 import (
 	"crypto/ecdsa"
-	"crypto/tls"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -19,11 +18,7 @@ func GetSDKClient(key *ecdsa.PrivateKey, addr network.Address) (*client.Client, 
 
 	prmInit.SetDefaultPrivateKey(*key)
 	prmInit.ResolveNeoFSFailures()
-	prmDial.SetServerURI(addr.HostAddr())
-
-	if addr.TLSEnabled() {
-		prmDial.SetTLSConfig(&tls.Config{})
-	}
+	prmDial.SetServerURI(addr.URIAddr())
 
 	c.Init(prmInit)
 
