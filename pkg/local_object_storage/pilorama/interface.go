@@ -17,10 +17,13 @@ type Forest interface {
 	// The path is constructed by descending from the root using the values of the
 	// AttributeFilename in meta.
 	// The last argument determines whether only the node with the latest timestamp is returned.
+	// Should return ErrTreeNotFound if the tree is not found, and empty result if the path is not in the tree.
 	TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) ([]Node, error)
 	// TreeGetMeta returns meta information of the node with the specified ID.
+	// Should return ErrTreeNotFound if the tree is not found, and empty result if the node is not in the tree.
 	TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, error)
 	// TreeGetChildren returns children of the node with the specified ID. The order is arbitrary.
+	// Should return ErrTreeNotFound if the tree is not found, and empty result if the node is not in the tree.
 	TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error)
 }
 
