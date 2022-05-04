@@ -6,6 +6,9 @@ Changelog for NeoFS Node
 ### Added
 - Config examples for Inner ring application (#1358)
 
+### Fixed
+- Do not ask for contract wallet password twice (#1346)
+
 ## [0.28.1] - 2022-05-05
 
 ### Fixed
