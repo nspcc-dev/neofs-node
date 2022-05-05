@@ -9,13 +9,12 @@ import (
 )
 
 type protoMessage interface {
-	StableMarshal([]byte) ([]byte, error)
+	StableMarshal([]byte) []byte
 	proto.Message
 }
 
 func testStableMarshal(t *testing.T, m1, m2 protoMessage, cmp func(m1, m2 protoMessage) bool) {
-	data, err := m1.StableMarshal(nil)
-	require.NoError(t, err)
+	data := m1.StableMarshal(nil)
 
 	require.NoError(t, proto.Unmarshal(data, m2))
 

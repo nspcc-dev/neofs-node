@@ -13,8 +13,8 @@ import (
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *HealthCheckRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *HealthCheckRequest_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of health check request body
@@ -48,7 +48,7 @@ func (x *HealthCheckRequest) SetSignature(body *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *HealthCheckRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -80,21 +80,18 @@ const (
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf, int32(x.HealthStatus))
-	if err != nil {
-		return nil, err
-	}
+	proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf, int32(x.HealthStatus))
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of health check response body
@@ -136,7 +133,7 @@ func (x *HealthCheckResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *HealthCheckResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data

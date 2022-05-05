@@ -56,44 +56,25 @@ const (
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NodeInfo_Attribute) StableMarshal(buf []byte) ([]byte, error) {
+func (x *NodeInfo_Attribute) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	var offset int
 
-	n, err = proto.StringMarshal(nodeAttrKeyFNum, buf[offset:], x.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.StringMarshal(nodeAttrValueFNum, buf[offset:], x.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
+	offset += proto.StringMarshal(nodeAttrKeyFNum, buf[offset:], x.Key)
+	offset += proto.StringMarshal(nodeAttrValueFNum, buf[offset:], x.Value)
 
 	for i := range x.Parents {
-		n, err = proto.StringMarshal(nodeAttrParentsFNum, buf[offset:], x.Parents[i])
-		if err != nil {
-			return nil, err
-		}
-
-		offset += n
+		offset += proto.StringMarshal(nodeAttrParentsFNum, buf[offset:], x.Parents[i])
 	}
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of node attribute
@@ -163,49 +144,27 @@ const (
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NodeInfo) StableMarshal(buf []byte) ([]byte, error) {
+func (x *NodeInfo) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	var offset int
 
-	n, err = proto.BytesMarshal(nodePubKeyFNum, buf[offset:], x.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.RepeatedStringMarshal(nodeAddrFNum, buf[offset:], x.Addresses)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
+	offset += proto.BytesMarshal(nodePubKeyFNum, buf[offset:], x.PublicKey)
+	offset += proto.RepeatedStringMarshal(nodeAddrFNum, buf[offset:], x.Addresses)
 
 	for i := range x.Attributes {
-		n, err = proto.NestedStructureMarshal(nodeAttrsFNum, buf[offset:], x.Attributes[i])
-		if err != nil {
-			return nil, err
-		}
-
-		offset += n
+		offset += proto.NestedStructureMarshal(nodeAttrsFNum, buf[offset:], x.Attributes[i])
 	}
 
-	_, err = proto.EnumMarshal(nodeStateFNum, buf[offset:], int32(x.State))
-	if err != nil {
-		return nil, err
-	}
+	proto.EnumMarshal(nodeStateFNum, buf[offset:], int32(x.State))
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of node information
@@ -259,37 +218,24 @@ const (
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *Netmap) StableMarshal(buf []byte) ([]byte, error) {
+func (x *Netmap) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	var offset int
 
-	n, err = proto.UInt64Marshal(netmapEpochFNum, buf[offset:], x.Epoch)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
+	offset += proto.UInt64Marshal(netmapEpochFNum, buf[offset:], x.Epoch)
 
 	for i := range x.Nodes {
-		n, err = proto.NestedStructureMarshal(netmapNodesFNum, buf[offset:], x.Nodes[i])
-		if err != nil {
-			return nil, err
-		}
-
-		offset += n
+		offset += proto.NestedStructureMarshal(netmapNodesFNum, buf[offset:], x.Nodes[i])
 	}
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of netmap  in protobuf binary format.
@@ -387,59 +333,23 @@ func (x *ShardInfo) StableSize() int {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *ShardInfo) StableMarshal(buf []byte) ([]byte, error) {
+func (x *ShardInfo) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	var offset int
 
-	n, err = proto.BytesMarshal(shardInfoIDFNum, buf[offset:], x.Shard_ID)
-	if err != nil {
-		return nil, err
-	}
+	offset += proto.BytesMarshal(shardInfoIDFNum, buf[offset:], x.Shard_ID)
+	offset += proto.StringMarshal(shardInfoMetabaseFNum, buf[offset:], x.MetabasePath)
+	offset += proto.StringMarshal(shardInfoBlobstorFNum, buf[offset:], x.BlobstorPath)
+	offset += proto.StringMarshal(shardInfoWriteCacheFNum, buf[offset:], x.WritecachePath)
+	offset += proto.EnumMarshal(shardInfoModeFNum, buf[offset:], int32(x.Mode))
+	proto.EnumMarshal(shardInfoErrorCountFNum, buf[offset:], int32(x.ErrorCount))
 
-	offset += n
-
-	n, err = proto.StringMarshal(shardInfoMetabaseFNum, buf[offset:], x.MetabasePath)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.StringMarshal(shardInfoBlobstorFNum, buf[offset:], x.BlobstorPath)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.StringMarshal(shardInfoWriteCacheFNum, buf[offset:], x.WritecachePath)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.EnumMarshal(shardInfoModeFNum, buf[offset:], int32(x.Mode))
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	_, err = proto.EnumMarshal(shardInfoErrorCountFNum, buf[offset:], int32(x.ErrorCount))
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+	return buf
 }
