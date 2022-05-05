@@ -6,38 +6,40 @@ import (
 )
 
 const (
-	alphabetWalletsFlag       = "alphabet-wallets"
-	alphabetSizeFlag          = "size"
-	endpointFlag              = "rpc-endpoint"
-	storageWalletFlag         = "storage-wallet"
-	storageWalletLabelFlag    = "label"
-	storageGasCLIFlag         = "initial-gas"
-	storageGasConfigFlag      = "storage.initial_gas"
-	contractsInitFlag         = "contracts"
-	maxObjectSizeInitFlag     = "network.max_object_size"
-	maxObjectSizeCLIFlag      = "max-object-size"
-	epochDurationInitFlag     = "network.epoch_duration"
-	epochDurationCLIFlag      = "epoch-duration"
-	incomeRateInitFlag        = "network.basic_income_rate"
-	incomeRateCLIFlag         = "basic-income-rate"
-	auditFeeInitFlag          = "network.fee.audit"
-	auditFeeCLIFlag           = "audit-fee"
-	containerFeeInitFlag      = "network.fee.container"
-	containerAliasFeeInitFlag = "network.fee.container_alias"
-	containerFeeCLIFlag       = "container-fee"
-	containerAliasFeeCLIFlag  = "container-alias-fee"
-	candidateFeeInitFlag      = "network.fee.candidate"
-	candidateFeeCLIFlag       = "candidate-fee"
-	withdrawFeeInitFlag       = "network.fee.withdraw"
-	withdrawFeeCLIFlag        = "withdraw-fee"
-	containerDumpFlag         = "dump"
-	containerContractFlag     = "container-contract"
-	containerIDsFlag          = "cid"
-	refillGasAmountFlag       = "gas"
-	walletAccountFlag         = "account"
-	notaryDepositTillFlag     = "till"
-	localDumpFlag             = "local-dump"
-	protoConfigPath           = "protocol"
+	alphabetWalletsFlag             = "alphabet-wallets"
+	alphabetSizeFlag                = "size"
+	endpointFlag                    = "rpc-endpoint"
+	storageWalletFlag               = "storage-wallet"
+	storageWalletLabelFlag          = "label"
+	storageGasCLIFlag               = "initial-gas"
+	storageGasConfigFlag            = "storage.initial_gas"
+	contractsInitFlag               = "contracts"
+	maxObjectSizeInitFlag           = "network.max_object_size"
+	maxObjectSizeCLIFlag            = "max-object-size"
+	epochDurationInitFlag           = "network.epoch_duration"
+	epochDurationCLIFlag            = "epoch-duration"
+	incomeRateInitFlag              = "network.basic_income_rate"
+	incomeRateCLIFlag               = "basic-income-rate"
+	auditFeeInitFlag                = "network.fee.audit"
+	auditFeeCLIFlag                 = "audit-fee"
+	containerFeeInitFlag            = "network.fee.container"
+	containerAliasFeeInitFlag       = "network.fee.container_alias"
+	containerFeeCLIFlag             = "container-fee"
+	containerAliasFeeCLIFlag        = "container-alias-fee"
+	candidateFeeInitFlag            = "network.fee.candidate"
+	candidateFeeCLIFlag             = "candidate-fee"
+	homomorphicHashDisabledInitFlag = "network.homomorphic_hash_disabled"
+	homomorphicHashDisabledCLIFlag  = "homomorphic-disabled"
+	withdrawFeeInitFlag             = "network.fee.withdraw"
+	withdrawFeeCLIFlag              = "withdraw-fee"
+	containerDumpFlag               = "dump"
+	containerContractFlag           = "container-contract"
+	containerIDsFlag                = "cid"
+	refillGasAmountFlag             = "gas"
+	walletAccountFlag               = "account"
+	notaryDepositTillFlag           = "till"
+	localDumpFlag                   = "local-dump"
+	protoConfigPath                 = "protocol"
 )
 
 var (
@@ -66,6 +68,7 @@ var (
 			_ = viper.BindPFlag(epochDurationInitFlag, cmd.Flags().Lookup(epochDurationCLIFlag))
 			_ = viper.BindPFlag(maxObjectSizeInitFlag, cmd.Flags().Lookup(maxObjectSizeCLIFlag))
 			_ = viper.BindPFlag(incomeRateInitFlag, cmd.Flags().Lookup(incomeRateCLIFlag))
+			_ = viper.BindPFlag(homomorphicHashDisabledInitFlag, cmd.Flags().Lookup(homomorphicHashDisabledCLIFlag))
 			_ = viper.BindPFlag(auditFeeInitFlag, cmd.Flags().Lookup(auditFeeCLIFlag))
 			_ = viper.BindPFlag(candidateFeeInitFlag, cmd.Flags().Lookup(candidateFeeCLIFlag))
 			_ = viper.BindPFlag(containerFeeInitFlag, cmd.Flags().Lookup(containerFeeCLIFlag))
@@ -222,6 +225,7 @@ func init() {
 	initCmd.Flags().String(contractsInitFlag, "", "path to archive with compiled NeoFS contracts (default fetched from latest github release)")
 	initCmd.Flags().Uint(epochDurationCLIFlag, 240, "amount of side chain blocks in one NeoFS epoch")
 	initCmd.Flags().Uint(maxObjectSizeCLIFlag, 67108864, "max single object size in bytes")
+	initCmd.Flags().Bool(homomorphicHashDisabledCLIFlag, false, "disable object homomorphic hashing")
 	// Defaults are taken from neo-preodolenie.
 	initCmd.Flags().Uint64(containerFeeCLIFlag, 1000, "container registration fee")
 	initCmd.Flags().Uint64(containerAliasFeeCLIFlag, 500, "container alias fee")
