@@ -14,17 +14,18 @@ import (
 )
 
 type configTemplate struct {
-	Endpoint          string
-	AlphabetDir       string
-	MaxObjectSize     int
-	EpochDuration     int
-	BasicIncomeRate   int
-	AuditFee          int
-	CandidateFee      int
-	ContainerFee      int
-	ContainerAliasFee int
-	WithdrawFee       int
-	Glagolitics       []string
+	Endpoint                string
+	AlphabetDir             string
+	MaxObjectSize           int
+	EpochDuration           int
+	BasicIncomeRate         int
+	AuditFee                int
+	CandidateFee            int
+	ContainerFee            int
+	ContainerAliasFee       int
+	WithdrawFee             int
+	Glagolitics             []string
+	HomomorphicHashDisabled bool
 }
 
 const configTxtTemplate = `rpc-endpoint: {{ .Endpoint}}
@@ -33,6 +34,7 @@ network:
   max_object_size: {{ .MaxObjectSize}}
   epoch_duration: {{ .EpochDuration}}
   basic_income_rate: {{ .BasicIncomeRate}}
+  homomorphic_hash_disabled: {{ .HomomorphicHashDisabled}}
   fee:
     audit: {{ .AuditFee}}
     candidate: {{ .CandidateFee}}
@@ -106,16 +108,17 @@ func defaultConfigPath() (string, error) {
 // some comments as well.
 func generateConfigExample(appDir string, credSize int) (string, error) {
 	tmpl := configTemplate{
-		Endpoint:          "https://neo.rpc.node:30333",
-		MaxObjectSize:     67108864,      // 64 MiB
-		EpochDuration:     240,           // 1 hour with 15s per block
-		BasicIncomeRate:   1_0000_0000,   // 0.0001 GAS per GiB (Fixed12)
-		AuditFee:          1_0000,        // 0.00000001 GAS per audit (Fixed12)
-		CandidateFee:      100_0000_0000, // 100.0 GAS (Fixed8)
-		ContainerFee:      1000,          // 0.000000001 * 7 GAS per container (Fixed12)
-		ContainerAliasFee: 500,           // ContainerFee / 2
-		WithdrawFee:       1_0000_0000,   // 1.0 GAS (Fixed8)
-		Glagolitics:       make([]string, 0, credSize),
+		Endpoint:                "https://neo.rpc.node:30333",
+		MaxObjectSize:           67108864,      // 64 MiB
+		EpochDuration:           240,           // 1 hour with 15s per block
+		BasicIncomeRate:         1_0000_0000,   // 0.0001 GAS per GiB (Fixed12)
+		HomomorphicHashDisabled: false,         // object homomorphic hash is enabled
+		AuditFee:                1_0000,        // 0.00000001 GAS per audit (Fixed12)
+		CandidateFee:            100_0000_0000, // 100.0 GAS (Fixed8)
+		ContainerFee:            1000,          // 0.000000001 * 7 GAS per container (Fixed12)
+		ContainerAliasFee:       500,           // ContainerFee / 2
+		WithdrawFee:             1_0000_0000,   // 1.0 GAS (Fixed8)
+		Glagolitics:             make([]string, 0, credSize),
 	}
 
 	appDir, err := filepath.Abs(appDir)

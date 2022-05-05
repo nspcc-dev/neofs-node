@@ -47,16 +47,17 @@ const (
 )
 
 const (
-	netmapEpochKey                 = "EpochDuration"
-	netmapMaxObjectSizeKey         = "MaxObjectSize"
-	netmapAuditFeeKey              = "AuditFee"
-	netmapContainerFeeKey          = "ContainerFee"
-	netmapContainerAliasFeeKey     = "ContainerAliasFee"
-	netmapEigenTrustIterationsKey  = "EigenTrustIterations"
-	netmapEigenTrustAlphaKey       = "EigenTrustAlpha"
-	netmapBasicIncomeRateKey       = "BasicIncomeRate"
-	netmapInnerRingCandidateFeeKey = "InnerRingCandidateFee"
-	netmapWithdrawFeeKey           = "WithdrawFee"
+	netmapEpochKey                   = "EpochDuration"
+	netmapMaxObjectSizeKey           = "MaxObjectSize"
+	netmapAuditFeeKey                = "AuditFee"
+	netmapContainerFeeKey            = "ContainerFee"
+	netmapContainerAliasFeeKey       = "ContainerAliasFee"
+	netmapEigenTrustIterationsKey    = "EigenTrustIterations"
+	netmapEigenTrustAlphaKey         = "EigenTrustAlpha"
+	netmapBasicIncomeRateKey         = "BasicIncomeRate"
+	netmapInnerRingCandidateFeeKey   = "InnerRingCandidateFee"
+	netmapWithdrawFeeKey             = "WithdrawFee"
+	netmapHomomorphicHashDisabledKey = "HomomorphicHashingDisabled"
 
 	defaultEigenTrustIterations = 4
 	defaultEigenTrustAlpha      = "0.1"
@@ -580,6 +581,8 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []sm
 			{Type: smartcontract.IntegerType, Value: viper.GetInt64(candidateFeeInitFlag)},
 			{Type: smartcontract.StringType, Value: netmapWithdrawFeeKey},
 			{Type: smartcontract.IntegerType, Value: viper.GetInt64(withdrawFeeInitFlag)},
+			{Type: smartcontract.StringType, Value: netmapHomomorphicHashDisabledKey},
+			{Type: smartcontract.BoolType, Value: viper.GetBool(homomorphicHashDisabledInitFlag)},
 		}
 		items = append(items,
 			newContractParameter(smartcontract.Hash160Type, c.Contracts[balanceContract].Hash),
