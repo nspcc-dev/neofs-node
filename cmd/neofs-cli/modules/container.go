@@ -194,10 +194,11 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm, &syncContainerPrm)
 		syncContainerPrm.SetContainer(cnr)
-		putPrm.SetContainer(*cnr)
 
 		_, err = internalclient.SyncContainerSettings(syncContainerPrm)
 		common.ExitOnErr(cmd, "syncing container's settings rpc error: %w", err)
+
+		putPrm.SetContainer(*cnr)
 
 		res, err := internalclient.PutContainer(putPrm)
 		common.ExitOnErr(cmd, "put container rpc error: %w", err)
