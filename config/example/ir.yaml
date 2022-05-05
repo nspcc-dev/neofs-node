@@ -1,0 +1,136 @@
+---
+
+logger:
+  level: info # Logger level: one of "debug", "info" (default), "warn", "error", "dpanic", "panic", "fatal"
+
+wallet:
+  path: /path/to/wallet.json                  # Path to NEP-6 NEO wallet file
+  address: NUHtW3eM6a4mmFCgyyr4rj4wygsTKB88XX # Account address in the wallet; ignore to use default address
+  password: secret                            # Account password in the wallet
+
+without_mainnet: false # Run application in single chain environment without mainchain
+
+morph:
+  dial_timeout: 5s # Timeout for RPC client connection to sidechain
+  endpoint:
+    client: # List of websocket RPC endpoints in sidechain
+      - wss://sidechain1.fs.neo.org:30333/ws
+      - wss://sidechain2.fs.neo.org:30333/ws
+  validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup
+    - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
+
+mainnet:
+  dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
+  endpoint:
+    client: # List of websocket RPC endpoints in mainchain; ignore if mainchain is disabled
+      - wss://mainchain1.fs.neo.org:30333/ws
+      - wss://mainchain.fs.neo.org:30333/ws
+
+control:
+  authorized_keys:  # List of hex-encoded 33-byte public keys that have rights to use the control service
+    - 035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11
+    - 028f42cfcb74499d7b15b35d9bff260a1c8d27de4f446a627406a382d8961486d6
+  grpc:
+    endpoint: 127.0.0.1:8090  # Endpoint that is listened by the control service; disabled by default
+
+governance:
+  disable: false # Disable synchronization of sidechain committee and mainchain role management contract; ignore if mainchain is disabled
+
+node:
+  persistent_state:
+    path: .neofs-ir-state # Path to application state file
+
+locode:
+  db:
+    path: /path/to/locode.db # Path to UN/LOCODE database file
+
+fee:
+  main_chain: 50000000                 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain
+  side_chain: 200000000                # Fixed8 value of extra GAS fee for sidechain contract invocation; ignore if notary is enabled in sidechain
+  named_container_register: 2500000000 # Fixed8 value of extra GAS fee for named conatiner registration in container contract; ignore if notary is enabled in sidechain
+
+timers:
+  emit: 240 # Number of sidechain blocks between GAS emission cycles; disabled by default
+  stop_estimation:
+    mul: 1 # Multiplier in x/y relation of when to stop basic income estimation within the epoch
+    div: 4 # Divider in x/y relation of when to stop basic income estimation within the epoch
+  collect_basic_income:
+    mul: 1 # Multiplier in x/y relation of when to start basic income asset collection within the epoch
+    div: 2 # Divider in x/y relation of when to start basic income asset collecting within the epoch
+  distribute_basic_income:
+    mul: 3 # Multiplier in x/y relation of when to start basic income asset distribution within the epoch
+    div: 4 # Divider in x/y relation of when to start basic income asset distribution within the epoch
+
+emit:
+  storage:
+    amount: 800000000 # Fixed8 value of sidechain GAS emitted to all storage nodes once per GAS emission cycle; disabled by default
+  mint:
+    value: 20000000  # Fixed8 value of sidechain GAS transferred to account that received a deposit from mainchain
+    cache_size: 1000 # LRU cache size of all deposit receivers to avoid double GAS emission
+    threshold: 1     # Lifetime of records in LRU cache of all deposit receivers in NeoFS epochs
+  gas:
+    balance_threshold: 100000000000 # Fixed8 value of inner ring wallet balance threshold when GAS emission for deposit receivers is disabled; disabled by default
+
+workers:
+  alphabet: 10   # Number of workers to process events from alphabet contract in parallel
+  balance: 10    # Number of workers to process events from balance contract in parallel
+  container: 10  # Number of workers to process events from container contract in parallel
+  neofs: 10      # Number of workers to process events from neofs contracts in parallel
+  netmap: 10     # Number of workers to process events from netmap contract in parallel
+  reputation: 10 # Number of workers to process events from reputation contract in parallel
+  subnet: 10     # Number of workers to process events from subnet contract in parallel
+
+audit:
+  timeout:
+    get: 5s       # Timeout for object.Get operation during data audit
+    head: 5s      # Timeout for object.Head operation during data audit
+    rangehash: 5s # Timeout for object.RangeHash operation during data audit
+    search: 10s   # Timeout for object.Search operation during data audit
+  task:
+    exec_pool_size: 10   # Number of workers to process audit routine in parallel
+    queue_capacity:  100 # Maximum amount of simultaneous audit jobs
+  pdp:
+    pairs_pool_size: 10    # Number of workers to process PDP part of data audit in parallel
+    max_sleep_interval: 5s # Maximum timeout between object.RangeHash requests to the storage node
+  por:
+    pool_size: 10 # Number of workers to process PoR part of data audit in parallel
+
+indexer:
+  cache_timeout: 15s # Duration between internal state update about current list of inner ring nodes
+
+netmap_cleaner:
+  enabled: true # Enable voting for removing stale storage nodes from network map
+  threshold: 3  # Number of NeoFS epoch without bootstrap request from storage node before it considered stale
+
+contracts:
+  neofs: ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62      # Address of NeoFS contract in mainchain; ignore if mainchain is disabled
+  processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled or notary is disabled in mainchain
+  audit: 219e37aed2180b87e7fe945dbf97d67125e8d73f      # Optional: override address of audit contract in sidechain
+  balance: d2aa48d14b17b11bc4c68205027884a96706dd16    # Optional: override address of balance contract in sidechain
+  container: ed4a7a66fe3f9bfe50f214b49be8f215a3c886b6  # Optional: override address of container contract in sidechain
+  neofsid: 9f5866decbc751a099e74c7c7bc89f609201755a    # Optional: override address of neofsid contract in sidechain
+  netmap: 83c600c81d47a1b1b7cf58eb49ae7ee7240dc742     # Optional: override address of netmap contract in sidechain
+  proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain; ignore if notary is disabled in sidechain
+  reputation: d793b842ff0c103fe89e385069e82a27602135ff # Optional: override address of reputation contract in sidechain
+  subnet: e9266864d3c562c6e17f2bb9cb1392aaa293d93a     # Optional: override address of subnet contract in sidechain
+  alphabet:
+    amount: 7                                         # Optional: override amount of alphabet contracts
+    az: c1d211fceeb4b1dc76b8e4054d11fdf887e418ea      # Optional: override address of az alphabet contract in sidechain
+    buky: e2ba789320899658b100f331bdebb74474757920    # Optional: override address of buky alphabet contract in sidechain
+    vedi: 9623c11fd49aa18220458fbaae0396749c669e19    # Optional: override address of vedi alphabet contract in sidechain
+    glagoli: 39617441b8e06c55e4fc3ce660be9101b6c1f866 # Optional: override address of glagoli alphabet contract in sidechain
+    dobro: e6122b65d45c8feeb04455d67814394c147ed4d1   # Optional: override address of dobro alphabet contract in sidechain
+    yest: cdbca5cb5d48a4472923844d0e3ee6328cf86d38    # Optional: override address of yest contract in sidechain
+    zhivete: f584699bc2ff457d339fb09f16217042c1a42101 # Optional: override address of zhivete contract in sidechain
+
+profiler:
+  address: 127.0.0.1:6060  # Endpoint for application pprof profiling; disabled by default
+  shutdown_timeout: 30s    # Timeout for profiling HTTP server graceful shutdown
+
+metrics:
+  address: 127.0.0.1:9090  # Endpoint for application prometheus metrics; disabled by default
+  shutdown_timeout: 30s    # Timeout for metrics HTTP server graceful shutdown
+
+settlement:
+  basic_income_rate: 100 # Optional: override basic income rate value from network config; applied only in debug mode
+  audit_fee: 100         # Optional: override audit fee value from network config; applied only in debug mode
