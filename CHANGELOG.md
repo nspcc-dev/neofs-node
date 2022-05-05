@@ -3,6 +3,8 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.1] - 2022-05-05
+
 ### Fixed
 - Loss of the connection scheme during address parsing in NeoFS CLI (#1351)
 
@@ -1062,7 +1064,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.1...master
+[0.28.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.3...v0.28.0
 [0.28.0-rc.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...v0.28.0-rc.3
 [0.28.0-rc.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.1...v0.28.0-rc.2
