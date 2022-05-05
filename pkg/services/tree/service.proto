@@ -36,6 +36,7 @@ message AddRequest {
     string tree_id = 2;
     uint64 parent_id = 3;
     repeated KeyValue meta = 4;
+    bytes bearer_token = 5;
   }
 
   Body body = 1;
@@ -59,6 +60,7 @@ message AddByPathRequest {
     string path_attribute = 3;
     repeated string path = 4;
     repeated KeyValue meta = 5;
+    bytes bearer_token = 6;
   }
 
   Body body = 1;
@@ -81,6 +83,7 @@ message RemoveRequest {
     bytes container_id = 1;
     string tree_id = 2;
     uint64 node_id = 3;
+    bytes bearer_token = 4;
   }
 
   Body body = 1;
@@ -104,6 +107,7 @@ message MoveRequest {
     uint64 parent_id = 3;
     uint64 node_id = 4;
     repeated KeyValue meta = 5;
+    bytes bearer_token = 6;
   }
 
   Body body = 1;
@@ -128,6 +132,7 @@ message GetNodeByPathRequest {
     repeated string attributes = 5;
     bool latest_only = 6;
     bool all_attributes = 7;
+    bytes bearer_token = 8;
   }
 
   Body body = 1;
@@ -157,6 +162,7 @@ message GetSubTreeRequest {
     // Optional depth of the traversal. Zero means return only root.
     // Maximum depth is 10.
     uint32 depth = 4;
+    bytes bearer_token = 5;
   }
 
   Body body = 1;
