@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +61,7 @@ func (s *Service) Add(_ context.Context, req *AddRequest) (*AddResponse, error) 
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, req.GetSignature().GetKey())
+	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *Service) AddByPath(_ context.Context, req *AddByPathRequest) (*AddByPat
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, req.GetSignature().GetKey())
+	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (s *Service) Remove(_ context.Context, req *RemoveRequest) (*RemoveResponse
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, req.GetSignature().GetKey())
+	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (s *Service) Move(_ context.Context, req *MoveRequest) (*MoveResponse, erro
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, req.GetSignature().GetKey())
+	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
 	}
@@ -191,6 +191,11 @@ func (s *Service) GetNodeByPath(_ context.Context, req *GetNodeByPathRequest) (*
 
 	var cid cidSDK.ID
 	if err := cid.Decode(b.GetContainerId()); err != nil {
+		return nil, err
+	}
+
+	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationGet)
+	if err != nil {
 		return nil, err
 	}
 
@@ -255,6 +260,11 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 		return err
 	}
 
+	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationGet)
+	if err != nil {
+		return err
+	}
+
 	queue := []nodeDepthPair{{[]uint64{b.GetRootId()}, 0}}
 
 	for len(queue) != 0 {
@@ -293,7 +303,7 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 
 // Apply locally applies operation from the remote node to the tree.
 func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, error) {
-	err := signature.VerifyServiceMessage(req)
+	err := verifyMessage(req)
 	if err != nil {
 		return nil, err
 	}

@@ -52,16 +52,10 @@ func (s *Service) replicateLoop(ctx context.Context) {
 
 func (s *Service) replicate(ctx context.Context, op movePair) error {
 	req := newApplyRequest(&op)
-	// TODO(@fyrchik): #1328 access control
-	//err := signature.SignDataWithHandler(s.key, req, func(key, sign []byte) {
-	//	req.Signature = &Signature{
-	//		Key:  key,
-	//		Sign: sign,
-	//	}
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("can't sign data: %w", err)
-	//}
+	err := signMessage(req, s.key)
+	if err != nil {
+		return fmt.Errorf("can't sign data: %w", err)
+	}
 
 	nodes, err := s.getContainerNodes(op.cid)
 	if err != nil {
