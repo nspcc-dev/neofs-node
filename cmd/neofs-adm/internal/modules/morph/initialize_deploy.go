@@ -47,16 +47,17 @@ const (
 )
 
 const (
-	netmapEpochKey                 = "EpochDuration"
-	netmapMaxObjectSizeKey         = "MaxObjectSize"
-	netmapAuditFeeKey              = "AuditFee"
-	netmapContainerFeeKey          = "ContainerFee"
-	netmapContainerAliasFeeKey     = "ContainerAliasFee"
-	netmapEigenTrustIterationsKey  = "EigenTrustIterations"
-	netmapEigenTrustAlphaKey       = "EigenTrustAlpha"
-	netmapBasicIncomeRateKey       = "BasicIncomeRate"
-	netmapInnerRingCandidateFeeKey = "InnerRingCandidateFee"
-	netmapWithdrawFeeKey           = "WithdrawFee"
+	netmapEpochKey                   = "EpochDuration"
+	netmapMaxObjectSizeKey           = "MaxObjectSize"
+	netmapAuditFeeKey                = "AuditFee"
+	netmapContainerFeeKey            = "ContainerFee"
+	netmapContainerAliasFeeKey       = "ContainerAliasFee"
+	netmapEigenTrustIterationsKey    = "EigenTrustIterations"
+	netmapEigenTrustAlphaKey         = "EigenTrustAlpha"
+	netmapBasicIncomeRateKey         = "BasicIncomeRate"
+	netmapInnerRingCandidateFeeKey   = "InnerRingCandidateFee"
+	netmapWithdrawFeeKey             = "WithdrawFee"
+	netmapHomomorphicHashDisabledKey = "HomomorphicHashingDisabled"
 
 	defaultEigenTrustIterations = 4
 	defaultEigenTrustAlpha      = "0.1"
@@ -544,6 +545,7 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []in
 			netmapBasicIncomeRateKey, viper.GetInt64(incomeRateInitFlag),
 			netmapInnerRingCandidateFeeKey, viper.GetInt64(candidateFeeInitFlag),
 			netmapWithdrawFeeKey, viper.GetInt64(withdrawFeeInitFlag),
+			netmapHomomorphicHashDisabledKey, viper.GetBool(homomorphicHashDisabledInitFlag),
 		}
 		items = append(items,
 			c.Contracts[balanceContract].Hash,
