@@ -1,6 +1,7 @@
 package netmap
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -112,9 +113,17 @@ func (c *Client) EigenTrustAlpha() (float64, error) {
 
 // HomomorphicHashDisabled returns global configuration value of homomorphic hashing
 // settings.
+//
+// Returns (false, nil) if config key is not found in the contract.
 func (c *Client) HomomorphicHashDisabled() (bool, error) {
+	const defaultValue = false
+
 	hashingDisabled, err := c.readBoolConfig(homomorphicHashingDisabledKey)
 	if err != nil {
+		if errors.Is(err, ErrConfigNotFound) {
+			return defaultValue, nil
+		}
+
 		return false, fmt.Errorf("(%T) could not get homomorphic hash state: %w", c, err)
 	}
 
@@ -319,8 +328,14 @@ func bytesToUint64(val []byte) uint64 {
 	return bigint.FromBytes(val).Uint64()
 }
 
+// ErrConfigNotFound is returned when the requested key was not found
+// in the network config (returned value is `Null`).
+var ErrConfigNotFound = errors.New("config value not found")
+
 // config performs the test invoke of get config value
 // method of NeoFS Netmap contract.
+//
+// Returns ErrConfigNotFound if config key is not found in the contract.
 func (c *Client) config(key []byte, assert func(stackitem.Item) (interface{}, error)) (interface{}, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(configMethod)
@@ -335,6 +350,10 @@ func (c *Client) config(key []byte, assert func(stackitem.Item) (interface{}, er
 	if ln := len(items); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
 			configMethod, ln)
+	}
+
+	if _, ok := items[0].(stackitem.Null); ok {
+		return nil, ErrConfigNotFound
 	}
 
 	return assert(items[0])
