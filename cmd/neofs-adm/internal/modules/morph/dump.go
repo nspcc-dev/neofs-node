@@ -187,7 +187,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 		v, err := tuple[1].TryBytes()
 		if err != nil {
-			return errors.New("invalid config value from netmap contract")
+			return invalidConfigValueErr(k)
 		}
 
 		switch string(k) {
@@ -202,6 +202,13 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%d (int)\n", k, n)))
 		case netmapEigenTrustAlphaKey:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (str)\n", k, v)))
+		case netmapHomomorphicHashDisabledKey:
+			vBool, err := tuple[1].TryBool()
+			if err != nil {
+				return invalidConfigValueErr(k)
+			}
+
+			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%t (bool)\n", k, vBool)))
 		default:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (hex)\n", k, hex.EncodeToString(v))))
 		}
@@ -211,4 +218,8 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 	cmd.Print(buf.String())
 
 	return nil
+}
+
+func invalidConfigValueErr(key []byte) error {
+	return fmt.Errorf("invalid %s config value from netmap contract", key)
 }
