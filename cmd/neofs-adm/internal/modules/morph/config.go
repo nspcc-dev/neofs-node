@@ -188,7 +188,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 		v, err := tuple[1].TryBytes()
 		if err != nil {
-			return errors.New("invalid config value from netmap contract")
+			return invalidConfigValueErr(k)
 		}
 
 		switch string(k) {
@@ -203,6 +203,13 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%d (int)\n", k, n)))
 		case netmapEigenTrustAlphaKey:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (str)\n", k, v)))
+		case netmapHomomorphicHashDisabledKey:
+			vBool, err := tuple[1].TryBool()
+			if err != nil {
+				return invalidConfigValueErr(k)
+			}
+
+			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%t (bool)\n", k, vBool)))
 		default:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (hex)\n", k, hex.EncodeToString(v))))
 		}
@@ -288,6 +295,12 @@ func parseConfigPair(kvStr string, force bool) (key string, val interface{}, err
 		}
 
 		val = valRaw
+	case netmapHomomorphicHashDisabledKey:
+		val, err = strconv.ParseBool(valRaw)
+		if err != nil {
+			err = fmt.Errorf("could not parse %s's value '%s' as bool: %w", key, valRaw, err)
+		}
+
 	default:
 		if !force {
 			return "", nil, fmt.Errorf(
@@ -299,4 +312,8 @@ func parseConfigPair(kvStr string, force bool) (key string, val interface{}, err
 	}
 
 	return
+}
+
+func invalidConfigValueErr(key []byte) error {
+	return fmt.Errorf("invalid %s config value from netmap contract", key)
 }
