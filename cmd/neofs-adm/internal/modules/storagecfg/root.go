@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,6 +30,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	netutil "github.com/nspcc-dev/neofs-node/pkg/network"
+
 	"github.com/spf13/cobra"
 )
 
@@ -148,12 +151,18 @@ func storageConfig(cmd *cobra.Command, args []string) {
 	var addr, port string
 	for {
 		c.AnnouncedAddress = getString("Publicly announced address: ")
-		addr, port, err = net.SplitHostPort(c.AnnouncedAddress)
+		validator := netutil.Address{}
+		err := validator.FromString(c.AnnouncedAddress)
 		if err != nil {
-			cmd.Println("Address must have form A.B.C.D:PORT")
+			cmd.Println("Incorrect address format. See https://github.com/nspcc-dev/neofs-node/blob/master/pkg/network/address.go for details.")
 			continue
 		}
-
+		uriAddr, err := url.Parse(validator.URIAddr())
+		if err != nil {
+			panic(fmt.Errorf("unexpected error: %w", err))
+		}
+		addr = uriAddr.Hostname()
+		port = uriAddr.Port()
 		ip, err := net.ResolveIPAddr("ip", addr)
 		if err != nil {
 			cmd.Printf("Can't resolve IP address %s: %v\n", addr, err)
