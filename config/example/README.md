@@ -11,7 +11,12 @@ It is not recommended transferring these configs for real application launches.
 - Storage node
   - JSON: `node.json`
   - YAML: `node.yaml`
+- Inner ring
+  - YAML: `ir.yaml`
+- CLI
+  - YAML: `cli.yaml`
   
 ## Environment variables
 
 - Storage node: `node.env`
+- Inner ring: `ir.env`
