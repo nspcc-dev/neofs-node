@@ -79,7 +79,7 @@ type cfg struct {
 
 	ownerIDFromKey *owner.ID // owner ID calculated from key
 
-	apiVersion *version.Version
+	apiVersion version.Version
 
 	cfgGRPC cfgGRPC
 

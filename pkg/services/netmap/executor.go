@@ -2,15 +2,18 @@ package netmap
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/neofs-node/pkg/core/version"
+	versionsdk "github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 type executorSvc struct {
-	version *version.Version
-	state   NodeState
+	version refs.Version
+
+	state NodeState
 
 	netInfo NetworkInfo
 }
@@ -32,23 +35,32 @@ type NetworkInfo interface {
 	Dump(*refs.Version) (*netmap.NetworkInfo, error)
 }
 
-func NewExecutionService(s NodeState, v *version.Version, netInfo NetworkInfo) Server {
-	if s == nil || v == nil || netInfo == nil {
+func NewExecutionService(s NodeState, v versionsdk.Version, netInfo NetworkInfo) Server {
+	if s == nil || netInfo == nil || !version.IsValid(v) {
 		// this should never happen, otherwise it programmers bug
 		panic("can't create netmap execution service")
 	}
 
-	return &executorSvc{
-		version: v,
+	res := &executorSvc{
 		state:   s,
 		netInfo: netInfo,
 	}
+
+	v.WriteToV2(&res.version)
+
+	return res
 }
 
 func (s *executorSvc) LocalNodeInfo(
 	_ context.Context,
 	req *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
-	ver := version.NewFromV2(req.GetMetaHeader().GetVersion())
+	verV2 := req.GetMetaHeader().GetVersion()
+	if verV2 == nil {
+		return nil, errors.New("missing version")
+	}
+
+	var ver versionsdk.Version
+	ver.ReadFromV2(*verV2)
 
 	ni, err := s.state.LocalNodeInfo()
 	if err != nil {
@@ -69,7 +81,7 @@ func (s *executorSvc) LocalNodeInfo(
 	}
 
 	body := new(netmap.LocalNodeInfoResponseBody)
-	body.SetVersion(s.version.ToV2())
+	body.SetVersion(&s.version)
 	body.SetNodeInfo(ni)
 
 	resp := new(netmap.LocalNodeInfoResponse)

@@ -9,7 +9,7 @@ import (
 )
 
 func TestIsValid(t *testing.T) {
-	require.True(t, version.IsValid(*versionSDK.Current()))
+	require.True(t, version.IsValid(versionSDK.Current()))
 
 	var v versionSDK.Version
 

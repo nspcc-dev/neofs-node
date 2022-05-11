@@ -82,9 +82,9 @@ func generateObjectWithCID(t *testing.T, cid *cid.ID) *object.Object {
 }
 
 func generateObjectWithPayload(cid *cid.ID, data []byte) *object.Object {
-	version := version.New()
-	version.SetMajor(2)
-	version.SetMinor(1)
+	var ver version.Version
+	ver.SetMajor(2)
+	ver.SetMinor(1)
 
 	csum := new(checksum.Checksum)
 	csum.SetSHA256(sha256.Sum256(data))
@@ -96,7 +96,7 @@ func generateObjectWithPayload(cid *cid.ID, data []byte) *object.Object {
 	obj.SetID(generateOID())
 	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
-	obj.SetVersion(version)
+	obj.SetVersion(&ver)
 	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)

@@ -18,15 +18,17 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	version *refs.Version
+	version refs.Version
 
 	state netmap.State
 }
 
 func defaultCfg() *cfg {
-	return &cfg{
-		version: version.Current().ToV2(),
-	}
+	var c cfg
+
+	version.Current().WriteToV2(&c.version)
+
+	return &c
 }
 
 // NewService creates, initializes and returns Service instance.
@@ -44,7 +46,7 @@ func NewService(opts ...Option) *Service {
 
 func setMeta(resp util.ResponseMessage, cfg *cfg) {
 	meta := new(session.ResponseMetaHeader)
-	meta.SetVersion(cfg.version)
+	meta.SetVersion(&cfg.version)
 	meta.SetTTL(1) // FIXME: #1160 TTL must be calculated
 	meta.SetEpoch(cfg.state.CurrentEpoch())
 
