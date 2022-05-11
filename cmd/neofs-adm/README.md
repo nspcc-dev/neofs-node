@@ -70,6 +70,8 @@ credentials:     # passwords for consensus node / alphabet wallets
 
 #### Network maintenance
 
+- `set-config` Add/update configuration values in the Netmap contract.
+
 - `force-new-epoch` increments NeoFS epoch number and executes new epoch
   handlers in NeoFS nodes.
 
