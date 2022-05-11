@@ -28,6 +28,7 @@ service TreeService {
   // Apply pushes log operation from another node to the current.
   // The request must be signed by a container node.
   rpc Apply (ApplyRequest) returns (ApplyResponse);
+  rpc GetOpLog(GetOpLogRequest) returns (stream GetOpLogResponse);
 }
 
 message AddRequest {
@@ -195,6 +196,28 @@ message ApplyRequest {
 
 message ApplyResponse {
   message Body {
+  }
+
+  Body body = 1;
+  Signature signature = 2;
+};
+
+
+message GetOpLogRequest {
+  message Body {
+    bytes container_id = 1;
+    string tree_id = 2;
+    uint64 height = 3;
+    uint64 count = 4;
+  }
+
+  Body body = 1;
+  Signature signature = 2;
+}
+
+message GetOpLogResponse {
+  message Body {
+    LogMove operation = 1;
   }
 
   Body body = 1;

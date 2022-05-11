@@ -36,3 +36,8 @@ func (s *Shard) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID pilorama.Node) 
 func (s *Shard) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pilorama.Node) ([]uint64, error) {
 	return s.pilorama.TreeGetChildren(cid, treeID, nodeID)
 }
+
+// TreeGetOpLog implements the pilorama.Forest interface.
+func (s *Shard) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (pilorama.Move, error) {
+	return s.pilorama.TreeGetOpLog(cid, treeID, height)
+}

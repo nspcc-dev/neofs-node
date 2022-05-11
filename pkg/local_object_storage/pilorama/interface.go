@@ -26,6 +26,9 @@ type Forest interface {
 	// TreeGetChildren returns children of the node with the specified ID. The order is arbitrary.
 	// Should return ErrTreeNotFound if the tree is not found, and empty result if the node is not in the tree.
 	TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error)
+	// TreeGetOpLog returns first log operation stored at or above the height.
+	// In case no such operation is found, empty Move and nil error should be returned.
+	TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error)
 }
 
 type ForestStorage interface {
