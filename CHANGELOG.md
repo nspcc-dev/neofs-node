@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+- Config examples for Inner ring application (#1358)
+
 ## [0.28.1] - 2022-05-05
 
 ### Fixed
