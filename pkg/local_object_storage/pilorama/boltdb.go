@@ -211,7 +211,7 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move
 
 	// 1. Undo up until the desired timestamp is here.
 	for len(key) == 8 && binary.BigEndian.Uint64(key) > m.Time {
-		if err := t.logFromBytes(&tmp, key, value); err != nil {
+		if err := t.logFromBytes(&tmp, value); err != nil {
 			return nil, err
 		}
 		if err := t.undo(&tmp.Move, &tmp, treeBucket, cKey[:]); err != nil {
@@ -231,7 +231,7 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move
 
 	// 3. Re-apply all other operations.
 	for len(key) == 8 {
-		if err := t.logFromBytes(&tmp, key, value); err != nil {
+		if err := t.logFromBytes(&tmp, value); err != nil {
 			return nil, err
 		}
 		if err := t.do(logBucket, treeBucket, cKey[:], &tmp); err != nil {
@@ -446,6 +446,29 @@ func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) 
 	return children, err
 }
 
+// TreeGetOpLog implements the pilorama.Forest interface.
+func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error) {
+	key := make([]byte, 8)
+	binary.BigEndian.PutUint64(key, height)
+
+	var lm Move
+
+	err := t.db.View(func(tx *bbolt.Tx) error {
+		treeRoot := tx.Bucket(bucketName(cid, treeID))
+		if treeRoot == nil {
+			return ErrTreeNotFound
+		}
+
+		c := treeRoot.Bucket(logBucket).Cursor()
+		if _, data := c.Seek(key); data != nil {
+			return t.moveFromBytes(&lm, data)
+		}
+		return nil
+	})
+
+	return lm, err
+}
+
 func (t *boltForest) getPathPrefix(bTree *bbolt.Bucket, attr string, path []string) (int, Node, error) {
 	var key [9]byte
 
@@ -483,7 +506,17 @@ loop:
 	return len(path), curNode, nil
 }
 
-func (t *boltForest) logFromBytes(lm *LogMove, key []byte, data []byte) error {
+func (t *boltForest) moveFromBytes(m *Move, data []byte) error {
+	r := io.NewBinReaderFromBuf(data)
+	m.Child = r.ReadU64LE()
+	m.Parent = r.ReadU64LE()
+	if err := m.Meta.FromBytes(r.ReadVarBytes()); err != nil {
+		return err
+	}
+	return r.Err
+}
+
+func (t *boltForest) logFromBytes(lm *LogMove, data []byte) error {
 	r := io.NewBinReaderFromBuf(data)
 	lm.Child = r.ReadU64LE()
 	lm.Parent = r.ReadU64LE()

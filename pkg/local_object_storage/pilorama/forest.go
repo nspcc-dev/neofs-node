@@ -1,6 +1,8 @@
 package pilorama
 
 import (
+	"sort"
+
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
@@ -132,4 +134,21 @@ func (f *memoryForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node
 	res := make([]Node, len(children))
 	copy(res, children)
 	return res, nil
+}
+
+// TreeGetOpLog implements the pilorama.Forest interface.
+func (f *memoryForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error) {
+	fullID := cid.String() + "/" + treeID
+	s, ok := f.treeMap[fullID]
+	if !ok {
+		return Move{}, ErrTreeNotFound
+	}
+
+	n := sort.Search(len(s.operations), func(i int) bool {
+		return s.operations[i].Time >= height
+	})
+	if n == len(s.operations) {
+		return Move{}, nil
+	}
+	return s.operations[n].Move, nil
 }
