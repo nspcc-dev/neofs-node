@@ -324,6 +324,64 @@ func testForestTreeApply(t *testing.T, constructor func(t *testing.T) Forest) {
 	})
 }
 
+func TestForest_GetOpLog(t *testing.T) {
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			testForestTreeGetOpLog(t, providers[i].construct)
+		})
+	}
+}
+
+func testForestTreeGetOpLog(t *testing.T, constructor func(t *testing.T) Forest) {
+	cid := cidtest.ID()
+	treeID := "version"
+	logs := []Move{
+		{
+			Meta:  Meta{Time: 4, Items: []KeyValue{{"grand", []byte{1}}}},
+			Child: 1,
+		},
+		{
+			Meta:  Meta{Time: 5, Items: []KeyValue{{"second", []byte{1, 2, 3}}}},
+			Child: 4,
+		},
+		{
+			Parent: 10,
+			Meta:   Meta{Time: 256 + 4, Items: []KeyValue{}}, // make sure keys are big-endian
+			Child:  11,
+		},
+	}
+
+	s := constructor(t)
+
+	t.Run("empty log, no panic", func(t *testing.T) {
+		_, err := s.TreeGetOpLog(cid, treeID, 0)
+		require.ErrorIs(t, err, ErrTreeNotFound)
+	})
+
+	for i := range logs {
+		require.NoError(t, s.TreeApply(cid, treeID, &logs[i]))
+	}
+
+	testGetOpLog := func(t *testing.T, height uint64, m Move) {
+		lm, err := s.TreeGetOpLog(cid, treeID, height)
+		require.NoError(t, err)
+		require.Equal(t, m, lm)
+	}
+
+	testGetOpLog(t, 0, logs[0])
+	testGetOpLog(t, 4, logs[0])
+	testGetOpLog(t, 5, logs[1])
+	testGetOpLog(t, 6, logs[2])
+	testGetOpLog(t, 260, logs[2])
+	t.Run("missing entry", func(t *testing.T) {
+		testGetOpLog(t, 261, Move{})
+	})
+	t.Run("missing tree", func(t *testing.T) {
+		_, err := s.TreeGetOpLog(cid, treeID+"123", 4)
+		require.ErrorIs(t, err, ErrTreeNotFound)
+	})
+}
+
 func TestForest_ApplyRandom(t *testing.T) {
 	for i := range providers {
 		t.Run(providers[i].name, func(t *testing.T) {

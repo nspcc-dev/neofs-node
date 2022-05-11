@@ -319,6 +319,34 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 	})
 }
 
+func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer) error {
+	b := req.GetBody()
+	cid := getCID(b.GetContainerId())
+
+	h := b.GetHeight()
+	for {
+		lm, err := s.forest.TreeGetOpLog(cid, b.GetTreeId(), h)
+		if err != nil || lm.Time == 0 {
+			return err
+		}
+
+		err = srv.Send(&GetOpLogResponse{
+			Body: &GetOpLogResponse_Body{
+				Operation: &LogMove{
+					ParentId: lm.Parent,
+					Meta:     lm.Meta.Bytes(),
+					ChildId:  lm.Child,
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		h = lm.Time + 1
+	}
+}
+
 func getCID(rawCID []byte) *cidSDK.ID {
 	var cidV2 refs.ContainerID
 	cidV2.SetValue(rawCID)
