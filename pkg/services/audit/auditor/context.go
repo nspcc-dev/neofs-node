@@ -256,9 +256,11 @@ func (c *Context) updateHeadResponses(hdr *object.Object) {
 
 	strID := hdr.ID().String()
 
+	cs, _ := hdr.PayloadHomomorphicHash()
+
 	if _, ok := c.headResponses[strID]; !ok {
 		c.headResponses[strID] = shortHeader{
-			tzhash:     hdr.PayloadHomomorphicHash().Sum(),
+			tzhash:     cs.Value(),
 			objectSize: hdr.PayloadSize(),
 		}
 	}

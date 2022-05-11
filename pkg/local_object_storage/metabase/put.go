@@ -247,10 +247,12 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 	addr := object.AddressOf(obj)
 	objKey := objectKey(addr.ObjectID())
 
+	cs, _ := obj.PayloadChecksum()
+
 	// index payload hashes
 	err := f(tx, namedBucketItem{
 		name: payloadHashBucketName(addr.ContainerID()),
-		key:  obj.PayloadChecksum().Sum(),
+		key:  cs.Value(),
 		val:  objKey,
 	})
 	if err != nil {

@@ -516,7 +516,8 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *addressSDK.Address, f object.
 		case v2object.FilterHeaderVersion:
 			data = []byte(obj.Version().String())
 		case v2object.FilterHeaderHomomorphicHash:
-			data = obj.PayloadHomomorphicHash().Sum()
+			cs, _ := obj.PayloadHomomorphicHash()
+			data = cs.Value()
 		case v2object.FilterHeaderCreationEpoch:
 			data = make([]byte, 8)
 			binary.LittleEndian.PutUint64(data, obj.CreationEpoch())

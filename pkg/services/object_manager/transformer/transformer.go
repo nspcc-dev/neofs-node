@@ -128,34 +128,34 @@ func payloadHashersForObject(obj *object.Object) []*payloadChecksumHasher {
 	return []*payloadChecksumHasher{
 		{
 			hasher: sha256.New(),
-			checksumWriter: func(cs []byte) {
-				if ln := len(cs); ln != sha256.Size {
+			checksumWriter: func(binChecksum []byte) {
+				if ln := len(binChecksum); ln != sha256.Size {
 					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", sha256.Size, ln))
 				}
 
 				csSHA := [sha256.Size]byte{}
-				copy(csSHA[:], cs)
+				copy(csSHA[:], binChecksum)
 
-				checksum := checksum.New()
-				checksum.SetSHA256(csSHA)
+				var cs checksum.Checksum
+				cs.SetSHA256(csSHA)
 
-				obj.SetPayloadChecksum(checksum)
+				obj.SetPayloadChecksum(cs)
 			},
 		},
 		{
 			hasher: tz.New(),
-			checksumWriter: func(cs []byte) {
-				if ln := len(cs); ln != tz.Size {
+			checksumWriter: func(binChecksum []byte) {
+				if ln := len(binChecksum); ln != tz.Size {
 					panic(fmt.Sprintf("wrong checksum length: expected %d, has %d", tz.Size, ln))
 				}
 
 				csTZ := [tz.Size]byte{}
-				copy(csTZ[:], cs)
+				copy(csTZ[:], binChecksum)
 
-				checksum := checksum.New()
-				checksum.SetTillichZemor(csTZ)
+				var cs checksum.Checksum
+				cs.SetTillichZemor(csTZ)
 
-				obj.SetPayloadHomomorphicHash(checksum)
+				obj.SetPayloadHomomorphicHash(cs)
 			},
 		},
 	}

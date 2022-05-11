@@ -72,11 +72,11 @@ func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
 	ver.SetMajor(2)
 	ver.SetMinor(1)
 
-	csum := new(checksum.Checksum)
+	var csum checksum.Checksum
 	csum.SetSHA256(sha256.Sum256(owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)))
 
-	csumTZ := new(checksum.Checksum)
-	csumTZ.SetTillichZemor(tz.Sum(csum.Sum()))
+	var csumTZ checksum.Checksum
+	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
 
 	obj := object.New()
 	obj.SetID(testOID())

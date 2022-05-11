@@ -71,22 +71,28 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 				k: acl.FilterObjectVersion,
 				v: obj.Version().String(),
 			},
-			// payload hash
-			&sysObjHdr{
-				k: acl.FilterObjectPayloadHash,
-				v: obj.PayloadChecksum().String(),
-			},
 			// object type
 			&sysObjHdr{
 				k: acl.FilterObjectType,
 				v: obj.Type().String(),
 			},
-			// payload homomorphic hash
-			&sysObjHdr{
-				k: acl.FilterObjectHomomorphicHash,
-				v: obj.PayloadHomomorphicHash().String(),
-			},
 		)
+
+		cs, ok := obj.PayloadChecksum()
+		if ok {
+			res = append(res, &sysObjHdr{
+				k: acl.FilterObjectPayloadHash,
+				v: cs.String(),
+			})
+		}
+
+		cs, ok = obj.PayloadHomomorphicHash()
+		if ok {
+			res = append(res, &sysObjHdr{
+				k: acl.FilterObjectHomomorphicHash,
+				v: cs.String(),
+			})
+		}
 
 		attrs := obj.Attributes()
 		for i := range attrs {

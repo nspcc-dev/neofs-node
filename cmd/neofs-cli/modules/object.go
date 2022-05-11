@@ -681,15 +681,20 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		res, err := internalclient.HeadObject(headPrm)
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
-		var cs *checksum.Checksum
+		var cs checksum.Checksum
+		var csSet bool
 
 		if tz {
-			cs = res.Header().PayloadHomomorphicHash()
+			cs, csSet = res.Header().PayloadHomomorphicHash()
 		} else {
-			cs = res.Header().PayloadChecksum()
+			cs, csSet = res.Header().PayloadChecksum()
 		}
 
-		cmd.Println(hex.EncodeToString(cs.Sum()))
+		if csSet {
+			cmd.Println(hex.EncodeToString(cs.Value()))
+		} else {
+			cmd.Println("Missing checksum in object header.")
+		}
 
 		return
 	}
@@ -959,14 +964,27 @@ func saveAndPrintHeader(cmd *cobra.Command, obj *object.Object, filename string)
 	return printHeader(cmd, obj)
 }
 
+func printChecksum(cmd *cobra.Command, name string, recv func() (checksum.Checksum, bool)) {
+	var strVal string
+
+	cs, csSet := recv()
+	if csSet {
+		strVal = hex.EncodeToString(cs.Value())
+	} else {
+		strVal = "<empty>"
+	}
+
+	cmd.Printf("%s: %s\n", name, strVal)
+}
+
 func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	cmd.Printf("ID: %s\n", obj.ID())
 	cmd.Printf("CID: %s\n", obj.ContainerID())
 	cmd.Printf("Owner: %s\n", obj.OwnerID())
 	cmd.Printf("CreatedAt: %d\n", obj.CreationEpoch())
 	cmd.Printf("Size: %d\n", obj.PayloadSize())
-	cmd.Printf("HomoHash: %s\n", hex.EncodeToString(obj.PayloadHomomorphicHash().Sum()))
-	cmd.Printf("Checksum: %s\n", hex.EncodeToString(obj.PayloadChecksum().Sum()))
+	printChecksum(cmd, "HomoHash", obj.PayloadHomomorphicHash)
+	printChecksum(cmd, "Checksum", obj.PayloadChecksum)
 	cmd.Printf("Type: %s\n", obj.Type())
 
 	cmd.Println("Attributes:")

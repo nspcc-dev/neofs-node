@@ -255,7 +255,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
-	cmd.Printf("Group hash: %s\n", sg.ValidationDataHash())
+	printChecksum(cmd, "Group hash", sg.ValidationDataHash)
 
 	if members := sg.Members(); len(members) > 0 {
 		cmd.Println("Members:")
