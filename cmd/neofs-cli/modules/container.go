@@ -171,8 +171,10 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			idOwner = owner.NewIDFromPublicKey(&key.PublicKey)
 		}
 
+		ver := versionSDK.Current()
+
 		cnr := container.New()
-		cnr.SetVersion(versionSDK.Current())
+		cnr.SetVersion(&ver)
 		cnr.SetPlacementPolicy(placementPolicy)
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
@@ -807,9 +809,8 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 }
 
 func validateAndFixEACLVersion(table *eacl.Table) {
-	v := table.Version()
-	if !version.IsValid(v) {
-		table.SetVersion(*versionSDK.Current())
+	if !version.IsValid(table.Version()) {
+		table.SetVersion(versionSDK.Current())
 	}
 }
 

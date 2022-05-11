@@ -22,7 +22,8 @@ func TestCheckFormat(t *testing.T) {
 
 	require.Error(t, CheckFormat(c))
 
-	c.SetVersion(version.Current())
+	ver := version.Current()
+	c.SetVersion(&ver)
 
 	require.Error(t, CheckFormat(c))
 

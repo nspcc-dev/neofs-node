@@ -63,8 +63,9 @@ func (f *formatter) Write(p []byte) (n int, err error) {
 
 func (f *formatter) Close() (*AccessIdentifiers, error) {
 	curEpoch := f.prm.NetworkState.CurrentEpoch()
+	ver := version.Current()
 
-	f.obj.SetVersion(version.Current())
+	f.obj.SetVersion(&ver)
 	f.obj.SetPayloadSize(f.sz)
 	f.obj.SetSessionToken(f.prm.SessionToken)
 	f.obj.SetCreationEpoch(curEpoch)

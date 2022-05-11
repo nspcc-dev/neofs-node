@@ -148,9 +148,9 @@ func testOID() *oidSDK.ID {
 }
 
 func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
-	version := version.New()
-	version.SetMajor(2)
-	version.SetMinor(1)
+	var ver version.Version
+	ver.SetMajor(2)
+	ver.SetMinor(1)
 
 	csum := new(checksum.Checksum)
 	csum.SetSHA256(sha256.Sum256(owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)))
@@ -162,7 +162,7 @@ func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
 	obj.SetID(testOID())
 	obj.SetOwnerID(ownertest.ID())
 	obj.SetContainerID(cid)
-	obj.SetVersion(version)
+	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)
 	obj.SetPayload([]byte{1, 2, 3, 4, 5})
