@@ -13,9 +13,9 @@ import (
 
 var providers = []struct {
 	name      string
-	construct func(t *testing.T) Forest
+	construct func(t testing.TB) Forest
 }{
-	{"inmemory", func(t *testing.T) Forest {
+	{"inmemory", func(t testing.TB) Forest {
 		f := NewMemoryForest()
 		require.NoError(t, f.Init())
 		require.NoError(t, f.Open())
@@ -25,7 +25,7 @@ var providers = []struct {
 
 		return f
 	}},
-	{"bbolt", func(t *testing.T) Forest {
+	{"bbolt", func(t testing.TB) Forest {
 		// Use `os.TempDir` because we construct multiple times in the same test.
 		tmpDir, err := os.MkdirTemp(os.TempDir(), "*")
 		require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestForest_Apply(t *testing.T) {
 	}
 }
 
-func testForestTreeApply(t *testing.T, constructor func(t *testing.T) Forest) {
+func testForestTreeApply(t *testing.T, constructor func(t testing.TB) Forest) {
 	cid := cidtest.ID()
 	treeID := "version"
 
@@ -332,7 +332,7 @@ func TestForest_GetOpLog(t *testing.T) {
 	}
 }
 
-func testForestTreeGetOpLog(t *testing.T, constructor func(t *testing.T) Forest) {
+func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB) Forest) {
 	cid := cidtest.ID()
 	treeID := "version"
 	logs := []Move{
@@ -390,7 +390,7 @@ func TestForest_ApplyRandom(t *testing.T) {
 	}
 }
 
-func testForestTreeApplyRandom(t *testing.T, constructor func(t *testing.T) Forest) {
+func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Forest) {
 	rand.Seed(42)
 
 	const (
@@ -457,20 +457,24 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t *testing.T) Fore
 const benchNodeCount = 1000
 
 func BenchmarkApplySequential(b *testing.B) {
-	benchmarkApply(b, benchNodeCount, func(nodeCount, opCount int) []Move {
-		ops := make([]Move, opCount)
-		for i := range ops {
-			ops[i] = Move{
-				Parent: uint64(rand.Intn(nodeCount)),
-				Meta: Meta{
-					Time:  Timestamp(i),
-					Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
-				},
-				Child: uint64(rand.Intn(nodeCount)),
-			}
-		}
-		return ops
-	})
+	for i := range providers {
+		b.Run(providers[i].name, func(b *testing.B) {
+			benchmarkApply(b, providers[i].construct(b), func(opCount int) []Move {
+				ops := make([]Move, opCount)
+				for i := range ops {
+					ops[i] = Move{
+						Parent: uint64(rand.Intn(benchNodeCount)),
+						Meta: Meta{
+							Time:  Timestamp(i),
+							Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
+						},
+						Child: uint64(rand.Intn(benchNodeCount)),
+					}
+				}
+				return ops
+			})
+		})
+	}
 }
 
 func BenchmarkApplyReorderLast(b *testing.B) {
@@ -478,37 +482,42 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 	// and operations in a single block in reverse.
 	const blockSize = 10
 
-	benchmarkApply(b, benchNodeCount, func(nodeCount, opCount int) []Move {
-		ops := make([]Move, opCount)
-		for i := range ops {
-			ops[i] = Move{
-				Parent: uint64(rand.Intn(nodeCount)),
-				Meta: Meta{
-					Time:  Timestamp(i),
-					Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
-				},
-				Child: uint64(rand.Intn(nodeCount)),
-			}
-			if i != 0 && i%blockSize == 0 {
-				for j := 0; j < blockSize/2; j++ {
-					ops[i-j], ops[i+j-blockSize] = ops[i+j-blockSize], ops[i-j]
+	for i := range providers {
+		b.Run(providers[i].name, func(b *testing.B) {
+			benchmarkApply(b, providers[i].construct(b), func(opCount int) []Move {
+				ops := make([]Move, opCount)
+				for i := range ops {
+					ops[i] = Move{
+						Parent: uint64(rand.Intn(benchNodeCount)),
+						Meta: Meta{
+							Time:  Timestamp(i),
+							Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
+						},
+						Child: uint64(rand.Intn(benchNodeCount)),
+					}
+					if i != 0 && i%blockSize == 0 {
+						for j := 0; j < blockSize/2; j++ {
+							ops[i-j], ops[i+j-blockSize] = ops[i+j-blockSize], ops[i-j]
+						}
+					}
 				}
-			}
-		}
-		return ops
-	})
+				return ops
+			})
+		})
+	}
 }
 
-func benchmarkApply(b *testing.B, n int, genFunc func(int, int) []Move) {
+func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 	rand.Seed(42)
 
-	s := newState()
-	ops := genFunc(n, b.N)
+	ops := genFunc(b.N)
+	cid := cidtest.ID()
+	treeID := "version"
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := range ops {
-		if err := s.Apply(&ops[i]); err != nil {
+		if err := s.TreeApply(cid, treeID, &ops[i]); err != nil {
 			b.Fatalf("error in `Apply`: %v", err)
 		}
 	}
