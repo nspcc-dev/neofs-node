@@ -122,6 +122,18 @@ var (
 		RunE: removeNodesCmd,
 	}
 
+	setConfig = &cobra.Command{
+		Use:                   "set-config key1=val1 [key2=val2 ...]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Add/update global config value in the NeoFS network",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		Args: cobra.MinimumNArgs(1),
+		RunE: setConfigCmd,
+	}
+
 	setPolicy = &cobra.Command{
 		Use:                   "set-policy [ExecFeeFactor=<n1>] [StoragePrice=<n2>] [FeePerByte=<n3>]",
 		DisableFlagsInUseLine: true,
@@ -240,6 +252,11 @@ func init() {
 
 	RootCmd.AddCommand(dumpNetworkConfigCmd)
 	dumpNetworkConfigCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(setConfig)
+	setConfig.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
+	setConfig.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	setConfig.Flags().Bool(forceConfigSet, false, "Force setting not well-known configuration key")
 
 	RootCmd.AddCommand(dumpBalancesCmd)
 	dumpBalancesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
