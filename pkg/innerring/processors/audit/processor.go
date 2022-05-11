@@ -174,7 +174,7 @@ func (ap *Processor) StartAuditHandler() event.Handler {
 
 func (r *epochAuditReporter) WriteReport(rep *audit.Report) error {
 	res := rep.Result()
-	res.SetAuditEpoch(r.epoch)
+	res.ForEpoch(r.epoch)
 
 	return r.rep.WriteReport(rep)
 }
