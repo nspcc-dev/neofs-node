@@ -90,13 +90,12 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 			// update cache for PoR and PDP audit checks
 			c.updateHeadResponses(hdr)
 
+			cs, _ := hdr.PayloadHomomorphicHash()
+
 			if len(tzHash) == 0 {
-				tzHash = hdr.PayloadHomomorphicHash().Sum()
+				tzHash = cs.Value()
 			} else {
-				tzHash, err = tz.Concat([][]byte{
-					tzHash,
-					hdr.PayloadHomomorphicHash().Sum(),
-				})
+				tzHash, err = tz.Concat([][]byte{tzHash, cs.Value()})
 				if err != nil {
 					c.log.Debug("can't concatenate tz hash",
 						zap.String("oid", members[i].String()),
@@ -116,7 +115,8 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 	c.porRetries.Add(accRetries)
 
 	sizeCheck := storageGroup.ValidationDataSize() == totalSize
-	tzCheck := bytes.Equal(tzHash, storageGroup.ValidationDataHash().Sum())
+	cs, _ := storageGroup.ValidationDataHash()
+	tzCheck := bytes.Equal(tzHash, cs.Value())
 
 	if sizeCheck && tzCheck {
 		c.report.PassedPoR(sg) // write report

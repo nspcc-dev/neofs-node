@@ -358,16 +358,18 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	err = putBig(db, raw2)
 	require.NoError(t, err)
 
+	cs, _ := raw1.PayloadChecksum()
+
 	fs := objectSDK.SearchFilters{}
 	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		hex.EncodeToString(raw1.PayloadChecksum().Sum()),
+		hex.EncodeToString(cs.Value()),
 		objectSDK.MatchStringEqual)
 
 	testSelect(t, db, cid, fs, object.AddressOf(raw1))
 
 	fs = objectSDK.SearchFilters{}
 	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		hex.EncodeToString(raw1.PayloadChecksum().Sum()),
+		hex.EncodeToString(cs.Value()),
 		objectSDK.MatchStringNotEqual)
 
 	testSelect(t, db, cid, fs, object.AddressOf(raw2))
@@ -407,16 +409,18 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("object with TZHash", func(t *testing.T) {
+		cs, _ := raw1.PayloadHomomorphicHash()
+
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
-			hex.EncodeToString(raw1.PayloadHomomorphicHash().Sum()),
+			hex.EncodeToString(cs.Value()),
 			objectSDK.MatchStringEqual)
 
 		testSelect(t, db, cid, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
-			hex.EncodeToString(raw1.PayloadHomomorphicHash().Sum()),
+			hex.EncodeToString(cs.Value()),
 			objectSDK.MatchStringNotEqual)
 
 		testSelect(t, db, cid, fs, object.AddressOf(raw2))

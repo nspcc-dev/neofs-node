@@ -54,7 +54,11 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 			return ErrExceedingMaxSize
 		}
 
-		cs := obj.PayloadChecksum()
+		cs, csSet := obj.PayloadChecksum()
+		if !csSet {
+			return errors.New("missing payload checksum")
+		}
+
 		switch typ := cs.Type(); typ {
 		default:
 			return fmt.Errorf("(%T) unsupported payload checksum type %v", t, typ)
@@ -64,7 +68,7 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 			t.hash = tz.New()
 		}
 
-		t.checksum = cs.Sum()
+		t.checksum = cs.Value()
 	}
 
 	if err := t.fmt.Validate(obj, t.unpreparedObject); err != nil {

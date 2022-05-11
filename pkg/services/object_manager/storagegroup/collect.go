@@ -32,7 +32,8 @@ func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []oidSDK.ID) (*
 		if err := objutil.IterateAllSplitLeaves(r, addr, func(leaf *object.Object) {
 			phyMembers = append(phyMembers, *leaf.ID())
 			sumPhySize += leaf.PayloadSize()
-			phyHashes = append(phyHashes, leaf.PayloadHomomorphicHash().Sum())
+			cs, _ := leaf.PayloadHomomorphicHash()
+			phyHashes = append(phyHashes, cs.Value())
 		}); err != nil {
 			return nil, err
 		}
@@ -43,7 +44,7 @@ func CollectMembers(r objutil.HeadReceiver, cid *cid.ID, members []oidSDK.ID) (*
 		return nil, err
 	}
 
-	cs := checksum.New()
+	var cs checksum.Checksum
 	tzHash := [64]byte{}
 	copy(tzHash[:], sumHash)
 	cs.SetTillichZemor(tzHash)
