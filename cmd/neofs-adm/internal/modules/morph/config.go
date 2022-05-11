@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -222,4 +224,90 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 func invalidConfigValueErr(key []byte) error {
 	return fmt.Errorf("invalid %s config value from netmap contract", key)
+}
+
+func setConfigCmd(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return errors.New("empty config pairs")
+	}
+
+	wCtx, err := newInitializeContext(cmd, viper.GetViper())
+	if err != nil {
+		return fmt.Errorf("can't initialize context: %w", err)
+	}
+
+	cs, err := wCtx.Client.GetContractStateByID(1)
+	if err != nil {
+		return fmt.Errorf("can't get NNS contract info: %w", err)
+	}
+
+	nmHash, err := nnsResolveHash(wCtx.Client, cs.Hash, netmapContract+".neofs")
+	if err != nil {
+		return fmt.Errorf("can't get netmap contract hash: %w", err)
+	}
+
+	bw := io.NewBufBinWriter()
+	for _, arg := range args {
+		k, v, err := parseConfigPair(arg)
+		if err != nil {
+			return err
+		}
+
+		// In NeoFS this is done via Notary contract. Here, however, we can form the
+		// transaction locally. The first `nil` argument is required only for notary
+		// disabled environment which is not supported by that command.
+		emit.AppCall(bw.BinWriter, nmHash, "setConfig", callflag.All, nil, k, v)
+		if bw.Err != nil {
+			return fmt.Errorf("can't form raw transaction: %w", bw.Err)
+		}
+	}
+
+	err = wCtx.sendCommitteeTx(bw.Bytes(), -1, true)
+	if err != nil {
+		return err
+	}
+
+	return wCtx.awaitTx()
+}
+
+func parseConfigPair(kvStr string) (key string, val interface{}, err error) {
+	kv := strings.SplitN(kvStr, "=", 2)
+	if len(kv) != 2 {
+		return "", nil, fmt.Errorf("invalid parameter format: must be 'key=val', got: %s", kvStr)
+	}
+
+	key = kv[0]
+	valRaw := kv[1]
+
+	switch key {
+	case netmapAuditFeeKey, netmapBasicIncomeRateKey,
+		netmapContainerFeeKey, netmapContainerAliasFeeKey,
+		netmapEigenTrustIterationsKey,
+		netmapEpochKey, netmapInnerRingCandidateFeeKey,
+		netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
+		val, err = strconv.ParseInt(valRaw, 10, 64)
+		if err != nil {
+			err = fmt.Errorf("could not parse %s's value '%s' as int: %w", key, valRaw, err)
+		}
+	case netmapEigenTrustAlphaKey:
+		// just check that it could
+		// be parsed correctly
+		_, err = strconv.ParseFloat(kv[1], 64)
+		if err != nil {
+			err = fmt.Errorf("could not parse %s's value '%s' as float: %w", key, valRaw, err)
+		}
+
+		val = valRaw
+	case netmapHomomorphicHashDisabledKey:
+		val, err = strconv.ParseBool(valRaw)
+		if err != nil {
+			err = fmt.Errorf("could not parse %s's value '%s' as bool: %w", key, valRaw, err)
+		}
+	default:
+		// print some warning that user
+		// want to add some unknown config?
+		val = valRaw
+	}
+
+	return
 }
