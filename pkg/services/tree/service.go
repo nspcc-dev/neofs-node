@@ -342,6 +342,38 @@ loop:
 	})
 }
 
+func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer) error {
+	b := req.GetBody()
+
+	var cid cidSDK.ID
+	if err := cid.Decode(req.GetBody().GetContainerId()); err != nil {
+		return err
+	}
+
+	h := b.GetHeight()
+	for {
+		lm, err := s.forest.TreeGetOpLog(cid, b.GetTreeId(), h)
+		if err != nil || lm.Time == 0 {
+			return err
+		}
+
+		err = srv.Send(&GetOpLogResponse{
+			Body: &GetOpLogResponse_Body{
+				Operation: &LogMove{
+					ParentId: lm.Parent,
+					Meta:     lm.Meta.Bytes(),
+					ChildId:  lm.Child,
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		h = lm.Time + 1
+	}
+}
+
 func protoToMeta(arr []*KeyValue) []pilorama.KeyValue {
 	meta := make([]pilorama.KeyValue, len(arr))
 	for i, kv := range arr {

@@ -37,6 +37,7 @@ type TreeServiceClient interface {
 	// Apply pushes log operation from another node to the current.
 	// The request must be signed by a container node.
 	Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error)
+	GetOpLog(ctx context.Context, in *GetOpLogRequest, opts ...grpc.CallOption) (TreeService_GetOpLogClient, error)
 }
 
 type treeServiceClient struct {
@@ -133,6 +134,38 @@ func (c *treeServiceClient) Apply(ctx context.Context, in *ApplyRequest, opts ..
 	return out, nil
 }
 
+func (c *treeServiceClient) GetOpLog(ctx context.Context, in *GetOpLogRequest, opts ...grpc.CallOption) (TreeService_GetOpLogClient, error) {
+	stream, err := c.cc.NewStream(ctx, &TreeService_ServiceDesc.Streams[1], "/tree.TreeService/GetOpLog", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &treeServiceGetOpLogClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type TreeService_GetOpLogClient interface {
+	Recv() (*GetOpLogResponse, error)
+	grpc.ClientStream
+}
+
+type treeServiceGetOpLogClient struct {
+	grpc.ClientStream
+}
+
+func (x *treeServiceGetOpLogClient) Recv() (*GetOpLogResponse, error) {
+	m := new(GetOpLogResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // TreeServiceServer is the server API for TreeService service.
 // All implementations should embed UnimplementedTreeServiceServer
 // for forward compatibility
@@ -152,6 +185,7 @@ type TreeServiceServer interface {
 	// Apply pushes log operation from another node to the current.
 	// The request must be signed by a container node.
 	Apply(context.Context, *ApplyRequest) (*ApplyResponse, error)
+	GetOpLog(*GetOpLogRequest, TreeService_GetOpLogServer) error
 }
 
 // UnimplementedTreeServiceServer should be embedded to have forward compatible implementations.
@@ -178,6 +212,9 @@ func (UnimplementedTreeServiceServer) GetSubTree(*GetSubTreeRequest, TreeService
 }
 func (UnimplementedTreeServiceServer) Apply(context.Context, *ApplyRequest) (*ApplyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Apply not implemented")
+}
+func (UnimplementedTreeServiceServer) GetOpLog(*GetOpLogRequest, TreeService_GetOpLogServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetOpLog not implemented")
 }
 
 // UnsafeTreeServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -320,6 +357,27 @@ func _TreeService_Apply_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TreeService_GetOpLog_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetOpLogRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(TreeServiceServer).GetOpLog(m, &treeServiceGetOpLogServer{stream})
+}
+
+type TreeService_GetOpLogServer interface {
+	Send(*GetOpLogResponse) error
+	grpc.ServerStream
+}
+
+type treeServiceGetOpLogServer struct {
+	grpc.ServerStream
+}
+
+func (x *treeServiceGetOpLogServer) Send(m *GetOpLogResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // TreeService_ServiceDesc is the grpc.ServiceDesc for TreeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -356,6 +414,11 @@ var TreeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetSubTree",
 			Handler:       _TreeService_GetSubTree_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetOpLog",
+			Handler:       _TreeService_GetOpLog_Handler,
 			ServerStreams: true,
 		},
 	},

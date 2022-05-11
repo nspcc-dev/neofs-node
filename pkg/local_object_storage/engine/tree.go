@@ -116,3 +116,22 @@ func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pil
 	}
 	return nil, err
 }
+
+// TreeGetOpLog implements the pilorama.Forest interface.
+func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (pilorama.Move, error) {
+	var err error
+	var lm pilorama.Move
+	for _, sh := range e.sortShardsByWeight(cid) {
+		lm, err = sh.TreeGetOpLog(cid, treeID, height)
+		if err != nil {
+			e.log.Debug("can't perform `GetOpLog`",
+				zap.Stringer("cid", cid),
+				zap.String("tree", treeID),
+				zap.Uint64("height", height),
+				zap.String("err", err.Error()))
+			continue
+		}
+		return lm, nil
+	}
+	return lm, err
+}
