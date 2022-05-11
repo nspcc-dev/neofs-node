@@ -25,10 +25,10 @@ func (c *Client) GetAuditResult(id ResultID) (*auditAPI.Result, error) {
 		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", getResultMethod, err)
 	}
 
-	auditRes := auditAPI.NewResult()
+	var auditRes auditAPI.Result
 	if err := auditRes.Unmarshal(value); err != nil {
 		return nil, fmt.Errorf("could not unmarshal audit result structure: %w", err)
 	}
 
-	return auditRes, nil
+	return &auditRes, nil
 }

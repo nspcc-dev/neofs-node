@@ -149,7 +149,7 @@ func (s *Server) VoteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 // and sends it to Audit contract.
 func (s *Server) WriteReport(r *audit.Report) error {
 	res := r.Result()
-	res.SetPublicKey(s.pubKey)
+	res.SetAuditorKey(s.pubKey)
 
 	prm := auditClient.PutPrm{}
 	prm.SetResult(res)

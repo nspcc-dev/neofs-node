@@ -34,13 +34,13 @@ func TestAuditResults(t *testing.T) {
 
 	id := cidtest.ID()
 
-	auditRes := auditAPI.NewResult()
-	auditRes.SetAuditEpoch(epoch)
-	auditRes.SetPublicKey(key.PublicKey().Bytes())
-	auditRes.SetContainerID(id)
+	var auditRes auditAPI.Result
+	auditRes.ForEpoch(epoch)
+	auditRes.SetAuditorKey(key.PublicKey().Bytes())
+	auditRes.ForContainer(*id)
 
 	prm := PutPrm{}
-	prm.SetResult(auditRes)
+	prm.SetResult(&auditRes)
 
 	require.NoError(t, auditClientWrapper.PutAuditResult(prm))
 
