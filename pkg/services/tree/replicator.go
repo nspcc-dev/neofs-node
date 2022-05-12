@@ -14,8 +14,7 @@ import (
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
-	"google.golang.org/api/option"
-	"google.golang.org/api/transport/grpc"
+	"google.golang.org/grpc"
 )
 
 type movePair struct {
@@ -67,7 +66,7 @@ func (s *Service) replicate(ctx context.Context, op movePair) error {
 		var lastErr error
 
 		n.IterateNetworkEndpoints(func(addr string) bool {
-			cc, err := grpc.Dial(ctx, option.WithEndpoint(addr))
+			cc, err := grpc.DialContext(ctx, addr)
 			if err != nil {
 				lastErr = err
 				return false
