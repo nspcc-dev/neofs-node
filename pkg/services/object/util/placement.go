@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -122,6 +123,11 @@ func (g *TraverserGenerator) WithTraverseOptions(opts ...placement.Option) *Trav
 // GenerateTraverser generates placement Traverser for provided object address
 // using epoch-th network map.
 func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch uint64) (*placement.Traverser, error) {
+	idCnr, ok := addr.ContainerID()
+	if !ok {
+		return nil, errors.New("missing container in object address")
+	}
+
 	// get network map by epoch
 	nm, err := g.netMapSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
@@ -129,7 +135,7 @@ func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch u
 	}
 
 	// get container related container
-	cnr, err := g.cnrSrc.Get(addr.ContainerID())
+	cnr, err := g.cnrSrc.Get(&idCnr)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container: %w", err)
 	}
@@ -148,12 +154,16 @@ func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch u
 		// set processing container
 		placement.ForContainer(cnr),
 
-		// set identifier of the processing object
-		placement.ForObject(addr.ObjectID()),
-
 		// set placement builder
 		placement.UseBuilder(builder),
 	)
+
+	if idObj, ok := addr.ObjectID(); ok {
+		traverseOpts = append(traverseOpts,
+			// set identifier of the processing object
+			placement.ForObject(&idObj),
+		)
+	}
 
 	return placement.NewTraverser(traverseOpts...)
 }

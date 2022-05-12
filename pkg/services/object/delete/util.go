@@ -54,7 +54,9 @@ func (w *headSvcWrapper) splitInfo(exec *execCtx) (*object.SplitInfo, error) {
 }
 
 func (w *headSvcWrapper) children(exec *execCtx) ([]oidSDK.ID, error) {
-	a := exec.newAddress(exec.splitInfo.Link())
+	link, _ := exec.splitInfo.Link()
+
+	a := exec.newAddress(&link)
 
 	linking, err := w.headAddress(exec, a)
 	if err != nil {
@@ -72,7 +74,12 @@ func (w *headSvcWrapper) previous(exec *execCtx, id *oidSDK.ID) (*oidSDK.ID, err
 		return nil, err
 	}
 
-	return h.PreviousID(), nil
+	prev, ok := h.PreviousID()
+	if ok {
+		return &prev, nil
+	}
+
+	return nil, nil
 }
 
 func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oidSDK.ID, error) {

@@ -32,6 +32,8 @@ func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, fmt.Errorf("(%T) could not put object to local storage: %w", t, err)
 	}
 
+	id, _ := t.obj.ID()
+
 	return new(transformer.AccessIdentifiers).
-		WithSelfID(t.obj.ID()), nil
+		WithSelfID(&id), nil
 }

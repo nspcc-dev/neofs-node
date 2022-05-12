@@ -2,6 +2,7 @@ package placementrouter
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
@@ -19,9 +20,14 @@ func (b *Builder) NextStage(a container.UsedSpaceAnnouncement, passed []loadrout
 		return nil, nil
 	}
 
-	placement, err := b.placementBuilder.BuildPlacement(a.Epoch(), a.ContainerID())
+	cnr, ok := a.ContainerID()
+	if !ok {
+		return nil, errors.New("missing container in load announcement")
+	}
+
+	placement, err := b.placementBuilder.BuildPlacement(a.Epoch(), &cnr)
 	if err != nil {
-		return nil, fmt.Errorf("could not build placement %s: %w", a.ContainerID(), err)
+		return nil, fmt.Errorf("could not build placement %s: %w", cnr, err)
 	}
 
 	res := make([]loadroute.ServerInfo, 0, len(placement))

@@ -125,12 +125,12 @@ func (x GetObjectRes) Object() *object.Object {
 func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		cliPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		cliPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		cliPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		cliPrm.ByID(id)
 	}
 
 	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
@@ -210,12 +210,12 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		cliPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		cliPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		cliPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		cliPrm.ByID(id)
 	}
 
 	cliRes, err := x.c.ObjectHead(prm.ctx, cliPrm)
@@ -315,12 +315,12 @@ func (x HashPayloadRangeRes) Hash() []byte {
 func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeRes, err error) {
 	var cliPrm client.PrmObjectHash
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		cliPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		cliPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		cliPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		cliPrm.ByID(id)
 	}
 
 	cliPrm.SetRangeList(prm.rng.GetOffset(), prm.rng.GetLength())

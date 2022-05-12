@@ -79,7 +79,10 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 		return false, err
 	}
 
-	cid := addr.ContainerID()
+	cnr, ok := addr.ContainerID()
+	if !ok {
+		return false, errors.New("missing container in object address")
+	}
 
 	switch res := v.(type) {
 	default:
@@ -87,13 +90,16 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 	case *object.Object:
 		return h(res, false), nil
 	case *object.SplitInfo:
+		link, withLink := res.Link()
+		last, withLast := res.LastPart()
+
 		switch {
 		default:
 			return false, errors.New("lack of split information")
-		case res.Link() != nil:
+		case withLink:
 			addr := addressSDK.NewAddress()
-			addr.SetContainerID(cid)
-			addr.SetObjectID(res.Link())
+			addr.SetContainerID(cnr)
+			addr.SetObjectID(link)
 
 			chain := make([]oidSDK.ID, 0)
 
@@ -114,7 +120,7 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 			var reverseChain []*object.Object
 
 			for i := range chain {
-				addr.SetObjectID(&chain[i])
+				addr.SetObjectID(chain[i])
 
 				if stop, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 					if !reverseDirection {
@@ -133,18 +139,18 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 					return true, nil
 				}
 			}
-		case res.LastPart() != nil:
+		case withLast:
 			addr := addressSDK.NewAddress()
-			addr.SetContainerID(cid)
+			addr.SetContainerID(cnr)
 
-			for prev := res.LastPart(); prev != nil; {
-				addr.SetObjectID(prev)
+			for last, withLast = res.LastPart(); withLast; {
+				addr.SetObjectID(last)
 
 				var directChain []*object.Object
 
 				if _, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 					if reverseDirection {
-						prev = member.PreviousID()
+						last, withLast = member.PreviousID()
 						return h(member, true)
 					}
 
@@ -162,7 +168,7 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 				}
 
 				if len(directChain) > 0 {
-					prev = directChain[len(directChain)-1].PreviousID()
+					last, withLast = directChain[len(directChain)-1].PreviousID()
 				}
 			}
 		}

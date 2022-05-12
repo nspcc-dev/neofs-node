@@ -9,11 +9,11 @@ import (
 func MergeSplitInfo(from, to *object.SplitInfo) *object.SplitInfo {
 	to.SetSplitID(from.SplitID()) // overwrite SplitID and ignore conflicts
 
-	if lp := from.LastPart(); lp != nil {
+	if lp, ok := from.LastPart(); ok {
 		to.SetLastPart(lp)
 	}
 
-	if link := from.Link(); link != nil {
+	if link, ok := from.Link(); ok {
 		to.SetLink(link)
 	}
 

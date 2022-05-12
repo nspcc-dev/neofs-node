@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"strings"
 
@@ -52,24 +53,25 @@ func (db *DB) containerSize(tx *bbolt.Tx, id *cid.ID) (uint64, error) {
 		return 0, err
 	}
 
-	key := id.ToV2().GetValue()
+	key := make([]byte, sha256.Size)
+	id.Encode(key)
 
 	return parseContainerSize(containerVolume.Get(key)), nil
 }
 
 func parseContainerID(name []byte, ignore map[string]struct{}) *cid.ID {
-	containerID := cid.New()
+	var containerID cid.ID
 	strContainerID := strings.Split(string(name), invalidBase58String)[0]
 
 	if _, ok := ignore[strContainerID]; ok {
 		return nil
 	}
 
-	if err := containerID.Parse(strContainerID); err != nil {
+	if err := containerID.DecodeString(strContainerID); err != nil {
 		return nil
 	}
 
-	return containerID
+	return &containerID
 }
 
 func parseContainerSize(v []byte) uint64 {
@@ -86,7 +88,9 @@ func changeContainerSize(tx *bbolt.Tx, id *cid.ID, delta uint64, increase bool) 
 		return err
 	}
 
-	key := id.ToV2().GetValue()
+	key := make([]byte, sha256.Size)
+	id.Encode(key)
+
 	size := parseContainerSize(containerVolume.Get(key))
 
 	if increase {

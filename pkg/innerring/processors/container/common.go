@@ -137,14 +137,14 @@ func checkTokenContext(tok *session.Token, verbAssert verbAssert) error {
 	return err
 }
 
-func checkTokenContextWithCID(tok *session.Token, id *cid.ID, verbAssert verbAssert) error {
+func checkTokenContextWithCID(tok *session.Token, id cid.ID, verbAssert verbAssert) error {
 	c, err := contextWithVerifiedVerb(tok, verbAssert)
 	if err != nil {
 		return err
 	}
 
 	tokCID := c.Container()
-	if tokCID != nil && !tokCID.Equal(id) {
+	if tokCID != nil && !tokCID.Equals(id) {
 		return errWrongCID
 	}
 

@@ -37,7 +37,7 @@ func TestAuditResults(t *testing.T) {
 	var auditRes auditAPI.Result
 	auditRes.ForEpoch(epoch)
 	auditRes.SetAuditorKey(key.PublicKey().Bytes())
-	auditRes.ForContainer(*id)
+	auditRes.ForContainer(id)
 
 	prm := PutPrm{}
 	prm.SetResult(&auditRes)
@@ -46,7 +46,7 @@ func TestAuditResults(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
-	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, id)
+	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, &id)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 

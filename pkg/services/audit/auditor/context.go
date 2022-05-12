@@ -251,12 +251,16 @@ func (c *Context) objectHomoHash(id *oidSDK.ID) []byte {
 }
 
 func (c *Context) updateHeadResponses(hdr *object.Object) {
+	id, ok := hdr.ID()
+	if !ok {
+		return
+	}
+
+	strID := id.EncodeToString()
+	cs, _ := hdr.PayloadHomomorphicHash()
+
 	c.headMtx.Lock()
 	defer c.headMtx.Unlock()
-
-	strID := hdr.ID().String()
-
-	cs, _ := hdr.PayloadHomomorphicHash()
 
 	if _, ok := c.headResponses[strID]; !ok {
 		c.headResponses[strID] = shortHeader{

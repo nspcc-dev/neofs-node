@@ -81,17 +81,18 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		rawPar.SetSessionToken(f.prm.SessionToken)
 		rawPar.SetCreationEpoch(curEpoch)
 
-		if err := object.SetIDWithSignature(f.prm.Key, rawPar); err != nil {
+		if err := object.SetIDWithSignature(*f.prm.Key, rawPar); err != nil {
 			return nil, fmt.Errorf("could not finalize parent object: %w", err)
 		}
 
-		parID = rawPar.ID()
+		id, _ := rawPar.ID()
+		parID = &id
 		parHdr = rawPar
 
 		f.obj.SetParent(parHdr)
 	}
 
-	if err := object.SetIDWithSignature(f.prm.Key, f.obj); err != nil {
+	if err := object.SetIDWithSignature(*f.prm.Key, f.obj); err != nil {
 		return nil, fmt.Errorf("could not finalize object: %w", err)
 	}
 
@@ -103,8 +104,10 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		return nil, fmt.Errorf("could not close next target: %w", err)
 	}
 
+	id, _ := f.obj.ID()
+
 	return new(AccessIdentifiers).
-		WithSelfID(f.obj.ID()).
+		WithSelfID(&id).
 		WithParentID(parID).
 		WithParent(parHdr), nil
 }

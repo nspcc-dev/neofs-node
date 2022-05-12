@@ -2,18 +2,15 @@ package v2
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,29 +23,23 @@ type testLocalStorage struct {
 }
 
 func (s *testLocalStorage) Head(addr *objectSDKAddress.Address) (*object.Object, error) {
-	require.True(s.t, addr.ContainerID().Equal(addr.ContainerID()) && addr.ObjectID().Equal(addr.ObjectID()))
+	cnr1, ok := s.expAddr.ContainerID()
+	require.True(s.t, ok)
+
+	cnr2, ok := addr.ContainerID()
+	require.True(s.t, ok)
+
+	require.True(s.t, cnr1.Equals(cnr2))
+
+	id1, ok := s.expAddr.ObjectID()
+	require.True(s.t, ok)
+
+	id2, ok := addr.ObjectID()
+	require.True(s.t, ok)
+
+	require.True(s.t, id1.Equals(id2))
 
 	return s.obj, nil
-}
-
-func testID(t *testing.T) *objectSDKID.ID {
-	cs := [sha256.Size]byte{}
-
-	_, err := rand.Read(cs[:])
-	require.NoError(t, err)
-
-	id := objectSDKID.NewID()
-	id.SetSHA256(cs)
-
-	return id
-}
-
-func testAddress(t *testing.T) *objectSDKAddress.Address {
-	addr := objectSDKAddress.NewAddress()
-	addr.SetObjectID(testID(t))
-	addr.SetContainerID(cidtest.ID())
-
-	return addr
 }
 
 func testXHeaders(strs ...string) []session.XHeader {
@@ -71,7 +62,7 @@ func TestHeadRequest(t *testing.T) {
 	body := new(objectV2.HeadRequestBody)
 	req.SetBody(body)
 
-	addr := testAddress(t)
+	addr := objecttest.Address()
 	body.SetAddress(addr.ToV2())
 
 	xKey := "x-key"
@@ -112,15 +103,16 @@ func TestHeadRequest(t *testing.T) {
 		obj:     obj,
 	}
 
-	cid := addr.ContainerID()
+	cnr, _ := addr.ContainerID()
 	unit := new(eaclSDK.ValidationUnit).
-		WithContainerID(cid).
+		WithContainerID(&cnr).
 		WithOperation(eaclSDK.OperationHead).
 		WithSenderKey(senderKey.Bytes()).
 		WithHeaderSource(
 			NewMessageHeaderSource(
 				WithObjectStorage(lStorage),
 				WithServiceRequest(req),
+				WithAddress(addr),
 			),
 		).
 		WithEACLTable(table)

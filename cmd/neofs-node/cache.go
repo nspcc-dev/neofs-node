@@ -134,14 +134,14 @@ func newCachedContainerStorage(v container.Source) *ttlContainerStorage {
 	)
 
 	lruCnrCache := newNetworkTTLCache(containerCacheSize, containerCacheTTL, func(key interface{}) (interface{}, error) {
-		id := cid.New()
+		var id cid.ID
 
-		err := id.Parse(key.(string))
+		err := id.DecodeString(key.(string))
 		if err != nil {
 			return nil, err
 		}
 
-		return v.Get(id)
+		return v.Get(&id)
 	})
 
 	return (*ttlContainerStorage)(lruCnrCache)
@@ -167,14 +167,14 @@ func newCachedEACLStorage(v eacl.Source) *ttlEACLStorage {
 	)
 
 	lruCnrCache := newNetworkTTLCache(eaclCacheSize, eaclCacheTTL, func(key interface{}) (interface{}, error) {
-		id := cid.New()
+		var id cid.ID
 
-		err := id.Parse(key.(string))
+		err := id.DecodeString(key.(string))
 		if err != nil {
 			return nil, err
 		}
 
-		return v.GetEACL(id)
+		return v.GetEACL(&id)
 	})
 
 	return (*ttlEACLStorage)(lruCnrCache)

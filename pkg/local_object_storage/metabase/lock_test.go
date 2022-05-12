@@ -16,7 +16,7 @@ import (
 )
 
 func TestDB_Lock(t *testing.T) {
-	cnr := *cidtest.ID()
+	cnr := cidtest.ID()
 	db := newDB(t)
 
 	t.Run("empty locked list", func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestDB_Lock(t *testing.T) {
 		} {
 			obj := objecttest.Object()
 			obj.SetType(typ)
-			obj.SetContainerID(&cnr)
+			obj.SetContainerID(cnr)
 
 			// save irregular object
 			err := meta.Put(db, obj, nil)
@@ -41,8 +41,10 @@ func TestDB_Lock(t *testing.T) {
 
 			var e apistatus.LockNonRegularObject
 
+			id, _ := obj.ID()
+
 			// try to lock it
-			err = db.Lock(cnr, *oidtest.ID(), []oid.ID{*obj.ID()})
+			err = db.Lock(cnr, oidtest.ID(), []oid.ID{id})
 			if typ == object.TypeRegular {
 				require.NoError(t, err, typ)
 			} else {
@@ -61,15 +63,17 @@ func TestDB_Lock(t *testing.T) {
 		err = putBig(db, obj)
 		require.NoError(t, err)
 
-		tombID := *oidtest.ID()
+		tombID := oidtest.ID()
+
+		id, _ := obj.ID()
 
 		// lock the object
-		err = db.Lock(*cnr, tombID, []oid.ID{*obj.ID()})
+		err = db.Lock(cnr, tombID, []oid.ID{id})
 		require.NoError(t, err)
 
 		var tombAddr address.Address
 		tombAddr.SetContainerID(cnr)
-		tombAddr.SetObjectID(&tombID)
+		tombAddr.SetObjectID(tombID)
 
 		// try to inhume locked object using tombstone
 		err = meta.Inhume(db, objectcore.AddressOf(obj), &tombAddr)

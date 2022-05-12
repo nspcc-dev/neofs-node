@@ -228,7 +228,9 @@ func ForContainer(cnr *container.Container) Option {
 // ForObject is a processing object setting option.
 func ForObject(id *oidSDK.ID) Option {
 	return func(c *cfg) {
-		c.addr.SetObjectID(id)
+		if id != nil {
+			c.addr.SetObjectID(*id)
+		}
 	}
 }
 

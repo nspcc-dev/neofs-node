@@ -280,7 +280,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		var prm internalclient.SearchObjectsPrm
 
 		sessionObjectCtxAddress := addressSDK.NewAddress()
-		sessionObjectCtxAddress.SetContainerID(id)
+		sessionObjectCtxAddress.SetContainerID(*id)
 		prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
 		prepareObjectPrm(cmd, &prm)
 		prm.SetContainerID(id)
@@ -413,7 +413,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		tok, err := getSessionToken(sessionTokenPath)
 		exitOnErr(cmd, err)
 
-		eaclTable.SetCID(id)
+		eaclTable.SetCID(*id)
 		eaclTable.SetSessionToken(tok)
 
 		var (
@@ -712,14 +712,14 @@ func parseContainerID(idStr string) (*cid.ID, error) {
 		return nil, errors.New("container ID is not set")
 	}
 
-	id := cid.New()
+	var id cid.ID
 
-	err := id.Parse(idStr)
+	err := id.DecodeString(idStr)
 	if err != nil {
 		return nil, errors.New("can't decode container ID value")
 	}
 
-	return id, nil
+	return &id, nil
 }
 
 func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEncoding bool) {

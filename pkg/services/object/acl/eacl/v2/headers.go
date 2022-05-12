@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -103,9 +104,25 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 				oV2.SetHeader(v.GetHeader())
 
 				if h.addr == nil {
-					addr := objectSDKAddress.NewAddress()
-					addr.SetContainerID(cid.NewFromV2(v.GetHeader().GetContainerID()))
-					addr.SetObjectID(objectSDKID.NewIDFromV2(v.GetObjectID()))
+					idV2 := v.GetObjectID()
+					var id objectSDKID.ID
+
+					if idV2 == nil {
+						// FIXME(@cthulhu-rider): #1386 we need to either return error or check it earlier
+						_ = id.ReadFromV2(*idV2)
+					}
+
+					cnrV2 := v.GetHeader().GetContainerID()
+					var cnr cid.ID
+
+					if cnrV2 != nil {
+						// FIXME(@cthulhu-rider): #1386 we need to either return error or check it earlier
+						_ = cnr.ReadFromV2(*cnrV2)
+					}
+
+					h.addr = new(objectSDKAddress.Address)
+					h.addr.SetContainerID(cnr)
+					h.addr.SetObjectID(id)
 				}
 
 				hs := headersFromObject(object.NewFromV2(oV2), h.addr)
@@ -113,10 +130,15 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 				return hs, true
 			}
 		case *objectV2.SearchRequest:
-			return []eaclSDK.Header{cidHeader(
-				cid.NewFromV2(
-					req.GetBody().GetContainerID()),
-			)}, true
+			cnrV2 := req.GetBody().GetContainerID()
+			var cnr cid.ID
+
+			if cnrV2 != nil {
+				// FIXME(@cthulhu-rider): #1386 we need to either return error or check it earlier
+				_ = cnr.ReadFromV2(*cnrV2)
+			}
+
+			return []eaclSDK.Header{cidHeader(&cnr)}, true
 		}
 	case *responseXHeaderSource:
 		switch resp := m.resp.(type) {
@@ -140,7 +162,12 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 			case *objectV2.ShortHeader:
 				hdr = new(objectV2.Header)
 
-				hdr.SetContainerID(h.addr.ContainerID().ToV2())
+				id, _ := h.addr.ContainerID()
+
+				var idV2 refsV2.ContainerID
+				id.WriteToV2(&idV2)
+
+				hdr.SetContainerID(&idV2)
 				hdr.SetVersion(v.GetVersion())
 				hdr.SetCreationEpoch(v.GetCreationEpoch())
 				hdr.SetOwnerID(v.GetOwnerID())
@@ -183,11 +210,13 @@ func oidHeader(oid *objectSDKID.ID) eaclSDK.Header {
 }
 
 func addressHeaders(addr *objectSDKAddress.Address) []eaclSDK.Header {
-	res := make([]eaclSDK.Header, 1, 2)
-	res[0] = cidHeader(addr.ContainerID())
+	cnr, _ := addr.ContainerID()
 
-	if oid := addr.ObjectID(); oid != nil {
-		res = append(res, oidHeader(oid))
+	res := make([]eaclSDK.Header, 1, 2)
+	res[0] = cidHeader(&cnr)
+
+	if oid, ok := addr.ObjectID(); ok {
+		res = append(res, oidHeader(&oid))
 	}
 
 	return res

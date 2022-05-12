@@ -27,7 +27,7 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 
 func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	var addr address.Address
-	addr.SetContainerID(&idCnr)
+	addr.SetContainerID(idCnr)
 
 	for i := range locked {
 		switch e.lockSingle(idCnr, locker, locked[i], true) {
@@ -56,8 +56,8 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 	var errIrregular apistatus.LockNonRegularObject
 
 	var addrLocked address.Address
-	addrLocked.SetContainerID(&idCnr)
-	addrLocked.SetObjectID(&locked)
+	addrLocked.SetContainerID(idCnr)
+	addrLocked.SetObjectID(locked)
 
 	e.iterateOverSortedShards(&addrLocked, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {

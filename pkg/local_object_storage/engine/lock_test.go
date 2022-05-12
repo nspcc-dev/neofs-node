@@ -79,13 +79,14 @@ func TestLockUserScenario(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(t, cnr)
 
-	objAddr.SetObjectID(obj.ID())
+	id, _ := obj.ID()
+	objAddr.SetObjectID(id)
 
 	err = Put(e, obj)
 	require.NoError(t, err)
 
 	// 2.
-	err = e.Lock(*cnr, *lockerID, []oid.ID{*obj.ID()})
+	err = e.Lock(cnr, lockerID, []oid.ID{id})
 	require.NoError(t, err)
 
 	// 3.
@@ -172,7 +173,10 @@ func TestLockExpiration(t *testing.T) {
 	err = Put(e, lock)
 	require.NoError(t, err)
 
-	err = e.Lock(*cnr, *lock.ID(), []oid.ID{*obj.ID()})
+	id, _ := obj.ID()
+	idLock, _ := lock.ID()
+
+	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)
 
 	_, err = e.Inhume(new(InhumePrm).WithTarget(objecttest.Address(), objectcore.AddressOf(obj)))

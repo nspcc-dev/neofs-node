@@ -2,7 +2,6 @@ package meta_test
 
 import (
 	"crypto/sha256"
-	"math/rand"
 	"os"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -26,24 +25,14 @@ func putBig(db *meta.DB, obj *object.Object) error {
 	return meta.Put(db, obj, nil)
 }
 
-func testSelect(t *testing.T, db *meta.DB, cid *cid.ID, fs object.SearchFilters, exp ...*addressSDK.Address) {
-	res, err := meta.Select(db, cid, fs)
+func testSelect(t *testing.T, db *meta.DB, cnr cid.ID, fs object.SearchFilters, exp ...*addressSDK.Address) {
+	res, err := meta.Select(db, &cnr, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
 
 	for i := range exp {
 		require.Contains(t, res, exp[i])
 	}
-}
-
-func testOID() *oidSDK.ID {
-	cs := [sha256.Size]byte{}
-	_, _ = rand.Read(cs[:])
-
-	id := oidSDK.NewID()
-	id.SetSHA256(cs)
-
-	return id
 }
 
 func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
@@ -67,7 +56,7 @@ func generateObject(t testing.TB) *object.Object {
 	return generateObjectWithCID(t, cidtest.ID())
 }
 
-func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
+func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)
@@ -79,23 +68,15 @@ func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
 	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
 
 	obj := object.New()
-	obj.SetID(testOID())
+	obj.SetID(oidtest.ID())
 	obj.SetOwnerID(ownertest.ID())
-	obj.SetContainerID(cid)
+	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)
 	obj.SetPayload([]byte{1, 2, 3, 4, 5})
 
 	return obj
-}
-
-func generateAddress() *addressSDK.Address {
-	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cidtest.ID())
-	addr.SetObjectID(testOID())
-
-	return addr
 }
 
 func addAttribute(obj *object.Object, key, val string) {

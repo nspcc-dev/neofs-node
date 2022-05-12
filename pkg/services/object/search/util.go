@@ -127,15 +127,15 @@ func idsFromAddresses(addrs []*addressSDK.Address) []oidSDK.ID {
 	ids := make([]oidSDK.ID, len(addrs))
 
 	for i := range addrs {
-		ids[i] = *addrs[i].ObjectID()
+		ids[i], _ = addrs[i].ObjectID()
 	}
 
 	return ids
 }
 
-func (e *traverseGeneratorWrapper) generateTraverser(cid *cid.ID, epoch uint64) (*placement.Traverser, error) {
+func (e *traverseGeneratorWrapper) generateTraverser(cnr *cid.ID, epoch uint64) (*placement.Traverser, error) {
 	a := addressSDK.NewAddress()
-	a.SetContainerID(cid)
+	a.SetContainerID(*cnr)
 
 	return (*util.TraverserGenerator)(e).GenerateTraverser(a, epoch)
 }

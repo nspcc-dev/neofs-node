@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,7 @@ func TestReset(t *testing.T) {
 	obj := generateObject(t)
 	addr := object.AddressOf(obj)
 
-	addrToInhume := generateAddress()
+	addrToInhume := objecttest.Address()
 
 	assertExists := func(addr *addressSDK.Address, expExists bool, assertErr func(error) bool) {
 		exists, err := meta.Exists(db, addr)
@@ -36,7 +37,7 @@ func TestReset(t *testing.T) {
 	err = putBig(db, obj)
 	require.NoError(t, err)
 
-	err = meta.Inhume(db, addrToInhume, generateAddress())
+	err = meta.Inhume(db, addrToInhume, objecttest.Address())
 	require.NoError(t, err)
 
 	assertExists(addr, true, nil)

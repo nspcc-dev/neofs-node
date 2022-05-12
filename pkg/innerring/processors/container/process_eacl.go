@@ -56,8 +56,13 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
 
+	idCnr, ok := table.CID()
+	if !ok {
+		return errors.New("missing container ID in eACL table")
+	}
+
 	// receive owner of the related container
-	cnr, err := cntClient.Get(cp.cnrClient, table.CID())
+	cnr, err := cntClient.Get(cp.cnrClient, &idCnr)
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
@@ -70,7 +75,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 
 	if tok != nil {
 		// check token context
-		err = checkTokenContextWithCID(tok, table.CID(), func(c *session.ContainerContext) bool {
+		err = checkTokenContextWithCID(tok, idCnr, func(c *session.ContainerContext) bool {
 			return c.IsForSetEACL()
 		})
 		if err != nil {

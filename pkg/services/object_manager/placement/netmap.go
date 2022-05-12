@@ -1,6 +1,8 @@
 package placement
 
 import (
+	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -36,26 +38,42 @@ func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
 }
 
 func (b *netMapBuilder) BuildPlacement(a *addressSDK.Address, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+	cnr, ok := a.ContainerID()
+	if !ok {
+		return nil, errors.New("missing container in object address")
+	}
+
 	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
 	if err != nil {
 		return nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
-	cn, err := nm.GetContainerNodes(p, a.ContainerID().ToV2().GetValue())
+	binCnr := make([]byte, sha256.Size)
+	cnr.Encode(binCnr)
+
+	cn, err := nm.GetContainerNodes(p, binCnr)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container nodes: %w", err)
 	}
 
-	return BuildObjectPlacement(nm, cn, a.ObjectID())
+	var idPtr *oidSDK.ID
+
+	if id, ok := a.ObjectID(); ok {
+		idPtr = &id
+	}
+
+	return BuildObjectPlacement(nm, cn, idPtr)
 }
 
 func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *oidSDK.ID) ([]netmapSDK.Nodes, error) {
-	objectID := id.ToV2()
-	if objectID == nil {
+	if id == nil {
 		return cnrNodes.Replicas(), nil
 	}
 
-	on, err := nm.GetPlacementVectors(cnrNodes, objectID.GetValue())
+	binObj := make([]byte, sha256.Size)
+	id.Encode(binObj)
+
+	on, err := nm.GetPlacementVectors(cnrNodes, binObj)
 	if err != nil {
 		return nil, fmt.Errorf("could not get placement vectors for object: %w", err)
 	}

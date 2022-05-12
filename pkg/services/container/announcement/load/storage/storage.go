@@ -1,6 +1,7 @@
 package loadstorage
 
 import (
+	"errors"
 	"sort"
 	"sync"
 
@@ -63,12 +64,17 @@ func New(_ Prm) *Storage {
 //
 // Always returns nil error.
 func (s *Storage) Put(a container.UsedSpaceAnnouncement) error {
+	cnr, ok := a.ContainerID()
+	if !ok {
+		return errors.New("missing container in load announcement")
+	}
+
 	s.mtx.Lock()
 
 	{
 		key := storageKey{
 			epoch: a.Epoch(),
-			cid:   a.ContainerID().String(),
+			cid:   cnr.EncodeToString(),
 		}
 
 		estimations, ok := s.mItems[key]

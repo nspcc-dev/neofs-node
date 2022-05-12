@@ -126,7 +126,11 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		return err
 	}
 
-	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return err
+	}
+
 	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !b.checker.CheckBasicACL(reqInfo) {
@@ -173,7 +177,11 @@ func (b Service) Head(
 		return nil, err
 	}
 
-	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return nil, err
+	}
+
 	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !b.checker.CheckBasicACL(reqInfo) {
@@ -212,7 +220,10 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 		return err
 	}
 
-	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return err
+	}
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return basicACLErr(reqInfo)
@@ -249,7 +260,11 @@ func (b Service) Delete(
 		return nil, err
 	}
 
-	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return nil, err
+	}
+
 	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !b.checker.CheckBasicACL(reqInfo) {
@@ -281,7 +296,10 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		return err
 	}
 
-	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return err
+	}
 	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !b.checker.CheckBasicACL(reqInfo) {
@@ -319,7 +337,11 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
-	reqInfo.oid = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return nil, err
+	}
+
 	useObjectIDFromSession(&reqInfo, sTok)
 
 	if !b.checker.CheckBasicACL(reqInfo) {
@@ -363,7 +385,11 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			return err
 		}
 
-		reqInfo.oid = getObjectIDFromRequestBody(part)
+		reqInfo.oid, err = getObjectIDFromRequestBody(part)
+		if err != nil {
+			return err
+		}
+
 		useObjectIDFromSession(&reqInfo, sTok)
 
 		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, ownerID) {

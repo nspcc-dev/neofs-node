@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -68,19 +69,33 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 
 	cnr.SetSessionToken(tok)
 
-	cid, err := s.wrt.Put(cnr)
+	idCnr, err := s.wrt.Put(cnr)
 	if err != nil {
 		return nil, err
 	}
 
+	var idCnrV2 refs.ContainerID
+	idCnr.WriteToV2(&idCnrV2)
+
 	res := new(container.PutResponseBody)
-	res.SetContainerID(cid.ToV2())
+	res.SetContainerID(&idCnrV2)
 
 	return res, nil
 }
 
 func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *container.DeleteRequestBody) (*container.DeleteResponseBody, error) {
-	id := cid.NewFromV2(body.GetContainerID())
+	idV2 := body.GetContainerID()
+	if idV2 == nil {
+		return nil, errors.New("missing container ID")
+	}
+
+	var id cid.ID
+
+	err := id.ReadFromV2(*idV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid container ID: %w", err)
+	}
+
 	sig := body.GetSignature().GetSign()
 
 	tok := session.NewTokenFromV2(ctx.SessionToken)
@@ -90,11 +105,11 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 
 	var rmWitness containercore.RemovalWitness
 
-	rmWitness.SetContainerID(id)
+	rmWitness.SetContainerID(&id)
 	rmWitness.SetSignature(sig)
 	rmWitness.SetSessionToken(tok)
 
-	err := s.wrt.Delete(rmWitness)
+	err = s.wrt.Delete(rmWitness)
 	if err != nil {
 		return nil, err
 	}
@@ -103,9 +118,19 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 }
 
 func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
-	id := cid.NewFromV2(body.GetContainerID())
+	idV2 := body.GetContainerID()
+	if idV2 == nil {
+		return nil, errors.New("missing container ID")
+	}
 
-	cnr, err := s.rdr.Get(id)
+	var id cid.ID
+
+	err := id.ReadFromV2(*idV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	cnr, err := s.rdr.Get(&id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +153,7 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 
 	cidList := make([]refs.ContainerID, len(cnrs))
 	for i := range cnrs {
-		cidList[i] = *cnrs[i].ToV2()
+		cnrs[i].WriteToV2(&cidList[i])
 	}
 
 	res := new(container.ListResponseBody)
@@ -159,9 +184,19 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 }
 
 func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
-	id := cid.NewFromV2(body.GetContainerID())
+	idV2 := body.GetContainerID()
+	if idV2 == nil {
+		return nil, errors.New("missing container ID")
+	}
 
-	table, err := s.rdr.GetEACL(id)
+	var id cid.ID
+
+	err := id.ReadFromV2(*idV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	table, err := s.rdr.GetEACL(&id)
 	if err != nil {
 		return nil, err
 	}

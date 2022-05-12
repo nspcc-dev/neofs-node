@@ -153,12 +153,16 @@ func (db *DB) deleteObject(
 
 // parentLength returns amount of available children from parentid index.
 func parentLength(tx *bbolt.Tx, addr *addressSDK.Address) int {
-	bkt := tx.Bucket(parentBucketName(addr.ContainerID()))
+	cnr, _ := addr.ContainerID()
+
+	bkt := tx.Bucket(parentBucketName(&cnr))
 	if bkt == nil {
 		return 0
 	}
 
-	lst, err := decodeList(bkt.Get(objectKey(addr.ObjectID())))
+	obj, _ := addr.ObjectID()
+
+	lst, err := decodeList(bkt.Get(objectKey(&obj)))
 	if err != nil {
 		return 0
 	}
@@ -227,8 +231,12 @@ func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 
 func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error {
 	addr := object.AddressOf(obj)
-	objKey := objectKey(addr.ObjectID())
+
+	id, _ := addr.ObjectID()
+
+	objKey := objectKey(&id)
 	addrKey := addressKey(addr)
+	cnr, _ := addr.ContainerID()
 
 	// add value to primary unique bucket
 	if !isParent {
@@ -236,13 +244,13 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 
 		switch obj.Type() {
 		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(addr.ContainerID())
+			bucketName = primaryBucketName(&cnr)
 		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(addr.ContainerID())
+			bucketName = tombstoneBucketName(&cnr)
 		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(addr.ContainerID())
+			bucketName = storageGroupBucketName(&cnr)
 		case objectSDK.TypeLock:
-			bucketName = bucketNameLockers(*addr.ContainerID())
+			bucketName = bucketNameLockers(cnr)
 		default:
 			return ErrUnknownObjectType
 		}
@@ -253,17 +261,17 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 		})
 	} else {
 		delUniqueIndexItem(tx, namedBucketItem{
-			name: parentBucketName(obj.ContainerID()),
+			name: parentBucketName(&cnr),
 			key:  objKey,
 		})
 	}
 
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from small blobovnicza id index
-		name: smallBucketName(addr.ContainerID()),
+		name: smallBucketName(&cnr),
 		key:  objKey,
 	})
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from root index
-		name: rootBucketName(addr.ContainerID()),
+		name: rootBucketName(&cnr),
 		key:  objKey,
 	})
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from ToMoveIt index

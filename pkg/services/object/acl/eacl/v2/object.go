@@ -48,8 +48,11 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 
 	res := make([]eaclSDK.Header, 0, count)
 	for ; obj != nil; obj = obj.Parent() {
+		cnr, _ := addr.ContainerID()
+		id, _ := addr.ObjectID()
+
 		res = append(res,
-			cidHeader(addr.ContainerID()),
+			cidHeader(&cnr),
 			// owner ID
 			&sysObjHdr{
 				k: acl.FilterObjectOwnerID,
@@ -65,7 +68,7 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 				k: acl.FilterObjectPayloadLength,
 				v: u64Value(obj.PayloadSize()),
 			},
-			oidHeader(addr.ObjectID()),
+			oidHeader(&id),
 			// object version
 			&sysObjHdr{
 				k: acl.FilterObjectVersion,

@@ -85,9 +85,9 @@ func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 }
 
 func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bool) (*objectSDK.Object, error) {
-	obj := objectSDK.New()
-	key := objectKey(addr.ObjectID())
-	cid := addr.ContainerID()
+	id, _ := addr.ObjectID()
+	key := objectKey(&id)
+	cnr, _ := addr.ContainerID()
 
 	if checkGraveyard {
 		switch inGraveyard(tx, addr) {
@@ -102,32 +102,34 @@ func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bo
 		}
 	}
 
+	obj := objectSDK.New()
+
 	// check in primary index
-	data := getFromBucket(tx, primaryBucketName(cid), key)
+	data := getFromBucket(tx, primaryBucketName(&cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in tombstone index
-	data = getFromBucket(tx, tombstoneBucketName(cid), key)
+	data = getFromBucket(tx, tombstoneBucketName(&cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in storage group index
-	data = getFromBucket(tx, storageGroupBucketName(cid), key)
+	data = getFromBucket(tx, storageGroupBucketName(&cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in locker index
-	data = getFromBucket(tx, bucketNameLockers(*cid), key)
+	data = getFromBucket(tx, bucketNameLockers(cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check if object is a virtual
-	return getVirtualObject(tx, cid, key, raw)
+	return getVirtualObject(tx, &cnr, key, raw)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {

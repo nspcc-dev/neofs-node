@@ -123,12 +123,12 @@ func (x *GetObjectPrm) SetRawFlag() {
 //
 // Required parameter.
 func (x *GetObjectPrm) SetAddress(addr *addressSDK.Address) {
-	if id := addr.ContainerID(); id != nil {
-		x.cliPrm.FromContainer(*id)
+	if id, ok := addr.ContainerID(); ok {
+		x.cliPrm.FromContainer(id)
 	}
 
-	if id := addr.ObjectID(); id != nil {
-		x.cliPrm.ByID(*id)
+	if id, ok := addr.ObjectID(); ok {
+		x.cliPrm.ByID(id)
 	}
 }
 
@@ -218,12 +218,12 @@ func (x *HeadObjectPrm) SetRawFlag() {
 //
 // Required parameter.
 func (x *HeadObjectPrm) SetAddress(addr *addressSDK.Address) {
-	if id := addr.ContainerID(); id != nil {
-		x.cliPrm.FromContainer(*id)
+	if id, ok := addr.ContainerID(); ok {
+		x.cliPrm.FromContainer(id)
 	}
 
-	if id := addr.ObjectID(); id != nil {
-		x.cliPrm.ByID(*id)
+	if id, ok := addr.ObjectID(); ok {
+		x.cliPrm.ByID(id)
 	}
 }
 
@@ -301,12 +301,12 @@ func (x *PayloadRangePrm) SetRawFlag() {
 //
 // Required parameter.
 func (x *PayloadRangePrm) SetAddress(addr *addressSDK.Address) {
-	if id := addr.ContainerID(); id != nil {
-		x.cliPrm.FromContainer(*id)
+	if id, ok := addr.ContainerID(); ok {
+		x.cliPrm.FromContainer(id)
 	}
 
-	if id := addr.ObjectID(); id != nil {
-		x.cliPrm.ByID(*id)
+	if id, ok := addr.ObjectID(); ok {
+		x.cliPrm.ByID(id)
 	}
 }
 

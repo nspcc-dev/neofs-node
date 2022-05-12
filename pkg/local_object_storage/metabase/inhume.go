@@ -108,8 +108,11 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 		}
 
 		for i := range prm.target {
+			id, _ := prm.target[i].ObjectID()
+			cnr, _ := prm.target[i].ContainerID()
+
 			// prevent locked objects to be inhumed
-			if objectLocked(tx, *prm.target[i].ContainerID(), *prm.target[i].ObjectID()) {
+			if objectLocked(tx, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 
@@ -120,7 +123,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			if err == nil && obj.Type() == object.TypeRegular {
 				err := changeContainerSize(
 					tx,
-					obj.ContainerID(),
+					&cnr,
 					obj.PayloadSize(),
 					false,
 				)
@@ -166,7 +169,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			} else {
 				// garbage object can probably lock some objects, so they should become
 				// unlocked after its decay
-				err = freePotentialLocks(tx, *prm.target[i].ContainerID(), *prm.target[i].ObjectID())
+				err = freePotentialLocks(tx, cnr, id)
 				if err != nil {
 					return fmt.Errorf("free potential locks: %w", err)
 				}

@@ -1,6 +1,7 @@
 package container
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -13,19 +14,17 @@ import (
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (c *Client) GetEACL(cid *cid.ID) (*eacl.Table, error) {
-	if cid == nil {
+func (c *Client) GetEACL(cnr *cid.ID) (*eacl.Table, error) {
+	if cnr == nil {
 		return nil, errNilArgument
 	}
 
-	v2 := cid.ToV2()
-	if v2 == nil {
-		return nil, errUnsupported // use other major version if there any
-	}
+	binCnr := make([]byte, sha256.Size)
+	cnr.Encode(binCnr)
 
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(eaclMethod)
-	prm.SetArgs(v2.GetValue())
+	prm.SetArgs(binCnr)
 
 	prms, err := c.client.TestInvoke(prm)
 	if err != nil {

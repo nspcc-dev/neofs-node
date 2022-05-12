@@ -171,7 +171,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
 		}
 		if len(old.Value) != 0 {
-			id := cid.New()
+			var id cid.ID
 			id.SetSHA256(hv)
 			cmd.Printf("Container %s is already deployed.\n", id)
 			continue
@@ -314,7 +314,7 @@ func getCIDFilterFunc(cmd *cobra.Command) (func([]byte) bool, error) {
 	}
 
 	for i := range rawIDs {
-		err := cid.New().Parse(rawIDs[i])
+		err := new(cid.ID).DecodeString(rawIDs[i])
 		if err != nil {
 			return nil, fmt.Errorf("can't parse CID %s: %w", rawIDs[i], err)
 		}
@@ -324,9 +324,9 @@ func getCIDFilterFunc(cmd *cobra.Command) (func([]byte) bool, error) {
 		var v [32]byte
 		copy(v[:], rawID)
 
-		id := cid.New()
+		var id cid.ID
 		id.SetSHA256(v)
-		idStr := id.String()
+		idStr := id.EncodeToString()
 		n := sort.Search(len(rawIDs), func(i int) bool { return rawIDs[i] >= idStr })
 		return n < len(rawIDs) && rawIDs[n] == idStr
 	}, nil

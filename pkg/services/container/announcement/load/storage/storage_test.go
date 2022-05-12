@@ -39,7 +39,9 @@ func TestStorage(t *testing.T) {
 			iterCounter++
 
 			require.Equal(t, epoch, ai.Epoch())
-			require.Equal(t, a.ContainerID(), ai.ContainerID())
+			cnr1, _ := a.ContainerID()
+			cnr2, _ := ai.ContainerID()
+			require.Equal(t, cnr1, cnr2)
 			require.Equal(t, finalEstimation(opinions), ai.UsedSpace())
 
 			return nil

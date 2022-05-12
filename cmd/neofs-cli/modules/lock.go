@@ -20,7 +20,7 @@ var cmdObjectLock = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var cnr cid.ID
 
-		err := cnr.Parse(args[0])
+		err := cnr.DecodeString(args[0])
 		exitOnErr(cmd, errf("Incorrect container arg: %v", err))
 
 		argsList := args[1:]
@@ -28,7 +28,7 @@ var cmdObjectLock = &cobra.Command{
 		lockList := make([]oid.ID, len(argsList))
 
 		for i := range argsList {
-			err = lockList[i].Parse(argsList[i])
+			err = lockList[i].DecodeString(argsList[i])
 			exitOnErr(cmd, errf(fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err))
 		}
 
@@ -42,7 +42,7 @@ var cmdObjectLock = &cobra.Command{
 		lock.WriteMembers(lockList)
 
 		obj := object.New()
-		obj.SetContainerID(&cnr)
+		obj.SetContainerID(cnr)
 		obj.SetOwnerID(idOwner)
 		obj.SetType(object.TypeLock)
 		obj.SetPayload(lock.Marshal())

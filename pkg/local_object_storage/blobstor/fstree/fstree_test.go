@@ -2,40 +2,19 @@ package fstree
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
-func testOID() *oidSDK.ID {
-	cs := [sha256.Size]byte{}
-	_, _ = rand.Read(cs[:])
-
-	id := oidSDK.NewID()
-	id.SetSHA256(cs)
-
-	return id
-}
-
-func testAddress() *addressSDK.Address {
-	a := addressSDK.NewAddress()
-	a.SetObjectID(testOID())
-	a.SetContainerID(cidtest.ID())
-
-	return a
-}
-
 func TestAddressToString(t *testing.T) {
-	addr := testAddress()
+	addr := objecttest.Address()
 	s := stringifyAddress(addr)
 	actual, err := addressFromString(s)
 	require.NoError(t, err)
@@ -62,7 +41,7 @@ func TestFSTree(t *testing.T) {
 	store := map[string][]byte{}
 
 	for i := 0; i < count; i++ {
-		a := testAddress()
+		a := objecttest.Address()
 		addrs = append(addrs, a)
 
 		data := make([]byte, 10)
@@ -78,7 +57,7 @@ func TestFSTree(t *testing.T) {
 			require.Equal(t, store[a.String()], actual)
 		}
 
-		_, err := fs.Get(testAddress())
+		_, err := fs.Get(objecttest.Address())
 		require.Error(t, err)
 	})
 
@@ -88,7 +67,7 @@ func TestFSTree(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err := fs.Exists(testAddress())
+		_, err := fs.Exists(objecttest.Address())
 		require.Error(t, err)
 	})
 
@@ -167,6 +146,6 @@ func TestFSTree(t *testing.T) {
 		_, err = fs.Exists(addrs[1])
 		require.NoError(t, err)
 
-		require.Error(t, fs.Delete(testAddress()))
+		require.Error(t, fs.Delete(objecttest.Address()))
 	})
 }

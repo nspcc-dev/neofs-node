@@ -420,12 +420,13 @@ func (x DeleteObjectRes) TombstoneAddress() *addressSDK.Address {
 func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 	var delPrm client.PrmObjectDelete
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		delPrm.FromContainer(*id)
+	cnr, ok := prm.objAddr.ContainerID()
+	if ok {
+		delPrm.FromContainer(cnr)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		delPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		delPrm.ByID(id)
 	}
 
 	if prm.sessionToken != nil {
@@ -450,8 +451,8 @@ func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 	}
 
 	var addr addressSDK.Address
-	addr.SetObjectID(&id)
-	addr.SetContainerID(prm.objAddr.ContainerID())
+	addr.SetObjectID(id)
+	addr.SetContainerID(cnr)
 
 	return &DeleteObjectRes{
 		addrTombstone: &addr,
@@ -492,12 +493,12 @@ func (x GetObjectRes) Header() *object.Object {
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var getPrm client.PrmObjectGet
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		getPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		getPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		getPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		getPrm.ByID(id)
 	}
 
 	if prm.sessionToken != nil {
@@ -574,12 +575,12 @@ func (x HeadObjectRes) Header() *object.Object {
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	var cliPrm client.PrmObjectHead
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		cliPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		cliPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		cliPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		cliPrm.ByID(id)
 	}
 
 	if prm.sessionToken != nil {
@@ -739,12 +740,12 @@ func (x HashPayloadRangesRes) HashList() [][]byte {
 func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) {
 	var cliPrm client.PrmObjectHash
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		cliPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		cliPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		cliPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		cliPrm.ByID(id)
 	}
 
 	if prm.local {
@@ -813,12 +814,12 @@ type PayloadRangeRes struct{}
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	var cliPrm client.PrmObjectRange
 
-	if id := prm.objAddr.ContainerID(); id != nil {
-		cliPrm.FromContainer(*id)
+	if id, ok := prm.objAddr.ContainerID(); ok {
+		cliPrm.FromContainer(id)
 	}
 
-	if id := prm.objAddr.ObjectID(); id != nil {
-		cliPrm.ByID(*id)
+	if id, ok := prm.objAddr.ObjectID(); ok {
+		cliPrm.ByID(id)
 	}
 
 	if prm.sessionToken != nil {

@@ -65,7 +65,12 @@ func (exec *execCtx) address() *addressSDK.Address {
 }
 
 func (exec *execCtx) containerID() *cid.ID {
-	return exec.prm.addr.ContainerID()
+	id, ok := exec.prm.addr.ContainerID()
+	if ok {
+		return &id
+	}
+
+	return nil
 }
 
 func (exec *execCtx) commonParameters() *util.CommonPrm {
@@ -74,8 +79,8 @@ func (exec *execCtx) commonParameters() *util.CommonPrm {
 
 func (exec *execCtx) newAddress(id *oidSDK.ID) *addressSDK.Address {
 	a := addressSDK.NewAddress()
-	a.SetObjectID(id)
-	a.SetContainerID(exec.containerID())
+	a.SetObjectID(*id)
+	a.SetContainerID(*exec.containerID())
 
 	return a
 }
@@ -107,14 +112,16 @@ func (exec *execCtx) collectMembers() (ok bool) {
 		return true
 	}
 
-	if exec.splitInfo.Link() != nil {
+	if _, withLink := exec.splitInfo.Link(); withLink {
 		ok = exec.collectChildren()
 	}
 
-	if !ok && exec.splitInfo.LastPart() != nil {
-		ok = exec.collectChain()
-		if !ok {
-			return
+	if !ok {
+		if _, withLast := exec.splitInfo.LastPart(); withLast {
+			ok = exec.collectChain()
+			if !ok {
+				return
+			}
 		}
 	} // may be fail if neither right nor linking ID is set?
 
@@ -122,16 +129,14 @@ func (exec *execCtx) collectMembers() (ok bool) {
 }
 
 func (exec *execCtx) collectChain() bool {
-	var (
-		err   error
-		chain []oidSDK.ID
-	)
+	var chain []oidSDK.ID
 
 	exec.log.Debug("assembling chain...")
 
-	for prev := exec.splitInfo.LastPart(); prev != nil; {
-		chain = append(chain, *prev)
-		prev, err = exec.svc.header.previous(exec, prev)
+	for prev, withPrev := exec.splitInfo.LastPart(); withPrev; {
+		chain = append(chain, prev)
+
+		p, err := exec.svc.header.previous(exec, &prev)
 
 		switch {
 		default:
@@ -147,6 +152,9 @@ func (exec *execCtx) collectChain() bool {
 		case err == nil:
 			exec.status = statusOK
 			exec.err = nil
+
+			withPrev = true
+			prev = *p
 		}
 	}
 
@@ -174,7 +182,9 @@ func (exec *execCtx) collectChildren() bool {
 		exec.status = statusOK
 		exec.err = nil
 
-		exec.addMembers(append(children, *exec.splitInfo.Link()))
+		link, _ := exec.splitInfo.Link()
+
+		exec.addMembers(append(children, link))
 
 		return true
 	}
@@ -210,7 +220,7 @@ func (exec *execCtx) addMembers(incoming []oidSDK.ID) {
 
 	for i := range members {
 		for j := 0; j < len(incoming); j++ { // don't use range, slice mutates in body
-			if members[i].Equal(&incoming[j]) {
+			if members[i].Equals(incoming[j]) {
 				incoming = append(incoming[:j], incoming[j+1:]...)
 				j--
 			}
@@ -240,7 +250,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 	}
 
 	exec.tombstoneObj = object.New()
-	exec.tombstoneObj.SetContainerID(exec.containerID())
+	exec.tombstoneObj.SetContainerID(*exec.containerID())
 	exec.tombstoneObj.SetOwnerID(tombOwnerID)
 	exec.tombstoneObj.SetType(object.TypeTombstone)
 	exec.tombstoneObj.SetPayload(payload)

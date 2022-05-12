@@ -122,8 +122,13 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not get latest network map: %w", p, err)
 	}
 
+	idCnr, ok := prm.hdr.ContainerID()
+	if !ok {
+		return errors.New("missing container ID")
+	}
+
 	// get container to store the object
-	cnr, err := p.cnrSrc.Get(prm.hdr.ContainerID())
+	cnr, err := p.cnrSrc.Get(&idCnr)
 	if err != nil {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
@@ -132,10 +137,14 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	prm.traverseOpts = append(prm.traverseOpts,
 		// set processing container
 		placement.ForContainer(cnr),
-
-		// set identifier of the processing object
-		placement.ForObject(prm.hdr.ID()),
 	)
+
+	if id, ok := prm.hdr.ID(); ok {
+		prm.traverseOpts = append(prm.traverseOpts,
+			// set identifier of the processing object
+			placement.ForObject(&id),
+		)
+	}
 
 	// create placement builder from network map
 	builder := placement.NewNetworkMapBuilder(nm)

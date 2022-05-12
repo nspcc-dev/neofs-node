@@ -3,6 +3,7 @@ package innerring
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"time"
 
@@ -64,14 +65,19 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
 func (c *ClientCache) GetSG(task *audit.Task, id *oidSDK.ID) (*storagegroup.StorageGroup, error) {
 	sgAddress := new(addressSDK.Address)
-	sgAddress.SetContainerID(task.ContainerID())
-	sgAddress.SetObjectID(id)
+	sgAddress.SetContainerID(*task.ContainerID())
+	sgAddress.SetObjectID(*id)
 
 	return c.getSG(task.AuditContext(), sgAddress, task.NetworkMap(), task.ContainerNodes())
 }
 
 func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *netmap.Netmap, cn netmap.ContainerNodes) (*storagegroup.StorageGroup, error) {
-	nodes, err := placement.BuildObjectPlacement(nm, cn, addr.ObjectID())
+	obj, ok := addr.ObjectID()
+	if !ok {
+		return nil, errors.New("missing object ID in object address")
+	}
+
+	nodes, err := placement.BuildObjectPlacement(nm, cn, &obj)
 	if err != nil {
 		return nil, fmt.Errorf("can't build object placement: %w", err)
 	}
@@ -125,8 +131,8 @@ func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *n
 // GetHeader requests node from the container under audit to return object header by id.
 func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *oidSDK.ID, relay bool) (*object.Object, error) {
 	objAddress := new(addressSDK.Address)
-	objAddress.SetContainerID(task.ContainerID())
-	objAddress.SetObjectID(id)
+	objAddress.SetContainerID(*task.ContainerID())
+	objAddress.SetObjectID(*id)
 
 	var info clientcore.NodeInfo
 
@@ -163,8 +169,8 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *oidSDK.
 // payload range of the object with specified identifier.
 func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *oidSDK.ID, rng *object.Range) ([]byte, error) {
 	objAddress := new(addressSDK.Address)
-	objAddress.SetContainerID(task.ContainerID())
-	objAddress.SetObjectID(id)
+	objAddress.SetContainerID(*task.ContainerID())
+	objAddress.SetObjectID(*id)
 
 	var info clientcore.NodeInfo
 

@@ -117,9 +117,12 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	addrs := make([]*addressSDK.Address, objCount)
 	for i := range addrs {
 		addrs[i] = objecttest.Address()
+		id, _ := addrs[i].ObjectID()
+		cnr, _ := addrs[i].ContainerID()
+
 		obj := object.New()
-		obj.SetContainerID(addrs[i].ContainerID())
-		obj.SetID(addrs[i].ObjectID())
+		obj.SetContainerID(cnr)
+		obj.SetID(id)
 		obj.SetPayload(make([]byte, smallSize<<(i%2)))
 
 		objData, err := obj.Marshal()
@@ -184,8 +187,10 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 			}
 
 			addr := addressSDK.NewAddress()
-			addr.SetContainerID(obj.ContainerID())
-			addr.SetObjectID(obj.ID())
+			cnr, _ := obj.ContainerID()
+			addr.SetContainerID(cnr)
+			id, _ := obj.ID()
+			addr.SetObjectID(id)
 			actual = append(actual, addr)
 			return nil
 		})

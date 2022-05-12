@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -32,8 +33,11 @@ func toChunkPrm(req *objectV2.PutObjectPartChunk) *putsvc.PutChunkPrm {
 }
 
 func fromPutResponse(r *putsvc.PutResponse) *objectV2.PutResponse {
+	var idV2 refsV2.ObjectID
+	r.ObjectID().WriteToV2(&idV2)
+
 	body := new(objectV2.PutResponseBody)
-	body.SetObjectID(r.ObjectID().ToV2())
+	body.SetObjectID(&idV2)
 
 	resp := new(objectV2.PutResponse)
 	resp.SetBody(body)

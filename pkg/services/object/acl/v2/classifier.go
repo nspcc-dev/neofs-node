@@ -2,6 +2,7 @@ package v2
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -65,7 +66,10 @@ func (c senderClassifier) classify(
 		}, nil
 	}
 
-	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, idCnr.ToV2().GetValue(), cnr)
+	binCnr := make([]byte, sha256.Size)
+	idCnr.Encode(binCnr)
+
+	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, binCnr, cnr)
 	if err != nil {
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
