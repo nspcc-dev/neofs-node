@@ -13,10 +13,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 // CheckerPrm groups parameters for Checker
@@ -143,21 +143,21 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 		reqInfo.CleanBearer()
 	}
 
-	var (
-		table *eaclSDK.Table
-		err   error
-	)
+	var table eaclSDK.Table
 
-	if reqInfo.Bearer().Empty() {
-		table, err = c.eaclSrc.GetEACL(reqInfo.ContainerID())
+	bearerTok := reqInfo.Bearer()
+	if bearerTok == nil {
+		pTable, err := c.eaclSrc.GetEACL(reqInfo.ContainerID())
 		if err != nil {
 			if errors.Is(err, container.ErrEACLNotFound) {
 				return nil
 			}
 			return err
 		}
+
+		table = *pTable
 	} else {
-		table = reqInfo.Bearer().EACLTable()
+		table = bearerTok.EACLTable()
 	}
 
 	// if bearer token is not present, isValidBearer returns true
@@ -195,7 +195,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 		WithHeaderSource(
 			eaclV2.NewMessageHeaderSource(hdrSrcOpts...),
 		).
-		WithEACLTable(table),
+		WithEACLTable(&table),
 	)
 
 	if action != eaclSDK.ActionAllow {
@@ -210,9 +210,8 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	token := reqInfo.Bearer()
 
-	// 0. Check if bearer token is present in reqInfo. It might be non nil
-	// empty structure.
-	if token == nil || token.Empty() {
+	// 0. Check if bearer token is present in reqInfo.
+	if token == nil {
 		return nil
 	}
 
@@ -227,32 +226,35 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 3. Then check if container owner signed this token.
-	tokenIssuerKey := unmarshalPublicKey(token.Signature().Key())
-	if !isOwnerFromKey(reqInfo.ContainerOwner(), tokenIssuerKey) {
+	issuer, ok := token.Issuer()
+	if !ok {
+		panic("unexpected false return from Issuer method on signed bearer token")
+	}
+
+	if !issuer.Equal(reqInfo.ContainerOwner()) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
 
 	// 4. Then check if request sender has rights to use this token.
-	tokenOwnerField := token.OwnerID()
-	if tokenOwnerField != nil { // see bearer token owner field description
-		requestSenderKey := unmarshalPublicKey(reqInfo.SenderKey())
-		if !isOwnerFromKey(tokenOwnerField, requestSenderKey) {
-			// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-			return errBearerInvalidOwner
-		}
+	tokenOwner := token.OwnerID()
+	requestSenderKey := unmarshalPublicKey(reqInfo.SenderKey())
+
+	if !isOwnerFromKey(&tokenOwner, requestSenderKey) {
+		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
+		return errBearerInvalidOwner
 	}
 
 	return nil
 }
 
-func isValidLifetime(t *bearerSDK.BearerToken, epoch uint64) bool {
+func isValidLifetime(t *bearerSDK.Token, epoch uint64) bool {
 	// The "exp" (expiration time) claim identifies the expiration time on
 	// or after which the JWT MUST NOT be accepted for processing.
 	// The "nbf" (not before) claim identifies the time before which the JWT
 	// MUST NOT be accepted for processing
 	// RFC 7519 sections 4.1.4, 4.1.5
-	return epoch >= t.NotBeforeTime() && epoch <= t.Expiration()
+	return epoch >= t.NotBefore() && epoch <= t.Expiration()
 }
 
 func isOwnerFromKey(id *owner.ID, key *keys.PublicKey) bool {

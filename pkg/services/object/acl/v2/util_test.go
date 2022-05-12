@@ -7,20 +7,23 @@ import (
 	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessiontest "github.com/nspcc-dev/neofs-api-go/v2/session/test"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
-	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOriginalTokens(t *testing.T) {
 	sToken := sessiontest.GenerateSessionToken(false)
-	bToken := acltest.GenerateBearerToken(false)
+	bTokenV2 := acltest.GenerateBearerToken(false)
+
+	var bToken bearer.Token
+	bToken.ReadFromV2(*bTokenV2)
 
 	for i := 0; i < 10; i++ {
-		metaHeaders := testGenerateMetaHeader(uint32(i), bToken, sToken)
+		metaHeaders := testGenerateMetaHeader(uint32(i), bTokenV2, sToken)
 		require.Equal(t, sessionSDK.NewTokenFromV2(sToken), originalSessionToken(metaHeaders), i)
-		require.Equal(t, bearerSDK.NewBearerTokenFromV2(bToken), originalBearerToken(metaHeaders), i)
+		require.Equal(t, &bToken, originalBearerToken(metaHeaders), i)
 	}
 }
 

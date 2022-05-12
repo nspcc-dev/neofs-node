@@ -4,8 +4,8 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 // maxLocalTTL is maximum TTL for an operation to be considered local.
@@ -18,7 +18,7 @@ type CommonPrm struct {
 
 	token *sessionsdk.Token
 
-	bearer *token.BearerToken
+	bearer *bearer.Token
 
 	ttl uint32
 
@@ -67,7 +67,7 @@ func (p *CommonPrm) SessionToken() *sessionsdk.Token {
 	return nil
 }
 
-func (p *CommonPrm) BearerToken() *token.BearerToken {
+func (p *CommonPrm) BearerToken() *bearer.Token {
 	if p != nil {
 		return p.bearer
 	}
@@ -116,7 +116,8 @@ func CommonPrmFromV2(req interface {
 	}
 
 	if tok := meta.GetBearerToken(); tok != nil {
-		prm.bearer = token.NewBearerTokenFromV2(tok)
+		prm.bearer = new(bearer.Token)
+		prm.bearer.ReadFromV2(*tok)
 	}
 
 	for i := range xHdrs {

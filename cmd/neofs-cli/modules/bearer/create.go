@@ -13,10 +13,10 @@ import (
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/spf13/cobra"
 )
 
@@ -101,9 +101,11 @@ func createToken(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't parse recipient: %w", err)
 	}
 
-	b := token.NewBearerToken()
-	b.SetLifetime(exp, nvb, iat)
-	b.SetOwner(ownerID)
+	var b bearer.Token
+	b.SetExpiration(exp)
+	b.SetNotBefore(nvb)
+	b.SetIssuedAt(iat)
+	b.SetOwnerID(*ownerID)
 
 	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
 	if eaclPath != "" {
@@ -115,7 +117,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 		if err := json.Unmarshal(raw, table); err != nil {
 			return fmt.Errorf("can't parse extended ACL: %w", err)
 		}
-		b.SetEACLTable(table)
+		b.SetEACLTable(*table)
 	}
 
 	var data []byte
@@ -123,11 +125,11 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	toJSON, _ := cmd.Flags().GetBool(jsonFlag)
 	if toJSON {
 		data, err = json.Marshal(b)
+		if err != nil {
+			return fmt.Errorf("can't mashal token to JSON: %w", err)
+		}
 	} else {
-		data, err = b.Marshal(nil)
-	}
-	if err != nil {
-		return fmt.Errorf("can't mashal token: %w", err)
+		data = b.Marshal()
 	}
 
 	out, _ := cmd.Flags().GetString(outFlag)
