@@ -17,10 +17,10 @@ import (
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -217,7 +217,7 @@ func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...c
 }
 
 type bearerPrm interface {
-	SetBearerToken(prm *token.BearerToken)
+	SetBearerToken(prm *bearer.Token)
 }
 
 func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {

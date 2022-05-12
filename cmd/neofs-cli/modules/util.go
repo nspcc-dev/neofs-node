@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
 	airportsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/airports"
@@ -18,8 +17,6 @@ import (
 	continentsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/continents/geojson"
 	csvlocode "github.com/nspcc-dev/neofs-node/pkg/util/locode/table/csv"
 	sdkstatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -296,10 +293,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
 	exitOnErr(cmd, err)
 
-	err = completeBearerToken(btok)
-	exitOnErr(cmd, err)
-
-	err = btok.SignToken(key)
+	err = btok.Sign(*key)
 	exitOnErr(cmd, err)
 
 	to := cmd.Flag("to").Value.String()
@@ -310,8 +304,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 		data, err = btok.MarshalJSON()
 		exitOnErr(cmd, errf("can't JSON encode bearer token: %w", err))
 	} else {
-		data, err = btok.Marshal()
-		exitOnErr(cmd, errf("can't binary encode bearer token: %w", err))
+		data = btok.Marshal()
 	}
 
 	if len(to) == 0 {
@@ -422,22 +415,6 @@ func processKeyer(cmd *cobra.Command, args []string) {
 	exitOnErr(cmd, err)
 
 	result.PrettyPrint(uncompressed, useHex)
-}
-
-func completeBearerToken(btok *token.BearerToken) error {
-	if v2 := btok.ToV2(); v2 != nil {
-		// set eACL table version, because it usually omitted
-		table := v2.GetBody().GetEACL()
-
-		var ver refs.Version
-		version.Current().WriteToV2(&ver)
-
-		table.SetVersion(&ver)
-	} else {
-		return errors.New("unsupported bearer token version")
-	}
-
-	return nil
 }
 
 func prettyPrintJSON(cmd *cobra.Command, data []byte) {

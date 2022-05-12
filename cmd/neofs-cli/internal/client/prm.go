@@ -3,11 +3,11 @@ package internal
 import (
 	"io"
 
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 // here are small structures with public setters to share between parameter structures
@@ -40,11 +40,11 @@ func (x *sessionTokenPrm) SetSessionToken(tok *session.Token) {
 }
 
 type bearerTokenPrm struct {
-	bearerToken *token.BearerToken
+	bearerToken *bearer.Token
 }
 
 // SetBearerToken sets the bearer token to be attached to the request.
-func (x *bearerTokenPrm) SetBearerToken(tok *token.BearerToken) {
+func (x *bearerTokenPrm) SetBearerToken(tok *bearer.Token) {
 	x.bearerToken = tok
 }
 

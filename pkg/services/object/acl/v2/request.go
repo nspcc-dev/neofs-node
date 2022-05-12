@@ -6,12 +6,12 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
-	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 // RequestInfo groups parsed version-independent (from SDK library)
@@ -29,7 +29,7 @@ type RequestInfo struct {
 
 	senderKey []byte
 
-	bearer *bearerSDK.BearerToken // bearer token of request
+	bearer *bearer.Token // bearer token of request
 
 	srcRequest interface{}
 }
@@ -72,7 +72,7 @@ func (r *RequestInfo) CleanBearer() {
 }
 
 // Bearer returns bearer token of the request.
-func (r RequestInfo) Bearer() *bearerSDK.BearerToken {
+func (r RequestInfo) Bearer() *bearer.Token {
 	return r.bearer
 }
 
@@ -106,7 +106,7 @@ func (r RequestInfo) RequestRole() eaclSDK.Role {
 type MetaWithToken struct {
 	vheader *sessionV2.RequestVerificationHeader
 	token   *sessionSDK.Token
-	bearer  *bearerSDK.BearerToken
+	bearer  *bearer.Token
 	src     interface{}
 }
 

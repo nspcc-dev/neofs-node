@@ -8,6 +8,7 @@ import (
 	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -15,7 +16,6 @@ import (
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 type commonPrm struct {
@@ -27,7 +27,7 @@ type commonPrm struct {
 
 	tokenSession *session.Token
 
-	tokenBearer *token.BearerToken
+	tokenBearer *bearer.Token
 
 	local bool
 
@@ -65,7 +65,7 @@ func (x *commonPrm) SetSessionToken(tok *session.Token) {
 // SetBearerToken sets bearer token to be attached to the request.
 //
 // By default token is not attached to the request.
-func (x *commonPrm) SetBearerToken(tok *token.BearerToken) {
+func (x *commonPrm) SetBearerToken(tok *bearer.Token) {
 	x.tokenBearer = tok
 }
 

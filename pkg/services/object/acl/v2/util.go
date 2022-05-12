@@ -10,13 +10,13 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/signature"
-	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/token"
 )
 
 func getContainerIDFromRequest(req interface{}) (id *containerIDSDK.ID, err error) {
@@ -47,12 +47,20 @@ func getContainerIDFromRequest(req interface{}) (id *containerIDSDK.ID, err erro
 
 // originalBearerToken goes down to original request meta header and fetches
 // bearer token from there.
-func originalBearerToken(header *sessionV2.RequestMetaHeader) *bearerSDK.BearerToken {
+func originalBearerToken(header *sessionV2.RequestMetaHeader) *bearer.Token {
 	for header.GetOrigin() != nil {
 		header = header.GetOrigin()
 	}
 
-	return bearerSDK.NewBearerTokenFromV2(header.GetBearerToken())
+	tokV2 := header.GetBearerToken()
+	if tokV2 == nil {
+		return nil
+	}
+
+	var tok bearer.Token
+	tok.ReadFromV2(*tokV2)
+
+	return &tok
 }
 
 // originalSessionToken goes down to original request meta header and fetches
