@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Do not ask for contract wallet password twice (#1346)
+- Do not update NNS group if the key is the same (#1375)
 
 ## [0.28.1] - 2022-05-05
 

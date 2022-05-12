@@ -83,7 +83,7 @@ func (c *initializeContext) setNNS() error {
 func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.PublicKey) error {
 	bw := io.NewBufBinWriter()
 	sysFee, err := c.emitUpdateNNSGroupScript(bw, nnsHash, pub)
-	if err != nil {
+	if err != nil || sysFee == 0 {
 		return err
 	}
 	return c.sendCommitteeTx(bw.Bytes(), sysFee, true)
