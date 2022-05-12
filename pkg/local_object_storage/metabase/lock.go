@@ -98,7 +98,10 @@ func (db *DB) FreeLockedBy(lockers []*addressSDK.Address) error {
 		var err error
 
 		for _, addr := range lockers {
-			err = freePotentialLocks(tx, *addr.ContainerID(), *addr.ObjectID())
+			cnr, _ := addr.ContainerID()
+			obj, _ := addr.ObjectID()
+
+			err = freePotentialLocks(tx, cnr, obj)
 			if err != nil {
 				return err
 			}

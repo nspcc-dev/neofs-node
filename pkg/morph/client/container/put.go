@@ -44,10 +44,10 @@ func Put(c *Client, cnr *container.Container) (*cid.ID, error) {
 		return nil, err
 	}
 
-	id := cid.New()
+	var id cid.ID
 	id.SetSHA256(sha256.Sum256(data))
 
-	return id, nil
+	return &id, nil
 }
 
 // PutPrm groups parameters of Put operation.

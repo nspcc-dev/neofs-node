@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 
-	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -48,10 +47,14 @@ func (c *Client) List(ownerID *owner.ID) ([]*cid.ID, error) {
 			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listMethod, err)
 		}
 
-		v2 := new(v2refs.ContainerID)
-		v2.SetValue(rawCid)
+		var id cid.ID
 
-		cidList = append(cidList, cid.NewFromV2(v2))
+		err = id.Decode(rawCid)
+		if err != nil {
+			return nil, fmt.Errorf("decode container ID: %w", err)
+		}
+
+		cidList = append(cidList, &id)
 	}
 
 	return cidList, nil

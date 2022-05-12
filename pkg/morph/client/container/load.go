@@ -1,6 +1,8 @@
 package container
 
 import (
+	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -32,14 +34,17 @@ func (a2 *AnnounceLoadPrm) SetReporter(key []byte) {
 //
 // Returns any error encountered that caused the saving to interrupt.
 func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
-	v2 := p.a.ContainerID().ToV2()
-	if v2 == nil {
-		return errUnsupported // use other major version if there any
+	cnr, ok := p.a.ContainerID()
+	if !ok {
+		return errors.New("missing container for load announcement")
 	}
+
+	binCnr := make([]byte, sha256.Size)
+	cnr.Encode(binCnr)
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(putSizeMethod)
-	prm.SetArgs(p.a.Epoch(), v2.GetValue(), p.a.UsedSpace(), p.key)
+	prm.SetArgs(p.a.Epoch(), binCnr, p.a.UsedSpace(), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)
@@ -130,10 +135,17 @@ func (c *Client) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error) 
 		return nil, fmt.Errorf("could not get estimation list array from stack item (%s): %w", getSizeMethod, err)
 	}
 
+	var cnr cid.ID
+
+	err = cnr.Decode(rawCID)
+	if err != nil {
+		return nil, fmt.Errorf("decode container ID: %w", err)
+	}
+
 	v2 := new(v2refs.ContainerID)
 	v2.SetValue(rawCID)
 	res := &Estimations{
-		ContainerID: cid.NewFromV2(v2),
+		ContainerID: &cnr,
 		Values:      make([]Estimation, 0, len(prms)),
 	}
 

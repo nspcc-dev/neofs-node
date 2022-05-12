@@ -18,7 +18,7 @@ func TestDB_Inhume(t *testing.T) {
 	raw := generateObject(t)
 	addAttribute(raw, "foo", "bar")
 
-	tombstoneID := generateAddress()
+	tombstoneID := objecttest.Address()
 
 	err := putBig(db, raw)
 	require.NoError(t, err)
@@ -39,9 +39,9 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	var (
 		err error
 
-		addr1     = generateAddress()
-		addr2     = generateAddress()
-		addr3     = generateAddress()
+		addr1     = objecttest.Address()
+		addr2     = objecttest.Address()
+		addr3     = objecttest.Address()
 		inhumePrm = new(meta.InhumePrm)
 		existsPrm = new(meta.ExistsPrm)
 	)
@@ -78,7 +78,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	// try to inhume addr1 (which is already a tombstone in graveyard)
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(addr1).
-		WithTombstoneAddress(generateAddress()),
+		WithTombstoneAddress(objecttest.Address()),
 	)
 	require.NoError(t, err)
 
@@ -93,8 +93,10 @@ func TestInhumeLocked(t *testing.T) {
 	db := newDB(t)
 
 	locked := *objecttest.Address()
+	cnr, _ := locked.ContainerID()
+	id, _ := locked.ObjectID()
 
-	err := db.Lock(*locked.ContainerID(), *oidtest.ID(), []oid.ID{*locked.ObjectID()})
+	err := db.Lock(cnr, oidtest.ID(), []oid.ID{id})
 	require.NoError(t, err)
 
 	var prm meta.InhumePrm

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strconv"
@@ -214,9 +215,14 @@ type morphLoadWriter struct {
 }
 
 func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
+	cnr, ok := a.ContainerID()
+	if !ok {
+		return errors.New("missing container ID in load announcement")
+	}
+
 	w.log.Debug("save used space announcement in contract",
 		zap.Uint64("epoch", a.Epoch()),
-		zap.Stringer("cid", a.ContainerID()),
+		zap.Stringer("cid", cnr),
 		zap.Uint64("size", a.UsedSpace()),
 	)
 
@@ -343,8 +349,8 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *cid.ID) ([]netm
 	return placement, nil
 }
 
-func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *cid.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
-	cnr, err := l.cnrSrc.Get(cid)
+func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr *cid.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
+	cnr, err := l.cnrSrc.Get(idCnr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -354,7 +360,10 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, cid *cid.ID) (netmap
 		return nil, nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
-	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), cid.ToV2().GetValue())
+	binCnr := make([]byte, sha256.Size)
+	idCnr.Encode(binCnr)
+
+	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), binCnr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}
@@ -391,7 +400,7 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 		)
 
 		a := containerSDK.NewAnnouncement()
-		a.SetContainerID(idList[i])
+		a.SetContainerID(*idList[i])
 		a.SetUsedSpace(sz)
 
 		if f != nil && !f(*a) {
@@ -516,7 +525,12 @@ func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *cid.ID,
 
 func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.UsedSpaceAnnouncement,
 	route []loadroute.ServerInfo, w loadcontroller.Writer) error {
-	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), a.ContainerID(), route[0].PublicKey())
+	cnr, ok := a.ContainerID()
+	if !ok {
+		return errors.New("missing container ID in load announcement")
+	}
+
+	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), &cnr, route[0].PublicKey())
 	if err != nil {
 		return fmt.Errorf("could not verify that the sender belongs to the container: %w", err)
 	} else if !fromCnr {
@@ -591,7 +605,8 @@ func (m morphContainerWriter) PutEACL(table *eaclSDK.Table) error {
 	}
 
 	if m.cacheEnabled {
-		m.eacls.InvalidateEACL(table.CID())
+		id, _ := table.CID()
+		m.eacls.InvalidateEACL(&id)
 	}
 
 	return nil

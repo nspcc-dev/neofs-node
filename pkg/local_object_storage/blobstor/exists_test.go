@@ -7,6 +7,7 @@ import (
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +45,7 @@ func TestExists(t *testing.T) {
 		require.True(t, res.Exists())
 	}
 
-	prm.SetAddress(testAddress())
+	prm.SetAddress(objecttest.Address())
 	res, err := b.Exists(prm)
 	require.NoError(t, err)
 	require.False(t, res.Exists())

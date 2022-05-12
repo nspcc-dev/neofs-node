@@ -295,13 +295,13 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	{
 		// 1. Invalid object in fs tree.
 		// 1.1. Invalid compressed data.
-		addr := cidtest.ID().String() + "." + generateOID().String()
+		addr := cidtest.ID().EncodeToString() + "." + objecttest.ID().EncodeToString()
 		dirName := filepath.Join(bsPath, addr[:2])
 		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
 		require.NoError(t, os.WriteFile(filepath.Join(dirName, addr[2:]), corruptedData, os.ModePerm))
 
 		// 1.2. Unreadable file.
-		addr = cidtest.ID().String() + "." + generateOID().String()
+		addr = cidtest.ID().String() + "." + objecttest.ID().String()
 		dirName = filepath.Join(bsPath, addr[:2])
 		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
 

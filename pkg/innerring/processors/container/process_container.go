@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
@@ -192,10 +191,12 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 	if token != nil {
 		// check token context
 		// TODO: #1147 think how to avoid version casts
-		idV2 := new(refs.ContainerID)
-		idV2.SetValue(binCID)
+		var id cid.ID
 
-		id := cid.NewFromV2(idV2)
+		err = id.Decode(binCID)
+		if err != nil {
+			return fmt.Errorf("decode container ID: %w", err)
+		}
 
 		err = checkTokenContextWithCID(token, id, func(c *session.ContainerContext) bool {
 			return c.IsForDelete()

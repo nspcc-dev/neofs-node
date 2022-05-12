@@ -32,8 +32,6 @@ type singleResultCtx struct {
 
 	log *logger.Logger
 
-	cid *cid.ID
-
 	txTable *common.TransferTable
 
 	cnrInfo common.ContainerInfo
@@ -146,9 +144,15 @@ func (c *Calculator) processResult(ctx *singleResultCtx) {
 }
 
 func (c *Calculator) readContainerInfo(ctx *singleResultCtx) bool {
+	cnr, ok := ctx.auditResult.Container()
+	if !ok {
+		ctx.log.Error("missing container in audit result")
+		return false
+	}
+
 	var err error
 
-	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(ctx.auditResult.Container())
+	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(&cnr)
 	if err != nil {
 		ctx.log.Error("could not get container info",
 			zap.String("error", err.Error()),
@@ -214,10 +218,10 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 	fail := false
 
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(ctx.containerID())
+	addr.SetContainerID(*ctx.containerID())
 
 	ctx.auditResult.IteratePassedStorageGroups(func(id oid.ID) bool {
-		addr.SetObjectID(&id)
+		addr.SetObjectID(id)
 
 		sgInfo, err := c.prm.SGStorage.SGInfo(addr)
 		if err != nil {
@@ -307,11 +311,8 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 }
 
 func (c *singleResultCtx) containerID() *cid.ID {
-	if c.cid == nil {
-		c.cid = c.auditResult.Container()
-	}
-
-	return c.cid
+	cnr, _ := c.auditResult.Container()
+	return &cnr
 }
 
 func (c *singleResultCtx) auditEpoch() uint64 {

@@ -19,30 +19,41 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
-func getContainerIDFromRequest(req interface{}) (id *containerIDSDK.ID, err error) {
+var errMissingContainerID = errors.New("missing container ID")
+
+func getContainerIDFromRequest(req interface{}) (*containerIDSDK.ID, error) {
+	var idV2 *refsV2.ContainerID
+	id := new(containerIDSDK.ID)
+
 	switch v := req.(type) {
 	case *objectV2.GetRequest:
-		return containerIDSDK.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		idV2 = v.GetBody().GetAddress().GetContainerID()
 	case *objectV2.PutRequest:
-		objPart := v.GetBody().GetObjectPart()
-		if part, ok := objPart.(*objectV2.PutObjectPartInit); ok {
-			return containerIDSDK.NewFromV2(part.GetHeader().GetContainerID()), nil
+		part, ok := v.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit)
+		if !ok {
+			return nil, errors.New("can't get container ID in chunk")
 		}
 
-		return nil, errors.New("can't get container ID in chunk")
+		idV2 = part.GetHeader().GetContainerID()
 	case *objectV2.HeadRequest:
-		return containerIDSDK.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		idV2 = v.GetBody().GetAddress().GetContainerID()
 	case *objectV2.SearchRequest:
-		return containerIDSDK.NewFromV2(v.GetBody().GetContainerID()), nil
+		idV2 = v.GetBody().GetContainerID()
 	case *objectV2.DeleteRequest:
-		return containerIDSDK.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		idV2 = v.GetBody().GetAddress().GetContainerID()
 	case *objectV2.GetRangeRequest:
-		return containerIDSDK.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		idV2 = v.GetBody().GetAddress().GetContainerID()
 	case *objectV2.GetRangeHashRequest:
-		return containerIDSDK.NewFromV2(v.GetBody().GetAddress().GetContainerID()), nil
+		idV2 = v.GetBody().GetAddress().GetContainerID()
 	default:
 		return nil, errors.New("unknown request type")
 	}
+
+	if idV2 == nil {
+		return nil, errMissingContainerID
+	}
+
+	return id, id.ReadFromV2(*idV2)
 }
 
 // originalBearerToken goes down to original request meta header and fetches
@@ -73,19 +84,34 @@ func originalSessionToken(header *sessionV2.RequestMetaHeader) *sessionSDK.Token
 	return sessionSDK.NewTokenFromV2(header.GetSessionToken())
 }
 
-func getObjectIDFromRequestBody(body interface{}) *oidSDK.ID {
+func getObjectIDFromRequestBody(body interface{}) (*oidSDK.ID, error) {
+	var idV2 *refsV2.ObjectID
+
 	switch v := body.(type) {
 	default:
-		return nil
+		return nil, nil
 	case interface {
 		GetObjectID() *refsV2.ObjectID
 	}:
-		return oidSDK.NewIDFromV2(v.GetObjectID())
+		idV2 = v.GetObjectID()
 	case interface {
 		GetAddress() *refsV2.Address
 	}:
-		return oidSDK.NewIDFromV2(v.GetAddress().GetObjectID())
+		idV2 = v.GetAddress().GetObjectID()
 	}
+
+	if idV2 == nil {
+		return nil, nil
+	}
+
+	var id oidSDK.ID
+
+	err := id.ReadFromV2(*idV2)
+	if err != nil {
+		return nil, err
+	}
+
+	return &id, nil
 }
 
 func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
@@ -133,7 +159,10 @@ func useObjectIDFromSession(req *RequestInfo, token *sessionSDK.Token) {
 		return
 	}
 
-	req.oid = objCtx.Address().ObjectID()
+	id, ok := objCtx.Address().ObjectID()
+	if ok {
+		req.oid = &id
+	}
 }
 
 func tokenVerbToOperation(ctx *sessionSDK.ObjectContext) eaclSDK.Operation {

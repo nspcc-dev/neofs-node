@@ -3,7 +3,6 @@ package engine
 import (
 	"crypto/sha256"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,7 +16,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -137,17 +136,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.
 	return engine
 }
 
-func testOID() *oidSDK.ID {
-	cs := [sha256.Size]byte{}
-	_, _ = rand.Read(cs[:])
-
-	id := oidSDK.NewID()
-	id.SetSHA256(cs)
-
-	return id
-}
-
-func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
+func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)
@@ -159,9 +148,9 @@ func generateObjectWithCID(t testing.TB, cid *cid.ID) *object.Object {
 	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
 
 	obj := object.New()
-	obj.SetID(testOID())
+	obj.SetID(oidtest.ID())
 	obj.SetOwnerID(ownertest.ID())
-	obj.SetContainerID(cid)
+	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)

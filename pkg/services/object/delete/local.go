@@ -32,11 +32,13 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		return false
 	}
 
+	id, _ := exec.address().ObjectID()
+
 	exec.tombstone = object.NewTombstone()
 	exec.tombstone.SetExpirationEpoch(
 		exec.svc.netInfo.CurrentEpoch() + tsLifetime,
 	)
-	exec.addMembers([]oidSDK.ID{*exec.address().ObjectID()})
+	exec.addMembers([]oidSDK.ID{id})
 
 	exec.log.Debug("forming split info...")
 

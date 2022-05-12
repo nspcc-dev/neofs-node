@@ -43,7 +43,10 @@ const (
 var ErrFileNotFound = errors.New("file not found")
 
 func stringifyAddress(addr *addressSDK.Address) string {
-	return addr.ObjectID().String() + "." + addr.ContainerID().String()
+	id, _ := addr.ObjectID()
+	cnr, _ := addr.ContainerID()
+
+	return id.EncodeToString() + "." + cnr.EncodeToString()
 }
 
 func addressFromString(s string) (*addressSDK.Address, error) {
@@ -52,13 +55,13 @@ func addressFromString(s string) (*addressSDK.Address, error) {
 		return nil, errors.New("invalid address")
 	}
 
-	oid := oidSDK.NewID()
-	if err := oid.Parse(ss[0]); err != nil {
+	var oid oidSDK.ID
+	if err := oid.DecodeString(ss[0]); err != nil {
 		return nil, err
 	}
 
-	id := cid.New()
-	if err := id.Parse(ss[1]); err != nil {
+	var id cid.ID
+	if err := id.DecodeString(ss[1]); err != nil {
 		return nil, err
 	}
 

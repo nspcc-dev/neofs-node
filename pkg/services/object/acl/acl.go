@@ -168,8 +168,8 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(reqInfo.ContainerID())
-	addr.SetObjectID(reqInfo.ObjectID())
+	addr.SetContainerID(*reqInfo.ContainerID())
+	addr.SetObjectID(*reqInfo.ObjectID())
 
 	hdrSrcOpts = append(hdrSrcOpts,
 		eaclV2.WithLocalObjectStorage(c.localStorage),

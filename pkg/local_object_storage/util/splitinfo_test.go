@@ -19,8 +19,8 @@ func TestMergeSplitInfo(t *testing.T) {
 	splitID.SetUUID(uid)
 
 	var rawLinkID, rawLastID [32]byte
-	linkID := oidSDK.NewID()
-	lastID := oidSDK.NewID()
+	var linkID oidSDK.ID
+	var lastID oidSDK.ID
 
 	_, err = rand.Read(rawLinkID[:])
 	require.NoError(t, err)

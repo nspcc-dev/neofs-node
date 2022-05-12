@@ -7,8 +7,10 @@ import (
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
 
@@ -91,6 +93,32 @@ func objectInspectCmd(cmd *cobra.Command, _ []string) {
 	printObjectInfo(cmd, res.Object())
 }
 
+func printContainerID(cmd *cobra.Command, recv func() (cid.ID, bool)) {
+	var val string
+
+	id, ok := recv()
+	if ok {
+		val = id.String()
+	} else {
+		val = "<empty>"
+	}
+
+	cmd.Println("CID:", val)
+}
+
+func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
+	var val string
+
+	id, ok := recv()
+	if ok {
+		val = id.String()
+	} else {
+		val = "<empty>"
+	}
+
+	cmd.Println("ID:", val)
+}
+
 func printObjectInfo(cmd *cobra.Command, data []byte) {
 	obj := object.New()
 	err := obj.Unmarshal(data)
@@ -99,8 +127,8 @@ func printObjectInfo(cmd *cobra.Command, data []byte) {
 	if vHeader {
 		cmd.Println("Version:", obj.Version())
 		cmd.Println("Type:", obj.Type())
-		cmd.Println("CID:", obj.ContainerID())
-		cmd.Println("ID:", obj.ID())
+		printContainerID(cmd, obj.ContainerID)
+		printObjectID(cmd, obj.ID)
 		cmd.Println("Owner:", obj.OwnerID())
 		cmd.Println("CreatedAt:", obj.CreationEpoch())
 		cmd.Println("PayloadSize:", obj.PayloadSize())

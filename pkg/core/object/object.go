@@ -9,8 +9,16 @@ import (
 func AddressOf(obj *object.Object) *addressSDK.Address {
 	if obj != nil {
 		addr := addressSDK.NewAddress()
-		addr.SetObjectID(obj.ID())
-		addr.SetContainerID(obj.ContainerID())
+
+		id, ok := obj.ID()
+		if ok {
+			addr.SetObjectID(id)
+		}
+
+		cnr, ok := obj.ContainerID()
+		if ok {
+			addr.SetContainerID(cnr)
+		}
 
 		return addr
 	}

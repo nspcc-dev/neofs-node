@@ -114,8 +114,11 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 
 				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
 
+				_, withLink := outSI.Link()
+				_, withLast := outSI.LastPart()
+
 				// stop iterating over shards if SplitInfo structure is complete
-				if outSI.Link() != nil && outSI.LastPart() != nil {
+				if withLink && withLast {
 					return true
 				}
 

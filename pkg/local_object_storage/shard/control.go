@@ -89,14 +89,14 @@ func (s *Shard) refillMetabase() error {
 			}
 
 			tombAddr := object.AddressOf(obj)
-			cid := tombAddr.ContainerID()
+			cnr, _ := tombAddr.ContainerID()
 			memberIDs := tombstone.Members()
 			tombMembers := make([]*addressSDK.Address, 0, len(memberIDs))
 
 			for i := range memberIDs {
 				a := addressSDK.NewAddress()
-				a.SetContainerID(cid)
-				a.SetObjectID(&memberIDs[i])
+				a.SetContainerID(cnr)
+				a.SetObjectID(memberIDs[i])
 
 				tombMembers = append(tombMembers, a)
 			}

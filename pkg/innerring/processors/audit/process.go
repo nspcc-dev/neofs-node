@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -46,6 +47,8 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	var auditCtx context.Context
 	auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
 
+	pivot := make([]byte, sha256.Size)
+
 	for i := range containers {
 		cnr, err := cntClient.Get(ap.containerClient, containers[i]) // get container structure
 		if err != nil {
@@ -56,7 +59,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
-		pivot := containers[i].ToV2().GetValue()
+		containers[i].Encode(pivot)
 
 		// find all container nodes for current epoch
 		nodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), pivot)

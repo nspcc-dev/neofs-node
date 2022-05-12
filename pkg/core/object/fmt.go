@@ -89,9 +89,15 @@ func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
 func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	if obj == nil {
 		return errNilObject
-	} else if !unprepared && obj.ID() == nil {
+	}
+
+	_, idSet := obj.ID()
+	if !unprepared && !idSet {
 		return errNilID
-	} else if obj.ContainerID() == nil {
+	}
+
+	_, cnrSet := obj.ContainerID()
+	if !cnrSet {
 		return errNilCID
 	}
 
@@ -180,14 +186,18 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		}
 
 		// mark all objects from the tombstone body as removed in the storage engine
-		cid := o.ContainerID()
+		cnr, ok := o.ContainerID()
+		if !ok {
+			return errors.New("missing container ID")
+		}
+
 		idList := tombstone.Members()
 		addrList := make([]*addressSDK.Address, 0, len(idList))
 
 		for i := range idList {
 			a := addressSDK.NewAddress()
-			a.SetContainerID(cid)
-			a.SetObjectID(&idList[i])
+			a.SetContainerID(cnr)
+			a.SetObjectID(idList[i])
 
 			addrList = append(addrList, a)
 		}
@@ -213,6 +223,16 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return errors.New("empty payload in lock")
 		}
 
+		cnr, ok := o.ContainerID()
+		if !ok {
+			return errors.New("missing container")
+		}
+
+		id, ok := o.ID()
+		if !ok {
+			return errors.New("missing ID")
+		}
+
 		var lock object.Lock
 
 		err := lock.Unmarshal(o.Payload())
@@ -230,7 +250,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			locklist := make([]oid.ID, num)
 			lock.ReadMembers(locklist)
 
-			err = v.locker.Lock(*o.ContainerID(), *o.ID(), locklist)
+			err = v.locker.Lock(cnr, id, locklist)
 			if err != nil {
 				return fmt.Errorf("lock objects from %s object content: %w", o.Type(), err)
 			}

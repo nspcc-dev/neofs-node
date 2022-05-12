@@ -113,7 +113,7 @@ func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]oid
 	return v.ids, v.err
 }
 
-func (c *testStorage) addResult(addr *cid.ID, ids []oidSDK.ID, err error) {
+func (c *testStorage) addResult(addr cid.ID, ids []oidSDK.ID, err error) {
 	c.items[addr.String()] = idsErr{
 		ids: ids,
 		err: err,
@@ -146,9 +146,9 @@ func TestGetLocalOnly(t *testing.T) {
 		return svc
 	}
 
-	newPrm := func(cid *cid.ID, w IDListWriter) Prm {
+	newPrm := func(cnr cid.ID, w IDListWriter) Prm {
 		p := Prm{}
-		p.WithContainerID(cid)
+		p.WithContainerID(&cnr)
 		p.SetWriter(w)
 		p.common = new(util.CommonPrm).WithLocalOnly(true)
 
@@ -159,12 +159,12 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 		ids := generateIDs(10)
-		storage.addResult(cid, ids, nil)
+		storage.addResult(cnr, ids, nil)
 
 		w := new(simpleIDWriter)
-		p := newPrm(cid, w)
+		p := newPrm(cnr, w)
 
 		err := svc.Search(ctx, p)
 		require.NoError(t, err)
@@ -175,12 +175,12 @@ func TestGetLocalOnly(t *testing.T) {
 		storage := newTestStorage()
 		svc := newSvc(storage)
 
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 		testErr := errors.New("any error")
-		storage.addResult(cid, nil, testErr)
+		storage.addResult(cnr, nil, testErr)
 
 		w := new(simpleIDWriter)
-		p := newPrm(cid, w)
+		p := newPrm(cnr, w)
 
 		err := svc.Search(ctx, p)
 		require.ErrorIs(t, err, testErr)
@@ -256,9 +256,9 @@ func TestGetRemoteSmall(t *testing.T) {
 		return svc
 	}
 
-	newPrm := func(id *cid.ID, w IDListWriter) Prm {
+	newPrm := func(id cid.ID, w IDListWriter) Prm {
 		p := Prm{}
-		p.WithContainerID(id)
+		p.WithContainerID(&id)
 		p.SetWriter(w)
 		p.common = new(util.CommonPrm).WithLocalOnly(false)
 
@@ -380,7 +380,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 	w := new(simpleIDWriter)
 
 	p := Prm{}
-	p.WithContainerID(cid)
+	p.WithContainerID(&cid)
 	p.SetWriter(w)
 
 	commonPrm := new(util.CommonPrm)

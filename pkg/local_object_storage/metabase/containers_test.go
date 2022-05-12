@@ -10,6 +10,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +24,9 @@ func TestDB_Containers(t *testing.T) {
 	for i := 0; i < N; i++ {
 		obj := generateObject(t)
 
-		cids[obj.ContainerID().String()] = 0
+		cnr, _ := obj.ContainerID()
+
+		cids[cnr.String()] = 0
 
 		err := putBig(db, obj)
 		require.NoError(t, err)
@@ -40,6 +43,16 @@ func TestDB_Containers(t *testing.T) {
 		cids[cid.String()] = 1
 	}
 
+	// require.Contains not working since cnrs is a ptr slice
+	assertContains := func(cnrs []*cid.ID, cnr cid.ID) {
+		found := false
+		for i := 0; !found && i < len(cnrs); i++ {
+			found = cnrs[i].Equals(cnr)
+		}
+
+		require.True(t, found)
+	}
+
 	t.Run("Inhume", func(t *testing.T) {
 		obj := generateObject(t)
 
@@ -47,13 +60,15 @@ func TestDB_Containers(t *testing.T) {
 
 		cnrs, err := db.Containers()
 		require.NoError(t, err)
-		require.Contains(t, cnrs, obj.ContainerID())
+		cnr, _ := obj.ContainerID()
 
-		require.NoError(t, meta.Inhume(db, object.AddressOf(obj), generateAddress()))
+		assertContains(cnrs, cnr)
+
+		require.NoError(t, meta.Inhume(db, object.AddressOf(obj), objecttest.Address()))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
-		require.Contains(t, cnrs, obj.ContainerID())
+		assertContains(cnrs, cnr)
 	})
 
 	t.Run("ToMoveIt", func(t *testing.T) {
@@ -63,13 +78,14 @@ func TestDB_Containers(t *testing.T) {
 
 		cnrs, err := db.Containers()
 		require.NoError(t, err)
-		require.Contains(t, cnrs, obj.ContainerID())
+		cnr, _ := obj.ContainerID()
+		assertContains(cnrs, cnr)
 
 		require.NoError(t, meta.ToMoveIt(db, object.AddressOf(obj)))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
-		require.Contains(t, cnrs, obj.ContainerID())
+		assertContains(cnrs, cnr)
 	})
 }
 
@@ -98,7 +114,8 @@ func TestDB_ContainersCount(t *testing.T) {
 			err := putBig(db, obj)
 			require.NoError(t, err)
 
-			expected = append(expected, obj.ContainerID())
+			cnr, _ := obj.ContainerID()
+			expected = append(expected, &cnr)
 		}
 	}
 
@@ -124,52 +141,53 @@ func TestDB_ContainerSize(t *testing.T) {
 		N = 5
 	)
 
-	cids := make(map[*cid.ID]int, C)
-	objs := make(map[*cid.ID][]*objectSDK.Object, C*N)
+	cids := make(map[cid.ID]int, C)
+	objs := make(map[cid.ID][]*objectSDK.Object, C*N)
 
 	for i := 0; i < C; i++ {
-		cid := cidtest.ID()
-		cids[cid] = 0
+		cnr := cidtest.ID()
+		cids[cnr] = 0
 
 		for j := 0; j < N; j++ {
 			size := rand.Intn(1024)
 
-			parent := generateObjectWithCID(t, cid)
+			parent := generateObjectWithCID(t, cnr)
 			parent.SetPayloadSize(uint64(size / 2))
 
-			obj := generateObjectWithCID(t, cid)
+			obj := generateObjectWithCID(t, cnr)
 			obj.SetPayloadSize(uint64(size))
-			obj.SetParentID(parent.ID())
+			idParent, _ := parent.ID()
+			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 
-			cids[cid] += size
-			objs[cid] = append(objs[cid], obj)
+			cids[cnr] += size
+			objs[cnr] = append(objs[cnr], obj)
 
 			err := putBig(db, obj)
 			require.NoError(t, err)
 		}
 	}
 
-	for cid, volume := range cids {
-		n, err := db.ContainerSize(cid)
+	for cnr, volume := range cids {
+		n, err := db.ContainerSize(&cnr)
 		require.NoError(t, err)
 		require.Equal(t, volume, int(n))
 	}
 
 	t.Run("Inhume", func(t *testing.T) {
-		for cid, list := range objs {
-			volume := cids[cid]
+		for cnr, list := range objs {
+			volume := cids[cnr]
 
 			for _, obj := range list {
 				require.NoError(t, meta.Inhume(
 					db,
 					object.AddressOf(obj),
-					generateAddress(),
+					objecttest.Address(),
 				))
 
 				volume -= int(obj.PayloadSize())
 
-				n, err := db.ContainerSize(cid)
+				n, err := db.ContainerSize(&cnr)
 				require.NoError(t, err)
 				require.Equal(t, volume, int(n))
 			}

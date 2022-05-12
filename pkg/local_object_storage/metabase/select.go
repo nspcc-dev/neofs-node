@@ -87,8 +87,8 @@ func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	})
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
-	if cid == nil {
+func (db *DB) selectObjects(tx *bbolt.Tx, cnr *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
+	if cnr == nil {
 		return nil, ErrMissingContainerID
 	}
 
@@ -99,7 +99,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 
 	// if there are conflicts in query and cid then it means that there is no
 	// objects to match this query.
-	if group.cid != nil && !cid.Equal(group.cid) {
+	if group.cid != nil && !cnr.Equals(*group.cid) {
 		return nil, nil
 	}
 
@@ -112,10 +112,10 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cid *cid.ID, fs object.SearchFilters) 
 	if len(group.fastFilters) == 0 {
 		expLen = 1
 
-		db.selectAll(tx, cid, mAddr)
+		db.selectAll(tx, cnr, mAddr)
 	} else {
 		for i := range group.fastFilters {
-			db.selectFastFilter(tx, cid, group.fastFilters[i], mAddr, i)
+			db.selectFastFilter(tx, cnr, group.fastFilters[i], mAddr, i)
 		}
 	}
 
@@ -548,9 +548,9 @@ func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
 	for i := range filters {
 		switch filters[i].Header() {
 		case v2object.FilterHeaderContainerID: // support deprecated field
-			res.cid = cid.New()
+			res.cid = new(cid.ID)
 
-			err := res.cid.Parse(filters[i].Value())
+			err := res.cid.DecodeString(filters[i].Value())
 			if err != nil {
 				return nil, fmt.Errorf("can't parse container id: %w", err)
 			}

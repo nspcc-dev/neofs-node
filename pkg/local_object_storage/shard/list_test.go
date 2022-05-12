@@ -43,7 +43,8 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 
 			// add parent as virtual object, it must be ignored in List()
 			parent := generateObjectWithCID(t, cid)
-			obj.SetParentID(parent.ID())
+			idParent, _ := parent.ID()
+			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 
 			objs[object.AddressOf(obj).String()] = 0

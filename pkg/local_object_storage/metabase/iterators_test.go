@@ -9,6 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -33,8 +34,10 @@ func TestDB_IterateExpired(t *testing.T) {
 	}
 
 	expiredLocked := putWithExpiration(t, db, object.TypeRegular, epoch-1)
+	cnrExpiredLocked, _ := expiredLocked.ContainerID()
+	idExpiredLocked, _ := expiredLocked.ObjectID()
 
-	require.NoError(t, db.Lock(*expiredLocked.ContainerID(), *oidtest.ID(), []oid.ID{*expiredLocked.ObjectID()}))
+	require.NoError(t, db.Lock(cnrExpiredLocked, oidtest.ID(), []oid.ID{idExpiredLocked}))
 
 	err := db.IterateExpired(epoch, func(exp *meta.ExpiredObject) error {
 		if addr, ok := mAlive[exp.Type()]; ok {
@@ -69,11 +72,11 @@ func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uin
 func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	db := newDB(t)
 
-	ts := generateAddress()
-	protected1 := generateAddress()
-	protected2 := generateAddress()
-	protectedLocked := generateAddress()
-	garbage := generateAddress()
+	ts := objecttest.Address()
+	protected1 := objecttest.Address()
+	protected2 := objecttest.Address()
+	protectedLocked := objecttest.Address()
+	garbage := objecttest.Address()
 
 	prm := new(meta.InhumePrm)
 
@@ -108,7 +111,10 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	require.Contains(t, handled, protected2)
 	require.Contains(t, handled, protectedLocked)
 
-	err = db.Lock(*protectedLocked.ContainerID(), *generateAddress().ObjectID(), []oid.ID{*protectedLocked.ObjectID()})
+	cnrProtectedLocked, _ := protectedLocked.ContainerID()
+	idProtectedLocked, _ := protectedLocked.ObjectID()
+
+	err = db.Lock(cnrProtectedLocked, oidtest.ID(), []oid.ID{idProtectedLocked})
 	require.NoError(t, err)
 
 	handled = handled[:0]

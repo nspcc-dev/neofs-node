@@ -49,9 +49,14 @@ func (n *Writer) Notify(topic string, address *addressSDK.Address) error {
 		return errConnIsClosed
 	}
 
+	id, ok := address.ObjectID()
+	if !ok {
+		return errors.New("missing object ID in object address")
+	}
+
 	// use first 4 byte of the encoded string as
 	// message ID for the 'exactly once' delivery
-	messageID := address.ObjectID().String()[:4]
+	messageID := id.EncodeToString()[:4]
 
 	// check if the stream was previously created
 	n.m.RLock()

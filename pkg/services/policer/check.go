@@ -14,10 +14,12 @@ import (
 )
 
 func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
-	cnr, err := p.cnrSrc.Get(addr.ContainerID())
+	idCnr, _ := addr.ContainerID()
+
+	cnr, err := p.cnrSrc.Get(&idCnr)
 	if err != nil {
 		p.log.Error("could not get container",
-			zap.Stringer("cid", addr.ContainerID()),
+			zap.Stringer("cid", idCnr),
 			zap.String("error", err.Error()),
 		)
 		if container.IsErrNotFound(err) {
@@ -25,9 +27,10 @@ func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
 			prm.MarkAsGarbage(addr)
 			_, err := p.jobQueue.localStorage.Inhume(prm)
 			if err != nil {
+				id, _ := addr.ObjectID()
 				p.log.Error("could not inhume object with missing container",
-					zap.Stringer("cid", addr.ContainerID()),
-					zap.Stringer("oid", addr.ObjectID()),
+					zap.Stringer("cid", idCnr),
+					zap.Stringer("oid", id),
 					zap.String("error", err.Error()))
 			}
 		}

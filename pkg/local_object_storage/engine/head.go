@@ -102,8 +102,11 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 
 				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
 
+				_, withLink := outSI.Link()
+				_, withLast := outSI.LastPart()
+
 				// stop iterating over shards if SplitInfo structure is complete
-				if outSI.Link() != nil && outSI.LastPart() != nil {
+				if withLink && withLast {
 					return true
 				}
 

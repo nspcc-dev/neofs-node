@@ -1,7 +1,6 @@
 package blobovnicza
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"math/rand"
@@ -9,29 +8,10 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
-
-func testSHA256() (h [sha256.Size]byte) {
-	rand.Read(h[:])
-
-	return h
-}
-
-func testAddress() *addressSDK.Address {
-	oid := oidSDK.NewID()
-	oid.SetSHA256(testSHA256())
-
-	addr := addressSDK.NewAddress()
-	addr.SetObjectID(oid)
-	addr.SetContainerID(cidtest.ID())
-
-	return addr
-}
 
 func testPutGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, sz uint64, assertErrPut, assertErrGet func(error) bool) *addressSDK.Address {
 	// create binary object
@@ -99,12 +79,12 @@ func TestBlobovnicza(t *testing.T) {
 	require.NoError(t, blz.Init())
 
 	// try to read non-existent address
-	testGet(t, blz, testAddress(), nil, IsErrNotFound)
+	testGet(t, blz, objecttest.Address(), nil, IsErrNotFound)
 
 	filled := uint64(15 * 1 << 10)
 
 	// test object 15KB
-	addr := testPutGet(t, blz, testAddress(), filled, nil, nil)
+	addr := testPutGet(t, blz, objecttest.Address(), filled, nil, nil)
 
 	// remove the object
 	dPrm := new(DeletePrm)
@@ -118,11 +98,11 @@ func TestBlobovnicza(t *testing.T) {
 
 	// fill Blobovnicza fully
 	for ; filled < sizeLim; filled += objSizeLim {
-		testPutGet(t, blz, testAddress(), objSizeLim, nil, nil)
+		testPutGet(t, blz, objecttest.Address(), objSizeLim, nil, nil)
 	}
 
 	// from now objects should not be saved
-	testPutGet(t, blz, testAddress(), 1024, func(err error) bool {
+	testPutGet(t, blz, objecttest.Address(), 1024, func(err error) bool {
 		return errors.Is(err, ErrFull)
 	}, nil)
 

@@ -78,16 +78,19 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 		return false, errRemoved
 	}
 
-	objKey := objectKey(addr.ObjectID())
+	obj, _ := addr.ObjectID()
+	objKey := objectKey(&obj)
+
+	cnr, _ := addr.ContainerID()
 
 	// if graveyard is empty, then check if object exists in primary bucket
-	if inBucket(tx, primaryBucketName(addr.ContainerID()), objKey) {
+	if inBucket(tx, primaryBucketName(&cnr), objKey) {
 		return true, nil
 	}
 
 	// if primary bucket is empty, then check if object exists in parent bucket
-	if inBucket(tx, parentBucketName(addr.ContainerID()), objKey) {
-		splitInfo, err := getSplitInfo(tx, addr.ContainerID(), objKey)
+	if inBucket(tx, parentBucketName(&cnr), objKey) {
+		splitInfo, err := getSplitInfo(tx, &cnr, objKey)
 		if err != nil {
 			return false, err
 		}
@@ -96,7 +99,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 	}
 
 	// if parent bucket is empty, then check if object exists in typed buckets
-	return firstIrregularObjectType(tx, *addr.ContainerID(), objKey) != objectSDK.TypeRegular, nil
+	return firstIrregularObjectType(tx, cnr, objKey) != objectSDK.TypeRegular, nil
 }
 
 // inGraveyard returns:

@@ -79,15 +79,17 @@ func (s *payloadSizeLimiter) initialize() {
 		}
 
 		// set previous object to the last previous identifier
-		s.current.SetPreviousID(&s.previous[ln-1])
+		s.current.SetPreviousID(s.previous[ln-1])
 	}
 
 	s.initializeCurrent()
 }
 
 func fromObject(obj *object.Object) *object.Object {
+	cnr, _ := obj.ContainerID()
+
 	res := object.New()
-	res.SetContainerID(obj.ContainerID())
+	res.SetContainerID(cnr)
 	res.SetOwnerID(obj.OwnerID())
 	res.SetAttributes(obj.Attributes()...)
 	res.SetType(obj.Type())

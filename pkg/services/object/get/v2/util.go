@@ -429,9 +429,17 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				hdr = hdrWithSig.GetHeader()
 				idSig = hdrWithSig.GetSignature()
 
+				id, ok := objAddr.ObjectID()
+				if !ok {
+					return nil, errors.New("missing object ID")
+				}
+
+				var idV2 refs.ObjectID
+				id.WriteToV2(&idV2)
+
 				if err := signature2.VerifyDataWithSource(
 					signature.StableMarshalerWrapper{
-						SM: objAddr.ObjectID().ToV2(),
+						SM: &idV2,
 					},
 					func() (key, sig []byte) {
 						return idSig.GetKey(), idSig.GetSign()
@@ -449,8 +457,10 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			objv2.SetHeader(hdr)
 			objv2.SetSignature(idSig)
 
+			id, _ := objAddr.ObjectID()
+
 			obj := object.NewFromV2(objv2)
-			obj.SetID(objAddr.ObjectID())
+			obj.SetID(id)
 
 			// convert the object
 			return obj, nil

@@ -23,6 +23,20 @@ import (
 )
 
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
+	body := req.GetBody()
+
+	cnrV2 := body.GetContainerID()
+	if cnrV2 == nil {
+		return nil, errors.New("missing container ID")
+	}
+
+	var id cid.ID
+
+	err := id.ReadFromV2(*cnrV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid container ID: %w", err)
+	}
+
 	meta := req.GetMetaHeader()
 
 	commonPrm, err := util.CommonPrmFromV2(req)
@@ -103,8 +117,15 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				}
 
 				chunk := resp.GetBody().GetIDList()
+				var id oidSDK.ID
+
 				for i := range chunk {
-					searchResult = append(searchResult, *oidSDK.NewIDFromV2(&chunk[i]))
+					err = id.ReadFromV2(chunk[i])
+					if err != nil {
+						return nil, fmt.Errorf("invalid object ID: %w", err)
+					}
+
+					searchResult = append(searchResult, id)
 				}
 			}
 
@@ -112,8 +133,7 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 		}))
 	}
 
-	body := req.GetBody()
-	p.WithContainerID(cid.NewFromV2(body.GetContainerID()))
+	p.WithContainerID(&id)
 	p.WithSearchFilters(object.NewSearchFiltersFromV2(body.GetFilters()))
 
 	return p, nil

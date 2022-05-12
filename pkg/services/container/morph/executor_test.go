@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	containerSvcMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/stretchr/testify/require"
@@ -46,6 +48,11 @@ func TestInvalidToken(t *testing.T) {
 	m := mock{}
 	e := containerSvcMorph.NewExecutor(m, m)
 
+	cnr := cidtest.ID()
+
+	var cnrV2 refs.ContainerID
+	cnr.WriteToV2(&cnrV2)
+
 	tests := []struct {
 		name string
 		op   func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) error
@@ -60,7 +67,10 @@ func TestInvalidToken(t *testing.T) {
 		{
 			name: "delete",
 			op: func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) (err error) {
-				_, err = e.Delete(ctx, new(container.DeleteRequestBody))
+				var reqBody container.DeleteRequestBody
+				reqBody.SetContainerID(&cnrV2)
+
+				_, err = e.Delete(ctx, &reqBody)
 				return
 			},
 		},

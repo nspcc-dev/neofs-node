@@ -17,7 +17,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -76,12 +76,12 @@ func generateObject(t *testing.T) *object.Object {
 	return generateObjectWithCID(t, cidtest.ID())
 }
 
-func generateObjectWithCID(t *testing.T, cid *cid.ID) *object.Object {
+func generateObjectWithCID(t *testing.T, cnr cid.ID) *object.Object {
 	data := owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)
-	return generateObjectWithPayload(cid, data)
+	return generateObjectWithPayload(cnr, data)
 }
 
-func generateObjectWithPayload(cid *cid.ID, data []byte) *object.Object {
+func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)
@@ -93,9 +93,9 @@ func generateObjectWithPayload(cid *cid.ID, data []byte) *object.Object {
 	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
 
 	obj := object.New()
-	obj.SetID(generateOID())
+	obj.SetID(oidtest.ID())
 	obj.SetOwnerID(ownertest.ID())
-	obj.SetContainerID(cid)
+	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
@@ -120,14 +120,4 @@ func addPayload(obj *object.Object, size int) {
 
 	obj.SetPayload(buf)
 	obj.SetPayloadSize(uint64(size))
-}
-
-func generateOID() *oidSDK.ID {
-	cs := [sha256.Size]byte{}
-	_, _ = rand.Read(cs[:])
-
-	id := oidSDK.NewID()
-	id.SetSHA256(cs)
-
-	return id
 }

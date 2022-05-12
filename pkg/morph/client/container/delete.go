@@ -1,6 +1,7 @@
 package container
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -22,9 +23,12 @@ func Delete(c *Client, witness core.RemovalWitness) error {
 		return fmt.Errorf("could not marshal session token: %w", err)
 	}
 
+	binCnr := make([]byte, sha256.Size)
+	id.Encode(binCnr)
+
 	return c.Delete(
 		DeletePrm{
-			cid:       id.ToV2().GetValue(),
+			cid:       binCnr,
 			signature: witness.Signature(),
 			token:     binToken,
 		})

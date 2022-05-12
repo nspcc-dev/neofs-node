@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,10 +51,15 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	err = addr3.Parse("6ay4GfhR9RgN28d5ufg63toPetkYHGcpcW7G3b7QWSek/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
 	require.NoError(t, err)
 
-	obj1.SetContainerID(addr1.ContainerID())
-	obj1.SetID(addr1.ObjectID())
-	obj2.SetContainerID(addr2.ContainerID())
-	obj2.SetID(addr2.ObjectID())
+	cnr, _ := addr1.ContainerID()
+	obj1.SetContainerID(cnr)
+	id, _ := addr1.ObjectID()
+	obj1.SetID(id)
+
+	cnr, _ = addr2.ContainerID()
+	obj2.SetContainerID(cnr)
+	id, _ = addr2.ObjectID()
+	obj2.SetID(id)
 
 	err = putBig(db, obj1)
 	require.NoError(t, err)
@@ -129,7 +135,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
-	addrTombstone := generateAddress()
+	addrTombstone := objecttest.Address()
 
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2)).
@@ -213,7 +219,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
-	addrTombstone := generateAddress()
+	addrTombstone := objecttest.Address()
 
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2), object.AddressOf(obj3), object.AddressOf(obj4)).
@@ -388,7 +394,7 @@ func TestDB_DropGraves(t *testing.T) {
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
-	addrTombstone := generateAddress()
+	addrTombstone := objecttest.Address()
 
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2)).

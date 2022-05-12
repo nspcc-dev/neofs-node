@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -138,9 +140,12 @@ func (s settlementDeps) buildContainer(e uint64, cid *cid.ID) (netmapAPI.Contain
 		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
 	}
 
+	binCnr := make([]byte, sha256.Size)
+	cid.Encode(binCnr)
+
 	cn, err := nm.GetContainerNodes(
 		cnr.PlacementPolicy(),
-		cid.ToV2().GetValue(), // may be replace pivot calculation to neofs-api-go
+		binCnr, // may be replace pivot calculation to neofs-api-go
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not calculate container nodes: %w", err)
@@ -171,7 +176,12 @@ func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo
 //
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
 func (s settlementDeps) SGInfo(addr *addressSDK.Address) (audit.SGInfo, error) {
-	cn, nm, err := s.buildContainer(0, addr.ContainerID())
+	cnr, ok := addr.ContainerID()
+	if !ok {
+		return nil, errors.New("missing container in object address")
+	}
+
+	cn, nm, err := s.buildContainer(0, &cnr)
 	if err != nil {
 		return nil, err
 	}

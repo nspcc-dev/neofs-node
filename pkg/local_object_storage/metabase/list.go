@@ -197,7 +197,7 @@ func selectNFromBucket(tx *bbolt.Tx,
 
 func parseContainerIDWithPostfix(name []byte) (*cid.ID, string) {
 	var (
-		containerID    = cid.New()
+		containerID    cid.ID
 		containerIDStr = string(name)
 		postfix        string
 	)
@@ -208,9 +208,9 @@ func parseContainerIDWithPostfix(name []byte) (*cid.ID, string) {
 		containerIDStr = containerIDStr[:ind]
 	}
 
-	if err := containerID.Parse(containerIDStr); err != nil {
+	if err := containerID.DecodeString(containerIDStr); err != nil {
 		return nil, ""
 	}
 
-	return containerID, postfix
+	return &containerID, postfix
 }

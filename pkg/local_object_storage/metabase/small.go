@@ -60,12 +60,16 @@ func (db *DB) IsSmall(prm *IsSmallPrm) (res *IsSmallRes, err error) {
 }
 
 func (db *DB) isSmall(tx *bbolt.Tx, addr *addressSDK.Address) (*blobovnicza.ID, error) {
-	smallBucket := tx.Bucket(smallBucketName(addr.ContainerID()))
+	cnr, _ := addr.ContainerID()
+
+	smallBucket := tx.Bucket(smallBucketName(&cnr))
 	if smallBucket == nil {
 		return nil, nil
 	}
 
-	blobovniczaID := smallBucket.Get(objectKey(addr.ObjectID()))
+	id, _ := addr.ObjectID()
+
+	blobovniczaID := smallBucket.Get(objectKey(&id))
 	if len(blobovniczaID) == 0 {
 		return nil, nil
 	}

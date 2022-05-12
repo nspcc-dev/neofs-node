@@ -20,7 +20,7 @@ func (s *streamWriter) WriteIDs(ids []oidSDK.ID) error {
 	idsV2 := make([]refs.ObjectID, len(ids))
 
 	for i := range ids {
-		idsV2[i] = *ids[i].ToV2()
+		ids[i].WriteToV2(&idsV2[i])
 	}
 
 	body.SetIDList(idsV2)

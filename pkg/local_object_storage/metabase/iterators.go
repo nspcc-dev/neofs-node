@@ -70,16 +70,16 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 			}
 
 			return bktExpired.ForEach(func(idKey, _ []byte) error {
-				id := oidSDK.NewID()
+				var id oidSDK.ID
 
-				err = id.Parse(string(idKey))
+				err = id.DecodeString(string(idKey))
 				if err != nil {
 					return fmt.Errorf("could not parse ID of expired object: %w", err)
 				}
 
-				cnrID := cid.New()
+				var cnrID cid.ID
 
-				err = cnrID.Parse(string(cidBytes))
+				err = cnrID.DecodeString(string(cidBytes))
 				if err != nil {
 					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
 				}
@@ -88,7 +88,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 				//
 				// To slightly optimize performance we can check only REGULAR objects
 				// (only they can be locked), but it's more reliable.
-				if objectLocked(tx, *cnrID, *id) {
+				if objectLocked(tx, cnrID, id) {
 					return nil
 				}
 
@@ -97,7 +97,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 				addr.SetObjectID(id)
 
 				return h(&ExpiredObject{
-					typ:  firstIrregularObjectType(tx, *cnrID, idKey),
+					typ:  firstIrregularObjectType(tx, cnrID, idKey),
 					addr: addr,
 				})
 			})
@@ -138,7 +138,10 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]*addressSD
 				return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
 			}
 
-			if objectLocked(tx, *addr.ContainerID(), *addr.ObjectID()) {
+			cnr, _ := addr.ContainerID()
+			obj, _ := addr.ObjectID()
+
+			if objectLocked(tx, cnr, obj) {
 				return nil
 			}
 

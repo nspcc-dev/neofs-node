@@ -167,13 +167,13 @@ func putSG(cmd *cobra.Command, _ []string) {
 	ownerID, err := getOwnerID(key)
 	exitOnErr(cmd, err)
 
-	cid, err := getCID(cmd)
+	cnr, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	members := make([]oidSDK.ID, len(sgMembers))
 
 	for i := range sgMembers {
-		err = members[i].Parse(sgMembers[i])
+		err = members[i].DecodeString(sgMembers[i])
 		exitOnErr(cmd, errf("could not parse object ID: %w", err))
 	}
 
@@ -183,7 +183,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 	)
 
 	sessionObjectCtxAddress := addressSDK.NewAddress()
-	sessionObjectCtxAddress.SetContainerID(cid)
+	sessionObjectCtxAddress.SetContainerID(*cnr)
 	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &putPrm)
 	prepareObjectPrm(cmd, &headPrm, &putPrm)
 
@@ -194,14 +194,14 @@ func putSG(cmd *cobra.Command, _ []string) {
 		key:     key,
 		ownerID: ownerID,
 		prm:     headPrm,
-	}, cid, members)
+	}, cnr, members)
 	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
 
 	sgContent, err := sg.Marshal()
 	exitOnErr(cmd, errf("could not marshal storage group: %w", err))
 
 	obj := object.New()
-	obj.SetContainerID(cid)
+	obj.SetContainerID(*cnr)
 	obj.SetOwnerID(ownerID)
 	obj.SetType(object.TypeStorageGroup)
 
@@ -212,29 +212,29 @@ func putSG(cmd *cobra.Command, _ []string) {
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
 	cmd.Println("Storage group successfully stored")
-	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cid)
+	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cnr)
 }
 
 func getSGID() (*oidSDK.ID, error) {
-	oid := oidSDK.NewID()
-	err := oid.Parse(sgID)
+	var oid oidSDK.ID
+	err := oid.DecodeString(sgID)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse storage group ID: %w", err)
 	}
 
-	return oid, nil
+	return &oid, nil
 }
 
 func getSG(cmd *cobra.Command, _ []string) {
-	cid, err := getCID(cmd)
+	cnr, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	id, err := getSGID()
 	exitOnErr(cmd, err)
 
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cid)
-	addr.SetObjectID(id)
+	addr.SetContainerID(*cnr)
+	addr.SetObjectID(*id)
 
 	buf := bytes.NewBuffer(nil)
 
@@ -267,16 +267,16 @@ func getSG(cmd *cobra.Command, _ []string) {
 }
 
 func listSG(cmd *cobra.Command, _ []string) {
-	cid, err := getCID(cmd)
+	cnr, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	var prm internalclient.SearchObjectsPrm
 
 	sessionObjectCtxAddress := addressSDK.NewAddress()
-	sessionObjectCtxAddress.SetContainerID(cid)
+	sessionObjectCtxAddress.SetContainerID(*cnr)
 	prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
 	prepareObjectPrm(cmd, &prm)
-	prm.SetContainerID(cid)
+	prm.SetContainerID(cnr)
 	prm.SetFilters(storagegroup.SearchQuery())
 
 	res, err := internalclient.SearchObjects(prm)
@@ -292,15 +292,15 @@ func listSG(cmd *cobra.Command, _ []string) {
 }
 
 func delSG(cmd *cobra.Command, _ []string) {
-	cid, err := getCID(cmd)
+	cnr, err := getCID(cmd)
 	exitOnErr(cmd, err)
 
 	id, err := getSGID()
 	exitOnErr(cmd, err)
 
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cid)
-	addr.SetObjectID(id)
+	addr.SetContainerID(*cnr)
+	addr.SetObjectID(*id)
 
 	var prm internalclient.DeleteObjectPrm
 
@@ -313,6 +313,15 @@ func delSG(cmd *cobra.Command, _ []string) {
 
 	tombstone := res.TombstoneAddress()
 
+	var strID string
+
+	idTomb, ok := tombstone.ObjectID()
+	if ok {
+		strID = idTomb.String()
+	} else {
+		strID = "<empty>"
+	}
+
 	cmd.Println("Storage group removed successfully.")
-	cmd.Printf("  Tombstone: %s\n", tombstone.ObjectID())
+	cmd.Printf("  Tombstone: %s\n", strID)
 }

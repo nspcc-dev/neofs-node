@@ -1,7 +1,6 @@
 package blobstor
 
 import (
-	"crypto/sha256"
 	"math/rand"
 	"os"
 	"testing"
@@ -12,33 +11,15 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
-
-func testSHA256() (h [sha256.Size]byte) {
-	rand.Read(h[:])
-
-	return h
-}
-
-func testAddress() *addressSDK.Address {
-	oid := oidSDK.NewID()
-	oid.SetSHA256(testSHA256())
-
-	addr := addressSDK.NewAddress()
-	addr.SetObjectID(oid)
-	addr.SetContainerID(cidtest.ID())
-
-	return addr
-}
 
 func testObject(sz uint64) *objectSDK.Object {
 	raw := objectSDK.New()
 
-	addr := testAddress()
-	raw.SetID(addr.ObjectID())
-	raw.SetContainerID(addr.ContainerID())
+	raw.SetID(oidtest.ID())
+	raw.SetContainerID(cidtest.ID())
 
 	raw.SetPayload(make([]byte, sz))
 

@@ -3,7 +3,6 @@ package getsvc
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strconv"
@@ -18,11 +17,12 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,9 +69,18 @@ func newTestStorage() *testStorage {
 }
 
 func (g *testTraverserGenerator) GenerateTraverser(addr *addressSDK.Address, e uint64) (*placement.Traverser, error) {
+	id, ok := addr.ObjectID()
+	var optObj placement.Option
+
+	if ok {
+		optObj = placement.ForObject(&id)
+	} else {
+		optObj = placement.ForObject(nil)
+	}
+
 	return placement.NewTraverser(
 		placement.ForContainer(g.c),
-		placement.ForObject(addr.ObjectID()),
+		optObj,
 		placement.UseBuilder(g.b[e]),
 		placement.SuccessAfter(1),
 	)
@@ -180,34 +189,18 @@ func (s *testStorage) inhume(addr *addressSDK.Address) {
 	s.inhumed[addr.String()] = struct{}{}
 }
 
-func testSHA256() (cs [sha256.Size]byte) {
-	rand.Read(cs[:])
-	return cs
-}
-
-func generateID() *oidSDK.ID {
-	id := oidSDK.NewID()
-	id.SetSHA256(testSHA256())
-
-	return id
-}
-
-func generateAddress() *addressSDK.Address {
-	addr := addressSDK.NewAddress()
-	addr.SetObjectID(generateID())
-
-	addr.SetContainerID(cidtest.ID())
-
-	return addr
-}
-
 func generateObject(addr *addressSDK.Address, prev *oidSDK.ID, payload []byte, children ...oidSDK.ID) *objectSDK.Object {
+	cnr, _ := addr.ContainerID()
+	id, _ := addr.ObjectID()
+
 	obj := objectSDK.New()
-	obj.SetContainerID(addr.ContainerID())
-	obj.SetID(addr.ObjectID())
+	obj.SetContainerID(cnr)
+	obj.SetID(id)
 	obj.SetPayload(payload)
 	obj.SetPayloadSize(uint64(len(payload)))
-	obj.SetPreviousID(prev)
+	if prev != nil {
+		obj.SetPreviousID(*prev)
+	}
 	obj.SetChildren(children...)
 
 	return obj
@@ -269,7 +262,7 @@ func TestGetLocalOnly(t *testing.T) {
 		payload := make([]byte, payloadSz)
 		rand.Read(payload)
 
-		addr := generateAddress()
+		addr := objecttest.Address()
 		obj := generateObject(addr, nil, payload)
 
 		storage.addPhy(addr, obj)
@@ -308,7 +301,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(false, nil)
 
-		addr := generateAddress()
+		addr := objecttest.Address()
 
 		storage.inhume(addr)
 
@@ -337,7 +330,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(false, nil)
 
-		addr := generateAddress()
+		addr := objecttest.Address()
 
 		p.WithAddress(addr)
 
@@ -365,12 +358,12 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(true, nil)
 
-		addr := generateAddress()
+		addr := objecttest.Address()
 
 		splitInfo := objectSDK.NewSplitInfo()
 		splitInfo.SetSplitID(objectSDK.NewSplitID())
-		splitInfo.SetLink(generateID())
-		splitInfo.SetLastPart(generateID())
+		splitInfo.SetLink(oidtest.ID())
+		splitInfo.SetLastPart(oidtest.ID())
 
 		p.WithAddress(addr)
 
@@ -434,19 +427,19 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 	return mNodes, mAddr
 }
 
-func generateChain(ln int, cid *cid.ID) ([]*objectSDK.Object, []oidSDK.ID, []byte) {
-	curID := generateID()
+func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oidSDK.ID, []byte) {
+	curID := oidtest.ID()
 	var prevID *oidSDK.ID
 
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cid)
+	addr.SetContainerID(cnr)
 
 	res := make([]*objectSDK.Object, 0, ln)
 	ids := make([]oidSDK.ID, 0, ln)
 	payload := make([]byte, 0, ln*10)
 
 	for i := 0; i < ln; i++ {
-		ids = append(ids, *curID)
+		ids = append(ids, curID)
 		addr.SetObjectID(curID)
 
 		payloadPart := make([]byte, 10)
@@ -461,8 +454,9 @@ func generateChain(ln int, cid *cid.ID) ([]*objectSDK.Object, []oidSDK.ID, []byt
 
 		res = append(res, o)
 
-		prevID = curID
-		curID = generateID()
+		cpCurID := curID
+		prevID = &cpCurID
+		curID = oidtest.ID()
 	}
 
 	return res, ids, payload
@@ -472,7 +466,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	ctx := context.Background()
 
 	cnr := container.New(container.WithPolicy(new(netmap.PlacementPolicy)))
-	cid := container.CalculateID(cnr)
+	idCnr := container.CalculateID(cnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -528,8 +522,8 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	t.Run("OK", func(t *testing.T) {
-		addr := generateAddress()
-		addr.SetContainerID(cid)
+		addr := objecttest.Address()
+		addr.SetContainerID(idCnr)
 
 		ns, as := testNodeMatrix(t, []int{2})
 
@@ -591,8 +585,8 @@ func TestGetRemoteSmall(t *testing.T) {
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {
-		addr := generateAddress()
-		addr.SetContainerID(cid)
+		addr := objecttest.Address()
+		addr.SetContainerID(idCnr)
 
 		ns, as := testNodeMatrix(t, []int{2})
 
@@ -635,8 +629,8 @@ func TestGetRemoteSmall(t *testing.T) {
 	})
 
 	t.Run("404", func(t *testing.T) {
-		addr := generateAddress()
-		addr.SetContainerID(cid)
+		addr := objecttest.Address()
+		addr.SetContainerID(idCnr)
 
 		ns, as := testNodeMatrix(t, []int{2})
 
@@ -692,18 +686,19 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		t.Run("linking", func(t *testing.T) {
 			t.Run("get linking failure", func(t *testing.T) {
-				addr := generateAddress()
-				addr.SetContainerID(cid)
-				addr.SetObjectID(generateID())
+				addr := objecttest.Address()
+				addr.SetContainerID(idCnr)
+				addr.SetObjectID(oidtest.ID())
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
-				splitInfo.SetLink(generateID())
+				splitInfo.SetLink(oidtest.ID())
 
 				splitAddr := addressSDK.NewAddress()
-				splitAddr.SetContainerID(cid)
-				splitAddr.SetObjectID(splitInfo.Link())
+				splitAddr.SetContainerID(idCnr)
+				idLink, _ := splitInfo.Link()
+				splitAddr.SetObjectID(idLink)
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -743,9 +738,9 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
-				addr := generateAddress()
-				addr.SetContainerID(cid)
-				addr.SetObjectID(generateID())
+				addr := objecttest.Address()
+				addr.SetContainerID(idCnr)
+				addr.SetObjectID(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 				srcObj.SetPayloadSize(10)
@@ -753,25 +748,27 @@ func TestGetRemoteSmall(t *testing.T) {
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
-				splitInfo.SetLink(generateID())
+				splitInfo.SetLink(oidtest.ID())
 
-				children, childIDs, _ := generateChain(2, cid)
+				children, childIDs, _ := generateChain(2, idCnr)
 
 				linkAddr := addressSDK.NewAddress()
-				linkAddr.SetContainerID(cid)
-				linkAddr.SetObjectID(splitInfo.Link())
+				linkAddr.SetContainerID(idCnr)
+				idLink, _ := splitInfo.Link()
+				linkAddr.SetObjectID(idLink)
 
 				linkingObj := generateObject(linkAddr, nil, nil, childIDs...)
-				linkingObj.SetParentID(addr.ObjectID())
+				id, _ := addr.ObjectID()
+				linkingObj.SetParentID(id)
 				linkingObj.SetParent(srcObj)
 
 				child1Addr := addressSDK.NewAddress()
-				child1Addr.SetContainerID(cid)
-				child1Addr.SetObjectID(&childIDs[0])
+				child1Addr.SetContainerID(idCnr)
+				child1Addr.SetObjectID(childIDs[0])
 
 				child2Addr := addressSDK.NewAddress()
-				child2Addr.SetContainerID(cid)
-				child2Addr.SetObjectID(&childIDs[1])
+				child2Addr.SetContainerID(idCnr)
+				child2Addr.SetObjectID(childIDs[1])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -817,37 +814,39 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("OK", func(t *testing.T) {
-				addr := generateAddress()
-				addr.SetContainerID(cid)
-				addr.SetObjectID(generateID())
+				addr := objecttest.Address()
+				addr.SetContainerID(idCnr)
+				addr.SetObjectID(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
-				splitInfo.SetLink(generateID())
+				splitInfo.SetLink(oidtest.ID())
 
-				children, childIDs, payload := generateChain(2, cid)
+				children, childIDs, payload := generateChain(2, idCnr)
 				srcObj.SetPayload(payload)
 				srcObj.SetPayloadSize(uint64(len(payload)))
 				children[len(children)-1].SetParent(srcObj)
 
 				linkAddr := addressSDK.NewAddress()
-				linkAddr.SetContainerID(cid)
-				linkAddr.SetObjectID(splitInfo.Link())
+				linkAddr.SetContainerID(idCnr)
+				idLink, _ := splitInfo.Link()
+				linkAddr.SetObjectID(idLink)
 
 				linkingObj := generateObject(linkAddr, nil, nil, childIDs...)
-				linkingObj.SetParentID(addr.ObjectID())
+				id, _ := addr.ObjectID()
+				linkingObj.SetParentID(id)
 				linkingObj.SetParent(srcObj)
 
 				child1Addr := addressSDK.NewAddress()
-				child1Addr.SetContainerID(cid)
-				child1Addr.SetObjectID(&childIDs[0])
+				child1Addr.SetContainerID(idCnr)
+				child1Addr.SetObjectID(childIDs[0])
 
 				child2Addr := addressSDK.NewAddress()
-				child2Addr.SetContainerID(cid)
-				child2Addr.SetObjectID(&childIDs[1])
+				child2Addr.SetContainerID(idCnr)
+				child2Addr.SetObjectID(childIDs[1])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -905,18 +904,19 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		t.Run("right child", func(t *testing.T) {
 			t.Run("get right child failure", func(t *testing.T) {
-				addr := generateAddress()
-				addr.SetContainerID(cid)
-				addr.SetObjectID(generateID())
+				addr := objecttest.Address()
+				addr.SetContainerID(idCnr)
+				addr.SetObjectID(oidtest.ID())
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
-				splitInfo.SetLastPart(generateID())
+				splitInfo.SetLastPart(oidtest.ID())
 
 				splitAddr := addressSDK.NewAddress()
-				splitAddr.SetContainerID(cid)
-				splitAddr.SetObjectID(splitInfo.LastPart())
+				splitAddr.SetContainerID(idCnr)
+				idLast, _ := splitInfo.LastPart()
+				splitAddr.SetObjectID(idLast)
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -956,9 +956,9 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
-				addr := generateAddress()
-				addr.SetContainerID(cid)
-				addr.SetObjectID(generateID())
+				addr := objecttest.Address()
+				addr.SetContainerID(idCnr)
+				addr.SetObjectID(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 				srcObj.SetPayloadSize(10)
@@ -966,17 +966,19 @@ func TestGetRemoteSmall(t *testing.T) {
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
-				splitInfo.SetLastPart(generateID())
+				splitInfo.SetLastPart(oidtest.ID())
 
-				children, _, _ := generateChain(2, cid)
+				children, _, _ := generateChain(2, idCnr)
 
 				rightAddr := addressSDK.NewAddress()
-				rightAddr.SetContainerID(cid)
-				rightAddr.SetObjectID(splitInfo.LastPart())
+				rightAddr.SetContainerID(idCnr)
+				idLast, _ := splitInfo.LastPart()
+				rightAddr.SetObjectID(idLast)
 
 				rightObj := children[len(children)-1]
 
-				rightObj.SetParentID(addr.ObjectID())
+				id, _ := addr.ObjectID()
+				rightObj.SetParentID(id)
 				rightObj.SetParent(srcObj)
 
 				preRightAddr := object.AddressOf(children[len(children)-2])
@@ -1023,25 +1025,27 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("OK", func(t *testing.T) {
-				addr := generateAddress()
-				addr.SetContainerID(cid)
-				addr.SetObjectID(generateID())
+				addr := objecttest.Address()
+				addr.SetContainerID(idCnr)
+				addr.SetObjectID(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
-				splitInfo.SetLastPart(generateID())
+				splitInfo.SetLastPart(oidtest.ID())
 
-				children, _, payload := generateChain(2, cid)
+				children, _, payload := generateChain(2, idCnr)
 				srcObj.SetPayloadSize(uint64(len(payload)))
 				srcObj.SetPayload(payload)
 
 				rightObj := children[len(children)-1]
 
-				rightObj.SetID(splitInfo.LastPart())
-				rightObj.SetParentID(addr.ObjectID())
+				idLast, _ := splitInfo.LastPart()
+				rightObj.SetID(idLast)
+				id, _ := addr.ObjectID()
+				rightObj.SetParentID(id)
 				rightObj.SetParent(srcObj)
 
 				c1 := newTestClient()
@@ -1118,10 +1122,10 @@ func TestGetFromPastEpoch(t *testing.T) {
 	ctx := context.Background()
 
 	cnr := container.New(container.WithPolicy(new(netmap.PlacementPolicy)))
-	cid := container.CalculateID(cnr)
+	idCnr := container.CalculateID(cnr)
 
-	addr := generateAddress()
-	addr.SetContainerID(cid)
+	addr := objecttest.Address()
+	addr.SetContainerID(idCnr)
 
 	payloadSz := uint64(10)
 	payload := make([]byte, payloadSz)

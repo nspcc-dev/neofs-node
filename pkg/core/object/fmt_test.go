@@ -12,6 +12,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -25,13 +26,6 @@ func testSHA(t *testing.T) [sha256.Size]byte {
 	require.NoError(t, err)
 
 	return cs
-}
-
-func testObjectID(t *testing.T) *oidSDK.ID {
-	id := oidSDK.NewID()
-	id.SetSHA256(testSHA(t))
-
-	return id
 }
 
 func blankValidObject(key *ecdsa.PrivateKey) *object.Object {
@@ -74,7 +68,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("nil container identifier", func(t *testing.T) {
 		obj := object.New()
-		obj.SetID(testObjectID(t))
+		obj.SetID(oidtest.ID())
 
 		require.ErrorIs(t, v.Validate(obj, true), errNilCID)
 	})
@@ -82,7 +76,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("unsigned object", func(t *testing.T) {
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
-		obj.SetID(testObjectID(t))
+		obj.SetID(oidtest.ID())
 
 		require.Error(t, v.Validate(obj, true))
 	})
@@ -98,7 +92,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetSessionToken(sessiontest.Token())
 		obj.SetOwnerID(tok.OwnerID())
 
-		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
+		require.NoError(t, object.SetIDWithSignature(ownerKey.PrivateKey, obj))
 
 		require.NoError(t, v.Validate(obj, false))
 	})
@@ -106,7 +100,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("correct w/o session token", func(t *testing.T) {
 		obj := blankValidObject(&ownerKey.PrivateKey)
 
-		require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
+		require.NoError(t, object.SetIDWithSignature(ownerKey.PrivateKey, obj))
 
 		require.NoError(t, v.Validate(obj, false))
 	})
@@ -114,11 +108,12 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("tombstone content", func(t *testing.T) {
 		obj := object.New()
 		obj.SetType(object.TypeTombstone)
+		obj.SetContainerID(cidtest.ID())
 
 		require.Error(t, v.ValidateContent(obj)) // no tombstone content
 
 		content := object.NewTombstone()
-		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
+		content.SetMembers([]oidSDK.ID{oidtest.ID()})
 
 		data, err := content.Marshal()
 		require.NoError(t, err)
@@ -127,7 +122,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj)) // no members in tombstone
 
-		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
+		content.SetMembers([]oidSDK.ID{oidtest.ID()})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)
@@ -169,7 +164,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj))
 
-		content.SetMembers([]oidSDK.ID{*testObjectID(t)})
+		content.SetMembers([]oidSDK.ID{oidtest.ID()})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)
@@ -189,7 +184,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			obj.SetAttributes(a)
 
-			require.NoError(t, object.SetIDWithSignature(&ownerKey.PrivateKey, obj))
+			require.NoError(t, object.SetIDWithSignature(ownerKey.PrivateKey, obj))
 
 			return obj
 		}

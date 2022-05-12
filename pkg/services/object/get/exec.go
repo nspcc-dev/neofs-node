@@ -117,7 +117,12 @@ func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
 }
 
 func (exec *execCtx) containerID() *cid.ID {
-	return exec.address().ContainerID()
+	cnr, ok := exec.address().ContainerID()
+	if ok {
+		return &cnr
+	}
+
+	return nil
 }
 
 func (exec *execCtx) ctxRange() *objectSDK.Range {
@@ -186,9 +191,11 @@ func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool)
 	p.objWriter = w
 	p.SetRange(rng)
 
+	cnr, _ := exec.address().ContainerID()
+
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(exec.address().ContainerID())
-	addr.SetObjectID(id)
+	addr.SetContainerID(cnr)
+	addr.SetObjectID(*id)
 
 	p.addr = addr
 
@@ -209,8 +216,8 @@ func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool)
 
 func (exec *execCtx) headChild(id *oidSDK.ID) (*objectSDK.Object, bool) {
 	childAddr := addressSDK.NewAddress()
-	childAddr.SetContainerID(exec.containerID())
-	childAddr.SetObjectID(id)
+	childAddr.SetContainerID(*exec.containerID())
+	childAddr.SetObjectID(*id)
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
@@ -239,7 +246,7 @@ func (exec *execCtx) headChild(id *oidSDK.ID) (*objectSDK.Object, bool) {
 	case err == nil:
 		child := w.Object()
 
-		if child.ParentID() != nil && !exec.isChild(child) {
+		if _, ok := child.ParentID(); ok && !exec.isChild(child) {
 			exec.status = statusUndefined
 
 			exec.log.Debug("parent address in child object differs")
@@ -269,11 +276,11 @@ func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 }
 
 func mergeSplitInfo(dst, src *objectSDK.SplitInfo) {
-	if last := src.LastPart(); last != nil {
+	if last, ok := src.LastPart(); ok {
 		dst.SetLastPart(last)
 	}
 
-	if link := src.Link(); link != nil {
+	if link, ok := src.Link(); ok {
 		dst.SetLink(link)
 	}
 

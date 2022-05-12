@@ -23,12 +23,12 @@ func (exec *execCtx) assemble() {
 
 	splitInfo := exec.splitInfo()
 
-	childID := splitInfo.Link()
-	if childID == nil {
-		childID = splitInfo.LastPart()
+	childID, ok := splitInfo.Link()
+	if !ok {
+		childID, _ = splitInfo.LastPart()
 	}
 
-	prev, children := exec.initFromChild(childID)
+	prev, children := exec.initFromChild(&childID)
 
 	if len(children) > 0 {
 		if exec.ctxRange() == nil {
@@ -40,7 +40,7 @@ func (exec *execCtx) assemble() {
 			//  * if size > MAX => go right-to-left with HEAD and back with GET
 			//  * else go right-to-left with GET and compose in single object before writing
 
-			if ok := exec.overtakePayloadInReverse(&children[len(children)-1]); ok {
+			if ok := exec.overtakePayloadInReverse(children[len(children)-1]); ok {
 				// payload of all children except the last are written, write last payload
 				exec.writeObjectPayload(exec.collectedObject)
 			}
@@ -51,7 +51,7 @@ func (exec *execCtx) assemble() {
 			//  * if size > MAX => go right-to-left with HEAD and back with GET
 			//  * else go right-to-left with GET and compose in single object before writing
 
-			if ok := exec.overtakePayloadInReverse(prev); ok {
+			if ok := exec.overtakePayloadInReverse(*prev); ok {
 				// payload of all children except the last are written, write last payloa
 				exec.writeObjectPayload(exec.collectedObject)
 			}
@@ -117,7 +117,12 @@ func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []o
 
 	exec.collectedObject.SetPayload(payload)
 
-	return child.PreviousID(), child.Children()
+	idPrev, ok := child.PreviousID()
+	if ok {
+		return &idPrev, child.Children()
+	}
+
+	return nil, child.Children()
 }
 
 func (exec *execCtx) overtakePayloadDirectly(children []oidSDK.ID, rngs []objectSDK.Range, checkRight bool) {
@@ -143,7 +148,7 @@ func (exec *execCtx) overtakePayloadDirectly(children []oidSDK.ID, rngs []object
 	exec.err = nil
 }
 
-func (exec *execCtx) overtakePayloadInReverse(prev *oidSDK.ID) bool {
+func (exec *execCtx) overtakePayloadInReverse(prev oidSDK.ID) bool {
 	chain, rngs, ok := exec.buildChainInReverse(prev)
 	if !ok {
 		return false
@@ -165,22 +170,24 @@ func (exec *execCtx) overtakePayloadInReverse(prev *oidSDK.ID) bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) buildChainInReverse(prev *oidSDK.ID) ([]oidSDK.ID, []objectSDK.Range, bool) {
+func (exec *execCtx) buildChainInReverse(prev oidSDK.ID) ([]oidSDK.ID, []objectSDK.Range, bool) {
 	var (
 		chain   = make([]oidSDK.ID, 0)
 		rngs    = make([]objectSDK.Range, 0)
 		seekRng = exec.ctxRange()
 		from    = seekRng.GetOffset()
 		to      = from + seekRng.GetLength()
+
+		withPrev = true
 	)
 
 	// fill the chain end-to-start
-	for prev != nil {
+	for withPrev {
 		if exec.curOff < from {
 			break
 		}
 
-		head, ok := exec.headChild(prev)
+		head, ok := exec.headChild(&prev)
 		if !ok {
 			return nil, nil, false
 		}
@@ -206,19 +213,41 @@ func (exec *execCtx) buildChainInReverse(prev *oidSDK.ID) ([]oidSDK.ID, []object
 				rngs[index].SetOffset(off)
 				rngs[index].SetLength(sz)
 
-				chain = append(chain, *head.ID())
+				id, _ := head.ID()
+				chain = append(chain, id)
 			}
 		} else {
-			chain = append(chain, *head.ID())
+			id, _ := head.ID()
+			chain = append(chain, id)
 		}
 
-		prev = head.PreviousID()
+		prev, withPrev = head.PreviousID()
 	}
 
 	return chain, rngs, true
 }
 
 func equalAddresses(a, b *addressSDK.Address) bool {
-	return a.ContainerID().Equal(b.ContainerID()) &&
-		a.ObjectID().Equal(b.ObjectID())
+	cnr1, ok := a.ContainerID()
+	if !ok {
+		return false
+	}
+
+	cnr2, ok := b.ContainerID()
+	if !ok {
+		return false
+	}
+
+	if !cnr1.Equals(cnr2) {
+		return false
+	}
+
+	id1, ok := a.ObjectID()
+	if !ok {
+		return false
+	}
+
+	id2, ok := a.ObjectID()
+
+	return ok && id1.Equals(id2)
 }
