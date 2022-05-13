@@ -100,6 +100,7 @@ const (
 //
 // Events (notary):
 //   * put (parser: subnetevents.ParseNotaryPut, handler: catchSubnetCreation);
+//   * Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
 //
 // Events (non-notary):
 //   * Put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
@@ -118,7 +119,7 @@ func (s *Server) listenSubnet() {
 	parserInfo.SetScriptHash(s.contracts.subnet)
 	handlerInfo.SetScriptHash(s.contracts.subnet)
 
-	listenEvent := func(notifyName string, parser event.NotaryParser, handler event.Handler) {
+	listenNotaryEvent := func(notifyName string, parser event.NotaryParser, handler event.Handler) {
 		notifyTyp := event.NotaryTypeFromString(notifyName)
 
 		parserInfo.SetMempoolType(mempoolevent.TransactionAdded)
@@ -135,10 +136,19 @@ func (s *Server) listenSubnet() {
 	}
 
 	// subnet creation
-	listenEvent(notarySubnetCreateEvName, subnetevents.ParseNotaryPut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
+	listenNotaryEvent(notarySubnetCreateEvName, subnetevents.ParseNotaryPut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
+	// subnet removal
+	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
 }
 
 func (s *Server) listenSubnetWithoutNotary() {
+	// subnet creation
+	listenNotifySubnetEvent(s, subnetCreateEvName, subnetevents.ParsePut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
+	// subnet removal
+	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
+}
+
+func listenNotifySubnetEvent(s *Server, notifyName string, parser event.NotificationParser, handler event.Handler) {
 	var (
 		parserInfo  event.NotificationParserInfo
 		handlerInfo event.NotificationHandlerInfo
@@ -147,23 +157,16 @@ func (s *Server) listenSubnetWithoutNotary() {
 	parserInfo.SetScriptHash(s.contracts.subnet)
 	handlerInfo.SetScriptHash(s.contracts.subnet)
 
-	listenEvent := func(notifyName string, parser event.NotificationParser, handler event.Handler) {
-		notifyTyp := event.TypeFromString(notifyName)
+	notifyTyp := event.TypeFromString(notifyName)
 
-		parserInfo.SetType(notifyTyp)
-		handlerInfo.SetType(notifyTyp)
+	parserInfo.SetType(notifyTyp)
+	handlerInfo.SetType(notifyTyp)
 
-		parserInfo.SetParser(parser)
-		handlerInfo.SetHandler(handler)
+	parserInfo.SetParser(parser)
+	handlerInfo.SetHandler(handler)
 
-		s.morphListener.SetNotificationParser(parserInfo)
-		s.morphListener.RegisterNotificationHandler(handlerInfo)
-	}
-
-	// subnet creation
-	listenEvent(subnetCreateEvName, subnetevents.ParsePut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
-	// subnet removal
-	listenEvent(subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
+	s.morphListener.SetNotificationParser(parserInfo)
+	s.morphListener.RegisterNotificationHandler(handlerInfo)
 }
 
 // catchSubnetCreation catches event of subnet creation from listener and queues the processing.

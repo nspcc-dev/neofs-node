@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Do not update NNS group if the key is the same (#1375)
 - Make LOCODE messages more descriptive (#1394)
 - Basic income transfer's incorrect log message (#1374)
+- Listen to subnet removal events in notary-enabled env (#1224)
 
 ## [0.28.1] - 2022-05-05
 
