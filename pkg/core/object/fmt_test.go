@@ -154,8 +154,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj))
 
-		content := storagegroup.New()
-		content.SetMembers([]oidSDK.ID{})
+		var content storagegroup.StorageGroup
 
 		data, err := content.Marshal()
 		require.NoError(t, err)

@@ -248,7 +248,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 	_, err = internalclient.GetObject(prm)
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sg := storagegroupAPI.New()
+	var sg storagegroupAPI.StorageGroup
 
 	err = sg.Unmarshal(buf.Bytes())
 	exitOnErr(cmd, errf("could not unmarshal storage group: %w", err))
