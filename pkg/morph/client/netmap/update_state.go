@@ -27,8 +27,17 @@ func (u *UpdatePeerPrm) SetState(state netmap.NodeState) {
 
 // UpdatePeerState changes peer status through Netmap contract call.
 func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
+	method := updateStateMethod
+
+	if c.client.WithNotary() && c.client.IsAlpha() {
+		// In notary environments Alphabet must calls UpdateStateIR method instead of UpdateState.
+		// It differs from UpdateState only by name, so we can do this in the same form.
+		// See https://github.com/nspcc-dev/neofs-contract/issues/225.
+		method += "IR"
+	}
+
 	prm := client.InvokePrm{}
-	prm.SetMethod(updateStateMethod)
+	prm.SetMethod(method)
 	prm.SetArgs(int64(p.state.ToV2()), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
