@@ -849,7 +849,7 @@ func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed
 }
 
 // CalculateNonceAndVUB calculates nonce and ValidUntilBlock values
-// based on transaction hash. Uses MurmurHash3.
+// based on transaction hash.
 func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint32, err error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
