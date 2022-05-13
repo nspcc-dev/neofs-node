@@ -113,14 +113,14 @@ func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *n
 			continue
 		}
 
-		sg := storagegroup.New()
+		var sg storagegroup.StorageGroup
 
 		err = sg.Unmarshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("can't parse storage group payload: %w", err)
 		}
 
-		return sg, nil
+		return &sg, nil
 	}
 
 	var errNotFound apistatus.ObjectNotFound

@@ -213,7 +213,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return fmt.Errorf("(%T) empty payload in SG", v)
 		}
 
-		sg := storagegroup.New()
+		var sg storagegroup.StorageGroup
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
 			return fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)

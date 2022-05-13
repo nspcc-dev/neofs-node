@@ -21,7 +21,7 @@ func CollectMembers(r objutil.HeadReceiver, cnr *cid.ID, members []oidSDK.ID) (*
 		phyMembers []oidSDK.ID
 		phyHashes  [][]byte
 		addr       = addressSDK.NewAddress()
-		sg         = storagegroup.New()
+		sg         storagegroup.StorageGroup
 	)
 
 	addr.SetContainerID(*cnr)
@@ -58,5 +58,5 @@ func CollectMembers(r objutil.HeadReceiver, cnr *cid.ID, members []oidSDK.ID) (*
 	sg.SetValidationDataSize(sumPhySize)
 	sg.SetValidationDataHash(cs)
 
-	return sg, nil
+	return &sg, nil
 }
