@@ -3,16 +3,20 @@ package innerring
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	irsubnet "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/subnet"
+	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	subnetevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
@@ -315,5 +319,80 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 		return
 	}
 
-	// TODO: #1162 handle removal of the subnet in netmap candidates
+	// handle subnet changes in netmap
+
+	candidates, err := s.netmapClient.GetCandidates()
+	if err != nil {
+		s.log.Error("getting netmap candidates",
+			zap.Error(err),
+		)
+
+		return
+	}
+
+	var removedID subnetid.ID
+	err = removedID.Unmarshal(delEv.ID())
+	if err != nil {
+		s.log.Error("unmarshalling removed subnet ID",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	for _, c := range candidates.Nodes {
+		s.processCandidate(delEv.TxHash(), removedID, c)
+	}
+}
+
+func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.ID, c netmap.Node) {
+	removeSubnet := false
+	log := s.log.With(
+		zap.String("public_key", hex.EncodeToString(c.NodeInfo.PublicKey())),
+		zap.String("removed_subnet", removedID.String()),
+	)
+
+	err := c.NodeInfo.IterateSubnets(func(id subnetid.ID) error {
+		if removedID.Equals(&id) {
+			removeSubnet = true
+			return netmap.ErrRemoveSubnet
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.Error("iterating node's subnets", zap.Error(err))
+		log.Debug("removing node from netmap candidates")
+
+		var updateStatePrm netmapclient.UpdatePeerPrm
+		updateStatePrm.SetState(netmap.NodeStateOffline)
+		updateStatePrm.SetKey(c.NodeInfo.PublicKey())
+		updateStatePrm.SetHash(txHash)
+
+		err = s.netmapClient.UpdatePeerState(updateStatePrm)
+		if err != nil {
+			log.Error("removing node from candidates",
+				zap.Error(err),
+			)
+		}
+
+		return
+	}
+
+	// remove subnet from node's information
+	// if it contains removed subnet
+	if removeSubnet {
+		log.Debug("removing subnet from the node")
+
+		var addPeerPrm netmapclient.AddPeerPrm
+		addPeerPrm.SetNodeInfo(c.NodeInfo)
+		addPeerPrm.SetHash(txHash)
+
+		err = s.netmapClient.AddPeer(addPeerPrm)
+		if err != nil {
+			log.Error("updating subnet info",
+				zap.Error(err),
+			)
+		}
+	}
 }

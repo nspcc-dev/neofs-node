@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Make LOCODE messages more descriptive (#1394)
 - Basic income transfer's incorrect log message (#1374)
 - Listen to subnet removal events in notary-enabled env (#1224)
+- Update/remove nodes whose subnet has been removed (#1162)
 
 ## [0.28.1] - 2022-05-05
 
