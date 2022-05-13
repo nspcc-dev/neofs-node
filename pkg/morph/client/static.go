@@ -30,6 +30,20 @@ type staticOpts struct {
 	fees fees
 }
 
+// WithNotary returns notary status of the client.
+//
+// See also TryNotary.
+func (s *StaticClient) WithNotary() bool {
+	return s.tryNotary
+}
+
+// IsAlpha returns Alphabet status of the client.
+//
+// See also AsAlphabet.
+func (s *StaticClient) IsAlpha() bool {
+	return s.alpha
+}
+
 // StaticClientOption allows to set an optional
 // parameter of StaticClient.
 type StaticClientOption func(*staticOpts)
