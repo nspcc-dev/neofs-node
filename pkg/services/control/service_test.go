@@ -108,14 +108,25 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 		}
 	}
 
+	for i := range b1.Shards {
+		for j := i + 1; j < len(b1.Shards); j++ {
+			if b1.Shards[i].GetMetabasePath() == b2.Shards[j].GetMetabasePath() ||
+				b1.Shards[i].GetBlobstorPath() == b2.Shards[j].GetBlobstorPath() ||
+				b1.Shards[i].GetWritecachePath() == b2.Shards[j].GetWritecachePath() ||
+				bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[j].GetShard_ID()) {
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
 func generateListShardsResponseBody() *control.ListShardsResponse_Body {
 	body := new(control.ListShardsResponse_Body)
 	body.SetShards([]*control.ShardInfo{
-		generateShardInfo(),
-		generateShardInfo(),
+		generateShardInfo(0),
+		generateShardInfo(1),
 	})
 
 	return body
