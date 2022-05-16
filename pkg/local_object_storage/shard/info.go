@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 )
 
@@ -28,6 +29,9 @@ type Info struct {
 
 	// ErrorCount contains amount of errors occurred in shard operations.
 	ErrorCount uint32
+
+	// PiloramaInfo contains information about trees stored on this shard.
+	PiloramaInfo pilorama.Info
 }
 
 // DumpInfo returns information about the Shard.
