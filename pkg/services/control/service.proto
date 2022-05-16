@@ -31,6 +31,9 @@ service ControlService {
 
     // Restore objects from dump.
     rpc RestoreShard (RestoreShardRequest) returns (RestoreShardResponse);
+
+    // Synchronizes all log operations for the specified tree.
+    rpc SynchronizeTree (SynchronizeTreeRequest) returns (SynchronizeTreeResponse);
 }
 
 // Health check request.
@@ -269,6 +272,36 @@ message RestoreShardRequest {
 
 // RestoreShard response.
 message RestoreShardResponse {
+    // Response body structure.
+    message Body {
+    }
+
+    // Body of restore shard response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// SynchronizeTree request.
+message SynchronizeTreeRequest {
+    // Request body structure.
+    message Body {
+        bytes container_id = 1;
+        string tree_id = 2;
+        // Starting height for the synchronization. Can be omitted.
+        uint64 height = 3;
+    }
+
+    // Body of restore shard request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// SynchronizeTree response.
+message SynchronizeTreeResponse {
     // Response body structure.
     message Body {
     }
