@@ -255,4 +255,5 @@ func (s *Shard) fillInfo() {
 	if s.cfg.useWriteCache {
 		s.cfg.info.WriteCacheInfo = s.writeCache.DumpInfo()
 	}
+	s.cfg.info.PiloramaInfo = s.pilorama.DumpInfo()
 }
