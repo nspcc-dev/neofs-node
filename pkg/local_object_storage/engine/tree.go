@@ -18,13 +18,12 @@ func (e *StorageEngine) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pil
 	for _, sh := range e.sortShardsByWeight(d.CID) {
 		lm, err = sh.TreeMove(d, treeID, m)
 		if err != nil {
-			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", d.CID),
-				zap.String("tree", treeID),
-				zap.String("err", err.Error()))
 			if errors.Is(err, shard.ErrReadOnlyMode) {
 				return nil, err
 			}
+			e.reportShardError(sh, "can't perform `TreeMove`", err,
+				zap.Stringer("cid", d.CID),
+				zap.String("tree", treeID))
 			continue
 		}
 		return lm, nil
@@ -39,13 +38,12 @@ func (e *StorageEngine) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, a
 	for _, sh := range e.sortShardsByWeight(d.CID) {
 		lm, err = sh.TreeAddByPath(d, treeID, attr, path, m)
 		if err != nil {
-			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", d.CID),
-				zap.String("tree", treeID),
-				zap.String("err", err.Error()))
 			if errors.Is(err, shard.ErrReadOnlyMode) {
 				return nil, err
 			}
+			e.reportShardError(sh, "can't perform `TreeAddByPath`", err,
+				zap.Stringer("cid", d.CID),
+				zap.String("tree", treeID))
 			continue
 		}
 		return lm, nil
@@ -59,13 +57,12 @@ func (e *StorageEngine) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pi
 	for _, sh := range e.sortShardsByWeight(d.CID) {
 		err = sh.TreeApply(d, treeID, m)
 		if err != nil {
-			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", d.CID),
-				zap.String("tree", treeID),
-				zap.String("err", err.Error()))
 			if errors.Is(err, shard.ErrReadOnlyMode) {
 				return err
 			}
+			e.reportShardError(sh, "can't perform `TreeApply`", err,
+				zap.Stringer("cid", d.CID),
+				zap.String("tree", treeID))
 			continue
 		}
 		return nil
@@ -81,10 +78,11 @@ func (e *StorageEngine) TreeGetByPath(cid cidSDK.ID, treeID string, attr string,
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetByPath(cid, treeID, attr, path, latest)
 		if err != nil {
-			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", cid),
-				zap.String("tree", treeID),
-				zap.String("err", err.Error()))
+			if !errors.Is(err, pilorama.ErrTreeNotFound) {
+				e.reportShardError(sh, "can't perform `TreeGetByPath`", err,
+					zap.Stringer("cid", cid),
+					zap.String("tree", treeID))
+			}
 			continue
 		}
 		return nodes, nil
@@ -100,10 +98,11 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 	for _, sh := range e.sortShardsByWeight(cid) {
 		m, p, err = sh.TreeGetMeta(cid, treeID, nodeID)
 		if err != nil {
-			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", cid),
-				zap.String("tree", treeID),
-				zap.String("err", err.Error()))
+			if !errors.Is(err, pilorama.ErrTreeNotFound) {
+				e.reportShardError(sh, "can't perform `TreeGetMeta`", err,
+					zap.Stringer("cid", cid),
+					zap.String("tree", treeID))
+			}
 			continue
 		}
 		return m, p, nil
@@ -118,10 +117,11 @@ func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pil
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetChildren(cid, treeID, nodeID)
 		if err != nil {
-			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", cid),
-				zap.String("tree", treeID),
-				zap.String("err", err.Error()))
+			if !errors.Is(err, pilorama.ErrTreeNotFound) {
+				e.reportShardError(sh, "can't perform `TreeGetChildren`", err,
+					zap.Stringer("cid", cid),
+					zap.String("tree", treeID))
+			}
 			continue
 		}
 		return nodes, nil
@@ -136,11 +136,11 @@ func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64
 	for _, sh := range e.sortShardsByWeight(cid) {
 		lm, err = sh.TreeGetOpLog(cid, treeID, height)
 		if err != nil {
-			e.log.Debug("can't perform `GetOpLog`",
-				zap.Stringer("cid", cid),
-				zap.String("tree", treeID),
-				zap.Uint64("height", height),
-				zap.String("err", err.Error()))
+			if !errors.Is(err, pilorama.ErrTreeNotFound) {
+				e.reportShardError(sh, "can't perform `TreeGetOpLog`", err,
+					zap.Stringer("cid", cid),
+					zap.String("tree", treeID))
+			}
 			continue
 		}
 		return lm, nil
