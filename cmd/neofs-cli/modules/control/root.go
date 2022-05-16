@@ -32,6 +32,7 @@ func init() {
 		dropObjectsCmd,
 		snapshotCmd,
 		shardsCmd,
+		synchronizeTreeCmd,
 	)
 
 	initControlHealthCheckCmd()
@@ -39,4 +40,5 @@ func init() {
 	initControlDropObjectsCmd()
 	initControlSnapshotCmd()
 	initControlShardsCmd()
+	initControlSynchronizeTreeCmd()
 }
