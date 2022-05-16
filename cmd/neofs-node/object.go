@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -43,7 +44,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"go.uber.org/zap"
 )
 
@@ -418,8 +418,20 @@ func (s *morphEACLFetcher) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
 		return nil, err
 	}
 
-	if err := signature.VerifyData((*signedEACLTable)(table), table.Signature(), signature.SignWithRFC6979()); err != nil {
-		return nil, fmt.Errorf("incorrect signature: %w", err)
+	sig := table.Signature()
+	if sig == nil {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return nil, errors.New("missing signature")
+	}
+
+	binTable, err := table.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("marshal eACL table: %w", err)
+	}
+
+	if !sig.Verify(binTable) {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return nil, errors.New("invalid signature of the eACL table")
 	}
 
 	return table, nil

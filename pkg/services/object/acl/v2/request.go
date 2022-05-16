@@ -129,7 +129,7 @@ func (r MetaWithToken) RequestOwner() (*owner.ID, *keys.PublicKey, error) {
 		return nil, nil, fmt.Errorf("%w: nil at body signature", ErrMalformedRequest)
 	}
 
-	key := unmarshalPublicKey(bodySignature.Key())
+	key := unmarshalPublicKey(bodySignature.GetKey())
 
 	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)), key, nil
 }

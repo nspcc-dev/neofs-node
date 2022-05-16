@@ -21,9 +21,9 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	signature2 "github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -434,18 +434,24 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 					return nil, errors.New("missing object ID")
 				}
 
+				if idSig == nil {
+					// TODO(@cthulhu-rider): #1387 use "const" error
+					return nil, errors.New("missing signature")
+				}
+
+				binID, err := id.Marshal()
+				if err != nil {
+					return nil, fmt.Errorf("marshal ID: %w", err)
+				}
+
 				var idV2 refs.ObjectID
 				id.WriteToV2(&idV2)
 
-				if err := signature2.VerifyDataWithSource(
-					signature.StableMarshalerWrapper{
-						SM: &idV2,
-					},
-					func() (key, sig []byte) {
-						return idSig.GetKey(), idSig.GetSign()
-					},
-				); err != nil {
-					return nil, fmt.Errorf("incorrect object header signature: %w", err)
+				var sig neofscrypto.Signature
+				sig.ReadFromV2(*idSig)
+
+				if !sig.Verify(binID) {
+					return nil, errors.New("invalid object ID signature")
 				}
 			case *objectV2.SplitInfo:
 				si := object.NewSplitInfoFromV2(v)

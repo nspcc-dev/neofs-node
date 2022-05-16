@@ -16,6 +16,7 @@ import (
 
 	"github.com/cheggaaa/pb"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -1065,8 +1066,13 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 
 	if signature := obj.Signature(); signature != nil {
 		cmd.Print("Split Header Signature:\n")
-		cmd.Printf("  public key: %s\n", hex.EncodeToString(signature.Key()))
-		cmd.Printf("  signature: %s\n", hex.EncodeToString(signature.Sign()))
+
+		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
+		var sigV2 refs.Signature
+		signature.WriteToV2(&sigV2)
+
+		cmd.Printf("  public key: %s\n", hex.EncodeToString(sigV2.GetKey()))
+		cmd.Printf("  signature: %s\n", hex.EncodeToString(sigV2.GetSign()))
 	}
 
 	parent := obj.Parent()

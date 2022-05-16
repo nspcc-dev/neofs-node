@@ -16,7 +16,6 @@ import (
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
 var errMissingContainerID = errors.New("missing container ID")
@@ -193,7 +192,10 @@ func ownerFromToken(token *sessionSDK.Token) (*owner.ID, *keys.PublicKey, error)
 	}
 
 	// 2. Then check if session token owner issued the session token
-	tokenIssuerKey := unmarshalPublicKey(token.Signature().Key())
+	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
+	tokV2 := token.ToV2()
+
+	tokenIssuerKey := unmarshalPublicKey(tokV2.GetSignature().GetKey())
 	tokenOwner := token.OwnerID()
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
@@ -204,7 +206,7 @@ func ownerFromToken(token *sessionSDK.Token) (*owner.ID, *keys.PublicKey, error)
 	return tokenOwner, tokenIssuerKey, nil
 }
 
-func originalBodySignature(v *sessionV2.RequestVerificationHeader) *signature.Signature {
+func originalBodySignature(v *sessionV2.RequestVerificationHeader) *refsV2.Signature {
 	if v == nil {
 		return nil
 	}
@@ -213,7 +215,7 @@ func originalBodySignature(v *sessionV2.RequestVerificationHeader) *signature.Si
 		v = v.GetOrigin()
 	}
 
-	return signature.NewFromV2(v.GetBodySignature())
+	return v.GetBodySignature()
 }
 
 func unmarshalPublicKey(bs []byte) *keys.PublicKey {

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containerContract "github.com/nspcc-dev/neofs-contract/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
 type containerSource Client
@@ -105,10 +106,17 @@ func (c *Client) Get(cid []byte) (*container.Container, error) {
 		cnr.SetSessionToken(tok)
 	}
 
-	sig := signature.New()
-	sig.SetKey(pub)
-	sig.SetSign(sigBytes)
-	cnr.SetSignature(sig)
+	// FIXME(@cthulhu-rider): #1387 temp solution, later table structure won't have a signature
+
+	var sigV2 refs.Signature
+	sigV2.SetKey(pub)
+	sigV2.SetSign(sigBytes)
+	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
+
+	var sig neofscrypto.Signature
+	sig.ReadFromV2(sigV2)
+
+	cnr.SetSignature(&sig)
 
 	return cnr, nil
 }

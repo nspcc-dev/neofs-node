@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
-	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 )
 
 // SignedMessage is an interface of Control service message.
 type SignedMessage interface {
-	signature.DataSource
+	ReadSignedData([]byte) ([]byte, error)
 	GetSignature() *control.Signature
 	SetSignature(*control.Signature)
 }
@@ -19,8 +22,13 @@ type SignedMessage interface {
 var errDisallowedKey = errors.New("key is not in the allowed list")
 
 func (s *Server) isValidRequest(req SignedMessage) error {
+	sign := req.GetSignature()
+	if sign == nil {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return errors.New("missing signature")
+	}
+
 	var (
-		sign    = req.GetSignature()
 		key     = sign.GetKey()
 		allowed = false
 	)
@@ -37,18 +45,51 @@ func (s *Server) isValidRequest(req SignedMessage) error {
 	}
 
 	// verify signature
-	return signature.VerifyDataWithSource(req, func() ([]byte, []byte) {
-		return key, sign.GetSign()
-	})
+	binBody, err := req.ReadSignedData(nil)
+	if err != nil {
+		return fmt.Errorf("marshal request body: %w", err)
+	}
+
+	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
+	var sigV2 refs.Signature
+	sigV2.SetKey(sign.GetKey())
+	sigV2.SetSign(sign.GetSign())
+	sigV2.SetScheme(refs.ECDSA_SHA512)
+
+	var sig neofscrypto.Signature
+	sig.ReadFromV2(sigV2)
+
+	if !sig.Verify(binBody) {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return errors.New("invalid signature")
+	}
+
+	return nil
 }
 
 // SignMessage signs Control service message with private key.
 func SignMessage(key *ecdsa.PrivateKey, msg SignedMessage) error {
-	return signature.SignDataWithHandler(key, msg, func(key []byte, sig []byte) {
-		s := new(control.Signature)
-		s.SetKey(key)
-		s.SetSign(sig)
+	binBody, err := msg.ReadSignedData(nil)
+	if err != nil {
+		return fmt.Errorf("marshal request body: %w", err)
+	}
 
-		msg.SetSignature(s)
-	})
+	var sig neofscrypto.Signature
+
+	err = sig.Calculate(neofsecdsa.Signer(*key), binBody)
+	if err != nil {
+		return fmt.Errorf("calculate signature: %w", err)
+	}
+
+	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
+	var sigV2 refs.Signature
+	sig.WriteToV2(&sigV2)
+
+	var sigControl control.Signature
+	sigControl.SetKey(sigV2.GetKey())
+	sigControl.SetSign(sigV2.GetSign())
+
+	msg.SetSignature(&sigControl)
+
+	return nil
 }

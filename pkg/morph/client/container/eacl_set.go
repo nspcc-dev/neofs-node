@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
@@ -28,15 +29,20 @@ func PutEACL(c *Client, table *eacl.Table) error {
 		return fmt.Errorf("could not marshal session token: %w", err)
 	}
 
-	sig := table.Signature()
+	var prm PutEACLPrm
+	prm.SetTable(data)
+	prm.SetToken(binToken)
 
-	return c.PutEACL(
-		PutEACLPrm{
-			table: data,
-			key:   sig.Key(),
-			sig:   sig.Sign(),
-			token: binToken,
-		})
+	if sig := table.Signature(); sig != nil {
+		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
+		var sigV2 refs.Signature
+		sig.WriteToV2(&sigV2)
+
+		prm.SetKey(sigV2.GetKey())
+		prm.SetSignature(sigV2.GetSign())
+	}
+
+	return c.PutEACL(prm)
 }
 
 // PutEACLPrm groups parameters of PutEACL operation.

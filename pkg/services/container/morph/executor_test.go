@@ -60,7 +60,10 @@ func TestInvalidToken(t *testing.T) {
 		{
 			name: "put",
 			op: func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) (err error) {
-				_, err = e.Put(ctx, new(container.PutRequestBody))
+				var reqBody container.PutRequestBody
+				reqBody.SetSignature(new(refs.Signature))
+
+				_, err = e.Put(ctx, &reqBody)
 				return
 			},
 		},
@@ -77,7 +80,10 @@ func TestInvalidToken(t *testing.T) {
 		{
 			name: "setEACL",
 			op: func(e containerSvc.ServiceExecutor, ctx containerSvc.ContextWithToken) (err error) {
-				_, err = e.SetExtendedACL(ctx, new(container.SetExtendedACLRequestBody))
+				var reqBody container.SetExtendedACLRequestBody
+				reqBody.SetSignature(new(refs.Signature))
+
+				_, err = e.SetExtendedACL(ctx, &reqBody)
 				return
 			},
 		},
