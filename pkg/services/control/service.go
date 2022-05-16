@@ -1159,3 +1159,143 @@ func (x *RestoreShardResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *RestoreShardResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
+
+const (
+	_ = iota
+	synchronizeTreeReqBodyCIDFNum
+	synchronizeTreeReqBodyTreeIDFNum
+	synchronizeTreeReqBodyHeightFNum
+)
+
+// StableMarshal reads binary representation of list shards request body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *SynchronizeTreeRequest_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+
+	if sz := x.StableSize(); len(buf) < sz {
+		buf = make([]byte, sz)
+	}
+
+	var offset int
+
+	offset += proto.BytesMarshal(synchronizeTreeReqBodyCIDFNum, buf, x.ContainerId)
+	offset += proto.StringMarshal(synchronizeTreeReqBodyTreeIDFNum, buf[offset:], x.TreeId)
+	proto.UInt64Marshal(synchronizeTreeReqBodyHeightFNum, buf[offset:], x.Height)
+
+	return buf
+}
+
+// StableSize returns binary size of list shards request body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *SynchronizeTreeRequest_Body) StableSize() int {
+	if x == nil {
+		return 0
+	}
+
+	size := 0
+
+	size += proto.BytesSize(synchronizeTreeReqBodyCIDFNum, x.ContainerId)
+	size += proto.StringSize(synchronizeTreeReqBodyTreeIDFNum, x.TreeId)
+	size += proto.UInt64Size(synchronizeTreeReqBodyHeightFNum, x.Height)
+
+	return size
+}
+
+// SetBody sets list shards request body.
+func (x *SynchronizeTreeRequest) SetBody(v *SynchronizeTreeRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the list shards request body.
+func (x *SynchronizeTreeRequest) SetSignature(body *Signature) {
+	if x != nil {
+		x.Signature = body
+	}
+}
+
+// ReadSignedData reads signed data of list shards request to buf.
+//
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *SynchronizeTreeRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+// SignedDataSize returns binary size of the signed data
+// of list shards request.
+//
+// Structures with the same field values have the same signed data size.
+func (x *SynchronizeTreeRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// StableMarshal reads binary representation of list shards response body
+// in protobuf binary format.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *SynchronizeTreeResponse_Body) StableMarshal(_ []byte) []byte {
+	return []byte{}
+}
+
+// StableSize returns binary size of list shards response body
+// in protobuf binary format.
+//
+// Structures with the same field values have the same binary size.
+func (x *SynchronizeTreeResponse_Body) StableSize() int {
+	return 0
+}
+
+// SetBody sets list shards response body.
+func (x *SynchronizeTreeResponse) SetBody(v *SynchronizeTreeResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetSignature sets signature of the list shards response body.
+func (x *SynchronizeTreeResponse) SetSignature(v *Signature) {
+	if x != nil {
+		x.Signature = v
+	}
+}
+
+// ReadSignedData reads signed data from response to buf.
+//
+// If buffer length is less than SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *SynchronizeTreeResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+// SignedDataSize returns binary size of the signed data.
+//
+// Structures with the same field values have the same signed data size.
+func (x *SynchronizeTreeResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}

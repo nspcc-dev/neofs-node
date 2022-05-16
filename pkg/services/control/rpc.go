@@ -16,6 +16,7 @@ const (
 	rpcSetShardMode    = "SetShardMode"
 	rpcDumpShard       = "DumpShard"
 	rpcRestoreShard    = "RestoreShard"
+	rpcSynchronizeTree = "SynchronizeTree"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -171,4 +172,17 @@ func RestoreShard(cli *client.Client, req *RestoreShardRequest, opts ...client.C
 	}
 
 	return wResp.RestoreShardResponse, nil
+}
+
+// SynchronizeTree executes ControlService.SynchronizeTree RPC.
+func SynchronizeTree(cli *client.Client, req *SynchronizeTreeRequest, opts ...client.CallOption) (*SynchronizeTreeResponse, error) {
+	wResp := &synchronizeTreeResponseWrapper{new(SynchronizeTreeResponse)}
+	wReq := &requestWrapper{m: req}
+
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcSynchronizeTree), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.SynchronizeTreeResponse, nil
 }
