@@ -2,6 +2,8 @@ package control_test
 
 import (
 	"bytes"
+	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -125,19 +127,19 @@ func equalNodeInfos(n1, n2 *control.NodeInfo) bool {
 	return true
 }
 
-func generateShardInfo() *control.ShardInfo {
+func generateShardInfo(id int) *control.ShardInfo {
 	si := new(control.ShardInfo)
 
-	path := "/nice/dir/awesome/files"
+	path := "/nice/dir/awesome/files/" + strconv.Itoa(id)
 
 	uid, _ := uuid.NewRandom()
 	bin, _ := uid.MarshalBinary()
 
 	si.SetID(bin)
 	si.SetMode(control.ShardMode_READ_WRITE)
-	si.SetMetabasePath(path)
-	si.SetBlobstorPath(path)
-	si.SetWriteCachePath(path)
+	si.SetMetabasePath(filepath.Join(path, "meta"))
+	si.SetBlobstorPath(filepath.Join(path, "blobstor"))
+	si.SetWriteCachePath(filepath.Join(path, "writecache"))
 
 	return si
 }
