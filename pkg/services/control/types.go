@@ -274,6 +274,11 @@ func (x *ShardInfo) SetWriteCachePath(v string) {
 	x.WritecachePath = v
 }
 
+// SetPiloramaPath sets path to shard's pilorama.
+func (x *ShardInfo) SetPiloramaPath(v string) {
+	x.PiloramaPath = v
+}
+
 // SetMode sets path to shard's work mode.
 func (x *ShardInfo) SetMode(v ShardMode) {
 	x.Mode = v
@@ -292,6 +297,7 @@ const (
 	shardInfoWriteCacheFNum
 	shardInfoModeFNum
 	shardInfoErrorCountFNum
+	shardInfoPiloramaFNum
 )
 
 // StableSize returns binary size of shard information
@@ -311,6 +317,7 @@ func (x *ShardInfo) StableSize() int {
 	size += proto.StringSize(shardInfoWriteCacheFNum, x.WritecachePath)
 	size += proto.EnumSize(shardInfoModeFNum, int32(x.Mode))
 	size += proto.UInt32Size(shardInfoErrorCountFNum, x.ErrorCount)
+	size += proto.StringSize(shardInfoPiloramaFNum, x.PiloramaPath)
 
 	return size
 }
@@ -337,7 +344,8 @@ func (x *ShardInfo) StableMarshal(buf []byte) []byte {
 	offset += proto.StringMarshal(shardInfoBlobstorFNum, buf[offset:], x.BlobstorPath)
 	offset += proto.StringMarshal(shardInfoWriteCacheFNum, buf[offset:], x.WritecachePath)
 	offset += proto.EnumMarshal(shardInfoModeFNum, buf[offset:], int32(x.Mode))
-	proto.EnumMarshal(shardInfoErrorCountFNum, buf[offset:], int32(x.ErrorCount))
+	offset += proto.EnumMarshal(shardInfoErrorCountFNum, buf[offset:], int32(x.ErrorCount))
+	proto.StringMarshal(shardInfoPiloramaFNum, buf[offset:], x.PiloramaPath)
 
 	return buf
 }
