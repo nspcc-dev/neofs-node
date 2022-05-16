@@ -32,6 +32,7 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 		si.SetMetabasePath(sh.MetaBaseInfo.Path)
 		si.SetBlobstorPath(sh.BlobStorInfo.RootPath)
 		si.SetWriteCachePath(sh.WriteCacheInfo.Path)
+		si.SetPiloramaPath(sh.PiloramaInfo.Path)
 
 		var mode control.ShardMode
 
