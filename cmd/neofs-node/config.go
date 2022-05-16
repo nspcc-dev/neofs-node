@@ -40,6 +40,7 @@ import (
 	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -110,6 +111,8 @@ type cfg struct {
 	respSvc *response.Service
 
 	cfgControlService cfgControlService
+
+	treeService *tree.Service
 
 	healthStatus *atomic.Int32
 
