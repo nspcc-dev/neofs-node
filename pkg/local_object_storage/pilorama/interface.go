@@ -36,6 +36,8 @@ type Forest interface {
 }
 
 type ForestStorage interface {
+	// DumpInfo returns information about the pilorama.
+	DumpInfo() Info
 	Init() error
 	Open() error
 	Close() error

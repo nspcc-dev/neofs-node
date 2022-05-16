@@ -140,6 +140,7 @@ func generateShardInfo(id int) *control.ShardInfo {
 	si.SetMetabasePath(filepath.Join(path, "meta"))
 	si.SetBlobstorPath(filepath.Join(path, "blobstor"))
 	si.SetWriteCachePath(filepath.Join(path, "writecache"))
+	si.SetPiloramaPath(filepath.Join(path, "pilorama"))
 
 	return si
 }

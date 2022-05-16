@@ -148,6 +148,7 @@ func (x *ShardInfo) StableSize() (size int) {
 	size += proto.StringSize(4, x.WritecachePath)
 	size += proto.EnumSize(5, int32(x.Mode))
 	size += proto.UInt32Size(6, x.ErrorCount)
+	size += proto.StringSize(7, x.PiloramaPath)
 	return size
 }
 
@@ -173,5 +174,6 @@ func (x *ShardInfo) StableMarshal(buf []byte) []byte {
 	offset += proto.StringMarshal(4, buf[offset:], x.WritecachePath)
 	offset += proto.EnumMarshal(5, buf[offset:], int32(x.Mode))
 	offset += proto.UInt32Marshal(6, buf[offset:], x.ErrorCount)
+	offset += proto.StringMarshal(7, buf[offset:], x.PiloramaPath)
 	return buf
 }
