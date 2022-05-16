@@ -7,7 +7,7 @@ import (
 )
 
 func initTreeService(c *cfg) {
-	treeSvc := tree.New(
+	c.treeService = tree.New(
 		tree.WithContainerSource(c.cfgObject.cnrSource),
 		tree.WithNetmapSource(c.netMapSource),
 		tree.WithPrivateKey(&c.key.PrivateKey),
@@ -15,12 +15,12 @@ func initTreeService(c *cfg) {
 		tree.WithStorage(c.cfgObject.cfgLocalStorage.localStorage))
 
 	for _, srv := range c.cfgGRPC.servers {
-		tree.RegisterTreeServiceServer(srv, treeSvc)
+		tree.RegisterTreeServiceServer(srv, c.treeService)
 	}
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		treeSvc.Start(ctx)
+		c.treeService.Start(ctx)
 	}))
 
-	c.onShutdown(treeSvc.Shutdown)
+	c.onShutdown(c.treeService.Shutdown)
 }

@@ -3,9 +3,8 @@ package control
 import (
 	"crypto/ecdsa"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
 
@@ -51,6 +50,8 @@ type cfg struct {
 	nodeState NodeState
 
 	delObjHandler DeletedObjectHandler
+
+	treeService TreeService
 
 	s *engine.StorageEngine
 }
@@ -123,5 +124,12 @@ func WithDeletedObjectHandler(h DeletedObjectHandler) Option {
 func WithLocalStorage(engine *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.s = engine
+	}
+}
+
+// WithTreeService returns an option to set tree service.
+func WithTreeService(s TreeService) Option {
+	return func(c *cfg) {
+		c.treeService = s
 	}
 }
