@@ -10,6 +10,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -132,11 +133,21 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 }
 
 func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
+	// FIXME(@cthulhu-rider): temp solution, see neofs-sdk-go#233
+	sig := obj.Signature()
+	if sig == nil {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return errors.New("missing signature")
+	}
+
+	var sigV2 refs.Signature
+	sig.WriteToV2(&sigV2)
+
+	key := sigV2.GetKey()
 	token := obj.SessionToken()
-	key := obj.Signature().Key()
 
 	if token == nil || !bytes.Equal(token.SessionKey(), key) {
-		return v.checkOwnerKey(obj.OwnerID(), obj.Signature().Key())
+		return v.checkOwnerKey(obj.OwnerID(), key)
 	}
 
 	// FIXME: #1159 perform token verification

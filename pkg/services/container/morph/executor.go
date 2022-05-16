@@ -12,10 +12,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
 type morphExecutor struct {
@@ -56,11 +56,18 @@ func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
 }
 
 func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.PutRequestBody) (*container.PutResponseBody, error) {
+	sigV2 := body.GetSignature()
+	if sigV2 == nil {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return nil, errors.New("missing signature")
+	}
+
 	cnr := containerSDK.NewContainerFromV2(body.GetContainer())
 
-	cnr.SetSignature(
-		signature.NewFromV2(body.GetSignature()),
-	)
+	var sig neofscrypto.Signature
+	sig.ReadFromV2(*sigV2)
+
+	cnr.SetSignature(&sig)
 
 	tok := session.NewTokenFromV2(ctx.SessionToken)
 	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
@@ -135,9 +142,16 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 		return nil, err
 	}
 
+	var sigV2 *refs.Signature
+
+	if sig := cnr.Signature(); sig != nil {
+		sigV2 = new(refs.Signature)
+		sig.WriteToV2(sigV2)
+	}
+
 	res := new(container.GetResponseBody)
 	res.SetContainer(cnr.ToV2())
-	res.SetSignature(cnr.Signature().ToV2())
+	res.SetSignature(sigV2)
 	res.SetSessionToken(cnr.SessionToken().ToV2())
 
 	return res, nil
@@ -163,10 +177,18 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 }
 
 func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
-	table := eaclSDK.NewTableFromV2(body.GetEACL())
-	sign := signature.NewFromV2(body.GetSignature())
+	sigV2 := body.GetSignature()
+	if sigV2 == nil {
+		// TODO(@cthulhu-rider): #1387 use "const" error
+		return nil, errors.New("missing signature")
+	}
 
-	table.SetSignature(sign)
+	table := eaclSDK.NewTableFromV2(body.GetEACL())
+
+	var sig neofscrypto.Signature
+	sig.ReadFromV2(*sigV2)
+
+	table.SetSignature(&sig)
 
 	tok := session.NewTokenFromV2(ctx.SessionToken)
 	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
@@ -201,9 +223,16 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetE
 		return nil, err
 	}
 
+	var sigV2 *refs.Signature
+
+	if sig := table.Signature(); sig != nil {
+		sigV2 = new(refs.Signature)
+		sig.WriteToV2(sigV2)
+	}
+
 	res := new(container.GetExtendedACLResponseBody)
 	res.SetEACL(table.ToV2())
-	res.SetSignature(table.Signature().ToV2())
+	res.SetSignature(sigV2)
 	res.SetSessionToken(table.SessionToken().ToV2())
 
 	return res, nil

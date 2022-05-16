@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -28,18 +29,24 @@ func Put(c *Client, cnr *container.Container) (*cid.ID, error) {
 		return nil, fmt.Errorf("could not marshal session token: %w", err)
 	}
 
-	sig := cnr.Signature()
-
 	name, zone := container.GetNativeNameWithZone(cnr)
 
-	err = c.Put(PutPrm{
-		cnr:   data,
-		key:   sig.Key(),
-		sig:   sig.Sign(),
-		token: binToken,
-		name:  name,
-		zone:  zone,
-	})
+	var prm PutPrm
+	prm.SetContainer(data)
+	prm.SetToken(binToken)
+	prm.SetName(name)
+	prm.SetZone(zone)
+
+	if sig := cnr.Signature(); sig != nil {
+		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
+		var sigV2 refs.Signature
+		sig.WriteToV2(&sigV2)
+
+		prm.SetKey(sigV2.GetKey())
+		prm.SetSignature(sigV2.GetSign())
+	}
+
+	err = c.Put(prm)
 	if err != nil {
 		return nil, err
 	}

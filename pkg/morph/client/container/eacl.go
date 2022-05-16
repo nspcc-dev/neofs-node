@@ -4,12 +4,13 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/signature"
 )
 
 // GetEACL reads the extended ACL table from NeoFS system
@@ -86,11 +87,17 @@ func (c *Client) GetEACL(cnr *cid.ID) (*eacl.Table, error) {
 		table.SetSessionToken(tok)
 	}
 
-	tableSignature := signature.New()
-	tableSignature.SetKey(pub)
-	tableSignature.SetSign(sig)
+	// FIXME(@cthulhu-rider): #1387 temp solution, later table structure won't have a signature
 
-	table.SetSignature(tableSignature)
+	var sigV2 refs.Signature
+	sigV2.SetKey(pub)
+	sigV2.SetSign(sig)
+	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
+
+	var tableSignature neofscrypto.Signature
+	tableSignature.ReadFromV2(sigV2)
+
+	table.SetSignature(&tableSignature)
 
 	return table, nil
 }

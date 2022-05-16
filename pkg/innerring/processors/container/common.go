@@ -109,7 +109,8 @@ func (cp *Processor) checkSessionToken(token *session.Token) error {
 
 	// check token owner's key ownership
 
-	key, err := keys.NewPublicKeyFromBytes(token.Signature().Key(), elliptic.P256())
+	// FIXME(@cthulhu-rider): #1387 see neofs-sdk-go#233
+	key, err := keys.NewPublicKeyFromBytes(token.ToV2().GetSignature().GetKey(), elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("invalid key: %w", err)
 	}

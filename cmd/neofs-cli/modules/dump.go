@@ -5,7 +5,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/spf13/cobra"
 )
 
@@ -53,15 +52,7 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sign := resp.GetSignature()
-
-	err = signature.VerifyDataWithSource(
-		resp,
-		func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		},
-	)
-	exitOnErr(cmd, errf("invalid response signature: %w", err))
+	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 	cmd.Println("Shard has been dumped successfully.")
 }

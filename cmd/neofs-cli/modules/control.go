@@ -2,17 +2,19 @@ package cmd
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	"github.com/nspcc-dev/neofs-sdk-go/util/signature"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -206,6 +208,36 @@ func init() {
 	initControlRestoreShardCmd()
 }
 
+func verifyResponseControl(cmd *cobra.Command,
+	sigControl interface {
+		GetKey() []byte
+		GetSign() []byte
+	},
+	body interface {
+		StableMarshal([]byte) ([]byte, error)
+	},
+) {
+	if sigControl == nil {
+		exitOnErr(cmd, errors.New("missing response signature"))
+	}
+
+	bodyData, err := body.StableMarshal(nil)
+	exitOnErr(cmd, errf("marshal response body: %w", err))
+
+	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
+	var sigV2 refs.Signature
+	sigV2.SetScheme(refs.ECDSA_SHA512)
+	sigV2.SetKey(sigControl.GetKey())
+	sigV2.SetSign(sigControl.GetSign())
+
+	var sig neofscrypto.Signature
+	sig.ReadFromV2(sigV2)
+
+	if !sig.Verify(bodyData) {
+		exitOnErr(cmd, errors.New("invalid response signature"))
+	}
+}
+
 func healthCheck(cmd *cobra.Command, _ []string) {
 	key, err := getKeyNoGenerate()
 	exitOnErr(cmd, err)
@@ -232,15 +264,7 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sign := resp.GetSignature()
-
-	err = signature.VerifyDataWithSource(
-		resp,
-		func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		},
-	)
-	exitOnErr(cmd, errf("invalid response signature: %w", err))
+	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 	cmd.Printf("Network status: %s\n", resp.GetBody().GetNetmapStatus())
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
@@ -261,15 +285,7 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sign := resp.GetSignature()
-
-	err = signature.VerifyDataWithSource(
-		resp,
-		func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		},
-	)
-	exitOnErr(cmd, errf("invalid response signature: %w", err))
+	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
 }
@@ -311,15 +327,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sign := resp.GetSignature()
-
-	err = signature.VerifyDataWithSource(
-		resp,
-		func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		},
-	)
-	exitOnErr(cmd, errf("invalid response signature: %w", err))
+	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 	cmd.Println("Network status update request successfully sent.")
 }
@@ -372,15 +380,7 @@ var dropObjectsCmd = &cobra.Command{
 		})
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
-		sign := resp.GetSignature()
-
-		err = signature.VerifyDataWithSource(
-			resp,
-			func() ([]byte, []byte) {
-				return sign.GetKey(), sign.GetSign()
-			},
-		)
-		exitOnErr(cmd, errf("invalid response signature: %w", err))
+		verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 		cmd.Println("Objects were successfully marked to be removed.")
 	},
@@ -410,15 +410,7 @@ var snapshotCmd = &cobra.Command{
 		})
 		exitOnErr(cmd, errf("rpc error: %w", err))
 
-		sign := resp.GetSignature()
-
-		err = signature.VerifyDataWithSource(
-			resp,
-			func() ([]byte, []byte) {
-				return sign.GetKey(), sign.GetSign()
-			},
-		)
-		exitOnErr(cmd, errf("invalid response signature: %w", err))
+		verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 		prettyPrintNetmap(cmd, resp.GetBody().GetNetmap(), netmapSnapshotJSON)
 	},
@@ -444,14 +436,7 @@ func listShards(cmd *cobra.Command, _ []string) {
 	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sign := resp.GetSignature()
-	err = signature.VerifyDataWithSource(
-		resp,
-		func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		},
-	)
-	exitOnErr(cmd, errf("invalid response signature: %w", err))
+	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 	prettyPrintShards(cmd, resp.GetBody().GetShards())
 }
@@ -539,15 +524,7 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	})
 	exitOnErr(cmd, errf("rpc error: %w", err))
 
-	sign := resp.GetSignature()
-
-	err = signature.VerifyDataWithSource(
-		resp,
-		func() ([]byte, []byte) {
-			return sign.GetKey(), sign.GetSign()
-		},
-	)
-	exitOnErr(cmd, errf("invalid response signature: %w", err))
+	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
 	cmd.Println("Shard mode update request successfully sent.")
 }
