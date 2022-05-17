@@ -14,7 +14,6 @@ import (
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 type Option func(*cfg)
@@ -84,15 +83,7 @@ func (h headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Hea
 }
 
 func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
-	xHdrs := msg.GetXHeaders()
-
-	res := make([]eaclSDK.Header, 0, len(xHdrs))
-
-	for i := range xHdrs {
-		res = append(res, sessionSDK.NewXHeaderFromV2(&xHdrs[i]))
-	}
-
-	return res
+	return msg.GetXHeaders()
 }
 
 func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
