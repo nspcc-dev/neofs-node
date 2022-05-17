@@ -38,7 +38,8 @@ type Response interface {
 }
 
 type headerSource struct {
-	*cfg
+	requestHeaders []eaclSDK.Header
+	objectHeaders  []eaclSDK.Header
 }
 
 func defaultCfg() *cfg {
@@ -47,26 +48,32 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewMessageHeaderSource(opts ...Option) eaclSDK.TypedHeaderSource {
+func NewMessageHeaderSource(opts ...Option) (eaclSDK.TypedHeaderSource, error) {
 	cfg := defaultCfg()
 
 	for i := range opts {
 		opts[i](cfg)
 	}
 
-	return &headerSource{
-		cfg: cfg,
+	objHdrs, err := cfg.objectHeaders()
+	if err != nil {
+		return nil, err
 	}
+
+	return headerSource{
+		objectHeaders:  objHdrs,
+		requestHeaders: requestHeaders(cfg.msg),
+	}, nil
 }
 
-func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Header, bool) {
+func (h headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Header, bool) {
 	switch typ {
 	default:
 		return nil, true
 	case eaclSDK.HeaderFromRequest:
-		return requestHeaders(h.msg), true
+		return h.requestHeaders, true
 	case eaclSDK.HeaderFromObject:
-		return h.objectHeaders()
+		return h.objectHeaders, true
 	}
 }
 
@@ -82,7 +89,7 @@ func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
 	return res
 }
 
-func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
+func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
@@ -96,7 +103,7 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 			*objectV2.GetRangeRequest,
 			*objectV2.GetRangeHashRequest,
 			*objectV2.DeleteRequest:
-			return addressHeaders(h.addr), true
+			return addressHeaders(h.addr), nil
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
@@ -107,17 +114,19 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 					idV2 := v.GetObjectID()
 					var id objectSDKID.ID
 
-					if idV2 == nil {
-						// FIXME(@cthulhu-rider): #1386 we need to either return error or check it earlier
-						_ = id.ReadFromV2(*idV2)
+					if idV2 != nil {
+						if err := id.ReadFromV2(*idV2); err != nil {
+							return nil, fmt.Errorf("can't parse object ID: %w", err)
+						}
 					}
 
 					cnrV2 := v.GetHeader().GetContainerID()
 					var cnr cid.ID
 
 					if cnrV2 != nil {
-						// FIXME(@cthulhu-rider): #1386 we need to either return error or check it earlier
-						_ = cnr.ReadFromV2(*cnrV2)
+						if err := cnr.ReadFromV2(*cnrV2); err != nil {
+							return nil, fmt.Errorf("can't parse container ID: %w", err)
+						}
 					}
 
 					h.addr = new(objectSDKAddress.Address)
@@ -127,31 +136,32 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 
 				hs := headersFromObject(object.NewFromV2(oV2), h.addr)
 
-				return hs, true
+				return hs, nil
 			}
 		case *objectV2.SearchRequest:
 			cnrV2 := req.GetBody().GetContainerID()
 			var cnr cid.ID
 
 			if cnrV2 != nil {
-				// FIXME(@cthulhu-rider): #1386 we need to either return error or check it earlier
-				_ = cnr.ReadFromV2(*cnrV2)
+				if err := cnr.ReadFromV2(*cnrV2); err != nil {
+					return nil, fmt.Errorf("can't parse container ID: %w", err)
+				}
 			}
 
-			return []eaclSDK.Header{cidHeader(&cnr)}, true
+			return []eaclSDK.Header{cidHeader(&cnr)}, nil
 		}
 	case *responseXHeaderSource:
 		switch resp := m.resp.(type) {
 		default:
 			hs, _ := h.localObjectHeaders(h.addr)
-			return hs, true
+			return hs, nil
 		case *objectV2.GetResponse:
 			if v, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				return headersFromObject(object.NewFromV2(oV2), h.addr), true
+				return headersFromObject(object.NewFromV2(oV2), h.addr), nil
 			}
 		case *objectV2.HeadResponse:
 			oV2 := new(objectV2.Object)
@@ -179,20 +189,20 @@ func (h *headerSource) objectHeaders() ([]eaclSDK.Header, bool) {
 
 			oV2.SetHeader(hdr)
 
-			return headersFromObject(object.NewFromV2(oV2), h.addr), true
+			return headersFromObject(object.NewFromV2(oV2), h.addr), nil
 		}
 	}
 
-	return nil, true
+	return nil, nil
 }
 
-func (h *headerSource) localObjectHeaders(addr *objectSDKAddress.Address) ([]eaclSDK.Header, bool) {
+func (h *cfg) localObjectHeaders(addr *objectSDKAddress.Address) ([]eaclSDK.Header, error) {
 	obj, err := h.storage.Head(addr)
-	if err == nil {
-		return headersFromObject(obj, addr), true
+	if err != nil {
+		// Still parse addressHeaders, because the errors is ignored in some places.
+		return addressHeaders(addr), err
 	}
-
-	return addressHeaders(addr), false
+	return headersFromObject(obj, addr), nil
 }
 
 func cidHeader(idCnr *cid.ID) eaclSDK.Header {
