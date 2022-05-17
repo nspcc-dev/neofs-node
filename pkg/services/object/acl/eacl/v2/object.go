@@ -4,36 +4,21 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 type sysObjHdr struct {
 	k, v string
 }
 
-func (s *sysObjHdr) Key() string {
+func (s sysObjHdr) Key() string {
 	return s.k
 }
 
-func (s *sysObjHdr) Value() string {
+func (s sysObjHdr) Value() string {
 	return s.v
-}
-
-func idValue(id *objectSDKID.ID) string {
-	return id.String()
-}
-
-func cidValue(id *cid.ID) string {
-	return id.String()
-}
-
-func ownerIDValue(id *owner.ID) string {
-	return id.String()
 }
 
 func u64Value(v uint64) string {
@@ -52,30 +37,27 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 		id, _ := addr.ObjectID()
 
 		res = append(res,
-			cidHeader(&cnr),
+			cidHeader(cnr),
 			// owner ID
-			&sysObjHdr{
-				k: acl.FilterObjectOwnerID,
-				v: ownerIDValue(obj.OwnerID()),
-			},
+			ownerIDHeader(obj.OwnerID()),
 			// creation epoch
-			&sysObjHdr{
+			sysObjHdr{
 				k: acl.FilterObjectCreationEpoch,
 				v: u64Value(obj.CreationEpoch()),
 			},
 			// payload size
-			&sysObjHdr{
+			sysObjHdr{
 				k: acl.FilterObjectPayloadLength,
 				v: u64Value(obj.PayloadSize()),
 			},
-			oidHeader(&id),
+			oidHeader(id),
 			// object version
-			&sysObjHdr{
+			sysObjHdr{
 				k: acl.FilterObjectVersion,
 				v: obj.Version().String(),
 			},
 			// object type
-			&sysObjHdr{
+			sysObjHdr{
 				k: acl.FilterObjectType,
 				v: obj.Type().String(),
 			},
@@ -83,7 +65,7 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 
 		cs, ok := obj.PayloadChecksum()
 		if ok {
-			res = append(res, &sysObjHdr{
+			res = append(res, sysObjHdr{
 				k: acl.FilterObjectPayloadHash,
 				v: cs.String(),
 			})
@@ -91,7 +73,7 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 
 		cs, ok = obj.PayloadHomomorphicHash()
 		if ok {
-			res = append(res, &sysObjHdr{
+			res = append(res, sysObjHdr{
 				k: acl.FilterObjectHomomorphicHash,
 				v: cs.String(),
 			})
