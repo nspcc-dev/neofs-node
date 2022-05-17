@@ -197,12 +197,16 @@ func checkShardState(t *testing.T, e *StorageEngine, id *shard.ID, errCount uint
 	require.Equal(t, errCount, sh.errorCount.Load())
 }
 
-// corruptSubDir makes random directory in blobstor FSTree unreadable.
+// corruptSubDir makes random directory except "blobovnicza" in blobstor FSTree unreadable.
 func corruptSubDir(t *testing.T, dir string) {
 	de, err := os.ReadDir(dir)
 	require.NoError(t, err)
+
+	// FIXME(@cthulhu-rider): copy-paste of unexported const from blobstor package, see #1407
+	const dirBlobovnicza = "blobovnicza"
+
 	for i := range de {
-		if de[i].IsDir() {
+		if de[i].IsDir() && de[i].Name() != dirBlobovnicza {
 			require.NoError(t, os.Chmod(filepath.Join(dir, de[i].Name()), 0))
 			return
 		}
