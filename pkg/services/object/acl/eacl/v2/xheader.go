@@ -18,7 +18,7 @@ type responseXHeaderSource struct {
 	req Request
 }
 
-func (s *requestXHeaderSource) GetXHeaders() []session.XHeader {
+func (s requestXHeaderSource) GetXHeaders() []session.XHeader {
 	ln := 0
 	xHdrs := make([][]session.XHeader, 0)
 
@@ -41,7 +41,7 @@ func (s *requestXHeaderSource) GetXHeaders() []session.XHeader {
 	return res
 }
 
-func (s *responseXHeaderSource) GetXHeaders() []session.XHeader {
+func (s responseXHeaderSource) GetXHeaders() []session.XHeader {
 	ln := 0
 	xHdrs := make([][]session.XHeader, 0)
 

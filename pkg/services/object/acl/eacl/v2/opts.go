@@ -21,7 +21,7 @@ func WithLocalObjectStorage(v *engine.StorageEngine) Option {
 
 func WithServiceRequest(v Request) Option {
 	return func(c *cfg) {
-		c.msg = &requestXHeaderSource{
+		c.msg = requestXHeaderSource{
 			req: v,
 		}
 	}
@@ -29,7 +29,7 @@ func WithServiceRequest(v Request) Option {
 
 func WithServiceResponse(resp Response, req Request) Option {
 	return func(c *cfg) {
-		c.msg = &responseXHeaderSource{
+		c.msg = responseXHeaderSource{
 			resp: resp,
 			req:  req,
 		}

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
@@ -12,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -55,6 +57,10 @@ func NewMessageHeaderSource(opts ...Option) (eaclSDK.TypedHeaderSource, error) {
 		opts[i](cfg)
 	}
 
+	if cfg.msg == nil {
+		return nil, errors.New("message is not provided")
+	}
+
 	objHdrs, err := cfg.objectHeaders()
 	if err != nil {
 		return nil, err
@@ -93,7 +99,7 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
-	case *requestXHeaderSource:
+	case requestXHeaderSource:
 		switch req := m.req.(type) {
 		case *objectV2.GetRequest:
 			return h.localObjectHeaders(h.addr)
@@ -148,9 +154,9 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 				}
 			}
 
-			return []eaclSDK.Header{cidHeader(&cnr)}, nil
+			return []eaclSDK.Header{cidHeader(cnr)}, nil
 		}
-	case *responseXHeaderSource:
+	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
 		default:
 			hs, _ := h.localObjectHeaders(h.addr)
@@ -205,17 +211,24 @@ func (h *cfg) localObjectHeaders(addr *objectSDKAddress.Address) ([]eaclSDK.Head
 	return headersFromObject(obj, addr), nil
 }
 
-func cidHeader(idCnr *cid.ID) eaclSDK.Header {
-	return &sysObjHdr{
+func cidHeader(idCnr cid.ID) sysObjHdr {
+	return sysObjHdr{
 		k: acl.FilterObjectContainerID,
-		v: cidValue(idCnr),
+		v: idCnr.String(),
 	}
 }
 
-func oidHeader(oid *objectSDKID.ID) eaclSDK.Header {
-	return &sysObjHdr{
+func oidHeader(oid objectSDKID.ID) sysObjHdr {
+	return sysObjHdr{
 		k: acl.FilterObjectID,
-		v: idValue(oid),
+		v: oid.String(),
+	}
+}
+
+func ownerIDHeader(ownerID *owner.ID) sysObjHdr {
+	return sysObjHdr{
+		k: acl.FilterObjectOwnerID,
+		v: ownerID.String(),
 	}
 }
 
@@ -223,10 +236,10 @@ func addressHeaders(addr *objectSDKAddress.Address) []eaclSDK.Header {
 	cnr, _ := addr.ContainerID()
 
 	res := make([]eaclSDK.Header, 1, 2)
-	res[0] = cidHeader(&cnr)
+	res[0] = cidHeader(cnr)
 
 	if oid, ok := addr.ObjectID(); ok {
-		res = append(res, oidHeader(&oid))
+		res = append(res, oidHeader(oid))
 	}
 
 	return res
