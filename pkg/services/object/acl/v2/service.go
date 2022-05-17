@@ -12,6 +12,7 @@ import (
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -366,9 +367,16 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			return err
 		}
 
-		ownerID, err := getObjectOwnerFromMessage(request)
+		idV2 := part.GetHeader().GetOwnerID()
+		if idV2 == nil {
+			return errors.New("missing object owner")
+		}
+
+		var idOwner user.ID
+
+		err = idOwner.ReadFromV2(*idV2)
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid object owner: %w", err)
 		}
 
 		sTok := sessionSDK.NewTokenFromV2(request.GetMetaHeader().GetSessionToken())
@@ -392,7 +400,7 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 
 		useObjectIDFromSession(&reqInfo, sTok)
 
-		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, ownerID) {
+		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, &idOwner) {
 			return basicACLErr(reqInfo)
 		} else if err := p.source.checker.CheckEACL(request, reqInfo); err != nil {
 			return eACLErr(reqInfo, err)

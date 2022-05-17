@@ -6,16 +6,16 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // AccountKeysPrm groups parameters of AccountKeys operation.
 type AccountKeysPrm struct {
-	id *owner.ID
+	id *user.ID
 }
 
 // SetID sets owner ID.
-func (a *AccountKeysPrm) SetID(id *owner.ID) {
+func (a *AccountKeysPrm) SetID(id *user.ID) {
 	a.id = id
 }
 
@@ -23,7 +23,7 @@ func (a *AccountKeysPrm) SetID(id *owner.ID) {
 func (x *Client) AccountKeys(p AccountKeysPrm) (keys.PublicKeys, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(keyListingMethod)
-	prm.SetArgs(p.id.ToV2().GetValue())
+	prm.SetArgs(p.id.WalletBytes())
 
 	items, err := x.client.TestInvoke(prm)
 	if err != nil {

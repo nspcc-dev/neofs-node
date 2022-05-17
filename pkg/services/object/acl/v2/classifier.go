@@ -35,6 +35,11 @@ func (c senderClassifier) classify(
 		return nil, errContainerIDNotSet
 	}
 
+	ownerCnr := cnr.OwnerID()
+	if ownerCnr == nil {
+		return nil, errors.New("missing container owner")
+	}
+
 	ownerID, ownerKey, err := req.RequestOwner()
 	if err != nil {
 		return nil, err
@@ -45,7 +50,7 @@ func (c senderClassifier) classify(
 	// TODO: #767 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
-	if ownerID.Equal(cnr.OwnerID()) {
+	if ownerID.Equals(*ownerCnr) {
 		return &classifyResult{
 			role: eaclSDK.RoleUser,
 			isIR: false,

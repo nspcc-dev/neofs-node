@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type Streamer struct {
@@ -91,9 +91,20 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
-	if sToken == nil && !prm.hdr.OwnerID().Equal(owner.NewIDFromPublicKey(&sessionKey.PublicKey)) {
-		return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
+	if sToken == nil {
+		ownerObj := prm.hdr.OwnerID()
+		if ownerObj == nil {
+			return errors.New("missing object owner")
+		}
+
+		var ownerSession user.ID
+		user.IDFromKey(&ownerSession, sessionKey.PublicKey)
+
+		if !ownerObj.Equals(ownerSession) {
+			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
+		}
 	}
+
 	p.target = &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,

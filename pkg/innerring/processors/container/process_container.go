@@ -286,6 +286,11 @@ func checkNNS(ctx *putContainerContext, cnr *containerSDK.Container) error {
 }
 
 func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error {
+	owner := cnr.OwnerID()
+	if owner == nil {
+		return errors.New("missing owner")
+	}
+
 	prm := morphsubnet.UserAllowedPrm{}
 
 	subID := cnr.PlacementPolicy().SubnetID()
@@ -298,13 +303,8 @@ func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error 
 		return fmt.Errorf("could not marshal container subnetwork: %w", err)
 	}
 
-	ownerID, err := cnr.OwnerID().Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal container ownerID: %w", err)
-	}
-
 	prm.SetID(rawSubID)
-	prm.SetClient(ownerID)
+	prm.SetClient(owner.WalletBytes())
 
 	res, err := subCli.UserAllowed(prm)
 	if err != nil {

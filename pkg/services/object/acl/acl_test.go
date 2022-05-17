@@ -7,8 +7,8 @@ import (
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,11 +40,11 @@ func TestStickyCheck(t *testing.T) {
 
 		setSticky(&info, true)
 
-		require.True(t, checker.StickyBitCheck(info, ownertest.ID()))
+		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 
 		setSticky(&info, false)
 
-		require.True(t, checker.StickyBitCheck(info, ownertest.ID()))
+		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
@@ -65,10 +65,10 @@ func TestStickyCheck(t *testing.T) {
 				info.SetSenderKey(nil)
 			}
 
-			var ownerID *owner.ID
+			var ownerID *user.ID
 
 			if withOwner {
-				ownerID = ownertest.ID()
+				ownerID = usertest.ID()
 			}
 
 			require.Equal(t, expected, checker.StickyBitCheck(info, ownerID))

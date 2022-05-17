@@ -10,8 +10,8 @@ import (
 	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // RequestInfo groups parsed version-independent (from SDK library)
@@ -21,7 +21,7 @@ type RequestInfo struct {
 	requestRole eaclSDK.Role
 	isInnerRing bool
 	operation   eaclSDK.Operation // put, get, head, etc.
-	cnrOwner    *owner.ID         // container owner
+	cnrOwner    *user.ID          // container owner
 
 	idCnr *containerIDSDK.ID
 
@@ -52,7 +52,7 @@ func (r RequestInfo) Request() interface{} {
 }
 
 // ContainerOwner returns owner if the container.
-func (r RequestInfo) ContainerOwner() *owner.ID {
+func (r RequestInfo) ContainerOwner() *user.ID {
 	return r.cnrOwner
 }
 
@@ -112,7 +112,7 @@ type MetaWithToken struct {
 
 // RequestOwner returns ownerID and its public key
 // according to internal meta information.
-func (r MetaWithToken) RequestOwner() (*owner.ID, *keys.PublicKey, error) {
+func (r MetaWithToken) RequestOwner() (*user.ID, *keys.PublicKey, error) {
 	if r.vheader == nil {
 		return nil, nil, fmt.Errorf("%w: nil verification header", ErrMalformedRequest)
 	}
@@ -129,7 +129,13 @@ func (r MetaWithToken) RequestOwner() (*owner.ID, *keys.PublicKey, error) {
 		return nil, nil, fmt.Errorf("%w: nil at body signature", ErrMalformedRequest)
 	}
 
-	key := unmarshalPublicKey(bodySignature.GetKey())
+	key, err := unmarshalPublicKey(bodySignature.GetKey())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid key in body signature: %w", err)
+	}
 
-	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)), key, nil
+	var idSender user.ID
+	user.IDFromKey(&idSender, (ecdsa.PublicKey)(*key))
+
+	return &idSender, key, nil
 }

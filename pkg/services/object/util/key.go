@@ -6,8 +6,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // SessionSource is an interface tha provides
@@ -19,7 +19,7 @@ type SessionSource interface {
 	// token has not been created, has been expired
 	// of it is impossible to get information about the
 	// token Get must return nil.
-	Get(owner *owner.ID, tokenID []byte) *storage.PrivateToken
+	Get(owner *user.ID, tokenID []byte) *storage.PrivateToken
 }
 
 // KeyStorage represents private key storage of the local node.

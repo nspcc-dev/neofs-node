@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	ownerSDK "github.com/nspcc-dev/neofs-sdk-go/owner"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )
@@ -22,11 +22,13 @@ func TestTokenStore(t *testing.T) {
 
 	defer ts.Close()
 
-	owner := new(refs.OwnerID)
-	owner.SetValue([]byte{0, 1, 2, 3, 4, 5})
+	owner := usertest.ID()
+
+	var ownerV2 refs.OwnerID
+	owner.WriteToV2(&ownerV2)
 
 	req := new(session.CreateRequestBody)
-	req.SetOwnerID(owner)
+	req.SetOwnerID(&ownerV2)
 
 	const tokenNumber = 5
 
@@ -50,7 +52,7 @@ func TestTokenStore(t *testing.T) {
 	}
 
 	for i, token := range tokens {
-		savedToken := ts.Get(ownerSDK.NewIDFromV2(owner), token.id)
+		savedToken := ts.Get(owner, token.id)
 
 		require.Equal(t, uint64(i), savedToken.ExpiredAt())
 
@@ -64,13 +66,15 @@ func TestTokenStore_Persistent(t *testing.T) {
 	ts, err := NewTokenStore(path)
 	require.NoError(t, err)
 
-	owner := new(refs.OwnerID)
-	owner.SetValue([]byte{0, 1, 2, 3, 4, 5})
+	idOwner := usertest.ID()
+
+	var idOwnerV2 refs.OwnerID
+	idOwner.WriteToV2(&idOwnerV2)
 
 	const exp = 12345
 
 	req := new(session.CreateRequestBody)
-	req.SetOwnerID(owner)
+	req.SetOwnerID(&idOwnerV2)
 	req.SetExpiration(exp)
 
 	res, err := ts.Create(context.Background(), req)
@@ -88,7 +92,7 @@ func TestTokenStore_Persistent(t *testing.T) {
 
 	defer ts.Close()
 
-	savedToken := ts.Get(ownerSDK.NewIDFromV2(owner), id)
+	savedToken := ts.Get(idOwner, id)
 
 	equalKeys(t, pubKey, savedToken.SessionKey())
 }
@@ -123,11 +127,13 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 
 	defer ts.Close()
 
-	owner := new(refs.OwnerID)
-	owner.SetValue([]byte{0, 1, 2, 3, 4, 5})
+	owner := usertest.ID()
+
+	var ownerV2 refs.OwnerID
+	owner.WriteToV2(&ownerV2)
 
 	req := new(session.CreateRequestBody)
-	req.SetOwnerID(owner)
+	req.SetOwnerID(&ownerV2)
 
 	for _, test := range tests {
 		req.SetExpiration(test.epoch)
@@ -144,7 +150,7 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 	ts.RemoveOld(currEpoch)
 
 	for _, test := range tests {
-		token := ts.Get(ownerSDK.NewIDFromV2(owner), test.id)
+		token := ts.Get(owner, test.id)
 
 		if test.epoch <= currEpoch {
 			require.Nil(t, token)

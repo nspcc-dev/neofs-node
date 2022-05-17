@@ -32,7 +32,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -557,7 +557,7 @@ type morphContainerReader struct {
 	get containerCore.Source
 
 	lister interface {
-		List(*owner.ID) ([]*cid.ID, error)
+		List(*user.ID) ([]*cid.ID, error)
 	}
 }
 
@@ -569,7 +569,7 @@ func (x *morphContainerReader) GetEACL(id *cid.ID) (*eaclSDK.Table, error) {
 	return x.eacl.GetEACL(id)
 }
 
-func (x *morphContainerReader) List(id *owner.ID) ([]*cid.ID, error) {
+func (x *morphContainerReader) List(id *user.ID) ([]*cid.ID, error) {
 	return x.lister.List(id)
 }
 

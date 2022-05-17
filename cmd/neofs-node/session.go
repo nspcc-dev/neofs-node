@@ -15,12 +15,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/persistent"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type sessionStorage interface {
 	Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error)
-	Get(ownerID *owner.ID, tokenID []byte) *storage.PrivateToken
+	Get(ownerID *user.ID, tokenID []byte) *storage.PrivateToken
 	RemoveOld(epoch uint64)
 
 	Close() error

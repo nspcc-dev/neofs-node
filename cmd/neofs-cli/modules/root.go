@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,8 +20,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -187,16 +186,14 @@ func getTTL() uint32 {
 	return ttl
 }
 
-// ownerFromString converts string with NEO3 wallet address to neofs owner ID.
-func ownerFromString(s string) (*owner.ID, error) {
-	result := owner.NewID()
-
-	err := result.Parse(s)
+// userFromString decodes user ID from string input.
+func userFromString(id *user.ID, s string) error {
+	err := id.DecodeString(s)
 	if err != nil {
-		return nil, errors.New("can't decode owner ID wallet address")
+		return fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	return result, nil
+	return nil
 }
 
 func printVerbose(format string, a ...interface{}) {

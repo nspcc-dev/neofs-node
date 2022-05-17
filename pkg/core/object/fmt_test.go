@@ -13,9 +13,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,9 +29,12 @@ func testSHA(t *testing.T) [sha256.Size]byte {
 }
 
 func blankValidObject(key *ecdsa.PrivateKey) *object.Object {
+	var idOwner user.ID
+	user.IDFromKey(&idOwner, key.PublicKey)
+
 	obj := object.New()
 	obj.SetContainerID(cidtest.ID())
-	obj.SetOwnerID(owner.NewIDFromPublicKey(&key.PublicKey))
+	obj.SetOwnerID(&idOwner)
 
 	return obj
 }
@@ -78,14 +81,15 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetContainerID(cidtest.ID())
 		obj.SetID(oidtest.ID())
 
-		require.Error(t, v.Validate(obj, true))
+		require.Error(t, v.Validate(obj, false))
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		oid := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(ownerKey.PublicKey()))
+		var idOwner user.ID
+		user.IDFromKey(&idOwner, ownerKey.PrivateKey.PublicKey)
 
 		tok := sessiontest.Token()
-		tok.SetOwnerID(oid)
+		tok.SetOwnerID(&idOwner)
 
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())

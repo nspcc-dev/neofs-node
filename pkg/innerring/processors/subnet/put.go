@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // Put represents a notification about NeoFS subnet creation.
@@ -17,7 +17,7 @@ type Put interface {
 
 	// ReadCreator reads the user ID of the subnet creator.
 	// Returns an error if the ID is missing.
-	ReadCreator(id *owner.ID) error
+	ReadCreator(id *user.ID) error
 
 	// ReadInfo reads information about a subnet to be created.
 	ReadInfo(info *subnet.Info) error
@@ -57,7 +57,7 @@ func (x PutValidator) Assert(event Put) error {
 	}
 
 	// read creator's user ID in NeoFS system
-	var creator owner.ID
+	var creator user.ID
 	if err = event.ReadCreator(&creator); err != nil {
 		return fmt.Errorf("read creator: %w", err)
 	}

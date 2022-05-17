@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +22,7 @@ type (
 
 	// BalanceFetcher uses NEP-17 compatible balance contract
 	BalanceFetcher interface {
-		Balance(id *owner.ID) (*big.Int, error)
+		Balance(id *user.ID) (*big.Int, error)
 	}
 
 	IncomeSettlementContext struct {
@@ -39,7 +39,7 @@ type (
 		exchange    common.Exchanger
 		accounts    common.AccountStorage
 
-		bankOwner *owner.ID
+		bankOwner user.ID
 
 		// this table is not thread safe, make sure you use it with mu.Lock()
 		distributeTable *NodeSizeTable
@@ -58,11 +58,8 @@ type (
 	}
 )
 
-func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettlementContext, error) {
-	bankingAccount := owner.NewID()
-	bankingAccount.SetScriptHash(util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
-
-	return &IncomeSettlementContext{
+func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) *IncomeSettlementContext {
+	res := &IncomeSettlementContext{
 		log:             p.Log,
 		epoch:           p.Epoch,
 		rate:            p.Rate,
@@ -72,7 +69,10 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) (*IncomeSettleme
 		placement:       p.Placement,
 		exchange:        p.Exchange,
 		accounts:        p.Accounts,
-		bankOwner:       bankingAccount,
 		distributeTable: NewNodeSizeTable(),
-	}, nil
+	}
+
+	res.bankOwner.SetScriptHash(util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+
+	return res
 }

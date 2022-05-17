@@ -5,23 +5,20 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // List returns a list of container identifiers belonging
-// to the specified owner of NeoFS system. The list is composed
+// to the specified user of NeoFS system. The list is composed
 // through Container contract call.
 //
 // Returns the identifiers of all NeoFS containers if pointer
-// to owner identifier is nil.
-func (c *Client) List(ownerID *owner.ID) ([]*cid.ID, error) {
+// to user identifier is nil.
+func (c *Client) List(idUser *user.ID) ([]*cid.ID, error) {
 	var rawID []byte
-	if ownerID == nil {
-		rawID = []byte{}
-	} else if v2 := ownerID.ToV2(); v2 == nil {
-		return nil, errUnsupported // use other major version if there any
-	} else {
-		rawID = v2.GetValue()
+
+	if idUser != nil {
+		rawID = idUser.WalletBytes()
 	}
 
 	prm := client.TestInvokePrm{}

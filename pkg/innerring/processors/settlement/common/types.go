@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // NodeInfo groups the data about the storage node
@@ -21,7 +21,7 @@ type NodeInfo interface {
 // necessary for calculating audit fee.
 type ContainerInfo interface {
 	// Must return identifier of the container owner.
-	Owner() *owner.ID
+	Owner() *user.ID
 }
 
 // ContainerStorage is an interface of
@@ -42,7 +42,7 @@ type PlacementCalculator interface {
 type AccountStorage interface {
 	// Must resolve information about the storage node
 	// to its ID in system.
-	ResolveKey(NodeInfo) (*owner.ID, error)
+	ResolveKey(NodeInfo) (*user.ID, error)
 }
 
 // Exchanger is an interface of monetary component.
@@ -50,5 +50,5 @@ type Exchanger interface {
 	// Must transfer amount of GASe-12 from sender to recipient.
 	//
 	// Amount must be positive.
-	Transfer(sender, recipient *owner.ID, amount *big.Int, details []byte)
+	Transfer(sender, recipient *user.ID, amount *big.Int, details []byte)
 }

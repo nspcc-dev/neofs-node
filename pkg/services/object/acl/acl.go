@@ -16,7 +16,7 @@ import (
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // CheckerPrm groups parameters for Checker
@@ -112,7 +112,7 @@ func (c *Checker) CheckBasicACL(info v2.RequestInfo) bool {
 }
 
 // StickyBitCheck validates owner field in the request if sticky bit is enabled.
-func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner *owner.ID) bool {
+func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner *user.ID) bool {
 	// According to NeoFS specification sticky bit has no effect on system nodes
 	// for correct intra-container work with objects (in particular, replication).
 	if info.RequestRole() == eaclSDK.RoleSystem {
@@ -211,6 +211,11 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 // entity. This method might be defined on whole ACL service because it will
 // require fetching current epoch to check lifetime.
 func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
+	ownerCnr := reqInfo.ContainerOwner()
+	if ownerCnr == nil {
+		return errors.New("missing container owner")
+	}
+
 	token := reqInfo.Bearer()
 
 	// 0. Check if bearer token is present in reqInfo.
@@ -234,7 +239,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 		panic("unexpected false return from Issuer method on signed bearer token")
 	}
 
-	if !issuer.Equal(reqInfo.ContainerOwner()) {
+	if !issuer.Equals(*ownerCnr) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
@@ -260,12 +265,15 @@ func isValidLifetime(t *bearerSDK.Token, epoch uint64) bool {
 	return epoch >= t.NotBefore() && epoch <= t.Expiration()
 }
 
-func isOwnerFromKey(id *owner.ID, key *keys.PublicKey) bool {
+func isOwnerFromKey(id *user.ID, key *keys.PublicKey) bool {
 	if id == nil || key == nil {
 		return false
 	}
 
-	return id.Equal(owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)))
+	var id2 user.ID
+	user.IDFromKey(&id2, (ecdsa.PublicKey)(*key))
+
+	return id.Equals(id2)
 }
 
 func unmarshalPublicKey(bs []byte) *keys.PublicKey {

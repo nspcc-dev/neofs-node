@@ -14,8 +14,8 @@ import (
 	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 var errMissingContainerID = errors.New("missing container ID")
@@ -113,27 +113,6 @@ func getObjectIDFromRequestBody(body interface{}) (*oidSDK.ID, error) {
 	return &id, nil
 }
 
-func getObjectOwnerFromMessage(req interface{}) (id *owner.ID, err error) {
-	switch v := req.(type) {
-	case *objectV2.PutRequest:
-		objPart := v.GetBody().GetObjectPart()
-		if part, ok := objPart.(*objectV2.PutObjectPartInit); ok {
-			return owner.NewIDFromV2(part.GetHeader().GetOwnerID()), nil
-		}
-
-		return nil, errors.New("can't get container ID in chunk")
-	case *objectV2.GetResponse:
-		objPart := v.GetBody().GetObjectPart()
-		if part, ok := objPart.(*objectV2.GetObjectPartInit); ok {
-			return owner.NewIDFromV2(part.GetHeader().GetOwnerID()), nil
-		}
-
-		return nil, errors.New("can't get container ID in chunk")
-	default:
-		return nil, errors.New("unsupported request type")
-	}
-}
-
 // sourceVerbOfRequest looks for verb in session token and if it is not found,
 // returns reqVerb. Second return value is true if operation is unknown.
 func sourceVerbOfRequest(tok *sessionSDK.Token, reqVerb eaclSDK.Operation) (eaclSDK.Operation, bool) {
@@ -185,7 +164,7 @@ func tokenVerbToOperation(ctx *sessionSDK.ObjectContext) eaclSDK.Operation {
 	}
 }
 
-func ownerFromToken(token *sessionSDK.Token) (*owner.ID, *keys.PublicKey, error) {
+func ownerFromToken(token *sessionSDK.Token) (*user.ID, *keys.PublicKey, error) {
 	// 1. First check signature of session token.
 	if !token.VerifySignature() {
 		return nil, nil, fmt.Errorf("%w: invalid session token signature", ErrMalformedRequest)
@@ -195,7 +174,11 @@ func ownerFromToken(token *sessionSDK.Token) (*owner.ID, *keys.PublicKey, error)
 	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
 	tokV2 := token.ToV2()
 
-	tokenIssuerKey := unmarshalPublicKey(tokV2.GetSignature().GetKey())
+	tokenIssuerKey, err := unmarshalPublicKey(tokV2.GetSignature().GetKey())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid key in session token signature: %w", err)
+	}
+
 	tokenOwner := token.OwnerID()
 
 	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
@@ -218,20 +201,19 @@ func originalBodySignature(v *sessionV2.RequestVerificationHeader) *refsV2.Signa
 	return v.GetBodySignature()
 }
 
-func unmarshalPublicKey(bs []byte) *keys.PublicKey {
-	pub, err := keys.NewPublicKeyFromBytes(bs, elliptic.P256())
-	if err != nil {
-		return nil
-	}
-	return pub
+func unmarshalPublicKey(bs []byte) (*keys.PublicKey, error) {
+	return keys.NewPublicKeyFromBytes(bs, elliptic.P256())
 }
 
-func isOwnerFromKey(id *owner.ID, key *keys.PublicKey) bool {
+func isOwnerFromKey(id *user.ID, key *keys.PublicKey) bool {
 	if id == nil || key == nil {
 		return false
 	}
 
-	return id.Equal(owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key)))
+	var id2 user.ID
+	user.IDFromKey(&id2, (ecdsa.PublicKey)(*key))
+
+	return id2.Equals(*id)
 }
 
 // isVerbCompatible checks that tokenVerb operation can create auxiliary op operation.

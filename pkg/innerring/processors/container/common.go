@@ -10,8 +10,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 )
 
 type ownerIDSource interface {
-	OwnerID() *owner.ID
+	OwnerID() *user.ID
 }
 
 func tokenFromEvent(src interface {
@@ -52,7 +52,15 @@ func (cp *Processor) checkKeyOwnership(ownerIDSrc ownerIDSource, key *keys.Publi
 		}
 	}
 
-	if ownerIDSrc.OwnerID().Equal(owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key))) {
+	ownerSrc := ownerIDSrc.OwnerID()
+	if ownerSrc == nil {
+		return errors.New("missing owner")
+	}
+
+	var ownerKey user.ID
+	user.IDFromKey(&ownerKey, (ecdsa.PublicKey)(*key))
+
+	if ownerSrc.Equals(ownerKey) {
 		return nil
 	}
 
@@ -82,8 +90,10 @@ func (cp *Processor) checkKeyOwnershipWithToken(ownerIDSrc ownerIDSource, key *k
 		return errors.New("signed with a non-session key")
 	}
 
+	ownerToken, ownerSrc := token.OwnerID(), ownerIDSrc.OwnerID()
+
 	// check owner
-	if !token.OwnerID().Equal(ownerIDSrc.OwnerID()) {
+	if ownerToken == nil || ownerSrc == nil || !ownerToken.Equals(*ownerSrc) {
 		return errors.New("owner differs with token owner")
 	}
 

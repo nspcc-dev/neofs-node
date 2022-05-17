@@ -14,9 +14,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -217,7 +217,8 @@ var cmdSubnetCreate = &cobra.Command{
 		}
 
 		// declare creator ID and encode it
-		creator := *owner.NewIDFromPublicKey(&key.PrivateKey.PublicKey)
+		var creator user.ID
+		user.IDFromKey(&creator, key.PrivateKey.PublicKey)
 
 		// fill subnet info and encode it
 		var info subnet.Info
@@ -393,7 +394,7 @@ var cmdSubnetGet = &cobra.Command{
 		}
 
 		// print information
-		var ownerID owner.ID
+		var ownerID user.ID
 
 		info.ReadOwner(&ownerID)
 
@@ -607,16 +608,11 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 	}
 
 	// read client ID and encode it
-	var clientID owner.ID
+	var clientID user.ID
 
-	err = clientID.Parse(viper.GetString(flagSubnetClientID))
+	err = clientID.DecodeString(viper.GetString(flagSubnetClientID))
 	if err != nil {
 		return fmt.Errorf("decode client ID text: %w", err)
-	}
-
-	binClientID, err := clientID.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal client ID: %w", err)
 	}
 
 	// read group ID and encode it
@@ -636,7 +632,7 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 
 	prm.SetGroup(binGroupID)
 	prm.SetSubnet(binID)
-	prm.SetClient(binClientID)
+	prm.SetClient(clientID.WalletBytes())
 
 	if rm {
 		prm.SetRemove()

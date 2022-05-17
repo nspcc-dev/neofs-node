@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 )
@@ -15,7 +15,7 @@ import (
 type put struct {
 	idEvent
 
-	creator owner.ID
+	creator user.ID
 
 	creatorErr error
 
@@ -24,7 +24,7 @@ type put struct {
 	infoErr error
 }
 
-func (x put) ReadCreator(id *owner.ID) error {
+func (x put) ReadCreator(id *user.ID) error {
 	if x.creatorErr != nil {
 		return x.creatorErr
 	}
@@ -99,9 +99,7 @@ func TestPutValidator_Assert(t *testing.T) {
 	e.info.SetID(e.id)
 
 	// diff explicit creator and the one in info
-	var creator2 owner.ID
-
-	creator2 = *ownertest.ID()
+	creator2 := *usertest.ID()
 
 	e.info.SetOwner(creator2)
 

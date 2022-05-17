@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 )
 
 var (
@@ -28,8 +27,8 @@ func CheckFormat(c *container.Container) error {
 		return fmt.Errorf("incorrect version %s", v)
 	}
 
-	if ln := len(c.OwnerID().ToV2().GetValue()); ln != owner.NEO3WalletSize {
-		return fmt.Errorf("incorrect owner identifier: expected length %d != %d", owner.NEO3WalletSize, ln)
+	if c.OwnerID() == nil {
+		return errors.New("missing owner")
 	}
 
 	if _, err := c.NonceUUID(); err != nil {

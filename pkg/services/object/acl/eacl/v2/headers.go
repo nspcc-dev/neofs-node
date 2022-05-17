@@ -13,7 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type Option func(*cfg)
@@ -216,7 +216,7 @@ func oidHeader(oid objectSDKID.ID) sysObjHdr {
 	}
 }
 
-func ownerIDHeader(ownerID *owner.ID) sysObjHdr {
+func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectOwnerID,
 		v: ownerID.String(),

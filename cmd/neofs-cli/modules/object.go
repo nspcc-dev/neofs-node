@@ -27,8 +27,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -335,7 +335,7 @@ func prepareSessionPrmWithOwner(
 	cmd *cobra.Command,
 	addr *addressSDK.Address,
 	key *ecdsa.PrivateKey,
-	ownerID *owner.ID,
+	ownerID *user.ID,
 	prms ...clientKeySession,
 ) {
 	cli, err := internalclient.GetSDKClientByFlag(key, commonflags.RPC)
@@ -739,8 +739,11 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	}
 }
 
-func getOwnerID(key *ecdsa.PrivateKey) (*owner.ID, error) {
-	return owner.NewIDFromPublicKey(&key.PublicKey), nil
+func getOwnerID(key *ecdsa.PrivateKey) (*user.ID, error) {
+	var res user.ID
+	user.IDFromKey(&res, key.PublicKey)
+
+	return &res, nil
 }
 
 var searchUnaryOpVocabulary = map[string]object.SearchMatchType{

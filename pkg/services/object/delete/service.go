@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +30,7 @@ type NetworkInfo interface {
 
 	// Returns user ID of the local storage node. Result must not be nil.
 	// New tombstone objects will have the result as an owner ID if removal is executed w/o a session.
-	LocalNodeID() *owner.ID
+	LocalNodeID() *user.ID
 }
 
 type cfg struct {
