@@ -80,8 +80,8 @@ func initApp(c *cfg) {
 	initAndLog(c, "object", initObjectService)
 	initAndLog(c, "pprof", initProfiler)
 	initAndLog(c, "prometheus", initMetrics)
-	initAndLog(c, "control", initControlService)
 	initAndLog(c, "tree", initTreeService)
+	initAndLog(c, "control", initControlService)
 
 	initAndLog(c, "storage engine", func(c *cfg) {
 		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
