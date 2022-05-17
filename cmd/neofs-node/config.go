@@ -45,7 +45,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
@@ -77,7 +77,7 @@ type cfg struct {
 
 	key *keys.PrivateKey
 
-	ownerIDFromKey *owner.ID // owner ID calculated from key
+	ownerIDFromKey user.ID // user ID calculated from key
 
 	apiVersion version.Version
 
@@ -234,8 +234,6 @@ func initCfg(path string) *cfg {
 
 	key := nodeconfig.Key(appCfg)
 
-	ownerIDFromKey := owner.NewIDFromPublicKey(&key.PrivateKey.PublicKey)
-
 	var logPrm logger.Prm
 
 	err := logPrm.SetLevelString(
@@ -316,9 +314,9 @@ func initCfg(path string) *cfg {
 			Key:         &key.PrivateKey,
 		}),
 		persistate: persistate,
-
-		ownerIDFromKey: ownerIDFromKey,
 	}
+
+	user.IDFromKey(&c.ownerIDFromKey, key.PrivateKey.PublicKey)
 
 	if metricsconfig.Address(c.appCfg) != "" {
 		c.metricsCollector = metrics.NewStorageMetrics()

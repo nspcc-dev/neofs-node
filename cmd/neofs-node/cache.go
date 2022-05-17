@@ -12,7 +12,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type netValueReader func(interface{}) (interface{}, error)
@@ -248,14 +248,14 @@ func newCachedContainerLister(c *cntClient.Client) *ttlContainerLister {
 
 	lruCnrListerCache := newNetworkTTLCache(containerListerCacheSize, containerListerCacheTTL, func(key interface{}) (interface{}, error) {
 		var (
-			id    *owner.ID
+			id    *user.ID
 			strID = key.(string)
 		)
 
 		if strID != "" {
-			id = owner.NewID()
+			id = new(user.ID)
 
-			err := id.Parse(strID)
+			err := id.DecodeString(strID)
 			if err != nil {
 				return nil, err
 			}
@@ -270,7 +270,7 @@ func newCachedContainerLister(c *cntClient.Client) *ttlContainerLister {
 // List returns list of container IDs from the cache. If list is missing in the
 // cache or expired, then it returns container IDs from side chain and updates
 // the cache.
-func (s *ttlContainerLister) List(id *owner.ID) ([]*cid.ID, error) {
+func (s *ttlContainerLister) List(id *user.ID) ([]*cid.ID, error) {
 	var str string
 
 	if id != nil {
@@ -286,7 +286,7 @@ func (s *ttlContainerLister) List(id *owner.ID) ([]*cid.ID, error) {
 }
 
 // InvalidateContainerList removes cached list of container IDs.
-func (s *ttlContainerLister) InvalidateContainerList(id *owner.ID) {
+func (s *ttlContainerLister) InvalidateContainerList(id *user.ID) {
 	(*ttlNetCache)(s).remove(id.String())
 }
 

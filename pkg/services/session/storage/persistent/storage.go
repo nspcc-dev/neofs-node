@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
-	ownerSDK "github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -83,16 +83,11 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 // Get returns private token corresponding to the given identifiers.
 //
 // Returns nil is there is no element in storage.
-func (s *TokenStore) Get(ownerID *ownerSDK.ID, tokenID []byte) (t *storage.PrivateToken) {
-	ownerBytes, err := ownerID.Marshal()
-	if err != nil {
-		panic(err)
-	}
-
-	err = s.db.View(func(tx *bbolt.Tx) error {
+func (s *TokenStore) Get(ownerID *user.ID, tokenID []byte) (t *storage.PrivateToken) {
+	err := s.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		ownerBucket := rootBucket.Bucket(ownerBytes)
+		ownerBucket := rootBucket.Bucket(ownerID.WalletBytes())
 		if ownerBucket == nil {
 			return nil
 		}
@@ -101,6 +96,8 @@ func (s *TokenStore) Get(ownerID *ownerSDK.ID, tokenID []byte) (t *storage.Priva
 		if rawToken == nil {
 			return nil
 		}
+
+		var err error
 
 		t, err = s.unpackToken(rawToken)
 		if err != nil {

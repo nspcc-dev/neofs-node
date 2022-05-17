@@ -25,8 +25,8 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -93,7 +93,7 @@ func (n nodeInfoWrapper) Price() *big.Int {
 	return big.NewInt(int64(n.ni.Price))
 }
 
-func (c *containerWrapper) Owner() *owner.ID {
+func (c *containerWrapper) Owner() *user.ID {
 	return (*containerAPI.Container)(c).OwnerID()
 }
 
@@ -201,16 +201,19 @@ func (s settlementDeps) SGInfo(addr *addressSDK.Address) (audit.SGInfo, error) {
 	return (*sgWrapper)(sg), nil
 }
 
-func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
+func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*user.ID, error) {
 	pub, err := keys.NewPublicKeyFromBytes(ni.PublicKey(), elliptic.P256())
 	if err != nil {
 		return nil, err
 	}
 
-	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(pub)), nil
+	var id user.ID
+	user.IDFromKey(&id, (ecdsa.PublicKey)(*pub))
+
+	return &id, nil
 }
 
-func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {
+func (s settlementDeps) Transfer(sender, recipient *user.ID, amount *big.Int, details []byte) {
 	if s.settlementCtx == "" {
 		panic("unknown settlement deps context")
 	}
@@ -275,7 +278,7 @@ func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*containerClient
 	return result, nil
 }
 
-func (b basicIncomeSettlementDeps) Balance(id *owner.ID) (*big.Int, error) {
+func (b basicIncomeSettlementDeps) Balance(id *user.ID) (*big.Int, error) {
 	return b.balanceClient.BalanceOf(id)
 }
 
@@ -296,5 +299,5 @@ func (b *basicSettlementConstructor) CreateContext(epoch uint64) (*basic.IncomeS
 		Placement:   b.dep,
 		Exchange:    b.dep,
 		Accounts:    b.dep,
-	})
+	}), nil
 }

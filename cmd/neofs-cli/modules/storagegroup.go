@@ -13,8 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	storagegroupAPI "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -140,7 +140,7 @@ func init() {
 type sgHeadReceiver struct {
 	cmd     *cobra.Command
 	key     *ecdsa.PrivateKey
-	ownerID *owner.ID
+	ownerID *user.ID
 	prm     internalclient.HeadObjectPrm
 }
 

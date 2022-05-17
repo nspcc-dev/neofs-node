@@ -7,10 +7,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,13 +64,19 @@ func generateToken(t *testing.T) *session.Token {
 	tok := session.NewToken()
 	tok.SetSessionKey(pubKey)
 	tok.SetID(id)
+	tok.SetOwnerID(usertest.ID())
 
 	return tok
 }
 
 func createToken(t *testing.T, store *tokenStorage.TokenStore, exp uint64) *session.Token {
+	owner := usertest.ID()
+
+	var ownerV2 refs.OwnerID
+	owner.WriteToV2(&ownerV2)
+
 	req := new(sessionV2.CreateRequestBody)
-	req.SetOwnerID(nil)
+	req.SetOwnerID(&ownerV2)
 	req.SetExpiration(exp)
 
 	resp, err := store.Create(context.Background(), req)
@@ -77,6 +85,7 @@ func createToken(t *testing.T, store *tokenStorage.TokenStore, exp uint64) *sess
 	tok := session.NewToken()
 	tok.SetSessionKey(resp.GetSessionKey())
 	tok.SetID(resp.GetID())
+	tok.SetOwnerID(owner)
 
 	return tok
 }

@@ -14,7 +14,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -323,11 +323,14 @@ func (c *singleResultCtx) auditEpoch() uint64 {
 	return c.eAudit
 }
 
-func ownerFromKey(key []byte) (*owner.ID, error) {
+func ownerFromKey(key []byte) (*user.ID, error) {
 	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
 		return nil, err
 	}
 
-	return owner.NewIDFromPublicKey((*ecdsa.PublicKey)(pubKey)), nil
+	var id user.ID
+	user.IDFromKey(&id, (ecdsa.PublicKey)(*pubKey))
+
+	return &id, nil
 }

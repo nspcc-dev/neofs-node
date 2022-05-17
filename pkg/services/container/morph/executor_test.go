@@ -14,11 +14,12 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/stretchr/testify/require"
 )
 
-type mock struct{}
+type mock struct {
+	containerSvcMorph.Reader
+}
 
 func (m mock) Put(_ *containerSDK.Container) (*cid.ID, error) {
 	return new(cid.ID), nil
@@ -30,18 +31,6 @@ func (m mock) Delete(_ containerCore.RemovalWitness) error {
 
 func (m mock) PutEACL(_ *eacl.Table) error {
 	return nil
-}
-
-func (m mock) Get(_ *cid.ID) (*containerSDK.Container, error) {
-	panic("implement me")
-}
-
-func (m mock) GetEACL(_ *cid.ID) (*eacl.Table, error) {
-	panic("implement me")
-}
-
-func (m mock) List(_ *owner.ID) ([]*cid.ID, error) {
-	panic("implement me")
 }
 
 func TestInvalidToken(t *testing.T) {

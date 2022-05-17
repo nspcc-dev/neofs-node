@@ -14,8 +14,8 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type morphExecutor struct {
@@ -29,9 +29,9 @@ type Reader interface {
 	eacl.Source
 
 	// List returns a list of container identifiers belonging
-	// to the specified owner of NeoFS system. Returns the identifiers
+	// to the specified user of NeoFS system. Returns the identifiers
 	// of all NeoFS containers if pointer to owner identifier is nil.
-	List(*owner.ID) ([]*cid.ID, error)
+	List(*user.ID) ([]*cid.ID, error)
 }
 
 // Writer is an interface of container storage updater.
@@ -158,9 +158,19 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 }
 
 func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBody) (*container.ListResponseBody, error) {
-	oid := owner.NewIDFromV2(body.GetOwnerID())
+	idV2 := body.GetOwnerID()
+	if idV2 == nil {
+		return nil, fmt.Errorf("missing user ID")
+	}
 
-	cnrs, err := s.rdr.List(oid)
+	var id user.ID
+
+	err := id.ReadFromV2(*idV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	cnrs, err := s.rdr.List(&id)
 	if err != nil {
 		return nil, err
 	}

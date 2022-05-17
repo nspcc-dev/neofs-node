@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 )
@@ -27,9 +27,10 @@ func TestCheckFormat(t *testing.T) {
 
 	require.Error(t, CheckFormat(c))
 
-	oid := owner.NewIDFromPublicKey(&test.DecodeKey(-1).PublicKey)
+	var oid user.ID
+	user.IDFromKey(&oid, test.DecodeKey(-1).PublicKey)
 
-	c.SetOwnerID(oid)
+	c.SetOwnerID(&oid)
 
 	// set incorrect nonce
 	cV2 := c.ToV2()

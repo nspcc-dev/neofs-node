@@ -12,14 +12,12 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
@@ -77,7 +75,8 @@ func generateObject(t *testing.T) *object.Object {
 }
 
 func generateObjectWithCID(t *testing.T, cnr cid.ID) *object.Object {
-	data := owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)
+	data := make([]byte, 32)
+	rand.Read(data)
 	return generateObjectWithPayload(cnr, data)
 }
 
@@ -94,7 +93,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
-	obj.SetOwnerID(ownertest.ID())
+	obj.SetOwnerID(usertest.ID())
 	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayload(data)

@@ -5,14 +5,14 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // TransferPrm groups parameters of TransferX method.
 type TransferPrm struct {
 	Amount int64
 
-	From, To *owner.ID
+	From, To *user.ID
 
 	Details []byte
 
@@ -24,12 +24,12 @@ type TransferPrm struct {
 //
 // If TryNotary is provided, calls notary contract.
 func (c *Client) TransferX(p TransferPrm) error {
-	from, err := address.StringToUint160(p.From.String())
+	from, err := address.StringToUint160(p.From.EncodeToString())
 	if err != nil {
 		return err
 	}
 
-	to, err := address.StringToUint160(p.To.String())
+	to, err := address.StringToUint160(p.To.EncodeToString())
 	if err != nil {
 		return err
 	}

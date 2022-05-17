@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,18 +24,16 @@ var accountingBalanceCmd = &cobra.Command{
 	Short: "Get internal balance of NeoFS account",
 	Long:  `Get internal balance of NeoFS account`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var oid *owner.ID
+		var oid user.ID
 
 		pk, err := key.GetOrGenerate()
 		common.ExitOnErr(cmd, "", err)
 
 		balanceOwner, _ := cmd.Flags().GetString(ownerFlag)
 		if balanceOwner == "" {
-			oid = owner.NewIDFromPublicKey(&pk.PublicKey)
+			user.IDFromKey(&oid, pk.PublicKey)
 		} else {
-			oid := owner.NewID()
-			err := oid.Parse(balanceOwner)
-			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", err)
+			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", oid.DecodeString(balanceOwner))
 		}
 
 		cli, err := internalclient.GetSDKClientByFlag(pk, commonflags.RPC)
@@ -43,7 +41,7 @@ var accountingBalanceCmd = &cobra.Command{
 
 		var prm internalclient.BalanceOfPrm
 		prm.SetClient(cli)
-		prm.SetAccount(*oid)
+		prm.SetAccount(oid)
 
 		res, err := internalclient.BalanceOf(prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)

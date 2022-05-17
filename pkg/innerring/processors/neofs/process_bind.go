@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -84,8 +84,11 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 		return
 	}
 
+	var id user.ID
+	id.SetScriptHash(u160)
+
 	prm := neofsid.CommonBindPrm{}
-	prm.SetOwnerID(owner.ScriptHashToIDBytes(u160))
+	prm.SetOwnerID(id.WalletBytes())
 	prm.SetKeys(e.Keys())
 	prm.SetHash(e.bindCommon.TxHash())
 

@@ -2,19 +2,27 @@ package temporary
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
-	ownerBytes, err := owner.NewIDFromV2(body.GetOwnerID()).Marshal()
+	idV2 := body.GetOwnerID()
+	if idV2 == nil {
+		return nil, errors.New("missing owner")
+	}
+
+	var id user.ID
+
+	err := id.ReadFromV2(*idV2)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("invalid owner: %w", err)
 	}
 
 	uidBytes, err := storage.NewTokenID()
@@ -30,7 +38,7 @@ func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody
 	s.mtx.Lock()
 	s.tokens[key{
 		tokenID: base58.Encode(uidBytes),
-		ownerID: base58.Encode(ownerBytes),
+		ownerID: base58.Encode(id.WalletBytes()),
 	}] = storage.NewPrivateToken(&sk.PrivateKey, body.GetExpiration())
 	s.mtx.Unlock()
 

@@ -17,7 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -96,8 +96,9 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	}
 
 	ownerStr, _ := cmd.Flags().GetString(ownerFlag)
-	ownerID := owner.NewID()
-	if err := ownerID.Parse(ownerStr); err != nil {
+
+	var ownerID user.ID
+	if err := ownerID.DecodeString(ownerStr); err != nil {
 		return fmt.Errorf("can't parse recipient: %w", err)
 	}
 
@@ -105,7 +106,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	b.SetExpiration(exp)
 	b.SetNotBefore(nvb)
 	b.SetIssuedAt(iat)
-	b.SetOwnerID(*ownerID)
+	b.SetOwnerID(ownerID)
 
 	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
 	if eaclPath != "" {

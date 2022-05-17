@@ -9,8 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -69,8 +69,10 @@ func createSession(cmd *cobra.Command, _ []string) error {
 		lifetime = lfArg
 	}
 
-	ownerID := owner.NewIDFromPublicKey(&privKey.PublicKey)
-	tok, err := CreateSession(c, ownerID, lifetime)
+	var ownerID user.ID
+	user.IDFromKey(&ownerID, privKey.PublicKey)
+
+	tok, err := CreateSession(c, &ownerID, lifetime)
 	if err != nil {
 		return err
 	}
@@ -95,7 +97,7 @@ func createSession(cmd *cobra.Command, _ []string) error {
 
 // CreateSession returns newly created session token with the specified owner and lifetime.
 // `Issued-At` and `Not-Valid-Before` fields are set to current epoch.
-func CreateSession(c *client.Client, owner *owner.ID, lifetime uint64) (*session.Token, error) {
+func CreateSession(c *client.Client, owner *user.ID, lifetime uint64) (*session.Token, error) {
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(c)
 

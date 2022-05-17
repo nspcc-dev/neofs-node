@@ -43,7 +43,7 @@ import (
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -124,8 +124,8 @@ func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
 // returns node owner ID calculated from configured private key.
 //
 // Implements method needed for Object.Delete service.
-func (i *delNetInfo) LocalNodeID() *owner.ID {
-	return i.cfg.ownerIDFromKey
+func (i *delNetInfo) LocalNodeID() *user.ID {
+	return &i.cfg.ownerIDFromKey
 }
 
 type innerRingFetcherWithNotary struct {

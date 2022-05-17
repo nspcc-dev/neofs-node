@@ -38,8 +38,6 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 
 		res = append(res,
 			cidHeader(cnr),
-			// owner ID
-			ownerIDHeader(obj.OwnerID()),
 			// creation epoch
 			sysObjHdr{
 				k: acl.FilterObjectCreationEpoch,
@@ -62,6 +60,10 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 				v: obj.Type().String(),
 			},
 		)
+
+		if idOwner := obj.OwnerID(); idOwner != nil {
+			res = append(res, ownerIDHeader(*idOwner))
+		}
 
 		cs, ok := obj.PayloadChecksum()
 		if ok {

@@ -3,7 +3,7 @@ package common
 import (
 	"math/big"
 
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type TransferTable struct {
@@ -11,7 +11,7 @@ type TransferTable struct {
 }
 
 type TransferTx struct {
-	From, To *owner.ID
+	From, To *user.ID
 
 	Amount *big.Int
 }
@@ -23,7 +23,7 @@ func NewTransferTable() *TransferTable {
 }
 
 func (t *TransferTable) Transfer(tx *TransferTx) {
-	if tx.From.Equal(tx.To) {
+	if tx.From.Equals(*tx.To) {
 		return
 	}
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type key struct {
@@ -36,16 +36,11 @@ func NewTokenStore() *TokenStore {
 // Get returns private token corresponding to the given identifiers.
 //
 // Returns nil is there is no element in storage.
-func (s *TokenStore) Get(ownerID *owner.ID, tokenID []byte) *storage.PrivateToken {
-	ownerBytes, err := ownerID.Marshal()
-	if err != nil {
-		panic(err)
-	}
-
+func (s *TokenStore) Get(ownerID *user.ID, tokenID []byte) *storage.PrivateToken {
 	s.mtx.RLock()
 	t := s.tokens[key{
 		tokenID: base58.Encode(tokenID),
-		ownerID: base58.Encode(ownerBytes),
+		ownerID: base58.Encode(ownerID.WalletBytes()),
 	}]
 	s.mtx.RUnlock()
 

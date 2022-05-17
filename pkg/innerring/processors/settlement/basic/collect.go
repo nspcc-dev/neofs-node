@@ -65,7 +65,7 @@ func (inc *IncomeSettlementContext) Collect() {
 
 		txTable.Transfer(&common.TransferTx{
 			From:   owner.Owner(),
-			To:     inc.bankOwner,
+			To:     &inc.bankOwner,
 			Amount: total,
 		})
 	}

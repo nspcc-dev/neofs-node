@@ -23,10 +23,10 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
@@ -114,22 +114,21 @@ var listContainersCmd = &cobra.Command{
 	Short: "List all created containers",
 	Long:  "List all created containers",
 	Run: func(cmd *cobra.Command, args []string) {
-		var oid *owner.ID
+		var idUser user.ID
 
 		key, err := getKey()
 		common.ExitOnErr(cmd, "", err)
 
 		if containerOwner == "" {
-			oid = owner.NewIDFromPublicKey(&key.PublicKey)
+			user.IDFromKey(&idUser, key.PublicKey)
 		} else {
-			oid, err = ownerFromString(containerOwner)
-			common.ExitOnErr(cmd, "", err)
+			common.ExitOnErr(cmd, "", userFromString(&idUser, containerOwner))
 		}
 
 		var prm internalclient.ListContainersPrm
 
 		prepareAPIClientWithKey(cmd, key, &prm)
-		prm.SetAccount(*oid)
+		prm.SetAccount(idUser)
 
 		res, err := internalclient.ListContainers(prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
@@ -168,10 +167,11 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		key, err := getKey()
 		common.ExitOnErr(cmd, "", err)
 
-		var idOwner *owner.ID
+		var idOwner *user.ID
 
 		if idOwner = tok.OwnerID(); idOwner == nil {
-			idOwner = owner.NewIDFromPublicKey(&key.PublicKey)
+			idOwner = new(user.ID)
+			user.IDFromKey(idOwner, key.PublicKey)
 		}
 
 		ver := versionSDK.Current()

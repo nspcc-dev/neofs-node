@@ -1,7 +1,7 @@
 package v2
 
 import (
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // ACLChecker is an interface that must provide
@@ -16,7 +16,7 @@ type ACLChecker interface {
 	// StickyBitCheck must return true only if sticky bit
 	// is disabled or enabled but request contains correct
 	// owner field.
-	StickyBitCheck(RequestInfo, *owner.ID) bool
+	StickyBitCheck(RequestInfo, *user.ID) bool
 }
 
 // InnerRingFetcher is an interface that must provide

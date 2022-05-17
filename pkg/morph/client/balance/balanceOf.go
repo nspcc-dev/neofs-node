@@ -6,13 +6,13 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // BalanceOf receives the amount of funds in the client's account
 // through the Balance contract call, and returns it.
-func (c *Client) BalanceOf(id *owner.ID) (*big.Int, error) {
-	h, err := address.StringToUint160(id.String())
+func (c *Client) BalanceOf(id *user.ID) (*big.Int, error) {
+	h, err := address.StringToUint160(id.EncodeToString())
 	if err != nil {
 		return nil, err
 	}

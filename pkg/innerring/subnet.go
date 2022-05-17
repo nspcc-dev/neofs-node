@@ -17,9 +17,9 @@ import (
 	subnetevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -199,7 +199,7 @@ var errMissingSubnetOwner = errors.New("missing subnet owner")
 
 // ReadCreator unmarshals the subnet creator from a binary NeoFS API protocol's format.
 // Returns an error if the byte array is empty.
-func (x putSubnetEvent) ReadCreator(id *owner.ID) error {
+func (x putSubnetEvent) ReadCreator(id *user.ID) error {
 	data := x.ev.Owner()
 
 	if len(data) == 0 {
@@ -211,8 +211,7 @@ func (x putSubnetEvent) ReadCreator(id *owner.ID) error {
 		return err
 	}
 
-	// it would be better if we could do it not like this
-	*id = *owner.NewIDFromPublicKey((*ecdsa.PublicKey)(key))
+	user.IDFromKey(id, (ecdsa.PublicKey)(*key))
 
 	return nil
 }

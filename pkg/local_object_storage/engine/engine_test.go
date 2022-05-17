@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,15 +9,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
-	ownertest "github.com/nspcc-dev/neofs-sdk-go/owner/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
@@ -141,15 +139,14 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	ver.SetMajor(2)
 	ver.SetMinor(1)
 
-	var csum checksum.Checksum
-	csum.SetSHA256(sha256.Sum256(owner.PublicKeyToIDBytes(&test.DecodeKey(-1).PublicKey)))
+	csum := checksumtest.Checksum()
 
 	var csumTZ checksum.Checksum
 	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
-	obj.SetOwnerID(ownertest.ID())
+	obj.SetOwnerID(usertest.ID())
 	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)

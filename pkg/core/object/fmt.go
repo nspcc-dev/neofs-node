@@ -16,8 +16,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // FormatValidator represents an object format validator.
@@ -102,10 +102,6 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilCID
 	}
 
-	if err := v.checkOwner(obj); err != nil {
-		return err
-	}
-
 	if err := v.checkAttributes(obj); err != nil {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
@@ -155,15 +151,16 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	return nil
 }
 
-func (v *FormatValidator) checkOwnerKey(id *owner.ID, key []byte) error {
+func (v *FormatValidator) checkOwnerKey(id *user.ID, key []byte) error {
 	pub, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
 		return err
 	}
 
-	id2 := owner.NewIDFromPublicKey((*ecdsa.PublicKey)(pub))
+	var id2 user.ID
+	user.IDFromKey(&id2, (ecdsa.PublicKey)(*pub))
 
-	if !id.Equal(id2) {
+	if !id.Equals(id2) {
 		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, id, id2)
 	}
 
@@ -334,8 +331,7 @@ func (v *FormatValidator) checkAttributes(obj *object.Object) error {
 var errIncorrectOwner = errors.New("incorrect object owner")
 
 func (v *FormatValidator) checkOwner(obj *object.Object) error {
-	// TODO: use an appropriate functionality after neofs-api-go#352
-	if len(obj.OwnerID().ToV2().GetValue()) != owner.NEO3WalletSize {
+	if idOwner := obj.OwnerID(); idOwner == nil || len(idOwner.WalletBytes()) == 0 {
 		return errIncorrectOwner
 	}
 
