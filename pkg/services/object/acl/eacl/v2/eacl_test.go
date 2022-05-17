@@ -103,31 +103,33 @@ func TestHeadRequest(t *testing.T) {
 		obj:     obj,
 	}
 
+	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
+		hdrSrc, err := NewMessageHeaderSource(
+			WithObjectStorage(lStorage),
+			WithServiceRequest(req),
+			WithAddress(addr))
+		require.NoError(t, err)
+		return hdrSrc
+	}
+
 	cnr, _ := addr.ContainerID()
 	unit := new(eaclSDK.ValidationUnit).
 		WithContainerID(&cnr).
 		WithOperation(eaclSDK.OperationHead).
 		WithSenderKey(senderKey.Bytes()).
-		WithHeaderSource(
-			NewMessageHeaderSource(
-				WithObjectStorage(lStorage),
-				WithServiceRequest(req),
-				WithAddress(addr),
-			),
-		).
 		WithEACLTable(table)
 
 	validator := eaclSDK.NewValidator()
 
-	require.Equal(t, eaclSDK.ActionDeny, validator.CalculateAction(unit))
+	require.Equal(t, eaclSDK.ActionDeny, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
 
 	meta.SetXHeaders(nil)
 
-	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit))
+	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
 
 	meta.SetXHeaders(xHdrs)
 
 	obj.SetAttributes()
 
-	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit))
+	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
 }
