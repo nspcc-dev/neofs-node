@@ -151,7 +151,7 @@ func getKey() (*ecdsa.PrivateKey, error) {
 }
 
 func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
-	return key.Get(viper.GetString(commonflags.WalletPath), viper.GetString(commonflags.Account))
+	return key.Get()
 }
 
 type clientWithKey interface {

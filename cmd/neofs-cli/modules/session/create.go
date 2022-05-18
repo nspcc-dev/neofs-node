@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -26,6 +27,10 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create session token",
 	RunE:  createSession,
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		_ = viper.BindPFlag(commonflags.WalletPath, cmd.Flags().Lookup(commonflags.WalletPath))
+		_ = viper.BindPFlag(commonflags.Account, cmd.Flags().Lookup(commonflags.Account))
+	},
 }
 
 func init() {
@@ -43,9 +48,7 @@ func init() {
 }
 
 func createSession(cmd *cobra.Command, _ []string) error {
-	walletPath, _ := cmd.Flags().GetString(commonflags.WalletPath)
-	accPath, _ := cmd.Flags().GetString(commonflags.Account)
-	privKey, err := key.Get(walletPath, accPath)
+	privKey, err := key.Get()
 	if err != nil {
 		return err
 	}
