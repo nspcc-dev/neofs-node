@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
@@ -58,7 +59,7 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 }
 
 func initControlDumpShardCmd() {
-	initCommonFlagsWithoutRPC(dumpShardCmd)
+	commonflags.InitWithoutRPC(dumpShardCmd)
 
 	flags := dumpShardCmd.Flags()
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)

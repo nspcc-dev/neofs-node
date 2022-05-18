@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -66,16 +67,16 @@ func Test_getKey(t *testing.T) {
 		in.WriteString("pass\r")
 		checkKey(t, wallPath, acc2.PrivateKey()) // default account
 
-		viper.Set(address, acc1.Address)
+		viper.Set(commonflags.Account, acc1.Address)
 		in.WriteString("pass\r")
 		checkKey(t, wallPath, acc1.PrivateKey())
 
-		viper.Set(address, "not an address")
+		viper.Set(commonflags.Account, "not an address")
 		checkKeyError(t, wallPath, key.ErrInvalidAddress)
 
 		acc, err := wallet.NewAccount()
 		require.NoError(t, err)
-		viper.Set(address, acc.Address)
+		viper.Set(commonflags.Account, acc.Address)
 		checkKeyError(t, wallPath, key.ErrInvalidAddress)
 	})
 
@@ -108,7 +109,7 @@ func Test_getKey(t *testing.T) {
 	})
 
 	t.Run("generate", func(t *testing.T) {
-		viper.Set(generateKey, true)
+		viper.Set(commonflags.GenerateKey, true)
 		actual, err := getKey()
 		require.NoError(t, err)
 		require.NotNil(t, actual)
@@ -119,13 +120,13 @@ func Test_getKey(t *testing.T) {
 }
 
 func checkKeyError(t *testing.T, desc string, err error) {
-	viper.Set(walletPath, desc)
+	viper.Set(commonflags.WalletPath, desc)
 	_, actualErr := getKey()
 	require.ErrorIs(t, actualErr, err)
 }
 
 func checkKey(t *testing.T, desc string, expected *keys.PrivateKey) {
-	viper.Set(walletPath, desc)
+	viper.Set(commonflags.WalletPath, desc)
 	actual, err := getKey()
 	require.NoError(t, err)
 	require.Equal(t, &expected.PrivateKey, actual)

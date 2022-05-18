@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
@@ -24,7 +25,7 @@ var storagegroupCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// bind exactly that cmd's flags to
 		// the viper before execution
-		bindCommonFlags(cmd)
+		commonflags.Bind(cmd)
 		bindAPIFlags(cmd)
 	},
 }
@@ -68,7 +69,7 @@ var (
 )
 
 func initSGPutCmd() {
-	initCommonFlags(sgPutCmd)
+	commonflags.Init(sgPutCmd)
 
 	flags := sgPutCmd.Flags()
 
@@ -80,7 +81,7 @@ func initSGPutCmd() {
 }
 
 func initSGGetCmd() {
-	initCommonFlags(sgGetCmd)
+	commonflags.Init(sgGetCmd)
 
 	flags := sgGetCmd.Flags()
 
@@ -92,14 +93,14 @@ func initSGGetCmd() {
 }
 
 func initSGListCmd() {
-	initCommonFlags(sgListCmd)
+	commonflags.Init(sgListCmd)
 
 	sgListCmd.Flags().String("cid", "", "Container ID")
 	_ = sgListCmd.MarkFlagRequired("cid")
 }
 
 func initSGDeleteCmd() {
-	initCommonFlags(sgDelCmd)
+	commonflags.Init(sgDelCmd)
 
 	flags := sgDelCmd.Flags()
 

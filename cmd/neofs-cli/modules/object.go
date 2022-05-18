@@ -18,6 +18,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -55,7 +56,7 @@ var (
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// bind exactly that cmd's flags to
 			// the viper before execution
-			bindCommonFlags(cmd)
+			commonflags.Bind(cmd)
 			bindAPIFlags(cmd)
 		},
 	}
@@ -135,7 +136,7 @@ const noProgressFlag = "no-progress"
 var putExpiredOn uint64
 
 func initObjectPutCmd() {
-	initCommonFlags(objectPutCmd)
+	commonflags.Init(objectPutCmd)
 
 	flags := objectPutCmd.Flags()
 
@@ -156,7 +157,7 @@ func initObjectPutCmd() {
 }
 
 func initObjectDeleteCmd() {
-	initCommonFlags(objectDelCmd)
+	commonflags.Init(objectDelCmd)
 
 	flags := objectDelCmd.Flags()
 
@@ -168,7 +169,7 @@ func initObjectDeleteCmd() {
 }
 
 func initObjectGetCmd() {
-	initCommonFlags(objectGetCmd)
+	commonflags.Init(objectGetCmd)
 
 	flags := objectGetCmd.Flags()
 
@@ -185,7 +186,7 @@ func initObjectGetCmd() {
 }
 
 func initObjectSearchCmd() {
-	initCommonFlags(objectSearchCmd)
+	commonflags.Init(objectSearchCmd)
 
 	flags := objectSearchCmd.Flags()
 
@@ -201,7 +202,7 @@ func initObjectSearchCmd() {
 }
 
 func initObjectHeadCmd() {
-	initCommonFlags(objectHeadCmd)
+	commonflags.Init(objectHeadCmd)
 
 	flags := objectHeadCmd.Flags()
 
@@ -219,7 +220,7 @@ func initObjectHeadCmd() {
 }
 
 func initObjectHashCmd() {
-	initCommonFlags(objectHashCmd)
+	commonflags.Init(objectHashCmd)
 
 	flags := objectHashCmd.Flags()
 
@@ -235,7 +236,7 @@ func initObjectHashCmd() {
 }
 
 func initObjectRangeCmd() {
-	initCommonFlags(objectRangeCmd)
+	commonflags.Init(objectRangeCmd)
 
 	flags := objectRangeCmd.Flags()
 

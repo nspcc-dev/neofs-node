@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -15,11 +16,8 @@ import (
 
 const (
 	lifetimeFlag = "lifetime"
-	walletFlag   = "wallet"
-	accountFlag  = "address"
 	outFlag      = "out"
 	jsonFlag     = "json"
-	rpcFlag      = "rpc-endpoint"
 )
 
 const defaultLifetime = 10
@@ -32,28 +30,28 @@ var createCmd = &cobra.Command{
 
 func init() {
 	createCmd.Flags().Uint64P(lifetimeFlag, "l", defaultLifetime, "number of epochs for token to stay valid")
-	createCmd.Flags().StringP(walletFlag, "w", "", "path to the wallet")
-	createCmd.Flags().StringP(accountFlag, "a", "", "account address")
+	createCmd.Flags().StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
+	createCmd.Flags().StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
 	createCmd.Flags().String(outFlag, "", "file to write session token to")
 	createCmd.Flags().Bool(jsonFlag, false, "output token in JSON")
-	createCmd.Flags().StringP(rpcFlag, "r", "", "rpc-endpoint")
+	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), lifetimeFlag)
-	_ = cobra.MarkFlagRequired(createCmd.Flags(), walletFlag)
+	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.WalletPath)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
-	_ = cobra.MarkFlagRequired(createCmd.Flags(), rpcFlag)
+	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.RPC)
 }
 
 func createSession(cmd *cobra.Command, _ []string) error {
-	walletPath, _ := cmd.Flags().GetString(walletFlag)
-	accPath, _ := cmd.Flags().GetString(accountFlag)
+	walletPath, _ := cmd.Flags().GetString(commonflags.WalletPath)
+	accPath, _ := cmd.Flags().GetString(commonflags.Account)
 	privKey, err := key.Get(walletPath, accPath)
 	if err != nil {
 		return err
 	}
 
 	var netAddr network.Address
-	addrStr, _ := cmd.Flags().GetString(rpcFlag)
+	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
 	if err := netAddr.FromString(addrStr); err != nil {
 		return err
 	}

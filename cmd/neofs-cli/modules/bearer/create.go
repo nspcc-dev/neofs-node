@@ -12,6 +12,7 @@ import (
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -28,7 +29,6 @@ const (
 	ownerFlag          = "owner"
 	outFlag            = "out"
 	jsonFlag           = "json"
-	rpcFlag            = "rpc-endpoint"
 )
 
 var createCmd = &cobra.Command{
@@ -37,7 +37,7 @@ var createCmd = &cobra.Command{
 	Long: `Create bearer token.
 
 All epoch flags can be specified relative to the current epoch with the +n syntax.
-In this case --` + rpcFlag + ` flag should be specified and the epoch in bearer token
+In this case --` + commonflags.RPC + ` flag should be specified and the epoch in bearer token
 is set to current epoch + n.
 `,
 	RunE: createToken,
@@ -51,7 +51,7 @@ func init() {
 	createCmd.Flags().StringP(ownerFlag, "o", "", "token owner")
 	createCmd.Flags().String(outFlag, "", "file to write token to")
 	createCmd.Flags().Bool(jsonFlag, false, "output token in JSON")
-	createCmd.Flags().StringP(rpcFlag, "r", "", "rpc-endpoint")
+	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), eaclFlag)
 
@@ -76,7 +76,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if iatRelative || expRelative || nvbRelative {
-		endpoint, _ := cmd.Flags().GetString(rpcFlag)
+		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 		currEpoch, err := getCurrentEpoch(endpoint)
 		if err != nil {
 			return err
