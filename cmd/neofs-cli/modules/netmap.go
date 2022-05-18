@@ -7,6 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -27,7 +28,7 @@ var netmapCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// bind exactly that cmd's flags to
 		// the viper before execution
-		bindCommonFlags(cmd)
+		commonflags.Bind(cmd)
 		bindAPIFlags(cmd)
 	},
 }
@@ -42,10 +43,10 @@ func init() {
 	rootCmd.AddCommand(netmapCmd)
 	netmapCmd.AddCommand(netmapChildCommands...)
 
-	initCommonFlags(getEpochCmd)
-	initCommonFlags(netInfoCmd)
+	commonflags.Init(getEpochCmd)
+	commonflags.Init(netInfoCmd)
 
-	initCommonFlags(localNodeInfoCmd)
+	commonflags.Init(localNodeInfoCmd)
 	localNodeInfoCmd.Flags().BoolVar(&nodeInfoJSON, "json", false, "print node info in JSON format")
 
 	for _, netmapCommand := range netmapChildCommands {

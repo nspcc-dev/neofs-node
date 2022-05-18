@@ -8,6 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
@@ -26,8 +27,8 @@ var controlCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		ff := cmd.Flags()
 
-		_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
-		_ = viper.BindPFlag(address, ff.Lookup(address))
+		_ = viper.BindPFlag(commonflags.WalletPath, ff.Lookup(commonflags.WalletPath))
+		_ = viper.BindPFlag(commonflags.Account, ff.Lookup(commonflags.Account))
 		_ = viper.BindPFlag(controlRPC, ff.Lookup(controlRPC))
 	},
 }
@@ -110,7 +111,7 @@ var (
 )
 
 func initControlHealthCheckCmd() {
-	initCommonFlagsWithoutRPC(healthCheckCmd)
+	commonflags.InitWithoutRPC(healthCheckCmd)
 
 	flags := healthCheckCmd.Flags()
 
@@ -119,7 +120,7 @@ func initControlHealthCheckCmd() {
 }
 
 func initControlSetShardModeCmd() {
-	initCommonFlagsWithoutRPC(setShardModeCmd)
+	commonflags.InitWithoutRPC(setShardModeCmd)
 
 	flags := setShardModeCmd.Flags()
 
@@ -136,7 +137,7 @@ func initControlSetShardModeCmd() {
 }
 
 func initControlShardsListCmd() {
-	initCommonFlagsWithoutRPC(listShardsCmd)
+	commonflags.InitWithoutRPC(listShardsCmd)
 
 	flags := listShardsCmd.Flags()
 
@@ -144,7 +145,7 @@ func initControlShardsListCmd() {
 }
 
 func initControlSetNetmapStatusCmd() {
-	initCommonFlagsWithoutRPC(setNetmapStatusCmd)
+	commonflags.InitWithoutRPC(setNetmapStatusCmd)
 
 	flags := setNetmapStatusCmd.Flags()
 
@@ -161,7 +162,7 @@ func initControlSetNetmapStatusCmd() {
 }
 
 func initControlDropObjectsCmd() {
-	initCommonFlagsWithoutRPC(dropObjectsCmd)
+	commonflags.InitWithoutRPC(dropObjectsCmd)
 
 	flags := dropObjectsCmd.Flags()
 
@@ -173,7 +174,7 @@ func initControlDropObjectsCmd() {
 }
 
 func initControlSnapshotCmd() {
-	initCommonFlagsWithoutRPC(snapshotCmd)
+	commonflags.InitWithoutRPC(snapshotCmd)
 
 	flags := snapshotCmd.Flags()
 

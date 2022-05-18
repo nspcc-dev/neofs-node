@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -61,5 +62,5 @@ var cmdObjectLock = &cobra.Command{
 }
 
 func initCommandObjectLock() {
-	initCommonFlags(cmdObjectLock)
+	commonflags.Init(cmdObjectLock)
 }

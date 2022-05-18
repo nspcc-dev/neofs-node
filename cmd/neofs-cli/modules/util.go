@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
 	airportsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/airports"
@@ -30,9 +31,9 @@ var (
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			flags := cmd.Flags()
 
-			_ = viper.BindPFlag(generateKey, flags.Lookup(generateKey))
-			_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
-			_ = viper.BindPFlag(address, flags.Lookup(address))
+			_ = viper.BindPFlag(commonflags.GenerateKey, flags.Lookup(commonflags.GenerateKey))
+			_ = viper.BindPFlag(commonflags.WalletPath, flags.Lookup(commonflags.WalletPath))
+			_ = viper.BindPFlag(commonflags.Account, flags.Lookup(commonflags.Account))
 		},
 	}
 
@@ -185,16 +186,8 @@ func initUtilKeyerCmd() {
 	keyerCmd.Flags().BoolP("multisig", "m", false, "calculate multisig address from public keys")
 }
 
-func initCommonFlagsWithoutRPC(cmd *cobra.Command) {
-	flags := cmd.Flags()
-
-	flags.BoolP(generateKey, generateKeyShorthand, generateKeyDefault, generateKeyUsage)
-	flags.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
-	flags.StringP(address, addressShorthand, addressDefault, addressUsage)
-}
-
 func initUtilSignBearerCmd() {
-	initCommonFlagsWithoutRPC(signBearerCmd)
+	commonflags.InitWithoutRPC(signBearerCmd)
 
 	flags := signBearerCmd.Flags()
 
@@ -207,7 +200,7 @@ func initUtilSignBearerCmd() {
 }
 
 func initUtilSignSessionCmd() {
-	initCommonFlagsWithoutRPC(signSessionCmd)
+	commonflags.InitWithoutRPC(signSessionCmd)
 
 	flags := signSessionCmd.Flags()
 

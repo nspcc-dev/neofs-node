@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -102,7 +103,7 @@ var containerCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// bind exactly that cmd's flags to
 		// the viper before execution
-		bindCommonFlags(cmd)
+		commonflags.Bind(cmd)
 		bindAPIFlags(cmd)
 	},
 }
@@ -467,7 +468,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 }
 
 func initContainerListContainersCmd() {
-	initCommonFlags(listContainersCmd)
+	commonflags.Init(listContainersCmd)
 
 	flags := listContainersCmd.Flags()
 
@@ -475,7 +476,7 @@ func initContainerListContainersCmd() {
 }
 
 func initContainerCreateCmd() {
-	initCommonFlags(createContainerCmd)
+	commonflags.Init(createContainerCmd)
 
 	flags := createContainerCmd.Flags()
 
@@ -490,7 +491,7 @@ func initContainerCreateCmd() {
 }
 
 func initContainerDeleteCmd() {
-	initCommonFlags(deleteContainerCmd)
+	commonflags.Init(deleteContainerCmd)
 
 	flags := deleteContainerCmd.Flags()
 
@@ -499,7 +500,7 @@ func initContainerDeleteCmd() {
 }
 
 func initContainerListObjectsCmd() {
-	initCommonFlags(listContainerObjectsCmd)
+	commonflags.Init(listContainerObjectsCmd)
 
 	flags := listContainerObjectsCmd.Flags()
 
@@ -507,7 +508,7 @@ func initContainerListObjectsCmd() {
 }
 
 func initContainerInfoCmd() {
-	initCommonFlags(getContainerInfoCmd)
+	commonflags.Init(getContainerInfoCmd)
 
 	flags := getContainerInfoCmd.Flags()
 
@@ -518,7 +519,7 @@ func initContainerInfoCmd() {
 }
 
 func initContainerGetEACLCmd() {
-	initCommonFlags(getExtendedACLCmd)
+	commonflags.Init(getExtendedACLCmd)
 
 	flags := getExtendedACLCmd.Flags()
 
@@ -528,7 +529,7 @@ func initContainerGetEACLCmd() {
 }
 
 func initContainerSetEACLCmd() {
-	initCommonFlags(setExtendedACLCmd)
+	commonflags.Init(setExtendedACLCmd)
 
 	flags := setExtendedACLCmd.Flags()
 	flags.StringVar(&containerID, "cid", "", "container ID")

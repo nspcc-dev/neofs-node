@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -24,9 +25,9 @@ var accountingCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		flags := cmd.Flags()
 
-		_ = viper.BindPFlag(walletPath, flags.Lookup(walletPath))
-		_ = viper.BindPFlag(address, flags.Lookup(address))
-		_ = viper.BindPFlag(rpc, flags.Lookup(rpc))
+		_ = viper.BindPFlag(commonflags.WalletPath, flags.Lookup(commonflags.WalletPath))
+		_ = viper.BindPFlag(commonflags.Account, flags.Lookup(commonflags.Account))
+		_ = viper.BindPFlag(commonflags.RPC, flags.Lookup(commonflags.RPC))
 	},
 }
 
@@ -63,9 +64,9 @@ var accountingBalanceCmd = &cobra.Command{
 func initAccountingBalanceCmd() {
 	ff := accountingBalanceCmd.Flags()
 
-	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
-	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
-	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
+	ff.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
+	ff.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
+	ff.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
 }
@@ -92,7 +93,7 @@ func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
 		return
 	}
 
-	if viper.GetBool(verbose) {
+	if viper.GetBool(commonflags.Verbose) {
 		cmd.Println("value:", decimal.Value())
 		cmd.Println("precision:", decimal.Precision())
 	} else {

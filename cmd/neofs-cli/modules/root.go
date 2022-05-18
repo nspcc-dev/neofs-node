@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
@@ -37,33 +38,6 @@ var (
 )
 
 const (
-	// Common CLI flag keys, shorthands, default
-	// values and their usage descriptions.
-	generateKey          = "generate-key"
-	generateKeyShorthand = "g"
-	generateKeyDefault   = false
-	generateKeyUsage     = "generate new private key"
-
-	walletPath          = "wallet"
-	walletPathShorthand = "w"
-	walletPathDefault   = ""
-	walletPathUsage     = "WIF (NEP-2) string or path to the wallet or binary key"
-
-	address          = "address"
-	addressShorthand = ""
-	addressDefault   = ""
-	addressUsage     = "address of wallet account"
-
-	rpc          = "rpc-endpoint"
-	rpcShorthand = "r"
-	rpcDefault   = ""
-	rpcUsage     = "remote node address (as 'multiaddr' or '<host>:<port>')"
-
-	verbose          = "verbose"
-	verboseShorthand = "v"
-	verboseDefault   = false
-	verboseUsage     = "verbose output"
-
 	ttl          = "ttl"
 	ttlShorthand = ""
 	ttlDefault   = 2
@@ -111,9 +85,10 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/neofs-cli/config.yaml)")
-	rootCmd.PersistentFlags().BoolP(verbose, verboseShorthand, verboseDefault, verboseUsage)
+	rootCmd.PersistentFlags().BoolP(commonflags.Verbose, commonflags.VerboseShorthand,
+		false, commonflags.VerboseUsage)
 
-	_ = viper.BindPFlag(verbose, rootCmd.PersistentFlags().Lookup(verbose))
+	_ = viper.BindPFlag(commonflags.Verbose, rootCmd.PersistentFlags().Lookup(commonflags.Verbose))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -167,7 +142,7 @@ func initConfig() {
 
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
-	if viper.GetBool(generateKey) {
+	if viper.GetBool(commonflags.GenerateKey) {
 		priv, err := keys.NewPrivateKey()
 		if err != nil {
 			return nil, errCantGenerateKey
@@ -178,7 +153,7 @@ func getKey() (*ecdsa.PrivateKey, error) {
 }
 
 func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
-	return key.Get(viper.GetString(walletPath), viper.GetString(address))
+	return key.Get(viper.GetString(commonflags.WalletPath), viper.GetString(commonflags.Account))
 }
 
 // getEndpointAddress returns network address structure that stores multiaddr
@@ -229,7 +204,7 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 
 // getSDKClient calls getSDKGClientFlag with "rpc-endpoint" flag.
 func getSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
-	return getSDKClientFlag(key, rpc)
+	return getSDKClientFlag(key, commonflags.RPC)
 }
 
 // getSDKClientFlag returns NeoFS API client connection to the network address
@@ -263,7 +238,7 @@ func ownerFromString(s string) (*owner.ID, error) {
 }
 
 func printVerbose(format string, a ...interface{}) {
-	if viper.GetBool(verbose) {
+	if viper.GetBool(commonflags.Verbose) {
 		fmt.Printf(format+"\n", a...)
 	}
 }
@@ -285,31 +260,6 @@ func parseXHeaders() []*session.XHeader {
 	}
 
 	return xs
-}
-
-// add common flags to the command:
-// - key;
-// - wallet;
-// - WIF;
-// - address;
-// - RPC;
-func initCommonFlags(cmd *cobra.Command) {
-	ff := cmd.Flags()
-
-	ff.BoolP(generateKey, generateKeyShorthand, generateKeyDefault, generateKeyUsage)
-	ff.StringP(walletPath, walletPathShorthand, walletPathDefault, walletPathUsage)
-	ff.StringP(address, addressShorthand, addressDefault, addressUsage)
-	ff.StringP(rpc, rpcShorthand, rpcDefault, rpcUsage)
-}
-
-// bind common command flags to the viper
-func bindCommonFlags(cmd *cobra.Command) {
-	ff := cmd.Flags()
-
-	_ = viper.BindPFlag(generateKey, ff.Lookup(generateKey))
-	_ = viper.BindPFlag(walletPath, ff.Lookup(walletPath))
-	_ = viper.BindPFlag(address, ff.Lookup(address))
-	_ = viper.BindPFlag(rpc, ff.Lookup(rpc))
 }
 
 func bindAPIFlags(cmd *cobra.Command) {
