@@ -18,6 +18,7 @@ import (
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/misc"
+	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -93,6 +94,7 @@ func init() {
 	rootCmd.AddCommand(bearerCli.Cmd)
 	rootCmd.AddCommand(sessionCli.Cmd)
 	rootCmd.AddCommand(accountingCli.Cmd)
+	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) {

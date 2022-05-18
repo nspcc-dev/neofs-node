@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/commands/inspect"
 	cmdlist "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/commands/list"
 	"github.com/nspcc-dev/neofs-node/misc"
+	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,7 @@ func init() {
 	command.AddCommand(
 		cmdlist.Command,
 		inspect.Command,
+		gendoc.Command(command),
 	)
 }
 
