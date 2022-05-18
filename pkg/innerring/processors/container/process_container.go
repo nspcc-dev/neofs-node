@@ -1,16 +1,12 @@
 package container
 
 import (
-	"crypto/elliptic"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -62,27 +58,30 @@ func (cp *Processor) processContainerPut(put putEvent) {
 }
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
-	e := ctx.e
+	binCnr := ctx.e.Container()
 
-	// verify signature
-	key, err := keys.NewPublicKeyFromBytes(e.PublicKey(), elliptic.P256())
-	if err != nil {
-		return fmt.Errorf("invalid key: %w", err)
-	}
-
-	binCnr := e.Container()
-	tableHash := sha256.Sum256(binCnr)
-
-	if !key.Verify(e.Signature(), tableHash[:]) {
-		return errors.New("invalid signature")
-	}
-
-	// unmarshal container structure
 	cnr := containerSDK.New()
 
-	err = cnr.Unmarshal(binCnr)
+	err := cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
+	}
+
+	ownerContainer := cnr.OwnerID()
+	if ownerContainer == nil {
+		return errors.New("missing container owner")
+	}
+
+	err = cp.verifySignature(signatureVerificationData{
+		ownerContainer:  *ownerContainer,
+		verb:            session.VerbContainerPut,
+		binTokenSession: ctx.e.SessionToken(),
+		binPublicKey:    ctx.e.PublicKey(),
+		signature:       ctx.e.Signature(),
+		signedData:      binCnr,
+	})
+	if err != nil {
+		return fmt.Errorf("auth container creation: %w", err)
 	}
 
 	// check owner allowance in the subnetwork
@@ -103,25 +102,7 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("incorrect container format: %w", err)
 	}
 
-	// unmarshal session token if presented
-	tok, err := tokenFromEvent(e)
-	if err != nil {
-		return err
-	}
-
-	if tok != nil {
-		// check token context
-		err = checkTokenContext(tok, func(c *session.ContainerContext) bool {
-			return c.IsForPut()
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	cnr.SetSessionToken(tok)
-
-	return cp.checkKeyOwnership(cnr, key)
+	return nil
 }
 
 func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
@@ -175,70 +156,38 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 	binCID := e.ContainerID()
 
+	var idCnr cid.ID
+
+	err := idCnr.Decode(binCID)
+	if err != nil {
+		return fmt.Errorf("invalid container ID: %w", err)
+	}
+
 	// receive owner of the related container
 	cnr, err := cp.cnrClient.Get(binCID)
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	token, err := tokenFromEvent(e)
+	ownerContainer := cnr.OwnerID()
+	if ownerContainer == nil {
+		return errors.New("missing container owner")
+	}
+
+	err = cp.verifySignature(signatureVerificationData{
+		ownerContainer:  *ownerContainer,
+		verb:            session.VerbContainerDelete,
+		idContainerSet:  true,
+		idContainer:     idCnr,
+		binTokenSession: e.SessionToken(),
+		signature:       e.Signature(),
+		signedData:      binCID,
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("auth container creation: %w", err)
 	}
 
-	var checkKeys keys.PublicKeys
-
-	if token != nil {
-		// check token context
-		// TODO: #1147 think how to avoid version casts
-		var id cid.ID
-
-		err = id.Decode(binCID)
-		if err != nil {
-			return fmt.Errorf("decode container ID: %w", err)
-		}
-
-		err = checkTokenContextWithCID(token, id, func(c *session.ContainerContext) bool {
-			return c.IsForDelete()
-		})
-		if err != nil {
-			return err
-		}
-
-		key, err := keys.NewPublicKeyFromBytes(token.SessionKey(), elliptic.P256())
-		if err != nil {
-			return fmt.Errorf("invalid session key: %w", err)
-		}
-
-		// check token ownership
-		err = cp.checkKeyOwnershipWithToken(cnr, key, token)
-		if err != nil {
-			return err
-		}
-
-		checkKeys = keys.PublicKeys{key}
-	} else {
-		prm := neofsid.AccountKeysPrm{}
-		prm.SetID(cnr.OwnerID())
-
-		// receive all owner keys from NeoFS ID contract
-		checkKeys, err = cp.idClient.AccountKeys(prm)
-		if err != nil {
-			return fmt.Errorf("could not received owner keys %s: %w", cnr.OwnerID(), err)
-		}
-	}
-
-	// verify signature
-	cidHash := sha256.Sum256(binCID)
-	sig := e.Signature()
-
-	for _, key := range checkKeys {
-		if key.Verify(sig, cidHash[:]) {
-			return nil
-		}
-	}
-
-	return errors.New("signature verification failed on all owner keys ")
+	return nil
 }
 
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {

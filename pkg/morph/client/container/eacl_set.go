@@ -24,14 +24,12 @@ func PutEACL(c *Client, table *eacl.Table) error {
 		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
 
-	binToken, err := table.SessionToken().Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal session token: %w", err)
-	}
-
 	var prm PutEACLPrm
 	prm.SetTable(data)
-	prm.SetToken(binToken)
+
+	if tok := table.SessionToken(); tok != nil {
+		prm.SetToken(tok.Marshal())
+	}
 
 	if sig := table.Signature(); sig != nil {
 		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion

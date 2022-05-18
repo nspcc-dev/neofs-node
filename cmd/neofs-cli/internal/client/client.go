@@ -337,7 +337,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		wrt.MarkLocal()
 	}
 
-	wrt.WithXHeaders(prm.xHeadersPrm()...)
+	wrt.WithXHeaders(prm.xHeaders...)
 
 	if wrt.WriteHeader(*prm.hdr) {
 		sz := prm.hdr.PayloadSize()
@@ -437,7 +437,7 @@ func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 		delPrm.WithBearerToken(*prm.bearerToken)
 	}
 
-	delPrm.WithXHeaders(prm.xHeadersPrm()...)
+	delPrm.WithXHeaders(prm.xHeaders...)
 
 	cliRes, err := prm.cli.ObjectDelete(context.Background(), delPrm)
 	if err != nil {
@@ -517,7 +517,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		getPrm.MarkLocal()
 	}
 
-	getPrm.WithXHeaders(prm.xHeadersPrm()...)
+	getPrm.WithXHeaders(prm.xHeaders...)
 
 	rdr, err := prm.cli.ObjectGetInit(context.Background(), getPrm)
 	if err != nil {
@@ -599,7 +599,7 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	cliPrm.WithXHeaders(prm.xHeaders...)
 
 	res, err := prm.cli.ObjectHead(context.Background(), cliPrm)
 	if err != nil {
@@ -664,7 +664,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	cliPrm.WithXHeaders(prm.xHeaders...)
 
 	rdr, err := prm.cli.ObjectSearchInit(context.Background(), cliPrm)
 	if err != nil {
@@ -775,7 +775,7 @@ func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) 
 		cliPrm.WithBearerToken(*prm.bearerToken)
 	}
 
-	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	cliPrm.WithXHeaders(prm.xHeaders...)
 
 	res, err := prm.cli.ObjectHash(context.Background(), cliPrm)
 	if err != nil {
@@ -841,7 +841,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	cliPrm.SetOffset(prm.rng.GetOffset())
 	cliPrm.SetLength(prm.rng.GetLength())
 
-	cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	cliPrm.WithXHeaders(prm.xHeaders...)
 
 	rdr, err := prm.cli.ObjectRangeInit(context.Background(), cliPrm)
 	if err != nil {

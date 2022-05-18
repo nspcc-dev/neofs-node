@@ -85,7 +85,18 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 		return exec.prm.forwarder(info, c.client)
 	}
 
-	key, err := exec.svc.keyStore.GetKey(exec.prm.common.SessionToken())
+	var sessionInfo *util.SessionInfo
+
+	if tok := exec.prm.common.SessionToken(); tok != nil {
+		ownerSession, _ := exec.prm.common.SessionOwner()
+
+		sessionInfo = &util.SessionInfo{
+			ID:    tok.ID(),
+			Owner: ownerSession,
+		}
+	}
+
+	key, err := exec.svc.keyStore.GetKey(sessionInfo)
 	if err != nil {
 		return nil, err
 	}

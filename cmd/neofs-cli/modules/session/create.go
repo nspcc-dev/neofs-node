@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/google/uuid"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -66,10 +67,9 @@ func createSession(cmd *cobra.Command, _ []string) error {
 		lifetime = lfArg
 	}
 
-	var ownerID user.ID
-	user.IDFromKey(&ownerID, privKey.PublicKey)
+	var tok session.Object
 
-	tok, err := CreateSession(c, &ownerID, lifetime)
+	err = CreateSession(&tok, c, lifetime)
 	if err != nil {
 		return err
 	}
@@ -78,11 +78,11 @@ func createSession(cmd *cobra.Command, _ []string) error {
 
 	if toJSON, _ := cmd.Flags().GetBool(jsonFlag); toJSON {
 		data, err = tok.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("decode session token JSON: %w", err)
+		}
 	} else {
-		data, err = tok.Marshal()
-	}
-	if err != nil {
-		return fmt.Errorf("can't marshal token: %w", err)
+		data = tok.Marshal()
 	}
 
 	filename, _ := cmd.Flags().GetString(outFlag)
@@ -92,15 +92,18 @@ func createSession(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// CreateSession returns newly created session token with the specified owner and lifetime.
-// `Issued-At` and `Not-Valid-Before` fields are set to current epoch.
-func CreateSession(c *client.Client, owner *user.ID, lifetime uint64) (*session.Token, error) {
+// CreateSession opens a new communication with NeoFS storage node using client connection.
+// The session is expected to be maintained by the storage node during the given
+// number of epochs.
+//
+// Fills ID, lifetime and session key.
+func CreateSession(dst *session.Object, c *client.Client, lifetime uint64) error {
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(c)
 
 	ni, err := internalclient.NetworkInfo(netInfoPrm)
 	if err != nil {
-		return nil, fmt.Errorf("can't fetch network info: %w", err)
+		return fmt.Errorf("can't fetch network info: %w", err)
 	}
 
 	cur := ni.NetworkInfo().CurrentEpoch()
@@ -112,16 +115,30 @@ func CreateSession(c *client.Client, owner *user.ID, lifetime uint64) (*session.
 
 	sessionRes, err := internalclient.CreateSession(sessionPrm)
 	if err != nil {
-		return nil, fmt.Errorf("can't open session: %w", err)
+		return fmt.Errorf("can't open session: %w", err)
 	}
 
-	tok := session.NewToken()
-	tok.SetID(sessionRes.ID())
-	tok.SetSessionKey(sessionRes.SessionKey())
-	tok.SetOwnerID(owner)
-	tok.SetExp(exp)
-	tok.SetIat(cur)
-	tok.SetNbf(cur)
+	binIDSession := sessionRes.ID()
 
-	return tok, nil
+	var keySession neofsecdsa.PublicKey
+
+	err = keySession.Decode(sessionRes.SessionKey())
+	if err != nil {
+		return fmt.Errorf("decode public session key: %w", err)
+	}
+
+	var idSession uuid.UUID
+
+	err = idSession.UnmarshalBinary(binIDSession)
+	if err != nil {
+		return fmt.Errorf("decode session ID: %w", err)
+	}
+
+	dst.SetID(idSession)
+	dst.SetNbf(cur)
+	dst.SetIat(cur)
+	dst.SetExp(exp)
+	dst.SetAuthKey(&keySession)
+
+	return nil
 }

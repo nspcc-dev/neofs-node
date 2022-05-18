@@ -96,14 +96,14 @@ func (c *Client) Get(cid []byte) (*container.Container, error) {
 	}
 
 	if len(tokBytes) > 0 {
-		tok := session.NewToken()
+		var tok session.Container
 
 		err = tok.Unmarshal(tokBytes)
 		if err != nil {
 			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
 		}
 
-		cnr.SetSessionToken(tok)
+		cnr.SetSessionToken(&tok)
 	}
 
 	// FIXME(@cthulhu-rider): #1387 temp solution, later table structure won't have a signature

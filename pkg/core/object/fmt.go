@@ -1,18 +1,16 @@
 package object
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"strconv"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -139,10 +137,18 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	var sigV2 refs.Signature
 	sig.WriteToV2(&sigV2)
 
-	key := sigV2.GetKey()
+	binKey := sigV2.GetKey()
+
+	var key neofsecdsa.PublicKey
+
+	err := key.Decode(binKey)
+	if err != nil {
+		return fmt.Errorf("decode public key: %w", err)
+	}
+
 	token := obj.SessionToken()
 
-	if token == nil || !bytes.Equal(token.SessionKey(), key) {
+	if token == nil || !token.AssertAuthKey(&key) {
 		return v.checkOwnerKey(obj.OwnerID(), key)
 	}
 
@@ -151,14 +157,9 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	return nil
 }
 
-func (v *FormatValidator) checkOwnerKey(id *user.ID, key []byte) error {
-	pub, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
-	if err != nil {
-		return err
-	}
-
+func (v *FormatValidator) checkOwnerKey(id *user.ID, key neofsecdsa.PublicKey) error {
 	var id2 user.ID
-	user.IDFromKey(&id2, (ecdsa.PublicKey)(*pub))
+	user.IDFromKey(&id2, (ecdsa.PublicKey)(key))
 
 	if !id.Equals(id2) {
 		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, id, id2)

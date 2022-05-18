@@ -243,15 +243,15 @@ func (exec *execCtx) initTombstoneObject() bool {
 		return false
 	}
 
-	tombOwnerID := exec.commonParameters().SessionToken().OwnerID()
-	if tombOwnerID == nil {
+	tombOwnerID, ok := exec.commonParameters().SessionOwner()
+	if !ok {
 		// make local node a tombstone object owner
-		tombOwnerID = exec.svc.netInfo.LocalNodeID()
+		tombOwnerID = *exec.svc.netInfo.LocalNodeID()
 	}
 
 	exec.tombstoneObj = object.New()
 	exec.tombstoneObj.SetContainerID(*exec.containerID())
-	exec.tombstoneObj.SetOwnerID(tombOwnerID)
+	exec.tombstoneObj.SetOwnerID(&tombOwnerID)
 	exec.tombstoneObj.SetType(object.TypeTombstone)
 	exec.tombstoneObj.SetPayload(payload)
 

@@ -30,15 +30,6 @@ func (x *containerIDPrm) SetContainerID(id *cid.ID) {
 	x.cnrID = id
 }
 
-type sessionTokenPrm struct {
-	sessionToken *session.Token
-}
-
-// SetSessionToken sets the token of the session within which the request should be sent.
-func (x *sessionTokenPrm) SetSessionToken(tok *session.Token) {
-	x.sessionToken = tok
-}
-
 type bearerTokenPrm struct {
 	bearerToken *bearer.Token
 }
@@ -76,12 +67,13 @@ func (x *payloadWriterPrm) SetPayloadWriter(wrt io.Writer) {
 
 type commonObjectPrm struct {
 	commonPrm
-	sessionTokenPrm
 	bearerTokenPrm
+
+	sessionToken *session.Object
 
 	local bool
 
-	xHeaders []*session.XHeader
+	xHeaders []string
 }
 
 // SetTTL sets request TTL value.
@@ -90,19 +82,11 @@ func (x *commonObjectPrm) SetTTL(ttl uint32) {
 }
 
 // SetXHeaders sets request X-Headers.
-func (x *commonObjectPrm) SetXHeaders(hs []*session.XHeader) {
+func (x *commonObjectPrm) SetXHeaders(hs []string) {
 	x.xHeaders = hs
 }
 
-func (x commonObjectPrm) xHeadersPrm() (res []string) {
-	if x.xHeaders != nil {
-		res = make([]string, len(x.xHeaders)*2)
-
-		for i := range x.xHeaders {
-			res[2*i] = x.xHeaders[i].Key()
-			res[2*i+1] = x.xHeaders[i].Value()
-		}
-	}
-
-	return
+// SetSessionToken sets the token of the session within which the request should be sent.
+func (x *commonObjectPrm) SetSessionToken(tok *session.Object) {
+	x.sessionToken = tok
 }

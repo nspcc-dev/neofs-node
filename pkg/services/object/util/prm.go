@@ -1,11 +1,14 @@
 package util
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // maxLocalTTL is maximum TTL for an operation to be considered local.
@@ -16,13 +19,15 @@ type CommonPrm struct {
 
 	netmapEpoch, netmapLookupDepth uint64
 
-	token *sessionsdk.Token
+	token *sessionsdk.Object
 
 	bearer *bearer.Token
 
 	ttl uint32
 
-	xhdrs []*sessionsdk.XHeader
+	xhdrs []string
+
+	ownerSession user.ID
 }
 
 // TTL returns TTL for new requests.
@@ -35,7 +40,7 @@ func (p *CommonPrm) TTL() uint32 {
 }
 
 // XHeaders returns X-Headers for new requests.
-func (p *CommonPrm) XHeaders() []*sessionsdk.XHeader {
+func (p *CommonPrm) XHeaders() []string {
 	if p != nil {
 		return p.xhdrs
 	}
@@ -59,12 +64,20 @@ func (p *CommonPrm) LocalOnly() bool {
 	return false
 }
 
-func (p *CommonPrm) SessionToken() *sessionsdk.Token {
+func (p *CommonPrm) SessionToken() *sessionsdk.Object {
 	if p != nil {
 		return p.token
 	}
 
 	return nil
+}
+
+func (p *CommonPrm) SessionOwner() (user.ID, bool) {
+	if p != nil && p.token != nil {
+		return p.ownerSession, true
+	}
+
+	return user.ID{}, false
 }
 
 func (p *CommonPrm) BearerToken() *bearer.Token {
@@ -102,17 +115,38 @@ func CommonPrmFromV2(req interface {
 }) (*CommonPrm, error) {
 	meta := req.GetMetaHeader()
 
+	var tokenSession *sessionsdk.Object
+	var err error
+	var ownerSession user.ID
+
+	if tokenSessionV2 := meta.GetSessionToken(); tokenSessionV2 != nil {
+		ownerSessionV2 := tokenSessionV2.GetBody().GetOwnerID()
+		if ownerSessionV2 == nil {
+			return nil, errors.New("missing session owner")
+		}
+
+		err = ownerSession.ReadFromV2(*ownerSessionV2)
+		if err != nil {
+			return nil, fmt.Errorf("invalid session token: %w", err)
+		}
+
+		tokenSession = new(sessionsdk.Object)
+
+		err = tokenSession.ReadFromV2(*tokenSessionV2)
+		if err != nil {
+			return nil, fmt.Errorf("invalid session token: %w", err)
+		}
+	}
+
 	xHdrs := meta.GetXHeaders()
 	ttl := meta.GetTTL()
 
 	prm := &CommonPrm{
-		local: ttl <= maxLocalTTL,
-		xhdrs: make([]*sessionsdk.XHeader, 0, len(xHdrs)),
-		ttl:   ttl - 1, // decrease TTL for new requests
-	}
-
-	if tok := meta.GetSessionToken(); tok != nil {
-		prm.token = sessionsdk.NewTokenFromV2(tok)
+		local:        ttl <= maxLocalTTL,
+		token:        tokenSession,
+		ttl:          ttl - 1, // decrease TTL for new requests
+		xhdrs:        make([]string, 0, 2*len(xHdrs)),
+		ownerSession: ownerSession,
 	}
 
 	if tok := meta.GetBearerToken(); tok != nil {
@@ -121,7 +155,7 @@ func CommonPrmFromV2(req interface {
 	}
 
 	for i := range xHdrs {
-		switch xHdrs[i].GetKey() {
+		switch key := xHdrs[i].GetKey(); key {
 		case session.XHeaderNetmapEpoch:
 			var err error
 
@@ -137,9 +171,7 @@ func CommonPrmFromV2(req interface {
 				return nil, err
 			}
 		default:
-			xhdr := sessionsdk.NewXHeaderFromV2(&xHdrs[i])
-
-			prm.xhdrs = append(prm.xhdrs, xhdr)
+			prm.xhdrs = append(prm.xhdrs, key, xHdrs[i].GetValue())
 		}
 	}
 

@@ -14,6 +14,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,6 +42,9 @@ func TestInvalidToken(t *testing.T) {
 
 	var cnrV2 refs.ContainerID
 	cnr.WriteToV2(&cnrV2)
+
+	var tokV2 session.Token
+	sessiontest.ContainerSigned().WriteToV2(&tokV2)
 
 	tests := []struct {
 		name string
@@ -84,9 +88,9 @@ func TestInvalidToken(t *testing.T) {
 				Context:      context.Background(),
 				SessionToken: generateToken(new(session.ObjectSessionContext)),
 			}
-			require.Error(t, test.op(e, ctx), containerSvcMorph.ErrInvalidContext)
+			require.Error(t, test.op(e, ctx))
 
-			ctx.SessionToken = generateToken(new(session.ContainerSessionContext))
+			ctx.SessionToken = &tokV2
 			require.NoError(t, test.op(e, ctx))
 
 			ctx.SessionToken = nil

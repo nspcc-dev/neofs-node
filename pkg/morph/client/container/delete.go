@@ -18,20 +18,19 @@ func Delete(c *Client, witness core.RemovalWitness) error {
 		return errNilArgument
 	}
 
-	binToken, err := witness.SessionToken().Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal session token: %w", err)
-	}
-
 	binCnr := make([]byte, sha256.Size)
 	id.Encode(binCnr)
 
-	return c.Delete(
-		DeletePrm{
-			cid:       binCnr,
-			signature: witness.Signature(),
-			token:     binToken,
-		})
+	var prm DeletePrm
+
+	prm.SetCID(binCnr)
+	prm.SetSignature(witness.Signature())
+
+	if tok := witness.SessionToken(); tok != nil {
+		prm.SetToken(tok.Marshal())
+	}
+
+	return c.Delete(prm)
 }
 
 // DeletePrm groups parameters of Delete client operation.

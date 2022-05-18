@@ -107,7 +107,7 @@ func (r RequestInfo) RequestRole() eaclSDK.Role {
 // verification header and raw API request.
 type MetaWithToken struct {
 	vheader *sessionV2.RequestVerificationHeader
-	token   *sessionSDK.Token
+	token   *sessionSDK.Object
 	bearer  *bearer.Token
 	src     interface{}
 }

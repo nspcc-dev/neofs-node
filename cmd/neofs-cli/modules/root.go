@@ -22,7 +22,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -188,8 +187,8 @@ func userFromString(id *user.ID, s string) error {
 	return nil
 }
 
-func parseXHeaders() []*session.XHeader {
-	xs := make([]*session.XHeader, 0, len(xHeaders))
+func parseXHeaders() []string {
+	xs := make([]string, 0, 2*len(xHeaders))
 
 	for i := range xHeaders {
 		kv := strings.SplitN(xHeaders[i], "=", 2)
@@ -197,11 +196,7 @@ func parseXHeaders() []*session.XHeader {
 			panic(fmt.Errorf("invalid X-Header format: %s", xHeaders[i]))
 		}
 
-		x := session.NewXHeader()
-		x.SetKey(kv[0])
-		x.SetValue(kv[1])
-
-		xs = append(xs, x)
+		xs = append(xs, kv[0], kv[1])
 	}
 
 	return xs

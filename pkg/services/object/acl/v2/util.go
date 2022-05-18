@@ -75,12 +75,24 @@ func originalBearerToken(header *sessionV2.RequestMetaHeader) *bearer.Token {
 
 // originalSessionToken goes down to original request meta header and fetches
 // session token from there.
-func originalSessionToken(header *sessionV2.RequestMetaHeader) *sessionSDK.Token {
+func originalSessionToken(header *sessionV2.RequestMetaHeader) (*sessionSDK.Object, error) {
 	for header.GetOrigin() != nil {
 		header = header.GetOrigin()
 	}
 
-	return sessionSDK.NewTokenFromV2(header.GetSessionToken())
+	tokV2 := header.GetSessionToken()
+	if tokV2 == nil {
+		return nil, nil
+	}
+
+	var tok sessionSDK.Object
+
+	err := tok.ReadFromV2(*tokV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid session token: %w", err)
+	}
+
+	return &tok, nil
 }
 
 func getObjectIDFromRequestBody(body interface{}) (*oidSDK.ID, error) {
@@ -113,58 +125,35 @@ func getObjectIDFromRequestBody(body interface{}) (*oidSDK.ID, error) {
 	return &id, nil
 }
 
-// sourceVerbOfRequest looks for verb in session token and if it is not found,
-// returns reqVerb. Second return value is true if operation is unknown.
-func sourceVerbOfRequest(tok *sessionSDK.Token, reqVerb eaclSDK.Operation) (eaclSDK.Operation, bool) {
-	ctx, ok := tok.Context().(*sessionSDK.ObjectContext)
-	if ok {
-		op := tokenVerbToOperation(ctx)
-		if op != eaclSDK.OperationUnknown {
-			return op, false
-		}
-	}
-
-	return reqVerb, true
-}
-
-func useObjectIDFromSession(req *RequestInfo, token *sessionSDK.Token) {
+func useObjectIDFromSession(req *RequestInfo, token *sessionSDK.Object) {
 	if token == nil {
 		return
 	}
 
-	objCtx, ok := token.Context().(*sessionSDK.ObjectContext)
+	// TODO(@cthulhu-rider): It'd be nice to not pull object identifiers from
+	//  the token, but assert them. Track #1420
+	var tokV2 sessionV2.Token
+	token.WriteToV2(&tokV2)
+
+	ctx, ok := tokV2.GetBody().GetContext().(*sessionV2.ObjectSessionContext)
 	if !ok {
+		panic(fmt.Sprintf("wrong object session context %T, is it verified?", tokV2.GetBody().GetContext()))
+	}
+
+	idV2 := ctx.GetAddress().GetObjectID()
+	if idV2 == nil {
 		return
 	}
 
-	id, ok := objCtx.Address().ObjectID()
-	if ok {
-		req.oid = &id
+	req.oid = new(oidSDK.ID)
+
+	err := req.oid.ReadFromV2(*idV2)
+	if err != nil {
+		panic(fmt.Sprintf("unexpected protocol violation error after correct session token decoding: %v", err))
 	}
 }
 
-func tokenVerbToOperation(ctx *sessionSDK.ObjectContext) eaclSDK.Operation {
-	switch {
-	case ctx.IsForGet():
-		return eaclSDK.OperationGet
-	case ctx.IsForPut():
-		return eaclSDK.OperationPut
-	case ctx.IsForHead():
-		return eaclSDK.OperationHead
-	case ctx.IsForSearch():
-		return eaclSDK.OperationSearch
-	case ctx.IsForDelete():
-		return eaclSDK.OperationDelete
-	case ctx.IsForRange():
-		return eaclSDK.OperationRange
-	case ctx.IsForRangeHash():
-		return eaclSDK.OperationRangeHash
-	default:
-		return eaclSDK.OperationUnknown
-	}
-}
-
-func ownerFromToken(token *sessionSDK.Token) (*user.ID, *keys.PublicKey, error) {
+func ownerFromToken(token *sessionSDK.Object) (*user.ID, *keys.PublicKey, error) {
 	// 1. First check signature of session token.
 	if !token.VerifySignature() {
 		return nil, nil, fmt.Errorf("%w: invalid session token signature", ErrMalformedRequest)
@@ -172,21 +161,32 @@ func ownerFromToken(token *sessionSDK.Token) (*user.ID, *keys.PublicKey, error) 
 
 	// 2. Then check if session token owner issued the session token
 	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-	tokV2 := token.ToV2()
+	var tokV2 sessionV2.Token
+	token.WriteToV2(&tokV2)
+
+	ownerSessionV2 := tokV2.GetBody().GetOwnerID()
+	if ownerSessionV2 == nil {
+		return nil, nil, errors.New("missing session owner")
+	}
+
+	var ownerSession user.ID
+
+	err := ownerSession.ReadFromV2(*ownerSessionV2)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid session token: %w", err)
+	}
 
 	tokenIssuerKey, err := unmarshalPublicKey(tokV2.GetSignature().GetKey())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid key in session token signature: %w", err)
 	}
 
-	tokenOwner := token.OwnerID()
-
-	if !isOwnerFromKey(tokenOwner, tokenIssuerKey) {
+	if !isOwnerFromKey(&ownerSession, tokenIssuerKey) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
 	}
 
-	return tokenOwner, tokenIssuerKey, nil
+	return &ownerSession, tokenIssuerKey, nil
 }
 
 func originalBodySignature(v *sessionV2.RequestVerificationHeader) *refsV2.Signature {
@@ -216,17 +216,30 @@ func isOwnerFromKey(id *user.ID, key *keys.PublicKey) bool {
 	return id2.Equals(*id)
 }
 
-// isVerbCompatible checks that tokenVerb operation can create auxiliary op operation.
-func isVerbCompatible(tokenVerb, op eaclSDK.Operation) bool {
-	switch tokenVerb {
-	case eaclSDK.OperationGet:
-		return op == eaclSDK.OperationGet || op == eaclSDK.OperationHead
+// assertVerb checks that token verb corresponds to op.
+func assertVerb(tok sessionSDK.Object, op eaclSDK.Operation) bool {
+	//nolint:exhaustive
+	switch op {
+	case eaclSDK.OperationPut:
+		return tok.AssertVerb(sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete)
 	case eaclSDK.OperationDelete:
-		return op == eaclSDK.OperationPut || op == eaclSDK.OperationHead ||
-			op == eaclSDK.OperationSearch
-	case eaclSDK.OperationRange, eaclSDK.OperationRangeHash:
-		return op == eaclSDK.OperationRange || op == eaclSDK.OperationHead
-	default:
-		return tokenVerb == op
+		return tok.AssertVerb(sessionSDK.VerbObjectDelete)
+	case eaclSDK.OperationGet:
+		return tok.AssertVerb(sessionSDK.VerbObjectGet)
+	case eaclSDK.OperationHead:
+		return tok.AssertVerb(
+			sessionSDK.VerbObjectHead,
+			sessionSDK.VerbObjectGet,
+			sessionSDK.VerbObjectDelete,
+			sessionSDK.VerbObjectRange,
+			sessionSDK.VerbObjectRangeHash)
+	case eaclSDK.OperationSearch:
+		return tok.AssertVerb(sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete)
+	case eaclSDK.OperationRange:
+		return tok.AssertVerb(sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash)
+	case eaclSDK.OperationRangeHash:
+		return tok.AssertVerb(sessionSDK.VerbObjectRangeHash)
 	}
+
+	return false
 }

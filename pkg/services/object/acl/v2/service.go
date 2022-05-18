@@ -113,7 +113,10 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		return err
 	}
 
-	sTok := originalSessionToken(request.GetMetaHeader())
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return err
+	}
 
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -164,7 +167,10 @@ func (b Service) Head(
 		return nil, err
 	}
 
-	sTok := originalSessionToken(request.GetMetaHeader())
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return nil, err
+	}
 
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -207,9 +213,14 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 		return err
 	}
 
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
-		token:   originalSessionToken(request.GetMetaHeader()),
+		token:   sTok,
 		bearer:  originalBearerToken(request.GetMetaHeader()),
 		src:     request,
 	}
@@ -245,7 +256,10 @@ func (b Service) Delete(
 		return nil, err
 	}
 
-	sTok := originalSessionToken(request.GetMetaHeader())
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return nil, err
+	}
 
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -281,7 +295,10 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		return err
 	}
 
-	sTok := originalSessionToken(request.GetMetaHeader())
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return err
+	}
 
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -322,7 +339,10 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
-	sTok := originalSessionToken(request.GetMetaHeader())
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return nil, err
+	}
 
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
@@ -377,7 +397,16 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			return fmt.Errorf("invalid object owner: %w", err)
 		}
 
-		sTok := sessionSDK.NewTokenFromV2(request.GetMetaHeader().GetSessionToken())
+		var sTok *sessionSDK.Object
+
+		if tokV2 := request.GetMetaHeader().GetSessionToken(); tokV2 != nil {
+			sTok = new(sessionSDK.Object)
+
+			err = sTok.ReadFromV2(*tokV2)
+			if err != nil {
+				return fmt.Errorf("invalid session token: %w", err)
+			}
+		}
 
 		req := MetaWithToken{
 			vheader: request.GetVerificationHeader(),
@@ -449,14 +478,18 @@ func (b Service) findRequestInfo(
 		return info, errors.New("missing owner in container descriptor")
 	}
 
-	if req.token != nil && req.token.Exp() != 0 {
+	if req.token != nil {
 		currentEpoch, err := b.nm.Epoch()
 		if err != nil {
 			return info, errors.New("can't fetch current epoch")
 		}
-		if req.token.Exp() < currentEpoch {
-			return info, fmt.Errorf("%w: token has expired (current epoch: %d, expired at %d)",
-				ErrMalformedRequest, currentEpoch, req.token.Exp())
+		if req.token.ExpiredAt(currentEpoch) {
+			return info, fmt.Errorf("%w: token has expired (current epoch: %d)",
+				ErrMalformedRequest, currentEpoch)
+		}
+
+		if !assertVerb(*req.token, op) {
+			return info, ErrInvalidVerb
 		}
 	}
 
@@ -470,16 +503,10 @@ func (b Service) findRequestInfo(
 		return info, ErrUnknownRole
 	}
 
-	// find verb from token if it is present
-	verb, isUnknown := sourceVerbOfRequest(req.token, op)
-	if !isUnknown && verb != op && !isVerbCompatible(verb, op) {
-		return info, ErrInvalidVerb
-	}
-
 	info.basicACL = cnr.BasicACL()
 	info.requestRole = res.role
 	info.isInnerRing = res.isIR
-	info.operation = verb
+	info.operation = op
 	info.cnrOwner = cnr.OwnerID()
 	info.idCnr = cid
 
