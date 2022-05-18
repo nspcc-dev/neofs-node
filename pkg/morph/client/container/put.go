@@ -24,18 +24,16 @@ func Put(c *Client, cnr *container.Container) (*cid.ID, error) {
 		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
-	binToken, err := cnr.SessionToken().Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal session token: %w", err)
-	}
-
 	name, zone := container.GetNativeNameWithZone(cnr)
 
 	var prm PutPrm
 	prm.SetContainer(data)
-	prm.SetToken(binToken)
 	prm.SetName(name)
 	prm.SetZone(zone)
+
+	if tok := cnr.SessionToken(); tok != nil {
+		prm.SetToken(tok.Marshal())
+	}
 
 	if sig := cnr.Signature(); sig != nil {
 		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion

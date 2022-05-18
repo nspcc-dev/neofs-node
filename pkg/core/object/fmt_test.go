@@ -88,13 +88,13 @@ func TestFormatValidator_Validate(t *testing.T) {
 		var idOwner user.ID
 		user.IDFromKey(&idOwner, ownerKey.PrivateKey.PublicKey)
 
-		tok := sessiontest.Token()
-		tok.SetOwnerID(&idOwner)
+		tok := sessiontest.Object()
+		tok.Sign(ownerKey.PrivateKey)
 
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
-		obj.SetSessionToken(sessiontest.Token())
-		obj.SetOwnerID(tok.OwnerID())
+		obj.SetSessionToken(tok)
+		obj.SetOwnerID(&idOwner)
 
 		require.NoError(t, object.SetIDWithSignature(ownerKey.PrivateKey, obj))
 

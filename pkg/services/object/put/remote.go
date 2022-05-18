@@ -48,7 +48,18 @@ func (t *remoteTarget) WriteHeader(obj *object.Object) error {
 }
 
 func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
-	key, err := t.keyStorage.GetKey(t.commonPrm.SessionToken())
+	var sessionInfo *util.SessionInfo
+
+	if tok := t.commonPrm.SessionToken(); tok != nil {
+		ownerSession, _ := t.commonPrm.SessionOwner()
+
+		sessionInfo = &util.SessionInfo{
+			ID:    tok.ID(),
+			Owner: ownerSession,
+		}
+	}
+
+	key, err := t.keyStorage.GetKey(sessionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}

@@ -25,13 +25,13 @@ type commonPrm struct {
 
 	key *ecdsa.PrivateKey
 
-	tokenSession *session.Token
+	tokenSession *session.Object
 
 	tokenBearer *bearer.Token
 
 	local bool
 
-	xHeaders []*session.XHeader
+	xHeaders []string
 }
 
 // SetClient sets base client for NeoFS API communication.
@@ -58,7 +58,7 @@ func (x *commonPrm) SetPrivateKey(key *ecdsa.PrivateKey) {
 // SetSessionToken sets token of the session within which request should be sent.
 //
 // By default the request will be sent outside the session.
-func (x *commonPrm) SetSessionToken(tok *session.Token) {
+func (x *commonPrm) SetSessionToken(tok *session.Object) {
 	x.tokenSession = tok
 }
 
@@ -77,21 +77,8 @@ func (x *commonPrm) SetTTL(ttl uint32) {
 // SetXHeaders sets request X-Headers.
 //
 // By default X-Headers will  not be attached to the request.
-func (x *commonPrm) SetXHeaders(hs []*session.XHeader) {
+func (x *commonPrm) SetXHeaders(hs []string) {
 	x.xHeaders = hs
-}
-
-func (x commonPrm) xHeadersPrm() (res []string) {
-	if len(x.xHeaders) > 0 {
-		res = make([]string, len(x.xHeaders)*2)
-
-		for i := range x.xHeaders {
-			res[2*i] = x.xHeaders[i].Key()
-			res[2*i+1] = x.xHeaders[i].Value()
-		}
-	}
-
-	return
 }
 
 type readPrmCommon struct {
@@ -163,7 +150,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		prm.cliPrm.MarkLocal()
 	}
 
-	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
 	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cliPrm)
 	if err != nil {
@@ -258,7 +245,7 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
 	}
 
-	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
 	cliRes, err := prm.cli.ObjectHead(prm.ctx, prm.cliPrm)
 	if err == nil {
@@ -350,7 +337,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	}
 
 	prm.cliPrm.SetLength(prm.ln)
-	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
 	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cliPrm)
 	if err != nil {
@@ -420,7 +407,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		w.WithBearerToken(*prm.tokenBearer)
 	}
 
-	w.WithXHeaders(prm.xHeadersPrm()...)
+	w.WithXHeaders(prm.xHeaders...)
 
 	if w.WriteHeader(*prm.obj) {
 		w.WritePayloadChunk(prm.obj.Payload())
@@ -492,7 +479,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
 	}
 
-	prm.cliPrm.WithXHeaders(prm.xHeadersPrm()...)
+	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
 	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cliPrm)
 	if err != nil {

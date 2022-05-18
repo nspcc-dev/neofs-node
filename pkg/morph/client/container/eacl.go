@@ -77,14 +77,14 @@ func (c *Client) GetEACL(cnr *cid.ID) (*eacl.Table, error) {
 	}
 
 	if len(binToken) > 0 {
-		tok := session.NewToken()
+		var tok session.Container
 
 		err = tok.Unmarshal(binToken)
 		if err != nil {
 			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
 		}
 
-		table.SetSessionToken(tok)
+		table.SetSessionToken(&tok)
 	}
 
 	// FIXME(@cthulhu-rider): #1387 temp solution, later table structure won't have a signature

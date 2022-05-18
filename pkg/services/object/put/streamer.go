@@ -84,7 +84,18 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// prepare trusted-Put object target
 
 	// get private token from local storage
-	sessionKey, err := p.keyStorage.GetKey(sToken)
+	var sessionInfo *util.SessionInfo
+
+	if sToken != nil {
+		ownerSession, _ := prm.common.SessionOwner()
+
+		sessionInfo = &util.SessionInfo{
+			ID:    sToken.ID(),
+			Owner: ownerSession,
+		}
+	}
+
+	sessionKey, err := p.keyStorage.GetKey(sessionInfo)
 	if err != nil {
 		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
 	}

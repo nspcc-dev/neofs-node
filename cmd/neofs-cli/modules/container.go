@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
@@ -158,26 +159,33 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		nonce, err := parseNonce(containerNonce)
 		common.ExitOnErr(cmd, "", err)
 
-		tok := common.ReadSessionToken(cmd, sessionTokenFlag)
 		key := key.GetOrGenerate(cmd)
 
-		var idOwner *user.ID
+		cnr := container.New()
+		var tok *session.Container
 
-		if idOwner = tok.OwnerID(); idOwner == nil {
-			idOwner = new(user.ID)
-			user.IDFromKey(idOwner, key.PublicKey)
+		if sessionTokenPath != "" {
+			tok = new(session.Container)
+			common.ReadSessionToken(cmd, tok, sessionTokenPath)
+
+			issuer := tok.Issuer()
+			cnr.SetOwnerID(&issuer)
+			cnr.SetSessionToken(tok)
+		} else {
+			var idOwner user.ID
+			user.IDFromKey(&idOwner, key.PublicKey)
+
+			cnr.SetOwnerID(&idOwner)
 		}
 
 		ver := versionSDK.Current()
 
-		cnr := container.New()
 		cnr.SetVersion(&ver)
 		cnr.SetPlacementPolicy(placementPolicy)
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
 		cnr.SetNonceUUID(nonce)
 		cnr.SetSessionToken(tok)
-		cnr.SetOwnerID(idOwner)
 
 		var (
 			putPrm internalclient.PutContainerPrm
@@ -223,7 +231,12 @@ Only owner of the container has a permission to remove container.`,
 		id, err := parseContainerID(containerID)
 		common.ExitOnErr(cmd, "", err)
 
-		tok := common.ReadSessionToken(cmd, sessionTokenFlag)
+		var tok *session.Container
+
+		if sessionTokenPath != "" {
+			tok = new(session.Container)
+			common.ReadSessionToken(cmd, tok, sessionTokenPath)
+		}
 
 		var (
 			delPrm internalclient.DeleteContainerPrm
@@ -234,7 +247,7 @@ Only owner of the container has a permission to remove container.`,
 		delPrm.SetContainer(*id)
 
 		if tok != nil {
-			delPrm.SetSessionToken(*tok)
+			delPrm.WithinSession(*tok)
 		}
 
 		_, err = internalclient.DeleteContainer(delPrm)
@@ -412,7 +425,12 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		eaclTable := common.ReadEACL(cmd, eaclPathFrom)
 
-		tok := common.ReadSessionToken(cmd, sessionTokenFlag)
+		var tok *session.Container
+
+		if sessionTokenPath != "" {
+			tok = new(session.Container)
+			common.ReadSessionToken(cmd, tok, sessionTokenPath)
+		}
 
 		eaclTable.SetCID(*id)
 		eaclTable.SetSessionToken(tok)

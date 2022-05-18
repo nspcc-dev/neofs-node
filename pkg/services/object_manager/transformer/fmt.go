@@ -25,7 +25,7 @@ type FormatterParams struct {
 
 	NextTarget ObjectTarget
 
-	SessionToken *session.Token
+	SessionToken *session.Object
 
 	NetworkState netmap.State
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
@@ -44,10 +45,6 @@ type Writer interface {
 	PutEACL(*eaclSDK.Table) error
 }
 
-// ErrInvalidContext is thrown by morph ServiceExecutor when provided session
-// token does not contain expected container context.
-var ErrInvalidContext = errors.New("session token does not contain container context")
-
 func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
 	return &morphExecutor{
 		rdr: rdr,
@@ -69,12 +66,16 @@ func (s *morphExecutor) Put(ctx containerSvc.ContextWithToken, body *container.P
 
 	cnr.SetSignature(&sig)
 
-	tok := session.NewTokenFromV2(ctx.SessionToken)
-	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
-		return nil, ErrInvalidContext
-	}
+	if ctx.SessionToken != nil {
+		var tok session.Container
 
-	cnr.SetSessionToken(tok)
+		err := tok.ReadFromV2(*ctx.SessionToken)
+		if err != nil {
+			return nil, fmt.Errorf("invalid session token: %w", err)
+		}
+
+		cnr.SetSessionToken(&tok)
+	}
 
 	idCnr, err := s.wrt.Put(cnr)
 	if err != nil {
@@ -105,9 +106,15 @@ func (s *morphExecutor) Delete(ctx containerSvc.ContextWithToken, body *containe
 
 	sig := body.GetSignature().GetSign()
 
-	tok := session.NewTokenFromV2(ctx.SessionToken)
-	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
-		return nil, ErrInvalidContext
+	var tok *session.Container
+
+	if ctx.SessionToken != nil {
+		tok = new(session.Container)
+
+		err := tok.ReadFromV2(*ctx.SessionToken)
+		if err != nil {
+			return nil, fmt.Errorf("invalid session token: %w", err)
+		}
 	}
 
 	var rmWitness containercore.RemovalWitness
@@ -149,10 +156,18 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 		sig.WriteToV2(sigV2)
 	}
 
+	var tokV2 *sessionV2.Token
+
+	if tok := cnr.SessionToken(); tok != nil {
+		tokV2 = new(sessionV2.Token)
+
+		tok.WriteToV2(tokV2)
+	}
+
 	res := new(container.GetResponseBody)
 	res.SetContainer(cnr.ToV2())
 	res.SetSignature(sigV2)
-	res.SetSessionToken(cnr.SessionToken().ToV2())
+	res.SetSessionToken(tokV2)
 
 	return res, nil
 }
@@ -200,12 +215,16 @@ func (s *morphExecutor) SetExtendedACL(ctx containerSvc.ContextWithToken, body *
 
 	table.SetSignature(&sig)
 
-	tok := session.NewTokenFromV2(ctx.SessionToken)
-	if ctx.SessionToken != nil && session.GetContainerContext(tok) == nil {
-		return nil, ErrInvalidContext
-	}
+	if ctx.SessionToken != nil {
+		var tok session.Container
 
-	table.SetSessionToken(tok)
+		err := tok.ReadFromV2(*ctx.SessionToken)
+		if err != nil {
+			return nil, fmt.Errorf("invalid session token: %w", err)
+		}
+
+		table.SetSessionToken(&tok)
+	}
 
 	err := s.wrt.PutEACL(table)
 	if err != nil {
@@ -240,10 +259,18 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetE
 		sig.WriteToV2(sigV2)
 	}
 
+	var tokV2 *sessionV2.Token
+
+	if tok := table.SessionToken(); tok != nil {
+		tokV2 = new(sessionV2.Token)
+
+		tok.WriteToV2(tokV2)
+	}
+
 	res := new(container.GetExtendedACLResponseBody)
 	res.SetEACL(table.ToV2())
 	res.SetSignature(sigV2)
-	res.SetSessionToken(table.SessionToken().ToV2())
+	res.SetSessionToken(tokV2)
 
 	return res, nil
 }

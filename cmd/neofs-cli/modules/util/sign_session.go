@@ -1,12 +1,14 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
 )
 
@@ -29,10 +31,19 @@ func initSignSessionCmd() {
 }
 
 func signSessionToken(cmd *cobra.Command, _ []string) {
-	stok := common.ReadSessionToken(cmd, signFromFlag)
+	fPath, err := cmd.Flags().GetString(signFromFlag)
+	common.ExitOnErr(cmd, "", err)
+
+	if fPath == "" {
+		common.ExitOnErr(cmd, "", errors.New("missing session token flag"))
+	}
+
+	var stok session.Object
+	common.ReadSessionToken(cmd, &stok, signFromFlag)
+
 	pk := key.GetOrGenerate(cmd)
 
-	err := stok.Sign(pk)
+	err = stok.Sign(*pk)
 	common.ExitOnErr(cmd, "can't sign token: %w", err)
 
 	data, err := stok.MarshalJSON()

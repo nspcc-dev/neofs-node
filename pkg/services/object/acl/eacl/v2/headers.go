@@ -84,6 +84,16 @@ func (h headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Hea
 	}
 }
 
+type xHeader session.XHeader
+
+func (x xHeader) Key() string {
+	return (*session.XHeader)(&x).GetKey()
+}
+
+func (x xHeader) Value() string {
+	return (*session.XHeader)(&x).GetValue()
+}
+
 func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
 	return msg.GetXHeaders()
 }

@@ -7,6 +7,7 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -105,7 +106,18 @@ func (exec execCtx) isChild(obj *objectSDK.Object) bool {
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
-	return exec.svc.keyStore.GetKey(exec.prm.common.SessionToken())
+	var sessionInfo *util.SessionInfo
+
+	if tok := exec.prm.common.SessionToken(); tok != nil {
+		ownerSession, _ := exec.prm.common.SessionOwner()
+
+		sessionInfo = &util.SessionInfo{
+			ID:    tok.ID(),
+			Owner: ownerSession,
+		}
+	}
+
+	return exec.svc.keyStore.GetKey(sessionInfo)
 }
 
 func (exec *execCtx) canAssemble() bool {

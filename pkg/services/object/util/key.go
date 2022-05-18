@@ -2,11 +2,12 @@ package util
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -40,13 +41,28 @@ func NewKeyStorage(localKey *ecdsa.PrivateKey, tokenStore SessionSource, net net
 	}
 }
 
+// SessionInfo groups information about NeoFS Object session
+// which is reflected in KeyStorage.
+type SessionInfo struct {
+	// Session unique identifier.
+	ID uuid.UUID
+
+	// Session issuer.
+	Owner user.ID
+}
+
 // GetKey returns private key of the node.
 //
 // If token is not nil, session private key is returned.
 // Otherwise, node private key is returned.
-func (s *KeyStorage) GetKey(token *session.Token) (*ecdsa.PrivateKey, error) {
-	if token != nil {
-		pToken := s.tokenStore.Get(token.OwnerID(), token.ID())
+func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
+	if info != nil {
+		binID, err := info.ID.MarshalBinary()
+		if err != nil {
+			return nil, fmt.Errorf("marshal ID: %w", err)
+		}
+
+		pToken := s.tokenStore.Get(&info.Owner, binID)
 		if pToken != nil {
 			if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
 				var errExpired apistatus.SessionTokenExpired

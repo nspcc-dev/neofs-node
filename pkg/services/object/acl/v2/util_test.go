@@ -6,23 +6,28 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	sessiontest "github.com/nspcc-dev/neofs-api-go/v2/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
+	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOriginalTokens(t *testing.T) {
-	sToken := sessiontest.GenerateSessionToken(false)
+	sToken := sessiontest.ObjectSigned()
 	bTokenV2 := acltest.GenerateBearerToken(false)
 
 	var bToken bearer.Token
 	bToken.ReadFromV2(*bTokenV2)
 
+	var sTokenV2 session.Token
+	sToken.WriteToV2(&sTokenV2)
+
 	for i := 0; i < 10; i++ {
-		metaHeaders := testGenerateMetaHeader(uint32(i), bTokenV2, sToken)
-		require.Equal(t, sessionSDK.NewTokenFromV2(sToken), originalSessionToken(metaHeaders), i)
+		metaHeaders := testGenerateMetaHeader(uint32(i), bTokenV2, &sTokenV2)
+		res, err := originalSessionToken(metaHeaders)
+		require.NoError(t, err)
+		require.Equal(t, sToken, res, i)
 		require.Equal(t, &bToken, originalBearerToken(metaHeaders), i)
 	}
 }
@@ -43,38 +48,48 @@ func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Token) 
 
 func TestIsVerbCompatible(t *testing.T) {
 	// Source: https://nspcc.ru/upload/neofs-spec-latest.pdf#page=28
-	table := map[eacl.Operation][]eacl.Operation{
-		eacl.OperationPut:       {eacl.OperationPut},
-		eacl.OperationDelete:    {eacl.OperationPut, eacl.OperationHead, eacl.OperationSearch},
-		eacl.OperationHead:      {eacl.OperationHead},
-		eacl.OperationRange:     {eacl.OperationRange, eacl.OperationHead},
-		eacl.OperationRangeHash: {eacl.OperationRange, eacl.OperationHead},
-		eacl.OperationGet:       {eacl.OperationGet, eacl.OperationHead},
-		eacl.OperationSearch:    {eacl.OperationSearch},
+	table := map[eacl.Operation][]sessionSDK.ObjectVerb{
+		eacl.OperationPut:    {sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete},
+		eacl.OperationDelete: {sessionSDK.VerbObjectDelete},
+		eacl.OperationGet:    {sessionSDK.VerbObjectGet},
+		eacl.OperationHead: {
+			sessionSDK.VerbObjectHead,
+			sessionSDK.VerbObjectGet,
+			sessionSDK.VerbObjectDelete,
+			sessionSDK.VerbObjectRange,
+			sessionSDK.VerbObjectRangeHash,
+		},
+		eacl.OperationRange:     {sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash},
+		eacl.OperationRangeHash: {sessionSDK.VerbObjectRangeHash},
+		eacl.OperationSearch:    {sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete},
 	}
 
-	ops := []eacl.Operation{
-		eacl.OperationPut,
-		eacl.OperationDelete,
-		eacl.OperationHead,
-		eacl.OperationRange,
-		eacl.OperationRangeHash,
-		eacl.OperationGet,
-		eacl.OperationSearch,
+	verbs := []sessionSDK.ObjectVerb{
+		sessionSDK.VerbObjectPut,
+		sessionSDK.VerbObjectDelete,
+		sessionSDK.VerbObjectHead,
+		sessionSDK.VerbObjectRange,
+		sessionSDK.VerbObjectRangeHash,
+		sessionSDK.VerbObjectGet,
+		sessionSDK.VerbObjectSearch,
 	}
 
-	for _, opToken := range ops {
-		for _, op := range ops {
+	var tok sessionSDK.Object
+
+	for op, list := range table {
+		for _, verb := range verbs {
 			var contains bool
-			for _, o := range table[opToken] {
-				if o == op {
+			for _, v := range list {
+				if v == verb {
 					contains = true
 					break
 				}
 			}
 
-			require.Equal(t, contains, isVerbCompatible(opToken, op),
-				"%s in token, %s executing", opToken, op)
+			tok.ForVerb(verb)
+
+			require.Equal(t, contains, assertVerb(tok, op),
+				"%v in token, %s executing", verb, op)
 		}
 	}
 }

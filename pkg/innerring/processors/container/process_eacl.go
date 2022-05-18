@@ -1,12 +1,9 @@
 package container
 
 import (
-	"crypto/elliptic"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -33,25 +30,12 @@ func (cp *Processor) processSetEACL(e container.SetEACL) {
 }
 
 func (cp *Processor) checkSetEACL(e container.SetEACL) error {
-	// verify signature
-	key, err := keys.NewPublicKeyFromBytes(e.PublicKey(), elliptic.P256())
-	if err != nil {
-		return fmt.Errorf("invalid key: %w", err)
-	}
-
 	binTable := e.Table()
-	tableHash := sha256.Sum256(binTable)
-
-	if !key.Verify(e.Signature(), tableHash[:]) {
-		return errors.New("invalid signature")
-	}
-
-	// verify the identity of the container owner
 
 	// unmarshal table
 	table := eacl.NewTable()
 
-	err = table.Unmarshal(binTable)
+	err := table.Unmarshal(binTable)
 	if err != nil {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
@@ -67,30 +51,26 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	// unmarshal session token if presented
-	tok, err := tokenFromEvent(e)
+	ownerContainer := cnr.OwnerID()
+	if ownerContainer == nil {
+		return errors.New("missing container owner")
+	}
+
+	err = cp.verifySignature(signatureVerificationData{
+		ownerContainer:  *ownerContainer,
+		verb:            session.VerbContainerSetEACL,
+		idContainerSet:  true,
+		idContainer:     idCnr,
+		binTokenSession: e.SessionToken(),
+		binPublicKey:    e.PublicKey(),
+		signature:       e.Signature(),
+		signedData:      binTable,
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("auth eACL table setting: %w", err)
 	}
 
-	if tok != nil {
-		// check token context
-		err = checkTokenContextWithCID(tok, idCnr, func(c *session.ContainerContext) bool {
-			return c.IsForSetEACL()
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	// statement below is a little hack, but if we write a token from an event to the container,
-	// checkKeyOwnership method will work just as it should:
-	//  * tok == nil => we will check if key is a container owner's key
-	//  * tok != nil => we will check if token was signed correctly (context is checked at the statement above)
-	cnr.SetSessionToken(tok)
-
-	// check key ownership
-	return cp.checkKeyOwnership(cnr, key)
+	return nil
 }
 
 func (cp *Processor) approveSetEACL(e container.SetEACL) {

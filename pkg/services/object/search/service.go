@@ -1,8 +1,6 @@
 package searchsvc
 
 import (
-	"crypto/ecdsa"
-
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -11,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"go.uber.org/zap"
 )
 
@@ -51,9 +48,7 @@ type cfg struct {
 		currentEpoch() (uint64, error)
 	}
 
-	keyStore interface {
-		GetKey(token *session.Token) (*ecdsa.PrivateKey, error)
-	}
+	keyStore *util.KeyStorage
 }
 
 func defaultCfg() *cfg {

@@ -314,7 +314,7 @@ func init() {
 
 type clientKeySession interface {
 	clientWithKey
-	SetSessionToken(*session.Token)
+	SetSessionToken(*session.Object)
 }
 
 func prepareSessionPrm(cmd *cobra.Command, addr *addressSDK.Address, prms ...clientKeySession) {
@@ -339,65 +339,54 @@ func prepareSessionPrmWithOwner(
 ) {
 	cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
-	var sessionToken *session.Token
+	var tok session.Object
 	if tokenPath, _ := cmd.Flags().GetString(sessionTokenFlag); len(tokenPath) != 0 {
 		data, err := ioutil.ReadFile(tokenPath)
 		common.ExitOnErr(cmd, "can't read session token: %w", err)
 
-		sessionToken = session.NewToken()
-		if err := sessionToken.Unmarshal(data); err != nil {
-			err = sessionToken.UnmarshalJSON(data)
+		if err := tok.Unmarshal(data); err != nil {
+			err = tok.UnmarshalJSON(data)
 			common.ExitOnErr(cmd, "can't unmarshal session token: %w", err)
 		}
 	} else {
-		var err error
-		sessionToken, err = sessionCli.CreateSession(cli, ownerID, sessionTokenLifetime)
-		common.ExitOnErr(cmd, "", err)
+		err := sessionCli.CreateSession(&tok, cli, sessionTokenLifetime)
+		common.ExitOnErr(cmd, "create session: %w", err)
 	}
 
 	for i := range prms {
-		objectContext := session.NewObjectContext()
 		switch prms[i].(type) {
 		case *internalclient.GetObjectPrm:
-			objectContext.ForGet()
+			tok.ForVerb(session.VerbObjectGet)
 		case *internalclient.HeadObjectPrm:
-			objectContext.ForHead()
+			tok.ForVerb(session.VerbObjectHead)
 		case *internalclient.PutObjectPrm:
-			objectContext.ForPut()
+			tok.ForVerb(session.VerbObjectPut)
 		case *internalclient.DeleteObjectPrm:
-			objectContext.ForDelete()
+			tok.ForVerb(session.VerbObjectDelete)
 		case *internalclient.SearchObjectsPrm:
-			objectContext.ForSearch()
+			tok.ForVerb(session.VerbObjectSearch)
 		case *internalclient.PayloadRangePrm:
-			objectContext.ForRange()
+			tok.ForVerb(session.VerbObjectRange)
 		case *internalclient.HashPayloadRangesPrm:
-			objectContext.ForRangeHash()
+			tok.ForVerb(session.VerbObjectRangeHash)
 		default:
 			panic("invalid client parameter type")
 		}
-		objectContext.ApplyTo(addr)
 
-		tok := session.NewToken()
-		tok.SetID(sessionToken.ID())
-		tok.SetSessionKey(sessionToken.SessionKey())
-		tok.SetOwnerID(sessionToken.OwnerID())
-		tok.SetContext(objectContext)
-		tok.SetExp(sessionToken.Exp())
-		tok.SetIat(sessionToken.Iat())
-		tok.SetNbf(sessionToken.Nbf())
+		tok.ApplyTo(*addr)
 
-		err := tok.Sign(key)
+		err := tok.Sign(*key)
 		common.ExitOnErr(cmd, "session token signing: %w", err)
 
 		prms[i].SetClient(cli)
-		prms[i].SetSessionToken(tok)
+		prms[i].SetSessionToken(&tok)
 	}
 }
 
 type objectPrm interface {
 	bearerPrm
 	SetTTL(uint32)
-	SetXHeaders([]*session.XHeader)
+	SetXHeaders([]string)
 }
 
 func prepareObjectPrm(cmd *cobra.Command, prms ...objectPrm) {
