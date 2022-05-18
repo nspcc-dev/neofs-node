@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -163,19 +164,19 @@ func (c sgHeadReceiver) Head(addr *addressSDK.Address) (interface{}, error) {
 
 func putSG(cmd *cobra.Command, _ []string) {
 	key, err := getKey()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	ownerID, err := getOwnerID(key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	cnr, err := getCID(cmd)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	members := make([]oidSDK.ID, len(sgMembers))
 
 	for i := range sgMembers {
 		err = members[i].DecodeString(sgMembers[i])
-		exitOnErr(cmd, errf("could not parse object ID: %w", err))
+		common.ExitOnErr(cmd, "could not parse object ID: %w", err)
 	}
 
 	var (
@@ -196,10 +197,10 @@ func putSG(cmd *cobra.Command, _ []string) {
 		ownerID: ownerID,
 		prm:     headPrm,
 	}, cnr, members)
-	exitOnErr(cmd, errf("could not collect storage group members: %w", err))
+	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
 
 	sgContent, err := sg.Marshal()
-	exitOnErr(cmd, errf("could not marshal storage group: %w", err))
+	common.ExitOnErr(cmd, "could not marshal storage group: %w", err)
 
 	obj := object.New()
 	obj.SetContainerID(*cnr)
@@ -210,7 +211,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 	putPrm.SetPayloadReader(bytes.NewReader(sgContent))
 
 	res, err := internalclient.PutObject(putPrm)
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	cmd.Println("Storage group successfully stored")
 	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cnr)
@@ -228,10 +229,10 @@ func getSGID() (*oidSDK.ID, error) {
 
 func getSG(cmd *cobra.Command, _ []string) {
 	cnr, err := getCID(cmd)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	id, err := getSGID()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	addr := addressSDK.NewAddress()
 	addr.SetContainerID(*cnr)
@@ -247,12 +248,12 @@ func getSG(cmd *cobra.Command, _ []string) {
 	prm.SetPayloadWriter(buf)
 
 	_, err = internalclient.GetObject(prm)
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	var sg storagegroupAPI.StorageGroup
 
 	err = sg.Unmarshal(buf.Bytes())
-	exitOnErr(cmd, errf("could not unmarshal storage group: %w", err))
+	common.ExitOnErr(cmd, "could not unmarshal storage group: %w", err)
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
@@ -269,7 +270,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 func listSG(cmd *cobra.Command, _ []string) {
 	cnr, err := getCID(cmd)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var prm internalclient.SearchObjectsPrm
 
@@ -281,7 +282,7 @@ func listSG(cmd *cobra.Command, _ []string) {
 	prm.SetFilters(storagegroup.SearchQuery())
 
 	res, err := internalclient.SearchObjects(prm)
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	ids := res.IDList()
 
@@ -294,10 +295,10 @@ func listSG(cmd *cobra.Command, _ []string) {
 
 func delSG(cmd *cobra.Command, _ []string) {
 	cnr, err := getCID(cmd)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	id, err := getSGID()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	addr := addressSDK.NewAddress()
 	addr.SetContainerID(*cnr)
@@ -310,7 +311,7 @@ func delSG(cmd *cobra.Command, _ []string) {
 	prm.SetAddress(addr)
 
 	res, err := internalclient.DeleteObject(prm)
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	tombstone := res.TombstoneAddress()
 

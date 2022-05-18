@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
@@ -23,12 +24,12 @@ var dumpShardCmd = &cobra.Command{
 
 func dumpShard(cmd *cobra.Command, _ []string) {
 	key, err := getKeyNoGenerate()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	body := new(control.DumpShardRequest_Body)
 
 	rawID, err := base58.Decode(shardID)
-	exitOnErr(cmd, errf("incorrect shard ID encoding: %w", err))
+	common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
 	body.SetShardID(rawID)
 
 	p, _ := cmd.Flags().GetString(dumpFilepathFlag)
@@ -41,17 +42,17 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 	req.SetBody(body)
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, errf("could not sign request: %w", err))
+	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 	cli, err := getControlSDKClient(key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var resp *control.DumpShardResponse
 	err = cli.ExecRaw(func(client *client.Client) error {
 		resp, err = control.DumpShard(client, req)
 		return err
 	})
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
@@ -116,13 +117,13 @@ var listContainersCmd = &cobra.Command{
 		var oid *owner.ID
 
 		key, err := getKey()
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		if containerOwner == "" {
 			oid = owner.NewIDFromPublicKey(&key.PublicKey)
 		} else {
 			oid, err = ownerFromString(containerOwner)
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 		}
 
 		var prm internalclient.ListContainersPrm
@@ -131,7 +132,7 @@ var listContainersCmd = &cobra.Command{
 		prm.SetAccount(*oid)
 
 		res, err := internalclient.ListContainers(prm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		// print to stdout
 		prettyPrintContainerList(cmd, res.IDList())
@@ -145,27 +146,27 @@ var createContainerCmd = &cobra.Command{
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		subnetID, err := parseSubnetID(containerSubnet)
-		exitOnErr(cmd, errf("could not parse subnetID: %w", err))
+		common.ExitOnErr(cmd, "could not parse subnetID: %w", err)
 
 		placementPolicy.SetSubnetID(subnetID)
 
 		attributes, err := parseAttributes(containerAttributes)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		basicACL, err := parseBasicACL(containerACL)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		nonce, err := parseNonce(containerNonce)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		tok, err := getSessionToken(sessionTokenPath)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		key, err := getKey()
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		var idOwner *owner.ID
 
@@ -193,7 +194,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		putPrm.SetContainer(*cnr)
 
 		res, err := internalclient.PutContainer(putPrm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		id := res.ID()
 
@@ -214,7 +215,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 				}
 			}
 
-			exitOnErr(cmd, errCreateTimeout)
+			common.ExitOnErr(cmd, "", errCreateTimeout)
 		}
 	},
 }
@@ -226,10 +227,10 @@ var deleteContainerCmd = &cobra.Command{
 Only owner of the container has a permission to remove container.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id, err := parseContainerID(containerID)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		tok, err := getSessionToken(sessionTokenPath)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		var (
 			delPrm internalclient.DeleteContainerPrm
@@ -244,7 +245,7 @@ Only owner of the container has a permission to remove container.`,
 		}
 
 		_, err = internalclient.DeleteContainer(delPrm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		cmd.Println("container delete method invoked")
 
@@ -263,7 +264,7 @@ Only owner of the container has a permission to remove container.`,
 				}
 			}
 
-			exitOnErr(cmd, errDeleteTimeout)
+			common.ExitOnErr(cmd, "", errDeleteTimeout)
 		}
 	},
 }
@@ -274,7 +275,7 @@ var listContainerObjectsCmd = &cobra.Command{
 	Long:  `List existing objects in container`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id, err := parseContainerID(containerID)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
@@ -289,7 +290,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		prm.SetFilters(*filters)
 
 		res, err := internalclient.SearchObjects(prm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		objectIDs := res.IDList()
 
@@ -308,14 +309,14 @@ var getContainerInfoCmd = &cobra.Command{
 
 		if containerPathFrom != "" {
 			data, err := os.ReadFile(containerPathFrom)
-			exitOnErr(cmd, errf("can't read file: %w", err))
+			common.ExitOnErr(cmd, "can't read file: %w", err)
 
 			cnr = container.New()
 			err = cnr.Unmarshal(data)
-			exitOnErr(cmd, errf("can't unmarshal container: %w", err))
+			common.ExitOnErr(cmd, "can't unmarshal container: %w", err)
 		} else {
 			id, err := parseContainerID(containerID)
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 
 			var prm internalclient.GetContainerPrm
 
@@ -323,7 +324,7 @@ var getContainerInfoCmd = &cobra.Command{
 			prm.SetContainer(*id)
 
 			res, err := internalclient.GetContainer(prm)
-			exitOnErr(cmd, errf("rpc error: %w", err))
+			common.ExitOnErr(cmd, "rpc error: %w", err)
 
 			cnr = res.Container()
 		}
@@ -338,14 +339,14 @@ var getContainerInfoCmd = &cobra.Command{
 
 			if containerJSON {
 				data, err = cnr.MarshalJSON()
-				exitOnErr(cmd, errf("can't JSON encode container: %w", err))
+				common.ExitOnErr(cmd, "can't JSON encode container: %w", err)
 			} else {
 				data, err = cnr.Marshal()
-				exitOnErr(cmd, errf("can't binary encode container: %w", err))
+				common.ExitOnErr(cmd, "can't binary encode container: %w", err)
 			}
 
 			err = os.WriteFile(containerPathTo, data, 0644)
-			exitOnErr(cmd, errf("can't write container to file: %w", err))
+			common.ExitOnErr(cmd, "can't write container to file: %w", err)
 		}
 	},
 }
@@ -356,7 +357,7 @@ var getExtendedACLCmd = &cobra.Command{
 	Long:  `Get extended ACL talbe of container`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id, err := parseContainerID(containerID)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		var eaclPrm internalclient.EACLPrm
 
@@ -364,7 +365,7 @@ var getExtendedACLCmd = &cobra.Command{
 		eaclPrm.SetContainer(*id)
 
 		res, err := internalclient.EACL(eaclPrm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		eaclTable := res.EACL()
 
@@ -391,10 +392,10 @@ var getExtendedACLCmd = &cobra.Command{
 
 		if containerJSON {
 			data, err = eaclTable.MarshalJSON()
-			exitOnErr(cmd, errf("can't encode to JSON: %w", err))
+			common.ExitOnErr(cmd, "can't encode to JSON: %w", err)
 		} else {
 			data, err = eaclTable.Marshal()
-			exitOnErr(cmd, errf("can't encode to binary: %w", err))
+			common.ExitOnErr(cmd, "can't encode to binary: %w", err)
 		}
 
 		cmd.Println("dumping data to file:", containerPathTo)
@@ -403,7 +404,7 @@ var getExtendedACLCmd = &cobra.Command{
 		printJSONMarshaler(cmd, &sigV2, "signature")
 
 		err = os.WriteFile(containerPathTo, data, 0644)
-		exitOnErr(cmd, errf("could not write eACL to file: %w", err))
+		common.ExitOnErr(cmd, "could not write eACL to file: %w", err)
 	},
 }
 
@@ -414,13 +415,13 @@ var setExtendedACLCmd = &cobra.Command{
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id, err := parseContainerID(containerID)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		eaclTable, err := parseEACL(eaclPathFrom)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		tok, err := getSessionToken(sessionTokenPath)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		eaclTable.SetCID(*id)
 		eaclTable.SetSessionToken(tok)
@@ -434,11 +435,11 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		setEACLPrm.SetTable(*eaclTable)
 
 		_, err = internalclient.SetEACL(setEACLPrm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		if containerAwait {
 			exp, err := eaclTable.Marshal()
-			exitOnErr(cmd, errf("broken EACL table: %w", err))
+			common.ExitOnErr(cmd, "broken EACL table: %w", err)
 
 			cmd.Println("awaiting...")
 
@@ -462,7 +463,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				}
 			}
 
-			exitOnErr(cmd, errSetEACLTimeout)
+			common.ExitOnErr(cmd, "", errSetEACLTimeout)
 		}
 	},
 }

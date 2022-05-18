@@ -7,6 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -67,7 +68,7 @@ var getEpochCmd = &cobra.Command{
 		prepareAPIClient(cmd, &prm)
 
 		res, err := internalclient.NetworkInfo(prm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		netInfo := res.NetworkInfo()
 
@@ -85,7 +86,7 @@ var localNodeInfoCmd = &cobra.Command{
 		prepareAPIClient(cmd, &prm)
 
 		res, err := internalclient.NodeInfo(prm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		prettyPrintNodeInfo(cmd, res.NodeInfo(), nodeInfoJSON)
 	},
@@ -157,7 +158,7 @@ var netInfoCmd = &cobra.Command{
 		prepareAPIClient(cmd, &prm)
 
 		res, err := internalclient.NetworkInfo(prm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		netInfo := res.NetworkInfo()
 
@@ -182,7 +183,7 @@ var netInfoCmd = &cobra.Command{
 
 			return err
 		})
-		exitOnErr(cmd, errf("read config: %w", err))
+		common.ExitOnErr(cmd, "read config: %w", err)
 	},
 }
 
