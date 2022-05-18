@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -22,7 +23,7 @@ var cmdObjectLock = &cobra.Command{
 		var cnr cid.ID
 
 		err := cnr.DecodeString(args[0])
-		exitOnErr(cmd, errf("Incorrect container arg: %v", err))
+		common.ExitOnErr(cmd, "Incorrect container arg: %v", err)
 
 		argsList := args[1:]
 
@@ -30,14 +31,14 @@ var cmdObjectLock = &cobra.Command{
 
 		for i := range argsList {
 			err = lockList[i].DecodeString(argsList[i])
-			exitOnErr(cmd, errf(fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err))
+			common.ExitOnErr(cmd, fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err)
 		}
 
 		key, err := getKey()
-		exitOnErr(cmd, errf("can't fetch private key: %w", err))
+		common.ExitOnErr(cmd, "can't fetch private key: %w", err)
 
 		idOwner, err := getOwnerID(key)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		var lock object.Lock
 		lock.WriteMembers(lockList)
@@ -55,7 +56,7 @@ var cmdObjectLock = &cobra.Command{
 		prm.SetHeader(obj)
 
 		_, err = internalclient.PutObject(prm)
-		exitOnErr(cmd, errf("Store lock object in NeoFS: %w", err))
+		common.ExitOnErr(cmd, "Store lock object in NeoFS: %w", err)
 
 		cmd.Println("Objects successfully locked.")
 	},

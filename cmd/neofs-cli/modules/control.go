@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
@@ -220,11 +221,11 @@ func verifyResponseControl(cmd *cobra.Command,
 	},
 ) {
 	if sigControl == nil {
-		exitOnErr(cmd, errors.New("missing response signature"))
+		common.ExitOnErr(cmd, "", errors.New("missing response signature"))
 	}
 
 	bodyData, err := body.StableMarshal(nil)
-	exitOnErr(cmd, errf("marshal response body: %w", err))
+	common.ExitOnErr(cmd, "marshal response body: %w", err)
 
 	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
 	var sigV2 refs.Signature
@@ -236,16 +237,16 @@ func verifyResponseControl(cmd *cobra.Command,
 	sig.ReadFromV2(sigV2)
 
 	if !sig.Verify(bodyData) {
-		exitOnErr(cmd, errors.New("invalid response signature"))
+		common.ExitOnErr(cmd, "", errors.New("invalid response signature"))
 	}
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
 	key, err := getKeyNoGenerate()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	cli, err := getControlSDKClient(key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	if healthCheckIRVar {
 		healthCheckIR(cmd, key, cli)
@@ -257,14 +258,14 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	req.SetBody(new(control.HealthCheckRequest_Body))
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, errf("could not sign message: %w", err))
+	common.ExitOnErr(cmd, "could not sign message: %w", err)
 
 	var resp *control.HealthCheckResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.HealthCheck(client, req)
 		return err
 	})
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
@@ -278,14 +279,14 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
 
 	err := ircontrolsrv.SignMessage(key, req)
-	exitOnErr(cmd, errf("could not sign request: %w", err))
+	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 	var resp *ircontrol.HealthCheckResponse
 	err = c.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = ircontrol.HealthCheck(client, req)
 		return err
 	})
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
@@ -294,13 +295,13 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	key, err := getKeyNoGenerate()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var status control.NetmapStatus
 
 	switch netmapStatus {
 	default:
-		exitOnErr(cmd, fmt.Errorf("unsupported status %s", netmapStatus))
+		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported status %s", netmapStatus))
 	case netmapStatusOnline:
 		status = control.NetmapStatus_ONLINE
 	case netmapStatusOffline:
@@ -317,17 +318,17 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	body.SetStatus(status)
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, errf("could not sign request: %w", err))
+	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 	cli, err := getControlSDKClient(key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var resp *control.SetNetmapStatusResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.SetNetmapStatus(client, req)
 		return err
 	})
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
@@ -344,7 +345,7 @@ var dropObjectsCmd = &cobra.Command{
 	Long:  "Drop objects from the node's local storage",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKeyNoGenerate()
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		binAddrList := make([][]byte, 0, len(dropObjectsList))
 
@@ -353,11 +354,11 @@ var dropObjectsCmd = &cobra.Command{
 
 			err := a.Parse(dropObjectsList[i])
 			if err != nil {
-				exitOnErr(cmd, fmt.Errorf("could not parse address #%d: %w", i, err))
+				common.ExitOnErr(cmd, "", fmt.Errorf("could not parse address #%d: %w", i, err))
 			}
 
 			binAddr, err := a.Marshal()
-			exitOnErr(cmd, errf("could not marshal the address: %w", err))
+			common.ExitOnErr(cmd, "could not marshal the address: %w", err)
 
 			binAddrList = append(binAddrList, binAddr)
 		}
@@ -370,17 +371,17 @@ var dropObjectsCmd = &cobra.Command{
 		body.SetAddressList(binAddrList)
 
 		err = controlSvc.SignMessage(key, req)
-		exitOnErr(cmd, errf("could not sign request: %w", err))
+		common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 		cli, err := getControlSDKClient(key)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		var resp *control.DropObjectsResponse
 		err = cli.ExecRaw(func(client *rawclient.Client) error {
 			resp, err = control.DropObjects(client, req)
 			return err
 		})
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
@@ -394,23 +395,23 @@ var snapshotCmd = &cobra.Command{
 	Long:  "Get network map snapshot",
 	Run: func(cmd *cobra.Command, args []string) {
 		key, err := getKeyNoGenerate()
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		req := new(control.NetmapSnapshotRequest)
 		req.SetBody(new(control.NetmapSnapshotRequest_Body))
 
 		err = controlSvc.SignMessage(key, req)
-		exitOnErr(cmd, errf("could not sign request: %w", err))
+		common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 		cli, err := getControlSDKClient(key)
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		var resp *control.NetmapSnapshotResponse
 		err = cli.ExecRaw(func(client *rawclient.Client) error {
 			resp, err = control.NetmapSnapshot(client, req)
 			return err
 		})
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
@@ -420,23 +421,23 @@ var snapshotCmd = &cobra.Command{
 
 func listShards(cmd *cobra.Command, _ []string) {
 	key, err := getKeyNoGenerate()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	req := new(control.ListShardsRequest)
 	req.SetBody(new(control.ListShardsRequest_Body))
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, errf("could not sign request: %w", err))
+	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 	cli, err := getControlSDKClient(key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var resp *control.ListShardsResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.ListShards(client, req)
 		return err
 	})
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 
@@ -484,13 +485,13 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 
 func setShardMode(cmd *cobra.Command, _ []string) {
 	key, err := getKeyNoGenerate()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var mode control.ShardMode
 
 	switch shardMode {
 	default:
-		exitOnErr(cmd, fmt.Errorf("unsupported mode %s", mode))
+		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported mode %s", mode))
 	case shardModeReadWrite:
 		mode = control.ShardMode_READ_WRITE
 	case shardModeReadOnly:
@@ -505,7 +506,7 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	req.SetBody(body)
 
 	rawID, err := base58.Decode(shardID)
-	exitOnErr(cmd, errf("incorrect shard ID encoding: %w", err))
+	common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
 
 	body.SetMode(mode)
 	body.SetShardID(rawID)
@@ -514,17 +515,17 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	body.ClearErrorCounter(reset)
 
 	err = controlSvc.SignMessage(key, req)
-	exitOnErr(cmd, errf("could not sign request: %w", err))
+	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
 	cli, err := getControlSDKClient(key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var resp *control.SetShardModeResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.SetShardMode(client, req)
 		return err
 	})
-	exitOnErr(cmd, errf("rpc error: %w", err))
+	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
 

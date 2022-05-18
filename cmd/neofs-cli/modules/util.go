@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
@@ -17,7 +18,6 @@ import (
 	locodebolt "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/boltdb"
 	continentsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/continents/geojson"
 	csvlocode "github.com/nspcc-dev/neofs-node/pkg/util/locode/table/csv"
-	sdkstatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -126,7 +126,7 @@ var (
 			})
 
 			err := targetDB.Open()
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 
 			defer targetDB.Close()
 
@@ -136,7 +136,7 @@ var (
 			}
 
 			err = locodedb.FillDatabase(locodeDB, airportDB, continentsDB, names, targetDB)
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 		},
 	}
 )
@@ -159,12 +159,12 @@ var (
 			}, locodebolt.ReadOnly())
 
 			err := targetDB.Open()
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 
 			defer targetDB.Close()
 
 			record, err := locodedb.LocodeRecord(targetDB, locodeInfoCode)
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 
 			cmd.Printf("Country: %s\n", record.CountryName())
 			cmd.Printf("Location: %s\n", record.LocationName())
@@ -281,13 +281,13 @@ func init() {
 
 func signBearerToken(cmd *cobra.Command, _ []string) {
 	btok, err := getBearerToken(cmd, "from")
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	key, err := getKey()
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	err = btok.Sign(*key)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	to := cmd.Flag("to").Value.String()
 	jsonFlag, _ := cmd.Flags().GetBool("json")
@@ -295,7 +295,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	var data []byte
 	if jsonFlag || len(to) == 0 {
 		data, err = btok.MarshalJSON()
-		exitOnErr(cmd, errf("can't JSON encode bearer token: %w", err))
+		common.ExitOnErr(cmd, "can't JSON encode bearer token: %w", err)
 	} else {
 		data = btok.Marshal()
 	}
@@ -307,28 +307,28 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	}
 
 	err = os.WriteFile(to, data, 0644)
-	exitOnErr(cmd, errf("can't write signed bearer token to file: %w", err))
+	common.ExitOnErr(cmd, "can't write signed bearer token to file: %w", err)
 
 	cmd.Printf("signed bearer token was successfully dumped to %s\n", to)
 }
 
 func signSessionToken(cmd *cobra.Command, _ []string) {
 	path, err := cmd.Flags().GetString("from")
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	stok, err := getSessionToken(path)
 	if err != nil {
-		exitOnErr(cmd, fmt.Errorf("can't read session token from %s: %w", path, err))
+		common.ExitOnErr(cmd, "", fmt.Errorf("can't read session token from %s: %w", path, err))
 	}
 
 	key, err := getKey()
-	exitOnErr(cmd, errf("can't get private key, make sure it is provided: %w", err))
+	common.ExitOnErr(cmd, "can't get private key, make sure it is provided: %w", err)
 
 	err = stok.Sign(key)
-	exitOnErr(cmd, errf("can't sign token: %w", err))
+	common.ExitOnErr(cmd, "can't sign token: %w", err)
 
 	data, err := stok.MarshalJSON()
-	exitOnErr(cmd, errf("can't encode session token: %w", err))
+	common.ExitOnErr(cmd, "can't encode session token: %w", err)
 
 	to := cmd.Flag("to").Value.String()
 	if len(to) == 0 {
@@ -338,7 +338,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 
 	err = os.WriteFile(to, data, 0644)
 	if err != nil {
-		exitOnErr(cmd, fmt.Errorf("can't write signed session token to %s: %w", to, err))
+		common.ExitOnErr(cmd, "", fmt.Errorf("can't write signed session token to %s: %w", to, err))
 	}
 
 	cmd.Printf("signed session token saved in %s\n", to)
@@ -350,24 +350,23 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 	jsonFlag, _ := cmd.Flags().GetBool("json")
 
 	table, err := parseEACL(pathFrom)
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	var data []byte
 	if jsonFlag || len(to) == 0 {
 		data, err = table.MarshalJSON()
-		exitOnErr(cmd, errf("can't JSON encode extended ACL table: %w", err))
+		common.ExitOnErr(cmd, "can't JSON encode extended ACL table: %w", err)
 	} else {
 		data, err = table.Marshal()
-		exitOnErr(cmd, errf("can't binary encode extended ACL table: %w", err))
+		common.ExitOnErr(cmd, "can't binary encode extended ACL table: %w", err)
 	}
 
 	if len(to) == 0 {
 		prettyPrintJSON(cmd, data)
 		return
 	}
-
 	err = os.WriteFile(to, data, 0644)
-	exitOnErr(cmd, errf("can't write exteded ACL table to file: %w", err))
+	common.ExitOnErr(cmd, "can't write exteded ACL table to file: %w", err)
 
 	cmd.Printf("extended ACL table was successfully dumped to %s\n", to)
 }
@@ -387,7 +386,7 @@ func processKeyer(cmd *cobra.Command, args []string) {
 		err = result.ParseMultiSig(args)
 	} else {
 		if len(args) > 1 {
-			exitOnErr(cmd, errKeyerSingleArgument)
+			common.ExitOnErr(cmd, "", errKeyerSingleArgument)
 		}
 
 		var argument string
@@ -405,7 +404,7 @@ func processKeyer(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	exitOnErr(cmd, err)
+	common.ExitOnErr(cmd, "", err)
 
 	result.PrettyPrint(uncompressed, useHex)
 }
@@ -466,50 +465,4 @@ func keyerParseFile(filename string, d *keyer.Dashboard) error {
 	}
 
 	return d.ParseBinary(data)
-}
-
-// errf returns formatted error in errFmt format
-// if err is not nil.
-func errf(errFmt string, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return fmt.Errorf(errFmt, err)
-}
-
-// exitOnErr prints error and exits with a code that matches
-// one of the common errors from sdk library. If no errors
-// found, exits with 1 code.
-// Does nothing if passed error in nil.
-func exitOnErr(cmd *cobra.Command, err error) {
-	if err == nil {
-		return
-	}
-
-	const (
-		_ = iota
-		internal
-		aclDenied
-	)
-
-	var (
-		code int
-
-		internalErr = new(sdkstatus.ServerInternal)
-		accessErr   = new(sdkstatus.ObjectAccessDenied)
-	)
-
-	switch {
-	case errors.As(err, &internalErr):
-		code = internal
-	case errors.As(err, &accessErr):
-		code = aclDenied
-		err = fmt.Errorf("%w: %s", err, accessErr.Reason())
-	default:
-		code = internal
-	}
-
-	cmd.PrintErrln(err)
-	os.Exit(code)
 }

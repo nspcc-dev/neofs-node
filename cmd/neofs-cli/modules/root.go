@@ -10,6 +10,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
@@ -65,7 +66,7 @@ and much more!`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
-	exitOnErr(rootCmd, err)
+	common.ExitOnErr(rootCmd, "", err)
 }
 
 func init() {
@@ -116,7 +117,7 @@ func initConfig() {
 	} else {
 		// Find home directory.
 		home, err := homedir.Dir()
-		exitOnErr(rootCmd, err)
+		common.ExitOnErr(rootCmd, "", err)
 
 		// Search config in `$HOME/.config/neofs-cli/` with name "config.yaml"
 		viper.AddConfigPath(filepath.Join(home, ".config", "neofs-cli"))
@@ -149,7 +150,7 @@ type clientWithKey interface {
 // reads private key from command args and call prepareAPIClientWithKey with it.
 func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
 	p, err := getKey()
-	exitOnErr(cmd, errf("get private key: %w", err))
+	common.ExitOnErr(cmd, "get private key: %w", err)
 
 	prepareAPIClientWithKey(cmd, p, dst...)
 }
@@ -157,7 +158,7 @@ func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
 // creates NeoFS API client and writes it to target along with the private key.
 func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...clientWithKey) {
 	cli, err := internalclient.GetSDKClientByFlag(key, commonflags.RPC)
-	exitOnErr(cmd, errf("create API client: %w", err))
+	common.ExitOnErr(cmd, "create API client: %w", err)
 
 	for _, d := range dst {
 		d.SetClient(cli)
@@ -170,7 +171,7 @@ type bearerPrm interface {
 
 func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 	btok, err := getBearerToken(cmd, bearerTokenFlag)
-	exitOnErr(cmd, errf("bearer token: %w", err))
+	common.ExitOnErr(cmd, "bearer token: %w", err)
 
 	prm.SetBearerToken(btok)
 }

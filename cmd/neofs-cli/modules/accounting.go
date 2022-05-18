@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
@@ -39,13 +40,13 @@ var accountingBalanceCmd = &cobra.Command{
 		var oid *owner.ID
 
 		key, err := getKey()
-		exitOnErr(cmd, err)
+		common.ExitOnErr(cmd, "", err)
 
 		if balanceOwner == "" {
 			oid = owner.NewIDFromPublicKey(&key.PublicKey)
 		} else {
 			oid, err = ownerFromString(balanceOwner)
-			exitOnErr(cmd, err)
+			common.ExitOnErr(cmd, "", err)
 		}
 
 		var prm internalclient.BalanceOfPrm
@@ -54,7 +55,7 @@ var accountingBalanceCmd = &cobra.Command{
 		prm.SetAccount(*oid)
 
 		res, err := internalclient.BalanceOf(prm)
-		exitOnErr(cmd, errf("rpc error: %w", err))
+		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		// print to stdout
 		prettyPrintDecimal(cmd, res.Balance())
