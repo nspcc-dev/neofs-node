@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	accountingCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/accounting"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
@@ -91,6 +92,7 @@ func init() {
 	rootCmd.AddCommand(acl.Cmd)
 	rootCmd.AddCommand(bearerCli.Cmd)
 	rootCmd.AddCommand(sessionCli.Cmd)
+	rootCmd.AddCommand(accountingCli.Cmd)
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) {

@@ -1,4 +1,4 @@
-package cmd
+package accounting
 
 import (
 	"math/big"
@@ -7,6 +7,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -14,23 +15,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	balanceOwner string
+const (
+	ownerFlag = "owner"
 )
-
-// accountingCmd represents the accounting command
-var accountingCmd = &cobra.Command{
-	Use:   "accounting",
-	Short: "Operations with accounts and balances",
-	Long:  `Operations with accounts and balances`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		flags := cmd.Flags()
-
-		_ = viper.BindPFlag(commonflags.WalletPath, flags.Lookup(commonflags.WalletPath))
-		_ = viper.BindPFlag(commonflags.Account, flags.Lookup(commonflags.Account))
-		_ = viper.BindPFlag(commonflags.RPC, flags.Lookup(commonflags.RPC))
-	},
-}
 
 var accountingBalanceCmd = &cobra.Command{
 	Use:   "balance",
@@ -39,19 +26,23 @@ var accountingBalanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var oid *owner.ID
 
-		key, err := getKey()
+		pk, err := key.GetOrGenerate()
 		common.ExitOnErr(cmd, "", err)
 
+		balanceOwner, _ := cmd.Flags().GetString(ownerFlag)
 		if balanceOwner == "" {
-			oid = owner.NewIDFromPublicKey(&key.PublicKey)
+			oid = owner.NewIDFromPublicKey(&pk.PublicKey)
 		} else {
-			oid, err = ownerFromString(balanceOwner)
-			common.ExitOnErr(cmd, "", err)
+			oid := owner.NewID()
+			err := oid.Parse(balanceOwner)
+			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", err)
 		}
 
-		var prm internalclient.BalanceOfPrm
+		cli, err := internalclient.GetSDKClientByFlag(pk, commonflags.RPC)
+		common.ExitOnErr(cmd, "create API client: %w", err)
 
-		prepareAPIClientWithKey(cmd, key, &prm)
+		var prm internalclient.BalanceOfPrm
+		prm.SetClient(cli)
 		prm.SetAccount(*oid)
 
 		res, err := internalclient.BalanceOf(prm)
@@ -68,25 +59,7 @@ func initAccountingBalanceCmd() {
 	ff.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
 	ff.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
 	ff.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
-
-	accountingBalanceCmd.Flags().StringVar(&balanceOwner, "owner", "", "owner of balance account (omit to use owner from private key)")
-}
-
-func init() {
-	rootCmd.AddCommand(accountingCmd)
-	accountingCmd.AddCommand(accountingBalanceCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// accountingCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// accountingCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	initAccountingBalanceCmd()
+	ff.String(ownerFlag, "", "owner of balance account (omit to use owner from private key)")
 }
 
 func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
