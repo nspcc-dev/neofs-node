@@ -8,6 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
@@ -444,7 +445,7 @@ func listShards(cmd *cobra.Command, _ []string) {
 
 // getControlSDKClient calls getSDKClientFlag with "endpoint" flag.
 func getControlSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
-	return getSDKClientFlag(key, controlRPC)
+	return internalclient.GetSDKClientByFlag(key, controlRPC)
 }
 
 func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {

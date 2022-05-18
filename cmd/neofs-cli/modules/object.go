@@ -337,7 +337,7 @@ func prepareSessionPrmWithOwner(
 	ownerID *owner.ID,
 	prms ...clientKeySession,
 ) {
-	cli, err := getSDKClient(key)
+	cli, err := internalclient.GetSDKClientByFlag(key, commonflags.RPC)
 	exitOnErr(cmd, errf("create API client: %w", err))
 
 	var sessionToken *session.Token
