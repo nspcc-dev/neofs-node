@@ -2,6 +2,7 @@ package key
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"os"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/spf13/viper"
 )
+
+var errCantGenerateKey = errors.New("can't generate new private key")
 
 // Get returns private key from the following sources:
 // 1. WIF
@@ -41,6 +44,18 @@ func Get() (*ecdsa.PrivateKey, error) {
 	}
 
 	return nil, ErrInvalidKey
+}
+
+// GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
+func GetOrGenerate() (*ecdsa.PrivateKey, error) {
+	if viper.GetBool(commonflags.GenerateKey) {
+		priv, err := keys.NewPrivateKey()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", errCantGenerateKey, err)
+		}
+		return &priv.PrivateKey, nil
+	}
+	return Get()
 }
 
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {

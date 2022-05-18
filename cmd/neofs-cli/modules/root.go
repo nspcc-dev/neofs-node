@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
@@ -61,10 +60,6 @@ notation, managing container access through protocol gates, querying network map
 and much more!`,
 	Run: entryPoint,
 }
-
-var (
-	errCantGenerateKey = errors.New("can't generate new private key")
-)
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -140,14 +135,7 @@ func initConfig() {
 
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
-	if viper.GetBool(commonflags.GenerateKey) {
-		priv, err := keys.NewPrivateKey()
-		if err != nil {
-			return nil, errCantGenerateKey
-		}
-		return &priv.PrivateKey, nil
-	}
-	return getKeyNoGenerate()
+	return key.GetOrGenerate()
 }
 
 func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
