@@ -55,7 +55,7 @@ func (s *Service) verifyClient(req message, cid *cidSDK.ID, rawBearer []byte, op
 	if err := bearer.Unmarshal(rawBearer); err != nil {
 		return fmt.Errorf("invalid bearer token: %w", err)
 	}
-	if !bearer.OwnerID().Equal(cnr.OwnerID()) {
+	if !bearer.Issuer().Equal(cnr.OwnerID()) {
 		return errors.New("bearer token must be signed by the container owner")
 	}
 	if bCid := bearer.EACLTable().CID(); bCid != nil && !bCid.Equal(cid) {
