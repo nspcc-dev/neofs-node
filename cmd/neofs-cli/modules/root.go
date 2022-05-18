@@ -17,7 +17,6 @@ import (
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/misc"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/owner"
@@ -64,7 +63,6 @@ and much more!`,
 }
 
 var (
-	errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 	errCantGenerateKey = errors.New("can't generate new private key")
 )
 
@@ -156,19 +154,6 @@ func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
 	return key.Get(viper.GetString(commonflags.WalletPath), viper.GetString(commonflags.Account))
 }
 
-// getEndpointAddress returns network address structure that stores multiaddr
-// inside, parsed from global arguments.
-func getEndpointAddress(endpointFlag string) (addr network.Address, err error) {
-	endpoint := viper.GetString(endpointFlag)
-
-	err = addr.FromString(endpoint)
-	if err != nil {
-		err = fmt.Errorf("%v: %w", errInvalidEndpoint, err)
-	}
-
-	return
-}
-
 type clientWithKey interface {
 	SetClient(*client.Client)
 }
@@ -183,7 +168,7 @@ func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
 
 // creates NeoFS API client and writes it to target along with the private key.
 func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...clientWithKey) {
-	cli, err := getSDKClient(key)
+	cli, err := internalclient.GetSDKClientByFlag(key, commonflags.RPC)
 	exitOnErr(cmd, errf("create API client: %w", err))
 
 	for _, d := range dst {
@@ -200,22 +185,6 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 	exitOnErr(cmd, errf("bearer token: %w", err))
 
 	prm.SetBearerToken(btok)
-}
-
-// getSDKClient calls getSDKGClientFlag with "rpc-endpoint" flag.
-func getSDKClient(key *ecdsa.PrivateKey) (*client.Client, error) {
-	return getSDKClientFlag(key, commonflags.RPC)
-}
-
-// getSDKClientFlag returns NeoFS API client connection to the network address
-// set by the given flag.
-func getSDKClientFlag(key *ecdsa.PrivateKey, endpointFlag string) (*client.Client, error) {
-	netAddr, err := getEndpointAddress(endpointFlag)
-	if err != nil {
-		return nil, err
-	}
-
-	return internalclient.GetSDKClient(key, netAddr)
 }
 
 func getTTL() uint32 {
