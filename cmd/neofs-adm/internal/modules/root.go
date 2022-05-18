@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/storagecfg"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/autocomplete"
+	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -42,6 +43,7 @@ func init() {
 	rootCmd.AddCommand(storagecfg.RootCmd)
 
 	rootCmd.AddCommand(autocomplete.Command("neofs-adm"))
+	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
 func Execute() error {

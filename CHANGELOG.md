@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Config examples for Inner ring application (#1358)
+- Command for documentation generation for `neofs-cli`, `neofs-adm` and `neofs-lens` (#1396)
 
 ### Fixed
 - Do not ask for contract wallet password twice (#1346)
