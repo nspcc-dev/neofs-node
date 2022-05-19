@@ -118,6 +118,12 @@ func (c *Context) collectHashes(p *gamePair) {
 		}
 		rand.Shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
 
+		var getRangeHashPrm GetRangeHashPrm
+		getRangeHashPrm.Context = c.task.AuditContext()
+		getRangeHashPrm.CID = c.task.ContainerID()
+		getRangeHashPrm.OID = p.id
+		getRangeHashPrm.Node = n
+
 		res := make([][]byte, len(rngs))
 		for _, i := range order {
 			var sleepDur time.Duration
@@ -131,7 +137,9 @@ func (c *Context) collectHashes(p *gamePair) {
 
 			time.Sleep(sleepDur)
 
-			h, err := c.cnrCom.GetRangeHash(c.task, n, p.id, rngs[i])
+			getRangeHashPrm.Range = rngs[i]
+
+			h, err := c.cnrCom.GetRangeHash(getRangeHashPrm)
 			if err != nil {
 				c.log.Debug("could not get payload range hash",
 					zap.Stringer("id", p.id),

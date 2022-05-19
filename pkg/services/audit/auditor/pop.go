@@ -48,9 +48,17 @@ func (c *Context) processObjectPlacement(id oid.ID, nodes []netmap.NodeInfo, rep
 		pairedCandidate = -1
 	)
 
+	var getHeaderPrm GetHeaderPrm
+	getHeaderPrm.Context = c.task.AuditContext()
+	getHeaderPrm.OID = id
+	getHeaderPrm.CID = c.task.ContainerID()
+	getHeaderPrm.NodeIsRelay = false
+
 	for i := 0; ok < replicas && i < len(nodes); i++ {
+		getHeaderPrm.Node = nodes[i]
+
 		// try to get object header from node
-		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id, false)
+		hdr, err := c.cnrCom.GetHeader(getHeaderPrm)
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
 				zap.Stringer("id", id),

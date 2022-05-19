@@ -36,7 +36,15 @@ func (c *Context) executePoR() {
 }
 
 func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
-	storageGroup, err := c.cnrCom.GetSG(c.task, sg) // get storage group
+	var getSgPrm GetSGPrm
+
+	getSgPrm.Context = c.task.AuditContext()
+	getSgPrm.CID = c.task.ContainerID()
+	getSgPrm.OID = sg
+	getSgPrm.NetMap = c.task.NetworkMap()
+	getSgPrm.Container = c.task.ContainerNodes()
+
+	storageGroup, err := c.cnrCom.GetSG(getSgPrm) // get storage group
 	if err != nil {
 		c.log.Warn("can't get storage group",
 			zap.Stringer("sgid", sg),
@@ -55,6 +63,11 @@ func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 		accRequests, accRetries uint32
 	)
 
+	var getHeaderPrm GetHeaderPrm
+	getHeaderPrm.Context = c.task.AuditContext()
+	getHeaderPrm.CID = c.task.ContainerID()
+	getHeaderPrm.NodeIsRelay = true
+
 	for i := range members {
 		objectPlacement, err := c.buildPlacement(members[i])
 		if err != nil {
@@ -72,13 +85,17 @@ func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 			flat[i], flat[j] = flat[j], flat[i]
 		})
 
+		getHeaderPrm.OID = members[i]
+
 		for j := range flat {
 			accRequests++
 			if j > 0 { // in best case audit get object header on first iteration
 				accRetries++
 			}
 
-			hdr, err := c.cnrCom.GetHeader(c.task, flat[j], members[i], true)
+			getHeaderPrm.Node = flat[j]
+
+			hdr, err := c.cnrCom.GetHeader(getHeaderPrm)
 			if err != nil {
 				c.log.Debug("can't head object",
 					zap.String("remote_node", hex.EncodeToString(flat[j].PublicKey())),

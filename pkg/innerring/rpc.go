@@ -11,7 +11,7 @@ import (
 	neofsapiclient "github.com/nspcc-dev/neofs-node/pkg/innerring/internal/client"
 	auditproc "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
-	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -58,16 +58,16 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	return c.cache.Get(info)
 }
 
-// GetSG polls the container from audit task to get the object by id.
+// GetSG polls the container to get the object by id.
 // Returns storage groups structure from received object.
 //
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
-func (c *ClientCache) GetSG(task *audit.Task, id oid.ID) (*storagegroup.StorageGroup, error) {
+func (c *ClientCache) GetSG(prm auditor.GetSGPrm) (*storagegroup.StorageGroup, error) {
 	var sgAddress oid.Address
-	sgAddress.SetContainer(task.ContainerID())
-	sgAddress.SetObject(id)
+	sgAddress.SetContainer(prm.CID)
+	sgAddress.SetObject(prm.OID)
 
-	return c.getSG(task.AuditContext(), sgAddress, task.NetworkMap(), task.ContainerNodes())
+	return c.getSG(prm.Context, sgAddress, prm.NetMap, prm.Container)
 }
 
 func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.NetMap, cn [][]netmap.NodeInfo) (*storagegroup.StorageGroup, error) {
@@ -129,14 +129,14 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 }
 
 // GetHeader requests node from the container under audit to return object header by id.
-func (c *ClientCache) GetHeader(task *audit.Task, node netmap.NodeInfo, id oid.ID, relay bool) (*object.Object, error) {
+func (c *ClientCache) GetHeader(prm auditor.GetHeaderPrm) (*object.Object, error) {
 	var objAddress oid.Address
-	objAddress.SetContainer(task.ContainerID())
-	objAddress.SetObject(id)
+	objAddress.SetContainer(prm.CID)
+	objAddress.SetObject(prm.OID)
 
 	var info clientcore.NodeInfo
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(node))
+	err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(prm.Node))
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
@@ -146,11 +146,11 @@ func (c *ClientCache) GetHeader(task *audit.Task, node netmap.NodeInfo, id oid.I
 		return nil, fmt.Errorf("can't setup remote connection with %s: %w", info.AddressGroup(), err)
 	}
 
-	cctx, cancel := context.WithTimeout(task.AuditContext(), c.headTimeout)
+	cctx, cancel := context.WithTimeout(prm.Context, c.headTimeout)
 
 	var obj *object.Object
 
-	if relay {
+	if prm.NodeIsRelay {
 		obj, err = neofsapiclient.GetObjectHeaderFromContainer(cctx, cli, objAddress)
 	} else {
 		obj, err = neofsapiclient.GetRawObjectHeaderLocally(cctx, cli, objAddress)
@@ -167,14 +167,14 @@ func (c *ClientCache) GetHeader(task *audit.Task, node netmap.NodeInfo, id oid.I
 
 // GetRangeHash requests node from the container under audit to return Tillich-Zemor hash of the
 // payload range of the object with specified identifier.
-func (c *ClientCache) GetRangeHash(task *audit.Task, node netmap.NodeInfo, id oid.ID, rng *object.Range) ([]byte, error) {
+func (c *ClientCache) GetRangeHash(prm auditor.GetRangeHashPrm) ([]byte, error) {
 	var objAddress oid.Address
-	objAddress.SetContainer(task.ContainerID())
-	objAddress.SetObject(id)
+	objAddress.SetContainer(prm.CID)
+	objAddress.SetObject(prm.OID)
 
 	var info clientcore.NodeInfo
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(node))
+	err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(prm.Node))
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
@@ -184,9 +184,9 @@ func (c *ClientCache) GetRangeHash(task *audit.Task, node netmap.NodeInfo, id oi
 		return nil, fmt.Errorf("can't setup remote connection with %s: %w", info.AddressGroup(), err)
 	}
 
-	cctx, cancel := context.WithTimeout(task.AuditContext(), c.rangeTimeout)
+	cctx, cancel := context.WithTimeout(prm.Context, c.rangeTimeout)
 
-	h, err := neofsapiclient.HashObjectRange(cctx, cli, objAddress, rng)
+	h, err := neofsapiclient.HashObjectRange(cctx, cli, objAddress, prm.Range)
 
 	cancel()
 
