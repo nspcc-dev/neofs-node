@@ -1,3 +1,6 @@
+/**
+ * Auxiliary structures to use with tree service.
+ */
 syntax = "proto3";
 
 package tree;
@@ -6,7 +9,9 @@ option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/tree";
 
 // KeyValue represents key-value pair attached to an object.
 message KeyValue {
+  // Attribute name.
   string key = 1 [json_name = "key"];
+  // Attribute value.
   bytes value = 2 [json_name = "value"];
 }
 
@@ -22,6 +27,8 @@ message LogMove {
 
 // Signature of a message.
 message Signature {
+  // Serialized public key as defined in NeoFS API.
   bytes key = 1 [json_name = "key"];
+  // Signature of a message body.
   bytes sign = 2 [json_name = "signature"];
 }

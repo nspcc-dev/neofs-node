@@ -1,3 +1,6 @@
+/**
+ * Service for working with CRDT tree.
+ */
 syntax = "proto3";
 
 package tree;
@@ -6,7 +9,6 @@ import "pkg/services/tree/types.proto";
 
 option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/tree";
 
-// `TreeService` provides an interface for working with distributed tree.
 service TreeService {
   /* Client API */
 
@@ -28,66 +30,95 @@ service TreeService {
   // Apply pushes log operation from another node to the current.
   // The request must be signed by a container node.
   rpc Apply (ApplyRequest) returns (ApplyResponse);
+  // GetOpLog returns a stream of logged operations starting from some height.
   rpc GetOpLog(GetOpLogRequest) returns (stream GetOpLogResponse);
 }
 
 message AddRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // ID of the parent to attach node to.
     uint64 parent_id = 3;
+    // Key-Value pairs with meta information.
     repeated KeyValue meta = 4;
+    // Bearer token in V2 format.
     bytes bearer_token = 5;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
 message AddResponse {
   message Body {
+    // ID of the created node.
     uint64 node_id = 1;
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
 
 message AddByPathRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // Attribute to build path with. Default: "FileName".
     string path_attribute = 3;
+    // List of path components.
     repeated string path = 4;
+    // Node meta-information.
     repeated KeyValue meta = 5;
+    // Bearer token in V2 format.
     bytes bearer_token = 6;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
 message AddByPathResponse {
   message Body {
+    // List of all created nodes. The first one is the leaf.
     repeated uint64 nodes = 1;
+    // ID of the parent node where new nodes were attached.
     uint64 parent_id = 2;
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
 
 message RemoveRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // ID of the node to remove.
     uint64 node_id = 3;
+    // Bearer token in V2 format.
     bytes bearer_token = 4;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
@@ -95,7 +126,9 @@ message RemoveResponse {
   message Body {
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
@@ -103,15 +136,23 @@ message RemoveResponse {
 message MoveRequest {
   message Body {
     // TODO import neo.fs.v2.refs.ContainerID directly.
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // ID of the new parent.
     uint64 parent_id = 3;
+    // ID of the node to move.
     uint64 node_id = 4;
+    // Node meta-information.
     repeated KeyValue meta = 5;
+    // Bearer token in V2 format.
     bytes bearer_token = 6;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
@@ -119,78 +160,114 @@ message MoveResponse {
   message Body {
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
 
 message GetNodeByPathRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // Attribute to build path with. Default: "FileName".
     string path_attribute = 3;
+    // List of path components.
     repeated string path = 4;
+    // List of attributes to include in response.
     repeated string attributes = 5;
+    // Flag to return only the latest version of node.
     bool latest_only = 6;
+    // Flag to return all stored attributes.
     bool all_attributes = 7;
+    // Bearer token in V2 format.
     bytes bearer_token = 8;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
 message GetNodeByPathResponse {
+  // Information about a single tree node.
   message Info {
+    // Node ID.
     uint64 node_id = 1;
+    // Timestamp of the last operation with the node.
     uint64 timestamp = 2;
+    // Node meta-information.
     repeated KeyValue meta = 3;
   }
   message Body {
+    // List of nodes stored by path.
     repeated Info nodes = 1;
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
 
 message GetSubTreeRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // ID of the root node of a subtree.
     uint64 root_id = 3;
     // Optional depth of the traversal. Zero means return only root.
     // Maximum depth is 10.
     uint32 depth = 4;
+    // Bearer token in V2 format.
     bytes bearer_token = 5;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
 message GetSubTreeResponse {
   message Body {
+    // ID of the node.
     uint64 node_id = 1;
+    // ID of the parent.
     uint64 parent_id = 2;
+    // Time node was first added to a tree.
     uint64 timestamp = 3;
+    // Node meta-information.
     repeated KeyValue meta = 4;
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
 
 message ApplyRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // Operation to be applied.
     LogMove operation = 3;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
@@ -198,28 +275,39 @@ message ApplyResponse {
   message Body {
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
 
 
 message GetOpLogRequest {
   message Body {
+    // Container ID in V2 format.
     bytes container_id = 1;
+    // The name of the tree.
     string tree_id = 2;
+    // Starting height to return logs from.
     uint64 height = 3;
+    // Amount of operations to return.
     uint64 count = 4;
   }
 
+  // Request body.
   Body body = 1;
+  // Request signature.
   Signature signature = 2;
 }
 
 message GetOpLogResponse {
   message Body {
+    // Operation on a tree.
     LogMove operation = 1;
   }
 
+  // Response body.
   Body body = 1;
+  // Response signature.
   Signature signature = 2;
 };
