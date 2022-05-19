@@ -12,7 +12,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/zap"
 )
 
@@ -89,14 +91,20 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		})
 
 		// search storage groups
-		storageGroups := ap.findStorageGroups(containers[i], n)
+		storageGroupsIDs := ap.findStorageGroups(containers[i], n)
 		log.Info("select storage groups for audit",
+			zap.Stringer("cid", containers[i]),
+			zap.Int("amount", len(storageGroupsIDs)))
+
+		// filter expired storage groups
+		storageGroups := ap.filterExpiredSG(containers[i], storageGroupsIDs, nodes, *nm)
+		log.Info("filter expired storage groups for audit",
 			zap.Stringer("cid", containers[i]),
 			zap.Int("amount", len(storageGroups)))
 
-		// skip audit for containers
-		// without storage groups
-		if len(storageGroups) == 0 {
+		// skip audit for containers without
+		// non-expired storage groups
+		if len(storageGroupsIDs) == 0 {
 			continue
 		}
 
@@ -169,4 +177,42 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 	}
 
 	return sg
+}
+
+func (ap *Processor) filterExpiredSG(cid cid.ID, sgIDs []oid.ID,
+	cnr [][]netmap.NodeInfo, nm netmap.NetMap) map[oid.ID]storagegroupSDK.StorageGroup {
+	sgs := make(map[oid.ID]storagegroupSDK.StorageGroup, len(sgIDs))
+
+	var getSGPrm GetSGPrm
+	getSGPrm.CID = cid
+	getSGPrm.Container = cnr
+	getSGPrm.NetMap = nm
+
+	for _, sgID := range sgIDs {
+		ctx, cancel := context.WithTimeout(context.Background(), ap.searchTimeout)
+
+		getSGPrm.OID = sgID
+		getSGPrm.Context = ctx
+
+		sg, err := ap.sgSrc.GetSG(getSGPrm)
+
+		cancel()
+
+		if err != nil {
+			ap.log.Error(
+				"could not get storage group object for audit, skipping",
+				zap.Stringer("cid", cid),
+				zap.Stringer("oid", sgID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		// filter expired epochs
+		if sg.ExpirationEpoch() > ap.epochSrc.EpochCounter() {
+			sgs[sgID] = *sg
+		}
+	}
+
+	return sgs
 }
