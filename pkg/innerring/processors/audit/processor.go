@@ -13,7 +13,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -97,12 +99,27 @@ func (x *SearchSGDst) WriteIDList(ids []oid.ID) {
 	x.ids = ids
 }
 
+// GetSGPrm groups parameter of GetSG operation.
+type GetSGPrm struct {
+	Context context.Context
+
+	OID oid.ID
+	CID cid.ID
+
+	NetMap    netmap.NetMap
+	Container [][]netmap.NodeInfo
+}
+
 // SGSource is a storage group information source interface.
 type SGSource interface {
-	// Lists storage group objects in the container. Formed list must be written to destination.
+	// ListSG must list storage group objects in the container. Formed list must be written to destination.
 	//
 	// Must return any error encountered which did not allow to form the list.
 	ListSG(*SearchSGDst, SearchSGPrm) error
+
+	// GetSG must return storage group object for the provided CID, OID,
+	// container and netmap state.
+	GetSG(GetSGPrm) (*storagegroupSDK.StorageGroup, error)
 }
 
 type epochAuditReporter struct {

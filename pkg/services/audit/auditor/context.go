@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -85,23 +84,15 @@ type ContextPrm struct {
 type commonCommunicatorPrm struct {
 	Context context.Context
 
+	Node netmap.NodeInfo
+
 	OID oid.ID
 	CID cid.ID
-}
-
-// GetSGPrm groups parameter of GetSG operation.
-type GetSGPrm struct {
-	commonCommunicatorPrm
-
-	NetMap    *netmap.NetMap
-	Container [][]netmap.NodeInfo
 }
 
 // GetHeaderPrm groups parameter of GetHeader operation.
 type GetHeaderPrm struct {
 	commonCommunicatorPrm
-
-	Node netmap.NodeInfo
 
 	NodeIsRelay bool
 }
@@ -110,16 +101,12 @@ type GetHeaderPrm struct {
 type GetRangeHashPrm struct {
 	commonCommunicatorPrm
 
-	Node  netmap.NodeInfo
 	Range *object.Range
 }
 
 // ContainerCommunicator is an interface of
 // component of communication with container nodes.
 type ContainerCommunicator interface {
-	// GetSG must return storage group structure stored in object from container.
-	GetSG(GetSGPrm) (*storagegroup.StorageGroup, error)
-
 	// GetHeader must return object header from the container node.
 	GetHeader(GetHeaderPrm) (*object.Object, error)
 
