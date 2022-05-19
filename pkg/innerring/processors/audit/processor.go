@@ -35,12 +35,20 @@ type (
 		Reset() int
 	}
 
+	// EpochSource is an interface that provides actual
+	// epoch information.
+	EpochSource interface {
+		// EpochCounter must return current epoch number.
+		EpochCounter() uint64
+	}
+
 	// Processor of events related to data audit.
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
 		irList        Indexer
 		sgSrc         SGSource
+		epochSrc      EpochSource
 		searchTimeout time.Duration
 
 		containerClient *cntClient.Client
@@ -62,6 +70,7 @@ type (
 		TaskManager      TaskManager
 		Reporter         audit.Reporter
 		Key              *ecdsa.PrivateKey
+		EpochSource      EpochSource
 	}
 )
 
@@ -148,6 +157,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/audit: audit result reporter is not set")
 	case p.Key == nil:
 		return nil, errors.New("ir/audit: signing key is not set")
+	case p.EpochSource == nil:
+		return nil, errors.New("ir/audit: epoch source is not set")
 	}
 
 	pool, err := ants.NewPool(ProcessorPoolSize, ants.WithNonblocking(true))
@@ -161,6 +172,7 @@ func New(p *Params) (*Processor, error) {
 		containerClient:   p.ContainerClient,
 		irList:            p.IRList,
 		sgSrc:             p.SGSource,
+		epochSrc:          p.EpochSource,
 		searchTimeout:     p.RPCSearchTimeout,
 		netmapClient:      p.NetmapClient,
 		taskManager:       p.TaskManager,

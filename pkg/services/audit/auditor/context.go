@@ -26,7 +26,7 @@ type Context struct {
 	report *audit.Report
 
 	sgMembersMtx   sync.RWMutex
-	sgMembersCache map[int][]oid.ID
+	sgMembersCache map[oid.ID][]oid.ID
 
 	placementMtx   sync.Mutex
 	placementCache map[string][][]netmap.NodeInfo
@@ -178,7 +178,7 @@ func (c *Context) containerID() cid.ID {
 func (c *Context) init() {
 	c.report = audit.NewReport(c.containerID())
 
-	c.sgMembersCache = make(map[int][]oid.ID)
+	c.sgMembersCache = make(map[oid.ID][]oid.ID)
 
 	c.placementCache = make(map[string][][]netmap.NodeInfo)
 
@@ -293,9 +293,9 @@ func (c *Context) updateHeadResponses(hdr *object.Object) {
 	}
 }
 
-func (c *Context) updateSGInfo(ind int, members []oid.ID) {
+func (c *Context) updateSGInfo(id oid.ID, members []oid.ID) {
 	c.sgMembersMtx.Lock()
 	defer c.sgMembersMtx.Unlock()
 
-	c.sgMembersCache[ind] = members
+	c.sgMembersCache[id] = members
 }

@@ -7,6 +7,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 )
 
 // Task groups groups the container audit parameters.
@@ -23,7 +24,7 @@ type Task struct {
 
 	cnrNodes [][]netmap.NodeInfo
 
-	sgList []oid.ID
+	sgList map[oid.ID]storagegroupSDK.StorageGroup
 }
 
 // WithReporter sets audit report writer.
@@ -111,7 +112,7 @@ func (t *Task) ContainerNodes() [][]netmap.NodeInfo {
 }
 
 // WithStorageGroupList sets a list of storage groups from container under audit.
-func (t *Task) WithStorageGroupList(sgList []oid.ID) *Task {
+func (t *Task) WithStorageGroupList(sgList map[oid.ID]storagegroupSDK.StorageGroup) *Task {
 	if t != nil {
 		t.sgList = sgList
 	}
@@ -120,6 +121,6 @@ func (t *Task) WithStorageGroupList(sgList []oid.ID) *Task {
 }
 
 // StorageGroupList returns list of storage groups from container under audit.
-func (t *Task) StorageGroupList() []oid.ID {
+func (t *Task) StorageGroupList() map[oid.ID]storagegroupSDK.StorageGroup {
 	return t.sgList
 }
