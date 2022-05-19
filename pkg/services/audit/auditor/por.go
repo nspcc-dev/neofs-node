@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -36,12 +37,12 @@ func (c *Context) executePoR() {
 }
 
 func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
-	var getSgPrm GetSGPrm
+	var getSgPrm audit.GetSGPrm
 
 	getSgPrm.Context = c.task.AuditContext()
 	getSgPrm.CID = c.task.ContainerID()
 	getSgPrm.OID = sg
-	getSgPrm.NetMap = c.task.NetworkMap()
+	getSgPrm.NetMap = *c.task.NetworkMap()
 	getSgPrm.Container = c.task.ContainerNodes()
 
 	storageGroup, err := c.cnrCom.GetSG(getSgPrm) // get storage group

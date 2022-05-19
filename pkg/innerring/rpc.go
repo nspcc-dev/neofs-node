@@ -62,12 +62,12 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 // Returns storage groups structure from received object.
 //
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
-func (c *ClientCache) GetSG(prm auditor.GetSGPrm) (*storagegroup.StorageGroup, error) {
+func (c *ClientCache) GetSG(prm auditproc.GetSGPrm) (*storagegroup.StorageGroup, error) {
 	var sgAddress oid.Address
 	sgAddress.SetContainer(prm.CID)
 	sgAddress.SetObject(prm.OID)
 
-	return c.getSG(prm.Context, sgAddress, prm.NetMap, prm.Container)
+	return c.getSG(prm.Context, sgAddress, &prm.NetMap, prm.Container)
 }
 
 func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.NetMap, cn [][]netmap.NodeInfo) (*storagegroup.StorageGroup, error) {
