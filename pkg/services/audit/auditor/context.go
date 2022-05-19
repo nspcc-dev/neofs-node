@@ -1,6 +1,7 @@
 package auditor
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -81,18 +82,50 @@ type ContextPrm struct {
 	pdpWorkerPool, porWorkerPool util.WorkerPool
 }
 
+type commonCommunicatorPrm struct {
+	Context context.Context
+
+	OID oid.ID
+	CID cid.ID
+}
+
+// GetSGPrm groups parameter of GetSG operation.
+type GetSGPrm struct {
+	commonCommunicatorPrm
+
+	NetMap    *netmap.NetMap
+	Container [][]netmap.NodeInfo
+}
+
+// GetHeaderPrm groups parameter of GetHeader operation.
+type GetHeaderPrm struct {
+	commonCommunicatorPrm
+
+	Node netmap.NodeInfo
+
+	NodeIsRelay bool
+}
+
+// GetRangeHashPrm groups parameter of GetRangeHash operation.
+type GetRangeHashPrm struct {
+	commonCommunicatorPrm
+
+	Node  netmap.NodeInfo
+	Range *object.Range
+}
+
 // ContainerCommunicator is an interface of
 // component of communication with container nodes.
 type ContainerCommunicator interface {
-	// Must return storage group structure stored in object from container.
-	GetSG(*audit.Task, oid.ID) (*storagegroup.StorageGroup, error)
+	// GetSG must return storage group structure stored in object from container.
+	GetSG(GetSGPrm) (*storagegroup.StorageGroup, error)
 
-	// Must return object header from the container node.
-	GetHeader(*audit.Task, netmap.NodeInfo, oid.ID, bool) (*object.Object, error)
+	// GetHeader must return object header from the container node.
+	GetHeader(GetHeaderPrm) (*object.Object, error)
 
-	// Must return homomorphic Tillich-Zemor hash of payload range of the
+	// GetRangeHash must return homomorphic Tillich-Zemor hash of payload range of the
 	// object stored in container node.
-	GetRangeHash(*audit.Task, netmap.NodeInfo, oid.ID, *object.Range) ([]byte, error)
+	GetRangeHash(GetRangeHashPrm) ([]byte, error)
 }
 
 // NewContext creates, initializes and returns Context.
