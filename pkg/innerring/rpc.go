@@ -80,6 +80,9 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 
 	var info clientcore.NodeInfo
 
+	var getObjPrm neofsapiclient.GetObjectPrm
+	getObjPrm.SetAddress(addr)
+
 	for _, node := range placement.FlattenNodes(nodes) {
 		err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(node))
 		if err != nil {
@@ -95,15 +98,16 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 		}
 
 		cctx, cancel := context.WithTimeout(ctx, c.sgTimeout)
+		getObjPrm.SetContext(cctx)
 
 		// NOTE: we use the function which does not verify object integrity (checksums, signature),
 		// but it would be useful to do as part of a data audit.
-		payload, err := neofsapiclient.GetObjectPayload(cctx, cli, addr)
+		res, err := cli.GetObject(getObjPrm)
 
 		cancel()
 
 		if err != nil {
-			c.log.Warn("can't get payload of storage group object",
+			c.log.Warn("can't get storage group object",
 				zap.String("error", err.Error()))
 
 			continue
@@ -111,9 +115,9 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 
 		var sg storagegroup.StorageGroup
 
-		err = sg.Unmarshal(payload)
+		err = storagegroup.ReadFromObject(&sg, *res.Object())
 		if err != nil {
-			return nil, fmt.Errorf("can't parse storage group payload: %w", err)
+			return nil, fmt.Errorf("can't parse storage group from a object: %w", err)
 		}
 
 		return &sg, nil
