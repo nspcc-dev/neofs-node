@@ -113,7 +113,7 @@ func TestMessageSign(t *testing.T) {
 		t.Run("invalid bearer owner", func(t *testing.T) {
 			owner2 := ownerSDK.NewIDFromPublicKey((*ecdsa.PublicKey)(privs[1].PublicKey()))
 			bt := testBearerToken(cid1, owner2, privs[1].PublicKey(), privs[2].PublicKey())
-			require.NoError(t, bt.SignToken(&privs[0].PrivateKey))
+			require.NoError(t, bt.SignToken(&privs[1].PrivateKey))
 			req.Body.BearerToken, _ = bt.Marshal()
 
 			require.NoError(t, signMessage(req, &privs[1].PrivateKey))
