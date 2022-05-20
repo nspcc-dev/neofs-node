@@ -20,7 +20,7 @@ type Cache interface {
 	Get(address oid.Address) (*object.Object, error)
 	Head(oid.Address) (*object.Object, error)
 	Delete(oid.Address) error
-	Iterate(*IterationPrm) error
+	Iterate(IterationPrm) error
 	Put(*object.Object) error
 	SetMode(Mode)
 	DumpInfo() Info

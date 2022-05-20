@@ -81,7 +81,10 @@ func (s *Shard) Dump(prm *DumpPrm) (*DumpRes, error) {
 	var count int
 
 	if s.hasWriteCache() {
-		err := s.writeCache.Iterate(new(writecache.IterationPrm).WithHandler(func(data []byte) error {
+		var iterPrm writecache.IterationPrm
+
+		iterPrm.WithIgnoreErrors(prm.ignoreErrors)
+		iterPrm.WithHandler(func(data []byte) error {
 			var size [4]byte
 			binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
 			if _, err := w.Write(size[:]); err != nil {
@@ -94,7 +97,9 @@ func (s *Shard) Dump(prm *DumpPrm) (*DumpRes, error) {
 
 			count++
 			return nil
-		}).WithIgnoreErrors(prm.ignoreErrors))
+		})
+
+		err := s.writeCache.Iterate(iterPrm)
 		if err != nil {
 			return nil, err
 		}
