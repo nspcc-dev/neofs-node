@@ -205,14 +205,14 @@ func (h *cfg) localObjectHeaders(addr *objectSDKAddress.Address) ([]eaclSDK.Head
 func cidHeader(idCnr cid.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectContainerID,
-		v: idCnr.String(),
+		v: idCnr.EncodeToString(),
 	}
 }
 
 func oidHeader(oid objectSDKID.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectID,
-		v: oid.String(),
+		v: oid.EncodeToString(),
 	}
 }
 
