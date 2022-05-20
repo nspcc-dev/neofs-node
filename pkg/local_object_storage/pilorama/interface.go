@@ -21,7 +21,7 @@ type Forest interface {
 	TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) ([]Node, error)
 	// TreeGetMeta returns meta information of the node with the specified ID.
 	// Should return ErrTreeNotFound if the tree is not found, and empty result if the node is not in the tree.
-	TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, error)
+	TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, Node, error)
 	// TreeGetChildren returns children of the node with the specified ID. The order is arbitrary.
 	// Should return ErrTreeNotFound if the tree is not found, and empty result if the node is not in the tree.
 	TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error)

@@ -211,7 +211,7 @@ func (s *Service) GetNodeByPath(_ context.Context, req *GetNodeByPathRequest) (*
 
 	info := make([]*GetNodeByPathResponse_Info, 0, len(nodes))
 	for _, node := range nodes {
-		m, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), node)
+		m, _, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), node)
 		if err != nil {
 			return nil, err
 		}
@@ -269,14 +269,14 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 
 	for len(queue) != 0 {
 		for _, nodeID := range queue[0].nodes {
-			m, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), nodeID)
+			m, p, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), nodeID)
 			if err != nil {
 				return err
 			}
 			err = srv.Send(&GetSubTreeResponse{
 				Body: &GetSubTreeResponse_Body{
 					NodeId:    nodeID,
-					ParentId:  b.GetRootId(),
+					ParentId:  p,
 					Timestamp: m.Time,
 					Meta:      metaToProto(m.Items),
 				},

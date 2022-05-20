@@ -81,11 +81,12 @@ func (e *StorageEngine) TreeGetByPath(cid cidSDK.ID, treeID string, attr string,
 }
 
 // TreeGetMeta implements the pilorama.Forest interface.
-func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID pilorama.Node) (pilorama.Meta, error) {
+func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID pilorama.Node) (pilorama.Meta, uint64, error) {
 	var err error
 	var m pilorama.Meta
+	var p uint64
 	for _, sh := range e.sortShardsByWeight(cid) {
-		m, err = sh.TreeGetMeta(cid, treeID, nodeID)
+		m, p, err = sh.TreeGetMeta(cid, treeID, nodeID)
 		if err != nil {
 			e.log.Debug("can't put node in a tree",
 				zap.Stringer("cid", cid),
@@ -93,9 +94,9 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 				zap.String("err", err.Error()))
 			continue
 		}
-		return m, nil
+		return m, p, nil
 	}
-	return pilorama.Meta{}, err
+	return pilorama.Meta{}, 0, err
 }
 
 // TreeGetChildren implements the pilorama.Forest interface.
