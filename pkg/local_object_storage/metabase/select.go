@@ -54,7 +54,7 @@ func (p *SelectPrm) WithFilters(fs object.SearchFilters) {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []oid.Address {
+func (r SelectRes) AddressList() []oid.Address {
 	return r.addrList
 }
 

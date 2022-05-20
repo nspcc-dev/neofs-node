@@ -61,7 +61,7 @@ func (db *DB) Delete(prm DeletePrm) (*DeleteRes, error) {
 				storagelog.OpField("metabase DELETE"))
 		}
 	}
-	return new(DeleteRes), err
+	return nil, err
 }
 
 func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
