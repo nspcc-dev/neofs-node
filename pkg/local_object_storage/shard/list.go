@@ -41,17 +41,15 @@ type ListWithCursorRes struct {
 }
 
 // WithCount sets maximum amount of addresses that ListWithCursor should return.
-func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
+func (p *ListWithCursorPrm) WithCount(count uint32) {
 	p.count = count
-	return p
 }
 
 // WithCursor sets cursor for ListWithCursor operation. For initial request,
 // ignore this param or use nil value. For consecutive requests, use value
 // from ListWithCursorRes.
-func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
+func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) {
 	p.cursor = cursor
-	return p
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
@@ -91,7 +89,7 @@ func (s *Shard) List() (*SelectRes, error) {
 	return res, nil
 }
 
-func (s *Shard) ListContainers(_ *ListContainersPrm) (*ListContainersRes, error) {
+func (s *Shard) ListContainers(_ ListContainersPrm) (*ListContainersRes, error) {
 	containers, err := s.metaBase.Containers()
 	if err != nil {
 		return nil, fmt.Errorf("could not get list of containers: %w", err)
@@ -103,7 +101,7 @@ func (s *Shard) ListContainers(_ *ListContainersPrm) (*ListContainersRes, error)
 }
 
 func ListContainers(s *Shard) ([]cid.ID, error) {
-	res, err := s.ListContainers(&ListContainersPrm{})
+	res, err := s.ListContainers(ListContainersPrm{})
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +115,7 @@ func ListContainers(s *Shard) ([]cid.ID, error) {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
+func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRes, error) {
 	var metaPrm meta.ListPrm
 	metaPrm.WithCount(prm.count)
 	metaPrm.WithCursor(prm.cursor)
@@ -140,7 +138,9 @@ func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, erro
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]oid.Address, *Cursor, error) {
-	prm := new(ListWithCursorPrm).WithCount(count).WithCursor(cursor)
+	var prm ListWithCursorPrm
+	prm.WithCount(count)
+	prm.WithCursor(cursor)
 	res, err := s.ListWithCursor(prm)
 	if err != nil {
 		return nil, nil, err

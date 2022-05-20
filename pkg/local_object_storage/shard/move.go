@@ -16,17 +16,15 @@ type ToMoveItRes struct{}
 
 // WithAddress sets object address that should be marked to move into another
 // shard.
-func (p *ToMoveItPrm) WithAddress(addr oid.Address) *ToMoveItPrm {
+func (p *ToMoveItPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // ToMoveIt calls metabase.ToMoveIt method to mark object as relocatable to
 // another shard.
-func (s *Shard) ToMoveIt(prm *ToMoveItPrm) (*ToMoveItRes, error) {
+func (s *Shard) ToMoveIt(prm ToMoveItPrm) (*ToMoveItRes, error) {
 	if s.GetMode() != ModeReadWrite {
 		return nil, ErrReadOnlyMode
 	}

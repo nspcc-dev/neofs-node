@@ -69,7 +69,7 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
 
-	shPrm := new(shard.InhumePrm)
+	var shPrm shard.InhumePrm
 
 	for i := range prm.addrs {
 		if prm.tombstone != nil {
@@ -98,9 +98,10 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 //   0 - fail
 //   1 - object locked
 //   2 - ok
-func (e *StorageEngine) inhumeAddr(addr oid.Address, prm *shard.InhumePrm, checkExists bool) (status uint8) {
+func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (status uint8) {
 	root := false
 	var errLocked apistatus.ObjectLocked
+	var existPrm shard.ExistsPrm
 
 	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
@@ -112,9 +113,8 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm *shard.InhumePrm, check
 		}()
 
 		if checkExists {
-			exRes, err := sh.Exists(new(shard.ExistsPrm).
-				WithAddress(addr),
-			)
+			existPrm.WithAddress(addr)
+			exRes, err := sh.Exists(existPrm)
 			if err != nil {
 				if shard.IsErrRemoved(err) {
 					// inhumed once - no need to be inhumed again

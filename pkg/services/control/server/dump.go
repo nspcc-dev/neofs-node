@@ -17,7 +17,7 @@ func (s *Server) DumpShard(_ context.Context, req *control.DumpShardRequest) (*c
 
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
-	prm := new(shard.DumpPrm)
+	var prm shard.DumpPrm
 	prm.WithPath(req.GetBody().GetFilepath())
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 

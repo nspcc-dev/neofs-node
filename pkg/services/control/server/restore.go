@@ -17,7 +17,7 @@ func (s *Server) RestoreShard(_ context.Context, req *control.RestoreShardReques
 
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
-	prm := new(shard.RestorePrm)
+	var prm shard.RestorePrm
 	prm.WithPath(req.GetBody().GetFilepath())
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 

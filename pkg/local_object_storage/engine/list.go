@@ -104,7 +104,8 @@ func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorR
 		}
 
 		count := uint32(int(prm.count) - len(result))
-		shardPrm := new(shard.ListWithCursorPrm).WithCount(count)
+		var shardPrm shard.ListWithCursorPrm
+		shardPrm.WithCount(count)
 		if shardIDs[i] == cursor.shardID {
 			shardPrm.WithCursor(cursor.shardCursor)
 		}

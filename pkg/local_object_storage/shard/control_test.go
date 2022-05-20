@@ -85,20 +85,29 @@ func TestRefillMetabase(t *testing.T) {
 	var putPrm PutPrm
 
 	for _, v := range mObjs {
-		_, err := sh.Put(putPrm.WithObject(v.obj))
+		putPrm.WithObject(v.obj)
+
+		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 	}
 
-	_, err = sh.Put(putPrm.WithObject(tombObj))
+	putPrm.WithObject(tombObj)
+
+	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
 
-	_, err = sh.Inhume(new(InhumePrm).WithTarget(object.AddressOf(tombObj), tombMembers...))
+	var inhumePrm InhumePrm
+	inhumePrm.WithTarget(object.AddressOf(tombObj), tombMembers...)
+
+	_, err = sh.Inhume(inhumePrm)
 	require.NoError(t, err)
 
 	var headPrm HeadPrm
 
 	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
-		res, err := sh.Head(headPrm.WithAddress(addr))
+		headPrm.WithAddress(addr)
+
+		res, err := sh.Head(headPrm)
 
 		if expObj == nil {
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
@@ -121,7 +130,9 @@ func TestRefillMetabase(t *testing.T) {
 
 	checkTombMembers := func(exists bool) {
 		for _, member := range tombMembers {
-			_, err := sh.Head(headPrm.WithAddress(member))
+			headPrm.WithAddress(member)
+
+			_, err := sh.Head(headPrm)
 
 			if exists {
 				require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))

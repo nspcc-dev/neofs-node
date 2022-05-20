@@ -21,23 +21,20 @@ type RestorePrm struct {
 }
 
 // WithPath is a Restore option to set the destination path.
-func (p *RestorePrm) WithPath(path string) *RestorePrm {
+func (p *RestorePrm) WithPath(path string) {
 	p.path = path
-	return p
 }
 
 // WithStream is a Restore option to set the stream to read objects from.
 // It takes priority over `WithPath` option.
-func (p *RestorePrm) WithStream(r io.Reader) *RestorePrm {
+func (p *RestorePrm) WithStream(r io.Reader) {
 	p.stream = r
-	return p
 }
 
 // WithIgnoreErrors is a Restore option which allows to ignore errors encountered during restore.
 // Corrupted objects will not be processed.
-func (p *RestorePrm) WithIgnoreErrors(ignore bool) *RestorePrm {
+func (p *RestorePrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
-	return p
 }
 
 // RestoreRes groups the result fields of Restore operation.
@@ -59,7 +56,7 @@ func (r *RestoreRes) FailCount() int {
 // Restore restores objects from the dump prepared by Dump.
 //
 // Returns any error encountered.
-func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {
+func (s *Shard) Restore(prm RestorePrm) (*RestoreRes, error) {
 	// Disallow changing mode during restore.
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -84,6 +81,8 @@ func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {
 	if !bytes.Equal(m[:], dumpMagic) {
 		return nil, ErrInvalidMagic
 	}
+
+	var putPrm PutPrm
 
 	var count, failCount int
 	var data []byte
@@ -121,7 +120,8 @@ func (s *Shard) Restore(prm *RestorePrm) (*RestoreRes, error) {
 			return nil, err
 		}
 
-		_, err = s.Put(new(PutPrm).WithObject(obj))
+		putPrm.WithObject(obj)
+		_, err = s.Put(putPrm)
 		if err != nil {
 			return nil, err
 		}

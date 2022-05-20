@@ -23,23 +23,19 @@ type HeadRes struct {
 // WithAddress is a Head option to set the address of the requested object.
 //
 // Option is required.
-func (p *HeadPrm) WithAddress(addr oid.Address) *HeadPrm {
+func (p *HeadPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // WithRaw is a Head option to set raw flag value. If flag is unset, then Head
 // returns header of virtual object, otherwise it returns SplitInfo of virtual
 // object.
-func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
+func (p *HeadPrm) WithRaw(raw bool) {
 	if p != nil {
 		p.raw = raw
 	}
-
-	return p
 }
 
 // Object returns the requested object header.
@@ -53,7 +49,7 @@ func (r *HeadRes) Object() *objectSDK.Object {
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in Shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
-func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
+func (s *Shard) Head(prm HeadPrm) (*HeadRes, error) {
 	// object can be saved in write-cache (if enabled) or in metabase
 
 	if s.hasWriteCache() {

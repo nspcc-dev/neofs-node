@@ -34,19 +34,16 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr oid.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // WithIgnoreMeta is a Get option try to fetch object from blobstor directly,
 // without accessing metabase.
-func (p *GetPrm) WithIgnoreMeta(ignore bool) *GetPrm {
+func (p *GetPrm) WithIgnoreMeta(ignore bool) {
 	p.skipMeta = ignore
-	return p
 }
 
 // Object returns the requested object.
@@ -66,7 +63,7 @@ func (r *GetRes) HasMeta() bool {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
-func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
+func (s *Shard) Get(prm GetPrm) (*GetRes, error) {
 	var big, small storFetcher
 
 	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*objectSDK.Object, error) {

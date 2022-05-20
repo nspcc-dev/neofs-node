@@ -20,17 +20,15 @@ type DeleteRes struct{}
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addr ...oid.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addr ...oid.Address) {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
 	}
-
-	return p
 }
 
 // Delete removes data from the shard's writeCache, metaBase and
 // blobStor.
-func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
+func (s *Shard) Delete(prm DeletePrm) (*DeleteRes, error) {
 	if s.GetMode() != ModeReadWrite {
 		return nil, ErrReadOnlyMode
 	}

@@ -65,9 +65,10 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 		}()
 
 		if checkExists {
-			exRes, err := sh.Exists(new(shard.ExistsPrm).
-				WithAddress(addrLocked),
-			)
+			var existsPrm shard.ExistsPrm
+			existsPrm.WithAddress(addrLocked)
+
+			exRes, err := sh.Exists(existsPrm)
 			if err != nil {
 				var siErr *objectSDK.SplitInfoError
 				if !errors.As(err, &siErr) {

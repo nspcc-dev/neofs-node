@@ -209,10 +209,11 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
+	var deletePrm DeletePrm
+	deletePrm.WithAddresses(buf...)
+
 	// delete accumulated objects
-	_, err = s.Delete(new(DeletePrm).
-		WithAddresses(buf...),
-	)
+	_, err = s.Delete(deletePrm)
 	if err != nil {
 		s.log.Warn("could not delete the objects",
 			zap.String("error", err.Error()),

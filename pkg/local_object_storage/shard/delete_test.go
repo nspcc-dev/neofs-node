@@ -30,8 +30,8 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	obj := generateObjectWithCID(t, cnr)
 	addAttribute(obj, "foo", "bar")
 
-	putPrm := new(shard.PutPrm)
-	getPrm := new(shard.GetPrm)
+	var putPrm shard.PutPrm
+	var getPrm shard.GetPrm
 
 	t.Run("big object", func(t *testing.T) {
 		addPayload(obj, 1<<20)
@@ -39,7 +39,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		putPrm.WithObject(obj)
 		getPrm.WithAddress(object.AddressOf(obj))
 
-		delPrm := new(shard.DeletePrm)
+		var delPrm shard.DeletePrm
 		delPrm.WithAddresses(object.AddressOf(obj))
 
 		_, err := sh.Put(putPrm)
@@ -62,7 +62,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		putPrm.WithObject(obj)
 		getPrm.WithAddress(object.AddressOf(obj))
 
-		delPrm := new(shard.DeletePrm)
+		var delPrm shard.DeletePrm
 		delPrm.WithAddresses(object.AddressOf(obj))
 
 		_, err := sh.Put(putPrm)

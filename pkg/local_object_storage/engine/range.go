@@ -91,9 +91,9 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 		metaError     error
 	)
 
-	shPrm := new(shard.RngPrm).
-		WithAddress(prm.addr).
-		WithRange(prm.off, prm.ln)
+	var shPrm shard.RngPrm
+	shPrm.WithAddress(prm.addr)
+	shPrm.WithRange(prm.off, prm.ln)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.GetRange(shPrm)
@@ -152,7 +152,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 		// If the object is not found but is present in metabase,
 		// try to fetch it from blobstor directly. If it is found in any
 		// blobstor, increase the error counter for the shard which contains the meta.
-		shPrm = shPrm.WithIgnoreMeta(true)
+		shPrm.WithIgnoreMeta(true)
 
 		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 			res, err := sh.GetRange(shPrm)
