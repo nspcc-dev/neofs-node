@@ -41,10 +41,11 @@ var providers = []struct {
 	}},
 }
 
-func testMeta(t *testing.T, f Forest, cid cidSDK.ID, treeID string, nodeID Node, expected Meta) {
-	actual, err := f.TreeGetMeta(cid, treeID, nodeID)
+func testMeta(t *testing.T, f Forest, cid cidSDK.ID, treeID string, nodeID, parentID Node, expected Meta) {
+	actualMeta, actualParent, err := f.TreeGetMeta(cid, treeID, nodeID)
 	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+	require.Equal(t, parentID, actualParent)
+	require.Equal(t, expected, actualMeta)
 }
 
 func TestForest_TreeMove(t *testing.T) {
@@ -175,7 +176,7 @@ func testForestTreeAdd(t *testing.T, s Forest) {
 	})
 	require.NoError(t, err)
 
-	testMeta(t, s, cid, treeID, lm.Child, Meta{Time: lm.Time, Items: meta})
+	testMeta(t, s, cid, treeID, lm.Child, lm.Parent, Meta{Time: lm.Time, Items: meta})
 
 	nodes, err := s.TreeGetByPath(cid, treeID, AttributeFilename, []string{"file.txt"}, false)
 	require.NoError(t, err)
@@ -185,7 +186,7 @@ func testForestTreeAdd(t *testing.T, s Forest) {
 		_, err := s.TreeGetByPath(cid, treeID+"123", AttributeFilename, []string{"file.txt"}, false)
 		require.ErrorIs(t, err, ErrTreeNotFound)
 
-		_, err = s.TreeGetMeta(cid, treeID+"123", 0)
+		_, _, err = s.TreeGetMeta(cid, treeID+"123", 0)
 		require.ErrorIs(t, err, ErrTreeNotFound)
 	})
 }
@@ -208,11 +209,11 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	lm, err := s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "to"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lm))
-	testMeta(t, s, cid, treeID, lm[0].Child, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("path")}}})
-	testMeta(t, s, cid, treeID, lm[1].Child, Meta{Time: lm[1].Time, Items: []KeyValue{{AttributeFilename, []byte("to")}}})
+	testMeta(t, s, cid, treeID, lm[0].Child, lm[0].Parent, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("path")}}})
+	testMeta(t, s, cid, treeID, lm[1].Child, lm[1].Parent, Meta{Time: lm[1].Time, Items: []KeyValue{{AttributeFilename, []byte("to")}}})
 
 	firstID := lm[2].Child
-	testMeta(t, s, cid, treeID, firstID, Meta{Time: lm[2].Time, Items: meta})
+	testMeta(t, s, cid, treeID, firstID, lm[2].Parent, Meta{Time: lm[2].Time, Items: meta})
 
 	meta[0].Value = []byte("YYY")
 	lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "to"}, meta)
@@ -220,7 +221,7 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	require.Equal(t, 1, len(lm))
 
 	secondID := lm[0].Child
-	testMeta(t, s, cid, treeID, secondID, Meta{Time: lm[0].Time, Items: meta})
+	testMeta(t, s, cid, treeID, secondID, lm[0].Parent, Meta{Time: lm[0].Time, Items: meta})
 
 	t.Run("get versions", func(t *testing.T) {
 		// All versions.
@@ -239,8 +240,8 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "dir"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lm))
-	testMeta(t, s, cid, treeID, lm[0].Child, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("dir")}}})
-	testMeta(t, s, cid, treeID, lm[1].Child, Meta{Time: lm[1].Time, Items: meta})
+	testMeta(t, s, cid, treeID, lm[0].Child, lm[0].Parent, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("dir")}}})
+	testMeta(t, s, cid, treeID, lm[1].Child, lm[1].Parent, Meta{Time: lm[1].Time, Items: meta})
 }
 
 func TestForest_Apply(t *testing.T) {
@@ -269,19 +270,19 @@ func testForestTreeApply(t *testing.T, constructor func(t *testing.T) Forest) {
 
 		meta := Meta{Time: 3, Items: []KeyValue{{"child", []byte{3}}}}
 		testApply(t, s, 11, 10, meta)
-		testMeta(t, s, cid, treeID, 11, meta)
+		testMeta(t, s, cid, treeID, 11, 10, meta)
 
 		testApply(t, s, 10, TrashID, Meta{Time: 2, Items: []KeyValue{{"parent", []byte{2}}}})
-		testMeta(t, s, cid, treeID, 11, Meta{})
+		testMeta(t, s, cid, treeID, 11, 0, Meta{})
 	})
 	t.Run("add a child to non-existent parent, then add a parent", func(t *testing.T) {
 		s := constructor(t)
 
 		testApply(t, s, 11, 10, Meta{Time: 1, Items: []KeyValue{{"child", []byte{3}}}})
-		testMeta(t, s, cid, treeID, 11, Meta{})
+		testMeta(t, s, cid, treeID, 11, 0, Meta{})
 
 		testApply(t, s, 10, 0, Meta{Time: 2, Items: []KeyValue{{"grand", []byte{1}}}})
-		testMeta(t, s, cid, treeID, 11, Meta{})
+		testMeta(t, s, cid, treeID, 11, 0, Meta{})
 	})
 }
 
@@ -343,10 +344,11 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t *testing.T) Fore
 			require.NoError(t, actual.TreeApply(cid, treeID, &ops[i]))
 		}
 		for i := uint64(0); i < nodeCount; i++ {
-			expectedMeta, err := expected.TreeGetMeta(cid, treeID, i)
+			expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
 			require.NoError(t, err)
-			actualMeta, err := actual.TreeGetMeta(cid, treeID, i)
+			actualMeta, actualParent, err := actual.TreeGetMeta(cid, treeID, i)
 			require.NoError(t, err)
+			require.Equal(t, expectedParent, actualParent, "node id: %d", i)
 			require.Equal(t, expectedMeta, actualMeta, "node id: %d", i)
 
 			if _, ok := actual.(*memoryForest); ok {
