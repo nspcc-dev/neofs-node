@@ -47,8 +47,8 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	shPrm := new(shard.InhumePrm)
-	existsPrm := new(shard.ExistsPrm)
+	var shPrm shard.InhumePrm
+	var existsPrm shard.ExistsPrm
 	var locked struct {
 		is  bool
 		err apistatus.ObjectLocked
@@ -56,7 +56,9 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 
 	for i := range prm.addr {
 		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh hashedShard) (stop bool) {
-			resExists, err := sh.Exists(existsPrm.WithAddress(prm.addr[i]))
+			existsPrm.WithAddress(prm.addr[i])
+
+			resExists, err := sh.Exists(existsPrm)
 			if err != nil {
 				e.reportShardError(sh, "could not check object existence", err)
 				return false
@@ -64,7 +66,9 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 				return false
 			}
 
-			_, err = sh.Inhume(shPrm.MarkAsGarbage(prm.addr[i]))
+			shPrm.MarkAsGarbage(prm.addr[i])
+
+			_, err = sh.Inhume(shPrm)
 			if err != nil {
 				e.reportShardError(sh, "could not inhume object in shard", err)
 

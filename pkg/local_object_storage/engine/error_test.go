@@ -64,7 +64,8 @@ func TestErrorReporting(t *testing.T) {
 		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
-		prm := new(shard.PutPrm).WithObject(obj)
+		var prm shard.PutPrm
+		prm.WithObject(obj)
 		e.mtx.RLock()
 		_, err := e.shards[id[0].String()].Shard.Put(prm)
 		e.mtx.RUnlock()
@@ -93,7 +94,8 @@ func TestErrorReporting(t *testing.T) {
 		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
-		prm := new(shard.PutPrm).WithObject(obj)
+		var prm shard.PutPrm
+		prm.WithObject(obj)
 		e.mtx.RLock()
 		_, err := e.shards[id[0].String()].Put(prm)
 		e.mtx.RUnlock()
@@ -142,7 +144,8 @@ func TestBlobstorFailback(t *testing.T) {
 		obj := generateObjectWithCID(t, cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
-		prm := new(shard.PutPrm).WithObject(obj)
+		var prm shard.PutPrm
+		prm.WithObject(obj)
 		e.mtx.RLock()
 		_, err = e.shards[id[0].String()].Shard.Put(prm)
 		e.mtx.RUnlock()

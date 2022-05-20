@@ -46,8 +46,11 @@ func TestHeadRaw(t *testing.T) {
 		e := testNewEngineWithShards(s1, s2)
 		defer e.Close()
 
-		putPrmLeft := new(shard.PutPrm).WithObject(child)
-		putPrmLink := new(shard.PutPrm).WithObject(link)
+		var putPrmLeft shard.PutPrm
+		putPrmLeft.WithObject(child)
+
+		var putPrmLink shard.PutPrm
+		putPrmLink.WithObject(link)
 
 		// put most left object in one shard
 		_, err := s1.Put(putPrmLeft)

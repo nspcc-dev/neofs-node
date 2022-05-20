@@ -21,21 +21,17 @@ type SelectRes struct {
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cnr cid.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cnr cid.ID) {
 	if p != nil {
 		p.cnr = cnr
 	}
-
-	return p
 }
 
 // WithFilters is a Select option to set the object filters.
-func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
+func (p *SelectPrm) WithFilters(fs object.SearchFilters) {
 	if p != nil {
 		p.filters = fs
 	}
-
-	return p
 }
 
 // AddressList returns list of addresses of the selected objects.
@@ -47,7 +43,7 @@ func (r *SelectRes) AddressList() []oid.Address {
 //
 // Returns any error encountered that
 // did not allow to completely select the objects.
-func (s *Shard) Select(prm *SelectPrm) (*SelectRes, error) {
+func (s *Shard) Select(prm SelectPrm) (*SelectRes, error) {
 	addrList, err := meta.Select(s.metaBase, prm.cnr, prm.filters)
 	if err != nil {
 		return nil, fmt.Errorf("could not select objects from metabase: %w", err)

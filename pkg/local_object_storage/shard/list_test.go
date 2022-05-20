@@ -32,7 +32,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	const N = 5
 
 	objs := make(map[string]int)
-	putPrm := new(shard.PutPrm)
+	var putPrm shard.PutPrm
 
 	for i := 0; i < C; i++ {
 		cnr := cidtest.ID()

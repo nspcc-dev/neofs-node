@@ -28,8 +28,8 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	putPrm := new(shard.PutPrm)
-	getPrm := new(shard.GetPrm)
+	var putPrm shard.PutPrm
+	var getPrm shard.GetPrm
 
 	t.Run("small object", func(t *testing.T) {
 		obj := generateObject(t)
@@ -111,7 +111,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 }
 
-func testGet(t *testing.T, sh *shard.Shard, getPrm *shard.GetPrm, hasWriteCache bool) (*shard.GetRes, error) {
+func testGet(t *testing.T, sh *shard.Shard, getPrm shard.GetPrm, hasWriteCache bool) (*shard.GetRes, error) {
 	res, err := sh.Get(getPrm)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {

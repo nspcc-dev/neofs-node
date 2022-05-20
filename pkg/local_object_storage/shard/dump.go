@@ -20,23 +20,20 @@ type DumpPrm struct {
 }
 
 // WithPath is an Dump option to set the destination path.
-func (p *DumpPrm) WithPath(path string) *DumpPrm {
+func (p *DumpPrm) WithPath(path string) {
 	p.path = path
-	return p
 }
 
 // WithStream is an Dump option to set the destination stream.
 // It takes priority over `path` option.
-func (p *DumpPrm) WithStream(r io.Writer) *DumpPrm {
+func (p *DumpPrm) WithStream(r io.Writer) {
 	p.stream = r
-	return p
 }
 
 // WithIgnoreErrors is an Dump option to allow ignore all errors during iteration.
 // This includes invalid blobovniczas as well as corrupted objects.
-func (p *DumpPrm) WithIgnoreErrors(ignore bool) *DumpPrm {
+func (p *DumpPrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
-	return p
 }
 
 // DumpRes groups the result fields of Dump operation.
@@ -54,7 +51,7 @@ var ErrMustBeReadOnly = errors.New("shard must be in read-only mode")
 // Dump dumps all objects from the shard to a file or stream.
 //
 // Returns any error encountered.
-func (s *Shard) Dump(prm *DumpPrm) (*DumpRes, error) {
+func (s *Shard) Dump(prm DumpPrm) (*DumpRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 

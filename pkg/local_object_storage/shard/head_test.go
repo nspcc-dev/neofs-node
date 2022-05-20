@@ -26,8 +26,8 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	putPrm := new(shard.PutPrm)
-	headPrm := new(shard.HeadPrm)
+	var putPrm shard.PutPrm
+	var headPrm shard.HeadPrm
 
 	t.Run("regular object", func(t *testing.T) {
 		obj := generateObject(t)
@@ -80,7 +80,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	})
 }
 
-func testHead(t *testing.T, sh *shard.Shard, headPrm *shard.HeadPrm, hasWriteCache bool) (*shard.HeadRes, error) {
+func testHead(t *testing.T, sh *shard.Shard, headPrm shard.HeadPrm, hasWriteCache bool) (*shard.HeadRes, error) {
 	res, err := sh.Head(headPrm)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {

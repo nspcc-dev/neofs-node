@@ -65,9 +65,9 @@ func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 
 	var outError error
 
-	shPrm := new(shard.SelectPrm).
-		WithContainerID(prm.cnr).
-		WithFilters(prm.filters)
+	var shPrm shard.SelectPrm
+	shPrm.WithContainerID(prm.cnr)
+	shPrm.WithFilters(prm.filters)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Select(shPrm)

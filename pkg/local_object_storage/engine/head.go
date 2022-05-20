@@ -83,9 +83,9 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 		outError error = errNotFound
 	)
 
-	shPrm := new(shard.HeadPrm).
-		WithAddress(prm.addr).
-		WithRaw(prm.raw)
+	var shPrm shard.HeadPrm
+	shPrm.WithAddress(prm.addr)
+	shPrm.WithRaw(prm.raw)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.Head(shPrm)

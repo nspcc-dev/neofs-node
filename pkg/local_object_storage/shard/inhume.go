@@ -22,25 +22,21 @@ type InhumeRes struct{}
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) *InhumePrm {
+func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) {
 	if p != nil {
 		p.target = addrs
 		p.tombstone = &tombstone
 	}
-
-	return p
 }
 
 // MarkAsGarbage marks object to be physically removed from shard.
 //
 // Should not be called along with WithTarget.
-func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) *InhumePrm {
+func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) {
 	if p != nil {
 		p.target = addr
 		p.tombstone = nil
 	}
-
-	return p
 }
 
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
@@ -50,7 +46,7 @@ func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) *InhumePrm {
 // if at least one object is locked.
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
-func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
+func (s *Shard) Inhume(prm InhumePrm) (*InhumeRes, error) {
 	if s.GetMode() != ModeReadWrite {
 		return nil, ErrReadOnlyMode
 	}

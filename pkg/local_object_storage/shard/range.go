@@ -27,28 +27,23 @@ type RngRes struct {
 // WithAddress is a Rng option to set the address of the requested object.
 //
 // Option is required.
-func (p *RngPrm) WithAddress(addr oid.Address) *RngPrm {
+func (p *RngPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // WithRange is a GetRange option to set range of requested payload data.
-func (p *RngPrm) WithRange(off uint64, ln uint64) *RngPrm {
+func (p *RngPrm) WithRange(off uint64, ln uint64) {
 	if p != nil {
 		p.off, p.ln = off, ln
 	}
-
-	return p
 }
 
 // WithIgnoreMeta is a Get option try to fetch object from blobstor directly,
 // without accessing metabase.
-func (p *RngPrm) WithIgnoreMeta(ignore bool) *RngPrm {
+func (p *RngPrm) WithIgnoreMeta(ignore bool) {
 	p.skipMeta = ignore
-	return p
 }
 
 // Object returns the requested object part.
@@ -71,7 +66,7 @@ func (r *RngRes) HasMeta() bool {
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
-func (s *Shard) GetRange(prm *RngPrm) (*RngRes, error) {
+func (s *Shard) GetRange(prm RngPrm) (*RngRes, error) {
 	var big, small storFetcher
 
 	rng := object.NewRange()

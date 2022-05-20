@@ -18,12 +18,10 @@ type PutPrm struct {
 type PutRes struct{}
 
 // WithObject is a Put option to set object to save.
-func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
+func (p *PutPrm) WithObject(obj *object.Object) {
 	if p != nil {
 		p.obj = obj
 	}
-
-	return p
 }
 
 // Put saves the object in shard.
@@ -32,7 +30,7 @@ func (p *PutPrm) WithObject(obj *object.Object) *PutPrm {
 // did not allow to completely save the object.
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
-func (s *Shard) Put(prm *PutPrm) (*PutRes, error) {
+func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
 	if s.GetMode() != ModeReadWrite {
 		return nil, ErrReadOnlyMode
 	}
