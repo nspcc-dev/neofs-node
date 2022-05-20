@@ -275,7 +275,7 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 			}
 			err = srv.Send(&GetSubTreeResponse{
 				Body: &GetSubTreeResponse_Body{
-					NodeId:    b.GetRootId(),
+					NodeId:    nodeID,
 					ParentId:  b.GetRootId(),
 					Timestamp: m.Time,
 					Meta:      metaToProto(m.Items),
