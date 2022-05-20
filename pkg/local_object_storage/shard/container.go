@@ -20,7 +20,7 @@ func (p *ContainerSizePrm) WithContainerID(cnr cid.ID) {
 	}
 }
 
-func (r *ContainerSizeRes) Size() uint64 {
+func (r ContainerSizeRes) Size() uint64 {
 	return r.size
 }
 

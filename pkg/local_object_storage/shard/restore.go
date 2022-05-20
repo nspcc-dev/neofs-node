@@ -44,12 +44,12 @@ type RestoreRes struct {
 }
 
 // Count return amount of object written.
-func (r *RestoreRes) Count() int {
+func (r RestoreRes) Count() int {
 	return r.count
 }
 
 // FailCount return amount of object skipped.
-func (r *RestoreRes) FailCount() int {
+func (r RestoreRes) FailCount() int {
 	return r.failed
 }
 

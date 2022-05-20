@@ -27,7 +27,7 @@ func (p *ExistsPrm) WithAddress(addr oid.Address) *ExistsPrm {
 }
 
 // Exists returns the fact that the object is in the shard.
-func (p *ExistsRes) Exists() bool {
+func (p ExistsRes) Exists() bool {
 	return p.ex
 }
 

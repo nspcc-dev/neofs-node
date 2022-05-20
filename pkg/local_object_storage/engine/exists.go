@@ -24,7 +24,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 			e.reportShardError(sh, "could not check existence of object in shard", err)
 		}
 
-		if res != nil && !exists {
+		if !exists {
 			exists = res.Exists()
 		}
 
