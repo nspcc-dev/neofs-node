@@ -1,7 +1,6 @@
 package client
 
 import (
-	"math/big"
 	"testing"
 
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -21,12 +20,6 @@ func TestToStackParameter(t *testing.T) {
 		{
 			value:   int64(100),
 			expType: sc.IntegerType,
-			expVal:  big.NewInt(100),
-		},
-		{
-			value:   uint64(100),
-			expType: sc.IntegerType,
-			expVal:  big.NewInt(100),
 		},
 		{
 			value:   "hello world",

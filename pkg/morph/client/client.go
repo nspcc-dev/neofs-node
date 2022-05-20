@@ -451,13 +451,13 @@ func toStackParameter(value interface{}) (sc.Parameter, error) {
 		result.Type = sc.ByteArrayType
 	case int:
 		result.Type = sc.IntegerType
-		result.Value = big.NewInt(int64(v))
+		result.Value = int64(v)
 	case int64:
 		result.Type = sc.IntegerType
-		result.Value = big.NewInt(v)
+		result.Value = v
 	case uint64:
 		result.Type = sc.IntegerType
-		result.Value = new(big.Int).SetUint64(v)
+		result.Value = int64(v)
 	case [][]byte:
 		arr := make([]sc.Parameter, 0, len(v))
 		for i := range v {
