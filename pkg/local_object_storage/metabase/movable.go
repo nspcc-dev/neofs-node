@@ -16,12 +16,10 @@ type ToMoveItPrm struct {
 type ToMoveItRes struct{}
 
 // WithAddress sets address of the object to move into another shard.
-func (p *ToMoveItPrm) WithAddress(addr oid.Address) *ToMoveItPrm {
+func (p *ToMoveItPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // DoNotMovePrm groups the parameters of DoNotMove operation.
@@ -33,12 +31,10 @@ type DoNotMovePrm struct {
 type DoNotMoveRes struct{}
 
 // WithAddress sets address of the object to prevent moving into another shard.
-func (p *DoNotMovePrm) WithAddress(addr oid.Address) *DoNotMovePrm {
+func (p *DoNotMovePrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // MovablePrm groups the parameters of Movable operation.
@@ -50,19 +46,22 @@ type MovableRes struct {
 }
 
 // AddressList returns resulting addresses of Movable operation.
-func (p *MovableRes) AddressList() []oid.Address {
+func (p MovableRes) AddressList() []oid.Address {
 	return p.addrList
 }
 
 // ToMoveIt marks object to move it into another shard.
 func ToMoveIt(db *DB, addr oid.Address) error {
-	_, err := db.ToMoveIt(new(ToMoveItPrm).WithAddress(addr))
+	var toMovePrm ToMoveItPrm
+	toMovePrm.WithAddress(addr)
+
+	_, err := db.ToMoveIt(toMovePrm)
 	return err
 }
 
 // ToMoveIt marks objects to move it into another shard. This useful for
 // faster HRW fetching.
-func (db *DB) ToMoveIt(prm *ToMoveItPrm) (res *ToMoveItRes, err error) {
+func (db *DB) ToMoveIt(prm ToMoveItPrm) (res *ToMoveItRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt, err := tx.CreateBucketIfNotExists(toMoveItBucketName)
 		if err != nil {
@@ -77,12 +76,15 @@ func (db *DB) ToMoveIt(prm *ToMoveItPrm) (res *ToMoveItRes, err error) {
 
 // DoNotMove prevents the object to be moved into another shard.
 func DoNotMove(db *DB, addr oid.Address) error {
-	_, err := db.DoNotMove(new(DoNotMovePrm).WithAddress(addr))
+	var doNotMovePrm DoNotMovePrm
+	doNotMovePrm.WithAddress(addr)
+
+	_, err := db.DoNotMove(doNotMovePrm)
 	return err
 }
 
 // DoNotMove removes `MoveIt` mark from the object.
-func (db *DB) DoNotMove(prm *DoNotMovePrm) (res *DoNotMoveRes, err error) {
+func (db *DB) DoNotMove(prm DoNotMovePrm) (res *DoNotMoveRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		if toMoveIt == nil {
@@ -97,7 +99,7 @@ func (db *DB) DoNotMove(prm *DoNotMovePrm) (res *DoNotMoveRes, err error) {
 
 // Movable returns all movable objects of DB.
 func Movable(db *DB) ([]oid.Address, error) {
-	r, err := db.Movable(new(MovablePrm))
+	r, err := db.Movable(MovablePrm{})
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,7 @@ func Movable(db *DB) ([]oid.Address, error) {
 }
 
 // Movable returns list of marked objects to move into other shard.
-func (db *DB) Movable(prm *MovablePrm) (*MovableRes, error) {
+func (db *DB) Movable(_ MovablePrm) (*MovableRes, error) {
 	var strAddrs []string
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {

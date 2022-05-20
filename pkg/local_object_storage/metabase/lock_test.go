@@ -78,8 +78,12 @@ func TestDB_Lock(t *testing.T) {
 		err = meta.Inhume(db, objectcore.AddressOf(obj), tombAddr)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
+		var inhumePrm meta.InhumePrm
+		inhumePrm.WithAddresses(tombAddr)
+		inhumePrm.WithGCMark()
+
 		// inhume the tombstone
-		_, err = db.Inhume(new(meta.InhumePrm).WithAddresses(tombAddr).WithGCMark())
+		_, err = db.Inhume(inhumePrm)
 		require.NoError(t, err)
 
 		// now we can inhume the object

@@ -24,17 +24,18 @@ type DeleteRes struct{}
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addrs ...oid.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addrs ...oid.Address) {
 	if p != nil {
 		p.addrs = addrs
 	}
-
-	return p
 }
 
 // Delete removes objects from DB.
 func Delete(db *DB, addrs ...oid.Address) error {
-	_, err := db.Delete(new(DeletePrm).WithAddresses(addrs...))
+	var deletePrm DeletePrm
+	deletePrm.WithAddresses(addrs...)
+
+	_, err := db.Delete(deletePrm)
 	return err
 }
 
@@ -49,7 +50,7 @@ type referenceNumber struct {
 type referenceCounter map[string]*referenceNumber
 
 // Delete removed object records from metabase indexes.
-func (db *DB) Delete(prm *DeletePrm) (*DeleteRes, error) {
+func (db *DB) Delete(prm DeletePrm) (*DeleteRes, error) {
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return db.deleteGroup(tx, prm.addrs)
 	})

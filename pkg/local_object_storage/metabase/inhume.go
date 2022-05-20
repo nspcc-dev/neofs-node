@@ -22,45 +22,40 @@ type InhumePrm struct {
 type InhumeRes struct{}
 
 // WithAddresses sets a list of object addresses that should be inhumed.
-func (p *InhumePrm) WithAddresses(addrs ...oid.Address) *InhumePrm {
+func (p *InhumePrm) WithAddresses(addrs ...oid.Address) {
 	if p != nil {
 		p.target = addrs
 	}
-
-	return p
 }
 
 // WithTombstoneAddress sets tombstone address as the reason for inhume operation.
 //
 // addr should not be nil.
 // Should not be called along with WithGCMark.
-func (p *InhumePrm) WithTombstoneAddress(addr oid.Address) *InhumePrm {
+func (p *InhumePrm) WithTombstoneAddress(addr oid.Address) {
 	if p != nil {
 		p.tomb = &addr
 	}
-
-	return p
 }
 
 // WithGCMark marks the object to be physically removed.
 //
 // Should not be called along with WithTombstoneAddress.
-func (p *InhumePrm) WithGCMark() *InhumePrm {
+func (p *InhumePrm) WithGCMark() {
 	if p != nil {
 		p.tomb = nil
 	}
-
-	return p
 }
 
 // Inhume inhumes the object by specified address.
 //
 // tomb should not be nil.
 func Inhume(db *DB, target, tomb oid.Address) error {
-	_, err := db.Inhume(new(InhumePrm).
-		WithAddresses(target).
-		WithTombstoneAddress(tomb),
-	)
+	var inhumePrm InhumePrm
+	inhumePrm.WithAddresses(target)
+	inhumePrm.WithTombstoneAddress(tomb)
+
+	_, err := db.Inhume(inhumePrm)
 
 	return err
 }
@@ -71,7 +66,7 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.
-func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
+func (db *DB) Inhume(prm InhumePrm) (res *InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)
 

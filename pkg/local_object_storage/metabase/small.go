@@ -18,12 +18,10 @@ type IsSmallRes struct {
 }
 
 // WithAddress is a IsSmall option to set the object address to check.
-func (p *IsSmallPrm) WithAddress(addr oid.Address) *IsSmallPrm {
+func (p *IsSmallPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // BlobovniczaID returns blobovnicza identifier.
@@ -35,7 +33,10 @@ func (r *IsSmallRes) BlobovniczaID() *blobovnicza.ID {
 // address and other parameters by default. Returns only
 // the blobovnicza identifier.
 func IsSmall(db *DB, addr oid.Address) (*blobovnicza.ID, error) {
-	r, err := db.IsSmall(new(IsSmallPrm).WithAddress(addr))
+	var isSmallPrm IsSmallPrm
+	isSmallPrm.WithAddress(addr)
+
+	r, err := db.IsSmall(isSmallPrm)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,7 @@ func IsSmall(db *DB, addr oid.Address) (*blobovnicza.ID, error) {
 // Small objects stored in blobovnicza instances. Big objects stored in FS by
 // shallow path which is calculated from address and therefore it is not
 // indexed in metabase.
-func (db *DB) IsSmall(prm *IsSmallPrm) (res *IsSmallRes, err error) {
+func (db *DB) IsSmall(prm IsSmallPrm) (res *IsSmallRes, err error) {
 	res = new(IsSmallRes)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

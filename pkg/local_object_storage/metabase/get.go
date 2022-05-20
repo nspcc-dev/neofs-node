@@ -24,23 +24,19 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr oid.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // WithRaw is a Get option to set raw flag value. If flag is unset, then Get
 // returns header of virtual object, otherwise it returns SplitInfo of virtual
 // object.
-func (p *GetPrm) WithRaw(raw bool) *GetPrm {
+func (p *GetPrm) WithRaw(raw bool) {
 	if p != nil {
 		p.raw = raw
 	}
-
-	return p
 }
 
 // Header returns the requested object header.
@@ -50,7 +46,10 @@ func (r *GetRes) Header() *objectSDK.Object {
 
 // Get reads the object from DB.
 func Get(db *DB, addr oid.Address) (*objectSDK.Object, error) {
-	r, err := db.Get(new(GetPrm).WithAddress(addr))
+	var getPrm GetPrm
+	getPrm.WithAddress(addr)
+
+	r, err := db.Get(getPrm)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +59,11 @@ func Get(db *DB, addr oid.Address) (*objectSDK.Object, error) {
 
 // GetRaw reads physically stored object from DB.
 func GetRaw(db *DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	r, err := db.Get(new(GetPrm).WithAddress(addr).WithRaw(raw))
+	var getPrm GetPrm
+	getPrm.WithAddress(addr)
+	getPrm.WithRaw(raw)
+
+	r, err := db.Get(getPrm)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +75,7 @@ func GetRaw(db *DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
-func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
+func (db *DB) Get(prm GetPrm) (res *GetRes, err error) {
 	res = new(GetRes)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

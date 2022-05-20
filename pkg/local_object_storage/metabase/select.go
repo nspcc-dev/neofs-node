@@ -40,21 +40,17 @@ type SelectRes struct {
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cnr cid.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cnr cid.ID) {
 	if p != nil {
 		p.cnr = cnr
 	}
-
-	return p
 }
 
 // WithFilters is a Select option to set the object filters.
-func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
+func (p *SelectPrm) WithFilters(fs object.SearchFilters) {
 	if p != nil {
 		p.filters = fs
 	}
-
-	return p
 }
 
 // AddressList returns list of addresses of the selected objects.
@@ -64,7 +60,11 @@ func (r *SelectRes) AddressList() []oid.Address {
 
 // Select selects the objects from DB with filtering.
 func Select(db *DB, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
-	r, err := db.Select(new(SelectPrm).WithFilters(fs).WithContainerID(cnr))
+	var selectPrm SelectPrm
+	selectPrm.WithFilters(fs)
+	selectPrm.WithContainerID(cnr)
+
+	r, err := db.Select(selectPrm)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func Select(db *DB, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) 
 }
 
 // Select returns list of addresses of objects that match search filters.
-func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
+func (db *DB) Select(prm SelectPrm) (res *SelectRes, err error) {
 	res = new(SelectRes)
 
 	if blindlyProcess(prm.filters) {

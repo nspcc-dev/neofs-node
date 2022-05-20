@@ -104,7 +104,7 @@ func (s *Shard) refillMetabase() error {
 			inhumePrm.WithTombstoneAddress(tombAddr)
 			inhumePrm.WithAddresses(tombMembers...)
 
-			_, err = s.metaBase.Inhume(&inhumePrm)
+			_, err = s.metaBase.Inhume(inhumePrm)
 			if err != nil {
 				return fmt.Errorf("could not inhume objects: %w", err)
 			}

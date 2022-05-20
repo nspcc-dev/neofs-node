@@ -118,7 +118,10 @@ func ListContainers(s *Shard) ([]cid.ID, error) {
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
-	metaPrm := new(meta.ListPrm).WithCount(prm.count).WithCursor(prm.cursor)
+	var metaPrm meta.ListPrm
+	metaPrm.WithCount(prm.count)
+	metaPrm.WithCursor(prm.cursor)
+
 	res, err := s.metaBase.ListWithCursor(metaPrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not get list of objects: %w", err)
