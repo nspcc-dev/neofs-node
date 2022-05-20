@@ -19,21 +19,19 @@ type IterationPrm struct {
 }
 
 // WithHandler sets a callback to be executed on every object.
-func (p *IterationPrm) WithHandler(f func([]byte) error) *IterationPrm {
+func (p *IterationPrm) WithHandler(f func([]byte) error) {
 	p.handler = f
-	return p
 }
 
 // WithIgnoreErrors sets a flag indicating that errors should be ignored.
-func (p *IterationPrm) WithIgnoreErrors(ignore bool) *IterationPrm {
+func (p *IterationPrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
-	return p
 }
 
 // Iterate iterates over all objects present in write cache.
 // This is very difficult to do correctly unless write-cache is put in read-only mode.
 // Thus we silently fail if shard is not in read-only mode to avoid reporting misleading results.
-func (c *cache) Iterate(prm *IterationPrm) error {
+func (c *cache) Iterate(prm IterationPrm) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if !c.readOnly() {
