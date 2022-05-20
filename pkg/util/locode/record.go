@@ -2,6 +2,7 @@ package locode
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -51,11 +52,18 @@ var ErrInvalidString = errors.New("invalid string format in UN/Locode")
 //
 // If string has incorrect format, ErrInvalidString returns.
 func FromString(s string) (*LOCODE, error) {
-	const locationSeparator = " "
+	const (
+		locationSeparator = " "
+		locodePartsNumber = 2
+	)
 
 	words := strings.Split(s, locationSeparator)
-	if ln := len(words); ln != 1 && ln != 2 {
-		return nil, ErrInvalidString
+	if ln := len(words); ln != locodePartsNumber {
+		return nil, fmt.Errorf(
+			"incorrect locode: it must consist of %d codes separated with a witespase, got: %d",
+			locodePartsNumber,
+			ln,
+		)
 	}
 
 	l := new(LOCODE)

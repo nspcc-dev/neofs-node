@@ -1,6 +1,8 @@
 package locodecolumn
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
 )
 
@@ -16,8 +18,11 @@ func (lc *LocationCode) Symbols() [locationCodeLen]uint8 {
 
 // LocationCodeFromString parses a string and returns the location code.
 func LocationCodeFromString(s string) (*LocationCode, error) {
-	if len(s) != locationCodeLen {
-		return nil, locode.ErrInvalidString
+	if l := len(s); l != locationCodeLen {
+		return nil, fmt.Errorf("incorrect location code length: expect: %d, got: %d",
+			locationCodeLen,
+			l,
+		)
 	}
 
 	for i := range s {
