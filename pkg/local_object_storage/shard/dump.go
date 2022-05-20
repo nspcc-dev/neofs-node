@@ -42,7 +42,7 @@ type DumpRes struct {
 }
 
 // Count return amount of object written.
-func (r *DumpRes) Count() int {
+func (r DumpRes) Count() int {
 	return r.count
 }
 

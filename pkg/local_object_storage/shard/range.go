@@ -49,12 +49,12 @@ func (p *RngPrm) WithIgnoreMeta(ignore bool) {
 // Object returns the requested object part.
 //
 // Instance payload contains the requested range of the original object.
-func (r *RngRes) Object() *object.Object {
+func (r RngRes) Object() *object.Object {
 	return r.obj
 }
 
 // HasMeta returns true if info about the object was found in the metabase.
-func (r *RngRes) HasMeta() bool {
+func (r RngRes) HasMeta() bool {
 	return r.hasMeta
 }
 

@@ -75,5 +75,5 @@ func (s *Shard) Inhume(prm InhumePrm) (*InhumeRes, error) {
 		return nil, fmt.Errorf("metabase inhume: %w", err)
 	}
 
-	return new(InhumeRes), nil
+	return nil, nil
 }
