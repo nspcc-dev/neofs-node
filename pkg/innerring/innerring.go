@@ -600,7 +600,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	// create settlement processor dependencies
-	settlementDeps := &settlementDeps{
+	settlementDeps := settlementDeps{
 		globalConfig:  globalConfig,
 		log:           server.log,
 		cnrSrc:        cntClient.AsContainerSource(cnrClient),
@@ -610,10 +610,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		balanceClient: server.balanceClient,
 	}
 
+	settlementDeps.settlementCtx = auditSettlementContext
 	auditCalcDeps := &auditSettlementDeps{
 		settlementDeps: settlementDeps,
 	}
 
+	settlementDeps.settlementCtx = basicIncomeSettlementContext
 	basicSettlementDeps := &basicIncomeSettlementDeps{
 		settlementDeps: settlementDeps,
 		cnrClient:      cnrClient,

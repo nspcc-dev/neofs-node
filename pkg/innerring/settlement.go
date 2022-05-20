@@ -35,6 +35,11 @@ type globalConfig interface {
 	AuditFee() (uint64, error)
 }
 
+const (
+	auditSettlementContext       = "audit"
+	basicIncomeSettlementContext = "basic income"
+)
+
 type settlementDeps struct {
 	globalConfig
 
@@ -49,14 +54,16 @@ type settlementDeps struct {
 	clientCache *ClientCache
 
 	balanceClient *balanceClient.Client
+
+	settlementCtx string
 }
 
 type auditSettlementDeps struct {
-	*settlementDeps
+	settlementDeps
 }
 
 type basicIncomeSettlementDeps struct {
-	*settlementDeps
+	settlementDeps
 	cnrClient *containerClient.Client
 }
 
@@ -204,6 +211,10 @@ func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*owner.ID, error) {
 }
 
 func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, details []byte) {
+	if s.settlementCtx == "" {
+		panic("unknown settlement deps context")
+	}
+
 	log := s.log.With(
 		zap.Stringer("sender", sender),
 		zap.Stringer("recipient", recipient),
@@ -226,14 +237,14 @@ func (s settlementDeps) Transfer(sender, recipient *owner.ID, amount *big.Int, d
 
 	err := s.balanceClient.TransferX(params)
 	if err != nil {
-		log.Error("could not send transfer transaction for audit",
+		log.Error(fmt.Sprintf("%s: could not send transfer", s.settlementCtx),
 			zap.String("error", err.Error()),
 		)
 
 		return
 	}
 
-	log.Debug("transfer transaction for audit was successfully sent")
+	log.Debug(fmt.Sprintf("%s: transfer was successfully sent", s.settlementCtx))
 }
 
 func (b basicIncomeSettlementDeps) BasicRate() (uint64, error) {
