@@ -1,6 +1,8 @@
 package locodecolumn
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/util/locode"
 )
 
@@ -16,8 +18,11 @@ func (cc *CountryCode) Symbols() [countryCodeLen]uint8 {
 
 // CountryCodeFromString parses a string and returns the country code.
 func CountryCodeFromString(s string) (*CountryCode, error) {
-	if len(s) != countryCodeLen {
-		return nil, locode.ErrInvalidString
+	if l := len(s); l != countryCodeLen {
+		return nil, fmt.Errorf("incorrect country code length: expect: %d, got: %d",
+			countryCodeLen,
+			l,
+		)
 	}
 
 	for i := range s {
