@@ -399,10 +399,12 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 }
 
 // TreeGetMeta implements the forest interface.
-func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, error) {
-	key := metaKey(make([]byte, 9), nodeID)
+func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, Node, error) {
+	key := parentKey(make([]byte, 9), nodeID)
 
 	var m Meta
+	var parentID uint64
+
 	err := t.db.View(func(tx *bbolt.Tx) error {
 		treeRoot := tx.Bucket(bucketName(cid, treeID))
 		if treeRoot == nil {
@@ -410,10 +412,13 @@ func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Met
 		}
 
 		b := treeRoot.Bucket(dataBucket)
-		return m.FromBytes(b.Get(key))
+		if data := b.Get(key); len(data) == 8 {
+			parentID = binary.LittleEndian.Uint64(data)
+		}
+		return m.FromBytes(b.Get(metaKey(key, nodeID)))
 	})
 
-	return m, err
+	return m, parentID, err
 }
 
 // TreeGetChildren implements the Forest interface.
