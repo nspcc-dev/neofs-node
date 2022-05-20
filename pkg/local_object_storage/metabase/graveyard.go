@@ -32,9 +32,8 @@ type GarbageIterationPrm struct {
 
 // SetHandler sets a handler that will be called on every
 // GarbageObject.
-func (g *GarbageIterationPrm) SetHandler(h GarbageHandler) *GarbageIterationPrm {
+func (g *GarbageIterationPrm) SetHandler(h GarbageHandler) {
 	g.h = h
-	return g
 }
 
 // SetOffset sets an offset of the iteration operation.
@@ -49,9 +48,8 @@ func (g *GarbageIterationPrm) SetHandler(h GarbageHandler) *GarbageIterationPrm 
 // next element.
 //
 // Nil offset means start an integration from the beginning.
-func (g *GarbageIterationPrm) SetOffset(offset oid.Address) *GarbageIterationPrm {
+func (g *GarbageIterationPrm) SetOffset(offset oid.Address) {
 	g.offset = &offset
-	return g
 }
 
 // IterateOverGarbage iterates over all objects
@@ -59,7 +57,7 @@ func (g *GarbageIterationPrm) SetOffset(offset oid.Address) *GarbageIterationPrm
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGarbage(p *GarbageIterationPrm) error {
+func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateDeletedObj(tx, gcHandler{p.h}, p.offset)
 	})
@@ -95,9 +93,8 @@ type GraveyardIterationPrm struct {
 
 // SetHandler sets a handler that will be called on every
 // TombstonedObject.
-func (g *GraveyardIterationPrm) SetHandler(h TombstonedHandler) *GraveyardIterationPrm {
+func (g *GraveyardIterationPrm) SetHandler(h TombstonedHandler) {
 	g.h = h
-	return g
 }
 
 // SetOffset sets an offset of the iteration operation.
@@ -112,16 +109,15 @@ func (g *GraveyardIterationPrm) SetHandler(h TombstonedHandler) *GraveyardIterat
 // next element.
 //
 // Nil offset means start an integration from the beginning.
-func (g *GraveyardIterationPrm) SetOffset(offset oid.Address) *GraveyardIterationPrm {
+func (g *GraveyardIterationPrm) SetOffset(offset oid.Address) {
 	g.offset = &offset
-	return g
 }
 
 // IterateOverGraveyard iterates over all graves in DB.
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGraveyard(p *GraveyardIterationPrm) error {
+func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) error {
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateDeletedObj(tx, graveyardHandler{p.h}, p.offset)
 	})

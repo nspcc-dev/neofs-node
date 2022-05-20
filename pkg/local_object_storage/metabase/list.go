@@ -27,17 +27,15 @@ type ListPrm struct {
 }
 
 // WithCount sets maximum amount of addresses that ListWithCursor should return.
-func (l *ListPrm) WithCount(count uint32) *ListPrm {
+func (l *ListPrm) WithCount(count uint32) {
 	l.count = int(count)
-	return l
 }
 
 // WithCursor sets cursor for ListWithCursor operation. For initial request
 // ignore this param or use nil value. For consecutive requests, use value
 // from ListRes.
-func (l *ListPrm) WithCursor(cursor *Cursor) *ListPrm {
+func (l *ListPrm) WithCursor(cursor *Cursor) {
 	l.cursor = cursor
-	return l
 }
 
 // ListRes contains values returned from ListWithCursor operation.
@@ -63,7 +61,11 @@ func (l ListRes) Cursor() *Cursor {
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]oid.Address, *Cursor, error) {
-	r, err := db.ListWithCursor(new(ListPrm).WithCount(count).WithCursor(cursor))
+	var listPrm ListPrm
+	listPrm.WithCount(count)
+	listPrm.WithCursor(cursor)
+
+	r, err := db.ListWithCursor(listPrm)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,7 +79,7 @@ func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]oid.Address, *Curso
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (db *DB) ListWithCursor(prm *ListPrm) (res *ListRes, err error) {
+func (db *DB) ListWithCursor(prm ListPrm) (res *ListRes, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res = new(ListRes)
 		res.addrList, res.cursor, err = db.listWithCursor(tx, prm.count, prm.cursor)

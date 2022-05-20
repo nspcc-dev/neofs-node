@@ -185,11 +185,8 @@ func (s *Shard) removeGarbage() {
 
 	buf := make([]oid.Address, 0, s.rmBatchSize)
 
-	iterPrm := new(meta.GarbageIterationPrm)
-
-	// iterate over metabase's objects with GC mark
-	// (no more than s.rmBatchSize objects)
-	err := s.metaBase.IterateOverGarbage(iterPrm.SetHandler(func(g meta.GarbageObject) error {
+	var iterPrm meta.GarbageIterationPrm
+	iterPrm.SetHandler(func(g meta.GarbageObject) error {
 		buf = append(buf, g.Address())
 
 		if len(buf) == s.rmBatchSize {
@@ -197,7 +194,11 @@ func (s *Shard) removeGarbage() {
 		}
 
 		return nil
-	}))
+	})
+
+	// iterate over metabase's objects with GC mark
+	// (no more than s.rmBatchSize objects)
+	err := s.metaBase.IterateOverGarbage(iterPrm)
 	if err != nil {
 		s.log.Warn("iterator over metabase graveyard failed",
 			zap.String("error", err.Error()),
@@ -232,11 +233,13 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 		return
 	}
 
+	var inhumePrm meta.InhumePrm
+
+	inhumePrm.WithAddresses(expired...)
+	inhumePrm.WithGCMark()
+
 	// inhume the collected objects
-	_, err = s.metaBase.Inhume(new(meta.InhumePrm).
-		WithAddresses(expired...).
-		WithGCMark(),
-	)
+	_, err = s.metaBase.Inhume(inhumePrm)
 	if err != nil {
 		s.log.Warn("could not inhume the objects",
 			zap.String("error", err.Error()),
@@ -256,7 +259,8 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	tss := make([]meta.TombstonedObject, 0, tssDeleteBatch)
 	tssExp := make([]meta.TombstonedObject, 0, tssDeleteBatch)
 
-	iterPrm := new(meta.GraveyardIterationPrm).SetHandler(func(deletedObject meta.TombstonedObject) error {
+	var iterPrm meta.GraveyardIterationPrm
+	iterPrm.SetHandler(func(deletedObject meta.TombstonedObject) error {
 		tss = append(tss, deletedObject)
 
 		if len(tss) == tssDeleteBatch {
@@ -348,7 +352,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 	pInhume.WithAddresses(tsAddrs...)
 
 	// inhume tombstones
-	_, err := s.metaBase.Inhume(&pInhume)
+	_, err := s.metaBase.Inhume(pInhume)
 	if err != nil {
 		s.log.Warn("could not mark tombstones as garbage",
 			zap.String("error", err.Error()),
@@ -381,7 +385,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	pInhume.WithAddresses(lockers...)
 	pInhume.WithGCMark()
 
-	_, err = s.metaBase.Inhume(&pInhume)
+	_, err = s.metaBase.Inhume(pInhume)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
 			zap.String("error", err.Error()),

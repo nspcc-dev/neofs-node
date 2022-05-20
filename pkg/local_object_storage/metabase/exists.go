@@ -24,12 +24,10 @@ type ExistsRes struct {
 var ErrLackSplitInfo = errors.New("no split info on parent object")
 
 // WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr oid.Address) *ExistsPrm {
+func (p *ExistsPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // Exists returns the fact that the object is in the metabase.
@@ -41,7 +39,10 @@ func (p *ExistsRes) Exists() bool {
 //
 // See DB.Exists docs.
 func Exists(db *DB, addr oid.Address) (bool, error) {
-	r, err := db.Exists(new(ExistsPrm).WithAddress(addr))
+	var existsPrm ExistsPrm
+	existsPrm.WithAddress(addr)
+
+	r, err := db.Exists(existsPrm)
 	if err != nil {
 		return false, err
 	}
@@ -53,7 +54,7 @@ func Exists(db *DB, addr oid.Address) (bool, error) {
 // returns true if addr is in primary index or false if it is not.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
-func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
+func (db *DB) Exists(prm ExistsPrm) (res *ExistsRes, err error) {
 	res = new(ExistsRes)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

@@ -34,21 +34,17 @@ type PutPrm struct {
 type PutRes struct{}
 
 // WithObject is a Put option to set object to save.
-func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
+func (p *PutPrm) WithObject(obj *objectSDK.Object) {
 	if p != nil {
 		p.obj = obj
 	}
-
-	return p
 }
 
 // WithBlobovniczaID is a Put option to set blobovnicza ID to save.
-func (p *PutPrm) WithBlobovniczaID(id *blobovnicza.ID) *PutPrm {
+func (p *PutPrm) WithBlobovniczaID(id *blobovnicza.ID) {
 	if p != nil {
 		p.id = id
 	}
-
-	return p
 }
 
 var (
@@ -61,10 +57,11 @@ var (
 //
 // See DB.Put docs.
 func Put(db *DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
-	_, err := db.Put(new(PutPrm).
-		WithObject(obj).
-		WithBlobovniczaID(id),
-	)
+	var putPrm PutPrm
+	putPrm.WithObject(obj)
+	putPrm.WithBlobovniczaID(id)
+
+	_, err := db.Put(putPrm)
 
 	return err
 }
@@ -73,7 +70,7 @@ func Put(db *DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
 // Big objects have nil blobovniczaID.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
-func (db *DB) Put(prm *PutPrm) (res *PutRes, err error) {
+func (db *DB) Put(prm PutPrm) (res *PutRes, err error) {
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		return db.put(tx, prm.obj, prm.id, nil)
 	})

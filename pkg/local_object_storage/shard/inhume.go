@@ -61,7 +61,8 @@ func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 		}
 	}
 
-	metaPrm := new(meta.InhumePrm).WithAddresses(prm.target...)
+	var metaPrm meta.InhumePrm
+	metaPrm.WithAddresses(prm.target...)
 
 	if prm.tombstone != nil {
 		metaPrm.WithTombstoneAddress(*prm.tombstone)

@@ -41,50 +41,56 @@ func TestInhumeTombOnTomb(t *testing.T) {
 		addr1     = oidtest.Address()
 		addr2     = oidtest.Address()
 		addr3     = oidtest.Address()
-		inhumePrm = new(meta.InhumePrm)
-		existsPrm = new(meta.ExistsPrm)
+		inhumePrm meta.InhumePrm
+		existsPrm meta.ExistsPrm
 	)
+
+	inhumePrm.WithAddresses(addr1)
+	inhumePrm.WithTombstoneAddress(addr2)
 
 	// inhume addr1 via addr2
-	_, err = db.Inhume(inhumePrm.
-		WithAddresses(addr1).
-		WithTombstoneAddress(addr2),
-	)
+	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
+	existsPrm.WithAddress(addr1)
+
 	// addr1 should become inhumed {addr1:addr2}
-	_, err = db.Exists(existsPrm.WithAddress(addr1))
+	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
+	inhumePrm.WithAddresses(addr3)
+	inhumePrm.WithTombstoneAddress(addr1)
+
 	// try to inhume addr3 via addr1
-	_, err = db.Inhume(inhumePrm.
-		WithAddresses(addr3).
-		WithTombstoneAddress(addr1),
-	)
+	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
 	// record with {addr1:addr2} should be removed from graveyard
 	// as a tomb-on-tomb; metabase should return ObjectNotFound
 	// NOT ObjectAlreadyRemoved since that record has been removed
 	// from graveyard but addr1 is still marked with GC
-	_, err = db.Exists(existsPrm.WithAddress(addr1))
+	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
+	existsPrm.WithAddress(addr3)
+
 	// addr3 should be inhumed {addr3: addr1}
-	_, err = db.Exists(existsPrm.WithAddress(addr3))
+	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
+	inhumePrm.WithAddresses(addr1)
+	inhumePrm.WithTombstoneAddress(oidtest.Address())
+
 	// try to inhume addr1 (which is already a tombstone in graveyard)
-	_, err = db.Inhume(inhumePrm.
-		WithAddresses(addr1).
-		WithTombstoneAddress(oidtest.Address()),
-	)
+	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
+
+	existsPrm.WithAddress(addr1)
 
 	// record with addr1 key should not appear in graveyard
 	// (tomb can not be inhumed) but should be kept as object
 	// with GC mark
-	_, err = db.Exists(existsPrm.WithAddress(addr1))
+	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 }
 
@@ -99,7 +105,7 @@ func TestInhumeLocked(t *testing.T) {
 	var prm meta.InhumePrm
 	prm.WithAddresses(locked)
 
-	_, err = db.Inhume(&prm)
+	_, err = db.Inhume(prm)
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)

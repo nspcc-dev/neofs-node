@@ -71,9 +71,9 @@ func (s *Shard) Head(prm *HeadPrm) (*HeadRes, error) {
 		// otherwise object seems to be flushed to metabase
 	}
 
-	headParams := new(meta.GetPrm).
-		WithAddress(prm.addr).
-		WithRaw(prm.raw)
+	var headParams meta.GetPrm
+	headParams.WithAddress(prm.addr)
+	headParams.WithRaw(prm.raw)
 
 	res, err := s.metaBase.Get(headParams)
 	if err != nil {

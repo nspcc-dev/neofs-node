@@ -74,20 +74,19 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	protectedLocked := oidtest.Address()
 	garbage := oidtest.Address()
 
-	prm := new(meta.InhumePrm)
-
+	var prm meta.InhumePrm
 	var err error
 
-	_, err = db.Inhume(prm.
-		WithTombstoneAddress(ts).
-		WithAddresses(protected1, protected2, protectedLocked),
-	)
+	prm.WithAddresses(protected1, protected2, protectedLocked)
+	prm.WithTombstoneAddress(ts)
+
+	_, err = db.Inhume(prm)
 	require.NoError(t, err)
 
-	_, err = db.Inhume(prm.
-		WithAddresses(garbage).
-		WithGCMark(),
-	)
+	prm.WithAddresses(garbage)
+	prm.WithGCMark()
+
+	_, err = db.Inhume(prm)
 	require.NoError(t, err)
 
 	var handled []oid.Address

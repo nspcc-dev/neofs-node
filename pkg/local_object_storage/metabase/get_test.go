@@ -123,7 +123,11 @@ func TestDB_Get(t *testing.T) {
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		obj = oidtest.Address()
-		_, err = db.Inhume(new(meta.InhumePrm).WithAddresses(obj))
+
+		var prm meta.InhumePrm
+		prm.WithAddresses(obj)
+
+		_, err = db.Inhume(prm)
 		require.NoError(t, err)
 		_, err = meta.Get(db, obj)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
