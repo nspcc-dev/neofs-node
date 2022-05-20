@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Basic income transfer's incorrect log message (#1374)
 - Listen to subnet removal events in notary-enabled env (#1224)
 - Update/remove nodes whose subnet has been removed (#1162)
+- Potential removal of local object when policy isn't complied (#1335)
 
 ## [0.28.1] - 2022-05-05
 
