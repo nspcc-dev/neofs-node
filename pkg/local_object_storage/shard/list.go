@@ -119,7 +119,6 @@ func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRes, error
 	var metaPrm meta.ListPrm
 	metaPrm.WithCount(prm.count)
 	metaPrm.WithCursor(prm.cursor)
-
 	res, err := s.metaBase.ListWithCursor(metaPrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not get list of objects: %w", err)

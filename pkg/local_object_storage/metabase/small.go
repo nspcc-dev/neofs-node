@@ -25,7 +25,7 @@ func (p *IsSmallPrm) WithAddress(addr oid.Address) {
 }
 
 // BlobovniczaID returns blobovnicza identifier.
-func (r *IsSmallRes) BlobovniczaID() *blobovnicza.ID {
+func (r IsSmallRes) BlobovniczaID() *blobovnicza.ID {
 	return r.id
 }
 
