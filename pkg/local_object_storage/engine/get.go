@@ -31,7 +31,7 @@ func (p *GetPrm) WithAddress(addr oid.Address) {
 }
 
 // Object returns the requested object.
-func (r *GetRes) Object() *objectSDK.Object {
+func (r GetRes) Object() *objectSDK.Object {
 	return r.obj
 }
 

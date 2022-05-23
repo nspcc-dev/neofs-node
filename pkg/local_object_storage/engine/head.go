@@ -42,7 +42,7 @@ func (p *HeadPrm) WithRaw(raw bool) {
 // Header returns the requested object header.
 //
 // Instance has empty payload.
-func (r *HeadRes) Header() *objectSDK.Object {
+func (r HeadRes) Header() *objectSDK.Object {
 	return r.head
 }
 
