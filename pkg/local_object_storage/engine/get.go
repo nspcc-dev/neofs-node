@@ -24,12 +24,10 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr oid.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // Object returns the requested object.
@@ -46,7 +44,7 @@ func (r *GetRes) Object() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Get(prm *GetPrm) (res *GetRes, err error) {
+func (e *StorageEngine) Get(prm GetPrm) (res *GetRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.get(prm)
 		return err
@@ -55,7 +53,7 @@ func (e *StorageEngine) Get(prm *GetPrm) (res *GetRes, err error) {
 	return
 }
 
-func (e *StorageEngine) get(prm *GetPrm) (*GetRes, error) {
+func (e *StorageEngine) get(prm GetPrm) (*GetRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}
@@ -152,9 +150,10 @@ func (e *StorageEngine) get(prm *GetPrm) (*GetRes, error) {
 
 // Get reads object from local storage by provided address.
 func Get(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
-	res, err := storage.Get(new(GetPrm).
-		WithAddress(addr),
-	)
+	var getPrm GetPrm
+	getPrm.WithAddress(addr)
+
+	res, err := storage.Get(getPrm)
 	if err != nil {
 		return nil, err
 	}

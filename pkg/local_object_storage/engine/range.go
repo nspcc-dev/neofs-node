@@ -27,24 +27,20 @@ type RngRes struct {
 // WithAddress is a GetRng option to set the address of the requested object.
 //
 // Option is required.
-func (p *RngPrm) WithAddress(addr oid.Address) *RngPrm {
+func (p *RngPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // WithPayloadRange is a GetRange option to set range of requested payload data.
 //
 // Missing an option or calling with zero length is equivalent
 // to getting the full payload range.
-func (p *RngPrm) WithPayloadRange(rng *objectSDK.Range) *RngPrm {
+func (p *RngPrm) WithPayloadRange(rng *objectSDK.Range) {
 	if p != nil {
 		p.off, p.ln = rng.GetOffset(), rng.GetLength()
 	}
-
-	return p
 }
 
 // Object returns the requested object part.
@@ -64,7 +60,7 @@ func (r *RngRes) Object() *objectSDK.Object {
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) GetRange(prm *RngPrm) (res *RngRes, err error) {
+func (e *StorageEngine) GetRange(prm RngPrm) (res *RngRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.getRange(prm)
 		return err
@@ -73,7 +69,7 @@ func (e *StorageEngine) GetRange(prm *RngPrm) (res *RngRes, err error) {
 	return
 }
 
-func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
+func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
@@ -179,10 +175,11 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 
 // GetRange reads object payload range from local storage by provided address.
 func GetRange(storage *StorageEngine, addr oid.Address, rng *objectSDK.Range) ([]byte, error) {
-	res, err := storage.GetRange(new(RngPrm).
-		WithAddress(addr).
-		WithPayloadRange(rng),
-	)
+	var rangePrm RngPrm
+	rangePrm.WithAddress(addr)
+	rangePrm.WithPayloadRange(rng)
+
+	res, err := storage.GetRange(rangePrm)
 	if err != nil {
 		return nil, err
 	}

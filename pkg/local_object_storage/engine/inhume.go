@@ -25,25 +25,21 @@ type InhumeRes struct{}
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) *InhumePrm {
+func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) {
 	if p != nil {
 		p.addrs = addrs
 		p.tombstone = &tombstone
 	}
-
-	return p
 }
 
 // MarkAsGarbage marks an object to be physically removed from local storage.
 //
 // Should not be called along with WithTarget.
-func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) *InhumePrm {
+func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) {
 	if p != nil {
 		p.addrs = addrs
 		p.tombstone = nil
 	}
-
-	return p
 }
 
 var errInhumeFailure = errors.New("inhume operation failed")
@@ -55,7 +51,7 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // if at least one object is locked.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
+func (e *StorageEngine) Inhume(prm InhumePrm) (res *InhumeRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.inhume(prm)
 		return err
@@ -64,7 +60,7 @@ func (e *StorageEngine) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 	return
 }
 
-func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
+func (e *StorageEngine) inhume(prm InhumePrm) (*InhumeRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}

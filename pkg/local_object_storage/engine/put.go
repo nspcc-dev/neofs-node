@@ -22,12 +22,10 @@ var errPutShard = errors.New("could not put object to any shard")
 // WithObject is a Put option to set object to save.
 //
 // Option is required.
-func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
+func (p *PutPrm) WithObject(obj *objectSDK.Object) {
 	if p != nil {
 		p.obj = obj
 	}
-
-	return p
 }
 
 // Put saves the object to local storage.
@@ -38,7 +36,7 @@ func (p *PutPrm) WithObject(obj *objectSDK.Object) *PutPrm {
 // Returns an error if executions are blocked (see BlockExecution).
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
-func (e *StorageEngine) Put(prm *PutPrm) (res *PutRes, err error) {
+func (e *StorageEngine) Put(prm PutPrm) (res *PutRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.put(prm)
 		return err
@@ -47,7 +45,7 @@ func (e *StorageEngine) Put(prm *PutPrm) (res *PutRes, err error) {
 	return
 }
 
-func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
+func (e *StorageEngine) put(prm PutPrm) (*PutRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
@@ -132,9 +130,10 @@ func (e *StorageEngine) put(prm *PutPrm) (*PutRes, error) {
 
 // Put writes provided object to local storage.
 func Put(storage *StorageEngine, obj *objectSDK.Object) error {
-	_, err := storage.Put(new(PutPrm).
-		WithObject(obj),
-	)
+	var putPrm PutPrm
+	putPrm.WithObject(obj)
+
+	_, err := storage.Put(putPrm)
 
 	return err
 }

@@ -30,7 +30,10 @@ func TestListWithCursor(t *testing.T) {
 	for i := 0; i < total; i++ {
 		containerID := cidtest.ID()
 		obj := generateObjectWithCID(t, containerID)
-		prm := new(PutPrm).WithObject(obj)
+
+		var prm PutPrm
+		prm.WithObject(obj)
+
 		_, err := e.Put(prm)
 		require.NoError(t, err)
 		expected = append(expected, object.AddressOf(obj))
@@ -38,21 +41,27 @@ func TestListWithCursor(t *testing.T) {
 
 	expected = sortAddresses(expected)
 
-	prm := new(ListWithCursorPrm).WithCount(1)
+	var prm ListWithCursorPrm
+	prm.WithCount(1)
+
 	res, err := e.ListWithCursor(prm)
 	require.NoError(t, err)
 	require.NotEmpty(t, res.AddressList())
 	got = append(got, res.AddressList()...)
 
 	for i := 0; i < total-1; i++ {
-		res, err = e.ListWithCursor(prm.WithCursor(res.Cursor()))
+		prm.WithCursor(res.Cursor())
+
+		res, err = e.ListWithCursor(prm)
 		if errors.Is(err, ErrEndOfListing) {
 			break
 		}
 		got = append(got, res.AddressList()...)
 	}
 
-	_, err = e.ListWithCursor(prm.WithCursor(res.Cursor()))
+	prm.WithCursor(res.Cursor())
+
+	_, err = e.ListWithCursor(prm)
 	require.ErrorIs(t, err, ErrEndOfListing)
 
 	got = sortAddresses(got)

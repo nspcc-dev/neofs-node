@@ -103,7 +103,7 @@ type localObjectInhumer struct {
 }
 
 func (r *localObjectInhumer) DeleteObjects(ts oid.Address, addr ...oid.Address) error {
-	prm := new(engine.InhumePrm)
+	var prm engine.InhumePrm
 	prm.WithTarget(ts, addr...)
 
 	_, err := r.storage.Inhume(prm)
@@ -235,7 +235,10 @@ func initObjectService(c *cfg) {
 		),
 		policer.WithReplicator(repl),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
-			_, err := ls.Inhume(new(engine.InhumePrm).MarkAsGarbage(addr))
+			var inhumePrm engine.InhumePrm
+			inhumePrm.MarkAsGarbage(addr)
+
+			_, err := ls.Inhume(inhumePrm)
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",
 					zap.String("error", err.Error()),

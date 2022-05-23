@@ -19,12 +19,10 @@ type DeleteRes struct{}
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addr ...oid.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addr ...oid.Address) {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
 	}
-
-	return p
 }
 
 // Delete marks the objects to be removed.
@@ -33,7 +31,7 @@ func (p *DeletePrm) WithAddresses(addr ...oid.Address) *DeletePrm {
 //
 // Returns apistatus.ObjectLocked if at least one object is locked.
 // In this case no object from the list is marked to be deleted.
-func (e *StorageEngine) Delete(prm *DeletePrm) (res *DeleteRes, err error) {
+func (e *StorageEngine) Delete(prm DeletePrm) (res *DeleteRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.delete(prm)
 		return err
@@ -42,13 +40,11 @@ func (e *StorageEngine) Delete(prm *DeletePrm) (res *DeleteRes, err error) {
 	return
 }
 
-func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
+func (e *StorageEngine) delete(prm DeletePrm) (*DeleteRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	var shPrm shard.InhumePrm
-	var existsPrm shard.ExistsPrm
 	var locked struct {
 		is  bool
 		err apistatus.ObjectLocked
@@ -56,6 +52,7 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 
 	for i := range prm.addr {
 		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh hashedShard) (stop bool) {
+			var existsPrm shard.ExistsPrm
 			existsPrm.WithAddress(prm.addr[i])
 
 			resExists, err := sh.Exists(existsPrm)
@@ -66,6 +63,7 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 				return false
 			}
 
+			var shPrm shard.InhumePrm
 			shPrm.MarkAsGarbage(prm.addr[i])
 
 			_, err = sh.Inhume(shPrm)

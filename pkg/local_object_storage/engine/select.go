@@ -19,21 +19,17 @@ type SelectRes struct {
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cnr cid.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cnr cid.ID) {
 	if p != nil {
 		p.cnr = cnr
 	}
-
-	return p
 }
 
 // WithFilters is a Select option to set the object filters.
-func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
+func (p *SelectPrm) WithFilters(fs object.SearchFilters) {
 	if p != nil {
 		p.filters = fs
 	}
-
-	return p
 }
 
 // AddressList returns list of addresses of the selected objects.
@@ -46,7 +42,7 @@ func (r *SelectRes) AddressList() []oid.Address {
 // Returns any error encountered that did not allow to completely select the objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Select(prm *SelectPrm) (res *SelectRes, err error) {
+func (e *StorageEngine) Select(prm SelectPrm) (res *SelectRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e._select(prm)
 		return err
@@ -55,7 +51,7 @@ func (e *StorageEngine) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	return
 }
 
-func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
+func (e *StorageEngine) _select(prm SelectPrm) (*SelectRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -142,10 +138,11 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 
 // Select selects objects from local storage using provided filters.
 func Select(storage *StorageEngine, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
-	res, err := storage.Select(new(SelectPrm).
-		WithContainerID(cnr).
-		WithFilters(fs),
-	)
+	var selectPrm SelectPrm
+	selectPrm.WithContainerID(cnr)
+	selectPrm.WithFilters(fs)
+
+	res, err := storage.Select(selectPrm)
 	if err != nil {
 		return nil, err
 	}
