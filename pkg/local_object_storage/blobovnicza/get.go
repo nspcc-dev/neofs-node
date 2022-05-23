@@ -24,7 +24,7 @@ func (p *GetPrm) SetAddress(addr oid.Address) {
 }
 
 // Object returns binary representation of the requested object.
-func (p *GetRes) Object() []byte {
+func (p GetRes) Object() []byte {
 	return p.obj
 }
 

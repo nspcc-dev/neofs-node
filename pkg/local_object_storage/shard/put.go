@@ -55,7 +55,6 @@ func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
 		res *blobstor.PutRes
 	)
 
-	// res == nil if there is no writeCache or writeCache.Put has been failed
 	if res, err = s.blobStor.Put(putPrm); err != nil {
 		return nil, fmt.Errorf("could not put object to BLOB storage: %w", err)
 	}
