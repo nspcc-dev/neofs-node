@@ -184,8 +184,9 @@ loop:
 	for i := range path {
 		children := t.childMap[curNode]
 		for j := range children {
-			f := t.infoMap[children[j]].Meta.GetAttr(attr)
-			if string(f) == path[i] {
+			meta := t.infoMap[children[j]].Meta
+			f := meta.GetAttr(attr)
+			if len(meta.Items) == 1 && string(f) == path[i] {
 				curNode = children[j]
 				continue loop
 			}

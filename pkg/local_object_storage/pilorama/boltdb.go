@@ -470,14 +470,10 @@ loop:
 				return 0, 0, err
 			}
 
-			for j := range m.Items {
-				if m.Items[j].Key == attr {
-					if string(m.Items[j].Value) == path[i] {
-						curNode = child
-						continue loop
-					}
-					break
-				}
+			// Internal nodes have exactly one attribute.
+			if len(m.Items) == 1 && m.Items[0].Key == attr && string(m.Items[0].Value) == path[i] {
+				curNode = child
+				continue loop
 			}
 			childKey, _ = c.Next()
 		}
