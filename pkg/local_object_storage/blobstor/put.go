@@ -30,7 +30,7 @@ type PutRes struct {
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
-func (b *BlobStor) Put(prm *PutPrm) (*PutRes, error) {
+func (b *BlobStor) Put(prm PutPrm) (*PutRes, error) {
 	// marshal object
 	data, err := prm.obj.Marshal()
 	if err != nil {

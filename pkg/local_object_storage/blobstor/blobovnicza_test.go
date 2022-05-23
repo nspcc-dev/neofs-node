@@ -80,7 +80,7 @@ func TestBlobovniczas(t *testing.T) {
 		require.NoError(t, err)
 
 		// get w/ blobovnicza ID
-		prm := new(GetSmallPrm)
+		var prm GetSmallPrm
 		prm.SetBlobovniczaID(id)
 		prm.SetAddress(addr)
 
@@ -96,7 +96,7 @@ func TestBlobovniczas(t *testing.T) {
 		require.Equal(t, obj, res.Object())
 
 		// get range w/ blobovnicza ID
-		rngPrm := new(GetRangeSmallPrm)
+		var rngPrm GetRangeSmallPrm
 		rngPrm.SetBlobovniczaID(id)
 		rngPrm.SetAddress(addr)
 
@@ -122,8 +122,8 @@ func TestBlobovniczas(t *testing.T) {
 		require.Equal(t, payload[off:off+ln], rngRes.RangeData())
 	}
 
-	dPrm := new(DeleteSmallPrm)
-	gPrm := new(GetSmallPrm)
+	var dPrm DeleteSmallPrm
+	var gPrm GetSmallPrm
 
 	for i := range addrList {
 		dPrm.SetAddress(addrList[i])

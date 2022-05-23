@@ -205,8 +205,8 @@ func (b *blobovniczas) put(addr oid.Address, data []byte) (*blobovnicza.ID, erro
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all blobovniczas are processed descending weight.
-func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
-	bPrm := new(blobovnicza.GetPrm)
+func (b *blobovniczas) get(prm GetSmallPrm) (res *GetSmallRes, err error) {
+	var bPrm blobovnicza.GetPrm
 	bPrm.SetAddress(prm.addr)
 
 	if prm.blobovniczaID != nil {
@@ -255,8 +255,8 @@ func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all blobovniczas are processed descending weight.
-func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err error) {
-	bPrm := new(blobovnicza.DeletePrm)
+func (b *blobovniczas) delete(prm DeleteSmallPrm) (res *DeleteSmallRes, err error) {
+	var bPrm blobovnicza.DeletePrm
 	bPrm.SetAddress(prm.addr)
 
 	if prm.blobovniczaID != nil {
@@ -310,7 +310,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all blobovniczas are processed descending weight.
-func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, err error) {
+func (b *blobovniczas) getRange(prm GetRangeSmallPrm) (res *GetRangeSmallRes, err error) {
 	if prm.blobovniczaID != nil {
 		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
 		if err != nil {
@@ -360,7 +360,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 // tries to delete object from particular blobovnicza.
 //
 // returns no error if object was removed from some blobovnicza of the same level.
-func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath string, tryActive bool, dp *DeleteSmallPrm) (*DeleteSmallRes, error) {
+func (b *blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath string, tryActive bool, dp DeleteSmallPrm) (*DeleteSmallRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	log := b.log.With(
@@ -423,7 +423,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm *blobovnicza.DeletePrm, blzPath
 // tries to read object from particular blobovnicza.
 //
 // returns error if object could not be read from any blobovnicza of the same level.
-func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath string, tryActive bool) (*GetSmallRes, error) {
+func (b *blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string, tryActive bool) (*GetSmallRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	log := b.log.With(
@@ -487,7 +487,7 @@ func (b *blobovniczas) getObjectFromLevel(prm *blobovnicza.GetPrm, blzPath strin
 // tries to read range of object payload data from particular blobovnicza.
 //
 // returns error if object could not be read from any blobovnicza of the same level.
-func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
+func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	log := b.log.With(
@@ -560,7 +560,7 @@ func (b *blobovniczas) getRangeFromLevel(prm *GetRangeSmallPrm, blzPath string, 
 }
 
 // removes object from blobovnicza and returns DeleteSmallRes.
-func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.DeletePrm, dp *DeleteSmallPrm) (*DeleteSmallRes, error) {
+func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.DeletePrm, dp DeleteSmallPrm) (*DeleteSmallRes, error) {
 	_, err := blz.Delete(prm)
 	if err != nil {
 		return nil, err
@@ -576,7 +576,7 @@ func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm *blobovnic
 }
 
 // reads object from blobovnicza and returns GetSmallRes.
-func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.GetPrm) (*GetSmallRes, error) {
+func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.GetPrm) (*GetSmallRes, error) {
 	res, err := blz.Get(prm)
 	if err != nil {
 		return nil, err
@@ -602,8 +602,8 @@ func (b *blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm *blobovnicza.
 }
 
 // reads range of object payload data from blobovnicza and returns GetRangeSmallRes.
-func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm *GetRangeSmallPrm) (*GetRangeSmallRes, error) {
-	gPrm := new(blobovnicza.GetPrm)
+func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm GetRangeSmallPrm) (*GetRangeSmallRes, error) {
+	var gPrm blobovnicza.GetPrm
 	gPrm.SetAddress(prm.addr)
 
 	// we don't use GetRange call for now since blobovnicza

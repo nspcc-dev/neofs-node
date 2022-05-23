@@ -18,6 +18,6 @@ type DeleteSmallRes struct{}
 // to completely remove the object.
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
-func (b *BlobStor) DeleteSmall(prm *DeleteSmallPrm) (*DeleteSmallRes, error) {
+func (b *BlobStor) DeleteSmall(prm DeleteSmallPrm) (*DeleteSmallRes, error) {
 	return b.blobovniczas.delete(prm)
 }

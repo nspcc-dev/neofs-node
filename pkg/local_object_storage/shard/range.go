@@ -74,7 +74,7 @@ func (s *Shard) GetRange(prm RngPrm) (*RngRes, error) {
 	rng.SetLength(prm.ln)
 
 	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*object.Object, error) {
-		getRngBigPrm := new(blobstor.GetRangeBigPrm)
+		var getRngBigPrm blobstor.GetRangeBigPrm
 		getRngBigPrm.SetAddress(prm.addr)
 		getRngBigPrm.SetRange(rng)
 
@@ -90,7 +90,7 @@ func (s *Shard) GetRange(prm RngPrm) (*RngRes, error) {
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
-		getRngSmallPrm := new(blobstor.GetRangeSmallPrm)
+		var getRngSmallPrm blobstor.GetRangeSmallPrm
 		getRngSmallPrm.SetAddress(prm.addr)
 		getRngSmallPrm.SetRange(rng)
 		getRngSmallPrm.SetBlobovniczaID(id)

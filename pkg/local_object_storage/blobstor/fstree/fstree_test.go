@@ -73,13 +73,16 @@ func TestFSTree(t *testing.T) {
 
 	t.Run("iterate", func(t *testing.T) {
 		n := 0
-		err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+		var iterationPrm IterationPrm
+		iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
 			n++
 			expected, ok := store[addr.EncodeToString()]
 			require.True(t, ok, "object %s was not found", addr.EncodeToString())
 			require.Equal(t, data, expected)
 			return nil
-		}))
+		})
+
+		err := fs.Iterate(iterationPrm)
 
 		require.NoError(t, err)
 		require.Equal(t, count, n)
@@ -87,12 +90,15 @@ func TestFSTree(t *testing.T) {
 		t.Run("leave early", func(t *testing.T) {
 			n := 0
 			errStop := errors.New("stop")
-			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+
+			iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
 				if n++; n == count-1 {
 					return errStop
 				}
 				return nil
-			}))
+			})
+
+			err := fs.Iterate(iterationPrm)
 
 			require.ErrorIs(t, err, errStop)
 			require.Equal(t, count-1, n)
@@ -114,23 +120,29 @@ func TestFSTree(t *testing.T) {
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
 			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, fs.Permissions))
 
-			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+			iterationPrm.WithIgnoreErrors(true)
+			iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
 				n++
 				return nil
-			}).WithIgnoreErrors(true))
+			})
+
+			err := fs.Iterate(iterationPrm)
 			require.NoError(t, err)
 			require.Equal(t, count, n)
 
 			t.Run("error from handler is returned", func(t *testing.T) {
 				expectedErr := errors.New("expected error")
 				n := 0
-				err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+
+				iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
 					n++
 					if n == count/2 { // process some iterations
 						return expectedErr
 					}
 					return nil
-				}).WithIgnoreErrors(true))
+				})
+
+				err := fs.Iterate(iterationPrm)
 				require.ErrorIs(t, err, expectedErr)
 				require.Equal(t, count/2, n)
 			})

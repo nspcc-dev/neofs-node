@@ -88,7 +88,9 @@ func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 
 	elem.blzID = nil
 
-	err = b.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(_ oid.Address, data []byte) error {
+	var fsPrm fstree.IterationPrm
+	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
+	fsPrm.WithHandler(func(_ oid.Address, data []byte) error {
 		// decompress the data
 		elem.data, err = b.decompressor(data)
 		if err != nil {
@@ -99,7 +101,9 @@ func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 		}
 
 		return prm.handler(elem)
-	}).WithIgnoreErrors(prm.ignoreErrors))
+	})
+
+	err = b.fsTree.Iterate(fsPrm)
 
 	if err != nil {
 		return nil, fmt.Errorf("fs tree iterator failure: %w", err)

@@ -51,12 +51,16 @@ func (c *cache) Iterate(prm IterationPrm) error {
 		return err
 	}
 
-	return c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+	var fsPrm fstree.IterationPrm
+	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
+	fsPrm.WithHandler(func(addr oid.Address, data []byte) error {
 		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
 		}
 		return prm.handler(data)
-	}).WithIgnoreErrors(prm.ignoreErrors))
+	})
+
+	return c.fsTree.Iterate(fsPrm)
 }
 
 // IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.

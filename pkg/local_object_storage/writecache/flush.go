@@ -133,7 +133,9 @@ func (c *cache) flushBigObjects() {
 			}
 
 			evictNum := 0
-			_ = c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+
+			var prm fstree.IterationPrm
+			prm.WithHandler(func(addr oid.Address, data []byte) error {
 				sAddr := addr.EncodeToString()
 
 				if _, ok := c.store.flushed.Peek(sAddr); ok {
@@ -161,7 +163,9 @@ func (c *cache) flushBigObjects() {
 				evictNum++
 
 				return nil
-			}))
+			})
+
+			_ = c.fsTree.Iterate(prm)
 
 			// evict objects which were successfully written to BlobStor
 			c.evictObjects(evictNum)
@@ -215,8 +219,9 @@ func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
 	var id *blobovnicza.ID
 
 	if !metaOnly {
-		prm := new(blobstor.PutPrm)
+		var prm blobstor.PutPrm
 		prm.SetObject(obj)
+
 		res, err := c.blobstor.Put(prm)
 		if err != nil {
 			return err

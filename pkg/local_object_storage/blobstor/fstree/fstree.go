@@ -75,23 +75,21 @@ type IterationPrm struct {
 }
 
 // WithHandler sets a function to call on each object.
-func (p *IterationPrm) WithHandler(f func(addr oid.Address, data []byte) error) *IterationPrm {
+func (p *IterationPrm) WithHandler(f func(addr oid.Address, data []byte) error) {
 	p.handler = f
-	return p
 }
 
 // WithIgnoreErrors sets a flag indicating whether errors should be ignored.
-func (p *IterationPrm) WithIgnoreErrors(ignore bool) *IterationPrm {
+func (p *IterationPrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
-	return p
 }
 
 // Iterate iterates over all stored objects.
-func (t *FSTree) Iterate(prm *IterationPrm) error {
+func (t *FSTree) Iterate(prm IterationPrm) error {
 	return t.iterate(0, []string{t.RootPath}, prm)
 }
 
-func (t *FSTree) iterate(depth int, curPath []string, prm *IterationPrm) error {
+func (t *FSTree) iterate(depth int, curPath []string, prm IterationPrm) error {
 	curName := strings.Join(curPath[1:], "")
 	des, err := os.ReadDir(filepath.Join(curPath...))
 	if err != nil {

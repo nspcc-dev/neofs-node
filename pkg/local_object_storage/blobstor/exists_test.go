@@ -30,13 +30,13 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		prm := new(PutPrm)
+		var prm PutPrm
 		prm.SetObject(objects[i])
 		_, err = b.Put(prm)
 		require.NoError(t, err)
 	}
 
-	prm := new(ExistsPrm)
+	var prm ExistsPrm
 	for i := range objects {
 		prm.SetAddress(objectCore.AddressOf(objects[i]))
 
