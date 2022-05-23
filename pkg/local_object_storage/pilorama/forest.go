@@ -59,9 +59,12 @@ func (f *memoryForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, 
 		node = lm[j-i].Child
 		s.operations = append(s.operations, lm[j-i])
 	}
+
+	mCopy := make([]KeyValue, len(m))
+	copy(mCopy, m)
 	lm[len(lm)-1] = s.do(&Move{
 		Parent: node,
-		Meta:   Meta{Time: s.timestamp(), Items: m},
+		Meta:   Meta{Time: s.timestamp(), Items: mCopy},
 		Child:  s.findSpareID(),
 	})
 	return lm, nil
