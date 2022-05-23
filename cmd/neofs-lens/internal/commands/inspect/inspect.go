@@ -85,7 +85,7 @@ func objectInspectCmd(cmd *cobra.Command, _ []string) {
 
 	defer blz.Close()
 
-	prm := new(blobovnicza.GetPrm)
+	var prm blobovnicza.GetPrm
 	prm.SetAddress(addr)
 	res, err := blz.Get(prm)
 	common.ExitOnErr(cmd, common.Errf("could not fetch object: %w", err))

@@ -34,8 +34,8 @@ func (s *Shard) Delete(prm DeletePrm) (*DeleteRes, error) {
 	}
 
 	ln := len(prm.addr)
-	delSmallPrm := new(blobstor.DeleteSmallPrm)
-	delBigPrm := new(blobstor.DeleteBigPrm)
+	var delSmallPrm blobstor.DeleteSmallPrm
+	var delBigPrm blobstor.DeleteBigPrm
 
 	smalls := make(map[oid.Address]*blobovnicza.ID, ln)
 

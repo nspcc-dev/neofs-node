@@ -22,7 +22,7 @@ type DeleteBigRes struct{}
 // to completely remove the object.
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
-func (b *BlobStor) DeleteBig(prm *DeleteBigPrm) (*DeleteBigRes, error) {
+func (b *BlobStor) DeleteBig(prm DeleteBigPrm) (*DeleteBigRes, error) {
 	err := b.fsTree.Delete(prm.addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		var errNotFound apistatus.ObjectNotFound

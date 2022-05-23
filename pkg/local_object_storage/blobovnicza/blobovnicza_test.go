@@ -36,7 +36,7 @@ func testPutGet(t *testing.T, blz *Blobovnicza, addr oid.Address, sz uint64, ass
 }
 
 func testGet(t *testing.T, blz *Blobovnicza, addr oid.Address, expObj []byte, assertErr func(error) bool) {
-	pGet := new(GetPrm)
+	var pGet GetPrm
 	pGet.SetAddress(addr)
 
 	// try to read object from Blobovnicza
@@ -85,7 +85,7 @@ func TestBlobovnicza(t *testing.T) {
 	addr := testPutGet(t, blz, oidtest.Address(), filled, nil, nil)
 
 	// remove the object
-	dPrm := new(DeletePrm)
+	var dPrm DeletePrm
 	dPrm.SetAddress(addr)
 
 	_, err := blz.Delete(dPrm)

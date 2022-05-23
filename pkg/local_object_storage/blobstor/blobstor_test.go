@@ -37,22 +37,22 @@ func TestCompression(t *testing.T) {
 	}
 
 	testGet := func(t *testing.T, b *BlobStor, i int) {
-		res1, err := b.GetSmall(&GetSmallPrm{address: address{object.AddressOf(smallObj[i])}})
+		res1, err := b.GetSmall(GetSmallPrm{address: address{object.AddressOf(smallObj[i])}})
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i], res1.Object())
 
-		res2, err := b.GetBig(&GetBigPrm{address: address{object.AddressOf(bigObj[i])}})
+		res2, err := b.GetBig(GetBigPrm{address: address{object.AddressOf(bigObj[i])}})
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i], res2.Object())
 	}
 
 	testPut := func(t *testing.T, b *BlobStor, i int) {
-		prm := new(PutPrm)
+		var prm PutPrm
 		prm.SetObject(smallObj[i])
 		_, err = b.Put(prm)
 		require.NoError(t, err)
 
-		prm = new(PutPrm)
+		prm = PutPrm{}
 		prm.SetObject(bigObj[i])
 		_, err = b.Put(prm)
 		require.NoError(t, err)

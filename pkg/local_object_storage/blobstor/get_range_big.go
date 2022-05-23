@@ -28,7 +28,7 @@ type GetRangeBigRes struct {
 //
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 // Returns an error of type apistatus.ObjectNotFound if object is missing.
-func (b *BlobStor) GetRangeBig(prm *GetRangeBigPrm) (*GetRangeBigRes, error) {
+func (b *BlobStor) GetRangeBig(prm GetRangeBigPrm) (*GetRangeBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {

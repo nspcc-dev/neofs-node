@@ -35,7 +35,7 @@ func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
 		return nil, ErrReadOnlyMode
 	}
 
-	putPrm := new(blobstor.PutPrm) // form Put parameters
+	var putPrm blobstor.PutPrm // form Put parameters
 	putPrm.SetObject(prm.obj)
 
 	// exist check are not performed there, these checks should be executed

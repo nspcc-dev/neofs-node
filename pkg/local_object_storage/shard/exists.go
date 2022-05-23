@@ -43,7 +43,7 @@ func (s *Shard) Exists(prm ExistsPrm) (*ExistsRes, error) {
 		// If the shard is in degraded mode, try to consult blobstor directly.
 		// Otherwise, just return an error.
 		if s.GetMode() == ModeDegraded {
-			p := new(blobstor.ExistsPrm)
+			var p blobstor.ExistsPrm
 			p.SetAddress(prm.addr)
 
 			res, bErr := s.blobStor.Exists(p)

@@ -67,7 +67,7 @@ func (s *Shard) Get(prm GetPrm) (*GetRes, error) {
 	var big, small storFetcher
 
 	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*objectSDK.Object, error) {
-		getBigPrm := new(blobstor.GetBigPrm)
+		var getBigPrm blobstor.GetBigPrm
 		getBigPrm.SetAddress(prm.addr)
 
 		res, err := stor.GetBig(getBigPrm)
@@ -79,7 +79,7 @@ func (s *Shard) Get(prm GetPrm) (*GetRes, error) {
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
-		getSmallPrm := new(blobstor.GetSmallPrm)
+		var getSmallPrm blobstor.GetSmallPrm
 		getSmallPrm.SetAddress(prm.addr)
 		getSmallPrm.SetBlobovniczaID(id)
 

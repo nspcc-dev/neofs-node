@@ -29,7 +29,7 @@ func (r ExistsRes) Exists() bool {
 //
 // Returns any error encountered that did not allow
 // to completely check object existence.
-func (b *BlobStor) Exists(prm *ExistsPrm) (*ExistsRes, error) {
+func (b *BlobStor) Exists(prm ExistsPrm) (*ExistsRes, error) {
 	// check presence in shallow dir first (cheaper)
 	exists, err := b.existsBig(prm.addr)
 
@@ -81,7 +81,7 @@ func (b *BlobStor) existsSmall(addr oid.Address) (bool, error) {
 func (b *blobovniczas) existsSmall(addr oid.Address) (bool, error) {
 	activeCache := make(map[string]struct{})
 
-	prm := new(blobovnicza.GetPrm)
+	var prm blobovnicza.GetPrm
 	prm.SetAddress(addr)
 
 	var found bool

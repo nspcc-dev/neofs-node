@@ -26,7 +26,7 @@ type GetBigRes struct {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is not
 // presented in shallow dir.
-func (b *BlobStor) GetBig(prm *GetBigPrm) (*GetBigRes, error) {
+func (b *BlobStor) GetBig(prm GetBigPrm) (*GetBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
