@@ -212,7 +212,7 @@ func (b *blobovniczas) get(prm GetSmallPrm) (res *GetSmallRes, err error) {
 	if prm.blobovniczaID != nil {
 		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 
 		return b.getObject(blz, bPrm)
@@ -245,7 +245,7 @@ func (b *blobovniczas) get(prm GetSmallPrm) (res *GetSmallRes, err error) {
 		// not found in any blobovnicza
 		var errNotFound apistatus.ObjectNotFound
 
-		return nil, errNotFound
+		return res, errNotFound
 	}
 
 	return
@@ -262,13 +262,14 @@ func (b *blobovniczas) delete(prm DeleteSmallPrm) (res *DeleteSmallRes, err erro
 	if prm.blobovniczaID != nil {
 		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 
 		return b.deleteObject(blz, bPrm, prm)
 	}
 
 	activeCache := make(map[string]struct{})
+	objectFound := false
 
 	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
@@ -289,14 +290,14 @@ func (b *blobovniczas) delete(prm DeleteSmallPrm) (res *DeleteSmallRes, err erro
 		activeCache[dirPath] = struct{}{}
 
 		if err == nil {
-			res = new(DeleteSmallRes)
+			objectFound = true
 		}
 
 		// abort iterator if found, otherwise process all blobovniczas
 		return err == nil, nil
 	})
 
-	if err == nil && res == nil {
+	if err == nil && !objectFound {
 		// not found in any blobovnicza
 		var errNotFound apistatus.ObjectNotFound
 
@@ -321,6 +322,7 @@ func (b *blobovniczas) getRange(prm GetRangeSmallPrm) (res *GetRangeSmallRes, er
 	}
 
 	activeCache := make(map[string]struct{})
+	objectFound := false
 
 	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
@@ -343,11 +345,13 @@ func (b *blobovniczas) getRange(prm GetRangeSmallPrm) (res *GetRangeSmallRes, er
 
 		activeCache[dirPath] = struct{}{}
 
+		objectFound = err == nil
+
 		// abort iterator if found, otherwise process all blobovniczas
 		return err == nil, nil
 	})
 
-	if err == nil && res == nil {
+	if err == nil && !objectFound {
 		// not found in any blobovnicza
 		var errNotFound apistatus.ObjectNotFound
 
@@ -566,7 +570,7 @@ func (b *blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicz
 		zap.Stringer("blobovnicza ID", dp.blobovniczaID),
 	)
 
-	return new(DeleteSmallRes), nil
+	return nil, nil
 }
 
 // reads object from blobovnicza and returns GetSmallRes.
