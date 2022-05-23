@@ -242,6 +242,44 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	require.Equal(t, 2, len(lm))
 	testMeta(t, s, cid, treeID, lm[0].Child, lm[0].Parent, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("dir")}}})
 	testMeta(t, s, cid, treeID, lm[1].Child, lm[1].Parent, Meta{Time: lm[1].Time, Items: meta})
+
+	t.Run("create internal nodes", func(t *testing.T) {
+		meta[0].Value = []byte("SomeValue")
+		meta[1].Value = []byte("another")
+		lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path"}, meta)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(lm))
+
+		oldMove := lm[0]
+
+		meta[0].Value = []byte("Leaf")
+		meta[1].Value = []byte("file.txt")
+		lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "another"}, meta)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(lm))
+
+		testMeta(t, s, cid, treeID, lm[0].Child, lm[0].Parent,
+			Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("another")}}})
+		testMeta(t, s, cid, treeID, lm[1].Child, lm[1].Parent, Meta{Time: lm[1].Time, Items: meta})
+
+		require.NotEqual(t, lm[0].Child, oldMove.Child)
+		testMeta(t, s, cid, treeID, oldMove.Child, oldMove.Parent,
+			Meta{Time: oldMove.Time, Items: []KeyValue{
+				{AttributeVersion, []byte("SomeValue")},
+				{AttributeFilename, []byte("another")}}})
+
+		t.Run("get by path", func(t *testing.T) {
+			nodes, err := s.TreeGetByPath(cid, treeID, AttributeFilename, []string{"path", "another"}, false)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(nodes))
+			require.ElementsMatch(t, []Node{lm[0].Child, oldMove.Child}, nodes)
+
+			nodes, err = s.TreeGetByPath(cid, treeID, AttributeFilename, []string{"path", "another", "file.txt"}, false)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(nodes))
+			require.Equal(t, lm[1].Child, nodes[0])
+		})
+	})
 }
 
 func TestForest_Apply(t *testing.T) {
@@ -475,15 +513,18 @@ func testTreeGetByPath(t *testing.T, s Forest) {
 }
 
 func testMove(t *testing.T, s Forest, ts int, node, parent Node, cid cidSDK.ID, treeID, filename, version string) {
+	items := make([]KeyValue, 1, 2)
+	items[0] = KeyValue{AttributeFilename, []byte(filename)}
+	if version != "" {
+		items = append(items, KeyValue{AttributeVersion, []byte(version)})
+	}
+
 	require.NoError(t, s.TreeApply(cid, treeID, &Move{
 		Parent: parent,
 		Child:  node,
 		Meta: Meta{
-			Time: uint64(ts),
-			Items: []KeyValue{
-				{AttributeFilename, []byte(filename)},
-				{AttributeVersion, []byte(version)},
-			},
+			Time:  uint64(ts),
+			Items: items,
 		},
 	}))
 }
