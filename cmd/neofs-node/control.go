@@ -34,7 +34,8 @@ func initControlService(c *cfg) {
 		controlSvc.WithNetMapSource(c.netMapSource),
 		controlSvc.WithNodeState(c),
 		controlSvc.WithDeletedObjectHandler(func(addrList []oid.Address) error {
-			prm := new(engine.DeletePrm).WithAddresses(addrList...)
+			var prm engine.DeletePrm
+			prm.WithAddresses(addrList...)
 
 			_, err := c.cfgObject.cfgLocalStorage.localStorage.Delete(prm)
 

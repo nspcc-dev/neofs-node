@@ -33,7 +33,7 @@ func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, ad
 	filters := objectSDK.NewSearchFilters()
 	filters.AddNotificationEpochFilter(epoch)
 
-	selectPrm := new(engine.SelectPrm)
+	var selectPrm engine.SelectPrm
 	selectPrm.WithFilters(filters)
 
 	for _, c := range listRes.Containers() {
@@ -67,7 +67,7 @@ func (n *notificationSource) processAddress(
 	a oid.Address,
 	h func(topic string, addr oid.Address),
 ) error {
-	prm := new(engine.HeadPrm)
+	var prm engine.HeadPrm
 	prm.WithAddress(a)
 
 	res, err := n.e.Head(prm)

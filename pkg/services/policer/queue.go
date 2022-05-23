@@ -12,7 +12,7 @@ type jobQueue struct {
 }
 
 func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]oid.Address, *engine.Cursor, error) {
-	prm := new(engine.ListWithCursorPrm)
+	var prm engine.ListWithCursorPrm
 	prm.WithCursor(cursor)
 	prm.WithCount(count)
 

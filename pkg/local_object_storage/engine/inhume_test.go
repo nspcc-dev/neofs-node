@@ -43,7 +43,9 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err := Put(e, parent)
 		require.NoError(t, err)
 
-		inhumePrm := new(InhumePrm).WithTarget(tombstoneID, object.AddressOf(parent))
+		var inhumePrm InhumePrm
+		inhumePrm.WithTarget(tombstoneID, object.AddressOf(parent))
+
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 
@@ -69,7 +71,9 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = s2.Put(putLink)
 		require.NoError(t, err)
 
-		inhumePrm := new(InhumePrm).WithTarget(tombstoneID, object.AddressOf(parent))
+		var inhumePrm InhumePrm
+		inhumePrm.WithTarget(tombstoneID, object.AddressOf(parent))
+
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 

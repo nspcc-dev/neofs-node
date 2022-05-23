@@ -120,10 +120,11 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]oid.ID, error) {
-	r, err := (*engine.StorageEngine)(e).Select(new(engine.SelectPrm).
-		WithFilters(exec.searchFilters()).
-		WithContainerID(exec.containerID()),
-	)
+	var selectPrm engine.SelectPrm
+	selectPrm.WithFilters(exec.searchFilters())
+	selectPrm.WithContainerID(exec.containerID())
+
+	r, err := (*engine.StorageEngine)(e).Select(selectPrm)
 	if err != nil {
 		return nil, err
 	}

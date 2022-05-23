@@ -25,17 +25,15 @@ type ListWithCursorPrm struct {
 }
 
 // WithCount sets the maximum amount of addresses that ListWithCursor should return.
-func (p *ListWithCursorPrm) WithCount(count uint32) *ListWithCursorPrm {
+func (p *ListWithCursorPrm) WithCount(count uint32) {
 	p.count = count
-	return p
 }
 
 // WithCursor sets a cursor for ListWithCursor operation. For initial request
 // ignore this param or use nil value. For consecutive requests, use value
 // from ListWithCursorRes.
-func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
+func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) {
 	p.cursor = cursor
-	return p
 }
 
 // ListWithCursorRes contains values returned from ListWithCursor operation.
@@ -61,7 +59,7 @@ func (l ListWithCursorRes) Cursor() *Cursor {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (e *StorageEngine) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, error) {
+func (e *StorageEngine) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRes, error) {
 	result := make([]oid.Address, 0, prm.count)
 
 	// 1. Get available shards and sort them.

@@ -171,29 +171,32 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	if exec.headOnly() {
-		r, err := e.engine.Head(new(engine.HeadPrm).
-			WithAddress(exec.address()).
-			WithRaw(exec.isRaw()),
-		)
+		var headPrm engine.HeadPrm
+		headPrm.WithAddress(exec.address())
+		headPrm.WithRaw(exec.isRaw())
+
+		r, err := e.engine.Head(headPrm)
 		if err != nil {
 			return nil, err
 		}
 
 		return r.Header(), nil
 	} else if rng := exec.ctxRange(); rng != nil {
-		r, err := e.engine.GetRange(new(engine.RngPrm).
-			WithAddress(exec.address()).
-			WithPayloadRange(rng),
-		)
+		var getRange engine.RngPrm
+		getRange.WithAddress(exec.address())
+		getRange.WithPayloadRange(rng)
+
+		r, err := e.engine.GetRange(getRange)
 		if err != nil {
 			return nil, err
 		}
 
 		return r.Object(), nil
 	} else {
-		r, err := e.engine.Get(new(engine.GetPrm).
-			WithAddress(exec.address()),
-		)
+		var getPrm engine.GetPrm
+		getPrm.WithAddress(exec.address())
+
+		r, err := e.engine.Get(getPrm)
 		if err != nil {
 			return nil, err
 		}

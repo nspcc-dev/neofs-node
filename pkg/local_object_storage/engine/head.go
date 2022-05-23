@@ -24,23 +24,19 @@ type HeadRes struct {
 // WithAddress is a Head option to set the address of the requested object.
 //
 // Option is required.
-func (p *HeadPrm) WithAddress(addr oid.Address) *HeadPrm {
+func (p *HeadPrm) WithAddress(addr oid.Address) {
 	if p != nil {
 		p.addr = addr
 	}
-
-	return p
 }
 
 // WithRaw is a Head option to set raw flag value. If flag is unset, then Head
 // returns the header of the virtual object, otherwise it returns SplitInfo of the virtual
 // object.
-func (p *HeadPrm) WithRaw(raw bool) *HeadPrm {
+func (p *HeadPrm) WithRaw(raw bool) {
 	if p != nil {
 		p.raw = raw
 	}
-
-	return p
 }
 
 // Header returns the requested object header.
@@ -59,7 +55,7 @@ func (r *HeadRes) Header() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {
+func (e *StorageEngine) Head(prm HeadPrm) (res *HeadRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.head(prm)
 		return err
@@ -68,7 +64,7 @@ func (e *StorageEngine) Head(prm *HeadPrm) (res *HeadRes, err error) {
 	return
 }
 
-func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
+func (e *StorageEngine) head(prm HeadPrm) (*HeadRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
@@ -141,9 +137,10 @@ func (e *StorageEngine) head(prm *HeadPrm) (*HeadRes, error) {
 
 // Head reads object header from local storage by provided address.
 func Head(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
-	res, err := storage.Head(new(HeadPrm).
-		WithAddress(addr),
-	)
+	var headPrm HeadPrm
+	headPrm.WithAddress(addr)
+
+	res, err := storage.Head(headPrm)
 	if err != nil {
 		return nil, err
 	}
@@ -154,10 +151,11 @@ func Head(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
 // HeadRaw reads object header from local storage by provided address and raw
 // flag.
 func HeadRaw(storage *StorageEngine, addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	res, err := storage.Head(new(HeadPrm).
-		WithAddress(addr).
-		WithRaw(raw),
-	)
+	var headPrm HeadPrm
+	headPrm.WithAddress(addr)
+	headPrm.WithRaw(raw)
+
+	res, err := storage.Head(headPrm)
 	if err != nil {
 		return nil, err
 	}

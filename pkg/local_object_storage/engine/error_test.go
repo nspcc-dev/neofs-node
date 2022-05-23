@@ -71,7 +71,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
+		_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
@@ -80,7 +80,7 @@ func TestErrorReporting(t *testing.T) {
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < 3; i++ {
-			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
+			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, shard.ModeReadWrite)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
@@ -101,7 +101,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
+		_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
@@ -110,14 +110,14 @@ func TestErrorReporting(t *testing.T) {
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < errThreshold; i++ {
-			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
+			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, shard.ModeReadWrite)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
 		}
 
 		for i := uint32(0); i < 2; i++ {
-			_, err = e.Get(&GetPrm{addr: object.AddressOf(obj)})
+			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, shard.ModeDegraded)
 			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
@@ -155,9 +155,9 @@ func TestBlobstorFailback(t *testing.T) {
 
 	for i := range objs {
 		addr := object.AddressOf(objs[i])
-		_, err = e.Get(&GetPrm{addr: addr})
+		_, err = e.Get(GetPrm{addr: addr})
 		require.NoError(t, err)
-		_, err = e.GetRange(&RngPrm{addr: addr})
+		_, err = e.GetRange(RngPrm{addr: addr})
 		require.NoError(t, err)
 	}
 
@@ -175,15 +175,15 @@ func TestBlobstorFailback(t *testing.T) {
 
 	for i := range objs {
 		addr := object.AddressOf(objs[i])
-		getRes, err := e.Get(&GetPrm{addr: addr})
+		getRes, err := e.Get(GetPrm{addr: addr})
 		require.NoError(t, err)
 		require.Equal(t, objs[i], getRes.Object())
 
-		rngRes, err := e.GetRange(&RngPrm{addr: addr, off: 1, ln: 10})
+		rngRes, err := e.GetRange(RngPrm{addr: addr, off: 1, ln: 10})
 		require.NoError(t, err)
 		require.Equal(t, objs[i].Payload()[1:11], rngRes.Object().Payload())
 
-		_, err = e.GetRange(&RngPrm{addr: addr, off: errSmallSize + 10, ln: 1})
+		_, err = e.GetRange(RngPrm{addr: addr, off: errSmallSize + 10, ln: 1})
 		require.ErrorIs(t, err, object.ErrRangeOutOfBounds)
 	}
 

@@ -24,7 +24,7 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 			zap.String("error", err.Error()),
 		)
 		if container.IsErrNotFound(err) {
-			prm := new(engine.InhumePrm)
+			var prm engine.InhumePrm
 			prm.MarkAsGarbage(addr)
 			_, err := p.jobQueue.localStorage.Inhume(prm)
 			if err != nil {
