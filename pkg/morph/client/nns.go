@@ -214,7 +214,12 @@ func (c *Client) contractGroupKey() (*keys.PublicKey, error) {
 		return nil, err
 	}
 
-	bs, err := item.TryBytes()
+	arr, ok := item.Value().([]stackitem.Item)
+	if !ok || len(arr) == 0 {
+		return nil, errors.New("NNS record is missing")
+	}
+
+	bs, err := arr[0].TryBytes()
 	if err != nil {
 		return nil, err
 	}
