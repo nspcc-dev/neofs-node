@@ -383,7 +383,7 @@ var getExtendedACLCmd = &cobra.Command{
 			sig.WriteToV2(&sigV2)
 
 			cmd.Println("Signature:")
-			printJSONMarshaler(cmd, &sigV2, "signature")
+			common.PrettyPrintJSON(cmd, &sigV2, "signature")
 
 			return
 		}
@@ -401,7 +401,7 @@ var getExtendedACLCmd = &cobra.Command{
 		cmd.Println("dumping data to file:", containerPathTo)
 
 		cmd.Println("Signature:")
-		printJSONMarshaler(cmd, &sigV2, "signature")
+		common.PrettyPrintJSON(cmd, &sigV2, "signature")
 
 		err = os.WriteFile(containerPathTo, data, 0644)
 		common.ExitOnErr(cmd, "could not write eACL to file: %w", err)
@@ -631,7 +631,7 @@ func parseSubnetID(val string) (sub *subnetid.ID, err error) {
 func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) {
 	_, err := os.Stat(policyString) // check if `policyString` is a path to file with placement policy
 	if err == nil {
-		printVerbose("Reading placement policy from file: %s", policyString)
+		common.PrintVerbose("Reading placement policy from file: %s", policyString)
 
 		data, err := os.ReadFile(policyString)
 		if err != nil {
@@ -643,13 +643,13 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 
 	result, err := policy.Parse(policyString)
 	if err == nil {
-		printVerbose("Parsed QL encoded policy")
+		common.PrintVerbose("Parsed QL encoded policy")
 		return result, nil
 	}
 
 	result = netmap.NewPlacementPolicy()
 	if err = result.UnmarshalJSON([]byte(policyString)); err == nil {
-		printVerbose("Parsed JSON encoded policy")
+		common.PrintVerbose("Parsed JSON encoded policy")
 		return result, nil
 	}
 
@@ -704,7 +704,7 @@ func parseBasicACL(basicACL string) (acl.BasicACL, error) {
 func parseNonce(nonce string) (uuid.UUID, error) {
 	if nonce == "" {
 		result := uuid.New()
-		printVerbose("Generating container nonce: %s", result)
+		common.PrintVerbose("Generating container nonce: %s", result)
 
 		return result, nil
 	}
@@ -740,12 +740,12 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	if jsonEncoding {
 		data, err := cnr.MarshalJSON()
 		if err != nil {
-			printVerbose("Can't convert container to json: %w", err)
+			common.PrintVerbose("Can't convert container to json: %w", err)
 			return
 		}
 		buf := new(bytes.Buffer)
 		if err := json.Indent(buf, data, "", "  "); err != nil {
-			printVerbose("Can't pretty print json: %w", err)
+			common.PrintVerbose("Can't pretty print json: %w", err)
 		}
 
 		cmd.Println(buf)
@@ -794,7 +794,7 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 		return nil, errors.New("incorrect path to file with EACL")
 	}
 
-	printVerbose("Reading EACL from file: %s", eaclPath)
+	common.PrintVerbose("Reading EACL from file: %s", eaclPath)
 
 	data, err := os.ReadFile(eaclPath)
 	if err != nil {
@@ -805,13 +805,13 @@ func parseEACL(eaclPath string) (*eacl.Table, error) {
 
 	if err = table.UnmarshalJSON(data); err == nil {
 		validateAndFixEACLVersion(table)
-		printVerbose("Parsed JSON encoded EACL table")
+		common.PrintVerbose("Parsed JSON encoded EACL table")
 		return table, nil
 	}
 
 	if err = table.Unmarshal(data); err == nil {
 		validateAndFixEACLVersion(table)
-		printVerbose("Parsed binary encoded EACL table")
+		common.PrintVerbose("Parsed binary encoded EACL table")
 		return table, nil
 	}
 
@@ -825,21 +825,7 @@ func validateAndFixEACLVersion(table *eacl.Table) {
 }
 
 func prettyPrintEACL(cmd *cobra.Command, table *eacl.Table) {
-	printJSONMarshaler(cmd, table, "eACL")
-}
-
-func printJSONMarshaler(cmd *cobra.Command, j json.Marshaler, entity string) {
-	data, err := j.MarshalJSON()
-	if err != nil {
-		printVerbose("Can't convert %s to json: %w", entity, err)
-		return
-	}
-	buf := new(bytes.Buffer)
-	if err := json.Indent(buf, data, "", "  "); err != nil {
-		printVerbose("Can't pretty print json: %w", err)
-		return
-	}
-	cmd.Println(buf)
+	common.PrettyPrintJSON(cmd, table, "eACL")
 }
 
 func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {

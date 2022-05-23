@@ -412,7 +412,7 @@ func processKeyer(cmd *cobra.Command, args []string) {
 func prettyPrintJSON(cmd *cobra.Command, data []byte) {
 	buf := new(bytes.Buffer)
 	if err := json.Indent(buf, data, "", "  "); err != nil {
-		printVerbose("Can't pretty print json: %w", err)
+		common.PrintVerbose("Can't pretty print json: %w", err)
 	}
 
 	cmd.Println(buf)
