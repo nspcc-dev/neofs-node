@@ -1,12 +1,10 @@
-package cmd
+package control
 
 import (
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/spf13/cobra"
 )
 
@@ -23,14 +21,10 @@ var dumpShardCmd = &cobra.Command{
 }
 
 func dumpShard(cmd *cobra.Command, _ []string) {
-	key, err := getKeyNoGenerate()
-	common.ExitOnErr(cmd, "", err)
+	pk := getKey(cmd)
 
 	body := new(control.DumpShardRequest_Body)
-
-	rawID, err := base58.Decode(shardID)
-	common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
-	body.SetShardID(rawID)
+	body.SetShardID(getShardID(cmd))
 
 	p, _ := cmd.Flags().GetString(dumpFilepathFlag)
 	body.SetFilepath(p)
@@ -41,20 +35,19 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 	req := new(control.DumpShardRequest)
 	req.SetBody(body)
 
-	err = controlSvc.SignMessage(key, req)
-	common.ExitOnErr(cmd, "could not sign request: %w", err)
+	signRequest(cmd, pk, req)
 
-	cli, err := getControlSDKClient(key)
-	common.ExitOnErr(cmd, "", err)
+	cli := getClient(cmd, pk)
 
 	var resp *control.DumpShardResponse
+	var err error
 	err = cli.ExecRaw(func(client *client.Client) error {
 		resp, err = control.DumpShard(client, req)
 		return err
 	})
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
-	verifyResponseControl(cmd, resp.GetSignature(), resp.GetBody())
+	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
 
 	cmd.Println("Shard has been dumped successfully.")
 }
@@ -64,7 +57,7 @@ func initControlDumpShardCmd() {
 
 	flags := dumpShardCmd.Flags()
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
-	flags.StringVarP(&shardID, shardIDFlag, "", "", "Shard ID in base58 encoding")
+	flags.String(shardIDFlag, "", "Shard ID in base58 encoding")
 	flags.String(dumpFilepathFlag, "", "File to write objects to")
 	flags.Bool(dumpIgnoreErrorsFlag, false, "Skip invalid/unreadable objects")
 
