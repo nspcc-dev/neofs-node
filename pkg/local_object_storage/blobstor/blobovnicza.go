@@ -137,7 +137,7 @@ func indexSlice(number uint64) []uint64 {
 //
 // returns error if could not save object in any blobovnicza.
 func (b *blobovniczas) put(addr oid.Address, data []byte) (*blobovnicza.ID, error) {
-	prm := new(blobovnicza.PutPrm)
+	var prm blobovnicza.PutPrm
 	prm.SetAddress(addr)
 	prm.SetMarshaledObject(data)
 

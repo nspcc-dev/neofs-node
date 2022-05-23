@@ -363,7 +363,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(bTree, "0", "2"), data, 0))
 
 		// 2.2. Invalid object in valid blobovnicza.
-		prm := new(blobovnicza.PutPrm)
+		var prm blobovnicza.PutPrm
 		prm.SetAddress(oid.Address{})
 		prm.SetMarshaledObject(corruptedData)
 		b := blobovnicza.New(blobovnicza.WithPath(filepath.Join(bTree, "1", "2")))

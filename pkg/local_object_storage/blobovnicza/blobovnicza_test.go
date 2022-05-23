@@ -18,7 +18,7 @@ func testPutGet(t *testing.T, blz *Blobovnicza, addr oid.Address, sz uint64, ass
 	data := make([]byte, sz)
 	rand.Read(data)
 
-	pPut := new(PutPrm)
+	var pPut PutPrm
 	pPut.SetAddress(addr)
 	pPut.SetMarshaledObject(data)
 	_, err := blz.Put(pPut)
@@ -143,7 +143,7 @@ func TestIterateObjects(t *testing.T) {
 		putPrm.SetAddress(oidtest.Address())
 		putPrm.SetMarshaledObject(v)
 
-		_, err := blz.Put(&putPrm)
+		_, err := blz.Put(putPrm)
 		require.NoError(t, err)
 	}
 

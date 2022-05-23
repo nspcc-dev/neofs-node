@@ -19,7 +19,7 @@ func TestBlobovniczaIterate(t *testing.T) {
 
 	data := [][]byte{{0, 1, 2, 3}, {5, 6, 7, 8}}
 	addr := oidtest.Address()
-	_, err := b.Put(&PutPrm{addr: addr, objData: data[0]})
+	_, err := b.Put(PutPrm{addr: addr, objData: data[0]})
 	require.NoError(t, err)
 
 	require.NoError(t, b.boltDB.Update(func(tx *bbolt.Tx) error {
