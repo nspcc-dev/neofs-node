@@ -15,6 +15,7 @@ import (
 	accountingCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/accounting"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
+	controlCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/control"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
@@ -93,6 +94,7 @@ func init() {
 	rootCmd.AddCommand(bearerCli.Cmd)
 	rootCmd.AddCommand(sessionCli.Cmd)
 	rootCmd.AddCommand(accountingCli.Cmd)
+	rootCmd.AddCommand(controlCli.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
@@ -140,10 +142,6 @@ func initConfig() {
 // getKey returns private key that was provided in global arguments.
 func getKey() (*ecdsa.PrivateKey, error) {
 	return key.GetOrGenerate()
-}
-
-func getKeyNoGenerate() (*ecdsa.PrivateKey, error) {
-	return key.Get()
 }
 
 type clientWithKey interface {

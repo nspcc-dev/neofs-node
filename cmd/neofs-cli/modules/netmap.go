@@ -4,13 +4,11 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
@@ -201,26 +199,5 @@ func prettyPrintNodeInfo(cmd *cobra.Command, i *netmap.NodeInfo, jsonEncoding bo
 
 	for _, attribute := range i.Attributes() {
 		cmd.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
-	}
-}
-
-func prettyPrintNetmap(cmd *cobra.Command, nm *control.Netmap, jsonEncoding bool) {
-	if jsonEncoding {
-		common.PrettyPrintJSON(cmd, nm, "netmap")
-		return
-	}
-
-	cmd.Println("Epoch:", nm.GetEpoch())
-
-	for i, node := range nm.GetNodes() {
-		cmd.Printf("Node %d: %s %s %v\n", i+1,
-			base58.Encode(node.GetPublicKey()),
-			node.GetState(),
-			node.GetAddresses(),
-		)
-
-		for _, attr := range node.GetAttributes() {
-			cmd.Printf("\t%s: %s\n", attr.GetKey(), attr.GetValue())
-		}
 	}
 }
