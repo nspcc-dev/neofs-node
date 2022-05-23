@@ -47,7 +47,7 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 // Returns ErrFull if blobovnicza is filled.
 //
 // Should not be called in read-only configuration.
-func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
+func (b *Blobovnicza) Put(prm PutPrm) (*PutRes, error) {
 	sz := uint64(len(prm.objData))
 	bucketName := bucketForSize(sz)
 	key := addressKey(prm.addr)
