@@ -10,6 +10,7 @@ type Forest interface {
 	TreeMove(cid cidSDK.ID, treeID string, m *Move) (*LogMove, error)
 	// TreeAddByPath adds new node in the tree using provided path.
 	// The path is constructed by descending from the root using the values of the attr in meta.
+	// Internal nodes in path should have exactly one attribute, otherwise a new node is created.
 	TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error)
 	// TreeApply applies replicated operation from another node.
 	TreeApply(cid cidSDK.ID, treeID string, m *Move) error
