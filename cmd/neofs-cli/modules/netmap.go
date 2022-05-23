@@ -189,7 +189,7 @@ var netInfoCmd = &cobra.Command{
 
 func prettyPrintNodeInfo(cmd *cobra.Command, i *netmap.NodeInfo, jsonEncoding bool) {
 	if jsonEncoding {
-		printJSONMarshaler(cmd, i, "node info")
+		common.PrettyPrintJSON(cmd, i, "node info")
 		return
 	}
 
@@ -206,7 +206,7 @@ func prettyPrintNodeInfo(cmd *cobra.Command, i *netmap.NodeInfo, jsonEncoding bo
 
 func prettyPrintNetmap(cmd *cobra.Command, nm *control.Netmap, jsonEncoding bool) {
 	if jsonEncoding {
-		printJSONMarshaler(cmd, nm, "netmap")
+		common.PrettyPrintJSON(cmd, nm, "netmap")
 		return
 	}
 

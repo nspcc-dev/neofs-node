@@ -133,7 +133,7 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		printVerbose("Using config file: %s", viper.ConfigFileUsed())
+		common.PrintVerbose("Using config file: %s", viper.ConfigFileUsed())
 	}
 }
 
@@ -181,7 +181,7 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 
 func getTTL() uint32 {
 	ttl := viper.GetUint32(ttl)
-	printVerbose("TTL: %d", ttl)
+	common.PrintVerbose("TTL: %d", ttl)
 
 	return ttl
 }
@@ -194,12 +194,6 @@ func userFromString(id *user.ID, s string) error {
 	}
 
 	return nil
-}
-
-func printVerbose(format string, a ...interface{}) {
-	if viper.GetBool(commonflags.Verbose) {
-		fmt.Printf(format+"\n", a...)
-	}
 }
 
 func parseXHeaders() []*session.XHeader {

@@ -1128,9 +1128,9 @@ func getBearerToken(cmd *cobra.Command, flagname string) (*bearer.Token, error) 
 			return nil, fmt.Errorf("can't decode bearer token: %w", err)
 		}
 
-		printVerbose("Using binary encoded bearer token")
+		common.PrintVerbose("Using binary encoded bearer token")
 	} else {
-		printVerbose("Using JSON encoded bearer token")
+		common.PrintVerbose("Using JSON encoded bearer token")
 	}
 
 	return &tok, nil
