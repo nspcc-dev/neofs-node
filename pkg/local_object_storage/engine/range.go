@@ -46,7 +46,7 @@ func (p *RngPrm) WithPayloadRange(rng *objectSDK.Range) {
 // Object returns the requested object part.
 //
 // Instance payload contains the requested range of the original object.
-func (r *RngRes) Object() *objectSDK.Object {
+func (r RngRes) Object() *objectSDK.Object {
 	return r.obj
 }
 

@@ -70,7 +70,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
 
-	var res ContainerSizeRes
+	res := new(ContainerSizeRes)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		size, err := shard.ContainerSize(sh.Shard, prm.cnr)
@@ -86,7 +86,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 		return false
 	})
 
-	return &res, nil
+	return res, nil
 }
 
 // ListContainers returns a unique container IDs presented in the engine objects.
