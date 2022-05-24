@@ -35,8 +35,7 @@ var accountingBalanceCmd = &cobra.Command{
 			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", oid.DecodeString(balanceOwner))
 		}
 
-		cli, err := internalclient.GetSDKClientByFlag(pk, commonflags.RPC)
-		common.ExitOnErr(cmd, "create API client: %w", err)
+		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 		var prm internalclient.BalanceOfPrm
 		prm.SetClient(cli)
