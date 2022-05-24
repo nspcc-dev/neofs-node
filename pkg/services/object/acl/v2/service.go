@@ -202,8 +202,6 @@ func (b Service) Head(
 }
 
 func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStream) error {
-	var id *cidSDK.ID
-
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return err
@@ -442,9 +440,9 @@ func (g *searchStreamBasicChecker) Send(resp *objectV2.SearchResponse) error {
 
 func (b Service) findRequestInfo(
 	req MetaWithToken,
-	cid *cidSDK.ID,
+	cid cidSDK.ID,
 	op eaclSDK.Operation) (info RequestInfo, err error) {
-	cnr, err := b.containers.Get(cid) // fetch actual container
+	cnr, err := b.containers.Get(&cid) // fetch actual container
 	if err != nil {
 		return info, err
 	} else if cnr.OwnerID() == nil {
