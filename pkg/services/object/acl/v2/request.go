@@ -23,7 +23,7 @@ type RequestInfo struct {
 	operation   eaclSDK.Operation // put, get, head, etc.
 	cnrOwner    *user.ID          // container owner
 
-	idCnr *containerIDSDK.ID
+	idCnr containerIDSDK.ID
 
 	oid *oidSDK.ID
 
@@ -62,7 +62,7 @@ func (r RequestInfo) ObjectID() *oidSDK.ID {
 }
 
 // ContainerID return container ID.
-func (r RequestInfo) ContainerID() *containerIDSDK.ID {
+func (r RequestInfo) ContainerID() containerIDSDK.ID {
 	return r.idCnr
 }
 

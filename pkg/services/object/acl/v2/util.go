@@ -20,9 +20,9 @@ import (
 
 var errMissingContainerID = errors.New("missing container ID")
 
-func getContainerIDFromRequest(req interface{}) (*containerIDSDK.ID, error) {
+func getContainerIDFromRequest(req interface{}) (containerIDSDK.ID, error) {
 	var idV2 *refsV2.ContainerID
-	id := new(containerIDSDK.ID)
+	var id containerIDSDK.ID
 
 	switch v := req.(type) {
 	case *objectV2.GetRequest:
@@ -30,7 +30,7 @@ func getContainerIDFromRequest(req interface{}) (*containerIDSDK.ID, error) {
 	case *objectV2.PutRequest:
 		part, ok := v.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit)
 		if !ok {
-			return nil, errors.New("can't get container ID in chunk")
+			return containerIDSDK.ID{}, errors.New("can't get container ID in chunk")
 		}
 
 		idV2 = part.GetHeader().GetContainerID()
@@ -45,11 +45,11 @@ func getContainerIDFromRequest(req interface{}) (*containerIDSDK.ID, error) {
 	case *objectV2.GetRangeHashRequest:
 		idV2 = v.GetBody().GetAddress().GetContainerID()
 	default:
-		return nil, errors.New("unknown request type")
+		return containerIDSDK.ID{}, errors.New("unknown request type")
 	}
 
 	if idV2 == nil {
-		return nil, errMissingContainerID
+		return containerIDSDK.ID{}, errMissingContainerID
 	}
 
 	return id, id.ReadFromV2(*idV2)

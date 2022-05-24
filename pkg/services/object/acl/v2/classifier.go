@@ -19,8 +19,6 @@ type senderClassifier struct {
 	netmap    core.Source
 }
 
-var errContainerIDNotSet = errors.New("container id is not set")
-
 type classifyResult struct {
 	role eaclSDK.Role
 	isIR bool
@@ -29,12 +27,8 @@ type classifyResult struct {
 
 func (c senderClassifier) classify(
 	req MetaWithToken,
-	idCnr *cidSDK.ID,
+	idCnr cidSDK.ID,
 	cnr *container.Container) (res *classifyResult, err error) {
-	if idCnr == nil {
-		return nil, errContainerIDNotSet
-	}
-
 	ownerCnr := cnr.OwnerID()
 	if ownerCnr == nil {
 		return nil, errors.New("missing container owner")

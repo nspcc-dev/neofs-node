@@ -144,10 +144,11 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	}
 
 	var table eaclSDK.Table
+	cid := reqInfo.ContainerID()
 
 	bearerTok := reqInfo.Bearer()
 	if bearerTok == nil {
-		pTable, err := c.eaclSrc.GetEACL(reqInfo.ContainerID())
+		pTable, err := c.eaclSrc.GetEACL(&cid)
 		if err != nil {
 			if errors.Is(err, container.ErrEACLNotFound) {
 				return nil
@@ -168,7 +169,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
 	addr := addressSDK.NewAddress()
-	addr.SetContainerID(*reqInfo.ContainerID())
+	addr.SetContainerID(cid)
 	addr.SetObjectID(*reqInfo.ObjectID())
 
 	hdrSrcOpts = append(hdrSrcOpts,
@@ -195,7 +196,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	action := c.validator.CalculateAction(new(eaclSDK.ValidationUnit).
 		WithRole(reqInfo.RequestRole()).
 		WithOperation(reqInfo.Operation()).
-		WithContainerID(reqInfo.ContainerID()).
+		WithContainerID(&cid).
 		WithSenderKey(reqInfo.SenderKey()).
 		WithHeaderSource(hdrSrc).
 		WithEACLTable(&table),
