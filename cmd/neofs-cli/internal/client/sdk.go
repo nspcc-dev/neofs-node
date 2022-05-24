@@ -5,15 +5,26 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 
 // GetSDKClientByFlag returns default neofs-sdk-go client using the specified flag for the address.
-func GetSDKClientByFlag(key *ecdsa.PrivateKey, endpointFlag string) (*client.Client, error) {
+// On error, outputs to stderr of cmd and exits with non-zero code.
+func GetSDKClientByFlag(cmd *cobra.Command, key *ecdsa.PrivateKey, endpointFlag string) *client.Client {
+	cli, err := getSDKClientByFlag(key, endpointFlag)
+	if err != nil {
+		common.ExitOnErr(cmd, "can't create API client: %w", err)
+	}
+	return cli
+}
+
+func getSDKClientByFlag(key *ecdsa.PrivateKey, endpointFlag string) (*client.Client, error) {
 	var addr network.Address
 
 	err := addr.FromString(viper.GetString(endpointFlag))

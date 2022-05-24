@@ -338,8 +338,7 @@ func prepareSessionPrmWithOwner(
 	ownerID *user.ID,
 	prms ...clientKeySession,
 ) {
-	cli, err := internalclient.GetSDKClientByFlag(key, commonflags.RPC)
-	common.ExitOnErr(cmd, "create API client: %w", err)
+	cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
 	var sessionToken *session.Token
 	if tokenPath, _ := cmd.Flags().GetString(sessionTokenFlag); len(tokenPath) != 0 {
@@ -352,6 +351,7 @@ func prepareSessionPrmWithOwner(
 			common.ExitOnErr(cmd, "can't unmarshal session token: %w", err)
 		}
 	} else {
+		var err error
 		sessionToken, err = sessionCli.CreateSession(cli, ownerID, sessionTokenLifetime)
 		common.ExitOnErr(cmd, "", err)
 	}
@@ -387,7 +387,7 @@ func prepareSessionPrmWithOwner(
 		tok.SetIat(sessionToken.Iat())
 		tok.SetNbf(sessionToken.Nbf())
 
-		err = tok.Sign(key)
+		err := tok.Sign(key)
 		common.ExitOnErr(cmd, "session token signing: %w", err)
 
 		prms[i].SetClient(cli)

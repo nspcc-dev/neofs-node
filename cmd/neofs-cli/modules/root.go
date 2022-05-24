@@ -152,8 +152,7 @@ func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
 
 // creates NeoFS API client and writes it to target along with the private key.
 func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...clientWithKey) {
-	cli, err := internalclient.GetSDKClientByFlag(key, commonflags.RPC)
-	common.ExitOnErr(cmd, "create API client: %w", err)
+	cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
 	for _, d := range dst {
 		d.SetClient(cli)

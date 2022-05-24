@@ -49,7 +49,5 @@ func verifyResponse(cmd *cobra.Command,
 }
 
 func getClient(cmd *cobra.Command, pk *ecdsa.PrivateKey) *client.Client {
-	cli, err := internalclient.GetSDKClientByFlag(pk, controlRPC)
-	common.ExitOnErr(cmd, "", err)
-	return cli
+	return internalclient.GetSDKClientByFlag(cmd, pk, controlRPC)
 }
