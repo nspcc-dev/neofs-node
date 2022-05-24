@@ -2,7 +2,8 @@ package v2
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 func WithObjectStorage(v ObjectStorage) Option {
@@ -36,8 +37,14 @@ func WithServiceResponse(resp Response, req Request) Option {
 	}
 }
 
-func WithAddress(v *addressSDK.Address) Option {
+func WithCID(v cidSDK.ID) Option {
 	return func(c *cfg) {
-		c.addr = v
+		c.cid = v
+	}
+}
+
+func WithOID(v *oidSDK.ID) Option {
+	return func(c *cfg) {
+		c.oid = v
 	}
 }

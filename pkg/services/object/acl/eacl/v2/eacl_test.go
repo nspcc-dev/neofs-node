@@ -103,11 +103,15 @@ func TestHeadRequest(t *testing.T) {
 		obj:     obj,
 	}
 
+	cid, _ := addr.ContainerID()
+	oid, _ := addr.ObjectID()
+
 	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
 		hdrSrc, err := NewMessageHeaderSource(
 			WithObjectStorage(lStorage),
 			WithServiceRequest(req),
-			WithAddress(addr))
+			WithCID(cid),
+			WithOID(&oid))
 		require.NoError(t, err)
 		return hdrSrc
 	}

@@ -8,11 +8,12 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objectSDKID "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -23,11 +24,12 @@ type cfg struct {
 
 	msg xHeaderSource
 
-	addr *objectSDKAddress.Address
+	cid cidSDK.ID
+	oid *oidSDK.ID
 }
 
 type ObjectStorage interface {
-	Head(*objectSDKAddress.Address) (*object.Object, error)
+	Head(*addressSDK.Address) (*object.Object, error)
 }
 
 type Request interface {
@@ -86,58 +88,42 @@ func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
 	return msg.GetXHeaders()
 }
 
+var errMissingOID = errors.New("object ID is missing")
+
 func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 	switch m := h.msg.(type) {
 	default:
 		panic(fmt.Sprintf("unexpected message type %T", h.msg))
 	case requestXHeaderSource:
 		switch req := m.req.(type) {
-		case *objectV2.GetRequest:
-			return h.localObjectHeaders(h.addr)
-		case *objectV2.HeadRequest:
-			return h.localObjectHeaders(h.addr)
+		case
+			*objectV2.GetRequest,
+			*objectV2.HeadRequest:
+			if h.oid == nil {
+				return nil, errMissingOID
+			}
+
+			return h.localObjectHeaders(h.cid, h.oid)
 		case
 			*objectV2.GetRangeRequest,
 			*objectV2.GetRangeHashRequest,
 			*objectV2.DeleteRequest:
-			return addressHeaders(h.addr), nil
+			if h.oid == nil {
+				return nil, errMissingOID
+			}
+
+			return addressHeaders(h.cid, h.oid), nil
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				if h.addr == nil {
-					idV2 := v.GetObjectID()
-					var id objectSDKID.ID
-
-					if idV2 != nil {
-						if err := id.ReadFromV2(*idV2); err != nil {
-							return nil, fmt.Errorf("can't parse object ID: %w", err)
-						}
-					}
-
-					cnrV2 := v.GetHeader().GetContainerID()
-					var cnr cid.ID
-
-					if cnrV2 != nil {
-						if err := cnr.ReadFromV2(*cnrV2); err != nil {
-							return nil, fmt.Errorf("can't parse container ID: %w", err)
-						}
-					}
-
-					h.addr = new(objectSDKAddress.Address)
-					h.addr.SetContainerID(cnr)
-					h.addr.SetObjectID(id)
-				}
-
-				hs := headersFromObject(object.NewFromV2(oV2), h.addr)
-
-				return hs, nil
+				return headersFromObject(object.NewFromV2(oV2), h.cid, h.oid), nil
 			}
 		case *objectV2.SearchRequest:
 			cnrV2 := req.GetBody().GetContainerID()
-			var cnr cid.ID
+			var cnr cidSDK.ID
 
 			if cnrV2 != nil {
 				if err := cnr.ReadFromV2(*cnrV2); err != nil {
@@ -150,7 +136,7 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
 		default:
-			hs, _ := h.localObjectHeaders(h.addr)
+			hs, _ := h.localObjectHeaders(h.cid, h.oid)
 			return hs, nil
 		case *objectV2.GetResponse:
 			if v, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
@@ -158,7 +144,7 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				return headersFromObject(object.NewFromV2(oV2), h.addr), nil
+				return headersFromObject(object.NewFromV2(oV2), h.cid, h.oid), nil
 			}
 		case *objectV2.HeadResponse:
 			oV2 := new(objectV2.Object)
@@ -169,10 +155,8 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 			case *objectV2.ShortHeader:
 				hdr = new(objectV2.Header)
 
-				id, _ := h.addr.ContainerID()
-
 				var idV2 refsV2.ContainerID
-				id.WriteToV2(&idV2)
+				h.cid.WriteToV2(&idV2)
 
 				hdr.SetContainerID(&idV2)
 				hdr.SetVersion(v.GetVersion())
@@ -186,30 +170,40 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 
 			oV2.SetHeader(hdr)
 
-			return headersFromObject(object.NewFromV2(oV2), h.addr), nil
+			return headersFromObject(object.NewFromV2(oV2), h.cid, h.oid), nil
 		}
 	}
 
 	return nil, nil
 }
 
-func (h *cfg) localObjectHeaders(addr *objectSDKAddress.Address) ([]eaclSDK.Header, error) {
-	obj, err := h.storage.Head(addr)
-	if err != nil {
-		// Still parse addressHeaders, because the errors is ignored in some places.
-		return addressHeaders(addr), err
+func (h *cfg) localObjectHeaders(cid cidSDK.ID, oid *oidSDK.ID) ([]eaclSDK.Header, error) {
+	var obj *objectSDK.Object
+	var err error
+
+	if oid != nil {
+		var addr addressSDK.Address
+		addr.SetContainerID(cid)
+		addr.SetObjectID(*oid)
+
+		obj, err = h.storage.Head(&addr)
+		if err == nil {
+			return headersFromObject(obj, cid, oid), nil
+		}
 	}
-	return headersFromObject(obj, addr), nil
+
+	// Still parse addressHeaders, because the errors is ignored in some places.
+	return addressHeaders(cid, oid), err
 }
 
-func cidHeader(idCnr cid.ID) sysObjHdr {
+func cidHeader(idCnr cidSDK.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectContainerID,
 		v: idCnr.EncodeToString(),
 	}
 }
 
-func oidHeader(oid objectSDKID.ID) sysObjHdr {
+func oidHeader(oid oidSDK.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectID,
 		v: oid.EncodeToString(),
@@ -223,15 +217,13 @@ func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	}
 }
 
-func addressHeaders(addr *objectSDKAddress.Address) []eaclSDK.Header {
-	cnr, _ := addr.ContainerID()
+func addressHeaders(cid cidSDK.ID, oid *oidSDK.ID) []eaclSDK.Header {
+	hh := make([]eaclSDK.Header, 0, 2)
+	hh = append(hh, cidHeader(cid))
 
-	res := make([]eaclSDK.Header, 1, 2)
-	res[0] = cidHeader(cnr)
-
-	if oid, ok := addr.ObjectID(); ok {
-		res = append(res, oidHeader(oid))
+	if oid != nil {
+		hh = append(hh, oidHeader(*oid))
 	}
 
-	return res
+	return hh
 }
