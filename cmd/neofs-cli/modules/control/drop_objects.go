@@ -6,6 +6,7 @@ import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/spf13/cobra"
@@ -18,7 +19,7 @@ var dropObjectsCmd = &cobra.Command{
 	Short: "Drop objects from the node's local storage",
 	Long:  "Drop objects from the node's local storage",
 	Run: func(cmd *cobra.Command, args []string) {
-		pk := getKey(cmd)
+		pk := key.Get(cmd)
 
 		dropObjectsList, _ := cmd.Flags().GetStringSlice(dropObjectsFlag)
 		binAddrList := make([][]byte, 0, len(dropObjectsList))

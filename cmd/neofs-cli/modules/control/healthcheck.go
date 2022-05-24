@@ -6,6 +6,7 @@ import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
@@ -34,7 +35,7 @@ func initControlHealthCheckCmd() {
 }
 
 func healthCheck(cmd *cobra.Command, _ []string) {
-	pk := getKey(cmd)
+	pk := key.Get(cmd)
 
 	cli := getClient(cmd, pk)
 

@@ -139,19 +139,13 @@ func initConfig() {
 	}
 }
 
-// getKey returns private key that was provided in global arguments.
-func getKey() (*ecdsa.PrivateKey, error) {
-	return key.GetOrGenerate()
-}
-
 type clientWithKey interface {
 	SetClient(*client.Client)
 }
 
 // reads private key from command args and call prepareAPIClientWithKey with it.
 func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
-	p, err := getKey()
-	common.ExitOnErr(cmd, "get private key: %w", err)
+	p := key.GetOrGenerate(cmd)
 
 	prepareAPIClientWithKey(cmd, p, dst...)
 }

@@ -1,4 +1,4 @@
-package cmd
+package key
 
 import (
 	"bytes"
@@ -11,13 +11,12 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/term"
 )
 
-func Test_getKey(t *testing.T) {
+func Test_getOrGenerate(t *testing.T) {
 	dir := t.TempDir()
 
 	wallPath := filepath.Join(dir, "wallet.json")
@@ -56,13 +55,13 @@ func Test_getKey(t *testing.T) {
 		Writer: io.Discard,
 	}, "")
 
-	checkKeyError(t, filepath.Join(dir, "badfile"), key.ErrInvalidKey)
+	checkKeyError(t, filepath.Join(dir, "badfile"), ErrInvalidKey)
 
 	t.Run("wallet", func(t *testing.T) {
-		checkKeyError(t, wallPath, key.ErrInvalidPassword)
+		checkKeyError(t, wallPath, ErrInvalidPassword)
 
 		in.WriteString("invalid\r")
-		checkKeyError(t, wallPath, key.ErrInvalidPassword)
+		checkKeyError(t, wallPath, ErrInvalidPassword)
 
 		in.WriteString("pass\r")
 		checkKey(t, wallPath, acc2.PrivateKey()) // default account
@@ -72,12 +71,12 @@ func Test_getKey(t *testing.T) {
 		checkKey(t, wallPath, acc1.PrivateKey())
 
 		viper.Set(commonflags.Account, "not an address")
-		checkKeyError(t, wallPath, key.ErrInvalidAddress)
+		checkKeyError(t, wallPath, ErrInvalidAddress)
 
 		acc, err := wallet.NewAccount()
 		require.NoError(t, err)
 		viper.Set(commonflags.Account, acc.Address)
-		checkKeyError(t, wallPath, key.ErrInvalidAddress)
+		checkKeyError(t, wallPath, ErrInvalidAddress)
 	})
 
 	t.Run("WIF", func(t *testing.T) {
@@ -85,10 +84,10 @@ func Test_getKey(t *testing.T) {
 	})
 
 	t.Run("NEP-2", func(t *testing.T) {
-		checkKeyError(t, nep2, key.ErrInvalidPassword)
+		checkKeyError(t, nep2, ErrInvalidPassword)
 
 		in.WriteString("invalid\r")
-		checkKeyError(t, nep2, key.ErrInvalidPassword)
+		checkKeyError(t, nep2, ErrInvalidPassword)
 
 		in.WriteString("pass\r")
 		checkKey(t, nep2, nep2Key)
@@ -96,7 +95,7 @@ func Test_getKey(t *testing.T) {
 		t.Run("password from config", func(t *testing.T) {
 			viper.Set("password", "invalid")
 			in.WriteString("pass\r")
-			checkKeyError(t, nep2, key.ErrInvalidPassword)
+			checkKeyError(t, nep2, ErrInvalidPassword)
 
 			viper.Set("password", "pass")
 			in.WriteString("invalid\r")
@@ -110,7 +109,7 @@ func Test_getKey(t *testing.T) {
 
 	t.Run("generate", func(t *testing.T) {
 		viper.Set(commonflags.GenerateKey, true)
-		actual, err := getKey()
+		actual, err := getOrGenerate()
 		require.NoError(t, err)
 		require.NotNil(t, actual)
 		for _, p := range []*keys.PrivateKey{nep2Key, rawKey, wifKey, acc1.PrivateKey(), acc2.PrivateKey()} {
@@ -121,13 +120,13 @@ func Test_getKey(t *testing.T) {
 
 func checkKeyError(t *testing.T, desc string, err error) {
 	viper.Set(commonflags.WalletPath, desc)
-	_, actualErr := getKey()
+	_, actualErr := getOrGenerate()
 	require.ErrorIs(t, actualErr, err)
 }
 
 func checkKey(t *testing.T, desc string, expected *keys.PrivateKey) {
 	viper.Set(commonflags.WalletPath, desc)
-	actual, err := getKey()
+	actual, err := getOrGenerate()
 	require.NoError(t, err)
 	require.Equal(t, &expected.PrivateKey, actual)
 }

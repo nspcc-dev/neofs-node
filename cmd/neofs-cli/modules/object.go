@@ -20,6 +20,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -318,10 +319,9 @@ type clientKeySession interface {
 }
 
 func prepareSessionPrm(cmd *cobra.Command, addr *addressSDK.Address, prms ...clientKeySession) {
-	key, err := getKey()
-	common.ExitOnErr(cmd, "get private key: %w", err)
+	pk := key.GetOrGenerate(cmd)
 
-	prepareSessionPrmWithKey(cmd, addr, key, prms...)
+	prepareSessionPrmWithKey(cmd, addr, pk, prms...)
 }
 
 func prepareSessionPrmWithKey(cmd *cobra.Command, addr *addressSDK.Address, key *ecdsa.PrivateKey, prms ...clientKeySession) {
@@ -421,10 +421,9 @@ func prepareObjectPrmRaw(cmd *cobra.Command, prm interface {
 }
 
 func putObject(cmd *cobra.Command, _ []string) {
-	key, err := getKey()
-	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
+	pk := key.GetOrGenerate(cmd)
 
-	ownerID, err := getOwnerID(key)
+	ownerID, err := getOwnerID(pk)
 	common.ExitOnErr(cmd, "", err)
 	cnr, err := getCID(cmd)
 	common.ExitOnErr(cmd, "", err)
@@ -475,7 +474,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	sessionObjectCtxAddress := addressSDK.NewAddress()
 	sessionObjectCtxAddress.SetContainerID(*cnr)
-	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, key, ownerID, &prm)
+	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, pk, ownerID, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetHeader(obj)
 

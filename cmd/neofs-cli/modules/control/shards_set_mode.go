@@ -7,6 +7,7 @@ import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,7 @@ func initControlSetShardModeCmd() {
 }
 
 func setShardMode(cmd *cobra.Command, _ []string) {
-	pk := getKey(cmd)
+	pk := key.Get(cmd)
 
 	var mode control.ShardMode
 

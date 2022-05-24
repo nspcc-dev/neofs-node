@@ -12,6 +12,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	locodedb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db"
 	airportsdb "github.com/nspcc-dev/neofs-node/pkg/util/locode/db/airports"
@@ -283,10 +284,9 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	btok, err := getBearerToken(cmd, "from")
 	common.ExitOnErr(cmd, "", err)
 
-	key, err := getKey()
-	common.ExitOnErr(cmd, "", err)
+	pk := key.GetOrGenerate(cmd)
 
-	err = btok.Sign(*key)
+	err = btok.Sign(*pk)
 	common.ExitOnErr(cmd, "", err)
 
 	to := cmd.Flag("to").Value.String()
@@ -321,10 +321,9 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		common.ExitOnErr(cmd, "", fmt.Errorf("can't read session token from %s: %w", path, err))
 	}
 
-	key, err := getKey()
-	common.ExitOnErr(cmd, "can't get private key, make sure it is provided: %w", err)
+	pk := key.GetOrGenerate(cmd)
 
-	err = stok.Sign(key)
+	err = stok.Sign(pk)
 	common.ExitOnErr(cmd, "can't sign token: %w", err)
 
 	data, err := stok.MarshalJSON()
