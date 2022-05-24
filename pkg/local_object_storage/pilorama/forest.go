@@ -43,6 +43,10 @@ func (f *memoryForest) TreeMove(cid cidSDK.ID, treeID string, op *Move) (*LogMov
 
 // TreeAddByPath implements the Forest interface.
 func (f *memoryForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, m []KeyValue) ([]LogMove, error) {
+	if !isAttributeInternal(attr) {
+		return nil, ErrNotPathAttribute
+	}
+
 	fullID := cid.String() + "/" + treeID
 	s, ok := f.treeMap[fullID]
 	if !ok {
@@ -98,6 +102,10 @@ func (f *memoryForest) Close() error {
 
 // TreeGetByPath implements the Forest interface.
 func (f *memoryForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) ([]Node, error) {
+	if !isAttributeInternal(attr) {
+		return nil, ErrNotPathAttribute
+	}
+
 	fullID := cid.String() + "/" + treeID
 	s, ok := f.treeMap[fullID]
 	if !ok {
