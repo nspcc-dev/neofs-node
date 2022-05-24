@@ -48,5 +48,16 @@ const (
 	TrashID = math.MaxUint64
 )
 
-// ErrTreeNotFound is returned when the requested tree is not found.
-var ErrTreeNotFound = errors.New("tree not found")
+var (
+	// ErrTreeNotFound is returned when the requested tree is not found.
+	ErrTreeNotFound = errors.New("tree not found")
+	// ErrNotPathAttribute is returned when the path is trying to be constructed with a non-internal
+	// attribute. Currently the only attribute allowed is AttributeFilename.
+	ErrNotPathAttribute = errors.New("attribute can't be used in path construction")
+)
+
+// isAttributeInternal returns true iff key can be used in `*ByPath` methods.
+// For such attributes an additional index is maintained in the database.
+func isAttributeInternal(key string) bool {
+	return key == AttributeFilename
+}

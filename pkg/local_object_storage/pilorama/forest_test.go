@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -206,6 +207,12 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	meta := []KeyValue{
 		{Key: AttributeVersion, Value: []byte("XXX")},
 		{Key: AttributeFilename, Value: []byte("file.txt")}}
+
+	t.Run("invalid attribute", func(t *testing.T) {
+		_, err := s.TreeAddByPath(cid, treeID, AttributeVersion, []string{"yyy"}, meta)
+		require.ErrorIs(t, err, ErrNotPathAttribute)
+	})
+
 	lm, err := s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "to"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lm))
@@ -408,24 +415,33 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 		ops[i] = Move{
 			Parent: 0,
 			Meta: Meta{
-				Time:  Timestamp(i),
-				Items: []KeyValue{{Value: make([]byte, 10)}},
+				Time: Timestamp(i),
+				Items: []KeyValue{
+					{Key: AttributeFilename, Value: []byte(strconv.Itoa(i))},
+					{Value: make([]byte, 10)},
+				},
 			},
 			Child: uint64(i) + 1,
 		}
-		rand.Read(ops[i].Meta.Items[0].Value)
+		rand.Read(ops[i].Meta.Items[1].Value)
 	}
 
 	for i := nodeCount; i < len(ops); i++ {
 		ops[i] = Move{
 			Parent: rand.Uint64() % (nodeCount + 1),
 			Meta: Meta{
-				Time:  Timestamp(i + nodeCount),
-				Items: []KeyValue{{Value: make([]byte, 10)}},
+				Time: Timestamp(i + nodeCount),
+				Items: []KeyValue{
+					{Key: AttributeFilename, Value: []byte(strconv.Itoa(i))},
+					{Value: make([]byte, 10)},
+				},
 			},
 			Child: rand.Uint64() % (nodeCount + 1),
 		}
-		rand.Read(ops[i].Meta.Items[0].Value)
+		if rand.Uint32()%5 == 0 {
+			ops[i].Parent = TrashID
+		}
+		rand.Read(ops[i].Meta.Items[1].Value)
 	}
 	for i := range ops {
 		require.NoError(t, expected.TreeApply(cid, treeID, &ops[i]))
@@ -557,6 +573,11 @@ func testTreeGetByPath(t *testing.T, s Forest) {
 			}
 		})
 	}
+
+	t.Run("invalid attribute", func(t *testing.T) {
+		_, err := s.TreeGetByPath(cid, treeID, AttributeVersion, []string{"", "TTT"}, false)
+		require.ErrorIs(t, err, ErrNotPathAttribute)
+	})
 
 	nodes, err := s.TreeGetByPath(cid, treeID, AttributeFilename, []string{"b", "cat1.jpg"}, false)
 	require.NoError(t, err)
