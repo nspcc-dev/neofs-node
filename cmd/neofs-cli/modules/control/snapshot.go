@@ -5,6 +5,7 @@ import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ var snapshotCmd = &cobra.Command{
 	Short: "Get network map snapshot",
 	Long:  "Get network map snapshot",
 	Run: func(cmd *cobra.Command, args []string) {
-		pk := getKey(cmd)
+		pk := key.Get(cmd)
 
 		req := new(control.NetmapSnapshotRequest)
 		req.SetBody(new(control.NetmapSnapshotRequest_Body))

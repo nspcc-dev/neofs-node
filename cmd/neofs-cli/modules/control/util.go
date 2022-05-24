@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -53,10 +52,4 @@ func getClient(cmd *cobra.Command, pk *ecdsa.PrivateKey) *client.Client {
 	cli, err := internalclient.GetSDKClientByFlag(pk, controlRPC)
 	common.ExitOnErr(cmd, "", err)
 	return cli
-}
-
-func getKey(cmd *cobra.Command) *ecdsa.PrivateKey {
-	pk, err := key.Get()
-	common.ExitOnErr(cmd, "", err)
-	return pk
 }

@@ -8,7 +8,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -22,7 +24,13 @@ var errCantGenerateKey = errors.New("can't generate new private key")
 // Ideally we want to touch file-system on the last step.
 // However, asking for NEP-2 password seems to be confusing if we provide a wallet.
 // This function assumes that all flags were bind to viper in a `PersistentPreRun`.
-func Get() (*ecdsa.PrivateKey, error) {
+func Get(cmd *cobra.Command) *ecdsa.PrivateKey {
+	pk, err := get()
+	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
+	return pk
+}
+
+func get() (*ecdsa.PrivateKey, error) {
 	keyDesc := viper.GetString(commonflags.WalletPath)
 	priv, err := keys.NewPrivateKeyFromWIF(keyDesc)
 	if err == nil {
@@ -47,7 +55,13 @@ func Get() (*ecdsa.PrivateKey, error) {
 }
 
 // GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
-func GetOrGenerate() (*ecdsa.PrivateKey, error) {
+func GetOrGenerate(cmd *cobra.Command) *ecdsa.PrivateKey {
+	pk, err := getOrGenerate()
+	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
+	return pk
+}
+
+func getOrGenerate() (*ecdsa.PrivateKey, error) {
 	if viper.GetBool(commonflags.GenerateKey) {
 		priv, err := keys.NewPrivateKey()
 		if err != nil {
@@ -55,7 +69,7 @@ func GetOrGenerate() (*ecdsa.PrivateKey, error) {
 		}
 		return &priv.PrivateKey, nil
 	}
-	return Get()
+	return get()
 }
 
 func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {

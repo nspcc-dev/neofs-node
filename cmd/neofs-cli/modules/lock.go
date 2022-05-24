@@ -6,6 +6,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,8 +35,7 @@ var cmdObjectLock = &cobra.Command{
 			common.ExitOnErr(cmd, fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err)
 		}
 
-		key, err := getKey()
-		common.ExitOnErr(cmd, "can't fetch private key: %w", err)
+		key := key.GetOrGenerate(cmd)
 
 		idOwner, err := getOwnerID(key)
 		common.ExitOnErr(cmd, "", err)

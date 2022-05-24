@@ -26,8 +26,7 @@ var accountingBalanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var oid user.ID
 
-		pk, err := key.GetOrGenerate()
-		common.ExitOnErr(cmd, "", err)
+		pk := key.GetOrGenerate(cmd)
 
 		balanceOwner, _ := cmd.Flags().GetString(ownerFlag)
 		if balanceOwner == "" {

@@ -15,6 +15,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -116,8 +117,7 @@ var listContainersCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var idUser user.ID
 
-		key, err := getKey()
-		common.ExitOnErr(cmd, "", err)
+		key := key.GetOrGenerate(cmd)
 
 		if containerOwner == "" {
 			user.IDFromKey(&idUser, key.PublicKey)
@@ -164,8 +164,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		tok, err := getSessionToken(sessionTokenPath)
 		common.ExitOnErr(cmd, "", err)
 
-		key, err := getKey()
-		common.ExitOnErr(cmd, "", err)
+		key := key.GetOrGenerate(cmd)
 
 		var idOwner *user.ID
 

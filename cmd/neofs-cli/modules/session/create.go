@@ -48,10 +48,7 @@ func init() {
 }
 
 func createSession(cmd *cobra.Command, _ []string) error {
-	privKey, err := key.Get()
-	if err != nil {
-		return err
-	}
+	privKey := key.Get(cmd)
 
 	var netAddr network.Address
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
