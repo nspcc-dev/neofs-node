@@ -19,7 +19,7 @@ import (
 
 const errSmallSize = 256
 
-func newEngineWithErrorThreshold(t *testing.T, dir string, errThreshold uint32) (*StorageEngine, string, [2]*shard.ID) {
+func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) (*StorageEngine, string, [2]*shard.ID) {
 	if dir == "" {
 		var err error
 
