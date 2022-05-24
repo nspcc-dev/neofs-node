@@ -55,13 +55,25 @@ func (s *Service) Shutdown() {
 	close(s.closeCh)
 }
 
-func (s *Service) Add(_ context.Context, req *AddRequest) (*AddResponse, error) {
+func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error) {
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
 
 	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
+	}
+
+	var resp *AddResponse
+	var outErr error
+	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
+		resp, outErr = c.Add(ctx, req)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	} else if resp != nil || outErr != nil {
+		return resp, outErr
 	}
 
 	log, err := s.forest.TreeMove(cid, b.GetTreeId(), &pilorama.Move{
@@ -81,13 +93,25 @@ func (s *Service) Add(_ context.Context, req *AddRequest) (*AddResponse, error) 
 	}, nil
 }
 
-func (s *Service) AddByPath(_ context.Context, req *AddByPathRequest) (*AddByPathResponse, error) {
+func (s *Service) AddByPath(ctx context.Context, req *AddByPathRequest) (*AddByPathResponse, error) {
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
 
 	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
+	}
+
+	var resp *AddByPathResponse
+	var outErr error
+	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
+		resp, outErr = c.AddByPath(ctx, req)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	} else if resp != nil || outErr != nil {
+		return resp, outErr
 	}
 
 	meta := protoToMeta(b.GetMeta())
@@ -119,13 +143,25 @@ func (s *Service) AddByPath(_ context.Context, req *AddByPathRequest) (*AddByPat
 	}, nil
 }
 
-func (s *Service) Remove(_ context.Context, req *RemoveRequest) (*RemoveResponse, error) {
+func (s *Service) Remove(ctx context.Context, req *RemoveRequest) (*RemoveResponse, error) {
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
 
 	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
+	}
+
+	var resp *RemoveResponse
+	var outErr error
+	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
+		resp, outErr = c.Remove(ctx, req)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	} else if resp != nil || outErr != nil {
+		return resp, outErr
 	}
 
 	if b.GetNodeId() == pilorama.RootID {
@@ -146,13 +182,25 @@ func (s *Service) Remove(_ context.Context, req *RemoveRequest) (*RemoveResponse
 
 // Move applies client operation to the specified tree and pushes in queue
 // for replication on other nodes.
-func (s *Service) Move(_ context.Context, req *MoveRequest) (*MoveResponse, error) {
+func (s *Service) Move(ctx context.Context, req *MoveRequest) (*MoveResponse, error) {
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
 
 	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
 	if err != nil {
 		return nil, err
+	}
+
+	var resp *MoveResponse
+	var outErr error
+	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
+		resp, outErr = c.Move(ctx, req)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	} else if resp != nil || outErr != nil {
+		return resp, outErr
 	}
 
 	if b.GetNodeId() == pilorama.RootID {
@@ -172,13 +220,25 @@ func (s *Service) Move(_ context.Context, req *MoveRequest) (*MoveResponse, erro
 	return new(MoveResponse), nil
 }
 
-func (s *Service) GetNodeByPath(_ context.Context, req *GetNodeByPathRequest) (*GetNodeByPathResponse, error) {
+func (s *Service) GetNodeByPath(ctx context.Context, req *GetNodeByPathRequest) (*GetNodeByPathResponse, error) {
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
 
 	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationGet)
 	if err != nil {
 		return nil, err
+	}
+
+	var resp *GetNodeByPathResponse
+	var outErr error
+	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
+		resp, outErr = c.GetNodeByPath(ctx, req)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	} else if resp != nil || outErr != nil {
+		return resp, outErr
 	}
 
 	attr := b.GetPathAttribute()
@@ -242,6 +302,24 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationGet)
 	if err != nil {
 		return err
+	}
+
+	var cli TreeService_GetSubTreeClient
+	var outErr error
+	err = s.forEachNode(srv.Context(), cid, func(c TreeServiceClient) bool {
+		cli, outErr = c.GetSubTree(srv.Context(), req)
+		return true
+	})
+	if err != nil {
+		return err
+	} else if outErr != nil {
+		return outErr
+	} else if cli != nil {
+		for resp, err := cli.Recv(); err == nil; resp, err = cli.Recv() {
+			if err := srv.Send(resp); err != nil {
+				return err
+			}
+		}
 	}
 
 	queue := []nodeDepthPair{{[]uint64{b.GetRootId()}, 0}}
@@ -322,6 +400,24 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer) error {
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
+
+	var cli TreeService_GetOpLogClient
+	var outErr error
+	err := s.forEachNode(srv.Context(), cid, func(c TreeServiceClient) bool {
+		cli, outErr = c.GetOpLog(srv.Context(), req)
+		return true
+	})
+	if err != nil {
+		return err
+	} else if outErr != nil {
+		return outErr
+	} else if cli != nil {
+		for resp, err := cli.Recv(); err == nil; resp, err = cli.Recv() {
+			if err := srv.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
 
 	h := b.GetHeight()
 	for {

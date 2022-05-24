@@ -14,7 +14,6 @@ import (
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 type movePair struct {
@@ -71,14 +70,11 @@ func (s *Service) replicate(ctx context.Context, rawKey []byte, op movePair) err
 		}
 
 		n.NodeInfo.IterateAddresses(func(addr string) bool {
-			cc, err := grpc.DialContext(ctx, addr)
+			c, err := dialTreeService(ctx, addr)
 			if err != nil {
 				lastErr = err
 				return false
 			}
-
-			// TODO cache clients
-			c := NewTreeServiceClient(cc)
 
 			_, lastErr = c.Apply(ctx, req)
 			return lastErr == nil
