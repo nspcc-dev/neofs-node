@@ -4,9 +4,10 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
+	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type sysObjHdr struct {
@@ -25,7 +26,7 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eaclSDK.Header {
+func headersFromObject(obj *object.Object, cid cidSDK.ID, oid *oidSDK.ID) []eaclSDK.Header {
 	var count int
 	for obj := obj; obj != nil; obj = obj.Parent() {
 		count += 9 + len(obj.Attributes())
@@ -33,11 +34,8 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 
 	res := make([]eaclSDK.Header, 0, count)
 	for ; obj != nil; obj = obj.Parent() {
-		cnr, _ := addr.ContainerID()
-		id, _ := addr.ObjectID()
-
 		res = append(res,
-			cidHeader(cnr),
+			cidHeader(cid),
 			// creation epoch
 			sysObjHdr{
 				k: acl.FilterObjectCreationEpoch,
@@ -48,7 +46,6 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 				k: acl.FilterObjectPayloadLength,
 				v: u64Value(obj.PayloadSize()),
 			},
-			oidHeader(id),
 			// object version
 			sysObjHdr{
 				k: acl.FilterObjectVersion,
@@ -60,6 +57,10 @@ func headersFromObject(obj *object.Object, addr *objectSDKAddress.Address) []eac
 				v: obj.Type().String(),
 			},
 		)
+
+		if oid != nil {
+			res = append(res, oidHeader(*oid))
+		}
 
 		if idOwner := obj.OwnerID(); idOwner != nil {
 			res = append(res, ownerIDHeader(*idOwner))

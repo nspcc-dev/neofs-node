@@ -25,6 +25,8 @@ type RequestInfo struct {
 
 	idCnr containerIDSDK.ID
 
+	// optional for some request
+	// e.g. Put, Search
 	oid *oidSDK.ID
 
 	senderKey []byte

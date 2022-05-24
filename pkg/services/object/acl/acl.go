@@ -15,7 +15,6 @@ import (
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -168,13 +167,10 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
 
-	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cid)
-	addr.SetObjectID(*reqInfo.ObjectID())
-
 	hdrSrcOpts = append(hdrSrcOpts,
 		eaclV2.WithLocalObjectStorage(c.localStorage),
-		eaclV2.WithAddress(addr),
+		eaclV2.WithCID(cid),
+		eaclV2.WithOID(reqInfo.ObjectID()),
 	)
 
 	if req, ok := msg.(eaclV2.Request); ok {
