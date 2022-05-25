@@ -288,22 +288,18 @@ func (db *DB) selectFromFKBT(
 		return
 	}
 
-	err := fkbtRoot.ForEach(func(k, _ []byte) error {
-		if matchFunc(f.Header(), k, f.Value()) {
-			fkbtLeaf := fkbtRoot.Bucket(k)
-			if fkbtLeaf == nil {
-				return nil
-			}
-
-			return fkbtLeaf.ForEach(func(k, _ []byte) error {
-				addr := prefix + string(k)
-				markAddressInCache(to, fNum, addr)
-
-				return nil
-			})
+	err := matchFunc.matchBucket(fkbtRoot, f.Header(), f.Value(), func(k, _ []byte) error {
+		fkbtLeaf := fkbtRoot.Bucket(k)
+		if fkbtLeaf == nil {
+			return nil
 		}
 
-		return nil
+		return fkbtLeaf.ForEach(func(k, _ []byte) error {
+			addr := prefix + string(k)
+			markAddressInCache(to, fNum, addr)
+
+			return nil
+		})
 	})
 	if err != nil {
 		db.log.Debug("error in FKBT selection", zap.String("error", err.Error()))
@@ -393,11 +389,7 @@ func (db *DB) selectFromList(
 			return
 		}
 
-		if err = bkt.ForEach(func(key, val []byte) error {
-			if !fMatch(f.Header(), key, f.Value()) {
-				return nil
-			}
-
+		if err = fMatch.matchBucket(bkt, f.Header(), f.Value(), func(key, val []byte) error {
 			l, err := decodeList(val)
 			if err != nil {
 				db.log.Debug("can't decode list bucket leaf",
@@ -474,11 +466,8 @@ func (db *DB) selectObjectID(
 				return
 			}
 
-			err := bkt.ForEach(func(k, v []byte) error {
-				if obj := string(k); fMatch(f.Header(), k, f.Value()) {
-					appendOID(obj)
-				}
-
+			err := fMatch.matchBucket(bkt, f.Header(), f.Value(), func(k, v []byte) error {
+				appendOID(string(k))
 				return nil
 			})
 			if err != nil {
@@ -525,7 +514,7 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFi
 			continue // ignore unknown search attributes
 		}
 
-		if !matchFunc(f[i].Header(), data, f[i].Value()) {
+		if !matchFunc.matchSlow(f[i].Header(), data, f[i].Value()) {
 			return false
 		}
 	}
