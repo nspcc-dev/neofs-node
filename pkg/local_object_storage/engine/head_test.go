@@ -40,7 +40,6 @@ func TestHeadRaw(t *testing.T) {
 	link.SetSplitID(splitID)
 
 	t.Run("virtual object split in different shards", func(t *testing.T) {
-		t.Skip("not working, see neofs-sdk-go#242")
 		s1 := testNewShard(t, 1)
 		s2 := testNewShard(t, 2)
 

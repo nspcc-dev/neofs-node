@@ -90,7 +90,6 @@ func TestDB_Get(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("raw is true", func(t *testing.T) {
-			t.Skip("not working, see neofs-sdk-go#242")
 			_, err = meta.GetRaw(db, object.AddressOf(parent), true)
 			require.Error(t, err)
 

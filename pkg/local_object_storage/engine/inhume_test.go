@@ -53,7 +53,6 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	})
 
 	t.Run("delete big object", func(t *testing.T) {
-		t.Skip("not working, see neofs-sdk-go#242")
 		s1 := testNewShard(t, 1)
 		s2 := testNewShard(t, 2)
 
