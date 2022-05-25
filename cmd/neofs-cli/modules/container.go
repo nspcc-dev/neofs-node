@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-node/pkg/core/version"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -25,7 +24,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
@@ -91,10 +89,9 @@ var (
 )
 
 var (
-	errDeleteTimeout         = errors.New("timeout: container has not been removed from sidechain")
-	errCreateTimeout         = errors.New("timeout: container has not been persisted on sidechain")
-	errSetEACLTimeout        = errors.New("timeout: EACL has not been persisted on sidechain")
-	errUnsupportedEACLFormat = errors.New("unsupported eACL format")
+	errDeleteTimeout  = errors.New("timeout: container has not been removed from sidechain")
+	errCreateTimeout  = errors.New("timeout: container has not been persisted on sidechain")
+	errSetEACLTimeout = errors.New("timeout: EACL has not been persisted on sidechain")
 )
 
 // containerCmd represents the container command
@@ -161,9 +158,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		nonce, err := parseNonce(containerNonce)
 		common.ExitOnErr(cmd, "", err)
 
-		tok, err := getSessionToken(sessionTokenPath)
-		common.ExitOnErr(cmd, "", err)
-
+		tok := common.ReadSessionToken(cmd, sessionTokenFlag)
 		key := key.GetOrGenerate(cmd)
 
 		var idOwner *user.ID
@@ -228,8 +223,7 @@ Only owner of the container has a permission to remove container.`,
 		id, err := parseContainerID(containerID)
 		common.ExitOnErr(cmd, "", err)
 
-		tok, err := getSessionToken(sessionTokenPath)
-		common.ExitOnErr(cmd, "", err)
+		tok := common.ReadSessionToken(cmd, sessionTokenFlag)
 
 		var (
 			delPrm internalclient.DeleteContainerPrm
@@ -416,11 +410,9 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		id, err := parseContainerID(containerID)
 		common.ExitOnErr(cmd, "", err)
 
-		eaclTable, err := parseEACL(eaclPathFrom)
-		common.ExitOnErr(cmd, "", err)
+		eaclTable := common.ReadEACL(cmd, eaclPathFrom)
 
-		tok, err := getSessionToken(sessionTokenPath)
-		common.ExitOnErr(cmd, "", err)
+		tok := common.ReadSessionToken(cmd, sessionTokenFlag)
 
 		eaclTable.SetCID(*id)
 		eaclTable.SetSessionToken(tok)
@@ -589,26 +581,6 @@ func init() {
 			"path to a JSON-encoded container session token",
 		)
 	}
-}
-
-// getSessionToken reads `<path>` as JSON file with session token and parses it.
-func getSessionToken(path string) (*session.Token, error) {
-	// try to read session token from file
-	var tok *session.Token
-
-	if path != "" {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("could not open file with session token: %w", err)
-		}
-
-		tok = session.NewToken()
-		if err = tok.UnmarshalJSON(data); err != nil {
-			return nil, fmt.Errorf("could not ummarshal session token from file: %w", err)
-		}
-	}
-
-	return tok, nil
 }
 
 func prettyPrintContainerList(cmd *cobra.Command, list []cid.ID) {
@@ -787,42 +759,6 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	cmd.Println(strings.Join(policy.Encode(cnr.PlacementPolicy()), "\n"))
 }
 
-func parseEACL(eaclPath string) (*eacl.Table, error) {
-	_, err := os.Stat(eaclPath) // check if `eaclPath` is an existing file
-	if err != nil {
-		return nil, errors.New("incorrect path to file with EACL")
-	}
-
-	common.PrintVerbose("Reading EACL from file: %s", eaclPath)
-
-	data, err := os.ReadFile(eaclPath)
-	if err != nil {
-		return nil, fmt.Errorf("can't read file with EACL: %w", err)
-	}
-
-	table := eacl.NewTable()
-
-	if err = table.UnmarshalJSON(data); err == nil {
-		validateAndFixEACLVersion(table)
-		common.PrintVerbose("Parsed JSON encoded EACL table")
-		return table, nil
-	}
-
-	if err = table.Unmarshal(data); err == nil {
-		validateAndFixEACLVersion(table)
-		common.PrintVerbose("Parsed binary encoded EACL table")
-		return table, nil
-	}
-
-	return nil, errUnsupportedEACLFormat
-}
-
-func validateAndFixEACLVersion(table *eacl.Table) {
-	if !version.IsValid(table.Version()) {
-		table.SetVersion(versionSDK.Current())
-	}
-}
-
 func prettyPrintEACL(cmd *cobra.Command, table *eacl.Table) {
 	common.PrettyPrintJSON(cmd, table, "eACL")
 }
@@ -836,4 +772,15 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {
 		}
 	}
 	cmd.Println()
+}
+
+func prettyPrintUnixTime(s string) string {
+	unixTime, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return "malformed"
+	}
+
+	timestamp := time.Unix(unixTime, 0)
+
+	return timestamp.String()
 }
