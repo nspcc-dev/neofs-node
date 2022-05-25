@@ -22,7 +22,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -1108,31 +1107,6 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	default:
 		return nil, nil
 	}
-}
-
-func getBearerToken(cmd *cobra.Command, flagname string) (*bearer.Token, error) {
-	path, err := cmd.Flags().GetString(flagname)
-	if err != nil || len(path) == 0 {
-		return nil, nil
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("can't read bearer token file: %w", err)
-	}
-
-	var tok bearer.Token
-	if err := tok.UnmarshalJSON(data); err != nil {
-		if err = tok.Unmarshal(data); err != nil {
-			return nil, fmt.Errorf("can't decode bearer token: %w", err)
-		}
-
-		common.PrintVerbose("Using binary encoded bearer token")
-	} else {
-		common.PrintVerbose("Using JSON encoded bearer token")
-	}
-
-	return &tok, nil
 }
 
 func getObjectRange(cmd *cobra.Command, _ []string) {

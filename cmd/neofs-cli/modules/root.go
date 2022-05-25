@@ -17,6 +17,7 @@ import (
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	controlCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/control"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
+	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -95,6 +96,7 @@ func init() {
 	rootCmd.AddCommand(sessionCli.Cmd)
 	rootCmd.AddCommand(accountingCli.Cmd)
 	rootCmd.AddCommand(controlCli.Cmd)
+	rootCmd.AddCommand(utilCli.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
@@ -164,8 +166,7 @@ type bearerPrm interface {
 }
 
 func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
-	btok, err := getBearerToken(cmd, bearerTokenFlag)
-	common.ExitOnErr(cmd, "bearer token: %w", err)
+	btok := common.ReadBearerToken(cmd, bearerTokenFlag)
 
 	prm.SetBearerToken(btok)
 }
