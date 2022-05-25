@@ -67,7 +67,6 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("parent object", func(t *testing.T) {
-		t.Skip("not working, see neofs-sdk-go#242")
 		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 		cnr := cidtest.ID()

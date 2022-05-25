@@ -138,7 +138,6 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 }
 
 func TestDB_SelectRootPhyParent(t *testing.T) {
-	t.Skip("not working, see neofs-sdk-go#242")
 	db := newDB(t)
 
 	cid := cidtest.ID()
@@ -490,7 +489,6 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 }
 
 func TestDB_SelectObjectID(t *testing.T) {
-	t.Skip("not working, see neofs-sdk-go#242")
 	db := newDB(t)
 
 	cid := cidtest.ID()

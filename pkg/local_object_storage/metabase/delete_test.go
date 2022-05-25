@@ -14,7 +14,6 @@ import (
 )
 
 func TestDB_Delete(t *testing.T) {
-	t.Skip("not working, see neofs-sdk-go#242")
 	db := newDB(t)
 
 	cid := cidtest.ID()
@@ -70,7 +69,6 @@ func TestDB_Delete(t *testing.T) {
 }
 
 func TestDeleteAllChildren(t *testing.T) {
-	t.Skip("not working, see neofs-sdk-go#242")
 	db := newDB(t)
 
 	cid := cidtest.ID()

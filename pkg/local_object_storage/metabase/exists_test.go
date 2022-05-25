@@ -68,7 +68,6 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
-		t.Skip("not working, see neofs-sdk-go#242")
 		cid := cidtest.ID()
 		parent := generateObjectWithCID(t, cid)
 
@@ -107,7 +106,6 @@ func TestDB_Exists(t *testing.T) {
 		link.SetSplitID(splitID)
 
 		t.Run("direct order", func(t *testing.T) {
-			t.Skip("not working, see neofs-sdk-go#242")
 			err := putBig(db, child)
 			require.NoError(t, err)
 
@@ -132,7 +130,6 @@ func TestDB_Exists(t *testing.T) {
 		})
 
 		t.Run("reverse order", func(t *testing.T) {
-			t.Skip("not working, see neofs-sdk-go#242")
 			err := meta.Put(db, link, nil)
 			require.NoError(t, err)
 
