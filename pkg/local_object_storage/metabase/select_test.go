@@ -367,17 +367,25 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	require.NoError(t, err)
 
 	cs, _ := raw1.PayloadChecksum()
+	payloadHash := hex.EncodeToString(cs.Value())
 
 	fs := objectSDK.SearchFilters{}
 	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		hex.EncodeToString(cs.Value()),
+		payloadHash,
 		objectSDK.MatchStringEqual)
 
 	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 	fs = objectSDK.SearchFilters{}
 	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		hex.EncodeToString(cs.Value()),
+		payloadHash[:len(payloadHash)-1],
+		objectSDK.MatchCommonPrefix)
+
+	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
+
+	fs = objectSDK.SearchFilters{}
+	fs.AddFilter(v2object.FilterHeaderPayloadHash,
+		payloadHash,
 		objectSDK.MatchStringNotEqual)
 
 	testSelect(t, db, cnr, fs, object.AddressOf(raw2))
@@ -473,6 +481,11 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "", objectSDK.MatchNotPresent)
 
 		testSelect(t, db, cnr, fs)
+
+		fs = objectSDK.SearchFilters{}
+		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "1", objectSDK.MatchCommonPrefix)
+
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 	})
 
 	t.Run("object with version", func(t *testing.T) {
@@ -771,7 +784,7 @@ func BenchmarkSelect(b *testing.B) {
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
 	for i := 0; i < b.N; i++ {
-		res, err := meta.Select(db, &cid, fs)
+		res, err := meta.Select(db, cid, fs)
 		if err != nil {
 			b.Fatal(err)
 		}
