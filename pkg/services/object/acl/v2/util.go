@@ -164,29 +164,19 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, *keys.PublicKey, error)
 	var tokV2 sessionV2.Token
 	token.WriteToV2(&tokV2)
 
-	ownerSessionV2 := tokV2.GetBody().GetOwnerID()
-	if ownerSessionV2 == nil {
-		return nil, nil, errors.New("missing session owner")
-	}
-
-	var ownerSession user.ID
-
-	err := ownerSession.ReadFromV2(*ownerSessionV2)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid session token: %w", err)
-	}
-
 	tokenIssuerKey, err := unmarshalPublicKey(tokV2.GetSignature().GetKey())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid key in session token signature: %w", err)
 	}
 
-	if !isOwnerFromKey(&ownerSession, tokenIssuerKey) {
+	tokenIssuer := token.Issuer()
+
+	if !isOwnerFromKey(&tokenIssuer, tokenIssuerKey) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
 	}
 
-	return &ownerSession, tokenIssuerKey, nil
+	return &tokenIssuer, tokenIssuerKey, nil
 }
 
 func originalBodySignature(v *sessionV2.RequestVerificationHeader) *refsV2.Signature {

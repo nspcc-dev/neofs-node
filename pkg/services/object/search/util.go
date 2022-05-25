@@ -88,11 +88,9 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 	var sessionInfo *util.SessionInfo
 
 	if tok := exec.prm.common.SessionToken(); tok != nil {
-		ownerSession, _ := exec.prm.common.SessionOwner()
-
 		sessionInfo = &util.SessionInfo{
 			ID:    tok.ID(),
-			Owner: ownerSession,
+			Owner: tok.Issuer(),
 		}
 	}
 

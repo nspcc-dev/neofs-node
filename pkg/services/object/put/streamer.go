@@ -87,11 +87,9 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	var sessionInfo *util.SessionInfo
 
 	if sToken != nil {
-		ownerSession, _ := prm.common.SessionOwner()
-
 		sessionInfo = &util.SessionInfo{
 			ID:    sToken.ID(),
-			Owner: ownerSession,
+			Owner: sToken.Issuer(),
 		}
 	}
 
