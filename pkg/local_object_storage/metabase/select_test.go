@@ -396,6 +396,29 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 		objectSDK.MatchNotPresent)
 
 	testSelect(t, db, cnr, fs)
+
+	t.Run("invalid hashes", func(t *testing.T) {
+		fs = objectSDK.SearchFilters{}
+		fs.AddFilter(v2object.FilterHeaderPayloadHash,
+			payloadHash[:len(payloadHash)-1],
+			objectSDK.MatchStringNotEqual)
+
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1), object.AddressOf(raw2))
+
+		fs = objectSDK.SearchFilters{}
+		fs.AddFilter(v2object.FilterHeaderPayloadHash,
+			payloadHash[:len(payloadHash)-2]+"x",
+			objectSDK.MatchCommonPrefix)
+
+		testSelect(t, db, cnr, fs)
+
+		fs = objectSDK.SearchFilters{}
+		fs.AddFilter(v2object.FilterHeaderPayloadHash,
+			payloadHash[:len(payloadHash)-3]+"x0",
+			objectSDK.MatchCommonPrefix)
+
+		testSelect(t, db, cnr, fs)
+	})
 }
 
 func TestDB_SelectWithSlowFilters(t *testing.T) {

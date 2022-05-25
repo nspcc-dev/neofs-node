@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"io/fs"
@@ -16,11 +17,16 @@ import (
 	"go.uber.org/zap"
 )
 
+type matcher struct {
+	matchSlow   func(string, []byte, string) bool
+	matchBucket func(*bbolt.Bucket, string, string, func([]byte, []byte) error) error
+}
+
 // DB represents local metabase of storage node.
 type DB struct {
 	*cfg
 
-	matchers map[object.SearchMatchType]func(string, []byte, string) bool
+	matchers map[object.SearchMatchType]matcher
 
 	boltDB *bbolt.DB
 }
@@ -60,11 +66,23 @@ func New(opts ...Option) *DB {
 
 	return &DB{
 		cfg: c,
-		matchers: map[object.SearchMatchType]func(string, []byte, string) bool{
-			object.MatchUnknown:        unknownMatcher,
-			object.MatchStringEqual:    stringEqualMatcher,
-			object.MatchStringNotEqual: stringNotEqualMatcher,
-			object.MatchCommonPrefix:   stringCommonPrefixMatcher,
+		matchers: map[object.SearchMatchType]matcher{
+			object.MatchUnknown: {
+				matchSlow:   unknownMatcher,
+				matchBucket: unknownMatcherBucket,
+			},
+			object.MatchStringEqual: {
+				matchSlow:   stringEqualMatcher,
+				matchBucket: stringEqualMatcherBucket,
+			},
+			object.MatchStringNotEqual: {
+				matchSlow:   stringNotEqualMatcher,
+				matchBucket: stringNotEqualMatcherBucket,
+			},
+			object.MatchCommonPrefix: {
+				matchSlow:   stringCommonPrefixMatcher,
+				matchBucket: stringCommonPrefixMatcherBucket,
+			},
 		},
 	}
 }
@@ -80,20 +98,130 @@ func stringifyValue(key string, objVal []byte) string {
 	}
 }
 
+// fromHexChar converts a hex character into its value and a success flag.
+func fromHexChar(c byte) (byte, bool) {
+	switch {
+	case '0' <= c && c <= '9':
+		return c - '0', true
+	case 'a' <= c && c <= 'f':
+		return c - 'a' + 10, true
+	case 'A' <= c && c <= 'F':
+		return c - 'A' + 10, true
+	}
+
+	return 0, false
+}
+
+// destringifyValue is the reverse operation for stringify value.
+// The last return value returns true if the filter CAN match any value.
+// The second return value is true iff prefix is true and the filter value is considered
+// a hex-encoded string. In this case only the first (highest) bits of the last byte should be checked.
+func destringifyValue(key, value string, prefix bool) ([]byte, bool, bool) {
+	switch key {
+	default:
+		return []byte(value), false, true
+	case v2object.FilterHeaderPayloadHash, v2object.FilterHeaderHomomorphicHash:
+		v, err := hex.DecodeString(value)
+		if err != nil {
+			if !prefix || len(value)%2 == 0 {
+				return v, false, false
+			}
+			// To match the old behaviour we need to process odd length hex strings, such as 'abc'
+			last, ok := fromHexChar(value[len(value)-1])
+			if !ok {
+				return v, false, false
+			}
+
+			v := make([]byte, hex.DecodedLen(len(value)-1)+1)
+			_, err := hex.Decode(v, []byte(value[:len(value)-1]))
+			if err != nil {
+				return nil, false, false
+			}
+			v[len(v)-1] = last
+
+			return v, true, true
+		}
+		return v, false, err == nil
+	case v2object.FilterHeaderCreationEpoch, v2object.FilterHeaderPayloadLength:
+		u, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, false, false
+		}
+		raw := make([]byte, 8)
+		binary.LittleEndian.PutUint64(raw, u)
+		return raw, false, true
+	}
+}
+
 func stringEqualMatcher(key string, objVal []byte, filterVal string) bool {
 	return stringifyValue(key, objVal) == filterVal
+}
+
+func stringEqualMatcherBucket(b *bbolt.Bucket, fKey string, fValue string, f func([]byte, []byte) error) error {
+	// Ignore the second return value because we check for strict equality.
+	val, _, ok := destringifyValue(fKey, fValue, false)
+	if !ok {
+		return nil
+	}
+	if data := b.Get(val); data != nil {
+		return f(val, data)
+	}
+	if b.Bucket(val) != nil {
+		return f(val, nil)
+	}
+	return nil
 }
 
 func stringNotEqualMatcher(key string, objVal []byte, filterVal string) bool {
 	return stringifyValue(key, objVal) != filterVal
 }
 
+func stringNotEqualMatcherBucket(b *bbolt.Bucket, fKey string, fValue string, f func([]byte, []byte) error) error {
+	// Ignore the second return value because we check for strict inequality.
+	val, _, ok := destringifyValue(fKey, fValue, false)
+	return b.ForEach(func(k, v []byte) error {
+		if !ok || !bytes.Equal(val, k) {
+			return f(k, v)
+		}
+		return nil
+	})
+}
+
 func stringCommonPrefixMatcher(key string, objVal []byte, filterVal string) bool {
 	return strings.HasPrefix(stringifyValue(key, objVal), filterVal)
 }
 
+func stringCommonPrefixMatcherBucket(b *bbolt.Bucket, fKey string, fVal string, f func([]byte, []byte) error) error {
+	val, checkLast, ok := destringifyValue(fKey, fVal, true)
+	if !ok {
+		return nil
+	}
+
+	prefix := val
+	if checkLast {
+		prefix = val[:len(val)-1]
+	}
+
+	c := b.Cursor()
+	for k, v := c.Seek(val); bytes.HasPrefix(k, prefix); k, v = c.Next() {
+		if checkLast && (len(k) == len(prefix) || k[len(prefix)]>>4 != val[len(val)-1]) {
+			// If the last byte doesn't match, this means the prefix does no longer match,
+			// so we need to break here.
+			break
+		}
+		if err := f(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func unknownMatcher(_ string, _ []byte, _ string) bool {
 	return false
+}
+
+func unknownMatcherBucket(_ *bbolt.Bucket, _ string, _ string, _ func([]byte, []byte) error) error {
+	return nil
 }
 
 // bucketKeyHelper returns byte representation of val that is used as a key
