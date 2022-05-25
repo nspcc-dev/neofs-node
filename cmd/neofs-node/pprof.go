@@ -26,7 +26,9 @@ func initProfiler(c *cfg) {
 	)
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
-		fatalOnErr(srv.Serve())
+		runAndLog(c, "profiler", false, func(c *cfg) {
+			fatalOnErr(srv.Serve())
+		})
 	}))
 
 	c.closers = append(c.closers, func() {
