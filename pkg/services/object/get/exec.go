@@ -109,11 +109,9 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 	var sessionInfo *util.SessionInfo
 
 	if tok := exec.prm.common.SessionToken(); tok != nil {
-		ownerSession, _ := exec.prm.common.SessionOwner()
-
 		sessionInfo = &util.SessionInfo{
 			ID:    tok.ID(),
-			Owner: ownerSession,
+			Owner: tok.Issuer(),
 		}
 	}
 

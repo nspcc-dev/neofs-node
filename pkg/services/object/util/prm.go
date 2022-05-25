@@ -1,14 +1,12 @@
 package util
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // maxLocalTTL is maximum TTL for an operation to be considered local.
@@ -26,8 +24,6 @@ type CommonPrm struct {
 	ttl uint32
 
 	xhdrs []string
-
-	ownerSession user.ID
 }
 
 // TTL returns TTL for new requests.
@@ -72,14 +68,6 @@ func (p *CommonPrm) SessionToken() *sessionsdk.Object {
 	return nil
 }
 
-func (p *CommonPrm) SessionOwner() (user.ID, bool) {
-	if p != nil && p.token != nil {
-		return p.ownerSession, true
-	}
-
-	return user.ID{}, false
-}
-
 func (p *CommonPrm) BearerToken() *bearer.Token {
 	if p != nil {
 		return p.bearer
@@ -117,19 +105,8 @@ func CommonPrmFromV2(req interface {
 
 	var tokenSession *sessionsdk.Object
 	var err error
-	var ownerSession user.ID
 
 	if tokenSessionV2 := meta.GetSessionToken(); tokenSessionV2 != nil {
-		ownerSessionV2 := tokenSessionV2.GetBody().GetOwnerID()
-		if ownerSessionV2 == nil {
-			return nil, errors.New("missing session owner")
-		}
-
-		err = ownerSession.ReadFromV2(*ownerSessionV2)
-		if err != nil {
-			return nil, fmt.Errorf("invalid session token: %w", err)
-		}
-
 		tokenSession = new(sessionsdk.Object)
 
 		err = tokenSession.ReadFromV2(*tokenSessionV2)
@@ -142,11 +119,10 @@ func CommonPrmFromV2(req interface {
 	ttl := meta.GetTTL()
 
 	prm := &CommonPrm{
-		local:        ttl <= maxLocalTTL,
-		token:        tokenSession,
-		ttl:          ttl - 1, // decrease TTL for new requests
-		xhdrs:        make([]string, 0, 2*len(xHdrs)),
-		ownerSession: ownerSession,
+		local: ttl <= maxLocalTTL,
+		token: tokenSession,
+		ttl:   ttl - 1, // decrease TTL for new requests
+		xhdrs: make([]string, 0, 2*len(xHdrs)),
 	}
 
 	if tok := meta.GetBearerToken(); tok != nil {

@@ -51,11 +51,9 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 	var sessionInfo *util.SessionInfo
 
 	if tok := t.commonPrm.SessionToken(); tok != nil {
-		ownerSession, _ := t.commonPrm.SessionOwner()
-
 		sessionInfo = &util.SessionInfo{
 			ID:    tok.ID(),
-			Owner: ownerSession,
+			Owner: tok.Issuer(),
 		}
 	}
 
