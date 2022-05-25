@@ -184,7 +184,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		signedData:      binCID,
 	})
 	if err != nil {
-		return fmt.Errorf("auth container creation: %w", err)
+		return fmt.Errorf("auth container removal: %w", err)
 	}
 
 	return nil
