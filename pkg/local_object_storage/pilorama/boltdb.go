@@ -17,6 +17,8 @@ type boltForest struct {
 	db   *bbolt.DB
 }
 
+const defaultMaxBatchSize = 10
+
 var (
 	dataBucket = []byte{0}
 	logBucket  = []byte{1}
@@ -54,6 +56,7 @@ func (t *boltForest) Open() error {
 		return err
 	}
 
+	db.MaxBatchSize = defaultMaxBatchSize
 	t.db = db
 
 	return db.Update(func(tx *bbolt.Tx) error {
@@ -73,7 +76,7 @@ func (t *boltForest) Close() error { return t.db.Close() }
 // TreeMove implements the Forest interface.
 func (t *boltForest) TreeMove(cid cidSDK.ID, treeID string, m *Move) (*LogMove, error) {
 	var lm *LogMove
-	return lm, t.db.Update(func(tx *bbolt.Tx) error {
+	return lm, t.db.Batch(func(tx *bbolt.Tx) error {
 		bLog, bTree, err := t.getTreeBuckets(tx, cid, treeID)
 		if err != nil {
 			return err
@@ -97,7 +100,7 @@ func (t *boltForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, pa
 	var lm []LogMove
 	var key [17]byte
 
-	err := t.db.Update(func(tx *bbolt.Tx) error {
+	err := t.db.Batch(func(tx *bbolt.Tx) error {
 		bLog, bTree, err := t.getTreeBuckets(tx, cid, treeID)
 		if err != nil {
 			return err
@@ -171,7 +174,7 @@ func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 
 // TreeApply implements the Forest interface.
 func (t *boltForest) TreeApply(cid cidSDK.ID, treeID string, m *Move) error {
-	return t.db.Update(func(tx *bbolt.Tx) error {
+	return t.db.Batch(func(tx *bbolt.Tx) error {
 		bLog, bTree, err := t.getTreeBuckets(tx, cid, treeID)
 		if err != nil {
 			return err
