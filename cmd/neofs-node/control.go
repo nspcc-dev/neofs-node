@@ -55,7 +55,9 @@ func initControlService(c *cfg) {
 	control.RegisterControlServiceServer(c.cfgControlService.server, ctlSvc)
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		fatalOnErr(c.cfgControlService.server.Serve(lis))
+		runAndLog(c, "control", false, func(c *cfg) {
+			fatalOnErr(c.cfgControlService.server.Serve(lis))
+		})
 	}))
 }
 

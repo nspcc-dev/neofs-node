@@ -207,7 +207,9 @@ func listenMorphNotifications(c *cfg) {
 	fatalOnErr(err)
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		lis.ListenWithError(ctx, c.internalErr)
+		runAndLog(c, "morph notification", false, func(c *cfg) {
+			lis.ListenWithError(ctx, c.internalErr)
+		})
 	}))
 
 	setNetmapNotificationParser(c, newEpochNotification, netmapEvent.ParseNewEpoch)

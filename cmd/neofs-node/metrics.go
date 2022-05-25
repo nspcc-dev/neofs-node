@@ -27,7 +27,9 @@ func initMetrics(c *cfg) {
 	)
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
-		fatalOnErr(srv.Serve())
+		runAndLog(c, "metrics", false, func(c *cfg) {
+			fatalOnErr(srv.Serve())
+		})
 	}))
 
 	c.closers = append(c.closers, func() {
