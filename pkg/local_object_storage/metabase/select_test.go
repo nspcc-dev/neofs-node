@@ -2,11 +2,13 @@ package meta_test
 
 import (
 	"encoding/hex"
+	"strconv"
 	"testing"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -726,4 +728,55 @@ func TestDB_SelectContainerID(t *testing.T) {
 
 		testSelect(t, db, cnr, fs)
 	})
+}
+
+func BenchmarkSelect(b *testing.B) {
+	const objCount = 1000
+	db := newDB(b)
+	cid := cidtest.ID()
+
+	for i := 0; i < objCount; i++ {
+		var attr objectSDK.Attribute
+		attr.SetKey("myHeader")
+		attr.SetValue(strconv.Itoa(i))
+		obj := generateObjectWithCID(b, cid)
+		obj.SetAttributes(attr)
+		require.NoError(b, meta.Put(db, obj, nil))
+	}
+
+	b.Run("string equal", func(b *testing.B) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter("myHeader", strconv.Itoa(objCount/2), objectSDK.MatchStringEqual)
+		benchmarkSelect(b, db, cid, fs, 1)
+	})
+	b.Run("string not equal", func(b *testing.B) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter("myHeader", strconv.Itoa(objCount/2), objectSDK.MatchStringNotEqual)
+		benchmarkSelect(b, db, cid, fs, objCount-1)
+	})
+	b.Run("common prefix", func(b *testing.B) {
+		prefix := "99"
+		n := 1 /* 99 */ + 10 /* 990..999 */
+
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter("myHeader", prefix, objectSDK.MatchCommonPrefix)
+		benchmarkSelect(b, db, cid, fs, n)
+	})
+	b.Run("unknown", func(b *testing.B) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter("myHeader", strconv.Itoa(objCount/2), objectSDK.MatchUnknown)
+		benchmarkSelect(b, db, cid, fs, 0)
+	})
+}
+
+func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
+	for i := 0; i < b.N; i++ {
+		res, err := meta.Select(db, &cid, fs)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(res) != expected {
+			b.Fatalf("expected %d items, got %d", expected, len(res))
+		}
+	}
 }
