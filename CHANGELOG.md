@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Updated
+- Neo-go 0.98.2 => 0.98.3 (#1430)
+
 ### Added
 - Config examples for Inner ring application (#1358)
 - Command for documentation generation for `neofs-cli`, `neofs-adm` and `neofs-lens` (#1396)

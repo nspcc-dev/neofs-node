@@ -15,7 +15,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.4.0
 	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
 	github.com/nspcc-dev/hrw v1.0.9
-	github.com/nspcc-dev/neo-go v0.98.2
+	github.com/nspcc-dev/neo-go v0.98.3
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220321144137-d5a9af5860af // indirect
 	github.com/nspcc-dev/neofs-api-go/v2 v2.12.1
 	github.com/nspcc-dev/neofs-contract v0.15.1
