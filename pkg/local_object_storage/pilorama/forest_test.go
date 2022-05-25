@@ -474,6 +474,9 @@ const benchNodeCount = 1000
 
 func BenchmarkApplySequential(b *testing.B) {
 	for i := range providers {
+		if providers[i].name == "inmemory" { // memory backend is not thread-safe
+			continue
+		}
 		b.Run(providers[i].name, func(b *testing.B) {
 			benchmarkApply(b, providers[i].construct(b), func(opCount int) []Move {
 				ops := make([]Move, opCount)
@@ -499,6 +502,9 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 	const blockSize = 10
 
 	for i := range providers {
+		if providers[i].name == "inmemory" { // memory backend is not thread-safe
+			continue
+		}
 		b.Run(providers[i].name, func(b *testing.B) {
 			benchmarkApply(b, providers[i].construct(b), func(opCount int) []Move {
 				ops := make([]Move, opCount)
@@ -529,14 +535,22 @@ func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 	ops := genFunc(b.N)
 	cid := cidtest.ID()
 	treeID := "version"
+	ch := make(chan *Move, b.N)
+	for i := range ops {
+		ch <- &ops[i]
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := range ops {
-		if err := s.TreeApply(cid, treeID, &ops[i]); err != nil {
-			b.Fatalf("error in `Apply`: %v", err)
+	b.SetParallelism(50)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			op := <-ch
+			if err := s.TreeApply(cid, treeID, op); err != nil {
+				b.Fatalf("error in `Apply`: %v", err)
+			}
 		}
-	}
+	})
 }
 
 func TestTreeGetByPath(t *testing.T) {
