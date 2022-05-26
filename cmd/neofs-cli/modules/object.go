@@ -1040,7 +1040,7 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 			cmd.Printf("  %s=%s (%s)\n",
 				attr.Key(),
 				attr.Value(),
-				prettyPrintUnixTime(attr.Value()))
+				common.PrettyPrintUnixTime(attr.Value()))
 			continue
 		}
 		cmd.Printf("  %s=%s\n", attr.Key(), attr.Value())
