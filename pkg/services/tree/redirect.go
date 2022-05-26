@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
@@ -24,10 +23,9 @@ func (s *Service) forEachNode(ctx context.Context, cid cidSDK.ID, f func(c TreeS
 		return fmt.Errorf("can't get container nodes for %s: %w", cid, err)
 	}
 
-	rawPub := (*keys.PublicKey)(&s.key.PublicKey).Bytes()
 	nodes := cntNodes.Flatten()
 	for _, node := range nodes {
-		if bytes.Equal(node.PublicKey(), rawPub) {
+		if bytes.Equal(node.PublicKey(), s.rawPub) {
 			return nil
 		}
 	}
