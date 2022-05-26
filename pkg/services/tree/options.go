@@ -3,6 +3,7 @@ package tree
 import (
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -12,6 +13,7 @@ import (
 type cfg struct {
 	log       *zap.Logger
 	key       *ecdsa.PrivateKey
+	rawPub    []byte
 	nmSource  netmap.Source
 	cnrSource container.Source
 	forest    pilorama.Forest
@@ -41,6 +43,7 @@ func WithNetmapSource(src netmap.Source) Option {
 func WithPrivateKey(key *ecdsa.PrivateKey) Option {
 	return func(c *cfg) {
 		c.key = key
+		c.rawPub = (*keys.PublicKey)(&key.PublicKey).Bytes()
 	}
 }
 
