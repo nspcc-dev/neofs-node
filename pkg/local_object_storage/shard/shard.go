@@ -38,6 +38,9 @@ type ExpiredTombstonesCallback func(context.Context, []meta.TombstonedObject)
 // ExpiredObjectsCallback is a callback handling list of expired objects.
 type ExpiredObjectsCallback func(context.Context, []*addressSDK.Address)
 
+// DeletedLockCallback is a callback handling list of deleted LOCK objects.
+type DeletedLockCallback func(context.Context, []*addressSDK.Address)
+
 type cfg struct {
 	m sync.RWMutex
 
@@ -62,6 +65,8 @@ type cfg struct {
 	expiredTombstonesCallback ExpiredTombstonesCallback
 
 	expiredLocksCallback ExpiredObjectsCallback
+
+	deletedLockCallBack DeletedLockCallback
 
 	tsSource TombstoneSource
 }
@@ -226,6 +231,14 @@ func WithMode(v Mode) Option {
 func WithTombstoneSource(v TombstoneSource) Option {
 	return func(c *cfg) {
 		c.tsSource = v
+	}
+}
+
+// WitDeletedLockCallback returns option to specify callback
+// of the deleted LOCK objects handler.
+func WitDeletedLockCallback(v DeletedLockCallback) Option {
+	return func(c *cfg) {
+		c.deletedLockCallBack = v
 	}
 }
 

@@ -16,10 +16,21 @@ type InhumePrm struct {
 	tomb *addressSDK.Address
 
 	target []*addressSDK.Address
+
+	skipLockObjectHandling bool
 }
 
 // InhumeRes encapsulates results of Inhume operation.
-type InhumeRes struct{}
+type InhumeRes struct {
+	deletedLockObj []*addressSDK.Address
+}
+
+// DeletedLockObjects returns deleted object of LOCK
+// type. Returns always nil if WithoutLockObjectHandling
+// was provided to the InhumePrm.
+func (i InhumeRes) DeletedLockObjects() []*addressSDK.Address {
+	return i.deletedLockObj
+}
 
 // WithAddresses sets a list of object addresses that should be inhumed.
 func (p *InhumePrm) WithAddresses(addrs ...*addressSDK.Address) *InhumePrm {
@@ -53,6 +64,16 @@ func (p *InhumePrm) WithGCMark() *InhumePrm {
 	return p
 }
 
+// WithoutLockObjectHandling skips checking if there were
+// any LOCK object among the targets set via WithAddresses.
+func (p *InhumePrm) WithoutLockObjectHandling() *InhumePrm {
+	if p != nil {
+		p.skipLockObjectHandling = true
+	}
+
+	return p
+}
+
 // Inhume inhumes the object by specified address.
 //
 // tomb should not be nil.
@@ -72,6 +93,8 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.
 func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
+	res = new(InhumeRes)
+
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)
 
@@ -166,19 +189,18 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 				if err != nil {
 					return err
 				}
-			} else {
-				// garbage object can probably lock some objects, so they should become
-				// unlocked after its decay
-				err = freePotentialLocks(tx, cnr, id)
-				if err != nil {
-					return fmt.Errorf("free potential locks: %w", err)
-				}
 			}
 
 			// consider checking if target is already in graveyard?
 			err = bkt.Put(targetKey, value)
 			if err != nil {
 				return err
+			}
+
+			if !prm.skipLockObjectHandling {
+				if isLockObject(tx, cnr, id) {
+					res.deletedLockObj = append(res.deletedLockObj, prm.target[i])
+				}
 			}
 		}
 

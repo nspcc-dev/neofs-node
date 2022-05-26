@@ -180,3 +180,17 @@ func (e *StorageEngine) processExpiredLocks(ctx context.Context, lockers []*addr
 		}
 	})
 }
+
+func (e *StorageEngine) processDeletedLocks(ctx context.Context, lockers []*addressSDK.Address) {
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+		sh.HandleDeletedLocks(lockers)
+
+		select {
+		case <-ctx.Done():
+			e.log.Info("interrupt processing the deleted locks by context")
+			return true
+		default:
+			return false
+		}
+	})
+}

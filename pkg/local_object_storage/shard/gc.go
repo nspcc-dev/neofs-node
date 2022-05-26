@@ -235,7 +235,8 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	// inhume the collected objects
 	_, err = s.metaBase.Inhume(new(meta.InhumePrm).
 		WithAddresses(expired...).
-		WithGCMark(),
+		WithGCMark().
+		WithoutLockObjectHandling(), // it is guaranteed that we do not delete LOCK obj
 	)
 	if err != nil {
 		s.log.Warn("could not inhume the objects",
@@ -346,6 +347,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 
 	pInhume.WithGCMark()
 	pInhume.WithAddresses(tsAddrs...)
+	pInhume.WithoutLockObjectHandling() // it is guaranteed that we do not delete LOCK obj
 
 	// inhume tombstones
 	_, err := s.metaBase.Inhume(&pInhume)
@@ -380,10 +382,24 @@ func (s *Shard) HandleExpiredLocks(lockers []*addressSDK.Address) {
 	var pInhume meta.InhumePrm
 	pInhume.WithAddresses(lockers...)
 	pInhume.WithGCMark()
+	// locked object were handled above
+	pInhume.WithoutLockObjectHandling()
 
 	_, err = s.metaBase.Inhume(&pInhume)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+}
+
+// HandleDeletedLocks unlocks all objects which were locked by lockers.
+func (s *Shard) HandleDeletedLocks(lockers []*addressSDK.Address) {
+	err := s.metaBase.FreeLockedBy(lockers)
+	if err != nil {
+		s.log.Warn("failure to unlock objects",
 			zap.String("error", err.Error()),
 		)
 

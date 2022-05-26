@@ -63,28 +63,39 @@ func TestDB_Lock(t *testing.T) {
 		err = putBig(db, obj)
 		require.NoError(t, err)
 
-		tombID := oidtest.ID()
+		lockID := oidtest.ID()
 
 		id, _ := obj.ID()
 
 		// lock the object
-		err = db.Lock(cnr, tombID, []oid.ID{id})
+		err = db.Lock(cnr, lockID, []oid.ID{id})
 		require.NoError(t, err)
 
 		var tombAddr address.Address
 		tombAddr.SetContainerID(cnr)
-		tombAddr.SetObjectID(tombID)
+		tombAddr.SetObjectID(lockID)
 
 		// try to inhume locked object using tombstone
 		err = meta.Inhume(db, objectcore.AddressOf(obj), &tombAddr)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		// inhume the tombstone
+		// free locked object
 		_, err = db.Inhume(new(meta.InhumePrm).WithAddresses(&tombAddr).WithGCMark())
 		require.NoError(t, err)
 
+		var lockAddr address.Address
+		lockAddr.SetObjectID(lockID)
+		lockAddr.SetContainerID(cnr)
+
+		err = db.FreeLockedBy([]*address.Address{&lockAddr})
+		require.NoError(t, err)
+
+		inhumePrm := new(meta.InhumePrm)
+		inhumePrm.WithAddresses(objectcore.AddressOf(obj))
+		inhumePrm.WithTombstoneAddress(&tombAddr)
+
 		// now we can inhume the object
-		err = meta.Inhume(db, objectcore.AddressOf(obj), &tombAddr)
+		_, err = db.Inhume(new(meta.InhumePrm).WithAddresses(&tombAddr).WithGCMark())
 		require.NoError(t, err)
 	})
 }
