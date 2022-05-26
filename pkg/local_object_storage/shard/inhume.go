@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"context"
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -59,6 +60,7 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 
 	var metaPrm meta.InhumePrm
 	metaPrm.WithAddresses(prm.target...)
+	metaPrm.WithLockObjectHandling()
 
 	if prm.tombstone != nil {
 		metaPrm.WithTombstoneAddress(*prm.tombstone)
@@ -66,13 +68,17 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 		metaPrm.WithGCMark()
 	}
 
-	_, err := s.metaBase.Inhume(metaPrm)
+	res, err := s.metaBase.Inhume(metaPrm)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.String("error", err.Error()),
 		)
 
 		return InhumeRes{}, fmt.Errorf("metabase inhume: %w", err)
+	}
+
+	if deletedLockObjs := res.DeletedLockObjects(); len(deletedLockObjs) != 0 {
+		s.deletedLockCallBack(context.Background(), deletedLockObjs)
 	}
 
 	return InhumeRes{}, nil

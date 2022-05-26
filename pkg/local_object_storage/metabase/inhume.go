@@ -16,10 +16,21 @@ type InhumePrm struct {
 	tomb *oid.Address
 
 	target []oid.Address
+
+	lockObjectHandling bool
 }
 
 // InhumeRes encapsulates results of Inhume operation.
-type InhumeRes struct{}
+type InhumeRes struct {
+	deletedLockObj []oid.Address
+}
+
+// DeletedLockObjects returns deleted object of LOCK
+// type. Returns always nil if WithoutLockObjectHandling
+// was provided to the InhumePrm.
+func (i InhumeRes) DeletedLockObjects() []oid.Address {
+	return i.deletedLockObj
+}
 
 // WithAddresses sets a list of object addresses that should be inhumed.
 func (p *InhumePrm) WithAddresses(addrs ...oid.Address) {
@@ -44,6 +55,14 @@ func (p *InhumePrm) WithTombstoneAddress(addr oid.Address) {
 func (p *InhumePrm) WithGCMark() {
 	if p != nil {
 		p.tomb = nil
+	}
+}
+
+// WithLockObjectHandling checks if there were
+// any LOCK object among the targets set via WithAddresses.
+func (p *InhumePrm) WithLockObjectHandling() {
+	if p != nil {
+		p.lockObjectHandling = true
 	}
 }
 
@@ -156,19 +175,18 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				if err != nil {
 					return err
 				}
-			} else {
-				// garbage object can probably lock some objects, so they should become
-				// unlocked after its decay
-				err = freePotentialLocks(tx, cnr, id)
-				if err != nil {
-					return fmt.Errorf("free potential locks: %w", err)
-				}
 			}
 
 			// consider checking if target is already in graveyard?
 			err = bkt.Put(targetKey, value)
 			if err != nil {
 				return err
+			}
+
+			if prm.lockObjectHandling {
+				if isLockObject(tx, cnr, id) {
+					res.deletedLockObj = append(res.deletedLockObj, prm.target[i])
+				}
 			}
 		}
 

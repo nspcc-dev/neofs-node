@@ -395,3 +395,15 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 		return
 	}
 }
+
+// HandleDeletedLocks unlocks all objects which were locked by lockers.
+func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
+	err := s.metaBase.FreeLockedBy(lockers)
+	if err != nil {
+		s.log.Warn("failure to unlock objects",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+}
