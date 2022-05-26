@@ -171,3 +171,8 @@ func firstIrregularObjectType(tx *bbolt.Tx, idCnr cid.ID, objs ...[]byte) object
 
 	return object.TypeRegular
 }
+
+// return true if provided object is of LOCK type.
+func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {
+	return inBucket(tx, bucketNameLockers(idCnr), objectKey(obj))
+}
