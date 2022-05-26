@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -31,7 +30,6 @@ const (
 )
 
 func (s *Service) replicateLoop(ctx context.Context) {
-	rawKey := (*keys.PublicKey)(&s.key.PublicKey).Bytes()
 	for {
 		select {
 		case <-s.closeCh:
@@ -39,7 +37,7 @@ func (s *Service) replicateLoop(ctx context.Context) {
 			return
 		case op := <-s.replicateCh:
 			ctx, cancel := context.WithTimeout(ctx, defaultReplicatorTimeout)
-			err := s.replicate(ctx, rawKey, op)
+			err := s.replicate(ctx, op)
 			cancel()
 
 			if err != nil {
@@ -52,7 +50,7 @@ func (s *Service) replicateLoop(ctx context.Context) {
 	}
 }
 
-func (s *Service) replicate(ctx context.Context, rawKey []byte, op movePair) error {
+func (s *Service) replicate(ctx context.Context, op movePair) error {
 	req := newApplyRequest(&op)
 	err := signMessage(req, s.key)
 	if err != nil {
@@ -66,7 +64,7 @@ func (s *Service) replicate(ctx context.Context, rawKey []byte, op movePair) err
 
 	var node clientcore.NodeInfo
 	for _, n := range nodes {
-		if bytes.Equal(n.PublicKey(), rawKey) {
+		if bytes.Equal(n.PublicKey(), s.rawPub) {
 			continue
 		}
 
