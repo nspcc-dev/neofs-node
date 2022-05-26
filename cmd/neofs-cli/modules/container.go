@@ -755,7 +755,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 			cmd.Printf("attribute: %s=%s (%s)\n",
 				attribute.Key(),
 				attribute.Value(),
-				prettyPrintUnixTime(attribute.Value()))
+				common.PrettyPrintUnixTime(attribute.Value()))
 
 			continue
 		}
@@ -787,15 +787,4 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {
 		}
 	}
 	cmd.Println()
-}
-
-func prettyPrintUnixTime(s string) string {
-	unixTime, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return "malformed"
-	}
-
-	timestamp := time.Unix(unixTime, 0)
-
-	return timestamp.String()
 }
