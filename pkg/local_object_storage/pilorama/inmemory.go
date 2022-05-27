@@ -133,11 +133,11 @@ func (s *state) removeChild(child, parent Node) {
 	}
 }
 
-func (s *state) timestamp() Timestamp {
+func (s *state) timestamp(pos, size int) Timestamp {
 	if len(s.operations) == 0 {
-		return 0
+		return nextTimestamp(0, uint64(pos), uint64(size))
 	}
-	return s.operations[len(s.operations)-1].Time + 1
+	return nextTimestamp(s.operations[len(s.operations)-1].Time, uint64(pos), uint64(size))
 }
 
 func (s *state) findSpareID() Node {
