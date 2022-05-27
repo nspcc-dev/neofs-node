@@ -4,25 +4,18 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 var errNoSuitableNode = errors.New("no node was found to execute the request")
 
-// forEachNode executes callback for each node in the container.
-// If the node belongs to a container, nil error is returned.
-// Otherwise, f is executed for each node, stopping if true is returned.
-func (s *Service) forEachNode(ctx context.Context, cid cidSDK.ID, f func(c TreeServiceClient) bool) error {
-	cntNodes, err := s.getContainerNodes(cid)
-	if err != nil {
-		return fmt.Errorf("can't get container nodes for %s: %w", cid, err)
-	}
-
+// forEachNode executes callback for each node in the container until true is returned.
+// Returns errNoSuitableNode if there was no successful attempt to dial any node.
+func (s *Service) forEachNode(ctx context.Context, cntNodes []netmapSDK.NodeInfo, f func(c TreeServiceClient) bool) error {
 	for _, n := range cntNodes {
 		if bytes.Equal(n.PublicKey(), s.rawPub) {
 			return nil

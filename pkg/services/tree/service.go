@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -66,19 +67,22 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		return nil, err
 	}
 
-	var resp *AddResponse
-	var outErr error
-	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
-		resp, outErr = c.Add(ctx, req)
-		return true
-	})
-	if err != nil {
-		return nil, err
-	} else if resp != nil || outErr != nil {
+	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var resp *AddResponse
+		var outErr error
+		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
+			resp, outErr = c.Add(ctx, req)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 		return resp, outErr
 	}
 
-	log, err := s.forest.TreeMove(cid, b.GetTreeId(), &pilorama.Move{
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	log, err := s.forest.TreeMove(d, b.GetTreeId(), &pilorama.Move{
 		Parent: b.GetParentId(),
 		Child:  pilorama.RootID,
 		Meta:   pilorama.Meta{Items: protoToMeta(b.GetMeta())},
@@ -108,15 +112,17 @@ func (s *Service) AddByPath(ctx context.Context, req *AddByPathRequest) (*AddByP
 		return nil, err
 	}
 
-	var resp *AddByPathResponse
-	var outErr error
-	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
-		resp, outErr = c.AddByPath(ctx, req)
-		return true
-	})
-	if err != nil {
-		return nil, err
-	} else if resp != nil || outErr != nil {
+	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var resp *AddByPathResponse
+		var outErr error
+		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
+			resp, outErr = c.AddByPath(ctx, req)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 		return resp, outErr
 	}
 
@@ -127,7 +133,8 @@ func (s *Service) AddByPath(ctx context.Context, req *AddByPathRequest) (*AddByP
 		attr = pilorama.AttributeFilename
 	}
 
-	logs, err := s.forest.TreeAddByPath(cid, b.GetTreeId(), attr, b.GetPath(), meta)
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	logs, err := s.forest.TreeAddByPath(d, b.GetTreeId(), attr, b.GetPath(), meta)
 	if err != nil {
 		return nil, err
 	}
@@ -162,15 +169,17 @@ func (s *Service) Remove(ctx context.Context, req *RemoveRequest) (*RemoveRespon
 		return nil, err
 	}
 
-	var resp *RemoveResponse
-	var outErr error
-	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
-		resp, outErr = c.Remove(ctx, req)
-		return true
-	})
-	if err != nil {
-		return nil, err
-	} else if resp != nil || outErr != nil {
+	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var resp *RemoveResponse
+		var outErr error
+		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
+			resp, outErr = c.Remove(ctx, req)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 		return resp, outErr
 	}
 
@@ -178,7 +187,8 @@ func (s *Service) Remove(ctx context.Context, req *RemoveRequest) (*RemoveRespon
 		return nil, fmt.Errorf("node with ID %d is root and can't be removed", b.GetNodeId())
 	}
 
-	log, err := s.forest.TreeMove(cid, b.GetTreeId(), &pilorama.Move{
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	log, err := s.forest.TreeMove(d, b.GetTreeId(), &pilorama.Move{
 		Parent: pilorama.TrashID,
 		Child:  b.GetNodeId(),
 	})
@@ -205,15 +215,17 @@ func (s *Service) Move(ctx context.Context, req *MoveRequest) (*MoveResponse, er
 		return nil, err
 	}
 
-	var resp *MoveResponse
-	var outErr error
-	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
-		resp, outErr = c.Move(ctx, req)
-		return true
-	})
-	if err != nil {
-		return nil, err
-	} else if resp != nil || outErr != nil {
+	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var resp *MoveResponse
+		var outErr error
+		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
+			resp, outErr = c.Move(ctx, req)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 		return resp, outErr
 	}
 
@@ -221,7 +233,8 @@ func (s *Service) Move(ctx context.Context, req *MoveRequest) (*MoveResponse, er
 		return nil, fmt.Errorf("node with ID %d is root and can't be moved", b.GetNodeId())
 	}
 
-	log, err := s.forest.TreeMove(cid, b.GetTreeId(), &pilorama.Move{
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	log, err := s.forest.TreeMove(d, b.GetTreeId(), &pilorama.Move{
 		Parent: b.GetParentId(),
 		Child:  b.GetNodeId(),
 		Meta:   pilorama.Meta{Items: protoToMeta(b.GetMeta())},
@@ -247,15 +260,17 @@ func (s *Service) GetNodeByPath(ctx context.Context, req *GetNodeByPathRequest) 
 		return nil, err
 	}
 
-	var resp *GetNodeByPathResponse
-	var outErr error
-	err = s.forEachNode(ctx, cid, func(c TreeServiceClient) bool {
-		resp, outErr = c.GetNodeByPath(ctx, req)
-		return true
-	})
-	if err != nil {
-		return nil, err
-	} else if resp != nil || outErr != nil {
+	ns, _, _, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var resp *GetNodeByPathResponse
+		var outErr error
+		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
+			resp, outErr = c.GetNodeByPath(ctx, req)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 		return resp, outErr
 	}
 
@@ -325,22 +340,25 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 		return err
 	}
 
-	var cli TreeService_GetSubTreeClient
-	var outErr error
-	err = s.forEachNode(srv.Context(), cid, func(c TreeServiceClient) bool {
-		cli, outErr = c.GetSubTree(srv.Context(), req)
-		return true
-	})
-	if err != nil {
-		return err
-	} else if outErr != nil {
-		return outErr
-	} else if cli != nil {
+	ns, _, _, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var cli TreeService_GetSubTreeClient
+		var outErr error
+		err = s.forEachNode(srv.Context(), ns, func(c TreeServiceClient) bool {
+			cli, outErr = c.GetSubTree(srv.Context(), req)
+			return true
+		})
+		if err != nil {
+			return err
+		} else if outErr != nil {
+			return outErr
+		}
 		for resp, err := cli.Recv(); err == nil; resp, err = cli.Recv() {
 			if err := srv.Send(resp); err != nil {
 				return err
 			}
 		}
+		return nil
 	}
 
 	queue := []nodeDepthPair{{[]uint64{b.GetRootId()}, 0}}
@@ -391,18 +409,10 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 		return nil, err
 	}
 
-	found := false
 	key := req.GetSignature().GetKey()
-	nodes, _ := s.getContainerNodes(cid)
 
-loop:
-	for _, n := range nodes {
-		if bytes.Equal(key, n.PublicKey()) {
-			found = true
-			break loop
-		}
-	}
-	if !found {
+	_, pos, size, err := s.getContainerInfo(cid, key)
+	if err == errNotInContainer {
 		return nil, errors.New("`Apply` request must be signed by a container node")
 	}
 
@@ -413,7 +423,8 @@ loop:
 		return nil, fmt.Errorf("can't parse meta-information: %w", err)
 	}
 
-	return nil, s.forest.TreeApply(cid, req.GetBody().GetTreeId(), &pilorama.Move{
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	return nil, s.forest.TreeApply(d, req.GetBody().GetTreeId(), &pilorama.Move{
 		Parent: op.GetParentId(),
 		Child:  op.GetChildId(),
 		Meta:   meta,
@@ -428,22 +439,25 @@ func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer)
 		return err
 	}
 
-	var cli TreeService_GetOpLogClient
-	var outErr error
-	err := s.forEachNode(srv.Context(), cid, func(c TreeServiceClient) bool {
-		cli, outErr = c.GetOpLog(srv.Context(), req)
-		return true
-	})
-	if err != nil {
-		return err
-	} else if outErr != nil {
-		return outErr
-	} else if cli != nil {
+	ns, _, _, err := s.getContainerInfo(cid, s.rawPub)
+	if err == errNotInContainer {
+		var cli TreeService_GetOpLogClient
+		var outErr error
+		err := s.forEachNode(srv.Context(), ns, func(c TreeServiceClient) bool {
+			cli, outErr = c.GetOpLog(srv.Context(), req)
+			return true
+		})
+		if err != nil {
+			return err
+		} else if outErr != nil {
+			return outErr
+		}
 		for resp, err := cli.Recv(); err == nil; resp, err = cli.Recv() {
 			if err := srv.Send(resp); err != nil {
 				return err
 			}
 		}
+		return nil
 	}
 
 	h := b.GetHeight()
@@ -490,4 +504,22 @@ func metaToProto(arr []pilorama.KeyValue) []*KeyValue {
 		}
 	}
 	return meta
+}
+
+var errNotInContainer = errors.New("node doesn't belong to a container")
+
+// getContainerInfo returns the list of container nodes, position in the container for the node
+// with pub key and total amount of nodes in all replicas.
+func (s *Service) getContainerInfo(cid cidSDK.ID, pub []byte) ([]netmapSDK.NodeInfo, int, int, error) {
+	cntNodes, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	for i, node := range cntNodes {
+		if bytes.Equal(node.PublicKey(), pub) {
+			return cntNodes, i, len(cntNodes), nil
+		}
+	}
+	return nil, 0, 0, errNotInContainer
 }
