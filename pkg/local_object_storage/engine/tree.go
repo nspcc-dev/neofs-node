@@ -9,14 +9,14 @@ import (
 var _ pilorama.Forest = (*StorageEngine)(nil)
 
 // TreeMove implements the pilorama.Forest interface.
-func (e *StorageEngine) TreeMove(cid cidSDK.ID, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
+func (e *StorageEngine) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
 	var err error
 	var lm *pilorama.LogMove
-	for _, sh := range e.sortShardsByWeight(cid) {
-		lm, err = sh.TreeMove(cid, treeID, m)
+	for _, sh := range e.sortShardsByWeight(d.CID) {
+		lm, err = sh.TreeMove(d, treeID, m)
 		if err != nil {
 			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", cid),
+				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID),
 				zap.String("err", err.Error()))
 			continue
@@ -27,14 +27,14 @@ func (e *StorageEngine) TreeMove(cid cidSDK.ID, treeID string, m *pilorama.Move)
 }
 
 // TreeAddByPath implements the pilorama.Forest interface.
-func (e *StorageEngine) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, m []pilorama.KeyValue) ([]pilorama.LogMove, error) {
+func (e *StorageEngine) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, attr string, path []string, m []pilorama.KeyValue) ([]pilorama.LogMove, error) {
 	var err error
 	var lm []pilorama.LogMove
-	for _, sh := range e.sortShardsByWeight(cid) {
-		lm, err = sh.TreeAddByPath(cid, treeID, attr, path, m)
+	for _, sh := range e.sortShardsByWeight(d.CID) {
+		lm, err = sh.TreeAddByPath(d, treeID, attr, path, m)
 		if err != nil {
 			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", cid),
+				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID),
 				zap.String("err", err.Error()))
 			continue
@@ -45,13 +45,13 @@ func (e *StorageEngine) TreeAddByPath(cid cidSDK.ID, treeID string, attr string,
 }
 
 // TreeApply implements the pilorama.Forest interface.
-func (e *StorageEngine) TreeApply(cid cidSDK.ID, treeID string, m *pilorama.Move) error {
+func (e *StorageEngine) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) error {
 	var err error
-	for _, sh := range e.sortShardsByWeight(cid) {
-		err = sh.TreeApply(cid, treeID, m)
+	for _, sh := range e.sortShardsByWeight(d.CID) {
+		err = sh.TreeApply(d, treeID, m)
 		if err != nil {
 			e.log.Debug("can't put node in a tree",
-				zap.Stringer("cid", cid),
+				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID),
 				zap.String("err", err.Error()))
 			continue

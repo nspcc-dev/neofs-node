@@ -74,15 +74,19 @@ func (t *boltForest) Open() error {
 func (t *boltForest) Close() error { return t.db.Close() }
 
 // TreeMove implements the Forest interface.
-func (t *boltForest) TreeMove(cid cidSDK.ID, treeID string, m *Move) (*LogMove, error) {
+func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove, error) {
+	if !d.checkValid() {
+		return nil, ErrInvalidCIDDescriptor
+	}
+
 	var lm *LogMove
 	return lm, t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, cid, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
 		}
 
-		m.Time = t.getLatestTimestamp(bLog)
+		m.Time = t.getLatestTimestamp(bLog, d.Position, d.Size)
 		if m.Child == RootID {
 			m.Child = t.findSpareID(bTree)
 		}
@@ -92,7 +96,10 @@ func (t *boltForest) TreeMove(cid cidSDK.ID, treeID string, m *Move) (*LogMove, 
 }
 
 // TreeAddByPath implements the Forest interface.
-func (t *boltForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error) {
+func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error) {
+	if !d.checkValid() {
+		return nil, ErrInvalidCIDDescriptor
+	}
 	if !isAttributeInternal(attr) {
 		return nil, ErrNotPathAttribute
 	}
@@ -101,7 +108,7 @@ func (t *boltForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, pa
 	var key [17]byte
 
 	err := t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, cid, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
 		}
@@ -111,12 +118,13 @@ func (t *boltForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, pa
 			return err
 		}
 
+		ts := t.getLatestTimestamp(bLog, d.Position, d.Size)
 		lm = make([]LogMove, len(path)-i+1)
 		for j := i; j < len(path); j++ {
 			lm[j-i].Move = Move{
 				Parent: node,
 				Meta: Meta{
-					Time:  t.getLatestTimestamp(bLog),
+					Time:  ts,
 					Items: []KeyValue{{Key: attr, Value: []byte(path[j])}},
 				},
 				Child: t.findSpareID(bTree),
@@ -127,13 +135,14 @@ func (t *boltForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, pa
 				return err
 			}
 
+			ts = nextTimestamp(ts, uint64(d.Position), uint64(d.Size))
 			node = lm[j-i].Child
 		}
 
 		lm[len(lm)-1].Move = Move{
 			Parent: node,
 			Meta: Meta{
-				Time:  t.getLatestTimestamp(bLog),
+				Time:  ts,
 				Items: meta,
 			},
 			Child: t.findSpareID(bTree),
@@ -145,14 +154,15 @@ func (t *boltForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, pa
 
 // getLatestTimestamp returns timestamp for a new operation which is guaranteed to be bigger than
 // all timestamps corresponding to already stored operations.
-// FIXME timestamp should be based on a node position in the container.
-func (t *boltForest) getLatestTimestamp(bLog *bbolt.Bucket) uint64 {
+func (t *boltForest) getLatestTimestamp(bLog *bbolt.Bucket, pos, size int) uint64 {
+	var ts uint64
+
 	c := bLog.Cursor()
 	key, _ := c.Last()
-	if len(key) == 0 {
-		return 1
+	if len(key) != 0 {
+		ts = binary.BigEndian.Uint64(key)
 	}
-	return binary.BigEndian.Uint64(key) + 1
+	return nextTimestamp(ts, uint64(pos), uint64(size))
 }
 
 // findSpareID returns random unused ID.
@@ -173,9 +183,13 @@ func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 }
 
 // TreeApply implements the Forest interface.
-func (t *boltForest) TreeApply(cid cidSDK.ID, treeID string, m *Move) error {
+func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move) error {
+	if !d.checkValid() {
+		return ErrInvalidCIDDescriptor
+	}
+
 	return t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, cid, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
 		}
