@@ -1,19 +1,23 @@
 package pilorama
 
-import cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+import (
+	"errors"
+
+	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+)
 
 // Forest represents CRDT tree.
 type Forest interface {
 	// TreeMove moves node in the tree.
 	// If the parent of the move operation is TrashID, the node is removed.
 	// If the child of the move operation is RootID, new ID is generated and added to a tree.
-	TreeMove(cid cidSDK.ID, treeID string, m *Move) (*LogMove, error)
+	TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove, error)
 	// TreeAddByPath adds new node in the tree using provided path.
 	// The path is constructed by descending from the root using the values of the attr in meta.
 	// Internal nodes in path should have exactly one attribute, otherwise a new node is created.
-	TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error)
+	TreeAddByPath(d CIDDescriptor, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error)
 	// TreeApply applies replicated operation from another node.
-	TreeApply(cid cidSDK.ID, treeID string, m *Move) error
+	TreeApply(d CIDDescriptor, treeID string, m *Move) error
 	// TreeGetByPath returns all nodes corresponding to the path.
 	// The path is constructed by descending from the root using the values of the
 	// AttributeFilename in meta.
@@ -42,3 +46,19 @@ const (
 	AttributeFilename = "FileName"
 	AttributeVersion  = "Version"
 )
+
+// CIDDescriptor contains container ID and information about the node position
+// in the list of container nodes.
+type CIDDescriptor struct {
+	CID      cidSDK.ID
+	Position int
+	Size     int
+}
+
+// ErrInvalidCIDDescriptor is returned when info about tne node position
+// in the container is invalid.
+var ErrInvalidCIDDescriptor = errors.New("cid descriptor is invalid")
+
+func (d CIDDescriptor) checkValid() bool {
+	return 0 <= d.Position && d.Position < d.Size
+}
