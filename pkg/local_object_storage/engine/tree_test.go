@@ -24,6 +24,7 @@ func BenchmarkTreeVsSearch(b *testing.B) {
 func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 	e, _, _ := newEngineWithErrorThreshold(b, "", 0)
 	cid := cidtest.ID()
+	d := pilorama.CIDDescriptor{CID: cid, Position: 0, Size: 1}
 	treeID := "someTree"
 
 	for i := 0; i < objCount; i++ {
@@ -33,7 +34,7 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = e.TreeAddByPath(cid, treeID, pilorama.AttributeFilename, nil,
+		_, err = e.TreeAddByPath(d, treeID, pilorama.AttributeFilename, nil,
 			[]pilorama.KeyValue{{pilorama.AttributeFilename, []byte(strconv.Itoa(i))}})
 		if err != nil {
 			b.Fatal(err)
