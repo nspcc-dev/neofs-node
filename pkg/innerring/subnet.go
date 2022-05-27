@@ -31,8 +31,6 @@ type subnetHandler struct {
 	morphClient morphsubnet.Client
 
 	putValidator irsubnet.PutValidator
-
-	delValidator irsubnet.DeleteValidator
 }
 
 // configuration of subnet component.
@@ -272,51 +270,15 @@ func (s *Server) catchSubnetRemoval(e event.Event) {
 		s.handleSubnetRemoval(e)
 	})
 	if err != nil {
-		s.log.Error("subnet removal queue failure",
+		s.log.Error("subnet removal handling failure",
 			zap.String("error", err.Error()),
 		)
 	}
-}
-
-// implements irsubnet.Delete event interface required by irsubnet.DeleteValidator.
-type deleteSubnetEvent struct {
-	ev subnetevents.Delete
-}
-
-// ReadID unmarshals subnet ID from a binary NeoFS API protocol's format.
-func (x deleteSubnetEvent) ReadID(id *subnetid.ID) error {
-	return id.Unmarshal(x.ev.ID())
 }
 
 // handleSubnetRemoval handles event of subnet removal parsed via subnetevents.ParseDelete.
 func (s *Server) handleSubnetRemoval(e event.Event) {
 	delEv := e.(subnetevents.Delete) // panic occurs only if we registered handler incorrectly
-
-	err := s.subnetHandler.delValidator.Assert(deleteSubnetEvent{
-		ev: delEv,
-	})
-	if err != nil {
-		s.log.Info("discard subnet removal",
-			zap.String("reason", err.Error()),
-		)
-
-		return
-	}
-
-	// send new transaction
-	var prm morphsubnet.DeletePrm
-
-	prm.SetID(delEv.ID())
-	prm.SetTxHash(delEv.TxHash())
-
-	_, err = s.subnetHandler.morphClient.Delete(prm)
-	if err != nil {
-		s.log.Error("approve subnet removal",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
 
 	// handle subnet changes in netmap
 
