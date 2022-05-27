@@ -59,18 +59,27 @@ func TestForest_TreeMove(t *testing.T) {
 
 func testForestTreeMove(t *testing.T, s Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 
 	meta := []KeyValue{
 		{Key: AttributeVersion, Value: []byte("XXX")},
 		{Key: AttributeFilename, Value: []byte("file.txt")}}
-	lm, err := s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "to"}, meta)
+	lm, err := s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path", "to"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lm))
 
 	nodeID := lm[2].Child
+	t.Run("invalid descriptor", func(t *testing.T) {
+		_, err = s.TreeMove(CIDDescriptor{cid, 0, 0}, treeID, &Move{
+			Parent: lm[1].Child,
+			Meta:   Meta{Items: append(meta, KeyValue{Key: "NewKey", Value: []byte("NewValue")})},
+			Child:  nodeID,
+		})
+		require.ErrorIs(t, err, ErrInvalidCIDDescriptor)
+	})
 	t.Run("same parent, update meta", func(t *testing.T) {
-		_, err = s.TreeMove(cid, treeID, &Move{
+		_, err = s.TreeMove(d, treeID, &Move{
 			Parent: lm[1].Child,
 			Meta:   Meta{Items: append(meta, KeyValue{Key: "NewKey", Value: []byte("NewValue")})},
 			Child:  nodeID,
@@ -82,7 +91,7 @@ func testForestTreeMove(t *testing.T, s Forest) {
 		require.ElementsMatch(t, []Node{nodeID}, nodes)
 	})
 	t.Run("different parent", func(t *testing.T) {
-		_, err = s.TreeMove(cid, treeID, &Move{
+		_, err = s.TreeMove(d, treeID, &Move{
 			Parent: RootID,
 			Meta:   Meta{Items: append(meta, KeyValue{Key: "NewKey", Value: []byte("NewValue")})},
 			Child:  nodeID,
@@ -109,10 +118,11 @@ func TestMemoryForest_TreeGetChildren(t *testing.T) {
 
 func testForestTreeGetChildren(t *testing.T, s Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 
 	treeAdd := func(t *testing.T, child, parent Node) {
-		_, err := s.TreeMove(cid, treeID, &Move{
+		_, err := s.TreeMove(d, treeID, &Move{
 			Parent: parent,
 			Child:  child,
 		})
@@ -165,16 +175,24 @@ func TestForest_TreeAdd(t *testing.T) {
 
 func testForestTreeAdd(t *testing.T, s Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 
 	meta := []KeyValue{
 		{Key: AttributeVersion, Value: []byte("XXX")},
 		{Key: AttributeFilename, Value: []byte("file.txt")}}
-	lm, err := s.TreeMove(cid, treeID, &Move{
+	m := &Move{
 		Parent: RootID,
 		Child:  RootID,
 		Meta:   Meta{Items: meta},
+	}
+
+	t.Run("invalid descriptor", func(t *testing.T) {
+		_, err := s.TreeMove(CIDDescriptor{cid, 0, 0}, treeID, m)
+		require.ErrorIs(t, err, ErrInvalidCIDDescriptor)
 	})
+
+	lm, err := s.TreeMove(d, treeID, m)
 	require.NoError(t, err)
 
 	testMeta(t, s, cid, treeID, lm.Child, lm.Parent, Meta{Time: lm.Time, Items: meta})
@@ -202,18 +220,23 @@ func TestForest_TreeAddByPath(t *testing.T) {
 
 func testForestTreeAddByPath(t *testing.T, s Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 
 	meta := []KeyValue{
 		{Key: AttributeVersion, Value: []byte("XXX")},
 		{Key: AttributeFilename, Value: []byte("file.txt")}}
 
+	t.Run("invalid descriptor", func(t *testing.T) {
+		_, err := s.TreeAddByPath(CIDDescriptor{cid, 0, 0}, treeID, AttributeFilename, []string{"yyy"}, meta)
+		require.ErrorIs(t, err, ErrInvalidCIDDescriptor)
+	})
 	t.Run("invalid attribute", func(t *testing.T) {
-		_, err := s.TreeAddByPath(cid, treeID, AttributeVersion, []string{"yyy"}, meta)
+		_, err := s.TreeAddByPath(d, treeID, AttributeVersion, []string{"yyy"}, meta)
 		require.ErrorIs(t, err, ErrNotPathAttribute)
 	})
 
-	lm, err := s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "to"}, meta)
+	lm, err := s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path", "to"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lm))
 	testMeta(t, s, cid, treeID, lm[0].Child, lm[0].Parent, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("path")}}})
@@ -223,7 +246,7 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	testMeta(t, s, cid, treeID, firstID, lm[2].Parent, Meta{Time: lm[2].Time, Items: meta})
 
 	meta[0].Value = []byte("YYY")
-	lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "to"}, meta)
+	lm, err = s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path", "to"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lm))
 
@@ -244,7 +267,7 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 
 	meta[0].Value = []byte("ZZZ")
 	meta[1].Value = []byte("cat.jpg")
-	lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "dir"}, meta)
+	lm, err = s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path", "dir"}, meta)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lm))
 	testMeta(t, s, cid, treeID, lm[0].Child, lm[0].Parent, Meta{Time: lm[0].Time, Items: []KeyValue{{AttributeFilename, []byte("dir")}}})
@@ -253,7 +276,7 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 	t.Run("create internal nodes", func(t *testing.T) {
 		meta[0].Value = []byte("SomeValue")
 		meta[1].Value = []byte("another")
-		lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path"}, meta)
+		lm, err = s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path"}, meta)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(lm))
 
@@ -261,7 +284,7 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 
 		meta[0].Value = []byte("Leaf")
 		meta[1].Value = []byte("file.txt")
-		lm, err = s.TreeAddByPath(cid, treeID, AttributeFilename, []string{"path", "another"}, meta)
+		lm, err = s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path", "another"}, meta)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(lm))
 
@@ -299,10 +322,21 @@ func TestForest_Apply(t *testing.T) {
 
 func testForestTreeApply(t *testing.T, constructor func(t testing.TB) Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 
+	t.Run("invalid descriptor", func(t *testing.T) {
+		s := constructor(t)
+		err := s.TreeApply(CIDDescriptor{cid, 0, 0}, treeID, &Move{
+			Child:  10,
+			Parent: 0,
+			Meta:   Meta{Time: 1, Items: []KeyValue{{"grand", []byte{1}}}},
+		})
+		require.ErrorIs(t, err, ErrInvalidCIDDescriptor)
+	})
+
 	testApply := func(t *testing.T, s Forest, child, parent Node, meta Meta) {
-		require.NoError(t, s.TreeApply(cid, treeID, &Move{
+		require.NoError(t, s.TreeApply(d, treeID, &Move{
 			Child:  child,
 			Parent: parent,
 			Meta:   meta,
@@ -341,6 +375,7 @@ func TestForest_GetOpLog(t *testing.T) {
 
 func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB) Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 	logs := []Move{
 		{
@@ -366,7 +401,7 @@ func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB) Forest)
 	})
 
 	for i := range logs {
-		require.NoError(t, s.TreeApply(cid, treeID, &logs[i]))
+		require.NoError(t, s.TreeApply(d, treeID, &logs[i]))
 	}
 
 	testGetOpLog := func(t *testing.T, height uint64, m Move) {
@@ -407,6 +442,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 	)
 
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 	expected := constructor(t)
 
@@ -444,7 +480,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 		rand.Read(ops[i].Meta.Items[1].Value)
 	}
 	for i := range ops {
-		require.NoError(t, expected.TreeApply(cid, treeID, &ops[i]))
+		require.NoError(t, expected.TreeApply(d, treeID, &ops[i]))
 	}
 
 	for i := 0; i < iterCount; i++ {
@@ -453,7 +489,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 
 		actual := constructor(t)
 		for i := range ops {
-			require.NoError(t, actual.TreeApply(cid, treeID, &ops[i]))
+			require.NoError(t, actual.TreeApply(d, treeID, &ops[i]))
 		}
 		for i := uint64(0); i < nodeCount; i++ {
 			expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
@@ -534,6 +570,7 @@ func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 
 	ops := genFunc(b.N)
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 	ch := make(chan *Move, b.N)
 	for i := range ops {
@@ -546,7 +583,7 @@ func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			op := <-ch
-			if err := s.TreeApply(cid, treeID, op); err != nil {
+			if err := s.TreeApply(d, treeID, op); err != nil {
 				b.Fatalf("error in `Apply`: %v", err)
 			}
 		}
@@ -563,6 +600,7 @@ func TestTreeGetByPath(t *testing.T) {
 
 func testTreeGetByPath(t *testing.T, s Forest) {
 	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 
 	// /
@@ -572,12 +610,12 @@ func testTreeGetByPath(t *testing.T, s Forest) {
 	//    |- cat1.jpg, Version=XXX (4)
 	//    |- cat1.jpg, Version=YYY (5)
 	//    |- cat2.jpg, Version=ZZZ (6)
-	testMove(t, s, 0, 1, 0, cid, treeID, "a", "")
-	testMove(t, s, 1, 2, 0, cid, treeID, "b", "")
-	testMove(t, s, 2, 3, 1, cid, treeID, "cat1.jpg", "TTT")
-	testMove(t, s, 3, 4, 2, cid, treeID, "cat1.jpg", "XXX")
-	testMove(t, s, 4, 5, 2, cid, treeID, "cat1.jpg", "YYY")
-	testMove(t, s, 5, 6, 2, cid, treeID, "cat2.jpg", "ZZZ")
+	testMove(t, s, 0, 1, 0, d, treeID, "a", "")
+	testMove(t, s, 1, 2, 0, d, treeID, "b", "")
+	testMove(t, s, 2, 3, 1, d, treeID, "cat1.jpg", "TTT")
+	testMove(t, s, 3, 4, 2, d, treeID, "cat1.jpg", "XXX")
+	testMove(t, s, 4, 5, 2, d, treeID, "cat1.jpg", "YYY")
+	testMove(t, s, 5, 6, 2, d, treeID, "cat2.jpg", "ZZZ")
 
 	if mf, ok := s.(*memoryForest); ok {
 		single := mf.treeMap[cid.String()+"/"+treeID]
@@ -614,14 +652,14 @@ func testTreeGetByPath(t *testing.T, s Forest) {
 	})
 }
 
-func testMove(t *testing.T, s Forest, ts int, node, parent Node, cid cidSDK.ID, treeID, filename, version string) {
+func testMove(t *testing.T, s Forest, ts int, node, parent Node, d CIDDescriptor, treeID, filename, version string) {
 	items := make([]KeyValue, 1, 2)
 	items[0] = KeyValue{AttributeFilename, []byte(filename)}
 	if version != "" {
 		items = append(items, KeyValue{AttributeVersion, []byte(version)})
 	}
 
-	require.NoError(t, s.TreeApply(cid, treeID, &Move{
+	require.NoError(t, s.TreeApply(d, treeID, &Move{
 		Parent: parent,
 		Child:  node,
 		Meta: Meta{

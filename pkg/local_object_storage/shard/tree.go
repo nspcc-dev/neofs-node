@@ -8,18 +8,18 @@ import (
 var _ pilorama.Forest = (*Shard)(nil)
 
 // TreeMove implements the pilorama.Forest interface.
-func (s *Shard) TreeMove(cid cidSDK.ID, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
-	return s.pilorama.TreeMove(cid, treeID, m)
+func (s *Shard) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
+	return s.pilorama.TreeMove(d, treeID, m)
 }
 
 // TreeAddByPath implements the pilorama.Forest interface.
-func (s *Shard) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, meta []pilorama.KeyValue) ([]pilorama.LogMove, error) {
-	return s.pilorama.TreeAddByPath(cid, treeID, attr, path, meta)
+func (s *Shard) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, attr string, path []string, meta []pilorama.KeyValue) ([]pilorama.LogMove, error) {
+	return s.pilorama.TreeAddByPath(d, treeID, attr, path, meta)
 }
 
 // TreeApply implements the pilorama.Forest interface.
-func (s *Shard) TreeApply(cid cidSDK.ID, treeID string, m *pilorama.Move) error {
-	return s.pilorama.TreeApply(cid, treeID, m)
+func (s *Shard) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) error {
+	return s.pilorama.TreeApply(d, treeID, m)
 }
 
 // TreeGetByPath implements the pilorama.Forest interface.

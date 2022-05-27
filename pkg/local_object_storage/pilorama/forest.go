@@ -23,15 +23,19 @@ func NewMemoryForest() ForestStorage {
 }
 
 // TreeMove implements the Forest interface.
-func (f *memoryForest) TreeMove(cid cidSDK.ID, treeID string, op *Move) (*LogMove, error) {
-	fullID := cid.String() + "/" + treeID
+func (f *memoryForest) TreeMove(d CIDDescriptor, treeID string, op *Move) (*LogMove, error) {
+	if !d.checkValid() {
+		return nil, ErrInvalidCIDDescriptor
+	}
+
+	fullID := d.CID.String() + "/" + treeID
 	s, ok := f.treeMap[fullID]
 	if !ok {
 		s = newState()
 		f.treeMap[fullID] = s
 	}
 
-	op.Time = s.timestamp()
+	op.Time = s.timestamp(d.Position, d.Size)
 	if op.Child == RootID {
 		op.Child = s.findSpareID()
 	}
@@ -42,12 +46,15 @@ func (f *memoryForest) TreeMove(cid cidSDK.ID, treeID string, op *Move) (*LogMov
 }
 
 // TreeAddByPath implements the Forest interface.
-func (f *memoryForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, path []string, m []KeyValue) ([]LogMove, error) {
+func (f *memoryForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, path []string, m []KeyValue) ([]LogMove, error) {
+	if !d.checkValid() {
+		return nil, ErrInvalidCIDDescriptor
+	}
 	if !isAttributeInternal(attr) {
 		return nil, ErrNotPathAttribute
 	}
 
-	fullID := cid.String() + "/" + treeID
+	fullID := d.CID.String() + "/" + treeID
 	s, ok := f.treeMap[fullID]
 	if !ok {
 		s = newState()
@@ -59,8 +66,10 @@ func (f *memoryForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, 
 	for j := i; j < len(path); j++ {
 		lm[j-i] = s.do(&Move{
 			Parent: node,
-			Meta:   Meta{Time: s.timestamp(), Items: []KeyValue{{Key: attr, Value: []byte(path[j])}}},
-			Child:  s.findSpareID(),
+			Meta: Meta{
+				Time:  s.timestamp(d.Position, d.Size),
+				Items: []KeyValue{{Key: attr, Value: []byte(path[j])}}},
+			Child: s.findSpareID(),
 		})
 		node = lm[j-i].Child
 		s.operations = append(s.operations, lm[j-i])
@@ -70,15 +79,22 @@ func (f *memoryForest) TreeAddByPath(cid cidSDK.ID, treeID string, attr string, 
 	copy(mCopy, m)
 	lm[len(lm)-1] = s.do(&Move{
 		Parent: node,
-		Meta:   Meta{Time: s.timestamp(), Items: mCopy},
-		Child:  s.findSpareID(),
+		Meta: Meta{
+			Time:  s.timestamp(d.Position, d.Size),
+			Items: mCopy,
+		},
+		Child: s.findSpareID(),
 	})
 	return lm, nil
 }
 
 // TreeApply implements the Forest interface.
-func (f *memoryForest) TreeApply(cid cidSDK.ID, treeID string, op *Move) error {
-	fullID := cid.String() + "/" + treeID
+func (f *memoryForest) TreeApply(d CIDDescriptor, treeID string, op *Move) error {
+	if !d.checkValid() {
+		return ErrInvalidCIDDescriptor
+	}
+
+	fullID := d.CID.String() + "/" + treeID
 	s, ok := f.treeMap[fullID]
 	if !ok {
 		s = newState()
