@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"time"
 
-	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -60,15 +58,17 @@ func (s *Service) replicate(ctx context.Context, op movePair) error {
 		return fmt.Errorf("can't get container nodes: %w", err)
 	}
 
-	var node clientcore.NodeInfo
 	for _, n := range nodes.Flatten() {
-		var lastErr error
-
 		if bytes.Equal(n.NodeInfo.PublicKey(), s.rawPub) {
 			continue
 		}
 
+		var lastErr error
+		var lastAddr string
+
 		n.NodeInfo.IterateAddresses(func(addr string) bool {
+			lastAddr = addr
+
 			c, err := dialTreeService(ctx, addr)
 			if err != nil {
 				lastErr = err
@@ -82,8 +82,8 @@ func (s *Service) replicate(ctx context.Context, op movePair) error {
 		if lastErr != nil {
 			s.log.Warn("failed to sent update to the node",
 				zap.String("last_error", lastErr.Error()),
-				zap.String("address", network.StringifyGroup(node.AddressGroup())),
-				zap.String("key", base64.StdEncoding.EncodeToString(node.PublicKey())))
+				zap.String("address", lastAddr),
+				zap.String("key", hex.EncodeToString(n.PublicKey())))
 		}
 	}
 	return nil
