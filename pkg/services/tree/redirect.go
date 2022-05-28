@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 var errNoSuitableNode = errors.New("no node was found to execute the request")
@@ -19,7 +17,7 @@ func (s *Service) forEachNode(ctx context.Context, nodes netmap.Nodes, f func(c 
 	for _, node := range nodes {
 		var stop bool
 		node.IterateAddresses(func(endpoint string) bool {
-			c, err := dialTreeService(ctx, endpoint)
+			c, err := s.cache.get(ctx, endpoint)
 			if err != nil {
 				return false
 			}
@@ -37,17 +35,4 @@ func (s *Service) forEachNode(ctx context.Context, nodes netmap.Nodes, f func(c 
 		return errNoSuitableNode
 	}
 	return nil
-}
-
-func dialTreeService(ctx context.Context, netmapAddr string) (TreeServiceClient, error) {
-	var netAddr network.Address
-	if err := netAddr.FromString(netmapAddr); err != nil {
-		return nil, err
-	}
-
-	cc, err := grpc.DialContext(ctx, netAddr.URIAddr(), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return NewTreeServiceClient(cc), nil
 }
