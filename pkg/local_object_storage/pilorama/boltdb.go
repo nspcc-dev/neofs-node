@@ -79,8 +79,8 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 		return nil, ErrInvalidCIDDescriptor
 	}
 
-	var lm *LogMove
-	return lm, t.db.Batch(func(tx *bbolt.Tx) error {
+	var lm LogMove
+	return &lm, t.db.Batch(func(tx *bbolt.Tx) error {
 		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
@@ -90,8 +90,8 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 		if m.Child == RootID {
 			m.Child = t.findSpareID(bTree)
 		}
-		lm, err = t.applyOperation(bLog, bTree, m)
-		return err
+		lm.Move = *m
+		return t.applyOperation(bLog, bTree, &lm)
 	})
 }
 
@@ -193,8 +193,9 @@ func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move) error {
 		if err != nil {
 			return err
 		}
-		_, err = t.applyOperation(bLog, bTree, m)
-		return err
+
+		lm := &LogMove{Move: *m}
+		return t.applyOperation(bLog, bTree, lm)
 	})
 }
 
@@ -222,8 +223,7 @@ func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) 
 	return bLog, bData, nil
 }
 
-func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move) (*LogMove, error) {
-	var lm LogMove
+func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *LogMove) error {
 	var tmp LogMove
 	var cKey [17]byte
 
@@ -235,22 +235,21 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move
 	r := io.NewBinReaderFromIO(b)
 
 	// 1. Undo up until the desired timestamp is here.
-	for len(key) == 8 && binary.BigEndian.Uint64(key) > m.Time {
+	for len(key) == 8 && binary.BigEndian.Uint64(key) > lm.Time {
 		b.Reset(value)
 		if err := t.logFromBytes(&tmp, r); err != nil {
-			return nil, err
+			return err
 		}
 		if err := t.undo(&tmp.Move, &tmp, treeBucket, cKey[:]); err != nil {
-			return nil, err
+			return err
 		}
 		key, value = c.Prev()
 	}
 
 	// 2. Insert the operation.
-	if len(key) != 8 || binary.BigEndian.Uint64(key) != m.Time {
-		lm.Move = *m
-		if err := t.do(logBucket, treeBucket, cKey[:], &lm); err != nil {
-			return nil, err
+	if len(key) != 8 || binary.BigEndian.Uint64(key) != lm.Time {
+		if err := t.do(logBucket, treeBucket, cKey[:], lm); err != nil {
+			return err
 		}
 	}
 	key, value = c.Next()
@@ -259,15 +258,15 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move
 	for len(key) == 8 {
 		b.Reset(value)
 		if err := t.logFromBytes(&tmp, r); err != nil {
-			return nil, err
+			return err
 		}
 		if err := t.do(logBucket, treeBucket, cKey[:], &tmp); err != nil {
-			return nil, err
+			return err
 		}
 		key, value = c.Next()
 	}
 
-	return &lm, nil
+	return nil
 }
 
 func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMove) error {
