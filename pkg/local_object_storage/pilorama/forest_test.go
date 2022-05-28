@@ -79,24 +79,26 @@ func testForestTreeMove(t *testing.T, s Forest) {
 		require.ErrorIs(t, err, ErrInvalidCIDDescriptor)
 	})
 	t.Run("same parent, update meta", func(t *testing.T) {
-		_, err = s.TreeMove(d, treeID, &Move{
+		res, err := s.TreeMove(d, treeID, &Move{
 			Parent: lm[1].Child,
 			Meta:   Meta{Items: append(meta, KeyValue{Key: "NewKey", Value: []byte("NewValue")})},
 			Child:  nodeID,
 		})
 		require.NoError(t, err)
+		require.Equal(t, res.Child, nodeID)
 
 		nodes, err := s.TreeGetByPath(cid, treeID, AttributeFilename, []string{"path", "to", "file.txt"}, false)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []Node{nodeID}, nodes)
 	})
 	t.Run("different parent", func(t *testing.T) {
-		_, err = s.TreeMove(d, treeID, &Move{
+		res, err := s.TreeMove(d, treeID, &Move{
 			Parent: RootID,
 			Meta:   Meta{Items: append(meta, KeyValue{Key: "NewKey", Value: []byte("NewValue")})},
 			Child:  nodeID,
 		})
 		require.NoError(t, err)
+		require.Equal(t, res.Child, nodeID)
 
 		nodes, err := s.TreeGetByPath(cid, treeID, AttributeFilename, []string{"path", "to", "file.txt"}, false)
 		require.NoError(t, err)
