@@ -20,6 +20,7 @@ import (
 type Service struct {
 	cfg
 
+	cache       clientCache
 	replicateCh chan movePair
 	closeCh     chan struct{}
 }
@@ -40,6 +41,7 @@ func New(opts ...Option) *Service {
 		s.log = zap.NewNop()
 	}
 
+	s.cache.init()
 	s.closeCh = make(chan struct{})
 	s.replicateCh = make(chan movePair, defaultReplicatorCapacity)
 
@@ -402,7 +404,8 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 	}
 
 	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
-	return nil, s.forest.TreeApply(d, req.GetBody().GetTreeId(), &pilorama.Move{
+	resp := &ApplyResponse{Body: &ApplyResponse_Body{}, Signature: &Signature{}}
+	return resp, s.forest.TreeApply(d, req.GetBody().GetTreeId(), &pilorama.Move{
 		Parent: op.GetParentId(),
 		Child:  op.GetChildId(),
 		Meta:   meta,

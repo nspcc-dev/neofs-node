@@ -68,7 +68,7 @@ func (s *Service) replicate(ctx context.Context, op movePair) error {
 		n.NodeInfo.IterateAddresses(func(addr string) bool {
 			lastAddr = addr
 
-			c, err := dialTreeService(ctx, addr)
+			c, err := s.cache.get(ctx, addr)
 			if err != nil {
 				lastErr = err
 				return false
