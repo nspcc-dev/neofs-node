@@ -3,6 +3,7 @@ package tree
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -15,7 +16,10 @@ type clientCache struct {
 	simplelru.LRU
 }
 
-const defaultClientCacheSize = 10
+const (
+	defaultClientCacheSize      = 10
+	defaultClientConnectTimeout = time.Second * 2
+)
 
 func (c *clientCache) init() {
 	l, _ := simplelru.NewLRU(defaultClientCacheSize, func(key, value interface{}) {
@@ -55,9 +59,11 @@ func dialTreeService(ctx context.Context, netmapAddr string) (*grpc.ClientConn, 
 		return nil, err
 	}
 
-	cc, err := grpc.DialContext(ctx, netAddr.URIAddr(), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return cc, nil
+	ctx, cancel := context.WithTimeout(ctx, defaultClientConnectTimeout)
+	cc, err := grpc.DialContext(ctx, netAddr.URIAddr(),
+		grpc.WithInsecure(),
+		grpc.WithBlock())
+	cancel()
+
+	return cc, err
 }

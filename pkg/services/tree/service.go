@@ -18,9 +18,10 @@ import (
 type Service struct {
 	cfg
 
-	cache       clientCache
-	replicateCh chan movePair
-	closeCh     chan struct{}
+	cache            clientCache
+	replicateCh      chan movePair
+	replicationTasks chan replicationTask
+	closeCh          chan struct{}
 }
 
 // MaxGetSubTreeDepth represents maximum allowed traversal depth in GetSubTree RPC.
@@ -42,6 +43,7 @@ func New(opts ...Option) *Service {
 	s.cache.init()
 	s.closeCh = make(chan struct{})
 	s.replicateCh = make(chan movePair, defaultReplicatorCapacity)
+	s.replicationTasks = make(chan replicationTask, defaultReplicatorWorkerCount)
 
 	return &s
 }
