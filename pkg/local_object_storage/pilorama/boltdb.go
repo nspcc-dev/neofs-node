@@ -231,9 +231,13 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move
 
 	key, value := c.Last()
 
+	b := bytes.NewReader(nil)
+	r := io.NewBinReaderFromIO(b)
+
 	// 1. Undo up until the desired timestamp is here.
 	for len(key) == 8 && binary.BigEndian.Uint64(key) > m.Time {
-		if err := t.logFromBytes(&tmp, value); err != nil {
+		b.Reset(value)
+		if err := t.logFromBytes(&tmp, r); err != nil {
 			return nil, err
 		}
 		if err := t.undo(&tmp.Move, &tmp, treeBucket, cKey[:]); err != nil {
@@ -253,7 +257,8 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, m *Move
 
 	// 3. Re-apply all other operations.
 	for len(key) == 8 {
-		if err := t.logFromBytes(&tmp, value); err != nil {
+		b.Reset(value)
+		if err := t.logFromBytes(&tmp, r); err != nil {
 			return nil, err
 		}
 		if err := t.do(logBucket, treeBucket, cKey[:], &tmp); err != nil {
@@ -559,40 +564,37 @@ func (t *boltForest) moveFromBytes(m *Move, data []byte) error {
 	r := io.NewBinReaderFromBuf(data)
 	m.Child = r.ReadU64LE()
 	m.Parent = r.ReadU64LE()
-	if err := m.Meta.FromBytes(r.ReadVarBytes()); err != nil {
-		return err
-	}
+	m.Meta.DecodeBinary(r)
 	return r.Err
 }
 
-func (t *boltForest) logFromBytes(lm *LogMove, data []byte) error {
-	r := io.NewBinReaderFromBuf(data)
+func (t *boltForest) logFromBytes(lm *LogMove, r *io.BinReader) error {
 	lm.Child = r.ReadU64LE()
 	lm.Parent = r.ReadU64LE()
-	if err := lm.Meta.FromBytes(r.ReadVarBytes()); err != nil {
-		return err
-	}
-
+	lm.Meta.DecodeBinary(r)
 	lm.HasOld = r.ReadBool()
 	if lm.HasOld {
 		lm.Old.Parent = r.ReadU64LE()
-		if err := lm.Old.Meta.FromBytes(r.ReadVarBytes()); err != nil {
-			return err
-		}
+		lm.Old.Meta.DecodeBinary(r)
 	}
-
 	return r.Err
 }
 
 func (t *boltForest) logToBytes(lm *LogMove) []byte {
 	w := io.NewBufBinWriter()
+	size := 8 + 8 + lm.Meta.Size() + 1
+	if lm.HasOld {
+		size += 8 + lm.Old.Meta.Size()
+	}
+
+	w.Grow(size)
 	w.WriteU64LE(lm.Child)
 	w.WriteU64LE(lm.Parent)
-	w.WriteVarBytes(lm.Meta.Bytes())
+	lm.Meta.EncodeBinary(w.BinWriter)
 	w.WriteBool(lm.HasOld)
 	if lm.HasOld {
 		w.WriteU64LE(lm.Old.Parent)
-		w.WriteVarBytes(lm.Old.Meta.Bytes())
+		lm.Old.Meta.EncodeBinary(w.BinWriter)
 	}
 	return w.Bytes()
 }
