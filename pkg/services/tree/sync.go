@@ -15,7 +15,7 @@ import (
 
 // Synchronize tries to synchronize log starting from the last stored height.
 func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) error {
-	nodes, err := s.getContainerNodes(cid)
+	nodes, _, err := s.getContainerNodes(cid)
 	if err != nil {
 		return fmt.Errorf("can't get container nodes: %w", err)
 	}

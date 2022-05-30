@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -102,17 +100,15 @@ func (s *Service) replicate(op movePair) error {
 		return fmt.Errorf("can't sign data: %w", err)
 	}
 
-	nodes, err := s.getContainerNodes(op.cid)
+	nodes, localIndex, err := s.getContainerNodes(op.cid)
 	if err != nil {
 		return fmt.Errorf("can't get container nodes: %w", err)
 	}
 
-	for _, n := range nodes {
-		if bytes.Equal(n.PublicKey(), s.rawPub) {
-			continue
+	for i := range nodes {
+		if i != localIndex {
+			s.replicationTasks <- replicationTask{nodes[i], req}
 		}
-
-		s.replicationTasks <- replicationTask{n, req}
 	}
 	return nil
 }
@@ -126,29 +122,6 @@ func (s *Service) pushToQueue(cid cidSDK.ID, treeID string, op *pilorama.LogMove
 	}:
 	case <-s.closeCh:
 	}
-}
-
-func (s *Service) getContainerNodes(cid cidSDK.ID) ([]netmapSDK.NodeInfo, error) {
-	nm, err := s.nmSource.GetNetMap(0)
-	if err != nil {
-		return nil, fmt.Errorf("can't get netmap: %w", err)
-	}
-
-	cnr, err := s.cnrSource.Get(cid)
-	if err != nil {
-		return nil, fmt.Errorf("can't get container: %w", err)
-	}
-
-	policy := cnr.Value.PlacementPolicy()
-	rawCID := make([]byte, sha256.Size)
-	cid.Encode(rawCID)
-
-	nodes, err := nm.ContainerNodes(policy, rawCID)
-	if err != nil {
-		return nil, err
-	}
-
-	return placement.FlattenNodes(nodes), nil
 }
 
 func newApplyRequest(op *movePair) *ApplyRequest {
