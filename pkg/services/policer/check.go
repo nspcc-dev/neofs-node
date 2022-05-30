@@ -97,17 +97,17 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr *addressSDK.Ad
 			ctx.needLocalCopy = true
 
 			shortage--
+		} else {
+			callCtx, cancel := context.WithTimeout(ctx, p.headTimeout)
 
-			continue
-		}
+			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i].NodeInfo))
 
-		callCtx, cancel := context.WithTimeout(ctx, p.headTimeout)
+			cancel()
 
-		_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i].NodeInfo))
+			if client.IsErrObjectNotFound(err) {
+				continue
+			}
 
-		cancel()
-
-		if !client.IsErrObjectNotFound(err) {
 			if err != nil {
 				log.Error("receive object header to check policy compliance",
 					zap.String("error", err.Error()),
@@ -115,8 +115,6 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr *addressSDK.Ad
 			} else {
 				shortage--
 			}
-
-			continue
 		}
 
 		nodes = append(nodes[:i], nodes[i+1:]...)
