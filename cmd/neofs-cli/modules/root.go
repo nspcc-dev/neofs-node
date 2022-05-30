@@ -31,25 +31,10 @@ const (
 	envPrefix = "NEOFS_CLI"
 )
 
-var xHeaders []string
-
 // Global scope flags.
 var (
 	cfgFile string
 )
-
-const (
-	ttl          = "ttl"
-	ttlShorthand = ""
-	ttlDefault   = 2
-	ttlUsage     = "TTL value in request meta header"
-
-	xHeadersKey       = "xhdr"
-	xHeadersShorthand = "x"
-	xHeadersUsage     = "Request X-Headers in form of Key=Value"
-)
-
-var xHeadersDefault []string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -171,7 +156,7 @@ func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
 }
 
 func getTTL() uint32 {
-	ttl := viper.GetUint32(ttl)
+	ttl := viper.GetUint32(commonflags.TTL)
 	common.PrintVerbose("TTL: %d", ttl)
 
 	return ttl
@@ -187,7 +172,8 @@ func userFromString(id *user.ID, s string) error {
 	return nil
 }
 
-func parseXHeaders() []string {
+func parseXHeaders(cmd *cobra.Command) []string {
+	xHeaders, _ := cmd.Flags().GetStringSlice(commonflags.XHeadersKey)
 	xs := make([]string, 0, 2*len(xHeaders))
 
 	for i := range xHeaders {
@@ -200,11 +186,4 @@ func parseXHeaders() []string {
 	}
 
 	return xs
-}
-
-func bindAPIFlags(cmd *cobra.Command) {
-	ff := cmd.Flags()
-
-	_ = viper.BindPFlag(ttl, ff.Lookup(ttl))
-	_ = viper.BindPFlag(xHeadersKey, ff.Lookup(xHeadersKey))
 }

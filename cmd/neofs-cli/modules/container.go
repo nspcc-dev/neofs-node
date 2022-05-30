@@ -103,7 +103,7 @@ var containerCmd = &cobra.Command{
 		// bind exactly that cmd's flags to
 		// the viper before execution
 		commonflags.Bind(cmd)
-		bindAPIFlags(cmd)
+		commonflags.BindAPI(cmd)
 	},
 }
 
@@ -578,10 +578,7 @@ func init() {
 	initContainerSetEACLCmd()
 
 	for _, containerCommand := range containerChildCommand {
-		flags := containerCommand.Flags()
-
-		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
-		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+		commonflags.InitAPI(containerCommand)
 	}
 
 	for _, cmd := range []*cobra.Command{

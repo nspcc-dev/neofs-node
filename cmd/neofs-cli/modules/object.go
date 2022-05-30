@@ -57,7 +57,7 @@ var (
 			// bind exactly that cmd's flags to
 			// the viper before execution
 			commonflags.Bind(cmd)
-			bindAPIFlags(cmd)
+			commonflags.BindAPI(cmd)
 		},
 	}
 
@@ -270,8 +270,7 @@ func init() {
 		flags := objCommand.Flags()
 
 		flags.String(bearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
-		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
-		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+		commonflags.InitAPI(objCommand)
 	}
 
 	// Here you will define your flags and configuration settings.
@@ -398,7 +397,7 @@ func prepareObjectPrm(cmd *cobra.Command, prms ...objectPrm) {
 		prepareBearerPrm(cmd, prms[i])
 
 		prms[i].SetTTL(getTTL())
-		prms[i].SetXHeaders(parseXHeaders())
+		prms[i].SetXHeaders(parseXHeaders(cmd))
 	}
 }
 
