@@ -2,6 +2,7 @@ package tree
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,10 +60,16 @@ func dialTreeService(ctx context.Context, netmapAddr string) (*grpc.ClientConn, 
 		return nil, err
 	}
 
+	opts := make([]grpc.DialOption, 1, 2)
+	opts[0] = grpc.WithBlock()
+
+	// FIXME(@fyrchik): ugly hack #1322
+	if !strings.HasPrefix(netAddr.URIAddr(), "grpcs:") {
+		opts = append(opts, grpc.WithInsecure())
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, defaultClientConnectTimeout)
-	cc, err := grpc.DialContext(ctx, netAddr.URIAddr(),
-		grpc.WithInsecure(),
-		grpc.WithBlock())
+	cc, err := grpc.DialContext(ctx, netAddr.URIAddr(), opts...)
 	cancel()
 
 	return cc, err
