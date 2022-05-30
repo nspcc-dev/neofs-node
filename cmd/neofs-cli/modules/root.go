@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,9 +19,7 @@ import (
 	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -132,27 +129,11 @@ type clientWithKey interface {
 // reads private key from command args and call prepareAPIClientWithKey with it.
 func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
 	p := key.GetOrGenerate(cmd)
-
-	prepareAPIClientWithKey(cmd, p, dst...)
-}
-
-// creates NeoFS API client and writes it to target along with the private key.
-func prepareAPIClientWithKey(cmd *cobra.Command, key *ecdsa.PrivateKey, dst ...clientWithKey) {
-	cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(cmd, p, commonflags.RPC)
 
 	for _, d := range dst {
 		d.SetClient(cli)
 	}
-}
-
-type bearerPrm interface {
-	SetBearerToken(prm *bearer.Token)
-}
-
-func prepareBearerPrm(cmd *cobra.Command, prm bearerPrm) {
-	btok := common.ReadBearerToken(cmd, bearerTokenFlag)
-
-	prm.SetBearerToken(btok)
 }
 
 func getTTL() uint32 {
@@ -160,16 +141,6 @@ func getTTL() uint32 {
 	common.PrintVerbose("TTL: %d", ttl)
 
 	return ttl
-}
-
-// userFromString decodes user ID from string input.
-func userFromString(id *user.ID, s string) error {
-	err := id.DecodeString(s)
-	if err != nil {
-		return fmt.Errorf("invalid user ID: %w", err)
-	}
-
-	return nil
 }
 
 func parseXHeaders(cmd *cobra.Command) []string {
