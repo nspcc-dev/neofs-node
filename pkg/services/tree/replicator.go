@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -101,17 +100,15 @@ func (s *Service) replicate(op movePair) error {
 		return fmt.Errorf("can't sign data: %w", err)
 	}
 
-	nodes, err := s.getContainerNodes(op.cid)
+	nodes, localIndex, err := s.getContainerNodes(op.cid)
 	if err != nil {
 		return fmt.Errorf("can't get container nodes: %w", err)
 	}
 
-	for _, n := range nodes.Flatten() {
-		if bytes.Equal(n.NodeInfo.PublicKey(), s.rawPub) {
-			continue
+	for i, n := range nodes {
+		if i != localIndex {
+			s.replicationTasks <- replicationTask{n, req}
 		}
-
-		s.replicationTasks <- replicationTask{n, req}
 	}
 	return nil
 }
@@ -125,24 +122,6 @@ func (s *Service) pushToQueue(cid cidSDK.ID, treeID string, op *pilorama.LogMove
 	}:
 	case <-s.closeCh:
 	}
-}
-
-func (s *Service) getContainerNodes(cid cidSDK.ID) (netmapSDK.ContainerNodes, error) {
-	nm, err := s.nmSource.GetNetMap(0)
-	if err != nil {
-		return nil, fmt.Errorf("can't get netmap: %w", err)
-	}
-
-	cnr, err := s.cnrSource.Get(cid)
-	if err != nil {
-		return nil, fmt.Errorf("can't get container: %w", err)
-	}
-
-	policy := cnr.PlacementPolicy()
-	rawCID := make([]byte, sha256.Size)
-	cid.Encode(rawCID)
-
-	return nm.GetContainerNodes(policy, rawCID)
 }
 
 func newApplyRequest(op *movePair) *ApplyRequest {
