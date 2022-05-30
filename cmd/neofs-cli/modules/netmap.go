@@ -28,7 +28,7 @@ var netmapCmd = &cobra.Command{
 		// bind exactly that cmd's flags to
 		// the viper before execution
 		commonflags.Bind(cmd)
-		bindAPIFlags(cmd)
+		commonflags.BindAPI(cmd)
 	},
 }
 
@@ -49,10 +49,7 @@ func init() {
 	localNodeInfoCmd.Flags().BoolVar(&nodeInfoJSON, "json", false, "print node info in JSON format")
 
 	for _, netmapCommand := range netmapChildCommands {
-		flags := netmapCommand.Flags()
-
-		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
-		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+		commonflags.InitAPI(netmapCommand)
 	}
 }
 

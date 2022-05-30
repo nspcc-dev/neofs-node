@@ -28,7 +28,7 @@ var storagegroupCmd = &cobra.Command{
 		// bind exactly that cmd's flags to
 		// the viper before execution
 		commonflags.Bind(cmd)
-		bindAPIFlags(cmd)
+		commonflags.BindAPI(cmd)
 	},
 }
 
@@ -128,8 +128,7 @@ func init() {
 		flags := sgCommand.Flags()
 
 		flags.String(bearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
-		flags.StringSliceVarP(&xHeaders, xHeadersKey, xHeadersShorthand, xHeadersDefault, xHeadersUsage)
-		flags.Uint32P(ttl, ttlShorthand, ttlDefault, ttlUsage)
+		commonflags.InitAPI(sgCommand)
 	}
 
 	initSGPutCmd()
