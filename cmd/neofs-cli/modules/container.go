@@ -61,11 +61,6 @@ var wellKnownBasicACL = map[string]acl.BasicACL{
 	basicACLNoFinalAppend:   acl.EACLPublicAppendRule,
 }
 
-const sessionTokenFlag = "session"
-
-// path to a file with an encoded session token
-var sessionTokenPath string
-
 var (
 	containerOwner string
 
@@ -163,6 +158,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr := container.New()
 		var tok *session.Container
 
+		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
 		if sessionTokenPath != "" {
 			tok = new(session.Container)
 			common.ReadSessionToken(cmd, tok, sessionTokenPath)
@@ -232,6 +228,7 @@ Only owner of the container has a permission to remove container.`,
 
 		var tok *session.Container
 
+		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
 		if sessionTokenPath != "" {
 			tok = new(session.Container)
 			common.ReadSessionToken(cmd, tok, sessionTokenPath)
@@ -424,6 +421,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		var tok *session.Container
 
+		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
 		if sessionTokenPath != "" {
 			tok = new(session.Container)
 			common.ReadSessionToken(cmd, tok, sessionTokenPath)
@@ -586,12 +584,7 @@ func init() {
 		deleteContainerCmd,
 		setExtendedACLCmd,
 	} {
-		cmd.Flags().StringVar(
-			&sessionTokenPath,
-			sessionTokenFlag,
-			"",
-			"path to a JSON-encoded container session token",
-		)
+		commonflags.InitSession(cmd)
 	}
 }
 
