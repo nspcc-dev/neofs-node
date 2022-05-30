@@ -24,6 +24,7 @@ type Service struct {
 	replicateCh      chan movePair
 	replicationTasks chan replicationTask
 	closeCh          chan struct{}
+	containerCache   containerCache
 }
 
 // MaxGetSubTreeDepth represents maximum allowed traversal depth in GetSubTree RPC.
@@ -46,6 +47,7 @@ func New(opts ...Option) *Service {
 	s.closeCh = make(chan struct{})
 	s.replicateCh = make(chan movePair, defaultReplicatorCapacity)
 	s.replicationTasks = make(chan replicationTask, defaultReplicatorWorkerCount)
+	s.containerCache.init()
 
 	return &s
 }
@@ -69,8 +71,11 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		return nil, err
 	}
 
-	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
 		var resp *AddResponse
 		var outErr error
 		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
@@ -83,7 +88,7 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		return resp, outErr
 	}
 
-	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: len(ns)}
 	log, err := s.forest.TreeMove(d, b.GetTreeId(), &pilorama.Move{
 		Parent: b.GetParentId(),
 		Child:  pilorama.RootID,
@@ -110,8 +115,11 @@ func (s *Service) AddByPath(ctx context.Context, req *AddByPathRequest) (*AddByP
 		return nil, err
 	}
 
-	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
 		var resp *AddByPathResponse
 		var outErr error
 		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
@@ -131,7 +139,7 @@ func (s *Service) AddByPath(ctx context.Context, req *AddByPathRequest) (*AddByP
 		attr = pilorama.AttributeFilename
 	}
 
-	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: len(ns)}
 	logs, err := s.forest.TreeAddByPath(d, b.GetTreeId(), attr, b.GetPath(), meta)
 	if err != nil {
 		return nil, err
@@ -163,8 +171,11 @@ func (s *Service) Remove(ctx context.Context, req *RemoveRequest) (*RemoveRespon
 		return nil, err
 	}
 
-	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
 		var resp *RemoveResponse
 		var outErr error
 		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
@@ -181,7 +192,7 @@ func (s *Service) Remove(ctx context.Context, req *RemoveRequest) (*RemoveRespon
 		return nil, fmt.Errorf("node with ID %d is root and can't be removed", b.GetNodeId())
 	}
 
-	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: len(ns)}
 	log, err := s.forest.TreeMove(d, b.GetTreeId(), &pilorama.Move{
 		Parent: pilorama.TrashID,
 		Child:  b.GetNodeId(),
@@ -205,8 +216,11 @@ func (s *Service) Move(ctx context.Context, req *MoveRequest) (*MoveResponse, er
 		return nil, err
 	}
 
-	ns, pos, size, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
 		var resp *MoveResponse
 		var outErr error
 		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
@@ -223,7 +237,7 @@ func (s *Service) Move(ctx context.Context, req *MoveRequest) (*MoveResponse, er
 		return nil, fmt.Errorf("node with ID %d is root and can't be moved", b.GetNodeId())
 	}
 
-	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
+	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: len(ns)}
 	log, err := s.forest.TreeMove(d, b.GetTreeId(), &pilorama.Move{
 		Parent: b.GetParentId(),
 		Child:  b.GetNodeId(),
@@ -246,8 +260,11 @@ func (s *Service) GetNodeByPath(ctx context.Context, req *GetNodeByPathRequest) 
 		return nil, err
 	}
 
-	ns, _, _, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
 		var resp *GetNodeByPathResponse
 		var outErr error
 		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
@@ -323,8 +340,11 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 		return err
 	}
 
-	ns, _, _, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return err
+	}
+	if pos < 0 {
 		var cli TreeService_GetSubTreeClient
 		var outErr error
 		err = s.forEachNode(srv.Context(), ns, func(c TreeServiceClient) bool {
@@ -394,7 +414,10 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 
 	key := req.GetSignature().GetKey()
 	_, pos, size, err := s.getContainerInfo(cid, key)
-	if err == errNotInContainer {
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
 		return nil, errors.New("`Apply` request must be signed by a container node")
 	}
 
@@ -418,8 +441,11 @@ func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer)
 	b := req.GetBody()
 	cid := getCID(b.GetContainerId())
 
-	ns, _, _, err := s.getContainerInfo(cid, s.rawPub)
-	if err == errNotInContainer {
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return err
+	}
+	if pos < 0 {
 		var cli TreeService_GetOpLogClient
 		var outErr error
 		err := s.forEachNode(srv.Context(), ns, func(c TreeServiceClient) bool {
@@ -491,21 +517,18 @@ func metaToProto(arr []pilorama.KeyValue) []*KeyValue {
 	return meta
 }
 
-var errNotInContainer = errors.New("node doesn't belong to a container")
-
 // getContainerInfo returns the list of container nodes, position in the container for the node
 // with pub key and total amount of nodes in all replicas.
 func (s *Service) getContainerInfo(cid *cidSDK.ID, pub []byte) (netmap.Nodes, int, int, error) {
-	cntNodes, err := s.getContainerNodes(cid)
+	nodes, _, err := s.getContainerNodes(cid)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 
-	ns := cntNodes.Flatten()
-	for i, node := range ns {
+	for i, node := range nodes {
 		if bytes.Equal(node.PublicKey(), pub) {
-			return ns, i, len(ns), nil
+			return nodes, i, len(nodes), nil
 		}
 	}
-	return nil, 0, 0, errNotInContainer
+	return nodes, -1, len(nodes), nil
 }
