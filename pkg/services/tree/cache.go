@@ -59,10 +59,15 @@ func dialTreeService(ctx context.Context, netmapAddr string) (*grpc.ClientConn, 
 		return nil, err
 	}
 
+	opts := make([]grpc.DialOption, 1, 2)
+	opts[0] = grpc.WithBlock()
+
+	if !netAddr.TLSEnabled() {
+		opts = append(opts, grpc.WithInsecure())
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, defaultClientConnectTimeout)
-	cc, err := grpc.DialContext(ctx, netAddr.HostAddr(),
-		grpc.WithInsecure(),
-		grpc.WithBlock())
+	cc, err := grpc.DialContext(ctx, netAddr.HostAddr(), opts...)
 	cancel()
 
 	return cc, err
