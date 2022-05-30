@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,8 +43,6 @@ const (
 )
 
 const bearerTokenFlag = "bearer"
-
-const sessionTokenLifetime = 10 // in epochs
 
 var (
 	// objectCmd represents the object command
@@ -301,12 +298,7 @@ func init() {
 		objectRangeCmd,
 		cmdObjectLock,
 	} {
-		cmd.Flags().StringVar(
-			&sessionTokenPath,
-			sessionTokenFlag,
-			"",
-			"path to a JSON-encoded container session token",
-		)
+		commonflags.InitSession(cmd)
 	}
 }
 
@@ -315,75 +307,9 @@ type clientKeySession interface {
 	SetSessionToken(*session.Object)
 }
 
-func prepareSessionPrm(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, prms ...clientKeySession) {
+func prepareSessionPrm(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, prms ...sessionCli.RPCParameters) {
 	pk := key.GetOrGenerate(cmd)
-
-	prepareSessionPrmWithKey(cmd, cnr, obj, pk, prms...)
-}
-
-func prepareSessionPrmWithKey(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, key *ecdsa.PrivateKey, prms ...clientKeySession) {
-	ownerID, err := getOwnerID(key)
-	common.ExitOnErr(cmd, "owner ID from key: %w", err)
-
-	prepareSessionPrmWithOwner(cmd, cnr, obj, key, *ownerID, prms...)
-}
-
-func prepareSessionPrmWithOwner(
-	cmd *cobra.Command,
-	cnr cid.ID,
-	obj *oid.ID,
-	key *ecdsa.PrivateKey,
-	ownerID user.ID,
-	prms ...clientKeySession,
-) {
-	cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
-
-	var tok session.Object
-	if tokenPath, _ := cmd.Flags().GetString(sessionTokenFlag); len(tokenPath) != 0 {
-		data, err := ioutil.ReadFile(tokenPath)
-		common.ExitOnErr(cmd, "can't read session token: %w", err)
-
-		if err := tok.Unmarshal(data); err != nil {
-			err = tok.UnmarshalJSON(data)
-			common.ExitOnErr(cmd, "can't unmarshal session token: %w", err)
-		}
-	} else {
-		err := sessionCli.CreateSession(&tok, cli, sessionTokenLifetime)
-		common.ExitOnErr(cmd, "create session: %w", err)
-	}
-
-	for i := range prms {
-		switch prms[i].(type) {
-		case *internalclient.GetObjectPrm:
-			tok.ForVerb(session.VerbObjectGet)
-		case *internalclient.HeadObjectPrm:
-			tok.ForVerb(session.VerbObjectHead)
-		case *internalclient.PutObjectPrm:
-			tok.ForVerb(session.VerbObjectPut)
-		case *internalclient.DeleteObjectPrm:
-			tok.ForVerb(session.VerbObjectDelete)
-		case *internalclient.SearchObjectsPrm:
-			tok.ForVerb(session.VerbObjectSearch)
-		case *internalclient.PayloadRangePrm:
-			tok.ForVerb(session.VerbObjectRange)
-		case *internalclient.HashPayloadRangesPrm:
-			tok.ForVerb(session.VerbObjectRangeHash)
-		default:
-			panic("invalid client parameter type")
-		}
-
-		tok.BindContainer(cnr)
-
-		if obj != nil {
-			tok.LimitByObject(*obj)
-		}
-
-		err := tok.Sign(*key)
-		common.ExitOnErr(cmd, "session token signing: %w", err)
-
-		prms[i].SetClient(cli)
-		prms[i].SetSessionToken(&tok)
-	}
+	sessionCli.Prepare(cmd, cnr, obj, pk, prms...)
 }
 
 type objectPrm interface {
@@ -464,7 +390,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PutObjectPrm
 
-	prepareSessionPrmWithOwner(cmd, cnr, nil, pk, *ownerID, &prm)
+	sessionCli.Prepare(cmd, cnr, nil, pk, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetHeader(obj)
 
@@ -678,7 +604,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		hashPrm internalclient.HashPayloadRangesPrm
 		headPrm internalclient.HeadObjectPrm
 
-		sesPrms = []clientKeySession{&hashPrm}
+		sesPrms = []sessionCli.RPCParameters{&hashPrm}
 		objPrms = []objectPrm{&hashPrm}
 	)
 

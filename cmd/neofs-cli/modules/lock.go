@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -50,7 +51,7 @@ var cmdObjectLock = &cobra.Command{
 
 		var prm internalclient.PutObjectPrm
 
-		prepareSessionPrmWithOwner(cmd, cnr, nil, key, *idOwner, &prm)
+		sessionCli.Prepare(cmd, cnr, nil, key, &prm)
 		prepareObjectPrm(cmd, &prm)
 		prm.SetHeader(obj)
 

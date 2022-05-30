@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -147,8 +148,7 @@ type sgHeadReceiver struct {
 func (c sgHeadReceiver) Head(addr oid.Address) (interface{}, error) {
 	obj := addr.Object()
 
-	prepareSessionPrmWithOwner(c.cmd, addr.Container(), &obj, c.key, c.ownerID, &c.prm)
-
+	sessionCli.Prepare(c.cmd, addr.Container(), &obj, c.key, &c.prm)
 	c.prm.SetAddress(addr)
 
 	res, err := internalclient.HeadObject(c.prm)
@@ -188,7 +188,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 		putPrm  internalclient.PutObjectPrm
 	)
 
-	prepareSessionPrmWithOwner(cmd, cnr, nil, pk, *ownerID, &putPrm)
+	sessionCli.Prepare(cmd, cnr, nil, pk, &putPrm)
 	prepareObjectPrm(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)
