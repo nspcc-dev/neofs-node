@@ -114,12 +114,14 @@ var listContainersCmd = &cobra.Command{
 		if containerOwner == "" {
 			user.IDFromKey(&idUser, key.PublicKey)
 		} else {
-			common.ExitOnErr(cmd, "", userFromString(&idUser, containerOwner))
+			err := idUser.DecodeString(containerOwner)
+			common.ExitOnErr(cmd, "invalid user ID: %w", err)
 		}
 
-		var prm internalclient.ListContainersPrm
+		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
-		prepareAPIClientWithKey(cmd, key, &prm)
+		var prm internalclient.ListContainersPrm
+		prm.SetClient(cli)
 		prm.SetAccount(idUser)
 
 		res, err := internalclient.ListContainers(prm)
@@ -182,12 +184,10 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetNonceUUID(nonce)
 		cnr.SetSessionToken(tok)
 
-		var (
-			putPrm internalclient.PutContainerPrm
-			getPrm internalclient.GetContainerPrm
-		)
+		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
-		prepareAPIClientWithKey(cmd, key, &putPrm, &getPrm)
+		var putPrm internalclient.PutContainerPrm
+		putPrm.SetClient(cli)
 		putPrm.SetContainer(*cnr)
 
 		res, err := internalclient.PutContainer(putPrm)
@@ -200,6 +200,8 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		if containerAwait {
 			cmd.Println("awaiting...")
 
+			var getPrm internalclient.GetContainerPrm
+			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
 			for i := 0; i < awaitTimeout; i++ {

@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -313,15 +314,16 @@ func prepareSessionPrm(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, prms ...sess
 }
 
 type objectPrm interface {
-	bearerPrm
+	SetBearerToken(prm *bearer.Token)
 	SetTTL(uint32)
 	SetXHeaders([]string)
 }
 
 func prepareObjectPrm(cmd *cobra.Command, prms ...objectPrm) {
 	for i := range prms {
-		prepareBearerPrm(cmd, prms[i])
+		btok := common.ReadBearerToken(cmd, bearerTokenFlag)
 
+		prms[i].SetBearerToken(btok)
 		prms[i].SetTTL(getTTL())
 		prms[i].SetXHeaders(parseXHeaders(cmd))
 	}
