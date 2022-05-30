@@ -153,8 +153,10 @@ func (exec *execCtx) collectChain() bool {
 			exec.status = statusOK
 			exec.err = nil
 
-			withPrev = true
-			prev = *p
+			withPrev = p != nil
+			if withPrev {
+				prev = *p
+			}
 		}
 	}
 
