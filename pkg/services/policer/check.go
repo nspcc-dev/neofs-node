@@ -2,6 +2,7 @@ package policer
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -103,6 +104,11 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr *addressSDK.Ad
 			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i].NodeInfo))
 
 			cancel()
+
+			// client.IsErrObjectNotFound doesn't support wrapped errors, so unwrap it
+			for wErr := errors.Unwrap(err); wErr != nil; wErr = errors.Unwrap(err) {
+				err = wErr
+			}
 
 			if client.IsErrObjectNotFound(err) {
 				continue
