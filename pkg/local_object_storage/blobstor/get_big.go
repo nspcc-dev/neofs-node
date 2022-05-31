@@ -26,31 +26,31 @@ type GetBigRes struct {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is not
 // presented in shallow dir.
-func (b *BlobStor) GetBig(prm GetBigPrm) (*GetBigRes, error) {
+func (b *BlobStor) GetBig(prm GetBigPrm) (GetBigRes, error) {
 	// get compressed object data
 	data, err := b.fsTree.Get(prm.addr)
 	if err != nil {
 		if errors.Is(err, fstree.ErrFileNotFound) {
 			var errNotFound apistatus.ObjectNotFound
 
-			return nil, errNotFound
+			return GetBigRes{}, errNotFound
 		}
 
-		return nil, fmt.Errorf("could not read object from fs tree: %w", err)
+		return GetBigRes{}, fmt.Errorf("could not read object from fs tree: %w", err)
 	}
 
 	data, err = b.decompressor(data)
 	if err != nil {
-		return nil, fmt.Errorf("could not decompress object data: %w", err)
+		return GetBigRes{}, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return nil, fmt.Errorf("could not unmarshal the object: %w", err)
+		return GetBigRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
-	return &GetBigRes{
+	return GetBigRes{
 		roObject: roObject{
 			obj: obj,
 		},

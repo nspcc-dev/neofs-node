@@ -30,11 +30,11 @@ type PutRes struct {
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
-func (b *BlobStor) Put(prm PutPrm) (*PutRes, error) {
+func (b *BlobStor) Put(prm PutPrm) (PutRes, error) {
 	// marshal object
 	data, err := prm.obj.Marshal()
 	if err != nil {
-		return nil, fmt.Errorf("could not marshal the object: %w", err)
+		return PutRes{}, fmt.Errorf("could not marshal the object: %w", err)
 	}
 
 	return b.PutRaw(object.AddressOf(prm.obj), data, b.NeedsCompression(prm.obj))
@@ -72,7 +72,7 @@ func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 }
 
 // PutRaw saves an already marshaled object in BLOB storage.
-func (b *BlobStor) PutRaw(addr oid.Address, data []byte, compress bool) (*PutRes, error) {
+func (b *BlobStor) PutRaw(addr oid.Address, data []byte, compress bool) (PutRes, error) {
 	big := b.isBig(data)
 
 	if big {
@@ -89,12 +89,12 @@ func (b *BlobStor) PutRaw(addr oid.Address, data []byte, compress bool) (*PutRes
 			err = b.fsTree.Put(addr, data)
 		}
 		if err != nil {
-			return nil, err
+			return PutRes{}, err
 		}
 
 		storagelog.Write(b.log, storagelog.AddressField(addr), storagelog.OpField("fstree PUT"))
 
-		return new(PutRes), nil
+		return PutRes{}, nil
 	}
 
 	if compress {
@@ -104,10 +104,10 @@ func (b *BlobStor) PutRaw(addr oid.Address, data []byte, compress bool) (*PutRes
 	// save object in blobovnicza
 	res, err := b.blobovniczas.put(addr, data)
 	if err != nil {
-		return nil, err
+		return PutRes{}, err
 	}
 
-	return &PutRes{
+	return PutRes{
 		roBlobovniczaID: roBlobovniczaID{
 			blobovniczaID: res,
 		},

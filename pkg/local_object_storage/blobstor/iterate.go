@@ -56,7 +56,7 @@ func (i *IteratePrm) IgnoreErrors() {
 // did not allow to completely iterate over the storage.
 //
 // If handler returns an error, method wraps and returns it immediately.
-func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
+func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 	var elem IterationElement
 
 	err := b.blobovniczas.iterateBlobovniczas(prm.ignoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
@@ -83,7 +83,7 @@ func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("blobovniczas iterator failure: %w", err)
+		return IterateRes{}, fmt.Errorf("blobovniczas iterator failure: %w", err)
 	}
 
 	elem.blzID = nil
@@ -106,10 +106,10 @@ func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 	err = b.fsTree.Iterate(fsPrm)
 
 	if err != nil {
-		return nil, fmt.Errorf("fs tree iterator failure: %w", err)
+		return IterateRes{}, fmt.Errorf("fs tree iterator failure: %w", err)
 	}
 
-	return new(IterateRes), nil
+	return IterateRes{}, nil
 }
 
 // IterateBinaryObjects is a helper function which iterates over BlobStor and passes binary objects to f.

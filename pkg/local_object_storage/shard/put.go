@@ -52,7 +52,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 
 	var (
 		err error
-		res *blobstor.PutRes
+		res blobstor.PutRes
 	)
 
 	if res, err = s.blobStor.Put(putPrm); err != nil {
