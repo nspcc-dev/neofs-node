@@ -36,6 +36,7 @@ func initControlService(c *cfg) {
 		controlSvc.WithDeletedObjectHandler(func(addrList []oid.Address) error {
 			var prm engine.DeletePrm
 			prm.WithAddresses(addrList...)
+			prm.WithForceRemoval()
 
 			_, err := c.cfgObject.cfgLocalStorage.localStorage.Delete(prm)
 

@@ -18,6 +18,8 @@ type InhumePrm struct {
 	target []oid.Address
 
 	lockObjectHandling bool
+
+	forceRemoval bool
 }
 
 // InhumeRes encapsulates results of Inhume operation.
@@ -55,6 +57,7 @@ func (p *InhumePrm) WithTombstoneAddress(addr oid.Address) {
 func (p *InhumePrm) WithGCMark() {
 	if p != nil {
 		p.tomb = nil
+		p.forceRemoval = false
 	}
 }
 
@@ -63,6 +66,15 @@ func (p *InhumePrm) WithGCMark() {
 func (p *InhumePrm) WithLockObjectHandling() {
 	if p != nil {
 		p.lockObjectHandling = true
+	}
+}
+
+// WithForceGCMark allows removal any object. Expected to be
+// called only in control service.
+func (p *InhumePrm) WithForceGCMark() {
+	if p != nil {
+		p.tomb = nil
+		p.forceRemoval = true
 	}
 }
 
@@ -130,6 +142,19 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				return apistatus.ObjectLocked{}
 			}
 
+			var lockWasChecked bool
+
+			// prevent lock objects to be inhumed
+			// if `Inhume` was called not with the
+			// `WithForceGCMark` option
+			if !prm.forceRemoval {
+				if isLockObject(tx, cnr, id) {
+					return fmt.Errorf("lock object removal, CID: %s, OID: %s", cnr, id)
+				}
+
+				lockWasChecked = true
+			}
+
 			obj, err := db.get(tx, prm.target[i], false, true)
 
 			// if object is stored and it is regular object then update bucket
@@ -184,6 +209,14 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			}
 
 			if prm.lockObjectHandling {
+				// do not perform lock check if
+				// it was already called
+				if lockWasChecked {
+					// inhumed object is not of
+					// the LOCK type
+					continue
+				}
+
 				if isLockObject(tx, cnr, id) {
 					res.deletedLockObj = append(res.deletedLockObj, prm.target[i])
 				}
