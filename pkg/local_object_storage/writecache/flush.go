@@ -44,11 +44,14 @@ func (c *cache) flushLoop() {
 		c.flushBigObjects()
 	}()
 
-	tick := time.NewTicker(defaultFlushInterval)
+	tt := time.NewTimer(defaultFlushInterval)
+	defer tt.Stop()
+
 	for {
 		select {
-		case <-tick.C:
+		case <-tt.C:
 			c.flush()
+			tt.Reset(defaultFlushInterval)
 		case <-c.closeCh:
 			c.log.Debug("waiting for workers to quit")
 			wg.Wait()
