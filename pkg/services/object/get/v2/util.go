@@ -23,13 +23,27 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
 var errWrongMessageSeq = errors.New("incorrect message sequence")
 
 func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStream) (*getsvc.Prm, error) {
+	body := req.GetBody()
+
+	addrV2 := body.GetAddress()
+	if addrV2 == nil {
+		return nil, errors.New("missing object address")
+	}
+
+	var addr oid.Address
+
+	err := addr.ReadFromV2(*addrV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid object address: %w", err)
+	}
+
 	meta := req.GetMetaHeader()
 
 	commonPrm, err := util.CommonPrmFromV2(req)
@@ -40,8 +54,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 	p := new(getsvc.Prm)
 	p.SetCommonParameters(commonPrm)
 
-	body := req.GetBody()
-	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
+	p.WithAddress(addr)
 	p.WithRawFlag(body.GetRaw())
 	p.SetObjectWriter(&streamObjectWriter{stream})
 
@@ -158,6 +171,20 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 }
 
 func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.GetObjectRangeStream) (*getsvc.RangePrm, error) {
+	body := req.GetBody()
+
+	addrV2 := body.GetAddress()
+	if addrV2 == nil {
+		return nil, errors.New("missing object address")
+	}
+
+	var addr oid.Address
+
+	err := addr.ReadFromV2(*addrV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid object address: %w", err)
+	}
+
 	meta := req.GetMetaHeader()
 
 	commonPrm, err := util.CommonPrmFromV2(req)
@@ -168,8 +195,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	p := new(getsvc.RangePrm)
 	p.SetCommonParameters(commonPrm)
 
-	body := req.GetBody()
-	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
+	p.WithAddress(addr)
 	p.WithRawFlag(body.GetRaw())
 	p.SetChunkWriter(&streamObjectRangeWriter{stream})
 	p.SetRange(object.NewRangeFromV2(body.GetRange()))
@@ -263,6 +289,20 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 }
 
 func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.RangeHashPrm, error) {
+	body := req.GetBody()
+
+	addrV2 := body.GetAddress()
+	if addrV2 == nil {
+		return nil, errors.New("missing object address")
+	}
+
+	var addr oid.Address
+
+	err := addr.ReadFromV2(*addrV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid object address: %w", err)
+	}
+
 	commonPrm, err := util.CommonPrmFromV2(req)
 	if err != nil {
 		return nil, err
@@ -271,8 +311,7 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 	p := new(getsvc.RangeHashPrm)
 	p.SetCommonParameters(commonPrm)
 
-	body := req.GetBody()
-	p.WithAddress(addressSDK.NewAddressFromV2(body.GetAddress()))
+	p.WithAddress(addr)
 
 	rngsV2 := body.GetRanges()
 	rngs := make([]object.Range, len(rngsV2))
@@ -317,6 +356,20 @@ func (w *headResponseWriter) WriteHeader(hdr *object.Object) error {
 }
 
 func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp *objectV2.HeadResponse) (*getsvc.HeadPrm, error) {
+	body := req.GetBody()
+
+	addrV2 := body.GetAddress()
+	if addrV2 == nil {
+		return nil, errors.New("missing object address")
+	}
+
+	var objAddr oid.Address
+
+	err := objAddr.ReadFromV2(*addrV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid object address: %w", err)
+	}
+
 	meta := req.GetMetaHeader()
 
 	commonPrm, err := util.CommonPrmFromV2(req)
@@ -326,10 +379,6 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 
 	p := new(getsvc.HeadPrm)
 	p.SetCommonParameters(commonPrm)
-
-	body := req.GetBody()
-
-	objAddr := addressSDK.NewAddressFromV2(body.GetAddress())
 
 	p.WithAddress(objAddr)
 	p.WithRawFlag(body.GetRaw())
@@ -429,23 +478,15 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				hdr = hdrWithSig.GetHeader()
 				idSig = hdrWithSig.GetSignature()
 
-				id, ok := objAddr.ObjectID()
-				if !ok {
-					return nil, errors.New("missing object ID")
-				}
-
 				if idSig == nil {
 					// TODO(@cthulhu-rider): #1387 use "const" error
 					return nil, errors.New("missing signature")
 				}
 
-				binID, err := id.Marshal()
+				binID, err := objAddr.Object().Marshal()
 				if err != nil {
 					return nil, fmt.Errorf("marshal ID: %w", err)
 				}
-
-				var idV2 refs.ObjectID
-				id.WriteToV2(&idV2)
 
 				var sig neofscrypto.Signature
 				sig.ReadFromV2(*idSig)
@@ -463,10 +504,8 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			objv2.SetHeader(hdr)
 			objv2.SetSignature(idSig)
 
-			id, _ := objAddr.ObjectID()
-
 			obj := object.NewFromV2(objv2)
-			obj.SetID(id)
+			obj.SetID(objAddr.Object())
 
 			// convert the object
 			return obj, nil

@@ -5,13 +5,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addr []*addressSDK.Address
+	addr []oid.Address
 }
 
 // DeleteRes groups the resulting values of Delete operation.
@@ -20,7 +20,7 @@ type DeleteRes struct{}
 // WithAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addr ...*addressSDK.Address) *DeletePrm {
+func (p *DeletePrm) WithAddresses(addr ...oid.Address) *DeletePrm {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
 	}
@@ -39,7 +39,7 @@ func (s *Shard) Delete(prm *DeletePrm) (*DeleteRes, error) {
 	delSmallPrm := new(blobstor.DeleteSmallPrm)
 	delBigPrm := new(blobstor.DeleteBigPrm)
 
-	smalls := make(map[*addressSDK.Address]*blobovnicza.ID, ln)
+	smalls := make(map[oid.Address]*blobovnicza.ID, ln)
 
 	for i := range prm.addr {
 		if s.hasWriteCache() {

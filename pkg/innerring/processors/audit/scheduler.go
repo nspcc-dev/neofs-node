@@ -12,7 +12,7 @@ import (
 
 var ErrInvalidIRNode = errors.New("node is not in the inner ring list")
 
-func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*cid.ID, error) {
+func (ap *Processor) selectContainersToAudit(epoch uint64) ([]cid.ID, error) {
 	containers, err := ap.containerClient.List(nil)
 	if err != nil {
 		return nil, fmt.Errorf("can't get list of containers to start audit: %w", err)
@@ -25,7 +25,7 @@ func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*cid.ID, error) {
 	)
 
 	sort.Slice(containers, func(i, j int) bool {
-		return strings.Compare(containers[i].String(), containers[j].String()) < 0
+		return strings.Compare(containers[i].EncodeToString(), containers[j].EncodeToString()) < 0
 	})
 
 	ind := ap.irList.InnerRingIndex()
@@ -38,7 +38,7 @@ func (ap *Processor) selectContainersToAudit(epoch uint64) ([]*cid.ID, error) {
 	return Select(containers, epoch, uint64(ind), uint64(irSize)), nil
 }
 
-func Select(ids []*cid.ID, epoch, index, size uint64) []*cid.ID {
+func Select(ids []cid.ID, epoch, index, size uint64) []cid.ID {
 	if index >= size {
 		return nil
 	}

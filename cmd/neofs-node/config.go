@@ -54,7 +54,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const addressSize = 72 // 32 bytes oid, 32 bytes cid, 8 bytes protobuf encoding
+const addressSize = 72 // 32 bytes object ID, 32 bytes container ID, 8 bytes protobuf encoding
 
 const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
 

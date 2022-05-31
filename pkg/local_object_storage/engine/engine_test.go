@@ -14,7 +14,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -49,7 +48,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 		_ = os.RemoveAll(b.Name())
 	})
 
-	addr := objecttest.Address()
+	addr := oidtest.Address()
 	for i := 0; i < 100; i++ {
 		obj := generateObjectWithCID(b, cidtest.ID())
 		err := Put(e, obj)

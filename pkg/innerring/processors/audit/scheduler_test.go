@@ -26,10 +26,10 @@ func TestSelect(t *testing.T) {
 			require.Equal(t, len(cids)/irSize, len(s))
 
 			for _, id := range s {
-				n, ok := m[id.String()]
+				n, ok := m[id.EncodeToString()]
 				require.True(t, ok)
 				require.Equal(t, 0, n)
-				m[id.String()] = 1
+				m[id.EncodeToString()] = 1
 			}
 		}
 
@@ -45,10 +45,10 @@ func TestSelect(t *testing.T) {
 			s := audit.Select(cids, 0, uint64(i), irSize)
 
 			for _, id := range s {
-				n, ok := m[id.String()]
+				n, ok := m[id.EncodeToString()]
 				require.True(t, ok)
 				require.Equal(t, 0, n)
-				m[id.String()] = 1
+				m[id.EncodeToString()] = 1
 			}
 		}
 
@@ -64,10 +64,10 @@ func TestSelect(t *testing.T) {
 			s := audit.Select(cids, uint64(i), 0, irSize)
 
 			for _, id := range s {
-				n, ok := m[id.String()]
+				n, ok := m[id.EncodeToString()]
 				require.True(t, ok)
 				require.Equal(t, 0, n)
-				m[id.String()] = 1
+				m[id.EncodeToString()] = 1
 			}
 		}
 
@@ -75,22 +75,21 @@ func TestSelect(t *testing.T) {
 	})
 }
 
-func generateContainers(n int) []*cid.ID {
-	result := make([]*cid.ID, 0, n)
+func generateContainers(n int) []cid.ID {
+	result := make([]cid.ID, n)
 
 	for i := 0; i < n; i++ {
-		v := cidtest.ID()
-		result = append(result, &v)
+		result[i] = cidtest.ID()
 	}
 
 	return result
 }
 
-func hitMap(ids []*cid.ID) map[string]int {
+func hitMap(ids []cid.ID) map[string]int {
 	result := make(map[string]int, len(ids))
 
 	for _, id := range ids {
-		result[id.String()] = 0
+		result[id.EncodeToString()] = 0
 	}
 
 	return result

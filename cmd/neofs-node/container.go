@@ -329,8 +329,8 @@ type loadPlacementBuilder struct {
 	cnrSrc containerCore.Source
 }
 
-func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *cid.ID) ([]netmap.Nodes, error) {
-	cnrNodes, nm, err := l.buildPlacement(epoch, cid)
+func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([]netmap.Nodes, error) {
+	cnrNodes, nm, err := l.buildPlacement(epoch, cnr)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,7 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cid *cid.ID) ([]netm
 	return placement, nil
 }
 
-func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr *cid.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
+func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
 	cnr, err := l.cnrSrc.Get(idCnr)
 	if err != nil {
 		return nil, nil, err
@@ -400,7 +400,7 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 		)
 
 		a := containerSDK.NewAnnouncement()
-		a.SetContainerID(*idList[i])
+		a.SetContainerID(idList[i])
 		a.SetUsedSpace(sz)
 
 		if f != nil && !f(*a) {
@@ -506,8 +506,8 @@ func (*containerOnlyKeyRemoteServerInfo) NumberOfAddresses() int {
 	return 0
 }
 
-func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cid *cid.ID, key []byte) (bool, error) {
-	cnrNodes, _, err := l.buildPlacement(epoch, cid)
+func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cnr cid.ID, key []byte) (bool, error) {
+	cnrNodes, _, err := l.buildPlacement(epoch, cnr)
 	if err != nil {
 		return false, err
 	}
@@ -530,7 +530,7 @@ func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.Us
 		return errors.New("missing container ID in load announcement")
 	}
 
-	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), &cnr, route[0].PublicKey())
+	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), cnr, route[0].PublicKey())
 	if err != nil {
 		return fmt.Errorf("could not verify that the sender belongs to the container: %w", err)
 	} else if !fromCnr {
@@ -557,19 +557,19 @@ type morphContainerReader struct {
 	get containerCore.Source
 
 	lister interface {
-		List(*user.ID) ([]*cid.ID, error)
+		List(*user.ID) ([]cid.ID, error)
 	}
 }
 
-func (x *morphContainerReader) Get(id *cid.ID) (*containerSDK.Container, error) {
+func (x *morphContainerReader) Get(id cid.ID) (*containerSDK.Container, error) {
 	return x.get.Get(id)
 }
 
-func (x *morphContainerReader) GetEACL(id *cid.ID) (*eaclSDK.Table, error) {
+func (x *morphContainerReader) GetEACL(id cid.ID) (*eaclSDK.Table, error) {
 	return x.eacl.GetEACL(id)
 }
 
-func (x *morphContainerReader) List(id *user.ID) ([]*cid.ID, error) {
+func (x *morphContainerReader) List(id *user.ID) ([]cid.ID, error) {
 	return x.lister.List(id)
 }
 
@@ -587,8 +587,13 @@ func (m morphContainerWriter) Put(cnr *containerSDK.Container) (*cid.ID, error) 
 		return nil, err
 	}
 
+	idOwner := cnr.OwnerID()
+	if idOwner == nil {
+		return nil, errors.New("missing container owner")
+	}
+
 	if m.cacheEnabled {
-		m.lists.InvalidateContainerList(cnr.OwnerID())
+		m.lists.InvalidateContainerList(*idOwner)
 	}
 
 	return containerID, nil
@@ -606,7 +611,7 @@ func (m morphContainerWriter) PutEACL(table *eaclSDK.Table) error {
 
 	if m.cacheEnabled {
 		id, _ := table.CID()
-		m.eacls.InvalidateEACL(&id)
+		m.eacls.InvalidateEACL(id)
 	}
 
 	return nil

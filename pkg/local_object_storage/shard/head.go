@@ -6,12 +6,12 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // HeadPrm groups the parameters of Head operation.
 type HeadPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 	raw  bool
 }
 
@@ -23,7 +23,7 @@ type HeadRes struct {
 // WithAddress is a Head option to set the address of the requested object.
 //
 // Option is required.
-func (p *HeadPrm) WithAddress(addr *addressSDK.Address) *HeadPrm {
+func (p *HeadPrm) WithAddress(addr oid.Address) *HeadPrm {
 	if p != nil {
 		p.addr = addr
 	}

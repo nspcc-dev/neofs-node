@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 
 	objData []byte
 }
@@ -23,10 +23,8 @@ type PutRes struct {
 // object to a filled blobovnicza.
 var ErrFull = errors.New("blobovnicza is full")
 
-var errNilAddress = errors.New("object address is nil")
-
 // SetAddress sets the address of the saving object.
-func (p *PutPrm) SetAddress(addr *addressSDK.Address) {
+func (p *PutPrm) SetAddress(addr oid.Address) {
 	p.addr = addr
 }
 
@@ -50,14 +48,9 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 //
 // Should not be called in read-only configuration.
 func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
-	addr := prm.addr
-	if addr == nil {
-		return nil, errNilAddress
-	}
-
 	sz := uint64(len(prm.objData))
 	bucketName := bucketForSize(sz)
-	key := addressKey(addr)
+	key := addressKey(prm.addr)
 
 	err := b.boltDB.Batch(func(tx *bbolt.Tx) error {
 		if b.full() {
@@ -86,10 +79,10 @@ func (b *Blobovnicza) Put(prm *PutPrm) (*PutRes, error) {
 	return nil, err
 }
 
-func addressKey(addr *addressSDK.Address) []byte {
-	return []byte(addr.String())
+func addressKey(addr oid.Address) []byte {
+	return []byte(addr.EncodeToString())
 }
 
-func addressFromKey(dst *addressSDK.Address, data []byte) error {
-	return dst.Parse(string(data))
+func addressFromKey(dst *oid.Address, data []byte) error {
+	return dst.DecodeString(string(data))
 }

@@ -46,7 +46,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 	}
 
 	// receive owner of the related container
-	cnr, err := cntClient.Get(cp.cnrClient, &idCnr)
+	cnr, err := cntClient.Get(cp.cnrClient, idCnr)
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}

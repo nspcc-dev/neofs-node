@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/nats-io/nats.go"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -44,19 +44,14 @@ var errConnIsClosed = errors.New("connection to the server is closed")
 // Returns error only if:
 // 1. underlying connection was closed and has not been established again;
 // 2. NATS server could not respond that it has saved the message.
-func (n *Writer) Notify(topic string, address *addressSDK.Address) error {
+func (n *Writer) Notify(topic string, address oid.Address) error {
 	if !n.nc.IsConnected() {
 		return errConnIsClosed
 	}
 
-	id, ok := address.ObjectID()
-	if !ok {
-		return errors.New("missing object ID in object address")
-	}
-
 	// use first 4 byte of the encoded string as
 	// message ID for the 'exactly once' delivery
-	messageID := id.EncodeToString()[:4]
+	messageID := address.Object().EncodeToString()[:4]
 
 	// check if the stream was previously created
 	n.m.RLock()
@@ -76,7 +71,7 @@ func (n *Writer) Notify(topic string, address *addressSDK.Address) error {
 		n.m.Unlock()
 	}
 
-	_, err := n.js.Publish(topic, []byte(address.String()), nats.MsgId(messageID))
+	_, err := n.js.Publish(topic, []byte(address.EncodeToString()), nats.MsgId(messageID))
 	if err != nil {
 		return err
 	}

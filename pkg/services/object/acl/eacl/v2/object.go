@@ -4,10 +4,10 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type sysObjHdr struct {
@@ -26,7 +26,7 @@ func u64Value(v uint64) string {
 	return strconv.FormatUint(v, 10)
 }
 
-func headersFromObject(obj *object.Object, cid cidSDK.ID, oid *oidSDK.ID) []eaclSDK.Header {
+func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.Header {
 	var count int
 	for obj := obj; obj != nil; obj = obj.Parent() {
 		count += 9 + len(obj.Attributes())
@@ -35,7 +35,7 @@ func headersFromObject(obj *object.Object, cid cidSDK.ID, oid *oidSDK.ID) []eacl
 	res := make([]eaclSDK.Header, 0, count)
 	for ; obj != nil; obj = obj.Parent() {
 		res = append(res,
-			cidHeader(cid),
+			cidHeader(cnr),
 			// creation epoch
 			sysObjHdr{
 				k: acl.FilterObjectCreationEpoch,

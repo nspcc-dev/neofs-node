@@ -2,12 +2,12 @@ package meta
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -49,29 +49,29 @@ var (
 )
 
 // primaryBucketName returns <CID>.
-func primaryBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String())
+func primaryBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString())
 }
 
 // tombstoneBucketName returns <CID>_TS.
-func tombstoneBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + tombstonePostfix)
+func tombstoneBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + tombstonePostfix)
 }
 
 // storageGroupBucketName returns <CID>_SG.
-func storageGroupBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + storageGroupPostfix)
+func storageGroupBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + storageGroupPostfix)
 }
 
 // smallBucketName returns <CID>_small.
-func smallBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + smallPostfix) // consider caching output values
+func smallBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + smallPostfix) // consider caching output values
 }
 
 // attributeBucketName returns <CID>_attr_<attributeKey>.
-func attributeBucketName(cid *cid.ID, attributeKey string) []byte {
+func attributeBucketName(cnr cid.ID, attributeKey string) []byte {
 	sb := strings.Builder{} // consider getting string builders from sync.Pool
-	sb.WriteString(cid.String())
+	sb.WriteString(cnr.EncodeToString())
 	sb.WriteString(userAttributePostfix)
 	sb.WriteString(attributeKey)
 
@@ -89,44 +89,48 @@ func cidFromAttributeBucket(val []byte, attributeKey string) []byte {
 }
 
 // payloadHashBucketName returns <CID>_payloadhash.
-func payloadHashBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + payloadHashPostfix)
+func payloadHashBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + payloadHashPostfix)
 }
 
 // rootBucketName returns <CID>_root.
-func rootBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + rootPostfix)
+func rootBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + rootPostfix)
 }
 
 // ownerBucketName returns <CID>_ownerid.
-func ownerBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + ownerPostfix)
+func ownerBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + ownerPostfix)
 }
 
 // parentBucketName returns <CID>_parent.
-func parentBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + parentPostfix)
+func parentBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + parentPostfix)
 }
 
 // splitBucketName returns <CID>_splitid.
-func splitBucketName(cid *cid.ID) []byte {
-	return []byte(cid.String() + splitPostfix)
+func splitBucketName(cnr cid.ID) []byte {
+	return []byte(cnr.EncodeToString() + splitPostfix)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.
-func addressKey(addr *addressSDK.Address) []byte {
-	return []byte(addr.String())
+func addressKey(addr oid.Address) []byte {
+	return []byte(addr.EncodeToString())
 }
 
 // parses object address formed by addressKey.
-func addressFromKey(k []byte) (*addressSDK.Address, error) {
-	a := addressSDK.NewAddress()
-	return a, a.Parse(string(k))
+func decodeAddressFromKey(dst *oid.Address, k []byte) error {
+	err := dst.DecodeString(string(k))
+	if err != nil {
+		return fmt.Errorf("decode object address from db key: %w", err)
+	}
+
+	return nil
 }
 
 // objectKey returns key for K-V tables when key is an object id.
-func objectKey(oid *oidSDK.ID) []byte {
-	return []byte(oid.String())
+func objectKey(obj oid.ID) []byte {
+	return []byte(obj.EncodeToString())
 }
 
 // removes all bucket elements.
@@ -152,8 +156,8 @@ func firstIrregularObjectType(tx *bbolt.Tx, idCnr cid.ID, objs ...[]byte) object
 		typ  object.Type
 		name []byte
 	}{
-		{object.TypeTombstone, tombstoneBucketName(&idCnr)},
-		{object.TypeStorageGroup, storageGroupBucketName(&idCnr)},
+		{object.TypeTombstone, tombstoneBucketName(idCnr)},
+		{object.TypeStorageGroup, storageGroupBucketName(idCnr)},
 		{object.TypeLock, bucketNameLockers(idCnr)},
 	}
 

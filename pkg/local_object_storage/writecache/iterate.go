@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -53,8 +53,8 @@ func (c *cache) Iterate(prm *IterationPrm) error {
 		return err
 	}
 
-	return c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
-		if _, ok := c.flushed.Peek(addr.String()); ok {
+	return c.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
+		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
 		}
 		return prm.handler(data)
@@ -67,21 +67,17 @@ func (c *cache) Iterate(prm *IterationPrm) error {
 // Returns ErrNoDefaultBucket if there is no default bucket in db.
 //
 // DB must not be nil and should be opened.
-func IterateDB(db *bbolt.DB, f func(*addressSDK.Address) error) error {
+func IterateDB(db *bbolt.DB, f func(oid.Address) error) error {
 	return db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
 		if b == nil {
 			return ErrNoDefaultBucket
 		}
 
-		var addr *addressSDK.Address
+		var addr oid.Address
 
 		return b.ForEach(func(k, v []byte) error {
-			if addr == nil {
-				addr = addressSDK.NewAddress()
-			}
-
-			err := addr.Parse(string(k))
+			err := addr.DecodeString(string(k))
 			if err != nil {
 				return fmt.Errorf("could not parse object address: %w", err)
 			}

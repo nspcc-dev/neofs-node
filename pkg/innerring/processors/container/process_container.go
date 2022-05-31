@@ -154,17 +154,17 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 }
 
 func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
-	binCID := e.ContainerID()
+	binCnr := e.ContainerID()
 
 	var idCnr cid.ID
 
-	err := idCnr.Decode(binCID)
+	err := idCnr.Decode(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid container ID: %w", err)
 	}
 
 	// receive owner of the related container
-	cnr, err := cp.cnrClient.Get(binCID)
+	cnr, err := cp.cnrClient.Get(binCnr)
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
@@ -181,7 +181,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		idContainer:     idCnr,
 		binTokenSession: e.SessionToken(),
 		signature:       e.Signature(),
-		signedData:      binCID,
+		signedData:      binCnr,
 	})
 	if err != nil {
 		return fmt.Errorf("auth container removal: %w", err)

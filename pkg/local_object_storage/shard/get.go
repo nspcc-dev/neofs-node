@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +21,7 @@ type storFetcher = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	addr     *addressSDK.Address
+	addr     oid.Address
 	skipMeta bool
 }
 
@@ -34,7 +34,7 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr *addressSDK.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr oid.Address) *GetPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -103,7 +103,7 @@ func (s *Shard) Get(prm *GetPrm) (*GetRes, error) {
 }
 
 // fetchObjectData looks through writeCache and blobStor to find object.
-func (s *Shard) fetchObjectData(addr *addressSDK.Address, skipMeta bool, big, small storFetcher) (*objectSDK.Object, bool, error) {
+func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small storFetcher) (*objectSDK.Object, bool, error) {
 	var (
 		err error
 		res *objectSDK.Object

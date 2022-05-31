@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -108,7 +108,7 @@ func New(opts ...Option) Service {
 // Get implements ServiceServer interface, makes ACL checks and calls
 // next Get method in the ServiceServer pipeline.
 func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream) error {
-	cid, err := getContainerIDFromRequest(request)
+	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return err
 	}
@@ -125,12 +125,12 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationGet)
+	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationGet)
 	if err != nil {
 		return err
 	}
 
-	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (b Service) Put(ctx context.Context) (object.PutObjectStream, error) {
 func (b Service) Head(
 	ctx context.Context,
 	request *objectV2.HeadRequest) (*objectV2.HeadResponse, error) {
-	cid, err := getContainerIDFromRequest(request)
+	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -179,12 +179,12 @@ func (b Service) Head(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationHead)
+	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationHead)
 	if err != nil {
 		return nil, err
 	}
 
-	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 		return err
 	}
 
-	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 func (b Service) Delete(
 	ctx context.Context,
 	request *objectV2.DeleteRequest) (*objectV2.DeleteResponse, error) {
-	cid, err := getContainerIDFromRequest(request)
+	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -268,12 +268,12 @@ func (b Service) Delete(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationDelete)
+	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationDelete)
 	if err != nil {
 		return nil, err
 	}
 
-	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +290,7 @@ func (b Service) Delete(
 }
 
 func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetObjectRangeStream) error {
-	cid, err := getContainerIDFromRequest(request)
+	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return err
 	}
@@ -307,12 +307,12 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationRange)
+	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationRange)
 	if err != nil {
 		return err
 	}
 
-	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return err
 	}
@@ -334,7 +334,7 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 func (b Service) GetRangeHash(
 	ctx context.Context,
 	request *objectV2.GetRangeHashRequest) (*objectV2.GetRangeHashResponse, error) {
-	cid, err := getContainerIDFromRequest(request)
+	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -351,12 +351,12 @@ func (b Service) GetRangeHash(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cid, eaclSDK.OperationRangeHash)
+	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationRangeHash)
 	if err != nil {
 		return nil, err
 	}
 
-	reqInfo.oid, err = getObjectIDFromRequestBody(request.GetBody())
+	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +380,7 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 
 	part := body.GetObjectPart()
 	if part, ok := part.(*objectV2.PutObjectPartInit); ok {
-		cid, err := getContainerIDFromRequest(request)
+		cnr, err := getContainerIDFromRequest(request)
 		if err != nil {
 			return err
 		}
@@ -415,19 +415,19 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			src:     request,
 		}
 
-		reqInfo, err := p.source.findRequestInfo(req, cid, eaclSDK.OperationPut)
+		reqInfo, err := p.source.findRequestInfo(req, cnr, eaclSDK.OperationPut)
 		if err != nil {
 			return err
 		}
 
-		reqInfo.oid, err = getObjectIDFromRequestBody(part)
+		reqInfo.obj, err = getObjectIDFromRequestBody(part)
 		if err != nil {
 			return err
 		}
 
 		useObjectIDFromSession(&reqInfo, sTok)
 
-		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, &idOwner) {
+		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, idOwner) {
 			return basicACLErr(reqInfo)
 		} else if err := p.source.checker.CheckEACL(request, reqInfo); err != nil {
 			return eACLErr(reqInfo, err)
@@ -467,11 +467,8 @@ func (g *searchStreamBasicChecker) Send(resp *objectV2.SearchResponse) error {
 	return g.SearchStream.Send(resp)
 }
 
-func (b Service) findRequestInfo(
-	req MetaWithToken,
-	cid cidSDK.ID,
-	op eaclSDK.Operation) (info RequestInfo, err error) {
-	cnr, err := b.containers.Get(&cid) // fetch actual container
+func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op eaclSDK.Operation) (info RequestInfo, err error) {
+	cnr, err := b.containers.Get(idCnr) // fetch actual container
 	if err != nil {
 		return info, err
 	} else if cnr.OwnerID() == nil {
@@ -494,7 +491,7 @@ func (b Service) findRequestInfo(
 	}
 
 	// find request role and key
-	res, err := b.c.classify(req, cid, cnr)
+	res, err := b.c.classify(req, idCnr, cnr)
 	if err != nil {
 		return info, err
 	}
@@ -507,8 +504,8 @@ func (b Service) findRequestInfo(
 	info.requestRole = res.role
 	info.isInnerRing = res.isIR
 	info.operation = op
-	info.cnrOwner = cnr.OwnerID()
-	info.idCnr = cid
+	info.cnrOwner = *cnr.OwnerID()
+	info.idCnr = idCnr
 
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation

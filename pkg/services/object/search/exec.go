@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -60,8 +60,8 @@ func (exec execCtx) isLocal() bool {
 	return exec.prm.common.LocalOnly()
 }
 
-func (exec *execCtx) containerID() *cid.ID {
-	return exec.prm.cid
+func (exec *execCtx) containerID() cid.ID {
+	return exec.prm.cnr
 }
 
 func (exec *execCtx) searchFilters() object.SearchFilters {
@@ -100,8 +100,8 @@ func (exec *execCtx) initEpoch() bool {
 	}
 }
 
-func (exec *execCtx) generateTraverser(cid *cid.ID) (*placement.Traverser, bool) {
-	t, err := exec.svc.traverserGenerator.generateTraverser(cid, exec.curProcEpoch)
+func (exec *execCtx) generateTraverser(cnr cid.ID) (*placement.Traverser, bool) {
+	t, err := exec.svc.traverserGenerator.generateTraverser(cnr, exec.curProcEpoch)
 
 	switch {
 	default:
@@ -133,7 +133,7 @@ func (exec execCtx) remoteClient(info client.NodeInfo) (searchClient, bool) {
 	return nil, false
 }
 
-func (exec *execCtx) writeIDList(ids []oidSDK.ID) {
+func (exec *execCtx) writeIDList(ids []oid.ID) {
 	err := exec.prm.writer.WriteIDs(ids)
 
 	switch {

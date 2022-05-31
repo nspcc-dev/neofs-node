@@ -15,7 +15,7 @@ import (
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -136,7 +136,7 @@ func indexSlice(number uint64) []uint64 {
 // save object in the maximum weight blobobnicza.
 //
 // returns error if could not save object in any blobovnicza.
-func (b *blobovniczas) put(addr *addressSDK.Address, data []byte) (*blobovnicza.ID, error) {
+func (b *blobovniczas) put(addr oid.Address, data []byte) (*blobovnicza.ID, error) {
 	prm := new(blobovnicza.PutPrm)
 	prm.SetAddress(addr)
 	prm.SetMarshaledObject(data)
@@ -220,7 +220,7 @@ func (b *blobovniczas) get(prm *GetSmallPrm) (res *GetSmallRes, err error) {
 
 	activeCache := make(map[string]struct{})
 
-	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
+	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
@@ -270,7 +270,7 @@ func (b *blobovniczas) delete(prm *DeleteSmallPrm) (res *DeleteSmallRes, err err
 
 	activeCache := make(map[string]struct{})
 
-	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
+	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		// don't process active blobovnicza of the level twice
@@ -322,7 +322,7 @@ func (b *blobovniczas) getRange(prm *GetRangeSmallPrm) (res *GetRangeSmallRes, e
 
 	activeCache := make(map[string]struct{})
 
-	err = b.iterateSortedLeaves(prm.addr, func(p string) (bool, error) {
+	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
@@ -665,7 +665,7 @@ func (b *blobovniczas) iterateBlobovniczas(ignoreErrors bool, f func(string, *bl
 }
 
 // iterator over the paths of blobovniczas sorted by weight.
-func (b *blobovniczas) iterateSortedLeaves(addr *addressSDK.Address, f func(string) (bool, error)) error {
+func (b *blobovniczas) iterateSortedLeaves(addr *oid.Address, f func(string) (bool, error)) error {
 	_, err := b.iterateSorted(
 		addr,
 		make([]string, 0, b.blzShallowDepth),
@@ -677,14 +677,14 @@ func (b *blobovniczas) iterateSortedLeaves(addr *addressSDK.Address, f func(stri
 }
 
 // iterator over directories with blobovniczas sorted by weight.
-func (b *blobovniczas) iterateDeepest(addr *addressSDK.Address, f func(string) (bool, error)) error {
+func (b *blobovniczas) iterateDeepest(addr oid.Address, f func(string) (bool, error)) error {
 	depth := b.blzShallowDepth
 	if depth > 0 {
 		depth--
 	}
 
 	_, err := b.iterateSorted(
-		addr,
+		&addr,
 		make([]string, 0, depth),
 		depth,
 		func(p []string) (bool, error) { return f(filepath.Join(p...)) },
@@ -694,7 +694,7 @@ func (b *blobovniczas) iterateDeepest(addr *addressSDK.Address, f func(string) (
 }
 
 // iterator over particular level of directories.
-func (b *blobovniczas) iterateSorted(addr *addressSDK.Address, curPath []string, execDepth uint64, f func([]string) (bool, error)) (bool, error) {
+func (b *blobovniczas) iterateSorted(addr *oid.Address, curPath []string, execDepth uint64, f func([]string) (bool, error)) (bool, error) {
 	indices := indexSlice(b.blzShallowWidth)
 
 	hrw.SortSliceByValue(indices, addressHash(addr, filepath.Join(curPath...)))
@@ -934,11 +934,11 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 }
 
 // returns hash of the object address.
-func addressHash(addr *addressSDK.Address, path string) uint64 {
+func addressHash(addr *oid.Address, path string) uint64 {
 	var a string
 
 	if addr != nil {
-		a = addr.String()
+		a = addr.EncodeToString()
 	}
 
 	return hrw.Hash([]byte(a + path))

@@ -99,7 +99,7 @@ type Estimation struct {
 
 // Estimations is a structure of grouped container load estimation inside Container contract.
 type Estimations struct {
-	ContainerID *cid.ID
+	ContainerID cid.ID
 
 	Values []Estimation
 }
@@ -125,7 +125,7 @@ func (c *Client) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error) 
 		return nil, fmt.Errorf("unexpected stack item count of estimations fields (%s)", getSizeMethod)
 	}
 
-	rawCID, err := client.BytesFromStackItem(prms[0])
+	rawCnr, err := client.BytesFromStackItem(prms[0])
 	if err != nil {
 		return nil, fmt.Errorf("could not get container ID byte array from stack item (%s): %w", getSizeMethod, err)
 	}
@@ -137,15 +137,15 @@ func (c *Client) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error) 
 
 	var cnr cid.ID
 
-	err = cnr.Decode(rawCID)
+	err = cnr.Decode(rawCnr)
 	if err != nil {
 		return nil, fmt.Errorf("decode container ID: %w", err)
 	}
 
 	v2 := new(v2refs.ContainerID)
-	v2.SetValue(rawCID)
+	v2.SetValue(rawCnr)
 	res := &Estimations{
-		ContainerID: &cnr,
+		ContainerID: cnr,
 		Values:      make([]Estimation, 0, len(prms)),
 	}
 

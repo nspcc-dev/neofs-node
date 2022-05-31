@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +22,7 @@ type Service struct {
 type Option func(*cfg)
 
 type searchClient interface {
-	searchObjects(*execCtx, client.NodeInfo) ([]oidSDK.ID, error)
+	searchObjects(*execCtx, client.NodeInfo) ([]oid.ID, error)
 }
 
 type ClientConstructor interface {
@@ -33,7 +33,7 @@ type cfg struct {
 	log *logger.Logger
 
 	localStorage interface {
-		search(*execCtx) ([]oidSDK.ID, error)
+		search(*execCtx) ([]oid.ID, error)
 	}
 
 	clientConstructor interface {
@@ -41,7 +41,7 @@ type cfg struct {
 	}
 
 	traverserGenerator interface {
-		generateTraverser(*cid.ID, uint64) (*placement.Traverser, error)
+		generateTraverser(cid.ID, uint64) (*placement.Traverser, error)
 	}
 
 	currentEpochReceiver interface {

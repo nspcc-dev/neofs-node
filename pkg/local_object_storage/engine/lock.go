@@ -7,7 +7,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -26,9 +25,6 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 }
 
 func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
-	var addr address.Address
-	addr.SetContainerID(idCnr)
-
 	for i := range locked {
 		switch e.lockSingle(idCnr, locker, locked[i], true) {
 		case 1:
@@ -55,11 +51,11 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 	root := false
 	var errIrregular apistatus.LockNonRegularObject
 
-	var addrLocked address.Address
-	addrLocked.SetContainerID(idCnr)
-	addrLocked.SetObjectID(locked)
+	var addrLocked oid.Address
+	addrLocked.SetContainer(idCnr)
+	addrLocked.SetObject(locked)
 
-	e.iterateOverSortedShards(&addrLocked, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addrLocked, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
 			// if object is root we continue since information about it
 			// can be presented in other shards
@@ -70,7 +66,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 
 		if checkExists {
 			exRes, err := sh.Exists(new(shard.ExistsPrm).
-				WithAddress(&addrLocked),
+				WithAddress(addrLocked),
 			)
 			if err != nil {
 				var siErr *objectSDK.SplitInfoError

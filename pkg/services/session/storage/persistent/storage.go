@@ -83,7 +83,7 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 // Get returns private token corresponding to the given identifiers.
 //
 // Returns nil is there is no element in storage.
-func (s *TokenStore) Get(ownerID *user.ID, tokenID []byte) (t *storage.PrivateToken) {
+func (s *TokenStore) Get(ownerID user.ID, tokenID []byte) (t *storage.PrivateToken) {
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 

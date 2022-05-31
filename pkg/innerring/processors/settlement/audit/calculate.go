@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -152,7 +151,7 @@ func (c *Calculator) readContainerInfo(ctx *singleResultCtx) bool {
 
 	var err error
 
-	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(&cnr)
+	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(cnr)
 	if err != nil {
 		ctx.log.Error("could not get container info",
 			zap.String("error", err.Error()),
@@ -217,11 +216,11 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 	sumPassSGSize := uint64(0)
 	fail := false
 
-	addr := addressSDK.NewAddress()
-	addr.SetContainerID(*ctx.containerID())
+	var addr oid.Address
+	addr.SetContainer(ctx.containerID())
 
 	ctx.auditResult.IteratePassedStorageGroups(func(id oid.ID) bool {
-		addr.SetObjectID(id)
+		addr.SetObject(id)
 
 		sgInfo, err := c.prm.SGStorage.SGInfo(addr)
 		if err != nil {
@@ -285,7 +284,7 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 
 		ctx.txTable.Transfer(&common.TransferTx{
 			From:   cnrOwner,
-			To:     ownerID,
+			To:     *ownerID,
 			Amount: fee,
 		})
 	}
@@ -303,16 +302,16 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 
 	ctx.txTable.Transfer(&common.TransferTx{
 		From:   cnrOwner,
-		To:     auditIR,
+		To:     *auditIR,
 		Amount: ctx.auditFee,
 	})
 
 	return false
 }
 
-func (c *singleResultCtx) containerID() *cid.ID {
+func (c *singleResultCtx) containerID() cid.ID {
 	cnr, _ := c.auditResult.Container()
-	return &cnr
+	return cnr
 }
 
 func (c *singleResultCtx) auditEpoch() uint64 {

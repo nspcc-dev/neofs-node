@@ -15,5 +15,5 @@ type Source interface {
 	//
 	// Must return pkg/core/container.ErrEACLNotFound if requested
 	// eACL table is not in source.
-	GetEACL(*cid.ID) (*eacl.Table, error)
+	GetEACL(cid.ID) (*eacl.Table, error)
 }

@@ -37,7 +37,7 @@ func (c *Client) ListAuditResultIDByEpoch(epoch uint64) ([]ResultID, error) {
 
 // ListAuditResultIDByCID returns a list of audit result IDs inside audit
 // contract for specific epoch number and container ID.
-func (c *Client) ListAuditResultIDByCID(epoch uint64, cnr *cid.ID) ([]ResultID, error) {
+func (c *Client) ListAuditResultIDByCID(epoch uint64, cnr cid.ID) ([]ResultID, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
 
@@ -54,7 +54,7 @@ func (c *Client) ListAuditResultIDByCID(epoch uint64, cnr *cid.ID) ([]ResultID, 
 
 // ListAuditResultIDByNode returns a list of audit result IDs inside audit
 // contract for specific epoch number, container ID and inner ring public key.
-func (c *Client) ListAuditResultIDByNode(epoch uint64, cnr *cid.ID, nodeKey []byte) ([]ResultID, error) {
+func (c *Client) ListAuditResultIDByNode(epoch uint64, cnr cid.ID, nodeKey []byte) ([]ResultID, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
 

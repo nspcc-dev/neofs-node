@@ -6,7 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -24,7 +23,7 @@ import (
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -93,8 +92,8 @@ func (n nodeInfoWrapper) Price() *big.Int {
 	return big.NewInt(int64(n.ni.Price))
 }
 
-func (c *containerWrapper) Owner() *user.ID {
-	return (*containerAPI.Container)(c).OwnerID()
+func (c *containerWrapper) Owner() user.ID {
+	return *(*containerAPI.Container)(c).OwnerID()
 }
 
 func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, error) {
@@ -117,7 +116,7 @@ func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, 
 	return res, nil
 }
 
-func (s settlementDeps) ContainerInfo(cid *cid.ID) (common.ContainerInfo, error) {
+func (s settlementDeps) ContainerInfo(cid cid.ID) (common.ContainerInfo, error) {
 	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container from storage: %w", err)
@@ -126,7 +125,7 @@ func (s settlementDeps) ContainerInfo(cid *cid.ID) (common.ContainerInfo, error)
 	return (*containerWrapper)(cnr), nil
 }
 
-func (s settlementDeps) buildContainer(e uint64, cid *cid.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
+func (s settlementDeps) buildContainer(e uint64, cid cid.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
 	var (
 		nm  *netmapAPI.Netmap
 		err error
@@ -161,7 +160,7 @@ func (s settlementDeps) buildContainer(e uint64, cid *cid.ID) (netmapAPI.Contain
 	return cn, nm, nil
 }
 
-func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo, error) {
+func (s settlementDeps) ContainerNodes(e uint64, cid cid.ID) ([]common.NodeInfo, error) {
 	cn, _, err := s.buildContainer(e, cid)
 	if err != nil {
 		return nil, err
@@ -182,13 +181,10 @@ func (s settlementDeps) ContainerNodes(e uint64, cid *cid.ID) ([]common.NodeInfo
 // SGInfo returns audit.SGInfo by object address.
 //
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
-func (s settlementDeps) SGInfo(addr *addressSDK.Address) (audit.SGInfo, error) {
-	cnr, ok := addr.ContainerID()
-	if !ok {
-		return nil, errors.New("missing container in object address")
-	}
+func (s settlementDeps) SGInfo(addr oid.Address) (audit.SGInfo, error) {
+	cnr := addr.Container()
 
-	cn, nm, err := s.buildContainer(0, &cnr)
+	cn, nm, err := s.buildContainer(0, cnr)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +209,7 @@ func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*user.ID, error) {
 	return &id, nil
 }
 
-func (s settlementDeps) Transfer(sender, recipient *user.ID, amount *big.Int, details []byte) {
+func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, details []byte) {
 	if s.settlementCtx == "" {
 		panic("unknown settlement deps context")
 	}
@@ -278,7 +274,7 @@ func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*containerClient
 	return result, nil
 }
 
-func (b basicIncomeSettlementDeps) Balance(id *user.ID) (*big.Int, error) {
+func (b basicIncomeSettlementDeps) Balance(id user.ID) (*big.Int, error) {
 	return b.balanceClient.BalanceOf(id)
 }
 

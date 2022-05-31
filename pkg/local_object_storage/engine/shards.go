@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
 )
@@ -79,7 +79,7 @@ func (e *StorageEngine) shardWeight(sh *shard.Shard) float64 {
 	return float64(weightValues.FreeSpace)
 }
 
-func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []hashedShard {
+func (e *StorageEngine) sortShardsByWeight(objAddr interface{ EncodeToString() string }) []hashedShard {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
@@ -91,7 +91,7 @@ func (e *StorageEngine) sortShardsByWeight(objAddr fmt.Stringer) []hashedShard {
 		weights = append(weights, e.shardWeight(sh.Shard))
 	}
 
-	hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(objAddr.String())))
+	hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(objAddr.EncodeToString())))
 
 	return shards
 }
@@ -109,7 +109,7 @@ func (e *StorageEngine) unsortedShards() []hashedShard {
 	return shards
 }
 
-func (e *StorageEngine) iterateOverSortedShards(addr *addressSDK.Address, handler func(int, hashedShard) (stop bool)) {
+func (e *StorageEngine) iterateOverSortedShards(addr oid.Address, handler func(int, hashedShard) (stop bool)) {
 	for i, sh := range e.sortShardsByWeight(addr) {
 		if handler(i, sh) {
 			break

@@ -22,7 +22,7 @@ type (
 
 	// BalanceFetcher uses NEP-17 compatible balance contract
 	BalanceFetcher interface {
-		Balance(id *user.ID) (*big.Int, error)
+		Balance(id user.ID) (*big.Int, error)
 	}
 
 	IncomeSettlementContext struct {

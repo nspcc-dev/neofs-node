@@ -11,8 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // FSTree represents an object storage as a filesystem tree.
@@ -42,44 +41,41 @@ const (
 // ErrFileNotFound is returned when file is missing.
 var ErrFileNotFound = errors.New("file not found")
 
-func stringifyAddress(addr *addressSDK.Address) string {
-	id, _ := addr.ObjectID()
-	cnr, _ := addr.ContainerID()
-
-	return id.EncodeToString() + "." + cnr.EncodeToString()
+func stringifyAddress(addr oid.Address) string {
+	return addr.Object().EncodeToString() + "." + addr.Container().EncodeToString()
 }
 
-func addressFromString(s string) (*addressSDK.Address, error) {
+func addressFromString(s string) (*oid.Address, error) {
 	ss := strings.SplitN(s, ".", 2)
 	if len(ss) != 2 {
 		return nil, errors.New("invalid address")
 	}
 
-	var oid oidSDK.ID
-	if err := oid.DecodeString(ss[0]); err != nil {
+	var obj oid.ID
+	if err := obj.DecodeString(ss[0]); err != nil {
 		return nil, err
 	}
 
-	var id cid.ID
-	if err := id.DecodeString(ss[1]); err != nil {
+	var cnr cid.ID
+	if err := cnr.DecodeString(ss[1]); err != nil {
 		return nil, err
 	}
 
-	addr := addressSDK.NewAddress()
-	addr.SetObjectID(oid)
-	addr.SetContainerID(id)
+	var addr oid.Address
+	addr.SetObject(obj)
+	addr.SetContainer(cnr)
 
-	return addr, nil
+	return &addr, nil
 }
 
 // IterationPrm contains iteraction parameters.
 type IterationPrm struct {
-	handler      func(addr *addressSDK.Address, data []byte) error
+	handler      func(addr oid.Address, data []byte) error
 	ignoreErrors bool
 }
 
 // WithHandler sets a function to call on each object.
-func (p *IterationPrm) WithHandler(f func(addr *addressSDK.Address, data []byte) error) *IterationPrm {
+func (p *IterationPrm) WithHandler(f func(addr oid.Address, data []byte) error) *IterationPrm {
 	p.handler = f
 	return p
 }
@@ -138,7 +134,7 @@ func (t *FSTree) iterate(depth int, curPath []string, prm *IterationPrm) error {
 			return err
 		}
 
-		if err := prm.handler(addr, data); err != nil {
+		if err := prm.handler(*addr, data); err != nil {
 			// Error occurred in handler, outside of our scope, needs to be reported.
 			return err
 		}
@@ -147,7 +143,7 @@ func (t *FSTree) iterate(depth int, curPath []string, prm *IterationPrm) error {
 	return nil
 }
 
-func (t *FSTree) treePath(addr *addressSDK.Address) string {
+func (t *FSTree) treePath(addr oid.Address) string {
 	sAddr := stringifyAddress(addr)
 
 	dirs := make([]string, 0, t.Depth+1+1) // 1 for root, 1 for file
@@ -164,7 +160,7 @@ func (t *FSTree) treePath(addr *addressSDK.Address) string {
 }
 
 // Delete removes the object with the specified address from the storage.
-func (t *FSTree) Delete(addr *addressSDK.Address) error {
+func (t *FSTree) Delete(addr oid.Address) error {
 	p, err := t.Exists(addr)
 	if err != nil {
 		return err
@@ -175,7 +171,7 @@ func (t *FSTree) Delete(addr *addressSDK.Address) error {
 
 // Exists returns the path to the file with object contents if it exists in the storage
 // and an error otherwise.
-func (t *FSTree) Exists(addr *addressSDK.Address) (string, error) {
+func (t *FSTree) Exists(addr oid.Address) (string, error) {
 	p := t.treePath(addr)
 
 	_, err := os.Stat(p)
@@ -187,7 +183,7 @@ func (t *FSTree) Exists(addr *addressSDK.Address) (string, error) {
 }
 
 // Put puts an object in the storage.
-func (t *FSTree) Put(addr *addressSDK.Address, data []byte) error {
+func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	p := t.treePath(addr)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
@@ -198,7 +194,7 @@ func (t *FSTree) Put(addr *addressSDK.Address, data []byte) error {
 }
 
 // PutStream puts executes handler on a file opened for write.
-func (t *FSTree) PutStream(addr *addressSDK.Address, handler func(*os.File) error) error {
+func (t *FSTree) PutStream(addr oid.Address, handler func(*os.File) error) error {
 	p := t.treePath(addr)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
@@ -215,7 +211,7 @@ func (t *FSTree) PutStream(addr *addressSDK.Address, handler func(*os.File) erro
 }
 
 // Get returns an object from the storage by address.
-func (t *FSTree) Get(addr *addressSDK.Address) ([]byte, error) {
+func (t *FSTree) Get(addr oid.Address) ([]byte, error) {
 	p := t.treePath(addr)
 
 	if _, err := os.Stat(p); os.IsNotExist(err) {

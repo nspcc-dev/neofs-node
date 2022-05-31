@@ -13,8 +13,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/panjf2000/ants/v2"
@@ -61,26 +59,26 @@ func TestLockUserScenario(t *testing.T) {
 	cnr := cidtest.ID()
 	var err error
 
-	var objAddr address.Address
-	objAddr.SetContainerID(cnr)
+	var objAddr oid.Address
+	objAddr.SetContainer(cnr)
 
-	var tombAddr address.Address
-	tombAddr.SetContainerID(cnr)
-	tombAddr.SetObjectID(tombID)
+	var tombAddr oid.Address
+	tombAddr.SetContainer(cnr)
+	tombAddr.SetObject(tombID)
 
-	var lockerAddr address.Address
-	lockerAddr.SetContainerID(cnr)
-	lockerAddr.SetObjectID(lockerID)
+	var lockerAddr oid.Address
+	lockerAddr.SetContainer(cnr)
+	lockerAddr.SetObject(lockerID)
 
-	var tombForLockAddr address.Address
-	tombForLockAddr.SetContainerID(cnr)
-	tombForLockAddr.SetObjectID(tombForLockID)
+	var tombForLockAddr oid.Address
+	tombForLockAddr.SetContainer(cnr)
+	tombForLockAddr.SetObject(tombForLockID)
 
 	// 1.
 	obj := generateObjectWithCID(t, cnr)
 
 	id, _ := obj.ID()
-	objAddr.SetObjectID(id)
+	objAddr.SetObject(id)
 
 	err = Put(e, obj)
 	require.NoError(t, err)
@@ -90,7 +88,7 @@ func TestLockUserScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3.
-	_, err = e.Inhume(new(InhumePrm).WithTarget(&tombAddr, &objAddr))
+	_, err = e.Inhume(new(InhumePrm).WithTarget(tombAddr, objAddr))
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
@@ -106,7 +104,7 @@ func TestLockUserScenario(t *testing.T) {
 	err = Put(e, tombObj)
 	require.NoError(t, err)
 
-	_, err = e.Inhume(new(InhumePrm).WithTarget(&tombForLockAddr, &lockerAddr))
+	_, err = e.Inhume(new(InhumePrm).WithTarget(tombForLockAddr, lockerAddr))
 	require.NoError(t, err, new(apistatus.ObjectLocked))
 
 	// 5.
@@ -117,7 +115,7 @@ func TestLockUserScenario(t *testing.T) {
 	// delay for GC
 	time.Sleep(time.Second)
 
-	_, err = e.Inhume(new(InhumePrm).WithTarget(&tombAddr, &objAddr))
+	_, err = e.Inhume(new(InhumePrm).WithTarget(tombAddr, objAddr))
 	require.NoError(t, err)
 }
 
@@ -179,7 +177,7 @@ func TestLockExpiration(t *testing.T) {
 	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)
 
-	_, err = e.Inhume(new(InhumePrm).WithTarget(objecttest.Address(), objectcore.AddressOf(obj)))
+	_, err = e.Inhume(new(InhumePrm).WithTarget(oidtest.Address(), objectcore.AddressOf(obj)))
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 3.
@@ -192,6 +190,6 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	_, err = e.Inhume(new(InhumePrm).WithTarget(objecttest.Address(), objectcore.AddressOf(obj)))
+	_, err = e.Inhume(new(InhumePrm).WithTarget(oidtest.Address(), objectcore.AddressOf(obj)))
 	require.NoError(t, err)
 }

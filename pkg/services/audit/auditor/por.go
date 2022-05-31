@@ -7,7 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.uber.org/zap"
 )
@@ -22,7 +22,7 @@ func (c *Context) executePoR() {
 		sg := sgs[i]
 
 		if err := c.porWorkerPool.Submit(func() {
-			c.checkStorageGroupPoR(i, &sg)
+			c.checkStorageGroupPoR(i, sg)
 			wg.Done()
 		}); err != nil {
 			wg.Done()
@@ -35,7 +35,7 @@ func (c *Context) executePoR() {
 	c.report.SetPoRCounters(c.porRequests.Load(), c.porRetries.Load())
 }
 
-func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
+func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 	storageGroup, err := c.cnrCom.GetSG(c.task, sg) // get storage group
 	if err != nil {
 		c.log.Warn("can't get storage group",
@@ -56,7 +56,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 	)
 
 	for i := range members {
-		objectPlacement, err := c.buildPlacement(&members[i])
+		objectPlacement, err := c.buildPlacement(members[i])
 		if err != nil {
 			c.log.Info("can't build placement for storage group member",
 				zap.Stringer("sg", sg),
@@ -78,11 +78,12 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 				accRetries++
 			}
 
-			hdr, err := c.cnrCom.GetHeader(c.task, &flat[j], &members[i], true)
+			hdr, err := c.cnrCom.GetHeader(c.task, &flat[j], members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
 					zap.String("remote_node", hex.EncodeToString(flat[j].PublicKey())),
-					zap.String("oid", members[i].String()))
+					zap.Stringer("oid", members[i]),
+				)
 
 				continue
 			}
@@ -98,7 +99,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg *oidSDK.ID) {
 				tzHash, err = tz.Concat([][]byte{tzHash, cs.Value()})
 				if err != nil {
 					c.log.Debug("can't concatenate tz hash",
-						zap.String("oid", members[i].String()),
+						zap.Stringer("oid", members[i]),
 						zap.String("error", err.Error()))
 
 					break

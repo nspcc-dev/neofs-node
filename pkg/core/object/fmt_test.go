@@ -11,7 +11,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -117,7 +117,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.ValidateContent(obj)) // no tombstone content
 
 		content := object.NewTombstone()
-		content.SetMembers([]oidSDK.ID{oidtest.ID()})
+		content.SetMembers([]oid.ID{oidtest.ID()})
 
 		data, err := content.Marshal()
 		require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj)) // no members in tombstone
 
-		content.SetMembers([]oidSDK.ID{oidtest.ID()})
+		content.SetMembers([]oid.ID{oidtest.ID()})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		require.Error(t, v.ValidateContent(obj))
 
-		content.SetMembers([]oidSDK.ID{oidtest.ID()})
+		content.SetMembers([]oid.ID{oidtest.ID()})
 
 		data, err = content.Marshal()
 		require.NoError(t, err)

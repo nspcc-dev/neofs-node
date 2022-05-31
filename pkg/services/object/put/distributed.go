@@ -146,7 +146,7 @@ func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (*transform
 	id, _ := t.obj.ID()
 
 	traverser, err := placement.NewTraverser(
-		append(t.traversal.opts, placement.ForObject(&id))...,
+		append(t.traversal.opts, placement.ForObject(id))...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
@@ -236,5 +236,5 @@ loop:
 	id, _ = t.obj.ID()
 
 	return new(transformer.AccessIdentifiers).
-		WithSelfID(&id), nil
+		WithSelfID(id), nil
 }

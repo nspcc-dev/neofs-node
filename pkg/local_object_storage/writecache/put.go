@@ -30,7 +30,7 @@ func (c *cache) Put(o *objectSDK.Object) error {
 	}
 
 	oi := objectInfo{
-		addr: object.AddressOf(o).String(),
+		addr: object.AddressOf(o).EncodeToString(),
 		obj:  o,
 		data: data,
 	}

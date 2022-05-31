@@ -46,13 +46,13 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateObjectWithCID(t, cid)
+		parent := generateObjectWithCID(t, cnr)
 		addAttribute(parent, "foo", "bar")
 
-		child := generateObjectWithCID(t, cid)
+		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
 		idParent, _ := parent.ID()
 		child.SetParentID(idParent)

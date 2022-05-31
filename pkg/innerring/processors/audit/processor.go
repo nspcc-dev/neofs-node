@@ -13,7 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -67,7 +67,7 @@ type (
 type SearchSGPrm struct {
 	ctx context.Context
 
-	id *cid.ID
+	id cid.ID
 
 	info client.NodeInfo
 }
@@ -78,7 +78,7 @@ func (x SearchSGPrm) Context() context.Context {
 }
 
 // CID returns the identifier of the container to search SG in.
-func (x SearchSGPrm) CID() *cid.ID {
+func (x SearchSGPrm) CID() cid.ID {
 	return x.id
 }
 
@@ -89,11 +89,11 @@ func (x SearchSGPrm) NodeInfo() client.NodeInfo {
 
 // SearchSGDst groups the target values which Processor expects from SG searching to process.
 type SearchSGDst struct {
-	ids []oidSDK.ID
+	ids []oid.ID
 }
 
 // WriteIDList writes a list of identifiers of storage group objects stored in the container.
-func (x *SearchSGDst) WriteIDList(ids []oidSDK.ID) {
+func (x *SearchSGDst) WriteIDList(ids []oid.ID) {
 	x.ids = ids
 }
 

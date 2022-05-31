@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )
@@ -18,7 +18,7 @@ func TestBlobovniczaIterate(t *testing.T) {
 	require.NoError(t, b.Init())
 
 	data := [][]byte{{0, 1, 2, 3}, {5, 6, 7, 8}}
-	addr := objecttest.Address()
+	addr := oidtest.Address()
 	_, err := b.Put(&PutPrm{addr: addr, objData: data[0]})
 	require.NoError(t, err)
 

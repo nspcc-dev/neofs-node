@@ -8,7 +8,7 @@ import (
 
 // ContainerSizePrm groups parameters of ContainerSize operation.
 type ContainerSizePrm struct {
-	cid *cid.ID
+	cnr cid.ID
 }
 
 // ContainerSizeRes resulting values of ContainerSize operation.
@@ -21,12 +21,12 @@ type ListContainersPrm struct{}
 
 // ListContainersRes groups the resulting values of ListContainers operation.
 type ListContainersRes struct {
-	containers []*cid.ID
+	containers []cid.ID
 }
 
 // SetContainerID sets the identifier of the container to estimate the size.
-func (p *ContainerSizePrm) SetContainerID(cid *cid.ID) {
-	p.cid = cid
+func (p *ContainerSizePrm) SetContainerID(cnr cid.ID) {
+	p.cnr = cnr
 }
 
 // Size returns calculated estimation of the container size.
@@ -35,7 +35,7 @@ func (r ContainerSizeRes) Size() uint64 {
 }
 
 // Containers returns a list of identifiers of the containers in which local objects are stored.
-func (r ListContainersRes) Containers() []*cid.ID {
+func (r ListContainersRes) Containers() []cid.ID {
 	return r.containers
 }
 
@@ -52,7 +52,7 @@ func (e *StorageEngine) ContainerSize(prm ContainerSizePrm) (res *ContainerSizeR
 }
 
 // ContainerSize calls ContainerSize method on engine to calculate sum of estimation container sizes among all shards.
-func ContainerSize(e *StorageEngine, id *cid.ID) (uint64, error) {
+func ContainerSize(e *StorageEngine, id cid.ID) (uint64, error) {
 	var prm ContainerSizePrm
 
 	prm.SetContainerID(id)
@@ -73,10 +73,11 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 	var res ContainerSizeRes
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
-		size, err := shard.ContainerSize(sh.Shard, prm.cid)
+		size, err := shard.ContainerSize(sh.Shard, prm.cnr)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
-				zap.Stringer("container_id", prm.cid))
+				zap.Stringer("container_id", prm.cnr),
+			)
 			return false
 		}
 
@@ -101,7 +102,7 @@ func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res *ListContainers
 }
 
 // ListContainers calls ListContainers method on engine to get a unique container IDs presented in the engine objects.
-func ListContainers(e *StorageEngine) ([]*cid.ID, error) {
+func ListContainers(e *StorageEngine) ([]cid.ID, error) {
 	var prm ListContainersPrm
 
 	res, err := e.ListContainers(prm)
@@ -117,7 +118,7 @@ func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
 
-	uniqueIDs := make(map[string]*cid.ID)
+	uniqueIDs := make(map[string]cid.ID)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		cnrs, err := shard.ListContainers(sh.Shard)
@@ -127,7 +128,7 @@ func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 		}
 
 		for i := range cnrs {
-			id := cnrs[i].String()
+			id := cnrs[i].EncodeToString()
 			if _, ok := uniqueIDs[id]; !ok {
 				uniqueIDs[id] = cnrs[i]
 			}
@@ -136,7 +137,7 @@ func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 		return false
 	})
 
-	result := make([]*cid.ID, 0, len(uniqueIDs))
+	result := make([]cid.ID, 0, len(uniqueIDs))
 	for _, v := range uniqueIDs {
 		result = append(result, v)
 	}

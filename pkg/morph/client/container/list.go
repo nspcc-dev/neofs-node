@@ -14,7 +14,7 @@ import (
 //
 // Returns the identifiers of all NeoFS containers if pointer
 // to user identifier is nil.
-func (c *Client) List(idUser *user.ID) ([]*cid.ID, error) {
+func (c *Client) List(idUser *user.ID) ([]cid.ID, error) {
 	var rawID []byte
 
 	if idUser != nil {
@@ -37,21 +37,21 @@ func (c *Client) List(idUser *user.ID) ([]*cid.ID, error) {
 		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listMethod, err)
 	}
 
-	cidList := make([]*cid.ID, 0, len(res))
+	cidList := make([]cid.ID, 0, len(res))
 	for i := range res {
-		rawCid, err := client.BytesFromStackItem(res[i])
+		rawID, err := client.BytesFromStackItem(res[i])
 		if err != nil {
 			return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", listMethod, err)
 		}
 
 		var id cid.ID
 
-		err = id.Decode(rawCid)
+		err = id.Decode(rawID)
 		if err != nil {
 			return nil, fmt.Errorf("decode container ID: %w", err)
 		}
 
-		cidList = append(cidList, &id)
+		cidList = append(cidList, id)
 	}
 
 	return cidList, nil

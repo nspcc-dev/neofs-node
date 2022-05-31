@@ -17,7 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -73,7 +73,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 
 	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 		var size int
 		switch i % 6 {
 		case 0, 1:
@@ -87,7 +87,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		}
 		data := make([]byte, size)
 		rand.Read(data)
-		obj := generateObjectWithPayload(cid, data)
+		obj := generateObjectWithPayload(cnr, data)
 		objects[i] = obj
 
 		prm := new(shard.PutPrm).WithObject(objects[i])
@@ -193,8 +193,8 @@ func TestStream(t *testing.T) {
 	const objCount = 5
 	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
-		cid := cidtest.ID()
-		obj := generateObjectWithCID(t, cid)
+		cnr := cidtest.ID()
+		obj := generateObjectWithCID(t, cnr)
 		objects[i] = obj
 
 		prm := new(shard.PutPrm).WithObject(objects[i])
@@ -301,7 +301,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(dirName, addr[2:]), corruptedData, os.ModePerm))
 
 		// 1.2. Unreadable file.
-		addr = cidtest.ID().String() + "." + objecttest.ID().String()
+		addr = cidtest.ID().EncodeToString() + "." + objecttest.ID().EncodeToString()
 		dirName = filepath.Join(bsPath, addr[:2])
 		require.NoError(t, os.MkdirAll(dirName, os.ModePerm))
 
@@ -326,7 +326,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 
 		// 2.2. Invalid object in valid blobovnicza.
 		prm := new(blobovnicza.PutPrm)
-		prm.SetAddress(addressSDK.NewAddress())
+		prm.SetAddress(oid.Address{})
 		prm.SetMarshaledObject(corruptedData)
 		b := blobovnicza.New(blobovnicza.WithPath(filepath.Join(bTree, "1", "2")))
 		require.NoError(t, b.Open())
@@ -338,7 +338,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	{
 		// 3. Invalid object in write-cache. Note that because shard is read-only
 		//    the object won't be flushed.
-		addr := cidtest.ID().String() + "." + objecttest.ID().String()
+		addr := cidtest.ID().EncodeToString() + "." + objecttest.ID().EncodeToString()
 		dir := filepath.Join(wcPath, addr[:1])
 		require.NoError(t, os.MkdirAll(dir, os.ModePerm))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, addr[1:]), nil, 0))

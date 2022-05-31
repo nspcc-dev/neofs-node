@@ -8,8 +8,7 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -17,7 +16,7 @@ import (
 type ExpiredObject struct {
 	typ object.Type
 
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // Type returns type of the expired object.
@@ -26,7 +25,7 @@ func (e *ExpiredObject) Type() object.Type {
 }
 
 // Address returns address of the expired object.
-func (e *ExpiredObject) Address() *addressSDK.Address {
+func (e *ExpiredObject) Address() oid.Address {
 	return e.addr
 }
 
@@ -70,7 +69,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 			}
 
 			return bktExpired.ForEach(func(idKey, _ []byte) error {
-				var id oidSDK.ID
+				var id oid.ID
 
 				err = id.DecodeString(string(idKey))
 				if err != nil {
@@ -92,9 +91,9 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 					return nil
 				}
 
-				addr := addressSDK.NewAddress()
-				addr.SetContainerID(cnrID)
-				addr.SetObjectID(id)
+				var addr oid.Address
+				addr.SetContainer(cnrID)
+				addr.SetObject(id)
 
 				return h(&ExpiredObject{
 					typ:  firstIrregularObjectType(tx, cnrID, idKey),
@@ -119,13 +118,13 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 // Returns other errors of h directly.
 //
 // Does not modify tss.
-func (db *DB) IterateCoveredByTombstones(tss map[string]*addressSDK.Address, h func(*addressSDK.Address) error) error {
+func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.Address) error) error {
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateCoveredByTombstones(tx, tss, h)
 	})
 }
 
-func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]*addressSDK.Address, h func(*addressSDK.Address) error) error {
+func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Address, h func(oid.Address) error) error {
 	bktGraveyard := tx.Bucket(graveyardBucketName)
 	if bktGraveyard == nil {
 		return nil
@@ -133,15 +132,14 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]*addressSD
 
 	err := bktGraveyard.ForEach(func(k, v []byte) error {
 		if _, ok := tss[string(v)]; ok {
-			addr, err := addressFromKey(k)
+			var addr oid.Address
+
+			err := decodeAddressFromKey(&addr, k)
 			if err != nil {
 				return fmt.Errorf("could not parse address of the object under tombstone: %w", err)
 			}
 
-			cnr, _ := addr.ContainerID()
-			obj, _ := addr.ObjectID()
-
-			if objectLocked(tx, cnr, obj) {
+			if objectLocked(tx, addr.Container(), addr.Object()) {
 				return nil
 			}
 

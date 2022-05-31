@@ -7,22 +7,22 @@ import (
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // InhumePrm encapsulates parameters for Inhume operation.
 type InhumePrm struct {
-	tomb *addressSDK.Address
+	tomb *oid.Address
 
-	target []*addressSDK.Address
+	target []oid.Address
 }
 
 // InhumeRes encapsulates results of Inhume operation.
 type InhumeRes struct{}
 
 // WithAddresses sets a list of object addresses that should be inhumed.
-func (p *InhumePrm) WithAddresses(addrs ...*addressSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithAddresses(addrs ...oid.Address) *InhumePrm {
 	if p != nil {
 		p.target = addrs
 	}
@@ -34,9 +34,9 @@ func (p *InhumePrm) WithAddresses(addrs ...*addressSDK.Address) *InhumePrm {
 //
 // addr should not be nil.
 // Should not be called along with WithGCMark.
-func (p *InhumePrm) WithTombstoneAddress(addr *addressSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithTombstoneAddress(addr oid.Address) *InhumePrm {
 	if p != nil {
-		p.tomb = addr
+		p.tomb = &addr
 	}
 
 	return p
@@ -56,7 +56,7 @@ func (p *InhumePrm) WithGCMark() *InhumePrm {
 // Inhume inhumes the object by specified address.
 //
 // tomb should not be nil.
-func Inhume(db *DB, target, tomb *addressSDK.Address) error {
+func Inhume(db *DB, target, tomb oid.Address) error {
 	_, err := db.Inhume(new(InhumePrm).
 		WithAddresses(target).
 		WithTombstoneAddress(tomb),
@@ -89,7 +89,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 
 		if prm.tomb != nil {
 			bkt = tx.Bucket(graveyardBucketName)
-			tombKey := addressKey(prm.tomb)
+			tombKey := addressKey(*prm.tomb)
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
@@ -108,8 +108,8 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 		}
 
 		for i := range prm.target {
-			id, _ := prm.target[i].ObjectID()
-			cnr, _ := prm.target[i].ContainerID()
+			id := prm.target[i].Object()
+			cnr := prm.target[i].Container()
 
 			// prevent locked objects to be inhumed
 			if objectLocked(tx, cnr, id) {
@@ -121,12 +121,7 @@ func (db *DB) Inhume(prm *InhumePrm) (res *InhumeRes, err error) {
 			// if object is stored and it is regular object then update bucket
 			// with container size estimations
 			if err == nil && obj.Type() == object.TypeRegular {
-				err := changeContainerSize(
-					tx,
-					&cnr,
-					obj.PayloadSize(),
-					false,
-				)
+				err := changeContainerSize(tx, cnr, obj.PayloadSize(), false)
 				if err != nil {
 					return err
 				}

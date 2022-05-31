@@ -25,7 +25,7 @@ func (b *Builder) NextStage(a container.UsedSpaceAnnouncement, passed []loadrout
 		return nil, errors.New("missing container in load announcement")
 	}
 
-	placement, err := b.placementBuilder.BuildPlacement(a.Epoch(), &cnr)
+	placement, err := b.placementBuilder.BuildPlacement(a.Epoch(), cnr)
 	if err != nil {
 		return nil, fmt.Errorf("could not build placement %s: %w", cnr, err)
 	}

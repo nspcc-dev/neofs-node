@@ -9,7 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -140,44 +140,44 @@ func TestDB_SelectUserAttributes(t *testing.T) {
 func TestDB_SelectRootPhyParent(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
 	// prepare
 
-	small := generateObjectWithCID(t, cid)
+	small := generateObjectWithCID(t, cnr)
 	err := putBig(db, small)
 	require.NoError(t, err)
 
-	ts := generateObjectWithCID(t, cid)
+	ts := generateObjectWithCID(t, cnr)
 	ts.SetType(objectSDK.TypeTombstone)
 	err = putBig(db, ts)
 	require.NoError(t, err)
 
-	sg := generateObjectWithCID(t, cid)
+	sg := generateObjectWithCID(t, cnr)
 	sg.SetType(objectSDK.TypeStorageGroup)
 	err = putBig(db, sg)
 	require.NoError(t, err)
 
-	leftChild := generateObjectWithCID(t, cid)
+	leftChild := generateObjectWithCID(t, cnr)
 	leftChild.InitRelations()
 	err = putBig(db, leftChild)
 	require.NoError(t, err)
 
-	lock := generateObjectWithCID(t, cid)
+	lock := generateObjectWithCID(t, cnr)
 	lock.SetType(objectSDK.TypeLock)
 	err = putBig(db, lock)
 	require.NoError(t, err)
 
-	parent := generateObjectWithCID(t, cid)
+	parent := generateObjectWithCID(t, cnr)
 
-	rightChild := generateObjectWithCID(t, cid)
+	rightChild := generateObjectWithCID(t, cnr)
 	rightChild.SetParent(parent)
 	idParent, _ := parent.ID()
 	rightChild.SetParentID(idParent)
 	err = putBig(db, rightChild)
 	require.NoError(t, err)
 
-	link := generateObjectWithCID(t, cid)
+	link := generateObjectWithCID(t, cnr)
 	link.SetParent(parent)
 	link.SetParentID(idParent)
 	idLeftChild, _ := leftChild.ID()
@@ -190,20 +190,20 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	t.Run("root objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddRootFilter()
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(parent),
 		)
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterPropertyRoot, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("phy objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddPhyFilter()
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(ts),
 			object.AddressOf(sg),
@@ -215,13 +215,13 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterPropertyPhy, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("regular objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeRegular.String(), objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(leftChild),
 			object.AddressOf(rightChild),
@@ -231,7 +231,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeRegular.String(), objectSDK.MatchStringNotEqual)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(ts),
 			object.AddressOf(sg),
 			object.AddressOf(lock),
@@ -239,17 +239,17 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("tombstone objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeTombstone.String(), objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs, object.AddressOf(ts))
+		testSelect(t, db, cnr, fs, object.AddressOf(ts))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeTombstone.String(), objectSDK.MatchStringNotEqual)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(leftChild),
 			object.AddressOf(rightChild),
@@ -261,17 +261,17 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("storage group objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeStorageGroup.String(), objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs, object.AddressOf(sg))
+		testSelect(t, db, cnr, fs, object.AddressOf(sg))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeStorageGroup.String(), objectSDK.MatchStringNotEqual)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(leftChild),
 			object.AddressOf(rightChild),
@@ -283,7 +283,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderObjectType, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("objects with parent", func(t *testing.T) {
@@ -294,19 +294,19 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			idParent.EncodeToString(),
 			objectSDK.MatchStringEqual)
 
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(rightChild),
 			object.AddressOf(link),
 		)
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderParent, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("all objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(ts),
 			object.AddressOf(sg),
@@ -322,31 +322,31 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 func TestDB_SelectInhume(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
-	raw1 := generateObjectWithCID(t, cid)
+	raw1 := generateObjectWithCID(t, cnr)
 	err := putBig(db, raw1)
 	require.NoError(t, err)
 
-	raw2 := generateObjectWithCID(t, cid)
+	raw2 := generateObjectWithCID(t, cnr)
 	err = putBig(db, raw2)
 	require.NoError(t, err)
 
 	fs := objectSDK.SearchFilters{}
-	testSelect(t, db, cid, fs,
+	testSelect(t, db, cnr, fs,
 		object.AddressOf(raw1),
 		object.AddressOf(raw2),
 	)
 
-	tombstone := addressSDK.NewAddress()
-	tombstone.SetContainerID(cid)
-	tombstone.SetObjectID(oidtest.ID())
+	var tombstone oid.Address
+	tombstone.SetContainer(cnr)
+	tombstone.SetObject(oidtest.ID())
 
 	err = meta.Inhume(db, object.AddressOf(raw2), tombstone)
 	require.NoError(t, err)
 
 	fs = objectSDK.SearchFilters{}
-	testSelect(t, db, cid, fs,
+	testSelect(t, db, cnr, fs,
 		object.AddressOf(raw1),
 	)
 }
@@ -354,13 +354,13 @@ func TestDB_SelectInhume(t *testing.T) {
 func TestDB_SelectPayloadHash(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
-	raw1 := generateObjectWithCID(t, cid)
+	raw1 := generateObjectWithCID(t, cnr)
 	err := putBig(db, raw1)
 	require.NoError(t, err)
 
-	raw2 := generateObjectWithCID(t, cid)
+	raw2 := generateObjectWithCID(t, cnr)
 	err = putBig(db, raw2)
 	require.NoError(t, err)
 
@@ -371,46 +371,46 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 		hex.EncodeToString(cs.Value()),
 		objectSDK.MatchStringEqual)
 
-	testSelect(t, db, cid, fs, object.AddressOf(raw1))
+	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 	fs = objectSDK.SearchFilters{}
 	fs.AddFilter(v2object.FilterHeaderPayloadHash,
 		hex.EncodeToString(cs.Value()),
 		objectSDK.MatchStringNotEqual)
 
-	testSelect(t, db, cid, fs, object.AddressOf(raw2))
+	testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 	fs = objectSDK.SearchFilters{}
 	fs.AddFilter(v2object.FilterHeaderPayloadHash,
 		"",
 		objectSDK.MatchNotPresent)
 
-	testSelect(t, db, cid, fs)
+	testSelect(t, db, cnr, fs)
 }
 
 func TestDB_SelectWithSlowFilters(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
 	v20 := new(version.Version)
 	v20.SetMajor(2)
 
-	v21 := new(version.Version)
+	var v21 version.Version
 	v21.SetMajor(2)
 	v21.SetMinor(1)
 
-	raw1 := generateObjectWithCID(t, cid)
+	raw1 := generateObjectWithCID(t, cnr)
 	raw1.SetPayloadSize(10)
 	raw1.SetCreationEpoch(11)
 	raw1.SetVersion(v20)
 	err := putBig(db, raw1)
 	require.NoError(t, err)
 
-	raw2 := generateObjectWithCID(t, cid)
+	raw2 := generateObjectWithCID(t, cnr)
 	raw2.SetPayloadSize(20)
 	raw2.SetCreationEpoch(21)
-	raw2.SetVersion(v21)
+	raw2.SetVersion(&v21)
 	err = putBig(db, raw2)
 	require.NoError(t, err)
 
@@ -422,82 +422,82 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 			hex.EncodeToString(cs.Value()),
 			objectSDK.MatchStringEqual)
 
-		testSelect(t, db, cid, fs, object.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
 			hex.EncodeToString(cs.Value()),
 			objectSDK.MatchStringNotEqual)
 
-		testSelect(t, db, cid, fs, object.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
 			"",
 			objectSDK.MatchNotPresent)
 
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("object with payload length", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderPayloadLength, "20", objectSDK.MatchStringEqual)
 
-		testSelect(t, db, cid, fs, object.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderPayloadLength, "20", objectSDK.MatchStringNotEqual)
 
-		testSelect(t, db, cid, fs, object.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderPayloadLength, "", objectSDK.MatchNotPresent)
 
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("object with creation epoch", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "11", objectSDK.MatchStringEqual)
 
-		testSelect(t, db, cid, fs, object.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "11", objectSDK.MatchStringNotEqual)
 
-		testSelect(t, db, cid, fs, object.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "", objectSDK.MatchNotPresent)
 
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("object with version", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectVersionFilter(objectSDK.MatchStringEqual, v21)
-		testSelect(t, db, cid, fs, object.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectVersionFilter(objectSDK.MatchStringNotEqual, v21)
-		testSelect(t, db, cid, fs, object.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddObjectVersionFilter(objectSDK.MatchNotPresent, nil)
-		testSelect(t, db, cid, fs)
+		fs.AddObjectVersionFilter(objectSDK.MatchNotPresent, version.Version{})
+		testSelect(t, db, cnr, fs)
 	})
 }
 
 func TestDB_SelectObjectID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
 	// prepare
 
-	parent := generateObjectWithCID(t, cid)
+	parent := generateObjectWithCID(t, cnr)
 
-	regular := generateObjectWithCID(t, cid)
+	regular := generateObjectWithCID(t, cnr)
 	idParent, _ := parent.ID()
 	regular.SetParentID(idParent)
 	regular.SetParent(parent)
@@ -505,35 +505,35 @@ func TestDB_SelectObjectID(t *testing.T) {
 	err := putBig(db, regular)
 	require.NoError(t, err)
 
-	ts := generateObjectWithCID(t, cid)
+	ts := generateObjectWithCID(t, cnr)
 	ts.SetType(objectSDK.TypeTombstone)
 	err = putBig(db, ts)
 	require.NoError(t, err)
 
-	sg := generateObjectWithCID(t, cid)
+	sg := generateObjectWithCID(t, cnr)
 	sg.SetType(objectSDK.TypeStorageGroup)
 	err = putBig(db, sg)
 	require.NoError(t, err)
 
-	lock := generateObjectWithCID(t, cid)
+	lock := generateObjectWithCID(t, cnr)
 	lock.SetType(objectSDK.TypeLock)
 	err = putBig(db, lock)
 	require.NoError(t, err)
 
 	t.Run("not found objects", func(t *testing.T) {
-		raw := generateObjectWithCID(t, cid)
+		raw := generateObjectWithCID(t, cnr)
 
 		id, _ := raw.ID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
 
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
 
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(regular),
 			object.AddressOf(parent),
 			object.AddressOf(sg),
@@ -547,11 +547,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
-		testSelect(t, db, cid, fs, object.AddressOf(regular))
+		testSelect(t, db, cnr, fs, object.AddressOf(regular))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(parent),
 			object.AddressOf(sg),
 			object.AddressOf(ts),
@@ -564,11 +564,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
-		testSelect(t, db, cid, fs, object.AddressOf(ts))
+		testSelect(t, db, cnr, fs, object.AddressOf(ts))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(regular),
 			object.AddressOf(parent),
 			object.AddressOf(sg),
@@ -581,11 +581,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
-		testSelect(t, db, cid, fs, object.AddressOf(sg))
+		testSelect(t, db, cnr, fs, object.AddressOf(sg))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(regular),
 			object.AddressOf(parent),
 			object.AddressOf(ts),
@@ -598,11 +598,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
-		testSelect(t, db, cid, fs, object.AddressOf(parent))
+		testSelect(t, db, cnr, fs, object.AddressOf(parent))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(regular),
 			object.AddressOf(sg),
 			object.AddressOf(ts),
@@ -615,11 +615,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
-		testSelect(t, db, cid, fs, object.AddressOf(lock))
+		testSelect(t, db, cnr, fs, object.AddressOf(lock))
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(regular),
 			object.AddressOf(parent),
 			object.AddressOf(sg),
@@ -631,11 +631,11 @@ func TestDB_SelectObjectID(t *testing.T) {
 func TestDB_SelectSplitID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
-	child1 := generateObjectWithCID(t, cid)
-	child2 := generateObjectWithCID(t, cid)
-	child3 := generateObjectWithCID(t, cid)
+	child1 := generateObjectWithCID(t, cnr)
+	child2 := generateObjectWithCID(t, cnr)
+	child3 := generateObjectWithCID(t, cnr)
 
 	split1 := objectSDK.NewSplitID()
 	split2 := objectSDK.NewSplitID()
@@ -651,26 +651,26 @@ func TestDB_SelectSplitID(t *testing.T) {
 	t.Run("not present", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderSplitID, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("split id", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderSplitID, split1.String(), objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(child1),
 			object.AddressOf(child2),
 		)
 
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderSplitID, split2.String(), objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs, object.AddressOf(child3))
+		testSelect(t, db, cnr, fs, object.AddressOf(child3))
 	})
 
 	t.Run("empty split", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
 		fs.AddFilter(v2object.FilterHeaderSplitID, "", objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("unknown split id", func(t *testing.T) {
@@ -678,52 +678,52 @@ func TestDB_SelectSplitID(t *testing.T) {
 		fs.AddFilter(v2object.FilterHeaderSplitID,
 			objectSDK.NewSplitID().String(),
 			objectSDK.MatchStringEqual)
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 }
 
 func TestDB_SelectContainerID(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
-	obj1 := generateObjectWithCID(t, cid)
+	obj1 := generateObjectWithCID(t, cnr)
 	err := putBig(db, obj1)
 	require.NoError(t, err)
 
-	obj2 := generateObjectWithCID(t, cid)
+	obj2 := generateObjectWithCID(t, cnr)
 	err = putBig(db, obj2)
 	require.NoError(t, err)
 
 	t.Run("same cid", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, cid)
+		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, cnr)
 
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(obj1),
 			object.AddressOf(obj2),
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddObjectContainerIDFilter(objectSDK.MatchStringNotEqual, cid)
+		fs.AddObjectContainerIDFilter(objectSDK.MatchStringNotEqual, cnr)
 
-		testSelect(t, db, cid, fs,
+		testSelect(t, db, cnr, fs,
 			object.AddressOf(obj1),
 			object.AddressOf(obj2),
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddObjectContainerIDFilter(objectSDK.MatchNotPresent, cid)
+		fs.AddObjectContainerIDFilter(objectSDK.MatchNotPresent, cnr)
 
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("not same cid", func(t *testing.T) {
-		newCID := cidtest.ID()
+		newCnr := cidtest.ID()
 
 		fs := objectSDK.SearchFilters{}
-		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, newCID)
+		fs.AddObjectContainerIDFilter(objectSDK.MatchStringEqual, newCnr)
 
-		testSelect(t, db, cid, fs)
+		testSelect(t, db, cnr, fs)
 	})
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -64,7 +64,7 @@ func (b *BlobStor) Exists(prm *ExistsPrm) (*ExistsRes, error) {
 }
 
 // checks if object is presented in shallow dir.
-func (b *BlobStor) existsBig(addr *addressSDK.Address) (bool, error) {
+func (b *BlobStor) existsBig(addr oid.Address) (bool, error) {
 	_, err := b.fsTree.Exists(addr)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		return false, nil
@@ -74,18 +74,18 @@ func (b *BlobStor) existsBig(addr *addressSDK.Address) (bool, error) {
 }
 
 // existsSmall checks if object is presented in blobovnicza.
-func (b *BlobStor) existsSmall(addr *addressSDK.Address) (bool, error) {
+func (b *BlobStor) existsSmall(addr oid.Address) (bool, error) {
 	return b.blobovniczas.existsSmall(addr)
 }
 
-func (b *blobovniczas) existsSmall(addr *addressSDK.Address) (bool, error) {
+func (b *blobovniczas) existsSmall(addr oid.Address) (bool, error) {
 	activeCache := make(map[string]struct{})
 
 	prm := new(blobovnicza.GetPrm)
 	prm.SetAddress(addr)
 
 	var found bool
-	err := b.iterateSortedLeaves(addr, func(p string) (bool, error) {
+	err := b.iterateSortedLeaves(&addr, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]

@@ -35,19 +35,19 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	putPrm := new(shard.PutPrm)
 
 	for i := 0; i < C; i++ {
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 
 		for j := 0; j < N; j++ {
-			obj := generateObjectWithCID(t, cid)
+			obj := generateObjectWithCID(t, cnr)
 			addPayload(obj, 1<<2)
 
 			// add parent as virtual object, it must be ignored in List()
-			parent := generateObjectWithCID(t, cid)
+			parent := generateObjectWithCID(t, cnr)
 			idParent, _ := parent.ID()
 			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 
-			objs[object.AddressOf(obj).String()] = 0
+			objs[object.AddressOf(obj).EncodeToString()] = 0
 
 			putPrm.WithObject(obj)
 
@@ -60,10 +60,10 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	require.NoError(t, err)
 
 	for _, objID := range res.AddressList() {
-		i, ok := objs[objID.String()]
+		i, ok := objs[objID.EncodeToString()]
 		require.True(t, ok)
 		require.Equal(t, 0, i)
 
-		objs[objID.String()] = 1
+		objs[objID.EncodeToString()] = 1
 	}
 }

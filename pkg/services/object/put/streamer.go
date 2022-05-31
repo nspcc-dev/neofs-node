@@ -148,7 +148,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 
 	// get container to store the object
-	cnr, err := p.cnrSrc.Get(&idCnr)
+	cnr, err := p.cnrSrc.Get(idCnr)
 	if err != nil {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
@@ -162,7 +162,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	if id, ok := prm.hdr.ID(); ok {
 		prm.traverseOpts = append(prm.traverseOpts,
 			// set identifier of the processing object
-			placement.ForObject(&id),
+			placement.ForObject(id),
 		)
 	}
 
@@ -262,11 +262,13 @@ func (p *Streamer) Close() (*PutResponse, error) {
 	}
 
 	id := ids.ParentID()
-	if id == nil {
-		id = ids.SelfID()
+	if id != nil {
+		return &PutResponse{
+			id: *id,
+		}, nil
 	}
 
 	return &PutResponse{
-		id: id,
+		id: ids.SelfID(),
 	}, nil
 }

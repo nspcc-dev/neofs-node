@@ -7,13 +7,13 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
 type ExistsPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // ExistsRes groups the resulting values of Exists operation.
@@ -24,7 +24,7 @@ type ExistsRes struct {
 var ErrLackSplitInfo = errors.New("no split info on parent object")
 
 // WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr *addressSDK.Address) *ExistsPrm {
+func (p *ExistsPrm) WithAddress(addr oid.Address) *ExistsPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -40,7 +40,7 @@ func (p *ExistsRes) Exists() bool {
 // Exists checks if object is presented in DB.
 //
 // See DB.Exists docs.
-func Exists(db *DB, addr *addressSDK.Address) (bool, error) {
+func Exists(db *DB, addr oid.Address) (bool, error) {
 	r, err := db.Exists(new(ExistsPrm).WithAddress(addr))
 	if err != nil {
 		return false, err
@@ -65,7 +65,7 @@ func (db *DB) Exists(prm *ExistsPrm) (res *ExistsRes, err error) {
 	return
 }
 
-func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err error) {
+func (db *DB) exists(tx *bbolt.Tx, addr oid.Address) (exists bool, err error) {
 	// check graveyard first
 	switch inGraveyard(tx, addr) {
 	case 1:
@@ -78,19 +78,18 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 		return false, errRemoved
 	}
 
-	obj, _ := addr.ObjectID()
-	objKey := objectKey(&obj)
+	objKey := objectKey(addr.Object())
 
-	cnr, _ := addr.ContainerID()
+	cnr := addr.Container()
 
 	// if graveyard is empty, then check if object exists in primary bucket
-	if inBucket(tx, primaryBucketName(&cnr), objKey) {
+	if inBucket(tx, primaryBucketName(cnr), objKey) {
 		return true, nil
 	}
 
 	// if primary bucket is empty, then check if object exists in parent bucket
-	if inBucket(tx, parentBucketName(&cnr), objKey) {
-		splitInfo, err := getSplitInfo(tx, &cnr, objKey)
+	if inBucket(tx, parentBucketName(cnr), objKey) {
+		splitInfo, err := getSplitInfo(tx, cnr, objKey)
 		if err != nil {
 			return false, err
 		}
@@ -106,7 +105,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr *addressSDK.Address) (exists bool, err e
 //  * 0 if object is not marked for deletion;
 //  * 1 if object with GC mark;
 //  * 2 if object is covered with tombstone.
-func inGraveyard(tx *bbolt.Tx, addr *addressSDK.Address) uint8 {
+func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
 	graveyard := tx.Bucket(graveyardBucketName)
 	if graveyard == nil {
 		// incorrect metabase state, does not make
@@ -152,8 +151,8 @@ func inBucket(tx *bbolt.Tx, name, key []byte) bool {
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(tx *bbolt.Tx, cid *cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
-	rawSplitInfo := getFromBucket(tx, rootBucketName(cid), key)
+func getSplitInfo(tx *bbolt.Tx, cnr cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
+	rawSplitInfo := getFromBucket(tx, rootBucketName(cnr), key)
 	if len(rawSplitInfo) == 0 {
 		return nil, ErrLackSplitInfo
 	}

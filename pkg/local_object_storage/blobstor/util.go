@@ -3,15 +3,15 @@ package blobstor
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type address struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // SetAddress sets the address of the requested object.
-func (a *address) SetAddress(addr *addressSDK.Address) {
+func (a *address) SetAddress(addr oid.Address) {
 	a.addr = addr
 }
 

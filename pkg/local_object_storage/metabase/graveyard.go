@@ -5,18 +5,18 @@ import (
 	"errors"
 	"fmt"
 
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // GarbageObject represents descriptor of the
 // object that has been marked with GC.
 type GarbageObject struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // Address returns garbage object address.
-func (g GarbageObject) Address() *addressSDK.Address {
+func (g GarbageObject) Address() oid.Address {
 	return g.addr
 }
 
@@ -27,7 +27,7 @@ type GarbageHandler func(GarbageObject) error
 // iteration process.
 type GarbageIterationPrm struct {
 	h      GarbageHandler
-	offset *addressSDK.Address
+	offset *oid.Address
 }
 
 // SetHandler sets a handler that will be called on every
@@ -49,8 +49,8 @@ func (g *GarbageIterationPrm) SetHandler(h GarbageHandler) *GarbageIterationPrm 
 // next element.
 //
 // Nil offset means start an integration from the beginning.
-func (g *GarbageIterationPrm) SetOffset(offset *addressSDK.Address) *GarbageIterationPrm {
-	g.offset = offset
+func (g *GarbageIterationPrm) SetOffset(offset oid.Address) *GarbageIterationPrm {
+	g.offset = &offset
 	return g
 }
 
@@ -68,18 +68,18 @@ func (db *DB) IterateOverGarbage(p *GarbageIterationPrm) error {
 // TombstonedObject represents descriptor of the
 // object that has been covered with tombstone.
 type TombstonedObject struct {
-	addr *addressSDK.Address
-	tomb *addressSDK.Address
+	addr oid.Address
+	tomb oid.Address
 }
 
 // Address returns tombstoned object address.
-func (g TombstonedObject) Address() *addressSDK.Address {
+func (g TombstonedObject) Address() oid.Address {
 	return g.addr
 }
 
 // Tombstone returns address of a tombstone that
 // covers object.
-func (g TombstonedObject) Tombstone() *addressSDK.Address {
+func (g TombstonedObject) Tombstone() oid.Address {
 	return g.tomb
 }
 
@@ -90,7 +90,7 @@ type TombstonedHandler func(object TombstonedObject) error
 // iteration process.
 type GraveyardIterationPrm struct {
 	h      TombstonedHandler
-	offset *addressSDK.Address
+	offset *oid.Address
 }
 
 // SetHandler sets a handler that will be called on every
@@ -112,8 +112,8 @@ func (g *GraveyardIterationPrm) SetHandler(h TombstonedHandler) *GraveyardIterat
 // next element.
 //
 // Nil offset means start an integration from the beginning.
-func (g *GraveyardIterationPrm) SetOffset(offset *addressSDK.Address) *GraveyardIterationPrm {
-	g.offset = offset
+func (g *GraveyardIterationPrm) SetOffset(offset oid.Address) *GraveyardIterationPrm {
+	g.offset = &offset
 	return g
 }
 
@@ -157,7 +157,7 @@ func (g graveyardHandler) handleKV(k, v []byte) error {
 	return g.h(o)
 }
 
-func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *addressSDK.Address) error {
+func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *oid.Address) error {
 	var bkt *bbolt.Bucket
 	switch t := h.(type) {
 	case graveyardHandler:
@@ -178,7 +178,7 @@ func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *addressSDK.Ad
 	if offset == nil {
 		k, v = c.First()
 	} else {
-		rawAddr := addressKey(offset)
+		rawAddr := addressKey(*offset)
 
 		k, v = c.Seek(rawAddr)
 		if bytes.Equal(k, rawAddr) {
@@ -202,32 +202,23 @@ func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *addressSDK.Ad
 	return nil
 }
 
-func garbageFromKV(k []byte) (GarbageObject, error) {
-	addr, err := addressFromKey(k)
+func garbageFromKV(k []byte) (res GarbageObject, err error) {
+	err = decodeAddressFromKey(&res.addr, k)
 	if err != nil {
-		return GarbageObject{}, fmt.Errorf("could not parse address: %w", err)
+		err = fmt.Errorf("could not parse address: %w", err)
 	}
 
-	return GarbageObject{
-		addr: addr,
-	}, nil
+	return
 }
 
-func graveFromKV(k, v []byte) (TombstonedObject, error) {
-	target, err := addressFromKey(k)
-	if err != nil {
-		return TombstonedObject{}, fmt.Errorf("could not parse address: %w", err)
+func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
+	if err = decodeAddressFromKey(&res.addr, k); err != nil {
+		err = fmt.Errorf("decode tombstone target from key: %w", err)
+	} else if err = decodeAddressFromKey(&res.tomb, v); err != nil {
+		err = fmt.Errorf("decode tombstone address from value: %w", err)
 	}
 
-	tomb, err := addressFromKey(v)
-	if err != nil {
-		return TombstonedObject{}, err
-	}
-
-	return TombstonedObject{
-		addr: target,
-		tomb: tomb,
-	}, nil
+	return
 }
 
 // DropGraves deletes tombstoned objects from the

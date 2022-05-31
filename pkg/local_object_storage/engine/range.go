@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -16,7 +16,7 @@ import (
 type RngPrm struct {
 	off, ln uint64
 
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // RngRes groups the resulting values of GetRange operation.
@@ -27,7 +27,7 @@ type RngRes struct {
 // WithAddress is a GetRng option to set the address of the requested object.
 //
 // Option is required.
-func (p *RngPrm) WithAddress(addr *addressSDK.Address) *RngPrm {
+func (p *RngPrm) WithAddress(addr oid.Address) *RngPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -167,7 +167,9 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 			return nil, outError
 		}
 		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-			metaError, zap.Stringer("address", prm.addr))
+			metaError,
+			zap.Stringer("address", prm.addr),
+		)
 	}
 
 	return &RngRes{
@@ -176,7 +178,7 @@ func (e *StorageEngine) getRange(prm *RngPrm) (*RngRes, error) {
 }
 
 // GetRange reads object payload range from local storage by provided address.
-func GetRange(storage *StorageEngine, addr *addressSDK.Address, rng *objectSDK.Range) ([]byte, error) {
+func GetRange(storage *StorageEngine, addr oid.Address, rng *objectSDK.Range) ([]byte, error) {
 	res, err := storage.GetRange(new(RngPrm).
 		WithAddress(addr).
 		WithPayloadRange(rng),

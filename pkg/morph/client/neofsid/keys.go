@@ -11,11 +11,11 @@ import (
 
 // AccountKeysPrm groups parameters of AccountKeys operation.
 type AccountKeysPrm struct {
-	id *user.ID
+	id user.ID
 }
 
 // SetID sets owner ID.
-func (a *AccountKeysPrm) SetID(id *user.ID) {
+func (a *AccountKeysPrm) SetID(id user.ID) {
 	a.id = id
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -110,8 +110,8 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	}
 }
 
-func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []oidSDK.ID {
-	var sg []oidSDK.ID
+func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmap.Nodes) []oid.ID {
+	var sg []oid.ID
 
 	ln := len(shuffled)
 
@@ -120,11 +120,11 @@ func (ap *Processor) findStorageGroups(cid *cid.ID, shuffled netmap.Nodes) []oid
 		prm  SearchSGPrm
 	)
 
-	prm.id = cid
+	prm.id = cnr
 
 	for i := range shuffled { // consider iterating over some part of container
 		log := ap.log.With(
-			zap.Stringer("cid", cid),
+			zap.Stringer("cid", cnr),
 			zap.String("key", hex.EncodeToString(shuffled[0].PublicKey())),
 			zap.Int("try", i),
 			zap.Int("total_tries", ln),

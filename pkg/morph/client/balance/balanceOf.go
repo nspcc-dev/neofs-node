@@ -11,7 +11,7 @@ import (
 
 // BalanceOf receives the amount of funds in the client's account
 // through the Balance contract call, and returns it.
-func (c *Client) BalanceOf(id *user.ID) (*big.Int, error) {
+func (c *Client) BalanceOf(id user.ID) (*big.Int, error) {
 	h, err := address.StringToUint160(id.EncodeToString())
 	if err != nil {
 		return nil, err

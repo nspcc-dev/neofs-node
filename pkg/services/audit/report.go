@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Report tracks the progress of auditing container data.
@@ -21,9 +21,9 @@ type Reporter interface {
 }
 
 // NewReport creates and returns blank Report instance.
-func NewReport(cid *cid.ID) *Report {
+func NewReport(cnr cid.ID) *Report {
 	var rep Report
-	rep.res.ForContainer(*cid)
+	rep.res.ForContainer(cnr)
 
 	return &rep
 }
@@ -45,19 +45,19 @@ func (r *Report) Complete() {
 }
 
 // PassedPoR updates list of passed storage groups.
-func (r *Report) PassedPoR(sg *oidSDK.ID) {
+func (r *Report) PassedPoR(sg oid.ID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.res.SubmitPassedStorageGroup(*sg)
+	r.res.SubmitPassedStorageGroup(sg)
 }
 
 // FailedPoR updates list of failed storage groups.
-func (r *Report) FailedPoR(sg *oidSDK.ID) {
+func (r *Report) FailedPoR(sg oid.ID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.res.SubmitFailedStorageGroup(*sg)
+	r.res.SubmitFailedStorageGroup(sg)
 }
 
 // SetPlacementCounters sets counters of compliance with placement.

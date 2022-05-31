@@ -9,7 +9,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -74,13 +73,13 @@ func TestDB_Get(t *testing.T) {
 	})
 
 	t.Run("put virtual object", func(t *testing.T) {
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateObjectWithCID(t, cid)
+		parent := generateObjectWithCID(t, cnr)
 		addAttribute(parent, "foo", "bar")
 
-		child := generateObjectWithCID(t, cid)
+		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
 		idParent, _ := parent.ID()
 		child.SetParentID(idParent)
@@ -116,15 +115,16 @@ func TestDB_Get(t *testing.T) {
 	})
 
 	t.Run("get removed object", func(t *testing.T) {
-		obj := objecttest.Address()
-		ts := objecttest.Address()
+		obj := oidtest.Address()
+		ts := oidtest.Address()
 
 		require.NoError(t, meta.Inhume(db, obj, ts))
 		_, err := meta.Get(db, obj)
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-		obj = objecttest.Address()
-		require.NoError(t, meta.Inhume(db, obj, nil))
+		obj = oidtest.Address()
+		_, err = db.Inhume(new(meta.InhumePrm).WithAddresses(obj))
+		require.NoError(t, err)
 		_, err = meta.Get(db, obj)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})

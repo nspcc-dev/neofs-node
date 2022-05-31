@@ -7,8 +7,7 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type headSvcWrapper getsvc.Service
@@ -18,10 +17,10 @@ type searchSvcWrapper searchsvc.Service
 type putSvcWrapper putsvc.Service
 
 type simpleIDWriter struct {
-	ids []oidSDK.ID
+	ids []oid.ID
 }
 
-func (w *headSvcWrapper) headAddress(exec *execCtx, addr *addressSDK.Address) (*object.Object, error) {
+func (w *headSvcWrapper) headAddress(exec *execCtx, addr oid.Address) (*object.Object, error) {
 	wr := getsvc.NewSimpleObjectWriter()
 
 	p := getsvc.HeadPrm{}
@@ -53,10 +52,10 @@ func (w *headSvcWrapper) splitInfo(exec *execCtx) (*object.SplitInfo, error) {
 	}
 }
 
-func (w *headSvcWrapper) children(exec *execCtx) ([]oidSDK.ID, error) {
+func (w *headSvcWrapper) children(exec *execCtx) ([]oid.ID, error) {
 	link, _ := exec.splitInfo.Link()
 
-	a := exec.newAddress(&link)
+	a := exec.newAddress(link)
 
 	linking, err := w.headAddress(exec, a)
 	if err != nil {
@@ -66,7 +65,7 @@ func (w *headSvcWrapper) children(exec *execCtx) ([]oidSDK.ID, error) {
 	return linking.Children(), nil
 }
 
-func (w *headSvcWrapper) previous(exec *execCtx, id *oidSDK.ID) (*oidSDK.ID, error) {
+func (w *headSvcWrapper) previous(exec *execCtx, id oid.ID) (*oid.ID, error) {
 	a := exec.newAddress(id)
 
 	h, err := w.headAddress(exec, a)
@@ -82,7 +81,7 @@ func (w *headSvcWrapper) previous(exec *execCtx, id *oidSDK.ID) (*oidSDK.ID, err
 	return nil, nil
 }
 
-func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oidSDK.ID, error) {
+func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oid.ID, error) {
 	fs := object.SearchFilters{}
 	fs.AddSplitIDFilter(object.MatchStringEqual, exec.splitInfo.SplitID())
 
@@ -102,13 +101,13 @@ func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oidSDK.ID, error) {
 	return wr.ids, nil
 }
 
-func (s *simpleIDWriter) WriteIDs(ids []oidSDK.ID) error {
+func (s *simpleIDWriter) WriteIDs(ids []oid.ID) error {
 	s.ids = append(s.ids, ids...)
 
 	return nil
 }
 
-func (w *putSvcWrapper) put(exec *execCtx) (*oidSDK.ID, error) {
+func (w *putSvcWrapper) put(exec *execCtx) (*oid.ID, error) {
 	streamer, err := (*putsvc.Service)(w).Put(exec.context())
 	if err != nil {
 		return nil, err
@@ -135,5 +134,7 @@ func (w *putSvcWrapper) put(exec *execCtx) (*oidSDK.ID, error) {
 		return nil, err
 	}
 
-	return r.ObjectID(), nil
+	id := r.ObjectID()
+
+	return &id, nil
 }

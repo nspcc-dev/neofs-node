@@ -12,8 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -96,7 +95,7 @@ func (exec execCtx) isRaw() bool {
 	return exec.prm.raw
 }
 
-func (exec execCtx) address() *addressSDK.Address {
+func (exec execCtx) address() oid.Address {
 	return exec.prm.addr
 }
 
@@ -126,13 +125,8 @@ func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {
 	return exec.infoSplit
 }
 
-func (exec *execCtx) containerID() *cid.ID {
-	cnr, ok := exec.address().ContainerID()
-	if ok {
-		return &cnr
-	}
-
-	return nil
+func (exec *execCtx) containerID() cid.ID {
+	return exec.address().Container()
 }
 
 func (exec *execCtx) ctxRange() *objectSDK.Range {
@@ -175,8 +169,10 @@ func (exec *execCtx) initEpoch() bool {
 	}
 }
 
-func (exec *execCtx) generateTraverser(addr *addressSDK.Address) (*placement.Traverser, bool) {
-	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr, exec.curProcEpoch)
+func (exec *execCtx) generateTraverser(addr oid.Address) (*placement.Traverser, bool) {
+	obj := addr.Object()
+
+	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr.Container(), &obj, exec.curProcEpoch)
 
 	switch {
 	default:
@@ -193,7 +189,7 @@ func (exec *execCtx) generateTraverser(addr *addressSDK.Address) (*placement.Tra
 	}
 }
 
-func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, bool) {
+func (exec *execCtx) getChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, bool) {
 	w := NewSimpleObjectWriter()
 
 	p := exec.prm
@@ -201,13 +197,8 @@ func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool)
 	p.objWriter = w
 	p.SetRange(rng)
 
-	cnr, _ := exec.address().ContainerID()
-
-	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cnr)
-	addr.SetObjectID(*id)
-
-	p.addr = addr
+	p.addr.SetContainer(exec.containerID())
+	p.addr.SetObject(id)
 
 	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng))
 
@@ -224,14 +215,11 @@ func (exec *execCtx) getChild(id *oidSDK.ID, rng *objectSDK.Range, withHdr bool)
 	return child, ok
 }
 
-func (exec *execCtx) headChild(id *oidSDK.ID) (*objectSDK.Object, bool) {
-	childAddr := addressSDK.NewAddress()
-	childAddr.SetContainerID(*exec.containerID())
-	childAddr.SetObjectID(*id)
-
+func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
-	p.addr = childAddr
+	p.addr.SetContainer(exec.containerID())
+	p.addr.SetObject(id)
 
 	prm := HeadPrm{
 		commonPrm: p.commonPrm,

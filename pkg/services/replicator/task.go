@@ -2,14 +2,14 @@ package replicator
 
 import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Task represents group of Replicator task parameters.
 type Task struct {
 	quantity uint32
 
-	addr *addressSDK.Address
+	addr oid.Address
 
 	nodes netmap.Nodes
 }
@@ -35,7 +35,7 @@ func (t *Task) WithCopiesNumber(v uint32) *Task {
 }
 
 // WithObjectAddress sets address of local object.
-func (t *Task) WithObjectAddress(v *addressSDK.Address) *Task {
+func (t *Task) WithObjectAddress(v oid.Address) *Task {
 	if t != nil {
 		t.addr = v
 	}

@@ -10,8 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type uniqueIDWriter struct {
@@ -45,11 +44,11 @@ func newUniqueAddressWriter(w IDListWriter) IDListWriter {
 	}
 }
 
-func (w *uniqueIDWriter) WriteIDs(list []oidSDK.ID) error {
+func (w *uniqueIDWriter) WriteIDs(list []oid.ID) error {
 	w.mtx.Lock()
 
 	for i := 0; i < len(list); i++ { // don't use range, slice mutates in body
-		s := list[i].String()
+		s := list[i].EncodeToString()
 		// standard stringer is quite costly, it is better
 		// to facilitate the calculation of the key
 
@@ -80,7 +79,7 @@ func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, erro
 	}, nil
 }
 
-func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oidSDK.ID, error) {
+func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oid.ID, error) {
 	if exec.prm.forwarder != nil {
 		return exec.prm.forwarder(info, c.client)
 	}
@@ -120,7 +119,7 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 	return res.IDList(), nil
 }
 
-func (e *storageEngineWrapper) search(exec *execCtx) ([]oidSDK.ID, error) {
+func (e *storageEngineWrapper) search(exec *execCtx) ([]oid.ID, error) {
 	r, err := (*engine.StorageEngine)(e).Select(new(engine.SelectPrm).
 		WithFilters(exec.searchFilters()).
 		WithContainerID(exec.containerID()),
@@ -132,21 +131,18 @@ func (e *storageEngineWrapper) search(exec *execCtx) ([]oidSDK.ID, error) {
 	return idsFromAddresses(r.AddressList()), nil
 }
 
-func idsFromAddresses(addrs []*addressSDK.Address) []oidSDK.ID {
-	ids := make([]oidSDK.ID, len(addrs))
+func idsFromAddresses(addrs []oid.Address) []oid.ID {
+	ids := make([]oid.ID, len(addrs))
 
 	for i := range addrs {
-		ids[i], _ = addrs[i].ObjectID()
+		ids[i] = addrs[i].Object()
 	}
 
 	return ids
 }
 
-func (e *traverseGeneratorWrapper) generateTraverser(cnr *cid.ID, epoch uint64) (*placement.Traverser, error) {
-	a := addressSDK.NewAddress()
-	a.SetContainerID(*cnr)
-
-	return (*util.TraverserGenerator)(e).GenerateTraverser(a, epoch)
+func (e *traverseGeneratorWrapper) generateTraverser(cnr cid.ID, epoch uint64) (*placement.Traverser, error) {
+	return (*util.TraverserGenerator)(e).GenerateTraverser(cnr, nil, epoch)
 }
 
 func (n *nmSrcWrapper) currentEpoch() (uint64, error) {

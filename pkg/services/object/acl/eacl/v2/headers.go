@@ -8,12 +8,11 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -24,12 +23,12 @@ type cfg struct {
 
 	msg xHeaderSource
 
-	cid cidSDK.ID
-	oid *oidSDK.ID
+	cnr cid.ID
+	obj *oid.ID
 }
 
 type ObjectStorage interface {
-	Head(*addressSDK.Address) (*object.Object, error)
+	Head(oid.Address) (*object.Object, error)
 }
 
 type Request interface {
@@ -109,31 +108,31 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 		case
 			*objectV2.GetRequest,
 			*objectV2.HeadRequest:
-			if h.oid == nil {
+			if h.obj == nil {
 				return nil, errMissingOID
 			}
 
-			return h.localObjectHeaders(h.cid, h.oid)
+			return h.localObjectHeaders(h.cnr, h.obj)
 		case
 			*objectV2.GetRangeRequest,
 			*objectV2.GetRangeHashRequest,
 			*objectV2.DeleteRequest:
-			if h.oid == nil {
+			if h.obj == nil {
 				return nil, errMissingOID
 			}
 
-			return addressHeaders(h.cid, h.oid), nil
+			return addressHeaders(h.cnr, h.obj), nil
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				return headersFromObject(object.NewFromV2(oV2), h.cid, h.oid), nil
+				return headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj), nil
 			}
 		case *objectV2.SearchRequest:
 			cnrV2 := req.GetBody().GetContainerID()
-			var cnr cidSDK.ID
+			var cnr cid.ID
 
 			if cnrV2 != nil {
 				if err := cnr.ReadFromV2(*cnrV2); err != nil {
@@ -146,7 +145,7 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
 		default:
-			hs, _ := h.localObjectHeaders(h.cid, h.oid)
+			hs, _ := h.localObjectHeaders(h.cnr, h.obj)
 			return hs, nil
 		case *objectV2.GetResponse:
 			if v, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
@@ -154,7 +153,7 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				return headersFromObject(object.NewFromV2(oV2), h.cid, h.oid), nil
+				return headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj), nil
 			}
 		case *objectV2.HeadResponse:
 			oV2 := new(objectV2.Object)
@@ -166,7 +165,7 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 				hdr = new(objectV2.Header)
 
 				var idV2 refsV2.ContainerID
-				h.cid.WriteToV2(&idV2)
+				h.cnr.WriteToV2(&idV2)
 
 				hdr.SetContainerID(&idV2)
 				hdr.SetVersion(v.GetVersion())
@@ -180,56 +179,56 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 
 			oV2.SetHeader(hdr)
 
-			return headersFromObject(object.NewFromV2(oV2), h.cid, h.oid), nil
+			return headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj), nil
 		}
 	}
 
 	return nil, nil
 }
 
-func (h *cfg) localObjectHeaders(cid cidSDK.ID, oid *oidSDK.ID) ([]eaclSDK.Header, error) {
+func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, error) {
 	var obj *objectSDK.Object
 	var err error
 
-	if oid != nil {
-		var addr addressSDK.Address
-		addr.SetContainerID(cid)
-		addr.SetObjectID(*oid)
+	if idObj != nil {
+		var addr oid.Address
+		addr.SetContainer(cnr)
+		addr.SetObject(*idObj)
 
-		obj, err = h.storage.Head(&addr)
+		obj, err = h.storage.Head(addr)
 		if err == nil {
-			return headersFromObject(obj, cid, oid), nil
+			return headersFromObject(obj, cnr, idObj), nil
 		}
 	}
 
 	// Still parse addressHeaders, because the errors is ignored in some places.
-	return addressHeaders(cid, oid), err
+	return addressHeaders(cnr, idObj), err
 }
 
-func cidHeader(idCnr cidSDK.ID) sysObjHdr {
+func cidHeader(idCnr cid.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectContainerID,
 		v: idCnr.EncodeToString(),
 	}
 }
 
-func oidHeader(oid oidSDK.ID) sysObjHdr {
+func oidHeader(obj oid.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectID,
-		v: oid.EncodeToString(),
+		v: obj.EncodeToString(),
 	}
 }
 
 func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	return sysObjHdr{
 		k: acl.FilterObjectOwnerID,
-		v: ownerID.String(),
+		v: ownerID.EncodeToString(),
 	}
 }
 
-func addressHeaders(cid cidSDK.ID, oid *oidSDK.ID) []eaclSDK.Header {
+func addressHeaders(cnr cid.ID, oid *oid.ID) []eaclSDK.Header {
 	hh := make([]eaclSDK.Header, 0, 2)
-	hh = append(hh, cidHeader(cid))
+	hh = append(hh, cidHeader(cnr))
 
 	if oid != nil {
 		hh = append(hh, oidHeader(*oid))

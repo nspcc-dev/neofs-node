@@ -2,19 +2,19 @@ package deletesvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // TombstoneAddressWriter is an interface of tombstone address setter.
 type TombstoneAddressWriter interface {
-	SetAddress(*addressSDK.Address)
+	SetAddress(address oid.Address)
 }
 
 // Prm groups parameters of Delete service call.
 type Prm struct {
 	common *util.CommonPrm
 
-	addr *addressSDK.Address
+	addr oid.Address
 
 	tombAddrWriter TombstoneAddressWriter
 }
@@ -25,7 +25,7 @@ func (p *Prm) SetCommonParameters(common *util.CommonPrm) {
 }
 
 // WithAddress sets address of the object to be removed.
-func (p *Prm) WithAddress(addr *addressSDK.Address) {
+func (p *Prm) WithAddress(addr oid.Address) {
 	p.addr = addr
 }
 

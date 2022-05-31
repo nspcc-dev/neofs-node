@@ -111,7 +111,7 @@ func (c *Checker) CheckBasicACL(info v2.RequestInfo) bool {
 }
 
 // StickyBitCheck validates owner field in the request if sticky bit is enabled.
-func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner *user.ID) bool {
+func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 	// According to NeoFS specification sticky bit has no effect on system nodes
 	// for correct intra-container work with objects (in particular, replication).
 	if info.RequestRole() == eaclSDK.RoleSystem {
@@ -122,7 +122,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner *user.ID) bool {
 		return true
 	}
 
-	if owner == nil || len(info.SenderKey()) == 0 {
+	if len(info.SenderKey()) == 0 {
 		return false
 	}
 
@@ -143,11 +143,11 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	}
 
 	var table eaclSDK.Table
-	cid := reqInfo.ContainerID()
+	cnr := reqInfo.ContainerID()
 
 	bearerTok := reqInfo.Bearer()
 	if bearerTok == nil {
-		pTable, err := c.eaclSrc.GetEACL(&cid)
+		pTable, err := c.eaclSrc.GetEACL(cnr)
 		if err != nil {
 			if errors.Is(err, container.ErrEACLNotFound) {
 				return nil
@@ -169,7 +169,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 
 	hdrSrcOpts = append(hdrSrcOpts,
 		eaclV2.WithLocalObjectStorage(c.localStorage),
-		eaclV2.WithCID(cid),
+		eaclV2.WithCID(cnr),
 		eaclV2.WithOID(reqInfo.ObjectID()),
 	)
 
@@ -192,7 +192,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 	action := c.validator.CalculateAction(new(eaclSDK.ValidationUnit).
 		WithRole(reqInfo.RequestRole()).
 		WithOperation(reqInfo.Operation()).
-		WithContainerID(&cid).
+		WithContainerID(&cnr).
 		WithSenderKey(reqInfo.SenderKey()).
 		WithHeaderSource(hdrSrc).
 		WithEACLTable(&table),
@@ -209,9 +209,6 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 // require fetching current epoch to check lifetime.
 func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	ownerCnr := reqInfo.ContainerOwner()
-	if ownerCnr == nil {
-		return errors.New("missing container owner")
-	}
 
 	token := reqInfo.Bearer()
 
@@ -236,7 +233,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 		panic("unexpected false return from Issuer method on signed bearer token")
 	}
 
-	if !issuer.Equals(*ownerCnr) {
+	if !issuer.Equals(ownerCnr) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
@@ -245,7 +242,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	tokenOwner := token.OwnerID()
 	requestSenderKey := unmarshalPublicKey(reqInfo.SenderKey())
 
-	if !isOwnerFromKey(&tokenOwner, requestSenderKey) {
+	if !isOwnerFromKey(tokenOwner, requestSenderKey) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerInvalidOwner
 	}
@@ -262,8 +259,8 @@ func isValidLifetime(t *bearerSDK.Token, epoch uint64) bool {
 	return epoch >= t.NotBefore() && epoch <= t.Expiration()
 }
 
-func isOwnerFromKey(id *user.ID, key *keys.PublicKey) bool {
-	if id == nil || key == nil {
+func isOwnerFromKey(id user.ID, key *keys.PublicKey) bool {
+	if key == nil {
 		return false
 	}
 

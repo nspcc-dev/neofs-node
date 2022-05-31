@@ -9,7 +9,7 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-func (db *DB) Containers() (list []*cid.ID, err error) {
+func (db *DB) Containers() (list []cid.ID, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		list, err = db.containers(tx)
 
@@ -19,16 +19,15 @@ func (db *DB) Containers() (list []*cid.ID, err error) {
 	return list, err
 }
 
-func (db *DB) containers(tx *bbolt.Tx) ([]*cid.ID, error) {
-	result := make([]*cid.ID, 0)
+func (db *DB) containers(tx *bbolt.Tx) ([]cid.ID, error) {
+	result := make([]cid.ID, 0)
 	unique := make(map[string]struct{})
+	var cnr cid.ID
 
 	err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-		id := parseContainerID(name, unique)
-
-		if id != nil {
-			result = append(result, id)
-			unique[id.String()] = struct{}{}
+		if parseContainerID(&cnr, name, unique) {
+			result = append(result, cnr)
+			unique[cnr.EncodeToString()] = struct{}{}
 		}
 
 		return nil
@@ -37,7 +36,7 @@ func (db *DB) containers(tx *bbolt.Tx) ([]*cid.ID, error) {
 	return result, err
 }
 
-func (db *DB) ContainerSize(id *cid.ID) (size uint64, err error) {
+func (db *DB) ContainerSize(id cid.ID) (size uint64, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		size, err = db.containerSize(tx, id)
 
@@ -47,7 +46,7 @@ func (db *DB) ContainerSize(id *cid.ID) (size uint64, err error) {
 	return size, err
 }
 
-func (db *DB) containerSize(tx *bbolt.Tx, id *cid.ID) (uint64, error) {
+func (db *DB) containerSize(tx *bbolt.Tx, id cid.ID) (uint64, error) {
 	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
 	if err != nil {
 		return 0, err
@@ -59,19 +58,18 @@ func (db *DB) containerSize(tx *bbolt.Tx, id *cid.ID) (uint64, error) {
 	return parseContainerSize(containerVolume.Get(key)), nil
 }
 
-func parseContainerID(name []byte, ignore map[string]struct{}) *cid.ID {
-	var containerID cid.ID
+func parseContainerID(dst *cid.ID, name []byte, ignore map[string]struct{}) bool {
 	strContainerID := strings.Split(string(name), invalidBase58String)[0]
 
 	if _, ok := ignore[strContainerID]; ok {
-		return nil
+		return false
 	}
 
-	if err := containerID.DecodeString(strContainerID); err != nil {
-		return nil
+	if err := dst.DecodeString(strContainerID); err != nil {
+		return false
 	}
 
-	return &containerID
+	return true
 }
 
 func parseContainerSize(v []byte) uint64 {
@@ -82,7 +80,7 @@ func parseContainerSize(v []byte) uint64 {
 	return binary.LittleEndian.Uint64(v)
 }
 
-func changeContainerSize(tx *bbolt.Tx, id *cid.ID, delta uint64, increase bool) error {
+func changeContainerSize(tx *bbolt.Tx, id cid.ID, delta uint64, increase bool) error {
 	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
 	if err != nil {
 		return err

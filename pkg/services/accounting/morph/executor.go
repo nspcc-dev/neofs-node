@@ -34,7 +34,7 @@ func (s *morphExecutor) Balance(ctx context.Context, body *accounting.BalanceReq
 		return nil, fmt.Errorf("invalid account: %w", err)
 	}
 
-	amount, err := s.client.BalanceOf(&id)
+	amount, err := s.client.BalanceOf(id)
 	if err != nil {
 		return nil, err
 	}

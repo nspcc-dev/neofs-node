@@ -3,15 +3,15 @@ package writecache
 import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // Get returns object from write-cache.
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in write-cache.
-func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
-	saddr := addr.String()
+func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
+	saddr := addr.EncodeToString()
 
 	c.mtx.RLock()
 	for i := range c.mem {
@@ -53,7 +53,7 @@ func (c *cache) Get(addr *addressSDK.Address) (*objectSDK.Object, error) {
 // Head returns object header from write-cache.
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in write-cache.
-func (c *cache) Head(addr *addressSDK.Address) (*objectSDK.Object, error) {
+func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
 	obj, err := c.Get(addr)
 	if err != nil {
 		return nil, err

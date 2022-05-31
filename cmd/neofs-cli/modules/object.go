@@ -25,8 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -317,24 +316,25 @@ type clientKeySession interface {
 	SetSessionToken(*session.Object)
 }
 
-func prepareSessionPrm(cmd *cobra.Command, addr *addressSDK.Address, prms ...clientKeySession) {
+func prepareSessionPrm(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, prms ...clientKeySession) {
 	pk := key.GetOrGenerate(cmd)
 
-	prepareSessionPrmWithKey(cmd, addr, pk, prms...)
+	prepareSessionPrmWithKey(cmd, cnr, obj, pk, prms...)
 }
 
-func prepareSessionPrmWithKey(cmd *cobra.Command, addr *addressSDK.Address, key *ecdsa.PrivateKey, prms ...clientKeySession) {
+func prepareSessionPrmWithKey(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, key *ecdsa.PrivateKey, prms ...clientKeySession) {
 	ownerID, err := getOwnerID(key)
 	common.ExitOnErr(cmd, "owner ID from key: %w", err)
 
-	prepareSessionPrmWithOwner(cmd, addr, key, ownerID, prms...)
+	prepareSessionPrmWithOwner(cmd, cnr, obj, key, *ownerID, prms...)
 }
 
 func prepareSessionPrmWithOwner(
 	cmd *cobra.Command,
-	addr *addressSDK.Address,
+	cnr cid.ID,
+	obj *oid.ID,
 	key *ecdsa.PrivateKey,
-	ownerID *user.ID,
+	ownerID user.ID,
 	prms ...clientKeySession,
 ) {
 	cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
@@ -373,7 +373,11 @@ func prepareSessionPrmWithOwner(
 			panic("invalid client parameter type")
 		}
 
-		tok.ApplyTo(*addr)
+		tok.BindContainer(cnr)
+
+		if obj != nil {
+			tok.LimitByObject(*obj)
+		}
 
 		err := tok.Sign(*key)
 		common.ExitOnErr(cmd, "session token signing: %w", err)
@@ -413,8 +417,9 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	ownerID, err := getOwnerID(pk)
 	common.ExitOnErr(cmd, "", err)
-	cnr, err := getCID(cmd)
-	common.ExitOnErr(cmd, "", err)
+
+	var cnr cid.ID
+	common.ExitOnErr(cmd, "", readCID(cmd, &cnr))
 
 	filename := cmd.Flag("file").Value.String()
 	f, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
@@ -447,7 +452,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	}
 
 	obj := object.New()
-	obj.SetContainerID(*cnr)
+	obj.SetContainerID(cnr)
 	obj.SetOwnerID(ownerID)
 	obj.SetAttributes(attrs...)
 
@@ -460,9 +465,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PutObjectPrm
 
-	sessionObjectCtxAddress := addressSDK.NewAddress()
-	sessionObjectCtxAddress.SetContainerID(*cnr)
-	prepareSessionPrmWithOwner(cmd, sessionObjectCtxAddress, pk, ownerID, &prm)
+	prepareSessionPrmWithOwner(cmd, cnr, nil, pk, *ownerID, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetHeader(obj)
 
@@ -495,44 +498,37 @@ func putObject(cmd *cobra.Command, _ []string) {
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) {
-	objAddr, err := getObjectAddress(cmd)
+	var cnr cid.ID
+	var obj oid.ID
+
+	err := readObjectAddress(cmd, &cnr, &obj)
 	common.ExitOnErr(cmd, "", err)
 
 	var prm internalclient.DeleteObjectPrm
 
-	prepareSessionPrm(cmd, objAddr, &prm)
+	prepareSessionPrm(cmd, cnr, &obj, &prm)
 	prepareObjectPrm(cmd, &prm)
-	prm.SetAddress(objAddr)
+
+	var addr oid.Address
+	addr.SetContainer(cnr)
+	addr.SetObject(obj)
+
+	prm.SetAddress(addr)
 
 	res, err := internalclient.DeleteObject(prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
-	tombstoneAddr := res.TombstoneAddress()
+	tomb := res.Tombstone()
 
 	cmd.Println("Object removed successfully.")
-
-	const strEmpty = "<empty>"
-	var strID, strCnr string
-
-	id, ok := tombstoneAddr.ObjectID()
-	if ok {
-		strID = id.String()
-	} else {
-		strID = strEmpty
-	}
-
-	cnr, ok := tombstoneAddr.ContainerID()
-	if ok {
-		strCnr = cnr.String()
-	} else {
-		strCnr = strEmpty
-	}
-
-	cmd.Printf("  ID: %s\n  CID: %s\n", strID, strCnr)
+	cmd.Printf("  ID: %s\n  CID: %s\n", tomb, cnr)
 }
 
 func getObject(cmd *cobra.Command, _ []string) {
-	objAddr, err := getObjectAddress(cmd)
+	var cnr cid.ID
+	var obj oid.ID
+
+	err := readObjectAddress(cmd, &cnr, &obj)
 	common.ExitOnErr(cmd, "", err)
 
 	var out io.Writer
@@ -552,8 +548,13 @@ func getObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.GetObjectPrm
 
-	prepareSessionPrm(cmd, objAddr, &prm)
+	prepareSessionPrm(cmd, cnr, &obj, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
+
+	var objAddr oid.Address
+	objAddr.SetContainer(cnr)
+	objAddr.SetObject(obj)
+
 	prm.SetAddress(objAddr)
 
 	var p *pb.ProgressBar
@@ -598,15 +599,23 @@ func getObject(cmd *cobra.Command, _ []string) {
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) {
-	objAddr, err := getObjectAddress(cmd)
+	var cnr cid.ID
+	var obj oid.ID
+
+	err := readObjectAddress(cmd, &cnr, &obj)
 	common.ExitOnErr(cmd, "", err)
 
 	mainOnly, _ := cmd.Flags().GetBool("main-only")
 
 	var prm internalclient.HeadObjectPrm
 
-	prepareSessionPrm(cmd, objAddr, &prm)
+	prepareSessionPrm(cmd, cnr, &obj, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
+
+	var objAddr oid.Address
+	objAddr.SetContainer(cnr)
+	objAddr.SetObject(obj)
+
 	prm.SetAddress(objAddr)
 	prm.SetMainOnlyFlag(mainOnly)
 
@@ -624,7 +633,9 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 }
 
 func searchObject(cmd *cobra.Command, _ []string) {
-	cnr, err := getCID(cmd)
+	var cnr cid.ID
+
+	err := readCID(cmd, &cnr)
 	common.ExitOnErr(cmd, "", err)
 
 	sf, err := parseSearchFilters(cmd)
@@ -632,9 +643,7 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.SearchObjectsPrm
 
-	sessionObjectCtxAddress := addressSDK.NewAddress()
-	sessionObjectCtxAddress.SetContainerID(*cnr)
-	prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
+	prepareSessionPrm(cmd, cnr, nil, &prm)
 	prepareObjectPrm(cmd, &prm)
 	prm.SetContainerID(cnr)
 	prm.SetFilters(sf)
@@ -646,12 +655,15 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 	cmd.Printf("Found %d objects.\n", len(ids))
 	for i := range ids {
-		cmd.Println(ids[i].String())
+		cmd.Println(ids[i])
 	}
 }
 
 func getObjectHash(cmd *cobra.Command, _ []string) {
-	objAddr, err := getObjectAddress(cmd)
+	var cnr cid.ID
+	var obj oid.ID
+
+	err := readObjectAddress(cmd, &cnr, &obj)
 	common.ExitOnErr(cmd, "", err)
 	ranges, err := getRangeList(cmd)
 	common.ExitOnErr(cmd, "", err)
@@ -677,8 +689,12 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		objPrms = append(objPrms, &headPrm)
 	}
 
-	prepareSessionPrm(cmd, objAddr, sesPrms...)
+	prepareSessionPrm(cmd, cnr, &obj, sesPrms...)
 	prepareObjectPrm(cmd, objPrms...)
+
+	var objAddr oid.Address
+	objAddr.SetContainer(cnr)
+	objAddr.SetObject(obj)
 
 	tz := typ == hashTz
 
@@ -792,10 +808,10 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		fs.AddPhyFilter()
 	}
 
-	oid, _ := cmd.Flags().GetString(searchOIDFlag)
-	if oid != "" {
-		var id oidSDK.ID
-		if err := id.DecodeString(oid); err != nil {
+	strObj, _ := cmd.Flags().GetString(searchOIDFlag)
+	if strObj != "" {
+		var id oid.ID
+		if err := id.DecodeString(strObj); err != nil {
 			return nil, fmt.Errorf("could not parse object ID: %w", err)
 		}
 
@@ -879,42 +895,36 @@ func parseObjectNotifications(cmd *cobra.Command) (*object.NotificationInfo, err
 	return ni, nil
 }
 
-func getCID(cmd *cobra.Command) (*cid.ID, error) {
-	var id cid.ID
-
-	err := id.DecodeString(cmd.Flag("cid").Value.String())
+func readCID(cmd *cobra.Command, cnr *cid.ID) error {
+	err := cnr.DecodeString(cmd.Flag("cid").Value.String())
 	if err != nil {
-		return nil, fmt.Errorf("could not parse container ID: %w", err)
+		return fmt.Errorf("decode container ID string: %w", err)
 	}
 
-	return &id, nil
+	return nil
 }
 
-func getOID(cmd *cobra.Command) (*oidSDK.ID, error) {
-	var oid oidSDK.ID
-
-	err := oid.DecodeString(cmd.Flag("oid").Value.String())
+func readOID(cmd *cobra.Command, obj *oid.ID) error {
+	err := obj.DecodeString(cmd.Flag("oid").Value.String())
 	if err != nil {
-		return nil, fmt.Errorf("could not parse object ID: %w", err)
+		return fmt.Errorf("decode container ID string: %w", err)
 	}
 
-	return &oid, nil
+	return nil
 }
 
-func getObjectAddress(cmd *cobra.Command) (*addressSDK.Address, error) {
-	cnr, err := getCID(cmd)
+func readObjectAddress(cmd *cobra.Command, cnr *cid.ID, obj *oid.ID) error {
+	err := readCID(cmd, cnr)
 	if err != nil {
-		return nil, err
-	}
-	oid, err := getOID(cmd)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
-	objAddr := addressSDK.NewAddress()
-	objAddr.SetContainerID(*cnr)
-	objAddr.SetObjectID(*oid)
-	return objAddr, nil
+	err = readOID(cmd, obj)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getRangeList(cmd *cobra.Command) ([]*object.Range, error) {
@@ -988,7 +998,7 @@ func printChecksum(cmd *cobra.Command, name string, recv func() (checksum.Checks
 	cmd.Printf("%s: %s\n", name, strVal)
 }
 
-func printObjectID(cmd *cobra.Command, recv func() (oidSDK.ID, bool)) {
+func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
 	var strID string
 
 	id, ok := recv()
@@ -1044,8 +1054,8 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 		cmd.Printf("Split ID: %s\n", splitID)
 	}
 
-	if oid, ok := obj.ParentID(); ok {
-		cmd.Printf("Split ParentID: %s\n", oid)
+	if par, ok := obj.ParentID(); ok {
+		cmd.Printf("Split ParentID: %s\n", par)
 	}
 
 	if prev, ok := obj.PreviousID(); ok {
@@ -1053,7 +1063,7 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 	}
 
 	for _, child := range obj.Children() {
-		cmd.Printf("Split ChildID: %s\n", child.String())
+		cmd.Printf("Split ChildID: %s\n", child)
 	}
 
 	if signature := obj.Signature(); signature != nil {
@@ -1099,8 +1109,10 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 }
 
 func getObjectRange(cmd *cobra.Command, _ []string) {
-	objAddr, err := getObjectAddress(cmd)
-	common.ExitOnErr(cmd, "", err)
+	var cnr cid.ID
+	var obj oid.ID
+
+	common.ExitOnErr(cmd, "", readObjectAddress(cmd, &cnr, &obj))
 
 	ranges, err := getRangeList(cmd)
 	common.ExitOnErr(cmd, "", err)
@@ -1127,9 +1139,14 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PayloadRangePrm
 
-	prepareSessionPrm(cmd, objAddr, &prm)
+	prepareSessionPrm(cmd, cnr, &obj, &prm)
 	prepareObjectPrmRaw(cmd, &prm)
-	prm.SetAddress(objAddr)
+
+	var addr oid.Address
+	addr.SetContainer(cnr)
+	addr.SetObject(obj)
+
+	prm.SetAddress(addr)
 	prm.SetRange(ranges[0])
 	prm.SetPayloadWriter(out)
 
@@ -1183,10 +1200,10 @@ func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error
 			b.WriteString("Split ID: " + splitID.String() + "\n")
 		}
 		if link, ok := info.Link(); ok {
-			b.WriteString("Linking object: " + link.String() + "\n")
+			b.WriteString(fmt.Sprintf("Linking object: %s\n", link))
 		}
 		if last, ok := info.LastPart(); ok {
-			b.WriteString("Last object: " + last.String() + "\n")
+			b.WriteString(fmt.Sprintf("Last object: %s\n", last))
 		}
 		return b.Bytes(), nil
 	}

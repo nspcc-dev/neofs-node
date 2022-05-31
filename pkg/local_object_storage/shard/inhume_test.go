@@ -24,12 +24,12 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
-	obj := generateObjectWithCID(t, cid)
+	obj := generateObjectWithCID(t, cnr)
 	addAttribute(obj, "foo", "bar")
 
-	ts := generateObjectWithCID(t, cid)
+	ts := generateObjectWithCID(t, cnr)
 
 	putPrm := new(shard.PutPrm)
 	putPrm.WithObject(obj)

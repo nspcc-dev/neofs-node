@@ -3,7 +3,7 @@ package notificator
 import (
 	"fmt"
 
-	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -74,7 +74,7 @@ func (n *Notificator) ProcessEpoch(epoch uint64) {
 	logger := n.l.With(zap.Uint64("epoch", epoch))
 	logger.Debug("notificator: start processing object notifications")
 
-	n.ns.Iterate(epoch, func(topic string, addr *objectSDKAddress.Address) {
+	n.ns.Iterate(epoch, func(topic string, addr oid.Address) {
 		n.l.Debug("notificator: processing object notification",
 			zap.String("topic", topic),
 			zap.Stringer("address", addr),

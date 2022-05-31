@@ -27,10 +27,10 @@ func TestCheckFormat(t *testing.T) {
 
 	require.Error(t, CheckFormat(c))
 
-	var oid user.ID
-	user.IDFromKey(&oid, test.DecodeKey(-1).PublicKey)
+	var idUser user.ID
+	user.IDFromKey(&idUser, test.DecodeKey(-1).PublicKey)
 
-	c.SetOwnerID(&oid)
+	c.SetOwnerID(&idUser)
 
 	// set incorrect nonce
 	cV2 := c.ToV2()

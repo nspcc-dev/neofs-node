@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -17,9 +17,9 @@ type Info struct {
 
 // Cache represents write-cache for objects.
 type Cache interface {
-	Get(*addressSDK.Address) (*object.Object, error)
-	Head(*addressSDK.Address) (*object.Object, error)
-	Delete(*addressSDK.Address) error
+	Get(address oid.Address) (*object.Object, error)
+	Head(oid.Address) (*object.Object, error)
+	Delete(oid.Address) error
 	Iterate(*IterationPrm) error
 	Put(*object.Object) error
 	SetMode(Mode)

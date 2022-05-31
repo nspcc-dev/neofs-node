@@ -19,7 +19,7 @@ type Source interface {
 	//
 	// Implementations must not retain the container pointer and modify
 	// the container through it.
-	Get(*cid.ID) (*container.Container, error)
+	Get(cid.ID) (*container.Container, error)
 }
 
 // IsErrNotFound checks if the error returned by Source.Get corresponds

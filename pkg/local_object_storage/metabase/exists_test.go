@@ -68,10 +68,10 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
-		cid := cidtest.ID()
-		parent := generateObjectWithCID(t, cid)
+		cnr := cidtest.ID()
+		parent := generateObjectWithCID(t, cnr)
 
-		child := generateObjectWithCID(t, cid)
+		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
 		idParent, _ := parent.ID()
 		child.SetParentID(idParent)
@@ -86,19 +86,19 @@ func TestDB_Exists(t *testing.T) {
 	})
 
 	t.Run("merge split info", func(t *testing.T) {
-		cid := cidtest.ID()
+		cnr := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateObjectWithCID(t, cid)
+		parent := generateObjectWithCID(t, cnr)
 		addAttribute(parent, "foo", "bar")
 
-		child := generateObjectWithCID(t, cid)
+		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
 		idParent, _ := parent.ID()
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 
-		link := generateObjectWithCID(t, cid)
+		link := generateObjectWithCID(t, cnr)
 		link.SetParent(parent)
 		link.SetParentID(idParent)
 		idChild, _ := child.ID()

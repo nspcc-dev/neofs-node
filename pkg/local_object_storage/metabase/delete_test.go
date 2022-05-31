@@ -9,18 +9,18 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDB_Delete(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
-	parent := generateObjectWithCID(t, cid)
+	cnr := cidtest.ID()
+	parent := generateObjectWithCID(t, cnr)
 	addAttribute(parent, "foo", "bar")
 
-	child := generateObjectWithCID(t, cid)
+	child := generateObjectWithCID(t, cnr)
 	child.SetParent(parent)
 	idParent, _ := parent.ID()
 	child.SetParentID(idParent)
@@ -43,7 +43,7 @@ func TestDB_Delete(t *testing.T) {
 	require.Error(t, err)
 
 	// inhume parent and child so they will be on graveyard
-	ts := generateObjectWithCID(t, cid)
+	ts := generateObjectWithCID(t, cnr)
 
 	err = meta.Inhume(db, object.AddressOf(child), object.AddressOf(ts))
 	require.NoError(t, err)
@@ -71,18 +71,18 @@ func TestDB_Delete(t *testing.T) {
 func TestDeleteAllChildren(t *testing.T) {
 	db := newDB(t)
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 
 	// generate parent object
-	parent := generateObjectWithCID(t, cid)
+	parent := generateObjectWithCID(t, cnr)
 
 	// generate 2 children
-	child1 := generateObjectWithCID(t, cid)
+	child1 := generateObjectWithCID(t, cnr)
 	child1.SetParent(parent)
 	idParent, _ := parent.ID()
 	child1.SetParentID(idParent)
 
-	child2 := generateObjectWithCID(t, cid)
+	child2 := generateObjectWithCID(t, cnr)
 	child2.SetParent(parent)
 	child2.SetParentID(idParent)
 
@@ -108,10 +108,10 @@ func TestDeleteAllChildren(t *testing.T) {
 func TestGraveOnlyDelete(t *testing.T) {
 	db := newDB(t)
 
-	addr := objecttest.Address()
+	addr := oidtest.Address()
 
 	// inhume non-existent object by address
-	require.NoError(t, meta.Inhume(db, addr, nil))
+	require.NoError(t, meta.Inhume(db, addr, oidtest.Address()))
 
 	// delete the object data
 	require.NoError(t, meta.Delete(db, addr))

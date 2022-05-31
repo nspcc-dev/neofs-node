@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
@@ -71,7 +71,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	f.obj.SetCreationEpoch(curEpoch)
 
 	var (
-		parID  *oidSDK.ID
+		parID  *oid.ID
 		parHdr *object.Object
 	)
 
@@ -107,7 +107,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 	id, _ := f.obj.ID()
 
 	return new(AccessIdentifiers).
-		WithSelfID(&id).
+		WithSelfID(id).
 		WithParentID(parID).
 		WithParent(parHdr), nil
 }

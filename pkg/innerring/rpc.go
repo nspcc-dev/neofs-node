@@ -3,7 +3,6 @@ package innerring
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"time"
 
@@ -16,8 +15,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/zap"
 )
@@ -63,19 +61,16 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 // Returns storage groups structure from received object.
 //
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
-func (c *ClientCache) GetSG(task *audit.Task, id *oidSDK.ID) (*storagegroup.StorageGroup, error) {
-	sgAddress := new(addressSDK.Address)
-	sgAddress.SetContainerID(*task.ContainerID())
-	sgAddress.SetObjectID(*id)
+func (c *ClientCache) GetSG(task *audit.Task, id oid.ID) (*storagegroup.StorageGroup, error) {
+	var sgAddress oid.Address
+	sgAddress.SetContainer(task.ContainerID())
+	sgAddress.SetObject(id)
 
 	return c.getSG(task.AuditContext(), sgAddress, task.NetworkMap(), task.ContainerNodes())
 }
 
-func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *netmap.Netmap, cn netmap.ContainerNodes) (*storagegroup.StorageGroup, error) {
-	obj, ok := addr.ObjectID()
-	if !ok {
-		return nil, errors.New("missing object ID in object address")
-	}
+func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Netmap, cn netmap.ContainerNodes) (*storagegroup.StorageGroup, error) {
+	obj := addr.Object()
 
 	nodes, err := placement.BuildObjectPlacement(nm, cn, &obj)
 	if err != nil {
@@ -129,10 +124,10 @@ func (c *ClientCache) getSG(ctx context.Context, addr *addressSDK.Address, nm *n
 }
 
 // GetHeader requests node from the container under audit to return object header by id.
-func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *oidSDK.ID, relay bool) (*object.Object, error) {
-	objAddress := new(addressSDK.Address)
-	objAddress.SetContainerID(*task.ContainerID())
-	objAddress.SetObjectID(*id)
+func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id oid.ID, relay bool) (*object.Object, error) {
+	var objAddress oid.Address
+	objAddress.SetContainer(task.ContainerID())
+	objAddress.SetObject(id)
 
 	var info clientcore.NodeInfo
 
@@ -167,10 +162,10 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id *oidSDK.
 
 // GetRangeHash requests node from the container under audit to return Tillich-Zemor hash of the
 // payload range of the object with specified identifier.
-func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id *oidSDK.ID, rng *object.Range) ([]byte, error) {
-	objAddress := new(addressSDK.Address)
-	objAddress.SetContainerID(*task.ContainerID())
-	objAddress.SetObjectID(*id)
+func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id oid.ID, rng *object.Range) ([]byte, error) {
+	var objAddress oid.Address
+	objAddress.SetContainer(task.ContainerID())
+	objAddress.SetObject(id)
 
 	var info clientcore.NodeInfo
 

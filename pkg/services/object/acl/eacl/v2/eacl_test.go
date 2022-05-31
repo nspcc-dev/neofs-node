@@ -6,38 +6,26 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDKAddress "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
 type testLocalStorage struct {
 	t *testing.T
 
-	expAddr *objectSDKAddress.Address
+	expAddr oid.Address
 
 	obj *object.Object
 }
 
-func (s *testLocalStorage) Head(addr *objectSDKAddress.Address) (*object.Object, error) {
-	cnr1, ok := s.expAddr.ContainerID()
-	require.True(s.t, ok)
-
-	cnr2, ok := addr.ContainerID()
-	require.True(s.t, ok)
-
-	require.True(s.t, cnr1.Equals(cnr2))
-
-	id1, ok := s.expAddr.ObjectID()
-	require.True(s.t, ok)
-
-	id2, ok := addr.ObjectID()
-	require.True(s.t, ok)
-
-	require.True(s.t, id1.Equals(id2))
+func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
+	require.True(s.t, addr.Container().Equals(s.expAddr.Container()))
+	require.True(s.t, addr.Object().Equals(s.expAddr.Object()))
 
 	return s.obj, nil
 }
@@ -62,8 +50,12 @@ func TestHeadRequest(t *testing.T) {
 	body := new(objectV2.HeadRequestBody)
 	req.SetBody(body)
 
-	addr := objecttest.Address()
-	body.SetAddress(addr.ToV2())
+	addr := oidtest.Address()
+
+	var addrV2 refs.Address
+	addr.WriteToV2(&addrV2)
+
+	body.SetAddress(&addrV2)
 
 	xKey := "x-key"
 	xVal := "x-val"
@@ -103,20 +95,20 @@ func TestHeadRequest(t *testing.T) {
 		obj:     obj,
 	}
 
-	cid, _ := addr.ContainerID()
-	oid, _ := addr.ObjectID()
+	id := addr.Object()
 
 	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
 		hdrSrc, err := NewMessageHeaderSource(
 			WithObjectStorage(lStorage),
 			WithServiceRequest(req),
-			WithCID(cid),
-			WithOID(&oid))
+			WithCID(addr.Container()),
+			WithOID(&id))
 		require.NoError(t, err)
 		return hdrSrc
 	}
 
-	cnr, _ := addr.ContainerID()
+	cnr := addr.Container()
+
 	unit := new(eaclSDK.ValidationUnit).
 		WithContainerID(&cnr).
 		WithOperation(eaclSDK.OperationHead).

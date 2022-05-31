@@ -6,8 +6,9 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +16,7 @@ type testBuilder struct {
 	vectors []netmap.Nodes
 }
 
-func (b testBuilder) BuildPlacement(*addressSDK.Address, *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+func (b testBuilder) BuildPlacement(cid.ID, *oid.ID, *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
 	return b.vectors, nil
 }
 

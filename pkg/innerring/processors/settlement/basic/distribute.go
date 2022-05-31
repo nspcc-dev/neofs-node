@@ -14,7 +14,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 
 	txTable := common.NewTransferTable()
 
-	bankBalance, err := inc.balances.Balance(&inc.bankOwner)
+	bankBalance, err := inc.balances.Balance(inc.bankOwner)
 	if err != nil {
 		inc.log.Error("can't fetch balance of banking account",
 			zap.String("error", err.Error()))
@@ -35,8 +35,8 @@ func (inc *IncomeSettlementContext) Distribute() {
 		}
 
 		txTable.Transfer(&common.TransferTx{
-			From:   &inc.bankOwner,
-			To:     nodeOwner,
+			From:   inc.bankOwner,
+			To:     *nodeOwner,
 			Amount: normalizedValue(n, total, bankBalance),
 		})
 	})

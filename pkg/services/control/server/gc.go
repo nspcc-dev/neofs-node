@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // DeletedObjectHandler is a handler of objects to be removed.
-type DeletedObjectHandler func([]*addressSDK.Address) error
+type DeletedObjectHandler func([]oid.Address) error
 
 // DropObjects marks objects to be removed from the local node.
 //
@@ -26,19 +26,15 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 	}
 
 	binAddrList := req.GetBody().GetAddressList()
-	addrList := make([]*addressSDK.Address, 0, len(binAddrList))
+	addrList := make([]oid.Address, len(binAddrList))
 
 	for i := range binAddrList {
-		a := addressSDK.NewAddress()
-
-		err := a.Unmarshal(binAddrList[i])
+		err := addrList[i].DecodeString(string(binAddrList[i]))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument,
 				fmt.Sprintf("invalid binary object address: %v", err),
 			)
 		}
-
-		addrList = append(addrList, a)
 	}
 
 	err := s.delObjHandler(addrList)

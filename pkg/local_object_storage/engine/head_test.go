@@ -7,31 +7,31 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHeadRaw(t *testing.T) {
 	defer os.RemoveAll(t.Name())
 
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 	splitID := object.NewSplitID()
 
-	parent := generateObjectWithCID(t, cid)
+	parent := generateObjectWithCID(t, cnr)
 	addAttribute(parent, "foo", "bar")
 
-	parentAddr := addressSDK.NewAddress()
-	parentAddr.SetContainerID(cid)
+	var parentAddr oid.Address
+	parentAddr.SetContainer(cnr)
 
 	idParent, _ := parent.ID()
-	parentAddr.SetObjectID(idParent)
+	parentAddr.SetObject(idParent)
 
-	child := generateObjectWithCID(t, cid)
+	child := generateObjectWithCID(t, cnr)
 	child.SetParent(parent)
 	child.SetParentID(idParent)
 	child.SetSplitID(splitID)
 
-	link := generateObjectWithCID(t, cid)
+	link := generateObjectWithCID(t, cnr)
 	link.SetParent(parent)
 	link.SetParentID(idParent)
 
