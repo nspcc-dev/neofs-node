@@ -30,9 +30,9 @@ func (p *PutPrm) WithObject(obj *object.Object) {
 // did not allow to completely save the object.
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
-func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
+func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if s.GetMode() != ModeReadWrite {
-		return nil, ErrReadOnlyMode
+		return PutRes{}, ErrReadOnlyMode
 	}
 
 	var putPrm blobstor.PutPrm // form Put parameters
@@ -43,7 +43,7 @@ func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
 	if s.hasWriteCache() {
 		err := s.writeCache.Put(prm.obj)
 		if err == nil {
-			return nil, nil
+			return PutRes{}, nil
 		}
 
 		s.log.Debug("can't put message to writeCache, trying to blobStor",
@@ -56,15 +56,15 @@ func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
 	)
 
 	if res, err = s.blobStor.Put(putPrm); err != nil {
-		return nil, fmt.Errorf("could not put object to BLOB storage: %w", err)
+		return PutRes{}, fmt.Errorf("could not put object to BLOB storage: %w", err)
 	}
 
 	// put to metabase
 	if err := meta.Put(s.metaBase, prm.obj, res.BlobovniczaID()); err != nil {
 		// may we need to handle this case in a special way
 		// since the object has been successfully written to BlobStor
-		return nil, fmt.Errorf("could not put object to metabase: %w", err)
+		return PutRes{}, fmt.Errorf("could not put object to metabase: %w", err)
 	}
 
-	return nil, nil
+	return PutRes{}, nil
 }

@@ -24,13 +24,13 @@ func (r ContainerSizeRes) Size() uint64 {
 	return r.size
 }
 
-func (s *Shard) ContainerSize(prm ContainerSizePrm) (*ContainerSizeRes, error) {
+func (s *Shard) ContainerSize(prm ContainerSizePrm) (ContainerSizeRes, error) {
 	size, err := s.metaBase.ContainerSize(prm.cnr)
 	if err != nil {
-		return nil, fmt.Errorf("could not get container size: %w", err)
+		return ContainerSizeRes{}, fmt.Errorf("could not get container size: %w", err)
 	}
 
-	return &ContainerSizeRes{
+	return ContainerSizeRes{
 		size: size,
 	}, nil
 }

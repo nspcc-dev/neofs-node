@@ -47,12 +47,12 @@ func (p *GetPrm) WithIgnoreMeta(ignore bool) {
 }
 
 // Object returns the requested object.
-func (r *GetRes) Object() *objectSDK.Object {
+func (r GetRes) Object() *objectSDK.Object {
 	return r.obj
 }
 
 // HasMeta returns true if info about the object was found in the metabase.
-func (r *GetRes) HasMeta() bool {
+func (r GetRes) HasMeta() bool {
 	return r.hasMeta
 }
 
@@ -63,7 +63,7 @@ func (r *GetRes) HasMeta() bool {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
-func (s *Shard) Get(prm GetPrm) (*GetRes, error) {
+func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	var big, small storFetcher
 
 	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*objectSDK.Object, error) {
@@ -93,7 +93,7 @@ func (s *Shard) Get(prm GetPrm) (*GetRes, error) {
 
 	obj, hasMeta, err := s.fetchObjectData(prm.addr, prm.skipMeta, big, small)
 
-	return &GetRes{
+	return GetRes{
 		obj:     obj,
 		hasMeta: hasMeta,
 	}, err

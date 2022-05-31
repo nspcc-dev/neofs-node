@@ -56,20 +56,20 @@ func (r RestoreRes) FailCount() int {
 // Restore restores objects from the dump prepared by Dump.
 //
 // Returns any error encountered.
-func (s *Shard) Restore(prm RestorePrm) (*RestoreRes, error) {
+func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 	// Disallow changing mode during restore.
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode != ModeReadWrite {
-		return nil, ErrReadOnlyMode
+		return RestoreRes{}, ErrReadOnlyMode
 	}
 
 	r := prm.stream
 	if r == nil {
 		f, err := os.OpenFile(prm.path, os.O_RDONLY, os.ModeExclusive)
 		if err != nil {
-			return nil, err
+			return RestoreRes{}, err
 		}
 		defer f.Close()
 
@@ -79,7 +79,7 @@ func (s *Shard) Restore(prm RestorePrm) (*RestoreRes, error) {
 	var m [4]byte
 	_, _ = io.ReadFull(r, m[:])
 	if !bytes.Equal(m[:], dumpMagic) {
-		return nil, ErrInvalidMagic
+		return RestoreRes{}, ErrInvalidMagic
 	}
 
 	var putPrm PutPrm
@@ -95,7 +95,7 @@ func (s *Shard) Restore(prm RestorePrm) (*RestoreRes, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, err
+			return RestoreRes{}, err
 		}
 
 		sz := binary.LittleEndian.Uint32(size[:])
@@ -107,7 +107,7 @@ func (s *Shard) Restore(prm RestorePrm) (*RestoreRes, error) {
 
 		_, err = r.Read(data)
 		if err != nil {
-			return nil, err
+			return RestoreRes{}, err
 		}
 
 		obj := object.New()
@@ -117,17 +117,17 @@ func (s *Shard) Restore(prm RestorePrm) (*RestoreRes, error) {
 				failCount++
 				continue
 			}
-			return nil, err
+			return RestoreRes{}, err
 		}
 
 		putPrm.WithObject(obj)
 		_, err = s.Put(putPrm)
 		if err != nil {
-			return nil, err
+			return RestoreRes{}, err
 		}
 
 		count++
 	}
 
-	return &RestoreRes{count: count, failed: failCount}, nil
+	return RestoreRes{count: count, failed: failCount}, nil
 }

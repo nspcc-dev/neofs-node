@@ -46,9 +46,9 @@ func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) {
 // if at least one object is locked.
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
-func (s *Shard) Inhume(prm InhumePrm) (*InhumeRes, error) {
+func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 	if s.GetMode() != ModeReadWrite {
-		return nil, ErrReadOnlyMode
+		return InhumeRes{}, ErrReadOnlyMode
 	}
 
 	if s.hasWriteCache() {
@@ -72,8 +72,8 @@ func (s *Shard) Inhume(prm InhumePrm) (*InhumeRes, error) {
 			zap.String("error", err.Error()),
 		)
 
-		return nil, fmt.Errorf("metabase inhume: %w", err)
+		return InhumeRes{}, fmt.Errorf("metabase inhume: %w", err)
 	}
 
-	return nil, nil
+	return InhumeRes{}, nil
 }

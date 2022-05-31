@@ -51,19 +51,19 @@ var ErrMustBeReadOnly = errors.New("shard must be in read-only mode")
 // Dump dumps all objects from the shard to a file or stream.
 //
 // Returns any error encountered.
-func (s *Shard) Dump(prm DumpPrm) (*DumpRes, error) {
+func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode != ModeReadOnly {
-		return nil, ErrMustBeReadOnly
+		return DumpRes{}, ErrMustBeReadOnly
 	}
 
 	w := prm.stream
 	if w == nil {
 		f, err := os.OpenFile(prm.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
 		if err != nil {
-			return nil, err
+			return DumpRes{}, err
 		}
 		defer f.Close()
 
@@ -72,7 +72,7 @@ func (s *Shard) Dump(prm DumpPrm) (*DumpRes, error) {
 
 	_, err := w.Write(dumpMagic)
 	if err != nil {
-		return nil, err
+		return DumpRes{}, err
 	}
 
 	var count int
@@ -98,7 +98,7 @@ func (s *Shard) Dump(prm DumpPrm) (*DumpRes, error) {
 
 		err := s.writeCache.Iterate(iterPrm)
 		if err != nil {
-			return nil, err
+			return DumpRes{}, err
 		}
 	}
 
@@ -125,8 +125,8 @@ func (s *Shard) Dump(prm DumpPrm) (*DumpRes, error) {
 	})
 
 	if _, err := s.blobStor.Iterate(pi); err != nil {
-		return nil, err
+		return DumpRes{}, err
 	}
 
-	return &DumpRes{count: count}, nil
+	return DumpRes{count: count}, nil
 }

@@ -24,7 +24,7 @@ type ListContainersRes struct {
 	containers []cid.ID
 }
 
-func (r *ListContainersRes) Containers() []cid.ID {
+func (r ListContainersRes) Containers() []cid.ID {
 	return r.containers
 }
 
@@ -63,13 +63,12 @@ func (r ListWithCursorRes) Cursor() *Cursor {
 }
 
 // List returns all objects physically stored in the Shard.
-func (s *Shard) List() (*SelectRes, error) {
+func (s *Shard) List() (res SelectRes, err error) {
 	lst, err := s.metaBase.Containers()
 	if err != nil {
-		return nil, fmt.Errorf("can't list stored containers: %w", err)
+		return res, fmt.Errorf("can't list stored containers: %w", err)
 	}
 
-	res := new(SelectRes)
 	filters := object.NewSearchFilters()
 	filters.AddPhyFilter()
 
@@ -89,13 +88,13 @@ func (s *Shard) List() (*SelectRes, error) {
 	return res, nil
 }
 
-func (s *Shard) ListContainers(_ ListContainersPrm) (*ListContainersRes, error) {
+func (s *Shard) ListContainers(_ ListContainersPrm) (ListContainersRes, error) {
 	containers, err := s.metaBase.Containers()
 	if err != nil {
-		return nil, fmt.Errorf("could not get list of containers: %w", err)
+		return ListContainersRes{}, fmt.Errorf("could not get list of containers: %w", err)
 	}
 
-	return &ListContainersRes{
+	return ListContainersRes{
 		containers: containers,
 	}, nil
 }
@@ -115,16 +114,16 @@ func ListContainers(s *Shard) ([]cid.ID, error) {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRes, error) {
+func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error) {
 	var metaPrm meta.ListPrm
 	metaPrm.WithCount(prm.count)
 	metaPrm.WithCursor(prm.cursor)
 	res, err := s.metaBase.ListWithCursor(metaPrm)
 	if err != nil {
-		return nil, fmt.Errorf("could not get list of objects: %w", err)
+		return ListWithCursorRes{}, fmt.Errorf("could not get list of objects: %w", err)
 	}
 
-	return &ListWithCursorRes{
+	return ListWithCursorRes{
 		addrList: res.AddressList(),
 		cursor:   res.Cursor(),
 	}, nil

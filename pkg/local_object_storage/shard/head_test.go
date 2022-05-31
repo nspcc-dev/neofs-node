@@ -80,7 +80,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	})
 }
 
-func testHead(t *testing.T, sh *shard.Shard, headPrm shard.HeadPrm, hasWriteCache bool) (*shard.HeadRes, error) {
+func testHead(t *testing.T, sh *shard.Shard, headPrm shard.HeadPrm, hasWriteCache bool) (shard.HeadRes, error) {
 	res, err := sh.Head(headPrm)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {

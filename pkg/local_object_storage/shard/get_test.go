@@ -111,7 +111,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 }
 
-func testGet(t *testing.T, sh *shard.Shard, getPrm shard.GetPrm, hasWriteCache bool) (*shard.GetRes, error) {
+func testGet(t *testing.T, sh *shard.Shard, getPrm shard.GetPrm, hasWriteCache bool) (shard.GetRes, error) {
 	res, err := sh.Get(getPrm)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
