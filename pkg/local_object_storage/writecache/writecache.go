@@ -96,7 +96,7 @@ func New(opts ...Option) Cache {
 			maxMemSize:      maxInMemorySizeBytes,
 			maxObjectSize:   maxObjectSize,
 			smallObjectSize: smallObjectSize,
-			workersCount:    flushWorkersCount,
+			workersCount:    defaultFlushWorkersCount,
 			maxCacheSize:    maxCacheSizeBytes,
 		},
 	}
