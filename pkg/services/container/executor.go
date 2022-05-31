@@ -31,7 +31,12 @@ func NewExecutionService(exec ServiceExecutor) Server {
 }
 
 func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
-	respBody, err := s.exec.Put(ctx, req.GetMetaHeader().GetOrigin().GetSessionToken(), req.GetBody())
+	meta := req.GetMetaHeader()
+	for origin := meta.GetOrigin(); origin != nil; origin = meta.GetOrigin() {
+		meta = origin
+	}
+
+	respBody, err := s.exec.Put(ctx, meta.GetSessionToken(), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute Put request: %w", err)
 	}
@@ -43,7 +48,12 @@ func (s *executorSvc) Put(ctx context.Context, req *container.PutRequest) (*cont
 }
 
 func (s *executorSvc) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
-	respBody, err := s.exec.Delete(ctx, req.GetMetaHeader().GetOrigin().GetSessionToken(), req.GetBody())
+	meta := req.GetMetaHeader()
+	for origin := meta.GetOrigin(); origin != nil; origin = meta.GetOrigin() {
+		meta = origin
+	}
+
+	respBody, err := s.exec.Delete(ctx, meta.GetSessionToken(), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute Delete request: %w", err)
 	}
@@ -79,7 +89,12 @@ func (s *executorSvc) List(ctx context.Context, req *container.ListRequest) (*co
 }
 
 func (s *executorSvc) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
-	respBody, err := s.exec.SetExtendedACL(ctx, req.GetMetaHeader().GetOrigin().GetSessionToken(), req.GetBody())
+	meta := req.GetMetaHeader()
+	for origin := meta.GetOrigin(); origin != nil; origin = meta.GetOrigin() {
+		meta = origin
+	}
+
+	respBody, err := s.exec.SetExtendedACL(ctx, meta.GetSessionToken(), req.GetBody())
 	if err != nil {
 		return nil, fmt.Errorf("could not execute SetEACL request: %w", err)
 	}
