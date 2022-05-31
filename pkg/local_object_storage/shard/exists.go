@@ -3,13 +3,13 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
 type ExistsPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // ExistsRes groups the resulting values of Exists operation.
@@ -18,7 +18,7 @@ type ExistsRes struct {
 }
 
 // WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr *addressSDK.Address) *ExistsPrm {
+func (p *ExistsPrm) WithAddress(addr oid.Address) *ExistsPrm {
 	if p != nil {
 		p.addr = addr
 	}

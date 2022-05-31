@@ -35,5 +35,5 @@ func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {
 	id, _ := t.obj.ID()
 
 	return new(transformer.AccessIdentifiers).
-		WithSelfID(&id), nil
+		WithSelfID(id), nil
 }

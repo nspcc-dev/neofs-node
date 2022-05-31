@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Open opens all Shard's components.
@@ -89,14 +89,12 @@ func (s *Shard) refillMetabase() error {
 			}
 
 			tombAddr := object.AddressOf(obj)
-			cnr, _ := tombAddr.ContainerID()
 			memberIDs := tombstone.Members()
-			tombMembers := make([]*addressSDK.Address, 0, len(memberIDs))
+			tombMembers := make([]oid.Address, 0, len(memberIDs))
 
 			for i := range memberIDs {
-				a := addressSDK.NewAddress()
-				a.SetContainerID(cnr)
-				a.SetObjectID(memberIDs[i])
+				a := tombAddr
+				a.SetObject(memberIDs[i])
 
 				tombMembers = append(tombMembers, a)
 			}

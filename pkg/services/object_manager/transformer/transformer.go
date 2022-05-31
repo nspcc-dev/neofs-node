@@ -8,7 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -23,7 +23,7 @@ type payloadSizeLimiter struct {
 
 	currentHashers, parentHashers []*payloadChecksumHasher
 
-	previous []oidSDK.ID
+	previous []oid.ID
 
 	chunkWriter io.Writer
 
@@ -189,7 +189,7 @@ func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
 	}
 
 	// save identifier of the released object
-	s.previous = append(s.previous, *ids.SelfID())
+	s.previous = append(s.previous, ids.SelfID())
 
 	if withParent {
 		// generate and release linking object

@@ -19,9 +19,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -68,26 +66,30 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) GenerateTraverser(addr *addressSDK.Address, e uint64) (*placement.Traverser, error) {
-	id, ok := addr.ObjectID()
-	var optObj placement.Option
-
-	if ok {
-		optObj = placement.ForObject(&id)
-	} else {
-		optObj = placement.ForObject(nil)
-	}
-
-	return placement.NewTraverser(
+func (g *testTraverserGenerator) GenerateTraverser(cnr cid.ID, obj *oid.ID, e uint64) (*placement.Traverser, error) {
+	opts := make([]placement.Option, 3, 4)
+	opts = append(opts,
 		placement.ForContainer(g.c),
-		optObj,
 		placement.UseBuilder(g.b[e]),
 		placement.SuccessAfter(1),
 	)
+
+	if obj != nil {
+		opts = append(opts, placement.ForObject(*obj))
+	}
+
+	return placement.NewTraverser(opts...)
 }
 
-func (p *testPlacementBuilder) BuildPlacement(addr *addressSDK.Address, _ *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
-	vs, ok := p.vectors[addr.String()]
+func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+	var addr oid.Address
+	addr.SetContainer(cnr)
+
+	if obj != nil {
+		addr.SetObject(*obj)
+	}
+
+	vs, ok := p.vectors[addr.EncodeToString()]
 	if !ok {
 		return nil, errors.New("vectors for address not found")
 	}
@@ -114,7 +116,7 @@ func newTestClient() *testClient {
 }
 
 func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, error) {
-	v, ok := c.results[exec.address().String()]
+	v, ok := c.results[exec.address().EncodeToString()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound
 
@@ -128,8 +130,8 @@ func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Obj
 	return cutToRange(v.obj, exec.ctxRange()), nil
 }
 
-func (c *testClient) addResult(addr *addressSDK.Address, obj *objectSDK.Object, err error) {
-	c.results[addr.String()] = struct {
+func (c *testClient) addResult(addr oid.Address, obj *objectSDK.Object, err error) {
+	c.results[addr.EncodeToString()] = struct {
 		obj *objectSDK.Object
 		err error
 	}{obj: obj, err: err}
@@ -139,7 +141,7 @@ func (s *testStorage) get(exec *execCtx) (*objectSDK.Object, error) {
 	var (
 		ok    bool
 		obj   *objectSDK.Object
-		sAddr = exec.address().String()
+		sAddr = exec.address().EncodeToString()
 	)
 
 	if _, ok = s.inhumed[sAddr]; ok {
@@ -177,25 +179,22 @@ func cutToRange(o *objectSDK.Object, rng *objectSDK.Range) *objectSDK.Object {
 	return o
 }
 
-func (s *testStorage) addPhy(addr *addressSDK.Address, obj *objectSDK.Object) {
-	s.phy[addr.String()] = obj
+func (s *testStorage) addPhy(addr oid.Address, obj *objectSDK.Object) {
+	s.phy[addr.EncodeToString()] = obj
 }
 
-func (s *testStorage) addVirtual(addr *addressSDK.Address, info *objectSDK.SplitInfo) {
-	s.virtual[addr.String()] = info
+func (s *testStorage) addVirtual(addr oid.Address, info *objectSDK.SplitInfo) {
+	s.virtual[addr.EncodeToString()] = info
 }
 
-func (s *testStorage) inhume(addr *addressSDK.Address) {
-	s.inhumed[addr.String()] = struct{}{}
+func (s *testStorage) inhume(addr oid.Address) {
+	s.inhumed[addr.EncodeToString()] = struct{}{}
 }
 
-func generateObject(addr *addressSDK.Address, prev *oidSDK.ID, payload []byte, children ...oidSDK.ID) *objectSDK.Object {
-	cnr, _ := addr.ContainerID()
-	id, _ := addr.ObjectID()
-
+func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *objectSDK.Object {
 	obj := objectSDK.New()
-	obj.SetContainerID(cnr)
-	obj.SetID(id)
+	obj.SetContainerID(addr.Container())
+	obj.SetID(addr.Object())
 	obj.SetPayload(payload)
 	obj.SetPayloadSize(uint64(len(payload)))
 	if prev != nil {
@@ -262,7 +261,7 @@ func TestGetLocalOnly(t *testing.T) {
 		payload := make([]byte, payloadSz)
 		rand.Read(payload)
 
-		addr := objecttest.Address()
+		addr := oidtest.Address()
 		obj := generateObject(addr, nil, payload)
 
 		storage.addPhy(addr, obj)
@@ -301,7 +300,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(false, nil)
 
-		addr := objecttest.Address()
+		addr := oidtest.Address()
 
 		storage.inhume(addr)
 
@@ -330,7 +329,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(false, nil)
 
-		addr := objecttest.Address()
+		addr := oidtest.Address()
 
 		p.WithAddress(addr)
 
@@ -358,7 +357,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(true, nil)
 
-		addr := objecttest.Address()
+		addr := oidtest.Address()
 
 		splitInfo := objectSDK.NewSplitInfo()
 		splitInfo.SetSplitID(objectSDK.NewSplitID())
@@ -427,20 +426,20 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 	return mNodes, mAddr
 }
 
-func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oidSDK.ID, []byte) {
+func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 	curID := oidtest.ID()
-	var prevID *oidSDK.ID
+	var prevID *oid.ID
 
-	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cnr)
+	var addr oid.Address
+	addr.SetContainer(cnr)
 
 	res := make([]*objectSDK.Object, 0, ln)
-	ids := make([]oidSDK.ID, 0, ln)
+	ids := make([]oid.ID, 0, ln)
 	payload := make([]byte, 0, ln*10)
 
 	for i := 0; i < ln; i++ {
 		ids = append(ids, curID)
-		addr.SetObjectID(curID)
+		addr.SetObject(curID)
 
 		payloadPart := make([]byte, 10)
 		rand.Read(payloadPart)
@@ -522,14 +521,14 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	t.Run("OK", func(t *testing.T) {
-		addr := objecttest.Address()
-		addr.SetContainerID(idCnr)
+		addr := oidtest.Address()
+		addr.SetContainer(idCnr)
 
 		ns, as := testNodeMatrix(t, []int{2})
 
 		builder := &testPlacementBuilder{
 			vectors: map[string][]netmap.Nodes{
-				addr.String(): ns,
+				addr.EncodeToString(): ns,
 			},
 		}
 
@@ -585,14 +584,14 @@ func TestGetRemoteSmall(t *testing.T) {
 	})
 
 	t.Run("INHUMED", func(t *testing.T) {
-		addr := objecttest.Address()
-		addr.SetContainerID(idCnr)
+		addr := oidtest.Address()
+		addr.SetContainer(idCnr)
 
 		ns, as := testNodeMatrix(t, []int{2})
 
 		builder := &testPlacementBuilder{
 			vectors: map[string][]netmap.Nodes{
-				addr.String(): ns,
+				addr.EncodeToString(): ns,
 			},
 		}
 
@@ -629,14 +628,14 @@ func TestGetRemoteSmall(t *testing.T) {
 	})
 
 	t.Run("404", func(t *testing.T) {
-		addr := objecttest.Address()
-		addr.SetContainerID(idCnr)
+		addr := oidtest.Address()
+		addr.SetContainer(idCnr)
 
 		ns, as := testNodeMatrix(t, []int{2})
 
 		builder := &testPlacementBuilder{
 			vectors: map[string][]netmap.Nodes{
-				addr.String(): ns,
+				addr.EncodeToString(): ns,
 			},
 		}
 
@@ -673,7 +672,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	})
 
 	t.Run("VIRTUAL", func(t *testing.T) {
-		testHeadVirtual := func(svc *Service, addr *addressSDK.Address, i *objectSDK.SplitInfo) {
+		testHeadVirtual := func(svc *Service, addr oid.Address, i *objectSDK.SplitInfo) {
 			headPrm := newHeadPrm(false, nil)
 			headPrm.WithAddress(addr)
 
@@ -686,19 +685,19 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		t.Run("linking", func(t *testing.T) {
 			t.Run("get linking failure", func(t *testing.T) {
-				addr := objecttest.Address()
-				addr.SetContainerID(idCnr)
-				addr.SetObjectID(oidtest.ID())
+				addr := oidtest.Address()
+				addr.SetContainer(idCnr)
+				addr.SetObject(oidtest.ID())
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
 
-				splitAddr := addressSDK.NewAddress()
-				splitAddr.SetContainerID(idCnr)
+				var splitAddr oid.Address
+				splitAddr.SetContainer(idCnr)
 				idLink, _ := splitInfo.Link()
-				splitAddr.SetObjectID(idLink)
+				splitAddr.SetObject(idLink)
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -710,8 +709,8 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
-						addr.String():      ns,
-						splitAddr.String(): ns,
+						addr.EncodeToString():      ns,
+						splitAddr.EncodeToString(): ns,
 					},
 				}
 
@@ -738,9 +737,9 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
-				addr := objecttest.Address()
-				addr.SetContainerID(idCnr)
-				addr.SetObjectID(oidtest.ID())
+				addr := oidtest.Address()
+				addr.SetContainer(idCnr)
+				addr.SetObject(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 				srcObj.SetPayloadSize(10)
@@ -752,23 +751,22 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				children, childIDs, _ := generateChain(2, idCnr)
 
-				linkAddr := addressSDK.NewAddress()
-				linkAddr.SetContainerID(idCnr)
+				var linkAddr oid.Address
+				linkAddr.SetContainer(idCnr)
 				idLink, _ := splitInfo.Link()
-				linkAddr.SetObjectID(idLink)
+				linkAddr.SetObject(idLink)
 
 				linkingObj := generateObject(linkAddr, nil, nil, childIDs...)
-				id, _ := addr.ObjectID()
-				linkingObj.SetParentID(id)
+				linkingObj.SetParentID(addr.Object())
 				linkingObj.SetParent(srcObj)
 
-				child1Addr := addressSDK.NewAddress()
-				child1Addr.SetContainerID(idCnr)
-				child1Addr.SetObjectID(childIDs[0])
+				var child1Addr oid.Address
+				child1Addr.SetContainer(idCnr)
+				child1Addr.SetObject(childIDs[0])
 
-				child2Addr := addressSDK.NewAddress()
-				child2Addr.SetContainerID(idCnr)
-				child2Addr.SetObjectID(childIDs[1])
+				var child2Addr oid.Address
+				child2Addr.SetContainer(idCnr)
+				child2Addr.SetObject(childIDs[1])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -784,10 +782,10 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
-						addr.String():       ns,
-						linkAddr.String():   ns,
-						child1Addr.String(): ns,
-						child2Addr.String(): ns,
+						addr.EncodeToString():       ns,
+						linkAddr.EncodeToString():   ns,
+						child1Addr.EncodeToString(): ns,
+						child2Addr.EncodeToString(): ns,
 					},
 				}
 
@@ -814,9 +812,9 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("OK", func(t *testing.T) {
-				addr := objecttest.Address()
-				addr.SetContainerID(idCnr)
-				addr.SetObjectID(oidtest.ID())
+				addr := oidtest.Address()
+				addr.SetContainer(idCnr)
+				addr.SetObject(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 
@@ -830,23 +828,22 @@ func TestGetRemoteSmall(t *testing.T) {
 				srcObj.SetPayloadSize(uint64(len(payload)))
 				children[len(children)-1].SetParent(srcObj)
 
-				linkAddr := addressSDK.NewAddress()
-				linkAddr.SetContainerID(idCnr)
+				var linkAddr oid.Address
+				linkAddr.SetContainer(idCnr)
 				idLink, _ := splitInfo.Link()
-				linkAddr.SetObjectID(idLink)
+				linkAddr.SetObject(idLink)
 
 				linkingObj := generateObject(linkAddr, nil, nil, childIDs...)
-				id, _ := addr.ObjectID()
-				linkingObj.SetParentID(id)
+				linkingObj.SetParentID(addr.Object())
 				linkingObj.SetParent(srcObj)
 
-				child1Addr := addressSDK.NewAddress()
-				child1Addr.SetContainerID(idCnr)
-				child1Addr.SetObjectID(childIDs[0])
+				var child1Addr oid.Address
+				child1Addr.SetContainer(idCnr)
+				child1Addr.SetObject(childIDs[0])
 
-				child2Addr := addressSDK.NewAddress()
-				child2Addr.SetContainerID(idCnr)
-				child2Addr.SetObjectID(childIDs[1])
+				var child2Addr oid.Address
+				child2Addr.SetContainer(idCnr)
+				child2Addr.SetObject(childIDs[1])
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -862,10 +859,10 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
-						addr.String():       ns,
-						linkAddr.String():   ns,
-						child1Addr.String(): ns,
-						child2Addr.String(): ns,
+						addr.EncodeToString():       ns,
+						linkAddr.EncodeToString():   ns,
+						child1Addr.EncodeToString(): ns,
+						child2Addr.EncodeToString(): ns,
 					},
 				}
 
@@ -904,19 +901,19 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		t.Run("right child", func(t *testing.T) {
 			t.Run("get right child failure", func(t *testing.T) {
-				addr := objecttest.Address()
-				addr.SetContainerID(idCnr)
-				addr.SetObjectID(oidtest.ID())
+				addr := oidtest.Address()
+				addr.SetContainer(idCnr)
+				addr.SetObject(oidtest.ID())
 
 				ns, as := testNodeMatrix(t, []int{2})
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
 
-				splitAddr := addressSDK.NewAddress()
-				splitAddr.SetContainerID(idCnr)
+				var splitAddr oid.Address
+				splitAddr.SetContainer(idCnr)
 				idLast, _ := splitInfo.LastPart()
-				splitAddr.SetObjectID(idLast)
+				splitAddr.SetObject(idLast)
 
 				c1 := newTestClient()
 				c1.addResult(addr, nil, errors.New("any error"))
@@ -928,8 +925,8 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
-						addr.String():      ns,
-						splitAddr.String(): ns,
+						addr.EncodeToString():      ns,
+						splitAddr.EncodeToString(): ns,
 					},
 				}
 
@@ -956,9 +953,9 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("get chain element failure", func(t *testing.T) {
-				addr := objecttest.Address()
-				addr.SetContainerID(idCnr)
-				addr.SetObjectID(oidtest.ID())
+				addr := oidtest.Address()
+				addr.SetContainer(idCnr)
+				addr.SetObject(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 				srcObj.SetPayloadSize(10)
@@ -970,15 +967,14 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				children, _, _ := generateChain(2, idCnr)
 
-				rightAddr := addressSDK.NewAddress()
-				rightAddr.SetContainerID(idCnr)
+				var rightAddr oid.Address
+				rightAddr.SetContainer(idCnr)
 				idLast, _ := splitInfo.LastPart()
-				rightAddr.SetObjectID(idLast)
+				rightAddr.SetObject(idLast)
 
 				rightObj := children[len(children)-1]
 
-				id, _ := addr.ObjectID()
-				rightObj.SetParentID(id)
+				rightObj.SetParentID(addr.Object())
 				rightObj.SetParent(srcObj)
 
 				preRightAddr := object.AddressOf(children[len(children)-2])
@@ -993,9 +989,9 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				builder := &testPlacementBuilder{
 					vectors: map[string][]netmap.Nodes{
-						addr.String():         ns,
-						rightAddr.String():    ns,
-						preRightAddr.String(): ns,
+						addr.EncodeToString():         ns,
+						rightAddr.EncodeToString():    ns,
+						preRightAddr.EncodeToString(): ns,
 					},
 				}
 
@@ -1025,9 +1021,9 @@ func TestGetRemoteSmall(t *testing.T) {
 			})
 
 			t.Run("OK", func(t *testing.T) {
-				addr := objecttest.Address()
-				addr.SetContainerID(idCnr)
-				addr.SetObjectID(oidtest.ID())
+				addr := oidtest.Address()
+				addr.SetContainer(idCnr)
+				addr.SetObject(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
 
@@ -1044,8 +1040,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				idLast, _ := splitInfo.LastPart()
 				rightObj.SetID(idLast)
-				id, _ := addr.ObjectID()
-				rightObj.SetParentID(id)
+				rightObj.SetParentID(addr.Object())
 				rightObj.SetParent(srcObj)
 
 				c1 := newTestClient()
@@ -1066,10 +1061,10 @@ func TestGetRemoteSmall(t *testing.T) {
 					vectors: map[string][]netmap.Nodes{},
 				}
 
-				builder.vectors[addr.String()] = ns
+				builder.vectors[addr.EncodeToString()] = ns
 
 				for i := range children {
-					builder.vectors[object.AddressOf(children[i]).String()] = ns
+					builder.vectors[object.AddressOf(children[i]).EncodeToString()] = ns
 				}
 
 				svc := newSvc(builder, &testClientCache{
@@ -1124,8 +1119,8 @@ func TestGetFromPastEpoch(t *testing.T) {
 	cnr := container.New(container.WithPolicy(new(netmap.PlacementPolicy)))
 	idCnr := container.CalculateID(cnr)
 
-	addr := objecttest.Address()
-	addr.SetContainerID(idCnr)
+	addr := oidtest.Address()
+	addr.SetContainer(idCnr)
 
 	payloadSz := uint64(10)
 	payload := make([]byte, payloadSz)
@@ -1159,12 +1154,12 @@ func TestGetFromPastEpoch(t *testing.T) {
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{
 				vectors: map[string][]netmap.Nodes{
-					addr.String(): ns[:1],
+					addr.EncodeToString(): ns[:1],
 				},
 			},
 			curEpoch - 1: &testPlacementBuilder{
 				vectors: map[string][]netmap.Nodes{
-					addr.String(): ns[1:],
+					addr.EncodeToString(): ns[1:],
 				},
 			},
 		},

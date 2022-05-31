@@ -8,7 +8,7 @@ import (
 // RemovalWitness groups the information required
 // to prove and verify the removal of a container.
 type RemovalWitness struct {
-	cid *cid.ID
+	cnr cid.ID
 
 	sig []byte
 
@@ -17,14 +17,14 @@ type RemovalWitness struct {
 
 // ContainerID returns the identifier of the container
 // to be removed.
-func (x RemovalWitness) ContainerID() *cid.ID {
-	return x.cid
+func (x RemovalWitness) ContainerID() cid.ID {
+	return x.cnr
 }
 
 // SetContainerID sets the identifier of the container
 // to be removed.
-func (x *RemovalWitness) SetContainerID(id *cid.ID) {
-	x.cid = id
+func (x *RemovalWitness) SetContainerID(id cid.ID) {
+	x.cnr = id
 }
 
 // Signature returns the signature of the container identifier.

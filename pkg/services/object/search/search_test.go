@@ -18,13 +18,12 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
 type idsErr struct {
-	ids []oidSDK.ID
+	ids []oid.ID
 	err error
 }
 
@@ -46,7 +45,7 @@ type testClientCache struct {
 }
 
 type simpleIDWriter struct {
-	ids []oidSDK.ID
+	ids []oid.ID
 }
 
 type testEpochReceiver uint64
@@ -55,7 +54,7 @@ func (e testEpochReceiver) currentEpoch() (uint64, error) {
 	return uint64(e), nil
 }
 
-func (s *simpleIDWriter) WriteIDs(ids []oidSDK.ID) error {
+func (s *simpleIDWriter) WriteIDs(ids []oid.ID) error {
 	s.ids = append(s.ids, ids...)
 	return nil
 }
@@ -66,7 +65,7 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) generateTraverser(_ *cid.ID, epoch uint64) (*placement.Traverser, error) {
+func (g *testTraverserGenerator) generateTraverser(_ cid.ID, epoch uint64) (*placement.Traverser, error) {
 	return placement.NewTraverser(
 		placement.ForContainer(g.c),
 		placement.UseBuilder(g.b[epoch]),
@@ -74,8 +73,15 @@ func (g *testTraverserGenerator) generateTraverser(_ *cid.ID, epoch uint64) (*pl
 	)
 }
 
-func (p *testPlacementBuilder) BuildPlacement(addr *addressSDK.Address, _ *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
-	vs, ok := p.vectors[addr.String()]
+func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+	var addr oid.Address
+	addr.SetContainer(cnr)
+
+	if obj != nil {
+		addr.SetObject(*obj)
+	}
+
+	vs, ok := p.vectors[addr.EncodeToString()]
 	if !ok {
 		return nil, errors.New("vectors for address not found")
 	}
@@ -95,8 +101,8 @@ func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
 	return v, nil
 }
 
-func (s *testStorage) search(exec *execCtx) ([]oidSDK.ID, error) {
-	v, ok := s.items[exec.containerID().String()]
+func (s *testStorage) search(exec *execCtx) ([]oid.ID, error) {
+	v, ok := s.items[exec.containerID().EncodeToString()]
 	if !ok {
 		return nil, nil
 	}
@@ -104,8 +110,8 @@ func (s *testStorage) search(exec *execCtx) ([]oidSDK.ID, error) {
 	return v.ids, v.err
 }
 
-func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]oidSDK.ID, error) {
-	v, ok := c.items[exec.containerID().String()]
+func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
+	v, ok := c.items[exec.containerID().EncodeToString()]
 	if !ok {
 		return nil, nil
 	}
@@ -113,8 +119,8 @@ func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]oid
 	return v.ids, v.err
 }
 
-func (c *testStorage) addResult(addr cid.ID, ids []oidSDK.ID, err error) {
-	c.items[addr.String()] = idsErr{
+func (c *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
+	c.items[addr.EncodeToString()] = idsErr{
 		ids: ids,
 		err: err,
 	}
@@ -125,8 +131,8 @@ func testSHA256() (cs [sha256.Size]byte) {
 	return cs
 }
 
-func generateIDs(num int) []oidSDK.ID {
-	res := make([]oidSDK.ID, num)
+func generateIDs(num int) []oid.ID {
+	res := make([]oid.ID, num)
 
 	for i := 0; i < num; i++ {
 		res[i].SetSHA256(testSHA256())
@@ -148,7 +154,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 	newPrm := func(cnr cid.ID, w IDListWriter) Prm {
 		p := Prm{}
-		p.WithContainerID(&cnr)
+		p.WithContainerID(cnr)
 		p.SetWriter(w)
 		p.common = new(util.CommonPrm).WithLocalOnly(true)
 
@@ -258,7 +264,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	newPrm := func(id cid.ID, w IDListWriter) Prm {
 		p := Prm{}
-		p.WithContainerID(&id)
+		p.WithContainerID(id)
 		p.SetWriter(w)
 		p.common = new(util.CommonPrm).WithLocalOnly(false)
 
@@ -266,14 +272,14 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	t.Run("OK", func(t *testing.T) {
-		addr := addressSDK.NewAddress()
-		addr.SetContainerID(id)
+		var addr oid.Address
+		addr.SetContainer(id)
 
 		ns, as := testNodeMatrix(t, placementDim)
 
 		builder := &testPlacementBuilder{
 			vectors: map[string][]netmap.Nodes{
-				addr.String(): ns,
+				addr.EncodeToString(): ns,
 			},
 		}
 
@@ -321,28 +327,28 @@ func TestGetFromPastEpoch(t *testing.T) {
 	pp.SetReplicas(rs...)
 
 	cnr := container.New(container.WithPolicy(pp))
-	cid := container.CalculateID(cnr)
+	idCnr := container.CalculateID(cnr)
 
-	addr := addressSDK.NewAddress()
-	addr.SetContainerID(cid)
+	var addr oid.Address
+	addr.SetContainer(idCnr)
 
 	ns, as := testNodeMatrix(t, placementDim)
 
 	c11 := newTestStorage()
 	ids11 := generateIDs(10)
-	c11.addResult(cid, ids11, nil)
+	c11.addResult(idCnr, ids11, nil)
 
 	c12 := newTestStorage()
 	ids12 := generateIDs(10)
-	c12.addResult(cid, ids12, nil)
+	c12.addResult(idCnr, ids12, nil)
 
 	c21 := newTestStorage()
 	ids21 := generateIDs(10)
-	c21.addResult(cid, ids21, nil)
+	c21.addResult(idCnr, ids21, nil)
 
 	c22 := newTestStorage()
 	ids22 := generateIDs(10)
-	c22.addResult(cid, ids22, nil)
+	c22.addResult(idCnr, ids22, nil)
 
 	svc := &Service{cfg: new(cfg)}
 	svc.log = test.NewLogger(false)
@@ -355,12 +361,12 @@ func TestGetFromPastEpoch(t *testing.T) {
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{
 				vectors: map[string][]netmap.Nodes{
-					addr.String(): ns[:1],
+					addr.EncodeToString(): ns[:1],
 				},
 			},
 			curEpoch - 1: &testPlacementBuilder{
 				vectors: map[string][]netmap.Nodes{
-					addr.String(): ns[1:],
+					addr.EncodeToString(): ns[1:],
 				},
 			},
 		},
@@ -380,13 +386,13 @@ func TestGetFromPastEpoch(t *testing.T) {
 	w := new(simpleIDWriter)
 
 	p := Prm{}
-	p.WithContainerID(&cid)
+	p.WithContainerID(idCnr)
 	p.SetWriter(w)
 
 	commonPrm := new(util.CommonPrm)
 	p.SetCommonParameters(commonPrm)
 
-	assertContains := func(idsList ...[]oidSDK.ID) {
+	assertContains := func(idsList ...[]oid.ID) {
 		var sz int
 
 		for _, ids := range idsList {

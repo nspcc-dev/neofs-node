@@ -7,7 +7,7 @@ import (
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -27,7 +27,7 @@ type classifyResult struct {
 
 func (c senderClassifier) classify(
 	req MetaWithToken,
-	idCnr cidSDK.ID,
+	idCnr cid.ID,
 	cnr *container.Container) (res *classifyResult, err error) {
 	ownerCnr := cnr.OwnerID()
 	if ownerCnr == nil {

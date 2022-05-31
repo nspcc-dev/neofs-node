@@ -1,12 +1,13 @@
 package cmdlist
 
 import (
+	"fmt"
 	"io"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
 
@@ -40,8 +41,8 @@ var Command = &cobra.Command{
 		// other targets can be supported
 		w := cmd.OutOrStderr()
 
-		wAddr := func(addr *addressSDK.Address) error {
-			_, err := io.WriteString(w, addr.String()+"\n")
+		wAddr := func(addr oid.Address) error {
+			_, err := io.WriteString(w, fmt.Sprintf("%s\n", addr))
 			return err
 		}
 

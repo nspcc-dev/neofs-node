@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	target    []*addressSDK.Address
-	tombstone *addressSDK.Address
+	target    []oid.Address
+	tombstone *oid.Address
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -22,10 +22,10 @@ type InhumeRes struct{}
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTarget(tombstone *addressSDK.Address, addrs ...*addressSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) *InhumePrm {
 	if p != nil {
 		p.target = addrs
-		p.tombstone = tombstone
+		p.tombstone = &tombstone
 	}
 
 	return p
@@ -34,7 +34,7 @@ func (p *InhumePrm) WithTarget(tombstone *addressSDK.Address, addrs ...*addressS
 // MarkAsGarbage marks object to be physically removed from shard.
 //
 // Should not be called along with WithTarget.
-func (p *InhumePrm) MarkAsGarbage(addr ...*addressSDK.Address) *InhumePrm {
+func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) *InhumePrm {
 	if p != nil {
 		p.target = addr
 		p.tombstone = nil
@@ -64,7 +64,7 @@ func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 	metaPrm := new(meta.InhumePrm).WithAddresses(prm.target...)
 
 	if prm.tombstone != nil {
-		metaPrm.WithTombstoneAddress(prm.tombstone)
+		metaPrm.WithTombstoneAddress(*prm.tombstone)
 	} else {
 		metaPrm.WithGCMark()
 	}

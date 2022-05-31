@@ -2,7 +2,7 @@ package deletesvc
 
 import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -32,13 +32,11 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		return false
 	}
 
-	id, _ := exec.address().ObjectID()
-
 	exec.tombstone = object.NewTombstone()
 	exec.tombstone.SetExpirationEpoch(
 		exec.svc.netInfo.CurrentEpoch() + tsLifetime,
 	)
-	exec.addMembers([]oidSDK.ID{id})
+	exec.addMembers([]oid.ID{exec.address().Object()})
 
 	exec.log.Debug("forming split info...")
 

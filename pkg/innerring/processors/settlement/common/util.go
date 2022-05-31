@@ -11,7 +11,7 @@ type TransferTable struct {
 }
 
 type TransferTx struct {
-	From, To *user.ID
+	From, To user.ID
 
 	Amount *big.Int
 }
@@ -23,11 +23,11 @@ func NewTransferTable() *TransferTable {
 }
 
 func (t *TransferTable) Transfer(tx *TransferTx) {
-	if tx.From.Equals(*tx.To) {
+	if tx.From.Equals(tx.To) {
 		return
 	}
 
-	from, to := tx.From.String(), tx.To.String()
+	from, to := tx.From.EncodeToString(), tx.To.EncodeToString()
 
 	m, ok := t.txs[from]
 	if !ok {

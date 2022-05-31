@@ -11,7 +11,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -26,7 +26,7 @@ type Context struct {
 	report *audit.Report
 
 	sgMembersMtx   sync.RWMutex
-	sgMembersCache map[int][]oidSDK.ID
+	sgMembersCache map[int][]oid.ID
 
 	placementMtx   sync.Mutex
 	placementCache map[string][]netmap.Nodes
@@ -57,7 +57,7 @@ type pairMemberInfo struct {
 type gamePair struct {
 	n1, n2 *netmap.Node
 
-	id *oidSDK.ID
+	id oid.ID
 
 	rn1, rn2 []*object.Range
 
@@ -85,14 +85,14 @@ type ContextPrm struct {
 // component of communication with container nodes.
 type ContainerCommunicator interface {
 	// Must return storage group structure stored in object from container.
-	GetSG(*audit.Task, *oidSDK.ID) (*storagegroup.StorageGroup, error)
+	GetSG(*audit.Task, oid.ID) (*storagegroup.StorageGroup, error)
 
 	// Must return object header from the container node.
-	GetHeader(*audit.Task, *netmap.Node, *oidSDK.ID, bool) (*object.Object, error)
+	GetHeader(*audit.Task, *netmap.Node, oid.ID, bool) (*object.Object, error)
 
 	// Must return homomorphic Tillich-Zemor hash of payload range of the
 	// object stored in container node.
-	GetRangeHash(*audit.Task, *netmap.Node, *oidSDK.ID, *object.Range) ([]byte, error)
+	GetRangeHash(*audit.Task, *netmap.Node, oid.ID, *object.Range) ([]byte, error)
 }
 
 // NewContext creates, initializes and returns Context.
@@ -151,14 +151,14 @@ func (c *Context) WithPoRWorkerPool(pool util.WorkerPool) *Context {
 	return c
 }
 
-func (c *Context) containerID() *cid.ID {
+func (c *Context) containerID() cid.ID {
 	return c.task.ContainerID()
 }
 
 func (c *Context) init() {
 	c.report = audit.NewReport(c.containerID())
 
-	c.sgMembersCache = make(map[int][]oidSDK.ID)
+	c.sgMembersCache = make(map[int][]oid.ID)
 
 	c.placementCache = make(map[string][]netmap.Nodes)
 
@@ -200,11 +200,11 @@ func (c *Context) writeReport() {
 	}
 }
 
-func (c *Context) buildPlacement(id *oidSDK.ID) ([]netmap.Nodes, error) {
+func (c *Context) buildPlacement(id oid.ID) ([]netmap.Nodes, error) {
 	c.placementMtx.Lock()
 	defer c.placementMtx.Unlock()
 
-	strID := id.String()
+	strID := id.EncodeToString()
 
 	if nn, ok := c.placementCache[strID]; ok {
 		return nn, nil
@@ -213,7 +213,7 @@ func (c *Context) buildPlacement(id *oidSDK.ID) ([]netmap.Nodes, error) {
 	nn, err := placement.BuildObjectPlacement(
 		c.task.NetworkMap(),
 		c.task.ContainerNodes(),
-		id,
+		&id,
 	)
 	if err != nil {
 		return nil, err
@@ -224,11 +224,11 @@ func (c *Context) buildPlacement(id *oidSDK.ID) ([]netmap.Nodes, error) {
 	return nn, nil
 }
 
-func (c *Context) objectSize(id *oidSDK.ID) uint64 {
+func (c *Context) objectSize(id oid.ID) uint64 {
 	c.headMtx.RLock()
 	defer c.headMtx.RUnlock()
 
-	strID := id.String()
+	strID := id.EncodeToString()
 
 	if hdr, ok := c.headResponses[strID]; ok {
 		return hdr.objectSize
@@ -237,11 +237,11 @@ func (c *Context) objectSize(id *oidSDK.ID) uint64 {
 	return 0
 }
 
-func (c *Context) objectHomoHash(id *oidSDK.ID) []byte {
+func (c *Context) objectHomoHash(id oid.ID) []byte {
 	c.headMtx.RLock()
 	defer c.headMtx.RUnlock()
 
-	strID := id.String()
+	strID := id.EncodeToString()
 
 	if hdr, ok := c.headResponses[strID]; ok {
 		return hdr.tzhash
@@ -270,7 +270,7 @@ func (c *Context) updateHeadResponses(hdr *object.Object) {
 	}
 }
 
-func (c *Context) updateSGInfo(ind int, members []oidSDK.ID) {
+func (c *Context) updateSGInfo(ind int, members []oid.ID) {
 	c.sgMembersMtx.Lock()
 	defer c.sgMembersMtx.Unlock()
 

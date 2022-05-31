@@ -5,8 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,27 +39,23 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	obj1 := generateObject(t)
 	obj2 := generateObject(t)
 
-	addr1 := addressSDK.NewAddress()
-	err := addr1.Parse("AUSF6rhReoAdPVKYUZWW9o2LbtTvekn54B3JXi7pdzmn/2daLhLB7yVXbjBaKkckkuvjX22BxRYuSHy9RPxuH9PZS")
+	var addr1 oid.Address
+	err := addr1.DecodeString("AUSF6rhReoAdPVKYUZWW9o2LbtTvekn54B3JXi7pdzmn/2daLhLB7yVXbjBaKkckkuvjX22BxRYuSHy9RPxuH9PZS")
 	require.NoError(t, err)
 
-	addr2 := addressSDK.NewAddress()
-	err = addr2.Parse("CwYYr6sFLU1zK6DeBTVd8SReADUoxYobUhSrxgXYxCVn/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
+	var addr2 oid.Address
+	err = addr2.DecodeString("CwYYr6sFLU1zK6DeBTVd8SReADUoxYobUhSrxgXYxCVn/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
 	require.NoError(t, err)
 
-	addr3 := addressSDK.NewAddress()
-	err = addr3.Parse("6ay4GfhR9RgN28d5ufg63toPetkYHGcpcW7G3b7QWSek/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
+	var addr3 oid.Address
+	err = addr3.DecodeString("6ay4GfhR9RgN28d5ufg63toPetkYHGcpcW7G3b7QWSek/ANYbnJoQqdjmU5Dhk3LkxYj5E9nJHQFf8LjTEcap9TxM")
 	require.NoError(t, err)
 
-	cnr, _ := addr1.ContainerID()
-	obj1.SetContainerID(cnr)
-	id, _ := addr1.ObjectID()
-	obj1.SetID(id)
+	obj1.SetContainerID(addr1.Container())
+	obj1.SetID(addr1.Object())
 
-	cnr, _ = addr2.ContainerID()
-	obj2.SetContainerID(cnr)
-	id, _ = addr2.ObjectID()
-	obj2.SetID(id)
+	obj2.SetContainerID(addr2.Container())
+	obj2.SetID(addr2.Object())
 
 	err = putBig(db, obj1)
 	require.NoError(t, err)
@@ -75,14 +71,14 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	iterGCPRM := new(meta.GarbageIterationPrm).
 		SetOffset(object.AddressOf(obj2)).
 		SetHandler(func(garbage meta.GarbageObject) error {
-			require.Equal(t, *garbage.Address(), *addr1)
+			require.Equal(t, garbage.Address(), addr1)
 			counter++
 
 			return nil
 		})
 
 	err = db.IterateOverGarbage(iterGCPRM.SetHandler(func(garbage meta.GarbageObject) error {
-		require.Equal(t, *garbage.Address(), *addr1)
+		require.Equal(t, garbage.Address(), addr1)
 		counter++
 
 		return nil
@@ -96,7 +92,7 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 
 	iterGCPRM.SetOffset(addr3)
 	err = db.IterateOverGarbage(iterGCPRM.SetHandler(func(garbage meta.GarbageObject) error {
-		require.Equal(t, *garbage.Address(), *addr1)
+		require.Equal(t, garbage.Address(), addr1)
 		counter++
 
 		return nil
@@ -135,7 +131,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
-	addrTombstone := objecttest.Address()
+	addrTombstone := oidtest.Address()
 
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2)).
@@ -152,13 +148,13 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 
 	var (
 		counterAll         int
-		buriedTS, buriedGC []*addressSDK.Address
+		buriedTS, buriedGC []oid.Address
 	)
 
 	iterGravePRM := new(meta.GraveyardIterationPrm)
 
 	err = db.IterateOverGraveyard(iterGravePRM.SetHandler(func(tomstoned meta.TombstonedObject) error {
-		require.Equal(t, *addrTombstone, *tomstoned.Tombstone())
+		require.Equal(t, addrTombstone, tomstoned.Tombstone())
 
 		buriedTS = append(buriedTS, tomstoned.Address())
 		counterAll++
@@ -179,12 +175,12 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 
 	// objects covered with a tombstone
 	// also receive GS mark
-	garbageExpected := []*addressSDK.Address{
+	garbageExpected := []oid.Address{
 		object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4),
 	}
 
-	graveyardExpected := []*addressSDK.Address{
+	graveyardExpected := []oid.Address{
 		object.AddressOf(obj1), object.AddressOf(obj2),
 	}
 
@@ -219,7 +215,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
-	addrTombstone := objecttest.Address()
+	addrTombstone := oidtest.Address()
 
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2), object.AddressOf(obj3), object.AddressOf(obj4)).
@@ -227,7 +223,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	expectedGraveyard := []*addressSDK.Address{
+	expectedGraveyard := []oid.Address{
 		object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4),
 	}
@@ -236,13 +232,13 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 		counter            int
 		firstIterationSize = len(expectedGraveyard) / 2
 
-		gotGraveyard []*addressSDK.Address
+		gotGraveyard []oid.Address
 	)
 
 	iterGraveyardPrm := new(meta.GraveyardIterationPrm)
 
 	err = db.IterateOverGraveyard(iterGraveyardPrm.SetHandler(func(tombstoned meta.TombstonedObject) error {
-		require.Equal(t, *addrTombstone, *tombstoned.Tombstone())
+		require.Equal(t, addrTombstone, tombstoned.Tombstone())
 
 		gotGraveyard = append(gotGraveyard, tombstoned.Address())
 
@@ -262,7 +258,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	iterGraveyardPrm.SetOffset(offset)
 
 	err = db.IterateOverGraveyard(iterGraveyardPrm.SetHandler(func(tombstoned meta.TombstonedObject) error {
-		require.Equal(t, *addrTombstone, *tombstoned.Tombstone())
+		require.Equal(t, addrTombstone, tombstoned.Tombstone())
 
 		gotGraveyard = append(gotGraveyard, tombstoned.Address())
 		counter++
@@ -319,7 +315,7 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	expectedGarbage := []*addressSDK.Address{
+	expectedGarbage := []oid.Address{
 		object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4),
 	}
@@ -328,7 +324,7 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 		counter            int
 		firstIterationSize = len(expectedGarbage) / 2
 
-		gotGarbage []*addressSDK.Address
+		gotGarbage []oid.Address
 	)
 
 	iterGarbagePrm := new(meta.GarbageIterationPrm)
@@ -394,7 +390,7 @@ func TestDB_DropGraves(t *testing.T) {
 	inhumePrm := new(meta.InhumePrm)
 
 	// inhume with tombstone
-	addrTombstone := objecttest.Address()
+	addrTombstone := oidtest.Address()
 
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2)).

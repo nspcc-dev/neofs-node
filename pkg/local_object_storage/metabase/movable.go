@@ -3,20 +3,20 @@ package meta
 import (
 	"fmt"
 
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // ToMoveItPrm groups the parameters of ToMoveIt operation.
 type ToMoveItPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // ToMoveItRes groups the resulting values of ToMoveIt operation.
 type ToMoveItRes struct{}
 
 // WithAddress sets address of the object to move into another shard.
-func (p *ToMoveItPrm) WithAddress(addr *addressSDK.Address) *ToMoveItPrm {
+func (p *ToMoveItPrm) WithAddress(addr oid.Address) *ToMoveItPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -26,14 +26,14 @@ func (p *ToMoveItPrm) WithAddress(addr *addressSDK.Address) *ToMoveItPrm {
 
 // DoNotMovePrm groups the parameters of DoNotMove operation.
 type DoNotMovePrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // DoNotMoveRes groups the resulting values of DoNotMove operation.
 type DoNotMoveRes struct{}
 
 // WithAddress sets address of the object to prevent moving into another shard.
-func (p *DoNotMovePrm) WithAddress(addr *addressSDK.Address) *DoNotMovePrm {
+func (p *DoNotMovePrm) WithAddress(addr oid.Address) *DoNotMovePrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -46,16 +46,16 @@ type MovablePrm struct{}
 
 // MovableRes groups the resulting values of Movable operation.
 type MovableRes struct {
-	addrList []*addressSDK.Address
+	addrList []oid.Address
 }
 
 // AddressList returns resulting addresses of Movable operation.
-func (p *MovableRes) AddressList() []*addressSDK.Address {
+func (p *MovableRes) AddressList() []oid.Address {
 	return p.addrList
 }
 
 // ToMoveIt marks object to move it into another shard.
-func ToMoveIt(db *DB, addr *addressSDK.Address) error {
+func ToMoveIt(db *DB, addr oid.Address) error {
 	_, err := db.ToMoveIt(new(ToMoveItPrm).WithAddress(addr))
 	return err
 }
@@ -76,7 +76,7 @@ func (db *DB) ToMoveIt(prm *ToMoveItPrm) (res *ToMoveItRes, err error) {
 }
 
 // DoNotMove prevents the object to be moved into another shard.
-func DoNotMove(db *DB, addr *addressSDK.Address) error {
+func DoNotMove(db *DB, addr oid.Address) error {
 	_, err := db.DoNotMove(new(DoNotMovePrm).WithAddress(addr))
 	return err
 }
@@ -96,7 +96,7 @@ func (db *DB) DoNotMove(prm *DoNotMovePrm) (res *DoNotMoveRes, err error) {
 }
 
 // Movable returns all movable objects of DB.
-func Movable(db *DB) ([]*addressSDK.Address, error) {
+func Movable(db *DB) ([]oid.Address, error) {
 	r, err := db.Movable(new(MovablePrm))
 	if err != nil {
 		return nil, err
@@ -128,16 +128,14 @@ func (db *DB) Movable(prm *MovablePrm) (*MovableRes, error) {
 	// we can parse strings to structures in-place, but probably it seems
 	// more efficient to keep bolt db TX code smaller because it might be
 	// bottleneck.
-	addrs := make([]*addressSDK.Address, 0, len(strAddrs))
+	addrs := make([]oid.Address, len(strAddrs))
 
 	for i := range strAddrs {
-		addr, err := addressFromKey([]byte(strAddrs[i]))
+		err = decodeAddressFromKey(&addrs[i], []byte(strAddrs[i]))
 		if err != nil {
 			return nil, fmt.Errorf("can't parse object address %v: %w",
 				strAddrs[i], err)
 		}
-
-		addrs = append(addrs, addr)
 	}
 
 	return &MovableRes{

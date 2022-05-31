@@ -9,7 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +21,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		total      = containers * 5 // regular + ts + sg + child + lock
 	)
 
-	expected := make([]*addressSDK.Address, 0, total)
+	expected := make([]oid.Address, 0, total)
 
 	// fill metabase with objects
 	for i := 0; i < containers; i++ {
@@ -82,7 +82,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 
 	t.Run("success with various count", func(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {
-			got := make([]*addressSDK.Address, 0, total)
+			got := make([]oid.Address, 0, total)
 
 			res, cursor, err := meta.ListWithCursor(db, uint32(countPerReq), nil)
 			require.NoError(t, err, "count:%d", countPerReq)
@@ -125,15 +125,15 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 		obj := generateObject(t)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected[object.AddressOf(obj).String()] = 0
+		expected[object.AddressOf(obj).EncodeToString()] = 0
 	}
 
 	// get half of the objects
 	got, cursor, err := meta.ListWithCursor(db, total/2, nil)
 	require.NoError(t, err)
 	for _, obj := range got {
-		if _, ok := expected[obj.String()]; ok {
-			expected[obj.String()]++
+		if _, ok := expected[obj.EncodeToString()]; ok {
+			expected[obj.EncodeToString()]++
 		}
 	}
 
@@ -151,8 +151,8 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 			break
 		}
 		for _, obj := range got {
-			if _, ok := expected[obj.String()]; ok {
-				expected[obj.String()]++
+			if _, ok := expected[obj.EncodeToString()]; ok {
+				expected[obj.EncodeToString()]++
 			}
 		}
 	}
@@ -164,9 +164,9 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 }
 
-func sortAddresses(addr []*addressSDK.Address) []*addressSDK.Address {
+func sortAddresses(addr []oid.Address) []oid.Address {
 	sort.Slice(addr, func(i, j int) bool {
-		return addr[i].String() < addr[j].String()
+		return addr[i].EncodeToString() < addr[j].EncodeToString()
 	})
 	return addr
 }

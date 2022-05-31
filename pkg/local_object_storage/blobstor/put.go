@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -72,7 +72,7 @@ func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 }
 
 // PutRaw saves an already marshaled object in BLOB storage.
-func (b *BlobStor) PutRaw(addr *addressSDK.Address, data []byte, compress bool) (*PutRes, error) {
+func (b *BlobStor) PutRaw(addr oid.Address, data []byte, compress bool) (*PutRes, error) {
 	big := b.isBig(data)
 
 	if big {

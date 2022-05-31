@@ -6,21 +6,21 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // Delete removes object from write-cache.
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in write-cache.
-func (c *cache) Delete(addr *addressSDK.Address) error {
+func (c *cache) Delete(addr oid.Address) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {
 		return ErrReadOnly
 	}
 
-	saddr := addr.String()
+	saddr := addr.EncodeToString()
 
 	// Check memory cache.
 	c.mtx.Lock()

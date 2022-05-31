@@ -12,8 +12,8 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,7 +45,7 @@ func TestIterateObjects(t *testing.T) {
 
 	type addrData struct {
 		big  bool
-		addr *addressSDK.Address
+		addr oid.Address
 		data []byte
 	}
 
@@ -62,7 +62,7 @@ func TestIterateObjects(t *testing.T) {
 		data := make([]byte, sz)
 		binary.BigEndian.PutUint64(data, i)
 
-		addr := objecttest.Address()
+		addr := oidtest.Address()
 
 		mObjs[string(data)] = addrData{
 			big:  big,
@@ -114,15 +114,13 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	require.NoError(t, bs.Open())
 	require.NoError(t, bs.Init())
 
-	addrs := make([]*addressSDK.Address, objCount)
+	addrs := make([]oid.Address, objCount)
 	for i := range addrs {
-		addrs[i] = objecttest.Address()
-		id, _ := addrs[i].ObjectID()
-		cnr, _ := addrs[i].ContainerID()
+		addrs[i] = oidtest.Address()
 
 		obj := object.New()
-		obj.SetContainerID(cnr)
-		obj.SetID(id)
+		obj.SetContainerID(addrs[i].Container())
+		obj.SetID(addrs[i].Object())
 		obj.SetPayload(make([]byte, smallSize<<(i%2)))
 
 		objData, err := obj.Marshal()
@@ -142,9 +140,9 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 		rawData[i] ^= 0xFF
 	}
 	// Will be put uncompressed but fetched as compressed because of magic.
-	_, err = bs.PutRaw(objecttest.Address(), rawData, false)
+	_, err = bs.PutRaw(oidtest.Address(), rawData, false)
 	require.NoError(t, err)
-	require.NoError(t, bs.fsTree.Put(objecttest.Address(), rawData))
+	require.NoError(t, bs.fsTree.Put(oidtest.Address(), rawData))
 
 	require.NoError(t, bs.Close())
 
@@ -178,7 +176,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	prm.IgnoreErrors()
 
 	t.Run("skip invalid objects", func(t *testing.T) {
-		actual := make([]*addressSDK.Address, 0, len(addrs))
+		actual := make([]oid.Address, 0, len(addrs))
 		prm.SetIterationHandler(func(e IterationElement) error {
 			obj := object.New()
 			err := obj.Unmarshal(e.data)
@@ -186,11 +184,11 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 				return err
 			}
 
-			addr := addressSDK.NewAddress()
+			var addr oid.Address
 			cnr, _ := obj.ContainerID()
-			addr.SetContainerID(cnr)
+			addr.SetContainer(cnr)
 			id, _ := obj.ID()
-			addr.SetObjectID(id)
+			addr.SetObject(id)
 			actual = append(actual, addr)
 			return nil
 		})

@@ -7,9 +7,9 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Builder is an interface of the
@@ -20,7 +20,7 @@ type Builder interface {
 	//
 	// Must return all container nodes if object identifier
 	// is nil.
-	BuildPlacement(*addressSDK.Address, *netmap.PlacementPolicy) ([]netmap.Nodes, error)
+	BuildPlacement(cid.ID, *oid.ID, *netmap.PlacementPolicy) ([]netmap.Nodes, error)
 }
 
 // Option represents placement traverser option.
@@ -41,7 +41,9 @@ type cfg struct {
 
 	flatSuccess *uint32
 
-	addr *addressSDK.Address
+	cnr cid.ID
+
+	obj *oid.ID
 
 	policy *netmap.PlacementPolicy
 
@@ -57,7 +59,6 @@ var errNilPolicy = errors.New("placement policy is nil")
 func defaultCfg() *cfg {
 	return &cfg{
 		trackCopies: true,
-		addr:        addressSDK.NewAddress(),
 	}
 }
 
@@ -77,7 +78,7 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		return nil, fmt.Errorf("%s: %w", invalidOptsMsg, errNilPolicy)
 	}
 
-	ns, err := cfg.builder.BuildPlacement(cfg.addr, cfg.policy)
+	ns, err := cfg.builder.BuildPlacement(cfg.cnr, cfg.obj, cfg.policy)
 	if err != nil {
 		return nil, fmt.Errorf("could not build placement: %w", err)
 	}
@@ -221,16 +222,14 @@ func UseBuilder(b Builder) Option {
 func ForContainer(cnr *container.Container) Option {
 	return func(c *cfg) {
 		c.policy = cnr.PlacementPolicy()
-		c.addr.SetContainerID(container.CalculateID(cnr))
+		c.cnr = container.CalculateID(cnr)
 	}
 }
 
 // ForObject is a processing object setting option.
-func ForObject(id *oidSDK.ID) Option {
+func ForObject(id oid.ID) Option {
 	return func(c *cfg) {
-		if id != nil {
-			c.addr.SetObjectID(*id)
-		}
+		c.obj = &id
 	}
 }
 

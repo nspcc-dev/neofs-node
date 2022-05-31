@@ -9,8 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -60,27 +59,22 @@ func (exec execCtx) isLocal() bool {
 	return exec.prm.common.LocalOnly()
 }
 
-func (exec *execCtx) address() *addressSDK.Address {
+func (exec *execCtx) address() oid.Address {
 	return exec.prm.addr
 }
 
-func (exec *execCtx) containerID() *cid.ID {
-	id, ok := exec.prm.addr.ContainerID()
-	if ok {
-		return &id
-	}
-
-	return nil
+func (exec *execCtx) containerID() cid.ID {
+	return exec.prm.addr.Container()
 }
 
 func (exec *execCtx) commonParameters() *util.CommonPrm {
 	return exec.prm.common
 }
 
-func (exec *execCtx) newAddress(id *oidSDK.ID) *addressSDK.Address {
-	a := addressSDK.NewAddress()
-	a.SetObjectID(*id)
-	a.SetContainerID(*exec.containerID())
+func (exec *execCtx) newAddress(id oid.ID) oid.Address {
+	var a oid.Address
+	a.SetObject(id)
+	a.SetContainer(exec.containerID())
 
 	return a
 }
@@ -129,14 +123,14 @@ func (exec *execCtx) collectMembers() (ok bool) {
 }
 
 func (exec *execCtx) collectChain() bool {
-	var chain []oidSDK.ID
+	var chain []oid.ID
 
 	exec.log.Debug("assembling chain...")
 
 	for prev, withPrev := exec.splitInfo.LastPart(); withPrev; {
 		chain = append(chain, prev)
 
-		p, err := exec.svc.header.previous(exec, &prev)
+		p, err := exec.svc.header.previous(exec, prev)
 
 		switch {
 		default:
@@ -217,7 +211,7 @@ func (exec *execCtx) supplementBySplitID() bool {
 	}
 }
 
-func (exec *execCtx) addMembers(incoming []oidSDK.ID) {
+func (exec *execCtx) addMembers(incoming []oid.ID) {
 	members := exec.tombstone.Members()
 
 	for i := range members {
@@ -246,7 +240,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 	}
 
 	exec.tombstoneObj = object.New()
-	exec.tombstoneObj.SetContainerID(*exec.containerID())
+	exec.tombstoneObj.SetContainerID(exec.containerID())
 	exec.tombstoneObj.SetType(object.TypeTombstone)
 	exec.tombstoneObj.SetPayload(payload)
 
@@ -256,7 +250,8 @@ func (exec *execCtx) initTombstoneObject() bool {
 		exec.tombstoneObj.SetOwnerID(&issuer)
 	} else {
 		// make local node a tombstone object owner
-		exec.tombstoneObj.SetOwnerID(exec.svc.netInfo.LocalNodeID())
+		localUser := exec.svc.netInfo.LocalNodeID()
+		exec.tombstoneObj.SetOwnerID(&localUser)
 	}
 
 	var a object.Attribute
@@ -286,7 +281,7 @@ func (exec *execCtx) saveTombstone() bool {
 		exec.err = nil
 
 		exec.prm.tombAddrWriter.
-			SetAddress(exec.newAddress(id))
+			SetAddress(exec.newAddress(*id))
 	}
 
 	return true

@@ -10,7 +10,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -63,7 +63,7 @@ func TestBlobovniczas(t *testing.T) {
 
 	objSz := uint64(szLim / 2)
 
-	addrList := make([]*addressSDK.Address, 0)
+	addrList := make([]oid.Address, 0)
 	minFitObjNum := width * depth * szLim / objSz
 
 	for i := uint64(0); i < minFitObjNum; i++ {

@@ -5,8 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/tzhash/tz"
 )
@@ -15,19 +14,19 @@ import (
 // with information about members collected via HeadReceiver.
 //
 // Resulting storage group consists of physically stored objects only.
-func CollectMembers(r objutil.HeadReceiver, cnr *cid.ID, members []oidSDK.ID) (*storagegroup.StorageGroup, error) {
+func CollectMembers(r objutil.HeadReceiver, cnr cid.ID, members []oid.ID) (*storagegroup.StorageGroup, error) {
 	var (
 		sumPhySize uint64
-		phyMembers []oidSDK.ID
+		phyMembers []oid.ID
 		phyHashes  [][]byte
-		addr       = addressSDK.NewAddress()
+		addr       oid.Address
 		sg         storagegroup.StorageGroup
 	)
 
-	addr.SetContainerID(*cnr)
+	addr.SetContainer(cnr)
 
 	for i := range members {
-		addr.SetObjectID(members[i])
+		addr.SetObject(members[i])
 
 		if err := objutil.IterateAllSplitLeaves(r, addr, func(leaf *object.Object) {
 			id, ok := leaf.ID()

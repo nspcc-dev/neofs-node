@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,7 @@ func TestDB_Inhume(t *testing.T) {
 	raw := generateObject(t)
 	addAttribute(raw, "foo", "bar")
 
-	tombstoneID := objecttest.Address()
+	tombstoneID := oidtest.Address()
 
 	err := putBig(db, raw)
 	require.NoError(t, err)
@@ -39,9 +38,9 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	var (
 		err error
 
-		addr1     = objecttest.Address()
-		addr2     = objecttest.Address()
-		addr3     = objecttest.Address()
+		addr1     = oidtest.Address()
+		addr2     = oidtest.Address()
+		addr3     = oidtest.Address()
 		inhumePrm = new(meta.InhumePrm)
 		existsPrm = new(meta.ExistsPrm)
 	)
@@ -78,7 +77,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	// try to inhume addr1 (which is already a tombstone in graveyard)
 	_, err = db.Inhume(inhumePrm.
 		WithAddresses(addr1).
-		WithTombstoneAddress(objecttest.Address()),
+		WithTombstoneAddress(oidtest.Address()),
 	)
 	require.NoError(t, err)
 
@@ -92,15 +91,13 @@ func TestInhumeTombOnTomb(t *testing.T) {
 func TestInhumeLocked(t *testing.T) {
 	db := newDB(t)
 
-	locked := *objecttest.Address()
-	cnr, _ := locked.ContainerID()
-	id, _ := locked.ObjectID()
+	locked := oidtest.Address()
 
-	err := db.Lock(cnr, oidtest.ID(), []oid.ID{id})
+	err := db.Lock(locked.Container(), oidtest.ID(), []oid.ID{locked.Object()})
 	require.NoError(t, err)
 
 	var prm meta.InhumePrm
-	prm.WithAddresses(&locked)
+	prm.WithAddresses(locked)
 
 	_, err = db.Inhume(&prm)
 

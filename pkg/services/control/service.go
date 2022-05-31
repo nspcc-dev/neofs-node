@@ -84,37 +84,24 @@ const (
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *HealthCheckResponse_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	var offset int
 
-	n, err = proto.EnumMarshal(healthRespBodyStatusFNum, buf[offset:], int32(x.NetmapStatus))
-	if err != nil {
-		return nil, err
-	}
+	offset = proto.EnumMarshal(healthRespBodyStatusFNum, buf[offset:], int32(x.NetmapStatus))
+	proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf[offset:], int32(x.HealthStatus))
 
-	offset += n
-
-	_, err = proto.EnumMarshal(healthRespBodyHealthStatusFNum, buf[offset:], int32(x.HealthStatus))
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of health check response body
@@ -157,7 +144,7 @@ func (x *HealthCheckResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *HealthCheckResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -240,25 +227,21 @@ const (
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetmapSnapshotResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *NetmapSnapshotResponse_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.NestedStructureMarshal(snapshotRespBodyNetmapFNum, buf, x.Netmap)
-	if err != nil {
-		return nil, err
-	}
+	proto.NestedStructureMarshal(snapshotRespBodyNetmapFNum, buf, x.Netmap)
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of netmap snapshot response body
@@ -300,7 +283,7 @@ func (x *NetmapSnapshotResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *NetmapSnapshotResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -328,25 +311,21 @@ const (
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *SetNetmapStatusRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *SetNetmapStatusRequest_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.EnumMarshal(setNetmapStatusReqBodyStatusFNum, buf, int32(x.Status))
-	if err != nil {
-		return nil, err
-	}
+	proto.EnumMarshal(setNetmapStatusReqBodyStatusFNum, buf, int32(x.Status))
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of netmap status response body
@@ -388,7 +367,7 @@ func (x *SetNetmapStatusRequest) SetSignature(body *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *SetNetmapStatusRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -404,12 +383,11 @@ func (x *SetNetmapStatusRequest) SignedDataSize() int {
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *SetNetmapStatusResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *SetNetmapStatusResponse_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of set netmap status response body
@@ -443,7 +421,7 @@ func (x *SetNetmapStatusResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *SetNetmapStatusResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -471,25 +449,21 @@ const (
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *DropObjectsRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *DropObjectsRequest_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	_, err := proto.RepeatedBytesMarshal(addrListReqBodyStatusFNum, buf, x.AddressList)
-	if err != nil {
-		return nil, err
-	}
+	proto.RepeatedBytesMarshal(addrListReqBodyStatusFNum, buf, x.AddressList)
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of "Drop objects" response body
@@ -531,7 +505,7 @@ func (x *DropObjectsRequest) SetSignature(body *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *DropObjectsRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data of "Drop objects" request.
@@ -546,12 +520,11 @@ func (x *DropObjectsRequest) SignedDataSize() int {
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *DropObjectsResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *DropObjectsResponse_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of "Drop objects" response body
@@ -585,7 +558,7 @@ func (x *DropObjectsResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *DropObjectsResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data of "Drop objects" response.
@@ -600,12 +573,11 @@ func (x *DropObjectsResponse) SignedDataSize() int {
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *ListShardsRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *ListShardsRequest_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of list shards request body
@@ -639,7 +611,7 @@ func (x *ListShardsRequest) SetSignature(body *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *ListShardsRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -667,34 +639,25 @@ const (
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *ListShardsResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *ListShardsResponse_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	var offset int
 
 	for i := range x.Shards {
-		n, err = proto.NestedStructureMarshal(listShardsRespBodyShardsFNum, buf[offset:], x.Shards[i])
-		if err != nil {
-			return nil, err
-		}
-
-		offset += n
+		offset += proto.NestedStructureMarshal(listShardsRespBodyShardsFNum, buf[offset:], x.Shards[i])
 	}
 
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of list shards response body
@@ -738,7 +701,7 @@ func (x *ListShardsResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *ListShardsResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -778,44 +741,23 @@ const (
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *SetShardModeRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *SetShardModeRequest_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	offset := proto.BytesMarshal(setShardModeReqBodyShardIDFNum, buf, x.Shard_ID)
+	offset += proto.EnumMarshal(setShardModeReqBodyModeFNum, buf[offset:], int32(x.Mode))
+	proto.BoolMarshal(setShardModeReqBodyResetCounterFNum, buf[offset:], x.ResetErrorCounter)
 
-	n, err = proto.BytesMarshal(setShardModeReqBodyShardIDFNum, buf, x.Shard_ID)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.EnumMarshal(setShardModeReqBodyModeFNum, buf[offset:], int32(x.Mode))
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	_, err = proto.BoolMarshal(setShardModeReqBodyResetCounterFNum, buf[offset:], x.ResetErrorCounter)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of set shard mode response body
@@ -859,7 +801,7 @@ func (x *SetShardModeRequest) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *SetShardModeRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -875,12 +817,11 @@ func (x *SetShardModeRequest) SignedDataSize() int {
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *SetShardModeResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *SetShardModeResponse_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of the set shard mode response body
@@ -914,7 +855,7 @@ func (x *SetShardModeResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *SetShardModeResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data
@@ -951,44 +892,23 @@ const (
 //
 // If buffer length is less than StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *DumpShardRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *DumpShardRequest_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	offset := proto.BytesMarshal(dumpShardReqBodyShardIDFNum, buf, x.Shard_ID)
+	offset += proto.StringMarshal(dumpShardReqBodyFilepathFNum, buf[offset:], x.Filepath)
+	proto.BoolMarshal(dumpShardReqBodyIgnoreErrorsFNum, buf[offset:], x.IgnoreErrors)
 
-	n, err = proto.BytesMarshal(dumpShardReqBodyShardIDFNum, buf, x.Shard_ID)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.StringMarshal(dumpShardReqBodyFilepathFNum, buf[offset:], x.Filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	_, err = proto.BoolMarshal(dumpShardReqBodyIgnoreErrorsFNum, buf[offset:], x.IgnoreErrors)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of the request body in protobuf binary format.
@@ -1031,7 +951,7 @@ func (x *DumpShardRequest) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *DumpShardRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns size of the request signed data in bytes.
@@ -1045,12 +965,11 @@ func (x *DumpShardRequest) SignedDataSize() int {
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *DumpShardResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *DumpShardResponse_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of the response body
@@ -1084,7 +1003,7 @@ func (x *DumpShardResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *DumpShardResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data.
@@ -1120,44 +1039,23 @@ const (
 //
 // If buffer length is less than StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *RestoreShardRequest_Body) StableMarshal(buf []byte) ([]byte, error) {
+func (x *RestoreShardRequest_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
-		return []byte{}, nil
+		return []byte{}
 	}
 
 	if sz := x.StableSize(); len(buf) < sz {
 		buf = make([]byte, sz)
 	}
 
-	var (
-		offset, n int
-		err       error
-	)
+	offset := proto.BytesMarshal(restoreShardReqBodyShardIDFNum, buf, x.Shard_ID)
+	offset += proto.StringMarshal(restoreShardReqBodyFilepathFNum, buf[offset:], x.Filepath)
+	proto.BoolMarshal(restoreShardReqBodyIgnoreErrorsFNum, buf[offset:], x.IgnoreErrors)
 
-	n, err = proto.BytesMarshal(restoreShardReqBodyShardIDFNum, buf, x.Shard_ID)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	n, err = proto.StringMarshal(restoreShardReqBodyFilepathFNum, buf[offset:], x.Filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	offset += n
-
-	_, err = proto.BoolMarshal(restoreShardReqBodyIgnoreErrorsFNum, buf[offset:], x.IgnoreErrors)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+	return buf
 }
 
 // StableSize returns binary size of the request body in protobuf binary format.
@@ -1200,7 +1098,7 @@ func (x *RestoreShardRequest) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *RestoreShardRequest) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns size of the request signed data in bytes.
@@ -1214,12 +1112,11 @@ func (x *RestoreShardRequest) SignedDataSize() int {
 //
 // If buffer length is less than x.StableSize(), new buffer is allocated.
 //
-// Returns any error encountered which did not allow writing the data completely.
-// Otherwise, returns the buffer in which the data is written.
+// Returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *RestoreShardResponse_Body) StableMarshal(buf []byte) ([]byte, error) {
-	return buf, nil
+func (x *RestoreShardResponse_Body) StableMarshal(buf []byte) []byte {
+	return buf
 }
 
 // StableSize returns binary size of the response body
@@ -1253,7 +1150,7 @@ func (x *RestoreShardResponse) SetSignature(v *Signature) {
 //
 // Structures with the same field values have the same signed data.
 func (x *RestoreShardResponse) ReadSignedData(buf []byte) ([]byte, error) {
-	return x.GetBody().StableMarshal(buf)
+	return x.GetBody().StableMarshal(buf), nil
 }
 
 // SignedDataSize returns binary size of the signed data.

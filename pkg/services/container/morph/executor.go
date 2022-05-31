@@ -32,7 +32,7 @@ type Reader interface {
 	// List returns a list of container identifiers belonging
 	// to the specified user of NeoFS system. Returns the identifiers
 	// of all NeoFS containers if pointer to owner identifier is nil.
-	List(*user.ID) ([]*cid.ID, error)
+	List(*user.ID) ([]cid.ID, error)
 }
 
 // Writer is an interface of container storage updater.
@@ -119,7 +119,7 @@ func (s *morphExecutor) Delete(_ context.Context, tokV2 *sessionV2.Token, body *
 
 	var rmWitness containercore.RemovalWitness
 
-	rmWitness.SetContainerID(&id)
+	rmWitness.SetContainerID(id)
 	rmWitness.SetSignature(sig)
 	rmWitness.SetSessionToken(tok)
 
@@ -144,7 +144,7 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 		return nil, fmt.Errorf("invalid container ID: %w", err)
 	}
 
-	cnr, err := s.rdr.Get(&id)
+	cnr, err := s.rdr.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetE
 		return nil, fmt.Errorf("invalid container ID: %w", err)
 	}
 
-	table, err := s.rdr.GetEACL(&id)
+	table, err := s.rdr.GetEACL(id)
 	if err != nil {
 		return nil, err
 	}

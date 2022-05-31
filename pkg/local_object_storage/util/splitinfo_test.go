@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,8 +19,8 @@ func TestMergeSplitInfo(t *testing.T) {
 	splitID.SetUUID(uid)
 
 	var rawLinkID, rawLastID [32]byte
-	var linkID oidSDK.ID
-	var lastID oidSDK.ID
+	var linkID oid.ID
+	var lastID oid.ID
 
 	_, err = rand.Read(rawLinkID[:])
 	require.NoError(t, err)

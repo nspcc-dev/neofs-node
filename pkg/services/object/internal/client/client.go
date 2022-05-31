@@ -13,8 +13,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -109,14 +108,9 @@ func (x *GetObjectPrm) SetRawFlag() {
 // SetAddress sets object address.
 //
 // Required parameter.
-func (x *GetObjectPrm) SetAddress(addr *addressSDK.Address) {
-	if id, ok := addr.ContainerID(); ok {
-		x.cliPrm.FromContainer(id)
-	}
-
-	if id, ok := addr.ObjectID(); ok {
-		x.cliPrm.ByID(id)
-	}
+func (x *GetObjectPrm) SetAddress(addr oid.Address) {
+	x.cliPrm.FromContainer(addr.Container())
+	x.cliPrm.ByID(addr.Object())
 }
 
 // GetObjectRes groups the resulting values of GetObject operation.
@@ -204,14 +198,9 @@ func (x *HeadObjectPrm) SetRawFlag() {
 // SetAddress sets object address.
 //
 // Required parameter.
-func (x *HeadObjectPrm) SetAddress(addr *addressSDK.Address) {
-	if id, ok := addr.ContainerID(); ok {
-		x.cliPrm.FromContainer(id)
-	}
-
-	if id, ok := addr.ObjectID(); ok {
-		x.cliPrm.ByID(id)
-	}
+func (x *HeadObjectPrm) SetAddress(addr oid.Address) {
+	x.cliPrm.FromContainer(addr.Container())
+	x.cliPrm.ByID(addr.Object())
 }
 
 // HeadObjectRes groups the resulting values of GetObject operation.
@@ -287,14 +276,9 @@ func (x *PayloadRangePrm) SetRawFlag() {
 // SetAddress sets object address.
 //
 // Required parameter.
-func (x *PayloadRangePrm) SetAddress(addr *addressSDK.Address) {
-	if id, ok := addr.ContainerID(); ok {
-		x.cliPrm.FromContainer(id)
-	}
-
-	if id, ok := addr.ObjectID(); ok {
-		x.cliPrm.ByID(id)
-	}
+func (x *PayloadRangePrm) SetAddress(addr oid.Address) {
+	x.cliPrm.FromContainer(addr.Container())
+	x.cliPrm.ByID(addr.Object())
 }
 
 // SetRange range of the object payload to be read.
@@ -372,11 +356,11 @@ func (x *PutObjectPrm) SetObject(obj *object.Object) {
 
 // PutObjectRes groups the resulting values of PutObject operation.
 type PutObjectRes struct {
-	id *oidSDK.ID
+	id oid.ID
 }
 
 // ID returns identifier of the stored object.
-func (x PutObjectRes) ID() *oidSDK.ID {
+func (x PutObjectRes) ID() oid.ID {
 	return x.id
 }
 
@@ -413,23 +397,22 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		w.WritePayloadChunk(prm.obj.Payload())
 	}
 
-	res, err := w.Close()
+	cliRes, err := w.Close()
 	if err == nil {
-		err = apistatus.ErrFromStatus(res.Status())
+		err = apistatus.ErrFromStatus(cliRes.Status())
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("write object via client: %w", err)
 	}
 
-	var id oidSDK.ID
-	if !res.ReadStoredObjectID(&id) {
+	var res PutObjectRes
+
+	if !cliRes.ReadStoredObjectID(&res.id) {
 		return nil, errors.New("missing identifier in the response")
 	}
 
-	return &PutObjectRes{
-		id: &id,
-	}, nil
+	return &res, nil
 }
 
 // SearchObjectsPrm groups parameters of SearchObjects operation.
@@ -442,10 +425,8 @@ type SearchObjectsPrm struct {
 // SetContainerID sets identifier of the container to search the objects.
 //
 // Required parameter.
-func (x *SearchObjectsPrm) SetContainerID(id *cid.ID) {
-	if id != nil {
-		x.cliPrm.InContainer(*id)
-	}
+func (x *SearchObjectsPrm) SetContainerID(id cid.ID) {
+	x.cliPrm.InContainer(id)
 }
 
 // SetFilters sets search filters.
@@ -455,11 +436,11 @@ func (x *SearchObjectsPrm) SetFilters(fs object.SearchFilters) {
 
 // SearchObjectsRes groups the resulting values of SearchObjects operation.
 type SearchObjectsRes struct {
-	ids []oidSDK.ID
+	ids []oid.ID
 }
 
 // IDList returns identifiers of the matched objects.
-func (x SearchObjectsRes) IDList() []oidSDK.ID {
+func (x SearchObjectsRes) IDList() []oid.ID {
 	return x.ids
 }
 
@@ -490,8 +471,8 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		rdr.UseKey(*prm.key)
 	}
 
-	buf := make([]oidSDK.ID, 10)
-	var ids []oidSDK.ID
+	buf := make([]oid.ID, 10)
+	var ids []oid.ID
 	var n int
 	var ok bool
 

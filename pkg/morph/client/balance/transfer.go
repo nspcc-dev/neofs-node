@@ -12,7 +12,7 @@ import (
 type TransferPrm struct {
 	Amount int64
 
-	From, To *user.ID
+	From, To user.ID
 
 	Details []byte
 

@@ -42,7 +42,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -102,7 +102,7 @@ type localObjectInhumer struct {
 	log *logger.Logger
 }
 
-func (r *localObjectInhumer) DeleteObjects(ts *addressSDK.Address, addr ...*addressSDK.Address) error {
+func (r *localObjectInhumer) DeleteObjects(ts oid.Address, addr ...oid.Address) error {
 	prm := new(engine.InhumePrm)
 	prm.WithTarget(ts, addr...)
 
@@ -124,8 +124,8 @@ func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
 // returns node owner ID calculated from configured private key.
 //
 // Implements method needed for Object.Delete service.
-func (i *delNetInfo) LocalNodeID() *user.ID {
-	return &i.cfg.ownerIDFromKey
+func (i *delNetInfo) LocalNodeID() user.ID {
+	return i.cfg.ownerIDFromKey
 }
 
 type innerRingFetcherWithNotary struct {
@@ -234,7 +234,7 @@ func initObjectService(c *cfg) {
 			policerconfig.HeadTimeout(c.appCfg),
 		),
 		policer.WithReplicator(repl),
-		policer.WithRedundantCopyCallback(func(addr *addressSDK.Address) {
+		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			_, err := ls.Inhume(new(engine.InhumePrm).MarkAsGarbage(addr))
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",
@@ -412,8 +412,8 @@ func (s *signedEACLTable) SignedDataSize() int {
 	return (*eaclSDK.Table)(s).ToV2().StableSize()
 }
 
-func (s *morphEACLFetcher) GetEACL(cid *cid.ID) (*eaclSDK.Table, error) {
-	table, err := s.w.GetEACL(cid)
+func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*eaclSDK.Table, error) {
+	table, err := s.w.GetEACL(cnr)
 	if err != nil {
 		return nil, err
 	}

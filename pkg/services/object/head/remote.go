@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type ClientConstructor interface {
@@ -54,7 +54,7 @@ func (p *RemoteHeadPrm) WithNodeInfo(v *netmap.NodeInfo) *RemoteHeadPrm {
 }
 
 // WithObjectAddress sets object address.
-func (p *RemoteHeadPrm) WithObjectAddress(v *addressSDK.Address) *RemoteHeadPrm {
+func (p *RemoteHeadPrm) WithObjectAddress(v oid.Address) *RemoteHeadPrm {
 	if p != nil {
 		p.commonHeadPrm = new(Prm).WithAddress(v)
 	}

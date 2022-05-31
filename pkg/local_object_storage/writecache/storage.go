@@ -11,7 +11,7 @@ import (
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -126,11 +126,12 @@ func (c *cache) deleteFromDB(keys [][]byte) error {
 func (c *cache) deleteFromDisk(keys [][]byte) error {
 	var lastErr error
 
+	var addr oid.Address
+
 	for i := range keys {
-		addr := addressSDK.NewAddress()
 		addrStr := string(keys[i])
 
-		if err := addr.Parse(addrStr); err != nil {
+		if err := addr.DecodeString(addrStr); err != nil {
 			c.log.Error("can't parse address", zap.String("address", addrStr))
 			continue
 		}

@@ -16,7 +16,7 @@ type ACLChecker interface {
 	// StickyBitCheck must return true only if sticky bit
 	// is disabled or enabled but request contains correct
 	// owner field.
-	StickyBitCheck(RequestInfo, *user.ID) bool
+	StickyBitCheck(RequestInfo, user.ID) bool
 }
 
 // InnerRingFetcher is an interface that must provide

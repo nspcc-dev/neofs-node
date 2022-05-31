@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
-func testPutGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, sz uint64, assertErrPut, assertErrGet func(error) bool) *addressSDK.Address {
+func testPutGet(t *testing.T, blz *Blobovnicza, addr oid.Address, sz uint64, assertErrPut, assertErrGet func(error) bool) oid.Address {
 	// create binary object
 	data := make([]byte, sz)
 	rand.Read(data)
@@ -28,16 +28,14 @@ func testPutGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, sz uin
 		require.NoError(t, err)
 	}
 
-	if assertErrPut != nil {
-		return nil
+	if assertErrGet != nil {
+		testGet(t, blz, addr, data, assertErrGet)
 	}
-
-	testGet(t, blz, addr, data, assertErrGet)
 
 	return addr
 }
 
-func testGet(t *testing.T, blz *Blobovnicza, addr *addressSDK.Address, expObj []byte, assertErr func(error) bool) {
+func testGet(t *testing.T, blz *Blobovnicza, addr oid.Address, expObj []byte, assertErr func(error) bool) {
 	pGet := new(GetPrm)
 	pGet.SetAddress(addr)
 
@@ -79,12 +77,12 @@ func TestBlobovnicza(t *testing.T) {
 	require.NoError(t, blz.Init())
 
 	// try to read non-existent address
-	testGet(t, blz, objecttest.Address(), nil, IsErrNotFound)
+	testGet(t, blz, oidtest.Address(), nil, IsErrNotFound)
 
 	filled := uint64(15 * 1 << 10)
 
 	// test object 15KB
-	addr := testPutGet(t, blz, objecttest.Address(), filled, nil, nil)
+	addr := testPutGet(t, blz, oidtest.Address(), filled, nil, nil)
 
 	// remove the object
 	dPrm := new(DeletePrm)
@@ -98,11 +96,11 @@ func TestBlobovnicza(t *testing.T) {
 
 	// fill Blobovnicza fully
 	for ; filled < sizeLim; filled += objSizeLim {
-		testPutGet(t, blz, objecttest.Address(), objSizeLim, nil, nil)
+		testPutGet(t, blz, oidtest.Address(), objSizeLim, nil, nil)
 	}
 
 	// from now objects should not be saved
-	testPutGet(t, blz, objecttest.Address(), 1024, func(err error) bool {
+	testPutGet(t, blz, oidtest.Address(), 1024, func(err error) bool {
 		return errors.Is(err, ErrFull)
 	}, nil)
 
@@ -142,7 +140,7 @@ func TestIterateObjects(t *testing.T) {
 	var putPrm PutPrm
 
 	for _, v := range mObjs {
-		putPrm.SetAddress(objecttest.Address())
+		putPrm.SetAddress(oidtest.Address())
 		putPrm.SetMarshaledObject(v)
 
 		_, err := blz.Put(&putPrm)

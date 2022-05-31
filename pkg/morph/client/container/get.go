@@ -18,8 +18,8 @@ import (
 
 type containerSource Client
 
-func (x *containerSource) Get(cid *cid.ID) (*container.Container, error) {
-	return Get((*Client)(x), cid)
+func (x *containerSource) Get(cnr cid.ID) (*container.Container, error) {
+	return Get((*Client)(x), cnr)
 }
 
 // AsContainerSource provides container Source interface
@@ -29,9 +29,7 @@ func AsContainerSource(w *Client) core.Source {
 }
 
 // Get marshals container ID, and passes it to Wrapper's Get method.
-//
-// Returns error if cid is nil.
-func Get(c *Client, cnr *cid.ID) (*container.Container, error) {
+func Get(c *Client, cnr cid.ID) (*container.Container, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
 

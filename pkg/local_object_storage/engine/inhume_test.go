@@ -47,7 +47,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 
-		addrs, err := Select(e, &cnr, fs)
+		addrs, err := Select(e, cnr, fs)
 		require.NoError(t, err)
 		require.Empty(t, addrs)
 	})
@@ -71,7 +71,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 
-		addrs, err := Select(e, &cnr, fs)
+		addrs, err := Select(e, cnr, fs)
 		require.NoError(t, err)
 		require.Empty(t, addrs)
 	})

@@ -6,7 +6,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -21,10 +21,10 @@ var ErrEndOfListing = meta.ErrEndOfListing
 type ListContainersPrm struct{}
 
 type ListContainersRes struct {
-	containers []*cid.ID
+	containers []cid.ID
 }
 
-func (r *ListContainersRes) Containers() []*cid.ID {
+func (r *ListContainersRes) Containers() []cid.ID {
 	return r.containers
 }
 
@@ -36,7 +36,7 @@ type ListWithCursorPrm struct {
 
 // ListWithCursorRes contains values returned from ListWithCursor operation.
 type ListWithCursorRes struct {
-	addrList []*addressSDK.Address
+	addrList []oid.Address
 	cursor   *Cursor
 }
 
@@ -55,7 +55,7 @@ func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) *ListWithCursorPrm {
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
-func (r ListWithCursorRes) AddressList() []*addressSDK.Address {
+func (r ListWithCursorRes) AddressList() []oid.Address {
 	return r.addrList
 }
 
@@ -102,7 +102,7 @@ func (s *Shard) ListContainers(_ *ListContainersPrm) (*ListContainersRes, error)
 	}, nil
 }
 
-func ListContainers(s *Shard) ([]*cid.ID, error) {
+func ListContainers(s *Shard) ([]cid.ID, error) {
 	res, err := s.ListContainers(&ListContainersPrm{})
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (s *Shard) ListWithCursor(prm *ListWithCursorPrm) (*ListWithCursorRes, erro
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]*addressSDK.Address, *Cursor, error) {
+func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]oid.Address, *Cursor, error) {
 	prm := new(ListWithCursorPrm).WithCount(count).WithCursor(cursor)
 	res, err := s.ListWithCursor(prm)
 	if err != nil {

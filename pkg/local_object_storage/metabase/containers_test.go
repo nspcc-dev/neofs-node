@@ -10,7 +10,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +26,7 @@ func TestDB_Containers(t *testing.T) {
 
 		cnr, _ := obj.ContainerID()
 
-		cids[cnr.String()] = 0
+		cids[cnr.EncodeToString()] = 0
 
 		err := putBig(db, obj)
 		require.NoError(t, err)
@@ -35,16 +35,16 @@ func TestDB_Containers(t *testing.T) {
 	lst, err := db.Containers()
 	require.NoError(t, err)
 
-	for _, cid := range lst {
-		i, ok := cids[cid.String()]
+	for _, cnr := range lst {
+		i, ok := cids[cnr.EncodeToString()]
 		require.True(t, ok)
 		require.Equal(t, 0, i)
 
-		cids[cid.String()] = 1
+		cids[cnr.EncodeToString()] = 1
 	}
 
 	// require.Contains not working since cnrs is a ptr slice
-	assertContains := func(cnrs []*cid.ID, cnr cid.ID) {
+	assertContains := func(cnrs []cid.ID, cnr cid.ID) {
 		found := false
 		for i := 0; !found && i < len(cnrs); i++ {
 			found = cnrs[i].Equals(cnr)
@@ -64,7 +64,7 @@ func TestDB_Containers(t *testing.T) {
 
 		assertContains(cnrs, cnr)
 
-		require.NoError(t, meta.Inhume(db, object.AddressOf(obj), objecttest.Address()))
+		require.NoError(t, meta.Inhume(db, object.AddressOf(obj), oidtest.Address()))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestDB_ContainersCount(t *testing.T) {
 		{L, objectSDK.TypeLock},
 	}
 
-	expected := make([]*cid.ID, 0, R+T+SG+L)
+	expected := make([]cid.ID, 0, R+T+SG+L)
 
 	for _, upload := range uploadObjects {
 		for i := 0; i < upload.amount; i++ {
@@ -115,19 +115,19 @@ func TestDB_ContainersCount(t *testing.T) {
 			require.NoError(t, err)
 
 			cnr, _ := obj.ContainerID()
-			expected = append(expected, &cnr)
+			expected = append(expected, cnr)
 		}
 	}
 
 	sort.Slice(expected, func(i, j int) bool {
-		return expected[i].String() < expected[j].String()
+		return expected[i].EncodeToString() < expected[j].EncodeToString()
 	})
 
 	got, err := db.Containers()
 	require.NoError(t, err)
 
 	sort.Slice(got, func(i, j int) bool {
-		return got[i].String() < got[j].String()
+		return got[i].EncodeToString() < got[j].EncodeToString()
 	})
 
 	require.Equal(t, expected, got)
@@ -169,7 +169,7 @@ func TestDB_ContainerSize(t *testing.T) {
 	}
 
 	for cnr, volume := range cids {
-		n, err := db.ContainerSize(&cnr)
+		n, err := db.ContainerSize(cnr)
 		require.NoError(t, err)
 		require.Equal(t, volume, int(n))
 	}
@@ -182,12 +182,12 @@ func TestDB_ContainerSize(t *testing.T) {
 				require.NoError(t, meta.Inhume(
 					db,
 					object.AddressOf(obj),
-					objecttest.Address(),
+					oidtest.Address(),
 				))
 
 				volume -= int(obj.PayloadSize())
 
-				n, err := db.ContainerSize(&cnr)
+				n, err := db.ContainerSize(cnr)
 				require.NoError(t, err)
 				require.Equal(t, volume, int(n))
 			}

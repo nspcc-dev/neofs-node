@@ -15,11 +15,7 @@ import (
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (c *Client) GetEACL(cnr *cid.ID) (*eacl.Table, error) {
-	if cnr == nil {
-		return nil, errNilArgument
-	}
-
+func (c *Client) GetEACL(cnr cid.ID) (*eacl.Table, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
 

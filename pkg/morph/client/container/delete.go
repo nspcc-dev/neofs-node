@@ -13,13 +13,8 @@ import (
 //
 // Returns error if container ID is nil.
 func Delete(c *Client, witness core.RemovalWitness) error {
-	id := witness.ContainerID()
-	if id == nil {
-		return errNilArgument
-	}
-
 	binCnr := make([]byte, sha256.Size)
-	id.Encode(binCnr)
+	witness.ContainerID().Encode(binCnr)
 
 	var prm DeletePrm
 
@@ -35,7 +30,7 @@ func Delete(c *Client, witness core.RemovalWitness) error {
 
 // DeletePrm groups parameters of Delete client operation.
 type DeletePrm struct {
-	cid       []byte
+	cnr       []byte
 	signature []byte
 	token     []byte
 
@@ -44,7 +39,7 @@ type DeletePrm struct {
 
 // SetCID sets container ID.
 func (d *DeletePrm) SetCID(cid []byte) {
-	d.cid = cid
+	d.cnr = cid
 }
 
 // SetSignature sets signature.
@@ -71,7 +66,7 @@ func (c *Client) Delete(p DeletePrm) error {
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(deleteMethod)
-	prm.SetArgs(p.cid, p.signature, p.token)
+	prm.SetArgs(p.cnr, p.signature, p.token)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)

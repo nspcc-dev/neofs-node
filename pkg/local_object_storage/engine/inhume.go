@@ -8,13 +8,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	tombstone *addressSDK.Address
-	addrs     []*addressSDK.Address
+	tombstone *oid.Address
+	addrs     []oid.Address
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -25,10 +25,10 @@ type InhumeRes struct{}
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTarget(tombstone *addressSDK.Address, addrs ...*addressSDK.Address) *InhumePrm {
+func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) *InhumePrm {
 	if p != nil {
 		p.addrs = addrs
-		p.tombstone = tombstone
+		p.tombstone = &tombstone
 	}
 
 	return p
@@ -37,7 +37,7 @@ func (p *InhumePrm) WithTarget(tombstone *addressSDK.Address, addrs ...*addressS
 // MarkAsGarbage marks an object to be physically removed from local storage.
 //
 // Should not be called along with WithTarget.
-func (p *InhumePrm) MarkAsGarbage(addrs ...*addressSDK.Address) *InhumePrm {
+func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) *InhumePrm {
 	if p != nil {
 		p.addrs = addrs
 		p.tombstone = nil
@@ -73,7 +73,7 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 
 	for i := range prm.addrs {
 		if prm.tombstone != nil {
-			shPrm.WithTarget(prm.tombstone, prm.addrs[i])
+			shPrm.WithTarget(*prm.tombstone, prm.addrs[i])
 		} else {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}
@@ -98,7 +98,7 @@ func (e *StorageEngine) inhume(prm *InhumePrm) (*InhumeRes, error) {
 //   0 - fail
 //   1 - object locked
 //   2 - ok
-func (e *StorageEngine) inhumeAddr(addr *addressSDK.Address, prm *shard.InhumePrm, checkExists bool) (status uint8) {
+func (e *StorageEngine) inhumeAddr(addr oid.Address, prm *shard.InhumePrm, checkExists bool) (status uint8) {
 	root := false
 	var errLocked apistatus.ObjectLocked
 
@@ -167,7 +167,7 @@ func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []me
 	})
 }
 
-func (e *StorageEngine) processExpiredLocks(ctx context.Context, lockers []*addressSDK.Address) {
+func (e *StorageEngine) processExpiredLocks(ctx context.Context, lockers []oid.Address) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		sh.HandleExpiredLocks(lockers)
 

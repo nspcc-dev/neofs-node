@@ -1,30 +1,27 @@
 package engine
 
 import (
-	"errors"
-
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
-	cid     *cid.ID
+	cnr     cid.ID
 	filters object.SearchFilters
 }
 
 // SelectRes groups the resulting values of Select operation.
 type SelectRes struct {
-	addrList []*addressSDK.Address
+	addrList []oid.Address
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cnr cid.ID) *SelectPrm {
 	if p != nil {
-		p.cid = cid
+		p.cnr = cnr
 	}
 
 	return p
@@ -40,7 +37,7 @@ func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*addressSDK.Address {
+func (r *SelectRes) AddressList() []oid.Address {
 	return r.addrList
 }
 
@@ -63,32 +60,24 @@ func (e *StorageEngine) _select(prm *SelectPrm) (*SelectRes, error) {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
 
-	addrList := make([]*addressSDK.Address, 0)
+	addrList := make([]oid.Address, 0)
 	uniqueMap := make(map[string]struct{})
 
 	var outError error
 
 	shPrm := new(shard.SelectPrm).
-		WithContainerID(prm.cid).
+		WithContainerID(prm.cnr).
 		WithFilters(prm.filters)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
-			switch {
-			case errors.Is(err, meta.ErrMissingContainerID): // should never happen
-				e.log.Error("missing container ID parameter")
-				outError = err
-
-				return true
-			default:
-				e.reportShardError(sh, "could not select objects from shard", err)
-				return false
-			}
+			e.reportShardError(sh, "could not select objects from shard", err)
+			return false
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
-				if _, ok := uniqueMap[addr.String()]; !ok {
-					uniqueMap[addr.String()] = struct{}{}
+				if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
+					uniqueMap[addr.EncodeToString()] = struct{}{}
 					addrList = append(addrList, addr)
 				}
 			}
@@ -120,7 +109,7 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
-	addrList := make([]*addressSDK.Address, 0, limit)
+	addrList := make([]oid.Address, 0, limit)
 	uniqueMap := make(map[string]struct{})
 	ln := uint64(0)
 
@@ -131,8 +120,8 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 			e.reportShardError(sh, "could not select objects from shard", err)
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
-				if _, ok := uniqueMap[addr.String()]; !ok {
-					uniqueMap[addr.String()] = struct{}{}
+				if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
+					uniqueMap[addr.EncodeToString()] = struct{}{}
 					addrList = append(addrList, addr)
 
 					ln++
@@ -152,9 +141,9 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 }
 
 // Select selects objects from local storage using provided filters.
-func Select(storage *StorageEngine, cid *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
+func Select(storage *StorageEngine, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
 	res, err := storage.Select(new(SelectPrm).
-		WithContainerID(cid).
+		WithContainerID(cnr).
 		WithFilters(fs),
 	)
 	if err != nil {
@@ -166,7 +155,7 @@ func Select(storage *StorageEngine, cid *cid.ID, fs object.SearchFilters) ([]*ad
 
 // List returns `limit` available physically storage object addresses in
 // engine. If limit is zero, then returns all available object addresses.
-func List(storage *StorageEngine, limit uint64) ([]*addressSDK.Address, error) {
+func List(storage *StorageEngine, limit uint64) ([]oid.Address, error) {
 	res, err := storage.List(limit)
 	if err != nil {
 		return nil, err

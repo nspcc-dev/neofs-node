@@ -8,17 +8,17 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAddressToString(t *testing.T) {
-	addr := objecttest.Address()
+	addr := oidtest.Address()
 	s := stringifyAddress(addr)
 	actual, err := addressFromString(s)
 	require.NoError(t, err)
-	require.Equal(t, addr, actual)
+	require.Equal(t, addr, *actual)
 }
 
 func TestFSTree(t *testing.T) {
@@ -36,28 +36,28 @@ func TestFSTree(t *testing.T) {
 	}
 
 	const count = 3
-	var addrs []*addressSDK.Address
+	var addrs []oid.Address
 
 	store := map[string][]byte{}
 
 	for i := 0; i < count; i++ {
-		a := objecttest.Address()
+		a := oidtest.Address()
 		addrs = append(addrs, a)
 
 		data := make([]byte, 10)
 		_, _ = rand.Read(data[:])
 		require.NoError(t, fs.Put(a, data))
-		store[a.String()] = data
+		store[a.EncodeToString()] = data
 	}
 
 	t.Run("get", func(t *testing.T) {
 		for _, a := range addrs {
 			actual, err := fs.Get(a)
 			require.NoError(t, err)
-			require.Equal(t, store[a.String()], actual)
+			require.Equal(t, store[a.EncodeToString()], actual)
 		}
 
-		_, err := fs.Get(objecttest.Address())
+		_, err := fs.Get(oidtest.Address())
 		require.Error(t, err)
 	})
 
@@ -67,16 +67,16 @@ func TestFSTree(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err := fs.Exists(objecttest.Address())
+		_, err := fs.Exists(oidtest.Address())
 		require.Error(t, err)
 	})
 
 	t.Run("iterate", func(t *testing.T) {
 		n := 0
-		err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
+		err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
 			n++
-			expected, ok := store[addr.String()]
-			require.True(t, ok, "object %s was not found", addr.String())
+			expected, ok := store[addr.EncodeToString()]
+			require.True(t, ok, "object %s was not found", addr.EncodeToString())
 			require.Equal(t, data, expected)
 			return nil
 		}))
@@ -87,7 +87,7 @@ func TestFSTree(t *testing.T) {
 		t.Run("leave early", func(t *testing.T) {
 			n := 0
 			errStop := errors.New("stop")
-			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
+			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
 				if n++; n == count-1 {
 					return errStop
 				}
@@ -105,16 +105,16 @@ func TestFSTree(t *testing.T) {
 			require.NoError(t, os.Mkdir(filepath.Join(fs.RootPath, "ZZ"), 0))
 
 			// Unreadable file.
-			p := fs.treePath(objecttest.Address())
+			p := fs.treePath(oidtest.Address())
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
 			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, 0))
 
 			// Invalid address.
-			p = fs.treePath(objecttest.Address()) + ".invalid"
+			p = fs.treePath(oidtest.Address()) + ".invalid"
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
 			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, fs.Permissions))
 
-			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
+			err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
 				n++
 				return nil
 			}).WithIgnoreErrors(true))
@@ -124,7 +124,7 @@ func TestFSTree(t *testing.T) {
 			t.Run("error from handler is returned", func(t *testing.T) {
 				expectedErr := errors.New("expected error")
 				n := 0
-				err := fs.Iterate(new(IterationPrm).WithHandler(func(addr *addressSDK.Address, data []byte) error {
+				err := fs.Iterate(new(IterationPrm).WithHandler(func(addr oid.Address, data []byte) error {
 					n++
 					if n == count/2 { // process some iterations
 						return expectedErr
@@ -146,6 +146,6 @@ func TestFSTree(t *testing.T) {
 		_, err = fs.Exists(addrs[1])
 		require.NoError(t, err)
 
-		require.Error(t, fs.Delete(objecttest.Address()))
+		require.Error(t, fs.Delete(oidtest.Address()))
 	})
 }

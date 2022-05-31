@@ -46,7 +46,7 @@ func TestAuditResults(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
-	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, &id)
+	list, err := auditClientWrapper.ListAuditResultIDByCID(epoch, id)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 

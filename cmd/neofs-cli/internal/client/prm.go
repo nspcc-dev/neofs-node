@@ -6,7 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -22,11 +22,11 @@ func (x *commonPrm) SetClient(cli *client.Client) {
 }
 
 type containerIDPrm struct {
-	cnrID *cid.ID
+	cnrID cid.ID
 }
 
 // SetContainerID sets the container identifier.
-func (x *containerIDPrm) SetContainerID(id *cid.ID) {
+func (x *containerIDPrm) SetContainerID(id cid.ID) {
 	x.cnrID = id
 }
 
@@ -40,10 +40,10 @@ func (x *bearerTokenPrm) SetBearerToken(tok *bearer.Token) {
 }
 
 type objectAddressPrm struct {
-	objAddr *addressSDK.Address
+	objAddr oid.Address
 }
 
-func (x *objectAddressPrm) SetAddress(addr *addressSDK.Address) {
+func (x *objectAddressPrm) SetAddress(addr oid.Address) {
 	x.objAddr = addr
 }
 

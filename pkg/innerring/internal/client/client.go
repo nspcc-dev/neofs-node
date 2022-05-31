@@ -13,7 +13,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -38,11 +37,11 @@ func (x *Client) SetPrivateKey(key *ecdsa.PrivateKey) {
 type SearchSGPrm struct {
 	contextPrm
 
-	cnrID *cid.ID
+	cnrID cid.ID
 }
 
 // SetContainerID sets the ID of the container to search for storage groups.
-func (x *SearchSGPrm) SetContainerID(id *cid.ID) {
+func (x *SearchSGPrm) SetContainerID(id cid.ID) {
 	x.cnrID = id
 }
 
@@ -63,8 +62,7 @@ var sgFilter = storagegroup.SearchQuery()
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	var cliPrm client.PrmObjectSearch
-
-	cliPrm.InContainer(*prm.cnrID)
+	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(sgFilter)
 
 	rdr, err := x.c.ObjectSearchInit(prm.ctx, cliPrm)
@@ -124,14 +122,8 @@ func (x GetObjectRes) Object() *object.Object {
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
-
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		cliPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		cliPrm.ByID(id)
-	}
+	cliPrm.FromContainer(prm.objAddr.Container())
+	cliPrm.ByID(prm.objAddr.Object())
 
 	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
 	if err != nil {
@@ -210,13 +202,8 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		cliPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		cliPrm.ByID(id)
-	}
+	cliPrm.FromContainer(prm.objAddr.Container())
+	cliPrm.ByID(prm.objAddr.Object())
 
 	cliRes, err := x.c.ObjectHead(prm.ctx, cliPrm)
 	if err == nil {
@@ -242,7 +229,7 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 // GetObjectPayload reads an object by address from NeoFS via Client and returns its payload.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func GetObjectPayload(ctx context.Context, c Client, addr *addressSDK.Address) ([]byte, error) {
+func GetObjectPayload(ctx context.Context, c Client, addr oid.Address) ([]byte, error) {
 	var prm GetObjectPrm
 
 	prm.SetContext(ctx)
@@ -256,7 +243,7 @@ func GetObjectPayload(ctx context.Context, c Client, addr *addressSDK.Address) (
 	return obj.Object().Payload(), nil
 }
 
-func headObject(ctx context.Context, c Client, addr *addressSDK.Address, raw bool, ttl uint32) (*object.Object, error) {
+func headObject(ctx context.Context, c Client, addr oid.Address, raw bool, ttl uint32) (*object.Object, error) {
 	var prm HeadObjectPrm
 
 	prm.SetContext(ctx)
@@ -276,13 +263,13 @@ func headObject(ctx context.Context, c Client, addr *addressSDK.Address, raw boo
 }
 
 // GetRawObjectHeaderLocally reads the raw short object header from the server's local storage by address via Client.
-func GetRawObjectHeaderLocally(ctx context.Context, c Client, addr *addressSDK.Address) (*object.Object, error) {
+func GetRawObjectHeaderLocally(ctx context.Context, c Client, addr oid.Address) (*object.Object, error) {
 	return headObject(ctx, c, addr, true, 1)
 }
 
 // GetObjectHeaderFromContainer reads the short object header by address via Client with TTL = 10
 // for deep traversal of the container.
-func GetObjectHeaderFromContainer(ctx context.Context, c Client, addr *addressSDK.Address) (*object.Object, error) {
+func GetObjectHeaderFromContainer(ctx context.Context, c Client, addr oid.Address) (*object.Object, error) {
 	return headObject(ctx, c, addr, false, 10)
 }
 
@@ -314,15 +301,8 @@ func (x HashPayloadRangeRes) Hash() []byte {
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeRes, err error) {
 	var cliPrm client.PrmObjectHash
-
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		cliPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		cliPrm.ByID(id)
-	}
-
+	cliPrm.FromContainer(prm.objAddr.Container())
+	cliPrm.ByID(prm.objAddr.Object())
 	cliPrm.SetRangeList(prm.rng.GetOffset(), prm.rng.GetLength())
 	cliPrm.TillichZemorAlgo()
 
@@ -349,7 +329,7 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 // from the remote server's local storage via Client.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func HashObjectRange(ctx context.Context, c Client, addr *addressSDK.Address, rng *object.Range) ([]byte, error) {
+func HashObjectRange(ctx context.Context, c Client, addr oid.Address, rng *object.Range) ([]byte, error) {
 	var prm HashPayloadRangePrm
 
 	prm.SetContext(ctx)

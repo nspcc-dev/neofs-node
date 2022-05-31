@@ -7,9 +7,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
-	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -21,13 +21,13 @@ type RequestInfo struct {
 	requestRole eaclSDK.Role
 	isInnerRing bool
 	operation   eaclSDK.Operation // put, get, head, etc.
-	cnrOwner    *user.ID          // container owner
+	cnrOwner    user.ID           // container owner
 
-	idCnr containerIDSDK.ID
+	idCnr cid.ID
 
 	// optional for some request
 	// e.g. Put, Search
-	oid *oidSDK.ID
+	obj *oid.ID
 
 	senderKey []byte
 
@@ -54,17 +54,17 @@ func (r RequestInfo) Request() interface{} {
 }
 
 // ContainerOwner returns owner if the container.
-func (r RequestInfo) ContainerOwner() *user.ID {
+func (r RequestInfo) ContainerOwner() user.ID {
 	return r.cnrOwner
 }
 
 // ObjectID return object ID.
-func (r RequestInfo) ObjectID() *oidSDK.ID {
-	return r.oid
+func (r RequestInfo) ObjectID() *oid.ID {
+	return r.obj
 }
 
 // ContainerID return container ID.
-func (r RequestInfo) ContainerID() containerIDSDK.ID {
+func (r RequestInfo) ContainerID() cid.ID {
 	return r.idCnr
 }
 

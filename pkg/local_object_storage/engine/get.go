@@ -7,13 +7,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // GetRes groups the resulting values of Get operation.
@@ -24,7 +24,7 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr *addressSDK.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr oid.Address) *GetPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -151,7 +151,7 @@ func (e *StorageEngine) get(prm *GetPrm) (*GetRes, error) {
 }
 
 // Get reads object from local storage by provided address.
-func Get(storage *StorageEngine, addr *addressSDK.Address) (*objectSDK.Object, error) {
+func Get(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
 	res, err := storage.Get(new(GetPrm).
 		WithAddress(addr),
 	)

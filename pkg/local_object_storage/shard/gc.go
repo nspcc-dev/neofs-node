@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +19,7 @@ type TombstoneSource interface {
 	// IsTombstoneAvailable must return boolean value that means
 	// provided tombstone's presence in the NeoFS network at the
 	// time of the passed epoch.
-	IsTombstoneAvailable(ctx context.Context, addr *addressSDK.Address, epoch uint64) bool
+	IsTombstoneAvailable(ctx context.Context, addr oid.Address, epoch uint64) bool
 }
 
 // Event represents class of external events.
@@ -183,7 +183,7 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	buf := make([]*addressSDK.Address, 0, s.rmBatchSize)
+	buf := make([]oid.Address, 0, s.rmBatchSize)
 
 	iterPrm := new(meta.GarbageIterationPrm)
 
@@ -311,8 +311,8 @@ func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
 	s.expiredLocksCallback(ctx, expired)
 }
 
-func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond func(object.Type) bool) ([]*addressSDK.Address, error) {
-	var expired []*addressSDK.Address
+func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond func(object.Type) bool) ([]oid.Address, error) {
+	var expired []oid.Address
 
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
 		select {
@@ -339,7 +339,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 	// Mark tombstones as garbage.
 	var pInhume meta.InhumePrm
 
-	tsAddrs := make([]*addressSDK.Address, 0, len(tss))
+	tsAddrs := make([]oid.Address, 0, len(tss))
 	for _, ts := range tss {
 		tsAddrs = append(tsAddrs, ts.Tombstone())
 	}
@@ -367,7 +367,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 
 // HandleExpiredLocks unlocks all objects which were locked by lockers.
 // If successful, marks lockers themselves as garbage.
-func (s *Shard) HandleExpiredLocks(lockers []*addressSDK.Address) {
+func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",

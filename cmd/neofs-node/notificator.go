@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/notificator"
 	"github.com/nspcc-dev/neofs-node/pkg/services/notificator/nats"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +21,7 @@ type notificationSource struct {
 	defaultTopic string
 }
 
-func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, addr *addressSDK.Address)) {
+func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, addr oid.Address)) {
 	log := n.l.With(zap.Uint64("epoch", epoch))
 
 	listRes, err := n.e.ListContainers(engine.ListContainersPrm{})
@@ -64,8 +64,8 @@ func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, ad
 }
 
 func (n *notificationSource) processAddress(
-	a *addressSDK.Address,
-	h func(topic string, addr *addressSDK.Address),
+	a oid.Address,
+	h func(topic string, addr oid.Address),
 ) error {
 	prm := new(engine.HeadPrm)
 	prm.WithAddress(a)
@@ -96,7 +96,7 @@ type notificationWriter struct {
 	w *nats.Writer
 }
 
-func (n notificationWriter) Notify(topic string, address *addressSDK.Address) {
+func (n notificationWriter) Notify(topic string, address oid.Address) {
 	if err := n.w.Notify(topic, address); err != nil {
 		n.l.Warn("could not write object notification",
 			zap.Stringer("address", address),

@@ -9,7 +9,7 @@ import (
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -20,27 +20,29 @@ type (
 	// objects, and slow filters, that applied after fast filters created
 	// smaller set of objects to check.
 	filterGroup struct {
-		cid         *cid.ID
-		fastFilters object.SearchFilters
-		slowFilters object.SearchFilters
+		withCnrFilter bool
+
+		cnr cid.ID
+
+		fastFilters, slowFilters object.SearchFilters
 	}
 )
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
-	cid     *cid.ID
+	cnr     cid.ID
 	filters object.SearchFilters
 }
 
 // SelectRes groups the resulting values of Select operation.
 type SelectRes struct {
-	addrList []*addressSDK.Address
+	addrList []oid.Address
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cnr cid.ID) *SelectPrm {
 	if p != nil {
-		p.cid = cid
+		p.cnr = cnr
 	}
 
 	return p
@@ -56,15 +58,13 @@ func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*addressSDK.Address {
+func (r *SelectRes) AddressList() []oid.Address {
 	return r.addrList
 }
 
-var ErrMissingContainerID = errors.New("missing container id field")
-
 // Select selects the objects from DB with filtering.
-func Select(db *DB, cid *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
-	r, err := db.Select(new(SelectPrm).WithFilters(fs).WithContainerID(cid))
+func Select(db *DB, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
+	r, err := db.Select(new(SelectPrm).WithFilters(fs).WithContainerID(cnr))
 	if err != nil {
 		return nil, err
 	}
@@ -81,25 +81,21 @@ func (db *DB) Select(prm *SelectPrm) (res *SelectRes, err error) {
 	}
 
 	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, err = db.selectObjects(tx, prm.cid, prm.filters)
+		res.addrList, err = db.selectObjects(tx, prm.cnr, prm.filters)
 
 		return err
 	})
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, cnr *cid.ID, fs object.SearchFilters) ([]*addressSDK.Address, error) {
-	if cnr == nil {
-		return nil, ErrMissingContainerID
-	}
-
+func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
 	group, err := groupFilters(fs)
 	if err != nil {
 		return nil, err
 	}
 
-	// if there are conflicts in query and cid then it means that there is no
+	// if there are conflicts in query and container then it means that there is no
 	// objects to match this query.
-	if group.cid != nil && !cnr.Equals(*group.cid) {
+	if group.withCnrFilter && !cnr.Equals(group.cnr) {
 		return nil, nil
 	}
 
@@ -119,14 +115,16 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cnr *cid.ID, fs object.SearchFilters) 
 		}
 	}
 
-	res := make([]*addressSDK.Address, 0, len(mAddr))
+	res := make([]oid.Address, 0, len(mAddr))
 
 	for a, ind := range mAddr {
 		if ind != expLen {
 			continue // ignore objects with unmatched fast filters
 		}
 
-		addr, err := addressFromKey([]byte(a))
+		var addr oid.Address
+
+		err = decodeAddressFromKey(&addr, []byte(a))
 		if err != nil {
 			return nil, err
 		}
@@ -146,14 +144,14 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cnr *cid.ID, fs object.SearchFilters) 
 }
 
 // selectAll adds to resulting cache all available objects in metabase.
-func (db *DB) selectAll(tx *bbolt.Tx, cid *cid.ID, to map[string]int) {
-	prefix := cid.String() + "/"
+func (db *DB) selectAll(tx *bbolt.Tx, cnr cid.ID, to map[string]int) {
+	prefix := cnr.EncodeToString() + "/"
 
-	selectAllFromBucket(tx, primaryBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, tombstoneBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, storageGroupBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, parentBucketName(cid), prefix, to, 0)
-	selectAllFromBucket(tx, bucketNameLockers(*cid), prefix, to, 0)
+	selectAllFromBucket(tx, primaryBucketName(cnr), prefix, to, 0)
+	selectAllFromBucket(tx, tombstoneBucketName(cnr), prefix, to, 0)
+	selectAllFromBucket(tx, storageGroupBucketName(cnr), prefix, to, 0)
+	selectAllFromBucket(tx, parentBucketName(cnr), prefix, to, 0)
+	selectAllFromBucket(tx, bucketNameLockers(cnr), prefix, to, 0)
 }
 
 // selectAllFromBucket goes through all keys in bucket and adds them in a
@@ -176,75 +174,73 @@ func selectAllFromBucket(tx *bbolt.Tx, name []byte, prefix string, to map[string
 // looking through user attribute buckets otherwise.
 func (db *DB) selectFastFilter(
 	tx *bbolt.Tx,
-	cid *cid.ID, // container we search on
+	cnr cid.ID, // container we search on
 	f object.SearchFilter, // fast filter
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) {
-	prefix := cid.String() + "/"
+	prefix := cnr.EncodeToString() + "/"
 
 	switch f.Header() {
 	case v2object.FilterHeaderObjectID:
-		db.selectObjectID(tx, f, cid, to, fNum)
+		db.selectObjectID(tx, f, cnr, to, fNum)
 	case v2object.FilterHeaderOwnerID:
-		bucketName := ownerBucketName(cid)
+		bucketName := ownerBucketName(cnr)
 		db.selectFromFKBT(tx, bucketName, f, prefix, to, fNum)
 	case v2object.FilterHeaderPayloadHash:
-		bucketName := payloadHashBucketName(cid)
+		bucketName := payloadHashBucketName(cnr)
 		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
 	case v2object.FilterHeaderObjectType:
-		for _, bucketName := range bucketNamesForType(cid, f.Operation(), f.Value()) {
+		for _, bucketName := range bucketNamesForType(cnr, f.Operation(), f.Value()) {
 			selectAllFromBucket(tx, bucketName, prefix, to, fNum)
 		}
 	case v2object.FilterHeaderParent:
-		bucketName := parentBucketName(cid)
+		bucketName := parentBucketName(cnr)
 		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
 	case v2object.FilterHeaderSplitID:
-		bucketName := splitBucketName(cid)
+		bucketName := splitBucketName(cnr)
 		db.selectFromList(tx, bucketName, f, prefix, to, fNum)
 	case v2object.FilterPropertyRoot:
-		selectAllFromBucket(tx, rootBucketName(cid), prefix, to, fNum)
+		selectAllFromBucket(tx, rootBucketName(cnr), prefix, to, fNum)
 	case v2object.FilterPropertyPhy:
-		selectAllFromBucket(tx, primaryBucketName(cid), prefix, to, fNum)
-		selectAllFromBucket(tx, tombstoneBucketName(cid), prefix, to, fNum)
-		selectAllFromBucket(tx, storageGroupBucketName(cid), prefix, to, fNum)
-		selectAllFromBucket(tx, bucketNameLockers(*cid), prefix, to, fNum)
+		selectAllFromBucket(tx, primaryBucketName(cnr), prefix, to, fNum)
+		selectAllFromBucket(tx, tombstoneBucketName(cnr), prefix, to, fNum)
+		selectAllFromBucket(tx, storageGroupBucketName(cnr), prefix, to, fNum)
+		selectAllFromBucket(tx, bucketNameLockers(cnr), prefix, to, fNum)
 	default: // user attribute
-		bucketName := attributeBucketName(cid, f.Header())
+		bucketName := attributeBucketName(cnr, f.Header())
 
 		if f.Operation() == object.MatchNotPresent {
-			selectOutsideFKBT(tx, allBucketNames(cid), bucketName, f, prefix, to, fNum)
+			selectOutsideFKBT(tx, allBucketNames(cnr), bucketName, f, prefix, to, fNum)
 		} else {
 			db.selectFromFKBT(tx, bucketName, f, prefix, to, fNum)
 		}
 	}
 }
 
-var mBucketNaming = map[string][]func(*cid.ID) []byte{
+var mBucketNaming = map[string][]func(cid.ID) []byte{
 	v2object.TypeRegular.String():      {primaryBucketName, parentBucketName},
 	v2object.TypeTombstone.String():    {tombstoneBucketName},
 	v2object.TypeStorageGroup.String(): {storageGroupBucketName},
-	v2object.TypeLock.String(): {func(id *cid.ID) []byte {
-		return bucketNameLockers(*id)
-	}},
+	v2object.TypeLock.String():         {bucketNameLockers},
 }
 
-func allBucketNames(cid *cid.ID) (names [][]byte) {
+func allBucketNames(cnr cid.ID) (names [][]byte) {
 	for _, fns := range mBucketNaming {
 		for _, fn := range fns {
-			names = append(names, fn(cid))
+			names = append(names, fn(cnr))
 		}
 	}
 
 	return
 }
 
-func bucketNamesForType(cid *cid.ID, mType object.SearchMatchType, typeVal string) (names [][]byte) {
+func bucketNamesForType(cnr cid.ID, mType object.SearchMatchType, typeVal string) (names [][]byte) {
 	appendNames := func(key string) {
 		fns, ok := mBucketNaming[key]
 		if ok {
 			for _, fn := range fns {
-				names = append(names, fn(cid))
+				names = append(names, fn(cnr))
 			}
 		}
 	}
@@ -433,16 +429,17 @@ func (db *DB) selectFromList(
 func (db *DB) selectObjectID(
 	tx *bbolt.Tx,
 	f object.SearchFilter,
-	cid *cid.ID,
+	cnr cid.ID,
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
 ) {
-	prefix := cid.String() + "/"
+	prefix := cnr.EncodeToString() + "/"
 
-	appendOID := func(oid string) {
-		addrStr := prefix + string(oid)
+	appendOID := func(strObj string) {
+		addrStr := prefix + strObj
+		var addr oid.Address
 
-		addr, err := addressFromKey([]byte(addrStr))
+		err := decodeAddressFromKey(&addr, []byte(addrStr))
 		if err != nil {
 			db.log.Debug("can't decode object id address",
 				zap.String("addr", addrStr),
@@ -470,7 +467,7 @@ func (db *DB) selectObjectID(
 			return
 		}
 
-		for _, bucketName := range bucketNamesForType(cid, object.MatchStringNotEqual, "") {
+		for _, bucketName := range bucketNamesForType(cnr, object.MatchStringNotEqual, "") {
 			// copy-paste from DB.selectAllFrom
 			bkt := tx.Bucket(bucketName)
 			if bkt == nil {
@@ -478,8 +475,8 @@ func (db *DB) selectObjectID(
 			}
 
 			err := bkt.ForEach(func(k, v []byte) error {
-				if oid := string(k); fMatch(f.Header(), k, f.Value()) {
-					appendOID(oid)
+				if obj := string(k); fMatch(f.Header(), k, f.Value()) {
+					appendOID(obj)
 				}
 
 				return nil
@@ -494,7 +491,7 @@ func (db *DB) selectObjectID(
 }
 
 // matchSlowFilters return true if object header is matched by all slow filters.
-func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr *addressSDK.Address, f object.SearchFilters) bool {
+func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFilters) bool {
 	if len(f) == 0 {
 		return true
 	}
@@ -548,12 +545,12 @@ func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
 	for i := range filters {
 		switch filters[i].Header() {
 		case v2object.FilterHeaderContainerID: // support deprecated field
-			res.cid = new(cid.ID)
-
-			err := res.cid.DecodeString(filters[i].Value())
+			err := res.cnr.DecodeString(filters[i].Value())
 			if err != nil {
 				return nil, fmt.Errorf("can't parse container id: %w", err)
 			}
+
+			res.withCnrFilter = true
 		case // slow filters
 			v2object.FilterHeaderVersion,
 			v2object.FilterHeaderCreationEpoch,

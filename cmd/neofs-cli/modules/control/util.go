@@ -24,15 +24,12 @@ func verifyResponse(cmd *cobra.Command,
 		GetSign() []byte
 	},
 	body interface {
-		StableMarshal([]byte) ([]byte, error)
+		StableMarshal([]byte) []byte
 	},
 ) {
 	if sigControl == nil {
 		common.ExitOnErr(cmd, "", errors.New("missing response signature"))
 	}
-
-	bodyData, err := body.StableMarshal(nil)
-	common.ExitOnErr(cmd, "marshal response body: %w", err)
 
 	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
 	var sigV2 refs.Signature
@@ -43,7 +40,7 @@ func verifyResponse(cmd *cobra.Command,
 	var sig neofscrypto.Signature
 	sig.ReadFromV2(sigV2)
 
-	if !sig.Verify(bodyData) {
+	if !sig.Verify(body.StableMarshal(nil)) {
 		common.ExitOnErr(cmd, "", errors.New("invalid response signature"))
 	}
 }

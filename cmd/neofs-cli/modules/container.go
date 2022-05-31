@@ -22,7 +22,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
@@ -205,7 +204,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		if containerAwait {
 			cmd.Println("awaiting...")
 
-			getPrm.SetContainer(*id)
+			getPrm.SetContainer(id)
 
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
@@ -288,11 +287,9 @@ var listContainerObjectsCmd = &cobra.Command{
 
 		var prm internalclient.SearchObjectsPrm
 
-		sessionObjectCtxAddress := addressSDK.NewAddress()
-		sessionObjectCtxAddress.SetContainerID(*id)
-		prepareSessionPrm(cmd, sessionObjectCtxAddress, &prm)
+		prepareSessionPrm(cmd, *id, nil, &prm)
 		prepareObjectPrm(cmd, &prm)
-		prm.SetContainerID(id)
+		prm.SetContainerID(*id)
 		prm.SetFilters(*filters)
 
 		res, err := internalclient.SearchObjects(prm)
@@ -301,7 +298,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		objectIDs := res.IDList()
 
 		for i := range objectIDs {
-			cmd.Println(objectIDs[i].String())
+			cmd.Println(objectIDs[i])
 		}
 	},
 }
@@ -603,7 +600,7 @@ func init() {
 
 func prettyPrintContainerList(cmd *cobra.Command, list []cid.ID) {
 	for i := range list {
-		cmd.Println(list[i].String())
+		cmd.Println(list[i])
 	}
 }
 

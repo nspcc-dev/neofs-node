@@ -7,7 +7,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +19,7 @@ type Source interface {
 	//
 	// Tombstone MUST return (nil, nil) if requested tombstone is
 	// missing in the storage for the provided epoch.
-	Tombstone(ctx context.Context, a *addressSDK.Address, epoch uint64) (*object.Object, error)
+	Tombstone(ctx context.Context, a oid.Address, epoch uint64) (*object.Object, error)
 }
 
 // ExpirationChecker is a tombstone source wrapper.
@@ -44,8 +44,8 @@ type ExpirationChecker struct {
 //
 // If a tombstone was successfully fetched (regardless of its expiration)
 // it is cached in the LRU cache.
-func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a *addressSDK.Address, epoch uint64) bool {
-	addrStr := a.String()
+func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Address, epoch uint64) bool {
+	addrStr := a.EncodeToString()
 	log := g.log.With(zap.String("address", addrStr))
 
 	expEpoch, ok := g.cache.Get(addrStr)

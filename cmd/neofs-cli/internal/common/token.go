@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -33,13 +34,24 @@ func ReadBearerToken(cmd *cobra.Command, flagname string) *bearer.Token {
 	return &tok
 }
 
-// ReadSessionToken reads session token as JSON file with session token
-// from path provided in a specified flag.
+// ReadSessionToken calls ReadSessionTokenErr and exists on error.
 func ReadSessionToken(cmd *cobra.Command, dst json.Unmarshaler, fPath string) {
+	ExitOnErr(cmd, "", ReadSessionTokenErr(dst, fPath))
+}
+
+// ReadSessionTokenErr reads session token as JSON file with session token
+// from path provided in a specified flag.
+func ReadSessionTokenErr(dst json.Unmarshaler, fPath string) error {
 	// try to read session token from file
 	data, err := os.ReadFile(fPath)
-	ExitOnErr(cmd, "could not open file with session token: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not open file with session token <%s>: %w", fPath, err)
+	}
 
 	err = dst.UnmarshalJSON(data)
-	ExitOnErr(cmd, "could not unmarshal session token from file: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not unmarshal session token from file: %w", err)
+	}
+
+	return nil
 }

@@ -14,8 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
@@ -77,12 +76,12 @@ type PutContainerPrm struct {
 
 // PutContainerRes groups the resulting values of PutContainer operation.
 type PutContainerRes struct {
-	cliRes *client.ResContainerPut
+	cnr cid.ID
 }
 
 // ID returns identifier of the created container.
-func (x PutContainerRes) ID() *cid.ID {
-	return x.cliRes.ID()
+func (x PutContainerRes) ID() cid.ID {
+	return x.cnr
 }
 
 // PutContainer sends a request to save the container in NeoFS.
@@ -94,7 +93,15 @@ func (x PutContainerRes) ID() *cid.ID {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
-	res.cliRes, err = prm.cli.ContainerPut(context.Background(), prm.PrmContainerPut)
+	cliRes, err := prm.cli.ContainerPut(context.Background(), prm.PrmContainerPut)
+	if err == nil {
+		cnr := cliRes.ID()
+		if cnr == nil {
+			err = errors.New("missing container ID in response")
+		} else {
+			res.cnr = *cnr
+		}
+	}
 
 	return
 }
@@ -306,11 +313,11 @@ func (x *PutObjectPrm) SetPayloadReader(rdr io.Reader) {
 
 // PutObjectRes groups the resulting values of PutObject operation.
 type PutObjectRes struct {
-	id *oidSDK.ID
+	id oid.ID
 }
 
 // ID returns identifier of the created object.
-func (x PutObjectRes) ID() *oidSDK.ID {
+func (x PutObjectRes) ID() oid.ID {
 	return x.id
 }
 
@@ -382,20 +389,18 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		}
 	}
 
-	res, err := wrt.Close()
+	cliRes, err := wrt.Close()
 	if err != nil { // here err already carries both status and client errors
 		return nil, fmt.Errorf("client failure: %w", err)
 	}
 
-	var id oidSDK.ID
+	var res PutObjectRes
 
-	if !res.ReadStoredObjectID(&id) {
+	if !cliRes.ReadStoredObjectID(&res.id) {
 		return nil, errors.New("missing ID of the stored object")
 	}
 
-	return &PutObjectRes{
-		id: &id,
-	}, nil
+	return &res, nil
 }
 
 // DeleteObjectPrm groups parameters of DeleteObject operation.
@@ -406,12 +411,12 @@ type DeleteObjectPrm struct {
 
 // DeleteObjectRes groups the resulting values of DeleteObject operation.
 type DeleteObjectRes struct {
-	addrTombstone *addressSDK.Address
+	tomb oid.ID
 }
 
-// TombstoneAddress returns the address of the created object with tombstone.
-func (x DeleteObjectRes) TombstoneAddress() *addressSDK.Address {
-	return x.addrTombstone
+// Tombstone returns the ID of the created object with tombstone.
+func (x DeleteObjectRes) Tombstone() oid.ID {
+	return x.tomb
 }
 
 // DeleteObject marks an object to be removed from NeoFS through tombstone placement.
@@ -419,15 +424,8 @@ func (x DeleteObjectRes) TombstoneAddress() *addressSDK.Address {
 // Returns any error which prevented the operation from completing correctly in error return.
 func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 	var delPrm client.PrmObjectDelete
-
-	cnr, ok := prm.objAddr.ContainerID()
-	if ok {
-		delPrm.FromContainer(cnr)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		delPrm.ByID(id)
-	}
+	delPrm.FromContainer(prm.objAddr.Container())
+	delPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		delPrm.WithinSession(*prm.sessionToken)
@@ -444,18 +442,14 @@ func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 		return nil, fmt.Errorf("remove object via client: %w", err)
 	}
 
-	var id oidSDK.ID
+	var id oid.ID
 
 	if !cliRes.ReadTombstoneID(&id) {
 		return nil, errors.New("object removed but tombstone ID is missing")
 	}
 
-	var addr addressSDK.Address
-	addr.SetObjectID(id)
-	addr.SetContainerID(cnr)
-
 	return &DeleteObjectRes{
-		addrTombstone: &addr,
+		tomb: id,
 	}, nil
 }
 
@@ -492,14 +486,8 @@ func (x GetObjectRes) Header() *object.Object {
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var getPrm client.PrmObjectGet
-
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		getPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		getPrm.ByID(id)
-	}
+	getPrm.FromContainer(prm.objAddr.Container())
+	getPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		getPrm.WithinSession(*prm.sessionToken)
@@ -574,14 +562,8 @@ func (x HeadObjectRes) Header() *object.Object {
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	var cliPrm client.PrmObjectHead
-
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		cliPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		cliPrm.ByID(id)
-	}
+	cliPrm.FromContainer(prm.objAddr.Container())
+	cliPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		cliPrm.WithinSession(*prm.sessionToken)
@@ -632,11 +614,11 @@ func (x *SearchObjectsPrm) SetFilters(filters object.SearchFilters) {
 
 // SearchObjectsRes groups the resulting values of SearchObjects operation.
 type SearchObjectsRes struct {
-	ids []oidSDK.ID
+	ids []oid.ID
 }
 
 // IDList returns identifiers of the matched objects.
-func (x SearchObjectsRes) IDList() []oidSDK.ID {
+func (x SearchObjectsRes) IDList() []oid.ID {
 	return x.ids
 }
 
@@ -645,11 +627,7 @@ func (x SearchObjectsRes) IDList() []oidSDK.ID {
 // Returns any error which prevented the operation from completing correctly in error return.
 func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	var cliPrm client.PrmObjectSearch
-
-	if prm.cnrID != nil {
-		cliPrm.InContainer(*prm.cnrID)
-	}
-
+	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(prm.filters)
 
 	if prm.sessionToken != nil {
@@ -671,8 +649,8 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
 
-	buf := make([]oidSDK.ID, 10)
-	var list []oidSDK.ID
+	buf := make([]oid.ID, 10)
+	var list []oid.ID
 	var n int
 	var ok bool
 
@@ -739,14 +717,8 @@ func (x HashPayloadRangesRes) HashList() [][]byte {
 // Returns an error if number of received hashes differs with the number of requested ranges.
 func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) {
 	var cliPrm client.PrmObjectHash
-
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		cliPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		cliPrm.ByID(id)
-	}
+	cliPrm.FromContainer(prm.objAddr.Container())
+	cliPrm.ByID(prm.objAddr.Object())
 
 	if prm.local {
 		cliPrm.MarkLocal()
@@ -813,14 +785,8 @@ type PayloadRangeRes struct{}
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	var cliPrm client.PrmObjectRange
-
-	if id, ok := prm.objAddr.ContainerID(); ok {
-		cliPrm.FromContainer(id)
-	}
-
-	if id, ok := prm.objAddr.ObjectID(); ok {
-		cliPrm.ByID(id)
-	}
+	cliPrm.FromContainer(prm.objAddr.Container())
+	cliPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		cliPrm.WithinSession(*prm.sessionToken)

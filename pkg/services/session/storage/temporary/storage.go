@@ -36,7 +36,7 @@ func NewTokenStore() *TokenStore {
 // Get returns private token corresponding to the given identifiers.
 //
 // Returns nil is there is no element in storage.
-func (s *TokenStore) Get(ownerID *user.ID, tokenID []byte) *storage.PrivateToken {
+func (s *TokenStore) Get(ownerID user.ID, tokenID []byte) *storage.PrivateToken {
 	s.mtx.RLock()
 	t := s.tokens[key{
 		tokenID: base58.Encode(tokenID),

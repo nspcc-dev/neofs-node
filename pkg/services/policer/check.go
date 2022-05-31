@@ -10,14 +10,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
-func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
-	idCnr, _ := addr.ContainerID()
+func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
+	idCnr := addr.Container()
 
-	cnr, err := p.cnrSrc.Get(&idCnr)
+	cnr, err := p.cnrSrc.Get(idCnr)
 	if err != nil {
 		p.log.Error("could not get container",
 			zap.Stringer("cid", idCnr),
@@ -28,10 +28,9 @@ func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
 			prm.MarkAsGarbage(addr)
 			_, err := p.jobQueue.localStorage.Inhume(prm)
 			if err != nil {
-				id, _ := addr.ObjectID()
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
-					zap.Stringer("oid", id),
+					zap.Stringer("oid", addr.Object()),
 					zap.String("error", err.Error()))
 			}
 		}
@@ -40,8 +39,9 @@ func (p *Policer) processObject(ctx context.Context, addr *addressSDK.Address) {
 	}
 
 	policy := cnr.PlacementPolicy()
+	obj := addr.Object()
 
-	nn, err := p.placementBuilder.BuildPlacement(addr, policy)
+	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, policy)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.String("error", err.Error()),
@@ -80,7 +80,7 @@ type processPlacementContext struct {
 	needLocalCopy bool
 }
 
-func (p *Policer) processNodes(ctx *processPlacementContext, addr *addressSDK.Address, nodes netmap.Nodes, shortage uint32) {
+func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address, nodes netmap.Nodes, shortage uint32) {
 	log := p.log.With(
 		zap.Stringer("object", addr),
 	)

@@ -6,24 +6,24 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // SelectPrm groups the parameters of Select operation.
 type SelectPrm struct {
-	cid     *cid.ID
+	cnr     cid.ID
 	filters object.SearchFilters
 }
 
 // SelectRes groups the resulting values of Select operation.
 type SelectRes struct {
-	addrList []*addressSDK.Address
+	addrList []oid.Address
 }
 
 // WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cid *cid.ID) *SelectPrm {
+func (p *SelectPrm) WithContainerID(cnr cid.ID) *SelectPrm {
 	if p != nil {
-		p.cid = cid
+		p.cnr = cnr
 	}
 
 	return p
@@ -39,7 +39,7 @@ func (p *SelectPrm) WithFilters(fs object.SearchFilters) *SelectPrm {
 }
 
 // AddressList returns list of addresses of the selected objects.
-func (r *SelectRes) AddressList() []*addressSDK.Address {
+func (r *SelectRes) AddressList() []oid.Address {
 	return r.addrList
 }
 
@@ -48,7 +48,7 @@ func (r *SelectRes) AddressList() []*addressSDK.Address {
 // Returns any error encountered that
 // did not allow to completely select the objects.
 func (s *Shard) Select(prm *SelectPrm) (*SelectRes, error) {
-	addrList, err := meta.Select(s.metaBase, prm.cid, prm.filters)
+	addrList, err := meta.Select(s.metaBase, prm.cnr, prm.filters)
 	if err != nil {
 		return nil, fmt.Errorf("could not select objects from metabase: %w", err)
 	}

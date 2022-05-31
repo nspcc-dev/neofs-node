@@ -3,8 +3,7 @@ package getsvc
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -25,10 +24,14 @@ func (exec *execCtx) assemble() {
 
 	childID, ok := splitInfo.Link()
 	if !ok {
-		childID, _ = splitInfo.LastPart()
+		childID, ok = splitInfo.LastPart()
+		if !ok {
+			exec.log.Debug("neither linking nor last part of split-chain is presented in split info")
+			return
+		}
 	}
 
-	prev, children := exec.initFromChild(&childID)
+	prev, children := exec.initFromChild(childID)
 
 	if len(children) > 0 {
 		if exec.ctxRange() == nil {
@@ -61,12 +64,12 @@ func (exec *execCtx) assemble() {
 	}
 }
 
-func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []oidSDK.ID) {
-	log := exec.log.With(zap.Stringer("child ID", id))
+func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID) {
+	log := exec.log.With(zap.Stringer("child ID", obj))
 
 	log.Debug("starting assembling from child")
 
-	child, ok := exec.getChild(id, nil, true)
+	child, ok := exec.getChild(obj, nil, true)
 	if !ok {
 		return
 	}
@@ -125,7 +128,7 @@ func (exec *execCtx) initFromChild(id *oidSDK.ID) (prev *oidSDK.ID, children []o
 	return nil, child.Children()
 }
 
-func (exec *execCtx) overtakePayloadDirectly(children []oidSDK.ID, rngs []objectSDK.Range, checkRight bool) {
+func (exec *execCtx) overtakePayloadDirectly(children []oid.ID, rngs []objectSDK.Range, checkRight bool) {
 	withRng := len(rngs) > 0 && exec.ctxRange() != nil
 
 	for i := range children {
@@ -134,7 +137,7 @@ func (exec *execCtx) overtakePayloadDirectly(children []oidSDK.ID, rngs []object
 			r = &rngs[i]
 		}
 
-		child, ok := exec.getChild(&children[i], r, !withRng && checkRight)
+		child, ok := exec.getChild(children[i], r, !withRng && checkRight)
 		if !ok {
 			return
 		}
@@ -148,7 +151,7 @@ func (exec *execCtx) overtakePayloadDirectly(children []oidSDK.ID, rngs []object
 	exec.err = nil
 }
 
-func (exec *execCtx) overtakePayloadInReverse(prev oidSDK.ID) bool {
+func (exec *execCtx) overtakePayloadInReverse(prev oid.ID) bool {
 	chain, rngs, ok := exec.buildChainInReverse(prev)
 	if !ok {
 		return false
@@ -170,9 +173,9 @@ func (exec *execCtx) overtakePayloadInReverse(prev oidSDK.ID) bool {
 	return exec.status == statusOK
 }
 
-func (exec *execCtx) buildChainInReverse(prev oidSDK.ID) ([]oidSDK.ID, []objectSDK.Range, bool) {
+func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []objectSDK.Range, bool) {
 	var (
-		chain   = make([]oidSDK.ID, 0)
+		chain   = make([]oid.ID, 0)
 		rngs    = make([]objectSDK.Range, 0)
 		seekRng = exec.ctxRange()
 		from    = seekRng.GetOffset()
@@ -187,7 +190,7 @@ func (exec *execCtx) buildChainInReverse(prev oidSDK.ID) ([]oidSDK.ID, []objectS
 			break
 		}
 
-		head, ok := exec.headChild(&prev)
+		head, ok := exec.headChild(prev)
 		if !ok {
 			return nil, nil, false
 		}
@@ -227,27 +230,6 @@ func (exec *execCtx) buildChainInReverse(prev oidSDK.ID) ([]oidSDK.ID, []objectS
 	return chain, rngs, true
 }
 
-func equalAddresses(a, b *addressSDK.Address) bool {
-	cnr1, ok := a.ContainerID()
-	if !ok {
-		return false
-	}
-
-	cnr2, ok := b.ContainerID()
-	if !ok {
-		return false
-	}
-
-	if !cnr1.Equals(cnr2) {
-		return false
-	}
-
-	id1, ok := a.ObjectID()
-	if !ok {
-		return false
-	}
-
-	id2, ok := a.ObjectID()
-
-	return ok && id1.Equals(id2)
+func equalAddresses(a, b oid.Address) bool {
+	return a.Container().Equals(b.Container()) && a.Object().Equals(b.Object())
 }

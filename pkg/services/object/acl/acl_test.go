@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
-	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -14,7 +14,7 @@ import (
 
 type emptyEACLSource struct{}
 
-func (e emptyEACLSource) GetEACL(_ *cidSDK.ID) (*eaclSDK.Table, error) {
+func (e emptyEACLSource) GetEACL(_ cid.ID) (*eaclSDK.Table, error) {
 	return nil, nil
 }
 
@@ -40,11 +40,11 @@ func TestStickyCheck(t *testing.T) {
 
 		setSticky(&info, true)
 
-		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
+		require.True(t, checker.StickyBitCheck(info, *usertest.ID()))
 
 		setSticky(&info, false)
 
-		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
+		require.True(t, checker.StickyBitCheck(info, *usertest.ID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
@@ -65,10 +65,10 @@ func TestStickyCheck(t *testing.T) {
 				info.SetSenderKey(nil)
 			}
 
-			var ownerID *user.ID
+			var ownerID user.ID
 
 			if withOwner {
-				ownerID = usertest.ID()
+				ownerID = *usertest.ID()
 			}
 
 			require.Equal(t, expected, checker.StickyBitCheck(info, ownerID))

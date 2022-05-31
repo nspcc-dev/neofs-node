@@ -8,8 +8,6 @@ import (
 	object2 "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/address/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -20,8 +18,8 @@ func TestDB_IterateExpired(t *testing.T) {
 
 	const epoch = 13
 
-	mAlive := map[object.Type]*addressSDK.Address{}
-	mExpired := map[object.Type]*addressSDK.Address{}
+	mAlive := map[object.Type]oid.Address{}
+	mExpired := map[object.Type]oid.Address{}
 
 	for _, typ := range []object.Type{
 		object.TypeRegular,
@@ -34,10 +32,8 @@ func TestDB_IterateExpired(t *testing.T) {
 	}
 
 	expiredLocked := putWithExpiration(t, db, object.TypeRegular, epoch-1)
-	cnrExpiredLocked, _ := expiredLocked.ContainerID()
-	idExpiredLocked, _ := expiredLocked.ObjectID()
 
-	require.NoError(t, db.Lock(cnrExpiredLocked, oidtest.ID(), []oid.ID{idExpiredLocked}))
+	require.NoError(t, db.Lock(expiredLocked.Container(), oidtest.ID(), []oid.ID{expiredLocked.Object()}))
 
 	err := db.IterateExpired(epoch, func(exp *meta.ExpiredObject) error {
 		if addr, ok := mAlive[exp.Type()]; ok {
@@ -59,7 +55,7 @@ func TestDB_IterateExpired(t *testing.T) {
 	require.Empty(t, mExpired)
 }
 
-func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uint64) *addressSDK.Address {
+func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uint64) oid.Address {
 	obj := generateObject(t)
 	obj.SetType(typ)
 	addAttribute(obj, objectV2.SysAttributeExpEpoch, strconv.FormatUint(expiresAt, 10))
@@ -72,11 +68,11 @@ func putWithExpiration(t *testing.T, db *meta.DB, typ object.Type, expiresAt uin
 func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	db := newDB(t)
 
-	ts := objecttest.Address()
-	protected1 := objecttest.Address()
-	protected2 := objecttest.Address()
-	protectedLocked := objecttest.Address()
-	garbage := objecttest.Address()
+	ts := oidtest.Address()
+	protected1 := oidtest.Address()
+	protected2 := oidtest.Address()
+	protectedLocked := oidtest.Address()
+	garbage := oidtest.Address()
 
 	prm := new(meta.InhumePrm)
 
@@ -94,13 +90,13 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var handled []*addressSDK.Address
+	var handled []oid.Address
 
-	tss := map[string]*addressSDK.Address{
-		ts.String(): ts,
+	tss := map[string]oid.Address{
+		ts.EncodeToString(): ts,
 	}
 
-	err = db.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
+	err = db.IterateCoveredByTombstones(tss, func(addr oid.Address) error {
 		handled = append(handled, addr)
 		return nil
 	})
@@ -111,15 +107,12 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	require.Contains(t, handled, protected2)
 	require.Contains(t, handled, protectedLocked)
 
-	cnrProtectedLocked, _ := protectedLocked.ContainerID()
-	idProtectedLocked, _ := protectedLocked.ObjectID()
-
-	err = db.Lock(cnrProtectedLocked, oidtest.ID(), []oid.ID{idProtectedLocked})
+	err = db.Lock(protectedLocked.Container(), oidtest.ID(), []oid.ID{protectedLocked.Object()})
 	require.NoError(t, err)
 
 	handled = handled[:0]
 
-	err = db.IterateCoveredByTombstones(tss, func(addr *addressSDK.Address) error {
+	err = db.IterateCoveredByTombstones(tss, func(addr oid.Address) error {
 		handled = append(handled, addr)
 		return nil
 	})

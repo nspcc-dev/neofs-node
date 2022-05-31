@@ -18,11 +18,11 @@ import (
 )
 
 func prepareObjects(t testing.TB, n int) []*objectSDK.Object {
-	cid := cidtest.ID()
+	cnr := cidtest.ID()
 	parentID := objecttest.ID()
 	objs := make([]*objectSDK.Object, n)
 	for i := range objs {
-		objs[i] = generateObjectWithCID(t, cid)
+		objs[i] = generateObjectWithCID(t, cnr)
 
 		// FKBT indices.
 		attrs := make([]objectSDK.Attribute, 20)

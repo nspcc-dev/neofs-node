@@ -1,15 +1,15 @@
 package util
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type localPlacement struct {
@@ -43,8 +43,8 @@ func NewLocalPlacement(b placement.Builder, s netmap.AnnouncedKeys) placement.Bu
 	}
 }
 
-func (p *localPlacement) BuildPlacement(addr *addressSDK.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
-	vs, err := p.builder.BuildPlacement(addr, policy)
+func (p *localPlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+	vs, err := p.builder.BuildPlacement(cnr, obj, policy)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
 	}
@@ -76,8 +76,8 @@ func NewRemotePlacementBuilder(b placement.Builder, s netmap.AnnouncedKeys) plac
 	}
 }
 
-func (p *remotePlacement) BuildPlacement(addr *addressSDK.Address, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
-	vs, err := p.builder.BuildPlacement(addr, policy)
+func (p *remotePlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+	vs, err := p.builder.BuildPlacement(cnr, obj, policy)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
 	}
@@ -122,12 +122,7 @@ func (g *TraverserGenerator) WithTraverseOptions(opts ...placement.Option) *Trav
 
 // GenerateTraverser generates placement Traverser for provided object address
 // using epoch-th network map.
-func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch uint64) (*placement.Traverser, error) {
-	idCnr, ok := addr.ContainerID()
-	if !ok {
-		return nil, errors.New("missing container in object address")
-	}
-
+func (g *TraverserGenerator) GenerateTraverser(idCnr cid.ID, idObj *oid.ID, epoch uint64) (*placement.Traverser, error) {
 	// get network map by epoch
 	nm, err := g.netMapSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
@@ -135,7 +130,7 @@ func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch u
 	}
 
 	// get container related container
-	cnr, err := g.cnrSrc.Get(&idCnr)
+	cnr, err := g.cnrSrc.Get(idCnr)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container: %w", err)
 	}
@@ -158,10 +153,10 @@ func (g *TraverserGenerator) GenerateTraverser(addr *addressSDK.Address, epoch u
 		placement.UseBuilder(builder),
 	)
 
-	if idObj, ok := addr.ObjectID(); ok {
+	if idObj != nil {
 		traverseOpts = append(traverseOpts,
 			// set identifier of the processing object
-			placement.ForObject(&idObj),
+			placement.ForObject(*idObj),
 		)
 	}
 

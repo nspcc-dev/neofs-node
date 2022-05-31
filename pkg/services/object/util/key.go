@@ -20,7 +20,7 @@ type SessionSource interface {
 	// token has not been created, has been expired
 	// of it is impossible to get information about the
 	// token Get must return nil.
-	Get(owner *user.ID, tokenID []byte) *storage.PrivateToken
+	Get(owner user.ID, tokenID []byte) *storage.PrivateToken
 }
 
 // KeyStorage represents private key storage of the local node.
@@ -62,7 +62,7 @@ func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
 			return nil, fmt.Errorf("marshal ID: %w", err)
 		}
 
-		pToken := s.tokenStore.Get(&info.Owner, binID)
+		pToken := s.tokenStore.Get(info.Owner, binID)
 		if pToken != nil {
 			if pToken.ExpiredAt() <= s.networkState.CurrentEpoch() {
 				var errExpired apistatus.SessionTokenExpired

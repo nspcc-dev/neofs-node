@@ -41,7 +41,8 @@ func (inc *IncomeSettlementContext) Collect() {
 		if err != nil {
 			inc.log.Warn("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
-				zap.Stringer("container_id", cnrEstimations[i].ContainerID))
+				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
+			)
 
 			continue
 		}
@@ -50,7 +51,8 @@ func (inc *IncomeSettlementContext) Collect() {
 		if err != nil {
 			inc.log.Debug("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
-				zap.Stringer("container_id", cnrEstimations[i].ContainerID))
+				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
+			)
 
 			continue
 		}
@@ -65,7 +67,7 @@ func (inc *IncomeSettlementContext) Collect() {
 
 		txTable.Transfer(&common.TransferTx{
 			From:   owner.Owner(),
-			To:     &inc.bankOwner,
+			To:     inc.bankOwner,
 			Amount: total,
 		})
 	}

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +21,7 @@ func (p *Policer) Run(ctx context.Context) {
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	var (
-		addrs  []*addressSDK.Address
+		addrs  []oid.Address
 		cursor *engine.Cursor
 		err    error
 	)
@@ -48,7 +48,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				return
 			default:
 				addr := addrs[i]
-				addrStr := addr.String()
+				addrStr := addr.EncodeToString()
 				err = p.taskPool.Submit(func() {
 					v, ok := p.cache.Get(addrStr)
 					if ok && time.Since(v.(time.Time)) < p.evictDuration {

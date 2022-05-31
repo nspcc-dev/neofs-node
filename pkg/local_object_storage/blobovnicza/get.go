@@ -3,14 +3,14 @@ package blobovnicza
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 }
 
 // GetRes groups the resulting values of Get operation.
@@ -19,7 +19,7 @@ type GetRes struct {
 }
 
 // SetAddress sets the address of the requested object.
-func (p *GetPrm) SetAddress(addr *addressSDK.Address) {
+func (p *GetPrm) SetAddress(addr oid.Address) {
 	p.addr = addr
 }
 

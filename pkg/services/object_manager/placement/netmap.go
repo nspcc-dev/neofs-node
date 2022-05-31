@@ -2,13 +2,12 @@ package placement
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type netMapBuilder struct {
@@ -37,12 +36,7 @@ func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
 	return s.nm, nil
 }
 
-func (b *netMapBuilder) BuildPlacement(a *addressSDK.Address, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
-	cnr, ok := a.ContainerID()
-	if !ok {
-		return nil, errors.New("missing container in object address")
-	}
-
+func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
 	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
 	if err != nil {
 		return nil, fmt.Errorf("could not get network map: %w", err)
@@ -56,16 +50,10 @@ func (b *netMapBuilder) BuildPlacement(a *addressSDK.Address, p *netmapSDK.Place
 		return nil, fmt.Errorf("could not get container nodes: %w", err)
 	}
 
-	var idPtr *oidSDK.ID
-
-	if id, ok := a.ObjectID(); ok {
-		idPtr = &id
-	}
-
-	return BuildObjectPlacement(nm, cn, idPtr)
+	return BuildObjectPlacement(nm, cn, obj)
 }
 
-func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *oidSDK.ID) ([]netmapSDK.Nodes, error) {
+func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *oid.ID) ([]netmapSDK.Nodes, error) {
 	if id == nil {
 		return cnrNodes.Replicas(), nil
 	}

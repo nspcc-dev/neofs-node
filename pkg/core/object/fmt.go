@@ -12,7 +12,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -40,7 +39,7 @@ type DeleteHandler interface {
 	//
 	// Returns apistatus.LockNonRegularObject if at least one object
 	// is locked.
-	DeleteObjects(*addressSDK.Address, ...*addressSDK.Address) error
+	DeleteObjects(oid.Address, ...oid.Address) error
 }
 
 // Locker is an object lock storage interface.
@@ -100,6 +99,10 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilCID
 	}
 
+	if err := v.checkOwner(obj); err != nil {
+		return err
+	}
+
 	if err := v.checkAttributes(obj); err != nil {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
@@ -149,7 +152,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	token := obj.SessionToken()
 
 	if token == nil || !token.AssertAuthKey(&key) {
-		return v.checkOwnerKey(obj.OwnerID(), key)
+		return v.checkOwnerKey(*obj.OwnerID(), key)
 	}
 
 	// FIXME: #1159 perform token verification
@@ -157,7 +160,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	return nil
 }
 
-func (v *FormatValidator) checkOwnerKey(id *user.ID, key neofsecdsa.PublicKey) error {
+func (v *FormatValidator) checkOwnerKey(id user.ID, key neofsecdsa.PublicKey) error {
 	var id2 user.ID
 	user.IDFromKey(&id2, (ecdsa.PublicKey)(key))
 
@@ -201,14 +204,11 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 		}
 
 		idList := tombstone.Members()
-		addrList := make([]*addressSDK.Address, 0, len(idList))
+		addrList := make([]oid.Address, len(idList))
 
 		for i := range idList {
-			a := addressSDK.NewAddress()
-			a.SetContainerID(cnr)
-			a.SetObjectID(idList[i])
-
-			addrList = append(addrList, a)
+			addrList[i].SetContainer(cnr)
+			addrList[i].SetObject(idList[i])
 		}
 
 		if v.deleteHandler != nil {

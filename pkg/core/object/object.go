@@ -2,26 +2,22 @@ package object
 
 import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // AddressOf returns the address of the object.
-func AddressOf(obj *object.Object) *addressSDK.Address {
-	if obj != nil {
-		addr := addressSDK.NewAddress()
+func AddressOf(obj *object.Object) oid.Address {
+	var addr oid.Address
 
-		id, ok := obj.ID()
-		if ok {
-			addr.SetObjectID(id)
-		}
-
-		cnr, ok := obj.ContainerID()
-		if ok {
-			addr.SetContainerID(cnr)
-		}
-
-		return addr
+	id, ok := obj.ID()
+	if ok {
+		addr.SetObject(id)
 	}
 
-	return nil
+	cnr, ok := obj.ContainerID()
+	if ok {
+		addr.SetContainer(cnr)
+	}
+
+	return addr
 }

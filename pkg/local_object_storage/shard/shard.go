@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +36,7 @@ type Option func(*cfg)
 type ExpiredTombstonesCallback func(context.Context, []meta.TombstonedObject)
 
 // ExpiredObjectsCallback is a callback handling list of expired objects.
-type ExpiredObjectsCallback func(context.Context, []*addressSDK.Address)
+type ExpiredObjectsCallback func(context.Context, []oid.Address)
 
 type cfg struct {
 	m sync.RWMutex

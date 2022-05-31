@@ -20,7 +20,7 @@ import (
 
 type sessionStorage interface {
 	Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error)
-	Get(ownerID *user.ID, tokenID []byte) *storage.PrivateToken
+	Get(ownerID user.ID, tokenID []byte) *storage.PrivateToken
 	RemoveOld(epoch uint64)
 
 	Close() error

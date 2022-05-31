@@ -11,18 +11,18 @@ import (
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
-	containerIDSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 var errMissingContainerID = errors.New("missing container ID")
 
-func getContainerIDFromRequest(req interface{}) (containerIDSDK.ID, error) {
+func getContainerIDFromRequest(req interface{}) (cid.ID, error) {
 	var idV2 *refsV2.ContainerID
-	var id containerIDSDK.ID
+	var id cid.ID
 
 	switch v := req.(type) {
 	case *objectV2.GetRequest:
@@ -30,7 +30,7 @@ func getContainerIDFromRequest(req interface{}) (containerIDSDK.ID, error) {
 	case *objectV2.PutRequest:
 		part, ok := v.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit)
 		if !ok {
-			return containerIDSDK.ID{}, errors.New("can't get container ID in chunk")
+			return cid.ID{}, errors.New("can't get container ID in chunk")
 		}
 
 		idV2 = part.GetHeader().GetContainerID()
@@ -45,11 +45,11 @@ func getContainerIDFromRequest(req interface{}) (containerIDSDK.ID, error) {
 	case *objectV2.GetRangeHashRequest:
 		idV2 = v.GetBody().GetAddress().GetContainerID()
 	default:
-		return containerIDSDK.ID{}, errors.New("unknown request type")
+		return cid.ID{}, errors.New("unknown request type")
 	}
 
 	if idV2 == nil {
-		return containerIDSDK.ID{}, errMissingContainerID
+		return cid.ID{}, errMissingContainerID
 	}
 
 	return id, id.ReadFromV2(*idV2)
@@ -95,7 +95,7 @@ func originalSessionToken(header *sessionV2.RequestMetaHeader) (*sessionSDK.Obje
 	return &tok, nil
 }
 
-func getObjectIDFromRequestBody(body interface{}) (*oidSDK.ID, error) {
+func getObjectIDFromRequestBody(body interface{}) (*oid.ID, error) {
 	var idV2 *refsV2.ObjectID
 
 	switch v := body.(type) {
@@ -115,7 +115,7 @@ func getObjectIDFromRequestBody(body interface{}) (*oidSDK.ID, error) {
 		return nil, nil
 	}
 
-	var id oidSDK.ID
+	var id oid.ID
 
 	err := id.ReadFromV2(*idV2)
 	if err != nil {
@@ -145,9 +145,9 @@ func useObjectIDFromSession(req *RequestInfo, token *sessionSDK.Object) {
 		return
 	}
 
-	req.oid = new(oidSDK.ID)
+	req.obj = new(oid.ID)
 
-	err := req.oid.ReadFromV2(*idV2)
+	err := req.obj.ReadFromV2(*idV2)
 	if err != nil {
 		panic(fmt.Sprintf("unexpected protocol violation error after correct session token decoding: %v", err))
 	}
@@ -171,7 +171,7 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, *keys.PublicKey, error)
 
 	tokenIssuer := token.Issuer()
 
-	if !isOwnerFromKey(&tokenIssuer, tokenIssuerKey) {
+	if !isOwnerFromKey(tokenIssuer, tokenIssuerKey) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
 	}
@@ -195,15 +195,15 @@ func unmarshalPublicKey(bs []byte) (*keys.PublicKey, error) {
 	return keys.NewPublicKeyFromBytes(bs, elliptic.P256())
 }
 
-func isOwnerFromKey(id *user.ID, key *keys.PublicKey) bool {
-	if id == nil || key == nil {
+func isOwnerFromKey(id user.ID, key *keys.PublicKey) bool {
+	if key == nil {
 		return false
 	}
 
 	var id2 user.ID
 	user.IDFromKey(&id2, (ecdsa.PublicKey)(*key))
 
-	return id2.Equals(*id)
+	return id2.Equals(id)
 }
 
 // assertVerb checks that token verb corresponds to op.

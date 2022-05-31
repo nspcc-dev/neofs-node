@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
@@ -57,8 +56,9 @@ func init() {
 }
 
 func objectInspectCmd(cmd *cobra.Command, _ []string) {
-	addr := addressSDK.NewAddress()
-	err := addr.Parse(vAddress)
+	var addr oid.Address
+
+	err := addr.DecodeString(vAddress)
 	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
 
 	if vOut == "" && !vHeader {
@@ -72,7 +72,7 @@ func objectInspectCmd(cmd *cobra.Command, _ []string) {
 
 		defer db.Close()
 
-		data, err := writecache.Get(db, []byte(addr.String()))
+		data, err := writecache.Get(db, []byte(vAddress))
 		common.ExitOnErr(cmd, common.Errf("could not fetch object: %w", err))
 		printObjectInfo(cmd, data)
 		return

@@ -24,22 +24,22 @@ var accountingBalanceCmd = &cobra.Command{
 	Short: "Get internal balance of NeoFS account",
 	Long:  `Get internal balance of NeoFS account`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var oid user.ID
+		var idUser user.ID
 
 		pk := key.GetOrGenerate(cmd)
 
 		balanceOwner, _ := cmd.Flags().GetString(ownerFlag)
 		if balanceOwner == "" {
-			user.IDFromKey(&oid, pk.PublicKey)
+			user.IDFromKey(&idUser, pk.PublicKey)
 		} else {
-			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", oid.DecodeString(balanceOwner))
+			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", idUser.DecodeString(balanceOwner))
 		}
 
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 		var prm internalclient.BalanceOfPrm
 		prm.SetClient(cli)
-		prm.SetAccount(oid)
+		prm.SetAccount(idUser)
 
 		res, err := internalclient.BalanceOf(prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)

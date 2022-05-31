@@ -10,7 +10,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Source represents wrapper over the object service that
@@ -59,13 +59,13 @@ func (h *headerWriter) WriteHeader(o *objectSDK.Object) error {
 // Tombstone checks if the engine stores tombstone.
 // Returns nil, nil if the tombstone has been removed
 // or marked for removal.
-func (s Source) Tombstone(ctx context.Context, a *addressSDK.Address, _ uint64) (*object.Object, error) {
+func (s Source) Tombstone(ctx context.Context, a oid.Address, _ uint64) (*object.Object, error) {
 	var hr headerWriter
 
 	var headPrm getsvc.HeadPrm
 	headPrm.WithAddress(a)
 	headPrm.SetHeaderWriter(&hr)
-	headPrm.SetCommonParameters(&util.CommonPrm{}) //default values are ok for that operation
+	headPrm.SetCommonParameters(&util.CommonPrm{}) // default values are ok for that operation
 
 	err := s.s.Head(ctx, headPrm)
 	switch {

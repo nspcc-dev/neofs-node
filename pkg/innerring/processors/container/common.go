@@ -115,7 +115,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 
 	if verificationKeys == nil {
 		var prm neofsid.AccountKeysPrm
-		prm.SetID(&v.ownerContainer)
+		prm.SetID(v.ownerContainer)
 
 		ownerKeys, err := cp.idClient.AccountKeys(prm)
 		if err != nil {

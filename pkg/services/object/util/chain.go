@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // HeadReceiver is an interface of entity that can receive
@@ -15,7 +14,7 @@ type HeadReceiver interface {
 	// Head must return one of:
 	// * object header (*object.Object);
 	// * structured information about split-chain (*object.SplitInfo).
-	Head(*addressSDK.Address) (interface{}, error)
+	Head(id oid.Address) (interface{}, error)
 }
 
 // SplitMemberHandler is a handler of next split-chain element.
@@ -25,7 +24,7 @@ type HeadReceiver interface {
 type SplitMemberHandler func(member *object.Object, reverseDirection bool) (stop bool)
 
 // IterateAllSplitLeaves is an iterator over all object split-tree leaves in direct order.
-func IterateAllSplitLeaves(r HeadReceiver, addr *addressSDK.Address, h func(*object.Object)) error {
+func IterateAllSplitLeaves(r HeadReceiver, addr oid.Address, h func(*object.Object)) error {
 	return IterateSplitLeaves(r, addr, func(leaf *object.Object) bool {
 		h(leaf)
 		return false
@@ -35,7 +34,7 @@ func IterateAllSplitLeaves(r HeadReceiver, addr *addressSDK.Address, h func(*obj
 // IterateSplitLeaves is an iterator over object split-tree leaves in direct order.
 //
 // If member handler returns true, then the iterator aborts without error.
-func IterateSplitLeaves(r HeadReceiver, addr *addressSDK.Address, h func(*object.Object) bool) error {
+func IterateSplitLeaves(r HeadReceiver, addr oid.Address, h func(*object.Object) bool) error {
 	var (
 		reverse bool
 		leaves  []*object.Object
@@ -68,21 +67,18 @@ func IterateSplitLeaves(r HeadReceiver, addr *addressSDK.Address, h func(*object
 // Traversal occurs in one of two directions, which depends on what pslit info was received:
 // * in direct order for link part;
 // * in reverse order for last part.
-func TraverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberHandler) error {
+func TraverseSplitChain(r HeadReceiver, addr oid.Address, h SplitMemberHandler) error {
 	_, err := traverseSplitChain(r, addr, h)
 	return err
 }
 
-func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberHandler) (bool, error) {
+func traverseSplitChain(r HeadReceiver, addr oid.Address, h SplitMemberHandler) (bool, error) {
 	v, err := r.Head(addr)
 	if err != nil {
 		return false, err
 	}
 
-	cnr, ok := addr.ContainerID()
-	if !ok {
-		return false, errors.New("missing container in object address")
-	}
+	cnr := addr.Container()
 
 	switch res := v.(type) {
 	default:
@@ -97,11 +93,11 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 		default:
 			return false, errors.New("lack of split information")
 		case withLink:
-			addr := addressSDK.NewAddress()
-			addr.SetContainerID(cnr)
-			addr.SetObjectID(link)
+			var addr oid.Address
+			addr.SetContainer(cnr)
+			addr.SetObject(link)
 
-			chain := make([]oidSDK.ID, 0)
+			chain := make([]oid.ID, 0)
 
 			if _, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 				children := member.Children()
@@ -120,7 +116,7 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 			var reverseChain []*object.Object
 
 			for i := range chain {
-				addr.SetObjectID(chain[i])
+				addr.SetObject(chain[i])
 
 				if stop, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 					if !reverseDirection {
@@ -140,11 +136,11 @@ func traverseSplitChain(r HeadReceiver, addr *addressSDK.Address, h SplitMemberH
 				}
 			}
 		case withLast:
-			addr := addressSDK.NewAddress()
-			addr.SetContainerID(cnr)
+			var addr oid.Address
+			addr.SetContainer(cnr)
 
 			for last, withLast = res.LastPart(); withLast; {
-				addr.SetObjectID(last)
+				addr.SetObject(last)
 
 				var directChain []*object.Object
 

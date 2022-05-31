@@ -5,7 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Prm groups parameters of Get service call.
@@ -14,7 +14,7 @@ type Prm struct {
 
 	common *util.CommonPrm
 
-	cid *cid.ID
+	cnr cid.ID
 
 	filters object.SearchFilters
 
@@ -24,12 +24,12 @@ type Prm struct {
 // IDListWriter is an interface of target component
 // to write list of object identifiers.
 type IDListWriter interface {
-	WriteIDs([]oidSDK.ID) error
+	WriteIDs([]oid.ID) error
 }
 
 // RequestForwarder is a callback for forwarding of the
 // original Search requests.
-type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) ([]oidSDK.ID, error)
+type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) ([]oid.ID, error)
 
 // SetCommonParameters sets common parameters of the operation.
 func (p *Prm) SetCommonParameters(common *util.CommonPrm) {
@@ -48,8 +48,8 @@ func (p *Prm) SetRequestForwarder(f RequestForwarder) {
 }
 
 // WithContainerID sets identifier of the container to search the objects.
-func (p *Prm) WithContainerID(id *cid.ID) {
-	p.cid = id
+func (p *Prm) WithContainerID(id cid.ID) {
+	p.cnr = id
 }
 
 // WithSearchFilters sets search filters.

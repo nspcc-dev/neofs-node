@@ -1,14 +1,11 @@
 package control
 
 import (
-	"fmt"
-
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
 	"github.com/spf13/cobra"
 )
 
@@ -22,20 +19,10 @@ var dropObjectsCmd = &cobra.Command{
 		pk := key.Get(cmd)
 
 		dropObjectsList, _ := cmd.Flags().GetStringSlice(dropObjectsFlag)
-		binAddrList := make([][]byte, 0, len(dropObjectsList))
+		binAddrList := make([][]byte, len(dropObjectsList))
 
 		for i := range dropObjectsList {
-			a := addressSDK.NewAddress()
-
-			err := a.Parse(dropObjectsList[i])
-			if err != nil {
-				common.ExitOnErr(cmd, "", fmt.Errorf("could not parse address #%d: %w", i, err))
-			}
-
-			binAddr, err := a.Marshal()
-			common.ExitOnErr(cmd, "could not marshal the address: %w", err)
-
-			binAddrList = append(binAddrList, binAddr)
+			binAddrList[i] = []byte(dropObjectsList[i])
 		}
 
 		body := new(control.DropObjectsRequest_Body)

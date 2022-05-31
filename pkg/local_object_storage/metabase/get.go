@@ -6,13 +6,13 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
-	addr *addressSDK.Address
+	addr oid.Address
 	raw  bool
 }
 
@@ -24,7 +24,7 @@ type GetRes struct {
 // WithAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr *addressSDK.Address) *GetPrm {
+func (p *GetPrm) WithAddress(addr oid.Address) *GetPrm {
 	if p != nil {
 		p.addr = addr
 	}
@@ -49,7 +49,7 @@ func (r *GetRes) Header() *objectSDK.Object {
 }
 
 // Get reads the object from DB.
-func Get(db *DB, addr *addressSDK.Address) (*objectSDK.Object, error) {
+func Get(db *DB, addr oid.Address) (*objectSDK.Object, error) {
 	r, err := db.Get(new(GetPrm).WithAddress(addr))
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func Get(db *DB, addr *addressSDK.Address) (*objectSDK.Object, error) {
 }
 
 // GetRaw reads physically stored object from DB.
-func GetRaw(db *DB, addr *addressSDK.Address, raw bool) (*objectSDK.Object, error) {
+func GetRaw(db *DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	r, err := db.Get(new(GetPrm).WithAddress(addr).WithRaw(raw))
 	if err != nil {
 		return nil, err
@@ -84,10 +84,8 @@ func (db *DB) Get(prm *GetPrm) (res *GetRes, err error) {
 	return
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bool) (*objectSDK.Object, error) {
-	id, _ := addr.ObjectID()
-	key := objectKey(&id)
-	cnr, _ := addr.ContainerID()
+func (db *DB) get(tx *bbolt.Tx, addr oid.Address, checkGraveyard, raw bool) (*objectSDK.Object, error) {
+	key := objectKey(addr.Object())
 
 	if checkGraveyard {
 		switch inGraveyard(tx, addr) {
@@ -102,22 +100,23 @@ func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bo
 		}
 	}
 
+	cnr := addr.Container()
 	obj := objectSDK.New()
 
 	// check in primary index
-	data := getFromBucket(tx, primaryBucketName(&cnr), key)
+	data := getFromBucket(tx, primaryBucketName(cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in tombstone index
-	data = getFromBucket(tx, tombstoneBucketName(&cnr), key)
+	data = getFromBucket(tx, tombstoneBucketName(cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in storage group index
-	data = getFromBucket(tx, storageGroupBucketName(&cnr), key)
+	data = getFromBucket(tx, storageGroupBucketName(cnr), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
@@ -129,7 +128,7 @@ func (db *DB) get(tx *bbolt.Tx, addr *addressSDK.Address, checkGraveyard, raw bo
 	}
 
 	// if not found then check if object is a virtual
-	return getVirtualObject(tx, &cnr, key, raw)
+	return getVirtualObject(tx, cnr, key, raw)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
@@ -141,12 +140,12 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*objectSDK.Object, error) {
+func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSDK.Object, error) {
 	if raw {
-		return nil, getSplitInfoError(tx, cid, key)
+		return nil, getSplitInfoError(tx, cnr, key)
 	}
 
-	parentBucket := tx.Bucket(parentBucketName(cid))
+	parentBucket := tx.Bucket(parentBucketName(cnr))
 	if parentBucket == nil {
 		var errNotFound apistatus.ObjectNotFound
 
@@ -168,7 +167,7 @@ func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*objectS
 	// but later list might be sorted so first or last value can be more
 	// prioritized to choose
 	virtualOID := relativeLst[len(relativeLst)-1]
-	data := getFromBucket(tx, primaryBucketName(cid), virtualOID)
+	data := getFromBucket(tx, primaryBucketName(cnr), virtualOID)
 
 	child := objectSDK.New()
 
@@ -188,8 +187,8 @@ func getVirtualObject(tx *bbolt.Tx, cid *cid.ID, key []byte, raw bool) (*objectS
 	return par, nil
 }
 
-func getSplitInfoError(tx *bbolt.Tx, cid *cid.ID, key []byte) error {
-	splitInfo, err := getSplitInfo(tx, cid, key)
+func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
+	splitInfo, err := getSplitInfo(tx, cnr, key)
 	if err == nil {
 		return objectSDK.NewSplitInfoError(splitInfo)
 	}

@@ -6,7 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	addressSDK "github.com/nspcc-dev/neofs-sdk-go/object/address"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // IterationElement represents a unit of elements through which Iterate operation passes.
@@ -88,7 +88,7 @@ func (b *BlobStor) Iterate(prm IteratePrm) (*IterateRes, error) {
 
 	elem.blzID = nil
 
-	err = b.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(_ *addressSDK.Address, data []byte) error {
+	err = b.fsTree.Iterate(new(fstree.IterationPrm).WithHandler(func(_ oid.Address, data []byte) error {
 		// decompress the data
 		elem.data, err = b.decompressor(data)
 		if err != nil {
