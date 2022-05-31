@@ -70,7 +70,7 @@ func Put(db *DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
 // Big objects have nil blobovniczaID.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
-func (db *DB) Put(prm PutPrm) (res *PutRes, err error) {
+func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		return db.put(tx, prm.obj, prm.id, nil)
 	})

@@ -66,7 +66,7 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.
-func (db *DB) Inhume(prm InhumePrm) (res *InhumeRes, err error) {
+func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)
 
