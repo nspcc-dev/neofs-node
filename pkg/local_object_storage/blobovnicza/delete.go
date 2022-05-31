@@ -29,7 +29,7 @@ func (p *DeletePrm) SetAddress(addr oid.Address) {
 // Returns an error of type apistatus.ObjectNotFound if the object to be deleted is not in blobovnicza.
 //
 // Should not be called in read-only configuration.
-func (b *Blobovnicza) Delete(prm DeletePrm) (*DeleteRes, error) {
+func (b *Blobovnicza) Delete(prm DeletePrm) (DeleteRes, error) {
 	addrKey := addressKey(prm.addr)
 
 	removed := false
@@ -67,8 +67,8 @@ func (b *Blobovnicza) Delete(prm DeletePrm) (*DeleteRes, error) {
 	if err == nil && !removed {
 		var errNotFound apistatus.ObjectNotFound
 
-		return nil, errNotFound
+		return DeleteRes{}, errNotFound
 	}
 
-	return nil, err
+	return DeleteRes{}, err
 }

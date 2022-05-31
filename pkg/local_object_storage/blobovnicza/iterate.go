@@ -117,7 +117,7 @@ type IterateRes struct {
 // Returns handler's errors directly. Returns nil after iterating finish.
 //
 // Handler should not retain object data. Handler must not be nil.
-func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
+func (b *Blobovnicza) Iterate(prm IteratePrm) (IterateRes, error) {
 	var elem IterationElement
 
 	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
@@ -140,10 +140,10 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (*IterateRes, error) {
 			})
 		})
 	}); err != nil {
-		return nil, err
+		return IterateRes{}, err
 	}
 
-	return new(IterateRes), nil
+	return IterateRes{}, nil
 }
 
 // IterateObjects is a helper function which iterates over Blobovnicza and passes binary objects to f.
