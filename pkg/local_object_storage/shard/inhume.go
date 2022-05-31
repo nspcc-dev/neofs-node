@@ -11,8 +11,9 @@ import (
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	target    []*addressSDK.Address
-	tombstone *addressSDK.Address
+	target       []*addressSDK.Address
+	tombstone    *addressSDK.Address
+	forceRemoval bool
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -44,6 +45,17 @@ func (p *InhumePrm) MarkAsGarbage(addr ...*addressSDK.Address) *InhumePrm {
 	return p
 }
 
+// ForceRemoval forces object removing despite any restrictions imposed
+// on deleting that object. Expected to be used only in control service.
+func (p *InhumePrm) ForceRemoval() *InhumePrm {
+	if p != nil {
+		p.tombstone = nil
+		p.forceRemoval = true
+	}
+
+	return p
+}
+
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from blobStor and metabase until `Delete` operation.
 //
@@ -70,6 +82,10 @@ func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 		metaPrm.WithGCMark()
 	}
 
+	if prm.forceRemoval {
+		metaPrm.WithForceGCMark()
+	}
+
 	res, err := s.metaBase.Inhume(metaPrm)
 	if err != nil {
 		s.log.Debug("could not mark object to delete in metabase",
@@ -79,7 +95,7 @@ func (s *Shard) Inhume(prm *InhumePrm) (*InhumeRes, error) {
 		return nil, fmt.Errorf("metabase inhume: %w", err)
 	}
 
-	if deletedLockObjs := res.DeletedLockObjects(); deletedLockObjs != nil {
+	if deletedLockObjs := res.DeletedLockObjects(); len(deletedLockObjs) > 0 {
 		s.deletedLockCallBack(context.Background(), deletedLockObjs)
 	}
 

@@ -11,6 +11,8 @@ import (
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
 	addr []*addressSDK.Address
+
+	forceRemoval bool
 }
 
 // DeleteRes groups the resulting values of Delete operation.
@@ -22,6 +24,17 @@ type DeleteRes struct{}
 func (p *DeletePrm) WithAddresses(addr ...*addressSDK.Address) *DeletePrm {
 	if p != nil {
 		p.addr = append(p.addr, addr...)
+	}
+
+	return p
+}
+
+// WithForceRemoval is a Delete option to remove an object despite any
+// restrictions imposed on deleting that object. Expected to be used
+// only in control service.
+func (p *DeletePrm) WithForceRemoval() *DeletePrm {
+	if p != nil {
+		p.forceRemoval = true
 	}
 
 	return p
@@ -48,6 +61,10 @@ func (e *StorageEngine) delete(prm *DeletePrm) (*DeleteRes, error) {
 	}
 
 	shPrm := new(shard.InhumePrm)
+	if prm.forceRemoval {
+		shPrm.ForceRemoval()
+	}
+
 	existsPrm := new(shard.ExistsPrm)
 	var locked struct {
 		is  bool
