@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"testing"
@@ -14,25 +15,40 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 )
 
+type tss struct {
+	expEpoch uint64
+}
+
+func (t tss) IsTombstoneAvailable(ctx context.Context, _ oid.Address, epoch uint64) bool {
+	return t.expEpoch >= epoch
+}
+
 func TestLockUserScenario(t *testing.T) {
-	t.Skip("posted bug neofs-node#1227")
 	// Tested user actions:
 	//   1. stores some object
 	//   2. locks the object
 	//   3. tries to inhume the object with tombstone and expects failure
-	//   4. saves tombstone for LOCK-object and inhumes the LOCK-object using it
-	//   5. waits for an epoch after the tombstone expiration one
+	//   4. saves tombstone for LOCK-object and receives error
+	//   5. waits for an epoch after the lock expiration one
 	//   6. tries to inhume the object and expects success
 	chEvents := make([]chan shard.Event, 2)
 
 	for i := range chEvents {
 		chEvents[i] = make(chan shard.Event, 1)
 	}
+
+	const lockerExpiresAfter = 13
+
+	cnr := cidtest.ID()
+	tombObj := generateObjectWithCID(t, cnr)
+	tombForLockID := oidtest.ID()
+	tombObj.SetID(tombForLockID)
 
 	e := testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
 		return []shard.Option{
@@ -43,6 +59,7 @@ func TestLockUserScenario(t *testing.T) {
 
 				return pool
 			}),
+			shard.WithTombstoneSource(tss{lockerExpiresAfter}),
 		}
 	})
 
@@ -51,12 +68,8 @@ func TestLockUserScenario(t *testing.T) {
 		_ = os.RemoveAll(t.Name())
 	})
 
-	const lockerTombExpiresAfter = 13
-
 	lockerID := oidtest.ID()
-	tombForLockID := oidtest.ID()
 	tombID := oidtest.ID()
-	cnr := cidtest.ID()
 	var err error
 
 	var objAddr oid.Address
@@ -69,6 +82,14 @@ func TestLockUserScenario(t *testing.T) {
 	var lockerAddr oid.Address
 	lockerAddr.SetContainer(cnr)
 	lockerAddr.SetObject(lockerID)
+
+	var a object.Attribute
+	a.SetKey(objectV2.SysAttributeExpEpoch)
+	a.SetValue(strconv.Itoa(lockerExpiresAfter))
+
+	lockerObj := generateObjectWithCID(t, cnr)
+	lockerObj.SetID(lockerID)
+	lockerObj.SetAttributes(a)
 
 	var tombForLockAddr oid.Address
 	tombForLockAddr.SetContainer(cnr)
@@ -84,6 +105,13 @@ func TestLockUserScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	// 2.
+	var locker object.Lock
+	locker.WriteMembers([]oid.ID{id})
+	object.WriteLock(lockerObj, locker)
+
+	err = Put(e, lockerObj)
+	require.NoError(t, err)
+
 	err = e.Lock(cnr, lockerID, []oid.ID{id})
 	require.NoError(t, err)
 
@@ -95,11 +123,6 @@ func TestLockUserScenario(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	var a object.Attribute
-	a.SetKey(objectV2.SysAttributeExpEpoch)
-	a.SetValue(strconv.Itoa(lockerTombExpiresAfter))
-
-	tombObj := generateObjectWithCID(t, cnr)
 	tombObj.SetType(object.TypeTombstone)
 	tombObj.SetID(tombForLockID)
 	tombObj.SetAttributes(a)
@@ -108,18 +131,20 @@ func TestLockUserScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	inhumePrm.WithTarget(tombForLockAddr, lockerAddr)
+
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err, new(apistatus.ObjectLocked))
 
 	// 5.
 	for i := range chEvents {
-		chEvents[i] <- shard.EventNewEpoch(lockerTombExpiresAfter + 1)
+		chEvents[i] <- shard.EventNewEpoch(lockerExpiresAfter + 1)
 	}
 
 	// delay for GC
 	time.Sleep(time.Second)
 
 	inhumePrm.WithTarget(tombAddr, objAddr)
+
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
 }
@@ -183,7 +208,7 @@ func TestLockExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	var inhumePrm InhumePrm
-	inhumePrm.WithTarget(oidtest.Address(), objectcore.AddressOf(obj))
+	inhumePrm.WithTarget(objecttest.Address(), objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -198,7 +223,8 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	inhumePrm.WithTarget(oidtest.Address(), objectcore.AddressOf(obj))
+	inhumePrm.WithTarget(objecttest.Address(), objectcore.AddressOf(obj))
+
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
 }
