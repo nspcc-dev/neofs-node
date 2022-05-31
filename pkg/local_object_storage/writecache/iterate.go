@@ -53,9 +53,16 @@ func (c *cache) Iterate(prm IterationPrm) error {
 
 	var fsPrm fstree.IterationPrm
 	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
-	fsPrm.WithHandler(func(addr oid.Address, data []byte) error {
+	fsPrm.WithLazyHandler(func(addr oid.Address, f func() ([]byte, error)) error {
 		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
+		}
+		data, err := f()
+		if err != nil {
+			if prm.ignoreErrors {
+				return nil
+			}
+			return err
 		}
 		return prm.handler(data)
 	})

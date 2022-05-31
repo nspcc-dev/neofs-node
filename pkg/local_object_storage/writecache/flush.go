@@ -138,10 +138,16 @@ func (c *cache) flushBigObjects() {
 			evictNum := 0
 
 			var prm fstree.IterationPrm
-			prm.WithHandler(func(addr oid.Address, data []byte) error {
+			prm.WithLazyHandler(func(addr oid.Address, f func() ([]byte, error)) error {
 				sAddr := addr.EncodeToString()
 
 				if _, ok := c.store.flushed.Peek(sAddr); ok {
+					return nil
+				}
+
+				data, err := f()
+				if err != nil {
+					c.log.Error("can't read a file", zap.Stringer("address", addr))
 					return nil
 				}
 
