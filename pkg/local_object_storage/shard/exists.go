@@ -37,7 +37,7 @@ func (p ExistsRes) Exists() bool {
 // unambiguously determine the presence of an object.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
-func (s *Shard) Exists(prm ExistsPrm) (*ExistsRes, error) {
+func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 	exists, err := meta.Exists(s.metaBase, prm.addr)
 	if err != nil {
 		// If the shard is in degraded mode, try to consult blobstor directly.
@@ -57,7 +57,7 @@ func (s *Shard) Exists(prm ExistsPrm) (*ExistsRes, error) {
 		}
 	}
 
-	return &ExistsRes{
+	return ExistsRes{
 		ex: exists,
 	}, err
 }
