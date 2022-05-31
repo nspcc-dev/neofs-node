@@ -11,8 +11,9 @@ import (
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	target    []oid.Address
-	tombstone *oid.Address
+	target       []oid.Address
+	tombstone    *oid.Address
+	forceRemoval bool
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -37,6 +38,15 @@ func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) {
 	if p != nil {
 		p.target = addr
 		p.tombstone = nil
+	}
+}
+
+// ForceRemoval forces object removing despite any restrictions imposed
+// on deleting that object. Expected to be used only in control service.
+func (p *InhumePrm) ForceRemoval() {
+	if p != nil {
+		p.tombstone = nil
+		p.forceRemoval = true
 	}
 }
 
@@ -66,6 +76,10 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 		metaPrm.WithTombstoneAddress(*prm.tombstone)
 	} else {
 		metaPrm.WithGCMark()
+	}
+
+	if prm.forceRemoval {
+		metaPrm.WithForceGCMark()
 	}
 
 	res, err := s.metaBase.Inhume(metaPrm)
