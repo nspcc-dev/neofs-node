@@ -2,17 +2,21 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
+
+const lockExpiresOnFlag = "expires-on"
 
 // object lock command.
 var cmdObjectLock = &cobra.Command{
@@ -40,13 +44,21 @@ var cmdObjectLock = &cobra.Command{
 		idOwner, err := getOwnerID(key)
 		common.ExitOnErr(cmd, "", err)
 
-		var lock object.Lock
+		var lock objectSDK.Lock
 		lock.WriteMembers(lockList)
 
-		obj := object.New()
+		expEpoch, err := cmd.Flags().GetUint64(lockExpiresOnFlag)
+		common.ExitOnErr(cmd, "Incorrect expiration epoch: %w", err)
+
+		var expirationAttr objectSDK.Attribute
+		expirationAttr.SetKey(objectV2.SysAttributeExpEpoch)
+		expirationAttr.SetValue(strconv.FormatUint(expEpoch, 10))
+
+		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
 		obj.SetOwnerID(idOwner)
-		obj.SetType(object.TypeLock)
+		obj.SetType(objectSDK.TypeLock)
+		obj.SetAttributes(expirationAttr)
 		obj.SetPayload(lock.Marshal())
 
 		var prm internalclient.PutObjectPrm
@@ -64,4 +76,7 @@ var cmdObjectLock = &cobra.Command{
 
 func initCommandObjectLock() {
 	commonflags.Init(cmdObjectLock)
+
+	cmdObjectLock.Flags().Uint64P(lockExpiresOnFlag, "e", 0, "Lock expiration epoch")
+	_ = cmdObjectLock.MarkFlagRequired(lockExpiresOnFlag)
 }
