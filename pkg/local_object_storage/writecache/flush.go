@@ -20,8 +20,8 @@ const (
 	// to the main storage. It is used to reduce contention between cache put
 	// and cache persist.
 	flushBatchSize = 512
-	// flushWorkersCount is number of workers for putting objects in main storage.
-	flushWorkersCount = 20
+	// defaultFlushWorkersCount is number of workers for putting objects in main storage.
+	defaultFlushWorkersCount = 20
 	// defaultFlushInterval is default time interval between successive flushes.
 	defaultFlushInterval = time.Second
 )
