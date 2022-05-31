@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	controlCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/control"
+	netmapCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/netmap"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -78,6 +79,7 @@ func init() {
 	rootCmd.AddCommand(accountingCli.Cmd)
 	rootCmd.AddCommand(controlCli.Cmd)
 	rootCmd.AddCommand(utilCli.Cmd)
+	rootCmd.AddCommand(netmapCli.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
