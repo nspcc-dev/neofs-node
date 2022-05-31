@@ -2,6 +2,8 @@ package meta_test
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -9,6 +11,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -148,4 +151,55 @@ func binaryEqual(a, b *objectSDK.Object) bool {
 	}
 
 	return bytes.Equal(binaryA, binaryB)
+}
+
+func BenchmarkGet(b *testing.B) {
+	numOfObjects := [...]int{
+		1,
+		10,
+		100,
+	}
+
+	for _, num := range numOfObjects {
+		b.Run(fmt.Sprintf("%d objects", num), func(b *testing.B) {
+			benchmarkGet(b, num)
+		})
+	}
+}
+
+var obj *objectSDK.Object
+
+func benchmarkGet(b *testing.B, numOfObj int) {
+	db := newDB(b)
+	addrs := make([]oid.Address, 0, numOfObj)
+
+	for i := 0; i < numOfObj; i++ {
+		raw := generateObject(b)
+		addrs = append(addrs, object.AddressOf(raw))
+
+		err := putBig(db, raw)
+		require.NoError(b, err)
+	}
+
+	b.Cleanup(func() {
+		_ = db.Close()
+		_ = os.RemoveAll(b.Name())
+	})
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	var getPrm meta.GetPrm
+	getPrm.WithAddress(addrs[len(addrs)/2])
+
+	for i := 0; i < b.N; i++ {
+		for _, addr := range addrs {
+			getPrm.WithAddress(addr)
+
+			res, err := db.Get(getPrm)
+			require.NoError(b, err)
+
+			obj = res.Header()
+		}
+
+	}
 }
