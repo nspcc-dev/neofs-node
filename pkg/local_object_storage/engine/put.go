@@ -36,7 +36,7 @@ func (p *PutPrm) WithObject(obj *objectSDK.Object) {
 // Returns an error if executions are blocked (see BlockExecution).
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
-func (e *StorageEngine) Put(prm PutPrm) (res *PutRes, err error) {
+func (e *StorageEngine) Put(prm PutPrm) (res PutRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.put(prm)
 		return err
@@ -45,7 +45,7 @@ func (e *StorageEngine) Put(prm PutPrm) (res *PutRes, err error) {
 	return
 }
 
-func (e *StorageEngine) put(prm PutPrm) (*PutRes, error) {
+func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
@@ -56,7 +56,7 @@ func (e *StorageEngine) put(prm PutPrm) (*PutRes, error) {
 	// much slower on fast machines for 4 shards.
 	_, err := e.exists(addr)
 	if err != nil {
-		return nil, err
+		return PutRes{}, err
 	}
 
 	var existPrm shard.ExistsPrm
@@ -125,7 +125,7 @@ func (e *StorageEngine) put(prm PutPrm) (*PutRes, error) {
 		err = errPutShard
 	}
 
-	return nil, err
+	return PutRes{}, err
 }
 
 // Put writes provided object to local storage.

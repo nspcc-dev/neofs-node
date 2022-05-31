@@ -42,7 +42,7 @@ func (r ListContainersRes) Containers() []cid.ID {
 // ContainerSize returns the sum of estimation container sizes among all shards.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ContainerSize(prm ContainerSizePrm) (res *ContainerSizeRes, err error) {
+func (e *StorageEngine) ContainerSize(prm ContainerSizePrm) (res ContainerSizeRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.containerSize(prm)
 		return err
@@ -65,12 +65,10 @@ func ContainerSize(e *StorageEngine, id cid.ID) (uint64, error) {
 	return res.Size(), nil
 }
 
-func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, error) {
+func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRes, err error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
-
-	res := new(ContainerSizeRes)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		size, err := shard.ContainerSize(sh.Shard, prm.cnr)
@@ -86,13 +84,13 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 		return false
 	})
 
-	return res, nil
+	return
 }
 
 // ListContainers returns a unique container IDs presented in the engine objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res *ListContainersRes, err error) {
+func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res ListContainersRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.listContainers()
 		return err
@@ -113,7 +111,7 @@ func ListContainers(e *StorageEngine) ([]cid.ID, error) {
 	return res.Containers(), nil
 }
 
-func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
+func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
@@ -142,7 +140,7 @@ func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 		result = append(result, v)
 	}
 
-	return &ListContainersRes{
+	return ListContainersRes{
 		containers: result,
 	}, nil
 }

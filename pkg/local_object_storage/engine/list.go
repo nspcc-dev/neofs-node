@@ -59,7 +59,7 @@ func (l ListWithCursorRes) Cursor() *Cursor {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (e *StorageEngine) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRes, error) {
+func (e *StorageEngine) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error) {
 	result := make([]oid.Address, 0, prm.count)
 
 	// 1. Get available shards and sort them.
@@ -71,7 +71,7 @@ func (e *StorageEngine) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRe
 	e.mtx.RUnlock()
 
 	if len(shardIDs) == 0 {
-		return nil, ErrEndOfListing
+		return ListWithCursorRes{}, ErrEndOfListing
 	}
 
 	sort.Slice(shardIDs, func(i, j int) bool {
@@ -119,10 +119,10 @@ func (e *StorageEngine) ListWithCursor(prm ListWithCursorPrm) (*ListWithCursorRe
 	}
 
 	if len(result) == 0 {
-		return nil, ErrEndOfListing
+		return ListWithCursorRes{}, ErrEndOfListing
 	}
 
-	return &ListWithCursorRes{
+	return ListWithCursorRes{
 		addrList: result,
 		cursor:   cursor,
 	}, nil

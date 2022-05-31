@@ -51,7 +51,7 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // if at least one object is locked.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Inhume(prm InhumePrm) (res *InhumeRes, err error) {
+func (e *StorageEngine) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.inhume(prm)
 		return err
@@ -60,7 +60,7 @@ func (e *StorageEngine) Inhume(prm InhumePrm) (res *InhumeRes, err error) {
 	return
 }
 
-func (e *StorageEngine) inhume(prm InhumePrm) (*InhumeRes, error) {
+func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
@@ -76,18 +76,18 @@ func (e *StorageEngine) inhume(prm InhumePrm) (*InhumeRes, error) {
 
 		switch e.inhumeAddr(prm.addrs[i], shPrm, true) {
 		case 1:
-			return nil, apistatus.ObjectLocked{}
+			return InhumeRes{}, apistatus.ObjectLocked{}
 		case 0:
 			switch e.inhumeAddr(prm.addrs[i], shPrm, false) {
 			case 1:
-				return nil, apistatus.ObjectLocked{}
+				return InhumeRes{}, apistatus.ObjectLocked{}
 			case 0:
-				return nil, errInhumeFailure
+				return InhumeRes{}, errInhumeFailure
 			}
 		}
 	}
 
-	return new(InhumeRes), nil
+	return InhumeRes{}, nil
 }
 
 // Returns:

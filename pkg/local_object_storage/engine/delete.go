@@ -31,7 +31,7 @@ func (p *DeletePrm) WithAddresses(addr ...oid.Address) {
 //
 // Returns apistatus.ObjectLocked if at least one object is locked.
 // In this case no object from the list is marked to be deleted.
-func (e *StorageEngine) Delete(prm DeletePrm) (res *DeleteRes, err error) {
+func (e *StorageEngine) Delete(prm DeletePrm) (res DeleteRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.delete(prm)
 		return err
@@ -40,7 +40,7 @@ func (e *StorageEngine) Delete(prm DeletePrm) (res *DeleteRes, err error) {
 	return
 }
 
-func (e *StorageEngine) delete(prm DeletePrm) (*DeleteRes, error) {
+func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
@@ -80,8 +80,8 @@ func (e *StorageEngine) delete(prm DeletePrm) (*DeleteRes, error) {
 	}
 
 	if locked.is {
-		return nil, locked.err
+		return DeleteRes{}, locked.err
 	}
 
-	return nil, nil
+	return DeleteRes{}, nil
 }
