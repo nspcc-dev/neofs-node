@@ -2,18 +2,22 @@ package object
 
 import (
 	"fmt"
+	"strconv"
 
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
+
+const lockExpiresOnFlag = "expires-on"
 
 // object lock command.
 var objectLockCmd = &cobra.Command{
@@ -41,13 +45,30 @@ var objectLockCmd = &cobra.Command{
 		var idOwner user.ID
 		user.IDFromKey(&idOwner, key.PublicKey)
 
-		var lock object.Lock
+		var lock objectSDK.Lock
 		lock.WriteMembers(lockList)
 
-		obj := object.New()
+		exp, relative, err := common.ParseEpoch(cmd, lockExpiresOnFlag)
+		common.ExitOnErr(cmd, "Parsing expiration epoch: %w", err)
+
+		if relative {
+			endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
+
+			currEpoch, err := internalclient.GetCurrentEpoch(endpoint)
+			common.ExitOnErr(cmd, "Request current epoch: %w", err)
+
+			exp += currEpoch
+		}
+
+		var expirationAttr objectSDK.Attribute
+		expirationAttr.SetKey(objectV2.SysAttributeExpEpoch)
+		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
+
+		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
 		obj.SetOwnerID(&idOwner)
-		obj.SetType(object.TypeLock)
+		obj.SetType(objectSDK.TypeLock)
+		obj.SetAttributes(expirationAttr)
 		obj.SetPayload(lock.Marshal())
 
 		var prm internalclient.PutObjectPrm
@@ -66,4 +87,7 @@ var objectLockCmd = &cobra.Command{
 func initCommandObjectLock() {
 	commonflags.Init(objectLockCmd)
 	commonflags.InitSession(objectLockCmd)
+
+	objectLockCmd.Flags().StringP(lockExpiresOnFlag, "e", "", "Lock expiration epoch")
+	_ = objectLockCmd.MarkFlagRequired(lockExpiresOnFlag)
 }
