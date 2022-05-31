@@ -35,7 +35,7 @@ func (p GetRes) Object() []byte {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is not
 // presented in Blobovnicza.
-func (b *Blobovnicza) Get(prm GetPrm) (*GetRes, error) {
+func (b *Blobovnicza) Get(prm GetPrm) (GetRes, error) {
 	var (
 		data    []byte
 		addrKey = addressKey(prm.addr)
@@ -58,16 +58,16 @@ func (b *Blobovnicza) Get(prm GetPrm) (*GetRes, error) {
 			return stop, nil
 		})
 	}); err != nil {
-		return nil, err
+		return GetRes{}, err
 	}
 
 	if data == nil {
 		var errNotFound apistatus.ObjectNotFound
 
-		return nil, errNotFound
+		return GetRes{}, errNotFound
 	}
 
-	return &GetRes{
+	return GetRes{
 		obj: data,
 	}, nil
 }
