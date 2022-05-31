@@ -1,6 +1,8 @@
 package util
 
 import (
+	"crypto/ecdsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -38,8 +40,26 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		common.ExitOnErr(cmd, "", errors.New("missing session token flag"))
 	}
 
-	var stok session.Object
-	common.ReadSessionToken(cmd, &stok, signFromFlag)
+	type iTokenSession interface {
+		json.Marshaler
+		json.Unmarshaler
+		Sign(ecdsa.PrivateKey) error
+	}
+	var errLast error
+	var stok iTokenSession
+
+	for _, el := range [...]iTokenSession{
+		new(session.Object),
+		new(session.Container),
+	} {
+		errLast = common.ReadSessionTokenErr(el, fPath)
+		if errLast == nil {
+			stok = el
+			break
+		}
+	}
+
+	common.ExitOnErr(cmd, "", errLast)
 
 	pk := key.GetOrGenerate(cmd)
 
