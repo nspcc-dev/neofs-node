@@ -40,7 +40,7 @@ func (p *GetPrm) WithRaw(raw bool) {
 }
 
 // Header returns the requested object header.
-func (r *GetRes) Header() *objectSDK.Object {
+func (r GetRes) Header() *objectSDK.Object {
 	return r.hdr
 }
 
@@ -75,9 +75,7 @@ func GetRaw(db *DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
-func (db *DB) Get(prm GetPrm) (res *GetRes, err error) {
-	res = new(GetRes)
-
+func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.hdr, err = db.get(tx, prm.addr, true, prm.raw)
 

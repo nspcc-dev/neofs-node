@@ -73,9 +73,7 @@ func Select(db *DB, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) 
 }
 
 // Select returns list of addresses of objects that match search filters.
-func (db *DB) Select(prm SelectPrm) (res *SelectRes, err error) {
-	res = new(SelectRes)
-
+func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
 	if blindlyProcess(prm.filters) {
 		return res, nil
 	}
@@ -525,8 +523,8 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFi
 // groupFilters divides filters in two groups: fast and slow. Fast filters
 // processed by indexes and slow filters processed after by unmarshaling
 // object headers.
-func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
-	res := &filterGroup{
+func groupFilters(filters object.SearchFilters) (filterGroup, error) {
+	res := filterGroup{
 		fastFilters: make(object.SearchFilters, 0, len(filters)),
 		slowFilters: make(object.SearchFilters, 0, len(filters)),
 	}
@@ -536,7 +534,7 @@ func groupFilters(filters object.SearchFilters) (*filterGroup, error) {
 		case v2object.FilterHeaderContainerID: // support deprecated field
 			err := res.cnr.DecodeString(filters[i].Value())
 			if err != nil {
-				return nil, fmt.Errorf("can't parse container id: %w", err)
+				return filterGroup{}, fmt.Errorf("can't parse container id: %w", err)
 			}
 
 			res.withCnrFilter = true

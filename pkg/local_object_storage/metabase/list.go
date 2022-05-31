@@ -79,9 +79,8 @@ func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]oid.Address, *Curso
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (db *DB) ListWithCursor(prm ListPrm) (res *ListRes, err error) {
+func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res = new(ListRes)
 		res.addrList, res.cursor, err = db.listWithCursor(tx, prm.count, prm.cursor)
 		return err
 	})

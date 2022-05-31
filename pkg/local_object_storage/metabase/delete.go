@@ -50,7 +50,7 @@ type referenceNumber struct {
 type referenceCounter map[string]*referenceNumber
 
 // Delete removed object records from metabase indexes.
-func (db *DB) Delete(prm DeletePrm) (*DeleteRes, error) {
+func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return db.deleteGroup(tx, prm.addrs)
 	})
@@ -61,7 +61,7 @@ func (db *DB) Delete(prm DeletePrm) (*DeleteRes, error) {
 				storagelog.OpField("metabase DELETE"))
 		}
 	}
-	return nil, err
+	return DeleteRes{}, err
 }
 
 func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {

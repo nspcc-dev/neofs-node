@@ -48,9 +48,7 @@ func IsSmall(db *DB, addr oid.Address) (*blobovnicza.ID, error) {
 // Small objects stored in blobovnicza instances. Big objects stored in FS by
 // shallow path which is calculated from address and therefore it is not
 // indexed in metabase.
-func (db *DB) IsSmall(prm IsSmallPrm) (res *IsSmallRes, err error) {
-	res = new(IsSmallRes)
-
+func (db *DB) IsSmall(prm IsSmallPrm) (res IsSmallRes, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.id, err = db.isSmall(tx, prm.addr)
 

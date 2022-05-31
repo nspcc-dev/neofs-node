@@ -61,7 +61,7 @@ func ToMoveIt(db *DB, addr oid.Address) error {
 
 // ToMoveIt marks objects to move it into another shard. This useful for
 // faster HRW fetching.
-func (db *DB) ToMoveIt(prm ToMoveItPrm) (res *ToMoveItRes, err error) {
+func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt, err := tx.CreateBucketIfNotExists(toMoveItBucketName)
 		if err != nil {
@@ -84,7 +84,7 @@ func DoNotMove(db *DB, addr oid.Address) error {
 }
 
 // DoNotMove removes `MoveIt` mark from the object.
-func (db *DB) DoNotMove(prm DoNotMovePrm) (res *DoNotMoveRes, err error) {
+func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		if toMoveIt == nil {
@@ -108,7 +108,7 @@ func Movable(db *DB) ([]oid.Address, error) {
 }
 
 // Movable returns list of marked objects to move into other shard.
-func (db *DB) Movable(_ MovablePrm) (*MovableRes, error) {
+func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
 	var strAddrs []string
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
@@ -124,7 +124,7 @@ func (db *DB) Movable(_ MovablePrm) (*MovableRes, error) {
 		})
 	})
 	if err != nil {
-		return nil, err
+		return MovableRes{}, err
 	}
 
 	// we can parse strings to structures in-place, but probably it seems
@@ -135,12 +135,12 @@ func (db *DB) Movable(_ MovablePrm) (*MovableRes, error) {
 	for i := range strAddrs {
 		err = decodeAddressFromKey(&addrs[i], []byte(strAddrs[i]))
 		if err != nil {
-			return nil, fmt.Errorf("can't parse object address %v: %w",
+			return MovableRes{}, fmt.Errorf("can't parse object address %v: %w",
 				strAddrs[i], err)
 		}
 	}
 
-	return &MovableRes{
+	return MovableRes{
 		addrList: addrs,
 	}, nil
 }

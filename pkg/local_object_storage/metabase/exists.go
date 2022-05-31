@@ -31,7 +31,7 @@ func (p *ExistsPrm) WithAddress(addr oid.Address) {
 }
 
 // Exists returns the fact that the object is in the metabase.
-func (p *ExistsRes) Exists() bool {
+func (p ExistsRes) Exists() bool {
 	return p.exists
 }
 
@@ -54,9 +54,7 @@ func Exists(db *DB, addr oid.Address) (bool, error) {
 // returns true if addr is in primary index or false if it is not.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
-func (db *DB) Exists(prm ExistsPrm) (res *ExistsRes, err error) {
-	res = new(ExistsRes)
-
+func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.exists, err = db.exists(tx, prm.addr)
 
