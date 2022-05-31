@@ -29,7 +29,7 @@ func (r ExistsRes) Exists() bool {
 //
 // Returns any error encountered that did not allow
 // to completely check object existence.
-func (b *BlobStor) Exists(prm ExistsPrm) (*ExistsRes, error) {
+func (b *BlobStor) Exists(prm ExistsPrm) (ExistsRes, error) {
 	// check presence in shallow dir first (cheaper)
 	exists, err := b.existsBig(prm.addr)
 
@@ -58,9 +58,10 @@ func (b *BlobStor) Exists(prm ExistsPrm) (*ExistsRes, error) {
 	}
 
 	if err != nil {
-		return nil, err
+		return ExistsRes{}, err
 	}
-	return &ExistsRes{exists: exists}, err
+
+	return ExistsRes{exists: exists}, err
 }
 
 // checks if object is presented in shallow dir.

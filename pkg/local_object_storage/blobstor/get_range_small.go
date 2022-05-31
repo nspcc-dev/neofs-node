@@ -22,6 +22,6 @@ type GetRangeSmallRes struct {
 //
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in blobovnicza(s).
-func (b *BlobStor) GetRangeSmall(prm GetRangeSmallPrm) (*GetRangeSmallRes, error) {
+func (b *BlobStor) GetRangeSmall(prm GetRangeSmallPrm) (GetRangeSmallRes, error) {
 	return b.blobovniczas.getRange(prm)
 }
