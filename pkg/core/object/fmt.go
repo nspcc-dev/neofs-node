@@ -260,9 +260,19 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return errors.New("missing ID")
 		}
 
+		// check that LOCK object has correct expiration epoch
+		lockExp, err := expirationEpochAttribute(o)
+		if err != nil {
+			return fmt.Errorf("lock object expiration epoch: %w", err)
+		}
+
+		if currEpoch := v.netState.CurrentEpoch(); lockExp <= currEpoch {
+			return fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
+		}
+
 		var lock object.Lock
 
-		err := lock.Unmarshal(o.Payload())
+		err = lock.Unmarshal(o.Payload())
 		if err != nil {
 			return fmt.Errorf("decode lock payload: %w", err)
 		}
