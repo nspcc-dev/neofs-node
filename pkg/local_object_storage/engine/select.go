@@ -42,7 +42,7 @@ func (r SelectRes) AddressList() []oid.Address {
 // Returns any error encountered that did not allow to completely select the objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Select(prm SelectPrm) (res *SelectRes, err error) {
+func (e *StorageEngine) Select(prm SelectPrm) (res SelectRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e._select(prm)
 		return err
@@ -51,7 +51,7 @@ func (e *StorageEngine) Select(prm SelectPrm) (res *SelectRes, err error) {
 	return
 }
 
-func (e *StorageEngine) _select(prm SelectPrm) (*SelectRes, error) {
+func (e *StorageEngine) _select(prm SelectPrm) (SelectRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -82,7 +82,7 @@ func (e *StorageEngine) _select(prm SelectPrm) (*SelectRes, error) {
 		return false
 	})
 
-	return &SelectRes{
+	return SelectRes{
 		addrList: addrList,
 	}, outError
 }
@@ -91,7 +91,7 @@ func (e *StorageEngine) _select(prm SelectPrm) (*SelectRes, error) {
 // If limit is zero, then returns all available object addresses.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) List(limit uint64) (res *SelectRes, err error) {
+func (e *StorageEngine) List(limit uint64) (res SelectRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.list(limit)
 		return err
@@ -100,7 +100,7 @@ func (e *StorageEngine) List(limit uint64) (res *SelectRes, err error) {
 	return
 }
 
-func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
+func (e *StorageEngine) list(limit uint64) (SelectRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
@@ -131,7 +131,7 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 		return false
 	})
 
-	return &SelectRes{
+	return SelectRes{
 		addrList: addrList,
 	}, nil
 }

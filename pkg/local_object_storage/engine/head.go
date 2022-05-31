@@ -55,7 +55,7 @@ func (r HeadRes) Header() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Head(prm HeadPrm) (res *HeadRes, err error) {
+func (e *StorageEngine) Head(prm HeadPrm) (res HeadRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.head(prm)
 		return err
@@ -64,7 +64,7 @@ func (e *StorageEngine) Head(prm HeadPrm) (res *HeadRes, err error) {
 	return
 }
 
-func (e *StorageEngine) head(prm HeadPrm) (*HeadRes, error) {
+func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
@@ -123,14 +123,14 @@ func (e *StorageEngine) head(prm HeadPrm) (*HeadRes, error) {
 	})
 
 	if outSI != nil {
-		return nil, objectSDK.NewSplitInfoError(outSI)
+		return HeadRes{}, objectSDK.NewSplitInfoError(outSI)
 	}
 
 	if head == nil {
-		return nil, outError
+		return HeadRes{}, outError
 	}
 
-	return &HeadRes{
+	return HeadRes{
 		head: head,
 	}, nil
 }

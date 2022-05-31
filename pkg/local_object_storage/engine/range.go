@@ -60,7 +60,7 @@ func (r RngRes) Object() *objectSDK.Object {
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) GetRange(prm RngPrm) (res *RngRes, err error) {
+func (e *StorageEngine) GetRange(prm RngPrm) (res RngRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.getRange(prm)
 		return err
@@ -69,7 +69,7 @@ func (e *StorageEngine) GetRange(prm RngPrm) (res *RngRes, err error) {
 	return
 }
 
-func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
+func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
@@ -137,12 +137,12 @@ func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
 	})
 
 	if outSI != nil {
-		return nil, objectSDK.NewSplitInfoError(outSI)
+		return RngRes{}, objectSDK.NewSplitInfoError(outSI)
 	}
 
 	if obj == nil {
 		if shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
-			return nil, outError
+			return RngRes{}, outError
 		}
 
 		// If the object is not found but is present in metabase,
@@ -160,7 +160,7 @@ func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
 			return err == nil
 		})
 		if obj == nil {
-			return nil, outError
+			return RngRes{}, outError
 		}
 		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
 			metaError,
@@ -168,7 +168,7 @@ func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
 		)
 	}
 
-	return &RngRes{
+	return RngRes{
 		obj: obj,
 	}, nil
 }

@@ -44,7 +44,7 @@ func (r GetRes) Object() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Get(prm GetPrm) (res *GetRes, err error) {
+func (e *StorageEngine) Get(prm GetPrm) (res GetRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.get(prm)
 		return err
@@ -53,7 +53,7 @@ func (e *StorageEngine) Get(prm GetPrm) (res *GetRes, err error) {
 	return
 }
 
-func (e *StorageEngine) get(prm GetPrm) (*GetRes, error) {
+func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}
@@ -118,12 +118,12 @@ func (e *StorageEngine) get(prm GetPrm) (*GetRes, error) {
 	})
 
 	if outSI != nil {
-		return nil, objectSDK.NewSplitInfoError(outSI)
+		return GetRes{}, objectSDK.NewSplitInfoError(outSI)
 	}
 
 	if obj == nil {
 		if shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
-			return nil, outError
+			return GetRes{}, outError
 		}
 
 		// If the object is not found but is present in metabase,
@@ -137,13 +137,13 @@ func (e *StorageEngine) get(prm GetPrm) (*GetRes, error) {
 			return err == nil
 		})
 		if obj == nil {
-			return nil, outError
+			return GetRes{}, outError
 		}
 		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
 			metaError, zap.Stringer("address", prm.addr))
 	}
 
-	return &GetRes{
+	return GetRes{
 		obj: obj,
 	}, nil
 }
