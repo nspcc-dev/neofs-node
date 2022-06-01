@@ -13,9 +13,9 @@ import (
 
 // Blobovnicza represents the implementation of NeoFS Blobovnicza.
 type Blobovnicza struct {
-	*cfg
+	cfg
 
-	filled *atomic.Uint64
+	filled atomic.Uint64
 
 	boltDB *bbolt.DB
 }
@@ -41,8 +41,8 @@ type boltDBCfg struct {
 	boltOptions *bbolt.Options
 }
 
-func defaultCfg() *cfg {
-	return &cfg{
+func defaultCfg(с *cfg) {
+	*с = cfg{
 		boltDBCfg: boltDBCfg{
 			perm: os.ModePerm, // 0777
 			boltOptions: &bbolt.Options{
@@ -57,16 +57,15 @@ func defaultCfg() *cfg {
 
 // New creates and returns a new Blobovnicza instance.
 func New(opts ...Option) *Blobovnicza {
-	c := defaultCfg()
+	var b Blobovnicza
+
+	defaultCfg(&b.cfg)
 
 	for i := range opts {
-		opts[i](c)
+		opts[i](&b.cfg)
 	}
 
-	return &Blobovnicza{
-		cfg:    c,
-		filled: atomic.NewUint64(0),
-	}
+	return &b
 }
 
 // WithPath returns option to set system path to Blobovnicza.
