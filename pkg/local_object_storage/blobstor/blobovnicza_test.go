@@ -40,7 +40,11 @@ func TestBlobovniczas(t *testing.T) {
 
 	c := defaultCfg()
 
-	var width, depth, szLim uint64 = 2, 2, 2 << 10
+	var width, depth uint64 = 2, 2
+
+	// sizeLim must be big enough, to hold at least multiple pages.
+	// 32 KiB is the initial size after all by-size buckets are created.
+	var szLim uint64 = 32*1024 + 1
 
 	for _, opt := range []Option{
 		WithLogger(l),
@@ -77,7 +81,7 @@ func TestBlobovniczas(t *testing.T) {
 
 		// save object in blobovnicza
 		id, err := b.put(addr, d)
-		require.NoError(t, err)
+		require.NoError(t, err, i)
 
 		// get w/ blobovnicza ID
 		var prm GetSmallPrm
