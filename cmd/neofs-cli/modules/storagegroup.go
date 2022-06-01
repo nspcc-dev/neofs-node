@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -64,6 +65,7 @@ var sgDelCmd = &cobra.Command{
 const (
 	sgMembersFlag = "members"
 	sgIDFlag      = "id"
+	sgRawFlag     = "raw"
 )
 
 var (
@@ -93,6 +95,8 @@ func initSGGetCmd() {
 
 	flags.StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
 	_ = sgGetCmd.MarkFlagRequired(sgIDFlag)
+
+	flags.Bool(sgRawFlag, false, "Set raw request option")
 }
 
 func initSGListCmd() {
@@ -126,9 +130,7 @@ func init() {
 	storagegroupCmd.AddCommand(storageGroupChildCommands...)
 
 	for _, sgCommand := range storageGroupChildCommands {
-		flags := sgCommand.Flags()
-
-		flags.String(bearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
+		objectCli.InitBearer(sgCommand)
 		commonflags.InitAPI(sgCommand)
 	}
 
@@ -168,12 +170,12 @@ func (c sgHeadReceiver) Head(addr oid.Address) (interface{}, error) {
 func putSG(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 
-	ownerID, err := getOwnerID(pk)
-	common.ExitOnErr(cmd, "", err)
+	var ownerID user.ID
+	user.IDFromKey(&ownerID, pk.PublicKey)
 
 	var cnr cid.ID
 
-	err = readCID(cmd, &cnr)
+	err := readCID(cmd, &cnr)
 	common.ExitOnErr(cmd, "", err)
 
 	members := make([]oid.ID, len(sgMembers))
@@ -189,14 +191,14 @@ func putSG(cmd *cobra.Command, _ []string) {
 	)
 
 	sessionCli.Prepare(cmd, cnr, nil, pk, &putPrm)
-	prepareObjectPrm(cmd, &headPrm, &putPrm)
+	objectCli.Prepare(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
 		cmd:     cmd,
 		key:     pk,
-		ownerID: *ownerID,
+		ownerID: ownerID,
 		prm:     headPrm,
 	}, cnr, members)
 	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
@@ -206,7 +208,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 
 	obj := object.New()
 	obj.SetContainerID(cnr)
-	obj.SetOwnerID(ownerID)
+	obj.SetOwnerID(&ownerID)
 	obj.SetType(object.TypeStorageGroup)
 
 	putPrm.SetHeader(obj)
@@ -244,10 +246,14 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 	buf := bytes.NewBuffer(nil)
 
-	var prm internalclient.GetObjectPrm
+	pk := key.GetOrGenerate(cmd)
 
-	prepareSessionPrm(cmd, cnr, id, &prm)
-	prepareObjectPrmRaw(cmd, &prm)
+	var prm internalclient.GetObjectPrm
+	sessionCli.Prepare(cmd, cnr, id, pk, &prm)
+	objectCli.Prepare(cmd, &prm)
+
+	raw, _ := cmd.Flags().GetBool(sgRawFlag)
+	prm.SetRawFlag(raw)
 	prm.SetAddress(addr)
 	prm.SetPayloadWriter(buf)
 
@@ -261,7 +267,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
-	printChecksum(cmd, "Group hash", sg.ValidationDataHash)
+	common.PrintChecksum(cmd, "Group hash", sg.ValidationDataHash)
 
 	if members := sg.Members(); len(members) > 0 {
 		cmd.Println("Members:")
@@ -278,10 +284,11 @@ func listSG(cmd *cobra.Command, _ []string) {
 	err := readCID(cmd, &cnr)
 	common.ExitOnErr(cmd, "", err)
 
-	var prm internalclient.SearchObjectsPrm
+	pk := key.GetOrGenerate(cmd)
 
-	prepareSessionPrm(cmd, cnr, nil, &prm)
-	prepareObjectPrm(cmd, &prm)
+	var prm internalclient.SearchObjectsPrm
+	sessionCli.Prepare(cmd, cnr, nil, pk, &prm)
+	objectCli.Prepare(cmd, &prm)
 	prm.SetContainerID(cnr)
 	prm.SetFilters(storagegroup.SearchQuery())
 
@@ -312,8 +319,9 @@ func delSG(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.DeleteObjectPrm
 
-	prepareSessionPrm(cmd, cnr, id, &prm)
-	prepareObjectPrm(cmd, &prm)
+	pk := key.GetOrGenerate(cmd)
+	sessionCli.Prepare(cmd, cnr, id, pk, &prm)
+	objectCli.Prepare(cmd, &prm)
 	prm.SetAddress(addr)
 
 	res, err := internalclient.DeleteObject(prm)
@@ -323,4 +331,13 @@ func delSG(cmd *cobra.Command, _ []string) {
 
 	cmd.Println("Storage group removed successfully.")
 	cmd.Printf("  Tombstone: %s\n", tomb)
+}
+
+func readCID(cmd *cobra.Command, cnr *cid.ID) error {
+	err := cnr.DecodeString(cmd.Flag("cid").Value.String())
+	if err != nil {
+		return fmt.Errorf("decode container ID string: %w", err)
+	}
+
+	return nil
 }

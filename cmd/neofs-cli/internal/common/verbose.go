@@ -1,11 +1,14 @@
 package common
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -27,4 +30,18 @@ func PrettyPrintUnixTime(s string) string {
 	timestamp := time.Unix(unixTime, 0)
 
 	return timestamp.String()
+}
+
+// PrintChecksum prints checksum.
+func PrintChecksum(cmd *cobra.Command, name string, recv func() (checksum.Checksum, bool)) {
+	var strVal string
+
+	cs, csSet := recv()
+	if csSet {
+		strVal = hex.EncodeToString(cs.Value())
+	} else {
+		strVal = "<empty>"
+	}
+
+	cmd.Printf("%s: %s\n", name, strVal)
 }

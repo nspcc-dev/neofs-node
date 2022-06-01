@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/mitchellh/go-homedir"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -16,6 +14,7 @@ import (
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
 	controlCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/control"
 	netmapCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/netmap"
+	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -80,6 +79,7 @@ func init() {
 	rootCmd.AddCommand(controlCli.Cmd)
 	rootCmd.AddCommand(utilCli.Cmd)
 	rootCmd.AddCommand(netmapCli.Cmd)
+	rootCmd.AddCommand(objectCli.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
@@ -136,27 +136,4 @@ func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
 	for _, d := range dst {
 		d.SetClient(cli)
 	}
-}
-
-func getTTL() uint32 {
-	ttl := viper.GetUint32(commonflags.TTL)
-	common.PrintVerbose("TTL: %d", ttl)
-
-	return ttl
-}
-
-func parseXHeaders(cmd *cobra.Command) []string {
-	xHeaders, _ := cmd.Flags().GetStringSlice(commonflags.XHeadersKey)
-	xs := make([]string, 0, 2*len(xHeaders))
-
-	for i := range xHeaders {
-		kv := strings.SplitN(xHeaders[i], "=", 2)
-		if len(kv) != 2 {
-			panic(fmt.Errorf("invalid X-Header format: %s", xHeaders[i]))
-		}
-
-		xs = append(xs, kv[0], kv[1])
-	}
-
-	return xs
 }
