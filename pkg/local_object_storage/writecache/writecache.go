@@ -133,6 +133,8 @@ func (c *cache) Open() error {
 
 // Init runs necessary services.
 func (c *cache) Init() error {
+	c.initFlushMarks()
+
 	go c.persistLoop()
 	go c.flushLoop()
 	return nil
