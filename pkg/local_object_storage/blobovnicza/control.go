@@ -2,6 +2,7 @@ package blobovnicza
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -53,8 +54,6 @@ func (b *Blobovnicza) Init() error {
 		return nil
 	}
 
-	var size uint64
-
 	err := b.boltDB.Update(func(tx *bbolt.Tx) error {
 		return b.iterateBucketKeys(func(lower, upper uint64, key []byte) (bool, error) {
 			// create size range bucket
@@ -63,18 +62,25 @@ func (b *Blobovnicza) Init() error {
 			b.log.Debug("creating bucket for size range",
 				zap.String("range", rangeStr))
 
-			buck, err := tx.CreateBucketIfNotExists(key)
+			_, err := tx.CreateBucketIfNotExists(key)
 			if err != nil {
 				return false, fmt.Errorf("(%T) could not create bucket for bounds %s: %w",
 					b, rangeStr, err)
 			}
 
-			size += uint64(buck.Stats().KeyN) * (upper + lower) / 2
 			return false, nil
 		})
 	})
+	if err != nil {
+		return err
+	}
 
-	b.filled.Store(size)
+	info, err := os.Stat(b.path)
+	if err != nil {
+		return fmt.Errorf("can't determine DB size: %w", err)
+	}
+
+	b.filled.Store(uint64(info.Size()))
 	return err
 }
 
