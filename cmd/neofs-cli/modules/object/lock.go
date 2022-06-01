@@ -1,4 +1,4 @@
-package cmd
+package object
 
 import (
 	"fmt"
@@ -11,11 +11,12 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
 // object lock command.
-var cmdObjectLock = &cobra.Command{
+var objectLockCmd = &cobra.Command{
 	Use:   "lock CONTAINER OBJECT...",
 	Short: "Lock object in container",
 	Long:  "Lock object in container",
@@ -37,22 +38,22 @@ var cmdObjectLock = &cobra.Command{
 
 		key := key.GetOrGenerate(cmd)
 
-		idOwner, err := getOwnerID(key)
-		common.ExitOnErr(cmd, "", err)
+		var idOwner user.ID
+		user.IDFromKey(&idOwner, key.PublicKey)
 
 		var lock object.Lock
 		lock.WriteMembers(lockList)
 
 		obj := object.New()
 		obj.SetContainerID(cnr)
-		obj.SetOwnerID(idOwner)
+		obj.SetOwnerID(&idOwner)
 		obj.SetType(object.TypeLock)
 		obj.SetPayload(lock.Marshal())
 
 		var prm internalclient.PutObjectPrm
 
 		sessionCli.Prepare(cmd, cnr, nil, key, &prm)
-		prepareObjectPrm(cmd, &prm)
+		Prepare(cmd, &prm)
 		prm.SetHeader(obj)
 
 		_, err = internalclient.PutObject(prm)
@@ -63,5 +64,6 @@ var cmdObjectLock = &cobra.Command{
 }
 
 func initCommandObjectLock() {
-	commonflags.Init(cmdObjectLock)
+	commonflags.Init(objectLockCmd)
+	commonflags.InitSession(objectLockCmd)
 }
