@@ -81,7 +81,7 @@ func (c *cache) persistSmallObjects(objs []objectInfo) {
 		cacheSize = newSize
 	}
 
-	err := c.db.Update(func(tx *bbolt.Tx) error {
+	err := c.db.Batch(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
 		for i := 0; i < overflowIndex; i++ {
 			err := b.Put([]byte(objs[i].addr), objs[i].data)
