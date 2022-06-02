@@ -15,35 +15,39 @@ const (
 	ShardPoolSizeDefault = 20
 )
 
-// IterateShards iterates over subsections ["0":"N") (N - "shard_num" value)
-// of "shard" subsection of "storage" section of c, wrap them into
-// shardconfig.Config and passes to f.
+// IterateShards iterates over subsections of "shard" subsection of "storage" section of c,
+// wrap them into shardconfig.Config and passes to f.
+//
+// Section names are expected to be consecutive integer numbers, starting from 0.
 //
 // Panics if N is not a positive number while shards are required.
 func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config)) {
 	c = c.Sub(subsection)
 
-	num := config.Uint(c, "shard_num")
-	if num == 0 {
-		if required {
-			panic("no shard configured")
-		}
-
-		return
-	}
-
 	def := c.Sub("default")
 	c = c.Sub("shard")
 
-	for i := uint64(0); i < num; i++ {
+	i := uint64(0)
+	for ; ; i++ {
 		si := strconv.FormatUint(i, 10)
 
 		sc := shardconfig.From(
 			c.Sub(si),
 		)
+
+		// Path for the blobstor can't be present in the default section, because different shards
+		// must have different paths, so if it is missing, the shard is not here.
+		// At the same time checking for "blobstor" section doesn't work proper
+		// with configuration via the environment.
+		if (*config.Config)(sc).Value("blobstor.path") == nil {
+			break
+		}
 		(*config.Config)(sc).SetDefault(def)
 
 		f(sc)
+	}
+	if i == 0 && required {
+		panic("no shard configured")
 	}
 }
 

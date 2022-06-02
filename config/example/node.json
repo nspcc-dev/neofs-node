@@ -120,7 +120,6 @@
   },
   "storage": {
     "shard_pool_size": 15,
-    "shard_num": 2,
     "shard_ro_error_threshold": 100,
     "shard": {
       "0": {
