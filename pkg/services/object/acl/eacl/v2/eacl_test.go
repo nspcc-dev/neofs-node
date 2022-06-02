@@ -135,4 +135,20 @@ func TestHeadRequest(t *testing.T) {
 	lStorage.err = errors.New("any error")
 
 	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+
+	r.SetAction(eaclSDK.ActionAllow)
+
+	rID := eaclSDK.NewRecord()
+	rID.SetOperation(eaclSDK.OperationHead)
+	rID.SetAction(eaclSDK.ActionDeny)
+	rID.AddObjectIDFilter(eaclSDK.MatchStringEqual, addr.Object())
+	eaclSDK.AddFormedTarget(rID, eaclSDK.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
+
+	table = eaclSDK.NewTable()
+	table.AddRecord(r)
+	table.AddRecord(rID)
+
+	unit.WithEACLTable(table)
+
+	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
 }
