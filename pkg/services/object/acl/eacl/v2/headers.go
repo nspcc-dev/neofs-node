@@ -143,9 +143,6 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 		}
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
-		default:
-			hs, _ := h.localObjectHeaders(h.cnr, h.obj)
-			return hs, nil
 		case *objectV2.GetResponse:
 			if v, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
