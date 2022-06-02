@@ -9,6 +9,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
@@ -31,6 +34,11 @@ type Client interface {
 	NEP17BalanceOf(util.Uint160, util.Uint160) (int64, error)
 	InvokeScript([]byte, []transaction.Signer) (*result.Invoke, error)
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
+	GetCommittee() (keys.PublicKeys, error)
+	CalculateNotaryFee(uint8) (int64, error)
+	AddNetworkFee(*transaction.Transaction, int64, ...*wallet.Account) error
+	SignAndPushInvocationTx([]byte, *wallet.Account, int64, fixedn.Fixed8, []client.SignerAccount) (util.Uint256, error)
+	SignAndPushP2PNotaryRequest(*transaction.Transaction, []byte, int64, int64, uint32, *wallet.Account) (*payload.P2PNotaryRequest, error)
 }
 
 type clientContext struct {
