@@ -21,11 +21,9 @@ $ neofs-adm morph subnet create \
 Create subnet request sent successfully. ID: 4223489767.
 ```
 
-**NOTE:** use `--notary` only in a notary-enabled environment. You need to
-have a sufficient notary deposit (not expired, with enough GAS balance). This
-is the only command that requires an alphabet signature and, therefore,
-the only command that needs `--notary` flag. Your subnet ID will differ
-from the example.
+**NOTE:** in notary-enabled environment you should have a sufficient
+notary deposit (not expired, with enough GAS balance). Your subnet ID
+will differ from the example.
 
 The default account in the wallet that has been passed with `-w` flag is the owner
 of the just created subnetwork.

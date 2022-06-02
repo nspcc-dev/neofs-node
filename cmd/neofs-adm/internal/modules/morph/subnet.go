@@ -112,11 +112,6 @@ func readSubnetKey(key *keys.PrivateKey) error {
 	return nil
 }
 
-const (
-	// enable notary
-	flagSubnetNotary = "notary"
-)
-
 // create subnet command.
 var cmdSubnetCreate = &cobra.Command{
 	Use:   "create",
@@ -125,7 +120,6 @@ var cmdSubnetCreate = &cobra.Command{
 		viperBindFlags(cmd,
 			flagSubnetWallet,
 			flagSubnetAddress,
-			flagSubnetNotary,
 		)
 	},
 	RunE: func(cmd *cobra.Command, _ []string) error {
@@ -709,7 +703,6 @@ func addCommandInheritPreRun(par *cobra.Command, subs ...*cobra.Command) {
 
 // registers flags and binds sub-commands for subnet commands.
 func init() {
-	cmdSubnetCreate.Flags().Bool(flagSubnetNotary, false, "Flag to create subnet in notary environment")
 	cmdSubnetCreate.Flags().StringP(flagSubnetWallet, "w", "", "Path to file with wallet")
 	_ = cmdSubnetCreate.MarkFlagRequired(flagSubnetWallet)
 	cmdSubnetCreate.Flags().StringP(flagSubnetAddress, "a", "", "Address in the wallet, optional")
