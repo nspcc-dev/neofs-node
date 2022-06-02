@@ -5,13 +5,12 @@ import (
 	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
-	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	accountingCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/accounting"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/acl"
 	bearerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/bearer"
+	containerCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/container"
 	controlCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/control"
 	netmapCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/netmap"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
@@ -20,7 +19,6 @@ import (
 	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -82,6 +80,7 @@ func init() {
 	rootCmd.AddCommand(netmapCli.Cmd)
 	rootCmd.AddCommand(objectCli.Cmd)
 	rootCmd.AddCommand(sgCli.Cmd)
+	rootCmd.AddCommand(containerCli.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
@@ -123,19 +122,5 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		common.PrintVerbose("Using config file: %s", viper.ConfigFileUsed())
-	}
-}
-
-type clientWithKey interface {
-	SetClient(*client.Client)
-}
-
-// reads private key from command args and call prepareAPIClientWithKey with it.
-func prepareAPIClient(cmd *cobra.Command, dst ...clientWithKey) {
-	p := key.GetOrGenerate(cmd)
-	cli := internalclient.GetSDKClientByFlag(cmd, p, commonflags.RPC)
-
-	for _, d := range dst {
-		d.SetClient(cli)
 	}
 }
