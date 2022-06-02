@@ -103,7 +103,6 @@ object:
 storage:
   # note: shard configuration can be omitted for relay node (see `node.relay`)
   shard_pool_size: 15 # size of per-shard worker pools used for PUT operations
-  shard_num: 2  # total number of shards
   shard_ro_error_threshold: 100 # amount of errors to occur before shard is made read-only (default: 0, ignore errors)
   default: # section with the default shard parameters
     resync_metabase: true  # sync metabase with blobstor on start, expensive, leave false until complete understanding
