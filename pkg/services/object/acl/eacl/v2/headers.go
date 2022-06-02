@@ -11,7 +11,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -187,22 +186,19 @@ func (h *cfg) objectHeaders() ([]eaclSDK.Header, error) {
 }
 
 func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, error) {
-	var obj *objectSDK.Object
-	var err error
-
 	if idObj != nil {
 		var addr oid.Address
 		addr.SetContainer(cnr)
 		addr.SetObject(*idObj)
 
-		obj, err = h.storage.Head(addr)
+		obj, err := h.storage.Head(addr)
 		if err == nil {
 			return headersFromObject(obj, cnr, idObj), nil
 		}
 	}
 
 	// Still parse addressHeaders, because the errors is ignored in some places.
-	return addressHeaders(cnr, idObj), err
+	return addressHeaders(cnr, idObj), nil
 }
 
 func cidHeader(idCnr cid.ID) sysObjHdr {
