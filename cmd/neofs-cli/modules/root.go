@@ -16,6 +16,7 @@ import (
 	netmapCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/netmap"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
+	sgCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/storagegroup"
 	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
@@ -80,6 +81,7 @@ func init() {
 	rootCmd.AddCommand(utilCli.Cmd)
 	rootCmd.AddCommand(netmapCli.Cmd)
 	rootCmd.AddCommand(objectCli.Cmd)
+	rootCmd.AddCommand(sgCli.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
