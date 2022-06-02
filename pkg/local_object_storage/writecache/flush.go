@@ -106,6 +106,11 @@ func (c *cache) flush() {
 			}
 		}
 
+		if len(m) == 0 {
+			c.modeMtx.RUnlock()
+			break
+		}
+
 		c.evictObjects(len(m))
 		for i := range m {
 			c.flushed.Add(m[i].addr, true)
@@ -115,12 +120,6 @@ func (c *cache) flush() {
 		c.log.Debug("flushed items from write-cache",
 			zap.Int("count", len(m)),
 			zap.String("start", base58.Encode(lastKey)))
-
-		if len(m) > 0 {
-			lastKey = append([]byte(m[len(m)-1].addr), 0)
-		} else {
-			break
-		}
 	}
 }
 
