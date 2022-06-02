@@ -2,6 +2,7 @@ package v2
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -21,13 +22,15 @@ type testLocalStorage struct {
 	expAddr oid.Address
 
 	obj *object.Object
+
+	err error
 }
 
 func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
 	require.True(s.t, addr.Container().Equals(s.expAddr.Container()))
 	require.True(s.t, addr.Object().Equals(s.expAddr.Object()))
 
-	return s.obj, nil
+	return s.obj, s.err
 }
 
 func testXHeaders(strs ...string) []session.XHeader {
@@ -126,6 +129,10 @@ func TestHeadRequest(t *testing.T) {
 	meta.SetXHeaders(xHdrs)
 
 	obj.SetAttributes()
+
+	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+
+	lStorage.err = errors.New("any error")
 
 	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
 }
