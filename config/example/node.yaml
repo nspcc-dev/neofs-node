@@ -43,7 +43,6 @@ node:
     ca: "/ca/path"  # path to optional CA certificate
 
 grpc:
-  num: 2  # total number of listener endpoints
   0:
     endpoint: s01.neofs.devenv:8080  # endpoint for gRPC server
     tls:

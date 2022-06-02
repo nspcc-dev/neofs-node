@@ -83,23 +83,29 @@ func (tls TLSConfig) UseInsecureCrypto() bool {
 	return config.BoolSafe(tls.cfg, "use_insecure_crypto")
 }
 
-// IterateEndpoints iterates over subsections ["0":"N") (N - "num" value)
-// of "grpc" section of c, wrap them into Config and passes to f.
+// IterateEndpoints iterates over subsections of "grpc" section of c,
+// wrap them into Config and passes to f.
+//
+// Section names are expected to be consecutive integer numbers, starting from 0.
 //
 // Panics if N is not a positive number.
 func IterateEndpoints(c *config.Config, f func(*Config)) {
 	c = c.Sub("grpc")
 
-	num := config.Uint(c, "num")
-	if num == 0 {
-		panic("no gRPC server configured")
-	}
-
-	for i := uint64(0); i < num; i++ {
+	i := uint64(0)
+	for ; ; i++ {
 		si := strconv.FormatUint(i, 10)
 
 		sc := (*Config)(c.Sub(si))
 
+		e := config.StringSafe((*config.Config)(sc), "endpoint")
+		if e == "" {
+			break
+		}
+
 		f(sc)
+	}
+	if i == 0 {
+		panic("no gRPC server configured")
 	}
 }

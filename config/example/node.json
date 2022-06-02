@@ -51,7 +51,6 @@
     }
   },
   "grpc": {
-    "num": 2,
     "0": {
       "endpoint": "s01.neofs.devenv:8080",
       "tls": {
