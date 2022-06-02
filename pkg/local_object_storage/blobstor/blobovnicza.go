@@ -363,10 +363,6 @@ func (b *blobovniczas) getRange(prm GetRangeSmallPrm) (res *GetRangeSmallRes, er
 func (b *blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath string, tryActive bool, dp DeleteSmallPrm) (*DeleteSmallRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
-	log := b.log.With(
-		zap.String("path", blzPath),
-	)
-
 	// try to remove from blobovnicza if it is opened
 	b.lruMtx.Lock()
 	v, ok := b.opened.Get(blzPath)
@@ -375,7 +371,8 @@ func (b *blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 		if res, err := b.deleteObject(v.(*blobovnicza.Blobovnicza), prm, dp); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
-			log.Debug("could not remove object from opened blobovnicza",
+			b.log.Debug("could not remove object from opened blobovnicza",
+				zap.String("path", blzPath),
 				zap.String("error", err.Error()),
 			)
 		}
@@ -393,7 +390,8 @@ func (b *blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 		if res, err := b.deleteObject(active.blz, prm, dp); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
-			log.Debug("could not remove object from active blobovnicza",
+			b.log.Debug("could not remove object from active blobovnicza",
+				zap.String("path", blzPath),
 				zap.String("error", err.Error()),
 			)
 		}
@@ -405,7 +403,7 @@ func (b *blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 	// (blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
-		log.Debug("index is too big")
+		b.log.Debug("index is too big", zap.String("path", blzPath))
 		var errNotFound apistatus.ObjectNotFound
 
 		return nil, errNotFound
@@ -426,10 +424,6 @@ func (b *blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 func (b *blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string, tryActive bool) (*GetSmallRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
-	log := b.log.With(
-		zap.String("path", blzPath),
-	)
-
 	// try to read from blobovnicza if it is opened
 	b.lruMtx.Lock()
 	v, ok := b.opened.Get(blzPath)
@@ -438,7 +432,8 @@ func (b *blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 		if res, err := b.getObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
-			log.Debug("could not read object from opened blobovnicza",
+			b.log.Debug("could not read object from opened blobovnicza",
+				zap.String("path", blzPath),
 				zap.String("error", err.Error()),
 			)
 		}
@@ -457,7 +452,8 @@ func (b *blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 		if res, err := b.getObject(active.blz, prm); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
-			log.Debug("could not get object from active blobovnicza",
+			b.log.Debug("could not get object from active blobovnicza",
+				zap.String("path", blzPath),
 				zap.String("error", err.Error()),
 			)
 		}
@@ -469,7 +465,7 @@ func (b *blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 	// (blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
-		log.Debug("index is too big")
+		b.log.Debug("index is too big", zap.String("path", blzPath))
 		var errNotFound apistatus.ObjectNotFound
 
 		return nil, errNotFound
@@ -490,10 +486,6 @@ func (b *blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, tryActive bool) (*GetRangeSmallRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
-	log := b.log.With(
-		zap.String("path", blzPath),
-	)
-
 	// try to read from blobovnicza if it is opened
 	b.lruMtx.Lock()
 	v, ok := b.opened.Get(blzPath)
@@ -506,7 +498,8 @@ func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, t
 			return res, err
 		default:
 			if !blobovnicza.IsErrNotFound(err) {
-				log.Debug("could not read payload range from opened blobovnicza",
+				b.log.Debug("could not read payload range from opened blobovnicza",
+					zap.String("path", blzPath),
 					zap.String("error", err.Error()),
 				)
 			}
@@ -530,7 +523,8 @@ func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, t
 			return res, err
 		default:
 			if !blobovnicza.IsErrNotFound(err) {
-				log.Debug("could not read payload range from active blobovnicza",
+				b.log.Debug("could not read payload range from active blobovnicza",
+					zap.String("path", blzPath),
 					zap.String("error", err.Error()),
 				)
 			}
@@ -543,7 +537,7 @@ func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, t
 	// (blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
-		log.Debug("index is too big")
+		b.log.Debug("index is too big", zap.String("path", blzPath))
 
 		var errNotFound apistatus.ObjectNotFound
 
@@ -735,13 +729,11 @@ func (b *blobovniczas) getActivated(p string) (blobovniczaWithIndex, error) {
 //
 // if current active blobovnicza's index is not old, it remains unchanged.
 func (b *blobovniczas) updateActive(p string, old *uint64) error {
-	log := b.log.With(zap.String("path", p))
-
-	log.Debug("updating active blobovnicza...")
+	b.log.Debug("updating active blobovnicza...", zap.String("path", p))
 
 	_, err := b.updateAndGet(p, old)
 
-	log.Debug("active blobovnicza successfully updated")
+	b.log.Debug("active blobovnicza successfully updated", zap.String("path", p))
 
 	return err
 }
@@ -843,9 +835,7 @@ func (b *blobovniczas) init() error {
 			return fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
 		}
 
-		log := b.log.With(zap.String("id", p))
-
-		log.Debug("blobovnicza successfully initialized, closing...")
+		b.log.Debug("blobovnicza successfully initialized, closing...", zap.String("id", p))
 
 		return nil
 	})

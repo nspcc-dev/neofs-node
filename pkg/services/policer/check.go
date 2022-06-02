@@ -81,10 +81,6 @@ type processPlacementContext struct {
 }
 
 func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address, nodes netmap.Nodes, shortage uint32) {
-	log := p.log.With(
-		zap.Stringer("object", addr),
-	)
-
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 
 	for i := 0; shortage > 0 && i < len(nodes); i++ {
@@ -115,7 +111,8 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address, n
 			}
 
 			if err != nil {
-				log.Error("receive object header to check policy compliance",
+				p.log.Error("receive object header to check policy compliance",
+					zap.Stringer("object", addr),
 					zap.String("error", err.Error()),
 				)
 			} else {
@@ -128,7 +125,8 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address, n
 	}
 
 	if shortage > 0 {
-		log.Debug("shortage of object copies detected",
+		p.log.Debug("shortage of object copies detected",
+			zap.Stringer("object", addr),
 			zap.Uint32("shortage", shortage),
 		)
 
