@@ -19,7 +19,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -143,7 +145,7 @@ func (l *localClient) CreateTxFromScript(script []byte, acc *wallet.Account, sys
 	tx.Signers = signers
 	tx.ValidUntilBlock = l.bc.BlockHeight() + 2
 
-	err = l.addNetworkFee(tx, netFee, accounts...)
+	err = l.AddNetworkFee(tx, netFee, accounts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add network fee: %w", err)
 	}
@@ -151,11 +153,36 @@ func (l *localClient) CreateTxFromScript(script []byte, acc *wallet.Account, sys
 	return tx, nil
 }
 
-// addNetworkFee adds network fee for each witness script and optional extra
+func (l *localClient) GetCommittee() (keys.PublicKeys, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) InvokeFunction(_ util.Uint160, _ string, _ []smartcontract.Parameter, _ []transaction.Signer) (*result.Invoke, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) CalculateNotaryFee(_ uint8) (int64, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) SignAndPushP2PNotaryRequest(_ *transaction.Transaction, _ []byte, _ int64, _ int64, _ uint32, _ *wallet.Account) (*payload.P2PNotaryRequest, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int64, _ fixedn.Fixed8, _ []client.SignerAccount) (util.Uint256, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+// AddNetworkFee adds network fee for each witness script and optional extra
 // network fee to transaction. `accs` is an array signer's accounts.
 // Copied from neo-go with minor corrections (no need to support contract signers):
 // https://github.com/nspcc-dev/neo-go/blob/6ff11baa1b9e4c71ef0d1de43b92a8c541ca732c/pkg/rpc/client/rpc.go#L960
-func (l *localClient) addNetworkFee(tx *transaction.Transaction, extraFee int64, accs ...*wallet.Account) error {
+func (l *localClient) AddNetworkFee(tx *transaction.Transaction, extraFee int64, accs ...*wallet.Account) error {
 	if len(tx.Signers) != len(accs) {
 		return errors.New("number of signers must match number of scripts")
 	}
