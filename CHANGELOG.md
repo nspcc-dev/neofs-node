@@ -12,6 +12,9 @@ Changelog for NeoFS Node
 ### Changed
 - Replace pointers with raw structures in results for local storage (#1460)
 
+### Fixed
+- Do not use WS neo-go client in `neofs-adm` (#1378)
+
 ## [0.28.2] - 2022-06-03
 
 ### Updated
