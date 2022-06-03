@@ -158,10 +158,6 @@ func (cp *Processor) checkTokenLifetime(token session.Container) error {
 		return fmt.Errorf("could not read current epoch: %w", err)
 	}
 
-	if token.ExpiredAt(curEpoch) {
-		return fmt.Errorf("token is expired at %d", curEpoch)
-	}
-
 	if token.InvalidAt(curEpoch) {
 		return fmt.Errorf("token is not valid at %d", curEpoch)
 	}

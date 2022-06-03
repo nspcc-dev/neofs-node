@@ -14,6 +14,7 @@ import (
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -218,45 +219,38 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 1. First check token lifetime. Simplest verification.
-	if !isValidLifetime(token, st.CurrentEpoch()) {
+	if token.InvalidAt(st.CurrentEpoch()) {
 		return errBearerExpired
 	}
 
 	// 2. Then check if bearer token is signed correctly.
-	if err := token.VerifySignature(); err != nil {
+	if !token.VerifySignature() {
 		return errBearerInvalidSignature
 	}
 
 	// 3. Then check if container owner signed this token.
-	issuer, ok := token.Issuer()
-	if !ok {
-		panic("unexpected false return from Issuer method on signed bearer token")
-	}
-
-	if !issuer.Equals(ownerCnr) {
+	if !bearerSDK.ResolveIssuer(*token).Equals(ownerCnr) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
 
 	// 4. Then check if request sender has rights to use this token.
-	tokenOwner := token.OwnerID()
-	requestSenderKey := unmarshalPublicKey(reqInfo.SenderKey())
+	var keySender neofsecdsa.PublicKey
 
-	if !isOwnerFromKey(tokenOwner, requestSenderKey) {
+	err := keySender.Decode(reqInfo.SenderKey())
+	if err != nil {
+		return fmt.Errorf("decode sender public key: %w", err)
+	}
+
+	var usrSender user.ID
+	user.IDFromKey(&usrSender, ecdsa.PublicKey(keySender))
+
+	if !token.AssertUser(usrSender) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerInvalidOwner
 	}
 
 	return nil
-}
-
-func isValidLifetime(t *bearerSDK.Token, epoch uint64) bool {
-	// The "exp" (expiration time) claim identifies the expiration time on
-	// or after which the JWT MUST NOT be accepted for processing.
-	// The "nbf" (not before) claim identifies the time before which the JWT
-	// MUST NOT be accepted for processing
-	// RFC 7519 sections 4.1.4, 4.1.5
-	return epoch >= t.NotBefore() && epoch <= t.Expiration()
 }
 
 func isOwnerFromKey(id user.ID, key *keys.PublicKey) bool {
