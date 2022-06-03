@@ -103,10 +103,10 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	}
 
 	var b bearer.Token
-	b.SetExpiration(exp)
-	b.SetNotBefore(nvb)
-	b.SetIssuedAt(iat)
-	b.SetOwnerID(ownerID)
+	b.SetExp(exp)
+	b.SetNbf(nvb)
+	b.SetIat(iat)
+	b.ForUser(ownerID)
 
 	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
 	if eaclPath != "" {
