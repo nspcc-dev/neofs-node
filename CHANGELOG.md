@@ -3,8 +3,13 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.2] - 2022-06-03
+
 ### Updated
 - Neo-go 0.98.2 => 0.98.3 (#1430)
+- NeoFS SDK v1.0.0-rc.3 => v1.0.0-rc.4
+- NeoFS API v2.12.1 => v2.12.2
+- NeoFS Contracts v0.14.2 => v0.15.1
 
 ### Added
 - Config examples for Inner ring application (#1358)
@@ -18,6 +23,14 @@ Changelog for NeoFS Node
 - Listen to subnet removal events in notary-enabled env (#1224)
 - Update/remove nodes whose subnet has been removed (#1162)
 - Potential removal of local object when policy isn't complied (#1335)
+- Metabase `Select` is now slightly faster (#1433)
+- Fix a number of bugs in writecache (#1462)
+- Refactor eACL processing and fix bugs (#1471)
+- Do not validate subnet removal by IR (#1441)
+- Replace pointers with raw structures in parameters for local storage (#1418)
+
+#### Removed
+- Remove `num` and `shard_num` parameters from the configuration (#1474)
 
 ## [0.28.1] - 2022-05-05
 
@@ -1080,7 +1093,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.2...master
+[0.28.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.3...v0.28.0
 [0.28.0-rc.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.2...v0.28.0-rc.3
