@@ -17,9 +17,9 @@ require (
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.98.3
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220321144137-d5a9af5860af // indirect
-	github.com/nspcc-dev/neofs-api-go/v2 v2.12.2
+	github.com/nspcc-dev/neofs-api-go/v2 v2.12.2-0.20220603103025-8d67a34257cd
 	github.com/nspcc-dev/neofs-contract v0.15.1
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.4
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.4.0.20220603141903-035fd8c10dd4
 	github.com/nspcc-dev/tzhash v1.5.2
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
