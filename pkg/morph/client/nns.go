@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -114,7 +115,7 @@ func nnsResolveItem(c *client.WSClient, nnsHash util.Uint160, domain string) (st
 		},
 		{
 			Type:  smartcontract.IntegerType,
-			Value: int64(nns.TXT),
+			Value: big.NewInt(int64(nns.TXT)),
 		},
 	}, nil)
 	if err != nil {
