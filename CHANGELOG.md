@@ -6,6 +6,9 @@ Changelog for NeoFS Node
 ### Fixed
 - Confirmation of eACL tables by alphabet nodes when ACL extensibility is disabled (#1485)
 
+### Updated
+- Neo-go 0.98.3 => 0.99.0 (#1480)
+
 ### Changed
 - Replace pointers with raw structures in results for local storage (#1460)
 

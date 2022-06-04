@@ -15,8 +15,8 @@ require (
 	github.com/multiformats/go-multiaddr v0.4.0
 	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
 	github.com/nspcc-dev/hrw v1.0.9
-	github.com/nspcc-dev/neo-go v0.98.3
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220321144137-d5a9af5860af // indirect
+	github.com/nspcc-dev/neo-go v0.99.0
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220601120906-3bec6657f5c5 // indirect
 	github.com/nspcc-dev/neofs-api-go/v2 v2.12.2
 	github.com/nspcc-dev/neofs-contract v0.15.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.4.0.20220606070217-67ff996dc35b
@@ -42,6 +42,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -94,5 +95,5 @@ require (
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
