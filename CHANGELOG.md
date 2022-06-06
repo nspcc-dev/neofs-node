@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Fixed
+- Confirmation of eACL tables by alphabet nodes when ACL extensibility is disabled (#1485)
+
 ### Changed
 - Replace pointers with raw structures in results for local storage (#1460)
 
