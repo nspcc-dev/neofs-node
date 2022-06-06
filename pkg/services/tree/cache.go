@@ -2,6 +2,7 @@ package tree
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -17,9 +18,15 @@ type clientCache struct {
 	simplelru.LRU
 }
 
+type cacheItem struct {
+	cc      *grpc.ClientConn
+	lastTry time.Time
+}
+
 const (
 	defaultClientCacheSize      = 10
 	defaultClientConnectTimeout = time.Second * 2
+	defaultReconnectInterval    = time.Second * 15
 )
 
 func (c *clientCache) init() {
@@ -35,21 +42,34 @@ func (c *clientCache) get(ctx context.Context, netmapAddr string) (TreeServiceCl
 	c.Unlock()
 
 	if ok {
-		cc := ccInt.(*grpc.ClientConn)
-		if s := cc.GetState(); s == connectivity.Idle || s == connectivity.Ready {
-			return NewTreeServiceClient(cc), nil
+		item := ccInt.(cacheItem)
+		if item.cc == nil {
+			if d := time.Since(item.lastTry); d < defaultReconnectInterval {
+				return nil, fmt.Errorf("skip connecting to %s (time since last error %s)",
+					netmapAddr, d)
+			}
+		} else {
+			if s := item.cc.GetState(); s == connectivity.Idle || s == connectivity.Ready {
+				return NewTreeServiceClient(item.cc), nil
+			}
+			_ = item.cc.Close()
 		}
-		_ = cc.Close()
 	}
 
 	cc, err := dialTreeService(ctx, netmapAddr)
+	lastTry := time.Now()
+
+	c.Lock()
+	if err != nil {
+		c.LRU.Add(netmapAddr, cacheItem{cc: nil, lastTry: lastTry})
+	} else {
+		c.LRU.Add(netmapAddr, cacheItem{cc: cc, lastTry: lastTry})
+	}
+	c.Unlock()
+
 	if err != nil {
 		return nil, err
 	}
-
-	c.Lock()
-	c.LRU.Add(netmapAddr, cc)
-	c.Unlock()
 
 	return NewTreeServiceClient(cc), nil
 }
