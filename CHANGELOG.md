@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Changed
+- Replace pointers with raw structures in results for local storage (#1460)
+
 ## [0.28.2] - 2022-06-03
 
 ### Updated
