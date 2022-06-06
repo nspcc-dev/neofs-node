@@ -354,16 +354,17 @@ func testForestTreeApply(t *testing.T, constructor func(t testing.TB) Forest) {
 		testMeta(t, s, cid, treeID, 11, 10, meta)
 
 		testApply(t, s, 10, TrashID, Meta{Time: 2, Items: []KeyValue{{"parent", []byte{2}}}})
-		testMeta(t, s, cid, treeID, 11, 0, Meta{})
+		testMeta(t, s, cid, treeID, 11, 10, meta)
 	})
 	t.Run("add a child to non-existent parent, then add a parent", func(t *testing.T) {
 		s := constructor(t)
 
-		testApply(t, s, 11, 10, Meta{Time: 1, Items: []KeyValue{{"child", []byte{3}}}})
-		testMeta(t, s, cid, treeID, 11, 0, Meta{})
+		meta := Meta{Time: 1, Items: []KeyValue{{"child", []byte{3}}}}
+		testApply(t, s, 11, 10, meta)
+		testMeta(t, s, cid, treeID, 11, 10, meta)
 
 		testApply(t, s, 10, 0, Meta{Time: 2, Items: []KeyValue{{"grand", []byte{1}}}})
-		testMeta(t, s, cid, treeID, 11, 0, Meta{})
+		testMeta(t, s, cid, treeID, 11, 10, meta)
 	})
 }
 

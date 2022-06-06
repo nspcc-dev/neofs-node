@@ -86,11 +86,7 @@ func (s *state) do(op *Move) LogMove {
 		},
 	}
 
-	_, parentInTree := s.tree.infoMap[op.Parent]
-	shouldPut := !s.tree.isAncestor(op.Child, op.Parent) &&
-		!(op.Parent != 0 && op.Parent != TrashID && !parentInTree)
-	shouldRemove := op.Parent == TrashID
-
+	shouldPut := !s.tree.isAncestor(op.Child, op.Parent)
 	p, ok := s.tree.infoMap[op.Child]
 	if ok {
 		lm.HasOld = true
@@ -98,14 +94,6 @@ func (s *state) do(op *Move) LogMove {
 	}
 
 	if !shouldPut {
-		return lm
-	}
-
-	if shouldRemove {
-		if ok {
-			s.removeChild(op.Child, p.Parent)
-		}
-		delete(s.tree.infoMap, op.Child)
 		return lm
 	}
 

@@ -270,9 +270,7 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 }
 
 func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMove) error {
-	shouldPut := !t.isAncestor(b, key, op.Child, op.Parent) &&
-		!(op.Parent != 0 && op.Parent != TrashID && b.Get(timestampKey(key, op.Parent)) == nil)
-	shouldRemove := op.Parent == TrashID
+	shouldPut := !t.isAncestor(b, key, op.Child, op.Parent)
 
 	currParent := b.Get(parentKey(key, op.Child))
 	if currParent != nil { // node is already in tree
@@ -290,16 +288,6 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 
 	if !shouldPut {
 		return nil
-	}
-
-	if shouldRemove {
-		if currParent != nil {
-			p := binary.LittleEndian.Uint64(currParent)
-			if err := b.Delete(childrenKey(key, op.Child, p)); err != nil {
-				return err
-			}
-		}
-		return t.removeNode(b, key, op.Child, op.Parent)
 	}
 
 	if currParent == nil {
