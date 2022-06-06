@@ -228,3 +228,85 @@ func TestLockExpiration(t *testing.T) {
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
 }
+
+func TestLockForceRemoval(t *testing.T) {
+	// Tested scenario:
+	//   1. some object is stored
+	//   2. lock object for it is stored, and the object is locked
+	//   3. try to remove lock object and get error
+	//   4. force lock object removal
+	//   5. the object is not locked anymore
+	chEvents := make([]chan shard.Event, 2)
+
+	for i := range chEvents {
+		chEvents[i] = make(chan shard.Event, 1)
+	}
+
+	var e *StorageEngine
+
+	e = testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
+		return []shard.Option{
+			shard.WithGCEventChannel(chEvents[i]),
+			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
+				pool, err := ants.NewPool(sz)
+				require.NoError(t, err)
+
+				return pool
+			}),
+			shard.WithDeletedLockCallback(e.processDeletedLocks),
+		}
+	})
+
+	t.Cleanup(func() {
+		_ = e.Close()
+		_ = os.RemoveAll(t.Name())
+	})
+
+	cnr := cidtest.ID()
+	var err error
+
+	// 1.
+	obj := generateObjectWithCID(t, cnr)
+
+	err = Put(e, obj)
+	require.NoError(t, err)
+
+	// 2.
+	lock := generateObjectWithCID(t, cnr)
+	lock.SetType(object.TypeLock)
+
+	err = Put(e, lock)
+	require.NoError(t, err)
+
+	id, _ := obj.ID()
+	idLock, _ := lock.ID()
+
+	err = e.Lock(cnr, idLock, []oid.ID{id})
+	require.NoError(t, err)
+
+	// 3.
+	var inhumePrm InhumePrm
+	inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
+
+	_, err = e.Inhume(inhumePrm)
+	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
+
+	inhumePrm.WithTarget(objecttest.Address(), objectcore.AddressOf(obj))
+
+	_, err = e.Inhume(inhumePrm)
+	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
+
+	// 4.
+	var deletePrm DeletePrm
+	deletePrm.WithAddresses(objectcore.AddressOf(lock))
+	deletePrm.WithForceRemoval()
+
+	_, err = e.Delete(deletePrm)
+	require.NoError(t, err)
+
+	// 5.
+	inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
+
+	_, err = e.Inhume(inhumePrm)
+	require.NoError(t, err)
+}
