@@ -38,7 +38,7 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 		shard.WithID(id),
 		shard.WithExpiredTombstonesCallback(e.processExpiredTombstones),
 		shard.WithExpiredLocksCallback(e.processExpiredLocks),
-		shard.WitDeletedLockCallback(e.processDeletedLocks),
+		shard.WithDeletedLockCallback(e.processDeletedLocks),
 	)...)
 
 	if err := sh.UpdateID(); err != nil {
