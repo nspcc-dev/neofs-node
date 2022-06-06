@@ -234,9 +234,9 @@ func WithTombstoneSource(v TombstoneSource) Option {
 	}
 }
 
-// WitDeletedLockCallback returns option to specify callback
+// WithDeletedLockCallback returns option to specify callback
 // of the deleted LOCK objects handler.
-func WitDeletedLockCallback(v DeletedLockCallback) Option {
+func WithDeletedLockCallback(v DeletedLockCallback) Option {
 	return func(c *cfg) {
 		c.deletedLockCallBack = v
 	}
