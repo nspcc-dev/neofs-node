@@ -9,6 +9,7 @@ import (
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -133,7 +134,7 @@ func TestLockUserScenario(t *testing.T) {
 	inhumePrm.WithTarget(tombForLockAddr, lockerAddr)
 
 	_, err = e.Inhume(inhumePrm)
-	require.NoError(t, err, new(apistatus.ObjectLocked))
+	require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
 
 	// 5.
 	for i := range chEvents {
