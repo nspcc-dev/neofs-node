@@ -51,6 +51,16 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
+	// ACL extensions can be disabled by basic ACL, check it
+	basicACL := cnr.BasicACL()
+	const finalBitMask = 1 << 28
+
+	// Temp solution: NeoFS SDK is going to provide convenient interface to do this soon.
+	// This place won't be missed since BasicACL() signature will be changed.
+	if basicACL&finalBitMask == finalBitMask {
+		return errors.New("ACL extension disabled by container basic ACL")
+	}
+
 	ownerContainer := cnr.OwnerID()
 	if ownerContainer == nil {
 		return errors.New("missing container owner")
