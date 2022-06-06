@@ -75,6 +75,8 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 		}
 
 		switch e.inhumeAddr(prm.addrs[i], shPrm, true) {
+		case 2:
+			return InhumeRes{}, meta.ErrLockObjectRemoval
 		case 1:
 			return InhumeRes{}, apistatus.ObjectLocked{}
 		case 0:
@@ -93,7 +95,8 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 // Returns:
 //   0 - fail
 //   1 - object locked
-//   2 - ok
+//   2 - lock object removal
+//   3 - ok
 func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (status uint8) {
 	root := false
 	var errLocked apistatus.ObjectLocked
@@ -114,7 +117,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 			if err != nil {
 				if shard.IsErrRemoved(err) {
 					// inhumed once - no need to be inhumed again
-					status = 2
+					status = 3
 					return true
 				}
 
@@ -134,15 +137,19 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 		if err != nil {
 			e.reportShardError(sh, "could not inhume object in shard", err)
 
-			if errors.As(err, &errLocked) {
+			switch {
+			case errors.As(err, &errLocked):
 				status = 1
+				return true
+			case errors.Is(err, meta.ErrLockObjectRemoval):
+				status = 2
 				return true
 			}
 
 			return false
 		}
 
-		status = 2
+		status = 3
 
 		return true
 	})

@@ -93,6 +93,10 @@ func Inhume(db *DB, target, tomb oid.Address) error {
 
 var errBreakBucketForEach = errors.New("bucket ForEach break")
 
+// ErrLockObjectRemoval is returned when inhume operation is being
+// performed on lock object, and it is not a forced object removal.
+var ErrLockObjectRemoval = errors.New("lock object removal")
+
 // Inhume marks objects as removed but not removes it from metabase.
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
@@ -149,7 +153,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			// `WithForceGCMark` option
 			if !prm.forceRemoval {
 				if isLockObject(tx, cnr, id) {
-					return fmt.Errorf("lock object removal, CID: %s, OID: %s", cnr, id)
+					return ErrLockObjectRemoval
 				}
 
 				lockWasChecked = true
