@@ -29,7 +29,7 @@ func (ap *Processor) processEmit() {
 	// there is no signature collecting, so we don't need extra fee
 	err := ap.morphClient.Invoke(contract, 0, emitMethod)
 	if err != nil {
-		ap.log.Warn("can't invoke alphabet emit method")
+		ap.log.Warn("can't invoke alphabet emit method", zap.String("error", err.Error()))
 
 		return
 	}
@@ -62,7 +62,7 @@ func (ap *Processor) processEmit() {
 
 		key, err := keys.NewPublicKeyFromBytes(keyBytes, elliptic.P256())
 		if err != nil {
-			ap.log.Warn("can't convert node public key to address",
+			ap.log.Warn("can't parse node public key",
 				zap.String("error", err.Error()))
 
 			continue

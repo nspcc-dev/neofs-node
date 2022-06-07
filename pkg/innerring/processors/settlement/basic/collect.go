@@ -29,7 +29,8 @@ func (inc *IncomeSettlementContext) Collect() {
 	cnrEstimations, err := inc.estimations.Estimations(inc.epoch)
 	if err != nil {
 		inc.log.Error("can't fetch container size estimations",
-			zap.Uint64("epoch", inc.epoch))
+			zap.Uint64("epoch", inc.epoch),
+			zap.String("error", err.Error()))
 
 		return
 	}
@@ -42,7 +43,7 @@ func (inc *IncomeSettlementContext) Collect() {
 			inc.log.Warn("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
 				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
-			)
+				zap.String("error", err.Error()))
 
 			continue
 		}
@@ -52,7 +53,7 @@ func (inc *IncomeSettlementContext) Collect() {
 			inc.log.Debug("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
 				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
-			)
+				zap.String("error", err.Error()))
 
 			continue
 		}
