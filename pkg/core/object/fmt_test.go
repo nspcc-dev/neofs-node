@@ -156,25 +156,42 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj := object.New()
 		obj.SetType(object.TypeStorageGroup)
 
-		require.Error(t, v.ValidateContent(obj))
+		t.Run("empty payload", func(t *testing.T) {
+			require.Error(t, v.ValidateContent(obj))
+		})
 
 		var content storagegroup.StorageGroup
+		content.SetExpirationEpoch(1) // some non-default value
 
-		data, err := content.Marshal()
-		require.NoError(t, err)
+		t.Run("empty members", func(t *testing.T) {
+			data, err := content.Marshal()
+			require.NoError(t, err)
 
-		obj.SetPayload(data)
+			obj.SetPayload(data)
+			require.ErrorIs(t, v.ValidateContent(obj), errEmptySGMembers)
+		})
 
-		require.Error(t, v.ValidateContent(obj))
+		t.Run("non-unique members", func(t *testing.T) {
+			id := oidtest.ID()
 
-		content.SetMembers([]oid.ID{oidtest.ID()})
+			content.SetMembers([]oid.ID{id, id})
 
-		data, err = content.Marshal()
-		require.NoError(t, err)
+			data, err := content.Marshal()
+			require.NoError(t, err)
 
-		obj.SetPayload(data)
+			obj.SetPayload(data)
+			require.Error(t, v.ValidateContent(obj))
+		})
 
-		require.NoError(t, v.ValidateContent(obj))
+		t.Run("correct SG", func(t *testing.T) {
+			content.SetMembers([]oid.ID{oidtest.ID(), oidtest.ID()})
+
+			data, err := content.Marshal()
+			require.NoError(t, err)
+
+			obj.SetPayload(data)
+			require.NoError(t, v.ValidateContent(obj))
+		})
 	})
 
 	t.Run("expiration", func(t *testing.T) {

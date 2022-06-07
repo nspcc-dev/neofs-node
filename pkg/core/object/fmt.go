@@ -61,6 +61,8 @@ var errNoExpirationEpoch = errors.New("missing expiration epoch attribute")
 
 var errTombstoneExpiration = errors.New("tombstone body and header contain different expiration values")
 
+var errEmptySGMembers = errors.New("storage group with empty members list")
+
 func defaultCfg() *cfg {
 	return new(cfg)
 }
@@ -226,6 +228,22 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
 			return fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
+		}
+
+		mm := sg.Members()
+		lenMM := len(mm)
+		if lenMM == 0 {
+			return errEmptySGMembers
+		}
+
+		uniqueFilter := make(map[oid.ID]struct{}, lenMM)
+
+		for i := 0; i < lenMM; i++ {
+			if _, alreadySeen := uniqueFilter[mm[i]]; alreadySeen {
+				return fmt.Errorf("storage group contains non-unique member: %s", mm[i])
+			}
+
+			uniqueFilter[mm[i]] = struct{}{}
 		}
 	case object.TypeLock:
 		if len(o.Payload()) == 0 {
