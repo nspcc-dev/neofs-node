@@ -284,12 +284,20 @@ func (c *initializeContext) deployContracts() error {
 
 	var keysParam []interface{}
 
+	baseGroups := alphaCs.Manifest.Groups
+
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 		if c.isUpdated(ctrHash, alphaCs) {
 			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
 			continue
+		}
+
+		alphaCs.Manifest.Groups = baseGroups
+		err := c.addManifestGroup(ctrHash, alphaCs)
+		if err != nil {
+			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
 		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
