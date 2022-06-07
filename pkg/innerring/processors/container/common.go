@@ -1,14 +1,12 @@
 package container
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -52,7 +50,6 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	var err error
 	var key neofsecdsa.PublicKeyRFC6979
 	keyProvided := v.binPublicKey != nil
-	withSession := len(v.binTokenSession) > 0
 
 	if keyProvided {
 		err = key.Decode(v.binPublicKey)
@@ -61,7 +58,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		}
 	}
 
-	if withSession {
+	if len(v.binTokenSession) > 0 {
 		var tok session.Container
 
 		err = tok.Unmarshal(v.binTokenSession)
@@ -74,7 +71,6 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		}
 
 		// FIXME(@cthulhu-rider): #1387 check token is signed by container owner, see neofs-sdk-go#233
-		//  We'll get container owner's keys which is needed below, so it's worth to cache them
 
 		if keyProvided && !tok.AssertAuthKey(&key) {
 			return errors.New("signed with a non-session key")
@@ -96,24 +92,27 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		if err != nil {
 			return fmt.Errorf("check session lifetime: %w", err)
 		}
-	}
 
-	var verificationKeys []neofscrypto.PublicKey
+		if !tok.VerifySessionDataSignature(v.signedData, v.signature) {
+			return errors.New("invalid signature calculated with session key")
+		}
+
+		return nil
+	}
 
 	if keyProvided {
-		if withSession {
-			verificationKeys = []neofscrypto.PublicKey{&key}
-		} else {
-			var idFromKey user.ID
-			user.IDFromKey(&idFromKey, (ecdsa.PublicKey)(key))
+		// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
+		var idFromKey user.ID
+		user.IDFromKey(&idFromKey, (ecdsa.PublicKey)(key))
 
-			if v.ownerContainer.Equals(idFromKey) {
-				verificationKeys = []neofscrypto.PublicKey{&key}
+		if v.ownerContainer.Equals(idFromKey) {
+			if key.Verify(v.signedData, v.signature) {
+				return nil
 			}
-		}
-	}
 
-	if verificationKeys == nil {
+			return errors.New("invalid signature calculated by container owner's key")
+		}
+	} else {
 		var prm neofsid.AccountKeysPrm
 		prm.SetID(v.ownerContainer)
 
@@ -122,34 +121,14 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("receive owner keys %s: %w", v.ownerContainer, err)
 		}
 
-		if !keyProvided {
-			verificationKeys = make([]neofscrypto.PublicKey, 0, len(ownerKeys))
-		}
-
 		for i := range ownerKeys {
-			if keyProvided {
-				// TODO(@cthulhu-rider): keys have been decoded in order to encode only, should be optimized by #1387
-				if bytes.Equal(ownerKeys[i].Bytes(), v.binPublicKey) {
-					verificationKeys = []neofscrypto.PublicKey{(*neofsecdsa.PublicKeyRFC6979)(ownerKeys[i])}
-					break
-				}
-			} else {
-				verificationKeys = append(verificationKeys, (*neofsecdsa.PublicKeyRFC6979)(ownerKeys[i]))
+			if (*neofsecdsa.PublicKeyRFC6979)(ownerKeys[i]).Verify(v.signedData, v.signature) {
+				return nil
 			}
 		}
 	}
 
-	if len(verificationKeys) == 0 {
-		return errors.New("key is not a container owner's key")
-	}
-
-	for i := range verificationKeys {
-		if verificationKeys[i].Verify(v.signedData, v.signature) {
-			return nil
-		}
-	}
-
-	return errors.New("invalid signature")
+	return errors.New("signature is invalid or calculated with the key not bound to the container owner")
 }
 
 func (cp *Processor) checkTokenLifetime(token session.Container) error {
