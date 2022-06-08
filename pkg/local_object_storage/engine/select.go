@@ -70,12 +70,12 @@ func (e *StorageEngine) _select(prm SelectPrm) (SelectRes, error) {
 		if err != nil {
 			e.reportShardError(sh, "could not select objects from shard", err)
 			return false
-		} else {
-			for _, addr := range res.AddressList() { // save only unique values
-				if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
-					uniqueMap[addr.EncodeToString()] = struct{}{}
-					addrList = append(addrList, addr)
-				}
+		}
+
+		for _, addr := range res.AddressList() { // save only unique values
+			if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
+				uniqueMap[addr.EncodeToString()] = struct{}{}
+				addrList = append(addrList, addr)
 			}
 		}
 

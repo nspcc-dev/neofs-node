@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -10,8 +9,6 @@ import (
 
 // ResultID is an identity of audit result inside audit contract.
 type ResultID []byte
-
-var errUnsupported = errors.New("unsupported structure version")
 
 // PutPrm groups parameters of PutAuditResult operation.
 type PutPrm struct {
