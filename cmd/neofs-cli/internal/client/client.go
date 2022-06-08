@@ -299,6 +299,8 @@ type PutObjectPrm struct {
 	hdr *object.Object
 
 	rdr io.Reader
+
+	headerCallback func(*object.Object)
 }
 
 // SetHeader sets object header.
@@ -309,6 +311,12 @@ func (x *PutObjectPrm) SetHeader(hdr *object.Object) {
 // SetPayloadReader sets reader of the object payload.
 func (x *PutObjectPrm) SetPayloadReader(rdr io.Reader) {
 	x.rdr = rdr
+}
+
+// SetHeaderCallback sets callback which is called on the object after the header is received
+// but before the payload is written.
+func (x *PutObjectPrm) SetHeaderCallback(f func(*object.Object)) {
+	x.headerCallback = f
 }
 
 // PutObjectRes groups the resulting values of PutObject operation.
@@ -347,6 +355,10 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	wrt.WithXHeaders(prm.xHeaders...)
 
 	if wrt.WriteHeader(*prm.hdr) {
+		if prm.headerCallback != nil {
+			prm.headerCallback(prm.hdr)
+		}
+
 		sz := prm.hdr.PayloadSize()
 
 		if data := prm.hdr.Payload(); len(data) > 0 {

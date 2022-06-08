@@ -128,7 +128,9 @@ func putObject(cmd *cobra.Command, _ []string) {
 			p = pb.New64(fi.Size())
 			p.Output = cmd.OutOrStdout()
 			prm.SetPayloadReader(p.NewProxyReader(f))
-			p.Start()
+			prm.SetHeaderCallback(func(o *object.Object) {
+				p.Start()
+			})
 		}
 	}
 
