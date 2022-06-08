@@ -1,12 +1,14 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	acltest "github.com/nspcc-dev/neofs-api-go/v2/acl/test"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
@@ -15,20 +17,29 @@ import (
 
 func TestOriginalTokens(t *testing.T) {
 	sToken := sessiontest.ObjectSigned()
-	bTokenV2 := acltest.GenerateBearerToken(false)
+	bToken := bearertest.Token()
 
-	var bToken bearer.Token
-	bToken.ReadFromV2(*bTokenV2)
+	pk, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, bToken.Sign(*pk))
+
+	var bTokenV2 acl.BearerToken
+	bToken.WriteToV2(&bTokenV2)
+	// This line is needed because SDK uses some custom format for
+	// reserved filters, so `cid.ID` is not converted to string immediately.
+	require.NoError(t, bToken.ReadFromV2(bTokenV2))
 
 	var sTokenV2 session.Token
 	sToken.WriteToV2(&sTokenV2)
 
 	for i := 0; i < 10; i++ {
-		metaHeaders := testGenerateMetaHeader(uint32(i), bTokenV2, &sTokenV2)
+		metaHeaders := testGenerateMetaHeader(uint32(i), &bTokenV2, &sTokenV2)
 		res, err := originalSessionToken(metaHeaders)
 		require.NoError(t, err)
 		require.Equal(t, sToken, res, i)
-		require.Equal(t, &bToken, originalBearerToken(metaHeaders), i)
+
+		bTok, err := originalBearerToken(metaHeaders)
+		require.NoError(t, err)
+		require.Equal(t, &bToken, bTok, i)
 	}
 }
 

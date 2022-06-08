@@ -57,20 +57,18 @@ func getContainerIDFromRequest(req interface{}) (cid.ID, error) {
 
 // originalBearerToken goes down to original request meta header and fetches
 // bearer token from there.
-func originalBearerToken(header *sessionV2.RequestMetaHeader) *bearer.Token {
+func originalBearerToken(header *sessionV2.RequestMetaHeader) (*bearer.Token, error) {
 	for header.GetOrigin() != nil {
 		header = header.GetOrigin()
 	}
 
 	tokV2 := header.GetBearerToken()
 	if tokV2 == nil {
-		return nil
+		return nil, nil
 	}
 
 	var tok bearer.Token
-	tok.ReadFromV2(*tokV2)
-
-	return &tok
+	return &tok, tok.ReadFromV2(*tokV2)
 }
 
 // originalSessionToken goes down to original request meta header and fetches

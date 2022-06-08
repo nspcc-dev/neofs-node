@@ -118,10 +118,15 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		return err
 	}
 
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  originalBearerToken(request.GetMetaHeader()),
+		bearer:  bTok,
 		src:     request,
 	}
 
@@ -172,10 +177,15 @@ func (b Service) Head(
 		return nil, err
 	}
 
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return nil, err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  originalBearerToken(request.GetMetaHeader()),
+		bearer:  bTok,
 		src:     request,
 	}
 
@@ -218,10 +228,15 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 		return err
 	}
 
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  originalBearerToken(request.GetMetaHeader()),
+		bearer:  bTok,
 		src:     request,
 	}
 
@@ -261,10 +276,15 @@ func (b Service) Delete(
 		return nil, err
 	}
 
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return nil, err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  originalBearerToken(request.GetMetaHeader()),
+		bearer:  bTok,
 		src:     request,
 	}
 
@@ -300,10 +320,15 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		return err
 	}
 
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  originalBearerToken(request.GetMetaHeader()),
+		bearer:  bTok,
 		src:     request,
 	}
 
@@ -344,10 +369,15 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return nil, err
+	}
+
 	req := MetaWithToken{
 		vheader: request.GetVerificationHeader(),
 		token:   sTok,
-		bearer:  originalBearerToken(request.GetMetaHeader()),
+		bearer:  bTok,
 		src:     request,
 	}
 
@@ -408,10 +438,15 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			}
 		}
 
+		bTok, err := originalBearerToken(request.GetMetaHeader())
+		if err != nil {
+			return err
+		}
+
 		req := MetaWithToken{
 			vheader: request.GetVerificationHeader(),
 			token:   sTok,
-			bearer:  originalBearerToken(request.GetMetaHeader()),
+			bearer:  bTok,
 			src:     request,
 		}
 
