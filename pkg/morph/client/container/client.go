@@ -42,7 +42,6 @@ const (
 
 var (
 	errNilArgument = errors.New("empty argument")
-	errUnsupported = errors.New("unsupported structure version")
 )
 
 // NewFromMorph returns the wrapper instance from the raw morph client.

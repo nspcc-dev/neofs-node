@@ -404,17 +404,6 @@ type morphEACLFetcher struct {
 	w *cntClient.Client
 }
 
-type signedEACLTable eaclSDK.Table
-
-func (s *signedEACLTable) ReadSignedData(_ []byte) ([]byte, error) {
-	return (*eaclSDK.Table)(s).Marshal()
-}
-
-func (s *signedEACLTable) SignedDataSize() int {
-	// TODO: #1147 add eacl.Table.Size method
-	return (*eaclSDK.Table)(s).ToV2().StableSize()
-}
-
 func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*eaclSDK.Table, error) {
 	table, err := s.w.GetEACL(cnr)
 	if err != nil {

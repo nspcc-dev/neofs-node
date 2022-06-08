@@ -82,10 +82,6 @@ func (c *ttlNetCache) remove(key interface{}) {
 	c.cache.Remove(key)
 }
 
-func (c *ttlNetCache) keys() []interface{} {
-	return c.cache.Keys()
-}
-
 // entity that provides LRU cache interface.
 type lruNetCache struct {
 	cache *lru.Cache
