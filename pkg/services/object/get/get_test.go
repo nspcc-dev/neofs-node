@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -18,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	netmaptest "github.com/nspcc-dev/neofs-sdk-go/netmap/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -38,7 +40,7 @@ type testTraverserGenerator struct {
 }
 
 type testPlacementBuilder struct {
-	vectors map[string][]netmap.Nodes
+	vectors map[string][][]netmap.NodeInfo
 }
 
 type testClientCache struct {
@@ -81,7 +83,7 @@ func (g *testTraverserGenerator) GenerateTraverser(cnr cid.ID, obj *oid.ID, e ui
 	return placement.NewTraverser(opts...)
 }
 
-func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
 	var addr oid.Address
 	addr.SetContainer(cnr)
 
@@ -392,8 +394,8 @@ func TestGetLocalOnly(t *testing.T) {
 	})
 }
 
-func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
-	mNodes := make([]netmap.Nodes, len(dim))
+func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
+	mNodes := make([][]netmap.NodeInfo, len(dim))
 	mAddr := make([][]string, len(dim))
 
 	for i := range dim {
@@ -406,20 +408,20 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 				strconv.Itoa(60000+j),
 			)
 
-			ni := netmap.NewNodeInfo()
-			ni.SetAddresses(a)
+			var ni netmap.NodeInfo
+			ni.SetNetworkEndpoints(a)
 
 			var na network.AddressGroup
 
-			err := na.FromIterator(ni)
+			err := na.FromIterator(netmapcore.Node(ni))
 			require.NoError(t, err)
 
 			as[j] = network.StringifyGroup(na)
 
-			ns[j] = *ni
+			ns[j] = ni
 		}
 
-		mNodes[i] = netmap.NodesFromInfo(ns)
+		mNodes[i] = ns
 		mAddr[i] = as
 	}
 
@@ -464,7 +466,8 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 func TestGetRemoteSmall(t *testing.T) {
 	ctx := context.Background()
 
-	cnr := container.New(container.WithPolicy(new(netmap.PlacementPolicy)))
+	pp := netmaptest.PlacementPolicy()
+	cnr := container.New(container.WithPolicy(&pp))
 	idCnr := container.CalculateID(cnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
@@ -527,7 +530,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		ns, as := testNodeMatrix(t, []int{2})
 
 		builder := &testPlacementBuilder{
-			vectors: map[string][]netmap.Nodes{
+			vectors: map[string][][]netmap.NodeInfo{
 				addr.EncodeToString(): ns,
 			},
 		}
@@ -590,7 +593,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		ns, as := testNodeMatrix(t, []int{2})
 
 		builder := &testPlacementBuilder{
-			vectors: map[string][]netmap.Nodes{
+			vectors: map[string][][]netmap.NodeInfo{
 				addr.EncodeToString(): ns,
 			},
 		}
@@ -634,7 +637,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		ns, as := testNodeMatrix(t, []int{2})
 
 		builder := &testPlacementBuilder{
-			vectors: map[string][]netmap.Nodes{
+			vectors: map[string][][]netmap.NodeInfo{
 				addr.EncodeToString(): ns,
 			},
 		}
@@ -708,7 +711,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				builder := &testPlacementBuilder{
-					vectors: map[string][]netmap.Nodes{
+					vectors: map[string][][]netmap.NodeInfo{
 						addr.EncodeToString():      ns,
 						splitAddr.EncodeToString(): ns,
 					},
@@ -781,7 +784,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(child2Addr, nil, apistatus.ObjectNotFound{})
 
 				builder := &testPlacementBuilder{
-					vectors: map[string][]netmap.Nodes{
+					vectors: map[string][][]netmap.NodeInfo{
 						addr.EncodeToString():       ns,
 						linkAddr.EncodeToString():   ns,
 						child1Addr.EncodeToString(): ns,
@@ -858,7 +861,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(child2Addr, children[1], nil)
 
 				builder := &testPlacementBuilder{
-					vectors: map[string][]netmap.Nodes{
+					vectors: map[string][][]netmap.NodeInfo{
 						addr.EncodeToString():       ns,
 						linkAddr.EncodeToString():   ns,
 						child1Addr.EncodeToString(): ns,
@@ -924,7 +927,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(splitAddr, nil, apistatus.ObjectNotFound{})
 
 				builder := &testPlacementBuilder{
-					vectors: map[string][]netmap.Nodes{
+					vectors: map[string][][]netmap.NodeInfo{
 						addr.EncodeToString():      ns,
 						splitAddr.EncodeToString(): ns,
 					},
@@ -988,7 +991,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				c2.addResult(rightAddr, rightObj, nil)
 
 				builder := &testPlacementBuilder{
-					vectors: map[string][]netmap.Nodes{
+					vectors: map[string][][]netmap.NodeInfo{
 						addr.EncodeToString():         ns,
 						rightAddr.EncodeToString():    ns,
 						preRightAddr.EncodeToString(): ns,
@@ -1058,7 +1061,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				}
 
 				builder := &testPlacementBuilder{
-					vectors: map[string][]netmap.Nodes{},
+					vectors: map[string][][]netmap.NodeInfo{},
 				}
 
 				builder.vectors[addr.EncodeToString()] = ns
@@ -1116,7 +1119,8 @@ func TestGetRemoteSmall(t *testing.T) {
 func TestGetFromPastEpoch(t *testing.T) {
 	ctx := context.Background()
 
-	cnr := container.New(container.WithPolicy(new(netmap.PlacementPolicy)))
+	pp := netmaptest.PlacementPolicy()
+	cnr := container.New(container.WithPolicy(&pp))
 	idCnr := container.CalculateID(cnr)
 
 	addr := oidtest.Address()
@@ -1153,12 +1157,12 @@ func TestGetFromPastEpoch(t *testing.T) {
 		c: cnr,
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{
-				vectors: map[string][]netmap.Nodes{
+				vectors: map[string][][]netmap.NodeInfo{
 					addr.EncodeToString(): ns[:1],
 				},
 			},
 			curEpoch - 1: &testPlacementBuilder{
-				vectors: map[string][]netmap.Nodes{
+				vectors: map[string][][]netmap.NodeInfo{
 					addr.EncodeToString(): ns[1:],
 				},
 			},

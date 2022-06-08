@@ -16,7 +16,7 @@ type Source interface {
 	//
 	// Implementations must not retain the network map pointer and modify
 	// the network map through it.
-	GetNetMap(diff uint64) (*netmap.Netmap, error)
+	GetNetMap(diff uint64) (*netmap.NetMap, error)
 
 	// GetNetMapByEpoch reads network map by the epoch number from the storage.
 	// It returns the pointer to the requested network map and any error encountered.
@@ -25,7 +25,7 @@ type Source interface {
 	//
 	// Implementations must not retain the network map pointer and modify
 	// the network map through it.
-	GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error)
+	GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error)
 
 	// Epoch reads the current epoch from the storage.
 	// It returns thw number of the current epoch and any error encountered.
@@ -35,11 +35,11 @@ type Source interface {
 }
 
 // GetLatestNetworkMap requests and returns the latest network map from the storage.
-func GetLatestNetworkMap(src Source) (*netmap.Netmap, error) {
+func GetLatestNetworkMap(src Source) (*netmap.NetMap, error) {
 	return src.GetNetMap(0)
 }
 
 // GetPreviousNetworkMap requests and returns previous from the latest network map from the storage.
-func GetPreviousNetworkMap(src Source) (*netmap.Netmap, error) {
+func GetPreviousNetworkMap(src Source) (*netmap.NetMap, error) {
 	return src.GetNetMap(1)
 }

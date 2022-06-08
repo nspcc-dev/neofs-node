@@ -9,7 +9,7 @@ import (
 
 // VerifyAndUpdate calls network.VerifyAddress.
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
-	err := network.VerifyMultiAddress(n)
+	err := network.VerifyMultiAddress(*n)
 	if err != nil {
 		return fmt.Errorf("could not verify multiaddress: %w", err)
 	}

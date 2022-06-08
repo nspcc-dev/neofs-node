@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 // UpdatePeerPrm groups parameters of UpdatePeerState operation.
 type UpdatePeerPrm struct {
-	key   []byte
-	state netmap.NodeState
+	key []byte
+
+	online bool
 
 	client.InvokePrmOptional
 }
@@ -21,8 +21,8 @@ func (u *UpdatePeerPrm) SetKey(key []byte) {
 }
 
 // SetState sets node state.
-func (u *UpdatePeerPrm) SetState(state netmap.NodeState) {
-	u.state = state
+func (u *UpdatePeerPrm) SetOnline() {
+	u.online = true
 }
 
 // UpdatePeerState changes peer status through Netmap contract call.
@@ -36,9 +36,14 @@ func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 		method += "IR"
 	}
 
+	state := 2
+	if p.online {
+		state = 1
+	}
+
 	prm := client.InvokePrm{}
 	prm.SetMethod(method)
-	prm.SetArgs(int64(p.state.ToV2()), p.key)
+	prm.SetArgs(int64(state), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {

@@ -43,7 +43,7 @@ func NewLocalPlacement(b placement.Builder, s netmap.AnnouncedKeys) placement.Bu
 	}
 }
 
-func (p *localPlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+func (p *localPlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy netmapSDK.PlacementPolicy) ([][]netmapSDK.NodeInfo, error) {
 	vs, err := p.builder.BuildPlacement(cnr, obj, policy)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
@@ -53,13 +53,13 @@ func (p *localPlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy *netmapS
 		for j := range vs[i] {
 			var addr network.AddressGroup
 
-			err := addr.FromIterator(vs[i][j])
+			err := addr.FromIterator(network.NodeEndpointsIterator(vs[i][j]))
 			if err != nil {
 				continue
 			}
 
 			if p.netmapKeys.IsLocalKey(vs[i][j].PublicKey()) {
-				return []netmapSDK.Nodes{{vs[i][j]}}, nil
+				return [][]netmapSDK.NodeInfo{{vs[i][j]}}, nil
 			}
 		}
 	}
@@ -76,7 +76,7 @@ func NewRemotePlacementBuilder(b placement.Builder, s netmap.AnnouncedKeys) plac
 	}
 }
 
-func (p *remotePlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+func (p *remotePlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy netmapSDK.PlacementPolicy) ([][]netmapSDK.NodeInfo, error) {
 	vs, err := p.builder.BuildPlacement(cnr, obj, policy)
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not build object placement: %w", p, err)
@@ -86,7 +86,7 @@ func (p *remotePlacement) BuildPlacement(cnr cid.ID, obj *oid.ID, policy *netmap
 		for j := 0; j < len(vs[i]); j++ {
 			var addr network.AddressGroup
 
-			err := addr.FromIterator(vs[i][j])
+			err := addr.FromIterator(network.NodeEndpointsIterator(vs[i][j]))
 			if err != nil {
 				continue
 			}

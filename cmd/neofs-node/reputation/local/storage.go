@@ -66,14 +66,15 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 	// find out if local node is presented in netmap
 	localIndex := -1
 
-	for i := range nm.Nodes {
-		if bytes.Equal(nm.Nodes[i].PublicKey(), it.storage.LocalKey) {
+	nmNodes := nm.Nodes()
+	for i := range nmNodes {
+		if bytes.Equal(nmNodes[i].PublicKey(), it.storage.LocalKey) {
 			localIndex = i
 			break
 		}
 	}
 
-	ln := len(nm.Nodes)
+	ln := len(nmNodes)
 	if localIndex >= 0 && ln > 0 {
 		ln--
 	}
@@ -81,13 +82,13 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 	// calculate Pj http://ilpubs.stanford.edu:8090/562/1/2002-56.pdf Chapter 4.5.
 	p := reputation.TrustOne.Div(reputation.TrustValueFromInt(ln))
 
-	for i := range nm.Nodes {
+	for i := range nmNodes {
 		if i == localIndex {
 			continue
 		}
 
 		trust := reputation.Trust{}
-		trust.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
+		trust.SetPeer(reputation.PeerIDFromBytes(nmNodes[i].PublicKey()))
 		trust.SetValue(p)
 		trust.SetTrustingPeer(reputation.PeerIDFromBytes(it.storage.LocalKey))
 

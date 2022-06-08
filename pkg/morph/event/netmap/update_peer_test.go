@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,10 +14,7 @@ func TestParseUpdatePeer(t *testing.T) {
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
-	var (
-		publicKey = priv.PublicKey()
-		state     = netmap.NodeStateOffline
-	)
+	publicKey := priv.PublicKey()
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
 		prms := []stackitem.Item{
@@ -48,14 +44,14 @@ func TestParseUpdatePeer(t *testing.T) {
 
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParseUpdatePeer(createNotifyEventFromItems([]stackitem.Item{
-			stackitem.NewBigInteger(new(big.Int).SetInt64(int64(state.ToV2()))),
+			stackitem.NewBigInteger(new(big.Int).SetInt64(1)),
 			stackitem.NewByteArray(publicKey.Bytes()),
 		}))
 		require.NoError(t, err)
 
 		require.Equal(t, UpdatePeer{
 			publicKey: publicKey,
-			status:    state,
+			online:    true,
 		}, ev)
 	})
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -69,12 +68,14 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		common.ExitOnErr(cmd, "", err)
 
-		var subnetID subnetid.ID
+		if containerSubnet != "" {
+			var subnetID subnetid.ID
 
-		err = subnetID.DecodeString(containerSubnet)
-		common.ExitOnErr(cmd, "could not parse subnetID: %w", err)
+			err = subnetID.DecodeString(containerSubnet)
+			common.ExitOnErr(cmd, "could not parse subnetID: %w", err)
 
-		placementPolicy.SetSubnetID(&subnetID)
+			placementPolicy.RestrictSubnet(subnetID)
+		}
 
 		attributes, err := parseAttributes(containerAttributes)
 		common.ExitOnErr(cmd, "", err)
@@ -177,16 +178,17 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 		policyString = string(data)
 	}
 
-	result, err := policy.Parse(policyString)
+	var result netmap.PlacementPolicy
+
+	err = result.DecodeString(policyString)
 	if err == nil {
 		common.PrintVerbose("Parsed QL encoded policy")
-		return result, nil
+		return &result, nil
 	}
 
-	result = netmap.NewPlacementPolicy()
 	if err = result.UnmarshalJSON([]byte(policyString)); err == nil {
 		common.PrintVerbose("Parsed JSON encoded policy")
-		return result, nil
+		return &result, nil
 	}
 
 	return nil, errors.New("can't parse placement policy")

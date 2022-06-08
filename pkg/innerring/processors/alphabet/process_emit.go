@@ -48,7 +48,9 @@ func (ap *Processor) processEmit() {
 		return
 	}
 
-	ln := len(networkMap.Nodes)
+	nmNodes := networkMap.Nodes()
+
+	ln := len(nmNodes)
 	if ln == 0 {
 		ap.log.Debug("empty network map, do not emit gas")
 
@@ -57,8 +59,8 @@ func (ap *Processor) processEmit() {
 
 	gasPerNode := fixedn.Fixed8(ap.storageEmission / uint64(ln))
 
-	for i := range networkMap.Nodes {
-		keyBytes := networkMap.Nodes[i].PublicKey()
+	for i := range nmNodes {
+		keyBytes := nmNodes[i].PublicKey()
 
 		key, err := keys.NewPublicKeyFromBytes(keyBytes, elliptic.P256())
 		if err != nil {

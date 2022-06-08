@@ -213,21 +213,21 @@ func newCachedNetmapStorage(s netmap.State, v netmap.Source) netmap.Source {
 	}
 }
 
-func (s *lruNetmapSource) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
+func (s *lruNetmapSource) GetNetMap(diff uint64) (*netmapSDK.NetMap, error) {
 	return s.getNetMapByEpoch(s.netState.CurrentEpoch() - diff)
 }
 
-func (s *lruNetmapSource) GetNetMapByEpoch(epoch uint64) (*netmapSDK.Netmap, error) {
+func (s *lruNetmapSource) GetNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, error) {
 	return s.getNetMapByEpoch(epoch)
 }
 
-func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.Netmap, error) {
+func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, error) {
 	val, err := s.cache.get(epoch)
 	if err != nil {
 		return nil, err
 	}
 
-	return val.(*netmapSDK.Netmap), nil
+	return val.(*netmapSDK.NetMap), nil
 }
 
 func (s *lruNetmapSource) Epoch() (uint64, error) {

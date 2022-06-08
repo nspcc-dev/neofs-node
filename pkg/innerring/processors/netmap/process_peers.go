@@ -3,8 +3,6 @@ package netmap
 import (
 	"bytes"
 	"encoding/hex"
-	"sort"
-	"strings"
 
 	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -36,7 +34,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	}
 
 	// unmarshal node info
-	nodeInfo := netmap.NewNodeInfo()
+	var nodeInfo netmap.NodeInfo
 	if err := nodeInfo.Unmarshal(ev.Node()); err != nil {
 		// it will be nice to have tx id at event structure to log it
 		np.log.Warn("can't parse network map candidate")
@@ -44,7 +42,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	}
 
 	// validate and update node info
-	err := np.nodeValidator.VerifyAndUpdate(nodeInfo)
+	err := np.nodeValidator.VerifyAndUpdate(&nodeInfo)
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
 			zap.String("error", err.Error()),
@@ -54,28 +52,10 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	}
 
 	// sort attributes to make it consistent
-	a := nodeInfo.Attributes()
-	sort.Slice(a, func(i, j int) bool {
-		switch strings.Compare(a[i].Key(), a[j].Key()) {
-		case -1:
-			return true
-		case 1:
-			return false
-		default:
-			return a[i].Value() < a[j].Value()
-		}
-	})
-	nodeInfo.SetAttributes(a...)
+	nodeInfo.SortAttributes()
 
 	// marshal updated node info structure
-	nodeInfoBinary, err := nodeInfo.Marshal()
-	if err != nil {
-		np.log.Warn("could not marshal updated network map candidate",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
+	nodeInfoBinary := nodeInfo.Marshal()
 
 	keyString := hex.EncodeToString(nodeInfo.PublicKey())
 
@@ -121,15 +101,6 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 		return
 	}
 
-	// better use unified enum from neofs-api-go/v2/netmap package
-	if ev.Status() != netmap.NodeStateOffline {
-		np.log.Warn("node proposes unknown state",
-			zap.String("key", hex.EncodeToString(ev.PublicKey().Bytes())),
-			zap.Stringer("status", ev.Status()),
-		)
-		return
-	}
-
 	// flag node to remove from local view, so it can be re-bootstrapped
 	// again before new epoch will tick
 	np.netmapSnapshot.flag(hex.EncodeToString(ev.PublicKey().Bytes()))
@@ -141,7 +112,9 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	} else {
 		prm := netmapclient.UpdatePeerPrm{}
 
-		prm.SetState(ev.Status())
+		if ev.Online() {
+			prm.SetOnline()
+		}
 		prm.SetKey(ev.PublicKey().Bytes())
 
 		err = np.netmapClient.UpdatePeerState(prm)
@@ -181,12 +154,14 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 		return
 	}
 
-	for _, node := range candidates.Nodes {
-		if !bytes.Equal(node.NodeInfo.PublicKey(), ev.Node()) {
+	candidateNodes := candidates.Nodes()
+
+	for i := range candidateNodes {
+		if !bytes.Equal(candidateNodes[i].PublicKey(), ev.Node()) {
 			continue
 		}
 
-		err = node.IterateSubnets(func(subNetID subnetid.ID) error {
+		err = candidateNodes[i].IterateSubnets(func(subNetID subnetid.ID) error {
 			if subNetID.Equals(subnetToRemoveFrom) {
 				return netmap.ErrRemoveSubnet
 			}
@@ -199,7 +174,6 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 
 			prm := netmapclient.UpdatePeerPrm{}
 			prm.SetKey(ev.Node())
-			prm.SetState(netmap.NodeStateOffline)
 			prm.SetHash(ev.TxHash())
 
 			err = np.netmapClient.UpdatePeerState(prm)
@@ -209,7 +183,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 			}
 		} else {
 			prm := netmapclient.AddPeerPrm{}
-			prm.SetNodeInfo(node.NodeInfo)
+			prm.SetNodeInfo(candidateNodes[i])
 			prm.SetHash(ev.TxHash())
 
 			err = np.netmapClient.AddPeer(prm)

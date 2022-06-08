@@ -8,104 +8,63 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-const (
-	pairSeparator     = "/"
-	keyValueSeparator = ":"
-)
+const keyValueSeparator = ":"
 
-var (
-	errEmptyChain      = errors.New("empty attribute chain")
-	errNonUniqueBucket = errors.New("attributes must contain unique keys")
-	errUnexpectedKey   = errors.New("attributes contain unexpected key")
-)
-
-// ParseV2Attributes parses strings like "K1:V1/K2:V2/K3:V3" into netmap
-// attributes. Supports escaped symbols "\:", "\/" and "\\".
-func ParseV2Attributes(attrs []string, excl []string) ([]netmap.NodeAttribute, error) {
-	restricted := make(map[string]struct{}, len(excl))
-	for i := range excl {
-		restricted[excl[i]] = struct{}{}
-	}
-
-	cache := make(map[string]*netmap.NodeAttribute, len(attrs))
-	result := make([]netmap.NodeAttribute, 0, len(attrs))
+// ReadNodeAttributes parses node attributes from list of string in "Key:Value" format
+// and writes them into netmap.NodeInfo instance. Supports escaped symbols
+// "\:", "\/" and "\\".
+func ReadNodeAttributes(dst *netmap.NodeInfo, attrs []string) error {
+	cache := make(map[string]struct{}, len(attrs))
 
 	for i := range attrs {
-		line := strings.Trim(attrs[i], pairSeparator)
-		line = replaceEscaping(line, false) // replaced escaped symbols with non-printable symbols
-		chain := strings.Split(line, pairSeparator)
-		if len(chain) == 0 {
-			return nil, errEmptyChain
+		line := replaceEscaping(attrs[i], false) // replaced escaped symbols with non-printable symbols
+
+		words := strings.Split(line, keyValueSeparator)
+		if len(words) != 2 {
+			return errors.New("missing attribute key and/or value")
 		}
 
-		var parentKey string // backtrack parents in next pairs
-
-		for j := range chain {
-			pair := strings.Split(chain[j], keyValueSeparator)
-			if len(pair) != 2 {
-				return nil, fmt.Errorf("incorrect attribute pair %s", chain[j])
-			}
-
-			key := pair[0]
-			value := pair[1]
-
-			attribute, present := cache[key]
-			if present && attribute.Value() != value {
-				return nil, errNonUniqueBucket
-			}
-
-			if _, ok := restricted[key]; ok {
-				return nil, errUnexpectedKey
-			}
-
-			if !present {
-				result = append(result, netmap.NodeAttribute{})
-				attribute = &result[len(result)-1]
-				cache[key] = attribute
-
-				// replace non-printable symbols with escaped symbols without escape character
-				key = replaceEscaping(key, true)
-				value = replaceEscaping(value, true)
-
-				attribute.SetKey(key)
-				attribute.SetValue(value)
-			}
-
-			if parentKey != "" {
-				parentKeys := attribute.ParentKeys()
-				if !hasString(parentKeys, parentKey) {
-					attribute.SetParentKeys(append(parentKeys, parentKey)...)
-				}
-			}
-
-			parentKey = key
+		_, ok := cache[words[0]]
+		if ok {
+			return fmt.Errorf("duplicated keys %s", words[0])
 		}
+
+		cache[words[0]] = struct{}{}
+
+		// replace non-printable symbols with escaped symbols without escape character
+		words[0] = replaceEscaping(words[0], true)
+		words[1] = replaceEscaping(words[1], true)
+		fmt.Println(words[0], words[1])
+
+		if words[0] == "" {
+			return errors.New("empty key")
+		} else if words[1] == "" {
+			return errors.New("empty value")
+		}
+
+		dst.SetAttribute(words[0], words[1])
 	}
 
-	return result, nil
+	return nil
 }
 
 func replaceEscaping(target string, rollback bool) (s string) {
 	const escChar = `\`
 
 	var (
-		oldPairSep = escChar + pairSeparator
-		oldKVSep   = escChar + keyValueSeparator
-		oldEsc     = escChar + escChar
-		newPairSep = string(uint8(1))
-		newKVSep   = string(uint8(2))
-		newEsc     = string(uint8(3))
+		oldKVSep = escChar + keyValueSeparator
+		oldEsc   = escChar + escChar
+		newKVSep = string(uint8(2))
+		newEsc   = string(uint8(3))
 	)
 
 	if rollback {
-		oldPairSep, oldKVSep, oldEsc = newPairSep, newKVSep, newEsc
-		newPairSep = pairSeparator
+		oldKVSep, oldEsc = newKVSep, newEsc
 		newKVSep = keyValueSeparator
 		newEsc = escChar
 	}
 
 	s = strings.ReplaceAll(target, oldEsc, newEsc)
-	s = strings.ReplaceAll(s, oldPairSep, newPairSep)
 	s = strings.ReplaceAll(s, oldKVSep, newKVSep)
 
 	return

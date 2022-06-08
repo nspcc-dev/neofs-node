@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -37,7 +38,7 @@ type testTraverserGenerator struct {
 }
 
 type testPlacementBuilder struct {
-	vectors map[string][]netmap.Nodes
+	vectors map[string][][]netmap.NodeInfo
 }
 
 type testClientCache struct {
@@ -73,7 +74,7 @@ func (g *testTraverserGenerator) generateTraverser(_ cid.ID, epoch uint64) (*pla
 	)
 }
 
-func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
 	var addr oid.Address
 	addr.SetContainer(cnr)
 
@@ -86,7 +87,7 @@ func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ *netmap
 		return nil, errors.New("vectors for address not found")
 	}
 
-	res := make([]netmap.Nodes, len(vs))
+	res := make([][]netmap.NodeInfo, len(vs))
 	copy(res, vs)
 
 	return res, nil
@@ -193,8 +194,8 @@ func TestGetLocalOnly(t *testing.T) {
 	})
 }
 
-func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
-	mNodes := make([]netmap.Nodes, len(dim))
+func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
+	mNodes := make([][]netmap.NodeInfo, len(dim))
 	mAddr := make([][]string, len(dim))
 
 	for i := range dim {
@@ -207,20 +208,20 @@ func testNodeMatrix(t testing.TB, dim []int) ([]netmap.Nodes, [][]string) {
 				strconv.Itoa(60000+j),
 			)
 
-			ni := netmap.NewNodeInfo()
-			ni.SetAddresses(a)
+			var ni netmap.NodeInfo
+			ni.SetNetworkEndpoints(a)
 
 			var na network.AddressGroup
 
-			err := na.FromIterator(ni)
+			err := na.FromIterator(netmapcore.Node(ni))
 			require.NoError(t, err)
 
 			as[j] = network.StringifyGroup(na)
 
-			ns[j] = *ni
+			ns[j] = ni
 		}
 
-		mNodes[i] = netmap.NodesFromInfo(ns)
+		mNodes[i] = ns
 		mAddr[i] = as
 	}
 
@@ -232,15 +233,15 @@ func TestGetRemoteSmall(t *testing.T) {
 
 	placementDim := []int{2}
 
-	rs := make([]netmap.Replica, len(placementDim))
+	rs := make([]netmap.ReplicaDescriptor, len(placementDim))
 	for i := range placementDim {
-		rs[i].SetCount(uint32(placementDim[i]))
+		rs[i].SetNumberOfObjects(uint32(placementDim[i]))
 	}
 
-	pp := netmap.NewPlacementPolicy()
-	pp.SetReplicas(rs...)
+	var pp netmap.PlacementPolicy
+	pp.AddReplicas(rs...)
 
-	cnr := container.New(container.WithPolicy(pp))
+	cnr := container.New(container.WithPolicy(&pp))
 	id := container.CalculateID(cnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
@@ -278,7 +279,7 @@ func TestGetRemoteSmall(t *testing.T) {
 		ns, as := testNodeMatrix(t, placementDim)
 
 		builder := &testPlacementBuilder{
-			vectors: map[string][]netmap.Nodes{
+			vectors: map[string][][]netmap.NodeInfo{
 				addr.EncodeToString(): ns,
 			},
 		}
@@ -317,16 +318,16 @@ func TestGetFromPastEpoch(t *testing.T) {
 
 	placementDim := []int{2, 2}
 
-	rs := make([]netmap.Replica, len(placementDim))
+	rs := make([]netmap.ReplicaDescriptor, len(placementDim))
 
 	for i := range placementDim {
-		rs[i].SetCount(uint32(placementDim[i]))
+		rs[i].SetNumberOfObjects(uint32(placementDim[i]))
 	}
 
-	pp := netmap.NewPlacementPolicy()
-	pp.SetReplicas(rs...)
+	var pp netmap.PlacementPolicy
+	pp.AddReplicas(rs...)
 
-	cnr := container.New(container.WithPolicy(pp))
+	cnr := container.New(container.WithPolicy(&pp))
 	idCnr := container.CalculateID(cnr)
 
 	var addr oid.Address
@@ -360,12 +361,12 @@ func TestGetFromPastEpoch(t *testing.T) {
 		c: cnr,
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{
-				vectors: map[string][]netmap.Nodes{
+				vectors: map[string][][]netmap.NodeInfo{
 					addr.EncodeToString(): ns[:1],
 				},
 			},
 			curEpoch - 1: &testPlacementBuilder{
-				vectors: map[string][]netmap.Nodes{
+				vectors: map[string][][]netmap.NodeInfo{
 					addr.EncodeToString(): ns[1:],
 				},
 			},

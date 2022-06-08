@@ -17,23 +17,29 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 		pub := make([]byte, 33)
 		rand.Read(pub)
 
-		expected[i].SetState(netmap.NodeState(i % 3))
+		switch i % 3 {
+		case 1:
+			expected[i].SetOffline()
+		case 2:
+			expected[i].SetOnline()
+		}
+
 		expected[i].SetPublicKey(pub)
 
-		var attr netmap.NodeAttribute
-		attr.SetKey("key")
-		attr.SetValue(strconv.Itoa(i))
-		expected[i].SetAttributes(attr)
+		expected[i].SetAttribute("key", strconv.Itoa(i))
 	}
 
 	items := make([]stackitem.Item, 4)
 	for i := range items {
-		data, err := expected[i].Marshal()
-		require.NoError(t, err)
+		data := expected[i].Marshal()
 
-		state := int64(expected[i].State())
-		if state != 0 { // In contract online=1, offline=2, in API it is the other way.
-			state = 3 - state
+		var state int64
+
+		switch {
+		case expected[i].IsOnline():
+			state = 1
+		case expected[i].IsOffline():
+			state = 2
 		}
 
 		items[i] = stackitem.NewStruct([]stackitem.Item{

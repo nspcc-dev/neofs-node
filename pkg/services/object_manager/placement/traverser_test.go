@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -13,24 +14,24 @@ import (
 )
 
 type testBuilder struct {
-	vectors []netmap.Nodes
+	vectors [][]netmap.NodeInfo
 }
 
-func (b testBuilder) BuildPlacement(cid.ID, *oid.ID, *netmap.PlacementPolicy) ([]netmap.Nodes, error) {
+func (b testBuilder) BuildPlacement(cid.ID, *oid.ID, netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
 	return b.vectors, nil
 }
 
 func testNode(v uint32) (n netmap.NodeInfo) {
-	n.SetAddresses("/ip4/0.0.0.0/tcp/" + strconv.Itoa(int(v)))
+	n.SetNetworkEndpoints("/ip4/0.0.0.0/tcp/" + strconv.Itoa(int(v)))
 
 	return n
 }
 
-func copyVectors(v []netmap.Nodes) []netmap.Nodes {
-	vc := make([]netmap.Nodes, 0, len(v))
+func copyVectors(v [][]netmap.NodeInfo) [][]netmap.NodeInfo {
+	vc := make([][]netmap.NodeInfo, 0, len(v))
 
 	for i := range v {
-		ns := make(netmap.Nodes, len(v[i]))
+		ns := make([]netmap.NodeInfo, len(v[i]))
 		copy(ns, v[i])
 
 		vc = append(vc, ns)
@@ -39,9 +40,9 @@ func copyVectors(v []netmap.Nodes) []netmap.Nodes {
 	return vc
 }
 
-func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Container) {
-	nodes := make([]netmap.Nodes, 0, len(rs))
-	replicas := make([]netmap.Replica, 0, len(rs))
+func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, *container.Container) {
+	nodes := make([][]netmap.NodeInfo, 0, len(rs))
+	replicas := make([]netmap.ReplicaDescriptor, 0, len(rs))
 	num := uint32(0)
 
 	for i := range ss {
@@ -52,24 +53,24 @@ func testPlacement(t *testing.T, ss, rs []int) ([]netmap.Nodes, *container.Conta
 			num++
 		}
 
-		nodes = append(nodes, netmap.NodesFromInfo(ns))
+		nodes = append(nodes, ns)
 
-		var s netmap.Replica
-		s.SetCount(uint32(rs[i]))
+		var rd netmap.ReplicaDescriptor
+		rd.SetNumberOfObjects(uint32(rs[i]))
 
-		replicas = append(replicas, s)
+		replicas = append(replicas, rd)
 	}
 
 	policy := new(netmap.PlacementPolicy)
-	policy.SetReplicas(replicas...)
+	policy.AddReplicas(replicas...)
 
 	return nodes, container.New(container.WithPolicy(policy))
 }
 
-func assertSameAddress(t *testing.T, ni *netmap.NodeInfo, addr network.AddressGroup) {
+func assertSameAddress(t *testing.T, ni netmap.NodeInfo, addr network.AddressGroup) {
 	var netAddr network.AddressGroup
 
-	err := netAddr.FromIterator(ni)
+	err := netAddr.FromIterator(netmapcore.Node(ni))
 	require.NoError(t, err)
 	require.True(t, netAddr.Intersects(addr))
 }
@@ -96,7 +97,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 			require.Len(t, addrs, len(nodes[i]))
 
 			for j, n := range nodes[i] {
-				assertSameAddress(t, n.NodeInfo, addrs[j].Addresses())
+				assertSameAddress(t, n, addrs[j].Addresses())
 			}
 		}
 
@@ -127,7 +128,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 
 		var n network.AddressGroup
 
-		err = n.FromIterator(nodes[1][0])
+		err = n.FromIterator(netmapcore.Node(nodes[1][0]))
 		require.NoError(t, err)
 
 		require.Equal(t, []Node{{addresses: n}}, tr.Next())
@@ -153,7 +154,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 				require.Len(t, addrs, replicas[curVector])
 
 				for j := range addrs {
-					assertSameAddress(t, nodes[curVector][i+j].NodeInfo, addrs[j].Addresses())
+					assertSameAddress(t, nodes[curVector][i+j], addrs[j].Addresses())
 				}
 			}
 
@@ -185,7 +186,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		tr, err := NewTraverser(
 			ForContainer(cnr),
 			UseBuilder(&testBuilder{
-				vectors: []netmap.Nodes{{nodes[1][1]}}, // single node (local)
+				vectors: [][]netmap.NodeInfo{{nodes[1][1]}}, // single node (local)
 			}),
 			SuccessAfter(1),
 		)

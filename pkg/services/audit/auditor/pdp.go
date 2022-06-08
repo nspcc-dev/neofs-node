@@ -108,7 +108,7 @@ func (c *Context) splitPayload(id oid.ID) []uint64 {
 }
 
 func (c *Context) collectHashes(p *gamePair) {
-	fn := func(n *netmap.Node, rngs []*object.Range) [][]byte {
+	fn := func(n netmap.NodeInfo, rngs []*object.Range) [][]byte {
 		// Here we randomize the order a bit: the hypothesis is that this
 		// makes it harder for an unscrupulous node to come up with a
 		// reliable cheating strategy.
@@ -176,7 +176,7 @@ func (c *Context) analyzeHashes(p *gamePair) {
 	c.passNodesPDP(p.n1, p.n2)
 }
 
-func (c *Context) failNodesPDP(ns ...*netmap.Node) {
+func (c *Context) failNodesPDP(ns ...netmap.NodeInfo) {
 	c.pairedMtx.Lock()
 
 	for i := range ns {
@@ -186,7 +186,7 @@ func (c *Context) failNodesPDP(ns ...*netmap.Node) {
 	c.pairedMtx.Unlock()
 }
 
-func (c *Context) passNodesPDP(ns ...*netmap.Node) {
+func (c *Context) passNodesPDP(ns ...netmap.NodeInfo) {
 	c.pairedMtx.Lock()
 
 	for i := range ns {
@@ -200,18 +200,18 @@ func (c *Context) writePairsResult() {
 	var failCount, okCount int
 
 	c.iteratePairedNodes(
-		func(*netmap.Node) { failCount++ },
-		func(*netmap.Node) { okCount++ },
+		func(netmap.NodeInfo) { failCount++ },
+		func(netmap.NodeInfo) { okCount++ },
 	)
 
 	failedNodes := make([][]byte, 0, failCount)
 	passedNodes := make([][]byte, 0, okCount)
 
 	c.iteratePairedNodes(
-		func(n *netmap.Node) {
+		func(n netmap.NodeInfo) {
 			failedNodes = append(failedNodes, n.PublicKey())
 		},
-		func(n *netmap.Node) {
+		func(n netmap.NodeInfo) {
 			passedNodes = append(passedNodes, n.PublicKey())
 		},
 	)
@@ -219,7 +219,7 @@ func (c *Context) writePairsResult() {
 	c.report.SetPDPResults(passedNodes, failedNodes)
 }
 
-func (c *Context) iteratePairedNodes(onFail, onPass func(*netmap.Node)) {
+func (c *Context) iteratePairedNodes(onFail, onPass func(netmap.NodeInfo)) {
 	for _, pairedNode := range c.pairedNodes {
 		if pairedNode.failedPDP {
 			onFail(pairedNode.node)

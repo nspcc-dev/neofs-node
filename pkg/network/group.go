@@ -132,10 +132,11 @@ func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
 	addrs := make([]string, 0, num)
 
 	iterateAllAddresses(g, func(addr Address) {
+		ni.SetNetworkEndpoints()
 		addrs = append(addrs, addr.String())
 	})
 
-	ni.SetAddresses(addrs...)
+	ni.SetNetworkEndpoints(addrs...)
 }
 
 // Intersects checks if two AddressGroup have

@@ -37,7 +37,7 @@ func initNodeInfoCmd() {
 	nodeInfoCmd.Flags().Bool(nodeInfoJSONFlag, false, "print node info in JSON format")
 }
 
-func prettyPrintNodeInfo(cmd *cobra.Command, i *netmap.NodeInfo) {
+func prettyPrintNodeInfo(cmd *cobra.Command, i netmap.NodeInfo) {
 	isJSON, _ := cmd.Flags().GetBool(nodeInfoJSONFlag)
 	if isJSON {
 		common.PrettyPrintJSON(cmd, i, "node info")
@@ -45,12 +45,24 @@ func prettyPrintNodeInfo(cmd *cobra.Command, i *netmap.NodeInfo) {
 	}
 
 	cmd.Println("key:", hex.EncodeToString(i.PublicKey()))
-	cmd.Println("state:", i.State())
-	netmap.IterateAllAddresses(i, func(s string) {
+
+	var stateWord string
+	switch {
+	default:
+		stateWord = "<undefined>"
+	case i.IsOnline():
+		stateWord = "online"
+	case i.IsOffline():
+		stateWord = "offline"
+	}
+
+	cmd.Println("state:", stateWord)
+
+	netmap.IterateNetworkEndpoints(i, func(s string) {
 		cmd.Println("address:", s)
 	})
 
-	for _, attribute := range i.Attributes() {
-		cmd.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
-	}
+	i.IterateAttributes(func(key, value string) {
+		cmd.Printf("attribute: %s=%s\n", key, value)
+	})
 }

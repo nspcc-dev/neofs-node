@@ -60,7 +60,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		}
 	}
 
-	np.netmapSnapshot.update(networkMap, epoch)
+	np.netmapSnapshot.update(*networkMap, epoch)
 	np.handleCleanupTick(netmapCleanupTick{epoch: epoch, txHash: ev.TxHash()})
 	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
 	np.handleAuditSettlements(settlement.NewAuditEvent(epoch))

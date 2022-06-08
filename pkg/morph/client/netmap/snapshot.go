@@ -12,17 +12,17 @@ import (
 // through the Netmap contract call, composes network map
 // from them and returns it. With diff == 0 returns current
 // network map, else return snapshot of previous network map.
-func (c *Client) GetNetMap(diff uint64) (*netmap.Netmap, error) {
+func (c *Client) GetNetMap(diff uint64) (*netmap.NetMap, error) {
 	return c.getNetMap(diff)
 }
 
 // Snapshot returns current netmap node infos.
 // Consider using pkg/morph/client/netmap for this.
-func (c *Client) Snapshot() (*netmap.Netmap, error) {
+func (c *Client) Snapshot() (*netmap.NetMap, error) {
 	return c.getNetMap(0)
 }
 
-func (c *Client) getNetMap(diff uint64) (*netmap.Netmap, error) {
+func (c *Client) getNetMap(diff uint64) (*netmap.NetMap, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(snapshotMethod)
 	prm.SetArgs(diff)
@@ -35,7 +35,7 @@ func (c *Client) getNetMap(diff uint64) (*netmap.Netmap, error) {
 	return unmarshalNetmap(res, snapshotMethod)
 }
 
-func unmarshalNetmap(items []stackitem.Item, method string) (*netmap.Netmap, error) {
+func unmarshalNetmap(items []stackitem.Item, method string) (*netmap.NetMap, error) {
 	rawPeers, err := peersFromStackItems(items, method)
 	if err != nil {
 		return nil, err
@@ -48,5 +48,8 @@ func unmarshalNetmap(items []stackitem.Item, method string) (*netmap.Netmap, err
 		}
 	}
 
-	return netmap.NewNetmap(netmap.NodesFromInfo(result))
+	var nm netmap.NetMap
+	nm.SetNodes(result)
+
+	return &nm, nil
 }

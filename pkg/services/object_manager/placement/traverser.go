@@ -20,7 +20,7 @@ type Builder interface {
 	//
 	// Must return all container nodes if object identifier
 	// is nil.
-	BuildPlacement(cid.ID, *oid.ID, *netmap.PlacementPolicy) ([]netmap.Nodes, error)
+	BuildPlacement(cid.ID, *oid.ID, netmap.PlacementPolicy) ([][]netmap.NodeInfo, error)
 }
 
 // Option represents placement traverser option.
@@ -31,7 +31,7 @@ type Option func(*cfg)
 type Traverser struct {
 	mtx *sync.RWMutex
 
-	vectors []netmap.Nodes
+	vectors [][]netmap.NodeInfo
 
 	rem []int
 }
@@ -78,7 +78,7 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		return nil, fmt.Errorf("%s: %w", invalidOptsMsg, errNilPolicy)
 	}
 
-	ns, err := cfg.builder.BuildPlacement(cfg.cnr, cfg.obj, cfg.policy)
+	ns, err := cfg.builder.BuildPlacement(cfg.cnr, cfg.obj, *cfg.policy)
 	if err != nil {
 		return nil, fmt.Errorf("could not build placement: %w", err)
 	}
@@ -88,12 +88,12 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		ns = flatNodes(ns)
 		rem = []int{int(*cfg.flatSuccess)}
 	} else {
-		rs := cfg.policy.Replicas()
-		rem = make([]int, 0, len(rs))
+		replNum := cfg.policy.NumberOfReplicas()
+		rem = make([]int, 0, replNum)
 
-		for i := range rs {
+		for i := 0; i < replNum; i++ {
 			if cfg.trackCopies {
-				rem = append(rem, int(rs[i].Count()))
+				rem = append(rem, int(cfg.policy.ReplicaNumberByIndex(i)))
 			} else {
 				rem = append(rem, -1)
 			}
@@ -107,18 +107,18 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 	}, nil
 }
 
-func flatNodes(ns []netmap.Nodes) []netmap.Nodes {
+func flatNodes(ns [][]netmap.NodeInfo) [][]netmap.NodeInfo {
 	sz := 0
 	for i := range ns {
 		sz += len(ns[i])
 	}
 
-	flat := make(netmap.Nodes, 0, sz)
+	flat := make([]netmap.NodeInfo, 0, sz)
 	for i := range ns {
 		flat = append(flat, ns[i]...)
 	}
 
-	return []netmap.Nodes{flat}
+	return [][]netmap.NodeInfo{flat}
 }
 
 // Node is a descriptor of storage node with information required for intra-container communication.
@@ -161,7 +161,7 @@ func (t *Traverser) Next() []Node {
 	nodes := make([]Node, count)
 
 	for i := 0; i < count; i++ {
-		err := nodes[i].addresses.FromIterator(t.vectors[0][i])
+		err := nodes[i].addresses.FromIterator(network.NodeEndpointsIterator(t.vectors[0][i]))
 		if err != nil {
 			return nil
 		}

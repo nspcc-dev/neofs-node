@@ -8,20 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-// State is an enumeration of various states of the NeoFS node.
-type State int64
-
-const (
-	// Undefined is unknown state.
-	Undefined State = iota
-
-	// Online is network unavailable state.
-	Online
-
-	// Offline is an active state in the network.
-	Offline
-)
-
 const (
 	nodeInfoFixedPrmNumber = 1
 
@@ -31,7 +17,7 @@ const (
 // GetNetMapByEpoch receives information list about storage nodes
 // through the Netmap contract call, composes network map
 // from them and returns it. Returns snapshot of the specified epoch number.
-func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error) {
+func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(epochSnapshotMethod)
 	invokePrm.SetArgs(epoch)
@@ -48,7 +34,7 @@ func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.Netmap, error) {
 // GetCandidates receives information list about candidates
 // for the next epoch network map through the Netmap contract
 // call, composes network map from them and returns it.
-func (c *Client) GetCandidates() (*netmap.Netmap, error) {
+func (c *Client) GetCandidates() (*netmap.NetMap, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(netMapCandidatesMethod)
 
@@ -62,7 +48,10 @@ func (c *Client) GetCandidates() (*netmap.Netmap, error) {
 		return nil, fmt.Errorf("could not parse contract response: %w", err)
 	}
 
-	return netmap.NewNetmap(netmap.NodesFromInfo(candVals))
+	var nm netmap.NetMap
+	nm.SetNodes(candVals)
+
+	return &nm, nil
 }
 
 // NetMap performs the test invoke of get network map
@@ -128,11 +117,9 @@ func stackItemToNodeInfo(prm stackitem.Item, res *netmap.NodeInfo) error {
 
 	switch state {
 	case 1:
-		res.SetState(netmap.NodeStateOnline)
+		res.SetOnline()
 	case 2:
-		res.SetState(netmap.NodeStateOffline)
-	default:
-		res.SetState(0)
+		res.SetOffline()
 	}
 
 	return nil

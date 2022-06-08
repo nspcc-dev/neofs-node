@@ -2,8 +2,8 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -34,7 +34,6 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 			prm := netmapclient.UpdatePeerPrm{}
 
 			prm.SetKey(key.Bytes())
-			prm.SetState(netmap.NodeStateOffline)
 			prm.SetHash(ev.TxHash())
 
 			err = np.netmapClient.UpdatePeerState(prm)
@@ -45,7 +44,7 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 				uint32(ev.epoch),
 				nil,
 				methodUpdateStateNotary,
-				int64(netmap.NodeStateOffline.ToV2()), key.Bytes(),
+				int64(v2netmap.Offline), key.Bytes(),
 			)
 		}
 		if err != nil {

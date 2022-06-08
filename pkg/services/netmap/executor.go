@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
+	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	versionsdk "github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
@@ -32,7 +33,7 @@ type NetworkInfo interface {
 	// Must return recent network information in NeoFS API v2 NetworkInfo structure.
 	//
 	// If protocol version is <=2.9, MillisecondsPerBlock and network config should be unset.
-	Dump(*refs.Version) (*netmap.NetworkInfo, error)
+	Dump(versionsdk.Version) (*netmapSDK.NetworkInfo, error)
 }
 
 func NewExecutionService(s NodeState, v versionsdk.Version, netInfo NetworkInfo) Server {
@@ -93,13 +94,24 @@ func (s *executorSvc) LocalNodeInfo(
 func (s *executorSvc) NetworkInfo(
 	_ context.Context,
 	req *netmap.NetworkInfoRequest) (*netmap.NetworkInfoResponse, error) {
-	ni, err := s.netInfo.Dump(req.GetMetaHeader().GetVersion())
+	verV2 := req.GetMetaHeader().GetVersion()
+	if verV2 == nil {
+		return nil, errors.New("missing protocol version in meta header")
+	}
+
+	var ver versionsdk.Version
+	ver.ReadFromV2(*verV2)
+
+	ni, err := s.netInfo.Dump(ver)
 	if err != nil {
 		return nil, err
 	}
 
+	var niV2 netmap.NetworkInfo
+	ni.WriteToV2(&niV2)
+
 	body := new(netmap.NetworkInfoResponseBody)
-	body.SetNetworkInfo(ni)
+	body.SetNetworkInfo(&niV2)
 
 	resp := new(netmap.NetworkInfoResponse)
 	resp.SetBody(body)

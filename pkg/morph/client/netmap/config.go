@@ -185,85 +185,112 @@ func (c *Client) SetConfig(p SetConfigPrm) error {
 	return c.client.Invoke(prm)
 }
 
-// IterateConfigParameters iterates over configuration parameters stored in Netmap contract and passes them to f.
-//
-// Returns f's errors directly.
-func (c *Client) IterateConfigParameters(f func(key, value []byte) error) error {
+// RawNetworkParameter is a NeoFS network parameter which is transmitted but
+// not interpreted by the NeoFS API protocol.
+type RawNetworkParameter struct {
+	// Name of the parameter.
+	Name string
+
+	// Raw parameter value.
+	Value []byte
+}
+
+// NetworkConfiguration represents NeoFS network configuration stored
+// in the NeoFS Sidechain.
+type NetworkConfiguration struct {
+	MaxObjectSize uint64
+
+	StoragePrice uint64
+
+	AuditFee uint64
+
+	EpochDuration uint64
+
+	ContainerFee uint64
+
+	ContainerAliasFee uint64
+
+	EigenTrustIterations uint64
+
+	EigenTrustAlpha float64
+
+	IRCandidateFee uint64
+
+	WithdrawalFee uint64
+
+	Raw []RawNetworkParameter
+}
+
+// ReadNetworkConfiguration reads NetworkConfiguration from the NeoFS Sidechain.
+func (c *Client) ReadNetworkConfiguration() (*NetworkConfiguration, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(configListMethod)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not perform test invocation (%s): %w",
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			configListMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
-		return fmt.Errorf("unexpected stack item count (%s): %d", configListMethod, ln)
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", configListMethod, ln)
 	}
 
 	arr, err := client.ArrayFromStackItem(items[0])
 	if err != nil {
-		return fmt.Errorf("record list (%s): %w", configListMethod, err)
+		return nil, fmt.Errorf("record list (%s): %w", configListMethod, err)
 	}
 
-	return iterateRecords(arr, func(key, value []byte) error {
-		return f(key, value)
-	})
-}
+	m := make(map[string]struct{}, len(arr))
+	var res NetworkConfiguration
+	res.Raw = make([]RawNetworkParameter, 0, len(arr))
 
-// ConfigWriter is an interface of NeoFS network config writer.
-type ConfigWriter interface {
-	UnknownParameter(string, []byte)
-	MaxObjectSize(uint64)
-	BasicIncomeRate(uint64)
-	AuditFee(uint64)
-	EpochDuration(uint64)
-	ContainerFee(uint64)
-	ContainerAliasFee(uint64)
-	EigenTrustIterations(uint64)
-	EigenTrustAlpha(float64)
-	InnerRingCandidateFee(uint64)
-	WithdrawFee(uint64)
-}
+	err = iterateRecords(arr, func(name string, value []byte) error {
+		_, ok := m[name]
+		if ok {
+			return fmt.Errorf("duplicated config name %s", name)
+		}
 
-// WriteConfig writes NeoFS network configuration received via iterator.
-//
-// Returns iterator's errors directly.
-func WriteConfig(dst ConfigWriter, iterator func(func(key, val []byte) error) error) error {
-	return iterator(func(key, val []byte) error {
-		switch k := string(key); k {
+		m[name] = struct{}{}
+
+		switch name {
 		default:
-			dst.UnknownParameter(k, val)
+			res.Raw = append(res.Raw, RawNetworkParameter{
+				Name:  name,
+				Value: value,
+			})
 		case maxObjectSizeConfig:
-			dst.MaxObjectSize(bytesToUint64(val))
+			res.MaxObjectSize = bytesToUint64(value)
 		case basicIncomeRateConfig:
-			dst.BasicIncomeRate(bytesToUint64(val))
+			res.StoragePrice = bytesToUint64(value)
 		case auditFeeConfig:
-			dst.AuditFee(bytesToUint64(val))
+			res.AuditFee = bytesToUint64(value)
 		case epochDurationConfig:
-			dst.EpochDuration(bytesToUint64(val))
+			res.EpochDuration = bytesToUint64(value)
 		case containerFeeConfig:
-			dst.ContainerFee(bytesToUint64(val))
+			res.ContainerFee = bytesToUint64(value)
 		case containerAliasFeeConfig:
-			dst.ContainerAliasFee(bytesToUint64(val))
+			res.ContainerAliasFee = bytesToUint64(value)
 		case etIterationsConfig:
-			dst.EigenTrustIterations(bytesToUint64(val))
+			res.EigenTrustIterations = bytesToUint64(value)
 		case etAlphaConfig:
-			v, err := strconv.ParseFloat(string(val), 64)
+			res.EigenTrustAlpha, err = strconv.ParseFloat(string(value), 64)
 			if err != nil {
-				return fmt.Errorf("prm %s: %v", etAlphaConfig, err)
+				return fmt.Errorf("invalid prm %s: %v", etAlphaConfig, err)
 			}
-
-			dst.EigenTrustAlpha(v)
 		case irCandidateFeeConfig:
-			dst.InnerRingCandidateFee(bytesToUint64(val))
+			res.IRCandidateFee = bytesToUint64(value)
 		case withdrawFeeConfig:
-			dst.WithdrawFee(bytesToUint64(val))
+			res.WithdrawalFee = bytesToUint64(value)
 		}
 
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 func bytesToUint64(val []byte) uint64 {
@@ -307,7 +334,7 @@ func StringAssert(item stackitem.Item) (interface{}, error) {
 // iterateRecords iterates over all config records and passes them to f.
 //
 // Returns f's errors directly.
-func iterateRecords(arr []stackitem.Item, f func(key, value []byte) error) error {
+func iterateRecords(arr []stackitem.Item, f func(key string, value []byte) error) error {
 	for i := range arr {
 		fields, err := client.ArrayFromStackItem(arr[i])
 		if err != nil {
@@ -328,7 +355,7 @@ func iterateRecords(arr []stackitem.Item, f func(key, value []byte) error) error
 			return fmt.Errorf("record value: %w", err)
 		}
 
-		if err := f(k, v); err != nil {
+		if err := f(string(k), v); err != nil {
 			return err
 		}
 	}

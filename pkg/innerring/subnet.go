@@ -301,19 +301,21 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 		return
 	}
 
-	for _, c := range candidates.Nodes {
-		s.processCandidate(delEv.TxHash(), removedID, c)
+	candidateNodes := candidates.Nodes()
+
+	for i := range candidateNodes {
+		s.processCandidate(delEv.TxHash(), removedID, candidateNodes[i])
 	}
 }
 
-func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.ID, c netmap.Node) {
+func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.ID, c netmap.NodeInfo) {
 	removeSubnet := false
 	log := s.log.With(
-		zap.String("public_key", hex.EncodeToString(c.NodeInfo.PublicKey())),
+		zap.String("public_key", hex.EncodeToString(c.PublicKey())),
 		zap.String("removed_subnet", removedID.String()),
 	)
 
-	err := c.NodeInfo.IterateSubnets(func(id subnetid.ID) error {
+	err := c.IterateSubnets(func(id subnetid.ID) error {
 		if removedID.Equals(id) {
 			removeSubnet = true
 			return netmap.ErrRemoveSubnet
@@ -326,8 +328,7 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 		log.Debug("removing node from netmap candidates")
 
 		var updateStatePrm netmapclient.UpdatePeerPrm
-		updateStatePrm.SetState(netmap.NodeStateOffline)
-		updateStatePrm.SetKey(c.NodeInfo.PublicKey())
+		updateStatePrm.SetKey(c.PublicKey())
 		updateStatePrm.SetHash(txHash)
 
 		err = s.netmapClient.UpdatePeerState(updateStatePrm)
@@ -346,7 +347,7 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 		log.Debug("removing subnet from the node")
 
 		var addPeerPrm netmapclient.AddPeerPrm
-		addPeerPrm.SetNodeInfo(c.NodeInfo)
+		addPeerPrm.SetNodeInfo(c)
 		addPeerPrm.SetHash(txHash)
 
 		err = s.netmapClient.AddPeer(addPeerPrm)

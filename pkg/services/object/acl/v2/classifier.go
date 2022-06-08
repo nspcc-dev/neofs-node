@@ -132,18 +132,24 @@ func (c senderClassifier) isContainerKey(
 }
 
 func lookupKeyInContainer(
-	nm *netmap.Netmap,
+	nm *netmap.NetMap,
 	owner, idCnr []byte,
 	cnr *container.Container) (bool, error) {
-	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), idCnr)
+	policy := cnr.PlacementPolicy()
+	if policy == nil {
+		return false, errors.New("missing placement policy in container")
+	}
+
+	cnrVectors, err := nm.ContainerNodes(*policy, idCnr)
 	if err != nil {
 		return false, err
 	}
 
-	flatCnrNodes := cnrNodes.Flatten() // we need single array to iterate on
-	for i := range flatCnrNodes {
-		if bytes.Equal(flatCnrNodes[i].PublicKey(), owner) {
-			return true, nil
+	for i := range cnrVectors {
+		for j := range cnrVectors[i] {
+			if bytes.Equal(cnrVectors[i][j].PublicKey(), owner) {
+				return true, nil
+			}
 		}
 	}
 

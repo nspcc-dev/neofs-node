@@ -7,6 +7,7 @@ import (
 	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	neofsapiclient "github.com/nspcc-dev/neofs-node/pkg/innerring/internal/client"
 	auditproc "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -69,7 +70,7 @@ func (c *ClientCache) GetSG(task *audit.Task, id oid.ID) (*storagegroup.StorageG
 	return c.getSG(task.AuditContext(), sgAddress, task.NetworkMap(), task.ContainerNodes())
 }
 
-func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Netmap, cn netmap.ContainerNodes) (*storagegroup.StorageGroup, error) {
+func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.NetMap, cn [][]netmap.NodeInfo) (*storagegroup.StorageGroup, error) {
 	obj := addr.Object()
 
 	nodes, err := placement.BuildObjectPlacement(nm, cn, &obj)
@@ -80,7 +81,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 	var info clientcore.NodeInfo
 
 	for _, node := range placement.FlattenNodes(nodes) {
-		err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
+		err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(node))
 		if err != nil {
 			return nil, fmt.Errorf("parse client node info: %w", err)
 		}
@@ -124,14 +125,14 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 }
 
 // GetHeader requests node from the container under audit to return object header by id.
-func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id oid.ID, relay bool) (*object.Object, error) {
+func (c *ClientCache) GetHeader(task *audit.Task, node netmap.NodeInfo, id oid.ID, relay bool) (*object.Object, error) {
 	var objAddress oid.Address
 	objAddress.SetContainer(task.ContainerID())
 	objAddress.SetObject(id)
 
 	var info clientcore.NodeInfo
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
+	err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(node))
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}
@@ -162,14 +163,14 @@ func (c *ClientCache) GetHeader(task *audit.Task, node *netmap.Node, id oid.ID, 
 
 // GetRangeHash requests node from the container under audit to return Tillich-Zemor hash of the
 // payload range of the object with specified identifier.
-func (c *ClientCache) GetRangeHash(task *audit.Task, node *netmap.Node, id oid.ID, rng *object.Range) ([]byte, error) {
+func (c *ClientCache) GetRangeHash(task *audit.Task, node netmap.NodeInfo, id oid.ID, rng *object.Range) ([]byte, error) {
 	var objAddress oid.Address
 	objAddress.SetContainer(task.ContainerID())
 	objAddress.SetObject(id)
 
 	var info clientcore.NodeInfo
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&info, node)
+	err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(node))
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}

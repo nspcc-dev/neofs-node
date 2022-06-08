@@ -240,10 +240,15 @@ func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error 
 		return errors.New("missing owner")
 	}
 
+	policy := cnr.PlacementPolicy()
+	if policy == nil {
+		return errors.New("missing placement policy")
+	}
+
 	prm := morphsubnet.UserAllowedPrm{}
 
-	subID := cnr.PlacementPolicy().SubnetID()
-	if subID == nil || subnetid.IsZero(*subID) {
+	subID := policy.Subnet()
+	if subnetid.IsZero(subID) {
 		return nil
 	}
 
@@ -256,7 +261,7 @@ func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error 
 	}
 
 	if !res.Allowed() {
-		return fmt.Errorf("user is not allowed to create containers in %s subnetwork", subID)
+		return fmt.Errorf("user is not allowed to create containers in %v subnetwork", subID)
 	}
 
 	return nil

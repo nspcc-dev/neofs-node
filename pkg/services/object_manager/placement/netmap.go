@@ -16,7 +16,7 @@ type netMapBuilder struct {
 	nmSrc netmap.Source
 	// mtx protects lastNm and containerCache fields.
 	mtx    sync.Mutex
-	lastNm *netmapSDK.Netmap
+	lastNm *netmapSDK.NetMap
 	// containerCache caches container nodes by ID. It is used to skip `GetContainerNodes` invocation if
 	// neither netmap nor container has changed.
 	containerCache simplelru.LRUCache
@@ -25,13 +25,13 @@ type netMapBuilder struct {
 type netMapSrc struct {
 	netmap.Source
 
-	nm *netmapSDK.Netmap
+	nm *netmapSDK.NetMap
 }
 
 // defaultContainerCacheSize is the default size for the container cache.
 const defaultContainerCacheSize = 10
 
-func NewNetworkMapBuilder(nm *netmapSDK.Netmap) Builder {
+func NewNetworkMapBuilder(nm *netmapSDK.NetMap) Builder {
 	cache, _ := simplelru.NewLRU(defaultContainerCacheSize, nil) // no error
 	return &netMapBuilder{
 		nmSrc:          &netMapSrc{nm: nm},
@@ -47,11 +47,11 @@ func NewNetworkMapSourceBuilder(nmSrc netmap.Source) Builder {
 	}
 }
 
-func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.Netmap, error) {
+func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.NetMap, error) {
 	return s.nm, nil
 }
 
-func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p *netmapSDK.PlacementPolicy) ([]netmapSDK.Nodes, error) {
+func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p netmapSDK.PlacementPolicy) ([][]netmapSDK.NodeInfo, error) {
 	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
 	if err != nil {
 		return nil, fmt.Errorf("could not get network map: %w", err)
@@ -65,7 +65,7 @@ func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p *netmapSDK.Pla
 		raw, ok := b.containerCache.Get(string(binCnr))
 		b.mtx.Unlock()
 		if ok {
-			cn := raw.(netmapSDK.ContainerNodes)
+			cn := raw.([][]netmapSDK.NodeInfo)
 			return BuildObjectPlacement(nm, cn, obj)
 		}
 	} else {
@@ -73,7 +73,7 @@ func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p *netmapSDK.Pla
 		b.mtx.Unlock()
 	}
 
-	cn, err := nm.GetContainerNodes(p, binCnr)
+	cn, err := nm.ContainerNodes(p, binCnr)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container nodes: %w", err)
 	}
@@ -85,15 +85,15 @@ func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p *netmapSDK.Pla
 	return BuildObjectPlacement(nm, cn, obj)
 }
 
-func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNodes, id *oid.ID) ([]netmapSDK.Nodes, error) {
+func BuildObjectPlacement(nm *netmapSDK.NetMap, cnrNodes [][]netmapSDK.NodeInfo, id *oid.ID) ([][]netmapSDK.NodeInfo, error) {
 	if id == nil {
-		return cnrNodes.Replicas(), nil
+		return cnrNodes, nil
 	}
 
 	binObj := make([]byte, sha256.Size)
 	id.Encode(binObj)
 
-	on, err := nm.GetPlacementVectors(cnrNodes, binObj)
+	on, err := nm.PlacementVectors(cnrNodes, binObj)
 	if err != nil {
 		return nil, fmt.Errorf("could not get placement vectors for object: %w", err)
 	}
@@ -102,8 +102,15 @@ func BuildObjectPlacement(nm *netmapSDK.Netmap, cnrNodes netmapSDK.ContainerNode
 }
 
 // FlattenNodes appends each row to the flat list.
-func FlattenNodes(ns []netmapSDK.Nodes) netmapSDK.Nodes {
-	result := make(netmapSDK.Nodes, 0, len(ns))
+func FlattenNodes(ns [][]netmapSDK.NodeInfo) []netmapSDK.NodeInfo {
+	var sz int
+
+	for i := range ns {
+		sz += len(ns[i])
+	}
+
+	result := make([]netmapSDK.NodeInfo, 0, sz)
+
 	for i := range ns {
 		result = append(result, ns[i]...)
 	}

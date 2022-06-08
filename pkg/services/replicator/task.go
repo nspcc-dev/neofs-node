@@ -11,7 +11,7 @@ type Task struct {
 
 	addr oid.Address
 
-	nodes netmap.Nodes
+	nodes []netmap.NodeInfo
 }
 
 // WithCopiesNumber sets number of copies to replicate.
@@ -33,7 +33,7 @@ func (t *Task) WithObjectAddress(v oid.Address) *Task {
 }
 
 // WithNodes sets a list of potential object holders.
-func (t *Task) WithNodes(v netmap.Nodes) *Task {
+func (t *Task) WithNodes(v []netmap.NodeInfo) *Task {
 	if t != nil {
 		t.nodes = v
 	}
