@@ -5,9 +5,6 @@ Changelog for NeoFS Node
 
 ## [0.28.3] - 2022-06-08
 
-### Fixed
-- Confirmation of eACL tables by alphabet nodes when ACL extensibility is disabled (#1485)
-
 ### Updated
 - Neo-go 0.98.3 => 0.99.0 (#1480)
 
@@ -16,6 +13,7 @@ Changelog for NeoFS Node
 - Move common CLI's functions in a separate package (#1452)
 
 ### Fixed
+- Confirmation of eACL tables by alphabet nodes when ACL extensibility is disabled (#1485)
 - Do not use WS neo-go client in `neofs-adm` (#1378)
 - Log more detailed network errors by the Alphabet (#1487)
 - Fix container verification by the Alphabet (#1464)
