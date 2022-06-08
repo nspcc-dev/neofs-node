@@ -3,7 +3,9 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
 
@@ -16,9 +18,24 @@ func (e *StorageEngine) open() error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
+	var wg sync.WaitGroup
+	var errCh = make(chan error, len(e.shards))
+
 	for id, sh := range e.shards {
-		if err := sh.Open(); err != nil {
-			return fmt.Errorf("could not open shard %s: %w", id, err)
+		wg.Add(1)
+		go func(id string, sh *shard.Shard) {
+			defer wg.Done()
+			if err := sh.Open(); err != nil {
+				errCh <- fmt.Errorf("could not open shard %s: %w", id, err)
+			}
+		}(id, sh.Shard)
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			return err
 		}
 	}
 
@@ -30,9 +47,24 @@ func (e *StorageEngine) Init() error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
+	var wg sync.WaitGroup
+	var errCh = make(chan error, len(e.shards))
+
 	for id, sh := range e.shards {
-		if err := sh.Init(); err != nil {
-			return fmt.Errorf("could not initialize shard %s: %w", id, err)
+		wg.Add(1)
+		go func(id string, sh *shard.Shard) {
+			defer wg.Done()
+			if err := sh.Init(); err != nil {
+				errCh <- fmt.Errorf("could not initialize shard %s: %w", id, err)
+			}
+		}(id, sh.Shard)
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			return err
 		}
 	}
 
