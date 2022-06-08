@@ -135,11 +135,11 @@ func putObject(cmd *cobra.Command, _ []string) {
 	}
 
 	res, err := internalclient.PutObject(prm)
-	common.ExitOnErr(cmd, "rpc error: %w", err)
-
 	if p != nil {
 		p.Finish()
 	}
+	common.ExitOnErr(cmd, "rpc error: %w", err)
+
 	cmd.Printf("[%s] Object successfully stored\n", filename)
 	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cnr)
 }

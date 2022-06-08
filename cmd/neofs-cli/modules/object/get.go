@@ -89,6 +89,9 @@ func getObject(cmd *cobra.Command, _ []string) {
 	}
 
 	res, err := internalclient.GetObject(prm)
+	if p != nil {
+		p.Finish()
+	}
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return
@@ -99,9 +102,6 @@ func getObject(cmd *cobra.Command, _ []string) {
 
 	hdrFile := cmd.Flag("header").Value.String()
 	if filename != "" {
-		if p != nil {
-			p.Finish()
-		}
 		if hdrFile != "" || !strictOutput(cmd) {
 			cmd.Printf("[%s] Object successfully saved\n", filename)
 		}
