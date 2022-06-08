@@ -1,9 +1,13 @@
 package internal
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -53,4 +57,33 @@ func GetSDKClient(key *ecdsa.PrivateKey, addr network.Address) (*client.Client, 
 	}
 
 	return &c, nil
+}
+
+// GetCurrentEpoch returns current epoch.
+func GetCurrentEpoch(endpoint string) (uint64, error) {
+	var addr network.Address
+
+	if err := addr.FromString(endpoint); err != nil {
+		return 0, fmt.Errorf("can't parse RPC endpoint: %w", err)
+	}
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return 0, fmt.Errorf("can't generate key to sign query: %w", err)
+	}
+
+	c, err := GetSDKClient(key, addr)
+	if err != nil {
+		return 0, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+
+	ni, err := c.NetworkInfo(ctx, client.PrmNetworkInfo{})
+	if err != nil {
+		return 0, err
+	}
+
+	return ni.Info().CurrentEpoch(), nil
 }

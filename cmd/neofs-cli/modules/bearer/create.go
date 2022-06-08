@@ -1,21 +1,14 @@
 package bearer
 
 import (
-	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"strconv"
-	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -63,21 +56,21 @@ func init() {
 }
 
 func createToken(cmd *cobra.Command, _ []string) error {
-	iat, iatRelative, err := parseEpoch(cmd, issuedAtFlag)
+	iat, iatRelative, err := common.ParseEpoch(cmd, issuedAtFlag)
 	if err != nil {
 		return err
 	}
-	exp, expRelative, err := parseEpoch(cmd, expireAtFlag)
+	exp, expRelative, err := common.ParseEpoch(cmd, expireAtFlag)
 	if err != nil {
 		return err
 	}
-	nvb, nvbRelative, err := parseEpoch(cmd, notValidBeforeFlag)
+	nvb, nvbRelative, err := common.ParseEpoch(cmd, notValidBeforeFlag)
 	if err != nil {
 		return err
 	}
 	if iatRelative || expRelative || nvbRelative {
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
-		currEpoch, err := getCurrentEpoch(endpoint)
+		currEpoch, err := internalclient.GetCurrentEpoch(endpoint)
 		if err != nil {
 			return err
 		}
@@ -139,53 +132,4 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
-}
-
-// parseEpoch parses epoch argument. Second return value is true if
-// the specified epoch is relative, and false otherwise.
-func parseEpoch(cmd *cobra.Command, flag string) (uint64, bool, error) {
-	s, _ := cmd.Flags().GetString(flag)
-	if len(s) == 0 {
-		return 0, false, nil
-	}
-
-	relative := s[0] == '+'
-	if relative {
-		s = s[1:]
-	}
-
-	epoch, err := strconv.ParseUint(s, 10, 64)
-	if err != nil {
-		return 0, relative, fmt.Errorf("can't parse epoch for %s argument: %w", flag, err)
-	}
-	return epoch, relative, nil
-}
-
-// getCurrentEpoch returns current epoch.
-func getCurrentEpoch(endpoint string) (uint64, error) {
-	var addr network.Address
-
-	if err := addr.FromString(endpoint); err != nil {
-		return 0, fmt.Errorf("can't parse RPC endpoint: %w", err)
-	}
-
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return 0, fmt.Errorf("can't generate key to sign query: %w", err)
-	}
-
-	c, err := internalclient.GetSDKClient(key, addr)
-	if err != nil {
-		return 0, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
-
-	ni, err := c.NetworkInfo(ctx, client.PrmNetworkInfo{})
-	if err != nil {
-		return 0, err
-	}
-
-	return ni.Info().CurrentEpoch(), nil
 }
