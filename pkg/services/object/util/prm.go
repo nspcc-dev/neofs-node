@@ -127,7 +127,10 @@ func CommonPrmFromV2(req interface {
 
 	if tok := meta.GetBearerToken(); tok != nil {
 		prm.bearer = new(bearer.Token)
-		prm.bearer.ReadFromV2(*tok)
+		err = prm.bearer.ReadFromV2(*tok)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bearer token: %w", err)
+		}
 	}
 
 	for i := range xHdrs {
