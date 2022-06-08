@@ -3,6 +3,8 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+## [0.28.3] - 2022-06-08
+
 ### Fixed
 - Confirmation of eACL tables by alphabet nodes when ACL extensibility is disabled (#1485)
 
@@ -11,9 +13,13 @@ Changelog for NeoFS Node
 
 ### Changed
 - Replace pointers with raw structures in results for local storage (#1460)
+- Move common CLI's functions in a separate package (#1452)
 
 ### Fixed
 - Do not use WS neo-go client in `neofs-adm` (#1378)
+- Log more detailed network errors by the Alphabet (#1487)
+- Fix container verification by the Alphabet (#1464)
+- Include alphabet contracts to the base group in `neofs-adm` (#1489)
 
 ## [0.28.2] - 2022-06-03
 
@@ -1105,7 +1111,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.3...master
+[0.28.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0-rc.3...v0.28.0
