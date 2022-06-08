@@ -30,24 +30,12 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 //
 // UN-LOCODE attribute remains untouched.
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
-	mAttr := uniqueAttributes(n.Attributes())
-
-	// check if the derived attributes are presented
-	for attrKey := range v.mAttr {
-		if _, ok := mAttr[attrKey]; ok {
-			return fmt.Errorf("attribute derived from %s is presented: %s",
-				netmap.AttrUNLOCODE,
-				attrKey,
-			)
-		}
-	}
-
-	attrLocode, ok := mAttr[netmap.AttrUNLOCODE]
-	if !ok {
+	attrLocode := n.LOCODE()
+	if attrLocode == "" {
 		return nil
 	}
 
-	lc, err := locode.FromString(attrLocode.Value())
+	lc, err := locode.FromString(attrLocode)
 	if err != nil {
 		return fmt.Errorf("invalid locode value: %w", err)
 	}
@@ -57,41 +45,48 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
 
-	for attrKey, attrDesc := range v.mAttr {
-		attrVal := attrDesc.converter(record)
-		if attrVal == "" {
-			if !attrDesc.optional {
-				return errMissingRequiredAttr
-			}
-
-			continue
-		}
-
-		var a netmap.NodeAttribute
-		a.SetKey(attrKey)
-		a.SetValue(attrVal)
-
-		mAttr[attrKey] = a
+	countryCode := record.CountryCode()
+	if countryCode == nil {
+		return errMissingRequiredAttr
 	}
 
-	as := n.Attributes()
-	as = as[:0]
-
-	for _, attr := range mAttr {
-		as = append(as, attr)
+	strCountryCode := countryCode.String()
+	if strCountryCode == "" {
+		return errMissingRequiredAttr
 	}
 
-	n.SetAttributes(as...)
+	countryName := record.CountryName()
+	if countryName == "" {
+		return errMissingRequiredAttr
+	}
+
+	locationName := record.LocationName()
+	if locationName == "" {
+		return errMissingRequiredAttr
+	}
+
+	continent := record.Continent()
+	if continent == nil {
+		return errMissingRequiredAttr
+	}
+
+	continentName := continent.String()
+	if continentName == "" {
+		return errMissingRequiredAttr
+	}
+
+	n.SetCountryCode(strCountryCode)
+	n.SetCountryName(countryName)
+	n.SetLocationName(locationName)
+	n.SetContinentName(continentName)
+
+	if subDivCode := record.SubDivCode(); subDivCode != "" {
+		n.SetSubdivisionCode(subDivCode)
+	}
+
+	if subDivName := record.SubDivName(); subDivName != "" {
+		n.SetSubdivisionName(subDivName)
+	}
 
 	return nil
-}
-
-func uniqueAttributes(as []netmap.NodeAttribute) map[string]netmap.NodeAttribute {
-	mAttr := make(map[string]netmap.NodeAttribute, len(as))
-
-	for _, attr := range as {
-		mAttr[attr.Key()] = attr
-	}
-
-	return mAttr
 }

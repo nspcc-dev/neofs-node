@@ -329,7 +329,7 @@ type loadPlacementBuilder struct {
 	cnrSrc containerCore.Source
 }
 
-func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([]netmap.Nodes, error) {
+func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([][]netmap.NodeInfo, error) {
 	cnrNodes, nm, err := l.buildPlacement(epoch, cnr)
 	if err != nil {
 		return nil, err
@@ -341,7 +341,7 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([]netma
 		pivotPrefix + strconv.FormatUint(epoch, 10),
 	)
 
-	placement, err := nm.GetPlacementVectors(cnrNodes, pivot)
+	placement, err := nm.PlacementVectors(cnrNodes, pivot)
 	if err != nil {
 		return nil, fmt.Errorf("could not build placement vectors: %w", err)
 	}
@@ -349,10 +349,15 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([]netma
 	return placement, nil
 }
 
-func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) (netmap.ContainerNodes, *netmap.Netmap, error) {
+func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]netmap.NodeInfo, *netmap.NetMap, error) {
 	cnr, err := l.cnrSrc.Get(idCnr)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	policy := cnr.PlacementPolicy()
+	if policy == nil {
+		return nil, nil, errors.New("missing placement policy in container")
 	}
 
 	nm, err := l.nmSrc.GetNetMapByEpoch(epoch)
@@ -363,7 +368,7 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) (netma
 	binCnr := make([]byte, sha256.Size)
 	idCnr.Encode(binCnr)
 
-	cnrNodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), binCnr)
+	cnrNodes, err := nm.ContainerNodes(*policy, binCnr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}
@@ -512,9 +517,9 @@ func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cnr cid.ID, 
 		return false, err
 	}
 
-	for _, vector := range cnrNodes.Replicas() {
-		for _, node := range vector {
-			if bytes.Equal(node.PublicKey(), key) {
+	for i := range cnrNodes {
+		for j := range cnrNodes[i] {
+			if bytes.Equal(cnrNodes[i][j].PublicKey(), key) {
 				return true, nil
 			}
 		}

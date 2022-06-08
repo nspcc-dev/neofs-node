@@ -26,7 +26,7 @@ func (i InitialTrustSource) InitialTrust(reputation.PeerID) (reputation.TrustVal
 		return reputation.TrustZero, fmt.Errorf("failed to get NetMap: %w", err)
 	}
 
-	nodeCount := reputation.TrustValueFromFloat64(float64(len(nm.Nodes)))
+	nodeCount := reputation.TrustValueFromFloat64(float64(len(nm.Nodes())))
 	if nodeCount == 0 {
 		return reputation.TrustZero, ErrEmptyNetMap
 	}

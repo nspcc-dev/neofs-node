@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"strings"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -12,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	"github.com/nspcc-dev/neofs-sdk-go/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -85,6 +83,13 @@ func initContainerInfoCmd() {
 	flags.BoolVar(&containerJSON, "json", false, "print or dump container in JSON format")
 }
 
+type stringWriter cobra.Command
+
+func (x *stringWriter) WriteString(s string) (n int, err error) {
+	(*cobra.Command)(x).Print(s)
+	return len(s), nil
+}
+
 func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEncoding bool) {
 	if cnr == nil {
 		return
@@ -137,8 +142,14 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 		cmd.Println("invalid nonce:", err)
 	}
 
-	cmd.Println("placement policy:")
-	cmd.Println(strings.Join(policy.Encode(cnr.PlacementPolicy()), "\n"))
+	pp := cnr.PlacementPolicy()
+	if pp == nil {
+		cmd.Println("missing placement policy")
+	} else {
+		cmd.Println("placement policy:")
+		common.ExitOnErr(cmd, "write policy: %w", pp.WriteStringTo((*stringWriter)(cmd)))
+		cmd.Println()
+	}
 }
 
 func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {

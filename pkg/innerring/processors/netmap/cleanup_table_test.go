@@ -22,14 +22,13 @@ func TestCleanupTable(t *testing.T) {
 		newNodeInfo(genKey(t).PublicKey()),
 	}
 
-	networkMap, err := netmap.NewNetmap(netmap.NodesFromInfo(infos))
-	require.NoError(t, err)
+	var networkMap netmap.NetMap
+	networkMap.SetNodes(infos)
 
 	mapInfos := make(map[string][]byte)
 
 	for i := range infos {
-		binNodeInfo, err := infos[i].Marshal()
-		require.NoError(t, err)
+		binNodeInfo := infos[i].Marshal()
 
 		mapInfos[hex.EncodeToString(infos[i].PublicKey())] = binNodeInfo
 	}

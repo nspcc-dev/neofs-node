@@ -34,40 +34,21 @@ func (x db) Get(lc *locodestd.LOCODE) (locode.Record, error) {
 	return r, nil
 }
 
-func addAttrKV(n *netmap.NodeInfo, key, val string) {
-	var a netmap.NodeAttribute
-
-	a.SetKey(key)
-	a.SetValue(val)
-
-	n.SetAttributes(append(n.Attributes(), a)...)
-}
-
 func addLocodeAttrValue(n *netmap.NodeInfo, val string) {
-	addAttrKV(n, netmap.AttrUNLOCODE, val)
+	n.SetLOCODE(val)
 }
 
 func addLocodeAttr(n *netmap.NodeInfo, lc locodestd.LOCODE) {
-	addLocodeAttrValue(n, fmt.Sprintf("%s %s", lc[0], lc[1]))
+	n.SetLOCODE(fmt.Sprintf("%s %s", lc[0], lc[1]))
 }
 
 func nodeInfoWithSomeAttrs() *netmap.NodeInfo {
-	n := netmap.NewNodeInfo()
+	var n netmap.NodeInfo
 
-	addAttrKV(n, "key1", "val1")
-	addAttrKV(n, "key2", "val2")
+	n.SetAttribute("key1", "val1")
+	n.SetAttribute("key2", "val2")
 
-	return n
-}
-
-func containsAttr(n *netmap.NodeInfo, key, val string) bool {
-	for _, a := range n.Attributes() {
-		if a.Key() == key && a.Value() == val {
-			return true
-		}
-	}
-
-	return false
+	return &n
 }
 
 func TestValidator_VerifyAndUpdate(t *testing.T) {
@@ -108,41 +89,11 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 
 	validator := locode.New(p)
 
-	t.Run("w/ derived attributes", func(t *testing.T) {
-		fn := func(withLocode bool) {
-			for _, derivedAttr := range []string{
-				netmap.AttrCountryCode,
-				netmap.AttrCountry,
-				netmap.AttrLocation,
-				netmap.AttrSubDivCode,
-				netmap.AttrSubDiv,
-				netmap.AttrContinent,
-			} {
-				n := nodeInfoWithSomeAttrs()
-
-				addAttrKV(n, derivedAttr, "some value")
-
-				if withLocode {
-					addLocodeAttr(n, r.LOCODE)
-				}
-
-				err := validator.VerifyAndUpdate(n)
-				require.Error(t, err)
-			}
-		}
-
-		fn(true)
-		fn(false)
-	})
-
 	t.Run("w/o locode", func(t *testing.T) {
 		n := nodeInfoWithSomeAttrs()
 
-		attrs := n.Attributes()
-
 		err := validator.VerifyAndUpdate(n)
 		require.NoError(t, err)
-		require.Equal(t, attrs, n.Attributes())
 	})
 
 	t.Run("w/ locode", func(t *testing.T) {
@@ -168,22 +119,14 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 
 		addLocodeAttr(n, r.LOCODE)
 
-		attrs := n.Attributes()
-
 		err := validator.VerifyAndUpdate(n)
 		require.NoError(t, err)
 
-		outAttrs := n.Attributes()
-
-		for _, a := range attrs {
-			require.Contains(t, outAttrs, a)
-		}
-
-		require.True(t, containsAttr(n, netmap.AttrCountryCode, rec.CountryCode().String()))
-		require.True(t, containsAttr(n, netmap.AttrCountry, rec.CountryName()))
-		require.True(t, containsAttr(n, netmap.AttrLocation, rec.LocationName()))
-		require.True(t, containsAttr(n, netmap.AttrSubDivCode, rec.SubDivCode()))
-		require.True(t, containsAttr(n, netmap.AttrSubDiv, rec.SubDivName()))
-		require.True(t, containsAttr(n, netmap.AttrContinent, rec.Continent().String()))
+		require.Equal(t, rec.CountryCode().String(), n.Attribute("CountryCode"))
+		require.Equal(t, rec.CountryName(), n.Attribute("Country"))
+		require.Equal(t, rec.LocationName(), n.Attribute("Location"))
+		require.Equal(t, rec.SubDivCode(), n.Attribute("SubDivCode"))
+		require.Equal(t, rec.SubDivName(), n.Attribute("SubDiv"))
+		require.Equal(t, rec.Continent().String(), n.Attribute("Continent"))
 	})
 }

@@ -6,11 +6,12 @@ import (
 	"encoding/hex"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -59,10 +60,19 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
+		policy := cnr.PlacementPolicy()
+		if policy == nil {
+			log.Error("missing placement policy in container, ignore",
+				zap.Stringer("cid", containers[i]),
+			)
+
+			continue
+		}
+
 		containers[i].Encode(pivot)
 
 		// find all container nodes for current epoch
-		nodes, err := nm.GetContainerNodes(cnr.PlacementPolicy(), pivot)
+		nodes, err := nm.ContainerNodes(*policy, pivot)
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
 				zap.Stringer("cid", containers[i]),
@@ -71,7 +81,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
-		n := nodes.Flatten()
+		n := placement.FlattenNodes(nodes)
 
 		// shuffle nodes to ask a random one
 		rand.Shuffle(len(n), func(i, j int) {
@@ -110,7 +120,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	}
 }
 
-func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmap.Nodes) []oid.ID {
+func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []oid.ID {
 	var sg []oid.ID
 
 	ln := len(shuffled)
@@ -130,7 +140,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmap.Nodes) []oid.
 			zap.Int("total_tries", ln),
 		)
 
-		err := clientcore.NodeInfoFromRawNetmapElement(&info, shuffled[i])
+		err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(shuffled[i]))
 		if err != nil {
 			log.Warn("parse client node info", zap.String("error", err.Error()))
 

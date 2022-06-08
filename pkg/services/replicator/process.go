@@ -52,7 +52,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task, res TaskResult)
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
-		err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i].NodeInfo))
+		err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
 
 		cancel()
 
@@ -65,7 +65,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task, res TaskResult)
 
 			task.quantity--
 
-			res.SubmitSuccessfulReplication(task.nodes[i].ID)
+			res.SubmitSuccessfulReplication(task.nodes[i].Hash())
 		}
 	}
 }

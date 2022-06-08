@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
@@ -20,6 +18,7 @@ import (
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -53,16 +52,18 @@ func (s *networkState) setCurrentEpoch(v uint64) {
 }
 
 func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
-	s.nodeInfo.Store(ni)
+	ctrlNetSt := control.NetmapStatus_STATUS_UNDEFINED
 
-	var ctrlNetSt control.NetmapStatus
+	if ni != nil {
+		s.nodeInfo.Store(*ni)
 
-	switch ni.State() {
-	default:
-		ctrlNetSt = control.NetmapStatus_STATUS_UNDEFINED
-	case netmapSDK.NodeStateOnline:
-		ctrlNetSt = control.NetmapStatus_ONLINE
-	case netmapSDK.NodeStateOffline:
+		switch {
+		case ni.IsOnline():
+			ctrlNetSt = control.NetmapStatus_ONLINE
+		case ni.IsOffline():
+			ctrlNetSt = control.NetmapStatus_OFFLINE
+		}
+	} else {
 		ctrlNetSt = control.NetmapStatus_OFFLINE
 	}
 
@@ -73,27 +74,48 @@ func (s *networkState) controlNetmapStatus() control.NetmapStatus {
 	return s.controlNetStatus.Load().(control.NetmapStatus)
 }
 
-func (s *networkState) getNodeInfo() *netmapSDK.NodeInfo {
-	return s.nodeInfo.Load().(*netmapSDK.NodeInfo)
+func (s *networkState) getNodeInfo() (res netmapSDK.NodeInfo, ok bool) {
+	v := s.nodeInfo.Load()
+	if v != nil {
+		res, ok = v.(netmapSDK.NodeInfo)
+		if !ok {
+			panic(fmt.Sprintf("unexpected value in atomic node info state: %T", v))
+		}
+	}
+
+	return
 }
 
 func nodeKeyFromNetmap(c *cfg) []byte {
-	return c.cfgNetmap.state.getNodeInfo().PublicKey()
+	ni, ok := c.cfgNetmap.state.getNodeInfo()
+	if ok {
+		return ni.PublicKey()
+	}
+
+	return nil
 }
 
 func (c *cfg) iterateNetworkAddresses(f func(string) bool) {
-	c.cfgNetmap.state.getNodeInfo().IterateAddresses(f)
+	ni, ok := c.cfgNetmap.state.getNodeInfo()
+	if ok {
+		ni.IterateNetworkEndpoints(f)
+	}
 }
 
 func (c *cfg) addressNum() int {
-	return c.cfgNetmap.state.getNodeInfo().NumberOfAddresses()
+	ni, ok := c.cfgNetmap.state.getNodeInfo()
+	if ok {
+		return ni.NumberOfNetworkEndpoints()
+	}
+
+	return 0
 }
 
 func initNetmapService(c *cfg) {
 	network.WriteToNodeInfo(c.localAddr, &c.cfgNodeInfo.localInfo)
 	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
-	c.cfgNodeInfo.localInfo.SetAttributes(parseAttributes(c.appCfg)...)
-	c.cfgNodeInfo.localInfo.SetState(netmapSDK.NodeStateOffline)
+	parseAttributes(c)
+	c.cfgNodeInfo.localInfo.SetOffline()
 
 	readSubnetCfg(c)
 
@@ -111,10 +133,10 @@ func initNetmapService(c *cfg) {
 					c,
 					c.apiVersion,
 					&netInfo{
-						netState:      c.cfgNetmap.state,
-						magic:         c.cfgMorph.client,
-						netCfg:        c.cfgNetmap.wrapper.IterateConfigParameters,
-						msPerBlockRdr: c.cfgMorph.client.MsPerBlock,
+						netState:          c.cfgNetmap.state,
+						magic:             c.cfgMorph.client,
+						morphClientNetMap: c.cfgNetmap.wrapper,
+						msPerBlockRdr:     c.cfgMorph.client.MsPerBlock,
 					},
 				),
 				c.respSvc,
@@ -236,14 +258,25 @@ func initNetmapState(c *cfg) {
 	ni, err := c.netmapLocalNodeState(epoch)
 	fatalOnErrDetails("could not init network state", err)
 
+	stateWord := "undefined"
+
+	if ni != nil {
+		switch {
+		case ni.IsOnline():
+			stateWord = "online"
+		case ni.IsOffline():
+			stateWord = "offline"
+		}
+	}
+
 	c.log.Info("initial network state",
 		zap.Uint64("epoch", epoch),
-		zap.Stringer("state", ni.State()),
+		zap.String("state", stateWord),
 	)
 
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
 	c.cfgNetmap.startEpoch = epoch
-	c.cfgNetmap.state.setNodeInfo(ni)
+	c.handleLocalNodeInfo(ni)
 }
 
 func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
@@ -253,17 +286,14 @@ func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
 		return nil, err
 	}
 
-	return c.localNodeInfoFromNetmap(nm), nil
-}
-
-func (c *cfg) localNodeInfoFromNetmap(nm *netmapSDK.Netmap) *netmapSDK.NodeInfo {
-	for _, n := range nm.Nodes {
-		if bytes.Equal(n.PublicKey(), c.key.PublicKey().Bytes()) {
-			return n.NodeInfo
+	nmNodes := nm.Nodes()
+	for i := range nmNodes {
+		if bytes.Equal(nmNodes[i].PublicKey(), c.key.PublicKey().Bytes()) {
+			return &nmNodes[i], nil
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 // addNewEpochNotificationHandler adds handler that will be executed synchronously
@@ -309,18 +339,11 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 		return c.bootstrap()
 	}
 
-	var apiState netmapSDK.NodeState
-
-	if st == control.NetmapStatus_OFFLINE {
-		apiState = netmapSDK.NodeStateOffline
-	}
-
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
 	prm := nmClient.UpdatePeerPrm{}
 
 	prm.SetKey(c.key.PublicKey().Bytes())
-	prm.SetState(apiState)
 
 	return c.cfgNetmap.wrapper.UpdatePeerState(prm)
 }
@@ -332,50 +355,49 @@ type netInfo struct {
 		MagicNumber() (uint64, error)
 	}
 
-	netCfg func(func(key, value []byte) error) error
+	morphClientNetMap *nmClient.Client
 
 	msPerBlockRdr func() (int64, error)
 }
 
-func (n *netInfo) Dump(ver *refs.Version) (*netmapV2.NetworkInfo, error) {
+func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
 	magic, err := n.magic.MagicNumber()
 	if err != nil {
 		return nil, err
 	}
 
-	ni := new(netmapV2.NetworkInfo)
+	var ni netmapSDK.NetworkInfo
 	ni.SetCurrentEpoch(n.netState.CurrentEpoch())
 	ni.SetMagicNumber(magic)
 
-	if mjr := ver.GetMajor(); mjr > 2 || mjr == 2 && ver.GetMinor() > 9 {
+	netInfoMorph, err := n.morphClientNetMap.ReadNetworkConfiguration()
+	if err != nil {
+		return nil, fmt.Errorf("read network configuration using netmap contract client: %w", err)
+	}
+
+	if mjr := ver.Major(); mjr > 2 || mjr == 2 && ver.Minor() > 9 {
 		msPerBlock, err := n.msPerBlockRdr()
 		if err != nil {
 			return nil, fmt.Errorf("ms per block: %w", err)
 		}
 
-		var (
-			ps     []netmapV2.NetworkParameter
-			netCfg netmapV2.NetworkConfig
-		)
-
-		if err := n.netCfg(func(key, value []byte) error {
-			var p netmapV2.NetworkParameter
-
-			p.SetKey(key)
-			p.SetValue(value)
-
-			ps = append(ps, p)
-
-			return nil
-		}); err != nil {
-			return nil, fmt.Errorf("network config: %w", err)
-		}
-
-		netCfg.SetParameters(ps...)
-
-		ni.SetNetworkConfig(&netCfg)
 		ni.SetMsPerBlock(msPerBlock)
+
+		ni.SetMaxObjectSize(netInfoMorph.MaxObjectSize)
+		ni.SetStoragePrice(netInfoMorph.StoragePrice)
+		ni.SetAuditFee(netInfoMorph.AuditFee)
+		ni.SetEpochDuration(netInfoMorph.EpochDuration)
+		ni.SetContainerFee(netInfoMorph.ContainerFee)
+		ni.SetNamedContainerFee(netInfoMorph.ContainerAliasFee)
+		ni.SetNumberOfEigenTrustIterations(netInfoMorph.EigenTrustIterations)
+		ni.SetEigenTrustAlpha(netInfoMorph.EigenTrustAlpha)
+		ni.SetIRCandidateFee(netInfoMorph.IRCandidateFee)
+		ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
+
+		for i := range netInfoMorph.Raw {
+			ni.SetRawNetworkParameter(netInfoMorph.Raw[i].Name, netInfoMorph.Raw[i].Value)
+		}
 	}
 
-	return ni, nil
+	return &ni, nil
 }

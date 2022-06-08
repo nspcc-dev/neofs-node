@@ -244,8 +244,8 @@ type NodeInfoRes struct {
 }
 
 // NodeInfo returns information about the node from netmap.
-func (x NodeInfoRes) NodeInfo() *netmap.NodeInfo {
-	return x.cliRes.NodeInfo()
+func (x NodeInfoRes) NodeInfo() netmap.NodeInfo {
+	return *x.cliRes.NodeInfo()
 }
 
 // LatestVersion returns the latest NeoFS API version in use.

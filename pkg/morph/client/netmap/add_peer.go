@@ -9,13 +9,13 @@ import (
 
 // AddPeerPrm groups parameters of AddPeer operation.
 type AddPeerPrm struct {
-	nodeInfo *netmap.NodeInfo
+	nodeInfo netmap.NodeInfo
 
 	client.InvokePrmOptional
 }
 
 // SetNodeInfo sets new peer NodeInfo.
-func (a *AddPeerPrm) SetNodeInfo(nodeInfo *netmap.NodeInfo) {
+func (a *AddPeerPrm) SetNodeInfo(nodeInfo netmap.NodeInfo) {
 	a.nodeInfo = nodeInfo
 }
 
@@ -31,18 +31,9 @@ func (c *Client) AddPeer(p AddPeerPrm) error {
 		method += "IR"
 	}
 
-	if p.nodeInfo == nil {
-		return fmt.Errorf("nil node info (%s)", method)
-	}
-
-	rawNodeInfo, err := p.nodeInfo.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marshal node info (%s): %w", method, err)
-	}
-
 	prm := client.InvokePrm{}
 	prm.SetMethod(method)
-	prm.SetArgs(rawNodeInfo)
+	prm.SetArgs(p.nodeInfo.Marshal())
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {

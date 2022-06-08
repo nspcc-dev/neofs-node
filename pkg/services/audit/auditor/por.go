@@ -78,7 +78,7 @@ func (c *Context) checkStorageGroupPoR(ind int, sg oid.ID) {
 				accRetries++
 			}
 
-			hdr, err := c.cnrCom.GetHeader(c.task, &flat[j], members[i], true)
+			hdr, err := c.cnrCom.GetHeader(c.task, flat[j], members[i], true)
 			if err != nil {
 				c.log.Debug("can't head object",
 					zap.String("remote_node", hex.EncodeToString(flat[j].PublicKey())),

@@ -7,9 +7,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	netmapv2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 var errNilPubKey = errors.New("could not parse public key: public key is nil")
@@ -25,10 +24,6 @@ func (s *UpdatePeer) setPublicKey(v []byte) (err error) {
 	}
 
 	return
-}
-
-func (s *UpdatePeer) setStatus(v uint32) {
-	s.status = netmap.NodeStateFromV2(netmapv2.NodeState(v))
 }
 
 const (
@@ -66,7 +61,13 @@ func ParseUpdatePeerNotary(ne event.NotaryEvent) (event.Event, error) {
 				return nil, err
 			}
 
-			ev.setStatus(uint32(state))
+			switch v2netmap.NodeState(state) {
+			default:
+				return nil, fmt.Errorf("unsupported node state %d", err)
+			case v2netmap.Offline:
+			case v2netmap.Online:
+				ev.online = true
+			}
 
 			fieldNum++
 		case fieldNum == expectedItemNumUpdatePeer:

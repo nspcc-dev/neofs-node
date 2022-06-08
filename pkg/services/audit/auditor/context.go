@@ -29,7 +29,7 @@ type Context struct {
 	sgMembersCache map[int][]oid.ID
 
 	placementMtx   sync.Mutex
-	placementCache map[string][]netmap.Nodes
+	placementCache map[string][][]netmap.NodeInfo
 
 	porRequests, porRetries atomic.Uint32
 
@@ -51,11 +51,11 @@ type Context struct {
 type pairMemberInfo struct {
 	failedPDP, passedPDP bool // at least one
 
-	node *netmap.Node
+	node netmap.NodeInfo
 }
 
 type gamePair struct {
-	n1, n2 *netmap.Node
+	n1, n2 netmap.NodeInfo
 
 	id oid.ID
 
@@ -88,11 +88,11 @@ type ContainerCommunicator interface {
 	GetSG(*audit.Task, oid.ID) (*storagegroup.StorageGroup, error)
 
 	// Must return object header from the container node.
-	GetHeader(*audit.Task, *netmap.Node, oid.ID, bool) (*object.Object, error)
+	GetHeader(*audit.Task, netmap.NodeInfo, oid.ID, bool) (*object.Object, error)
 
 	// Must return homomorphic Tillich-Zemor hash of payload range of the
 	// object stored in container node.
-	GetRangeHash(*audit.Task, *netmap.Node, oid.ID, *object.Range) ([]byte, error)
+	GetRangeHash(*audit.Task, netmap.NodeInfo, oid.ID, *object.Range) ([]byte, error)
 }
 
 // NewContext creates, initializes and returns Context.
@@ -160,9 +160,12 @@ func (c *Context) init() {
 
 	c.sgMembersCache = make(map[int][]oid.ID)
 
-	c.placementCache = make(map[string][]netmap.Nodes)
+	c.placementCache = make(map[string][][]netmap.NodeInfo)
 
-	c.cnrNodesNum = len(c.task.ContainerNodes().Flatten())
+	cnrVectors := c.task.ContainerNodes()
+	for i := range cnrVectors {
+		c.cnrNodesNum += len(cnrVectors[i])
+	}
 
 	c.pairedNodes = make(map[uint64]*pairMemberInfo)
 
@@ -200,7 +203,7 @@ func (c *Context) writeReport() {
 	}
 }
 
-func (c *Context) buildPlacement(id oid.ID) ([]netmap.Nodes, error) {
+func (c *Context) buildPlacement(id oid.ID) ([][]netmap.NodeInfo, error) {
 	c.placementMtx.Lock()
 	defer c.placementMtx.Unlock()
 

@@ -10,12 +10,12 @@ import (
 	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
 type UpdatePeer struct {
 	publicKey *keys.PublicKey
-	status    netmap.NodeState
+
+	online bool
 
 	// For notary notifications only.
 	// Contains raw transactions of notary request.
@@ -25,8 +25,8 @@ type UpdatePeer struct {
 // MorphEvent implements Neo:Morph Event interface.
 func (UpdatePeer) MorphEvent() {}
 
-func (s UpdatePeer) Status() netmap.NodeState {
-	return s.status
+func (s UpdatePeer) Online() bool {
+	return s.online
 }
 
 func (s UpdatePeer) PublicKey() *keys.PublicKey {
@@ -73,7 +73,13 @@ func ParseUpdatePeer(e *subscriptions.NotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("could not get node status: %w", err)
 	}
 
-	ev.status = netmap.NodeStateFromV2(v2netmap.NodeState(st))
+	switch v2netmap.NodeState(st) {
+	default:
+		return nil, fmt.Errorf("unsupported node state %d", st)
+	case v2netmap.Offline:
+	case v2netmap.Online:
+		ev.online = true
+	}
 
 	return ev, nil
 }

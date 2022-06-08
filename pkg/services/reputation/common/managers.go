@@ -56,6 +56,21 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) ManagerBuilder {
 	}
 }
 
+// implements Server on apiNetmap.NodeInfo
+type nodeServer apiNetmap.NodeInfo
+
+func (x nodeServer) PublicKey() []byte {
+	return (apiNetmap.NodeInfo)(x).PublicKey()
+}
+
+func (x nodeServer) IterateAddresses(f func(string) bool) {
+	(apiNetmap.NodeInfo)(x).IterateNetworkEndpoints(f)
+}
+
+func (x nodeServer) NumberOfAddresses() int {
+	return (apiNetmap.NodeInfo)(x).NumberOfNetworkEndpoints()
+}
+
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
 func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]ServerInfo, error) {
@@ -69,10 +84,12 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]Se
 		return nil, err
 	}
 
-	// make a copy to keep order consistency of the origin netmap after sorting
-	nodes := make([]apiNetmap.Node, len(nm.Nodes))
+	nmNodes := nm.Nodes()
 
-	copy(nodes, nm.Nodes)
+	// make a copy to keep order consistency of the origin netmap after sorting
+	nodes := make([]apiNetmap.NodeInfo, len(nmNodes))
+
+	copy(nodes, nmNodes)
 
 	hrw.SortSliceByValue(nodes, epoch)
 
@@ -84,7 +101,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]Se
 				managerIndex = 0
 			}
 
-			return []ServerInfo{nodes[managerIndex]}, nil
+			return []ServerInfo{nodeServer(nodes[managerIndex])}, nil
 		}
 	}
 

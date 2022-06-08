@@ -530,10 +530,12 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 	if err == nil {
 		key := info.PublicKey()
 
-		for i := range nm.Nodes {
-			if bytes.Equal(nm.Nodes[i].PublicKey(), key) {
+		nmNodes := nm.Nodes()
+
+		for i := range nmNodes {
+			if bytes.Equal(nmNodes[i].PublicKey(), key) {
 				prm := truststorage.UpdatePrm{}
-				prm.SetPeer(reputation.PeerIDFromBytes(nm.Nodes[i].PublicKey()))
+				prm.SetPeer(reputation.PeerIDFromBytes(nmNodes[i].PublicKey()))
 
 				return &reputationClient{
 					MultiAddressClient: cl.(coreclient.MultiAddressClient),

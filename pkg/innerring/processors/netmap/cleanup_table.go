@@ -3,7 +3,6 @@ package netmap
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -39,20 +38,19 @@ func newCleanupTable(enabled bool, threshold uint64) cleanupTable {
 }
 
 // Update cleanup table based on on-chain information about netmap.
-func (c *cleanupTable) update(snapshot *netmap.Netmap, now uint64) {
+func (c *cleanupTable) update(snapshot netmap.NetMap, now uint64) {
 	c.Lock()
 	defer c.Unlock()
 
+	nmNodes := snapshot.Nodes()
+
 	// replacing map is less memory efficient but faster
-	newMap := make(map[string]epochStampWithNodeInfo, len(snapshot.Nodes))
+	newMap := make(map[string]epochStampWithNodeInfo, len(nmNodes))
 
-	for i := range snapshot.Nodes {
-		binNodeInfo, err := snapshot.Nodes[i].Marshal()
-		if err != nil {
-			panic(fmt.Errorf("could not marshal node info: %w", err)) // seems better than ignore
-		}
+	for i := range nmNodes {
+		binNodeInfo := nmNodes[i].Marshal()
 
-		keyString := hex.EncodeToString(snapshot.Nodes[i].PublicKey())
+		keyString := hex.EncodeToString(nmNodes[i].PublicKey())
 
 		access, ok := c.lastAccess[keyString]
 		if ok {

@@ -23,12 +23,12 @@ func (c *Context) executePoP() {
 }
 
 func (c *Context) buildCoverage() {
-	replicas := c.task.ContainerStructure().PlacementPolicy().Replicas()
+	policy := c.task.ContainerStructure().PlacementPolicy()
 
 	// select random member from another storage group
 	// and process all placement vectors
-	c.iterateSGMembersPlacementRand(func(id oid.ID, ind int, nodes netmap.Nodes) bool {
-		c.processObjectPlacement(id, nodes, replicas[ind].Count())
+	c.iterateSGMembersPlacementRand(func(id oid.ID, ind int, nodes []netmap.NodeInfo) bool {
+		c.processObjectPlacement(id, nodes, policy.ReplicaNumberByIndex(ind))
 		return c.containerCovered()
 	})
 }
@@ -38,7 +38,7 @@ func (c *Context) containerCovered() bool {
 	return c.cnrNodesNum <= len(c.pairedNodes)
 }
 
-func (c *Context) processObjectPlacement(id oid.ID, nodes netmap.Nodes, replicas uint32) {
+func (c *Context) processObjectPlacement(id oid.ID, nodes []netmap.NodeInfo, replicas uint32) {
 	var (
 		ok      uint32
 		optimal bool
@@ -50,7 +50,7 @@ func (c *Context) processObjectPlacement(id oid.ID, nodes netmap.Nodes, replicas
 
 	for i := 0; ok < replicas && i < len(nodes); i++ {
 		// try to get object header from node
-		hdr, err := c.cnrCom.GetHeader(c.task, &nodes[i], id, false)
+		hdr, err := c.cnrCom.GetHeader(c.task, nodes[i], id, false)
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
 				zap.Stringer("id", id),
@@ -95,14 +95,14 @@ func (c *Context) processObjectPlacement(id oid.ID, nodes netmap.Nodes, replicas
 
 	if unpairedCandidate1 >= 0 {
 		if unpairedCandidate2 >= 0 {
-			c.composePair(id, &nodes[unpairedCandidate1], &nodes[unpairedCandidate2])
+			c.composePair(id, nodes[unpairedCandidate1], nodes[unpairedCandidate2])
 		} else if pairedCandidate >= 0 {
-			c.composePair(id, &nodes[unpairedCandidate1], &nodes[pairedCandidate])
+			c.composePair(id, nodes[unpairedCandidate1], nodes[pairedCandidate])
 		}
 	}
 }
 
-func (c *Context) composePair(id oid.ID, n1, n2 *netmap.Node) {
+func (c *Context) composePair(id oid.ID, n1, n2 netmap.NodeInfo) {
 	c.pairs = append(c.pairs, gamePair{
 		n1: n1,
 		n2: n2,
@@ -117,7 +117,7 @@ func (c *Context) composePair(id oid.ID, n1, n2 *netmap.Node) {
 	}
 }
 
-func (c *Context) iterateSGMembersPlacementRand(f func(oid.ID, int, netmap.Nodes) bool) {
+func (c *Context) iterateSGMembersPlacementRand(f func(oid.ID, int, []netmap.NodeInfo) bool) {
 	// iterate over storage groups members for all storage groups (one by one)
 	// with randomly shuffled members
 	c.iterateSGMembersRand(func(id oid.ID) bool {

@@ -480,15 +480,21 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 }
 
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
-	ni := c.cfgNetmap.state.getNodeInfo()
-	if ni != nil {
-		return ni.ToV2(), nil
+	var res netmapV2.NodeInfo
+
+	ni, ok := c.cfgNetmap.state.getNodeInfo()
+	if ok {
+		ni.WriteToV2(&res)
+	} else {
+		c.cfgNodeInfo.localInfo.WriteToV2(&res)
 	}
 
-	return c.cfgNodeInfo.localInfo.ToV2(), nil
+	return &res, nil
 }
 
-// handleLocalNodeInfo rewrites local node info from netmap
+// handleLocalNodeInfo rewrites local node info from the NeoFS network map.
+// Called with nil when storage node is outside the NeoFS network map
+// (before entering the network and after leaving it).
 func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 	c.cfgNetmap.state.setNodeInfo(ni)
 }
@@ -496,10 +502,10 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 // bootstrap sets local node's netmap status to "online".
 func (c *cfg) bootstrap() error {
 	ni := c.cfgNodeInfo.localInfo
-	ni.SetState(netmap.NodeStateOnline)
+	ni.SetOnline()
 
 	prm := nmClient.AddPeerPrm{}
-	prm.SetNodeInfo(&ni)
+	prm.SetNodeInfo(ni)
 
 	return c.cfgNetmap.wrapper.AddPeer(prm)
 }

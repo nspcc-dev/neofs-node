@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/util/test"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	netmaptest "github.com/nspcc-dev/neofs-sdk-go/netmap/test"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -17,8 +17,8 @@ func TestCheckFormat(t *testing.T) {
 
 	require.Error(t, CheckFormat(c))
 
-	policy := netmap.NewPlacementPolicy()
-	c.SetPlacementPolicy(policy)
+	policy := netmaptest.PlacementPolicy()
+	c.SetPlacementPolicy(&policy)
 
 	require.Error(t, CheckFormat(c))
 

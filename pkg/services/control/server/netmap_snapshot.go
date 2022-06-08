@@ -29,7 +29,7 @@ func (s *Server) NetmapSnapshot(ctx context.Context, req *control.NetmapSnapshot
 
 	nm := new(control.Netmap)
 	nm.SetEpoch(epoch)
-	nm.SetNodes(nodesFromAPI(apiNetMap.Nodes))
+	nm.SetNodes(nodesFromAPI(apiNetMap.Nodes()))
 
 	// create and fill response
 	resp := new(control.NetmapSnapshotResponse)
@@ -47,20 +47,28 @@ func (s *Server) NetmapSnapshot(ctx context.Context, req *control.NetmapSnapshot
 	return resp, nil
 }
 
-func nodesFromAPI(apiNodes netmapAPI.Nodes) []*control.NodeInfo {
+func nodesFromAPI(apiNodes []netmapAPI.NodeInfo) []*control.NodeInfo {
 	nodes := make([]*control.NodeInfo, 0, len(apiNodes))
 
-	for _, apiNode := range apiNodes {
+	for i := range apiNodes {
 		node := new(control.NodeInfo)
-		node.SetPublicKey(apiNode.PublicKey())
+		node.SetPublicKey(apiNodes[i].PublicKey())
 
-		addrs := make([]string, 0, apiNode.NumberOfAddresses())
-		netmapAPI.IterateAllAddresses(apiNode.NodeInfo, func(s string) {
+		addrs := make([]string, 0, apiNodes[i].NumberOfNetworkEndpoints())
+		netmapAPI.IterateNetworkEndpoints(apiNodes[i], func(s string) {
 			addrs = append(addrs, s)
 		})
 		node.SetAddresses(addrs)
-		node.SetAttributes(attributesFromAPI(apiNode.Attributes()))
-		node.SetState(stateFromAPI(apiNode.State()))
+		node.SetAttributes(attributesFromAPI(apiNodes[i]))
+
+		switch {
+		default:
+			node.SetState(control.NetmapStatus_STATUS_UNDEFINED)
+		case apiNodes[i].IsOnline():
+			node.SetState(control.NetmapStatus_ONLINE)
+		case apiNodes[i].IsOffline():
+			node.SetState(control.NetmapStatus_OFFLINE)
+		}
 
 		nodes = append(nodes, node)
 	}
@@ -68,36 +76,16 @@ func nodesFromAPI(apiNodes netmapAPI.Nodes) []*control.NodeInfo {
 	return nodes
 }
 
-func stateFromAPI(s netmapAPI.NodeState) control.NetmapStatus {
-	switch s {
-	default:
-		return control.NetmapStatus_STATUS_UNDEFINED
-	case netmapAPI.NodeStateOffline:
-		return control.NetmapStatus_OFFLINE
-	case netmapAPI.NodeStateOnline:
-		return control.NetmapStatus_ONLINE
-	}
-}
+func attributesFromAPI(apiNode netmapAPI.NodeInfo) []*control.NodeInfo_Attribute {
+	attrs := make([]*control.NodeInfo_Attribute, 0, apiNode.NumberOfAttributes())
 
-func attributesFromAPI(apiAttrs []netmapAPI.NodeAttribute) []*control.NodeInfo_Attribute {
-	attrs := make([]*control.NodeInfo_Attribute, 0, len(apiAttrs))
-
-	for _, apiAttr := range apiAttrs {
+	apiNode.IterateAttributes(func(key, value string) {
 		a := new(control.NodeInfo_Attribute)
-		a.SetKey(apiAttr.Key())
-		a.SetValue(apiAttr.Value())
-
-		apiParents := apiAttr.ParentKeys()
-		parents := make([]string, 0, len(apiParents))
-
-		for i := range apiParents {
-			parents = append(parents, apiParents[i])
-		}
-
-		a.SetParents(parents)
+		a.SetKey(key)
+		a.SetValue(value)
 
 		attrs = append(attrs, a)
-	}
+	})
 
 	return attrs
 }

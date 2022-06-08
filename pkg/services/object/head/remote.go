@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -29,7 +30,7 @@ type RemoteHeader struct {
 type RemoteHeadPrm struct {
 	commonHeadPrm *Prm
 
-	node *netmap.NodeInfo
+	node netmap.NodeInfo
 }
 
 const remoteOpTTL = 1
@@ -45,7 +46,7 @@ func NewRemoteHeader(keyStorage *util.KeyStorage, cache ClientConstructor) *Remo
 }
 
 // WithNodeInfo sets information about the remote node.
-func (p *RemoteHeadPrm) WithNodeInfo(v *netmap.NodeInfo) *RemoteHeadPrm {
+func (p *RemoteHeadPrm) WithNodeInfo(v netmap.NodeInfo) *RemoteHeadPrm {
 	if p != nil {
 		p.node = v
 	}
@@ -71,7 +72,7 @@ func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Ob
 
 	var info clientcore.NodeInfo
 
-	err = clientcore.NodeInfoFromRawNetmapElement(&info, prm.node)
+	err = clientcore.NodeInfoFromRawNetmapElement(&info, netmapCore.Node(prm.node))
 	if err != nil {
 		return nil, fmt.Errorf("parse client node info: %w", err)
 	}

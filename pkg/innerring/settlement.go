@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -18,6 +19,7 @@ import (
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -75,7 +77,7 @@ type auditSettlementCalculator audit.Calculator
 type containerWrapper containerAPI.Container
 
 type nodeInfoWrapper struct {
-	ni *netmapAPI.Node
+	ni netmapAPI.NodeInfo
 }
 
 type sgWrapper storagegroup.StorageGroup
@@ -89,7 +91,7 @@ func (n nodeInfoWrapper) PublicKey() []byte {
 }
 
 func (n nodeInfoWrapper) Price() *big.Int {
-	return big.NewInt(int64(n.ni.Price))
+	return big.NewInt(int64(n.ni.Price()))
 }
 
 func (c *containerWrapper) Owner() user.ID {
@@ -125,9 +127,9 @@ func (s settlementDeps) ContainerInfo(cid cid.ID) (common.ContainerInfo, error) 
 	return (*containerWrapper)(cnr), nil
 }
 
-func (s settlementDeps) buildContainer(e uint64, cid cid.ID) (netmapAPI.ContainerNodes, *netmapAPI.Netmap, error) {
+func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.NodeInfo, *netmapAPI.NetMap, error) {
 	var (
-		nm  *netmapAPI.Netmap
+		nm  *netmapAPI.NetMap
 		err error
 	)
 
@@ -146,11 +148,16 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) (netmapAPI.Containe
 		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
 	}
 
+	policy := cnr.PlacementPolicy()
+	if policy == nil {
+		return nil, nil, errors.New("missing placement policy in container")
+	}
+
 	binCnr := make([]byte, sha256.Size)
 	cid.Encode(binCnr)
 
-	cn, err := nm.GetContainerNodes(
-		cnr.PlacementPolicy(),
+	cn, err := nm.ContainerNodes(
+		*policy,
 		binCnr, // may be replace pivot calculation to neofs-api-go
 	)
 	if err != nil {
@@ -166,12 +173,12 @@ func (s settlementDeps) ContainerNodes(e uint64, cid cid.ID) ([]common.NodeInfo,
 		return nil, err
 	}
 
-	ns := cn.Flatten()
+	ns := placement.FlattenNodes(cn)
 	res := make([]common.NodeInfo, 0, len(ns))
 
 	for i := range ns {
 		res = append(res, &nodeInfoWrapper{
-			ni: &ns[i],
+			ni: ns[i],
 		})
 	}
 

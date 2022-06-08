@@ -1,9 +1,5 @@
 package locode
 
-import (
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-)
-
 // Prm groups the required parameters of the Validator's constructor.
 //
 // All values must comply with the requirements imposed on them.
@@ -26,8 +22,6 @@ type Prm struct {
 // the Validator is immediately ready to work through API.
 type Validator struct {
 	db DB
-
-	mAttr map[string]attrDescriptor
 }
 
 // New creates a new instance of the Validator.
@@ -39,16 +33,5 @@ type Validator struct {
 func New(prm Prm) *Validator {
 	return &Validator{
 		db: prm.DB,
-		mAttr: map[string]attrDescriptor{
-			netmap.AttrCountryCode: {converter: countryCodeValue},
-			netmap.AttrCountry:     {converter: countryValue},
-
-			netmap.AttrLocation: {converter: locationValue},
-
-			netmap.AttrSubDivCode: {converter: subDivCodeValue, optional: true},
-			netmap.AttrSubDiv:     {converter: subDivValue, optional: true},
-
-			netmap.AttrContinent: {converter: continentValue},
-		},
 	}
 }

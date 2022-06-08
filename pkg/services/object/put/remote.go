@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
@@ -36,7 +37,7 @@ type RemoteSender struct {
 
 // RemotePutPrm groups remote put operation parameters.
 type RemotePutPrm struct {
-	node *netmap.NodeInfo
+	node netmap.NodeInfo
 
 	obj *object.Object
 }
@@ -95,7 +96,7 @@ func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *Remot
 }
 
 // WithNodeInfo sets information about the remote node.
-func (p *RemotePutPrm) WithNodeInfo(v *netmap.NodeInfo) *RemotePutPrm {
+func (p *RemotePutPrm) WithNodeInfo(v netmap.NodeInfo) *RemotePutPrm {
 	if p != nil {
 		p.node = v
 	}
@@ -120,7 +121,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		clientConstructor: s.clientConstructor,
 	}
 
-	err := clientcore.NodeInfoFromRawNetmapElement(&t.nodeInfo, p.node)
+	err := clientcore.NodeInfoFromRawNetmapElement(&t.nodeInfo, netmapCore.Node(p.node))
 	if err != nil {
 		return fmt.Errorf("parse client node info: %w", err)
 	}

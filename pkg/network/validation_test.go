@@ -55,10 +55,7 @@ func TestVerifyMultiAddress_Order(t *testing.T) {
 	}
 }
 
-func constructNodeInfo(address string) *netmap.NodeInfo {
-	ni := new(netmap.NodeInfo)
-
-	ni.SetAddresses(address)
-
+func constructNodeInfo(address string) (ni netmap.NodeInfo) {
+	ni.SetNetworkEndpoints(address)
 	return ni
 }

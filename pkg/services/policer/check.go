@@ -45,9 +45,17 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 	}
 
 	policy := cnr.PlacementPolicy()
+	if policy == nil {
+		p.log.Error("missing placement policy in container",
+			zap.Stringer("cid", idCnr),
+		)
+
+		return
+	}
+
 	obj := addr.Object()
 
-	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, policy)
+	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, *policy)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.String("error", err.Error()),
@@ -56,7 +64,6 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 		return
 	}
 
-	replicas := policy.Replicas()
 	c := &processPlacementContext{
 		Context: ctx,
 	}
@@ -76,7 +83,7 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 		default:
 		}
 
-		p.processNodes(c, addr, nn[i], replicas[i].Count(), checkedNodes)
+		p.processNodes(c, addr, nn[i], policy.ReplicaNumberByIndex(i), checkedNodes)
 	}
 
 	if !c.needLocalCopy {
@@ -95,7 +102,7 @@ type processPlacementContext struct {
 }
 
 func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
-	nodes netmap.Nodes, shortage uint32, checkedNodes nodeCache) {
+	nodes []netmap.NodeInfo, shortage uint32, checkedNodes nodeCache) {
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 
 	for i := 0; shortage > 0 && i < len(nodes); i++ {
@@ -110,7 +117,8 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 
 			shortage--
 		} else {
-			if hasReplica, checked := checkedNodes[nodes[i].ID]; checked {
+			nodeID := nodes[i].Hash()
+			if hasReplica, checked := checkedNodes[nodeID]; checked {
 				if hasReplica {
 					// node already contains replica, no need to replicate
 					nodes = append(nodes[:i], nodes[i+1:]...)
@@ -123,7 +131,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 
 			callCtx, cancel := context.WithTimeout(ctx, p.headTimeout)
 
-			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i].NodeInfo))
+			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i]))
 
 			cancel()
 
@@ -133,7 +141,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 			}
 
 			if client.IsErrObjectNotFound(err) {
-				checkedNodes[nodes[i].ID] = false
+				checkedNodes[nodeID] = false
 				continue
 			}
 
@@ -144,7 +152,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 				)
 			} else {
 				shortage--
-				checkedNodes[nodes[i].ID] = true
+				checkedNodes[nodeID] = true
 			}
 		}
 
