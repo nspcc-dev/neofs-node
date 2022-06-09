@@ -1,6 +1,7 @@
 package policer
 
 import (
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -22,12 +23,39 @@ type nodeLoader interface {
 	ObjectServiceLoad() float64
 }
 
+type objectsInWork struct {
+	m    sync.RWMutex
+	objs map[oid.Address]struct{}
+}
+
+func (oiw *objectsInWork) inWork(addr oid.Address) bool {
+	oiw.m.RLock()
+	_, ok := oiw.objs[addr]
+	oiw.m.RUnlock()
+
+	return ok
+}
+
+func (oiw *objectsInWork) remove(addr oid.Address) {
+	oiw.m.Lock()
+	delete(oiw.objs, addr)
+	oiw.m.Unlock()
+}
+
+func (oiw *objectsInWork) add(addr oid.Address) {
+	oiw.m.Lock()
+	oiw.objs[addr] = struct{}{}
+	oiw.m.Unlock()
+}
+
 // Policer represents the utility that verifies
 // compliance with the object storage policy.
 type Policer struct {
 	*cfg
 
 	cache *lru.Cache
+
+	objsInWork *objectsInWork
 }
 
 // Option is an option for Policer constructor.
@@ -95,6 +123,9 @@ func New(opts ...Option) *Policer {
 	return &Policer{
 		cfg:   c,
 		cache: cache,
+		objsInWork: &objectsInWork{
+			objs: make(map[oid.Address]struct{}, c.maxCapacity),
+		},
 	}
 }
 
