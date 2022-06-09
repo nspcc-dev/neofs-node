@@ -109,7 +109,7 @@ func initializeWallets(v *viper.Viper, walletDir string, size int) ([]string, er
 	}
 
 	for _, w := range wallets {
-		if err := w.Save(); err != nil {
+		if err := w.SavePretty(); err != nil {
 			return nil, fmt.Errorf("can't save wallet: %w", err)
 		}
 		w.Close()
