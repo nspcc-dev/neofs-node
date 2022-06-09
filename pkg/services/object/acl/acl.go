@@ -190,7 +190,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 		return fmt.Errorf("can't parse headers: %w", err)
 	}
 
-	action := c.validator.CalculateAction(new(eaclSDK.ValidationUnit).
+	action, _ := c.validator.CalculateAction(new(eaclSDK.ValidationUnit).
 		WithRole(reqInfo.RequestRole()).
 		WithOperation(reqInfo.Operation()).
 		WithContainerID(&cnr).

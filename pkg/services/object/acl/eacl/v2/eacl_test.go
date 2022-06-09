@@ -120,21 +120,21 @@ func TestHeadRequest(t *testing.T) {
 
 	validator := eaclSDK.NewValidator()
 
-	require.Equal(t, eaclSDK.ActionDeny, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+	checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 
 	meta.SetXHeaders(nil)
 
-	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 
 	meta.SetXHeaders(xHdrs)
 
 	obj.SetAttributes()
 
-	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 
 	lStorage.err = errors.New("any error")
 
-	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 
 	r.SetAction(eaclSDK.ActionAllow)
 
@@ -149,6 +149,17 @@ func TestHeadRequest(t *testing.T) {
 	table.AddRecord(rID)
 
 	unit.WithEACLTable(table)
+	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
+}
 
-	require.Equal(t, eaclSDK.ActionAllow, validator.CalculateAction(unit.WithHeaderSource(newSource(t))))
+func checkAction(t *testing.T, expected eaclSDK.Action, v *eaclSDK.Validator, u *eaclSDK.ValidationUnit) {
+	actual, fromRule := v.CalculateAction(u)
+	require.True(t, fromRule)
+	require.Equal(t, expected, actual)
+}
+
+func checkDefaultAction(t *testing.T, v *eaclSDK.Validator, u *eaclSDK.ValidationUnit) {
+	actual, fromRule := v.CalculateAction(u)
+	require.False(t, fromRule)
+	require.Equal(t, eaclSDK.ActionAllow, actual)
 }
