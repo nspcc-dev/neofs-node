@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -68,6 +69,7 @@ func (t *boltForest) Open() error {
 
 	opts := *bbolt.DefaultOptions
 	opts.NoSync = t.noSync
+	opts.Timeout = 100 * time.Millisecond
 
 	t.db, err = bbolt.Open(t.path, t.perm, &opts)
 	if err != nil {
