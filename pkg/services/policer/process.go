@@ -48,15 +48,24 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				return
 			default:
 				addr := addrs[i]
-				addrStr := addr.EncodeToString()
+				if p.objsInWork.inWork(addr) {
+					// do not process an object
+					// that is in work
+					continue
+				}
+
 				err = p.taskPool.Submit(func() {
-					v, ok := p.cache.Get(addrStr)
+					v, ok := p.cache.Get(addr)
 					if ok && time.Since(v.(time.Time)) < p.evictDuration {
 						return
 					}
 
+					p.objsInWork.add(addr)
+
 					p.processObject(ctx, addr)
-					p.cache.Add(addrStr, time.Now())
+
+					p.cache.Add(addr, time.Now())
+					p.objsInWork.remove(addr)
 				})
 				if err != nil {
 					p.log.Warn("pool submission", zap.Error(err))

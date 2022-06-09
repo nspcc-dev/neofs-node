@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 - Do not replicate object twice to the same node (#1410)
+- Concurrent object handling by the Policer (#1411)
 
 ### Removed
 
