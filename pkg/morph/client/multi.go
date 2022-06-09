@@ -112,7 +112,16 @@ func (c *Client) notificationLoop() {
 			// state: if it is closed, the connection is
 			// considered to be lost
 			if !ok {
-				c.logger.Warn("switching to the next RPC node")
+				var closeReason string
+				if closeErr := c.client.GetError(); closeErr != nil {
+					closeReason = closeErr.Error()
+				} else {
+					closeReason = "unknown"
+				}
+
+				c.logger.Warn("switching to the next RPC node",
+					zap.String("reason", closeReason),
+				)
 
 				if !c.switchRPC() {
 					c.logger.Error("could not establish connection to any RPC node")
