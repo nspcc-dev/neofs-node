@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -31,6 +32,8 @@ func TestRefillMetabase(t *testing.T) {
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
 		),
+		WithPiloramaOptions(
+			pilorama.WithPath(filepath.Join(p, "pilorama"))),
 	)
 
 	// open Blobstor
@@ -154,6 +157,8 @@ func TestRefillMetabase(t *testing.T) {
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
 		),
+		WithPiloramaOptions(
+			pilorama.WithPath(filepath.Join(p, "pilorama_another"))),
 	)
 
 	// open Blobstor

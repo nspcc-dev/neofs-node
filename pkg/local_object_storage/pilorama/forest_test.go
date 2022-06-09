@@ -31,7 +31,7 @@ var providers = []struct {
 		tmpDir, err := os.MkdirTemp(os.TempDir(), "*")
 		require.NoError(t, err)
 
-		f := NewBoltForest(filepath.Join(tmpDir, "test.db"))
+		f := NewBoltForest(WithPath(filepath.Join(tmpDir, "test.db")))
 		require.NoError(t, f.Init())
 		require.NoError(t, f.Open())
 		t.Cleanup(func() {

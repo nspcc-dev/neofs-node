@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
@@ -413,6 +414,19 @@ func initShardOptions(c *cfg) {
 		metabaseCfg := sc.Metabase()
 		gcCfg := sc.GC()
 
+		piloramaCfg := sc.Pilorama()
+		piloramaPath := piloramaCfg.Path()
+		if piloramaPath == "" {
+			piloramaPath = filepath.Join(blobStorCfg.Path(), "pilorama.db")
+		}
+
+		piloramaOpts := []pilorama.Option{
+			pilorama.WithPath(piloramaPath),
+			pilorama.WithPerm(piloramaCfg.Perm()),
+			pilorama.WithNoSync(piloramaCfg.NoSync()),
+			pilorama.WithMaxBatchSize(piloramaCfg.MaxBatchSize()),
+			pilorama.WithMaxBatchDelay(piloramaCfg.MaxBatchDelay())}
+
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.Perm()
 		fatalOnErr(util.MkdirAllX(filepath.Dir(metaPath), metaPerm))
@@ -446,6 +460,7 @@ func initShardOptions(c *cfg) {
 					Timeout: 100 * time.Millisecond,
 				}),
 			),
+			shard.WithPiloramaOptions(piloramaOpts...),
 			shard.WithWriteCache(writeCacheCfg.Enabled()),
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(gcCfg.RemoverBatchSize()),

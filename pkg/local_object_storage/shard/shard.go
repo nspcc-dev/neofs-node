@@ -2,7 +2,6 @@ package shard
 
 import (
 	"context"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -59,6 +58,8 @@ type cfg struct {
 
 	writeCacheOpts []writecache.Option
 
+	piloramaOpts []pilorama.Option
+
 	log *logger.Logger
 
 	gcCfg *gcCfg
@@ -103,7 +104,7 @@ func New(opts ...Option) *Shard {
 		metaBase:   mb,
 		writeCache: writeCache,
 		tsSource:   c.tsSource,
-		pilorama:   pilorama.NewBoltForest(filepath.Join(bs.DumpInfo().RootPath, "pilorama.db")),
+		pilorama:   pilorama.NewBoltForest(c.piloramaOpts...),
 	}
 
 	s.fillInfo()
@@ -136,6 +137,13 @@ func WithMetaBaseOptions(opts ...meta.Option) Option {
 func WithWriteCacheOptions(opts ...writecache.Option) Option {
 	return func(c *cfg) {
 		c.writeCacheOpts = opts
+	}
+}
+
+// WithPiloramaOptions returns option to set internal write cache options.
+func WithPiloramaOptions(opts ...pilorama.Option) Option {
+	return func(c *cfg) {
+		c.piloramaOpts = opts
 	}
 }
 
