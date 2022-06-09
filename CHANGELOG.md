@@ -9,6 +9,8 @@ Changelog for NeoFS Node
 
 ### Fixed
 
+- Do not replicate object twice to the same node (#1410)
+
 ### Removed
 
 ### Updated

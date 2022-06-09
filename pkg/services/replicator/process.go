@@ -9,8 +9,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// TaskResult is a replication result interface.
+type TaskResult interface {
+	// SubmitSuccessfulReplication must save successful
+	// replication result. ID is a netmap identification
+	// of a node that accepted the replica.
+	SubmitSuccessfulReplication(id uint64)
+}
+
 // HandleTask executes replication task inside invoking goroutine.
-func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
+// Passes all the nodes that accepted the replication to the TaskResult.
+func (p *Replicator) HandleTask(ctx context.Context, task *Task, res TaskResult) {
 	defer func() {
 		p.log.Debug("finish work",
 			zap.Uint32("amount of unfinished replicas", task.quantity),
@@ -55,6 +64,8 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 			log.Debug("object successfully replicated")
 
 			task.quantity--
+
+			res.SubmitSuccessfulReplication(task.nodes[i].ID)
 		}
 	}
 }
