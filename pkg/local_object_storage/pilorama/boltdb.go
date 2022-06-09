@@ -3,18 +3,20 @@ package pilorama
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
 )
 
 type boltForest struct {
-	path string
-	db   *bbolt.DB
+	db *bbolt.DB
+	cfg
 }
 
 const defaultMaxBatchSize = 10
@@ -41,25 +43,41 @@ var (
 // 'm' + node (id) -> serialized meta
 // 'c' + parent (id) + child (id) -> 0/1
 // 'i' + 0 + attrKey + 0 + attrValue + 0 + parent (id) + node (id) -> 0/1 (1 for automatically created nodes)
-func NewBoltForest(path string) ForestStorage {
-	return &boltForest{path: path}
+func NewBoltForest(opts ...Option) ForestStorage {
+	b := boltForest{
+		cfg: cfg{
+			perm:          os.ModePerm,
+			maxBatchDelay: bbolt.DefaultMaxBatchDelay,
+			maxBatchSize:  bbolt.DefaultMaxBatchSize,
+		},
+	}
+
+	for i := range opts {
+		opts[i](&b.cfg)
+	}
+
+	return &b
 }
 
 func (t *boltForest) Init() error { return nil }
 func (t *boltForest) Open() error {
-	if err := os.MkdirAll(filepath.Dir(t.path), os.ModePerm); err != nil {
-		return err
-	}
-
-	db, err := bbolt.Open(t.path, os.ModePerm, bbolt.DefaultOptions)
+	err := util.MkdirAllX(filepath.Dir(t.path), t.perm)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't create dir %s for the pilorama: %w", t.path, err)
 	}
 
-	db.MaxBatchSize = defaultMaxBatchSize
-	t.db = db
+	opts := *bbolt.DefaultOptions
+	opts.NoSync = t.noSync
 
-	return db.Update(func(tx *bbolt.Tx) error {
+	t.db, err = bbolt.Open(t.path, t.perm, &opts)
+	if err != nil {
+		return fmt.Errorf("can't open the pilorama DB: %w", err)
+	}
+
+	t.db.MaxBatchSize = t.maxBatchSize
+	t.db.MaxBatchDelay = t.maxBatchDelay
+
+	return t.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(dataBucket)
 		if err != nil {
 			return err

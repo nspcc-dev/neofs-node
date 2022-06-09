@@ -119,6 +119,10 @@ storage:
       max_batch_size: 200
       max_batch_delay: 20ms
 
+    pilorama:
+      max_batch_delay: 5ms # maximum delay for a batch of operations to be executed
+      max_batch_size: 100 # maximum amount of operations in a single batch
+
     blobstor:
       compress: false  # turn on/off zstd(level 3) compression of stored objects
       perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
@@ -157,6 +161,11 @@ storage:
           - audio/*
           - video/*
 
+      pilorama:
+        path: tmp/0/blob/pilorama.db # path to the pilorama database. If omitted, `pilorama.db` file is created blobstor.path
+        max_batch_delay: 10ms
+        max_batch_size: 200
+
       gc:
         remover_batch_size: 150  # number of objects to be removed by the garbage collector
         remover_sleep_interval: 2m  # frequency of the garbage collector invocation
@@ -171,3 +180,9 @@ storage:
 
       blobstor:
         path: tmp/1/blob  # blobstor path
+
+
+      pilorama:
+        path: tmp/1/blob/pilorama.db
+        no_sync: true # USE WITH CAUTION. Return to user before pages have been persisted.
+        perm: 0644 # permission to use for the database file and intermediate directories

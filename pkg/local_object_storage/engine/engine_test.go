@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -99,6 +100,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			blobstor.WithBlobovniczaShallowDepth(2),
 			blobstor.WithRootPerm(0700),
 		),
+		shard.WithPiloramaOptions(pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.pilorama", id)))),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
@@ -123,7 +125,10 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),
 				meta.WithPermissions(0700),
-			)}, extraOpts(i)...)...)
+			),
+			shard.WithPiloramaOptions(
+				pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("pilorama%d", i)))),
+		}, extraOpts(i)...)...)
 		require.NoError(t, err)
 	}
 

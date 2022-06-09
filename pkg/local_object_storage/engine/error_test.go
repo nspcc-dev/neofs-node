@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -48,7 +49,10 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 				blobstor.WithRootPerm(0700)),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
-				meta.WithPermissions(0700)))
+				meta.WithPermissions(0700)),
+			shard.WithPiloramaOptions(
+				pilorama.WithPath(filepath.Join(dir, fmt.Sprintf("%d.pilorama", i))),
+				pilorama.WithPerm(0700)))
 		require.NoError(t, err)
 	}
 	require.NoError(t, e.Open())

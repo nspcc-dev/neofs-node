@@ -156,6 +156,11 @@
             "opened_cache_capacity": 50
           }
         },
+        "pilorama": {
+          "path": "tmp/0/blob/pilorama.db",
+          "max_batch_delay": "10ms",
+          "max_batch_size": 200
+        },
         "gc": {
           "remover_batch_size": 150,
           "remover_sleep_interval": "2m"
@@ -191,6 +196,13 @@
             "width": 4,
             "opened_cache_capacity": 50
           }
+        },
+        "pilorama": {
+          "path": "tmp/1/blob/pilorama.db",
+          "perm": "0644",
+          "no_sync": true,
+          "max_batch_delay": "5ms",
+          "max_batch_size": 100
         },
         "gc": {
           "remover_batch_size": 200,

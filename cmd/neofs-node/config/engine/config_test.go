@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
+	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/stretchr/testify/require"
@@ -53,10 +54,17 @@ func TestEngineSection(t *testing.T) {
 			meta := sc.Metabase()
 			blob := sc.BlobStor()
 			blz := blob.Blobovnicza()
+			pl := sc.Pilorama()
 			gc := sc.GC()
 
 			switch num {
 			case 0:
+				require.Equal(t, "tmp/0/blob/pilorama.db", pl.Path())
+				require.Equal(t, fs.FileMode(piloramaconfig.PermDefault), pl.Perm())
+				require.False(t, pl.NoSync())
+				require.Equal(t, pl.MaxBatchDelay(), 10*time.Millisecond)
+				require.Equal(t, pl.MaxBatchSize(), 200)
+
 				require.Equal(t, false, wc.Enabled())
 
 				require.Equal(t, "tmp/0/cache", wc.Path())
@@ -89,6 +97,12 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, false, sc.RefillMetabase())
 				require.Equal(t, shard.ModeReadOnly, sc.Mode())
 			case 1:
+				require.Equal(t, "tmp/1/blob/pilorama.db", pl.Path())
+				require.Equal(t, fs.FileMode(0644), pl.Perm())
+				require.True(t, pl.NoSync())
+				require.Equal(t, 5*time.Millisecond, pl.MaxBatchDelay())
+				require.Equal(t, 100, pl.MaxBatchSize())
+
 				require.Equal(t, true, wc.Enabled())
 
 				require.Equal(t, "tmp/1/cache", wc.Path())
