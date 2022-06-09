@@ -3,6 +3,7 @@ package writecache
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"go.etcd.io/bbolt"
 )
@@ -13,5 +14,6 @@ func OpenDB(p string, ro bool) (*bbolt.DB, error) {
 		NoFreelistSync: true,
 		NoSync:         true,
 		ReadOnly:       ro,
+		Timeout:        100 * time.Millisecond,
 	})
 }
