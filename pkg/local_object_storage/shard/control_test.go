@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -31,6 +32,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 
 	sh := New(
 		WithBlobStorOptions(blobOpts...),
+		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta"))))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
@@ -55,6 +57,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 
 	sh = New(
 		WithBlobStorOptions(blobOpts...),
+		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new"))),
 		WithRefillMetabase(true))
 	require.NoError(t, sh.Open())
@@ -83,6 +86,8 @@ func TestRefillMetabase(t *testing.T) {
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
 		),
+		WithPiloramaOptions(
+			pilorama.WithPath(filepath.Join(p, "pilorama"))),
 	)
 
 	// open Blobstor
@@ -246,6 +251,8 @@ func TestRefillMetabase(t *testing.T) {
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
 		),
+		WithPiloramaOptions(
+			pilorama.WithPath(filepath.Join(p, "pilorama_another"))),
 	)
 
 	// open Blobstor
