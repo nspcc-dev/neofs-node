@@ -42,7 +42,7 @@ func initializeContractWallet(v *viper.Viper, walletDir string) (*wallet.Wallet,
 	}
 
 	w.AddAccount(acc)
-	if err := w.Save(); err != nil {
+	if err := w.SavePretty(); err != nil {
 		return nil, err
 	}
 
