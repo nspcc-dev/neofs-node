@@ -14,17 +14,6 @@ type Task struct {
 	nodes netmap.Nodes
 }
 
-// AddTask pushes replication task to Replicator queue.
-//
-// If task queue is full, log message is written.
-func (p *Replicator) AddTask(t *Task) {
-	select {
-	case p.ch <- t:
-	default:
-		p.log.Warn("task queue is full")
-	}
-}
-
 // WithCopiesNumber sets number of copies to replicate.
 func (t *Task) WithCopiesNumber(v uint32) *Task {
 	if t != nil {

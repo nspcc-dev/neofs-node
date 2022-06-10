@@ -13,16 +13,12 @@ import (
 // local objects to remote nodes.
 type Replicator struct {
 	*cfg
-
-	ch chan *Task
 }
 
 // Option is an option for Policer constructor.
 type Option func(*cfg)
 
 type cfg struct {
-	taskCap uint32
-
 	putTimeout time.Duration
 
 	log *logger.Logger
