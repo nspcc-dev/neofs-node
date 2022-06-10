@@ -3,6 +3,16 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Updated
+
 ## [0.28.3] - 2022-06-08
 
 ### Updated
