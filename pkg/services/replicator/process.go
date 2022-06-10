@@ -9,39 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func (p *Replicator) Run(ctx context.Context) {
-	defer func() {
-		close(p.ch)
-		p.log.Info("routine stopped")
-	}()
-
-	p.ch = make(chan *Task, p.taskCap)
-
-	p.log.Info("process routine",
-		zap.Uint32("task queue capacity", p.taskCap),
-		zap.Duration("put timeout", p.putTimeout),
-	)
-
-	for {
-		select {
-		case <-ctx.Done():
-			p.log.Warn("context is done",
-				zap.String("error", ctx.Err().Error()),
-			)
-
-			return
-		case task, ok := <-p.ch:
-			if !ok {
-				p.log.Warn("trigger channel is closed")
-
-				return
-			}
-
-			p.HandleTask(ctx, task)
-		}
-	}
-}
-
 // HandleTask executes replication task inside invoking goroutine.
 func (p *Replicator) HandleTask(ctx context.Context, task *Task) {
 	defer func() {

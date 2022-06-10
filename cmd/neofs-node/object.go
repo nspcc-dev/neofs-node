@@ -217,8 +217,6 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	c.workers = append(c.workers, repl)
-
 	pol := policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
