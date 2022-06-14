@@ -80,17 +80,18 @@ func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]oid.Address, *Curso
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
+	result := make([]oid.Address, 0, prm.count)
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, res.cursor, err = db.listWithCursor(tx, prm.count, prm.cursor)
+		res.addrList, res.cursor, err = db.listWithCursor(tx, result, prm.count, prm.cursor)
 		return err
 	})
 
 	return res, err
 }
 
-func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor *Cursor) ([]oid.Address, *Cursor, error) {
+func (db *DB) listWithCursor(tx *bbolt.Tx, result []oid.Address, count int, cursor *Cursor) ([]oid.Address, *Cursor, error) {
 	threshold := cursor == nil // threshold is a flag to ignore cursor
-	result := make([]oid.Address, 0, count)
 	var bucketName []byte
 
 	c := tx.Cursor()
@@ -100,10 +101,12 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, count int, cursor *Cursor) ([]oid.Add
 		name, _ = c.Seek(cursor.bucketName)
 	}
 
+	var containerID cid.ID
+
 loop:
 	for ; name != nil; name, _ = c.Next() {
-		containerID, postfix := parseContainerIDWithPostfix(name)
-		if containerID == nil {
+		postfix, ok := parseContainerIDWithPostfix(&containerID, name)
+		if !ok {
 			continue
 		}
 
@@ -118,8 +121,7 @@ loop:
 		}
 
 		prefix := containerID.EncodeToString() + "/"
-
-		result, cursor = selectNFromBucket(tx, name, prefix, result, count, cursor, threshold)
+		result, cursor = selectNFromBucket(tx, name, prefix, containerID, result, count, cursor, threshold)
 		bucketName = name
 		if len(result) >= count {
 			break loop
@@ -146,7 +148,8 @@ loop:
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(tx *bbolt.Tx,
 	name []byte, // bucket name
-	prefix string, // string of container ID, optimization
+	prefix string, // container ID prefix, optimization
+	cnt cid.ID, // container ID
 	to []oid.Address, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
@@ -172,18 +175,28 @@ func selectNFromBucket(tx *bbolt.Tx,
 		k, _ = c.Next() // we are looking for objects _after_ the cursor
 	}
 
+	addrRaw := make([]byte, len(prefix)+44)
+	copy(addrRaw, prefix)
+
 	for ; k != nil; k, _ = c.Next() {
 		if count >= limit {
 			break
 		}
-		var a oid.Address
-		if err := a.DecodeString(prefix + string(k)); err != nil {
+
+		var obj oid.ID
+		if err := obj.DecodeString(string(k)); err != nil {
 			break
 		}
+
 		offset = k
-		if inGraveyard(tx, a) > 0 {
+		addrRaw = append(addrRaw[:len(prefix)], k...)
+		if inGraveyardWithKey(tx, addrRaw) > 0 {
 			continue
 		}
+
+		var a oid.Address
+		a.SetContainer(cnt)
+		a.SetObject(obj)
 		to = append(to, a)
 		count++
 	}
@@ -196,9 +209,8 @@ func selectNFromBucket(tx *bbolt.Tx,
 	return to, cursor
 }
 
-func parseContainerIDWithPostfix(name []byte) (*cid.ID, string) {
+func parseContainerIDWithPostfix(containerID *cid.ID, name []byte) (string, bool) {
 	var (
-		containerID    cid.ID
 		containerIDStr = string(name)
 		postfix        string
 	)
@@ -210,8 +222,8 @@ func parseContainerIDWithPostfix(name []byte) (*cid.ID, string) {
 	}
 
 	if err := containerID.DecodeString(containerIDStr); err != nil {
-		return nil, ""
+		return "", false
 	}
 
-	return &containerID, postfix
+	return postfix, true
 }
