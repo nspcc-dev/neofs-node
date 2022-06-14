@@ -31,6 +31,8 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 		if container.IsErrNotFound(err) {
 			var prm engine.InhumePrm
 			prm.MarkAsGarbage(addr)
+			prm.WithForceRemoval()
+
 			_, err := p.jobQueue.localStorage.Inhume(prm)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",

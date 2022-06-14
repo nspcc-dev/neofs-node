@@ -15,6 +15,8 @@ import (
 type InhumePrm struct {
 	tombstone *oid.Address
 	addrs     []oid.Address
+
+	forceRemoval bool
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -38,6 +40,15 @@ func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) {
 func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) {
 	if p != nil {
 		p.addrs = addrs
+		p.tombstone = nil
+	}
+}
+
+// WithForceRemoval inhumes objects specified via MarkAsGarbage with GC mark
+// without any object restrictions checks.
+func (p *InhumePrm) WithForceRemoval() {
+	if p != nil {
+		p.forceRemoval = true
 		p.tombstone = nil
 	}
 }
@@ -66,6 +77,9 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 	}
 
 	var shPrm shard.InhumePrm
+	if prm.forceRemoval {
+		shPrm.ForceRemoval()
+	}
 
 	for i := range prm.addrs {
 		if prm.tombstone != nil {
