@@ -105,6 +105,11 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address) (exists bool, err error) {
 //  * 1 if object with GC mark;
 //  * 2 if object is covered with tombstone.
 func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
+	addrKey := addressKey(addr)
+	return inGraveyardWithKey(tx, addrKey)
+}
+
+func inGraveyardWithKey(tx *bbolt.Tx, addrKey []byte) uint8 {
 	graveyard := tx.Bucket(graveyardBucketName)
 	if graveyard == nil {
 		// incorrect metabase state, does not make
@@ -112,7 +117,7 @@ func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
 		return 0
 	}
 
-	val := graveyard.Get(addressKey(addr))
+	val := graveyard.Get(addrKey)
 	if val == nil {
 		garbageBCK := tx.Bucket(garbageBucketName)
 		if garbageBCK == nil {
@@ -120,7 +125,7 @@ func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
 			return 0
 		}
 
-		val = garbageBCK.Get(addressKey(addr))
+		val = garbageBCK.Get(addrKey)
 		if val != nil {
 			// object has been marked with GC
 			return 1
