@@ -10,8 +10,60 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 )
+
+func BenchmarkListWithCursor(b *testing.B) {
+	db := listWithCursorPrepareDB(b)
+	b.Run("1 item", func(b *testing.B) {
+		benchmarkListWithCursor(b, db, 1)
+	})
+	b.Run("10 items", func(b *testing.B) {
+		benchmarkListWithCursor(b, db, 10)
+	})
+	b.Run("100 items", func(b *testing.B) {
+		benchmarkListWithCursor(b, db, 100)
+	})
+}
+
+func listWithCursorPrepareDB(b *testing.B) *meta.DB {
+	db := newDB(b, meta.WithBatchSize(1), meta.WithBoltDBOptions(&bbolt.Options{
+		NoSync: true,
+	})) // faster single-thread generation
+
+	obj := generateObject(b)
+	for i := 0; i < 100_000; i++ { // should be a multiple of all batch sizes
+		obj.SetID(oidtest.ID())
+		if i%9 == 0 { // let's have 9 objects per container
+			obj.SetContainerID(cidtest.ID())
+		}
+		require.NoError(b, putBig(db, obj))
+	}
+	return db
+}
+
+func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
+	var prm meta.ListPrm
+	prm.WithCount(uint32(batchSize))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		res, err := db.ListWithCursor(prm)
+		if err != nil {
+			if err != meta.ErrEndOfListing {
+				b.Fatalf("error: %v", err)
+			}
+			prm.WithCursor(nil)
+		} else if ln := len(res.AddressList()); ln != batchSize {
+			b.Fatalf("invalid batch size: %d", ln)
+		} else {
+			prm.WithCursor(res.Cursor())
+		}
+	}
+}
 
 func TestLisObjectsWithCursor(t *testing.T) {
 	db := newDB(t)
