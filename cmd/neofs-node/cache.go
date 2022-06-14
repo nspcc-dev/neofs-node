@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -8,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
+	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -324,4 +326,41 @@ func (f *cachedIRFetcher) InnerRingKeys() ([][]byte, error) {
 	}
 
 	return val.([][]byte), nil
+}
+
+type ttlMaxObjectSizeCache struct {
+	mtx         sync.RWMutex
+	lastUpdated time.Time
+	lastSize    uint64
+	src         putsvc.MaxSizeSource
+}
+
+func newCachedMaxObjectSizeSource(src putsvc.MaxSizeSource) putsvc.MaxSizeSource {
+	return &ttlMaxObjectSizeCache{
+		src: src,
+	}
+}
+
+func (c *ttlMaxObjectSizeCache) MaxObjectSize() uint64 {
+	const ttl = time.Second * 30
+
+	c.mtx.RLock()
+	prevUpdated := c.lastUpdated
+	size := c.lastSize
+	c.mtx.RUnlock()
+
+	if time.Since(prevUpdated) < ttl {
+		return size
+	}
+
+	c.mtx.Lock()
+	size = c.lastSize
+	if !c.lastUpdated.After(prevUpdated) {
+		size = c.src.MaxObjectSize()
+		c.lastSize = size
+		c.lastUpdated = time.Now()
+	}
+	c.mtx.Unlock()
+
+	return size
 }
