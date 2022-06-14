@@ -105,12 +105,13 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address) (exists bool, err error) {
 //  * 1 if object with GC mark;
 //  * 2 if object is covered with tombstone.
 func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
+	graveyardBkt := tx.Bucket(graveyardBucketName)
+	garbageBkt := tx.Bucket(garbageBucketName)
 	addrKey := addressKey(addr)
-	return inGraveyardWithKey(tx, addrKey)
+	return inGraveyardWithKey(addrKey, graveyardBkt, garbageBkt)
 }
 
-func inGraveyardWithKey(tx *bbolt.Tx, addrKey []byte) uint8 {
-	graveyard := tx.Bucket(graveyardBucketName)
+func inGraveyardWithKey(addrKey []byte, graveyard, garbageBCK *bbolt.Bucket) uint8 {
 	if graveyard == nil {
 		// incorrect metabase state, does not make
 		// sense to check garbage bucket
@@ -119,7 +120,6 @@ func inGraveyardWithKey(tx *bbolt.Tx, addrKey []byte) uint8 {
 
 	val := graveyard.Get(addrKey)
 	if val == nil {
-		garbageBCK := tx.Bucket(garbageBucketName)
 		if garbageBCK == nil {
 			// incorrect node state
 			return 0

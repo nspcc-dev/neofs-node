@@ -178,6 +178,9 @@ func selectNFromBucket(tx *bbolt.Tx,
 	addrRaw := make([]byte, len(prefix)+44)
 	copy(addrRaw, prefix)
 
+	graveyardBkt := tx.Bucket(graveyardBucketName)
+	garbageBkt := tx.Bucket(garbageBucketName)
+
 	for ; k != nil; k, _ = c.Next() {
 		if count >= limit {
 			break
@@ -190,7 +193,7 @@ func selectNFromBucket(tx *bbolt.Tx,
 
 		offset = k
 		addrRaw = append(addrRaw[:len(prefix)], k...)
-		if inGraveyardWithKey(tx, addrRaw) > 0 {
+		if inGraveyardWithKey(addrRaw, graveyardBkt, garbageBkt) > 0 {
 			continue
 		}
 
