@@ -1,8 +1,8 @@
 package meta
 
 import (
+	"bytes"
 	"errors"
-	"strings"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -102,11 +102,17 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, result []oid.Address, count int, curs
 	}
 
 	var containerID cid.ID
+	var offset []byte
+	graveyardBkt := tx.Bucket(graveyardBucketName)
+	garbageBkt := tx.Bucket(garbageBucketName)
+
+	const idSize = 44 // size of the stringified object and container ids
+	var rawAddr = make([]byte, idSize*2+1)
 
 loop:
 	for ; name != nil; name, _ = c.Next() {
-		postfix, ok := parseContainerIDWithPostfix(&containerID, name)
-		if !ok {
+		b58CID, postfix := parseContainerIDWithPostfix(&containerID, name)
+		if b58CID == nil {
 			continue
 		}
 
@@ -120,8 +126,13 @@ loop:
 			continue
 		}
 
-		prefix := containerID.EncodeToString() + "/"
-		result, cursor = selectNFromBucket(tx, name, prefix, containerID, result, count, cursor, threshold)
+		bkt := tx.Bucket(name)
+		if bkt != nil {
+			rawAddr = append(rawAddr[:0], b58CID...)
+			rawAddr = append(rawAddr, '/')
+			result, offset, cursor = selectNFromBucket(bkt, graveyardBkt, garbageBkt, rawAddr, containerID,
+				result, count, cursor, threshold)
+		}
 		bucketName = name
 		if len(result) >= count {
 			break loop
@@ -130,6 +141,13 @@ loop:
 		// set threshold flag after first `selectNFromBucket` invocation
 		// first invocation must look for cursor object
 		threshold = true
+	}
+
+	if offset != nil {
+		// new slice is much faster but less memory efficient
+		// we need to copy, because offset exists during bbolt tx
+		cursor.inBucketOffset = make([]byte, len(offset))
+		copy(cursor.inBucketOffset, offset)
 	}
 
 	if len(result) == 0 {
@@ -146,20 +164,15 @@ loop:
 
 // selectNFromBucket similar to selectAllFromBucket but uses cursor to find
 // object to start selecting from. Ignores inhumed objects.
-func selectNFromBucket(tx *bbolt.Tx,
-	name []byte, // bucket name
-	prefix string, // container ID prefix, optimization
+func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
+	graveyardBkt, garbageBkt *bbolt.Bucket, // cached graveyard buckets
+	addrRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
 	to []oid.Address, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
 	threshold bool, // ignore cursor and start immediately
-) ([]oid.Address, *Cursor) {
-	bkt := tx.Bucket(name)
-	if bkt == nil {
-		return to, cursor
-	}
-
+) ([]oid.Address, []byte, *Cursor) {
 	if cursor == nil {
 		cursor = new(Cursor)
 	}
@@ -175,12 +188,6 @@ func selectNFromBucket(tx *bbolt.Tx,
 		k, _ = c.Next() // we are looking for objects _after_ the cursor
 	}
 
-	addrRaw := make([]byte, len(prefix)+44)
-	copy(addrRaw, prefix)
-
-	graveyardBkt := tx.Bucket(graveyardBucketName)
-	garbageBkt := tx.Bucket(garbageBucketName)
-
 	for ; k != nil; k, _ = c.Next() {
 		if count >= limit {
 			break
@@ -192,8 +199,7 @@ func selectNFromBucket(tx *bbolt.Tx,
 		}
 
 		offset = k
-		addrRaw = append(addrRaw[:len(prefix)], k...)
-		if inGraveyardWithKey(addrRaw, graveyardBkt, garbageBkt) > 0 {
+		if inGraveyardWithKey(append(addrRaw, k...), graveyardBkt, garbageBkt) > 0 {
 			continue
 		}
 
@@ -204,29 +210,24 @@ func selectNFromBucket(tx *bbolt.Tx,
 		count++
 	}
 
-	// new slice is much faster but less memory efficient
-	// we need to copy, because offset exists during bbolt tx
-	cursor.inBucketOffset = make([]byte, len(offset))
-	copy(cursor.inBucketOffset, offset)
-
-	return to, cursor
+	return to, offset, cursor
 }
 
-func parseContainerIDWithPostfix(containerID *cid.ID, name []byte) (string, bool) {
+func parseContainerIDWithPostfix(containerID *cid.ID, name []byte) ([]byte, string) {
 	var (
-		containerIDStr = string(name)
-		postfix        string
+		containerIDStr = name
+		postfix        []byte
 	)
 
-	ind := strings.Index(string(name), invalidBase58String)
+	ind := bytes.IndexByte(name, invalidBase58String[0])
 	if ind > 0 {
 		postfix = containerIDStr[ind:]
 		containerIDStr = containerIDStr[:ind]
 	}
 
-	if err := containerID.DecodeString(containerIDStr); err != nil {
-		return "", false
+	if err := containerID.DecodeString(string(containerIDStr)); err != nil {
+		return nil, ""
 	}
 
-	return postfix, true
+	return containerIDStr, string(postfix)
 }
