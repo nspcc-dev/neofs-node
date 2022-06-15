@@ -68,7 +68,7 @@ func TestPutValidator_Assert(t *testing.T) {
 	require.ErrorAs(t, err, new(zeroSubnetOp))
 
 	const idNum = 13
-	e.id.SetNumber(idNum)
+	e.id.SetNumeric(idNum)
 
 	// read creator error
 	e.creatorErr = errors.New("creator err")
@@ -89,7 +89,7 @@ func TestPutValidator_Assert(t *testing.T) {
 	// diff explicit ID and the one in info
 	var id2 subnetid.ID
 
-	id2.SetNumber(idNum + 1)
+	id2.SetNumeric(idNum + 1)
 
 	e.info.SetID(id2)
 

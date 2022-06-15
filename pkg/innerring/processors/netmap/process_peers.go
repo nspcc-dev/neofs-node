@@ -166,7 +166,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 	}
 
 	rawSubnet := ev.SubnetworkID()
-	subnetToRemoveFrom := &subnetid.ID{}
+	var subnetToRemoveFrom subnetid.ID
 
 	err = subnetToRemoveFrom.Unmarshal(rawSubnet)
 	if err != nil {
@@ -176,7 +176,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 		return
 	}
 
-	if subnetid.IsZero(*subnetToRemoveFrom) {
+	if subnetid.IsZero(subnetToRemoveFrom) {
 		np.log.Warn("got zero subnet in remove node notification")
 		return
 	}

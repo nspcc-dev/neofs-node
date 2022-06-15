@@ -314,7 +314,7 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 	)
 
 	err := c.NodeInfo.IterateSubnets(func(id subnetid.ID) error {
-		if removedID.Equals(&id) {
+		if removedID.Equals(id) {
 			removeSubnet = true
 			return netmap.ErrRemoveSubnet
 		}
