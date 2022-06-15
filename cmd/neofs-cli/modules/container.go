@@ -141,10 +141,12 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		common.ExitOnErr(cmd, "", err)
 
-		subnetID, err := parseSubnetID(containerSubnet)
+		var subnetID subnetid.ID
+
+		err = subnetID.DecodeString(containerSubnet)
 		common.ExitOnErr(cmd, "could not parse subnetID: %w", err)
 
-		placementPolicy.SetSubnetID(subnetID)
+		placementPolicy.SetSubnetID(&subnetID)
 
 		attributes, err := parseAttributes(containerAttributes)
 		common.ExitOnErr(cmd, "", err)
@@ -594,16 +596,6 @@ func prettyPrintContainerList(cmd *cobra.Command, list []cid.ID) {
 	for i := range list {
 		cmd.Println(list[i])
 	}
-}
-
-func parseSubnetID(val string) (sub *subnetid.ID, err error) {
-	sub = &subnetid.ID{}
-
-	if val != "" {
-		err = sub.UnmarshalText([]byte(val))
-	}
-
-	return
 }
 
 func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) {

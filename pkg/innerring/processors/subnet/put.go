@@ -69,12 +69,12 @@ func (x PutValidator) Assert(event Put) error {
 	}
 
 	// check if the explicit ID equals to the one from info
-	if !subnet.IDEquals(info, id) {
+	if !subnet.AssertReference(info, id) {
 		return errDiffID
 	}
 
 	// check if the explicit creator equals to the one from info
-	if !subnet.IsOwner(info, creator) {
+	if !subnet.AssertOwnership(info, creator) {
 		return errDiffOwner
 	}
 

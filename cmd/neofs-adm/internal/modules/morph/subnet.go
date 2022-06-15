@@ -140,16 +140,11 @@ var cmdSubnetCreate = &cobra.Command{
 		for {
 			num = rand.Uint32()
 
-			id.SetNumber(num)
+			id.SetNumeric(num)
 
 			if !subnetid.IsZero(id) {
 				break
 			}
-		}
-
-		binID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet ID: %w", err)
 		}
 
 		// declare creator ID and encode it
@@ -162,12 +157,7 @@ var cmdSubnetCreate = &cobra.Command{
 		info.SetID(id)
 		info.SetOwner(creator)
 
-		binInfo, err := info.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet info: %w", err)
-		}
-
-		err = invokeMethod(key, true, "put", binID, key.PublicKey().Bytes(), binInfo)
+		err = invokeMethod(key, true, "put", id.Marshal(), key.PublicKey().Bytes(), info.Marshal())
 		if err != nil {
 			return fmt.Errorf("morph invocation: %w", err)
 		}
@@ -210,7 +200,7 @@ var cmdSubnetRemove = &cobra.Command{
 		// read ID and encode it
 		var id subnetid.ID
 
-		err = id.UnmarshalText([]byte(viper.GetString(flagSubnetRemoveID)))
+		err = id.DecodeString(viper.GetString(flagSubnetRemoveID))
 		if err != nil {
 			return fmt.Errorf("decode ID text: %w", err)
 		}
@@ -219,12 +209,7 @@ var cmdSubnetRemove = &cobra.Command{
 			return errZeroSubnet
 		}
 
-		binID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet ID: %w", err)
-		}
-
-		err = invokeMethod(key, false, "delete", binID)
+		err = invokeMethod(key, false, "delete", id.Marshal())
 		if err != nil {
 			return fmt.Errorf("morph invocation: %w", err)
 		}
@@ -254,18 +239,13 @@ var cmdSubnetGet = &cobra.Command{
 		// read ID and encode it
 		var id subnetid.ID
 
-		err := id.UnmarshalText([]byte(viper.GetString(flagSubnetGetID)))
+		err := id.DecodeString(viper.GetString(flagSubnetGetID))
 		if err != nil {
 			return fmt.Errorf("decode ID text: %w", err)
 		}
 
 		if subnetid.IsZero(id) {
 			return errZeroSubnet
-		}
-
-		binID, err := id.Marshal()
-		if err != nil {
-			return fmt.Errorf("marshal subnet ID: %w", err)
 		}
 
 		// use random key to fetch the data
@@ -276,7 +256,7 @@ var cmdSubnetGet = &cobra.Command{
 			return fmt.Errorf("init subnet client: %w", err)
 		}
 
-		res, err := testInvokeMethod(*key, "get", binID)
+		res, err := testInvokeMethod(*key, "get", id.Marshal())
 		if err != nil {
 			return fmt.Errorf("morph invocation: %w", err)
 		}
@@ -297,11 +277,7 @@ var cmdSubnetGet = &cobra.Command{
 		}
 
 		// print information
-		var ownerID user.ID
-
-		info.ReadOwner(&ownerID)
-
-		cmd.Printf("Owner: %s\n", &ownerID)
+		cmd.Printf("Owner: %s\n", info.Owner())
 
 		return nil
 	},
@@ -350,18 +326,13 @@ func manageSubnetAdmins(cmd *cobra.Command, rm bool) error {
 	// read ID and encode it
 	var id subnetid.ID
 
-	err = id.UnmarshalText([]byte(viper.GetString(flagSubnetAdminSubnet)))
+	err = id.DecodeString(viper.GetString(flagSubnetAdminSubnet))
 	if err != nil {
 		return fmt.Errorf("decode ID text: %w", err)
 	}
 
 	if subnetid.IsZero(id) {
 		return errZeroSubnet
-	}
-
-	binID, err := id.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal subnet ID: %w", err)
 	}
 
 	// read admin key and decode it
@@ -377,7 +348,7 @@ func manageSubnetAdmins(cmd *cobra.Command, rm bool) error {
 
 	// prepare call parameters
 	prm := make([]interface{}, 0, 3)
-	prm = append(prm, binID)
+	prm = append(prm, id.Marshal())
 
 	var method string
 
@@ -497,18 +468,13 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 	// read ID and encode it
 	var id subnetid.ID
 
-	err = id.UnmarshalText([]byte(viper.GetString(flagSubnetClientSubnet)))
+	err = id.DecodeString(viper.GetString(flagSubnetClientSubnet))
 	if err != nil {
 		return fmt.Errorf("decode ID text: %w", err)
 	}
 
 	if subnetid.IsZero(id) {
 		return errZeroSubnet
-	}
-
-	binID, err := id.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal subnet ID: %w", err)
 	}
 
 	// read client ID and encode it
@@ -539,7 +505,7 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 		method = "addUser"
 	}
 
-	err = invokeMethod(key, false, method, binID, binGroupID, clientID.WalletBytes())
+	err = invokeMethod(key, false, method, id.Marshal(), binGroupID, clientID.WalletBytes())
 	if err != nil {
 		return fmt.Errorf("morph invocation: %w", err)
 	}
@@ -596,18 +562,13 @@ func manageSubnetNodes(cmd *cobra.Command, rm bool) error {
 	// read ID and encode it
 	var id subnetid.ID
 
-	err = id.UnmarshalText([]byte(viper.GetString(flagSubnetNodeSubnet)))
+	err = id.DecodeString(viper.GetString(flagSubnetNodeSubnet))
 	if err != nil {
 		return fmt.Errorf("decode ID text: %w", err)
 	}
 
 	if subnetid.IsZero(id) {
 		return errZeroSubnet
-	}
-
-	binID, err := id.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal subnet ID: %w", err)
 	}
 
 	// read node  ID and encode it
@@ -628,7 +589,7 @@ func manageSubnetNodes(cmd *cobra.Command, rm bool) error {
 		method = "addNode"
 	}
 
-	err = invokeMethod(key, false, method, binID, binNodeID)
+	err = invokeMethod(key, false, method, id.Marshal(), binNodeID)
 	if err != nil {
 		return fmt.Errorf("morph invocation: %w", err)
 	}

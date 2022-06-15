@@ -186,7 +186,7 @@ func readSubnetCfg(c *cfg) {
 	)
 
 	subnetCfg.IterateSubnets(func(idTxt string) {
-		err = id.UnmarshalText([]byte(idTxt))
+		err = id.DecodeString(idTxt)
 		fatalOnErrDetails("parse subnet entry", err)
 
 		c.cfgNodeInfo.localInfo.EnterSubnet(id)

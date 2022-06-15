@@ -247,12 +247,7 @@ func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error 
 		return nil
 	}
 
-	rawSubID, err := subID.Marshal()
-	if err != nil {
-		return fmt.Errorf("could not marshal container subnetwork: %w", err)
-	}
-
-	prm.SetID(rawSubID)
+	prm.SetID(subID.Marshal())
 	prm.SetClient(owner.WalletBytes())
 
 	res, err := subCli.UserAllowed(prm)
