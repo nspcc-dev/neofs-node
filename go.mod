@@ -36,6 +36,6 @@ require (
 	google.golang.org/protobuf v1.27.1
 )
 
-replace github.com/nspcc-dev/neofs-sdk-go => github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.3.0.20220317133532-cc2e1e4645e7
+replace github.com/nspcc-dev/neofs-sdk-go => github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.3.0.20220614143412-73f949e187b6
 
-replace github.com/nspcc-dev/neofs-api-go/v2 => github.com/fyrchik/neofs-api-go/v2 v2.0.0-20220317133148-7f18ea846765
+replace github.com/nspcc-dev/neofs-api-go/v2 => github.com/fyrchik/neofs-api-go/v2 v2.0.0-20220614103723-d16efe168a33
