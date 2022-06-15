@@ -29,6 +29,8 @@ type DB struct {
 	matchers map[object.SearchMatchType]matcher
 
 	boltDB *bbolt.DB
+
+	initialized bool
 }
 
 // Option is an option of DB constructor.
