@@ -136,7 +136,9 @@
         },
         "metabase": {
           "path": "tmp/0/meta",
-          "perm": "0644"
+          "perm": "0644",
+          "max_batch_size": 100,
+          "max_batch_delay": "10ms"
         },
         "blobstor": {
           "path": "tmp/0/blob",
@@ -173,7 +175,9 @@
         },
         "metabase": {
           "path": "tmp/1/meta",
-          "perm": "0644"
+          "perm": "0644",
+          "max_batch_size": 200,
+          "max_batch_delay": "20ms"
         },
         "blobstor": {
           "path": "tmp/1/blob",
