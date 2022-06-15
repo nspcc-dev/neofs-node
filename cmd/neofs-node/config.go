@@ -445,6 +445,8 @@ func initShardOptions(c *cfg) {
 				meta.WithLogger(c.log),
 				meta.WithPath(metaPath),
 				meta.WithPermissions(metaPerm),
+				meta.WithMaxBatchSize(metabaseCfg.BoltDB().MaxBatchSize()),
+				meta.WithMaxBatchDelay(metabaseCfg.BoltDB().MaxBatchDelay()),
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: 100 * time.Millisecond,
 				}),

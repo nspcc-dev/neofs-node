@@ -68,6 +68,8 @@ func TestEngineSection(t *testing.T) {
 
 				require.Equal(t, "tmp/0/meta", meta.Path())
 				require.Equal(t, fs.FileMode(0644), meta.BoltDB().Perm())
+				require.Equal(t, 100, meta.BoltDB().MaxBatchSize())
+				require.Equal(t, 10*time.Millisecond, meta.BoltDB().MaxBatchDelay())
 
 				require.Equal(t, "tmp/0/blob", blob.Path())
 				require.EqualValues(t, 0644, blob.Perm())
@@ -98,6 +100,8 @@ func TestEngineSection(t *testing.T) {
 
 				require.Equal(t, "tmp/1/meta", meta.Path())
 				require.Equal(t, fs.FileMode(0644), meta.BoltDB().Perm())
+				require.Equal(t, 200, meta.BoltDB().MaxBatchSize())
+				require.Equal(t, 20*time.Millisecond, meta.BoltDB().MaxBatchDelay())
 
 				require.Equal(t, "tmp/1/blob", blob.Path())
 				require.EqualValues(t, 0644, blob.Perm())

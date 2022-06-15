@@ -43,8 +43,8 @@ func prepareObjects(t testing.TB, n int) []*objectSDK.Object {
 func BenchmarkPut(b *testing.B) {
 	b.Run("parallel", func(b *testing.B) {
 		db := newDB(b,
-			meta.WithBatchDelay(time.Millisecond*10),
-			meta.WithBatchSize(runtime.NumCPU()))
+			meta.WithMaxBatchDelay(time.Millisecond*10),
+			meta.WithMaxBatchSize(runtime.NumCPU()))
 		// Ensure the benchmark is bound by CPU and not waiting batch-delay time.
 		b.SetParallelism(1)
 
@@ -62,8 +62,8 @@ func BenchmarkPut(b *testing.B) {
 	})
 	b.Run("sequential", func(b *testing.B) {
 		db := newDB(b,
-			meta.WithBatchDelay(time.Millisecond*10),
-			meta.WithBatchSize(1))
+			meta.WithMaxBatchDelay(time.Millisecond*10),
+			meta.WithMaxBatchSize(1))
 		index := atomic.NewInt64(-1)
 		objs := prepareObjects(b, b.N)
 		b.ResetTimer()

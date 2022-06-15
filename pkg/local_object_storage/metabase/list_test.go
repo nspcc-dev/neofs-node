@@ -29,7 +29,7 @@ func BenchmarkListWithCursor(b *testing.B) {
 }
 
 func listWithCursorPrepareDB(b *testing.B) *meta.DB {
-	db := newDB(b, meta.WithBatchSize(1), meta.WithBoltDBOptions(&bbolt.Options{
+	db := newDB(b, meta.WithMaxBatchSize(1), meta.WithBoltDBOptions(&bbolt.Options{
 		NoSync: true,
 	})) // faster single-thread generation
 

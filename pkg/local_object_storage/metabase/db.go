@@ -278,20 +278,24 @@ func WithPermissions(perm fs.FileMode) Option {
 	}
 }
 
-// WithBatchSize returns option to specify maximum concurrent operations
+// WithMaxBatchSize returns option to specify maximum concurrent operations
 // to be processed in a single transactions.
 // This option is missing from `bbolt.Options` but is set right after DB is open.
-func WithBatchSize(s int) Option {
+func WithMaxBatchSize(s int) Option {
 	return func(c *cfg) {
-		c.boltBatchSize = s
+		if s != 0 {
+			c.boltBatchSize = s
+		}
 	}
 }
 
-// WithBatchDelay returns option to specify maximum time to wait before
+// WithMaxBatchDelay returns option to specify maximum time to wait before
 // the batch of concurrent transactions is processed.
 // This option is missing from `bbolt.Options` but is set right after DB is open.
-func WithBatchDelay(d time.Duration) Option {
+func WithMaxBatchDelay(d time.Duration) Option {
 	return func(c *cfg) {
-		c.boltBatchDelay = d
+		if d != 0 {
+			c.boltBatchDelay = d
+		}
 	}
 }

@@ -116,6 +116,8 @@ storage:
 
     metabase:
       perm: 0644  # permissions for metabase files(directories: +x for current user and group)
+      max_batch_size: 200
+      max_batch_delay: 20ms
 
     blobstor:
       compress: false  # turn on/off zstd(level 3) compression of stored objects
@@ -145,6 +147,8 @@ storage:
 
       metabase:
         path: tmp/0/meta  # metabase path
+        max_batch_size: 100
+        max_batch_delay: 10ms
 
       blobstor:
         path: tmp/0/blob  # blobstor path
