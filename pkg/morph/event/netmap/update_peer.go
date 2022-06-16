@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
-	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	"github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -73,11 +73,11 @@ func ParseUpdatePeer(e *subscriptions.NotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("could not get node status: %w", err)
 	}
 
-	switch v2netmap.NodeState(st) {
+	switch st {
 	default:
 		return nil, fmt.Errorf("unsupported node state %d", st)
-	case v2netmap.Offline:
-	case v2netmap.Online:
+	case int64(netmap.OfflineState):
+	case int64(netmap.OnlineState):
 		ev.online = true
 	}
 
