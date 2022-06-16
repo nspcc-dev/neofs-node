@@ -67,7 +67,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 3221225472, wc.SizeLimit())
 
 				require.Equal(t, "tmp/0/meta", meta.Path())
-				require.Equal(t, fs.FileMode(0644), meta.Perm())
+				require.Equal(t, fs.FileMode(0644), meta.BoltDB().Perm())
 
 				require.Equal(t, "tmp/0/blob", blob.Path())
 				require.EqualValues(t, 0644, blob.Perm())
@@ -97,7 +97,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 4294967296, wc.SizeLimit())
 
 				require.Equal(t, "tmp/1/meta", meta.Path())
-				require.Equal(t, fs.FileMode(0644), meta.Perm())
+				require.Equal(t, fs.FileMode(0644), meta.BoltDB().Perm())
 
 				require.Equal(t, "tmp/1/blob", blob.Path())
 				require.EqualValues(t, 0644, blob.Perm())
