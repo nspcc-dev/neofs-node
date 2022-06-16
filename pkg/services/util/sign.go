@@ -185,7 +185,10 @@ func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, h
 
 	// verify request signatures
 	if err = signature.VerifyServiceMessage(req); err != nil {
-		err = fmt.Errorf("could not verify request: %w", err)
+		var sigErr apistatus.SignatureVerification
+		sigErr.SetMessage(err.Error())
+
+		err = sigErr
 	} else {
 		// process request
 		resp, err = handler(ctx, req)
