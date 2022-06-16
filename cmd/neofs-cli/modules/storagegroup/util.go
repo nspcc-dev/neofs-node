@@ -1,6 +1,8 @@
 package storagegroup
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -18,11 +20,25 @@ func readObjectAddress(cmd *cobra.Command, cnr *cid.ID, obj *oid.ID) oid.Address
 }
 
 func readCID(cmd *cobra.Command, id *cid.ID) {
-	err := id.DecodeString(cmd.Flag("cid").Value.String())
+	const flag = "cid"
+
+	f := cmd.Flag(flag)
+	if f == nil {
+		common.ExitOnErr(cmd, "", fmt.Errorf("missing container flag (%s)", flag))
+	}
+
+	err := id.DecodeString(f.Value.String())
 	common.ExitOnErr(cmd, "decode container ID string: %w", err)
 }
 
 func readSGID(cmd *cobra.Command, id *oid.ID) {
-	err := id.DecodeString(cmd.Flag("oid").Value.String())
+	const flag = "id"
+
+	f := cmd.Flag(flag)
+	if f == nil {
+		common.ExitOnErr(cmd, "", fmt.Errorf("missing storage group flag (%s)", flag))
+	}
+
+	err := id.DecodeString(f.Value.String())
 	common.ExitOnErr(cmd, "decode storage group ID string: %w", err)
 }
