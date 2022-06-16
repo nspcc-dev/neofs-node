@@ -38,6 +38,9 @@ func (c *cache) openStore() error {
 		return fmt.Errorf("could not open database: %w", err)
 	}
 
+	c.db.MaxBatchSize = c.maxBatchSize
+	c.db.MaxBatchDelay = c.maxBatchDelay
+
 	err = c.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(defaultBucket)
 		return err

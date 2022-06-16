@@ -1,6 +1,8 @@
 package writecache
 
 import (
+	"time"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"go.uber.org/zap"
@@ -31,6 +33,10 @@ type options struct {
 	maxCacheSize uint64
 	// objCounters is an ObjectCounters instance needed for cache size estimation.
 	objCounters ObjectCounters
+	// maxBatchSize is the maximum batch size for the small object database.
+	maxBatchSize int
+	// maxBatchDelay is the maximum batch wait time for the small object database.
+	maxBatchDelay time.Duration
 }
 
 // WithLogger sets logger.
@@ -105,5 +111,23 @@ func WithObjectCounters(v ObjectCounters) Option {
 func WithMaxCacheSize(sz uint64) Option {
 	return func(o *options) {
 		o.maxCacheSize = sz
+	}
+}
+
+// WithMaxBatchSize sets max batch size for the small object database.
+func WithMaxBatchSize(sz int) Option {
+	return func(o *options) {
+		if sz > 0 {
+			o.maxBatchSize = sz
+		}
+	}
+}
+
+// WithMaxBatchDelay sets max batch delay for the small object database.
+func WithMaxBatchDelay(d time.Duration) Option {
+	return func(o *options) {
+		if d > 0 {
+			o.maxBatchDelay = d
+		}
 	}
 }
