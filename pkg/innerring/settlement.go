@@ -19,7 +19,6 @@ import (
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -173,13 +172,20 @@ func (s settlementDeps) ContainerNodes(e uint64, cid cid.ID) ([]common.NodeInfo,
 		return nil, err
 	}
 
-	ns := placement.FlattenNodes(cn)
-	res := make([]common.NodeInfo, 0, len(ns))
+	var sz int
 
-	for i := range ns {
-		res = append(res, &nodeInfoWrapper{
-			ni: ns[i],
-		})
+	for i := range cn {
+		sz += len(cn[i])
+	}
+
+	res := make([]common.NodeInfo, 0, sz)
+
+	for i := range cn {
+		for j := range cn[i] {
+			res = append(res, nodeInfoWrapper{
+				ni: cn[i][j],
+			})
+		}
 	}
 
 	return res, nil
