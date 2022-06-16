@@ -222,27 +222,27 @@ type NetworkConfiguration struct {
 }
 
 // ReadNetworkConfiguration reads NetworkConfiguration from the NeoFS Sidechain.
-func (c *Client) ReadNetworkConfiguration() (*NetworkConfiguration, error) {
+func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
+	var res NetworkConfiguration
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(configListMethod)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
+		return res, fmt.Errorf("could not perform test invocation (%s): %w",
 			configListMethod, err)
 	}
 
 	if ln := len(items); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", configListMethod, ln)
+		return res, fmt.Errorf("unexpected stack item count (%s): %d", configListMethod, ln)
 	}
 
 	arr, err := client.ArrayFromStackItem(items[0])
 	if err != nil {
-		return nil, fmt.Errorf("record list (%s): %w", configListMethod, err)
+		return res, fmt.Errorf("record list (%s): %w", configListMethod, err)
 	}
 
 	m := make(map[string]struct{}, len(arr))
-	var res NetworkConfiguration
 	res.Raw = make([]RawNetworkParameter, 0, len(arr))
 
 	err = iterateRecords(arr, func(name string, value []byte) error {
@@ -286,11 +286,8 @@ func (c *Client) ReadNetworkConfiguration() (*NetworkConfiguration, error) {
 
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	return &res, nil
+	return res, err
 }
 
 func bytesToUint64(val []byte) uint64 {
