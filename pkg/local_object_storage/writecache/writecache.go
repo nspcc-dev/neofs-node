@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -98,6 +99,8 @@ func New(opts ...Option) Cache {
 			smallObjectSize: smallObjectSize,
 			workersCount:    defaultFlushWorkersCount,
 			maxCacheSize:    maxCacheSizeBytes,
+			maxBatchSize:    bbolt.DefaultMaxBatchSize,
+			maxBatchDelay:   bbolt.DefaultMaxBatchDelay,
 		},
 	}
 
