@@ -3,6 +3,7 @@ package netmap
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -36,9 +37,9 @@ func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 		method += "IR"
 	}
 
-	state := 2
+	state := netmap.OfflineState
 	if p.online {
-		state = 1
+		state = netmap.OnlineState
 	}
 
 	prm := client.InvokePrm{}
