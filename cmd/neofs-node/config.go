@@ -77,6 +77,8 @@ type cfg struct {
 
 	key *keys.PrivateKey
 
+	binPublicKey []byte
+
 	ownerIDFromKey user.ID // user ID calculated from key
 
 	apiVersion version.Version
@@ -269,13 +271,14 @@ func initCfg(path string) *cfg {
 	fatalOnErr(err)
 
 	c := &cfg{
-		ctx:         context.Background(),
-		appCfg:      appCfg,
-		internalErr: make(chan error),
-		log:         log,
-		wg:          new(sync.WaitGroup),
-		key:         key,
-		apiVersion:  version.Current(),
+		ctx:          context.Background(),
+		appCfg:       appCfg,
+		internalErr:  make(chan error),
+		log:          log,
+		wg:           new(sync.WaitGroup),
+		key:          key,
+		binPublicKey: key.PublicKey().Bytes(),
+		apiVersion:   version.Current(),
 		cfgAccounting: cfgAccounting{
 			scriptHash: contractsconfig.Balance(appCfg),
 		},
