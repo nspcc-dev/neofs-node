@@ -414,7 +414,7 @@ func initShardOptions(c *cfg) {
 		gcCfg := sc.GC()
 
 		metaPath := metabaseCfg.Path()
-		metaPerm := metabaseCfg.Perm()
+		metaPerm := metabaseCfg.BoltDB().Perm()
 		fatalOnErr(util.MkdirAllX(filepath.Dir(metaPath), metaPerm))
 
 		gcEventChannel := make(chan shard.Event)

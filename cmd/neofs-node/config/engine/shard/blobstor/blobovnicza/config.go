@@ -2,6 +2,7 @@ package blobovniczaconfig
 
 import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	boltdbconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/boltdb"
 )
 
 // Config is a wrapper over the config section
@@ -90,4 +91,9 @@ func (x *Config) OpenedCacheSize() int {
 	}
 
 	return OpenedCacheSizeDefault
+}
+
+// BoltDB returns config instance for querying bolt db specific parameters.
+func (x *Config) BoltDB() *boltdbconfig.Config {
+	return (*boltdbconfig.Config)(x)
 }
