@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	netmapcontract "github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +19,9 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 		rand.Read(pub)
 
 		switch i % 3 {
-		case 1:
+		case int(netmapcontract.OfflineState):
 			expected[i].SetOffline()
-		case 2:
+		case int(netmapcontract.OnlineState):
 			expected[i].SetOnline()
 		}
 
@@ -37,9 +38,9 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 
 		switch {
 		case expected[i].IsOnline():
-			state = 1
+			state = int64(netmapcontract.OnlineState)
 		case expected[i].IsOffline():
-			state = 2
+			state = int64(netmapcontract.OfflineState)
 		}
 
 		items[i] = stackitem.NewStruct([]stackitem.Item{
