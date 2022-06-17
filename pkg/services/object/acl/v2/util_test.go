@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	aclsdk "github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
@@ -59,20 +59,20 @@ func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Token) 
 
 func TestIsVerbCompatible(t *testing.T) {
 	// Source: https://nspcc.ru/upload/neofs-spec-latest.pdf#page=28
-	table := map[eacl.Operation][]sessionSDK.ObjectVerb{
-		eacl.OperationPut:    {sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete},
-		eacl.OperationDelete: {sessionSDK.VerbObjectDelete},
-		eacl.OperationGet:    {sessionSDK.VerbObjectGet},
-		eacl.OperationHead: {
+	table := map[aclsdk.Op][]sessionSDK.ObjectVerb{
+		aclsdk.OpObjectPut:    {sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete},
+		aclsdk.OpObjectDelete: {sessionSDK.VerbObjectDelete},
+		aclsdk.OpObjectGet:    {sessionSDK.VerbObjectGet},
+		aclsdk.OpObjectHead: {
 			sessionSDK.VerbObjectHead,
 			sessionSDK.VerbObjectGet,
 			sessionSDK.VerbObjectDelete,
 			sessionSDK.VerbObjectRange,
 			sessionSDK.VerbObjectRangeHash,
 		},
-		eacl.OperationRange:     {sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash},
-		eacl.OperationRangeHash: {sessionSDK.VerbObjectRangeHash},
-		eacl.OperationSearch:    {sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete},
+		aclsdk.OpObjectRange:  {sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash},
+		aclsdk.OpObjectHash:   {sessionSDK.VerbObjectRangeHash},
+		aclsdk.OpObjectSearch: {sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete},
 	}
 
 	verbs := []sessionSDK.ObjectVerb{

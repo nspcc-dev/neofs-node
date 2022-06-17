@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -37,13 +38,14 @@ func TestStickyCheck(t *testing.T) {
 		var info v2.RequestInfo
 
 		info.SetSenderKey(make([]byte, 33)) // any non-empty key
-		info.SetRequestRole(eaclSDK.RoleSystem)
-
-		setSticky(&info, true)
+		info.SetRequestRole(acl.RoleContainer)
 
 		require.True(t, checker.StickyBitCheck(info, *usertest.ID()))
 
-		setSticky(&info, false)
+		var basicACL acl.Basic
+		basicACL.MakeSticky()
+
+		info.SetBasicACL(basicACL)
 
 		require.True(t, checker.StickyBitCheck(info, *usertest.ID()))
 	})
@@ -51,13 +53,15 @@ func TestStickyCheck(t *testing.T) {
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
 		var info v2.RequestInfo
 
-		info.SetRequestRole(eaclSDK.RoleOthers) // should be non-system role
+		info.SetRequestRole(acl.RoleOthers) // should be non-system role
 
 		assertFn := func(isSticky, withKey, withOwner, expected bool) {
+			info := info
 			if isSticky {
-				setSticky(&info, true)
-			} else {
-				setSticky(&info, false)
+				var basicACL acl.Basic
+				basicACL.MakeSticky()
+
+				info.SetBasicACL(basicACL)
 			}
 
 			if withKey {
@@ -83,16 +87,4 @@ func TestStickyCheck(t *testing.T) {
 		assertFn(false, false, true, true)
 		assertFn(false, true, true, true)
 	})
-}
-
-func setSticky(req *v2.RequestInfo, enabled bool) {
-	bh := basicACLHelper(req.BasicACL())
-
-	if enabled {
-		bh.SetSticky()
-	} else {
-		bh.ResetSticky()
-	}
-
-	req.SetBasicACL(uint32(bh))
 }

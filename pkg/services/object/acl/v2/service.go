@@ -9,8 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -130,7 +130,7 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationGet)
+	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectGet)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (b Service) Head(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationHead)
+	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHead)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, id, eaclSDK.OperationSearch)
+	reqInfo, err := b.findRequestInfo(req, id, acl.OpObjectSearch)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ func (b Service) Delete(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationDelete)
+	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectDelete)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationRange)
+	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectRange)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (b Service) GetRangeHash(
 		src:     request,
 	}
 
-	reqInfo, err := b.findRequestInfo(req, cnr, eaclSDK.OperationRangeHash)
+	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHash)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +450,7 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			src:     request,
 		}
 
-		reqInfo, err := p.source.findRequestInfo(req, cnr, eaclSDK.OperationPut)
+		reqInfo, err := p.source.findRequestInfo(req, cnr, acl.OpObjectPut)
 		if err != nil {
 			return err
 		}
@@ -502,7 +502,7 @@ func (g *searchStreamBasicChecker) Send(resp *objectV2.SearchResponse) error {
 	return g.SearchStream.Send(resp)
 }
 
-func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op eaclSDK.Operation) (info RequestInfo, err error) {
+func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (info RequestInfo, err error) {
 	cnr, err := b.containers.Get(idCnr) // fetch actual container
 	if err != nil {
 		return info, err
@@ -531,13 +531,8 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op eaclSDK.Ope
 		return info, err
 	}
 
-	if res.role == eaclSDK.RoleUnknown {
-		return info, ErrUnknownRole
-	}
-
 	info.basicACL = cnr.Value.BasicACL()
 	info.requestRole = res.role
-	info.isInnerRing = res.isIR
 	info.operation = op
 	info.cnrOwner = *cnr.Value.OwnerID()
 	info.idCnr = idCnr

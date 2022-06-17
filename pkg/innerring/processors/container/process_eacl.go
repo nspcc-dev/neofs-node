@@ -52,12 +52,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 	}
 
 	// ACL extensions can be disabled by basic ACL, check it
-	basicACL := cnr.Value.BasicACL()
-	const finalBitMask = 1 << 28
-
-	// Temp solution: NeoFS SDK is going to provide convenient interface to do this soon.
-	// This place won't be missed since BasicACL() signature will be changed.
-	if basicACL&finalBitMask == finalBitMask {
+	if !cnr.Value.BasicACL().Extendable() {
 		return errors.New("ACL extension disabled by container basic ACL")
 	}
 

@@ -13,8 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
@@ -22,31 +22,6 @@ import (
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
-
-// keywords of predefined basic ACL values
-const (
-	basicACLPrivate  = "private"
-	basicACLReadOnly = "public-read"
-	basicACLPublic   = "public-read-write"
-	basicACLAppend   = "public-append"
-
-	basicACLNoFinalPrivate  = "eacl-private"
-	basicACLNoFinalReadOnly = "eacl-public-read"
-	basicACLNoFinalPublic   = "eacl-public-read-write"
-	basicACLNoFinalAppend   = "eacl-public-append"
-)
-
-var wellKnownBasicACL = map[string]acl.BasicACL{
-	basicACLPublic:   acl.PublicBasicRule,
-	basicACLPrivate:  acl.PrivateBasicRule,
-	basicACLReadOnly: acl.ReadOnlyBasicRule,
-	basicACLAppend:   acl.PublicAppendRule,
-
-	basicACLNoFinalPublic:   acl.EACLPublicBasicRule,
-	basicACLNoFinalPrivate:  acl.EACLPrivateBasicRule,
-	basicACLNoFinalReadOnly: acl.EACLReadOnlyBasicRule,
-	basicACLNoFinalAppend:   acl.EACLPublicAppendRule,
-}
 
 var (
 	containerACL         string
@@ -80,8 +55,8 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		attributes, err := parseAttributes(containerAttributes)
 		common.ExitOnErr(cmd, "", err)
 
-		basicACL, err := parseBasicACL(containerACL)
-		common.ExitOnErr(cmd, "", err)
+		var basicACL acl.Basic
+		common.ExitOnErr(cmd, "decode basic ACL string: %w", basicACL.DecodeString(containerACL))
 
 		nonce, err := parseNonce(containerNonce)
 		common.ExitOnErr(cmd, "", err)
@@ -157,7 +132,9 @@ func initContainerCreateCmd() {
 
 	flags := createContainerCmd.Flags()
 
-	flags.StringVar(&containerACL, "basic-acl", basicACLPrivate, fmt.Sprintf("hex encoded basic ACL value or keywords like '%s', '%s', '%s'", basicACLPublic, basicACLPrivate, basicACLNoFinalReadOnly))
+	flags.StringVar(&containerACL, "basic-acl", acl.NamePrivate, fmt.Sprintf("hex encoded basic ACL value or keywords like '%s', '%s', '%s'",
+		acl.NamePublicRW, acl.NamePrivate, acl.NamePublicROExtended,
+	))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	flags.StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
@@ -224,21 +201,6 @@ func parseAttributes(attributes []string) ([]container.Attribute, error) {
 	}
 
 	return result, nil
-}
-
-func parseBasicACL(basicACL string) (acl.BasicACL, error) {
-	if value, ok := wellKnownBasicACL[basicACL]; ok {
-		return value, nil
-	}
-
-	basicACL = strings.Trim(strings.ToLower(basicACL), "0x")
-
-	value, err := strconv.ParseUint(basicACL, 16, 32)
-	if err != nil {
-		return 0, fmt.Errorf("can't parse basic ACL: %s", basicACL)
-	}
-
-	return acl.BasicACL(value), nil
 }
 
 func parseNonce(nonce string) (uuid.UUID, error) {

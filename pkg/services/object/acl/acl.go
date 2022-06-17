@@ -14,6 +14,7 @@ import (
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -91,35 +92,18 @@ func NewChecker(prm *CheckerPrm) *Checker {
 // CheckBasicACL is a main check function for basic ACL.
 func (c *Checker) CheckBasicACL(info v2.RequestInfo) bool {
 	// check basic ACL permissions
-	var checkFn func(eaclSDK.Operation) bool
-
-	switch info.RequestRole() {
-	case eaclSDK.RoleUser:
-		checkFn = basicACLHelper(info.BasicACL()).UserAllowed
-	case eaclSDK.RoleSystem:
-		checkFn = basicACLHelper(info.BasicACL()).SystemAllowed
-		if info.IsInnerRing() {
-			checkFn = basicACLHelper(info.BasicACL()).InnerRingAllowed
-		}
-	case eaclSDK.RoleOthers:
-		checkFn = basicACLHelper(info.BasicACL()).OthersAllowed
-	default:
-		// log there
-		return false
-	}
-
-	return checkFn(info.Operation())
+	return info.BasicACL().IsOpAllowed(info.Operation(), info.RequestRole())
 }
 
 // StickyBitCheck validates owner field in the request if sticky bit is enabled.
 func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 	// According to NeoFS specification sticky bit has no effect on system nodes
 	// for correct intra-container work with objects (in particular, replication).
-	if info.RequestRole() == eaclSDK.RoleSystem {
+	if info.RequestRole() == acl.RoleContainer {
 		return true
 	}
 
-	if !basicACLHelper(info.BasicACL()).Sticky() {
+	if !info.BasicACL().Sticky() {
 		return true
 	}
 
@@ -134,12 +118,13 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 
 // CheckEACL is a main check function for extended ACL.
 func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
-	if basicACLHelper(reqInfo.BasicACL()).Final() {
+	basicACL := reqInfo.BasicACL()
+	if !basicACL.Extendable() {
 		return nil
 	}
 
 	// if bearer token is not allowed, then ignore it
-	if !basicACLHelper(reqInfo.BasicACL()).BearerAllowed(reqInfo.Operation()) {
+	if !basicACL.AllowedBearerRules(reqInfo.Operation()) {
 		reqInfo.CleanBearer()
 	}
 
@@ -190,9 +175,21 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 		return fmt.Errorf("can't parse headers: %w", err)
 	}
 
+	var eaclRole eaclSDK.Role
+	switch op := reqInfo.RequestRole(); op {
+	default:
+		eaclRole = eaclSDK.Role(op)
+	case acl.RoleOwner:
+		eaclRole = eaclSDK.RoleUser
+	case acl.RoleInnerRing, acl.RoleContainer:
+		eaclRole = eaclSDK.RoleSystem
+	case acl.RoleOthers:
+		eaclRole = eaclSDK.RoleOthers
+	}
+
 	action, _ := c.validator.CalculateAction(new(eaclSDK.ValidationUnit).
-		WithRole(reqInfo.RequestRole()).
-		WithOperation(reqInfo.Operation()).
+		WithRole(eaclRole).
+		WithOperation(eaclSDK.Operation(reqInfo.Operation())).
 		WithContainerID(&cnr).
 		WithSenderKey(reqInfo.SenderKey()).
 		WithHeaderSource(hdrSrc).
