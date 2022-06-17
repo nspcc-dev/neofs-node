@@ -1,9 +1,11 @@
 package bearer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -69,8 +71,11 @@ func createToken(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if iatRelative || expRelative || nvbRelative {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel()
+
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
-		currEpoch, err := internalclient.GetCurrentEpoch(endpoint)
+		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 		if err != nil {
 			return err
 		}

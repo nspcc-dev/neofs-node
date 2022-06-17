@@ -1,8 +1,10 @@
 package object
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -52,9 +54,12 @@ var objectLockCmd = &cobra.Command{
 		common.ExitOnErr(cmd, "Parsing expiration epoch: %w", err)
 
 		if relative {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+			defer cancel()
+
 			endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 
-			currEpoch, err := internalclient.GetCurrentEpoch(endpoint)
+			currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 			common.ExitOnErr(cmd, "Request current epoch: %w", err)
 
 			exp += currEpoch

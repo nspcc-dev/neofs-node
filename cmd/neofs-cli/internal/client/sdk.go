@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -60,7 +59,7 @@ func GetSDKClient(key *ecdsa.PrivateKey, addr network.Address) (*client.Client, 
 }
 
 // GetCurrentEpoch returns current epoch.
-func GetCurrentEpoch(endpoint string) (uint64, error) {
+func GetCurrentEpoch(ctx context.Context, endpoint string) (uint64, error) {
 	var addr network.Address
 
 	if err := addr.FromString(endpoint); err != nil {
@@ -76,9 +75,6 @@ func GetCurrentEpoch(endpoint string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
 
 	ni, err := c.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {
