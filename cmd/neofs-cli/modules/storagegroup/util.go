@@ -25,6 +25,7 @@ func readCID(cmd *cobra.Command, id *cid.ID) {
 	f := cmd.Flag(flag)
 	if f == nil {
 		common.ExitOnErr(cmd, "", fmt.Errorf("missing container flag (%s)", flag))
+		return
 	}
 
 	err := id.DecodeString(f.Value.String())
@@ -37,6 +38,7 @@ func readSGID(cmd *cobra.Command, id *oid.ID) {
 	f := cmd.Flag(flag)
 	if f == nil {
 		common.ExitOnErr(cmd, "", fmt.Errorf("missing storage group flag (%s)", flag))
+		return
 	}
 
 	err := id.DecodeString(f.Value.String())
