@@ -11,8 +11,8 @@ import (
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -205,27 +205,27 @@ func isOwnerFromKey(id user.ID, key *keys.PublicKey) bool {
 }
 
 // assertVerb checks that token verb corresponds to op.
-func assertVerb(tok sessionSDK.Object, op eaclSDK.Operation) bool {
+func assertVerb(tok sessionSDK.Object, op acl.Op) bool {
 	//nolint:exhaustive
 	switch op {
-	case eaclSDK.OperationPut:
+	case acl.OpObjectPut:
 		return tok.AssertVerb(sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete)
-	case eaclSDK.OperationDelete:
+	case acl.OpObjectDelete:
 		return tok.AssertVerb(sessionSDK.VerbObjectDelete)
-	case eaclSDK.OperationGet:
+	case acl.OpObjectGet:
 		return tok.AssertVerb(sessionSDK.VerbObjectGet)
-	case eaclSDK.OperationHead:
+	case acl.OpObjectHead:
 		return tok.AssertVerb(
 			sessionSDK.VerbObjectHead,
 			sessionSDK.VerbObjectGet,
 			sessionSDK.VerbObjectDelete,
 			sessionSDK.VerbObjectRange,
 			sessionSDK.VerbObjectRangeHash)
-	case eaclSDK.OperationSearch:
+	case acl.OpObjectSearch:
 		return tok.AssertVerb(sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete)
-	case eaclSDK.OperationRange:
+	case acl.OpObjectRange:
 		return tok.AssertVerb(sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash)
-	case eaclSDK.OperationRangeHash:
+	case acl.OpObjectHash:
 		return tok.AssertVerb(sessionSDK.VerbObjectRangeHash)
 	}
 

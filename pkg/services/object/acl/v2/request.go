@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -17,11 +17,10 @@ import (
 // RequestInfo groups parsed version-independent (from SDK library)
 // request information and raw API request.
 type RequestInfo struct {
-	basicACL    uint32
-	requestRole eaclSDK.Role
-	isInnerRing bool
-	operation   eaclSDK.Operation // put, get, head, etc.
-	cnrOwner    user.ID           // container owner
+	basicACL    acl.Basic
+	requestRole acl.Role
+	operation   acl.Op  // put, get, head, etc.
+	cnrOwner    user.ID // container owner
 
 	idCnr cid.ID
 
@@ -36,11 +35,11 @@ type RequestInfo struct {
 	srcRequest interface{}
 }
 
-func (r *RequestInfo) SetBasicACL(basicACL uint32) {
+func (r *RequestInfo) SetBasicACL(basicACL acl.Basic) {
 	r.basicACL = basicACL
 }
 
-func (r *RequestInfo) SetRequestRole(requestRole eaclSDK.Role) {
+func (r *RequestInfo) SetRequestRole(requestRole acl.Role) {
 	r.requestRole = requestRole
 }
 
@@ -78,13 +77,8 @@ func (r RequestInfo) Bearer() *bearer.Token {
 	return r.bearer
 }
 
-// IsInnerRing specifies if request was made by inner ring.
-func (r RequestInfo) IsInnerRing() bool {
-	return r.isInnerRing
-}
-
 // BasicACL returns basic ACL of the container.
-func (r RequestInfo) BasicACL() uint32 {
+func (r RequestInfo) BasicACL() acl.Basic {
 	return r.basicACL
 }
 
@@ -94,12 +88,12 @@ func (r RequestInfo) SenderKey() []byte {
 }
 
 // Operation returns request's operation.
-func (r RequestInfo) Operation() eaclSDK.Operation {
+func (r RequestInfo) Operation() acl.Op {
 	return r.operation
 }
 
 // RequestRole returns request sender's role.
-func (r RequestInfo) RequestRole() eaclSDK.Role {
+func (r RequestInfo) RequestRole() acl.Role {
 	return r.requestRole
 }
 

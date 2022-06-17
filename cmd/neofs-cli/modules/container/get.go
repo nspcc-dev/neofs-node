@@ -9,8 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-sdk-go/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/spf13/cobra"
 )
 
@@ -120,7 +120,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	cmd.Println("owner ID:", cnr.OwnerID())
 
 	basicACL := cnr.BasicACL()
-	prettyPrintBasicACL(cmd, acl.BasicACL(basicACL))
+	prettyPrintBasicACL(cmd, basicACL)
 
 	for _, attribute := range cnr.Attributes() {
 		if attribute.Key() == container.AttributeTimestamp {
@@ -152,13 +152,33 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 	}
 }
 
-func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.BasicACL) {
-	cmd.Printf("basic ACL: %s", basicACL)
-	for k, v := range wellKnownBasicACL {
-		if v == basicACL {
-			cmd.Printf(" (%s)\n", k)
-			return
-		}
+func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
+	cmd.Printf("basic ACL: %s", basicACL.EncodeToString())
+
+	var prettyName string
+
+	switch basicACL {
+	case acl.Private:
+		prettyName = acl.NamePrivate
+	case acl.PrivateExtended:
+		prettyName = acl.NamePrivateExtended
+	case acl.PublicRO:
+		prettyName = acl.NamePublicRO
+	case acl.PublicROExtended:
+		prettyName = acl.NamePublicROExtended
+	case acl.PublicRW:
+		prettyName = acl.NamePublicRW
+	case acl.PublicRWExtended:
+		prettyName = acl.NamePublicRWExtended
+	case acl.PublicAppend:
+		prettyName = acl.NamePublicAppend
+	case acl.PublicAppendExtended:
+		prettyName = acl.NamePublicAppendExtended
 	}
+
+	if prettyName != "" {
+		cmd.Printf(" (%s)", prettyName)
+	}
+
 	cmd.Println()
 }
