@@ -9,8 +9,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
@@ -47,10 +50,18 @@ func TestRefillMetabase(t *testing.T) {
 	}
 
 	mObjs := make(map[string]objAddr)
-
+	locked := make([]oid.ID, 1, 2)
+	locked[0] = oidtest.ID()
+	cnrLocked := cidtest.ID()
 	for i := uint64(0); i < objNum; i++ {
 		obj := objecttest.Object()
 		obj.SetType(objectSDK.TypeRegular)
+
+		if len(locked) < 2 {
+			obj.SetContainerID(cnrLocked)
+			id, _ := obj.ID()
+			locked = append(locked, id)
+		}
 
 		addr := object.AddressOf(obj)
 
@@ -95,6 +106,21 @@ func TestRefillMetabase(t *testing.T) {
 
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
+
+	// LOCK object handling
+	var lock objectSDK.Lock
+	lock.WriteMembers(locked)
+
+	lockObj := objecttest.Object()
+	lockObj.SetContainerID(cnrLocked)
+	objectSDK.WriteLock(lockObj, lock)
+
+	putPrm.WithObject(lockObj)
+	_, err = sh.Put(putPrm)
+	require.NoError(t, err)
+
+	lockID, _ := lockObj.ID()
+	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
 
 	var inhumePrm InhumePrm
 	inhumePrm.WithTarget(object.AddressOf(tombObj), tombMembers...)
@@ -142,9 +168,26 @@ func TestRefillMetabase(t *testing.T) {
 		}
 	}
 
+	checkLocked := func(t *testing.T, cnr cid.ID, locked []oid.ID) {
+		var addr oid.Address
+		addr.SetContainer(cnr)
+
+		for i := range locked {
+			addr.SetObject(locked[i])
+
+			var prm InhumePrm
+			prm.MarkAsGarbage(addr)
+
+			_, err := sh.Inhume(prm)
+			require.ErrorAs(t, err, new(apistatus.ObjectLocked),
+				"object %s should be locked", locked[i])
+		}
+	}
+
 	checkAllObjs(true)
 	checkObj(object.AddressOf(tombObj), tombObj)
 	checkTombMembers(true)
+	checkLocked(t, cnrLocked, locked)
 
 	err = sh.Close()
 	require.NoError(t, err)
@@ -174,4 +217,5 @@ func TestRefillMetabase(t *testing.T) {
 	checkAllObjs(true)
 	checkObj(object.AddressOf(tombObj), tombObj)
 	checkTombMembers(true)
+	checkLocked(t, cnrLocked, locked)
 }
