@@ -66,11 +66,14 @@ protoc:
 	@GOPRIVATE=github.com/nspcc-dev go mod vendor
 	# Install specific version for protobuf lib
 	@go list -f '{{.Path}}/...@{{.Version}}' -m  github.com/golang/protobuf | xargs go install -v
+	@GOBIN=$(abspath $(BIN)) go install -mod=mod -v github.com/nspcc-dev/neofs-api-go/v2/util/protogen
 	# Protoc generate
 	@for f in `find . -type f -name '*.proto' -not -path './vendor/*'`; do \
 		echo "⇒ Processing $$f "; \
 		protoc \
 			--proto_path=.:./vendor:/usr/local/include \
+			--plugin=protoc-gen-go-neofs=$(BIN)/protogen \
+			--go-neofs_out=. --go-neofs_opt=paths=source_relative \
 			--go_out=. --go_opt=paths=source_relative \
 			--go-grpc_opt=require_unimplemented_servers=false \
 			--go-grpc_out=. --go-grpc_opt=paths=source_relative $$f; \
