@@ -15,11 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	sgIDFlag  = "id"
-	sgRawFlag = "raw"
-)
-
 var sgID string
 
 var sgGetCmd = &cobra.Command{
@@ -34,8 +29,8 @@ func initSGGetCmd() {
 
 	flags := sgGetCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = sgGetCmd.MarkFlagRequired("cid")
+	flags.String(cidFlag, "", "Container ID")
+	_ = sgGetCmd.MarkFlagRequired(cidFlag)
 
 	flags.StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
 	_ = sgGetCmd.MarkFlagRequired(sgIDFlag)

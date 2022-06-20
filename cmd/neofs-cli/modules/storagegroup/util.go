@@ -20,11 +20,9 @@ func readObjectAddress(cmd *cobra.Command, cnr *cid.ID, obj *oid.ID) oid.Address
 }
 
 func readCID(cmd *cobra.Command, id *cid.ID) {
-	const flag = "cid"
-
-	f := cmd.Flag(flag)
+	f := cmd.Flag(cidFlag)
 	if f == nil {
-		common.ExitOnErr(cmd, "", fmt.Errorf("missing container flag (%s)", flag))
+		common.ExitOnErr(cmd, "", fmt.Errorf("missing container flag (%s)", cidFlag))
 		return
 	}
 
