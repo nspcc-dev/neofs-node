@@ -81,7 +81,9 @@ func (s *Shard) refillMetabase() error {
 	}
 
 	return blobstor.IterateObjects(s.blobStor, func(obj *objectSDK.Object, blzID *blobovnicza.ID) error {
-		if obj.Type() == objectSDK.TypeTombstone {
+		//nolint: exhaustive
+		switch obj.Type() {
+		case objectSDK.TypeTombstone:
 			tombstone := objectSDK.NewTombstone()
 
 			if err := tombstone.Unmarshal(obj.Payload()); err != nil {
@@ -107,6 +109,21 @@ func (s *Shard) refillMetabase() error {
 			_, err = s.metaBase.Inhume(inhumePrm)
 			if err != nil {
 				return fmt.Errorf("could not inhume objects: %w", err)
+			}
+		case objectSDK.TypeLock:
+			var lock objectSDK.Lock
+			if err := lock.Unmarshal(obj.Payload()); err != nil {
+				return fmt.Errorf("could not unmarshal lock content: %w", err)
+			}
+
+			locked := make([]oid.ID, lock.NumberOfMembers())
+			lock.ReadMembers(locked)
+
+			cnr, _ := obj.ContainerID()
+			id, _ := obj.ID()
+			err = s.metaBase.Lock(cnr, id, locked)
+			if err != nil {
+				return fmt.Errorf("could not lock objects: %w", err)
 			}
 		}
 
