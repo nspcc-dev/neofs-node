@@ -17,7 +17,7 @@ require (
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.99.1-pre.0.20220609082921-2c9fb2044242
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220601120906-3bec6657f5c5 // indirect
-	github.com/nspcc-dev/neofs-api-go/v2 v2.12.2
+	github.com/nspcc-dev/neofs-api-go/v2 v2.12.3-0.20220620114558-454b5c0ed7e9
 	github.com/nspcc-dev/neofs-contract v0.15.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.4.0.20220615085207-eb3b99081235
 	github.com/nspcc-dev/tzhash v1.5.2
@@ -34,7 +34,7 @@ require (
 	go.uber.org/zap v1.18.1
 	golang.org/x/term v0.0.0-20210429154555-c04ba851c2a4
 	google.golang.org/grpc v1.41.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 )
 
 require (
