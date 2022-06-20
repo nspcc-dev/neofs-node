@@ -25,6 +25,8 @@ const (
 	cidFlag   = "cid"
 )
 
+const sgLifetimeFlag = "lifetime"
+
 func init() {
 	storageGroupChildCommands := []*cobra.Command{
 		sgPutCmd,
