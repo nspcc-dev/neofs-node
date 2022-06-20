@@ -22,8 +22,8 @@ var sgListCmd = &cobra.Command{
 func initSGListCmd() {
 	commonflags.Init(sgListCmd)
 
-	sgListCmd.Flags().String("cid", "", "Container ID")
-	_ = sgListCmd.MarkFlagRequired("cid")
+	sgListCmd.Flags().String(cidFlag, "", "Container ID")
+	_ = sgListCmd.MarkFlagRequired(cidFlag)
 }
 
 func listSG(cmd *cobra.Command, _ []string) {
