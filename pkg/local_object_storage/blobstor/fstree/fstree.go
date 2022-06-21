@@ -72,6 +72,7 @@ func addressFromString(s string) (*oid.Address, error) {
 type IterationPrm struct {
 	handler      func(addr oid.Address, data []byte) error
 	ignoreErrors bool
+	errorHandler func(oid.Address, error) error
 	lazyHandler  func(oid.Address, func() ([]byte, error)) error
 }
 
@@ -90,6 +91,11 @@ func (p *IterationPrm) WithLazyHandler(f func(oid.Address, func() ([]byte, error
 // WithIgnoreErrors sets a flag indicating whether errors should be ignored.
 func (p *IterationPrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
+}
+
+// WithErrorHandler sets error handler for objects that cannot be read or unmarshaled.
+func (p *IterationPrm) WithErrorHandler(f func(oid.Address, error) error) {
+	p.errorHandler = f
 }
 
 // Iterate iterates over all stored objects.
@@ -141,6 +147,9 @@ func (t *FSTree) iterate(depth int, curPath []string, prm IterationPrm) error {
 			data, err = os.ReadFile(filepath.Join(curPath...))
 			if err != nil {
 				if prm.ignoreErrors {
+					if prm.errorHandler != nil {
+						return prm.errorHandler(*addr, err)
+					}
 					continue
 				}
 				return err

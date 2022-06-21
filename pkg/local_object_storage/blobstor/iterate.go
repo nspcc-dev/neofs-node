@@ -5,13 +5,15 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // IterationElement represents a unit of elements through which Iterate operation passes.
 type IterationElement struct {
 	data []byte
+
+	addr oid.Address
 
 	blzID *blobovnicza.ID
 }
@@ -27,6 +29,11 @@ func (x IterationElement) BlobovniczaID() *blobovnicza.ID {
 	return x.blzID
 }
 
+// Address returns the object address.
+func (x IterationElement) Address() oid.Address {
+	return x.addr
+}
+
 // IterationHandler is a generic processor of IterationElement.
 type IterationHandler func(IterationElement) error
 
@@ -34,6 +41,7 @@ type IterationHandler func(IterationElement) error
 type IteratePrm struct {
 	handler      IterationHandler
 	ignoreErrors bool
+	errorHandler func(oid.Address, error) error
 }
 
 // IterateRes groups the resulting values of Iterate operation.
@@ -49,6 +57,11 @@ func (i *IteratePrm) IgnoreErrors() {
 	i.ignoreErrors = true
 }
 
+// SetErrorHandler sets error handler for objects that cannot be read or unmarshaled.
+func (i *IteratePrm) SetErrorHandler(f func(oid.Address, error) error) {
+	i.errorHandler = f
+}
+
 // Iterate traverses the storage over the stored objects and calls the handler
 // on each element.
 //
@@ -60,18 +73,22 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 	var elem IterationElement
 
 	err := b.blobovniczas.iterateBlobovniczas(prm.ignoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
-		err := blobovnicza.IterateObjects(blz, func(data []byte) error {
+		err := blobovnicza.IterateObjects(blz, func(addr oid.Address, data []byte) error {
 			var err error
 
 			// decompress the data
 			elem.data, err = b.decompressor(data)
 			if err != nil {
 				if prm.ignoreErrors {
+					if prm.errorHandler != nil {
+						return prm.errorHandler(addr, err)
+					}
 					return nil
 				}
 				return fmt.Errorf("could not decompress object data: %w", err)
 			}
 
+			elem.addr = addr
 			elem.blzID = blobovnicza.NewIDFromBytes([]byte(p))
 
 			return prm.handler(elem)
@@ -90,15 +107,20 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 
 	var fsPrm fstree.IterationPrm
 	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
-	fsPrm.WithHandler(func(_ oid.Address, data []byte) error {
+	fsPrm.WithHandler(func(addr oid.Address, data []byte) error {
 		// decompress the data
 		elem.data, err = b.decompressor(data)
 		if err != nil {
 			if prm.ignoreErrors {
+				if prm.errorHandler != nil {
+					return prm.errorHandler(addr, err)
+				}
 				return nil
 			}
 			return fmt.Errorf("could not decompress object data: %w", err)
 		}
+
+		elem.addr = addr
 
 		return prm.handler(elem)
 	})
@@ -113,31 +135,22 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 }
 
 // IterateBinaryObjects is a helper function which iterates over BlobStor and passes binary objects to f.
-func IterateBinaryObjects(blz *BlobStor, f func(data []byte, blzID *blobovnicza.ID) error) error {
+// Errors related to object reading and unmarshaling are logged and skipped.
+func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, blzID *blobovnicza.ID) error) error {
 	var prm IteratePrm
 
 	prm.SetIterationHandler(func(elem IterationElement) error {
-		return f(elem.ObjectData(), elem.BlobovniczaID())
+		return f(elem.Address(), elem.ObjectData(), elem.BlobovniczaID())
+	})
+	prm.IgnoreErrors()
+	prm.SetErrorHandler(func(addr oid.Address, err error) error {
+		blz.log.Warn("error occurred during the iteration",
+			zap.Stringer("address", addr),
+			zap.String("err", err.Error()))
+		return nil
 	})
 
 	_, err := blz.Iterate(prm)
 
 	return err
-}
-
-// IterateObjects is a helper function which iterates over BlobStor and passes decoded objects to f.
-func IterateObjects(blz *BlobStor, f func(obj *object.Object, blzID *blobovnicza.ID) error) error {
-	var obj *object.Object
-
-	return IterateBinaryObjects(blz, func(data []byte, blzID *blobovnicza.ID) error {
-		if obj == nil {
-			obj = object.New()
-		}
-
-		if err := obj.Unmarshal(data); err != nil {
-			return fmt.Errorf("could not unmarshal the object: %w", err)
-		}
-
-		return f(obj, blzID)
-	})
 }

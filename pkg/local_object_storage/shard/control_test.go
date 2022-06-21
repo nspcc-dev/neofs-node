@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -17,6 +18,54 @@ import (
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRefillMetabaseCorrupted(t *testing.T) {
+	dir := t.TempDir()
+
+	blobOpts := []blobstor.Option{
+		blobstor.WithRootPath(filepath.Join(dir, "blob")),
+		blobstor.WithShallowDepth(1),
+		blobstor.WithSmallSizeLimit(1),
+		blobstor.WithBlobovniczaShallowWidth(1),
+		blobstor.WithBlobovniczaShallowDepth(1)}
+
+	sh := New(
+		WithBlobStorOptions(blobOpts...),
+		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta"))))
+	require.NoError(t, sh.Open())
+	require.NoError(t, sh.Init())
+
+	obj := objecttest.Object()
+	obj.SetType(objectSDK.TypeRegular)
+	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
+
+	var putPrm PutPrm
+	putPrm.WithObject(obj)
+	_, err := sh.Put(putPrm)
+	require.NoError(t, err)
+	require.NoError(t, sh.Close())
+
+	addr := object.AddressOf(obj)
+	fs := fstree.FSTree{
+		DirNameLen: 2,
+		Depth:      1,
+		Info:       sh.blobStor.DumpInfo(),
+	}
+	require.NoError(t, fs.Put(addr, []byte("not an object")))
+
+	sh = New(
+		WithBlobStorOptions(blobOpts...),
+		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new"))),
+		WithRefillMetabase(true))
+	require.NoError(t, sh.Open())
+	require.NoError(t, sh.Init())
+
+	var getPrm GetPrm
+	getPrm.WithAddress(addr)
+	_, err = sh.Get(getPrm)
+	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+	require.NoError(t, sh.Close())
+}
 
 func TestRefillMetabase(t *testing.T) {
 	p := t.Name()

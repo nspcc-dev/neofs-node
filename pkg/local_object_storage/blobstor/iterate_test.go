@@ -76,7 +76,7 @@ func TestIterateObjects(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err := IterateBinaryObjects(blobStor, func(data []byte, blzID *blobovnicza.ID) error {
+	err := IterateBinaryObjects(blobStor, func(_ oid.Address, data []byte, blzID *blobovnicza.ID) error {
 		v, ok := mObjs[string(data)]
 		require.True(t, ok)
 
