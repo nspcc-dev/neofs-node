@@ -147,11 +147,11 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (IterateRes, error) {
 }
 
 // IterateObjects is a helper function which iterates over Blobovnicza and passes binary objects to f.
-func IterateObjects(blz *Blobovnicza, f func([]byte) error) error {
+func IterateObjects(blz *Blobovnicza, f func(addr oid.Address, data []byte) error) error {
 	var prm IteratePrm
 
 	prm.SetHandler(func(elem IterationElement) error {
-		return f(elem.ObjectData())
+		return f(elem.Address(), elem.ObjectData())
 	})
 
 	_, err := blz.Iterate(prm)

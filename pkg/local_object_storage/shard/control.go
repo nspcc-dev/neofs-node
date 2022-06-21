@@ -9,6 +9,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // Open opens all Shard's components.
@@ -80,7 +81,16 @@ func (s *Shard) refillMetabase() error {
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	return blobstor.IterateObjects(s.blobStor, func(obj *objectSDK.Object, blzID *blobovnicza.ID) error {
+	obj := objectSDK.New()
+
+	return blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, blzID *blobovnicza.ID) error {
+		if err := obj.Unmarshal(data); err != nil {
+			s.log.Warn("could not unmarshal object",
+				zap.Stringer("address", addr),
+				zap.String("err", err.Error()))
+			return nil
+		}
+
 		//nolint: exhaustive
 		switch obj.Type() {
 		case objectSDK.TypeTombstone:

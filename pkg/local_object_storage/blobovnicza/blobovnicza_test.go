@@ -147,7 +147,7 @@ func TestIterateObjects(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err := IterateObjects(blz, func(data []byte) error {
+	err := IterateObjects(blz, func(_ oid.Address, data []byte) error {
 		v, ok := mObjs[string(data)]
 		require.True(t, ok)
 
