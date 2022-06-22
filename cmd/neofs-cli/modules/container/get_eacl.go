@@ -3,7 +3,6 @@ package container
 import (
 	"os"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -29,21 +28,9 @@ var getExtendedACLCmd = &cobra.Command{
 
 		eaclTable := res.EACL()
 
-		sig := eaclTable.Signature()
-
-		// TODO(@cthulhu-rider): #1387 avoid type conversion
-		var sigV2 refs.Signature
-		sig.WriteToV2(&sigV2)
-
 		if containerPathTo == "" {
 			cmd.Println("eACL: ")
 			common.PrettyPrintJSON(cmd, eaclTable, "eACL")
-
-			var sigV2 refs.Signature
-			sig.WriteToV2(&sigV2)
-
-			cmd.Println("Signature:")
-			common.PrettyPrintJSON(cmd, &sigV2, "signature")
 
 			return
 		}
@@ -59,9 +46,6 @@ var getExtendedACLCmd = &cobra.Command{
 		}
 
 		cmd.Println("dumping data to file:", containerPathTo)
-
-		cmd.Println("Signature:")
-		common.PrettyPrintJSON(cmd, &sigV2, "signature")
 
 		err = os.WriteFile(containerPathTo, data, 0644)
 		common.ExitOnErr(cmd, "could not write eACL to file: %w", err)

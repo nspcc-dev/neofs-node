@@ -44,7 +44,7 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 		return
 	}
 
-	policy := cnr.PlacementPolicy()
+	policy := cnr.Value.PlacementPolicy()
 	if policy == nil {
 		p.log.Error("missing placement policy in container",
 			zap.Stringer("cid", idCnr),

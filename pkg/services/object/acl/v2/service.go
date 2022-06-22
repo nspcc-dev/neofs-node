@@ -506,7 +506,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op eaclSDK.Ope
 	cnr, err := b.containers.Get(idCnr) // fetch actual container
 	if err != nil {
 		return info, err
-	} else if cnr.OwnerID() == nil {
+	} else if cnr.Value.OwnerID() == nil {
 		return info, errors.New("missing owner in container descriptor")
 	}
 
@@ -526,7 +526,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op eaclSDK.Ope
 	}
 
 	// find request role and key
-	res, err := b.c.classify(req, idCnr, cnr)
+	res, err := b.c.classify(req, idCnr, cnr.Value)
 	if err != nil {
 		return info, err
 	}
@@ -535,11 +535,11 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op eaclSDK.Ope
 		return info, ErrUnknownRole
 	}
 
-	info.basicACL = cnr.BasicACL()
+	info.basicACL = cnr.Value.BasicACL()
 	info.requestRole = res.role
 	info.isInnerRing = res.isIR
 	info.operation = op
-	info.cnrOwner = *cnr.OwnerID()
+	info.cnrOwner = *cnr.Value.OwnerID()
 	info.idCnr = idCnr
 
 	// it is assumed that at the moment the key will be valid,

@@ -98,7 +98,6 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 			issuer := tok.Issuer()
 			cnr.SetOwnerID(&issuer)
-			cnr.SetSessionToken(tok)
 		} else {
 			var idOwner user.ID
 			user.IDFromKey(&idOwner, key.PublicKey)
@@ -113,13 +112,16 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.SetBasicACL(basicACL)
 		cnr.SetAttributes(attributes)
 		cnr.SetNonceUUID(nonce)
-		cnr.SetSessionToken(tok)
 
 		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
 		var putPrm internalclient.PutContainerPrm
 		putPrm.SetClient(cli)
 		putPrm.SetContainer(*cnr)
+
+		if tok != nil {
+			putPrm.WithinSession(*tok)
+		}
 
 		res, err := internalclient.PutContainer(putPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)

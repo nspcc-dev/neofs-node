@@ -10,9 +10,7 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -147,13 +145,13 @@ func newCachedContainerStorage(v container.Source) *ttlContainerStorage {
 
 // Get returns container value from the cache. If value is missing in the cache
 // or expired, then it returns value from side chain and updates the cache.
-func (s *ttlContainerStorage) Get(cnr cid.ID) (*containerSDK.Container, error) {
+func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
 	val, err := (*ttlNetCache)(s).get(cnr.EncodeToString())
 	if err != nil {
 		return nil, err
 	}
 
-	return val.(*containerSDK.Container), nil
+	return val.(*container.Container), nil
 }
 
 type ttlEACLStorage ttlNetCache
@@ -180,13 +178,13 @@ func newCachedEACLStorage(v eacl.Source) *ttlEACLStorage {
 
 // GetEACL returns eACL value from the cache. If value is missing in the cache
 // or expired, then it returns value from side chain and updates cache.
-func (s *ttlEACLStorage) GetEACL(cnr cid.ID) (*eaclSDK.Table, error) {
+func (s *ttlEACLStorage) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	val, err := (*ttlNetCache)(s).get(cnr.EncodeToString())
 	if err != nil {
 		return nil, err
 	}
 
-	return val.(*eaclSDK.Table), nil
+	return val.(*container.EACL), nil
 }
 
 // InvalidateEACL removes cached eACL value.

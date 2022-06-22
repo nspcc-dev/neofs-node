@@ -156,7 +156,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	// add common options
 	prm.traverseOpts = append(prm.traverseOpts,
 		// set processing container
-		placement.ForContainer(cnr),
+		placement.ForContainer(cnr.Value),
 	)
 
 	if id, ok := prm.hdr.ID(); ok {

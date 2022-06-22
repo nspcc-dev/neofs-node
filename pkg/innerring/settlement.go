@@ -123,7 +123,7 @@ func (s settlementDeps) ContainerInfo(cid cid.ID) (common.ContainerInfo, error) 
 		return nil, fmt.Errorf("could not get container from storage: %w", err)
 	}
 
-	return (*containerWrapper)(cnr), nil
+	return (*containerWrapper)(cnr.Value), nil
 }
 
 func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.NodeInfo, *netmapAPI.NetMap, error) {
@@ -147,7 +147,7 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.Node
 		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
 	}
 
-	policy := cnr.PlacementPolicy()
+	policy := cnr.Value.PlacementPolicy()
 	if policy == nil {
 		return nil, nil, errors.New("missing placement policy in container")
 	}

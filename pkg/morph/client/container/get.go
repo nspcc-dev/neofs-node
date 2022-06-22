@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containerContract "github.com/nspcc-dev/neofs-contract/container"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -18,7 +19,7 @@ import (
 
 type containerSource Client
 
-func (x *containerSource) Get(cnr cid.ID) (*container.Container, error) {
+func (x *containerSource) Get(cnr cid.ID) (*containercore.Container, error) {
 	return Get((*Client)(x), cnr)
 }
 
@@ -29,7 +30,7 @@ func AsContainerSource(w *Client) core.Source {
 }
 
 // Get marshals container ID, and passes it to Wrapper's Get method.
-func Get(c *Client, cnr cid.ID) (*container.Container, error) {
+func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
 
@@ -41,7 +42,7 @@ func Get(c *Client, cnr cid.ID) (*container.Container, error) {
 //
 // If an empty slice is returned for the requested identifier,
 // storage.ErrNotFound error is returned.
-func (c *Client) Get(cid []byte) (*container.Container, error) {
+func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(getMethod)
 	prm.SetArgs(cid)
@@ -87,25 +88,24 @@ func (c *Client) Get(cid []byte) (*container.Container, error) {
 		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", getMethod, err)
 	}
 
-	cnr := container.New()
-	if err := cnr.Unmarshal(cnrBytes); err != nil {
+	var cnr containercore.Container
+
+	cnr.Value = container.New()
+	if err := cnr.Value.Unmarshal(cnrBytes); err != nil {
 		// use other major version if there any
 		return nil, fmt.Errorf("can't unmarshal container: %w", err)
 	}
 
 	if len(tokBytes) > 0 {
-		var tok session.Container
+		cnr.Session = new(session.Container)
 
-		err = tok.Unmarshal(tokBytes)
+		err = cnr.Session.Unmarshal(tokBytes)
 		if err != nil {
 			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
 		}
-
-		cnr.SetSessionToken(&tok)
 	}
 
-	// FIXME(@cthulhu-rider): #1387 temp solution, later table structure won't have a signature
-
+	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
 	var sigV2 refs.Signature
 	sigV2.SetKey(pub)
 	sigV2.SetSign(sigBytes)
@@ -114,7 +114,5 @@ func (c *Client) Get(cid []byte) (*container.Container, error) {
 	var sig neofscrypto.Signature
 	sig.ReadFromV2(sigV2)
 
-	cnr.SetSignature(&sig)
-
-	return cnr, nil
+	return &cnr, nil
 }

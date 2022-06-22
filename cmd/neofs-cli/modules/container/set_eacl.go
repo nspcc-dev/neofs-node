@@ -32,7 +32,6 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		}
 
 		eaclTable.SetCID(id)
-		eaclTable.SetSessionToken(tok)
 
 		pk := key.GetOrGenerate(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
@@ -40,6 +39,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		var setEACLPrm internalclient.SetEACLPrm
 		setEACLPrm.SetClient(cli)
 		setEACLPrm.SetTable(*eaclTable)
+
+		if tok != nil {
+			setEACLPrm.WithinSession(*tok)
+		}
 
 		_, err := internalclient.SetEACL(setEACLPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
