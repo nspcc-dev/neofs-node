@@ -11,6 +11,7 @@ import (
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -402,29 +403,23 @@ type morphEACLFetcher struct {
 	w *cntClient.Client
 }
 
-func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*eaclSDK.Table, error) {
-	table, err := s.w.GetEACL(cnr)
+func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*containercore.EACL, error) {
+	eaclInfo, err := s.w.GetEACL(cnr)
 	if err != nil {
 		return nil, err
 	}
 
-	sig := table.Signature()
-	if sig == nil {
-		// TODO(@cthulhu-rider): #1387 use "const" error
-		return nil, errors.New("missing signature")
-	}
-
-	binTable, err := table.Marshal()
+	binTable, err := eaclInfo.Value.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("marshal eACL table: %w", err)
 	}
 
-	if !sig.Verify(binTable) {
+	if !eaclInfo.Signature.Verify(binTable) {
 		// TODO(@cthulhu-rider): #1387 use "const" error
 		return nil, errors.New("invalid signature of the eACL table")
 	}
 
-	return table, nil
+	return eaclInfo, nil
 }
 
 type reputationClientConstructor struct {

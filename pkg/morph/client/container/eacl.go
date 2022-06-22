@@ -8,14 +8,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
-func (c *Client) GetEACL(cnr cid.ID) (*eacl.Table, error) {
+func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
 
@@ -66,34 +65,29 @@ func (c *Client) GetEACL(cnr cid.ID) (*eacl.Table, error) {
 		return nil, fmt.Errorf("could not get byte array of eACL session token (%s): %w", eaclMethod, err)
 	}
 
-	table := eacl.NewTable()
-	if err = table.Unmarshal(rawEACL); err != nil {
-		// use other major version if there any
+	var res container.EACL
+
+	res.Value = eacl.NewTable()
+	if err = res.Value.Unmarshal(rawEACL); err != nil {
 		return nil, err
 	}
 
 	if len(binToken) > 0 {
-		var tok session.Container
+		res.Session = new(session.Container)
 
-		err = tok.Unmarshal(binToken)
+		err = res.Session.Unmarshal(binToken)
 		if err != nil {
 			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
 		}
-
-		table.SetSessionToken(&tok)
 	}
 
-	// FIXME(@cthulhu-rider): #1387 temp solution, later table structure won't have a signature
-
+	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
 	var sigV2 refs.Signature
 	sigV2.SetKey(pub)
 	sigV2.SetSign(sig)
 	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
 
-	var tableSignature neofscrypto.Signature
-	tableSignature.ReadFromV2(sigV2)
+	res.Signature.ReadFromV2(sigV2)
 
-	table.SetSignature(&tableSignature)
-
-	return table, nil
+	return &res, nil
 }

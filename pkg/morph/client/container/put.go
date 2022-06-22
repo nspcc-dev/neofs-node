@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -14,35 +15,33 @@ import (
 // along with sig.Key() and sig.Sign().
 //
 // Returns error if container is nil.
-func Put(c *Client, cnr *container.Container) (*cid.ID, error) {
-	if cnr == nil {
+func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
+	if cnr.Value == nil {
 		return nil, errNilArgument
 	}
 
-	data, err := cnr.Marshal()
+	data, err := cnr.Value.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("can't marshal container: %w", err)
 	}
 
-	name, zone := container.GetNativeNameWithZone(cnr)
+	name, zone := container.GetNativeNameWithZone(cnr.Value)
 
 	var prm PutPrm
 	prm.SetContainer(data)
 	prm.SetName(name)
 	prm.SetZone(zone)
 
-	if tok := cnr.SessionToken(); tok != nil {
-		prm.SetToken(tok.Marshal())
+	if cnr.Session != nil {
+		prm.SetToken(cnr.Session.Marshal())
 	}
 
-	if sig := cnr.Signature(); sig != nil {
-		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-		var sigV2 refs.Signature
-		sig.WriteToV2(&sigV2)
+	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
+	var sigV2 refs.Signature
+	cnr.Signature.WriteToV2(&sigV2)
 
-		prm.SetKey(sigV2.GetKey())
-		prm.SetSignature(sigV2.GetSign())
-	}
+	prm.SetKey(sigV2.GetKey())
+	prm.SetSignature(sigV2.GetSign())
 
 	err = c.Put(prm)
 	if err != nil {

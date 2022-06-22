@@ -30,7 +30,6 @@ import (
 	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -355,7 +354,7 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]n
 		return nil, nil, err
 	}
 
-	policy := cnr.PlacementPolicy()
+	policy := cnr.Value.PlacementPolicy()
 	if policy == nil {
 		return nil, nil, errors.New("missing placement policy in container")
 	}
@@ -566,11 +565,11 @@ type morphContainerReader struct {
 	}
 }
 
-func (x *morphContainerReader) Get(id cid.ID) (*containerSDK.Container, error) {
+func (x *morphContainerReader) Get(id cid.ID) (*containerCore.Container, error) {
 	return x.get.Get(id)
 }
 
-func (x *morphContainerReader) GetEACL(id cid.ID) (*eaclSDK.Table, error) {
+func (x *morphContainerReader) GetEACL(id cid.ID) (*containerCore.EACL, error) {
 	return x.eacl.GetEACL(id)
 }
 
@@ -586,13 +585,13 @@ type morphContainerWriter struct {
 	lists        *ttlContainerLister
 }
 
-func (m morphContainerWriter) Put(cnr *containerSDK.Container) (*cid.ID, error) {
+func (m morphContainerWriter) Put(cnr containerCore.Container) (*cid.ID, error) {
 	containerID, err := cntClient.Put(m.neoClient, cnr)
 	if err != nil {
 		return nil, err
 	}
 
-	idOwner := cnr.OwnerID()
+	idOwner := cnr.Value.OwnerID()
 	if idOwner == nil {
 		return nil, errors.New("missing container owner")
 	}
@@ -608,14 +607,14 @@ func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error
 	return cntClient.Delete(m.neoClient, witness)
 }
 
-func (m morphContainerWriter) PutEACL(table *eaclSDK.Table) error {
-	err := cntClient.PutEACL(m.neoClient, table)
+func (m morphContainerWriter) PutEACL(eaclInfo containerCore.EACL) error {
+	err := cntClient.PutEACL(m.neoClient, eaclInfo)
 	if err != nil {
 		return err
 	}
 
 	if m.cacheEnabled {
-		id, _ := table.CID()
+		id, _ := eaclInfo.Value.CID()
 		m.eacls.InvalidateEACL(id)
 	}
 

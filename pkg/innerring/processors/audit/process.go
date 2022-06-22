@@ -60,7 +60,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
-		policy := cnr.PlacementPolicy()
+		policy := cnr.Value.PlacementPolicy()
 		if policy == nil {
 			log.Error("missing placement policy in container, ignore",
 				zap.Stringer("cid", containers[i]),
@@ -108,7 +108,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			WithAuditContext(auditCtx).
 			WithContainerID(containers[i]).
 			WithStorageGroupList(storageGroups).
-			WithContainerStructure(cnr).
+			WithContainerStructure(cnr.Value).
 			WithContainerNodes(nodes).
 			WithNetworkMap(nm)
 

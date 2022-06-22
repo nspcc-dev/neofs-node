@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -38,11 +37,11 @@ type Reader interface {
 // Writer is an interface of container storage updater.
 type Writer interface {
 	// Put stores specified container in the side chain.
-	Put(*containerSDK.Container) (*cid.ID, error)
+	Put(containercore.Container) (*cid.ID, error)
 	// Delete removes specified container from the side chain.
 	Delete(containercore.RemovalWitness) error
 	// PutEACL updates extended ACL table of specified container in the side chain.
-	PutEACL(*eaclSDK.Table) error
+	PutEACL(containercore.EACL) error
 }
 
 func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
@@ -59,22 +58,19 @@ func (s *morphExecutor) Put(_ context.Context, tokV2 *sessionV2.Token, body *con
 		return nil, errors.New("missing signature")
 	}
 
-	cnr := containerSDK.NewContainerFromV2(body.GetContainer())
+	cnr := containercore.Container{
+		Value: containerSDK.NewContainerFromV2(body.GetContainer()),
+	}
 
-	var sig neofscrypto.Signature
-	sig.ReadFromV2(*sigV2)
-
-	cnr.SetSignature(&sig)
+	cnr.Signature.ReadFromV2(*sigV2)
 
 	if tokV2 != nil {
-		var tok session.Container
+		cnr.Session = new(session.Container)
 
-		err := tok.ReadFromV2(*tokV2)
+		err := cnr.Session.ReadFromV2(*tokV2)
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
-
-		cnr.SetSessionToken(&tok)
 	}
 
 	idCnr, err := s.wrt.Put(cnr)
@@ -151,21 +147,19 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 
 	var sigV2 *refs.Signature
 
-	if sig := cnr.Signature(); sig != nil {
-		sigV2 = new(refs.Signature)
-		sig.WriteToV2(sigV2)
-	}
+	sigV2 = new(refs.Signature)
+	cnr.Signature.WriteToV2(sigV2)
 
 	var tokV2 *sessionV2.Token
 
-	if tok := cnr.SessionToken(); tok != nil {
+	if cnr.Session != nil {
 		tokV2 = new(sessionV2.Token)
 
-		tok.WriteToV2(tokV2)
+		cnr.Session.WriteToV2(tokV2)
 	}
 
 	res := new(container.GetResponseBody)
-	res.SetContainer(cnr.ToV2())
+	res.SetContainer(cnr.Value.ToV2())
 	res.SetSignature(sigV2)
 	res.SetSessionToken(tokV2)
 
@@ -208,25 +202,22 @@ func (s *morphExecutor) SetExtendedACL(ctx context.Context, tokV2 *sessionV2.Tok
 		return nil, errors.New("missing signature")
 	}
 
-	table := eaclSDK.NewTableFromV2(body.GetEACL())
+	eaclInfo := containercore.EACL{
+		Value: eaclSDK.NewTableFromV2(body.GetEACL()),
+	}
 
-	var sig neofscrypto.Signature
-	sig.ReadFromV2(*sigV2)
-
-	table.SetSignature(&sig)
+	eaclInfo.Signature.ReadFromV2(*sigV2)
 
 	if tokV2 != nil {
-		var tok session.Container
+		eaclInfo.Session = new(session.Container)
 
-		err := tok.ReadFromV2(*tokV2)
+		err := eaclInfo.Session.ReadFromV2(*tokV2)
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
-
-		table.SetSessionToken(&tok)
 	}
 
-	err := s.wrt.PutEACL(table)
+	err := s.wrt.PutEACL(eaclInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -247,29 +238,25 @@ func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetE
 		return nil, fmt.Errorf("invalid container ID: %w", err)
 	}
 
-	table, err := s.rdr.GetEACL(id)
+	eaclInfo, err := s.rdr.GetEACL(id)
 	if err != nil {
 		return nil, err
 	}
 
-	var sigV2 *refs.Signature
-
-	if sig := table.Signature(); sig != nil {
-		sigV2 = new(refs.Signature)
-		sig.WriteToV2(sigV2)
-	}
+	var sigV2 refs.Signature
+	eaclInfo.Signature.WriteToV2(&sigV2)
 
 	var tokV2 *sessionV2.Token
 
-	if tok := table.SessionToken(); tok != nil {
+	if eaclInfo.Session != nil {
 		tokV2 = new(sessionV2.Token)
 
-		tok.WriteToV2(tokV2)
+		eaclInfo.Session.WriteToV2(tokV2)
 	}
 
 	res := new(container.GetExtendedACLResponseBody)
-	res.SetEACL(table.ToV2())
-	res.SetSignature(sigV2)
+	res.SetEACL(eaclInfo.Value.ToV2())
+	res.SetSignature(&sigV2)
 	res.SetSessionToken(tokV2)
 
 	return res, nil

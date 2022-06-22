@@ -169,7 +169,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	ownerContainer := cnr.OwnerID()
+	ownerContainer := cnr.Value.OwnerID()
 	if ownerContainer == nil {
 		return errors.New("missing container owner")
 	}

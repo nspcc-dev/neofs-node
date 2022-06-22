@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
 // PutEACL marshals table, and passes it to Wrapper's PutEACLBinary method
@@ -14,12 +14,12 @@ import (
 // Returns error if table is nil.
 //
 // If TryNotary is provided, calls notary contract.
-func PutEACL(c *Client, table *eacl.Table) error {
-	if table == nil {
+func PutEACL(c *Client, eaclInfo containercore.EACL) error {
+	if eaclInfo.Value == nil {
 		return errNilArgument
 	}
 
-	data, err := table.Marshal()
+	data, err := eaclInfo.Value.Marshal()
 	if err != nil {
 		return fmt.Errorf("can't marshal eacl table: %w", err)
 	}
@@ -27,18 +27,16 @@ func PutEACL(c *Client, table *eacl.Table) error {
 	var prm PutEACLPrm
 	prm.SetTable(data)
 
-	if tok := table.SessionToken(); tok != nil {
-		prm.SetToken(tok.Marshal())
+	if eaclInfo.Session != nil {
+		prm.SetToken(eaclInfo.Session.Marshal())
 	}
 
-	if sig := table.Signature(); sig != nil {
-		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-		var sigV2 refs.Signature
-		sig.WriteToV2(&sigV2)
+	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
+	var sigV2 refs.Signature
+	eaclInfo.Signature.WriteToV2(&sigV2)
 
-		prm.SetKey(sigV2.GetKey())
-		prm.SetSignature(sigV2.GetSign())
-	}
+	prm.SetKey(sigV2.GetKey())
+	prm.SetSignature(sigV2.GetSign())
 
 	return c.PutEACL(prm)
 }

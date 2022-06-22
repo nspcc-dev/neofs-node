@@ -10,10 +10,8 @@ import (
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	containerSvcMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +20,7 @@ type mock struct {
 	containerSvcMorph.Reader
 }
 
-func (m mock) Put(_ *containerSDK.Container) (*cid.ID, error) {
+func (m mock) Put(_ containerCore.Container) (*cid.ID, error) {
 	return new(cid.ID), nil
 }
 
@@ -30,7 +28,7 @@ func (m mock) Delete(_ containerCore.RemovalWitness) error {
 	return nil
 }
 
-func (m mock) PutEACL(_ *eacl.Table) error {
+func (m mock) PutEACL(_ containerCore.EACL) error {
 	return nil
 }
 

@@ -147,7 +147,7 @@ func (g *TraverserGenerator) GenerateTraverser(idCnr cid.ID, idObj *oid.ID, epoc
 
 	traverseOpts = append(traverseOpts,
 		// set processing container
-		placement.ForContainer(cnr),
+		placement.ForContainer(cnr.Value),
 
 		// set placement builder
 		placement.UseBuilder(builder),

@@ -148,7 +148,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 
 	bearerTok := reqInfo.Bearer()
 	if bearerTok == nil {
-		pTable, err := c.eaclSrc.GetEACL(cnr)
+		eaclInfo, err := c.eaclSrc.GetEACL(cnr)
 		if err != nil {
 			if errors.Is(err, container.ErrEACLNotFound) {
 				return nil
@@ -156,7 +156,7 @@ func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
 			return err
 		}
 
-		table = *pTable
+		table = *eaclInfo.Value
 	} else {
 		table = bearerTok.EACLTable()
 	}

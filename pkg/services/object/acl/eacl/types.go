@@ -1,8 +1,8 @@
 package eacl
 
 import (
+	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
 // Source is the interface that wraps
@@ -15,5 +15,5 @@ type Source interface {
 	//
 	// Must return pkg/core/container.ErrEACLNotFound if requested
 	// eACL table is not in source.
-	GetEACL(cid.ID) (*eacl.Table, error)
+	GetEACL(cid.ID) (*containercore.EACL, error)
 }

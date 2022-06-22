@@ -6,7 +6,22 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
+
+// Container groups information about the NeoFS container stored in the NeoFS network.
+type Container struct {
+	// Container structure.
+	Value *container.Container
+
+	// Signature of the Value.
+	Signature neofscrypto.Signature
+
+	// Session within which Value was created. Nil means session absence.
+	Session *session.Container
+}
 
 // Source is an interface that wraps
 // basic container receiving method.
@@ -19,7 +34,7 @@ type Source interface {
 	//
 	// Implementations must not retain the container pointer and modify
 	// the container through it.
-	Get(cid.ID) (*container.Container, error)
+	Get(cid.ID) (*Container, error)
 }
 
 // IsErrNotFound checks if the error returned by Source.Get corresponds
@@ -31,3 +46,16 @@ func IsErrNotFound(err error) bool {
 // ErrEACLNotFound is returned by eACL storage implementations when
 // the requested eACL table is not in the storage.
 var ErrEACLNotFound = errors.New("extended ACL table is not set for this container")
+
+// EACL groups information about the NeoFS container's extended ACL stored in
+// the NeoFS network.
+type EACL struct {
+	// Extended ACL structure.
+	Value *eacl.Table
+
+	// Signature of the Value.
+	Signature neofscrypto.Signature
+
+	// Session within which Value was set. Nil means session absence.
+	Session *session.Container
+}
