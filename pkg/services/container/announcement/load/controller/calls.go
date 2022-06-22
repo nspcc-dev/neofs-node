@@ -163,9 +163,9 @@ func (c *commonContext) freeAnnouncement() {
 	c.ctrl.announceMtx.Unlock()
 
 	if stopped {
-		c.log.Debug("trust announcement successfully interrupted")
+		c.log.Debug("announcement successfully interrupted")
 	} else {
-		c.log.Debug("trust announcement is not started or already interrupted")
+		c.log.Debug("announcement is not started or already interrupted")
 	}
 }
 
@@ -254,9 +254,9 @@ func (c *commonContext) freeReport() {
 	c.ctrl.reportMtx.Unlock()
 
 	if stopped {
-		c.log.Debug("trust announcement successfully interrupted")
+		c.log.Debug("announcement successfully interrupted")
 	} else {
-		c.log.Debug("trust announcement is not started or already interrupted")
+		c.log.Debug("announcement is not started or already interrupted")
 	}
 }
 
