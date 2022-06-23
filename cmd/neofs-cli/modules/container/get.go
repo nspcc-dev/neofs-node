@@ -80,7 +80,7 @@ func initContainerInfoCmd() {
 	flags.StringVar(&containerID, "cid", "", "container ID")
 	flags.StringVar(&containerPathTo, "to", "", "path to dump encoded container")
 	flags.StringVar(&containerPathFrom, "from", "", "path to file with encoded container")
-	flags.BoolVar(&containerJSON, "json", false, "print or dump container in JSON format")
+	flags.BoolVar(&containerJSON, commonflags.JSON, false, "print or dump container in JSON format")
 }
 
 type stringWriter cobra.Command

@@ -115,7 +115,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 }
 
 func strictOutput(cmd *cobra.Command) bool {
-	toJSON, _ := cmd.Flags().GetBool("json")
+	toJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
 	toProto, _ := cmd.Flags().GetBool("proto")
 	return toJSON || toProto
 }

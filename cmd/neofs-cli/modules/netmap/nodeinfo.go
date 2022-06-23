@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const nodeInfoJSONFlag = "json"
+const nodeInfoJSONFlag = commonflags.JSON
 
 var nodeInfoCmd = &cobra.Command{
 	Use:   "nodeinfo",

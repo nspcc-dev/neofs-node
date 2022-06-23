@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	signBearerJSONFlag = "json"
+	signBearerJSONFlag = commonflags.JSON
 )
 
 var signBearerCmd = &cobra.Command{

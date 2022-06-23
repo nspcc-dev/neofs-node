@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	netmapSnapshotJSONFlag = "json"
+	netmapSnapshotJSONFlag = commonflags.JSON
 )
 
 var snapshotCmd = &cobra.Command{

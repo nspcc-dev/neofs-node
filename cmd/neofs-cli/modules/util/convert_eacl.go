@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/spf13/cobra"
 )
 
@@ -23,13 +24,13 @@ func initConvertEACLCmd() {
 	_ = convertEACLCmd.MarkFlagRequired("from")
 
 	flags.String("to", "", "File to dump extended ACL table (default: binary encoded)")
-	flags.Bool("json", false, "Dump extended ACL table in JSON encoding")
+	flags.Bool(commonflags.JSON, false, "Dump extended ACL table in JSON encoding")
 }
 
 func convertEACLTable(cmd *cobra.Command, _ []string) {
 	pathFrom := cmd.Flag("from").Value.String()
 	to := cmd.Flag("to").Value.String()
-	jsonFlag, _ := cmd.Flags().GetBool("json")
+	jsonFlag, _ := cmd.Flags().GetBool(commonflags.JSON)
 
 	table := common.ReadEACL(cmd, pathFrom)
 

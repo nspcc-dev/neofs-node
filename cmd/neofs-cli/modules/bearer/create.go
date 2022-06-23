@@ -28,7 +28,7 @@ const (
 	expireAtFlag       = "expire-at"
 	ownerFlag          = "owner"
 	outFlag            = "out"
-	jsonFlag           = "json"
+	jsonFlag           = commonflags.JSON
 )
 
 var createCmd = &cobra.Command{

@@ -19,7 +19,7 @@ import (
 const (
 	lifetimeFlag = "lifetime"
 	outFlag      = "out"
-	jsonFlag     = "json"
+	jsonFlag     = commonflags.JSON
 )
 
 const defaultLifetime = 10
