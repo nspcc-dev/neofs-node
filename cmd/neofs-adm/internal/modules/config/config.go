@@ -153,3 +153,11 @@ func GetPassword(v *viper.Viper, name string) (string, error) {
 	prompt := "Password for " + name + " wallet > "
 	return input.ReadPassword(prompt)
 }
+
+func GetStoragePassword(v *viper.Viper, name string) (string, error) {
+	key := "storage." + name
+	if name != "" && v.IsSet(key) {
+		return v.GetString(key), nil
+	}
+	return input.ReadPassword("New password > ")
+}
