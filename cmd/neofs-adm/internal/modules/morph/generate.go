@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
@@ -159,12 +158,19 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 	}
 
 	if createWallet {
-		password, err := input.ReadPassword("New password > ")
+		var password string
+
+		label, _ := cmd.Flags().GetString(storageWalletLabelFlag)
+		password, err := config.GetStoragePassword(viper.GetViper(), label)
 		if err != nil {
 			return fmt.Errorf("can't fetch password: %w", err)
 		}
 
-		if err := w.CreateAccount(singleAccountName, password); err != nil {
+		if label == "" {
+			label = singleAccountName
+		}
+
+		if err := w.CreateAccount(label, password); err != nil {
 			return fmt.Errorf("can't create account: %w", err)
 		}
 	}

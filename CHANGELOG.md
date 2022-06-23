@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Added
 
+- Retrieve passwords for storage wallets from the configuration in neofs-adm (#1539)
+
 ### Changed
 
 ### Fixed

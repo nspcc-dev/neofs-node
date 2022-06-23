@@ -10,6 +10,7 @@ const (
 	alphabetSizeFlag          = "size"
 	endpointFlag              = "rpc-endpoint"
 	storageWalletFlag         = "storage-wallet"
+	storageWalletLabelFlag    = "label"
 	storageGasCLIFlag         = "initial-gas"
 	storageGasConfigFlag      = "storage.initial_gas"
 	contractsInitFlag         = "contracts"
@@ -209,6 +210,7 @@ func init() {
 	generateStorageCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	generateStorageCmd.Flags().String(storageWalletFlag, "", "path to new storage node wallet")
 	generateStorageCmd.Flags().String(storageGasCLIFlag, "", "initial amount of GAS to transfer")
+	generateStorageCmd.Flags().StringP(storageWalletLabelFlag, "l", "", "wallet label")
 
 	RootCmd.AddCommand(forceNewEpoch)
 	forceNewEpoch.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
