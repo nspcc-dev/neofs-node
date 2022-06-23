@@ -120,7 +120,7 @@ func printSplitInfo(cmd *cobra.Command, info *object.SplitInfo) {
 }
 
 func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error) {
-	toJSON, _ := cmd.Flags().GetBool("json")
+	toJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
 	toProto, _ := cmd.Flags().GetBool("proto")
 	switch {
 	case toJSON && toProto:

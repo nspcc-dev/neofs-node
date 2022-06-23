@@ -40,7 +40,7 @@ func initObjectHeadCmd() {
 
 	flags.String("file", "", "File to write header to. Default: stdout.")
 	flags.Bool("main-only", false, "Return only main fields")
-	flags.Bool("json", false, "Marshal output in JSON")
+	flags.Bool(commonflags.JSON, false, "Marshal output in JSON")
 	flags.Bool("proto", false, "Marshal output in Protobuf")
 	flags.Bool(rawFlag, false, rawFlagDesc)
 }
@@ -96,7 +96,7 @@ func saveAndPrintHeader(cmd *cobra.Command, obj *object.Object, filename string)
 }
 
 func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
-	toJSON, _ := cmd.Flags().GetBool("json")
+	toJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
 	toProto, _ := cmd.Flags().GetBool("proto")
 	switch {
 	case toJSON && toProto:
