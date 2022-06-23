@@ -1,6 +1,8 @@
 package control
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/mr-tron/base58"
@@ -25,6 +27,7 @@ func initControlShardsListCmd() {
 	flags := listShardsCmd.Flags()
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
+	flags.Bool(commonflags.JSON, false, "Print shard info as a JSON array")
 }
 
 func listShards(cmd *cobra.Command, _ []string) {
@@ -47,24 +50,37 @@ func listShards(cmd *cobra.Command, _ []string) {
 
 	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
 
-	prettyPrintShards(cmd, resp.GetBody().GetShards())
+	isJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
+	if isJSON {
+		prettyPrintShardsJSON(cmd, resp.GetBody().GetShards())
+	} else {
+		prettyPrintShards(cmd, resp.GetBody().GetShards())
+	}
+}
+
+func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) {
+	out := make([]map[string]interface{}, 0, len(ii))
+	for _, i := range ii {
+		out = append(out, map[string]interface{}{
+			"shard_id":    base58.Encode(i.Shard_ID),
+			"mode":        shardModeToString(i.GetMode()),
+			"metabase":    i.GetMetabasePath(),
+			"blobstor":    i.GetBlobstorPath(),
+			"writecache":  i.GetWritecachePath(),
+			"error_count": i.GetErrorCount(),
+		})
+	}
+
+	buf := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buf)
+	enc.SetIndent("", "  ")
+	common.ExitOnErr(cmd, "cannot shard info to JSON: %w", enc.Encode(out))
+
+	cmd.Print(buf.String()) // pretty printer emits newline, to no need for Println
 }
 
 func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 	for _, i := range ii {
-		var mode string
-
-		switch i.GetMode() {
-		case control.ShardMode_READ_WRITE:
-			mode = "read-write"
-		case control.ShardMode_READ_ONLY:
-			mode = "read-only"
-		case control.ShardMode_DEGRADED:
-			mode = "degraded"
-		default:
-			mode = "unknown"
-		}
-
 		pathPrinter := func(name, path string) string {
 			if path == "" {
 				return ""
@@ -79,7 +95,20 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 			pathPrinter("Write-cache", i.GetWritecachePath())+
 			fmt.Sprintf("Error count: %d\n", i.GetErrorCount()),
 			base58.Encode(i.Shard_ID),
-			mode,
+			shardModeToString(i.GetMode()),
 		)
+	}
+}
+
+func shardModeToString(m control.ShardMode) string {
+	switch m {
+	case control.ShardMode_READ_WRITE:
+		return "read-write"
+	case control.ShardMode_READ_ONLY:
+		return "read-only"
+	case control.ShardMode_DEGRADED:
+		return "degraded"
+	default:
+		return "unknown"
 	}
 }
