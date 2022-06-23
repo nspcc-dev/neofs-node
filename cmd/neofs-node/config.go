@@ -430,10 +430,10 @@ func initShardOptions(c *cfg) {
 
 		piloramaOpts := []pilorama.Option{
 			pilorama.WithPath(piloramaPath),
-			pilorama.WithPerm(piloramaCfg.Perm()),
-			pilorama.WithNoSync(piloramaCfg.NoSync()),
-			pilorama.WithMaxBatchSize(piloramaCfg.MaxBatchSize()),
-			pilorama.WithMaxBatchDelay(piloramaCfg.MaxBatchDelay())}
+			pilorama.WithPerm(piloramaCfg.BoltDB().Perm()),
+			pilorama.WithNoSync(piloramaCfg.BoltDB().NoSync()),
+			pilorama.WithMaxBatchSize(piloramaCfg.BoltDB().MaxBatchSize()),
+			pilorama.WithMaxBatchDelay(piloramaCfg.BoltDB().MaxBatchDelay())}
 
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.BoltDB().Perm()
