@@ -58,16 +58,7 @@ func TestGenerateAlphabet(t *testing.T) {
 		require.Error(t, generateAlphabetCreds(cmd, nil))
 	})
 
-	buf.Reset()
-	v.Set(alphabetWalletsFlag, walletDir)
-	require.NoError(t, cmd.Flags().Set(alphabetSizeFlag, strconv.FormatUint(size, 10)))
-	for i := uint64(0); i < size; i++ {
-		buf.WriteString(strconv.FormatUint(i, 10) + "\r")
-	}
-
-	const groupPassword = "grouppass"
-	buf.WriteString(groupPassword + "\r")
-	require.NoError(t, generateAlphabetCreds(cmd, nil))
+	testGenerateAlphabet(t, buf, v, size, walletDir)
 
 	for i := uint64(0); i < size; i++ {
 		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
@@ -93,7 +84,7 @@ func TestGenerateAlphabet(t *testing.T) {
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "contract wallet doesn't exist")
 		require.Equal(t, 1, len(w.Accounts), "contract wallet must have 1 accout")
-		require.NoError(t, w.Accounts[0].Decrypt(groupPassword, keys.NEP2ScryptParams()))
+		require.NoError(t, w.Accounts[0].Decrypt(testContractPassword, keys.NEP2ScryptParams()))
 	})
 }
 
@@ -116,4 +107,18 @@ func newTempDir(t *testing.T) string {
 		require.NoError(t, os.RemoveAll(dir))
 	})
 	return dir
+}
+
+const testContractPassword = "grouppass"
+
+func testGenerateAlphabet(t *testing.T, buf *bytes.Buffer, v *viper.Viper, size uint64, walletDir string) {
+	buf.Reset()
+	v.Set(alphabetWalletsFlag, walletDir)
+	require.NoError(t, generateAlphabetCmd.Flags().Set(alphabetSizeFlag, strconv.FormatUint(size, 10)))
+	for i := uint64(0); i < size; i++ {
+		buf.WriteString(strconv.FormatUint(i, 10) + "\r")
+	}
+
+	buf.WriteString(testContractPassword + "\r")
+	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 }
