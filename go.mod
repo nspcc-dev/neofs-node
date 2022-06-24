@@ -17,9 +17,9 @@ require (
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.99.1-pre.0.20220609082921-2c9fb2044242
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220601120906-3bec6657f5c5 // indirect
-	github.com/nspcc-dev/neofs-api-go/v2 v2.12.3-0.20220620114558-454b5c0ed7e9
+	github.com/nspcc-dev/neofs-api-go/v2 v2.12.3-0.20220621170933-dd233c3fbc84
 	github.com/nspcc-dev/neofs-contract v0.15.1
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.4.0.20220621170307-721df386c599
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.4.0.20220622125136-af7e20073bc6
 	github.com/nspcc-dev/tzhash v1.5.2
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
@@ -35,6 +35,7 @@ require (
 	golang.org/x/term v0.0.0-20210429154555-c04ba851c2a4
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.28.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -95,5 +96,4 @@ require (
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
