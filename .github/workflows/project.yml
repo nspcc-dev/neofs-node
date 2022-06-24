@@ -4,6 +4,8 @@ on:
   issues:
     types:
       - opened
+      - transferred
+      - labeled
 
 jobs:
   add-to-project:
@@ -15,4 +17,3 @@ jobs:
           project-url: https://github.com/orgs/nspcc-dev/projects/1
           github-token: ${{ secrets.GITHUB_TOKEN }}
           labeled: triage
-          label-operator: OR
