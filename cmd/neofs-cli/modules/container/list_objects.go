@@ -42,6 +42,7 @@ var listContainerObjectsCmd = &cobra.Command{
 
 func initContainerListObjectsCmd() {
 	commonflags.Init(listContainerObjectsCmd)
+	objectCli.InitBearer(listContainerObjectsCmd)
 
 	flags := listContainerObjectsCmd.Flags()
 
