@@ -276,6 +276,7 @@ func (c *initializeContext) nnsContractState() (*state.Contract, error) {
 func (c *initializeContext) getSigner(tryGroup bool) transaction.Signer {
 	if tryGroup && c.groupKey != nil {
 		return transaction.Signer{
+			Account:       c.CommitteeAcc.Contract.ScriptHash(),
 			Scopes:        transaction.CustomGroups,
 			AllowedGroups: keys.PublicKeys{c.groupKey},
 		}
