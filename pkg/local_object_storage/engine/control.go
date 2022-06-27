@@ -5,9 +5,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
+
+type shardInitError struct {
+	err error
+	id  string
+}
 
 // Open opens all StorageEngine's components.
 func (e *StorageEngine) Open() error {
@@ -44,28 +50,44 @@ func (e *StorageEngine) open() error {
 
 // Init initializes all StorageEngine's components.
 func (e *StorageEngine) Init() error {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
 
 	var wg sync.WaitGroup
-	var errCh = make(chan error, len(e.shards))
+	var errCh = make(chan shardInitError, len(e.shards))
 
 	for id, sh := range e.shards {
 		wg.Add(1)
 		go func(id string, sh *shard.Shard) {
 			defer wg.Done()
 			if err := sh.Init(); err != nil {
-				errCh <- fmt.Errorf("could not initialize shard %s: %w", id, err)
+				errCh <- shardInitError{
+					err: err,
+					id:  id,
+				}
 			}
 		}(id, sh.Shard)
 	}
 	wg.Wait()
 	close(errCh)
 
-	for err := range errCh {
-		if err != nil {
-			return err
+	for res := range errCh {
+		if res.err != nil {
+			if errors.Is(res.err, blobstor.ErrInitBlobovniczas) {
+				delete(e.shards, res.id)
+
+				e.log.Error("shard initialization failure, skipping",
+					zap.String("id", res.id),
+					zap.Error(res.err))
+
+				continue
+			}
+			return fmt.Errorf("could not initialize shard %s: %w", res.id, res.err)
 		}
+	}
+
+	if len(e.shards) == 0 {
+		return errors.New("failed initialization on all shards")
 	}
 
 	return nil
