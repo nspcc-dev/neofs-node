@@ -10,6 +10,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -18,7 +20,54 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
+
+func TestShardOpen(t *testing.T) {
+	dir := t.TempDir()
+	metaPath := filepath.Join(dir, "meta")
+
+	newShard := func() *Shard {
+		return New(
+			WithLogger(zaptest.NewLogger(t)),
+			WithBlobStorOptions(
+				blobstor.WithRootPath(filepath.Join(dir, "blob")),
+				blobstor.WithShallowDepth(1),
+				blobstor.WithSmallSizeLimit(1),
+				blobstor.WithBlobovniczaShallowWidth(1),
+				blobstor.WithBlobovniczaShallowDepth(1)),
+			WithMetaBaseOptions(meta.WithPath(metaPath)),
+			WithPiloramaOptions(
+				pilorama.WithPath(filepath.Join(dir, "pilorama"))),
+			WithWriteCache(true),
+			WithWriteCacheOptions(
+				writecache.WithPath(filepath.Join(dir, "wc"))))
+	}
+
+	sh := newShard()
+	require.NoError(t, sh.Open())
+	require.NoError(t, sh.Init())
+	require.Equal(t, mode.ReadWrite, sh.GetMode())
+	require.NoError(t, sh.Close())
+
+	// Metabase can be opened in read-only => start in ReadOnly mode.
+	require.NoError(t, os.Chmod(metaPath, 0444))
+	sh = newShard()
+	require.NoError(t, sh.Open())
+	require.NoError(t, sh.Init())
+	require.Equal(t, mode.ReadOnly, sh.GetMode())
+	require.Error(t, sh.SetMode(mode.ReadWrite))
+	require.Equal(t, mode.ReadOnly, sh.GetMode())
+	require.NoError(t, sh.Close())
+
+	// Metabase is corrupted => start in DegradedReadOnly mode.
+	require.NoError(t, os.Chmod(metaPath, 0000))
+	sh = newShard()
+	require.NoError(t, sh.Open())
+	require.NoError(t, sh.Init())
+	require.Equal(t, mode.DegradedReadOnly, sh.GetMode())
+	require.NoError(t, sh.Close())
+}
 
 func TestRefillMetabaseCorrupted(t *testing.T) {
 	dir := t.TempDir()

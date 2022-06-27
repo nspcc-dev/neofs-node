@@ -7,10 +7,34 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
+
+func (s *Shard) handleMetabaseFailure(stage string, err error) error {
+	s.log.Error("metabase failure, switching mode",
+		zap.String("stage", stage),
+		zap.Stringer("mode", mode.ReadOnly),
+		zap.Error(err))
+
+	err = s.SetMode(mode.ReadOnly)
+	if err == nil {
+		return nil
+	}
+
+	s.log.Error("can't move shard to readonly, switch mode",
+		zap.String("stage", stage),
+		zap.Stringer("mode", mode.DegradedReadOnly),
+		zap.Error(err))
+
+	err = s.SetMode(mode.DegradedReadOnly)
+	if err != nil {
+		return fmt.Errorf("could not switch to mode %s", mode.DegradedReadOnly)
+	}
+	return nil
+}
 
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
@@ -28,36 +52,70 @@ func (s *Shard) Open() error {
 
 	for _, component := range components {
 		if err := component.Open(false); err != nil {
+			if component == s.metaBase {
+				err = s.handleMetabaseFailure("open", err)
+				if err != nil {
+					return err
+				}
+
+				break
+			}
+
 			return fmt.Errorf("could not open %T: %w", component, err)
 		}
 	}
 	return nil
 }
 
+type metabaseSynchronizer Shard
+
+func (x *metabaseSynchronizer) Init() error {
+	return (*Shard)(x).refillMetabase()
+}
+
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	var fMetabase func() error
-
-	if s.needRefillMetabase() {
-		fMetabase = s.refillMetabase
-	} else {
-		fMetabase = s.metaBase.Init
+	type initializer interface {
+		Init() error
 	}
 
-	components := []func() error{
-		s.blobStor.Init, fMetabase,
+	var components []initializer
+
+	if !s.GetMode().NoMetabase() {
+		var initMetabase initializer
+
+		if s.needRefillMetabase() {
+			initMetabase = (*metabaseSynchronizer)(s)
+		} else {
+			initMetabase = s.metaBase
+		}
+
+		components = []initializer{
+			s.blobStor, initMetabase,
+		}
+	} else {
+		components = []initializer{s.blobStor}
 	}
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache.Init)
+		components = append(components, s.writeCache)
 	}
 
 	if s.pilorama != nil {
-		components = append(components, s.pilorama.Init)
+		components = append(components, s.pilorama)
 	}
 
 	for _, component := range components {
-		if err := component(); err != nil {
+		if err := component.Init(); err != nil {
+			if component == s.metaBase {
+				err = s.handleMetabaseFailure("init", err)
+				if err != nil {
+					return err
+				}
+
+				break
+			}
+
 			return fmt.Errorf("could not initialize %T: %w", component, err)
 		}
 	}

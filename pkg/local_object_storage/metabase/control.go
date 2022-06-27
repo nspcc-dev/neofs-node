@@ -123,5 +123,8 @@ func (db *DB) init(reset bool) error {
 
 // Close closes boltDB instance.
 func (db *DB) Close() error {
-	return db.boltDB.Close()
+	if db.boltDB != nil {
+		return db.boltDB.Close()
+	}
+	return nil
 }
