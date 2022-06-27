@@ -178,11 +178,7 @@ func (s *Shard) Close() error {
 		components = append(components, s.writeCache)
 	}
 
-	components = append(components, s.pilorama, s.blobStor)
-
-	if s.GetMode() != ModeDegraded {
-		components = append(components, s.metaBase)
-	}
+	components = append(components, s.pilorama, s.blobStor, s.metaBase)
 
 	for _, component := range components {
 		if err := component.Close(); err != nil {
