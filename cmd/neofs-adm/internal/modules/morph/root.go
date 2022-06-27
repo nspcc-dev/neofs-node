@@ -111,6 +111,17 @@ var (
 		RunE: forceNewEpochCmd,
 	}
 
+	removeNodes = &cobra.Command{
+		Use:   "remove-nodes key1 [key2 [...]]",
+		Short: "Remove storage nodes from the netmap",
+		Long:  `Move nodes to the Offline state in the candidates list and tick an epoch to update the netmap`,
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: removeNodesCmd,
+	}
+
 	setPolicy = &cobra.Command{
 		Use:                   "set-policy [ExecFeeFactor=<n1>] [StoragePrice=<n2>] [FeePerByte=<n3>]",
 		DisableFlagsInUseLine: true,
@@ -215,6 +226,10 @@ func init() {
 	RootCmd.AddCommand(forceNewEpoch)
 	forceNewEpoch.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	forceNewEpoch.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	RootCmd.AddCommand(removeNodes)
+	removeNodes.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
+	removeNodes.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 
 	RootCmd.AddCommand(setPolicy)
 	setPolicy.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
