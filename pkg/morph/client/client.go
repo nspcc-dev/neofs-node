@@ -577,10 +577,9 @@ func (c *Client) NotificationChannel() <-chan client.Notification {
 // - inactiveModeCb is called if not nil.
 func (c *Client) inactiveMode() {
 	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
-
 	close(c.notifications)
 	c.inactive = true
+	c.switchLock.Unlock()
 
 	if c.cfg.inactiveModeCb != nil {
 		c.cfg.inactiveModeCb()
