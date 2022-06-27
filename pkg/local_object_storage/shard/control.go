@@ -9,12 +9,28 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
+
+func (s *Shard) handleMetabaseFailure(stage string, err error) error {
+	s.log.Error("metabase failure, switching mode",
+		zap.String("stage", stage),
+		zap.Stringer("mode", ModeDegraded),
+		zap.Error(err),
+	)
+
+	err = s.SetMode(ModeDegraded)
+	if err != nil {
+		return fmt.Errorf("could not switch to mode %s", ModeDegraded)
+	}
+
+	return nil
+}
 
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
 	components := []interface{ Open() error }{
-		s.blobStor, s.metaBase, s.pilorama,
+		s.blobStor, s.pilorama,
 	}
 
 	if s.hasWriteCache() {
@@ -23,32 +39,67 @@ func (s *Shard) Open() error {
 
 	for _, component := range components {
 		if err := component.Open(); err != nil {
+			if component == s.metaBase {
+				err = s.handleMetabaseFailure("open", err)
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
+
 			return fmt.Errorf("could not open %T: %w", component, err)
 		}
 	}
+
 	return nil
+}
+
+type metabaseSynchronizer Shard
+
+func (x *metabaseSynchronizer) Init() error {
+	return (*Shard)(x).refillMetabase()
 }
 
 // Init initializes all Shard's components.
 func (s *Shard) Init() error {
-	var fMetabase func() error
-
-	if s.needRefillMetabase() {
-		fMetabase = s.refillMetabase
-	} else {
-		fMetabase = s.metaBase.Init
+	type initializer interface {
+		Init() error
 	}
 
-	components := []func() error{
-		s.blobStor.Init, fMetabase, s.pilorama.Init,
+	var components []initializer
+
+	if s.GetMode() != ModeDegraded {
+		var initMetabase initializer
+
+		if s.needRefillMetabase() {
+			initMetabase = (*metabaseSynchronizer)(s)
+		} else {
+			initMetabase = s.metaBase
+		}
+
+		components = []initializer{
+			s.blobStor, initMetabase, s.pilorama,
+		}
+	} else {
+		components = []initializer{s.blobStor, s.pilorama}
 	}
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache.Init)
+		components = append(components, s.writeCache)
 	}
 
 	for _, component := range components {
-		if err := component(); err != nil {
+		if err := component.Init(); err != nil {
+			if component == s.metaBase {
+				err = s.handleMetabaseFailure("init", err)
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
+
 			return fmt.Errorf("could not initialize %T: %w", component, err)
 		}
 	}
@@ -127,7 +178,11 @@ func (s *Shard) Close() error {
 		components = append(components, s.writeCache)
 	}
 
-	components = append(components, s.pilorama, s.blobStor, s.metaBase)
+	components = append(components, s.pilorama, s.blobStor)
+
+	if s.GetMode() != ModeDegraded {
+		components = append(components, s.metaBase)
+	}
 
 	for _, component := range components {
 		if err := component.Close(); err != nil {
