@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"go.uber.org/zap"
 )
 
@@ -32,8 +33,23 @@ func (e *StorageEngine) Init() error {
 
 	for id, sh := range e.shards {
 		if err := sh.Init(); err != nil {
+			if errors.Is(err, blobstor.ErrInitBlobovniczas) {
+				delete(e.shards, id)
+
+				e.log.Error("shard initialization failure, skipping",
+					zap.String("id", id),
+					zap.Error(err),
+				)
+
+				continue
+			}
+
 			return fmt.Errorf("could not initialize shard %s: %w", id, err)
 		}
+	}
+
+	if len(e.shards) == 0 {
+		return errors.New("failed initialization on all shards")
 	}
 
 	return nil
