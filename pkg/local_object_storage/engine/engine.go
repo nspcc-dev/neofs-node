@@ -75,9 +75,13 @@ type cfg struct {
 	shardPoolSize uint32
 }
 
+const defaultErrorThreshold = 30
+
 func defaultCfg() *cfg {
 	return &cfg{
 		log: zap.L(),
+
+		errorsThreshold: defaultErrorThreshold,
 
 		shardPoolSize: 20,
 	}
@@ -123,6 +127,8 @@ func WithShardPoolSize(sz uint32) Option {
 // shard is moved to read-only mode.
 func WithErrorThreshold(sz uint32) Option {
 	return func(c *cfg) {
-		c.errorsThreshold = sz
+		if sz != 0 {
+			c.errorsThreshold = sz
+		}
 	}
 }
