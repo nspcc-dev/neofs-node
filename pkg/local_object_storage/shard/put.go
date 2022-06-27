@@ -15,13 +15,24 @@ type PutPrm struct {
 }
 
 // PutRes groups the resulting values of Put operation.
-type PutRes struct{}
+type PutRes struct {
+	metaErr bool
+	blobErr bool
+}
 
 // WithObject is a Put option to set object to save.
 func (p *PutPrm) WithObject(obj *object.Object) {
 	if p != nil {
 		p.obj = obj
 	}
+}
+
+func (r *PutRes) FromMeta() bool {
+	return r.metaErr
+}
+
+func (r *PutRes) FromBlobstor() bool {
+	return r.blobErr
 }
 
 // Put saves the object in shard.
@@ -31,7 +42,8 @@ func (p *PutPrm) WithObject(obj *object.Object) {
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
-	if s.GetMode() != ModeReadWrite {
+	mode := s.GetMode()
+	if mode&ModeReadOnly != 0 {
 		return nil, ErrReadOnlyMode
 	}
 
@@ -57,14 +69,16 @@ func (s *Shard) Put(prm PutPrm) (*PutRes, error) {
 
 	// res == nil if there is no writeCache or writeCache.Put has been failed
 	if res, err = s.blobStor.Put(putPrm); err != nil {
-		return nil, fmt.Errorf("could not put object to BLOB storage: %w", err)
+		return &PutRes{blobErr: true}, fmt.Errorf("could not put object to BLOB storage: %w", err)
 	}
 
-	// put to metabase
-	if err := meta.Put(s.metaBase, prm.obj, res.BlobovniczaID()); err != nil {
-		// may we need to handle this case in a special way
-		// since the object has been successfully written to BlobStor
-		return nil, fmt.Errorf("could not put object to metabase: %w", err)
+	if mode&ModeDegraded == 0 { // In degraded mode, skip metabase.
+		// put to metabase
+		if err := meta.Put(s.metaBase, prm.obj, res.BlobovniczaID()); err != nil {
+			// may we need to handle this case in a special way
+			// since the object has been successfully written to BlobStor
+			return &PutRes{metaErr: true}, fmt.Errorf("could not put object to metabase: %w", err)
+		}
 	}
 
 	return nil, nil

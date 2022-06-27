@@ -21,7 +21,9 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 				return true
 			}
 
-			e.reportShardError(sh, "could not check existence of object in shard", err)
+			if res != nil && res.FromMeta() {
+				e.reportShardError(sh, sh.metaErrorCount, "could not check existence of object in shard", err)
+			}
 		}
 
 		if res != nil && !exists {

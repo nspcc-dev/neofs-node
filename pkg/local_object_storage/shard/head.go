@@ -17,7 +17,8 @@ type HeadPrm struct {
 
 // HeadRes groups the resulting values of Head operation.
 type HeadRes struct {
-	obj *objectSDK.Object
+	obj  *objectSDK.Object
+	meta bool
 }
 
 // WithAddress is a Head option to set the address of the requested object.
@@ -41,6 +42,11 @@ func (p *HeadPrm) WithRaw(raw bool) {
 // Object returns the requested object header.
 func (r *HeadRes) Object() *objectSDK.Object {
 	return r.obj
+}
+
+// FromMeta returns true if the error is related to the metabase.
+func (r HeadRes) FromMeta() bool {
+	return r.meta
 }
 
 // Head reads header of the object from the shard.
@@ -67,13 +73,25 @@ func (s *Shard) Head(prm HeadPrm) (*HeadRes, error) {
 		// otherwise object seems to be flushed to metabase
 	}
 
+	if s.GetMode()&ModeDegraded != 0 { // In degraded mode, fallback to blobstor.
+		var getPrm GetPrm
+		getPrm.WithIgnoreMeta(true)
+		getPrm.WithAddress(getPrm.addr)
+
+		res, err := s.Get(getPrm)
+		if err != nil {
+			return nil, err
+		}
+		return &HeadRes{obj: res.obj.CutPayload()}, nil
+	}
+
 	var headParams meta.GetPrm
 	headParams.WithAddress(prm.addr)
 	headParams.WithRaw(prm.raw)
 
 	res, err := s.metaBase.Get(headParams)
 	if err != nil {
-		return nil, err
+		return &HeadRes{meta: true}, err
 	}
 
 	return &HeadRes{

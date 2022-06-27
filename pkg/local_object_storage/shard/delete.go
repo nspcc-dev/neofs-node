@@ -29,7 +29,8 @@ func (p *DeletePrm) WithAddresses(addr ...oid.Address) {
 // Delete removes data from the shard's writeCache, metaBase and
 // blobStor.
 func (s *Shard) Delete(prm DeletePrm) (*DeleteRes, error) {
-	if s.GetMode() != ModeReadWrite {
+	mode := s.GetMode()
+	if s.GetMode()&ModeReadOnly != 0 {
 		return nil, ErrReadOnlyMode
 	}
 
@@ -61,9 +62,12 @@ func (s *Shard) Delete(prm DeletePrm) (*DeleteRes, error) {
 		}
 	}
 
-	err := meta.Delete(s.metaBase, prm.addr...)
-	if err != nil {
-		return nil, err // stop on metabase error ?
+	var err error
+	if mode&ModeDegraded == 0 { // Skip metabase errors in degraded mode.
+		err = meta.Delete(s.metaBase, prm.addr...)
+		if err != nil {
+			return nil, err // stop on metabase error ?
+		}
 	}
 
 	for i := range prm.addr { // delete small object

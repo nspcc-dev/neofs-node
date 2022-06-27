@@ -126,7 +126,9 @@ func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
 
 				return true // stop, return it back
 			default:
-				e.reportShardError(sh, "could not get object from shard", err)
+				if !res.HasMeta() {
+					e.reportShardError(sh, sh.metaErrorCount, "could not get object from shard", err)
+				}
 				return false
 			}
 		}
@@ -162,7 +164,8 @@ func (e *StorageEngine) getRange(prm RngPrm) (*RngRes, error) {
 		if obj == nil {
 			return nil, outError
 		}
-		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
+		e.reportShardError(shardWithMeta, shardWithMeta.metaErrorCount,
+			"meta info was present, but object is missing",
 			metaError,
 			zap.Stringer("address", prm.addr),
 		)

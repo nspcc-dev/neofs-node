@@ -77,7 +77,6 @@ func (s *Shard) Get(prm GetPrm) (*GetRes, error) {
 
 		return res.Object(), nil
 	}
-
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
 		var getSmallPrm blobstor.GetSmallPrm
 		getSmallPrm.SetAddress(prm.addr)

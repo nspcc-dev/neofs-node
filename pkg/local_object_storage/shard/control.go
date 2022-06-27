@@ -30,7 +30,7 @@ func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
 	components := []interface{ Open() error }{
-		s.blobStor, s.pilorama,
+		s.blobStor, s.metaBase, s.pilorama,
 	}
 
 	if s.hasWriteCache() {
@@ -69,6 +69,8 @@ func (s *Shard) Init() error {
 
 	var components []initializer
 
+	metaIndex := -1
+
 	if s.GetMode() != ModeDegraded {
 		var initMetabase initializer
 
@@ -78,6 +80,7 @@ func (s *Shard) Init() error {
 			initMetabase = s.metaBase
 		}
 
+		metaIndex = 1
 		components = []initializer{
 			s.blobStor, initMetabase, s.pilorama,
 		}
@@ -89,9 +92,9 @@ func (s *Shard) Init() error {
 		components = append(components, s.writeCache)
 	}
 
-	for _, component := range components {
+	for i, component := range components {
 		if err := component.Init(); err != nil {
-			if component == s.metaBase {
+			if i == metaIndex {
 				err = s.handleMetabaseFailure("init", err)
 				if err != nil {
 					return err

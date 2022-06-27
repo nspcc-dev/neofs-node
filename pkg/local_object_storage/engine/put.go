@@ -101,12 +101,20 @@ func (e *StorageEngine) put(prm PutPrm) (*PutRes, error) {
 			var putPrm shard.PutPrm
 			putPrm.WithObject(prm.obj)
 
-			_, err = sh.Put(putPrm)
+			var res *shard.PutRes
+			res, err = sh.Put(putPrm)
 			if err != nil {
-				e.log.Warn("could not put object in shard",
-					zap.Stringer("shard", sh.ID()),
-					zap.String("error", err.Error()),
-				)
+				if res != nil && res.FromMeta() {
+					e.reportShardError(sh, sh.metaErrorCount, "could not put object in shard", err)
+					return
+				} else if res != nil && res.FromBlobstor() {
+					e.reportShardError(sh, sh.writeErrorCount, "could not put object in shard", err)
+					return
+				} else {
+					e.log.Warn("could not put object in shard",
+						zap.Stringer("shard", sh.ID()),
+						zap.String("error", err.Error()))
+				}
 
 				return
 			}

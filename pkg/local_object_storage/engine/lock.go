@@ -72,7 +72,10 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 			if err != nil {
 				var siErr *objectSDK.SplitInfoError
 				if !errors.As(err, &siErr) {
-					e.reportShardError(sh, "could not check locked object for presence in shard", err)
+					// In non-degraded mode the error originated from the metabase.
+					if sh.GetMode()&shard.ModeDegraded == 0 {
+						e.reportShardError(sh, sh.metaErrorCount, "could not check locked object for presence in shard", err)
+					}
 					return
 				}
 
@@ -84,7 +87,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 
 		err := sh.Lock(idCnr, locker, []oid.ID{locked})
 		if err != nil {
-			e.reportShardError(sh, "could not lock object in shard", err)
+			e.reportShardError(sh, sh.metaErrorCount, "could not lock object in shard", err)
 
 			if errors.As(err, &errIrregular) {
 				status = 1

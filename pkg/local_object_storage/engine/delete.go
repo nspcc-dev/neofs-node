@@ -57,7 +57,9 @@ func (e *StorageEngine) delete(prm DeletePrm) (*DeleteRes, error) {
 
 			resExists, err := sh.Exists(existsPrm)
 			if err != nil {
-				e.reportShardError(sh, "could not check object existence", err)
+				if resExists != nil && resExists.FromMeta() {
+					e.reportShardError(sh, sh.metaErrorCount, "could not check object existence", err)
+				}
 				return false
 			} else if !resExists.Exists() {
 				return false
@@ -68,7 +70,9 @@ func (e *StorageEngine) delete(prm DeletePrm) (*DeleteRes, error) {
 
 			_, err = sh.Inhume(shPrm)
 			if err != nil {
-				e.reportShardError(sh, "could not inhume object in shard", err)
+				if sh.GetMode() == shard.ModeReadWrite {
+					e.reportShardError(sh, sh.metaErrorCount, "could not inhume object in shard", err)
+				}
 
 				locked.is = errors.As(err, &locked.err)
 

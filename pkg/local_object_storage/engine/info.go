@@ -18,7 +18,7 @@ func (e *StorageEngine) DumpInfo() (i Info) {
 
 	for _, sh := range e.shards {
 		info := sh.DumpInfo()
-		info.ErrorCount = sh.errorCount.Load()
+		info.ErrorCount = sh.metaErrorCount.Load()
 		i.Shards = append(i.Shards, info)
 	}
 

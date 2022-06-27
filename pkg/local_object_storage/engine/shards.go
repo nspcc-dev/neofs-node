@@ -50,8 +50,9 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	}
 
 	e.shards[strID] = shardWrapper{
-		errorCount: atomic.NewUint32(0),
-		Shard:      sh,
+		metaErrorCount:  atomic.NewUint32(0),
+		writeErrorCount: atomic.NewUint32(0),
+		Shard:           sh,
 	}
 
 	e.shardPools[strID] = pool
@@ -135,7 +136,8 @@ func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode, resetErrorCount
 	for shID, sh := range e.shards {
 		if id.String() == shID {
 			if resetErrorCounter {
-				sh.errorCount.Store(0)
+				sh.metaErrorCount.Store(0)
+				sh.writeErrorCount.Store(0)
 			}
 			return sh.SetMode(m)
 		}

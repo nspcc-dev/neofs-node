@@ -77,8 +77,9 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 		}
 
 		engine.shards[s.ID().String()] = shardWrapper{
-			errorCount: atomic.NewUint32(0),
-			Shard:      s,
+			writeErrorCount: atomic.NewUint32(0),
+			metaErrorCount:  atomic.NewUint32(0),
+			Shard:           s,
 		}
 		engine.shardPools[s.ID().String()] = pool
 	}

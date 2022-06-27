@@ -68,7 +68,7 @@ func (e *StorageEngine) _select(prm SelectPrm) (*SelectRes, error) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
-			e.reportShardError(sh, "could not select objects from shard", err)
+			e.reportShardError(sh, sh.metaErrorCount, "could not select objects from shard", err)
 			return false
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
@@ -113,7 +113,7 @@ func (e *StorageEngine) list(limit uint64) (*SelectRes, error) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.List() // consider limit result of shard iterator
 		if err != nil {
-			e.reportShardError(sh, "could not select objects from shard", err)
+			e.reportShardError(sh, sh.metaErrorCount, "could not select objects from shard", err)
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
 				if _, ok := uniqueMap[addr.EncodeToString()]; !ok {

@@ -108,6 +108,11 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 			}
 		}()
 
+		if sh.GetMode() != shard.ModeReadWrite {
+			// Inhume is a modifying operation on metabase, so return here.
+			return false
+		}
+
 		if checkExists {
 			existPrm.WithAddress(addr)
 			exRes, err := sh.Exists(existPrm)
@@ -120,7 +125,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 
 				var siErr *objectSDK.SplitInfoError
 				if !errors.As(err, &siErr) {
-					e.reportShardError(sh, "could not check for presents in shard", err)
+					e.reportShardError(sh, sh.metaErrorCount, "could not check for presents in shard", err)
 					return
 				}
 
@@ -132,13 +137,12 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 
 		_, err := sh.Inhume(prm)
 		if err != nil {
-			e.reportShardError(sh, "could not inhume object in shard", err)
-
 			if errors.As(err, &errLocked) {
 				status = 1
 				return true
 			}
 
+			e.reportShardError(sh, sh.metaErrorCount, "could not inhume object in shard", err)
 			return false
 		}
 

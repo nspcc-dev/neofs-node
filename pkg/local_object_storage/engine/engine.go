@@ -28,7 +28,8 @@ type StorageEngine struct {
 }
 
 type shardWrapper struct {
-	errorCount *atomic.Uint32
+	metaErrorCount  *atomic.Uint32
+	writeErrorCount *atomic.Uint32
 	*shard.Shard
 }
 
@@ -36,10 +37,11 @@ type shardWrapper struct {
 // If it does, shard is set to read-only mode.
 func (e *StorageEngine) reportShardError(
 	sh hashedShard,
+	errorCount *atomic.Uint32,
 	msg string,
 	err error,
 	fields ...zap.Field) {
-	errCount := sh.errorCount.Inc()
+	errCount := errorCount.Inc()
 	e.log.Warn(msg, append([]zap.Field{
 		zap.Stringer("shard_id", sh.ID()),
 		zap.Uint32("error count", errCount),
@@ -50,7 +52,11 @@ func (e *StorageEngine) reportShardError(
 		return
 	}
 
-	err = sh.SetMode(shard.ModeDegraded)
+	if errorCount == sh.writeErrorCount {
+		err = sh.SetMode(sh.GetMode() | shard.ModeReadOnly)
+	} else {
+		err = sh.SetMode(sh.GetMode() | shard.ModeDegraded)
+	}
 	if err != nil {
 		e.log.Error("failed to move shard in degraded mode",
 			zap.Uint32("error count", errCount),

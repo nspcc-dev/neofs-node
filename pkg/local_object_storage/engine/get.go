@@ -107,7 +107,9 @@ func (e *StorageEngine) get(prm GetPrm) (*GetRes, error) {
 
 				return true // stop, return it back
 			default:
-				e.reportShardError(sh, "could not get object from shard", err)
+				if sh.GetMode()&shard.ModeDegraded == 0 {
+					e.reportShardError(sh, sh.metaErrorCount, "could not get object from shard", err)
+				}
 				return false
 			}
 		}
@@ -139,8 +141,9 @@ func (e *StorageEngine) get(prm GetPrm) (*GetRes, error) {
 		if obj == nil {
 			return nil, outError
 		}
-		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-			metaError, zap.Stringer("address", prm.addr))
+		e.log.Warn("meta info was present, but object is missing",
+			zap.String("err", metaError.Error()),
+			zap.Stringer("address", prm.addr))
 	}
 
 	return &GetRes{

@@ -75,7 +75,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (*ContainerSizeRes, 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		size, err := shard.ContainerSize(sh.Shard, prm.cnr)
 		if err != nil {
-			e.reportShardError(sh, "can't get container size", err,
+			e.reportShardError(sh, sh.metaErrorCount, "can't get container size", err,
 				zap.Stringer("container_id", prm.cnr),
 			)
 			return false
@@ -123,7 +123,7 @@ func (e *StorageEngine) listContainers() (*ListContainersRes, error) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		cnrs, err := shard.ListContainers(sh.Shard)
 		if err != nil {
-			e.reportShardError(sh, "can't get list of containers", err)
+			e.reportShardError(sh, sh.metaErrorCount, "can't get list of containers", err)
 			return false
 		}
 

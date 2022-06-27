@@ -112,7 +112,9 @@ func (e *StorageEngine) head(prm HeadPrm) (*HeadRes, error) {
 
 				return true // stop, return it back
 			default:
-				e.reportShardError(sh, "could not head object from shard", err)
+				if res != nil && res.FromMeta() {
+					e.reportShardError(sh, sh.metaErrorCount, "could not head object from shard", err)
+				}
 				return false
 			}
 		}
