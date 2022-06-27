@@ -345,7 +345,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
 	}
 
-	morphChain := &chainParams{
+	morphChain := chainParams{
 		log:  log,
 		cfg:  cfg,
 		key:  server.key,
@@ -922,7 +922,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	return server, nil
 }
 
-func createListener(ctx context.Context, cli *client.Client, p *chainParams) (event.Listener, error) {
+func createListener(ctx context.Context, cli *client.Client, p chainParams) (event.Listener, error) {
 	// listenerPoolCap is a capacity of a
 	// worker pool inside the listener. It
 	// is used to prevent blocking in neo-go:
@@ -957,7 +957,7 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 	return listener, err
 }
 
-func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
+func createClient(ctx context.Context, p chainParams, errChan chan<- error) (*client.Client, error) {
 	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
 	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.client")
 	if len(endpoints) == 0 {
