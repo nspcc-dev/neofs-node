@@ -1,11 +1,9 @@
 package container
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -30,7 +28,7 @@ type putEvent interface {
 type putContainerContext struct {
 	e putEvent
 
-	name, zone string // from container structure
+	d containerSDK.Domain
 }
 
 // Process a new container from the user by checking the container sanity
@@ -59,21 +57,15 @@ func (cp *Processor) processContainerPut(put putEvent) {
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	binCnr := ctx.e.Container()
-
-	cnr := containerSDK.New()
+	var cnr containerSDK.Container
 
 	err := cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
 	}
 
-	ownerContainer := cnr.OwnerID()
-	if ownerContainer == nil {
-		return errors.New("missing container owner")
-	}
-
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  *ownerContainer,
+		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerPut,
 		binTokenSession: ctx.e.SessionToken(),
 		binPublicKey:    ctx.e.PublicKey(),
@@ -96,12 +88,6 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("NNS: %w", err)
 	}
 
-	// perform format check
-	err = container.CheckFormat(cnr)
-	if err != nil {
-		return fmt.Errorf("incorrect container format: %w", err)
-	}
-
 	return nil
 }
 
@@ -116,8 +102,8 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	prm.SetKey(e.PublicKey())
 	prm.SetSignature(e.Signature())
 	prm.SetToken(e.SessionToken())
-	prm.SetName(ctx.name)
-	prm.SetZone(ctx.zone)
+	prm.SetName(ctx.d.Name())
+	prm.SetZone(ctx.d.Zone())
 
 	if nr := e.NotaryRequest(); nr != nil {
 		// put event was received via Notary service
@@ -169,13 +155,8 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	ownerContainer := cnr.Value.OwnerID()
-	if ownerContainer == nil {
-		return errors.New("missing container owner")
-	}
-
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  *ownerContainer,
+		ownerContainer:  cnr.Value.Owner(),
 		verb:            session.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,
@@ -213,47 +194,37 @@ func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	}
 }
 
-func checkNNS(ctx *putContainerContext, cnr *containerSDK.Container) error {
-	// fetch native name and zone
-	ctx.name, ctx.zone = containerSDK.GetNativeNameWithZone(cnr)
+func checkNNS(ctx *putContainerContext, cnr containerSDK.Container) error {
+	// fetch domain info
+	ctx.d = containerSDK.ReadDomain(cnr)
 
 	// if PutNamed event => check if values in container correspond to args
 	if named, ok := ctx.e.(interface {
 		Name() string
 		Zone() string
 	}); ok {
-		if name := named.Name(); name != ctx.name {
-			return fmt.Errorf("names differ %s/%s", name, ctx.name)
+		if name := named.Name(); name != ctx.d.Name() {
+			return fmt.Errorf("names differ %s/%s", name, ctx.d.Name())
 		}
 
-		if zone := named.Zone(); zone != ctx.zone {
-			return fmt.Errorf("zones differ %s/%s", zone, ctx.zone)
+		if zone := named.Zone(); zone != ctx.d.Zone() {
+			return fmt.Errorf("zones differ %s/%s", zone, ctx.d.Zone())
 		}
 	}
 
 	return nil
 }
 
-func checkSubnet(subCli *morphsubnet.Client, cnr *containerSDK.Container) error {
-	owner := cnr.OwnerID()
-	if owner == nil {
-		return errors.New("missing owner")
-	}
-
-	policy := cnr.PlacementPolicy()
-	if policy == nil {
-		return errors.New("missing placement policy")
-	}
-
+func checkSubnet(subCli *morphsubnet.Client, cnr containerSDK.Container) error {
 	prm := morphsubnet.UserAllowedPrm{}
 
-	subID := policy.Subnet()
+	subID := cnr.PlacementPolicy().Subnet()
 	if subnetid.IsZero(subID) {
 		return nil
 	}
 
 	prm.SetID(subID.Marshal())
-	prm.SetClient(owner.WalletBytes())
+	prm.SetClient(cnr.Owner().WalletBytes())
 
 	res, err := subCli.UserAllowed(prm)
 	if err != nil {

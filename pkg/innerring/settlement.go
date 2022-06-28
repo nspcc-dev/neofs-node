@@ -6,7 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -93,8 +92,8 @@ func (n nodeInfoWrapper) Price() *big.Int {
 	return big.NewInt(int64(n.ni.Price()))
 }
 
-func (c *containerWrapper) Owner() user.ID {
-	return *(*containerAPI.Container)(c).OwnerID()
+func (c containerWrapper) Owner() user.ID {
+	return (containerAPI.Container)(c).Owner()
 }
 
 func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, error) {
@@ -123,7 +122,7 @@ func (s settlementDeps) ContainerInfo(cid cid.ID) (common.ContainerInfo, error) 
 		return nil, fmt.Errorf("could not get container from storage: %w", err)
 	}
 
-	return (*containerWrapper)(cnr.Value), nil
+	return (containerWrapper)(cnr.Value), nil
 }
 
 func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.NodeInfo, *netmapAPI.NetMap, error) {
@@ -147,16 +146,11 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.Node
 		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
 	}
 
-	policy := cnr.Value.PlacementPolicy()
-	if policy == nil {
-		return nil, nil, errors.New("missing placement policy in container")
-	}
-
 	binCnr := make([]byte, sha256.Size)
 	cid.Encode(binCnr)
 
 	cn, err := nm.ContainerNodes(
-		*policy,
+		cnr.Value.PlacementPolicy(),
 		binCnr, // may be replace pivot calculation to neofs-api-go
 	)
 	if err != nil {

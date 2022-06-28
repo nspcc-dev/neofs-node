@@ -45,17 +45,9 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 	}
 
 	policy := cnr.Value.PlacementPolicy()
-	if policy == nil {
-		p.log.Error("missing placement policy in container",
-			zap.Stringer("cid", idCnr),
-		)
-
-		return
-	}
-
 	obj := addr.Object()
 
-	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, *policy)
+	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, policy)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.String("error", err.Error()),

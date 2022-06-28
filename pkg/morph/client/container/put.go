@@ -1,7 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -16,21 +15,14 @@ import (
 //
 // Returns error if container is nil.
 func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
-	if cnr.Value == nil {
-		return nil, errNilArgument
-	}
+	data := cnr.Value.Marshal()
 
-	data, err := cnr.Value.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("can't marshal container: %w", err)
-	}
-
-	name, zone := container.GetNativeNameWithZone(cnr.Value)
+	d := container.ReadDomain(cnr.Value)
 
 	var prm PutPrm
 	prm.SetContainer(data)
-	prm.SetName(name)
-	prm.SetZone(zone)
+	prm.SetName(d.Name())
+	prm.SetZone(d.Zone())
 
 	if cnr.Session != nil {
 		prm.SetToken(cnr.Session.Marshal())
@@ -43,13 +35,13 @@ func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 	prm.SetKey(sigV2.GetKey())
 	prm.SetSignature(sigV2.GetSign())
 
-	err = c.Put(prm)
+	err := c.Put(prm)
 	if err != nil {
 		return nil, err
 	}
 
 	var id cid.ID
-	id.SetSHA256(sha256.Sum256(data))
+	container.CalculateIDFromBinary(&id, data)
 
 	return &id, nil
 }

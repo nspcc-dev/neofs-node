@@ -12,8 +12,8 @@ import (
 func TestStorage(t *testing.T) {
 	const epoch uint64 = 13
 
-	a := container.NewAnnouncement()
-	a.SetContainerID(cidtest.ID())
+	var a container.SizeEstimation
+	a.SetContainer(cidtest.ID())
 	a.SetEpoch(epoch)
 
 	const opinionsNum = 100
@@ -24,25 +24,23 @@ func TestStorage(t *testing.T) {
 	for i := range opinions {
 		opinions[i] = rand.Uint64()
 
-		a.SetUsedSpace(opinions[i])
+		a.SetValue(opinions[i])
 
-		require.NoError(t, s.Put(*a))
+		require.NoError(t, s.Put(a))
 	}
 
 	iterCounter := 0
 
 	err := s.Iterate(
-		func(ai container.UsedSpaceAnnouncement) bool {
+		func(ai container.SizeEstimation) bool {
 			return ai.Epoch() == epoch
 		},
-		func(ai container.UsedSpaceAnnouncement) error {
+		func(ai container.SizeEstimation) error {
 			iterCounter++
 
 			require.Equal(t, epoch, ai.Epoch())
-			cnr1, _ := a.ContainerID()
-			cnr2, _ := ai.ContainerID()
-			require.Equal(t, cnr1, cnr2)
-			require.Equal(t, finalEstimation(opinions), ai.UsedSpace())
+			require.Equal(t, a.Container(), ai.Container())
+			require.Equal(t, finalEstimation(opinions), ai.Value())
 
 			return nil
 		},

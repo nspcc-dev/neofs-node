@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
 )
 
@@ -26,13 +27,12 @@ var getContainerInfoCmd = &cobra.Command{
 	Short: "Get container field info",
 	Long:  `Get container field info`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cnr *container.Container
+		var cnr container.Container
 
 		if containerPathFrom != "" {
 			data, err := os.ReadFile(containerPathFrom)
 			common.ExitOnErr(cmd, "can't read file: %w", err)
 
-			cnr = container.New()
 			err = cnr.Unmarshal(data)
 			common.ExitOnErr(cmd, "can't unmarshal container: %w", err)
 		} else {
@@ -62,8 +62,7 @@ var getContainerInfoCmd = &cobra.Command{
 				data, err = cnr.MarshalJSON()
 				common.ExitOnErr(cmd, "can't JSON encode container: %w", err)
 			} else {
-				data, err = cnr.Marshal()
-				common.ExitOnErr(cmd, "can't binary encode container: %w", err)
+				data = cnr.Marshal()
 			}
 
 			err = os.WriteFile(containerPathTo, data, 0644)
@@ -90,11 +89,7 @@ func (x *stringWriter) WriteString(s string) (n int, err error) {
 	return len(s), nil
 }
 
-func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEncoding bool) {
-	if cnr == nil {
-		return
-	}
-
+func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncoding bool) {
 	if jsonEncoding {
 		data, err := cnr.MarshalJSON()
 		if err != nil {
@@ -111,45 +106,25 @@ func prettyPrintContainer(cmd *cobra.Command, cnr *container.Container, jsonEnco
 		return
 	}
 
-	id := container.CalculateID(cnr)
+	var id cid.ID
+	container.CalculateID(&id, cnr)
 	cmd.Println("container ID:", id)
 
-	v := cnr.Version()
-	cmd.Printf("version: %d.%d\n", v.Major(), v.Minor())
-
-	cmd.Println("owner ID:", cnr.OwnerID())
+	cmd.Println("owner ID:", cnr.Owner())
 
 	basicACL := cnr.BasicACL()
 	prettyPrintBasicACL(cmd, basicACL)
 
-	for _, attribute := range cnr.Attributes() {
-		if attribute.Key() == container.AttributeTimestamp {
-			cmd.Printf("attribute: %s=%s (%s)\n",
-				attribute.Key(),
-				attribute.Value(),
-				common.PrettyPrintUnixTime(attribute.Value()))
+	cmd.Println("created:", container.CreatedAt(cnr))
 
-			continue
-		}
+	cmd.Println("attributes:")
+	cnr.IterateAttributes(func(key, val string) {
+		cmd.Printf("\t%s=%s\n", key, val)
+	})
 
-		cmd.Printf("attribute: %s=%s\n", attribute.Key(), attribute.Value())
-	}
-
-	nonce, err := cnr.NonceUUID()
-	if err == nil {
-		cmd.Println("nonce:", nonce)
-	} else {
-		cmd.Println("invalid nonce:", err)
-	}
-
-	pp := cnr.PlacementPolicy()
-	if pp == nil {
-		cmd.Println("missing placement policy")
-	} else {
-		cmd.Println("placement policy:")
-		common.ExitOnErr(cmd, "write policy: %w", pp.WriteStringTo((*stringWriter)(cmd)))
-		cmd.Println()
-	}
+	cmd.Println("placement policy:")
+	common.ExitOnErr(cmd, "write policy: %w", cnr.PlacementPolicy().WriteStringTo((*stringWriter)(cmd)))
+	cmd.Println()
 }
 
 func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {

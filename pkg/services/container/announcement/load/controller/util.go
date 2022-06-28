@@ -7,7 +7,7 @@ import (
 )
 
 func usedSpaceFilterEpochEQ(epoch uint64) UsedSpaceFilter {
-	return func(a container.UsedSpaceAnnouncement) bool {
+	return func(a container.SizeEstimation) bool {
 		return a.Epoch() == epoch
 	}
 }

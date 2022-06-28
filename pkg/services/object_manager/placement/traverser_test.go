@@ -40,7 +40,7 @@ func copyVectors(v [][]netmap.NodeInfo) [][]netmap.NodeInfo {
 	return vc
 }
 
-func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, *container.Container) {
+func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, container.Container) {
 	nodes := make([][]netmap.NodeInfo, 0, len(rs))
 	replicas := make([]netmap.ReplicaDescriptor, 0, len(rs))
 	num := uint32(0)
@@ -61,10 +61,13 @@ func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, *container.
 		replicas = append(replicas, rd)
 	}
 
-	policy := new(netmap.PlacementPolicy)
+	var policy netmap.PlacementPolicy
 	policy.AddReplicas(replicas...)
 
-	return nodes, container.New(container.WithPolicy(policy))
+	var cnr container.Container
+	cnr.SetPlacementPolicy(policy)
+
+	return nodes, cnr
 }
 
 func assertSameAddress(t *testing.T, ni netmap.NodeInfo, addr network.AddressGroup) {

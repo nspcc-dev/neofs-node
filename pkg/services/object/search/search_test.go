@@ -33,7 +33,7 @@ type testStorage struct {
 }
 
 type testTraverserGenerator struct {
-	c *container.Container
+	c container.Container
 	b map[uint64]placement.Builder
 }
 
@@ -241,8 +241,11 @@ func TestGetRemoteSmall(t *testing.T) {
 	var pp netmap.PlacementPolicy
 	pp.AddReplicas(rs...)
 
-	cnr := container.New(container.WithPolicy(&pp))
-	id := container.CalculateID(cnr)
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+
+	var id cid.ID
+	container.CalculateID(&id, cnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -327,8 +330,11 @@ func TestGetFromPastEpoch(t *testing.T) {
 	var pp netmap.PlacementPolicy
 	pp.AddReplicas(rs...)
 
-	cnr := container.New(container.WithPolicy(&pp))
-	idCnr := container.CalculateID(cnr)
+	var cnr container.Container
+	cnr.SetPlacementPolicy(pp)
+
+	var idCnr cid.ID
+	container.CalculateID(&idCnr, cnr)
 
 	var addr oid.Address
 	addr.SetContainer(idCnr)

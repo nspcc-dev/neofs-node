@@ -3,7 +3,6 @@ package loadroute
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"sync"
 
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
@@ -71,7 +70,7 @@ type routeKey struct {
 type valuesRoute struct {
 	route []ServerInfo
 
-	values []container.UsedSpaceAnnouncement
+	values []container.SizeEstimation
 }
 
 type loadWriter struct {
@@ -85,18 +84,13 @@ type loadWriter struct {
 	mServers map[string]loadcontroller.Writer
 }
 
-func (w *loadWriter) Put(a container.UsedSpaceAnnouncement) error {
-	cnr, ok := a.ContainerID()
-	if !ok {
-		return errors.New("missing container in load announcement")
-	}
-
+func (w *loadWriter) Put(a container.SizeEstimation) error {
 	w.routeMtx.Lock()
 	defer w.routeMtx.Unlock()
 
 	key := routeKey{
 		epoch: a.Epoch(),
-		cid:   cnr.EncodeToString(),
+		cid:   a.Container().EncodeToString(),
 	}
 
 	routeValues, ok := w.mRoute[key]
@@ -110,7 +104,7 @@ func (w *loadWriter) Put(a container.UsedSpaceAnnouncement) error {
 
 		routeValues = &valuesRoute{
 			route:  route,
-			values: []container.UsedSpaceAnnouncement{a},
+			values: []container.SizeEstimation{a},
 		}
 
 		w.mRoute[key] = routeValues

@@ -1,7 +1,6 @@
 package loadstorage
 
 import (
-	"errors"
 	"sort"
 	"sync"
 
@@ -10,7 +9,7 @@ import (
 )
 
 type usedSpaceEstimations struct {
-	announcement container.UsedSpaceAnnouncement
+	announcement container.SizeEstimation
 
 	sizes []uint64
 }
@@ -22,7 +21,7 @@ type storageKey struct {
 }
 
 // Storage represents in-memory storage of
-// UsedSpaceAnnouncement values.
+// container.SizeEstimation values.
 //
 // The write operation has the usual behavior - to save
 // the next number of used container space for a specific epoch.
@@ -63,18 +62,13 @@ func New(_ Prm) *Storage {
 // to the list of already saved values.
 //
 // Always returns nil error.
-func (s *Storage) Put(a container.UsedSpaceAnnouncement) error {
-	cnr, ok := a.ContainerID()
-	if !ok {
-		return errors.New("missing container in load announcement")
-	}
-
+func (s *Storage) Put(a container.SizeEstimation) error {
 	s.mtx.Lock()
 
 	{
 		key := storageKey{
 			epoch: a.Epoch(),
-			cid:   cnr.EncodeToString(),
+			cid:   a.Container().EncodeToString(),
 		}
 
 		estimations, ok := s.mItems[key]
@@ -87,7 +81,7 @@ func (s *Storage) Put(a container.UsedSpaceAnnouncement) error {
 			s.mItems[key] = estimations
 		}
 
-		estimations.sizes = append(estimations.sizes, a.UsedSpace())
+		estimations.sizes = append(estimations.sizes, a.Value())
 	}
 
 	s.mtx.Unlock()
@@ -110,7 +104,7 @@ func (s *Storage) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontroller.Use
 		for _, v := range s.mItems {
 			if f(v.announcement) {
 				// calculate estimation based on 90th percentile
-				v.announcement.SetUsedSpace(finalEstimation(v.sizes))
+				v.announcement.SetValue(finalEstimation(v.sizes))
 
 				if err = h(v.announcement); err != nil {
 					break

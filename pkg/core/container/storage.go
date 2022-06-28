@@ -14,7 +14,7 @@ import (
 // Container groups information about the NeoFS container stored in the NeoFS network.
 type Container struct {
 	// Container structure.
-	Value *container.Container
+	Value container.Container
 
 	// Signature of the Value.
 	Signature neofscrypto.Signature

@@ -35,7 +35,7 @@ type testStorage struct {
 }
 
 type testTraverserGenerator struct {
-	c *container.Container
+	c container.Container
 	b map[uint64]placement.Builder
 }
 
@@ -69,7 +69,7 @@ func newTestStorage() *testStorage {
 }
 
 func (g *testTraverserGenerator) GenerateTraverser(cnr cid.ID, obj *oid.ID, e uint64) (*placement.Traverser, error) {
-	opts := make([]placement.Option, 3, 4)
+	opts := make([]placement.Option, 0, 4)
 	opts = append(opts,
 		placement.ForContainer(g.c),
 		placement.UseBuilder(g.b[e]),
@@ -466,9 +466,11 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 func TestGetRemoteSmall(t *testing.T) {
 	ctx := context.Background()
 
-	pp := netmaptest.PlacementPolicy()
-	cnr := container.New(container.WithPolicy(&pp))
-	idCnr := container.CalculateID(cnr)
+	var cnr container.Container
+	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
+
+	var idCnr cid.ID
+	container.CalculateID(&idCnr, cnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -1119,9 +1121,11 @@ func TestGetRemoteSmall(t *testing.T) {
 func TestGetFromPastEpoch(t *testing.T) {
 	ctx := context.Background()
 
-	pp := netmaptest.PlacementPolicy()
-	cnr := container.New(container.WithPolicy(&pp))
-	idCnr := container.CalculateID(cnr)
+	var cnr container.Container
+	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
+
+	var idCnr cid.ID
+	container.CalculateID(&idCnr, cnr)
 
 	addr := oidtest.Address()
 	addr.SetContainer(idCnr)

@@ -19,12 +19,12 @@ type testAnnouncementStorage struct {
 
 	mtx sync.RWMutex
 
-	m map[uint64][]container.UsedSpaceAnnouncement
+	m map[uint64][]container.SizeEstimation
 }
 
 func newTestStorage() *testAnnouncementStorage {
 	return &testAnnouncementStorage{
-		m: make(map[uint64][]container.UsedSpaceAnnouncement),
+		m: make(map[uint64][]container.SizeEstimation),
 	}
 }
 
@@ -61,7 +61,7 @@ func (s *testAnnouncementStorage) InitWriter(context.Context) (loadcontroller.Wr
 	return s, nil
 }
 
-func (s *testAnnouncementStorage) Put(v container.UsedSpaceAnnouncement) error {
+func (s *testAnnouncementStorage) Put(v container.SizeEstimation) error {
 	s.mtx.Lock()
 	s.m[v.Epoch()] = append(s.m[v.Epoch()], v)
 	s.mtx.Unlock()
@@ -73,12 +73,11 @@ func (s *testAnnouncementStorage) Close() error {
 	return nil
 }
 
-func randAnnouncement() container.UsedSpaceAnnouncement {
-	a := container.NewAnnouncement()
-	a.SetContainerID(cidtest.ID())
-	a.SetUsedSpace(rand.Uint64())
+func randAnnouncement() (a container.SizeEstimation) {
+	a.SetContainer(cidtest.ID())
+	a.SetValue(rand.Uint64())
 
-	return *a
+	return
 }
 
 func TestSimpleScenario(t *testing.T) {
@@ -116,7 +115,7 @@ func TestSimpleScenario(t *testing.T) {
 	const goodNum = 4
 
 	// create 2 random values for processing epoch and 1 for some different
-	announces := make([]container.UsedSpaceAnnouncement, 0, goodNum)
+	announces := make([]container.SizeEstimation, 0, goodNum)
 
 	for i := 0; i < goodNum; i++ {
 		a := randAnnouncement()
@@ -174,13 +173,13 @@ func TestSimpleScenario(t *testing.T) {
 	wg.Wait()
 
 	// result target should contain all "good" announcements and shoult not container the "bad" one
-	var res []container.UsedSpaceAnnouncement
+	var res []container.SizeEstimation
 
 	err := resultStorage.Iterate(
-		func(a container.UsedSpaceAnnouncement) bool {
+		func(a container.SizeEstimation) bool {
 			return true
 		},
-		func(a container.UsedSpaceAnnouncement) error {
+		func(a container.SizeEstimation) error {
 			res = append(res, a)
 			return nil
 		},

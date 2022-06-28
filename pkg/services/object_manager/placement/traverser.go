@@ -45,7 +45,8 @@ type cfg struct {
 
 	obj *oid.ID
 
-	policy *netmap.PlacementPolicy
+	policySet bool
+	policy    netmap.PlacementPolicy
 
 	builder Builder
 }
@@ -74,11 +75,11 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 
 	if cfg.builder == nil {
 		return nil, fmt.Errorf("%s: %w", invalidOptsMsg, errNilBuilder)
-	} else if cfg.policy == nil {
+	} else if !cfg.policySet {
 		return nil, fmt.Errorf("%s: %w", invalidOptsMsg, errNilPolicy)
 	}
 
-	ns, err := cfg.builder.BuildPlacement(cfg.cnr, cfg.obj, *cfg.policy)
+	ns, err := cfg.builder.BuildPlacement(cfg.cnr, cfg.obj, cfg.policy)
 	if err != nil {
 		return nil, fmt.Errorf("could not build placement: %w", err)
 	}
@@ -219,10 +220,11 @@ func UseBuilder(b Builder) Option {
 }
 
 // ForContainer is a traversal container setting option.
-func ForContainer(cnr *container.Container) Option {
+func ForContainer(cnr container.Container) Option {
 	return func(c *cfg) {
 		c.policy = cnr.PlacementPolicy()
-		c.cnr = container.CalculateID(cnr)
+		c.policySet = true
+		container.CalculateID(&c.cnr, cnr)
 	}
 }
 

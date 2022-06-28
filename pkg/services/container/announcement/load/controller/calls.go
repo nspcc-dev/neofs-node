@@ -29,7 +29,7 @@ type announceContext struct {
 	commonContext
 }
 
-// Start starts the processing of UsedSpaceAnnouncement values.
+// Start starts the processing of container.SizeEstimation values.
 //
 // Single Start operation overtakes all data from LocalMetrics to
 // LocalAnnouncementTarget (Controller's parameters).
@@ -82,10 +82,10 @@ func (c *announceContext) announce() {
 
 	// iterate over all collected metrics and write them to the target
 	err = metricsIterator.Iterate(
-		func(container.UsedSpaceAnnouncement) bool {
+		func(container.SizeEstimation) bool {
 			return true // local metrics don't know about epochs
 		},
-		func(a container.UsedSpaceAnnouncement) error {
+		func(a container.SizeEstimation) error {
 			a.SetEpoch(c.epoch) // set epoch explicitly
 			return targetWriter.Put(a)
 		},
@@ -179,7 +179,7 @@ type stopContext struct {
 	commonContext
 }
 
-// Stop interrupts the processing of UsedSpaceAnnouncement values.
+// Stop interrupts the processing of container.SizeEstimation values.
 //
 // Single Stop operation releases an announcement context and overtakes
 // all data from AnnouncementAccumulator to ResultReceiver (Controller's
