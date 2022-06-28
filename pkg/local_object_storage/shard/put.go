@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -29,7 +30,7 @@ func (p *PutPrm) SetObject(obj *object.Object) {
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Put(prm PutPrm) (PutRes, error) {
-	if s.GetMode() != ModeReadWrite {
+	if s.GetMode() != mode.ReadWrite {
 		return PutRes{}, ErrReadOnlyMode
 	}
 

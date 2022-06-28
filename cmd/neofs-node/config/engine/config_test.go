@@ -10,7 +10,7 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +34,7 @@ func TestEngineSection(t *testing.T) {
 
 		require.EqualValues(t, 0, engineconfig.ShardErrorThreshold(empty))
 		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, engineconfig.ShardPoolSize(empty))
-		require.EqualValues(t, shard.ModeReadWrite, shardconfig.From(empty).Mode())
+		require.EqualValues(t, mode.ReadWrite, shardconfig.From(empty).Mode())
 	})
 
 	const path = "../../../../config/example/node"
@@ -95,7 +95,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
 
 				require.Equal(t, false, sc.RefillMetabase())
-				require.Equal(t, shard.ModeReadOnly, sc.Mode())
+				require.Equal(t, mode.ReadOnly, sc.Mode())
 			case 1:
 				require.Equal(t, "tmp/1/blob/pilorama.db", pl.Path())
 				require.Equal(t, fs.FileMode(0644), pl.Perm())
@@ -133,7 +133,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())
 
 				require.Equal(t, true, sc.RefillMetabase())
-				require.Equal(t, shard.ModeReadWrite, sc.Mode())
+				require.Equal(t, mode.ReadWrite, sc.Mode())
 			}
 		})
 

@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -23,7 +24,7 @@ type Cache interface {
 	Delete(oid.Address) error
 	Iterate(IterationPrm) error
 	Put(*object.Object) error
-	SetMode(Mode)
+	SetMode(mode.Mode)
 	SetLogger(*zap.Logger)
 	DumpInfo() Info
 
@@ -39,7 +40,7 @@ type cache struct {
 	mtx sync.RWMutex
 	mem []objectInfo
 
-	mode    Mode
+	mode    mode.Mode
 	modeMtx sync.RWMutex
 
 	// compressFlags maps address of a big object to boolean value indicating
@@ -90,7 +91,7 @@ func New(opts ...Option) Cache {
 		metaCh:   make(chan *object.Object),
 		closeCh:  make(chan struct{}),
 		evictCh:  make(chan []byte),
-		mode:     ModeReadWrite,
+		mode:     mode.ReadWrite,
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
@@ -152,7 +153,7 @@ func (c *cache) Init() error {
 // Close closes db connection and stops services. Executes ObjectCounters.FlushAndClose op.
 func (c *cache) Close() error {
 	// Finish all in-progress operations.
-	c.SetMode(ModeReadOnly)
+	c.SetMode(mode.ReadOnly)
 
 	close(c.closeCh)
 	c.objCounters.FlushAndClose()

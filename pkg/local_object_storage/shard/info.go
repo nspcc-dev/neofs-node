@@ -4,6 +4,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 )
 
@@ -13,7 +14,7 @@ type Info struct {
 	ID *ID
 
 	// Shard mode.
-	Mode Mode
+	Mode mode.Mode
 
 	// Information about the metabase.
 	MetaBaseInfo meta.Info

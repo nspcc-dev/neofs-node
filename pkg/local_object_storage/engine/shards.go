@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
@@ -129,7 +130,7 @@ func (e *StorageEngine) iterateOverUnsortedShards(handler func(hashedShard) (sto
 // SetShardMode sets mode of the shard with provided identifier.
 //
 // Returns an error if shard mode was not set, or shard was not found in storage engine.
-func (e *StorageEngine) SetShardMode(id *shard.ID, m shard.Mode, resetErrorCounter bool) error {
+func (e *StorageEngine) SetShardMode(id *shard.ID, m mode.Mode, resetErrorCounter bool) error {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 

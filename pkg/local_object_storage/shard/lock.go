@@ -3,6 +3,7 @@ package shard
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -14,7 +15,7 @@ import (
 //
 // Locked list should be unique. Panics if it is empty.
 func (s *Shard) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
-	if s.GetMode() != ModeReadWrite {
+	if s.GetMode() != mode.ReadWrite {
 		return ErrReadOnlyMode
 	}
 

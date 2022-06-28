@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -62,7 +63,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		require.ErrorIs(t, err, shard.ErrMustBeReadOnly)
 	})
 
-	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
+	require.NoError(t, sh.SetMode(mode.ReadOnly))
 	outEmpty := out + ".empty"
 	var dumpPrm shard.DumpPrm
 	dumpPrm.WithPath(outEmpty)
@@ -70,7 +71,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	res, err := sh.Dump(dumpPrm)
 	require.NoError(t, err)
 	require.Equal(t, 0, res.Count())
-	require.NoError(t, sh.SetMode(shard.ModeReadWrite))
+	require.NoError(t, sh.SetMode(mode.ReadWrite))
 
 	// Approximate object header size.
 	const headerSize = 400
@@ -100,7 +101,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
+	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 	t.Run("invalid path", func(t *testing.T) {
 		var dumpPrm shard.DumpPrm
@@ -198,13 +199,13 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		var prm shard.RestorePrm
 		prm.WithPath(out)
 		t.Run("must allow write", func(t *testing.T) {
-			require.NoError(t, sh.SetMode(shard.ModeReadOnly))
+			require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 			_, err := sh.Restore(prm)
 			require.ErrorIs(t, err, shard.ErrReadOnlyMode)
 		})
 
-		require.NoError(t, sh.SetMode(shard.ModeReadWrite))
+		require.NoError(t, sh.SetMode(mode.ReadWrite))
 
 		checkRestore(t, sh, prm, objects)
 	})
@@ -230,7 +231,7 @@ func TestStream(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, sh1.SetMode(shard.ModeReadOnly))
+	require.NoError(t, sh1.SetMode(mode.ReadOnly))
 
 	r, w := io.Pipe()
 	finish := make(chan struct{})
@@ -352,7 +353,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 
 	bsOpts = append(bsOpts, blobstor.WithBlobovniczaShallowWidth(3))
 	sh = newCustomShard(t, dir, true, wcOpts, bsOpts)
-	require.NoError(t, sh.SetMode(shard.ModeReadOnly))
+	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 	{
 		// 2. Invalid object in blobovnicza.

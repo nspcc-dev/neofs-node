@@ -3,20 +3,8 @@ package writecache
 import (
 	"errors"
 	"time"
-)
 
-// Mode represents write-cache mode of operation.
-type Mode uint32
-
-const (
-	// ModeReadWrite is a default mode allowing objects to be flushed.
-	ModeReadWrite Mode = iota
-
-	// ModeReadOnly is a mode in which write-cache doesn't flush anything to a metabase.
-	ModeReadOnly
-
-	// ModeDegraded is similar to a shard's degraded mode.
-	ModeDegraded
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
 // ErrReadOnly is returned when Put/Write is performed in a read-only mode.
@@ -25,7 +13,7 @@ var ErrReadOnly = errors.New("write-cache is in read-only mode")
 // SetMode sets write-cache mode of operation.
 // When shard is put in read-only mode all objects in memory are flushed to disk
 // and all background jobs are suspended.
-func (c *cache) SetMode(m Mode) {
+func (c *cache) SetMode(m mode.Mode) {
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 	if c.mode == m {
@@ -33,7 +21,7 @@ func (c *cache) SetMode(m Mode) {
 	}
 
 	c.mode = m
-	if m == ModeReadWrite {
+	if m == mode.ReadWrite {
 		return
 	}
 
@@ -57,5 +45,5 @@ func (c *cache) SetMode(m Mode) {
 // readOnly returns true if current mode is read-only.
 // `c.modeMtx` must be taken.
 func (c *cache) readOnly() bool {
-	return c.mode != ModeReadWrite
+	return c.mode != mode.ReadWrite
 }

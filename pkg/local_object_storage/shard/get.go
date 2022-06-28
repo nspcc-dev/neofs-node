@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -121,7 +122,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 		mPrm.SetAddress(addr)
 
 		mRes, err := s.metaBase.Exists(mPrm)
-		if err != nil && s.GetMode() != ModeDegraded {
+		if err != nil && s.GetMode() != mode.Degraded {
 			return res, false, err
 		}
 		exists = mRes.Exists()

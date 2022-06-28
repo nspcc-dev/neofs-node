@@ -9,7 +9,7 @@ import (
 	metabaseconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/metabase"
 	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	writecacheconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
 // Config is a wrapper over the config section
@@ -75,7 +75,7 @@ func (x *Config) RefillMetabase() bool {
 //
 // Panics if read the value is not one of predefined
 // shard modes.
-func (x *Config) Mode() (m shard.Mode) {
+func (x *Config) Mode() (m mode.Mode) {
 	s := config.StringSafe(
 		(*config.Config)(x),
 		"mode",
@@ -83,11 +83,11 @@ func (x *Config) Mode() (m shard.Mode) {
 
 	switch s {
 	case "read-write", "":
-		m = shard.ModeReadWrite
+		m = mode.ReadWrite
 	case "read-only":
-		m = shard.ModeReadOnly
+		m = mode.ReadOnly
 	case "degraded":
-		m = shard.ModeDegraded
+		m = mode.Degraded
 	default:
 		panic(fmt.Sprintf("unknown shard mode: %s", s))
 	}

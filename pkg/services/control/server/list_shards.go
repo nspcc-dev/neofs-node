@@ -3,7 +3,7 @@ package control
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,20 +34,20 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 		si.SetWriteCachePath(sh.WriteCacheInfo.Path)
 		si.SetPiloramaPath(sh.PiloramaInfo.Path)
 
-		var mode control.ShardMode
+		var m control.ShardMode
 
 		switch sh.Mode {
-		case shard.ModeReadWrite:
-			mode = control.ShardMode_READ_WRITE
-		case shard.ModeReadOnly:
-			mode = control.ShardMode_READ_ONLY
-		case shard.ModeDegraded:
-			mode = control.ShardMode_DEGRADED
+		case mode.ReadWrite:
+			m = control.ShardMode_READ_WRITE
+		case mode.ReadOnly:
+			m = control.ShardMode_READ_ONLY
+		case mode.Degraded:
+			m = control.ShardMode_DEGRADED
 		default:
-			mode = control.ShardMode_SHARD_MODE_UNDEFINED
+			m = control.ShardMode_SHARD_MODE_UNDEFINED
 		}
 
-		si.SetMode(mode)
+		si.SetMode(m)
 		si.SetErrorCount(sh.ErrorCount)
 
 		shardInfos = append(shardInfos, si)
