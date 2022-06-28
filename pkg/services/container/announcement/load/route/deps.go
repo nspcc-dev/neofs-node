@@ -33,7 +33,7 @@ type Builder interface {
 	// in that list (means that point is the last point in one of the route groups),
 	// returned route must contain nil point that should be interpreted as signal to,
 	// among sending to other route points, save the announcement in that point.
-	NextStage(a container.UsedSpaceAnnouncement, passed []ServerInfo) ([]ServerInfo, error)
+	NextStage(a container.SizeEstimation, passed []ServerInfo) ([]ServerInfo, error)
 }
 
 // RemoteWriterProvider describes the component

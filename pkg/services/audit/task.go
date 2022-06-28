@@ -17,7 +17,7 @@ type Task struct {
 
 	idCnr cid.ID
 
-	cnr *container.Container
+	cnr container.Container
 
 	nm *netmap.NetMap
 
@@ -69,7 +69,7 @@ func (t *Task) ContainerID() cid.ID {
 }
 
 // WithContainerStructure sets structure of the container under audit.
-func (t *Task) WithContainerStructure(cnr *container.Container) *Task {
+func (t *Task) WithContainerStructure(cnr container.Container) *Task {
 	if t != nil {
 		t.cnr = cnr
 	}
@@ -78,7 +78,7 @@ func (t *Task) WithContainerStructure(cnr *container.Container) *Task {
 }
 
 // ContainerStructure returns structure of the container under audit.
-func (t *Task) ContainerStructure() *container.Container {
+func (t *Task) ContainerStructure() container.Container {
 	return t.cnr
 }
 

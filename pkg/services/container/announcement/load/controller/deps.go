@@ -7,22 +7,22 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
-// UsedSpaceHandler describes the signature of the UsedSpaceAnnouncement
+// UsedSpaceHandler describes the signature of the container.SizeEstimation
 // value handling function.
 //
 // Termination of processing without failures is usually signaled
 // with a zero error, while a specific value may describe the reason
 // for failure.
-type UsedSpaceHandler func(container.UsedSpaceAnnouncement) error
+type UsedSpaceHandler func(container.SizeEstimation) error
 
 // UsedSpaceFilter describes the signature of the function for
 // checking whether a value meets a certain criterion.
 //
 // Return of true means conformity, false - vice versa.
-type UsedSpaceFilter func(container.UsedSpaceAnnouncement) bool
+type UsedSpaceFilter func(container.SizeEstimation) bool
 
 // Iterator is a group of methods provided by entity
-// which can iterate over a group of UsedSpaceAnnouncement values.
+// which can iterate over a group of container.SizeEstimation values.
 type Iterator interface {
 	// Iterate must start an iterator over values that
 	// meet the filter criterion (returns true).
@@ -37,7 +37,7 @@ type Iterator interface {
 
 // IteratorProvider is a group of methods provided
 // by entity which generates iterators over
-// UsedSpaceAnnouncement values.
+// container.SizeEstimation values.
 type IteratorProvider interface {
 	// InitIterator should return an initialized Iterator.
 	//
@@ -49,12 +49,12 @@ type IteratorProvider interface {
 	InitIterator(context.Context) (Iterator, error)
 }
 
-// Writer describes the interface for storing UsedSpaceAnnouncement values.
+// Writer describes the interface for storing container.SizeEstimation values.
 //
 // This interface is provided by both local storage
 // of values and remote (wrappers over the RPC).
 type Writer interface {
-	// Put performs a write operation of UsedSpaceAnnouncement value
+	// Put performs a write operation of container.SizeEstimation value
 	// and returns any error encountered.
 	//
 	// All values after the Close call must be flushed to the
@@ -62,7 +62,7 @@ type Writer interface {
 	// Close operation.
 	//
 	// Put must not be called after Close.
-	Put(container.UsedSpaceAnnouncement) error
+	Put(container.SizeEstimation) error
 
 	// Close exits with method-providing Writer.
 	//
@@ -75,7 +75,7 @@ type Writer interface {
 
 // WriterProvider is a group of methods provided
 // by entity which generates keepers of
-// UsedSpaceAnnouncement values.
+// container.SizeEstimation values.
 type WriterProvider interface {
 	// InitWriter should return an initialized Writer.
 	//

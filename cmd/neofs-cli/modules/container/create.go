@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -19,13 +17,11 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 )
 
 var (
 	containerACL         string
-	containerNonce       string
 	containerPolicy      string
 	containerAttributes  []string
 	containerAwait       bool
@@ -52,18 +48,17 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			placementPolicy.RestrictSubnet(subnetID)
 		}
 
-		attributes, err := parseAttributes(containerAttributes)
+		var cnr container.Container
+		cnr.Init()
+
+		err = parseAttributes(&cnr, containerAttributes)
 		common.ExitOnErr(cmd, "", err)
 
 		var basicACL acl.Basic
 		common.ExitOnErr(cmd, "decode basic ACL string: %w", basicACL.DecodeString(containerACL))
 
-		nonce, err := parseNonce(containerNonce)
-		common.ExitOnErr(cmd, "", err)
-
 		key := key.GetOrGenerate(cmd)
 
-		cnr := container.New()
 		var tok *session.Container
 
 		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
@@ -72,27 +67,22 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			common.ReadSessionToken(cmd, tok, sessionTokenPath)
 
 			issuer := tok.Issuer()
-			cnr.SetOwnerID(&issuer)
+			cnr.SetOwner(issuer)
 		} else {
 			var idOwner user.ID
 			user.IDFromKey(&idOwner, key.PublicKey)
 
-			cnr.SetOwnerID(&idOwner)
+			cnr.SetOwner(idOwner)
 		}
 
-		ver := versionSDK.Current()
-
-		cnr.SetVersion(&ver)
-		cnr.SetPlacementPolicy(placementPolicy)
+		cnr.SetPlacementPolicy(*placementPolicy)
 		cnr.SetBasicACL(basicACL)
-		cnr.SetAttributes(attributes)
-		cnr.SetNonceUUID(nonce)
 
 		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
 		var putPrm internalclient.PutContainerPrm
 		putPrm.SetClient(cli)
-		putPrm.SetContainer(*cnr)
+		putPrm.SetContainer(cnr)
 
 		if tok != nil {
 			putPrm.WithinSession(*tok)
@@ -137,7 +127,6 @@ func initContainerCreateCmd() {
 	))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
-	flags.StringVarP(&containerNonce, "nonce", "n", "", "UUIDv4 nonce value for container")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
 	flags.StringVar(&containerName, "name", "", "container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
@@ -173,48 +162,23 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 	return nil, errors.New("can't parse placement policy")
 }
 
-func parseAttributes(attributes []string) ([]container.Attribute, error) {
-	result := make([]container.Attribute, len(attributes), len(attributes)+2) // name + timestamp attributes
-
+func parseAttributes(dst *container.Container, attributes []string) error {
 	for i := range attributes {
 		kvPair := strings.Split(attributes[i], attributeDelimiter)
 		if len(kvPair) != 2 {
-			return nil, errors.New("invalid container attribute")
+			return errors.New("invalid container attribute")
 		}
 
-		result[i].SetKey(kvPair[0])
-		result[i].SetValue(kvPair[1])
+		dst.SetAttribute(kvPair[0], kvPair[1])
 	}
 
 	if !containerNoTimestamp {
-		index := len(result)
-		result = append(result, container.Attribute{})
-		result[index].SetKey(container.AttributeTimestamp)
-		result[index].SetValue(strconv.FormatInt(time.Now().Unix(), 10))
+		container.SetCreationTime(dst, time.Now())
 	}
 
 	if containerName != "" {
-		index := len(result)
-		result = append(result, container.Attribute{})
-		result[index].SetKey(container.AttributeName)
-		result[index].SetValue(containerName)
+		container.SetName(dst, containerName)
 	}
 
-	return result, nil
-}
-
-func parseNonce(nonce string) (uuid.UUID, error) {
-	if nonce == "" {
-		result := uuid.New()
-		common.PrintVerbose("Generating container nonce: %s", result)
-
-		return result, nil
-	}
-
-	uid, err := uuid.Parse(nonce)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("could not parse nonce: %w", err)
-	}
-
-	return uid, nil
+	return nil
 }

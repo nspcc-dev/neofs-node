@@ -213,16 +213,11 @@ type morphLoadWriter struct {
 	key []byte
 }
 
-func (w *morphLoadWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
-	cnr, ok := a.ContainerID()
-	if !ok {
-		return errors.New("missing container ID in load announcement")
-	}
-
+func (w *morphLoadWriter) Put(a containerSDK.SizeEstimation) error {
 	w.log.Debug("save used space announcement in contract",
 		zap.Uint64("epoch", a.Epoch()),
-		zap.Stringer("cid", cnr),
-		zap.Uint64("size", a.UsedSpace()),
+		zap.Stringer("cid", a.Container()),
+		zap.Uint64("size", a.Value()),
 	)
 
 	prm := cntClient.AnnounceLoadPrm{}
@@ -239,7 +234,7 @@ func (*morphLoadWriter) Close() error {
 
 type nopLoadWriter struct{}
 
-func (nopLoadWriter) Put(containerSDK.UsedSpaceAnnouncement) error {
+func (nopLoadWriter) Put(containerSDK.SizeEstimation) error {
 	return nil
 }
 
@@ -302,10 +297,10 @@ type remoteLoadAnnounceWriter struct {
 
 	client client.Client
 
-	buf []containerSDK.UsedSpaceAnnouncement
+	buf []containerSDK.SizeEstimation
 }
 
-func (r *remoteLoadAnnounceWriter) Put(a containerSDK.UsedSpaceAnnouncement) error {
+func (r *remoteLoadAnnounceWriter) Put(a containerSDK.SizeEstimation) error {
 	r.buf = append(r.buf, a)
 
 	return nil
@@ -354,11 +349,6 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]n
 		return nil, nil, err
 	}
 
-	policy := cnr.Value.PlacementPolicy()
-	if policy == nil {
-		return nil, nil, errors.New("missing placement policy in container")
-	}
-
 	nm, err := l.nmSrc.GetNetMapByEpoch(epoch)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get network map: %w", err)
@@ -367,7 +357,7 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]n
 	binCnr := make([]byte, sha256.Size)
 	idCnr.Encode(binCnr)
 
-	cnrNodes, err := nm.ContainerNodes(*policy, binCnr)
+	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), binCnr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}
@@ -403,15 +393,15 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 			zap.Stringer("cid", idList[i]),
 		)
 
-		a := containerSDK.NewAnnouncement()
-		a.SetContainerID(idList[i])
-		a.SetUsedSpace(sz)
+		var a containerSDK.SizeEstimation
+		a.SetContainer(idList[i])
+		a.SetValue(sz)
 
-		if f != nil && !f(*a) {
+		if f != nil && !f(a) {
 			continue
 		}
 
-		if err := h(*a); err != nil {
+		if err := h(a); err != nil {
 			return err
 		}
 	}
@@ -479,8 +469,15 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *container
 		return nil, fmt.Errorf("could not initialize container's used space writer: %w", err)
 	}
 
+	var est containerSDK.SizeEstimation
+
 	for _, aV2 := range req.GetBody().GetAnnouncements() {
-		if err := c.processLoadValue(ctx, *containerSDK.NewAnnouncementFromV2(&aV2), passedRoute, w); err != nil {
+		err = est.ReadFromV2(aV2)
+		if err != nil {
+			return nil, fmt.Errorf("invalid size announcement: %w", err)
+		}
+
+		if err := c.processLoadValue(ctx, est, passedRoute, w); err != nil {
 			return nil, err
 		}
 	}
@@ -527,14 +524,9 @@ func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cnr cid.ID, 
 	return false, nil
 }
 
-func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.UsedSpaceAnnouncement,
+func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.SizeEstimation,
 	route []loadroute.ServerInfo, w loadcontroller.Writer) error {
-	cnr, ok := a.ContainerID()
-	if !ok {
-		return errors.New("missing container ID in load announcement")
-	}
-
-	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), cnr, route[0].PublicKey())
+	fromCnr, err := c.loadPlacementBuilder.isNodeFromContainerKey(a.Epoch(), a.Container(), route[0].PublicKey())
 	if err != nil {
 		return fmt.Errorf("could not verify that the sender belongs to the container: %w", err)
 	} else if !fromCnr {
@@ -591,13 +583,8 @@ func (m morphContainerWriter) Put(cnr containerCore.Container) (*cid.ID, error) 
 		return nil, err
 	}
 
-	idOwner := cnr.Value.OwnerID()
-	if idOwner == nil {
-		return nil, errors.New("missing container owner")
-	}
-
 	if m.cacheEnabled {
-		m.lists.InvalidateContainerList(*idOwner)
+		m.lists.InvalidateContainerList(cnr.Value.Owner())
 	}
 
 	return containerID, nil

@@ -60,19 +60,10 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
-		policy := cnr.Value.PlacementPolicy()
-		if policy == nil {
-			log.Error("missing placement policy in container, ignore",
-				zap.Stringer("cid", containers[i]),
-			)
-
-			continue
-		}
-
 		containers[i].Encode(pivot)
 
 		// find all container nodes for current epoch
-		nodes, err := nm.ContainerNodes(*policy, pivot)
+		nodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), pivot)
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
 				zap.Stringer("cid", containers[i]),

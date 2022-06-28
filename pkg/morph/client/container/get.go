@@ -11,7 +11,6 @@ import (
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -90,7 +89,6 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 
 	var cnr containercore.Container
 
-	cnr.Value = container.New()
 	if err := cnr.Value.Unmarshal(cnrBytes); err != nil {
 		// use other major version if there any
 		return nil, fmt.Errorf("can't unmarshal container: %w", err)

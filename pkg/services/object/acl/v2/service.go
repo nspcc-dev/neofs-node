@@ -506,8 +506,6 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	cnr, err := b.containers.Get(idCnr) // fetch actual container
 	if err != nil {
 		return info, err
-	} else if cnr.Value.OwnerID() == nil {
-		return info, errors.New("missing owner in container descriptor")
 	}
 
 	if req.token != nil {
@@ -534,7 +532,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	info.basicACL = cnr.Value.BasicACL()
 	info.requestRole = res.role
 	info.operation = op
-	info.cnrOwner = *cnr.Value.OwnerID()
+	info.cnrOwner = cnr.Value.Owner()
 	info.idCnr = idCnr
 
 	// it is assumed that at the moment the key will be valid,

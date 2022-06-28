@@ -123,7 +123,7 @@ type GetContainerRes struct {
 }
 
 // Container returns structured of the requested container.
-func (x GetContainerRes) Container() *container.Container {
+func (x GetContainerRes) Container() container.Container {
 	return x.cliRes.Container()
 }
 

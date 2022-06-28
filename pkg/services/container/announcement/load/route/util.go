@@ -12,7 +12,7 @@ var errWrongRoute = errors.New("wrong route")
 // CheckRoute checks if the route is a route correctly constructed by the builder for value a.
 //
 // Returns nil if route is correct, otherwise an error clarifying the inconsistency.
-func CheckRoute(builder Builder, a container.UsedSpaceAnnouncement, route []ServerInfo) error {
+func CheckRoute(builder Builder, a container.SizeEstimation, route []ServerInfo) error {
 	for i := 1; i < len(route); i++ {
 		servers, err := builder.NextStage(a, route[:i])
 		if err != nil {

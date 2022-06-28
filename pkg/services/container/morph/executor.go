@@ -11,7 +11,6 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -58,8 +57,16 @@ func (s *morphExecutor) Put(_ context.Context, tokV2 *sessionV2.Token, body *con
 		return nil, errors.New("missing signature")
 	}
 
-	cnr := containercore.Container{
-		Value: containerSDK.NewContainerFromV2(body.GetContainer()),
+	cnrV2 := body.GetContainer()
+	if cnrV2 == nil {
+		return nil, errors.New("missing container field")
+	}
+
+	var cnr containercore.Container
+
+	err := cnr.Value.ReadFromV2(*cnrV2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid container: %w", err)
 	}
 
 	cnr.Signature.ReadFromV2(*sigV2)
@@ -158,8 +165,11 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 		cnr.Session.WriteToV2(tokV2)
 	}
 
+	var cnrV2 container.Container
+	cnr.Value.WriteToV2(&cnrV2)
+
 	res := new(container.GetResponseBody)
-	res.SetContainer(cnr.Value.ToV2())
+	res.SetContainer(&cnrV2)
 	res.SetSignature(sigV2)
 	res.SetSessionToken(tokV2)
 

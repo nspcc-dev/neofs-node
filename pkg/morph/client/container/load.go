@@ -2,7 +2,6 @@ package container
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 
 	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -13,14 +12,14 @@ import (
 
 // AnnounceLoadPrm groups parameters of AnnounceLoad operation.
 type AnnounceLoadPrm struct {
-	a   container.UsedSpaceAnnouncement
+	a   container.SizeEstimation
 	key []byte
 
 	client.InvokePrmOptional
 }
 
 // SetAnnouncement sets announcement.
-func (a2 *AnnounceLoadPrm) SetAnnouncement(a container.UsedSpaceAnnouncement) {
+func (a2 *AnnounceLoadPrm) SetAnnouncement(a container.SizeEstimation) {
 	a2.a = a
 }
 
@@ -34,17 +33,12 @@ func (a2 *AnnounceLoadPrm) SetReporter(key []byte) {
 //
 // Returns any error encountered that caused the saving to interrupt.
 func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
-	cnr, ok := p.a.ContainerID()
-	if !ok {
-		return errors.New("missing container for load announcement")
-	}
-
 	binCnr := make([]byte, sha256.Size)
-	cnr.Encode(binCnr)
+	p.a.Container().Encode(binCnr)
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(putSizeMethod)
-	prm.SetArgs(p.a.Epoch(), binCnr, p.a.UsedSpace(), p.key)
+	prm.SetArgs(p.a.Epoch(), binCnr, p.a.Value(), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)

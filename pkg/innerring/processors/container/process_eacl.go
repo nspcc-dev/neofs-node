@@ -56,13 +56,8 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return errors.New("ACL extension disabled by container basic ACL")
 	}
 
-	ownerContainer := cnr.Value.OwnerID()
-	if ownerContainer == nil {
-		return errors.New("missing container owner")
-	}
-
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  *ownerContainer,
+		ownerContainer:  cnr.Value.Owner(),
 		verb:            session.VerbContainerSetEACL,
 		idContainerSet:  true,
 		idContainer:     idCnr,

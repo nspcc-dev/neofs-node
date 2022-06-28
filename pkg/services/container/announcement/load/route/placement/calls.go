@@ -2,7 +2,6 @@ package placementrouter
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -16,15 +15,12 @@ import (
 // If passed route has more than one point, then endpoint of the route is reached.
 //
 // The traversed route is not checked, it is assumed to be correct.
-func (b *Builder) NextStage(a container.UsedSpaceAnnouncement, passed []loadroute.ServerInfo) ([]loadroute.ServerInfo, error) {
+func (b *Builder) NextStage(a container.SizeEstimation, passed []loadroute.ServerInfo) ([]loadroute.ServerInfo, error) {
 	if len(passed) > 1 {
 		return nil, nil
 	}
 
-	cnr, ok := a.ContainerID()
-	if !ok {
-		return nil, errors.New("missing container in load announcement")
-	}
+	cnr := a.Container()
 
 	placement, err := b.placementBuilder.BuildPlacement(a.Epoch(), cnr)
 	if err != nil {

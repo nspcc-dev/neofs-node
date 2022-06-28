@@ -12,6 +12,7 @@ import (
 	containerSvcMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
 )
@@ -53,6 +54,13 @@ func TestInvalidToken(t *testing.T) {
 			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.PutRequestBody
 				reqBody.SetSignature(new(refs.Signature))
+
+				cnr := containertest.Container()
+
+				var cnrV2 container.Container
+				cnr.WriteToV2(&cnrV2)
+
+				reqBody.SetContainer(&cnrV2)
 
 				_, err = e.Put(context.TODO(), tokV2, &reqBody)
 				return

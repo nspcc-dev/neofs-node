@@ -3,7 +3,6 @@ package v2
 import (
 	"bytes"
 	"crypto/sha256"
-	"errors"
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -27,12 +26,7 @@ type classifyResult struct {
 func (c senderClassifier) classify(
 	req MetaWithToken,
 	idCnr cid.ID,
-	cnr *container.Container) (res *classifyResult, err error) {
-	ownerCnr := cnr.OwnerID()
-	if ownerCnr == nil {
-		return nil, errors.New("missing container owner")
-	}
-
+	cnr container.Container) (res *classifyResult, err error) {
 	ownerID, ownerKey, err := req.RequestOwner()
 	if err != nil {
 		return nil, err
@@ -43,7 +37,7 @@ func (c senderClassifier) classify(
 	// TODO: #767 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
-	if ownerID.Equals(*ownerCnr) {
+	if ownerID.Equals(cnr.Owner()) {
 		return &classifyResult{
 			role: acl.RoleOwner,
 			key:  ownerKeyInBytes,
@@ -104,7 +98,7 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 
 func (c senderClassifier) isContainerKey(
 	owner, idCnr []byte,
-	cnr *container.Container) (bool, error) {
+	cnr container.Container) (bool, error) {
 	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
 	if err != nil {
 		return false, err
@@ -130,13 +124,8 @@ func (c senderClassifier) isContainerKey(
 func lookupKeyInContainer(
 	nm *netmap.NetMap,
 	owner, idCnr []byte,
-	cnr *container.Container) (bool, error) {
-	policy := cnr.PlacementPolicy()
-	if policy == nil {
-		return false, errors.New("missing placement policy in container")
-	}
-
-	cnrVectors, err := nm.ContainerNodes(*policy, idCnr)
+	cnr container.Container) (bool, error) {
+	cnrVectors, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
 	if err != nil {
 		return false, err
 	}
