@@ -21,7 +21,7 @@ func TestExists(t *testing.T) {
 	b := New(WithRootPath(dir),
 		WithSmallSizeLimit(smallSizeLimit),
 		WithBlobovniczaShallowWidth(1)) // default width is 16, slow init
-	require.NoError(t, b.Open())
+	require.NoError(t, b.Open(false))
 	require.NoError(t, b.Init())
 
 	objects := []*objectSDK.Object{

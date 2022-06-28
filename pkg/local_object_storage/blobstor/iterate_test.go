@@ -34,7 +34,7 @@ func TestIterateObjects(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	// open Blobstor
-	require.NoError(t, blobStor.Open())
+	require.NoError(t, blobStor.Open(false))
 
 	// initialize Blobstor
 	require.NoError(t, blobStor.Init())
@@ -111,7 +111,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 		WithBlobovniczaShallowWidth(1),
 		WithBlobovniczaShallowDepth(1)}
 	bs := New(bsOpts...)
-	require.NoError(t, bs.Open())
+	require.NoError(t, bs.Open(false))
 	require.NoError(t, bs.Init())
 
 	addrs := make([]oid.Address, objCount)
@@ -148,7 +148,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 
 	// Increase width to have blobovnicza which is definitely empty.
 	b := New(append(bsOpts, WithBlobovniczaShallowWidth(2))...)
-	require.NoError(t, b.Open())
+	require.NoError(t, b.Open(false))
 	require.NoError(t, b.Init())
 
 	var p string
@@ -163,7 +163,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	require.NoError(t, os.Chmod(p, 0))
 
 	require.NoError(t, b.Close())
-	require.NoError(t, bs.Open())
+	require.NoError(t, bs.Open(false))
 	require.NoError(t, bs.Init())
 
 	var prm IteratePrm

@@ -24,7 +24,7 @@ func TestCompression(t *testing.T) {
 			WithRootPath(dir),
 			WithSmallSizeLimit(smallSizeLimit),
 			WithBlobovniczaShallowWidth(1)) // default width is 16, slow init
-		require.NoError(t, bs.Open())
+		require.NoError(t, bs.Open(false))
 		require.NoError(t, bs.Init())
 		return bs
 	}
@@ -90,7 +90,7 @@ func TestBlobstor_needsCompression(t *testing.T) {
 			WithSmallSizeLimit(smallSizeLimit),
 			WithBlobovniczaShallowWidth(1),
 			WithUncompressableContentTypes(ct))
-		require.NoError(t, bs.Open())
+		require.NoError(t, bs.Open(false))
 		require.NoError(t, bs.Init())
 		return bs
 	}

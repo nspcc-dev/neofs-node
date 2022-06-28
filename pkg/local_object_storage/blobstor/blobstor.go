@@ -44,6 +44,8 @@ type cfg struct {
 
 	blzRootPath string
 
+	readOnly bool
+
 	blzOpts []blobovnicza.Option
 }
 

@@ -36,13 +36,13 @@ func TestVersion(t *testing.T) {
 	}
 	t.Run("simple", func(t *testing.T) {
 		db := newDB(t)
-		require.NoError(t, db.Open())
+		require.NoError(t, db.Open(false))
 		require.NoError(t, db.Init())
 		check(t, db)
 		require.NoError(t, db.Close())
 
 		t.Run("reopen", func(t *testing.T) {
-			require.NoError(t, db.Open())
+			require.NoError(t, db.Open(false))
 			require.NoError(t, db.Init())
 			check(t, db)
 			require.NoError(t, db.Close())
@@ -50,29 +50,29 @@ func TestVersion(t *testing.T) {
 	})
 	t.Run("old data", func(t *testing.T) {
 		db := newDB(t)
-		require.NoError(t, db.Open())
+		require.NoError(t, db.Open(false))
 		require.NoError(t, db.WriteShardID([]byte{1, 2, 3, 4}))
 		require.NoError(t, db.Close())
 
-		require.NoError(t, db.Open())
+		require.NoError(t, db.Open(false))
 		require.NoError(t, db.Init())
 		check(t, db)
 		require.NoError(t, db.Close())
 	})
 	t.Run("invalid version", func(t *testing.T) {
 		db := newDB(t)
-		require.NoError(t, db.Open())
+		require.NoError(t, db.Open(false))
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 			return updateVersion(tx, version+1)
 		}))
 		require.NoError(t, db.Close())
 
-		require.NoError(t, db.Open())
+		require.NoError(t, db.Open(false))
 		require.Error(t, db.Init())
 		require.NoError(t, db.Close())
 
 		t.Run("reset", func(t *testing.T) {
-			require.NoError(t, db.Open())
+			require.NoError(t, db.Open(false))
 			require.NoError(t, db.Reset())
 			check(t, db)
 			require.NoError(t, db.Close())

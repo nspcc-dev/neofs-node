@@ -18,8 +18,8 @@ var providers = []struct {
 }{
 	{"inmemory", func(t testing.TB) Forest {
 		f := NewMemoryForest()
+		require.NoError(t, f.Open(false))
 		require.NoError(t, f.Init())
-		require.NoError(t, f.Open())
 		t.Cleanup(func() {
 			require.NoError(t, f.Close())
 		})
@@ -32,8 +32,8 @@ var providers = []struct {
 		require.NoError(t, err)
 
 		f := NewBoltForest(WithPath(filepath.Join(tmpDir, "test.db")))
+		require.NoError(t, f.Open(false))
 		require.NoError(t, f.Init())
-		require.NoError(t, f.Open())
 		t.Cleanup(func() {
 			require.NoError(t, f.Close())
 			require.NoError(t, os.RemoveAll(tmpDir))

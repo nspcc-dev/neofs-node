@@ -106,9 +106,9 @@ func WithLogger(l *logger.Logger) Option {
 	}
 }
 
-// ReadOnly returns an option to open Blobovnicza in read-only mode.
-func ReadOnly() Option {
+// WithReadOnly returns an option to open Blobovnicza in read-only mode.
+func WithReadOnly(ro bool) Option {
 	return func(c *cfg) {
-		c.boltOptions.ReadOnly = true
+		c.boltOptions.ReadOnly = ro
 	}
 }

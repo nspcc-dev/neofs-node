@@ -108,7 +108,7 @@ func (f *memoryForest) Init() error {
 	return nil
 }
 
-func (f *memoryForest) Open() error {
+func (f *memoryForest) Open(bool) error {
 	return nil
 }
 

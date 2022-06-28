@@ -60,7 +60,7 @@ var Command = &cobra.Command{
 
 		blz := blobovnicza.New(
 			blobovnicza.WithPath(vPath),
-			blobovnicza.ReadOnly(),
+			blobovnicza.WithReadOnly(true),
 		)
 
 		common.ExitOnErr(cmd, blz.Open())
