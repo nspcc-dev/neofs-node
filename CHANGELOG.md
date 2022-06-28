@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Changed
 
 - Require SG members to be unique (#1490)
+- `neofs-cli` now doesn't remove container with LOCK objects without `--force` flag (#1500)
 
 ### Fixed
 

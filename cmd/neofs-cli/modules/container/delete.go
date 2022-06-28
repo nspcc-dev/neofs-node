@@ -1,15 +1,19 @@
 package container
 
 import (
+	"fmt"
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
 )
+
+const forceFlag = "force"
 
 var deleteContainerCmd = &cobra.Command{
 	Use:   "delete",
@@ -29,6 +33,28 @@ Only owner of the container has a permission to remove container.`,
 
 		pk := key.GetOrGenerate(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
+		if force, _ := cmd.Flags().GetBool(forceFlag); !force {
+			fs := objectSDK.NewSearchFilters()
+			fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
+
+			var searchPrm internalclient.SearchObjectsPrm
+			searchPrm.SetClient(cli)
+			searchPrm.SetContainerID(id)
+			searchPrm.SetFilters(fs)
+			searchPrm.SetTTL(2)
+
+			common.PrintVerbose("Searching for LOCK objects...")
+
+			res, err := internalclient.SearchObjects(searchPrm)
+			common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
+
+			if len(res.IDList()) != 0 {
+				common.ExitOnErr(cmd, "",
+					fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
+						"Use --%s flag to remove anyway.", forceFlag))
+			}
+		}
 
 		var delPrm internalclient.DeleteContainerPrm
 		delPrm.SetClient(cli)
@@ -72,4 +98,5 @@ func initContainerDeleteCmd() {
 
 	flags.StringVar(&containerID, "cid", "", "container ID")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until container is removed")
+	flags.Bool(forceFlag, false, "do not check whether container contains locks and remove immediately")
 }
