@@ -28,7 +28,7 @@ const (
 func Command(rootCmd *cobra.Command) *cobra.Command {
 	gendocCmd := &cobra.Command{
 		Use:   "gendoc <dir>",
-		Short: "Generate documentation for this command.",
+		Short: "Generate documentation for this command",
 		Long: `Generate documentation for this command. If the template is not provided,
 builtin cobra generator is used and each subcommand is placed in
 a separate file in the same directory.
