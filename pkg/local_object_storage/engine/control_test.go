@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func TestPersistentShardID(t *testing.T) {
 
 	e, _, id := newEngineWithErrorThreshold(t, dir, 1)
 
-	checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
+	checkShardState(t, e, id[0], 0, mode.ReadWrite)
 	require.NoError(t, e.Close())
 
 	e, _, newID := newEngineWithErrorThreshold(t, dir, 1)

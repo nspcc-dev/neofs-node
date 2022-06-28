@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -235,9 +236,9 @@ func WithRefillMetabase(v bool) Option {
 }
 
 // WithMode returns option to set shard's mode. Mode must be one of the predefined:
-//	- ModeReadWrite;
-//	- ModeReadOnly.
-func WithMode(v Mode) Option {
+//	- mode.ReadWrite;
+//	- mode.ReadOnly.
+func WithMode(v mode.Mode) Option {
 	return func(c *cfg) {
 		c.info.Mode = v
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
@@ -17,7 +18,7 @@ func (s *Shard) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Mo
 	if s.pilorama == nil {
 		return nil, ErrPiloramaDisabled
 	}
-	if s.GetMode() != ModeReadWrite {
+	if s.GetMode() != mode.ReadWrite {
 		return nil, ErrReadOnlyMode
 	}
 	return s.pilorama.TreeMove(d, treeID, m)
@@ -28,7 +29,7 @@ func (s *Shard) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, attr stri
 	if s.pilorama == nil {
 		return nil, ErrPiloramaDisabled
 	}
-	if s.GetMode() != ModeReadWrite {
+	if s.GetMode() != mode.ReadWrite {
 		return nil, ErrReadOnlyMode
 	}
 	return s.pilorama.TreeAddByPath(d, treeID, attr, path, meta)
@@ -39,7 +40,7 @@ func (s *Shard) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.M
 	if s.pilorama == nil {
 		return ErrPiloramaDisabled
 	}
-	if s.GetMode() != ModeReadWrite {
+	if s.GetMode() != mode.ReadWrite {
 		return ErrReadOnlyMode
 	}
 	return s.pilorama.TreeApply(d, treeID, m)

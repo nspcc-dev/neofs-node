@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -42,7 +43,7 @@ func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 	if err != nil {
 		// If the shard is in degraded mode, try to consult blobstor directly.
 		// Otherwise, just return an error.
-		if s.GetMode() == ModeDegraded {
+		if s.GetMode() == mode.Degraded {
 			var p blobstor.ExistsPrm
 			p.SetAddress(prm.addr)
 

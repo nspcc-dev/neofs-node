@@ -12,6 +12,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -79,16 +80,16 @@ func TestErrorReporting(t *testing.T) {
 		_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 		require.NoError(t, err)
 
-		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
-		checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
+		checkShardState(t, e, id[0], 0, mode.ReadWrite)
+		checkShardState(t, e, id[1], 0, mode.ReadWrite)
 
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < 3; i++ {
 			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
-			checkShardState(t, e, id[0], i, shard.ModeReadWrite)
-			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
+			checkShardState(t, e, id[0], i, mode.ReadWrite)
+			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 	})
 	t.Run("with error threshold", func(t *testing.T) {
@@ -109,30 +110,30 @@ func TestErrorReporting(t *testing.T) {
 		_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 		require.NoError(t, err)
 
-		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
-		checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
+		checkShardState(t, e, id[0], 0, mode.ReadWrite)
+		checkShardState(t, e, id[1], 0, mode.ReadWrite)
 
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < errThreshold; i++ {
 			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
-			checkShardState(t, e, id[0], i, shard.ModeReadWrite)
-			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
+			checkShardState(t, e, id[0], i, mode.ReadWrite)
+			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
 		for i := uint32(0); i < 2; i++ {
 			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
-			checkShardState(t, e, id[0], errThreshold+i, shard.ModeDegraded)
-			checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
+			checkShardState(t, e, id[0], errThreshold+i, mode.Degraded)
+			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
-		require.NoError(t, e.SetShardMode(id[0], shard.ModeReadWrite, false))
-		checkShardState(t, e, id[0], errThreshold+1, shard.ModeReadWrite)
+		require.NoError(t, e.SetShardMode(id[0], mode.ReadWrite, false))
+		checkShardState(t, e, id[0], errThreshold+1, mode.ReadWrite)
 
-		require.NoError(t, e.SetShardMode(id[0], shard.ModeReadWrite, true))
-		checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
+		require.NoError(t, e.SetShardMode(id[0], mode.ReadWrite, true))
+		checkShardState(t, e, id[0], 0, mode.ReadWrite)
 	})
 }
 
@@ -166,7 +167,7 @@ func TestBlobstorFailback(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	checkShardState(t, e, id[0], 0, shard.ModeReadWrite)
+	checkShardState(t, e, id[0], 0, mode.ReadWrite)
 	require.NoError(t, e.Close())
 
 	p1 := e.shards[id[0].String()].Shard.DumpInfo().BlobStorInfo.RootPath
@@ -192,11 +193,11 @@ func TestBlobstorFailback(t *testing.T) {
 		require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 	}
 
-	checkShardState(t, e, id[0], 4, shard.ModeDegraded)
-	checkShardState(t, e, id[1], 0, shard.ModeReadWrite)
+	checkShardState(t, e, id[0], 4, mode.Degraded)
+	checkShardState(t, e, id[1], 0, mode.ReadWrite)
 }
 
-func checkShardState(t *testing.T, e *StorageEngine, id *shard.ID, errCount uint32, mode shard.Mode) {
+func checkShardState(t *testing.T, e *StorageEngine, id *shard.ID, errCount uint32, mode mode.Mode) {
 	e.mtx.RLock()
 	sh := e.shards[id.String()]
 	e.mtx.RUnlock()

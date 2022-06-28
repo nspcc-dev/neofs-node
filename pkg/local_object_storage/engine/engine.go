@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/atomic"
@@ -50,7 +51,7 @@ func (e *StorageEngine) reportShardError(
 		return
 	}
 
-	err = sh.SetMode(shard.ModeDegraded)
+	err = sh.SetMode(mode.Degraded)
 	if err != nil {
 		e.log.Error("failed to move shard in degraded mode",
 			zap.Uint32("error count", errCount),

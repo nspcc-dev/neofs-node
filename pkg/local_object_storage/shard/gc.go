@@ -6,6 +6,7 @@ import (
 	"time"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -179,7 +180,7 @@ func (gc *gc) stop() {
 // with GC-marked graves.
 // Does nothing if shard is in "read-only" mode.
 func (s *Shard) removeGarbage() {
-	if s.GetMode() != ModeReadWrite {
+	if s.GetMode() != mode.ReadWrite {
 		return
 	}
 
