@@ -48,7 +48,7 @@ const (
 // RootCmd is a root command of config section.
 var RootCmd = &cobra.Command{
 	Use:   "storage-config [-w wallet] [-a acccount] [<path-to-config>]",
-	Short: "Section for storage node configuration commands.",
+	Short: "Section for storage node configuration commands",
 	Run:   storageConfig,
 }
 

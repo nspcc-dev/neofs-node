@@ -38,7 +38,7 @@ func viperBindFlags(cmd *cobra.Command, flags ...string) {
 // subnet command section.
 var cmdSubnet = &cobra.Command{
 	Use:   "subnet",
-	Short: "NeoFS subnet management.",
+	Short: "NeoFS subnet management",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			endpointFlag,
@@ -115,7 +115,7 @@ func readSubnetKey(key *keys.PrivateKey) error {
 // create subnet command.
 var cmdSubnetCreate = &cobra.Command{
 	Use:   "create",
-	Short: "Create NeoFS subnet.",
+	Short: "Create NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetWallet,
@@ -180,7 +180,7 @@ var errZeroSubnet = errors.New("zero subnet")
 // remove subnet command.
 var cmdSubnetRemove = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove NeoFS subnet.",
+	Short: "Remove NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetWallet,
@@ -214,7 +214,7 @@ var cmdSubnetRemove = &cobra.Command{
 			return fmt.Errorf("morph invocation: %w", err)
 		}
 
-		cmd.Println("Remove subnet request sent successfully.")
+		cmd.Println("Remove subnet request sent successfully")
 
 		return nil
 	},
@@ -229,7 +229,7 @@ const (
 // get subnet command.
 var cmdSubnetGet = &cobra.Command{
 	Use:   "get",
-	Short: "Read information about the NeoFS subnet.",
+	Short: "Read information about the NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetGetID,
@@ -296,7 +296,7 @@ const (
 // command to manage subnet admins.
 var cmdSubnetAdmin = &cobra.Command{
 	Use:   "admin",
-	Short: "Manage administrators of the NeoFS subnet.",
+	Short: "Manage administrators of the NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viperBindFlags(cmd,
 			flagSubnetWallet,
@@ -404,7 +404,7 @@ func manageSubnetAdmins(cmd *cobra.Command, rm bool) error {
 // command to add subnet admin.
 var cmdSubnetAdminAdd = &cobra.Command{
 	Use:   "add",
-	Short: "Add admin to the NeoFS subnet.",
+	Short: "Add admin to the NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetAdminAddGroup,
@@ -419,7 +419,7 @@ var cmdSubnetAdminAdd = &cobra.Command{
 // command to remove subnet admin.
 var cmdSubnetAdminRemove = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove admin of the NeoFS subnet.",
+	Short: "Remove admin of the NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetAdminClient,
@@ -443,7 +443,7 @@ const (
 // command to manage subnet clients.
 var cmdSubnetClient = &cobra.Command{
 	Use:   "client",
-	Short: "Manage clients of the NeoFS subnet.",
+	Short: "Manage clients of the NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetWallet,
@@ -526,7 +526,7 @@ func manageSubnetClients(cmd *cobra.Command, rm bool) error {
 // command to add subnet client.
 var cmdSubnetClientAdd = &cobra.Command{
 	Use:   "add",
-	Short: "Add client to the NeoFS subnet.",
+	Short: "Add client to the NeoFS subnet",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return manageSubnetClients(cmd, false)
 	},
@@ -535,7 +535,7 @@ var cmdSubnetClientAdd = &cobra.Command{
 // command to remove subnet client.
 var cmdSubnetClientRemove = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove client of the NeoFS subnet.",
+	Short: "Remove client of the NeoFS subnet",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return manageSubnetClients(cmd, true)
 	},
@@ -610,7 +610,7 @@ func manageSubnetNodes(cmd *cobra.Command, rm bool) error {
 // command to manage subnet nodes.
 var cmdSubnetNode = &cobra.Command{
 	Use:   "node",
-	Short: "Manage nodes of the NeoFS subnet.",
+	Short: "Manage nodes of the NeoFS subnet",
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		viperBindFlags(cmd,
 			flagSubnetWallet,
@@ -623,7 +623,7 @@ var cmdSubnetNode = &cobra.Command{
 // command to add subnet node.
 var cmdSubnetNodeAdd = &cobra.Command{
 	Use:   "add",
-	Short: "Add node to the NeoFS subnet.",
+	Short: "Add node to the NeoFS subnet",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return manageSubnetNodes(cmd, false)
 	},
@@ -632,7 +632,7 @@ var cmdSubnetNodeAdd = &cobra.Command{
 // command to remove subnet node.
 var cmdSubnetNodeRemove = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove node from the NeoFS subnet.",
+	Short: "Remove node from the NeoFS subnet",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return manageSubnetNodes(cmd, true)
 	},

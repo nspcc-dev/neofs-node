@@ -44,7 +44,7 @@ var (
 	// RootCmd is a root command of config section.
 	RootCmd = &cobra.Command{
 		Use:   "morph",
-		Short: "Section for morph network configuration commands.",
+		Short: "Section for morph network configuration commands",
 	}
 
 	generateAlphabetCmd = &cobra.Command{
@@ -135,7 +135,7 @@ var (
 
 	dumpContractHashesCmd = &cobra.Command{
 		Use:   "dump-hashes",
-		Short: "Dump deployed contract hashes.",
+		Short: "Dump deployed contract hashes",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 		},
@@ -144,7 +144,7 @@ var (
 
 	dumpNetworkConfigCmd = &cobra.Command{
 		Use:   "dump-config",
-		Short: "Dump NeoFS network config.",
+		Short: "Dump NeoFS network config",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 		},
@@ -162,7 +162,7 @@ var (
 
 	updateContractsCmd = &cobra.Command{
 		Use:   "update-contracts",
-		Short: "Update NeoFS contracts.",
+		Short: "Update NeoFS contracts",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
@@ -172,7 +172,7 @@ var (
 
 	dumpContainersCmd = &cobra.Command{
 		Use:   "dump-containers",
-		Short: "Dump NeoFS containers to file.",
+		Short: "Dump NeoFS containers to file",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 		},
@@ -181,7 +181,7 @@ var (
 
 	restoreContainersCmd = &cobra.Command{
 		Use:   "restore-containers",
-		Short: "Restore NeoFS containers from file.",
+		Short: "Restore NeoFS containers from file",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
@@ -191,7 +191,7 @@ var (
 
 	depositNotaryCmd = &cobra.Command{
 		Use:   "deposit-notary",
-		Short: "Deposit GAS for notary service.",
+		Short: "Deposit GAS for notary service",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 		},

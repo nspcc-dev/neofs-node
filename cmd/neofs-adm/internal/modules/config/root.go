@@ -10,12 +10,12 @@ var (
 	// RootCmd is a root command of config section.
 	RootCmd = &cobra.Command{
 		Use:   "config",
-		Short: "Section for neofs-adm config related commands.",
+		Short: "Section for neofs-adm config related commands",
 	}
 
 	initCmd = &cobra.Command{
 		Use:   "init",
-		Short: "Initialize basic neofs-adm configuration file.",
+		Short: "Initialize basic neofs-adm configuration file",
 		Example: `neofs-adm config init
 neofs-adm config init --path .config/neofs-adm.yml`,
 		RunE: initConfig,
