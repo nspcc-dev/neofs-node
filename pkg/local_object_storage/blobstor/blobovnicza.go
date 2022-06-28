@@ -910,6 +910,7 @@ func (b *blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 	}
 
 	blz := blobovnicza.New(append(b.blzOpts,
+		blobovnicza.WithReadOnly(b.readOnly),
 		blobovnicza.WithPath(filepath.Join(b.blzRootPath, p)),
 	)...)
 

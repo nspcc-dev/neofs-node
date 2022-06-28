@@ -80,7 +80,7 @@ func objectInspectCmd(cmd *cobra.Command, _ []string) {
 
 	blz := blobovnicza.New(
 		blobovnicza.WithPath(vPath),
-		blobovnicza.ReadOnly())
+		blobovnicza.WithReadOnly(true))
 	common.ExitOnErr(cmd, blz.Open())
 
 	defer blz.Close()

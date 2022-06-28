@@ -29,7 +29,7 @@ type Cache interface {
 	DumpInfo() Info
 
 	Init() error
-	Open() error
+	Open(readOnly bool) error
 	Close() error
 }
 
@@ -125,8 +125,8 @@ func (c *cache) DumpInfo() Info {
 }
 
 // Open opens and initializes database. Reads object counters from the ObjectCounters instance.
-func (c *cache) Open() error {
-	err := c.openStore()
+func (c *cache) Open(readOnly bool) error {
+	err := c.openStore(readOnly)
 	if err != nil {
 		return err
 	}

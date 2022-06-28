@@ -10,13 +10,18 @@ import (
 )
 
 // Open boltDB instance for metabase.
-func (db *DB) Open() error {
+func (db *DB) Open(readOnly bool) error {
 	err := util.MkdirAllX(filepath.Dir(db.info.Path), db.info.Permission)
 	if err != nil {
 		return fmt.Errorf("can't create dir %s for metabase: %w", db.info.Path, err)
 	}
 
 	db.log.Debug("created directory for Metabase", zap.String("path", db.info.Path))
+
+	if db.boltOptions == nil {
+		db.boltOptions = bbolt.DefaultOptions
+	}
+	db.boltOptions.ReadOnly = readOnly
 
 	db.boltDB, err = bbolt.Open(db.info.Path, db.info.Permission, db.boltOptions)
 	if err != nil {

@@ -58,14 +58,14 @@ func NewBoltForest(opts ...Option) ForestStorage {
 	return &b
 }
 
-func (t *boltForest) Init() error { return nil }
-func (t *boltForest) Open() error {
+func (t *boltForest) Open(readOnly bool) error {
 	err := util.MkdirAllX(filepath.Dir(t.path), t.perm)
 	if err != nil {
 		return fmt.Errorf("can't create dir %s for the pilorama: %w", t.path, err)
 	}
 
 	opts := *bbolt.DefaultOptions
+	opts.ReadOnly = readOnly
 	opts.NoSync = t.noSync
 	opts.Timeout = 100 * time.Millisecond
 
@@ -77,6 +77,12 @@ func (t *boltForest) Open() error {
 	t.db.MaxBatchSize = t.maxBatchSize
 	t.db.MaxBatchDelay = t.maxBatchDelay
 
+	return nil
+}
+func (t *boltForest) Init() error {
+	if t.db.IsReadOnly() {
+		return nil
+	}
 	return t.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(dataBucket)
 		if err != nil {
@@ -89,7 +95,12 @@ func (t *boltForest) Open() error {
 		return nil
 	})
 }
-func (t *boltForest) Close() error { return t.db.Close() }
+func (t *boltForest) Close() error {
+	if t.db != nil {
+		return t.db.Close()
+	}
+	return nil
+}
 
 // TreeMove implements the Forest interface.
 func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove, error) {

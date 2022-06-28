@@ -39,7 +39,7 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	bdb := meta.New(append([]meta.Option{meta.WithPath(path), meta.WithPermissions(0600)},
 		opts...)...)
 
-	require.NoError(t, bdb.Open())
+	require.NoError(t, bdb.Open(false))
 	require.NoError(t, bdb.Init())
 
 	t.Cleanup(func() {

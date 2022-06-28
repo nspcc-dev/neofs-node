@@ -14,20 +14,20 @@ import (
 
 // Open opens all Shard's components.
 func (s *Shard) Open() error {
-	components := []interface{ Open() error }{
+	components := []interface{ Open(bool) error }{
 		s.blobStor, s.metaBase,
-	}
-
-	if s.pilorama != nil {
-		components = append(components, s.pilorama)
 	}
 
 	if s.hasWriteCache() {
 		components = append(components, s.writeCache)
 	}
 
+	if s.pilorama != nil {
+		components = append(components, s.pilorama)
+	}
+
 	for _, component := range components {
-		if err := component.Open(); err != nil {
+		if err := component.Open(false); err != nil {
 			return fmt.Errorf("could not open %T: %w", component, err)
 		}
 	}
@@ -48,12 +48,12 @@ func (s *Shard) Init() error {
 		s.blobStor.Init, fMetabase,
 	}
 
-	if s.pilorama != nil {
-		components = append(components, s.pilorama.Init)
-	}
-
 	if s.hasWriteCache() {
 		components = append(components, s.writeCache.Init)
+	}
+
+	if s.pilorama != nil {
+		components = append(components, s.pilorama.Init)
 	}
 
 	for _, component := range components {
@@ -162,12 +162,12 @@ func (s *Shard) refillMetabase() error {
 func (s *Shard) Close() error {
 	components := []interface{ Close() error }{}
 
-	if s.hasWriteCache() {
-		components = append(components, s.writeCache)
-	}
-
 	if s.pilorama != nil {
 		components = append(components, s.pilorama)
+	}
+
+	if s.hasWriteCache() {
+		components = append(components, s.writeCache)
 	}
 
 	components = append(components, s.blobStor, s.metaBase)

@@ -27,13 +27,13 @@ const lruKeysCount = 256 * 1024 * 8
 
 const dbName = "small.bolt"
 
-func (c *cache) openStore() error {
+func (c *cache) openStore(readOnly bool) error {
 	err := util.MkdirAllX(c.path, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	c.db, err = OpenDB(c.path, false)
+	c.db, err = OpenDB(c.path, readOnly)
 	if err != nil {
 		return fmt.Errorf("could not open database: %w", err)
 	}

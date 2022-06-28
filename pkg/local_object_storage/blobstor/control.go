@@ -6,8 +6,10 @@ import (
 )
 
 // Open opens BlobStor.
-func (b *BlobStor) Open() error {
+func (b *BlobStor) Open(readOnly bool) error {
 	b.log.Debug("opening...")
+
+	b.blobovniczas.readOnly = readOnly
 
 	return nil
 }
