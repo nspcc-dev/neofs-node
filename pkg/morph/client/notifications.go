@@ -204,15 +204,11 @@ func (c *Client) UnsubscribeAll() error {
 
 // restoreSubscriptions restores subscriptions according to
 // cached information about them.
-func (c *Client) restoreSubscriptions() bool {
+func (c *Client) restoreSubscriptions(endpoint string) bool {
 	var (
-		err         error
-		id          string
-		endpoint, _ = c.endpoints.current()
+		err error
+		id  string
 	)
-
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
 
 	// new block events restoration
 	if c.subscribedToNewBlocks {

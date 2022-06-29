@@ -9,11 +9,9 @@ type endpoints struct {
 	list []string
 }
 
-func newEndpoints(ee []string) *endpoints {
-	return &endpoints{
-		curr: 0,
-		list: ee,
-	}
+func (e *endpoints) init(ee []string) {
+	e.curr = 0
+	e.list = ee
 }
 
 // next returns the next endpoint and its index
@@ -90,6 +88,19 @@ func (c *Client) switchRPC() bool {
 		c.cache.invalidate()
 		c.client = cli
 
+		c.logger.Info("connection to the new RPC node has been established",
+			zap.String("endpoint", newEndpoint))
+
+		if !c.restoreSubscriptions(newEndpoint) {
+			// new WS client does not allow
+			// restoring subscription, client
+			// could not work correctly =>
+			// closing connection to RPC node
+			// to switch to another one
+			cli.Close()
+			continue
+		}
+
 		return true
 	}
 }
@@ -131,21 +142,6 @@ func (c *Client) notificationLoop() {
 					c.inactiveMode()
 
 					return
-				}
-
-				newEndpoint, _ := c.endpoints.current()
-
-				c.logger.Warn("connection to the new RPC node has been established",
-					zap.String("endpoint", newEndpoint),
-				)
-
-				if !c.restoreSubscriptions() {
-					// new WS client does not allow
-					// restoring subscription, client
-					// could not work correctly =>
-					// closing connection to RPC node
-					// to switch to another one
-					c.client.Close()
 				}
 
 				// TODO(@carpawell): call here some callback retrieved in constructor
