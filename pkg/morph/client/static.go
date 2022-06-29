@@ -63,7 +63,7 @@ func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts 
 		scScriptHash: scriptHash,
 	}
 
-	c.fees.setDefault(fee)
+	c.fees.defaultFee = fee
 
 	for i := range opts {
 		opts[i](&c.staticOpts)
