@@ -111,7 +111,7 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		// they will be used in switch process, otherwise
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
-		cli.endpoints = newEndpoints(cfg.extraEndpoints)
+		cli.endpoints.init(cfg.extraEndpoints)
 	} else {
 		ws, err := newWSClient(*cfg, endpoint)
 		if err != nil {
@@ -124,7 +124,7 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		}
 
 		cli.client = ws
-		cli.endpoints = newEndpoints(append([]string{endpoint}, cfg.extraEndpoints...))
+		cli.endpoints.init(append([]string{endpoint}, cfg.extraEndpoints...))
 	}
 
 	go cli.notificationLoop()

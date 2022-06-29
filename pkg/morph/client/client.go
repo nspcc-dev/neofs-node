@@ -54,9 +54,11 @@ type Client struct {
 
 	cfg cfg
 
-	endpoints *endpoints
+	endpoints endpoints
 
-	// switching between rpc endpoint lock
+	// switchLock protects endpoints, inactive, and subscription-related fields.
+	// It is taken exclusively during endpoint switch and locked in shared mode
+	// on every normal call.
 	switchLock *sync.RWMutex
 
 	// channel for ws notifications
