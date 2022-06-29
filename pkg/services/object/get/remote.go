@@ -22,6 +22,7 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool
 
 	var errSplitInfo *objectSDK.SplitInfoError
 	var errRemoved *apistatus.ObjectAlreadyRemoved
+	var errOutOfRange *apistatus.ObjectOutOfRange
 
 	switch {
 	default:
@@ -41,6 +42,9 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool
 	case errors.As(err, &errRemoved):
 		exec.status = statusINHUMED
 		exec.err = errRemoved
+	case errors.As(err, &errOutOfRange):
+		exec.status = statusOutOfRange
+		exec.err = errOutOfRange
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())

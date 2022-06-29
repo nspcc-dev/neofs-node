@@ -1,7 +1,7 @@
 package getsvc
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -93,8 +93,11 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 		parSize := par.PayloadSize()
 
 		if seekOff+seekLen > parSize {
+			var errOutOfRange apistatus.ObjectOutOfRange
+
+			exec.err = errOutOfRange
 			exec.status = statusOutOfRange
-			exec.err = object.ErrRangeOutOfBounds
+
 			return
 		}
 

@@ -3,7 +3,6 @@ package getsvc
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
@@ -16,6 +15,7 @@ func (exec *execCtx) executeLocal() {
 
 	var errSplitInfo *objectSDK.SplitInfoError
 	var errRemoved apistatus.ObjectAlreadyRemoved
+	var errOutOfRange apistatus.ObjectOutOfRange
 
 	switch {
 	default:
@@ -36,8 +36,8 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
 		exec.err = objectSDK.NewSplitInfoError(exec.infoSplit)
-	case errors.Is(err, object.ErrRangeOutOfBounds):
+	case errors.As(err, &errOutOfRange):
 		exec.status = statusOutOfRange
-		exec.err = object.ErrRangeOutOfBounds
+		exec.err = errOutOfRange
 	}
 }
