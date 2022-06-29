@@ -102,7 +102,8 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		return obj, nil
 	}
 
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, prm.skipMeta, big, small)
+	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small)
 
 	return RngRes{
 		obj:     obj,

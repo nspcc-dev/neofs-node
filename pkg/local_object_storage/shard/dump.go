@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 )
 
@@ -56,7 +55,7 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	if s.info.Mode != mode.ReadOnly {
+	if !s.info.Mode.ReadOnly() {
 		return DumpRes{}, ErrMustBeReadOnly
 	}
 

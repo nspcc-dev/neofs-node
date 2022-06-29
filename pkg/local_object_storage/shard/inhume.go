@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -62,8 +61,11 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
-	if s.GetMode() != mode.ReadWrite {
+	m := s.GetMode()
+	if m.ReadOnly() {
 		return InhumeRes{}, ErrReadOnlyMode
+	} else if m.NoMetabase() {
+		return InhumeRes{}, ErrDegradedMode
 	}
 
 	if s.hasWriteCache() {

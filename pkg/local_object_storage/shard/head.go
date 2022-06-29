@@ -63,16 +63,27 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 		// otherwise object seems to be flushed to metabase
 	}
 
-	var headParams meta.GetPrm
-	headParams.SetAddress(prm.addr)
-	headParams.SetRaw(prm.raw)
+	var obj *objectSDK.Object
+	var err error
+	if s.GetMode().NoMetabase() {
+		var getPrm GetPrm
+		getPrm.SetAddress(prm.addr)
+		getPrm.SetIgnoreMeta(true)
 
-	res, err := s.metaBase.Get(headParams)
-	if err != nil {
-		return HeadRes{}, err
+		var res GetRes
+		res, err = s.Get(getPrm)
+		obj = res.Object()
+	} else {
+		var headParams meta.GetPrm
+		headParams.SetAddress(prm.addr)
+		headParams.SetRaw(prm.raw)
+
+		var res meta.GetRes
+		res, err = s.metaBase.Get(headParams)
+		obj = res.Header()
 	}
 
 	return HeadRes{
-		obj: res.Header(),
-	}, nil
+		obj: obj,
+	}, err
 }
