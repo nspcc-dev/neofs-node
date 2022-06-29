@@ -10,7 +10,6 @@ import (
 
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/nspcc-dev/hrw"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -331,7 +330,7 @@ func (b *blobovniczas) getRange(prm GetRangeSmallPrm) (res GetRangeSmallRes, err
 
 		res, err = b.getRangeFromLevel(prm, p, !ok)
 		if err != nil {
-			outOfBounds := errors.Is(err, object.ErrRangeOutOfBounds)
+			outOfBounds := isErrOutOfRange(err)
 			if !blobovnicza.IsErrNotFound(err) && !outOfBounds {
 				b.log.Debug("could not get object from level",
 					zap.String("level", p),
@@ -498,7 +497,7 @@ func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, t
 		res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm)
 		switch {
 		case err == nil,
-			errors.Is(err, object.ErrRangeOutOfBounds):
+			isErrOutOfRange(err):
 			return res, err
 		default:
 			if !blobovnicza.IsErrNotFound(err) {
@@ -523,7 +522,7 @@ func (b *blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, t
 		res, err := b.getObjectRange(active.blz, prm)
 		switch {
 		case err == nil,
-			errors.Is(err, object.ErrRangeOutOfBounds):
+			isErrOutOfRange(err):
 			return res, err
 		default:
 			if !blobovnicza.IsErrNotFound(err) {
@@ -630,7 +629,9 @@ func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm GetRange
 	payload := obj.Payload()
 
 	if uint64(len(payload)) < to {
-		return GetRangeSmallRes{}, object.ErrRangeOutOfBounds
+		var errOutOfRange apistatus.ObjectOutOfRange
+
+		return GetRangeSmallRes{}, errOutOfRange
 	}
 
 	return GetRangeSmallRes{

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
@@ -184,7 +185,7 @@ func TestBlobstorFailback(t *testing.T) {
 		require.Equal(t, objs[i].Payload()[1:11], rngRes.Object().Payload())
 
 		_, err = e.GetRange(RngPrm{addr: addr, off: errSmallSize + 10, ln: 1})
-		require.ErrorIs(t, err, object.ErrRangeOutOfBounds)
+		require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 	}
 
 	checkShardState(t, e, id[0], 4, shard.ModeDegraded)

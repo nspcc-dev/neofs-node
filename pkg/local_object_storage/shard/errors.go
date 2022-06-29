@@ -17,3 +17,9 @@ func IsErrNotFound(err error) bool {
 func IsErrRemoved(err error) bool {
 	return errors.As(err, new(apistatus.ObjectAlreadyRemoved))
 }
+
+// IsErrOutOfRange checks if an error returned by Shard GetRange method
+// corresponds to exceeding the object bounds.
+func IsErrOutOfRange(err error) bool {
+	return errors.As(err, new(apistatus.ObjectOutOfRange))
+}

@@ -1,10 +1,8 @@
 package shard
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -129,7 +127,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 
 	if skipMeta || err != nil {
 		res, err = small(s.blobStor, nil)
-		if err == nil || errors.Is(err, object.ErrRangeOutOfBounds) {
+		if err == nil || IsErrOutOfRange(err) {
 			return res, false, err
 		}
 		res, err = big(s.blobStor, nil)

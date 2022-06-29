@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -56,7 +55,9 @@ func (b *BlobStor) GetRangeBig(prm GetRangeBigPrm) (GetRangeBigRes, error) {
 	ln, off := prm.rng.GetLength(), prm.rng.GetOffset()
 
 	if pLen := uint64(len(payload)); pLen < ln+off {
-		return GetRangeBigRes{}, object.ErrRangeOutOfBounds
+		var errOutOfRange apistatus.ObjectOutOfRange
+
+		return GetRangeBigRes{}, errOutOfRange
 	}
 
 	return GetRangeBigRes{

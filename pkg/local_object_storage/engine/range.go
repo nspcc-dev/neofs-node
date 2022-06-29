@@ -3,7 +3,6 @@ package engine
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -121,7 +120,7 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 				return false
 			case
 				shard.IsErrRemoved(err),
-				errors.Is(err, object.ErrRangeOutOfBounds):
+				shard.IsErrOutOfRange(err):
 				outError = err
 
 				return true // stop, return it back
@@ -152,8 +151,10 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 
 		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 			res, err := sh.GetRange(shPrm)
-			if errors.Is(err, object.ErrRangeOutOfBounds) {
-				outError = object.ErrRangeOutOfBounds
+			if shard.IsErrOutOfRange(err) {
+				var errOutOfRange apistatus.ObjectOutOfRange
+
+				outError = errOutOfRange
 				return true
 			}
 			obj = res.Object()
