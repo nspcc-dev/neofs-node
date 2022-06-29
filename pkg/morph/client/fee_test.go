@@ -17,7 +17,7 @@ func TestFees(t *testing.T) {
 		def = fixedn.Fixed8(13)
 	)
 
-	v.setDefault(def)
+	v.defaultFee = def
 
 	fee = v.feeForMethod(method)
 	require.True(t, fee.Equal(def))
