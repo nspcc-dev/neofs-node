@@ -86,11 +86,17 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 		metaError     error
 	)
 
+	var hasDegraded bool
+
 	var shPrm shard.RngPrm
 	shPrm.SetAddress(prm.addr)
 	shPrm.SetRange(prm.off, prm.ln)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+		noMeta := sh.GetMode().NoMetabase()
+		hasDegraded = hasDegraded || noMeta
+		shPrm.SetIgnoreMeta(noMeta)
+
 		res, err := sh.GetRange(shPrm)
 		if err != nil {
 			if res.HasMeta() {
@@ -140,7 +146,9 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 	}
 
 	if obj == nil {
-		if shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
+		// If any shard is in a degraded mode, we should assume that metabase could store
+		// info about some object.
+		if shardWithMeta.Shard == nil && !hasDegraded || !shard.IsErrNotFound(outError) {
 			return RngRes{}, outError
 		}
 
@@ -150,6 +158,11 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 		shPrm.SetIgnoreMeta(true)
 
 		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+			if sh.GetMode().NoMetabase() {
+				// Already processed it without a metabase.
+				return false
+			}
+
 			res, err := sh.GetRange(shPrm)
 			if shard.IsErrOutOfRange(err) {
 				var errOutOfRange apistatus.ObjectOutOfRange
@@ -163,10 +176,11 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 		if obj == nil {
 			return RngRes{}, outError
 		}
-		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-			metaError,
-			zap.Stringer("address", prm.addr),
-		)
+		if shardWithMeta.Shard != nil {
+			e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
+				metaError,
+				zap.Stringer("address", prm.addr))
+		}
 	}
 
 	return RngRes{

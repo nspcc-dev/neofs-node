@@ -4,7 +4,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -28,8 +27,11 @@ func (p *DeletePrm) SetAddresses(addr ...oid.Address) {
 // Delete removes data from the shard's writeCache, metaBase and
 // blobStor.
 func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
-	if s.GetMode() != mode.ReadWrite {
+	m := s.GetMode()
+	if m.ReadOnly() {
 		return DeleteRes{}, ErrReadOnlyMode
+	} else if m.NoMetabase() {
+		return DeleteRes{}, ErrDegradedMode
 	}
 
 	ln := len(prm.addr)

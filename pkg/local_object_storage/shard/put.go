@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -30,7 +29,8 @@ func (p *PutPrm) SetObject(obj *object.Object) {
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Put(prm PutPrm) (PutRes, error) {
-	if s.GetMode() != mode.ReadWrite {
+	m := s.GetMode()
+	if m.ReadOnly() {
 		return PutRes{}, ErrReadOnlyMode
 	}
 
@@ -58,14 +58,15 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		return PutRes{}, fmt.Errorf("could not put object to BLOB storage: %w", err)
 	}
 
-	// put to metabase
-	var pPrm meta.PutPrm
-	pPrm.SetObject(prm.obj)
-	pPrm.SetBlobovniczaID(res.BlobovniczaID())
-	if _, err := s.metaBase.Put(pPrm); err != nil {
-		// may we need to handle this case in a special way
-		// since the object has been successfully written to BlobStor
-		return PutRes{}, fmt.Errorf("could not put object to metabase: %w", err)
+	if !m.NoMetabase() {
+		var pPrm meta.PutPrm
+		pPrm.SetObject(prm.obj)
+		pPrm.SetBlobovniczaID(res.BlobovniczaID())
+		if _, err := s.metaBase.Put(pPrm); err != nil {
+			// may we need to handle this case in a special way
+			// since the object has been successfully written to BlobStor
+			return PutRes{}, fmt.Errorf("could not put object to metabase: %w", err)
+		}
 	}
 
 	return PutRes{}, nil

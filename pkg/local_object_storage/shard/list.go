@@ -110,6 +110,10 @@ func (s *Shard) ListContainers(_ ListContainersPrm) (ListContainersRes, error) {
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error) {
+	if s.GetMode().NoMetabase() {
+		return ListWithCursorRes{}, ErrDegradedMode
+	}
+
 	var metaPrm meta.ListPrm
 	metaPrm.SetCount(prm.count)
 	metaPrm.SetCursor(prm.cursor)

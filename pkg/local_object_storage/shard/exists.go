@@ -3,9 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // ExistsPrm groups the parameters of Exists operation.
@@ -35,27 +33,23 @@ func (p ExistsRes) Exists() bool {
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
 func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
-	var existsPrm meta.ExistsPrm
-	existsPrm.SetAddress(prm.addr)
+	var exists bool
+	var err error
 
-	res, err := s.metaBase.Exists(existsPrm)
-	exists := res.Exists()
-	if err != nil {
-		// If the shard is in degraded mode, try to consult blobstor directly.
-		// Otherwise, just return an error.
-		if s.GetMode() == mode.Degraded {
-			var p blobstor.ExistsPrm
-			p.SetAddress(prm.addr)
+	if s.GetMode().NoMetabase() {
+		var p blobstor.ExistsPrm
+		p.SetAddress(prm.addr)
 
-			res, bErr := s.blobStor.Exists(p)
-			if bErr == nil {
-				exists = res.Exists()
-				s.log.Warn("metabase existence check finished with error",
-					zap.Stringer("address", prm.addr),
-					zap.String("error", err.Error()))
-				err = nil
-			}
-		}
+		var res blobstor.ExistsRes
+		res, err = s.blobStor.Exists(p)
+		exists = res.Exists()
+	} else {
+		var existsPrm meta.ExistsPrm
+		existsPrm.SetAddress(prm.addr)
+
+		var res meta.ExistsRes
+		res, err = s.metaBase.Exists(existsPrm)
+		exists = res.Exists()
 	}
 
 	return ExistsRes{

@@ -10,6 +10,9 @@ import (
 // that changes shard's memory due to the "read-only" shard's mode.
 var ErrReadOnlyMode = errors.New("shard is in read-only mode")
 
+// ErrDegradedMode is returned when operation requiring metabase is executed in degraded mode.
+var ErrDegradedMode = errors.New("shard is in degraded mode")
+
 // SetMode sets mode of the shard.
 //
 // Returns any error encountered that did not allow

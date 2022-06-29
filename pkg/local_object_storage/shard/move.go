@@ -2,7 +2,6 @@ package shard
 
 import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -24,8 +23,11 @@ func (p *ToMoveItPrm) SetAddress(addr oid.Address) {
 // ToMoveIt calls metabase.ToMoveIt method to mark object as relocatable to
 // another shard.
 func (s *Shard) ToMoveIt(prm ToMoveItPrm) (ToMoveItRes, error) {
-	if s.GetMode() != mode.ReadWrite {
+	m := s.GetMode()
+	if m.ReadOnly() {
 		return ToMoveItRes{}, ErrReadOnlyMode
+	} else if m.NoMetabase() {
+		return ToMoveItRes{}, ErrDegradedMode
 	}
 
 	var toMovePrm meta.ToMoveItPrm

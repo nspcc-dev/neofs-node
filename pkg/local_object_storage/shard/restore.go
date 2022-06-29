@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -62,7 +61,7 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	if s.info.Mode != mode.ReadWrite {
+	if s.info.Mode.ReadOnly() {
 		return RestoreRes{}, ErrReadOnlyMode
 	}
 
