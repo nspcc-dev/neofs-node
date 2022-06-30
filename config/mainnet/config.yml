@@ -50,14 +50,6 @@ object:
 
 morph:
   rpc_endpoint:
-    - https://rpc1.morph.fs.neo.org:40341
-    - https://rpc2.morph.fs.neo.org:40341
-    - https://rpc3.morph.fs.neo.org:40341
-    - https://rpc4.morph.fs.neo.org:40341
-    - https://rpc5.morph.fs.neo.org:40341
-    - https://rpc6.morph.fs.neo.org:40341
-    - https://rpc7.morph.fs.neo.org:40341
-  notification_endpoint:
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
     - wss://rpc3.morph.fs.neo.org:40341/ws
