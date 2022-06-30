@@ -1,5 +1,8 @@
 name: Add issues to NeoFS Core project
 
+permissions:
+  projects: write
+
 on:
   issues:
     types:
