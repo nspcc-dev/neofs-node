@@ -46,6 +46,35 @@ platforms will be officially supported after release `1.0`.
 The latest version of neofs-node works with neofs-contract 
 [v0.13.0](https://github.com/nspcc-dev/neofs-contract/releases/tag/v0.13.0).
 
+# Building
+
+To make all binaries you need Go 1.17+ and `make`:
+```
+make all
+```
+The resulting binaries will appear in `bin/` folder.
+
+To make a specific binary use:
+```
+make bin/neofs-<name>
+```
+See the list of all available commands in the `cmd` folder.
+
+## Building with Docker
+
+Building can also be performed in a container:
+```
+make docker/all                     # build all binaries
+make docker/bin/neofs-<name> # build a specific binary
+```
+
+## Docker images
+
+To make docker images suitable for use in [neofs-dev-env](https://github.com/nspcc-dev/neofs-dev-env/) use:
+```
+make images
+```
+
 # Contributing
 
 Feel free to contribute to this project after reading the [contributing
