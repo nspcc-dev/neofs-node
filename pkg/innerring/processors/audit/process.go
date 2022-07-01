@@ -7,6 +7,7 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/storagegroup"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -135,10 +136,10 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 
 	var (
 		info clientcore.NodeInfo
-		prm  SearchSGPrm
+		prm  storagegroup.SearchSGPrm
 	)
 
-	prm.id = cnr
+	prm.Container = cnr
 
 	for i := range shuffled { // consider iterating over some part of container
 		log := ap.log.With(
@@ -157,10 +158,10 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 
 		ctx, cancel := context.WithTimeout(context.Background(), ap.searchTimeout)
 
-		prm.ctx = ctx
-		prm.info = info
+		prm.Context = ctx
+		prm.NodeInfo = info
 
-		var dst SearchSGDst
+		var dst storagegroup.SearchSGDst
 
 		err = ap.sgSrc.ListSG(&dst, prm)
 
@@ -171,7 +172,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 			continue
 		}
 
-		sg = append(sg, dst.ids...)
+		sg = append(sg, dst.Objects...)
 
 		break // we found storage groups, so break loop
 	}
@@ -183,7 +184,7 @@ func (ap *Processor) filterExpiredSG(cid cid.ID, sgIDs []oid.ID,
 	cnr [][]netmap.NodeInfo, nm netmap.NetMap) map[oid.ID]storagegroupSDK.StorageGroup {
 	sgs := make(map[oid.ID]storagegroupSDK.StorageGroup, len(sgIDs))
 
-	var getSGPrm GetSGPrm
+	var getSGPrm storagegroup.GetSGPrm
 	getSGPrm.CID = cid
 	getSGPrm.Container = cnr
 	getSGPrm.NetMap = nm

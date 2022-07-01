@@ -8,8 +8,8 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	storagegroup2 "github.com/nspcc-dev/neofs-node/pkg/core/storagegroup"
 	neofsapiclient "github.com/nspcc-dev/neofs-node/pkg/innerring/internal/client"
-	auditproc "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -62,7 +62,7 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 // Returns storage groups structure from received object.
 //
 // Returns an error of type apistatus.ObjectNotFound if storage group is missing.
-func (c *ClientCache) GetSG(prm auditproc.GetSGPrm) (*storagegroup.StorageGroup, error) {
+func (c *ClientCache) GetSG(prm storagegroup2.GetSGPrm) (*storagegroup.StorageGroup, error) {
 	var sgAddress oid.Address
 	sgAddress.SetContainer(prm.CID)
 	sgAddress.SetObject(prm.OID)
@@ -212,23 +212,23 @@ func (c *ClientCache) getWrappedClient(info clientcore.NodeInfo) (neofsapiclient
 	return cInternal, nil
 }
 
-func (c ClientCache) ListSG(dst *auditproc.SearchSGDst, prm auditproc.SearchSGPrm) error {
-	cli, err := c.getWrappedClient(prm.NodeInfo())
+func (c ClientCache) ListSG(dst *storagegroup2.SearchSGDst, prm storagegroup2.SearchSGPrm) error {
+	cli, err := c.getWrappedClient(prm.NodeInfo)
 	if err != nil {
 		return fmt.Errorf("could not get API client from cache")
 	}
 
 	var cliPrm neofsapiclient.SearchSGPrm
 
-	cliPrm.SetContext(prm.Context())
-	cliPrm.SetContainerID(prm.CID())
+	cliPrm.SetContext(prm.Context)
+	cliPrm.SetContainerID(prm.Container)
 
 	res, err := cli.SearchSG(cliPrm)
 	if err != nil {
 		return err
 	}
 
-	dst.WriteIDList(res.IDList())
+	dst.Objects = res.IDList()
 
 	return nil
 }
