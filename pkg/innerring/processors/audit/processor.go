@@ -7,15 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/storagegroup"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -47,7 +43,7 @@ type (
 		log           *zap.Logger
 		pool          *ants.Pool
 		irList        Indexer
-		sgSrc         SGSource
+		sgSrc         storagegroup.SGSource
 		epochSrc      EpochSource
 		searchTimeout time.Duration
 
@@ -65,7 +61,7 @@ type (
 		NetmapClient     *nmClient.Client
 		ContainerClient  *cntClient.Client
 		IRList           Indexer
-		SGSource         SGSource
+		SGSource         storagegroup.SGSource
 		RPCSearchTimeout time.Duration
 		TaskManager      TaskManager
 		Reporter         audit.Reporter
@@ -73,63 +69,6 @@ type (
 		EpochSource      EpochSource
 	}
 )
-
-// SearchSGPrm groups the parameters which are formed by Processor to search the storage group objects.
-type SearchSGPrm struct {
-	ctx context.Context
-
-	id cid.ID
-
-	info client.NodeInfo
-}
-
-// Context returns context to use for network communication.
-func (x SearchSGPrm) Context() context.Context {
-	return x.ctx
-}
-
-// CID returns the identifier of the container to search SG in.
-func (x SearchSGPrm) CID() cid.ID {
-	return x.id
-}
-
-// NodeInfo returns information about a storage node to communicate with.
-func (x SearchSGPrm) NodeInfo() client.NodeInfo {
-	return x.info
-}
-
-// SearchSGDst groups the target values which Processor expects from SG searching to process.
-type SearchSGDst struct {
-	ids []oid.ID
-}
-
-// WriteIDList writes a list of identifiers of storage group objects stored in the container.
-func (x *SearchSGDst) WriteIDList(ids []oid.ID) {
-	x.ids = ids
-}
-
-// GetSGPrm groups parameter of GetSG operation.
-type GetSGPrm struct {
-	Context context.Context
-
-	OID oid.ID
-	CID cid.ID
-
-	NetMap    netmap.NetMap
-	Container [][]netmap.NodeInfo
-}
-
-// SGSource is a storage group information source interface.
-type SGSource interface {
-	// ListSG must list storage group objects in the container. Formed list must be written to destination.
-	//
-	// Must return any error encountered which did not allow to form the list.
-	ListSG(*SearchSGDst, SearchSGPrm) error
-
-	// GetSG must return storage group object for the provided CID, OID,
-	// container and netmap state.
-	GetSG(GetSGPrm) (*storagegroupSDK.StorageGroup, error)
-}
 
 type epochAuditReporter struct {
 	epoch uint64
