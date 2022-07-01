@@ -17,11 +17,11 @@ func (c *Context) executePoR() {
 	wg := new(sync.WaitGroup)
 	sgs := c.task.StorageGroupList()
 
-	for id, sg := range sgs {
+	for _, sg := range sgs {
 		wg.Add(1)
 
 		if err := c.porWorkerPool.Submit(func() {
-			c.checkStorageGroupPoR(id, sg)
+			c.checkStorageGroupPoR(sg.ID(), sg.StorageGroup())
 			wg.Done()
 		}); err != nil {
 			wg.Done()
