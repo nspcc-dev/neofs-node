@@ -15,7 +15,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"go.uber.org/zap"
 )
 
@@ -172,8 +171,9 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 }
 
 func (ap *Processor) filterExpiredSG(cid cid.ID, sgIDs []oid.ID,
-	cnr [][]netmap.NodeInfo, nm netmap.NetMap) map[oid.ID]storagegroupSDK.StorageGroup {
-	sgs := make(map[oid.ID]storagegroupSDK.StorageGroup, len(sgIDs))
+	cnr [][]netmap.NodeInfo, nm netmap.NetMap) []storagegroup.StorageGroup {
+	sgs := make([]storagegroup.StorageGroup, 0, len(sgIDs))
+	var coreSG storagegroup.StorageGroup
 
 	var getSGPrm storagegroup.GetSGPrm
 	getSGPrm.CID = cid
@@ -202,7 +202,10 @@ func (ap *Processor) filterExpiredSG(cid cid.ID, sgIDs []oid.ID,
 
 		// filter expired epochs
 		if sg.ExpirationEpoch() > ap.epochSrc.EpochCounter() {
-			sgs[sgID] = *sg
+			coreSG.SetID(sgID)
+			coreSG.SetStorageGroup(*sg)
+
+			sgs = append(sgs, coreSG)
 		}
 	}
 
