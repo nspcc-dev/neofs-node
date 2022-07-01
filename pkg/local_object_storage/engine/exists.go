@@ -3,6 +3,7 @@ package engine
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -21,7 +22,14 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 				return true
 			}
 
-			e.reportShardError(sh, "could not check existence of object in shard", err)
+			_, ok := err.(*objectSDK.SplitInfoError)
+			if ok {
+				return true
+			}
+			if !shard.IsErrNotFound(err) {
+				e.reportShardError(sh, "could not check existence of object in shard", err)
+			}
+			return false
 		}
 
 		if !exists {

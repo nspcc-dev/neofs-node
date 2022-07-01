@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +30,15 @@ func TestDB_Exists(t *testing.T) {
 		exists, err := metaExists(db, object.AddressOf(regular))
 		require.NoError(t, err)
 		require.True(t, exists)
+
+		t.Run("removed object", func(t *testing.T) {
+			err := metaInhume(db, object.AddressOf(regular), oidtest.Address())
+			require.NoError(t, err)
+
+			exists, err := metaExists(db, object.AddressOf(regular))
+			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+			require.False(t, exists)
+		})
 	})
 
 	t.Run("tombstone object", func(t *testing.T) {
@@ -151,5 +162,13 @@ func TestDB_Exists(t *testing.T) {
 			id2, _ = si.SplitInfo().Link()
 			require.Equal(t, id1, id2)
 		})
+	})
+
+	t.Run("random object", func(t *testing.T) {
+		addr := oidtest.Address()
+
+		exists, err := metaExists(db, addr)
+		require.NoError(t, err)
+		require.False(t, exists)
 	})
 }
