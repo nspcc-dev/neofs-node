@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -77,16 +78,14 @@ func putSG(cmd *cobra.Command, _ []string) {
 	}, cnr, members)
 	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
 
-	sgContent, err := sg.Marshal()
-	common.ExitOnErr(cmd, "could not marshal storage group: %w", err)
-
 	obj := object.New()
 	obj.SetContainerID(cnr)
 	obj.SetOwnerID(&ownerID)
-	obj.SetType(object.TypeStorageGroup)
+
+	storagegroupSDK.WriteToObject(*sg, obj)
 
 	putPrm.SetHeader(obj)
-	putPrm.SetPayloadReader(bytes.NewReader(sgContent))
+	putPrm.SetPayloadReader(bytes.NewReader(obj.Payload()))
 
 	res, err := internalclient.PutObject(putPrm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)

@@ -11,7 +11,7 @@ import (
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	storagegroupAPI "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
+	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/spf13/cobra"
 )
 
@@ -55,13 +55,16 @@ func getSG(cmd *cobra.Command, _ []string) {
 	prm.SetAddress(addr)
 	prm.SetPayloadWriter(buf)
 
-	_, err := internalclient.GetObject(prm)
+	res, err := internalclient.GetObject(prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
-	var sg storagegroupAPI.StorageGroup
+	rawObj := res.Header()
+	rawObj.SetPayload(buf.Bytes())
 
-	err = sg.Unmarshal(buf.Bytes())
-	common.ExitOnErr(cmd, "could not unmarshal storage group: %w", err)
+	var sg storagegroupSDK.StorageGroup
+
+	err = storagegroupSDK.ReadFromObject(&sg, *rawObj)
+	common.ExitOnErr(cmd, "could not read storage group from the obj: %w", err)
 
 	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
