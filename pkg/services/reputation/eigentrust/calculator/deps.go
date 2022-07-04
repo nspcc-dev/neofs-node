@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 type Context interface {
@@ -22,7 +23,7 @@ type Context interface {
 // trusts to current node's daughter. Realization may depends
 // on daughter.
 type InitialTrustSource interface {
-	InitialTrust(reputation.PeerID) (reputation.TrustValue, error)
+	InitialTrust(apireputation.PeerID) (reputation.TrustValue, error)
 }
 
 // TrustIterator must iterate over all retrieved(or calculated) trusts
@@ -31,7 +32,7 @@ type TrustIterator interface {
 	Iterate(reputation.TrustHandler) error
 }
 
-type PeerTrustsHandler func(reputation.PeerID, TrustIterator) error
+type PeerTrustsHandler func(apireputation.PeerID, TrustIterator) error
 
 // PeerTrustsIterator must iterate over all nodes(PeerIDs) and provide
 // TrustIterator for iteration over node's Trusts to others peers.
@@ -43,7 +44,7 @@ type DaughterTrustIteratorProvider interface {
 	// InitDaughterIterator must init TrustIterator
 	// that iterates over received local trusts from
 	// daughter p for ctx.Epoch() epoch.
-	InitDaughterIterator(ctx Context, p reputation.PeerID) (TrustIterator, error)
+	InitDaughterIterator(ctx Context, p apireputation.PeerID) (TrustIterator, error)
 	// InitAllDaughtersIterator must init PeerTrustsIterator
 	// that must iterate over all daughters of the current
 	// node(manager) and all trusts received from them for

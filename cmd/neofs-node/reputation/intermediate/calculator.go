@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigencalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	eigentrustctrl "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/controller"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // InitialTrustSource is an implementation of the
@@ -20,7 +21,7 @@ type InitialTrustSource struct {
 var ErrEmptyNetMap = errors.New("empty NepMap")
 
 // InitialTrust returns `initialTrust` as an initial trust value.
-func (i InitialTrustSource) InitialTrust(reputation.PeerID) (reputation.TrustValue, error) {
+func (i InitialTrustSource) InitialTrust(apireputation.PeerID) (reputation.TrustValue, error) {
 	nm, err := i.NetMap.GetNetMap(1)
 	if err != nil {
 		return reputation.TrustZero, fmt.Errorf("failed to get NetMap: %w", err)

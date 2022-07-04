@@ -35,7 +35,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -44,6 +43,7 @@ import (
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -526,11 +526,14 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 		key := info.PublicKey()
 
 		nmNodes := nm.Nodes()
+		var peer apireputation.PeerID
 
 		for i := range nmNodes {
 			if bytes.Equal(nmNodes[i].PublicKey(), key) {
+				peer.SetPublicKey(nmNodes[i].PublicKey())
+
 				prm := truststorage.UpdatePrm{}
-				prm.SetPeer(reputation.PeerIDFromBytes(nmNodes[i].PublicKey()))
+				prm.SetPeer(peer)
 
 				return &reputationClient{
 					MultiAddressClient: cl.(coreclient.MultiAddressClient),

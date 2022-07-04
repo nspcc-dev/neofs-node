@@ -1,8 +1,6 @@
 package intermediate
 
 import (
-	"encoding/hex"
-
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
@@ -34,8 +32,8 @@ func (w *ConsumerTrustWriter) Write(t reputation.Trust) error {
 	w.log.Debug("writing received consumer's trusts",
 		zap.Uint64("epoch", w.eiCtx.Epoch()),
 		zap.Uint32("iteration", w.eiCtx.I()),
-		zap.String("trusting_peer", hex.EncodeToString(t.TrustingPeer().Bytes())),
-		zap.String("trusted_peer", hex.EncodeToString(t.Peer().Bytes())),
+		zap.Stringer("trusting_peer", t.TrustingPeer()),
+		zap.Stringer("trusted_peer", t.Peer()),
 	)
 
 	trust := eigentrust.IterationTrust{Trust: t}

@@ -10,6 +10,7 @@ import (
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -87,10 +88,15 @@ func (it *TrustIterator) Iterate(h reputation.TrustHandler) error {
 			continue
 		}
 
+		var trusted, trusting apireputation.PeerID
+
+		trusted.SetPublicKey(nmNodes[i].PublicKey())
+		trusting.SetPublicKey(it.storage.LocalKey)
+
 		trust := reputation.Trust{}
-		trust.SetPeer(reputation.PeerIDFromBytes(nmNodes[i].PublicKey()))
+		trust.SetPeer(trusted)
 		trust.SetValue(p)
-		trust.SetTrustingPeer(reputation.PeerIDFromBytes(it.storage.LocalKey))
+		trust.SetTrustingPeer(trusting)
 
 		if err := h(trust); err != nil {
 			return err

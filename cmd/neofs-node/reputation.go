@@ -29,6 +29,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -330,11 +331,15 @@ func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
 
 // apiToLocalTrust converts v2 Trust to local reputation.Trust, adding trustingPeer.
 func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trust {
+	var trusted, trusting apireputation.PeerID
+	trusted.SetPublicKey(t.GetPeer().GetPublicKey())
+	trusting.SetPublicKey(trustingPeer)
+
 	localTrust := reputation.Trust{}
 
 	localTrust.SetValue(reputation.TrustValueFromFloat64(t.GetValue()))
-	localTrust.SetPeer(reputation.PeerIDFromBytes(t.GetPeer().GetPublicKey()))
-	localTrust.SetTrustingPeer(reputation.PeerIDFromBytes(trustingPeer))
+	localTrust.SetPeer(trusted)
+	localTrust.SetTrustingPeer(trusting)
 
 	return localTrust
 }

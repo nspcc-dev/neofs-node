@@ -15,9 +15,7 @@ func (p *Put) setPeerID(v []byte) error {
 		return fmt.Errorf("peer ID is %d byte long, expected %d", ln, peerIDLength)
 	}
 
-	var publicKey [33]byte
-	copy(publicKey[:], v)
-	p.peerID.SetPublicKey(publicKey)
+	p.peerID.SetPublicKey(v)
 
 	return nil
 }

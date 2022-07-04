@@ -9,31 +9,27 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
+	reputationtest "github.com/nspcc-dev/neofs-sdk-go/reputation/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestParsePut(t *testing.T) {
 	var (
-		peerID reputation.PeerID
+		peerID = reputationtest.PeerID()
 
 		value      reputation.GlobalTrust
 		trust      reputation.Trust
-		trustValue float64 = 64
+		trustValue float64 = 0.64
 
 		epoch uint64 = 42
-
-		rawPeerID = [33]byte{1, 2, 3, 4, 5, 6}
 	)
 
-	peerID.SetPublicKey(rawPeerID)
-
 	trust.SetValue(trustValue)
-	trust.SetPeer(&peerID)
+	trust.SetPeer(peerID)
 
-	value.SetTrust(&trust)
+	value.SetTrust(trust)
 
-	rawValue, err := value.Marshal()
-	require.NoError(t, err)
+	rawValue := value.Marshal()
 
 	t.Run("wrong number of parameters", func(t *testing.T) {
 		prms := []stackitem.Item{
@@ -65,7 +61,7 @@ func TestParsePut(t *testing.T) {
 	t.Run("wrong value parameter", func(t *testing.T) {
 		_, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epoch)),
-			stackitem.NewByteArray(rawPeerID[:]),
+			stackitem.NewByteArray(peerID.PublicKey()),
 			stackitem.NewMap(),
 		}))
 
@@ -75,7 +71,7 @@ func TestParsePut(t *testing.T) {
 	t.Run("correct behavior", func(t *testing.T) {
 		ev, err := ParsePut(createNotifyEventFromItems([]stackitem.Item{
 			stackitem.NewBigInteger(new(big.Int).SetUint64(epoch)),
-			stackitem.NewByteArray(rawPeerID[:]),
+			stackitem.NewByteArray(peerID.PublicKey()),
 			stackitem.NewByteArray(rawValue),
 		}))
 		require.NoError(t, err)

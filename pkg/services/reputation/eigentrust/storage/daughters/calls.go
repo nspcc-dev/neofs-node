@@ -1,10 +1,12 @@
 package daughters
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // Put saves daughter peer's trust to its provider for the epoch.
@@ -17,7 +19,7 @@ func (x *Storage) Put(epoch uint64, trust reputation.Trust) {
 		s = x.mItems[epoch]
 		if s == nil {
 			s = &DaughterStorage{
-				mItems: make(map[reputation.PeerID]*DaughterTrusts, 1),
+				mItems: make(map[string]*DaughterTrusts, 1),
 			}
 
 			x.mItems[epoch] = s
@@ -32,7 +34,7 @@ func (x *Storage) Put(epoch uint64, trust reputation.Trust) {
 // DaughterTrusts returns daughter trusts for the epoch.
 //
 // Returns false if there is no data for the epoch and daughter.
-func (x *Storage) DaughterTrusts(epoch uint64, daughter reputation.PeerID) (*DaughterTrusts, bool) {
+func (x *Storage) DaughterTrusts(epoch uint64, daughter apireputation.PeerID) (*DaughterTrusts, bool) {
 	var (
 		s  *DaughterStorage
 		ok bool
@@ -69,7 +71,7 @@ func (x *Storage) AllDaughterTrusts(epoch uint64) (*DaughterStorage, bool) {
 type DaughterStorage struct {
 	mtx sync.RWMutex
 
-	mItems map[reputation.PeerID]*DaughterTrusts
+	mItems map[string]*DaughterTrusts
 }
 
 // Iterate passes IDs of the daughter peers with their trusts to h.
@@ -79,7 +81,16 @@ func (x *DaughterStorage) Iterate(h eigentrustcalc.PeerTrustsHandler) (err error
 	x.mtx.RLock()
 
 	{
-		for daughter, daughterTrusts := range x.mItems {
+		for strDaughter, daughterTrusts := range x.mItems {
+			var daughter apireputation.PeerID
+
+			if strDaughter != "" {
+				err = daughter.DecodeString(strDaughter)
+				if err != nil {
+					panic(fmt.Sprintf("decode peer ID string %s: %v", strDaughter, err))
+				}
+			}
+
 			if err = h(daughter, daughterTrusts); err != nil {
 				break
 			}
@@ -97,12 +108,12 @@ func (x *DaughterStorage) put(trust reputation.Trust) {
 	x.mtx.Lock()
 
 	{
-		trusting := trust.TrustingPeer()
+		trusting := trust.TrustingPeer().EncodeToString()
 
 		dt = x.mItems[trusting]
 		if dt == nil {
 			dt = &DaughterTrusts{
-				mItems: make(map[reputation.PeerID]reputation.Trust, 1),
+				mItems: make(map[string]reputation.Trust, 1),
 			}
 
 			x.mItems[trusting] = dt
@@ -114,11 +125,11 @@ func (x *DaughterStorage) put(trust reputation.Trust) {
 	dt.put(trust)
 }
 
-func (x *DaughterStorage) daughterTrusts(id reputation.PeerID) (dt *DaughterTrusts, ok bool) {
+func (x *DaughterStorage) daughterTrusts(id apireputation.PeerID) (dt *DaughterTrusts, ok bool) {
 	x.mtx.RLock()
 
 	{
-		dt, ok = x.mItems[id]
+		dt, ok = x.mItems[id.EncodeToString()]
 	}
 
 	x.mtx.RUnlock()
@@ -133,14 +144,14 @@ func (x *DaughterStorage) daughterTrusts(id reputation.PeerID) (dt *DaughterTrus
 type DaughterTrusts struct {
 	mtx sync.RWMutex
 
-	mItems map[reputation.PeerID]reputation.Trust
+	mItems map[string]reputation.Trust
 }
 
 func (x *DaughterTrusts) put(trust reputation.Trust) {
 	x.mtx.Lock()
 
 	{
-		x.mItems[trust.Peer()] = trust
+		x.mItems[trust.Peer().EncodeToString()] = trust
 	}
 
 	x.mtx.Unlock()

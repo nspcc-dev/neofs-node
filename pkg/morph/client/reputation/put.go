@@ -35,16 +35,11 @@ func (p *PutPrm) SetValue(v reputation.GlobalTrust) {
 //
 // If TryNotary is provided, calls notary contract.
 func (c *Client) Put(p PutPrm) error {
-	data, err := p.value.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marshal global trust value: %w", err)
-	}
-
 	prm := client.InvokePrm{}
 	prm.SetMethod(putMethod)
-	prm.SetArgs(p.epoch, p.peerID.ToV2().GetPublicKey(), data)
+	prm.SetArgs(p.epoch, p.peerID.PublicKey(), p.value.Marshal())
 
-	err = c.client.Invoke(prm)
+	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
 	}
