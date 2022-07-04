@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // Context wraps stdlib context
@@ -59,7 +60,7 @@ type WriterProvider interface {
 type ManagerBuilder interface {
 	// BuildManagers must compose list of managers. It depends on
 	// particular epoch and PeerID of the current route point.
-	BuildManagers(epoch uint64, p reputation.PeerID) ([]ServerInfo, error)
+	BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error)
 }
 
 // ServerInfo describes a set of

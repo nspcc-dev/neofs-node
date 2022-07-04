@@ -15,7 +15,7 @@ func (rp *Processor) handlePutReputation(ev event.Event) {
 	// FIXME: #1147 do not use `ToV2` method outside neofs-api-go library
 	rp.log.Info("notification",
 		zap.String("type", "reputation put"),
-		zap.String("peer_id", hex.EncodeToString(peerID.ToV2().GetPublicKey())))
+		zap.String("peer_id", hex.EncodeToString(peerID.PublicKey())))
 
 	// send event to the worker pool
 

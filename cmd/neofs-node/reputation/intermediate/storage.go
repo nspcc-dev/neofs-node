@@ -1,13 +1,12 @@
 package intermediate
 
 import (
-	"encoding/hex"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	consumerstorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/consumers"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // DaughterTrustIteratorProvider is an implementation of the
@@ -20,15 +19,12 @@ type DaughterTrustIteratorProvider struct {
 // InitDaughterIterator returns an iterator over the received
 // local trusts for ctx.Epoch() epoch from daughter p.
 func (ip *DaughterTrustIteratorProvider) InitDaughterIterator(ctx eigentrustcalc.Context,
-	p reputation.PeerID) (eigentrustcalc.TrustIterator, error) {
+	p apireputation.PeerID) (eigentrustcalc.TrustIterator, error) {
 	epoch := ctx.Epoch()
 
 	daughterIterator, ok := ip.DaughterStorage.DaughterTrusts(epoch, p)
 	if !ok {
-		return nil, fmt.Errorf("no data in %d epoch for daughter: %s",
-			epoch,
-			hex.EncodeToString(p.Bytes()),
-		)
+		return nil, fmt.Errorf("no data in %d epoch for daughter: %s", epoch, p)
 	}
 
 	return daughterIterator, nil

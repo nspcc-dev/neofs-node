@@ -82,15 +82,12 @@ type RemoteTrustWriter struct {
 }
 
 func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
-	apiTrust := reputationapi.NewTrust()
-
-	apiPeer := reputationapi.NewPeerID()
-	apiPeer.SetPublicKey(t.Peer())
+	var apiTrust reputationapi.Trust
 
 	apiTrust.SetValue(t.Value().Float64())
-	apiTrust.SetPeer(apiPeer)
+	apiTrust.SetPeer(t.Peer())
 
-	rtp.buf = append(rtp.buf, *apiTrust)
+	rtp.buf = append(rtp.buf, apiTrust)
 
 	return nil
 }

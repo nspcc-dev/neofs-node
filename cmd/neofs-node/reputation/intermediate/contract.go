@@ -2,13 +2,13 @@ package intermediate
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
@@ -75,27 +75,23 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 
 	args := repClient.PutPrm{}
 
-	var trustedPublicKey [33]byte
-	copy(trustedPublicKey[:], t.Peer().Bytes())
+	apiTrustedPeerID := t.Peer()
 
-	apiTrustedPeerID := apireputation.NewPeerID()
-	apiTrustedPeerID.SetPublicKey(trustedPublicKey)
-
-	apiTrust := apireputation.NewTrust()
+	var apiTrust apireputation.Trust
 	apiTrust.SetValue(t.Value().Float64())
-	apiTrust.SetPeer(apiTrustedPeerID)
+	apiTrust.SetPeer(t.Peer())
 
 	var managerPublicKey [33]byte
 	copy(managerPublicKey[:], fw.pubKey)
 
-	apiMangerPeerID := apireputation.NewPeerID()
-	apiMangerPeerID.SetPublicKey(managerPublicKey)
+	var apiMangerPeerID apireputation.PeerID
+	apiMangerPeerID.SetPublicKey(managerPublicKey[:])
 
-	gTrust := apireputation.NewGlobalTrust()
+	var gTrust apireputation.GlobalTrust
 	gTrust.SetTrust(apiTrust)
 	gTrust.SetManager(apiMangerPeerID)
 
-	err := gTrust.Sign(fw.privatKey)
+	err := gTrust.Sign(neofsecdsa.Signer(*fw.privatKey))
 	if err != nil {
 		fw.l.Debug(
 			"failed to sign global trust",
@@ -105,8 +101,8 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 	}
 
 	args.SetEpoch(t.Epoch())
-	args.SetValue(*gTrust)
-	args.SetPeerID(*apiTrustedPeerID)
+	args.SetValue(gTrust)
+	args.SetPeerID(apiTrustedPeerID)
 
 	err = fw.client.Put(
 		args,
@@ -123,7 +119,7 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 		"sent global trust to contract",
 		zap.Uint64("epoch", t.Epoch()),
 		zap.Float64("value", t.Value().Float64()),
-		zap.String("peer", hex.EncodeToString(t.Peer().Bytes())),
+		zap.Stringer("peer", t.Peer()),
 	)
 
 	return nil

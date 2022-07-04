@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // UpdatePrm groups the parameters of Storage's Update operation.
@@ -13,7 +14,7 @@ type UpdatePrm struct {
 
 	epoch uint64
 
-	peer reputation.PeerID
+	peer apireputation.PeerID
 }
 
 // SetEpoch sets number of the epoch
@@ -24,7 +25,7 @@ func (p *UpdatePrm) SetEpoch(e uint64) {
 
 // SetPeer sets identifier of the peer
 // with which the local node interacted.
-func (p *UpdatePrm) SetPeer(id reputation.PeerID) {
+func (p *UpdatePrm) SetPeer(id apireputation.PeerID) {
 	p.peer = id
 }
 
@@ -51,12 +52,13 @@ func newTrustValueStorage() *EpochTrustValueStorage {
 	}
 }
 
-func stringifyPeerID(id reputation.PeerID) string {
-	return string(id.Bytes())
+func stringifyPeerID(id apireputation.PeerID) string {
+	return string(id.PublicKey())
 }
 
-func peerIDFromString(str string) reputation.PeerID {
-	return reputation.PeerIDFromBytes([]byte(str))
+func peerIDFromString(str string) (res apireputation.PeerID) {
+	res.SetPublicKey([]byte(str))
+	return
 }
 
 func (s *EpochTrustValueStorage) update(prm UpdatePrm) {

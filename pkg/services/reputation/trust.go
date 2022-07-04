@@ -2,6 +2,8 @@ package reputation
 
 import (
 	"strconv"
+
+	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
 // TrustValue represents the numeric value of the node's trust.
@@ -56,7 +58,7 @@ func (v TrustValue) IsZero() bool {
 
 // Trust represents peer's trust (reputation).
 type Trust struct {
-	trusting, peer PeerID
+	trusting, peer reputation.PeerID
 
 	val TrustValue
 }
@@ -80,21 +82,21 @@ func (t *Trust) SetValue(val TrustValue) {
 }
 
 // Peer returns trusted peer ID.
-func (t Trust) Peer() PeerID {
+func (t Trust) Peer() reputation.PeerID {
 	return t.peer
 }
 
 // SetPeer sets trusted peer ID.
-func (t *Trust) SetPeer(id PeerID) {
+func (t *Trust) SetPeer(id reputation.PeerID) {
 	t.peer = id
 }
 
 // TrustingPeer returns trusting peer ID.
-func (t Trust) TrustingPeer() PeerID {
+func (t Trust) TrustingPeer() reputation.PeerID {
 	return t.trusting
 }
 
 // SetTrustingPeer sets trusting peer ID.
-func (t *Trust) SetTrustingPeer(id PeerID) {
+func (t *Trust) SetTrustingPeer(id reputation.PeerID) {
 	t.trusting = id
 }

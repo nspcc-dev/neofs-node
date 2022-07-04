@@ -2,10 +2,10 @@ package eigentrustcalc
 
 import (
 	"context"
-	"encoding/hex"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -69,7 +69,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 	// continue with initial iteration number
 	ctx.SetI(iter)
 
-	err = consumersIter.Iterate(func(daughter reputation.PeerID, iter TrustIterator) error {
+	err = consumersIter.Iterate(func(daughter apireputation.PeerID, iter TrustIterator) error {
 		err := c.prm.WorkerPool.Submit(func() {
 			c.iterateDaughter(iterDaughterPrm{
 				lastIter:      prm.last,
@@ -99,7 +99,7 @@ type iterDaughterPrm struct {
 
 	ctx Context
 
-	id reputation.PeerID
+	id apireputation.PeerID
 
 	consumersIter TrustIterator
 }
@@ -108,7 +108,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	initTrust, err := c.prm.InitialTrustSource.InitialTrust(p.id)
 	if err != nil {
 		c.opts.log.Debug("get initial trust failure",
-			zap.String("daughter", hex.EncodeToString(p.id.Bytes())),
+			zap.Stringer("daughter", p.id),
 			zap.String("error", err.Error()),
 		)
 
@@ -244,14 +244,14 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 		return
 	}
 
-	err = daughterIter.Iterate(func(daughter reputation.PeerID, iterator TrustIterator) error {
+	err = daughterIter.Iterate(func(daughter apireputation.PeerID, iterator TrustIterator) error {
 		return iterator.Iterate(func(trust reputation.Trust) error {
 			trusted := trust.Peer()
 
 			initTrust, err := c.prm.InitialTrustSource.InitialTrust(trusted)
 			if err != nil {
 				c.opts.log.Debug("get initial trust failure",
-					zap.String("peer", hex.EncodeToString(trusted.Bytes())),
+					zap.Stringer("peer", trusted),
 					zap.String("error", err.Error()),
 				)
 

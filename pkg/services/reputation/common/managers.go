@@ -1,15 +1,13 @@
 package common
 
 import (
-	"bytes"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/nspcc-dev/hrw"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
@@ -73,10 +71,10 @@ func (x nodeServer) NumberOfAddresses() int {
 
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
-func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]ServerInfo, error) {
+func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error) {
 	mb.log.Debug("start building managers",
 		zap.Uint64("epoch", epoch),
-		zap.String("peer", hex.EncodeToString(p.Bytes())),
+		zap.Stringer("peer", p),
 	)
 
 	nm, err := mb.nmSrc.GetNetMapByEpoch(epoch)
@@ -94,7 +92,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p reputation.PeerID) ([]Se
 	hrw.SortSliceByValue(nodes, epoch)
 
 	for i := range nodes {
-		if bytes.Equal(nodes[i].PublicKey(), p.Bytes()) {
+		if apireputation.ComparePeerKey(p, nodes[i].PublicKey()) {
 			managerIndex := i + 1
 
 			if managerIndex == len(nodes) {

@@ -82,9 +82,7 @@ func ParsePut(e *subscriptions.NotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("peer ID is %d byte long, expected %d", ln, peerIDLength)
 	}
 
-	var publicKey [33]byte
-	copy(publicKey[:], peerID)
-	ev.peerID.SetPublicKey(publicKey)
+	ev.peerID.SetPublicKey(peerID)
 
 	// parse global trust value
 	rawValue, err := client.BytesFromStackItem(params[2])

@@ -8,7 +8,6 @@ import (
 
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
@@ -37,16 +36,16 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 	}
 
 	// check signature
-	if err := value.VerifySignature(); err != nil {
+	if !value.VerifySignature() {
 		rp.log.Info("ignore reputation value",
 			zap.String("reason", "invalid signature"),
-			zap.String("error", err.Error()))
+		)
 
 		return
 	}
 
 	// check if manager is correct
-	if err := rp.checkManagers(epoch, *value.Manager(), id); err != nil {
+	if err := rp.checkManagers(epoch, value.Manager(), id); err != nil {
 		rp.log.Info("ignore reputation value",
 			zap.String("reason", "wrong manager"),
 			zap.String("error", err.Error()))
@@ -58,14 +57,14 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 }
 
 func (rp *Processor) checkManagers(e uint64, mng apireputation.PeerID, peer apireputation.PeerID) error {
-	mm, err := rp.mngBuilder.BuildManagers(e, reputation.PeerIDFromBytes(peer.ToV2().GetPublicKey()))
+	mm, err := rp.mngBuilder.BuildManagers(e, peer)
 	if err != nil {
 		return fmt.Errorf("could not build managers: %w", err)
 	}
 
 	for _, m := range mm {
 		// FIXME: #1147 do not use `ToV2` method outside neofs-api-go library
-		if bytes.Equal(mng.ToV2().GetPublicKey(), m.PublicKey()) {
+		if bytes.Equal(mng.PublicKey(), m.PublicKey()) {
 			return nil
 		}
 	}
@@ -93,7 +92,7 @@ func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
 	if err != nil {
 		// FIXME: #1147 do not use `ToV2` method outside neofs-api-go library
 		rp.log.Warn("can't send approval tx for reputation value",
-			zap.String("peer_id", hex.EncodeToString(id.ToV2().GetPublicKey())),
+			zap.String("peer_id", hex.EncodeToString(id.PublicKey())),
 			zap.String("error", err.Error()))
 	}
 }

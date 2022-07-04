@@ -2,7 +2,6 @@ package intermediate
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/internal/client"
@@ -95,22 +94,16 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	rtp.log.Debug("announcing trust",
 		zap.Uint64("epoch", epoch),
 		zap.Uint32("iteration", i),
-		zap.String("trusting_peer", hex.EncodeToString(t.TrustingPeer().Bytes())),
-		zap.String("trusted_peer", hex.EncodeToString(t.Peer().Bytes())),
+		zap.Stringer("trusting_peer", t.TrustingPeer()),
+		zap.Stringer("trusted_peer", t.Peer()),
 	)
 
-	apiTrustingPeer := reputationapi.NewPeerID()
-	apiTrustingPeer.SetPublicKey(t.TrustingPeer())
-
-	apiTrustedPeer := reputationapi.NewPeerID()
-	apiTrustedPeer.SetPublicKey(t.Peer())
-
-	apiTrust := reputationapi.NewTrust()
+	var apiTrust reputationapi.Trust
 	apiTrust.SetValue(t.Value().Float64())
-	apiTrust.SetPeer(apiTrustedPeer)
+	apiTrust.SetPeer(t.Peer())
 
-	apiPeerToPeerTrust := reputationapi.NewPeerToPeerTrust()
-	apiPeerToPeerTrust.SetTrustingPeer(apiTrustingPeer)
+	var apiPeerToPeerTrust reputationapi.PeerToPeerTrust
+	apiPeerToPeerTrust.SetTrustingPeer(t.TrustingPeer())
 	apiPeerToPeerTrust.SetTrust(apiTrust)
 
 	var p internalclient.AnnounceIntermediatePrm
@@ -119,7 +112,7 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	p.SetClient(rtp.client)
 	p.SetEpoch(epoch)
 	p.SetIteration(i)
-	p.SetTrust(*apiPeerToPeerTrust)
+	p.SetTrust(apiPeerToPeerTrust)
 
 	_, err := internalclient.AnnounceIntermediate(p)
 
