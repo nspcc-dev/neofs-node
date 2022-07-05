@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -76,7 +77,7 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
-		var getSmallPrm blobstor.GetSmallPrm
+		var getSmallPrm blobovniczatree.GetSmallPrm
 		getSmallPrm.SetAddress(prm.addr)
 		getSmallPrm.SetBlobovniczaID(id)
 

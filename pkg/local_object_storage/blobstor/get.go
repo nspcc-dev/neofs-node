@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -39,7 +40,7 @@ func (b *BlobStor) GetBig(prm GetBigPrm) (GetBigRes, error) {
 		return GetBigRes{}, fmt.Errorf("could not read object from fs tree: %w", err)
 	}
 
-	data, err = b.decompressor(data)
+	data, err = b.Decompress(data)
 	if err != nil {
 		return GetBigRes{}, fmt.Errorf("could not decompress object data: %w", err)
 	}
@@ -55,4 +56,8 @@ func (b *BlobStor) GetBig(prm GetBigPrm) (GetBigRes, error) {
 			obj: obj,
 		},
 	}, nil
+}
+
+func (b *BlobStor) GetSmall(prm blobovniczatree.GetSmallPrm) (blobovniczatree.GetSmallRes, error) {
+	return b.blobovniczas.Get(prm)
 }

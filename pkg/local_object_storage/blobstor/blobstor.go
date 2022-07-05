@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -15,12 +16,12 @@ import (
 
 // BlobStor represents NeoFS local BLOB storage.
 type BlobStor struct {
-	*cfg
-
-	blobovniczas *blobovniczas
+	cfg
 
 	modeMtx sync.RWMutex
 	mode    mode.Mode
+
+	blobovniczas *blobovniczatree.Blobovniczas
 }
 
 type Info = fstree.Info
@@ -31,43 +32,26 @@ type Option func(*cfg)
 type cfg struct {
 	fsTree fstree.FSTree
 
-	compressionEnabled bool
-
-	uncompressableContentTypes []string
-
-	compressor func([]byte) []byte
-
-	decompressor func([]byte) ([]byte, error)
+	compression.CConfig
 
 	smallSizeLimit uint64
 
 	log *logger.Logger
 
-	openedCacheSize int
-
-	blzShallowDepth, blzShallowWidth uint64
-
-	blzRootPath string
-
-	readOnly bool
-
-	blzOpts []blobovnicza.Option
+	blzOpts []blobovniczatree.Option
 }
 
 const (
 	defaultShallowDepth = 4
 	defaultPerm         = 0700
 
-	defaultSmallSizeLimit  = 1 << 20 // 1MB
-	defaultOpenedCacheSize = 50
-	defaultBlzShallowDepth = 2
-	defaultBlzShallowWidth = 16
+	defaultSmallSizeLimit = 1 << 20 // 1MB
 )
 
 const blobovniczaDir = "blobovnicza"
 
-func defaultCfg() *cfg {
-	return &cfg{
+func initConfig(c *cfg) {
+	*c = cfg{
 		fsTree: fstree.FSTree{
 			Depth:      defaultShallowDepth,
 			DirNameLen: hex.EncodedLen(fstree.DirNameLen),
@@ -76,26 +60,25 @@ func defaultCfg() *cfg {
 				RootPath:    "./",
 			},
 		},
-		smallSizeLimit:  defaultSmallSizeLimit,
-		log:             zap.L(),
-		openedCacheSize: defaultOpenedCacheSize,
-		blzShallowDepth: defaultBlzShallowDepth,
-		blzShallowWidth: defaultBlzShallowWidth,
+		smallSizeLimit: defaultSmallSizeLimit,
+		log:            zap.L(),
 	}
+	c.blzOpts = []blobovniczatree.Option{blobovniczatree.WithCompressionConfig(&c.CConfig)}
 }
 
 // New creates, initializes and returns new BlobStor instance.
 func New(opts ...Option) *BlobStor {
-	c := defaultCfg()
+	bs := new(BlobStor)
+	initConfig(&bs.cfg)
 
 	for i := range opts {
-		opts[i](c)
+		opts[i](&bs.cfg)
 	}
 
-	return &BlobStor{
-		cfg:          c,
-		blobovniczas: newBlobovniczaTree(c),
-	}
+	bs.blobovniczas = blobovniczatree.NewBlobovniczaTree(bs.blzOpts...)
+	bs.blzOpts = nil
+
+	return bs
 }
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
@@ -127,7 +110,7 @@ func WithShallowDepth(depth int) Option {
 // is recorded in the provided log.
 func WithCompressObjects(comp bool) Option {
 	return func(c *cfg) {
-		c.compressionEnabled = comp
+		c.Enabled = comp
 	}
 }
 
@@ -135,7 +118,7 @@ func WithCompressObjects(comp bool) Option {
 // for specific content types as seen by object.AttributeContentType attribute.
 func WithUncompressableContentTypes(values []string) Option {
 	return func(c *cfg) {
-		c.uncompressableContentTypes = values
+		c.UncompressableContentTypes = values
 	}
 }
 
@@ -144,7 +127,7 @@ func WithUncompressableContentTypes(values []string) Option {
 func WithRootPath(rootDir string) Option {
 	return func(c *cfg) {
 		c.fsTree.RootPath = rootDir
-		c.blzRootPath = filepath.Join(rootDir, blobovniczaDir)
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithRootPath(filepath.Join(rootDir, blobovniczaDir)))
 	}
 }
 
@@ -153,7 +136,7 @@ func WithRootPath(rootDir string) Option {
 func WithRootPerm(perm fs.FileMode) Option {
 	return func(c *cfg) {
 		c.fsTree.Permissions = perm
-		c.blzOpts = append(c.blzOpts, blobovnicza.WithPermissions(perm))
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithPermissions(perm))
 	}
 }
 
@@ -162,7 +145,7 @@ func WithRootPerm(perm fs.FileMode) Option {
 func WithSmallSizeLimit(lim uint64) Option {
 	return func(c *cfg) {
 		c.smallSizeLimit = lim
-		c.blzOpts = append(c.blzOpts, blobovnicza.WithObjectSizeLimit(lim))
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithObjectSizeLimit(lim))
 	}
 }
 
@@ -170,7 +153,7 @@ func WithSmallSizeLimit(lim uint64) Option {
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = l.With(zap.String("component", "BlobStor"))
-		c.blzOpts = append(c.blzOpts, blobovnicza.WithLogger(l))
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithLogger(c.log))
 	}
 }
 
@@ -178,7 +161,7 @@ func WithLogger(l *logger.Logger) Option {
 // depth of blobovnicza directories.
 func WithBlobovniczaShallowDepth(d uint64) Option {
 	return func(c *cfg) {
-		c.blzShallowDepth = d
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithBlobovniczaShallowDepth(d))
 	}
 }
 
@@ -186,7 +169,7 @@ func WithBlobovniczaShallowDepth(d uint64) Option {
 // width of blobovnicza directories.
 func WithBlobovniczaShallowWidth(w uint64) Option {
 	return func(c *cfg) {
-		c.blzShallowWidth = w
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithBlobovniczaShallowWidth(w))
 	}
 }
 
@@ -194,7 +177,7 @@ func WithBlobovniczaShallowWidth(w uint64) Option {
 // maximum number of opened non-active blobovnicza's.
 func WithBlobovniczaOpenedCacheSize(sz int) Option {
 	return func(c *cfg) {
-		c.openedCacheSize = sz
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithOpenedCacheSize(sz))
 	}
 }
 
@@ -202,6 +185,6 @@ func WithBlobovniczaOpenedCacheSize(sz int) Option {
 // of each blobovnicza.
 func WithBlobovniczaSize(sz uint64) Option {
 	return func(c *cfg) {
-		c.blzOpts = append(c.blzOpts, blobovnicza.WithFullSizeLimit(sz))
+		c.blzOpts = append(c.blzOpts, blobovniczatree.WithBlobovniczaSize(sz))
 	}
 }

@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -35,7 +36,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 	}
 
 	ln := len(prm.addr)
-	var delSmallPrm blobstor.DeleteSmallPrm
+	var delSmallPrm blobovniczatree.DeleteSmallPrm
 	var delBigPrm blobstor.DeleteBigPrm
 
 	smalls := make(map[oid.Address]*blobovnicza.ID, ln)

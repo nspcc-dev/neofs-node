@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -89,7 +90,7 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
-		var getRngSmallPrm blobstor.GetRangeSmallPrm
+		var getRngSmallPrm blobovniczatree.GetRangeSmallPrm
 		getRngSmallPrm.SetAddress(prm.addr)
 		getRngSmallPrm.SetRange(rng)
 		getRngSmallPrm.SetBlobovniczaID(id)

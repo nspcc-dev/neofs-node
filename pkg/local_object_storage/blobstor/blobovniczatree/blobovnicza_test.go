@@ -1,4 +1,4 @@
-package blobstor
+package blobovniczatree
 
 import (
 	"math/rand"
@@ -36,9 +36,8 @@ func TestBlobovniczas(t *testing.T) {
 	rand.Seed(1024)
 
 	l := test.NewLogger(false)
-	p := "./test_blz"
-
-	c := defaultCfg()
+	p, err := os.MkdirTemp("", "*")
+	require.NoError(t, err)
 
 	var width, depth uint64 = 2, 2
 
@@ -46,24 +45,17 @@ func TestBlobovniczas(t *testing.T) {
 	// 32 KiB is the initial size after all by-size buckets are created.
 	var szLim uint64 = 32*1024 + 1
 
-	for _, opt := range []Option{
+	b := NewBlobovniczaTree(
 		WithLogger(l),
-		WithSmallSizeLimit(szLim),
+		WithObjectSizeLimit(szLim),
 		WithBlobovniczaShallowWidth(width),
 		WithBlobovniczaShallowDepth(depth),
 		WithRootPath(p),
-		WithBlobovniczaSize(szLim),
-	} {
-		opt(c)
-	}
-
-	c.blzRootPath = p
-
-	b := newBlobovniczaTree(c)
+		WithBlobovniczaSize(szLim))
 
 	defer os.RemoveAll(p)
 
-	require.NoError(t, b.init())
+	require.NoError(t, b.Init())
 
 	objSz := uint64(szLim / 2)
 
@@ -80,7 +72,7 @@ func TestBlobovniczas(t *testing.T) {
 		require.NoError(t, err)
 
 		// save object in blobovnicza
-		id, err := b.put(addr, d)
+		id, err := b.Put(addr, d)
 		require.NoError(t, err, i)
 
 		// get w/ blobovnicza ID
@@ -88,14 +80,14 @@ func TestBlobovniczas(t *testing.T) {
 		prm.SetBlobovniczaID(id)
 		prm.SetAddress(addr)
 
-		res, err := b.get(prm)
+		res, err := b.Get(prm)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
 
 		// get w/o blobovnicza ID
 		prm.SetBlobovniczaID(nil)
 
-		res, err = b.get(prm)
+		res, err = b.Get(prm)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
 
@@ -114,14 +106,14 @@ func TestBlobovniczas(t *testing.T) {
 		rng.SetOffset(off)
 		rng.SetLength(ln)
 
-		rngRes, err := b.getRange(rngPrm)
+		rngRes, err := b.GetRange(rngPrm)
 		require.NoError(t, err)
 		require.Equal(t, payload[off:off+ln], rngRes.RangeData())
 
 		// get range w/o blobovnicza ID
 		rngPrm.SetBlobovniczaID(nil)
 
-		rngRes, err = b.getRange(rngPrm)
+		rngRes, err = b.GetRange(rngPrm)
 		require.NoError(t, err)
 		require.Equal(t, payload[off:off+ln], rngRes.RangeData())
 	}
@@ -132,15 +124,15 @@ func TestBlobovniczas(t *testing.T) {
 	for i := range addrList {
 		dPrm.SetAddress(addrList[i])
 
-		_, err := b.delete(dPrm)
+		_, err := b.Delete(dPrm)
 		require.NoError(t, err)
 
 		gPrm.SetAddress(addrList[i])
 
-		_, err = b.get(gPrm)
+		_, err = b.Get(gPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
-		_, err = b.delete(dPrm)
+		_, err = b.Delete(dPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	}
 }

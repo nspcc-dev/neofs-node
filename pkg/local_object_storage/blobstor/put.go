@@ -3,7 +3,6 @@ package blobstor
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -45,30 +44,7 @@ func (b *BlobStor) Put(prm PutPrm) (PutRes, error) {
 // 1. Compression is enabled in settings.
 // 2. Object MIME Content-Type is allowed for compression.
 func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
-	if !b.compressionEnabled || len(b.uncompressableContentTypes) == 0 {
-		return b.compressionEnabled
-	}
-
-	for _, attr := range obj.Attributes() {
-		if attr.Key() == objectSDK.AttributeContentType {
-			for _, value := range b.uncompressableContentTypes {
-				match := false
-				switch {
-				case len(value) > 0 && value[len(value)-1] == '*':
-					match = strings.HasPrefix(attr.Value(), value[:len(value)-1])
-				case len(value) > 0 && value[0] == '*':
-					match = strings.HasSuffix(attr.Value(), value[1:])
-				default:
-					match = attr.Value() == value
-				}
-				if match {
-					return false
-				}
-			}
-		}
-	}
-
-	return b.compressionEnabled
+	return b.cfg.CConfig.NeedsCompression(obj)
 }
 
 // PutRaw saves an already marshaled object in BLOB storage.
@@ -98,11 +74,11 @@ func (b *BlobStor) PutRaw(addr oid.Address, data []byte, compress bool) (PutRes,
 	}
 
 	if compress {
-		data = b.compressor(data)
+		data = b.CConfig.Compress(data)
 	}
 
 	// save object in blobovnicza
-	res, err := b.blobovniczas.put(addr, data)
+	res, err := b.blobovniczas.Put(addr, data)
 	if err != nil {
 		return PutRes{}, err
 	}

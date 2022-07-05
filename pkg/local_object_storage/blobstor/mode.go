@@ -29,7 +29,6 @@ func (b *BlobStor) SetMode(m mode.Mode) error {
 		return fmt.Errorf("can't set blobstor mode (old=%s, new=%s): %w", b.mode, m, err)
 	}
 
-	b.blobovniczas.readOnly = m.ReadOnly()
 	b.mode = m
 	return nil
 }

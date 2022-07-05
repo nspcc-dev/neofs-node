@@ -72,12 +72,12 @@ func (i *IteratePrm) SetErrorHandler(f func(oid.Address, error) error) {
 func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 	var elem IterationElement
 
-	err := b.blobovniczas.iterateBlobovniczas(prm.ignoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
+	err := b.blobovniczas.Iterate(prm.ignoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
 		err := blobovnicza.IterateObjects(blz, func(addr oid.Address, data []byte) error {
 			var err error
 
 			// decompress the data
-			elem.data, err = b.decompressor(data)
+			elem.data, err = b.Decompress(data)
 			if err != nil {
 				if prm.ignoreErrors {
 					if prm.errorHandler != nil {
@@ -109,7 +109,7 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
 	fsPrm.WithHandler(func(addr oid.Address, data []byte) error {
 		// decompress the data
-		elem.data, err = b.decompressor(data)
+		elem.data, err = b.Decompress(data)
 		if err != nil {
 			if prm.ignoreErrors {
 				if prm.errorHandler != nil {

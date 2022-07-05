@@ -2,9 +2,7 @@ package blobstor
 
 import (
 	"errors"
-	"path/filepath"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -76,34 +74,5 @@ func (b *BlobStor) existsBig(addr oid.Address) (bool, error) {
 
 // existsSmall checks if object is presented in blobovnicza.
 func (b *BlobStor) existsSmall(addr oid.Address) (bool, error) {
-	return b.blobovniczas.existsSmall(addr)
-}
-
-func (b *blobovniczas) existsSmall(addr oid.Address) (bool, error) {
-	activeCache := make(map[string]struct{})
-
-	var prm blobovnicza.GetPrm
-	prm.SetAddress(addr)
-
-	var found bool
-	err := b.iterateSortedLeaves(&addr, func(p string) (bool, error) {
-		dirPath := filepath.Dir(p)
-
-		_, ok := activeCache[dirPath]
-
-		_, err := b.getObjectFromLevel(prm, p, !ok)
-		if err != nil {
-			if !blobovnicza.IsErrNotFound(err) {
-				b.log.Debug("could not get object from level",
-					zap.String("level", p),
-					zap.String("error", err.Error()))
-			}
-		}
-
-		activeCache[dirPath] = struct{}{}
-		found = err == nil
-		return found, nil
-	})
-
-	return found, err
+	return b.blobovniczas.Exists(addr)
 }
