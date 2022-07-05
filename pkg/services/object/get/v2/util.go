@@ -24,6 +24,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -76,6 +77,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 				metaHdr.SetTTL(meta.GetTTL() - 1)
 				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
+				writeCurrentVersion(metaHdr)
 
 				req.SetMetaHeader(metaHdr)
 
@@ -218,6 +220,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				metaHdr.SetTTL(meta.GetTTL() - 1)
 				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
+				writeCurrentVersion(metaHdr)
 
 				req.SetMetaHeader(metaHdr)
 
@@ -405,6 +408,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				metaHdr.SetTTL(meta.GetTTL() - 1)
 				// TODO: #1165 think how to set the other fields
 				metaHdr.SetOrigin(meta)
+				writeCurrentVersion(metaHdr)
 
 				req.SetMetaHeader(metaHdr)
 
@@ -607,4 +611,13 @@ func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressCli
 
 		return res, firstErr
 	}
+}
+
+func writeCurrentVersion(metaHdr *session.RequestMetaHeader) {
+	versionV2 := new(refs.Version)
+
+	apiVersion := versionSDK.Current()
+	apiVersion.WriteToV2(versionV2)
+
+	metaHdr.SetVersion(versionV2)
 }
