@@ -3,6 +3,7 @@ package blobstor
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -35,4 +36,17 @@ func (b *BlobStor) DeleteBig(prm DeleteBigPrm) (DeleteBigRes, error) {
 	}
 
 	return DeleteBigRes{}, err
+}
+
+// DeleteSmall removes an object from blobovnicza of BLOB storage.
+//
+// If blobovnicza ID is not set or set to nil, BlobStor tries to
+// find and remove object from any blobovnicza.
+//
+// Returns any error encountered that did not allow
+// to completely remove the object.
+//
+// Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
+func (b *BlobStor) DeleteSmall(prm blobovniczatree.DeleteSmallPrm) (blobovniczatree.DeleteSmallRes, error) {
+	return b.blobovniczas.Delete(prm)
 }

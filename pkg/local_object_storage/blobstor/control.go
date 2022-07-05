@@ -9,9 +9,7 @@ import (
 func (b *BlobStor) Open(readOnly bool) error {
 	b.log.Debug("opening...")
 
-	b.blobovniczas.readOnly = readOnly
-
-	return nil
+	return b.blobovniczas.Open(readOnly)
 }
 
 // ErrInitBlobovniczas is returned when blobovnicza initialization fails.
@@ -25,7 +23,7 @@ var ErrInitBlobovniczas = errors.New("failure on blobovnicza initialization stag
 func (b *BlobStor) Init() error {
 	b.log.Debug("initializing...")
 
-	err := b.blobovniczas.init()
+	err := b.blobovniczas.Init()
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrInitBlobovniczas, err)
 	}
@@ -37,5 +35,5 @@ func (b *BlobStor) Init() error {
 func (b *BlobStor) Close() error {
 	b.log.Debug("closing...")
 
-	return b.blobovniczas.close()
+	return b.blobovniczas.Close()
 }

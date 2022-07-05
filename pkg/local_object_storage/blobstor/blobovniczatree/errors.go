@@ -1,4 +1,4 @@
-package blobstor
+package blobovniczatree
 
 import (
 	"errors"

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -40,7 +41,7 @@ func (b *BlobStor) GetRangeBig(prm GetRangeBigPrm) (GetRangeBigRes, error) {
 		return GetRangeBigRes{}, fmt.Errorf("could not read object from fs tree: %w", err)
 	}
 
-	data, err = b.decompressor(data)
+	data, err = b.Decompress(data)
 	if err != nil {
 		return GetRangeBigRes{}, fmt.Errorf("could not decompress object data: %w", err)
 	}
@@ -65,4 +66,18 @@ func (b *BlobStor) GetRangeBig(prm GetRangeBigPrm) (GetRangeBigRes, error) {
 			data: payload[off : off+ln],
 		},
 	}, nil
+}
+
+// GetRangeSmall reads data of object payload range from blobovnicza of BLOB storage.
+//
+// If blobovnicza ID is not set or set to nil, BlobStor tries to get payload range
+// from any blobovnicza.
+//
+// Returns any error encountered that
+// did not allow to completely read the object payload range.
+//
+// Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
+// Returns an error of type apistatus.ObjectNotFound if the requested object is missing in blobovnicza(s).
+func (b *BlobStor) GetRangeSmall(prm blobovniczatree.GetRangeSmallPrm) (blobovniczatree.GetRangeSmallRes, error) {
+	return b.blobovniczas.GetRange(prm)
 }

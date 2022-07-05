@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -76,4 +77,21 @@ func TestExists(t *testing.T) {
 		_, err = b.Exists(prm)
 		require.Error(t, err)
 	})
+}
+
+func testObject(sz uint64) *objectSDK.Object {
+	raw := objectSDK.New()
+
+	raw.SetID(oidtest.ID())
+	raw.SetContainerID(cidtest.ID())
+
+	raw.SetPayload(make([]byte, sz))
+
+	// fit the binary size to the required
+	data, _ := raw.Marshal()
+	if ln := uint64(len(data)); ln > sz {
+		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
+	}
+
+	return raw
 }
