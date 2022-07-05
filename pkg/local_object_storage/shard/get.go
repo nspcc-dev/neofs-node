@@ -88,7 +88,8 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 		return res.Object(), nil
 	}
 
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, prm.skipMeta, big, small)
+	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small)
 
 	return GetRes{
 		obj:     obj,

@@ -3,6 +3,7 @@ package pilorama
 import (
 	"sort"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
@@ -111,7 +112,9 @@ func (f *memoryForest) Init() error {
 func (f *memoryForest) Open(bool) error {
 	return nil
 }
-
+func (f *memoryForest) SetMode(mode.Mode) error {
+	return nil
+}
 func (f *memoryForest) Close() error {
 	return nil
 }

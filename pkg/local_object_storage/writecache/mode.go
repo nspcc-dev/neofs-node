@@ -2,6 +2,7 @@ package writecache
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -13,22 +14,28 @@ var ErrReadOnly = errors.New("write-cache is in read-only mode")
 // SetMode sets write-cache mode of operation.
 // When shard is put in read-only mode all objects in memory are flushed to disk
 // and all background jobs are suspended.
-func (c *cache) SetMode(m mode.Mode) {
+func (c *cache) SetMode(m mode.Mode) error {
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
-	if c.mode == m {
-		return
+
+	if m.ReadOnly() == c.readOnly() {
+		c.mode = m
+		return nil
 	}
 
-	c.mode = m
-	if m == mode.ReadWrite {
-		return
+	if !c.readOnly() {
+		// Because modeMtx is taken no new objects will arrive an all other modifying
+		// operations are completed.
+		// 1. Persist objects already in memory on disk.
+		c.persistMemoryCache()
 	}
 
-	// Because modeMtx is taken no new objects will arrive an all other modifying
-	// operations are completed.
-	// 1. Persist objects already in memory on disk.
-	c.persistMemoryCache()
+	if c.db != nil {
+		if err := c.db.Close(); err != nil {
+			return fmt.Errorf("can't close write-cache database: %w", err)
+		}
+		c.db = nil
+	}
 
 	// 2. Suspend producers to ensure there are channel send operations in fly.
 	// metaCh and directCh can be populated either during Put or in background memory persist thread.
@@ -40,10 +47,17 @@ func (c *cache) SetMode(m mode.Mode) {
 		c.log.Info("waiting for channels to flush")
 		time.Sleep(time.Second)
 	}
+
+	if err := c.openStore(m.ReadOnly()); err != nil {
+		return err
+	}
+
+	c.mode = m
+	return nil
 }
 
 // readOnly returns true if current mode is read-only.
 // `c.modeMtx` must be taken.
 func (c *cache) readOnly() bool {
-	return c.mode != mode.ReadWrite
+	return c.mode.ReadOnly()
 }

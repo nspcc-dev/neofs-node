@@ -8,9 +8,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
@@ -25,6 +27,9 @@ type matcher struct {
 // DB represents local metabase of storage node.
 type DB struct {
 	*cfg
+
+	modeMtx sync.RWMutex
+	mode    mode.Mode
 
 	matchers map[object.SearchMatchType]matcher
 

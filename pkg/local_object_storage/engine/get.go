@@ -74,7 +74,14 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 	var shPrm shard.GetPrm
 	shPrm.SetAddress(prm.addr)
 
+	var hasDegraded bool
+
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+		noMeta := sh.GetMode().NoMetabase()
+		shPrm.SetIgnoreMeta(noMeta)
+
+		hasDegraded = hasDegraded || noMeta
+
 		res, err := sh.Get(shPrm)
 		if err != nil {
 			if res.HasMeta() {
@@ -122,7 +129,7 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 	}
 
 	if obj == nil {
-		if shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
+		if !hasDegraded && shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
 			return GetRes{}, outError
 		}
 
@@ -132,6 +139,11 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 		shPrm.SetIgnoreMeta(true)
 
 		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+			if sh.GetMode().NoMetabase() {
+				// Already visited.
+				return false
+			}
+
 			res, err := sh.Get(shPrm)
 			obj = res.Object()
 			return err == nil
@@ -139,8 +151,10 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 		if obj == nil {
 			return GetRes{}, outError
 		}
-		e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-			metaError, zap.Stringer("address", prm.addr))
+		if shardWithMeta.Shard != nil {
+			e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
+				metaError, zap.Stringer("address", prm.addr))
+		}
 	}
 
 	return GetRes{

@@ -4,9 +4,11 @@ import (
 	"encoding/hex"
 	"io/fs"
 	"path/filepath"
+	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
@@ -16,6 +18,9 @@ type BlobStor struct {
 	*cfg
 
 	blobovniczas *blobovniczas
+
+	modeMtx sync.RWMutex
+	mode    mode.Mode
 }
 
 type Info = fstree.Info

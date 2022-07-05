@@ -3,6 +3,7 @@ package pilorama
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
@@ -41,6 +42,7 @@ type ForestStorage interface {
 	Init() error
 	Open(bool) error
 	Close() error
+	SetMode(m mode.Mode) error
 	Forest
 }
 

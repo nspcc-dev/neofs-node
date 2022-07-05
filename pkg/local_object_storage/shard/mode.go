@@ -21,8 +21,40 @@ func (s *Shard) SetMode(m mode.Mode) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
+	if s.info.Mode == m {
+		return nil
+	}
+
+	components := []interface{ SetMode(mode.Mode) error }{
+		s.metaBase, s.blobStor,
+	}
+
 	if s.hasWriteCache() {
-		s.writeCache.SetMode(m)
+		components = append(components, s.writeCache)
+	}
+
+	if s.pilorama != nil {
+		components = append(components, s.pilorama)
+	}
+
+	// The usual flow of the requests (pilorama is independent):
+	// writecache -> blobstor -> metabase
+	// For mode.ReadOnly and mode.Degraded the order is:
+	// writecache -> blobstor -> metabase
+	// For mode.ReadWrite it is the opposite:
+	// metabase -> blobstor -> writecache
+	if m != mode.ReadWrite {
+		if s.hasWriteCache() {
+			components[0], components[2] = components[2], components[0]
+		} else {
+			components[0], components[1] = components[1], components[0]
+		}
+	}
+
+	for i := range components {
+		if err := components[i].SetMode(m); err != nil {
+			return err
+		}
 	}
 
 	s.info.Mode = m

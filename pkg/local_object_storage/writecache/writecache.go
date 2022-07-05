@@ -24,7 +24,7 @@ type Cache interface {
 	Delete(oid.Address) error
 	Iterate(IterationPrm) error
 	Put(*object.Object) error
-	SetMode(mode.Mode)
+	SetMode(mode.Mode) error
 	SetLogger(*zap.Logger)
 	DumpInfo() Info
 
@@ -153,9 +153,16 @@ func (c *cache) Init() error {
 // Close closes db connection and stops services. Executes ObjectCounters.FlushAndClose op.
 func (c *cache) Close() error {
 	// Finish all in-progress operations.
-	c.SetMode(mode.ReadOnly)
+	if err := c.SetMode(mode.ReadOnly); err != nil {
+		return err
+	}
 
 	close(c.closeCh)
-	c.objCounters.FlushAndClose()
-	return c.db.Close()
+	if c.objCounters != nil {
+		c.objCounters.FlushAndClose()
+	}
+	if c.db != nil {
+		return c.db.Close()
+	}
+	return nil
 }

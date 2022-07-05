@@ -193,7 +193,7 @@ func TestBlobstorFailback(t *testing.T) {
 		require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 	}
 
-	checkShardState(t, e, id[0], 2, mode.Degraded)
+	checkShardState(t, e, id[0], 1, mode.Degraded)
 	checkShardState(t, e, id[1], 0, mode.ReadWrite)
 }
 
