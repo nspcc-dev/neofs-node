@@ -835,6 +835,11 @@ func (b *blobovniczas) init() error {
 		return zstdD(data)
 	}
 
+	if b.readOnly {
+		b.log.Debug("read-only mode, skip blobovniczas initialization...")
+		return nil
+	}
+
 	return b.iterateBlobovniczas(false, func(p string, blz *blobovnicza.Blobovnicza) error {
 		if err := blz.Init(); err != nil {
 			return fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)

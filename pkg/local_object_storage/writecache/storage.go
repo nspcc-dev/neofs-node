@@ -41,12 +41,14 @@ func (c *cache) openStore(readOnly bool) error {
 	c.db.MaxBatchSize = c.maxBatchSize
 	c.db.MaxBatchDelay = c.maxBatchDelay
 
-	err = c.db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(defaultBucket)
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("could not create default bucket: %w", err)
+	if !readOnly {
+		err = c.db.Update(func(tx *bbolt.Tx) error {
+			_, err := tx.CreateBucketIfNotExists(defaultBucket)
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("could not create default bucket: %w", err)
+		}
 	}
 
 	c.fsTree = &fstree.FSTree{

@@ -7,9 +7,11 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
@@ -17,6 +19,9 @@ import (
 
 type boltForest struct {
 	db *bbolt.DB
+
+	modeMtx sync.Mutex
+	mode    mode.Mode
 	cfg
 }
 
@@ -58,6 +63,30 @@ func NewBoltForest(opts ...Option) ForestStorage {
 	return &b
 }
 
+func (t *boltForest) SetMode(m mode.Mode) error {
+	t.modeMtx.Lock()
+	defer t.modeMtx.Unlock()
+
+	if t.mode == m {
+		return nil
+	}
+	if t.mode.ReadOnly() == m.ReadOnly() {
+		return nil
+	}
+
+	err := t.Close()
+	if err == nil {
+		if err = t.Open(m.ReadOnly()); err == nil {
+			err = t.Init()
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("can't set pilorama mode (old=%s, new=%s): %w", t.mode, m, err)
+	}
+
+	t.mode = m
+	return nil
+}
 func (t *boltForest) Open(readOnly bool) error {
 	err := util.MkdirAllX(filepath.Dir(t.path), t.perm)
 	if err != nil {

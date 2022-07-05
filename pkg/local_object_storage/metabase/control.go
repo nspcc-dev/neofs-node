@@ -70,6 +70,10 @@ func (db *DB) Reset() error {
 }
 
 func (db *DB) init(reset bool) error {
+	if db.mode.NoMetabase() || db.mode.ReadOnly() {
+		return nil
+	}
+
 	mStaticBuckets := map[string]struct{}{
 		string(containerVolumeBucketName): {},
 		string(graveyardBucketName):       {},
