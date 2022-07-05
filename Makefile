@@ -2,7 +2,7 @@
 SHELL = bash
 
 REPO ?= $(shell go list -m)
-VERSION ?= $(shell git describe --tags --dirty --always)
+VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || cat VERSION 2>/dev/null || echo "develop")
 BUILD ?= $(shell date -u --iso=seconds)
 DEBUG ?= false
 
@@ -10,6 +10,7 @@ HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 
 GO_VERSION ?= 1.17
+LINT_VERSION ?= 1.46.2
 ARCH = amd64
 
 BIN = bin
@@ -27,10 +28,12 @@ BINS = $(addprefix $(BIN)/, $(CMDS))
 # Just `make` will build all possible binaries
 all: $(DIRS) $(BINS)
 
+# help target
+include help.mk
+
 $(BINS): $(DIRS) dep
 	@echo "⇒ Build $@"
 	CGO_ENABLED=0 \
-	GO111MODULE=on \
 	go build -v -trimpath \
 	-ldflags "-X $(REPO)/misc.Version=$(VERSION) \
 	-X $(REPO)/misc.Build=$(BUILD) \
@@ -54,11 +57,9 @@ prepare-release: docker/all
 dep:
 	@printf "⇒ Download requirements: "
 	CGO_ENABLED=0 \
-	GO111MODULE=on \
 	go mod download && echo OK
 	@printf "⇒ Tidy requirements : "
 	CGO_ENABLED=0 \
-	GO111MODULE=on \
 	go mod tidy -v && echo OK
 
 # Regenerate proto files:
@@ -112,17 +113,17 @@ fmts: fmt imports
 # Reformat code
 fmt:
 	@echo "⇒ Processing gofmt check"
-	@GO111MODULE=on gofmt -s -w cmd/ pkg/ misc/
+	@gofmt -s -w cmd/ pkg/ misc/
 
 # Reformat imports
 imports:
 	@echo "⇒ Processing goimports check"
-	@GO111MODULE=on goimports -w cmd/ pkg/ misc/
+	@goimports -w cmd/ pkg/ misc/
 
 # Run Unit Test with go test
 test:
 	@echo "⇒ Running go test"
-	@GO111MODULE=on go test ./...
+	@go test ./...
 
 # Run linters
 lint:
@@ -134,23 +135,14 @@ docker/lint:
 	-v `pwd`:/src \
 	-u `stat -c "%u:%g" .` \
 	--env HOME=/src \
-	golangci/golangci-lint:v1.42.1 bash -c 'cd /src/ && make lint'
+	golangci/golangci-lint:v$(LINT_VERSION) bash -c 'cd /src/ && make lint'
 
 # Print version
 version:
 	@echo $(VERSION)
 
-# Show this help prompt
-help:
-	@echo '  Usage:'
-	@echo ''
-	@echo '    make <target>'
-	@echo ''
-	@echo '  Targets:'
-	@echo ''
-	@awk '/^#/{ comment = substr($$0,3) } comment && /^[a-zA-Z][a-zA-Z0-9_-]+ ?:/{ print "   ", $$1, comment }' $(MAKEFILE_LIST) | column -t -s ':' | grep -v 'IGNORE' | sort -u
-
 clean:
 	rm -rf vendor
+	rm -rf .cache
 	rm -rf $(BIN)
 	rm -rf $(RELEASE)
