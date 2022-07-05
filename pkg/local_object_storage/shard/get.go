@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -65,28 +65,28 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	var big, small storFetcher
 
 	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*objectSDK.Object, error) {
-		var getBigPrm blobstor.GetBigPrm
-		getBigPrm.SetAddress(prm.addr)
+		var getBigPrm common.GetPrm
+		getBigPrm.Address = prm.addr
 
 		res, err := stor.GetBig(getBigPrm)
 		if err != nil {
 			return nil, err
 		}
 
-		return res.Object(), nil
+		return res.Object, nil
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
-		var getSmallPrm blobovniczatree.GetSmallPrm
-		getSmallPrm.SetAddress(prm.addr)
-		getSmallPrm.SetBlobovniczaID(id)
+		var getSmallPrm common.GetPrm
+		getSmallPrm.Address = prm.addr
+		getSmallPrm.BlobovniczaID = id
 
 		res, err := stor.GetSmall(getSmallPrm)
 		if err != nil {
 			return nil, err
 		}
 
-		return res.Object(), nil
+		return res.Object, nil
 	}
 
 	wc := func(c writecache.Cache) (*objectSDK.Object, error) {

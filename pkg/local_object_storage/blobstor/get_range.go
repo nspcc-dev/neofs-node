@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -30,7 +31,7 @@ type GetRangeBigRes struct {
 // Returns an error of type apistatus.ObjectNotFound if object is missing.
 func (b *BlobStor) GetRangeBig(prm GetRangeBigPrm) (GetRangeBigRes, error) {
 	// get compressed object data
-	data, err := b.fsTree.Get(prm.addr)
+	data, err := b.fsTree.Get(common.GetPrm{Address: prm.addr})
 	if err != nil {
 		if errors.Is(err, fstree.ErrFileNotFound) {
 			var errNotFound apistatus.ObjectNotFound

@@ -1,6 +1,7 @@
 package writecache
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -34,7 +35,7 @@ func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
 		return obj, obj.Unmarshal(value)
 	}
 
-	data, err := c.fsTree.Get(addr)
+	data, err := c.fsTree.Get(common.GetPrm{Address: addr})
 	if err != nil {
 		var errNotFound apistatus.ObjectNotFound
 

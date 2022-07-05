@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
@@ -38,16 +38,13 @@ func TestCompression(t *testing.T) {
 	}
 
 	testGet := func(t *testing.T, b *BlobStor, i int) {
-		var prm blobovniczatree.GetSmallPrm
-		prm.SetAddress(object.AddressOf(smallObj[i]))
-
-		res1, err := b.GetSmall(prm)
+		res1, err := b.GetSmall(common.GetPrm{Address: object.AddressOf(smallObj[i])})
 		require.NoError(t, err)
-		require.Equal(t, smallObj[i], res1.Object())
+		require.Equal(t, smallObj[i], res1.Object)
 
-		res2, err := b.GetBig(GetBigPrm{address: address{object.AddressOf(bigObj[i])}})
+		res2, err := b.GetBig(common.GetPrm{Address: object.AddressOf(bigObj[i])})
 		require.NoError(t, err)
-		require.Equal(t, bigObj[i], res2.Object())
+		require.Equal(t, bigObj[i], res2.Object)
 	}
 
 	testPut := func(t *testing.T, b *BlobStor, i int) {
