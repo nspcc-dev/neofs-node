@@ -28,6 +28,11 @@ Use `vX.Y.Z` tag for releases and `vX.Y.Z-rc.N` for release candidates
 following the [semantic versioning](https://semver.org/) standard. Tag must be
 created from the latest commit of the master branch.
 
+## Update VERSION files
+
+Make sure the VERSION file contains correct release version. It must be the tag
+you have just created.
+
 ## Push changes and release tag to GitHub
 
 This step should bypass the default PR mechanism to get a correct result (so
