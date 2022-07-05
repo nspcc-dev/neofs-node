@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -76,20 +77,20 @@ func TestBlobovniczas(t *testing.T) {
 		require.NoError(t, err, i)
 
 		// get w/ blobovnicza ID
-		var prm GetSmallPrm
-		prm.SetBlobovniczaID(id)
-		prm.SetAddress(addr)
+		var prm common.GetPrm
+		prm.BlobovniczaID = id
+		prm.Address = addr
 
 		res, err := b.Get(prm)
 		require.NoError(t, err)
-		require.Equal(t, obj, res.Object())
+		require.Equal(t, obj, res.Object)
 
 		// get w/o blobovnicza ID
-		prm.SetBlobovniczaID(nil)
+		prm.BlobovniczaID = nil
 
 		res, err = b.Get(prm)
 		require.NoError(t, err)
-		require.Equal(t, obj, res.Object())
+		require.Equal(t, obj, res.Object)
 
 		// get range w/ blobovnicza ID
 		var rngPrm GetRangeSmallPrm
@@ -119,7 +120,7 @@ func TestBlobovniczas(t *testing.T) {
 	}
 
 	var dPrm DeleteSmallPrm
-	var gPrm GetSmallPrm
+	var gPrm common.GetPrm
 
 	for i := range addrList {
 		dPrm.SetAddress(addrList[i])
@@ -127,7 +128,7 @@ func TestBlobovniczas(t *testing.T) {
 		_, err := b.Delete(dPrm)
 		require.NoError(t, err)
 
-		gPrm.SetAddress(addrList[i])
+		gPrm.Address = addrList[i]
 
 		_, err = b.Get(gPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))

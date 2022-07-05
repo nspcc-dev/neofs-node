@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -52,12 +53,12 @@ func TestFSTree(t *testing.T) {
 
 	t.Run("get", func(t *testing.T) {
 		for _, a := range addrs {
-			actual, err := fs.Get(a)
+			actual, err := fs.Get(common.GetPrm{Address: a})
 			require.NoError(t, err)
 			require.Equal(t, store[a.EncodeToString()], actual)
 		}
 
-		_, err := fs.Get(oidtest.Address())
+		_, err := fs.Get(common.GetPrm{Address: oidtest.Address()})
 		require.Error(t, err)
 	})
 

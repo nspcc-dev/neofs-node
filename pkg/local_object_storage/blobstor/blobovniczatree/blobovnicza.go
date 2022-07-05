@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -206,16 +207,16 @@ func (b *Blobovniczas) Put(addr oid.Address, data []byte) (*blobovnicza.ID, erro
 	return id, nil
 }
 
-// reads object from blobovnicza tree.
+// Get reads object from blobovnicza tree.
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all Blobovniczas are processed descending weight.
-func (b *Blobovniczas) Get(prm GetSmallPrm) (res GetSmallRes, err error) {
+func (b *Blobovniczas) Get(prm common.GetPrm) (res common.GetRes, err error) {
 	var bPrm blobovnicza.GetPrm
-	bPrm.SetAddress(prm.addr)
+	bPrm.SetAddress(prm.Address)
 
-	if prm.blobovniczaID != nil {
-		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
+	if prm.BlobovniczaID != nil {
+		blz, err := b.openBlobovnicza(prm.BlobovniczaID.String())
 		if err != nil {
 			return res, err
 		}
@@ -225,7 +226,7 @@ func (b *Blobovniczas) Get(prm GetSmallPrm) (res GetSmallRes, err error) {
 
 	activeCache := make(map[string]struct{})
 
-	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
+	err = b.iterateSortedLeaves(&prm.Address, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
@@ -246,7 +247,7 @@ func (b *Blobovniczas) Get(prm GetSmallPrm) (res GetSmallRes, err error) {
 		return err == nil, nil
 	})
 
-	if err == nil && res.Object() == nil {
+	if err == nil && res.Object == nil {
 		// not found in any blobovnicza
 		var errNotFound apistatus.ObjectNotFound
 
@@ -430,7 +431,7 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 // tries to read object from particular blobovnicza.
 //
 // returns error if object could not be read from any blobovnicza of the same level.
-func (b *Blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string, tryActive bool) (GetSmallRes, error) {
+func (b *Blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string, tryActive bool) (common.GetRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	// try to read from blobovnicza if it is opened
@@ -477,13 +478,13 @@ func (b *Blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 		b.log.Debug("index is too big", zap.String("path", blzPath))
 		var errNotFound apistatus.ObjectNotFound
 
-		return GetSmallRes{}, errNotFound
+		return common.GetRes{}, errNotFound
 	}
 
 	// open blobovnicza (cached inside)
 	blz, err := b.openBlobovnicza(blzPath)
 	if err != nil {
-		return GetSmallRes{}, err
+		return common.GetRes{}, err
 	}
 
 	return b.getObject(blz, prm)
@@ -579,27 +580,25 @@ func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicz
 }
 
 // reads object from blobovnicza and returns GetSmallRes.
-func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.GetPrm) (GetSmallRes, error) {
+func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.GetPrm) (common.GetRes, error) {
 	res, err := blz.Get(prm)
 	if err != nil {
-		return GetSmallRes{}, err
+		return common.GetRes{}, err
 	}
 
 	// decompress the data
 	data, err := b.Decompress(res.Object())
 	if err != nil {
-		return GetSmallRes{}, fmt.Errorf("could not decompress object data: %w", err)
+		return common.GetRes{}, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return GetSmallRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
+		return common.GetRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
-	return GetSmallRes{
-		obj: obj,
-	}, nil
+	return common.GetRes{Object: obj}, nil
 }
 
 // reads range of object payload data from blobovnicza and returns GetRangeSmallRes.

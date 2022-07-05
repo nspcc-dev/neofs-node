@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -233,8 +234,8 @@ func (t *FSTree) PutStream(addr oid.Address, handler func(*os.File) error) error
 }
 
 // Get returns an object from the storage by address.
-func (t *FSTree) Get(addr oid.Address) ([]byte, error) {
-	p := t.treePath(addr)
+func (t *FSTree) Get(prm common.GetPrm) ([]byte, error) {
+	p := t.treePath(prm.Address)
 
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		return nil, ErrFileNotFound
