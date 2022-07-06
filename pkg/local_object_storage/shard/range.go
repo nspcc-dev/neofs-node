@@ -67,33 +67,14 @@ func (r RngRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
-	var big, small storFetcher
+	cb := func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
+		var getRngPrm common.GetRangePrm
+		getRngPrm.Address = prm.addr
+		getRngPrm.Range.SetOffset(prm.off)
+		getRngPrm.Range.SetLength(prm.ln)
+		getRngPrm.BlobovniczaID = id
 
-	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*object.Object, error) {
-		var getRngBigPrm common.GetRangePrm
-		getRngBigPrm.Address = prm.addr
-		getRngBigPrm.Range.SetOffset(prm.off)
-		getRngBigPrm.Range.SetLength(prm.ln)
-
-		res, err := stor.GetRangeBig(getRngBigPrm)
-		if err != nil {
-			return nil, err
-		}
-
-		obj := object.New()
-		obj.SetPayload(res.Data)
-
-		return obj, nil
-	}
-
-	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
-		var getRngSmallPrm common.GetRangePrm
-		getRngSmallPrm.Address = prm.addr
-		getRngSmallPrm.Range.SetOffset(prm.off)
-		getRngSmallPrm.Range.SetLength(prm.ln)
-		getRngSmallPrm.BlobovniczaID = id
-
-		res, err := stor.GetRangeSmall(getRngSmallPrm)
+		res, err := stor.GetRange(getRngPrm)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +104,7 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 	}
 
 	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small, wc)
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
 
 	return RngRes{
 		obj:     obj,

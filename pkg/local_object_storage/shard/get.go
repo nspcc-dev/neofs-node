@@ -62,26 +62,12 @@ func (r GetRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Get(prm GetPrm) (GetRes, error) {
-	var big, small storFetcher
+	cb := func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
+		var getPrm common.GetPrm
+		getPrm.Address = prm.addr
+		getPrm.BlobovniczaID = id
 
-	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*objectSDK.Object, error) {
-		var getBigPrm common.GetPrm
-		getBigPrm.Address = prm.addr
-
-		res, err := stor.GetBig(getBigPrm)
-		if err != nil {
-			return nil, err
-		}
-
-		return res.Object, nil
-	}
-
-	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
-		var getSmallPrm common.GetPrm
-		getSmallPrm.Address = prm.addr
-		getSmallPrm.BlobovniczaID = id
-
-		res, err := stor.GetSmall(getSmallPrm)
+		res, err := stor.Get(getPrm)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +80,7 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	}
 
 	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small, wc)
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
 
 	return GetRes{
 		obj:     obj,
@@ -103,7 +89,7 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 }
 
 // fetchObjectData looks through writeCache and blobStor to find object.
-func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
+func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
 	var (
 		err error
 		res *objectSDK.Object
@@ -135,11 +121,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 	}
 
 	if skipMeta || err != nil {
-		res, err = small(s.blobStor, nil)
-		if err == nil || IsErrOutOfRange(err) {
-			return res, false, err
-		}
-		res, err = big(s.blobStor, nil)
+		res, err = cb(s.blobStor, nil)
 		return res, false, err
 	}
 
@@ -157,11 +139,13 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
-	if mRes.BlobovniczaID() != nil {
-		res, err = small(s.blobStor, mRes.BlobovniczaID())
-	} else {
-		res, err = big(s.blobStor, nil)
+	blobovniczaID := mRes.BlobovniczaID()
+	if blobovniczaID == nil {
+		var id blobovnicza.ID
+		blobovniczaID = &id
 	}
+
+	res, err = cb(s.blobStor, blobovniczaID)
 
 	return res, true, err
 }
