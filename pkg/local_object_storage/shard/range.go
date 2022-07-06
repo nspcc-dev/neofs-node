@@ -3,7 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -69,14 +69,11 @@ func (r RngRes) HasMeta() bool {
 func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 	var big, small storFetcher
 
-	rng := object.NewRange()
-	rng.SetOffset(prm.off)
-	rng.SetLength(prm.ln)
-
 	big = func(stor *blobstor.BlobStor, _ *blobovnicza.ID) (*object.Object, error) {
-		var getRngBigPrm blobstor.GetRangeBigPrm
-		getRngBigPrm.SetAddress(prm.addr)
-		getRngBigPrm.SetRange(rng)
+		var getRngBigPrm common.GetRangePrm
+		getRngBigPrm.Address = prm.addr
+		getRngBigPrm.Range.SetOffset(prm.off)
+		getRngBigPrm.Range.SetLength(prm.ln)
 
 		res, err := stor.GetRangeBig(getRngBigPrm)
 		if err != nil {
@@ -84,16 +81,17 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		}
 
 		obj := object.New()
-		obj.SetPayload(res.RangeData())
+		obj.SetPayload(res.Data)
 
 		return obj, nil
 	}
 
 	small = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
-		var getRngSmallPrm blobovniczatree.GetRangeSmallPrm
-		getRngSmallPrm.SetAddress(prm.addr)
-		getRngSmallPrm.SetRange(rng)
-		getRngSmallPrm.SetBlobovniczaID(id)
+		var getRngSmallPrm common.GetRangePrm
+		getRngSmallPrm.Address = prm.addr
+		getRngSmallPrm.Range.SetOffset(prm.off)
+		getRngSmallPrm.Range.SetLength(prm.ln)
+		getRngSmallPrm.BlobovniczaID = id
 
 		res, err := stor.GetRangeSmall(getRngSmallPrm)
 		if err != nil {
@@ -101,7 +99,7 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		}
 
 		obj := object.New()
-		obj.SetPayload(res.RangeData())
+		obj.SetPayload(res.Data)
 
 		return obj, nil
 	}
@@ -113,8 +111,8 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		}
 
 		payload := res.Payload()
-		from := rng.GetOffset()
-		to := from + rng.GetLength()
+		from := prm.off
+		to := from + prm.ln
 		if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
 			return nil, apistatus.ObjectOutOfRange{}
 		}

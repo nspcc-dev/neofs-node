@@ -317,11 +317,11 @@ func (b *Blobovniczas) Delete(prm DeleteSmallPrm) (res DeleteSmallRes, err error
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all Blobovniczas are processed descending weight.
-func (b *Blobovniczas) GetRange(prm GetRangeSmallPrm) (res GetRangeSmallRes, err error) {
-	if prm.blobovniczaID != nil {
-		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
+func (b *Blobovniczas) GetRange(prm common.GetRangePrm) (res common.GetRangeRes, err error) {
+	if prm.BlobovniczaID != nil {
+		blz, err := b.openBlobovnicza(prm.BlobovniczaID.String())
 		if err != nil {
-			return GetRangeSmallRes{}, err
+			return common.GetRangeRes{}, err
 		}
 
 		return b.getObjectRange(blz, prm)
@@ -330,7 +330,7 @@ func (b *Blobovniczas) GetRange(prm GetRangeSmallPrm) (res GetRangeSmallRes, err
 	activeCache := make(map[string]struct{})
 	objectFound := false
 
-	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
+	err = b.iterateSortedLeaves(&prm.Address, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
@@ -361,7 +361,7 @@ func (b *Blobovniczas) GetRange(prm GetRangeSmallPrm) (res GetRangeSmallRes, err
 		// not found in any blobovnicza
 		var errNotFound apistatus.ObjectNotFound
 
-		return GetRangeSmallRes{}, errNotFound
+		return common.GetRangeRes{}, errNotFound
 	}
 
 	return
@@ -493,7 +493,7 @@ func (b *Blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 // tries to read range of object payload data from particular blobovnicza.
 //
 // returns error if object could not be read from any blobovnicza of the same level.
-func (b *Blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, tryActive bool) (GetRangeSmallRes, error) {
+func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string, tryActive bool) (common.GetRangeRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	// try to read from blobovnicza if it is opened
@@ -551,13 +551,13 @@ func (b *Blobovniczas) getRangeFromLevel(prm GetRangeSmallPrm, blzPath string, t
 
 		var errNotFound apistatus.ObjectNotFound
 
-		return GetRangeSmallRes{}, errNotFound
+		return common.GetRangeRes{}, errNotFound
 	}
 
 	// open blobovnicza (cached inside)
 	blz, err := b.openBlobovnicza(blzPath)
 	if err != nil {
-		return GetRangeSmallRes{}, err
+		return common.GetRangeRes{}, err
 	}
 
 	return b.getObjectRange(blz, prm)
@@ -602,9 +602,9 @@ func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.G
 }
 
 // reads range of object payload data from blobovnicza and returns GetRangeSmallRes.
-func (b *Blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm GetRangeSmallPrm) (GetRangeSmallRes, error) {
+func (b *Blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm common.GetRangePrm) (common.GetRangeRes, error) {
 	var gPrm blobovnicza.GetPrm
-	gPrm.SetAddress(prm.addr)
+	gPrm.SetAddress(prm.Address)
 
 	// we don't use GetRange call for now since blobovnicza
 	// stores data that is compressed on BlobStor side.
@@ -612,35 +612,33 @@ func (b *Blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm GetRange
 	// we can start using GetRange.
 	res, err := blz.Get(gPrm)
 	if err != nil {
-		return GetRangeSmallRes{}, err
+		return common.GetRangeRes{}, err
 	}
 
 	// decompress the data
 	data, err := b.Decompress(res.Object())
 	if err != nil {
-		return GetRangeSmallRes{}, fmt.Errorf("could not decompress object data: %w", err)
+		return common.GetRangeRes{}, fmt.Errorf("could not decompress object data: %w", err)
 	}
 
 	// unmarshal the object
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return GetRangeSmallRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
+		return common.GetRangeRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
-	from := prm.rng.GetOffset()
-	to := from + prm.rng.GetLength()
+	from := prm.Range.GetOffset()
+	to := from + prm.Range.GetLength()
 	payload := obj.Payload()
 
 	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
 		var errOutOfRange apistatus.ObjectOutOfRange
 
-		return GetRangeSmallRes{}, errOutOfRange
+		return common.GetRangeRes{}, errOutOfRange
 	}
 
-	return GetRangeSmallRes{
-		rangeData{
-			data: payload[from:to],
-		},
+	return common.GetRangeRes{
+		Data: payload[from:to],
 	}, nil
 }
 
