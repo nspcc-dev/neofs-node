@@ -261,12 +261,12 @@ func (b *Blobovniczas) Get(prm common.GetPrm) (res common.GetRes, err error) {
 //
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all Blobovniczas are processed descending weight.
-func (b *Blobovniczas) Delete(prm DeleteSmallPrm) (res DeleteSmallRes, err error) {
+func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err error) {
 	var bPrm blobovnicza.DeletePrm
-	bPrm.SetAddress(prm.addr)
+	bPrm.SetAddress(prm.Address)
 
-	if prm.blobovniczaID != nil {
-		blz, err := b.openBlobovnicza(prm.blobovniczaID.String())
+	if prm.BlobovniczaID != nil {
+		blz, err := b.openBlobovnicza(prm.BlobovniczaID.String())
 		if err != nil {
 			return res, err
 		}
@@ -277,7 +277,7 @@ func (b *Blobovniczas) Delete(prm DeleteSmallPrm) (res DeleteSmallRes, err error
 	activeCache := make(map[string]struct{})
 	objectFound := false
 
-	err = b.iterateSortedLeaves(&prm.addr, func(p string) (bool, error) {
+	err = b.iterateSortedLeaves(&prm.Address, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		// don't process active blobovnicza of the level twice
@@ -307,7 +307,7 @@ func (b *Blobovniczas) Delete(prm DeleteSmallPrm) (res DeleteSmallRes, err error
 		// not found in any blobovnicza
 		var errNotFound apistatus.ObjectNotFound
 
-		return DeleteSmallRes{}, errNotFound
+		return common.DeleteRes{}, errNotFound
 	}
 
 	return
@@ -370,7 +370,7 @@ func (b *Blobovniczas) GetRange(prm common.GetRangePrm) (res common.GetRangeRes,
 // tries to delete object from particular blobovnicza.
 //
 // returns no error if object was removed from some blobovnicza of the same level.
-func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath string, tryActive bool, dp DeleteSmallPrm) (DeleteSmallRes, error) {
+func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath string, tryActive bool, dp common.DeletePrm) (common.DeleteRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	// try to remove from blobovnicza if it is opened
@@ -416,13 +416,13 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 		b.log.Debug("index is too big", zap.String("path", blzPath))
 		var errNotFound apistatus.ObjectNotFound
 
-		return DeleteSmallRes{}, errNotFound
+		return common.DeleteRes{}, errNotFound
 	}
 
 	// open blobovnicza (cached inside)
 	blz, err := b.openBlobovnicza(blzPath)
 	if err != nil {
-		return DeleteSmallRes{}, err
+		return common.DeleteRes{}, err
 	}
 
 	return b.deleteObject(blz, prm, dp)
@@ -563,20 +563,20 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 	return b.getObjectRange(blz, prm)
 }
 
-// removes object from blobovnicza and returns DeleteSmallRes.
-func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.DeletePrm, dp DeleteSmallPrm) (DeleteSmallRes, error) {
+// removes object from blobovnicza and returns common.DeleteRes.
+func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.DeletePrm, dp common.DeletePrm) (common.DeleteRes, error) {
 	_, err := blz.Delete(prm)
 	if err != nil {
-		return DeleteSmallRes{}, err
+		return common.DeleteRes{}, err
 	}
 
 	storagelog.Write(b.log,
-		storagelog.AddressField(dp.addr),
+		storagelog.AddressField(dp.Address),
 		storagelog.OpField("Blobovniczas DELETE"),
-		zap.Stringer("blobovnicza ID", dp.blobovniczaID),
+		zap.Stringer("blobovnicza ID", dp.BlobovniczaID),
 	)
 
-	return DeleteSmallRes{}, nil
+	return common.DeleteRes{}, nil
 }
 
 // reads object from blobovnicza and returns GetSmallRes.
