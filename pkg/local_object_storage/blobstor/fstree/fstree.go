@@ -206,14 +206,14 @@ func (t *FSTree) Exists(addr oid.Address) (string, error) {
 }
 
 // Put puts an object in the storage.
-func (t *FSTree) Put(addr oid.Address, data []byte) error {
-	p := t.treePath(addr)
+func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
+	p := t.treePath(prm.Address)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
-		return err
+		return common.PutRes{}, err
 	}
 
-	return os.WriteFile(p, data, t.Permissions)
+	return common.PutRes{}, os.WriteFile(p, prm.RawData, t.Permissions)
 }
 
 // PutStream puts executes handler on a file opened for write.

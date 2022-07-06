@@ -73,12 +73,12 @@ func TestBlobovniczas(t *testing.T) {
 		require.NoError(t, err)
 
 		// save object in blobovnicza
-		id, err := b.Put(addr, d)
+		pRes, err := b.Put(common.PutPrm{Address: addr, RawData: d})
 		require.NoError(t, err, i)
 
 		// get w/ blobovnicza ID
 		var prm common.GetPrm
-		prm.BlobovniczaID = id
+		prm.BlobovniczaID = pRes.BlobovniczaID
 		prm.Address = addr
 
 		res, err := b.Get(prm)
@@ -94,7 +94,7 @@ func TestBlobovniczas(t *testing.T) {
 
 		// get range w/ blobovnicza ID
 		var rngPrm common.GetRangePrm
-		rngPrm.BlobovniczaID = id
+		rngPrm.BlobovniczaID = pRes.BlobovniczaID
 		rngPrm.Address = addr
 
 		payload := obj.Payload()

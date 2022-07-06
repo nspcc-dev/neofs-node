@@ -47,7 +47,9 @@ func TestFSTree(t *testing.T) {
 
 		data := make([]byte, 10)
 		_, _ = rand.Read(data[:])
-		require.NoError(t, fs.Put(a, data))
+
+		_, err := fs.Put(common.PutPrm{Address: a, RawData: data})
+		require.NoError(t, err)
 		store[a.EncodeToString()] = data
 	}
 

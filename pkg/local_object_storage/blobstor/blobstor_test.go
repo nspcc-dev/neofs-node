@@ -48,13 +48,13 @@ func TestCompression(t *testing.T) {
 	}
 
 	testPut := func(t *testing.T, b *BlobStor, i int) {
-		var prm PutPrm
-		prm.SetObject(smallObj[i])
+		var prm common.PutPrm
+		prm.Object = smallObj[i]
 		_, err = b.Put(prm)
 		require.NoError(t, err)
 
-		prm = PutPrm{}
-		prm.SetObject(bigObj[i])
+		prm = common.PutPrm{}
+		prm.Object = bigObj[i]
 		_, err = b.Put(prm)
 		require.NoError(t, err)
 	}

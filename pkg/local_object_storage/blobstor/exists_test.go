@@ -32,8 +32,8 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		var prm PutPrm
-		prm.SetObject(objects[i])
+		var prm common.PutPrm
+		prm.Object = objects[i]
 		_, err = b.Put(prm)
 		require.NoError(t, err)
 	}

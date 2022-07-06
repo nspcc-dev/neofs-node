@@ -6,7 +6,7 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -154,7 +154,11 @@ func (c *cache) flushBigObjects() {
 				_, compress := c.compressFlags[sAddr]
 				c.mtx.Unlock()
 
-				if _, err := c.blobstor.PutRaw(addr, data, compress); err != nil {
+				var prm common.PutPrm
+				prm.Address = addr
+				prm.RawData = data
+
+				if _, err := c.blobstor.PutRaw(common.PutPrm{Address: addr, RawData: data}, compress); err != nil {
 					c.log.Error("cant flush object to blobstor", zap.Error(err))
 					return nil
 				}
@@ -227,15 +231,15 @@ func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
 	var id *blobovnicza.ID
 
 	if !metaOnly {
-		var prm blobstor.PutPrm
-		prm.SetObject(obj)
+		var prm common.PutPrm
+		prm.Object = obj
 
 		res, err := c.blobstor.Put(prm)
 		if err != nil {
 			return err
 		}
 
-		id = res.BlobovniczaID()
+		id = res.BlobovniczaID
 	}
 
 	var pPrm meta.PutPrm
