@@ -142,10 +142,10 @@ func indexSlice(number uint64) []uint64 {
 // save object in the maximum weight blobobnicza.
 //
 // returns error if could not save object in any blobovnicza.
-func (b *Blobovniczas) Put(addr oid.Address, data []byte) (*blobovnicza.ID, error) {
-	var prm blobovnicza.PutPrm
-	prm.SetAddress(addr)
-	prm.SetMarshaledObject(data)
+func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
+	var putPrm blobovnicza.PutPrm
+	putPrm.SetAddress(prm.Address)
+	putPrm.SetMarshaledObject(prm.RawData)
 
 	var (
 		fn func(string) (bool, error)
@@ -162,7 +162,7 @@ func (b *Blobovniczas) Put(addr oid.Address, data []byte) (*blobovnicza.ID, erro
 			return false, nil
 		}
 
-		if _, err := active.blz.Put(prm); err != nil {
+		if _, err := active.blz.Put(putPrm); err != nil {
 			// check if blobovnicza is full
 			if errors.Is(err, blobovnicza.ErrFull) {
 				b.log.Debug("blobovnicza overflowed",
@@ -193,18 +193,18 @@ func (b *Blobovniczas) Put(addr oid.Address, data []byte) (*blobovnicza.ID, erro
 
 		id = blobovnicza.NewIDFromBytes([]byte(p))
 
-		storagelog.Write(b.log, storagelog.AddressField(addr), storagelog.OpField("Blobovniczas PUT"))
+		storagelog.Write(b.log, storagelog.AddressField(prm.Address), storagelog.OpField("Blobovniczas PUT"))
 
 		return true, nil
 	}
 
-	if err := b.iterateDeepest(addr, fn); err != nil {
-		return nil, err
+	if err := b.iterateDeepest(prm.Address, fn); err != nil {
+		return common.PutRes{}, err
 	} else if id == nil {
-		return nil, errPutFailed
+		return common.PutRes{}, errPutFailed
 	}
 
-	return id, nil
+	return common.PutRes{BlobovniczaID: id}, nil
 }
 
 // Get reads object from blobovnicza tree.

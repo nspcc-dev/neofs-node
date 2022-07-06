@@ -3,7 +3,7 @@ package shard
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
@@ -34,8 +34,8 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		return PutRes{}, ErrReadOnlyMode
 	}
 
-	var putPrm blobstor.PutPrm // form Put parameters
-	putPrm.SetObject(prm.obj)
+	var putPrm common.PutPrm // form Put parameters
+	putPrm.Object = prm.obj
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
@@ -51,7 +51,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 
 	var (
 		err error
-		res blobstor.PutRes
+		res common.PutRes
 	)
 
 	if res, err = s.blobStor.Put(putPrm); err != nil {
@@ -61,7 +61,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if !m.NoMetabase() {
 		var pPrm meta.PutPrm
 		pPrm.SetObject(prm.obj)
-		pPrm.SetBlobovniczaID(res.BlobovniczaID())
+		pPrm.SetBlobovniczaID(res.BlobovniczaID)
 		if _, err := s.metaBase.Put(pPrm); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor

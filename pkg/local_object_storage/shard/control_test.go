@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -109,7 +110,8 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 		Depth:      1,
 		Info:       sh.blobStor.DumpInfo(),
 	}
-	require.NoError(t, fs.Put(addr, []byte("not an object")))
+	_, err = fs.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
+	require.NoError(t, err)
 
 	sh = New(
 		WithBlobStorOptions(blobOpts...),
