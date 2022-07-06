@@ -152,9 +152,7 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 		return nil, err
 	}
 
-	var sigV2 *refs.Signature
-
-	sigV2 = new(refs.Signature)
+	sigV2 := new(refs.Signature)
 	cnr.Signature.WriteToV2(sigV2)
 
 	var tokV2 *sessionV2.Token

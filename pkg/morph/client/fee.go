@@ -2,12 +2,6 @@ package client
 
 import "github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 
-// customFees represents source of customized per-operation fees.
-// Can be initialized using var declaration.
-//
-// Instances are not thread-safe, so they mean initially filling, and then only reading.
-type customFees map[string]fixedn.Fixed8
-
 // setFeeForMethod sets fee for the operation executed using specified contract method.
 func (x *fees) setFeeForMethod(method string, fee fixedn.Fixed8) {
 	if x.customFees == nil {

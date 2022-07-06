@@ -69,12 +69,3 @@ func replaceEscaping(target string, rollback bool) (s string) {
 
 	return
 }
-
-func hasString(lst []string, v string) bool {
-	for i := range lst {
-		if lst[i] == v {
-			return true
-		}
-	}
-	return false
-}
