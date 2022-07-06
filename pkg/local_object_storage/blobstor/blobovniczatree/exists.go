@@ -4,23 +4,23 @@ import (
 	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"go.uber.org/zap"
 )
 
-func (b *Blobovniczas) Exists(addr oid.Address) (bool, error) {
+func (b *Blobovniczas) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	activeCache := make(map[string]struct{})
 
-	var prm blobovnicza.GetPrm
-	prm.SetAddress(addr)
+	var gPrm blobovnicza.GetPrm
+	gPrm.SetAddress(prm.Address)
 
 	var found bool
-	err := b.iterateSortedLeaves(&addr, func(p string) (bool, error) {
+	err := b.iterateSortedLeaves(&prm.Address, func(p string) (bool, error) {
 		dirPath := filepath.Dir(p)
 
 		_, ok := activeCache[dirPath]
 
-		_, err := b.getObjectFromLevel(prm, p, !ok)
+		_, err := b.getObjectFromLevel(gPrm, p, !ok)
 		if err != nil {
 			if !blobovnicza.IsErrNotFound(err) {
 				b.log.Debug("could not get object from level",
@@ -34,5 +34,5 @@ func (b *Blobovniczas) Exists(addr oid.Address) (bool, error) {
 		return found, nil
 	})
 
-	return found, err
+	return common.ExistsRes{Exists: found}, err
 }

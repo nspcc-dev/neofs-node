@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -75,9 +75,6 @@ func (c *cache) isFlushed(addr oid.Address) bool {
 		return false
 	}
 
-	var prm blobstor.ExistsPrm
-	prm.SetAddress(addr)
-
-	res, err := c.blobstor.Exists(prm)
-	return err == nil && res.Exists()
+	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr})
+	return err == nil && res.Exists
 }

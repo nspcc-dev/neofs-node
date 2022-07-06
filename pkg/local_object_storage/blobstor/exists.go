@@ -3,33 +3,18 @@ package blobstor
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
-
-// ExistsPrm groups the parameters of Exists operation.
-type ExistsPrm struct {
-	address
-}
-
-// ExistsRes groups the resulting values of Exists operation.
-type ExistsRes struct {
-	exists bool
-}
-
-// Exists returns the fact that the object is in BLOB storage.
-func (r ExistsRes) Exists() bool {
-	return r.exists
-}
 
 // Exists checks if the object is presented in BLOB storage.
 //
 // Returns any error encountered that did not allow
 // to completely check object existence.
-func (b *BlobStor) Exists(prm ExistsPrm) (ExistsRes, error) {
+func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	// check presence in shallow dir first (cheaper)
-	exists, err := b.existsBig(prm.addr)
+	res, err := b.existsBig(prm)
 
 	// If there was an error during existence check below,
 	// it will be returned unless object was found in blobovnicza.
@@ -40,13 +25,13 @@ func (b *BlobStor) Exists(prm ExistsPrm) (ExistsRes, error) {
 	// error     | found       | log the error, return true, nil
 	// error     | not found   | return the error
 	// error     | error       | log the first error, return the second
-	if !exists {
+	if !res.Exists {
 		var smallErr error
 
-		exists, smallErr = b.existsSmall(prm.addr)
-		if err != nil && (smallErr != nil || exists) {
+		res, smallErr = b.existsSmall(prm)
+		if err != nil && (smallErr != nil || res.Exists) {
 			b.log.Warn("error occured during object existence checking",
-				zap.Stringer("address", prm.addr),
+				zap.Stringer("address", prm.Address),
 				zap.String("error", err.Error()))
 			err = nil
 		}
@@ -55,24 +40,20 @@ func (b *BlobStor) Exists(prm ExistsPrm) (ExistsRes, error) {
 		}
 	}
 
-	if err != nil {
-		return ExistsRes{}, err
-	}
-
-	return ExistsRes{exists: exists}, err
+	return res, err
 }
 
 // checks if object is presented in shallow dir.
-func (b *BlobStor) existsBig(addr oid.Address) (bool, error) {
-	_, err := b.fsTree.Exists(addr)
+func (b *BlobStor) existsBig(prm common.ExistsPrm) (common.ExistsRes, error) {
+	_, err := b.fsTree.Exists(prm.Address)
 	if errors.Is(err, fstree.ErrFileNotFound) {
-		return false, nil
+		return common.ExistsRes{}, nil
 	}
 
-	return err == nil, err
+	return common.ExistsRes{Exists: err == nil}, err
 }
 
 // existsSmall checks if object is presented in blobovnicza.
-func (b *BlobStor) existsSmall(addr oid.Address) (bool, error) {
-	return b.blobovniczas.Exists(addr)
+func (b *BlobStor) existsSmall(prm common.ExistsPrm) (common.ExistsRes, error) {
+	return b.blobovniczas.Exists(prm)
 }
