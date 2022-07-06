@@ -77,7 +77,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 			delSmallPrm.Address = prm.addr[i]
 			delSmallPrm.BlobovniczaID = id
 
-			_, err = s.blobStor.DeleteSmall(delSmallPrm)
+			_, err = s.blobStor.Delete(delSmallPrm)
 			if err != nil {
 				s.log.Debug("can't remove small object from blobStor",
 					zap.Stringer("object_address", prm.addr[i]),
@@ -87,11 +87,14 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 			continue
 		}
 
+		var id blobovnicza.ID
+
 		// delete big object
 		var delBigPrm common.DeletePrm
 		delBigPrm.Address = prm.addr[i]
+		delBigPrm.BlobovniczaID = &id
 
-		_, err = s.blobStor.DeleteBig(delBigPrm)
+		_, err = s.blobStor.Delete(delBigPrm)
 		if err != nil {
 			s.log.Debug("can't remove big object from blobStor",
 				zap.Stringer("object_address", prm.addr[i]),

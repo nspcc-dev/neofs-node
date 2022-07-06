@@ -9,13 +9,28 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
-// DeleteBig removes an object from shallow dir of BLOB storage.
+func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+	if prm.BlobovniczaID == nil {
+		// Nothing specified, try everything.
+		res, err := b.deleteBig(prm)
+		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
+			return res, err
+		}
+		return b.deleteSmall(prm)
+	}
+	if *prm.BlobovniczaID == nil {
+		return b.deleteBig(prm)
+	}
+	return b.deleteSmall(prm)
+}
+
+// deleteBig removes an object from shallow dir of BLOB storage.
 //
 // Returns any error encountered that did not allow
 // to completely remove the object.
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
-func (b *BlobStor) DeleteBig(prm common.DeletePrm) (common.DeleteRes, error) {
+func (b *BlobStor) deleteBig(prm common.DeletePrm) (common.DeleteRes, error) {
 	err := b.fsTree.Delete(prm.Address)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		var errNotFound apistatus.ObjectNotFound
@@ -30,7 +45,7 @@ func (b *BlobStor) DeleteBig(prm common.DeletePrm) (common.DeleteRes, error) {
 	return common.DeleteRes{}, err
 }
 
-// DeleteSmall removes an object from blobovnicza of BLOB storage.
+// deleteSmall removes an object from blobovnicza of BLOB storage.
 //
 // If blobovnicza ID is not set or set to nil, BlobStor tries to
 // find and remove object from any blobovnicza.
@@ -39,6 +54,6 @@ func (b *BlobStor) DeleteBig(prm common.DeletePrm) (common.DeleteRes, error) {
 // to completely remove the object.
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
-func (b *BlobStor) DeleteSmall(prm common.DeletePrm) (common.DeleteRes, error) {
+func (b *BlobStor) deleteSmall(prm common.DeletePrm) (common.DeleteRes, error) {
 	return b.blobovniczas.Delete(prm)
 }
