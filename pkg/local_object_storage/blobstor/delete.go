@@ -3,19 +3,11 @@ package blobstor
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
-
-// DeleteBigPrm groups the parameters of DeleteBig operation.
-type DeleteBigPrm struct {
-	address
-}
-
-// DeleteBigRes groups the resulting values of DeleteBig operation.
-type DeleteBigRes struct{}
 
 // DeleteBig removes an object from shallow dir of BLOB storage.
 //
@@ -23,8 +15,8 @@ type DeleteBigRes struct{}
 // to completely remove the object.
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
-func (b *BlobStor) DeleteBig(prm DeleteBigPrm) (DeleteBigRes, error) {
-	err := b.fsTree.Delete(prm.addr)
+func (b *BlobStor) DeleteBig(prm common.DeletePrm) (common.DeleteRes, error) {
+	err := b.fsTree.Delete(prm.Address)
 	if errors.Is(err, fstree.ErrFileNotFound) {
 		var errNotFound apistatus.ObjectNotFound
 
@@ -32,10 +24,10 @@ func (b *BlobStor) DeleteBig(prm DeleteBigPrm) (DeleteBigRes, error) {
 	}
 
 	if err == nil {
-		storagelog.Write(b.log, storagelog.AddressField(prm.addr), storagelog.OpField("fstree DELETE"))
+		storagelog.Write(b.log, storagelog.AddressField(prm.Address), storagelog.OpField("fstree DELETE"))
 	}
 
-	return DeleteBigRes{}, err
+	return common.DeleteRes{}, err
 }
 
 // DeleteSmall removes an object from blobovnicza of BLOB storage.
@@ -47,6 +39,6 @@ func (b *BlobStor) DeleteBig(prm DeleteBigPrm) (DeleteBigRes, error) {
 // to completely remove the object.
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
-func (b *BlobStor) DeleteSmall(prm blobovniczatree.DeleteSmallPrm) (blobovniczatree.DeleteSmallRes, error) {
+func (b *BlobStor) DeleteSmall(prm common.DeletePrm) (common.DeleteRes, error) {
 	return b.blobovniczas.Delete(prm)
 }

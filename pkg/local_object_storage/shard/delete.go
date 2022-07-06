@@ -2,8 +2,7 @@ package shard
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -36,8 +35,6 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 	}
 
 	ln := len(prm.addr)
-	var delSmallPrm blobovniczatree.DeleteSmallPrm
-	var delBigPrm blobstor.DeleteBigPrm
 
 	smalls := make(map[oid.Address]*blobovnicza.ID, ln)
 
@@ -76,8 +73,9 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 
 	for i := range prm.addr { // delete small object
 		if id, ok := smalls[prm.addr[i]]; ok {
-			delSmallPrm.SetAddress(prm.addr[i])
-			delSmallPrm.SetBlobovniczaID(id)
+			var delSmallPrm common.DeletePrm
+			delSmallPrm.Address = prm.addr[i]
+			delSmallPrm.BlobovniczaID = id
 
 			_, err = s.blobStor.DeleteSmall(delSmallPrm)
 			if err != nil {
@@ -90,8 +88,8 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 		}
 
 		// delete big object
-
-		delBigPrm.SetAddress(prm.addr[i])
+		var delBigPrm common.DeletePrm
+		delBigPrm.Address = prm.addr[i]
 
 		_, err = s.blobStor.DeleteBig(delBigPrm)
 		if err != nil {

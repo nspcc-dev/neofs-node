@@ -116,11 +116,11 @@ func TestBlobovniczas(t *testing.T) {
 		require.Equal(t, payload[off:off+ln], rngRes.Data)
 	}
 
-	var dPrm DeleteSmallPrm
+	var dPrm common.DeletePrm
 	var gPrm common.GetPrm
 
 	for i := range addrList {
-		dPrm.SetAddress(addrList[i])
+		dPrm.Address = addrList[i]
 
 		_, err := b.Delete(dPrm)
 		require.NoError(t, err)
