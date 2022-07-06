@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -27,7 +26,7 @@ type (
 type PutPrm struct {
 	obj *objectSDK.Object
 
-	id *blobovnicza.ID
+	id []byte
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -38,8 +37,8 @@ func (p *PutPrm) SetObject(obj *objectSDK.Object) {
 	p.obj = obj
 }
 
-// SetBlobovniczaID is a Put option to set blobovnicza ID to save.
-func (p *PutPrm) SetBlobovniczaID(id *blobovnicza.ID) {
+// SetStorageID is a Put option to set storage ID to save.
+func (p *PutPrm) SetStorageID(id []byte) {
 	p.id = id
 }
 
@@ -50,7 +49,6 @@ var (
 )
 
 // Put saves object header in metabase. Object payload expected to be cut.
-// Big objects have nil blobovniczaID.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
@@ -73,7 +71,7 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 }
 
 func (db *DB) put(
-	tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID,
+	tx *bbolt.Tx, obj *objectSDK.Object, id []byte,
 	si *objectSDK.SplitInfo, currEpoch uint64) error {
 	cnr, ok := obj.ContainerID()
 	if !ok {
@@ -93,11 +91,10 @@ func (db *DB) put(
 	// most right child and split header overlap parent so we have to
 	// check if object exists to not overwrite it twice
 	if exists {
-		// when storage engine moves small objects from one blobovniczaID
-		// to another, then it calls metabase.Put method with new blobovniczaID
-		// and this code should be triggered
+		// When storage engine moves objects between different sub-storages,
+		// it calls metabase.Put method with new storage ID, thus triggering this code.
 		if !isParent && id != nil {
-			return updateBlobovniczaID(tx, object.AddressOf(obj), id)
+			return updateStorageID(tx, object.AddressOf(obj), id)
 		}
 
 		// when storage already has last object in split hierarchy and there is
@@ -152,7 +149,7 @@ func putUniqueIndexes(
 	tx *bbolt.Tx,
 	obj *objectSDK.Object,
 	si *objectSDK.SplitInfo,
-	id *blobovnicza.ID,
+	id []byte,
 ) error {
 	isParent := si != nil
 	addr := object.AddressOf(obj)
@@ -190,12 +187,12 @@ func putUniqueIndexes(
 			return err
 		}
 
-		// index blobovniczaID if it is present
+		// index storageID if it is present
 		if id != nil {
 			err = putUniqueIndexItem(tx, namedBucketItem{
 				name: smallBucketName(cnr),
 				key:  objKey,
-				val:  *id,
+				val:  id,
 			})
 			if err != nil {
 				return err
@@ -423,15 +420,15 @@ func getVarUint(data []byte) (uint64, int, error) {
 	}
 }
 
-// updateBlobovniczaID for existing objects if they were moved from from
-// one blobovnicza to another.
-func updateBlobovniczaID(tx *bbolt.Tx, addr oid.Address, id *blobovnicza.ID) error {
+// updateStorageID for existing objects if they were moved from one
+// storage location to another.
+func updateStorageID(tx *bbolt.Tx, addr oid.Address, id []byte) error {
 	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.Container()))
 	if err != nil {
 		return err
 	}
 
-	return bkt.Put(objectKey(addr.Object()), *id)
+	return bkt.Put(objectKey(addr.Object()), id)
 }
 
 // updateSpliInfo for existing objects if storage filled with extra information

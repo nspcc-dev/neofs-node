@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -228,7 +227,7 @@ func (c *cache) flushWorker(num int) {
 
 // writeObject is used to write object directly to the main storage.
 func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
-	var id *blobovnicza.ID
+	var descriptor []byte
 
 	if !metaOnly {
 		var prm common.PutPrm
@@ -239,12 +238,12 @@ func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
 			return err
 		}
 
-		id = res.BlobovniczaID
+		descriptor = res.StorageID
 	}
 
 	var pPrm meta.PutPrm
 	pPrm.SetObject(obj)
-	pPrm.SetBlobovniczaID(id)
+	pPrm.SetStorageID(descriptor)
 
 	_, err := c.metabase.Put(pPrm)
 	return err

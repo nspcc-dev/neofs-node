@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -71,16 +70,16 @@ func TestIterateObjects(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err := IterateBinaryObjects(blobStor, func(_ oid.Address, data []byte, blzID *blobovnicza.ID) error {
+	err := IterateBinaryObjects(blobStor, func(_ oid.Address, data []byte, descriptor []byte) error {
 		v, ok := mObjs[string(data)]
 		require.True(t, ok)
 
 		require.Equal(t, v.data, data)
 
 		if v.big {
-			require.Nil(t, blzID)
+			require.True(t, descriptor != nil && len(descriptor) == 0)
 		} else {
-			require.NotNil(t, blzID)
+			require.NotEmpty(t, descriptor)
 		}
 
 		delete(mObjs, string(data))

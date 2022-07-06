@@ -15,7 +15,7 @@ type IterationElement struct {
 
 	addr oid.Address
 
-	blzID *blobovnicza.ID
+	descriptor []byte
 }
 
 // ObjectData returns the stored object in a binary representation.
@@ -23,10 +23,9 @@ func (x IterationElement) ObjectData() []byte {
 	return x.data
 }
 
-// BlobovniczaID returns the identifier of Blobovnicza in which object is stored.
-// Returns nil if the object isn't in Blobovnicza.
-func (x IterationElement) BlobovniczaID() *blobovnicza.ID {
-	return x.blzID
+// Descriptor returns the identifier of storage part where x is stored.
+func (x IterationElement) Descriptor() []byte {
+	return x.descriptor
 }
 
 // Address returns the object address.
@@ -89,7 +88,7 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 			}
 
 			elem.addr = addr
-			elem.blzID = blobovnicza.NewIDFromBytes([]byte(p))
+			elem.descriptor = []byte(p)
 
 			return prm.handler(elem)
 		})
@@ -103,7 +102,7 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 		return IterateRes{}, fmt.Errorf("blobovniczas iterator failure: %w", err)
 	}
 
-	elem.blzID = nil
+	elem.descriptor = []byte{}
 
 	var fsPrm fstree.IterationPrm
 	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
@@ -136,11 +135,11 @@ func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
 
 // IterateBinaryObjects is a helper function which iterates over BlobStor and passes binary objects to f.
 // Errors related to object reading and unmarshaling are logged and skipped.
-func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, blzID *blobovnicza.ID) error) error {
+func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, descriptor []byte) error) error {
 	var prm IteratePrm
 
 	prm.SetIterationHandler(func(elem IterationElement) error {
-		return f(elem.Address(), elem.ObjectData(), elem.BlobovniczaID())
+		return f(elem.Address(), elem.ObjectData(), elem.Descriptor())
 	})
 	prm.IgnoreErrors()
 	prm.SetErrorHandler(func(addr oid.Address, err error) error {

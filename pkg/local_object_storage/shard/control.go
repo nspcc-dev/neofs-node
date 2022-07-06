@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -150,7 +149,7 @@ func (s *Shard) refillMetabase() error {
 
 	obj := objectSDK.New()
 
-	return blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, blzID *blobovnicza.ID) error {
+	return blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, descriptor []byte) error {
 		if err := obj.Unmarshal(data); err != nil {
 			s.log.Warn("could not unmarshal object",
 				zap.Stringer("address", addr),
@@ -206,7 +205,7 @@ func (s *Shard) refillMetabase() error {
 
 		var mPrm meta.PutPrm
 		mPrm.SetObject(obj)
-		mPrm.SetBlobovniczaID(blzID)
+		mPrm.SetStorageID(descriptor)
 
 		_, err := s.metaBase.Put(mPrm)
 		if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, object.ErrObjectIsExpired) {

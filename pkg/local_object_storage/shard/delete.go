@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -36,7 +35,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 
 	ln := len(prm.addr)
 
-	smalls := make(map[oid.Address]*blobovnicza.ID, ln)
+	smalls := make(map[oid.Address][]byte, ln)
 
 	for i := range prm.addr {
 		if s.hasWriteCache() {
@@ -46,10 +45,10 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 			}
 		}
 
-		var sPrm meta.IsSmallPrm
-		sPrm.WithAddress(prm.addr[i])
+		var sPrm meta.StorageIDPrm
+		sPrm.SetAddress(prm.addr[i])
 
-		res, err := s.metaBase.IsSmall(sPrm)
+		res, err := s.metaBase.StorageID(sPrm)
 		if err != nil {
 			s.log.Debug("can't get blobovniczaID from metabase",
 				zap.Stringer("object", prm.addr[i]),
@@ -58,8 +57,8 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 			continue
 		}
 
-		if res.BlobovniczaID() != nil {
-			smalls[prm.addr[i]] = res.BlobovniczaID()
+		if res.StorageID() != nil {
+			smalls[prm.addr[i]] = res.StorageID()
 		}
 	}
 
@@ -72,31 +71,14 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 	}
 
 	for i := range prm.addr { // delete small object
-		if id, ok := smalls[prm.addr[i]]; ok {
-			var delSmallPrm common.DeletePrm
-			delSmallPrm.Address = prm.addr[i]
-			delSmallPrm.BlobovniczaID = id
+		var delPrm common.DeletePrm
+		delPrm.Address = prm.addr[i]
+		id := smalls[prm.addr[i]]
+		delPrm.StorageID = id
 
-			_, err = s.blobStor.Delete(delSmallPrm)
-			if err != nil {
-				s.log.Debug("can't remove small object from blobStor",
-					zap.Stringer("object_address", prm.addr[i]),
-					zap.String("error", err.Error()))
-			}
-
-			continue
-		}
-
-		var id blobovnicza.ID
-
-		// delete big object
-		var delBigPrm common.DeletePrm
-		delBigPrm.Address = prm.addr[i]
-		delBigPrm.BlobovniczaID = &id
-
-		_, err = s.blobStor.Delete(delBigPrm)
+		_, err = s.blobStor.Delete(delPrm)
 		if err != nil {
-			s.log.Debug("can't remove big object from blobStor",
+			s.log.Debug("can't remove small object from blobStor",
 				zap.Stringer("object_address", prm.addr[i]),
 				zap.String("error", err.Error()))
 		}

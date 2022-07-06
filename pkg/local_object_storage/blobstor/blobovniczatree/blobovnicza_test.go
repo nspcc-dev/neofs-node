@@ -78,7 +78,7 @@ func TestBlobovniczas(t *testing.T) {
 
 		// get w/ blobovnicza ID
 		var prm common.GetPrm
-		prm.BlobovniczaID = pRes.BlobovniczaID
+		prm.StorageID = pRes.StorageID
 		prm.Address = addr
 
 		res, err := b.Get(prm)
@@ -86,7 +86,7 @@ func TestBlobovniczas(t *testing.T) {
 		require.Equal(t, obj, res.Object)
 
 		// get w/o blobovnicza ID
-		prm.BlobovniczaID = nil
+		prm.StorageID = nil
 
 		res, err = b.Get(prm)
 		require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestBlobovniczas(t *testing.T) {
 
 		// get range w/ blobovnicza ID
 		var rngPrm common.GetRangePrm
-		rngPrm.BlobovniczaID = pRes.BlobovniczaID
+		rngPrm.StorageID = pRes.StorageID
 		rngPrm.Address = addr
 
 		payload := obj.Payload()
@@ -109,7 +109,7 @@ func TestBlobovniczas(t *testing.T) {
 		require.Equal(t, payload[off:off+ln], rngRes.Data)
 
 		// get range w/o blobovnicza ID
-		rngPrm.BlobovniczaID = nil
+		rngPrm.StorageID = nil
 
 		rngRes, err = b.GetRange(rngPrm)
 		require.NoError(t, err)
