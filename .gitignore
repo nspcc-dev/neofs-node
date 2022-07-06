@@ -1,12 +1,30 @@
+# IDE
 .idea
-bin
-release
+.vscode
+
+# Vendoring
+vendor
+
+# tempfiles
+.DS_Store
+*~
+.cache
+
 temp
+tmp
+
+# binary
+bin/
+release/
+
+# coverage
+coverage.txt
+coverage.html
+
+# testing
 cmd/test
 /plugins/
-/vendor/
-
 testfile
-.neofs-cli.yml
 
-.cache
+# misc
+.neofs-cli.yml
