@@ -254,7 +254,7 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 		})
 	}
 
-	delUniqueIndexItem(tx, namedBucketItem{ // remove from small blobovnicza id index
+	delUniqueIndexItem(tx, namedBucketItem{ // remove from storage id index
 		name: smallBucketName(cnr),
 		key:  objKey,
 	})

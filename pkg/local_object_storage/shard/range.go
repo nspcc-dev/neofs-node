@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -67,12 +66,12 @@ func (r RngRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
-	cb := func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*object.Object, error) {
+	cb := func(stor *blobstor.BlobStor, id []byte) (*object.Object, error) {
 		var getRngPrm common.GetRangePrm
 		getRngPrm.Address = prm.addr
 		getRngPrm.Range.SetOffset(prm.off)
 		getRngPrm.Range.SetLength(prm.ln)
-		getRngPrm.BlobovniczaID = id
+		getRngPrm.StorageID = id
 
 		res, err := stor.GetRange(getRngPrm)
 		if err != nil {

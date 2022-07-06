@@ -14,7 +14,7 @@ import (
 // If the descriptor is present, only one sub-storage is tried,
 // Otherwise, each sub-storage is tried in order.
 func (b *BlobStor) Get(prm common.GetPrm) (common.GetRes, error) {
-	if prm.BlobovniczaID == nil {
+	if prm.StorageID == nil {
 		// Nothing specified, try everything.
 		res, err := b.getBig(prm)
 		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
@@ -22,7 +22,7 @@ func (b *BlobStor) Get(prm common.GetPrm) (common.GetRes, error) {
 		}
 		return b.getSmall(prm)
 	}
-	if *prm.BlobovniczaID == nil {
+	if len(prm.StorageID) == 0 {
 		return b.getBig(prm)
 	}
 	return b.getSmall(prm)

@@ -10,7 +10,7 @@ import (
 )
 
 func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
-	if prm.BlobovniczaID == nil {
+	if prm.StorageID == nil {
 		// Nothing specified, try everything.
 		res, err := b.deleteBig(prm)
 		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
@@ -18,7 +18,7 @@ func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 		}
 		return b.deleteSmall(prm)
 	}
-	if *prm.BlobovniczaID == nil {
+	if len(prm.StorageID) == 0 {
 		return b.deleteBig(prm)
 	}
 	return b.deleteSmall(prm)

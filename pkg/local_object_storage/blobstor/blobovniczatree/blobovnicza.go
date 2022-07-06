@@ -204,7 +204,7 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 		return common.PutRes{}, errPutFailed
 	}
 
-	return common.PutRes{BlobovniczaID: id}, nil
+	return common.PutRes{StorageID: id.Bytes()}, nil
 }
 
 // Get reads object from blobovnicza tree.
@@ -215,8 +215,9 @@ func (b *Blobovniczas) Get(prm common.GetPrm) (res common.GetRes, err error) {
 	var bPrm blobovnicza.GetPrm
 	bPrm.SetAddress(prm.Address)
 
-	if prm.BlobovniczaID != nil {
-		blz, err := b.openBlobovnicza(prm.BlobovniczaID.String())
+	if prm.StorageID != nil {
+		id := blobovnicza.NewIDFromBytes(prm.StorageID)
+		blz, err := b.openBlobovnicza(id.String())
 		if err != nil {
 			return res, err
 		}
@@ -265,8 +266,9 @@ func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err e
 	var bPrm blobovnicza.DeletePrm
 	bPrm.SetAddress(prm.Address)
 
-	if prm.BlobovniczaID != nil {
-		blz, err := b.openBlobovnicza(prm.BlobovniczaID.String())
+	if prm.StorageID != nil {
+		id := blobovnicza.NewIDFromBytes(prm.StorageID)
+		blz, err := b.openBlobovnicza(id.String())
 		if err != nil {
 			return res, err
 		}
@@ -318,8 +320,9 @@ func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err e
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all Blobovniczas are processed descending weight.
 func (b *Blobovniczas) GetRange(prm common.GetRangePrm) (res common.GetRangeRes, err error) {
-	if prm.BlobovniczaID != nil {
-		blz, err := b.openBlobovnicza(prm.BlobovniczaID.String())
+	if prm.StorageID != nil {
+		id := blobovnicza.NewIDFromBytes(prm.StorageID)
+		blz, err := b.openBlobovnicza(id.String())
 		if err != nil {
 			return common.GetRangeRes{}, err
 		}
@@ -573,7 +576,7 @@ func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicz
 	storagelog.Write(b.log,
 		storagelog.AddressField(dp.Address),
 		storagelog.OpField("Blobovniczas DELETE"),
-		zap.Stringer("blobovnicza ID", dp.BlobovniczaID),
+		zap.Stringer("blobovnicza ID", blobovnicza.NewIDFromBytes(dp.StorageID)),
 	)
 
 	return common.DeleteRes{}, nil

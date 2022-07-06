@@ -61,7 +61,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if !m.NoMetabase() {
 		var pPrm meta.PutPrm
 		pPrm.SetObject(prm.obj)
-		pPrm.SetBlobovniczaID(res.BlobovniczaID)
+		pPrm.SetStorageID(res.StorageID)
 		if _, err := s.metaBase.Put(pPrm); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor

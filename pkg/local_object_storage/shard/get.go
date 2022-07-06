@@ -3,7 +3,6 @@ package shard
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -16,7 +15,7 @@ import (
 
 // storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
 // method. It represents generalization of `getSmall` and `getBig` methods.
-type storFetcher = func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error)
+type storFetcher = func(stor *blobstor.BlobStor, id []byte) (*objectSDK.Object, error)
 
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
@@ -62,10 +61,10 @@ func (r GetRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Get(prm GetPrm) (GetRes, error) {
-	cb := func(stor *blobstor.BlobStor, id *blobovnicza.ID) (*objectSDK.Object, error) {
+	cb := func(stor *blobstor.BlobStor, id []byte) (*objectSDK.Object, error) {
 		var getPrm common.GetPrm
 		getPrm.Address = prm.addr
-		getPrm.BlobovniczaID = id
+		getPrm.StorageID = id
 
 		res, err := stor.Get(getPrm)
 		if err != nil {
@@ -131,21 +130,15 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		return nil, false, errNotFound
 	}
 
-	var mPrm meta.IsSmallPrm
-	mPrm.WithAddress(addr)
+	var mPrm meta.StorageIDPrm
+	mPrm.SetAddress(addr)
 
-	mRes, err := s.metaBase.IsSmall(mPrm)
+	mRes, err := s.metaBase.StorageID(mPrm)
 	if err != nil {
 		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
-	blobovniczaID := mRes.BlobovniczaID()
-	if blobovniczaID == nil {
-		var id blobovnicza.ID
-		blobovniczaID = &id
-	}
-
-	res, err = cb(s.blobStor, blobovniczaID)
+	res, err = cb(s.blobStor, mRes.StorageID())
 
 	return res, true, err
 }

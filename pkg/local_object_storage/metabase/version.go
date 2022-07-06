@@ -8,7 +8,7 @@ import (
 )
 
 // version contains current metabase version.
-const version = 0
+const version = 1
 
 var versionKey = []byte("version")
 

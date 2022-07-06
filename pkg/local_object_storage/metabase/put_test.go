@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -80,42 +79,42 @@ func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 	db := newDB(t)
 
 	raw1 := generateObject(t)
-	blobovniczaID := blobovnicza.ID{1, 2, 3, 4}
+	storageID := []byte{1, 2, 3, 4}
 
-	// put one object with blobovniczaID
-	err := metaPut(db, raw1, &blobovniczaID)
+	// put one object with storageID
+	err := metaPut(db, raw1, storageID)
 	require.NoError(t, err)
 
-	fetchedBlobovniczaID, err := metaIsSmall(db, object.AddressOf(raw1))
+	fetchedStorageID, err := metaStorageID(db, object.AddressOf(raw1))
 	require.NoError(t, err)
-	require.Equal(t, &blobovniczaID, fetchedBlobovniczaID)
+	require.Equal(t, storageID, fetchedStorageID)
 
-	t.Run("update blobovniczaID", func(t *testing.T) {
-		newID := blobovnicza.ID{5, 6, 7, 8}
+	t.Run("update storageID", func(t *testing.T) {
+		newID := []byte{5, 6, 7, 8}
 
-		err := metaPut(db, raw1, &newID)
+		err := metaPut(db, raw1, newID)
 		require.NoError(t, err)
 
-		fetchedBlobovniczaID, err := metaIsSmall(db, object.AddressOf(raw1))
+		fetchedBlobovniczaID, err := metaStorageID(db, object.AddressOf(raw1))
 		require.NoError(t, err)
-		require.Equal(t, &newID, fetchedBlobovniczaID)
+		require.Equal(t, newID, fetchedBlobovniczaID)
 	})
 
-	t.Run("update blobovniczaID on bad object", func(t *testing.T) {
+	t.Run("update storageID on bad object", func(t *testing.T) {
 		raw2 := generateObject(t)
 		err := putBig(db, raw2)
 		require.NoError(t, err)
 
-		fetchedBlobovniczaID, err := metaIsSmall(db, object.AddressOf(raw2))
+		fetchedBlobovniczaID, err := metaStorageID(db, object.AddressOf(raw2))
 		require.NoError(t, err)
 		require.Nil(t, fetchedBlobovniczaID)
 	})
 }
 
-func metaPut(db *meta.DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
+func metaPut(db *meta.DB, obj *objectSDK.Object, id []byte) error {
 	var putPrm meta.PutPrm
 	putPrm.SetObject(obj)
-	putPrm.SetBlobovniczaID(id)
+	putPrm.SetStorageID(id)
 
 	_, err := db.Put(putPrm)
 

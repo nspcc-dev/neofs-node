@@ -2,11 +2,7 @@
 
 This file describes changes between the metabase versions.
 
-## Version 0
-
-- Container ID is encoded as base58 string
-- Object ID is encoded as base58 string
-- Address is encoded as container ID + "/" + object ID
+## Current
 
 ### Primary buckets
 - Graveyard bucket
@@ -53,10 +49,10 @@ This file describes changes between the metabase versions.
   - Name: container ID + `_TS`
   - Key: object ID
   - Value: marshaled object
-- Buckets mapping objects to the blobovniczas they are stored in
+- Buckets mapping objects to the storage ID they are stored in
   - Name: container ID + `_small`
   - Key: object ID
-  - Value: blobovnicza ID
+  - Value: storage ID
 - Buckets for mapping parent object to the split info
   - Name: container ID + `_root`
   - Key: object ID
@@ -85,3 +81,16 @@ This file describes changes between the metabase versions.
   - Name: container ID + `_splitid`
   - Key: split ID
   - Value: list of object IDs
+
+
+# History
+
+## Version 1
+
+- Metabase now stores generic storage id instead of blobovnicza ID.
+
+## Version 0
+
+- Container ID is encoded as base58 string
+- Object ID is encoded as base58 string
+- Address is encoded as container ID + "/" + object ID

@@ -11,3 +11,7 @@ func NewIDFromBytes(v []byte) *ID {
 func (id ID) String() string {
 	return string(id)
 }
+
+func (id ID) Bytes() []byte {
+	return id
+}
