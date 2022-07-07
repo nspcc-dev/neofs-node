@@ -1,6 +1,7 @@
 package writecache
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -66,7 +67,7 @@ func Get(db *bbolt.DB, key []byte) ([]byte, error) {
 
 			return errNotFound
 		}
-		value = cloneBytes(value)
+		value = slice.Copy(value)
 		return nil
 	})
 	return value, err
