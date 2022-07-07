@@ -21,6 +21,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestDump(t *testing.T) {
@@ -49,8 +50,11 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			[]writecache.Option{
 				writecache.WithSmallObjectSize(wcSmallObjectSize),
 				writecache.WithMaxObjectSize(wcBigObjectSize),
+				writecache.WithLogger(zaptest.NewLogger(t)),
 			},
-			nil)
+			[]blobstor.Option{
+				blobstor.WithLogger(zaptest.NewLogger(t)),
+			})
 	}
 	defer releaseShard(sh, t)
 

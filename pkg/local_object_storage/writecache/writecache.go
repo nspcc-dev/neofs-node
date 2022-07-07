@@ -3,6 +3,7 @@ package writecache
 import (
 	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -23,7 +24,7 @@ type Cache interface {
 	Head(oid.Address) (*object.Object, error)
 	Delete(oid.Address) error
 	Iterate(IterationPrm) error
-	Put(*object.Object) error
+	Put(common.PutPrm) (common.PutRes, error)
 	SetMode(mode.Mode) error
 	SetLogger(*zap.Logger)
 	DumpInfo() Info
@@ -36,9 +37,8 @@ type Cache interface {
 type cache struct {
 	options
 
-	// mtx protects mem field, statistics, counters and compressFlags.
+	// mtx protects statistics, counters and compressFlags.
 	mtx sync.RWMutex
-	mem []objectInfo
 
 	mode    mode.Mode
 	modeMtx sync.RWMutex
@@ -47,19 +47,12 @@ type cache struct {
 	// whether object should be compressed.
 	compressFlags map[string]struct{}
 
-	// curMemSize is the current size of all objects cached in memory.
-	curMemSize uint64
-
 	// flushCh is a channel with objects to flush.
 	flushCh chan *object.Object
-	// directCh is a channel with objects to put directly to the main storage.
-	// it is prioritized over flushCh.
-	directCh chan *object.Object
-	// metaCh is a channel with objects for which only metadata needs to be written.
-	metaCh chan *object.Object
 	// closeCh is close channel.
 	closeCh chan struct{}
-	evictCh chan []byte
+	// wg is a wait group for flush workers.
+	wg sync.WaitGroup
 	// store contains underlying database.
 	store
 	// fsTree contains big files stored directly on file-system.
@@ -86,12 +79,9 @@ var (
 // New creates new writecache instance.
 func New(opts ...Option) Cache {
 	c := &cache{
-		flushCh:  make(chan *object.Object),
-		directCh: make(chan *object.Object),
-		metaCh:   make(chan *object.Object),
-		closeCh:  make(chan struct{}),
-		evictCh:  make(chan []byte),
-		mode:     mode.ReadWrite,
+		flushCh: make(chan *object.Object),
+		closeCh: make(chan struct{}),
+		mode:    mode.ReadWrite,
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
@@ -144,9 +134,7 @@ func (c *cache) Open(readOnly bool) error {
 // Init runs necessary services.
 func (c *cache) Init() error {
 	c.initFlushMarks()
-
-	go c.persistLoop()
-	go c.flushLoop()
+	c.runFlushLoop()
 	return nil
 }
 
@@ -158,6 +146,8 @@ func (c *cache) Close() error {
 	}
 
 	close(c.closeCh)
+	c.wg.Wait()
+
 	if c.objCounters != nil {
 		c.objCounters.FlushAndClose()
 	}

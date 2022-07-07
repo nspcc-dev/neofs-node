@@ -14,20 +14,6 @@ import (
 func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
 	saddr := addr.EncodeToString()
 
-	c.mtx.RLock()
-	for i := range c.mem {
-		if saddr == c.mem[i].addr {
-			data := c.mem[i].data
-			c.mtx.RUnlock()
-			// We unmarshal object instead of using cached value to avoid possibility
-			// of unintentional object corruption by caller.
-			// It is safe to unmarshal without mutex, as storage under `c.mem[i].data` slices is not reused.
-			obj := objectSDK.New()
-			return obj, obj.Unmarshal(data)
-		}
-	}
-	c.mtx.RUnlock()
-
 	value, err := Get(c.db, []byte(saddr))
 	if err == nil {
 		obj := objectSDK.New()

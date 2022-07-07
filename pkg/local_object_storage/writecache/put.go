@@ -3,57 +3,80 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"go.etcd.io/bbolt"
 )
 
-// ErrBigObject is returned when object is too big to be placed in cache.
-var ErrBigObject = errors.New("too big object")
+var (
+	// ErrBigObject is returned when object is too big to be placed in cache.
+	ErrBigObject = errors.New("too big object")
+	// ErrOutOfSpace is returned when there is no space left to put a new object.
+	ErrOutOfSpace = errors.New("no space left in the write cache")
+)
 
 // Put puts object to write-cache.
-func (c *cache) Put(o *objectSDK.Object) error {
+func (c *cache) Put(prm common.PutPrm) (common.PutRes, error) {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {
-		return ErrReadOnly
+		return common.PutRes{}, ErrReadOnly
 	}
 
-	sz := uint64(o.ToV2().StableSize())
+	sz := uint64(len(prm.RawData))
 	if sz > c.maxObjectSize {
-		return ErrBigObject
+		return common.PutRes{}, ErrBigObject
 	}
 
-	data, err := o.Marshal()
+	oi := objectInfo{
+		addr: prm.Address.EncodeToString(),
+		obj:  prm.Object,
+		data: prm.RawData,
+	}
+
+	if sz <= c.smallObjectSize {
+		return common.PutRes{}, c.putSmall(oi)
+	}
+	return common.PutRes{}, c.putBig(oi.addr, prm)
+}
+
+// putSmall persists small objects to the write-cache database and
+// pushes the to the flush workers queue.
+func (c *cache) putSmall(obj objectInfo) error {
+	cacheSize := c.estimateCacheSize()
+	if c.maxCacheSize < c.incSizeDB(cacheSize) {
+		return ErrOutOfSpace
+	}
+
+	err := c.db.Batch(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(defaultBucket)
+		return b.Put([]byte(obj.addr), obj.data)
+	})
+	if err == nil {
+		storagelog.Write(c.log, storagelog.AddressField(obj.addr), storagelog.OpField("db PUT"))
+		c.objCounters.IncDB()
+	}
+	return nil
+}
+
+// putBig writes object to FSTree and pushes it to the flush workers queue.
+func (c *cache) putBig(addr string, prm common.PutPrm) error {
+	cacheSz := c.estimateCacheSize()
+	if c.maxCacheSize < c.incSizeFS(cacheSz) {
+		return ErrOutOfSpace
+	}
+
+	_, err := c.fsTree.Put(prm)
 	if err != nil {
 		return err
 	}
 
-	oi := objectInfo{
-		addr: object.AddressOf(o).EncodeToString(),
-		obj:  o,
-		data: data,
-	}
-
-	c.mtx.Lock()
-
-	if sz <= c.smallObjectSize && c.curMemSize+sz <= c.maxMemSize {
-		c.curMemSize += sz
-		c.mem = append(c.mem, oi)
-
+	if c.blobstor.NeedsCompression(prm.Object) {
+		c.mtx.Lock()
+		c.compressFlags[addr] = struct{}{}
 		c.mtx.Unlock()
-
-		storagelog.Write(c.log, storagelog.AddressField(oi.addr), storagelog.OpField("in-mem PUT"))
-
-		return nil
 	}
-
-	c.mtx.Unlock()
-
-	if sz <= c.smallObjectSize {
-		c.persistSmallObjects([]objectInfo{oi})
-	} else {
-		c.persistBigObject(oi)
-	}
+	c.objCounters.IncFS()
+	storagelog.Write(c.log, storagelog.AddressField(addr), storagelog.OpField("fstree PUT"))
 	return nil
 }

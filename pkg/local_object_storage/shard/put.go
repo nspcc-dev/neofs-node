@@ -3,6 +3,7 @@ package shard
 import (
 	"fmt"
 
+	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,28 +35,33 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		return PutRes{}, ErrReadOnlyMode
 	}
 
+	data, err := prm.obj.Marshal()
+	if err != nil {
+		return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+	}
+
 	var putPrm common.PutPrm // form Put parameters
 	putPrm.Object = prm.obj
+	putPrm.RawData = data
+	putPrm.Address = objectCore.AddressOf(prm.obj)
+
+	var res common.PutRes
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
 	if s.hasWriteCache() {
-		err := s.writeCache.Put(prm.obj)
-		if err == nil {
-			return PutRes{}, nil
+		res, err = s.writeCache.Put(putPrm)
+	}
+	if err != nil || !s.hasWriteCache() {
+		if err != nil {
+			s.log.Debug("can't put object to the write-cache, trying blobstor",
+				zap.String("err", err.Error()))
 		}
 
-		s.log.Debug("can't put message to writeCache, trying to blobStor",
-			zap.String("err", err.Error()))
-	}
-
-	var (
-		err error
-		res common.PutRes
-	)
-
-	if res, err = s.blobStor.Put(putPrm); err != nil {
-		return PutRes{}, fmt.Errorf("could not put object to BLOB storage: %w", err)
+		res, err = s.blobStor.Put(putPrm)
+		if err != nil {
+			return PutRes{}, fmt.Errorf("could not put object to BLOB storage: %w", err)
+		}
 	}
 
 	if !m.NoMetabase() {
