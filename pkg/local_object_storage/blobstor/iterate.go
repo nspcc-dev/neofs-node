@@ -3,63 +3,10 @@ package blobstor
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
-
-// IterationElement represents a unit of elements through which Iterate operation passes.
-type IterationElement struct {
-	data []byte
-
-	addr oid.Address
-
-	descriptor []byte
-}
-
-// ObjectData returns the stored object in a binary representation.
-func (x IterationElement) ObjectData() []byte {
-	return x.data
-}
-
-// Descriptor returns the identifier of storage part where x is stored.
-func (x IterationElement) Descriptor() []byte {
-	return x.descriptor
-}
-
-// Address returns the object address.
-func (x IterationElement) Address() oid.Address {
-	return x.addr
-}
-
-// IterationHandler is a generic processor of IterationElement.
-type IterationHandler func(IterationElement) error
-
-// IteratePrm groups the parameters of Iterate operation.
-type IteratePrm struct {
-	handler      IterationHandler
-	ignoreErrors bool
-	errorHandler func(oid.Address, error) error
-}
-
-// IterateRes groups the resulting values of Iterate operation.
-type IterateRes struct{}
-
-// SetIterationHandler sets the action to be performed on each iteration.
-func (i *IteratePrm) SetIterationHandler(h IterationHandler) {
-	i.handler = h
-}
-
-// IgnoreErrors sets the flag signifying whether errors should be ignored.
-func (i *IteratePrm) IgnoreErrors() {
-	i.ignoreErrors = true
-}
-
-// SetErrorHandler sets error handler for objects that cannot be read or unmarshaled.
-func (i *IteratePrm) SetErrorHandler(f func(oid.Address, error) error) {
-	i.errorHandler = f
-}
 
 // Iterate traverses the storage over the stored objects and calls the handler
 // on each element.
@@ -68,86 +15,51 @@ func (i *IteratePrm) SetErrorHandler(f func(oid.Address, error) error) {
 // did not allow to completely iterate over the storage.
 //
 // If handler returns an error, method wraps and returns it immediately.
-func (b *BlobStor) Iterate(prm IteratePrm) (IterateRes, error) {
-	var elem IterationElement
-
-	err := b.blobovniczas.Iterate(prm.ignoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
-		err := blobovnicza.IterateObjects(blz, func(addr oid.Address, data []byte) error {
-			var err error
-
-			// decompress the data
-			elem.data, err = b.Decompress(data)
-			if err != nil {
-				if prm.ignoreErrors {
-					if prm.errorHandler != nil {
-						return prm.errorHandler(addr, err)
-					}
-					return nil
-				}
-				return fmt.Errorf("could not decompress object data: %w", err)
-			}
-
-			elem.addr = addr
-			elem.descriptor = []byte(p)
-
-			return prm.handler(elem)
-		})
-		if err != nil {
-			return fmt.Errorf("blobovnicza iterator failure %s: %w", p, err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return IterateRes{}, fmt.Errorf("blobovniczas iterator failure: %w", err)
+func (b *BlobStor) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+	_, err := b.blobovniczas.Iterate(prm)
+	if err != nil && !prm.IgnoreErrors {
+		return common.IterateRes{}, fmt.Errorf("blobovnizas iterator failure: %w", err)
 	}
 
-	elem.descriptor = []byte{}
-
-	var fsPrm fstree.IterationPrm
-	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
-	fsPrm.WithHandler(func(addr oid.Address, data []byte) error {
-		// decompress the data
-		elem.data, err = b.Decompress(data)
+	// FIXME decompress in the fstree
+	iPrm := prm
+	iPrm.Handler = func(element common.IterationElement) error {
+		data, err := b.Decompress(element.ObjectData)
 		if err != nil {
-			if prm.ignoreErrors {
-				if prm.errorHandler != nil {
-					return prm.errorHandler(addr, err)
+			if prm.IgnoreErrors {
+				if prm.ErrorHandler != nil {
+					return prm.ErrorHandler(element.Address, err)
 				}
 				return nil
 			}
 			return fmt.Errorf("could not decompress object data: %w", err)
 		}
-
-		elem.addr = addr
-
-		return prm.handler(elem)
-	})
-
-	err = b.fsTree.Iterate(fsPrm)
-
-	if err != nil {
-		return IterateRes{}, fmt.Errorf("fs tree iterator failure: %w", err)
+		element.ObjectData = data
+		return prm.Handler(element)
 	}
 
-	return IterateRes{}, nil
+	_, err = b.fsTree.Iterate(iPrm)
+	if err != nil && !prm.IgnoreErrors {
+		return common.IterateRes{}, fmt.Errorf("fs tree iterator failure: %w", err)
+	}
+	return common.IterateRes{}, nil
 }
 
 // IterateBinaryObjects is a helper function which iterates over BlobStor and passes binary objects to f.
 // Errors related to object reading and unmarshaling are logged and skipped.
 func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, descriptor []byte) error) error {
-	var prm IteratePrm
+	var prm common.IteratePrm
 
-	prm.SetIterationHandler(func(elem IterationElement) error {
-		return f(elem.Address(), elem.ObjectData(), elem.Descriptor())
-	})
-	prm.IgnoreErrors()
-	prm.SetErrorHandler(func(addr oid.Address, err error) error {
+	prm.Handler = func(elem common.IterationElement) error {
+		return f(elem.Address, elem.ObjectData, elem.StorageID)
+	}
+	prm.IgnoreErrors = true
+	prm.ErrorHandler = func(addr oid.Address, err error) error {
 		blz.log.Warn("error occurred during the iteration",
 			zap.Stringer("address", addr),
 			zap.String("err", err.Error()))
 		return nil
-	})
+	}
 
 	_, err := blz.Iterate(prm)
 

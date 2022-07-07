@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -51,9 +51,9 @@ func (c *cache) Iterate(prm IterationPrm) error {
 		return err
 	}
 
-	var fsPrm fstree.IterationPrm
-	fsPrm.WithIgnoreErrors(prm.ignoreErrors)
-	fsPrm.WithLazyHandler(func(addr oid.Address, f func() ([]byte, error)) error {
+	var fsPrm common.IteratePrm
+	fsPrm.IgnoreErrors = prm.ignoreErrors
+	fsPrm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
 		}
@@ -65,9 +65,10 @@ func (c *cache) Iterate(prm IterationPrm) error {
 			return err
 		}
 		return prm.handler(data)
-	})
+	}
 
-	return c.fsTree.Iterate(fsPrm)
+	_, err = c.fsTree.Iterate(fsPrm)
+	return err
 }
 
 // IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.

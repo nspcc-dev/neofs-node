@@ -34,7 +34,7 @@ func (b *Blobovniczas) Init() error {
 		return nil
 	}
 
-	return b.Iterate(false, func(p string, blz *blobovnicza.Blobovnicza) error {
+	return b.iterateBlobovniczas(false, func(p string, blz *blobovnicza.Blobovnicza) error {
 		if err := blz.Init(); err != nil {
 			return fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
 		}

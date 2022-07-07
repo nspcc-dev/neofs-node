@@ -69,46 +69,16 @@ func addressFromString(s string) (*oid.Address, error) {
 	return &addr, nil
 }
 
-// IterationPrm contains iteraction parameters.
-type IterationPrm struct {
-	handler      func(addr oid.Address, data []byte) error
-	ignoreErrors bool
-	errorHandler func(oid.Address, error) error
-	lazyHandler  func(oid.Address, func() ([]byte, error)) error
-}
-
-// WithHandler sets a function to call on each object.
-func (p *IterationPrm) WithHandler(f func(addr oid.Address, data []byte) error) {
-	p.handler = f
-}
-
-// WithLazyHandler sets a function to call on each object.
-// Second callback parameter opens file and reads all data to a buffer.
-// File is not opened at all unless this callback is invoked.
-func (p *IterationPrm) WithLazyHandler(f func(oid.Address, func() ([]byte, error)) error) {
-	p.lazyHandler = f
-}
-
-// WithIgnoreErrors sets a flag indicating whether errors should be ignored.
-func (p *IterationPrm) WithIgnoreErrors(ignore bool) {
-	p.ignoreErrors = ignore
-}
-
-// WithErrorHandler sets error handler for objects that cannot be read or unmarshaled.
-func (p *IterationPrm) WithErrorHandler(f func(oid.Address, error) error) {
-	p.errorHandler = f
-}
-
 // Iterate iterates over all stored objects.
-func (t *FSTree) Iterate(prm IterationPrm) error {
-	return t.iterate(0, []string{t.RootPath}, prm)
+func (t *FSTree) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+	return common.IterateRes{}, t.iterate(0, []string{t.RootPath}, prm)
 }
 
-func (t *FSTree) iterate(depth int, curPath []string, prm IterationPrm) error {
+func (t *FSTree) iterate(depth int, curPath []string, prm common.IteratePrm) error {
 	curName := strings.Join(curPath[1:], "")
 	des, err := os.ReadDir(filepath.Join(curPath...))
 	if err != nil {
-		if prm.ignoreErrors {
+		if prm.IgnoreErrors {
 			return nil
 		}
 		return err
@@ -139,23 +109,28 @@ func (t *FSTree) iterate(depth int, curPath []string, prm IterationPrm) error {
 			continue
 		}
 
-		if prm.lazyHandler != nil {
-			err = prm.lazyHandler(*addr, func() ([]byte, error) {
+		if prm.LazyHandler != nil {
+			err = prm.LazyHandler(*addr, func() ([]byte, error) {
 				return os.ReadFile(filepath.Join(curPath...))
 			})
 		} else {
 			var data []byte
 			data, err = os.ReadFile(filepath.Join(curPath...))
 			if err != nil {
-				if prm.ignoreErrors {
-					if prm.errorHandler != nil {
-						return prm.errorHandler(*addr, err)
+				if prm.IgnoreErrors {
+					if prm.ErrorHandler != nil {
+						return prm.ErrorHandler(*addr, err)
 					}
 					continue
 				}
 				return err
 			}
-			err = prm.handler(*addr, data)
+
+			err = prm.Handler(common.IterationElement{
+				Address:    *addr,
+				ObjectData: data,
+				StorageID:  []byte{},
+			})
 		}
 
 		if err != nil {
