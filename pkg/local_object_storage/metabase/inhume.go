@@ -100,7 +100,11 @@ var ErrLockObjectRemoval = errors.New("lock object removal")
 // Inhume marks objects as removed but not removes it from metabase.
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
-// if at least one object is locked.
+// if at least one object is locked. Returns ErrLockObjectRemoval if inhuming
+// is being performed on lock (not locked) object.
+//
+// NOTE: Marks any object with GC mark (despite any prohibitions on operations
+// with that object) if WithForceGCMark option has been provided.
 func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)

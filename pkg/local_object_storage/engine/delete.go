@@ -42,6 +42,10 @@ func (p *DeletePrm) WithForceRemoval() {
 //
 // Returns apistatus.ObjectLocked if at least one object is locked.
 // In this case no object from the list is marked to be deleted.
+//
+// NOTE: Marks any object to be deleted (despite any prohibitions
+// on operations with that object) if WithForceRemoval option has
+// been provided.
 func (e *StorageEngine) Delete(prm DeletePrm) (res DeleteRes, err error) {
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.delete(prm)

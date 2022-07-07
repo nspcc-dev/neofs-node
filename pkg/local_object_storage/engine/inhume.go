@@ -61,6 +61,9 @@ var errInhumeFailure = errors.New("inhume operation failed")
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.
 //
+// NOTE: Marks any object as removed (despite any prohibitions on operations
+// with that object) if WithForceRemoval option has been provided.
+//
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	err = e.execIfNotBlocked(func() error {
