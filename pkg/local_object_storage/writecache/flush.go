@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -84,7 +85,7 @@ func (c *cache) flush() {
 				sz += len(k) + len(v)
 				m = append(m, objectInfo{
 					addr: string(k),
-					data: cloneBytes(v),
+					data: slice.Copy(v),
 				})
 			}
 			return nil
@@ -226,10 +227,4 @@ func (c *cache) flushObject(obj *object.Object) error {
 
 	_, err = c.metabase.Put(pPrm)
 	return err
-}
-
-func cloneBytes(a []byte) []byte {
-	b := make([]byte, len(a))
-	copy(b, a)
-	return b
 }
