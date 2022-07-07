@@ -5,20 +5,33 @@ Changelog for NeoFS Node
 
 ### Added
 
-- Retrieve passwords for storage wallets from the configuration in neofs-adm (#1539)
-
 ### Changed
 
 ### Fixed
 
+### Removed
+
+### Updated
+
+## [0.29.0] - 2022-07-07
+
+Support WalletConnect signature scheme.
+
+### Added
+- Retrieve passwords for storage wallets from the configuration in neofs-adm (#1539)
+- Metabase format versioning (#1483)
+- `neofs-adm` generates wallets in a pretty JSON format
+- `Makefile` supports building from sources without a git repo
+
+### Fixed
 - Do not replicate object twice to the same node (#1410)
 - Concurrent object handling by the Policer (#1411)
 - Attaching API version to the forwarded requests (#1581)
 - Node OOM panics on `GetRange` request with extremely huge range length (#1590)
 
-### Removed
-
 ### Updated
+- `neofs-sdk-go` to latest pre-release version
+- `tzhash` to `v1.6.1`
 
 ## [0.28.3] - 2022-06-08
 
@@ -1126,7 +1139,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.3...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.29.0...master
+[0.29.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.0...v0.28.1
