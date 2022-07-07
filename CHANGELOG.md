@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Do not replicate object twice to the same node (#1410)
 - Concurrent object handling by the Policer (#1411)
 - Attaching API version to the forwarded requests (#1581)
+- Node OOM panics on `GetRange` request with extremely huge range length (#1590)
 
 ### Removed
 
