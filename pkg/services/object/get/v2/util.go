@@ -250,7 +250,8 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				return nil, fmt.Errorf("could not create Get payload range stream: %w", err)
 			}
 
-			payload := make([]byte, 0, body.GetRange().GetLength())
+			// allocate memory only after receiving a successful response
+			var payload []byte
 
 			resp := new(objectV2.GetRangeResponse)
 
@@ -283,6 +284,10 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				case nil:
 					return nil, fmt.Errorf("unexpected range type %T", v)
 				case *objectV2.GetRangePartChunk:
+					if payload == nil {
+						payload = make([]byte, 0, body.GetRange().GetLength())
+					}
+
 					payload = append(payload, v.GetChunk()...)
 				case *objectV2.SplitInfo:
 					si := object.NewSplitInfoFromV2(v)
