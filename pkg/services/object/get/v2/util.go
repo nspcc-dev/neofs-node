@@ -15,12 +15,14 @@ import (
 	rpcclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-api-go/v2/status"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -131,6 +133,10 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 				// verify response structure
 				if err := signature.VerifyServiceMessage(resp); err != nil {
 					return nil, fmt.Errorf("response verification failed: %w", err)
+				}
+
+				if err = checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+					return nil, err
 				}
 
 				switch v := resp.GetBody().GetObjectPart().(type) {
@@ -267,6 +273,10 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				// verify response structure
 				if err := signature.VerifyServiceMessage(resp); err != nil {
 					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
+				}
+
+				if err = checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+					return nil, err
 				}
 
 				switch v := resp.GetBody().GetRangePart().(type) {
@@ -440,6 +450,10 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 			// verify response structure
 			if err := signature.VerifyServiceMessage(headResp); err != nil {
 				return nil, fmt.Errorf("response verification failed: %w", err)
+			}
+
+			if err = checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+				return nil, err
 			}
 
 			var (
@@ -620,4 +634,13 @@ func writeCurrentVersion(metaHdr *session.RequestMetaHeader) {
 	apiVersion.WriteToV2(versionV2)
 
 	metaHdr.SetVersion(versionV2)
+}
+
+func checkStatus(stV2 *status.Status) error {
+	if !status.IsSuccess(stV2.Code()) {
+		st := apistatus.FromStatusV2(stV2)
+		return apistatus.ErrFromStatus(st)
+	}
+
+	return nil
 }
