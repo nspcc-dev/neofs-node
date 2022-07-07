@@ -158,7 +158,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 			case errors.As(err, &errLocked):
 				status = 1
 				return true
-			case errors.Is(err, meta.ErrLockObjectRemoval):
+			case errors.Is(err, shard.ErrLockObjectRemoval):
 				status = 2
 				return true
 			}

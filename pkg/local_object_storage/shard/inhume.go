@@ -2,6 +2,7 @@ package shard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -50,6 +51,10 @@ func (p *InhumePrm) ForceRemoval() {
 	}
 }
 
+// ErrLockObjectRemoval is returned when inhume operation is being
+// performed on lock object, and it is not a forced object removal.
+var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
+
 // Inhume calls metabase. Inhume method to mark object as removed. It won't be
 // removed physically from blobStor and metabase until `Delete` operation.
 //
@@ -84,6 +89,10 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 
 	res, err := s.metaBase.Inhume(metaPrm)
 	if err != nil {
+		if errors.Is(err, meta.ErrLockObjectRemoval) {
+			return InhumeRes{}, ErrLockObjectRemoval
+		}
+
 		s.log.Debug("could not mark object to delete in metabase",
 			zap.String("error", err.Error()),
 		)
