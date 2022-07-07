@@ -76,16 +76,17 @@ func TestFSTree(t *testing.T) {
 
 	t.Run("iterate", func(t *testing.T) {
 		n := 0
-		var iterationPrm IterationPrm
-		iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
+		var iterationPrm common.IteratePrm
+		iterationPrm.Handler = func(elem common.IterationElement) error {
 			n++
-			expected, ok := store[addr.EncodeToString()]
-			require.True(t, ok, "object %s was not found", addr.EncodeToString())
-			require.Equal(t, data, expected)
+			addr := elem.Address.EncodeToString()
+			expected, ok := store[addr]
+			require.True(t, ok, "object %s was not found", addr)
+			require.Equal(t, elem.ObjectData, expected)
 			return nil
-		})
+		}
 
-		err := fs.Iterate(iterationPrm)
+		_, err := fs.Iterate(iterationPrm)
 
 		require.NoError(t, err)
 		require.Equal(t, count, n)
@@ -94,14 +95,14 @@ func TestFSTree(t *testing.T) {
 			n := 0
 			errStop := errors.New("stop")
 
-			iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
+			iterationPrm.Handler = func(_ common.IterationElement) error {
 				if n++; n == count-1 {
 					return errStop
 				}
 				return nil
-			})
+			}
 
-			err := fs.Iterate(iterationPrm)
+			_, err := fs.Iterate(iterationPrm)
 
 			require.ErrorIs(t, err, errStop)
 			require.Equal(t, count-1, n)
@@ -123,13 +124,13 @@ func TestFSTree(t *testing.T) {
 			require.NoError(t, util.MkdirAllX(filepath.Dir(p), fs.Permissions))
 			require.NoError(t, os.WriteFile(p, []byte{1, 2, 3}, fs.Permissions))
 
-			iterationPrm.WithIgnoreErrors(true)
-			iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
+			iterationPrm.IgnoreErrors = true
+			iterationPrm.Handler = func(_ common.IterationElement) error {
 				n++
 				return nil
-			})
+			}
 
-			err := fs.Iterate(iterationPrm)
+			_, err := fs.Iterate(iterationPrm)
 			require.NoError(t, err)
 			require.Equal(t, count, n)
 
@@ -137,15 +138,15 @@ func TestFSTree(t *testing.T) {
 				expectedErr := errors.New("expected error")
 				n := 0
 
-				iterationPrm.WithHandler(func(addr oid.Address, data []byte) error {
+				iterationPrm.Handler = func(_ common.IterationElement) error {
 					n++
 					if n == count/2 { // process some iterations
 						return expectedErr
 					}
 					return nil
-				})
+				}
 
-				err := fs.Iterate(iterationPrm)
+				_, err := fs.Iterate(iterationPrm)
 				require.ErrorIs(t, err, expectedErr)
 				require.Equal(t, count/2, n)
 			})

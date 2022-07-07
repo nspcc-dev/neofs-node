@@ -650,8 +650,32 @@ func (b *Blobovniczas) iterateLeaves(f func(string) (bool, error)) error {
 	return b.iterateSortedLeaves(nil, f)
 }
 
+// Iterate iterates over all objects in b.
+func (b *Blobovniczas) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+	return common.IterateRes{}, b.iterateBlobovniczas(prm.IgnoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
+		return blobovnicza.IterateObjects(blz, func(addr oid.Address, data []byte) error {
+			data, err := b.Decompress(data)
+			if err != nil {
+				if prm.IgnoreErrors {
+					if prm.ErrorHandler != nil {
+						return prm.ErrorHandler(addr, err)
+					}
+					return nil
+				}
+				return fmt.Errorf("could not decompress object data: %w", err)
+			}
+
+			return prm.Handler(common.IterationElement{
+				Address:    addr,
+				ObjectData: data,
+				StorageID:  []byte(p),
+			})
+		})
+	})
+}
+
 // iterator over all Blobovniczas in unsorted order. Break on f's error return.
-func (b *Blobovniczas) Iterate(ignoreErrors bool, f func(string, *blobovnicza.Blobovnicza) error) error {
+func (b *Blobovniczas) iterateBlobovniczas(ignoreErrors bool, f func(string, *blobovnicza.Blobovnicza) error) error {
 	return b.iterateLeaves(func(p string) (bool, error) {
 		blz, err := b.openBlobovnicza(p)
 		if err != nil {

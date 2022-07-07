@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 )
 
@@ -102,13 +102,10 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 		}
 	}
 
-	var pi blobstor.IteratePrm
-
-	if prm.ignoreErrors {
-		pi.IgnoreErrors()
-	}
-	pi.SetIterationHandler(func(elem blobstor.IterationElement) error {
-		data := elem.ObjectData()
+	var pi common.IteratePrm
+	pi.IgnoreErrors = prm.ignoreErrors
+	pi.Handler = func(elem common.IterationElement) error {
+		data := elem.ObjectData
 
 		var size [4]byte
 		binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
@@ -122,7 +119,7 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 
 		count++
 		return nil
-	})
+	}
 
 	if _, err := s.blobStor.Iterate(pi); err != nil {
 		return DumpRes{}, err

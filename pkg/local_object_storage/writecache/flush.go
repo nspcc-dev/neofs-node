@@ -6,7 +6,6 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -135,8 +134,8 @@ func (c *cache) flushBigObjects() {
 
 			evictNum := 0
 
-			var prm fstree.IterationPrm
-			prm.WithLazyHandler(func(addr oid.Address, f func() ([]byte, error)) error {
+			var prm common.IteratePrm
+			prm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 				sAddr := addr.EncodeToString()
 
 				if _, ok := c.store.flushed.Peek(sAddr); ok {
@@ -174,9 +173,9 @@ func (c *cache) flushBigObjects() {
 				evictNum++
 
 				return nil
-			})
+			}
 
-			_ = c.fsTree.Iterate(prm)
+			_, _ = c.fsTree.Iterate(prm)
 
 			// evict objects which were successfully written to BlobStor
 			c.evictObjects(evictNum)

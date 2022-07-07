@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -15,14 +14,14 @@ import (
 func (c *cache) initFlushMarks() {
 	c.log.Info("filling flush marks for objects in FSTree")
 
-	var prm fstree.IterationPrm
-	prm.WithLazyHandler(func(addr oid.Address, _ func() ([]byte, error)) error {
+	var prm common.IteratePrm
+	prm.LazyHandler = func(addr oid.Address, _ func() ([]byte, error)) error {
 		if c.isFlushed(addr) {
 			c.store.flushed.Add(addr.EncodeToString(), true)
 		}
 		return nil
-	})
-	_ = c.fsTree.Iterate(prm)
+	}
+	_, _ = c.fsTree.Iterate(prm)
 
 	c.log.Info("filling flush marks for objects in database")
 
