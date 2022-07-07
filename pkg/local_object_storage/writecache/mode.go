@@ -23,13 +23,6 @@ func (c *cache) SetMode(m mode.Mode) error {
 		return nil
 	}
 
-	if !c.readOnly() {
-		// Because modeMtx is taken no new objects will arrive an all other modifying
-		// operations are completed.
-		// 1. Persist objects already in memory on disk.
-		c.persistMemoryCache()
-	}
-
 	if c.db != nil {
 		if err := c.db.Close(); err != nil {
 			return fmt.Errorf("can't close write-cache database: %w", err)
@@ -37,13 +30,10 @@ func (c *cache) SetMode(m mode.Mode) error {
 		c.db = nil
 	}
 
-	// 2. Suspend producers to ensure there are channel send operations in fly.
-	// metaCh and directCh can be populated either during Put or in background memory persist thread.
-	// Former possibility is eliminated by taking `modeMtx` mutex and
-	// latter by explicit persist in the previous step.
-	// flushCh is populated by `flush` with `modeMtx` is also taken.
-	// Thus all producers are shutdown and we only need to wait until all channels are empty.
-	for len(c.metaCh) != 0 || len(c.directCh) != 0 || len(c.flushCh) != 0 {
+	// Suspend producers to ensure there are channel send operations in fly.
+	// flushCh is populated by `flush` with `modeMtx` taken, thus waiting until it is empty
+	// guarantees that there are no in-fly operations.
+	for len(c.flushCh) != 0 {
 		c.log.Info("waiting for channels to flush")
 		time.Sleep(time.Second)
 	}

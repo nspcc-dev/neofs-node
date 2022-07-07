@@ -1,7 +1,6 @@
 package writecache
 
 import (
-	"sync"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -24,44 +23,45 @@ const (
 	defaultFlushInterval = time.Second
 )
 
-// flushLoop periodically flushes changes from the database to memory.
-func (c *cache) flushLoop() {
-	var wg sync.WaitGroup
-
+// runFlushLoop starts background workers which periodically flush objects to the blobstor.
+func (c *cache) runFlushLoop() {
 	for i := 0; i < c.workersCount; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			c.flushWorker(i)
-		}(i)
+		c.wg.Add(1)
+		go c.flushWorker(i)
 	}
 
-	wg.Add(1)
+	c.wg.Add(1)
+	go c.flushBigObjects()
+
+	c.wg.Add(1)
 	go func() {
-		defer wg.Done()
-		c.flushBigObjects()
-	}()
+		defer c.wg.Done()
 
-	tt := time.NewTimer(defaultFlushInterval)
-	defer tt.Stop()
+		tt := time.NewTimer(defaultFlushInterval)
+		defer tt.Stop()
 
-	for {
-		select {
-		case <-tt.C:
-			c.flush()
-			tt.Reset(defaultFlushInterval)
-		case <-c.closeCh:
-			c.log.Debug("waiting for workers to quit")
-			wg.Wait()
-			return
+		for {
+			select {
+			case <-tt.C:
+				c.flush()
+				tt.Reset(defaultFlushInterval)
+			case <-c.closeCh:
+				return
+			}
 		}
-	}
+	}()
 }
 
 func (c *cache) flush() {
 	lastKey := []byte{}
 	var m []objectInfo
 	for {
+		select {
+		case <-c.closeCh:
+			return
+		default:
+		}
+
 		m = m[:0]
 		sz := 0
 
@@ -122,6 +122,8 @@ func (c *cache) flush() {
 }
 
 func (c *cache) flushBigObjects() {
+	defer c.wg.Done()
+
 	tick := time.NewTicker(defaultFlushInterval * 10)
 	for {
 		select {
@@ -181,6 +183,7 @@ func (c *cache) flushBigObjects() {
 			c.evictObjects(evictNum)
 			c.modeMtx.RUnlock()
 		case <-c.closeCh:
+			return
 		}
 	}
 }
@@ -188,63 +191,40 @@ func (c *cache) flushBigObjects() {
 // flushWorker runs in a separate goroutine and write objects to the main storage.
 // If flushFirst is true, flushing objects from cache database takes priority over
 // putting new objects.
-func (c *cache) flushWorker(num int) {
-	priorityCh := c.directCh
-	switch num % 3 {
-	case 0:
-		priorityCh = c.flushCh
-	case 1:
-		priorityCh = c.metaCh
-	}
+func (c *cache) flushWorker(_ int) {
+	defer c.wg.Done()
 
 	var obj *object.Object
 	for {
-		metaOnly := false
-
 		// Give priority to direct put.
-		// TODO(fyrchik): #1150 do this once in N iterations depending on load
 		select {
-		case obj = <-priorityCh:
-			metaOnly = num%3 == 1
-		default:
-			select {
-			case obj = <-c.directCh:
-			case obj = <-c.flushCh:
-			case obj = <-c.metaCh:
-				metaOnly = true
-			case <-c.closeCh:
-				return
-			}
+		case obj = <-c.flushCh:
+		case <-c.closeCh:
+			return
 		}
 
-		err := c.writeObject(obj, metaOnly)
+		err := c.flushObject(obj)
 		if err != nil {
 			c.log.Error("can't flush object to the main storage", zap.Error(err))
 		}
 	}
 }
 
-// writeObject is used to write object directly to the main storage.
-func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
-	var descriptor []byte
+// flushObject is used to write object directly to the main storage.
+func (c *cache) flushObject(obj *object.Object) error {
+	var prm common.PutPrm
+	prm.Object = obj
 
-	if !metaOnly {
-		var prm common.PutPrm
-		prm.Object = obj
-
-		res, err := c.blobstor.Put(prm)
-		if err != nil {
-			return err
-		}
-
-		descriptor = res.StorageID
+	res, err := c.blobstor.Put(prm)
+	if err != nil {
+		return err
 	}
 
 	var pPrm meta.PutPrm
 	pPrm.SetObject(obj)
-	pPrm.SetStorageID(descriptor)
+	pPrm.SetStorageID(res.StorageID)
 
-	_, err := c.metabase.Put(pPrm)
+	_, err = c.metabase.Put(pPrm)
 	return err
 }
 
