@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Exists implements common.Storage.
 func (b *Blobovniczas) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	activeCache := make(map[string]struct{})
 

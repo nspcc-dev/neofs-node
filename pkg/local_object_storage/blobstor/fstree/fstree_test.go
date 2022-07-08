@@ -1,7 +1,6 @@
 package fstree
 
 import (
-	"crypto/rand"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,10 +45,10 @@ func TestFSTree(t *testing.T) {
 		a := oidtest.Address()
 		addrs = append(addrs, a)
 
-		data := make([]byte, 10)
-		_, _ = rand.Read(data[:])
+		data, err := objecttest.Object().Marshal()
+		require.NoError(t, err)
 
-		_, err := fs.Put(common.PutPrm{Address: a, RawData: data})
+		_, err = fs.Put(common.PutPrm{Address: a, RawData: data})
 		require.NoError(t, err)
 		store[a.EncodeToString()] = data
 	}
@@ -57,7 +57,7 @@ func TestFSTree(t *testing.T) {
 		for _, a := range addrs {
 			actual, err := fs.Get(common.GetPrm{Address: a})
 			require.NoError(t, err)
-			require.Equal(t, store[a.EncodeToString()], actual)
+			require.Equal(t, store[a.EncodeToString()], actual.RawData)
 		}
 
 		_, err := fs.Get(common.GetPrm{Address: oidtest.Address()})
@@ -66,12 +66,14 @@ func TestFSTree(t *testing.T) {
 
 	t.Run("exists", func(t *testing.T) {
 		for _, a := range addrs {
-			_, err := fs.Exists(a)
+			res, err := fs.Exists(common.ExistsPrm{Address: a})
 			require.NoError(t, err)
+			require.True(t, res.Exists)
 		}
 
-		_, err := fs.Exists(oidtest.Address())
-		require.Error(t, err)
+		res, err := fs.Exists(common.ExistsPrm{Address: oidtest.Address()})
+		require.NoError(t, err)
+		require.False(t, res.Exists)
 	})
 
 	t.Run("iterate", func(t *testing.T) {
@@ -154,14 +156,18 @@ func TestFSTree(t *testing.T) {
 	})
 
 	t.Run("delete", func(t *testing.T) {
-		require.NoError(t, fs.Delete(addrs[0]))
-
-		_, err := fs.Exists(addrs[0])
-		require.Error(t, err)
-
-		_, err = fs.Exists(addrs[1])
+		_, err := fs.Delete(common.DeletePrm{Address: addrs[0]})
 		require.NoError(t, err)
 
-		require.Error(t, fs.Delete(oidtest.Address()))
+		res, err := fs.Exists(common.ExistsPrm{Address: addrs[0]})
+		require.NoError(t, err)
+		require.False(t, res.Exists)
+
+		res, err = fs.Exists(common.ExistsPrm{Address: addrs[1]})
+		require.NoError(t, err)
+		require.True(t, res.Exists)
+
+		_, err = fs.Delete(common.DeletePrm{Address: oidtest.Address()})
+		require.Error(t, err)
 	})
 }

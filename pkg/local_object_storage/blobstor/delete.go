@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
@@ -31,18 +30,12 @@ func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 //
 // Returns an error of type apistatus.ObjectNotFound if there is no object to delete.
 func (b *BlobStor) deleteBig(prm common.DeletePrm) (common.DeleteRes, error) {
-	err := b.fsTree.Delete(prm.Address)
-	if errors.Is(err, fstree.ErrFileNotFound) {
-		var errNotFound apistatus.ObjectNotFound
-
-		err = errNotFound
-	}
-
+	res, err := b.fsTree.Delete(prm)
 	if err == nil {
 		storagelog.Write(b.log, storagelog.AddressField(prm.Address), storagelog.OpField("fstree DELETE"))
 	}
 
-	return common.DeleteRes{}, err
+	return res, err
 }
 
 // deleteSmall removes an object from blobovnicza of BLOB storage.

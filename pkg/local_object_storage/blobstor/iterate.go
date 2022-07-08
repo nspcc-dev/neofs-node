@@ -21,24 +21,7 @@ func (b *BlobStor) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 		return common.IterateRes{}, fmt.Errorf("blobovnizas iterator failure: %w", err)
 	}
 
-	// FIXME decompress in the fstree
-	iPrm := prm
-	iPrm.Handler = func(element common.IterationElement) error {
-		data, err := b.Decompress(element.ObjectData)
-		if err != nil {
-			if prm.IgnoreErrors {
-				if prm.ErrorHandler != nil {
-					return prm.ErrorHandler(element.Address, err)
-				}
-				return nil
-			}
-			return fmt.Errorf("could not decompress object data: %w", err)
-		}
-		element.ObjectData = data
-		return prm.Handler(element)
-	}
-
-	_, err = b.fsTree.Iterate(iPrm)
+	_, err = b.fsTree.Iterate(prm)
 	if err != nil && !prm.IgnoreErrors {
 		return common.IterateRes{}, fmt.Errorf("fs tree iterator failure: %w", err)
 	}

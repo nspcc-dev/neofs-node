@@ -1,11 +1,8 @@
 package writecache
 
 import (
-	"errors"
-
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -44,13 +41,7 @@ func (c *cache) Delete(addr oid.Address) error {
 		return nil
 	}
 
-	err := c.fsTree.Delete(addr)
-	if errors.Is(err, fstree.ErrFileNotFound) {
-		var errNotFound apistatus.ObjectNotFound
-
-		err = errNotFound
-	}
-
+	_, err := c.fsTree.Delete(common.DeletePrm{Address: addr})
 	if err == nil {
 		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("fstree DELETE"))
 		c.objCounters.DecFS()

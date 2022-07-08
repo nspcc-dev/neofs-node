@@ -7,6 +7,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -145,7 +146,8 @@ func (c *cache) deleteFromDisk(keys [][]byte) error {
 			continue
 		}
 
-		if err := c.fsTree.Delete(addr); err != nil && !errors.Is(err, fstree.ErrFileNotFound) {
+		_, err := c.fsTree.Delete(common.DeletePrm{Address: addr})
+		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
 			lastErr = err
 			c.log.Error("can't remove object from write-cache", zap.Error(err))
 			continue

@@ -2,12 +2,9 @@ package blobstor
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // GetRange reads object payload data from b.
@@ -37,29 +34,12 @@ func (b *BlobStor) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) 
 // Returns an error of type apistatus.ObjectNotFound if object is missing.
 func (b *BlobStor) getRangeBig(prm common.GetRangePrm) (common.GetRangeRes, error) {
 	// get compressed object data
-	data, err := b.fsTree.Get(common.GetPrm{Address: prm.Address})
+	res, err := b.fsTree.Get(common.GetPrm{Address: prm.Address})
 	if err != nil {
-		if errors.Is(err, fstree.ErrFileNotFound) {
-			var errNotFound apistatus.ObjectNotFound
-
-			return common.GetRangeRes{}, errNotFound
-		}
-
-		return common.GetRangeRes{}, fmt.Errorf("could not read object from fs tree: %w", err)
+		return common.GetRangeRes{}, err
 	}
 
-	data, err = b.Decompress(data)
-	if err != nil {
-		return common.GetRangeRes{}, fmt.Errorf("could not decompress object data: %w", err)
-	}
-
-	// unmarshal the object
-	obj := objectSDK.New()
-	if err := obj.Unmarshal(data); err != nil {
-		return common.GetRangeRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
-	}
-
-	payload := obj.Payload()
+	payload := res.Object.Payload()
 	ln, off := prm.Range.GetLength(), prm.Range.GetOffset()
 
 	if pLen := uint64(len(payload)); ln+off < off || pLen < off || pLen < ln+off {

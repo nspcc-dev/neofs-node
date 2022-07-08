@@ -45,7 +45,7 @@ func (b *Blobovniczas) Init() error {
 	})
 }
 
-// closes blobovnicza tree.
+// Close implements common.Storage.
 func (b *Blobovniczas) Close() error {
 	b.activeMtx.Lock()
 
