@@ -143,6 +143,9 @@ var (
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 		},
 		RunE: setPolicyCmd,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return []string{"ExecFeeFactor=", "StoragePrice=", "FeePerByte="}, cobra.ShellCompDirectiveNoSpace
+		},
 	}
 
 	dumpContractHashesCmd = &cobra.Command{
