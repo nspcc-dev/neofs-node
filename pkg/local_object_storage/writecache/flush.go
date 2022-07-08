@@ -158,8 +158,9 @@ func (c *cache) flushBigObjects() {
 				var prm common.PutPrm
 				prm.Address = addr
 				prm.RawData = data
+				prm.DontCompress = !compress
 
-				if _, err := c.blobstor.PutRaw(common.PutPrm{Address: addr, RawData: data}, compress); err != nil {
+				if _, err := c.blobstor.Put(prm); err != nil {
 					c.log.Error("cant flush object to blobstor", zap.Error(err))
 					return nil
 				}

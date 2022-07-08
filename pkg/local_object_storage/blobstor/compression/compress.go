@@ -83,10 +83,10 @@ func (c *CConfig) Decompress(data []byte) ([]byte, error) {
 // Compress compresses data if compression is enabled
 // and returns data untouched otherwise.
 func (c *CConfig) Compress(data []byte) []byte {
-	if c.Enabled {
-		return c.encoder.EncodeAll(data, make([]byte, 0, len(data)))
+	if c == nil || !c.Enabled {
+		return data
 	}
-	return data
+	return c.encoder.EncodeAll(data, make([]byte, 0, len(data)))
 }
 
 // Close closes encoder and decoder, returns any error occured.

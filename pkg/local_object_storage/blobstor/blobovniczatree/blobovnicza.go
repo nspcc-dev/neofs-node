@@ -87,6 +87,8 @@ type blobovniczaWithIndex struct {
 	blz *blobovnicza.Blobovnicza
 }
 
+var _ common.Storage = (*Blobovniczas)(nil)
+
 var errPutFailed = errors.New("could not save the object in any blobovnicza")
 
 // NewBlobovniczaTree returns new instance of blobovnizas tree.
@@ -143,6 +145,10 @@ func indexSlice(number uint64) []uint64 {
 //
 // returns error if could not save object in any blobovnicza.
 func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
+	if !prm.DontCompress {
+		prm.RawData = b.CConfig.Compress(prm.RawData)
+	}
+
 	var putPrm blobovnicza.PutPrm
 	putPrm.SetAddress(prm.Address)
 	putPrm.SetMarshaledObject(prm.RawData)

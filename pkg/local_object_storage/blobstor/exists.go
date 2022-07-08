@@ -1,10 +1,7 @@
 package blobstor
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"go.uber.org/zap"
 )
 
@@ -45,12 +42,7 @@ func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 
 // checks if object is presented in shallow dir.
 func (b *BlobStor) existsBig(prm common.ExistsPrm) (common.ExistsRes, error) {
-	_, err := b.fsTree.Exists(prm.Address)
-	if errors.Is(err, fstree.ErrFileNotFound) {
-		return common.ExistsRes{}, nil
-	}
-
-	return common.ExistsRes{Exists: err == nil}, err
+	return b.fsTree.Exists(prm)
 }
 
 // existsSmall checks if object is presented in blobovnicza.

@@ -10,8 +10,11 @@ import (
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -19,6 +22,7 @@ import (
 type FSTree struct {
 	Info
 
+	*compression.CConfig
 	Depth      int
 	DirNameLen int
 }
@@ -39,8 +43,7 @@ const (
 	MaxDepth = (sha256.Size - 1) / DirNameLen
 )
 
-// ErrFileNotFound is returned when file is missing.
-var ErrFileNotFound = errors.New("file not found")
+var _ common.Storage = (*FSTree)(nil)
 
 func stringifyAddress(addr oid.Address) string {
 	return addr.Object().EncodeToString() + "." + addr.Container().EncodeToString()
@@ -116,6 +119,9 @@ func (t *FSTree) iterate(depth int, curPath []string, prm common.IteratePrm) err
 		} else {
 			var data []byte
 			data, err = os.ReadFile(filepath.Join(curPath...))
+			if err == nil {
+				data, err = t.Decompress(data)
+			}
 			if err != nil {
 				if prm.IgnoreErrors {
 					if prm.ErrorHandler != nil {
@@ -158,25 +164,34 @@ func (t *FSTree) treePath(addr oid.Address) string {
 }
 
 // Delete removes the object with the specified address from the storage.
-func (t *FSTree) Delete(addr oid.Address) error {
-	p, err := t.Exists(addr)
+func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+	p, err := t.getPath(prm.Address)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			var errNotFound apistatus.ObjectNotFound
+			err = errNotFound
+		}
+		return common.DeleteRes{}, err
 	}
 
-	return os.Remove(p)
+	return common.DeleteRes{}, os.Remove(p)
 }
 
 // Exists returns the path to the file with object contents if it exists in the storage
 // and an error otherwise.
-func (t *FSTree) Exists(addr oid.Address) (string, error) {
+func (t *FSTree) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
+	_, err := t.getPath(prm.Address)
+	found := err == nil
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	return common.ExistsRes{Exists: found}, err
+}
+
+func (t *FSTree) getPath(addr oid.Address) (string, error) {
 	p := t.treePath(addr)
 
 	_, err := os.Stat(p)
-	if os.IsNotExist(err) {
-		err = ErrFileNotFound
-	}
-
 	return p, err
 }
 
@@ -187,7 +202,9 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
 		return common.PutRes{}, err
 	}
-
+	if !prm.DontCompress {
+		prm.RawData = t.Compress(prm.RawData)
+	}
 	return common.PutRes{}, os.WriteFile(p, prm.RawData, t.Permissions)
 }
 
@@ -209,14 +226,50 @@ func (t *FSTree) PutStream(addr oid.Address, handler func(*os.File) error) error
 }
 
 // Get returns an object from the storage by address.
-func (t *FSTree) Get(prm common.GetPrm) ([]byte, error) {
+func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	p := t.treePath(prm.Address)
 
 	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return nil, ErrFileNotFound
+		var errNotFound apistatus.ObjectNotFound
+		return common.GetRes{}, errNotFound
 	}
 
-	return os.ReadFile(p)
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return common.GetRes{}, err
+	}
+
+	data, err = t.Decompress(data)
+	if err != nil {
+		return common.GetRes{}, err
+	}
+
+	obj := objectSDK.New()
+	if err := obj.Unmarshal(data); err != nil {
+		return common.GetRes{}, err
+	}
+
+	return common.GetRes{Object: obj, RawData: data}, err
+}
+
+// GetRange implements common.Storage.
+func (t *FSTree) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
+	res, err := t.Get(common.GetPrm{Address: prm.Address})
+	if err != nil {
+		return common.GetRangeRes{}, err
+	}
+
+	payload := res.Object.Payload()
+	from := prm.Range.GetOffset()
+	to := from + prm.Range.GetLength()
+
+	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
+		return common.GetRangeRes{}, apistatus.ObjectOutOfRange{}
+	}
+
+	return common.GetRangeRes{
+		Data: payload[from:to],
+	}, nil
 }
 
 // NumberOfObjects walks the file tree rooted at FSTree's root

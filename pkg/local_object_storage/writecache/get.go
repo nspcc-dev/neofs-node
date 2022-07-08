@@ -22,20 +22,15 @@ func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
 		return obj, obj.Unmarshal(value)
 	}
 
-	data, err := c.fsTree.Get(common.GetPrm{Address: addr})
+	res, err := c.fsTree.Get(common.GetPrm{Address: addr})
 	if err != nil {
 		var errNotFound apistatus.ObjectNotFound
 
 		return nil, errNotFound
 	}
 
-	obj := objectSDK.New()
-	if err := obj.Unmarshal(data); err != nil {
-		return nil, err
-	}
-
 	c.flushed.Get(saddr)
-	return obj, nil
+	return res.Object, nil
 }
 
 // Head returns object header from write-cache.

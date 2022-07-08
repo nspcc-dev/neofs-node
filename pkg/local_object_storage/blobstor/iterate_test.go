@@ -66,11 +66,11 @@ func TestIterateObjects(t *testing.T) {
 	}
 
 	for _, v := range mObjs {
-		_, err := blobStor.PutRaw(common.PutPrm{Address: v.addr, RawData: v.data}, true)
+		_, err := blobStor.Put(common.PutPrm{Address: v.addr, RawData: v.data})
 		require.NoError(t, err)
 	}
 
-	err := IterateBinaryObjects(blobStor, func(_ oid.Address, data []byte, descriptor []byte) error {
+	err := IterateBinaryObjects(blobStor, func(addr oid.Address, data []byte, descriptor []byte) error {
 		v, ok := mObjs[string(data)]
 		require.True(t, ok)
 

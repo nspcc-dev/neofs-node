@@ -8,8 +8,10 @@ import (
 type GetPrm struct {
 	Address   oid.Address
 	StorageID []byte
+	Raw       bool
 }
 
 type GetRes struct {
-	Object *objectSDK.Object
+	Object  *objectSDK.Object
+	RawData []byte
 }

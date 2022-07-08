@@ -55,6 +55,7 @@ func initConfig(c *cfg) {
 		fsTree: fstree.FSTree{
 			Depth:      defaultShallowDepth,
 			DirNameLen: hex.EncodedLen(fstree.DirNameLen),
+			CConfig:    &c.CConfig,
 			Info: Info{
 				Permissions: defaultPerm,
 				RootPath:    "./",
