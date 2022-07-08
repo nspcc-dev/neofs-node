@@ -1,7 +1,6 @@
 package modules
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
@@ -53,11 +52,7 @@ func Execute() error {
 func entryPoint(cmd *cobra.Command, args []string) error {
 	printVersion, err := cmd.Flags().GetBool("version")
 	if err == nil && printVersion {
-		fmt.Printf("Version: %s \nBuild: %s \nDebug: %s\n",
-			misc.Version,
-			misc.Build,
-			misc.Debug,
-		)
+		cmd.Print(misc.BuildInfo("NeoFS Adm"))
 		return nil
 	}
 
