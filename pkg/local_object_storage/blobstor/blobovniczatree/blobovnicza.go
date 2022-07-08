@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -198,8 +197,6 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 		p = filepath.Join(p, u64ToHexString(active.ind))
 
 		id = blobovnicza.NewIDFromBytes([]byte(p))
-
-		storagelog.Write(b.log, storagelog.AddressField(prm.Address), storagelog.OpField("Blobovniczas PUT"))
 
 		return true, nil
 	}
@@ -575,17 +572,7 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 // removes object from blobovnicza and returns common.DeleteRes.
 func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.DeletePrm, dp common.DeletePrm) (common.DeleteRes, error) {
 	_, err := blz.Delete(prm)
-	if err != nil {
-		return common.DeleteRes{}, err
-	}
-
-	storagelog.Write(b.log,
-		storagelog.AddressField(dp.Address),
-		storagelog.OpField("Blobovniczas DELETE"),
-		zap.Stringer("blobovnicza ID", blobovnicza.NewIDFromBytes(dp.StorageID)),
-	)
-
-	return common.DeleteRes{}, nil
+	return common.DeleteRes{}, err
 }
 
 // reads object from blobovnicza and returns GetSmallRes.
@@ -894,4 +881,9 @@ func u64FromHexString(str string) uint64 {
 	}
 
 	return v
+}
+
+// Type implements common.Storage.
+func (b *Blobovniczas) Type() string {
+	return "blobovniczas"
 }
