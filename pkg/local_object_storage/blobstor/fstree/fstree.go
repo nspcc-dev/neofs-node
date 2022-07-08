@@ -294,3 +294,8 @@ func (t *FSTree) NumberOfObjects() (uint64, error) {
 
 	return counter, nil
 }
+
+// Type implements common.Storage.
+func (*FSTree) Type() string {
+	return "fstree"
+}

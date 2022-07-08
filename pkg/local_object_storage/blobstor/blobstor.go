@@ -7,12 +7,20 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
+
+// SubStorage represents single storage component with some storage policy.
+type SubStorage struct {
+	Storage common.Storage
+	Policy  func(*objectSDK.Object, []byte) bool
+}
 
 // BlobStor represents NeoFS local BLOB storage.
 type BlobStor struct {
@@ -21,7 +29,7 @@ type BlobStor struct {
 	modeMtx sync.RWMutex
 	mode    mode.Mode
 
-	blobovniczas *blobovniczatree.Blobovniczas
+	storage [2]SubStorage
 }
 
 type Info = fstree.Info
@@ -30,9 +38,10 @@ type Info = fstree.Info
 type Option func(*cfg)
 
 type cfg struct {
-	fsTree fstree.FSTree
-
 	compression.CConfig
+
+	fsTreeDepth int
+	fsTreeInfo  fstree.Info
 
 	smallSizeLimit uint64
 
@@ -52,14 +61,10 @@ const blobovniczaDir = "blobovnicza"
 
 func initConfig(c *cfg) {
 	*c = cfg{
-		fsTree: fstree.FSTree{
-			Depth:      defaultShallowDepth,
-			DirNameLen: hex.EncodedLen(fstree.DirNameLen),
-			CConfig:    &c.CConfig,
-			Info: Info{
-				Permissions: defaultPerm,
-				RootPath:    "./",
-			},
+		fsTreeDepth: defaultShallowDepth,
+		fsTreeInfo: Info{
+			Permissions: defaultPerm,
+			RootPath:    "./",
 		},
 		smallSizeLimit: defaultSmallSizeLimit,
 		log:            zap.L(),
@@ -76,7 +81,21 @@ func New(opts ...Option) *BlobStor {
 		opts[i](&bs.cfg)
 	}
 
-	bs.blobovniczas = blobovniczatree.NewBlobovniczaTree(bs.blzOpts...)
+	bs.storage[0].Storage = blobovniczatree.NewBlobovniczaTree(bs.blzOpts...)
+	bs.storage[0].Policy = func(_ *objectSDK.Object, data []byte) bool {
+		return uint64(len(data)) <= bs.cfg.smallSizeLimit
+	}
+
+	bs.storage[1].Storage = &fstree.FSTree{
+		Info:       bs.cfg.fsTreeInfo,
+		Depth:      bs.cfg.fsTreeDepth,
+		DirNameLen: hex.EncodedLen(fstree.DirNameLen),
+		CConfig:    &bs.cfg.CConfig,
+	}
+	bs.storage[1].Policy = func(*objectSDK.Object, []byte) bool {
+		return true
+	}
+
 	bs.blzOpts = nil
 
 	return bs
@@ -97,7 +116,7 @@ func WithShallowDepth(depth int) Option {
 			depth = fstree.MaxDepth
 		}
 
-		c.fsTree.Depth = depth
+		c.fsTreeDepth = depth
 	}
 }
 
@@ -127,7 +146,7 @@ func WithUncompressableContentTypes(values []string) Option {
 // of the fs tree to write the objects.
 func WithRootPath(rootDir string) Option {
 	return func(c *cfg) {
-		c.fsTree.RootPath = rootDir
+		c.fsTreeInfo.RootPath = rootDir
 		c.blzOpts = append(c.blzOpts, blobovniczatree.WithRootPath(filepath.Join(rootDir, blobovniczaDir)))
 	}
 }
@@ -136,7 +155,7 @@ func WithRootPath(rootDir string) Option {
 // bits of the fs tree.
 func WithRootPerm(perm fs.FileMode) Option {
 	return func(c *cfg) {
-		c.fsTree.Permissions = perm
+		c.fsTreeInfo.Permissions = perm
 		c.blzOpts = append(c.blzOpts, blobovniczatree.WithPermissions(perm))
 	}
 }

@@ -3,13 +3,21 @@ package blobstor
 import (
 	"errors"
 	"fmt"
+
+	"go.uber.org/zap"
 )
 
 // Open opens BlobStor.
 func (b *BlobStor) Open(readOnly bool) error {
 	b.log.Debug("opening...")
 
-	return b.blobovniczas.Open(readOnly)
+	for i := range b.storage {
+		err := b.storage[i].Storage.Open(readOnly)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ErrInitBlobovniczas is returned when blobovnicza initialization fails.
@@ -23,11 +31,12 @@ var ErrInitBlobovniczas = errors.New("failure on blobovnicza initialization stag
 func (b *BlobStor) Init() error {
 	b.log.Debug("initializing...")
 
-	err := b.blobovniczas.Init()
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInitBlobovniczas, err)
+	for i := range b.storage {
+		err := b.storage[i].Storage.Init()
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrInitBlobovniczas, err)
+		}
 	}
-
 	return nil
 }
 
@@ -35,5 +44,16 @@ func (b *BlobStor) Init() error {
 func (b *BlobStor) Close() error {
 	b.log.Debug("closing...")
 
-	return b.blobovniczas.Close()
+	var firstErr error
+	for i := range b.storage {
+		err := b.storage[i].Storage.Close()
+		if err != nil {
+			b.log.Info("couldn't close storage", zap.String("error", err.Error()))
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+	}
+	return firstErr
 }

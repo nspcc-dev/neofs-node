@@ -65,7 +65,7 @@ func TestExists(t *testing.T) {
 		require.NotEmpty(t, bigDir)
 
 		require.NoError(t, os.Chmod(dir, 0))
-		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, b.fsTree.Permissions)) })
+		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, b.fsTreeInfo.Permissions)) })
 
 		// Object exists, first error is logged.
 		prm.Address = objectCore.AddressOf(objects[0])

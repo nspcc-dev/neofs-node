@@ -16,14 +16,11 @@ import (
 //
 // If handler returns an error, method wraps and returns it immediately.
 func (b *BlobStor) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
-	_, err := b.blobovniczas.Iterate(prm)
-	if err != nil && !prm.IgnoreErrors {
-		return common.IterateRes{}, fmt.Errorf("blobovnizas iterator failure: %w", err)
-	}
-
-	_, err = b.fsTree.Iterate(prm)
-	if err != nil && !prm.IgnoreErrors {
-		return common.IterateRes{}, fmt.Errorf("fs tree iterator failure: %w", err)
+	for i := range b.storage {
+		_, err := b.storage[i].Storage.Iterate(prm)
+		if err != nil && !prm.IgnoreErrors {
+			return common.IterateRes{}, fmt.Errorf("blobovnizas iterator failure: %w", err)
+		}
 	}
 	return common.IterateRes{}, nil
 }
