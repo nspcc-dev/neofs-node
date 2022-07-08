@@ -39,12 +39,7 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Printf(
-			"Version: %s \nBuild: %s \nDebug: %s\n",
-			misc.Version,
-			misc.Build,
-			misc.Debug,
-		)
+		fmt.Print(misc.BuildInfo("NeoFS Storage node"))
 
 		os.Exit(SuccessReturnCode)
 	}
@@ -115,7 +110,6 @@ func bootUp(c *cfg) {
 
 func wait(c *cfg) {
 	c.log.Info("application started",
-		zap.String("build_time", misc.Build),
 		zap.String("version", misc.Version),
 		zap.String("debug", misc.Debug),
 	)

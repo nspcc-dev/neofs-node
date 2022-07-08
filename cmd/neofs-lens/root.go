@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/commands/inspect"
@@ -22,11 +21,8 @@ var command = &cobra.Command{
 func entryPoint(cmd *cobra.Command, _ []string) error {
 	printVersion, err := cmd.Flags().GetBool("version")
 	if err == nil && printVersion {
-		fmt.Printf("Version: %s \nBuild: %s \nDebug: %s\n",
-			misc.Version,
-			misc.Build,
-			misc.Debug,
-		)
+		cmd.Print(misc.BuildInfo("NeoFS Lens"))
+
 		return nil
 	}
 

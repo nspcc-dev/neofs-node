@@ -3,7 +3,6 @@ SHELL = bash
 
 REPO ?= $(shell go list -m)
 VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || cat VERSION 2>/dev/null || echo "develop")
-BUILD ?= $(shell date -u --iso=seconds)
 DEBUG ?= false
 
 HUB_IMAGE ?= nspccdev/neofs
@@ -36,7 +35,6 @@ $(BINS): $(DIRS) dep
 	CGO_ENABLED=0 \
 	go build -v -trimpath \
 	-ldflags "-X $(REPO)/misc.Version=$(VERSION) \
-	-X $(REPO)/misc.Build=$(BUILD) \
 	-X $(REPO)/misc.Debug=$(DEBUG)" \
 	-o $@ ./cmd/$(notdir $@)
 
