@@ -23,7 +23,7 @@ func (b *BlobStor) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) 
 		return common.GetRangeRes{}, errNotFound
 	}
 	if len(prm.StorageID) == 0 {
-		return b.storage[1].Storage.GetRange(prm)
+		return b.storage[len(b.storage)-1].Storage.GetRange(prm)
 	}
 	return b.storage[0].Storage.GetRange(prm)
 }

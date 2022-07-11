@@ -18,11 +18,8 @@ func TestIterateObjects(t *testing.T) {
 
 	// create BlobStor instance
 	blobStor := New(
+		WithStorages(defaultStorages(p, smalSz)),
 		WithCompressObjects(true),
-		WithRootPath(p),
-		WithSmallSizeLimit(smalSz),
-		WithBlobovniczaShallowWidth(1),
-		WithBlobovniczaShallowDepth(1),
 	)
 
 	defer os.RemoveAll(p)

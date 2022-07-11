@@ -4,12 +4,12 @@ import (
 	"crypto/sha256"
 	"math"
 	"math/rand"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 type epochState struct{}
@@ -45,15 +46,31 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 		rootPath = filepath.Join(rootPath, "nowc")
 	}
 
+	if bsOpts == nil {
+		bsOpts = []blobstor.Option{
+			blobstor.WithLogger(zaptest.NewLogger(t)),
+			blobstor.WithStorages([]blobstor.SubStorage{
+				{
+					Storage: blobovniczatree.NewBlobovniczaTree(
+						blobovniczatree.WithLogger(zaptest.NewLogger(t)),
+						blobovniczatree.WithRootPath(filepath.Join(rootPath, "blob", "blobovnicza")),
+						blobovniczatree.WithBlobovniczaShallowDepth(1),
+						blobovniczatree.WithBlobovniczaShallowWidth(1)),
+					Policy: func(_ *object.Object, data []byte) bool {
+						return len(data) <= 1<<20
+					},
+				},
+				{
+					Storage: fstree.New(
+						fstree.WithPath(filepath.Join(rootPath, "blob"))),
+				},
+			}),
+		}
+	}
+
 	opts := []shard.Option{
 		shard.WithLogger(zap.L()),
-		shard.WithBlobStorOptions(
-			append([]blobstor.Option{
-				blobstor.WithRootPath(filepath.Join(rootPath, "blob")),
-				blobstor.WithBlobovniczaShallowWidth(2),
-				blobstor.WithBlobovniczaShallowDepth(2),
-			}, bsOpts...)...,
-		),
+		shard.WithBlobStorOptions(bsOpts...),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
@@ -76,8 +93,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 }
 
 func releaseShard(s *shard.Shard, t testing.TB) {
-	s.Close()
-	os.RemoveAll(strings.Split(t.Name(), string(os.PathSeparator))[0])
+	require.NoError(t, s.Close())
 }
 
 func generateObject(t *testing.T) *object.Object {

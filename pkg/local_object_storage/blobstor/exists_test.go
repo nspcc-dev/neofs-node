@@ -20,9 +20,8 @@ func TestExists(t *testing.T) {
 
 	const smallSizeLimit = 512
 
-	b := New(WithRootPath(dir),
-		WithSmallSizeLimit(smallSizeLimit),
-		WithBlobovniczaShallowWidth(1)) // default width is 16, slow init
+	b := New(
+		WithStorages(defaultStorages(dir, smallSizeLimit)))
 	require.NoError(t, b.Open(false))
 	require.NoError(t, b.Init())
 
@@ -65,7 +64,7 @@ func TestExists(t *testing.T) {
 		require.NotEmpty(t, bigDir)
 
 		require.NoError(t, os.Chmod(dir, 0))
-		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, b.fsTreeInfo.Permissions)) })
+		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
 		// Object exists, first error is logged.
 		prm.Address = objectCore.AddressOf(objects[0])

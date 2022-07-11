@@ -2,13 +2,34 @@ package blobstor
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
+
+const blobovniczaDir = "blobovniczas"
+
+func defaultStorages(p string, smallSizeLimit uint64) []SubStorage {
+	return []SubStorage{
+		{
+			Storage: blobovniczatree.NewBlobovniczaTree(
+				blobovniczatree.WithRootPath(filepath.Join(p, "blobovniczas")),
+				blobovniczatree.WithBlobovniczaShallowWidth(1)), // default width is 16, slow init
+			Policy: func(_ *objectSDK.Object, data []byte) bool {
+				return uint64(len(data)) <= smallSizeLimit
+			},
+		},
+		{
+			Storage: fstree.New(fstree.WithPath(p)),
+		},
+	}
+}
 
 func TestCompression(t *testing.T) {
 	dir, err := os.MkdirTemp("", "neofs*")
@@ -21,10 +42,9 @@ func TestCompression(t *testing.T) {
 	)
 
 	newBlobStor := func(t *testing.T, compress bool) *BlobStor {
-		bs := New(WithCompressObjects(compress),
-			WithRootPath(dir),
-			WithSmallSizeLimit(smallSizeLimit),
-			WithBlobovniczaShallowWidth(1)) // default width is 16, slow init
+		bs := New(
+			WithCompressObjects(compress),
+			WithStorages(defaultStorages(dir, smallSizeLimit)))
 		require.NoError(t, bs.Open(false))
 		require.NoError(t, bs.Init())
 		return bs
@@ -86,11 +106,22 @@ func TestBlobstor_needsCompression(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
-		bs := New(WithCompressObjects(compress),
-			WithRootPath(dir),
-			WithSmallSizeLimit(smallSizeLimit),
-			WithBlobovniczaShallowWidth(1),
-			WithUncompressableContentTypes(ct))
+		bs := New(
+			WithCompressObjects(compress),
+			WithUncompressableContentTypes(ct),
+			WithStorages([]SubStorage{
+				{
+					Storage: blobovniczatree.NewBlobovniczaTree(
+						blobovniczatree.WithRootPath(filepath.Join(dir, "blobovnicza")),
+						blobovniczatree.WithBlobovniczaShallowWidth(1)), // default width is 16, slow init
+					Policy: func(_ *objectSDK.Object, data []byte) bool {
+						return uint64(len(data)) < smallSizeLimit
+					},
+				},
+				{
+					Storage: fstree.New(fstree.WithPath(dir)),
+				},
+			}))
 		require.NoError(t, bs.Open(false))
 		require.NoError(t, bs.Init())
 		return bs

@@ -39,11 +39,14 @@ func TestShardOpen(t *testing.T) {
 		return New(
 			WithLogger(zaptest.NewLogger(t)),
 			WithBlobStorOptions(
-				blobstor.WithRootPath(filepath.Join(dir, "blob")),
-				blobstor.WithShallowDepth(1),
-				blobstor.WithSmallSizeLimit(1),
-				blobstor.WithBlobovniczaShallowWidth(1),
-				blobstor.WithBlobovniczaShallowDepth(1)),
+				blobstor.WithStorages([]blobstor.SubStorage{
+					{
+						Storage: fstree.New(
+							fstree.WithDirNameLen(2),
+							fstree.WithPath(filepath.Join(dir, "blob")),
+							fstree.WithDepth(1)),
+					},
+				})),
 			WithMetaBaseOptions(meta.WithPath(metaPath), meta.WithEpochState(epochState{})),
 			WithPiloramaOptions(
 				pilorama.WithPath(filepath.Join(dir, "pilorama"))),
@@ -81,11 +84,15 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	dir := t.TempDir()
 
 	blobOpts := []blobstor.Option{
-		blobstor.WithRootPath(filepath.Join(dir, "blob")),
-		blobstor.WithShallowDepth(1),
-		blobstor.WithSmallSizeLimit(1),
-		blobstor.WithBlobovniczaShallowWidth(1),
-		blobstor.WithBlobovniczaShallowDepth(1)}
+		blobstor.WithStorages([]blobstor.SubStorage{
+			{
+				Storage: fstree.New(
+					fstree.WithDirNameLen(2),
+					fstree.WithPath(filepath.Join(dir, "blob")),
+					fstree.WithDepth(1)),
+			},
+		}),
+	}
 
 	sh := New(
 		WithBlobStorOptions(blobOpts...),
@@ -134,9 +141,13 @@ func TestRefillMetabase(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	blobOpts := []blobstor.Option{
-		blobstor.WithRootPath(filepath.Join(p, "blob")),
-		blobstor.WithBlobovniczaShallowWidth(1),
-		blobstor.WithBlobovniczaShallowDepth(1),
+		blobstor.WithStorages([]blobstor.SubStorage{
+			{
+				Storage: fstree.New(
+					fstree.WithPath(filepath.Join(p, "blob")),
+					fstree.WithDepth(1)),
+			},
+		}),
 	}
 
 	sh := New(

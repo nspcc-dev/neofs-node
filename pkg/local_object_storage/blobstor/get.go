@@ -23,7 +23,7 @@ func (b *BlobStor) Get(prm common.GetPrm) (common.GetRes, error) {
 		return common.GetRes{}, errNotFound
 	}
 	if len(prm.StorageID) == 0 {
-		return b.storage[1].Storage.Get(prm)
+		return b.storage[len(b.storage)-1].Storage.Get(prm)
 	}
 	return b.storage[0].Storage.Get(prm)
 }

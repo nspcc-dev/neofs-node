@@ -36,7 +36,6 @@ func initConfig(c *cfg) {
 		openedCacheSize: defaultOpenedCacheSize,
 		blzShallowDepth: defaultBlzShallowDepth,
 		blzShallowWidth: defaultBlzShallowWidth,
-		CConfig:         new(compression.CConfig),
 	}
 }
 
@@ -50,12 +49,6 @@ func WithLogger(l *zap.Logger) Option {
 func WithPermissions(perm fs.FileMode) Option {
 	return func(c *cfg) {
 		c.perm = perm
-	}
-}
-
-func WithCompressionConfig(cc *compression.CConfig) Option {
-	return func(c *cfg) {
-		c.CConfig = cc
 	}
 }
 

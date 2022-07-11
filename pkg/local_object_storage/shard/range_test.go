@@ -2,16 +2,20 @@ package shard_test
 
 import (
 	"math"
+	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestShard_GetRange(t *testing.T) {
@@ -62,7 +66,22 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 
 	sh := newCustomShard(t, t.TempDir(), hasWriteCache,
 		[]writecache.Option{writecache.WithMaxMemSize(0), writecache.WithMaxObjectSize(writeCacheMaxSize)},
-		[]blobstor.Option{blobstor.WithSmallSizeLimit(smallObjectSize)})
+		[]blobstor.Option{blobstor.WithStorages([]blobstor.SubStorage{
+			{
+				Storage: blobovniczatree.NewBlobovniczaTree(
+					blobovniczatree.WithLogger(zaptest.NewLogger(t)),
+					blobovniczatree.WithRootPath(filepath.Join(t.TempDir(), "blob", "blobovnicza")),
+					blobovniczatree.WithBlobovniczaShallowDepth(1),
+					blobovniczatree.WithBlobovniczaShallowWidth(1)),
+				Policy: func(_ *objectSDK.Object, data []byte) bool {
+					return len(data) <= smallObjectSize
+				},
+			},
+			{
+				Storage: fstree.New(
+					fstree.WithPath(filepath.Join(t.TempDir(), "blob"))),
+			},
+		})})
 	defer releaseShard(sh, t)
 
 	for _, tc := range testCases {

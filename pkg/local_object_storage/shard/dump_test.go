@@ -13,6 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -52,9 +54,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				writecache.WithMaxObjectSize(wcBigObjectSize),
 				writecache.WithLogger(zaptest.NewLogger(t)),
 			},
-			[]blobstor.Option{
-				blobstor.WithLogger(zaptest.NewLogger(t)),
-			})
+			nil)
 	}
 	defer releaseShard(sh, t)
 
@@ -186,7 +186,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 
 				t.Run("skip errors", func(t *testing.T) {
 					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false, nil, nil)
-					defer releaseShard(sh, t)
+					t.Cleanup(func() { require.NoError(t, sh.Close()) })
 
 					var restorePrm shard.RestorePrm
 					restorePrm.WithPath(out)
@@ -292,14 +292,27 @@ func TestDumpIgnoreErrors(t *testing.T) {
 
 	dir := t.TempDir()
 	bsPath := filepath.Join(dir, "blob")
-	bsOpts := []blobstor.Option{
-		blobstor.WithSmallSizeLimit(bsSmallObjectSize),
-		blobstor.WithRootPath(bsPath),
-		blobstor.WithCompressObjects(true),
-		blobstor.WithShallowDepth(1),
-		blobstor.WithBlobovniczaShallowDepth(1),
-		blobstor.WithBlobovniczaShallowWidth(2),
-		blobstor.WithBlobovniczaOpenedCacheSize(1),
+	bsOpts := func(sw uint64) []blobstor.Option {
+		return []blobstor.Option{
+			blobstor.WithCompressObjects(true),
+			blobstor.WithStorages([]blobstor.SubStorage{
+				{
+					Storage: blobovniczatree.NewBlobovniczaTree(
+						blobovniczatree.WithRootPath(filepath.Join(bsPath, "blobovnicza")),
+						blobovniczatree.WithBlobovniczaShallowDepth(1),
+						blobovniczatree.WithBlobovniczaShallowWidth(sw),
+						blobovniczatree.WithOpenedCacheSize(1)),
+					Policy: func(_ *objectSDK.Object, data []byte) bool {
+						return len(data) < bsSmallObjectSize
+					},
+				},
+				{
+					Storage: fstree.New(
+						fstree.WithPath(bsPath),
+						fstree.WithDepth(1)),
+				},
+			}),
+		}
 	}
 	wcPath := filepath.Join(dir, "writecache")
 	wcOpts := []writecache.Option{
@@ -307,7 +320,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		writecache.WithSmallObjectSize(wcSmallObjectSize),
 		writecache.WithMaxObjectSize(wcBigObjectSize),
 	}
-	sh := newCustomShard(t, dir, true, wcOpts, bsOpts)
+	sh := newCustomShard(t, dir, true, wcOpts, bsOpts(2))
 
 	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
@@ -355,8 +368,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Join(bsPath, "ZZ"), 0))
 	}
 
-	bsOpts = append(bsOpts, blobstor.WithBlobovniczaShallowWidth(3))
-	sh = newCustomShard(t, dir, true, wcOpts, bsOpts)
+	sh = newCustomShard(t, dir, true, wcOpts, bsOpts(3))
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 	{

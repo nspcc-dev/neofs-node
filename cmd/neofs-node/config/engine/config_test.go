@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
+	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
+	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -53,7 +55,7 @@ func TestEngineSection(t *testing.T) {
 			wc := sc.WriteCache()
 			meta := sc.Metabase()
 			blob := sc.BlobStor()
-			blz := blob.Blobovnicza()
+			ss := blob.Storages()
 			pl := sc.Pilorama()
 			gc := sc.GC()
 
@@ -79,17 +81,22 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 100, meta.BoltDB().MaxBatchSize())
 				require.Equal(t, 10*time.Millisecond, meta.BoltDB().MaxBatchDelay())
 
-				require.Equal(t, "tmp/0/blob", blob.Path())
-				require.EqualValues(t, 0644, blob.Perm())
-				require.Equal(t, true, blob.Compress())
-				require.Equal(t, []string{"audio/*", "video/*"}, blob.UncompressableContentTypes())
-				require.EqualValues(t, 5, blob.ShallowDepth())
-				require.EqualValues(t, 102400, blob.SmallSizeLimit())
+				require.Equal(t, true, sc.Compress())
+				require.Equal(t, []string{"audio/*", "video/*"}, sc.UncompressableContentTypes())
+				require.EqualValues(t, 102400, sc.SmallSizeLimit())
 
+				require.Equal(t, 2, len(ss))
+				blz := blobovniczaconfig.From((*config.Config)(ss[0]))
+				require.Equal(t, "tmp/0/blob/blobovnicza", ss[0].Path())
+				require.EqualValues(t, 0644, blz.BoltDB().Perm())
 				require.EqualValues(t, 4194304, blz.Size())
 				require.EqualValues(t, 1, blz.ShallowDepth())
 				require.EqualValues(t, 4, blz.ShallowWidth())
 				require.EqualValues(t, 50, blz.OpenedCacheSize())
+
+				require.Equal(t, "tmp/0/blob", ss[1].Path())
+				require.EqualValues(t, 0644, ss[1].Perm())
+				require.EqualValues(t, 5, fstreeconfig.From((*config.Config)(ss[1])).Depth())
 
 				require.EqualValues(t, 150, gc.RemoverBatchSize())
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
@@ -117,17 +124,22 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 200, meta.BoltDB().MaxBatchSize())
 				require.Equal(t, 20*time.Millisecond, meta.BoltDB().MaxBatchDelay())
 
-				require.Equal(t, "tmp/1/blob", blob.Path())
-				require.EqualValues(t, 0644, blob.Perm())
-				require.Equal(t, false, blob.Compress())
-				require.Equal(t, []string(nil), blob.UncompressableContentTypes())
-				require.EqualValues(t, 5, blob.ShallowDepth())
-				require.EqualValues(t, 102400, blob.SmallSizeLimit())
+				require.Equal(t, false, sc.Compress())
+				require.Equal(t, []string(nil), sc.UncompressableContentTypes())
+				require.EqualValues(t, 102400, sc.SmallSizeLimit())
 
+				require.Equal(t, 2, len(ss))
+
+				blz := blobovniczaconfig.From((*config.Config)(ss[0]))
+				require.Equal(t, "tmp/1/blob/blobovnicza", ss[0].Path())
 				require.EqualValues(t, 4194304, blz.Size())
 				require.EqualValues(t, 1, blz.ShallowDepth())
 				require.EqualValues(t, 4, blz.ShallowWidth())
 				require.EqualValues(t, 50, blz.OpenedCacheSize())
+
+				require.Equal(t, "tmp/1/blob", ss[1].Path())
+				require.EqualValues(t, 0644, ss[1].Perm())
+				require.EqualValues(t, 5, fstreeconfig.From((*config.Config)(ss[1])).Depth())
 
 				require.EqualValues(t, 200, gc.RemoverBatchSize())
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())

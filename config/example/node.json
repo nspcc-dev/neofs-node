@@ -147,22 +147,28 @@
           "max_batch_size": 100,
           "max_batch_delay": "10ms"
         },
-        "blobstor": {
-          "path": "tmp/0/blob",
-          "perm": "0644",
-          "compress": true,
-          "compression_exclude_content_types": [
-            "audio/*", "video/*"
-          ],
-          "depth": 5,
-          "small_object_size": 102400,
-          "blobovnicza": {
+        "compress": true,
+        "compression_exclude_content_types": [
+          "audio/*", "video/*"
+        ],
+        "small_object_size": 102400,
+        "blobstor": [
+          {
+            "type": "blobovnicza",
+            "path": "tmp/0/blob/blobovnicza",
+            "perm": "0644",
             "size": 4194304,
             "depth": 1,
             "width": 4,
             "opened_cache_capacity": 50
+          },
+          {
+            "type": "fstree",
+            "path": "tmp/0/blob",
+            "perm": "0644",
+            "depth": 5
           }
-        },
+        ],
         "pilorama": {
           "path": "tmp/0/blob/pilorama.db",
           "max_batch_delay": "10ms",
@@ -191,19 +197,25 @@
           "max_batch_size": 200,
           "max_batch_delay": "20ms"
         },
-        "blobstor": {
-          "path": "tmp/1/blob",
-          "perm": "0644",
-          "compress": false,
-          "depth": 5,
-          "small_object_size": 102400,
-          "blobovnicza": {
+        "compress": false,
+        "small_object_size": 102400,
+        "blobstor": [
+          {
+            "type": "blobovnicza",
+            "path": "tmp/1/blob/blobovnicza",
+            "perm": "0644",
             "size": 4194304,
             "depth": 1,
             "width": 4,
             "opened_cache_capacity": 50
+          },
+          {
+            "type": "fstree",
+            "path": "tmp/1/blob",
+            "perm": "0644",
+            "depth": 5
           }
-        },
+        ],
         "pilorama": {
           "path": "tmp/1/blob/pilorama.db",
           "perm": "0644",

@@ -15,6 +15,8 @@ import (
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
+	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
+	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
@@ -22,6 +24,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -47,6 +51,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
@@ -418,7 +423,7 @@ func initShardOptions(c *cfg) {
 		}
 
 		blobStorCfg := sc.BlobStor()
-		blobovniczaCfg := blobStorCfg.Blobovnicza()
+		storages := blobStorCfg.Storages()
 		metabaseCfg := sc.Metabase()
 		gcCfg := sc.GC()
 
@@ -426,17 +431,45 @@ func initShardOptions(c *cfg) {
 
 		piloramaCfg := sc.Pilorama()
 		if config.BoolSafe(c.appCfg.Sub("tree"), "enabled") {
-			piloramaPath := piloramaCfg.Path()
-			if piloramaPath == "" {
-				piloramaPath = filepath.Join(blobStorCfg.Path(), "pilorama.db")
-			}
-
 			piloramaOpts = []pilorama.Option{
-				pilorama.WithPath(piloramaPath),
+				pilorama.WithPath(piloramaCfg.Path()),
 				pilorama.WithPerm(piloramaCfg.Perm()),
 				pilorama.WithNoSync(piloramaCfg.NoSync()),
 				pilorama.WithMaxBatchSize(piloramaCfg.MaxBatchSize()),
 				pilorama.WithMaxBatchDelay(piloramaCfg.MaxBatchDelay())}
+		}
+
+		var st []blobstor.SubStorage
+		for i := range storages {
+			switch storages[i].Type() {
+			case "blobovniczas":
+				sub := blobovniczaconfig.From((*config.Config)(storages[i]))
+				lim := sc.SmallSizeLimit()
+				st = append(st, blobstor.SubStorage{
+					Storage: blobovniczatree.NewBlobovniczaTree(
+						blobovniczatree.WithLogger(c.log),
+						blobovniczatree.WithRootPath(storages[i].Path()),
+						blobovniczatree.WithPermissions(storages[i].Perm()),
+						blobovniczatree.WithBlobovniczaSize(sub.Size()),
+						blobovniczatree.WithBlobovniczaShallowDepth(sub.ShallowDepth()),
+						blobovniczatree.WithBlobovniczaShallowWidth(sub.ShallowWidth()),
+						blobovniczatree.WithOpenedCacheSize(sub.OpenedCacheSize())),
+					Policy: func(_ *objectSDK.Object, data []byte) bool {
+						return uint64(len(data)) < lim
+					},
+				})
+			case "fstree":
+				sub := fstreeconfig.From((*config.Config)(storages[i]))
+				st = append(st, blobstor.SubStorage{
+					Storage: fstree.New(
+						fstree.WithPath(storages[i].Path()),
+						fstree.WithPerm(storages[i].Perm()),
+						fstree.WithDepth(sub.Depth())),
+					Policy: func(_ *objectSDK.Object, data []byte) bool {
+						return true
+					},
+				})
+			}
 		}
 
 		metaPath := metabaseCfg.Path()
@@ -453,15 +486,9 @@ func initShardOptions(c *cfg) {
 			shard.WithRefillMetabase(sc.RefillMetabase()),
 			shard.WithMode(sc.Mode()),
 			shard.WithBlobStorOptions(
-				blobstor.WithRootPath(blobStorCfg.Path()),
-				blobstor.WithCompressObjects(blobStorCfg.Compress()),
-				blobstor.WithRootPerm(blobStorCfg.Perm()),
-				blobstor.WithShallowDepth(blobStorCfg.ShallowDepth()),
-				blobstor.WithSmallSizeLimit(blobStorCfg.SmallSizeLimit()),
-				blobstor.WithBlobovniczaSize(blobovniczaCfg.Size()),
-				blobstor.WithBlobovniczaShallowDepth(blobovniczaCfg.ShallowDepth()),
-				blobstor.WithBlobovniczaShallowWidth(blobovniczaCfg.ShallowWidth()),
-				blobstor.WithBlobovniczaOpenedCacheSize(blobovniczaCfg.OpenedCacheSize()),
+				blobstor.WithCompressObjects(sc.Compress()),
+				blobstor.WithUncompressableContentTypes(sc.UncompressableContentTypes()),
+				blobstor.WithStorages(st),
 				blobstor.WithLogger(c.log),
 			),
 			shard.WithMetaBaseOptions(

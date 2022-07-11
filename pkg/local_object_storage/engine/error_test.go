@@ -43,12 +43,7 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 		ids[i], err = e.AddShard(
 			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobStorOptions(
-				blobstor.WithRootPath(filepath.Join(dir, strconv.Itoa(i))),
-				blobstor.WithShallowDepth(1),
-				blobstor.WithBlobovniczaShallowWidth(1),
-				blobstor.WithBlobovniczaShallowDepth(1),
-				blobstor.WithSmallSizeLimit(errSmallSize),
-				blobstor.WithRootPerm(0700)),
+				blobstor.WithStorages(newStorages(filepath.Join(dir, strconv.Itoa(i)), errSmallSize))),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),

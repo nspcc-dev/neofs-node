@@ -16,9 +16,47 @@ import (
 // which provides access to Shard configurations.
 type Config config.Config
 
+// SmallSizeLimitDefault is a default limit of small objects payload in bytes.
+const SmallSizeLimitDefault = 1 << 20
+
 // From wraps config section into Config.
 func From(c *config.Config) *Config {
 	return (*Config)(c)
+}
+
+// Compress returns the value of "compress" config parameter.
+//
+// Returns false if the value is not a valid bool.
+func (x *Config) Compress() bool {
+	return config.BoolSafe(
+		(*config.Config)(x),
+		"compress",
+	)
+}
+
+// UncompressableContentTypes returns the value of "compress_skip_content_types" config parameter.
+//
+// Returns nil if a the value is missing or is invalid.
+func (x *Config) UncompressableContentTypes() []string {
+	return config.StringSliceSafe(
+		(*config.Config)(x),
+		"compression_exclude_content_types")
+}
+
+// SmallSizeLimit returns the value of "small_object_size" config parameter.
+//
+// Returns SmallSizeLimitDefault if the value is not a positive number.
+func (x *Config) SmallSizeLimit() uint64 {
+	l := config.SizeInBytesSafe(
+		(*config.Config)(x),
+		"small_object_size",
+	)
+
+	if l > 0 {
+		return l
+	}
+
+	return SmallSizeLimitDefault
 }
 
 // BlobStor returns "blobstor" subsection as a blobstorconfig.Config.
