@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -76,8 +77,6 @@ type Blobovniczas struct {
 	// list of active (opened, non-filled) Blobovniczas
 	activeMtx sync.RWMutex
 	active    map[string]blobovniczaWithIndex
-
-	onClose []func()
 }
 
 type blobovniczaWithIndex struct {
@@ -886,4 +885,9 @@ func u64FromHexString(str string) uint64 {
 // Type implements common.Storage.
 func (b *Blobovniczas) Type() string {
 	return "blobovniczas"
+}
+
+// SetCompressor implements common.Storage.
+func (b *Blobovniczas) SetCompressor(cc *compression.CConfig) {
+	b.CConfig = cc
 }

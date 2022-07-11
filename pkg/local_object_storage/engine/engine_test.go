@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -94,6 +96,26 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	return engine
 }
 
+func newStorages(root string, smallSize uint64) []blobstor.SubStorage {
+	return []blobstor.SubStorage{
+		{
+			Storage: blobovniczatree.NewBlobovniczaTree(
+				blobovniczatree.WithRootPath(filepath.Join(root, "blobovnicza")),
+				blobovniczatree.WithBlobovniczaShallowDepth(1),
+				blobovniczatree.WithBlobovniczaShallowWidth(1),
+				blobovniczatree.WithPermissions(0700)),
+			Policy: func(_ *object.Object, data []byte) bool {
+				return uint64(len(data)) < smallSize
+			},
+		},
+		{
+			Storage: fstree.New(
+				fstree.WithPath(root),
+				fstree.WithDepth(1)),
+		},
+	}
+}
+
 func testNewShard(t testing.TB, id int) *shard.Shard {
 	sid, err := generateShardID()
 	require.NoError(t, err)
@@ -102,11 +124,9 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 		shard.WithID(sid),
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(
-			blobstor.WithRootPath(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id))),
-			blobstor.WithBlobovniczaShallowWidth(2),
-			blobstor.WithBlobovniczaShallowDepth(2),
-			blobstor.WithRootPerm(0700),
-		),
+			blobstor.WithStorages(
+				newStorages(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id)),
+					1<<20))),
 		shard.WithPiloramaOptions(pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.pilorama", id)))),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
@@ -125,10 +145,9 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.
 	for i := 0; i < num; i++ {
 		_, err := engine.AddShard(append([]shard.Option{
 			shard.WithBlobStorOptions(
-				blobstor.WithRootPath(filepath.Join(t.Name(), fmt.Sprintf("blobstor%d", i))),
-				blobstor.WithBlobovniczaShallowWidth(1),
-				blobstor.WithBlobovniczaShallowDepth(1),
-				blobstor.WithRootPerm(0700),
+				blobstor.WithStorages(
+					newStorages(filepath.Join(t.Name(), fmt.Sprintf("blobstor%d", i)),
+						1<<20)),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),

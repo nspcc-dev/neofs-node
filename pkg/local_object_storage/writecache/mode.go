@@ -27,7 +27,6 @@ func (c *cache) SetMode(m mode.Mode) error {
 		if err := c.db.Close(); err != nil {
 			return fmt.Errorf("can't close write-cache database: %w", err)
 		}
-		c.db = nil
 	}
 
 	// Suspend producers to ensure there are channel send operations in fly.

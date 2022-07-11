@@ -19,7 +19,7 @@ func (b *BlobStor) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 	for i := range b.storage {
 		_, err := b.storage[i].Storage.Iterate(prm)
 		if err != nil && !prm.IgnoreErrors {
-			return common.IterateRes{}, fmt.Errorf("blobovnizas iterator failure: %w", err)
+			return common.IterateRes{}, fmt.Errorf("blobstor iterator failure: %w", err)
 		}
 	}
 	return common.IterateRes{}, nil

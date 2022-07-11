@@ -45,6 +45,23 @@ const (
 
 var _ common.Storage = (*FSTree)(nil)
 
+func New(opts ...Option) *FSTree {
+	f := &FSTree{
+		Info: Info{
+			Permissions: 0700,
+			RootPath:    "./",
+		},
+		CConfig:    nil,
+		Depth:      4,
+		DirNameLen: DirNameLen,
+	}
+	for i := range opts {
+		opts[i](f)
+	}
+
+	return f
+}
+
 func stringifyAddress(addr oid.Address) string {
 	return addr.Object().EncodeToString() + "." + addr.Container().EncodeToString()
 }
@@ -298,4 +315,9 @@ func (t *FSTree) NumberOfObjects() (uint64, error) {
 // Type implements common.Storage.
 func (*FSTree) Type() string {
 	return "fstree"
+}
+
+// SetCompressor implements common.Storage.
+func (t *FSTree) SetCompressor(cc *compression.CConfig) {
+	t.CConfig = cc
 }

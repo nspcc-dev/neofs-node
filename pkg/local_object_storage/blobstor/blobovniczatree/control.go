@@ -19,16 +19,6 @@ func (b *Blobovniczas) Open(readOnly bool) error {
 func (b *Blobovniczas) Init() error {
 	b.log.Debug("initializing Blobovnicza's")
 
-	err := b.CConfig.Init()
-	if err != nil {
-		return err
-	}
-	b.onClose = append(b.onClose, func() {
-		if err := b.CConfig.Close(); err != nil {
-			b.log.Debug("can't close zstd compressor", zap.String("err", err.Error()))
-		}
-	})
-
 	if b.readOnly {
 		b.log.Debug("read-only mode, skip blobovniczas initialization...")
 		return nil
@@ -77,10 +67,6 @@ func (b *Blobovniczas) Close() error {
 	b.lruMtx.Unlock()
 
 	b.activeMtx.Unlock()
-
-	for i := range b.onClose {
-		b.onClose[i]()
-	}
 
 	return nil
 }

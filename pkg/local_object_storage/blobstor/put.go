@@ -33,7 +33,7 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 	}
 
 	for i := range b.storage {
-		if b.storage[i].Policy(prm.Object, prm.RawData) {
+		if b.storage[i].Policy == nil || b.storage[i].Policy(prm.Object, prm.RawData) {
 			res, err := b.storage[i].Storage.Put(prm)
 			if err == nil {
 				storagelog.Write(b.log,

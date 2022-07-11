@@ -7,6 +7,8 @@ import (
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -24,11 +26,21 @@ func TestShard_Lock(t *testing.T) {
 	opts := []shard.Option{
 		shard.WithLogger(zap.NewNop()),
 		shard.WithBlobStorOptions(
-			[]blobstor.Option{
-				blobstor.WithRootPath(filepath.Join(rootPath, "blob")),
-				blobstor.WithBlobovniczaShallowWidth(2),
-				blobstor.WithBlobovniczaShallowDepth(2),
-			}...,
+			blobstor.WithStorages([]blobstor.SubStorage{
+				{
+					Storage: blobovniczatree.NewBlobovniczaTree(
+						blobovniczatree.WithRootPath(filepath.Join(rootPath, "blob", "blobovnicza")),
+						blobovniczatree.WithBlobovniczaShallowDepth(2),
+						blobovniczatree.WithBlobovniczaShallowWidth(2)),
+					Policy: func(_ *object.Object, data []byte) bool {
+						return len(data) <= 1<<20
+					},
+				},
+				{
+					Storage: fstree.New(
+						fstree.WithPath(filepath.Join(rootPath, "blob"))),
+				},
+			}),
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),

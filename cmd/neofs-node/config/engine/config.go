@@ -39,7 +39,7 @@ func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config))
 		// must have different paths, so if it is missing, the shard is not here.
 		// At the same time checking for "blobstor" section doesn't work proper
 		// with configuration via the environment.
-		if (*config.Config)(sc).Value("blobstor.path") == nil {
+		if (*config.Config)(sc).Value("metabase.path") == nil {
 			break
 		}
 		(*config.Config)(sc).SetDefault(def)

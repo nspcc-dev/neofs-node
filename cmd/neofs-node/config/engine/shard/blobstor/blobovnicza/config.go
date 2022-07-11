@@ -29,6 +29,11 @@ func From(c *config.Config) *Config {
 	return (*Config)(c)
 }
 
+// Type returns the storage type.
+func (x *Config) Type() string {
+	return "blobovnicza"
+}
+
 // Size returns the value of "size" config parameter.
 //
 // Returns SizeDefault if the value is not a positive number.

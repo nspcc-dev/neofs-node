@@ -26,7 +26,7 @@ func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 		}
 	}
 	if len(prm.StorageID) == 0 {
-		return b.storage[1].Storage.Delete(prm)
+		return b.storage[len(b.storage)-1].Storage.Delete(prm)
 	}
 	return b.storage[0].Storage.Delete(prm)
 }

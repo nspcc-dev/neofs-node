@@ -1,5 +1,7 @@
 package common
 
+import "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+
 // Storage represents key-value object storage.
 // It is used as a building block for a blobstor of a shard.
 type Storage interface {
@@ -8,6 +10,7 @@ type Storage interface {
 	Close() error
 
 	Type() string
+	SetCompressor(cc *compression.CConfig)
 
 	Get(GetPrm) (GetRes, error)
 	GetRange(GetRangePrm) (GetRangeRes, error)
