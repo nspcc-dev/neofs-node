@@ -59,31 +59,31 @@ func TestDB_Lock(t *testing.T) {
 		lockAddr := objectcore.AddressOf(lockObj)
 
 		var inhumePrm meta.InhumePrm
-		inhumePrm.WithGCMark()
+		inhumePrm.SetGCMark()
 
 		// check locking relation
 
-		inhumePrm.WithAddresses(objAddr)
+		inhumePrm.SetAddresses(objAddr)
 		_, err := db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.WithTombstoneAddress(oidtest.Address())
+		inhumePrm.SetTombstoneAddress(oidtest.Address())
 		_, err = db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 		// try to remove lock object
-		inhumePrm.WithAddresses(lockAddr)
+		inhumePrm.SetAddresses(lockAddr)
 		_, err = db.Inhume(inhumePrm)
 		require.Error(t, err)
 
 		// check that locking relation has not been
 		// dropped
 
-		inhumePrm.WithAddresses(objAddr)
+		inhumePrm.SetAddresses(objAddr)
 		_, err = db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.WithTombstoneAddress(oidtest.Address())
+		inhumePrm.SetTombstoneAddress(oidtest.Address())
 		_, err = db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 	})
@@ -100,9 +100,9 @@ func TestDB_Lock(t *testing.T) {
 
 		// free locked object
 		var inhumePrm meta.InhumePrm
-		inhumePrm.WithAddresses(lockAddr)
-		inhumePrm.WithForceGCMark()
-		inhumePrm.WithLockObjectHandling()
+		inhumePrm.SetAddresses(lockAddr)
+		inhumePrm.SetForceGCMark()
+		inhumePrm.SetLockObjectHandling()
 
 		res, err := db.Inhume(inhumePrm)
 		require.NoError(t, err)
@@ -112,8 +112,8 @@ func TestDB_Lock(t *testing.T) {
 		err = db.FreeLockedBy([]oid.Address{lockAddr})
 		require.NoError(t, err)
 
-		inhumePrm.WithAddresses(objAddr)
-		inhumePrm.WithGCMark()
+		inhumePrm.SetAddresses(objAddr)
+		inhumePrm.SetGCMark()
 
 		// now we can inhume the object
 		_, err = db.Inhume(inhumePrm)
@@ -129,9 +129,9 @@ func TestDB_Lock(t *testing.T) {
 		// force remove objects
 
 		var inhumePrm meta.InhumePrm
-		inhumePrm.WithForceGCMark()
-		inhumePrm.WithAddresses(objectcore.AddressOf(lockObj))
-		inhumePrm.WithLockObjectHandling()
+		inhumePrm.SetForceGCMark()
+		inhumePrm.SetAddresses(objectcore.AddressOf(lockObj))
+		inhumePrm.SetLockObjectHandling()
 
 		res, err := db.Inhume(inhumePrm)
 		require.NoError(t, err)
@@ -145,10 +145,10 @@ func TestDB_Lock(t *testing.T) {
 
 		// removing objects after unlock
 
-		inhumePrm.WithGCMark()
+		inhumePrm.SetGCMark()
 
 		for i := 0; i < objsNum; i++ {
-			inhumePrm.WithAddresses(objectcore.AddressOf(objs[i]))
+			inhumePrm.SetAddresses(objectcore.AddressOf(objs[i]))
 
 			res, err = db.Inhume(inhumePrm)
 			require.NoError(t, err)
@@ -160,8 +160,8 @@ func TestDB_Lock(t *testing.T) {
 		_, lockObj := putAndLockObj(t, db, 1)
 
 		var inhumePrm meta.InhumePrm
-		inhumePrm.WithForceGCMark()
-		inhumePrm.WithAddresses(objectcore.AddressOf(lockObj))
+		inhumePrm.SetForceGCMark()
+		inhumePrm.SetAddresses(objectcore.AddressOf(lockObj))
 
 		res, err := db.Inhume(inhumePrm)
 		require.NoError(t, err)

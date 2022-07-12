@@ -21,22 +21,18 @@ type GetRes struct {
 	hdr *objectSDK.Object
 }
 
-// WithAddress is a Get option to set the address of the requested object.
+// SetAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+func (p *GetPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
-// WithRaw is a Get option to set raw flag value. If flag is unset, then Get
+// SetRaw is a Get option to set raw flag value. If flag is unset, then Get
 // returns header of virtual object, otherwise it returns SplitInfo of virtual
 // object.
-func (p *GetPrm) WithRaw(raw bool) {
-	if p != nil {
-		p.raw = raw
-	}
+func (p *GetPrm) SetRaw(raw bool) {
+	p.raw = raw
 }
 
 // Header returns the requested object header.

@@ -120,7 +120,7 @@ func TestGraveOnlyDelete(t *testing.T) {
 
 func metaDelete(db *meta.DB, addrs ...oid.Address) error {
 	var deletePrm meta.DeletePrm
-	deletePrm.WithAddresses(addrs...)
+	deletePrm.SetAddresses(addrs...)
 
 	_, err := db.Delete(deletePrm)
 	return err

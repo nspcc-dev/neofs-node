@@ -39,7 +39,7 @@ func (p ExistsRes) Exists() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
 func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 	var existsPrm meta.ExistsPrm
-	existsPrm.WithAddress(prm.addr)
+	existsPrm.SetAddress(prm.addr)
 
 	res, err := s.metaBase.Exists(existsPrm)
 	exists := res.Exists()

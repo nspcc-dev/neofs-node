@@ -74,8 +74,8 @@ func (s *Shard) List() (res SelectRes, err error) {
 
 	for i := range lst {
 		var sPrm meta.SelectPrm
-		sPrm.WithContainerID(lst[i])
-		sPrm.WithFilters(filters)
+		sPrm.SetContainerID(lst[i])
+		sPrm.SetFilters(filters)
 
 		sRes, err := s.metaBase.Select(sPrm) // consider making List in metabase
 		if err != nil {
@@ -120,8 +120,8 @@ func ListContainers(s *Shard) ([]cid.ID, error) {
 // parameter set to zero.
 func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error) {
 	var metaPrm meta.ListPrm
-	metaPrm.WithCount(prm.count)
-	metaPrm.WithCursor(prm.cursor)
+	metaPrm.SetCount(prm.count)
+	metaPrm.SetCursor(prm.cursor)
 	res, err := s.metaBase.ListWithCursor(metaPrm)
 	if err != nil {
 		return ListWithCursorRes{}, fmt.Errorf("could not get list of objects: %w", err)

@@ -68,8 +68,8 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 	}
 
 	var headParams meta.GetPrm
-	headParams.WithAddress(prm.addr)
-	headParams.WithRaw(prm.raw)
+	headParams.SetAddress(prm.addr)
+	headParams.SetRaw(prm.raw)
 
 	res, err := s.metaBase.Get(headParams)
 	if err != nil {

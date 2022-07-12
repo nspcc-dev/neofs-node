@@ -114,8 +114,8 @@ func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 
 func metaPut(db *meta.DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
 	var putPrm meta.PutPrm
-	putPrm.WithObject(obj)
-	putPrm.WithBlobovniczaID(id)
+	putPrm.SetObject(obj)
+	putPrm.SetBlobovniczaID(id)
 
 	_, err := db.Put(putPrm)
 

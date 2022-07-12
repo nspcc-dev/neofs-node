@@ -807,8 +807,8 @@ func BenchmarkSelect(b *testing.B) {
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
 	var prm meta.SelectPrm
-	prm.WithContainerID(cid)
-	prm.WithFilters(fs)
+	prm.SetContainerID(cid)
+	prm.SetFilters(fs)
 
 	for i := 0; i < b.N; i++ {
 		res, err := db.Select(prm)
@@ -823,8 +823,8 @@ func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.Sear
 
 func metaSelect(db *meta.DB, cnr cidSDK.ID, fs objectSDK.SearchFilters) ([]oid.Address, error) {
 	var prm meta.SelectPrm
-	prm.WithFilters(fs)
-	prm.WithContainerID(cnr)
+	prm.SetFilters(fs)
+	prm.SetContainerID(cnr)
 
 	res, err := db.Select(prm)
 	return res.AddressList(), err

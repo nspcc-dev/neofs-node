@@ -33,18 +33,14 @@ type PutPrm struct {
 // PutRes groups the resulting values of Put operation.
 type PutRes struct{}
 
-// WithObject is a Put option to set object to save.
-func (p *PutPrm) WithObject(obj *objectSDK.Object) {
-	if p != nil {
-		p.obj = obj
-	}
+// SetObject is a Put option to set object to save.
+func (p *PutPrm) SetObject(obj *objectSDK.Object) {
+	p.obj = obj
 }
 
-// WithBlobovniczaID is a Put option to set blobovnicza ID to save.
-func (p *PutPrm) WithBlobovniczaID(id *blobovnicza.ID) {
-	if p != nil {
-		p.id = id
-	}
+// SetBlobovniczaID is a Put option to set blobovnicza ID to save.
+func (p *PutPrm) SetBlobovniczaID(id *blobovnicza.ID) {
+	p.id = id
 }
 
 var (

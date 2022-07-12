@@ -120,7 +120,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 	var exists bool
 	if !skipMeta {
 		var mPrm meta.ExistsPrm
-		mPrm.WithAddress(addr)
+		mPrm.SetAddress(addr)
 
 		mRes, err := s.metaBase.Exists(mPrm)
 		if err != nil && s.GetMode() != ModeDegraded {

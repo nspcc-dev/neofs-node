@@ -23,11 +23,9 @@ type ExistsRes struct {
 
 var ErrLackSplitInfo = errors.New("no split info on parent object")
 
-// WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+// SetAddress is an Exists option to set object checked for existence.
+func (p *ExistsPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
 // Exists returns the fact that the object is in the metabase.

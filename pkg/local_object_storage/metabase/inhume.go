@@ -34,48 +34,37 @@ func (i InhumeRes) DeletedLockObjects() []oid.Address {
 	return i.deletedLockObj
 }
 
-// WithAddresses sets a list of object addresses that should be inhumed.
-func (p *InhumePrm) WithAddresses(addrs ...oid.Address) {
-	if p != nil {
-		p.target = addrs
-	}
+// SetAddresses sets a list of object addresses that should be inhumed.
+func (p *InhumePrm) SetAddresses(addrs ...oid.Address) {
+	p.target = addrs
 }
 
-// WithTombstoneAddress sets tombstone address as the reason for inhume operation.
+// SetTombstoneAddress sets tombstone address as the reason for inhume operation.
 //
 // addr should not be nil.
-// Should not be called along with WithGCMark.
-func (p *InhumePrm) WithTombstoneAddress(addr oid.Address) {
-	if p != nil {
-		p.tomb = &addr
-	}
+// Should not be called along with SetGCMark.
+func (p *InhumePrm) SetTombstoneAddress(addr oid.Address) {
+	p.tomb = &addr
 }
 
-// WithGCMark marks the object to be physically removed.
+// SetGCMark marks the object to be physically removed.
 //
-// Should not be called along with WithTombstoneAddress.
-func (p *InhumePrm) WithGCMark() {
-	if p != nil {
-		p.tomb = nil
-		p.forceRemoval = false
-	}
+// Should not be called along with SetTombstoneAddress.
+func (p *InhumePrm) SetGCMark() {
+	p.tomb = nil
 }
 
-// WithLockObjectHandling checks if there were
+// SetLockObjectHandling checks if there were
 // any LOCK object among the targets set via WithAddresses.
-func (p *InhumePrm) WithLockObjectHandling() {
-	if p != nil {
-		p.lockObjectHandling = true
-	}
+func (p *InhumePrm) SetLockObjectHandling() {
+	p.lockObjectHandling = true
 }
 
-// WithForceGCMark allows removal any object. Expected to be
+// SetForceGCMark allows removal any object. Expected to be
 // called only in control service.
-func (p *InhumePrm) WithForceGCMark() {
-	if p != nil {
-		p.tomb = nil
-		p.forceRemoval = true
-	}
+func (p *InhumePrm) SetForceGCMark() {
+	p.tomb = nil
+	p.forceRemoval = true
 }
 
 var errBreakBucketForEach = errors.New("bucket ForEach break")

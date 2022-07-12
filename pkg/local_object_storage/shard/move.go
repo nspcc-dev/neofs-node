@@ -30,7 +30,7 @@ func (s *Shard) ToMoveIt(prm ToMoveItPrm) (ToMoveItRes, error) {
 	}
 
 	var toMovePrm meta.ToMoveItPrm
-	toMovePrm.WithAddress(prm.addr)
+	toMovePrm.SetAddress(prm.addr)
 
 	_, err := s.metaBase.ToMoveIt(toMovePrm)
 	if err != nil {

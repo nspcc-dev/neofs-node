@@ -60,7 +60,7 @@ func (c *cache) initFlushMarks() {
 
 func (c *cache) isFlushed(addr oid.Address) bool {
 	var existsPrm meta.ExistsPrm
-	existsPrm.WithAddress(addr)
+	existsPrm.SetAddress(addr)
 
 	mRes, err := c.metabase.Exists(existsPrm)
 	if err != nil || !mRes.Exists() {
