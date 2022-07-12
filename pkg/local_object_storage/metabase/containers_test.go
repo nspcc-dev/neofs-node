@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -64,7 +63,7 @@ func TestDB_Containers(t *testing.T) {
 
 		assertContains(cnrs, cnr)
 
-		require.NoError(t, meta.Inhume(db, object.AddressOf(obj), oidtest.Address()))
+		require.NoError(t, metaInhume(db, object.AddressOf(obj), oidtest.Address()))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -81,7 +80,7 @@ func TestDB_Containers(t *testing.T) {
 		cnr, _ := obj.ContainerID()
 		assertContains(cnrs, cnr)
 
-		require.NoError(t, meta.ToMoveIt(db, object.AddressOf(obj)))
+		require.NoError(t, metaToMoveIt(db, object.AddressOf(obj)))
 
 		cnrs, err = db.Containers()
 		require.NoError(t, err)
@@ -179,7 +178,7 @@ func TestDB_ContainerSize(t *testing.T) {
 			volume := cids[cnr]
 
 			for _, obj := range list {
-				require.NoError(t, meta.Inhume(
+				require.NoError(t, metaInhume(
 					db,
 					object.AddressOf(obj),
 					oidtest.Address(),

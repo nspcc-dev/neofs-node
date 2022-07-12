@@ -344,7 +344,7 @@ func TestDB_SelectInhume(t *testing.T) {
 	tombstone.SetContainer(cnr)
 	tombstone.SetObject(oidtest.ID())
 
-	err = meta.Inhume(db, object.AddressOf(raw2), tombstone)
+	err = metaInhume(db, object.AddressOf(raw2), tombstone)
 	require.NoError(t, err)
 
 	fs = objectSDK.SearchFilters{}
@@ -777,7 +777,7 @@ func BenchmarkSelect(b *testing.B) {
 		attr.SetValue(strconv.Itoa(i))
 		obj := generateObjectWithCID(b, cid)
 		obj.SetAttributes(attr)
-		require.NoError(b, meta.Put(db, obj, nil))
+		require.NoError(b, metaPut(db, obj, nil))
 	}
 
 	b.Run("string equal", func(b *testing.B) {
@@ -806,13 +806,26 @@ func BenchmarkSelect(b *testing.B) {
 }
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
+	var prm meta.SelectPrm
+	prm.WithContainerID(cid)
+	prm.WithFilters(fs)
+
 	for i := 0; i < b.N; i++ {
-		res, err := meta.Select(db, cid, fs)
+		res, err := db.Select(prm)
 		if err != nil {
 			b.Fatal(err)
 		}
-		if len(res) != expected {
-			b.Fatalf("expected %d items, got %d", expected, len(res))
+		if len(res.AddressList()) != expected {
+			b.Fatalf("expected %d items, got %d", expected, len(res.AddressList()))
 		}
 	}
+}
+
+func metaSelect(db *meta.DB, cnr cidSDK.ID, fs objectSDK.SearchFilters) ([]oid.Address, error) {
+	var prm meta.SelectPrm
+	prm.WithFilters(fs)
+	prm.WithContainerID(cnr)
+
+	res, err := db.Select(prm)
+	return res.AddressList(), err
 }

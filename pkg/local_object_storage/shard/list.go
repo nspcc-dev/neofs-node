@@ -73,7 +73,11 @@ func (s *Shard) List() (res SelectRes, err error) {
 	filters.AddPhyFilter()
 
 	for i := range lst {
-		ids, err := meta.Select(s.metaBase, lst[i], filters) // consider making List in metabase
+		var sPrm meta.SelectPrm
+		sPrm.WithContainerID(lst[i])
+		sPrm.WithFilters(filters)
+
+		sRes, err := s.metaBase.Select(sPrm) // consider making List in metabase
 		if err != nil {
 			s.log.Debug("can't select all objects",
 				zap.Stringer("cid", lst[i]),
@@ -82,7 +86,7 @@ func (s *Shard) List() (res SelectRes, err error) {
 			continue
 		}
 
-		res.addrList = append(res.addrList, ids...)
+		res.addrList = append(res.addrList, sRes.AddressList()...)
 	}
 
 	return res, nil

@@ -54,7 +54,7 @@ func BenchmarkPut(b *testing.B) {
 		b.ReportAllocs()
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				if err := meta.Put(db, objs[index.Inc()], nil); err != nil {
+				if err := metaPut(db, objs[index.Inc()], nil); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -69,7 +69,7 @@ func BenchmarkPut(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			if err := meta.Put(db, objs[index.Inc()], nil); err != nil {
+			if err := metaPut(db, objs[index.Inc()], nil); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -83,20 +83,20 @@ func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 	blobovniczaID := blobovnicza.ID{1, 2, 3, 4}
 
 	// put one object with blobovniczaID
-	err := meta.Put(db, raw1, &blobovniczaID)
+	err := metaPut(db, raw1, &blobovniczaID)
 	require.NoError(t, err)
 
-	fetchedBlobovniczaID, err := meta.IsSmall(db, object.AddressOf(raw1))
+	fetchedBlobovniczaID, err := metaIsSmall(db, object.AddressOf(raw1))
 	require.NoError(t, err)
 	require.Equal(t, &blobovniczaID, fetchedBlobovniczaID)
 
 	t.Run("update blobovniczaID", func(t *testing.T) {
 		newID := blobovnicza.ID{5, 6, 7, 8}
 
-		err := meta.Put(db, raw1, &newID)
+		err := metaPut(db, raw1, &newID)
 		require.NoError(t, err)
 
-		fetchedBlobovniczaID, err := meta.IsSmall(db, object.AddressOf(raw1))
+		fetchedBlobovniczaID, err := metaIsSmall(db, object.AddressOf(raw1))
 		require.NoError(t, err)
 		require.Equal(t, &newID, fetchedBlobovniczaID)
 	})
@@ -106,8 +106,18 @@ func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 		err := putBig(db, raw2)
 		require.NoError(t, err)
 
-		fetchedBlobovniczaID, err := meta.IsSmall(db, object.AddressOf(raw2))
+		fetchedBlobovniczaID, err := metaIsSmall(db, object.AddressOf(raw2))
 		require.NoError(t, err)
 		require.Nil(t, fetchedBlobovniczaID)
 	})
+}
+
+func metaPut(db *meta.DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
+	var putPrm meta.PutPrm
+	putPrm.WithObject(obj)
+	putPrm.WithBlobovniczaID(id)
+
+	_, err := db.Put(putPrm)
+
+	return err
 }

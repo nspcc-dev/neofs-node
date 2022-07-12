@@ -29,21 +29,6 @@ func (r IsSmallRes) BlobovniczaID() *blobovnicza.ID {
 	return r.id
 }
 
-// IsSmall wraps work with DB.IsSmall method with specified
-// address and other parameters by default. Returns only
-// the blobovnicza identifier.
-func IsSmall(db *DB, addr oid.Address) (*blobovnicza.ID, error) {
-	var isSmallPrm IsSmallPrm
-	isSmallPrm.WithAddress(addr)
-
-	r, err := db.IsSmall(isSmallPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.BlobovniczaID(), nil
-}
-
 // IsSmall returns blobovniczaID for small objects and nil for big objects.
 // Small objects stored in blobovnicza instances. Big objects stored in FS by
 // shallow path which is calculated from address and therefore it is not

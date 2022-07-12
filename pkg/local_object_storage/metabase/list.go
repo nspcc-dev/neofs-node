@@ -60,25 +60,6 @@ func (l ListRes) Cursor() *Cursor {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func ListWithCursor(db *DB, count uint32, cursor *Cursor) ([]oid.Address, *Cursor, error) {
-	var listPrm ListPrm
-	listPrm.WithCount(count)
-	listPrm.WithCursor(cursor)
-
-	r, err := db.ListWithCursor(listPrm)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return r.AddressList(), r.Cursor(), nil
-}
-
-// ListWithCursor lists physical objects available in metabase starting from
-// cursor. Includes objects of all types. Does not include inhumed objects.
-// Use cursor value from response for consecutive requests.
-//
-// Returns ErrEndOfListing if there are no more objects to return or count
-// parameter set to zero.
 func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
 	result := make([]oid.Address, 0, prm.count)
 

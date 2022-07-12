@@ -9,6 +9,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -30,40 +31,40 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	// fill ToMoveIt index
-	err = meta.ToMoveIt(db, object.AddressOf(child))
+	err = metaToMoveIt(db, object.AddressOf(child))
 	require.NoError(t, err)
 
 	// check if Movable list is not empty
-	l, err := meta.Movable(db)
+	l, err := metaMovable(db)
 	require.NoError(t, err)
 	require.Len(t, l, 1)
 
 	// try to remove parent unsuccessfully
-	err = meta.Delete(db, object.AddressOf(parent))
+	err = metaDelete(db, object.AddressOf(parent))
 	require.Error(t, err)
 
 	// inhume parent and child so they will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
 
-	err = meta.Inhume(db, object.AddressOf(child), object.AddressOf(ts))
+	err = metaInhume(db, object.AddressOf(child), object.AddressOf(ts))
 	require.NoError(t, err)
 
 	// delete object
-	err = meta.Delete(db, object.AddressOf(child))
+	err = metaDelete(db, object.AddressOf(child))
 	require.NoError(t, err)
 
 	// check if there is no data in Movable index
-	l, err = meta.Movable(db)
+	l, err = metaMovable(db)
 	require.NoError(t, err)
 	require.Len(t, l, 0)
 
 	// check if they marked as already removed
 
-	ok, err := meta.Exists(db, object.AddressOf(child))
+	ok, err := metaExists(db, object.AddressOf(child))
 	require.Error(t, apistatus.ObjectAlreadyRemoved{})
 	require.False(t, ok)
 
-	ok, err = meta.Exists(db, object.AddressOf(parent))
+	ok, err = metaExists(db, object.AddressOf(parent))
 	require.Error(t, apistatus.ObjectAlreadyRemoved{})
 	require.False(t, ok)
 }
@@ -91,16 +92,16 @@ func TestDeleteAllChildren(t *testing.T) {
 	require.NoError(t, putBig(db, child2))
 
 	// Exists should return split info for parent
-	_, err := meta.Exists(db, object.AddressOf(parent))
+	_, err := metaExists(db, object.AddressOf(parent))
 	siErr := objectSDK.NewSplitInfoError(nil)
 	require.True(t, errors.As(err, &siErr))
 
 	// remove all children in single call
-	err = meta.Delete(db, object.AddressOf(child1), object.AddressOf(child2))
+	err = metaDelete(db, object.AddressOf(child1), object.AddressOf(child2))
 	require.NoError(t, err)
 
 	// parent should not be found now
-	ex, err := meta.Exists(db, object.AddressOf(parent))
+	ex, err := metaExists(db, object.AddressOf(parent))
 	require.NoError(t, err)
 	require.False(t, ex)
 }
@@ -111,8 +112,16 @@ func TestGraveOnlyDelete(t *testing.T) {
 	addr := oidtest.Address()
 
 	// inhume non-existent object by address
-	require.NoError(t, meta.Inhume(db, addr, oidtest.Address()))
+	require.NoError(t, metaInhume(db, addr, oidtest.Address()))
 
 	// delete the object data
-	require.NoError(t, meta.Delete(db, addr))
+	require.NoError(t, metaDelete(db, addr))
+}
+
+func metaDelete(db *meta.DB, addrs ...oid.Address) error {
+	var deletePrm meta.DeletePrm
+	deletePrm.WithAddresses(addrs...)
+
+	_, err := db.Delete(deletePrm)
+	return err
 }
