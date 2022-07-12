@@ -119,10 +119,14 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 
 	var exists bool
 	if !skipMeta {
-		exists, err = meta.Exists(s.metaBase, addr)
+		var mPrm meta.ExistsPrm
+		mPrm.WithAddress(addr)
+
+		mRes, err := s.metaBase.Exists(mPrm)
 		if err != nil && s.GetMode() != ModeDegraded {
 			return res, false, err
 		}
+		exists = mRes.Exists()
 	}
 
 	if skipMeta || err != nil {
@@ -140,13 +144,16 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small stor
 		return nil, false, errNotFound
 	}
 
-	blobovniczaID, err := meta.IsSmall(s.metaBase, addr)
+	var mPrm meta.IsSmallPrm
+	mPrm.WithAddress(addr)
+
+	mRes, err := s.metaBase.IsSmall(mPrm)
 	if err != nil {
 		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
-	if blobovniczaID != nil {
-		res, err = small(s.blobStor, blobovniczaID)
+	if mRes.BlobovniczaID() != nil {
+		res, err = small(s.blobStor, mRes.BlobovniczaID())
 	} else {
 		res, err = big(s.blobStor, nil)
 	}

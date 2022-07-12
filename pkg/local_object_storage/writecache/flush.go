@@ -238,7 +238,12 @@ func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
 		id = res.BlobovniczaID()
 	}
 
-	return meta.Put(c.metabase, obj, id)
+	var pPrm meta.PutPrm
+	pPrm.WithObject(obj)
+	pPrm.WithBlobovniczaID(id)
+
+	_, err := c.metabase.Put(pPrm)
+	return err
 }
 
 func cloneBytes(a []byte) []byte {

@@ -113,7 +113,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		err = putBig(db, obj)
 		require.NoError(t, err)
 		ts := generateObjectWithCID(t, containerID)
-		err = meta.Inhume(db, object.AddressOf(obj), object.AddressOf(ts))
+		err = metaInhume(db, object.AddressOf(obj), object.AddressOf(ts))
 		require.NoError(t, err)
 
 		// add one child object (do not include parent into expected)
@@ -136,7 +136,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {
 			got := make([]oid.Address, 0, total)
 
-			res, cursor, err := meta.ListWithCursor(db, uint32(countPerReq), nil)
+			res, cursor, err := metaListWithCursor(db, uint32(countPerReq), nil)
 			require.NoError(t, err, "count:%d", countPerReq)
 			got = append(got, res...)
 
@@ -146,12 +146,12 @@ func TestLisObjectsWithCursor(t *testing.T) {
 			}
 
 			for i := 0; i < expectedIterations; i++ {
-				res, cursor, err = meta.ListWithCursor(db, uint32(countPerReq), cursor)
+				res, cursor, err = metaListWithCursor(db, uint32(countPerReq), cursor)
 				require.NoError(t, err, "count:%d", countPerReq)
 				got = append(got, res...)
 			}
 
-			_, _, err = meta.ListWithCursor(db, uint32(countPerReq), cursor)
+			_, _, err = metaListWithCursor(db, uint32(countPerReq), cursor)
 			require.ErrorIs(t, err, meta.ErrEndOfListing, "count:%d", countPerReq, cursor)
 
 			got = sortAddresses(got)
@@ -160,7 +160,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 	})
 
 	t.Run("invalid count", func(t *testing.T) {
-		_, _, err := meta.ListWithCursor(db, 0, nil)
+		_, _, err := metaListWithCursor(db, 0, nil)
 		require.ErrorIs(t, err, meta.ErrEndOfListing)
 	})
 }
@@ -181,7 +181,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	}
 
 	// get half of the objects
-	got, cursor, err := meta.ListWithCursor(db, total/2, nil)
+	got, cursor, err := metaListWithCursor(db, total/2, nil)
 	require.NoError(t, err)
 	for _, obj := range got {
 		if _, ok := expected[obj.EncodeToString()]; ok {
@@ -198,7 +198,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 	// get remaining objects
 	for {
-		got, cursor, err = meta.ListWithCursor(db, total, cursor)
+		got, cursor, err = metaListWithCursor(db, total, cursor)
 		if errors.Is(err, meta.ErrEndOfListing) {
 			break
 		}
@@ -221,4 +221,13 @@ func sortAddresses(addr []oid.Address) []oid.Address {
 		return addr[i].EncodeToString() < addr[j].EncodeToString()
 	})
 	return addr
+}
+
+func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]oid.Address, *meta.Cursor, error) {
+	var listPrm meta.ListPrm
+	listPrm.WithCount(count)
+	listPrm.WithCursor(cursor)
+
+	r, err := db.ListWithCursor(listPrm)
+	return r.AddressList(), r.Cursor(), err
 }

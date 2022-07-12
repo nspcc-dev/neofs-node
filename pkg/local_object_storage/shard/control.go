@@ -145,7 +145,11 @@ func (s *Shard) refillMetabase() error {
 			}
 		}
 
-		err := meta.Put(s.metaBase, obj, blzID)
+		var mPrm meta.PutPrm
+		mPrm.WithObject(obj)
+		mPrm.WithBlobovniczaID(blzID)
+
+		_, err := s.metaBase.Put(mPrm)
 		if err != nil && !meta.IsErrRemoved(err) {
 			return err
 		}

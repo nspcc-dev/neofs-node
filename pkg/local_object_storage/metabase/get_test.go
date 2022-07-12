@@ -26,7 +26,7 @@ func TestDB_Get(t *testing.T) {
 	addAttribute(raw, "foo", "bar")
 
 	t.Run("object not found", func(t *testing.T) {
-		_, err := meta.Get(db, object.AddressOf(raw))
+		_, err := metaGet(db, object.AddressOf(raw), false)
 		require.Error(t, err)
 	})
 
@@ -34,7 +34,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, object.AddressOf(raw))
+		newObj, err := metaGet(db, object.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -46,7 +46,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, object.AddressOf(raw))
+		newObj, err := metaGet(db, object.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -58,7 +58,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, object.AddressOf(raw))
+		newObj, err := metaGet(db, object.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -70,7 +70,7 @@ func TestDB_Get(t *testing.T) {
 		err := putBig(db, raw)
 		require.NoError(t, err)
 
-		newObj, err := meta.Get(db, object.AddressOf(raw))
+		newObj, err := metaGet(db, object.AddressOf(raw), false)
 		require.NoError(t, err)
 		require.Equal(t, raw.CutPayload(), newObj)
 	})
@@ -92,7 +92,7 @@ func TestDB_Get(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("raw is true", func(t *testing.T) {
-			_, err = meta.GetRaw(db, object.AddressOf(parent), true)
+			_, err = metaGet(db, object.AddressOf(parent), true)
 			require.Error(t, err)
 
 			siErr, ok := err.(*objectSDK.SplitInfoError)
@@ -108,11 +108,11 @@ func TestDB_Get(t *testing.T) {
 			require.False(t, ok)
 		})
 
-		newParent, err := meta.GetRaw(db, object.AddressOf(parent), false)
+		newParent, err := metaGet(db, object.AddressOf(parent), false)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(parent.CutPayload(), newParent))
 
-		newChild, err := meta.GetRaw(db, object.AddressOf(child), true)
+		newChild, err := metaGet(db, object.AddressOf(child), true)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child.CutPayload(), newChild))
 	})
@@ -121,8 +121,8 @@ func TestDB_Get(t *testing.T) {
 		obj := oidtest.Address()
 		ts := oidtest.Address()
 
-		require.NoError(t, meta.Inhume(db, obj, ts))
-		_, err := meta.Get(db, obj)
+		require.NoError(t, metaInhume(db, obj, ts))
+		_, err := metaGet(db, obj, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 		obj = oidtest.Address()
@@ -132,7 +132,7 @@ func TestDB_Get(t *testing.T) {
 
 		_, err = db.Inhume(prm)
 		require.NoError(t, err)
-		_, err = meta.Get(db, obj)
+		_, err = metaGet(db, obj, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }
@@ -202,4 +202,13 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 		}
 
 	}
+}
+
+func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
+	var prm meta.GetPrm
+	prm.WithAddress(addr)
+	prm.WithRaw(raw)
+
+	res, err := db.Get(prm)
+	return res.Header(), err
 }

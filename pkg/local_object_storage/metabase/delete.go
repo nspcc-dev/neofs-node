@@ -30,15 +30,6 @@ func (p *DeletePrm) WithAddresses(addrs ...oid.Address) {
 	}
 }
 
-// Delete removes objects from DB.
-func Delete(db *DB, addrs ...oid.Address) error {
-	var deletePrm DeletePrm
-	deletePrm.WithAddresses(addrs...)
-
-	_, err := db.Delete(deletePrm)
-	return err
-}
-
 type referenceNumber struct {
 	all, cur int
 

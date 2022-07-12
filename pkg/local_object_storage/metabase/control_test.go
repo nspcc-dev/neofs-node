@@ -22,7 +22,7 @@ func TestReset(t *testing.T) {
 	addrToInhume := oidtest.Address()
 
 	assertExists := func(addr oid.Address, expExists bool, assertErr func(error) bool) {
-		exists, err := meta.Exists(db, addr)
+		exists, err := metaExists(db, addr)
 		if assertErr != nil {
 			require.True(t, assertErr(err))
 		} else {
@@ -37,7 +37,7 @@ func TestReset(t *testing.T) {
 	err = putBig(db, obj)
 	require.NoError(t, err)
 
-	err = meta.Inhume(db, addrToInhume, oidtest.Address())
+	err = metaInhume(db, addrToInhume, oidtest.Address())
 	require.NoError(t, err)
 
 	assertExists(addr, true, nil)
@@ -48,4 +48,12 @@ func TestReset(t *testing.T) {
 
 	assertExists(addr, false, nil)
 	assertExists(addr, false, nil)
+}
+
+func metaExists(db *meta.DB, addr oid.Address) (bool, error) {
+	var existsPrm meta.ExistsPrm
+	existsPrm.WithAddress(addr)
+
+	res, err := db.Exists(existsPrm)
+	return res.Exists(), err
 }

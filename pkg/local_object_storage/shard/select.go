@@ -44,12 +44,16 @@ func (r SelectRes) AddressList() []oid.Address {
 // Returns any error encountered that
 // did not allow to completely select the objects.
 func (s *Shard) Select(prm SelectPrm) (SelectRes, error) {
-	addrList, err := meta.Select(s.metaBase, prm.cnr, prm.filters)
+	var selectPrm meta.SelectPrm
+	selectPrm.WithFilters(prm.filters)
+	selectPrm.WithContainerID(prm.cnr)
+
+	mRes, err := s.metaBase.Select(selectPrm)
 	if err != nil {
 		return SelectRes{}, fmt.Errorf("could not select objects from metabase: %w", err)
 	}
 
 	return SelectRes{
-		addrList: addrList,
+		addrList: mRes.AddressList(),
 	}, nil
 }

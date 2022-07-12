@@ -20,11 +20,11 @@ import (
 
 // saves "big" object in DB.
 func putBig(db *meta.DB, obj *object.Object) error {
-	return meta.Put(db, obj, nil)
+	return metaPut(db, obj, nil)
 }
 
 func testSelect(t *testing.T, db *meta.DB, cnr cid.ID, fs object.SearchFilters, exp ...oid.Address) {
-	res, err := meta.Select(db, cnr, fs)
+	res, err := metaSelect(db, cnr, fs)
 	require.NoError(t, err)
 	require.Len(t, res, len(exp))
 

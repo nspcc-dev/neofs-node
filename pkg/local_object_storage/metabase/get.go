@@ -44,33 +44,6 @@ func (r GetRes) Header() *objectSDK.Object {
 	return r.hdr
 }
 
-// Get reads the object from DB.
-func Get(db *DB, addr oid.Address) (*objectSDK.Object, error) {
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-
-	r, err := db.Get(getPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Header(), nil
-}
-
-// GetRaw reads physically stored object from DB.
-func GetRaw(db *DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-	getPrm.WithRaw(raw)
-
-	r, err := db.Get(getPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Header(), nil
-}
-
 // Get returns object header for specified address.
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.

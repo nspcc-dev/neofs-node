@@ -47,7 +47,10 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 			}
 		}
 
-		blobovniczaID, err := meta.IsSmall(s.metaBase, prm.addr[i])
+		var sPrm meta.IsSmallPrm
+		sPrm.WithAddress(prm.addr[i])
+
+		res, err := s.metaBase.IsSmall(sPrm)
 		if err != nil {
 			s.log.Debug("can't get blobovniczaID from metabase",
 				zap.Stringer("object", prm.addr[i]),
@@ -56,12 +59,15 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 			continue
 		}
 
-		if blobovniczaID != nil {
-			smalls[prm.addr[i]] = blobovniczaID
+		if res.BlobovniczaID() != nil {
+			smalls[prm.addr[i]] = res.BlobovniczaID()
 		}
 	}
 
-	err := meta.Delete(s.metaBase, prm.addr...)
+	var delPrm meta.DeletePrm
+	delPrm.WithAddresses(prm.addr...)
+
+	_, err := s.metaBase.Delete(delPrm)
 	if err != nil {
 		return DeleteRes{}, err // stop on metabase error ?
 	}

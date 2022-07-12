@@ -35,21 +35,6 @@ func (p ExistsRes) Exists() bool {
 	return p.exists
 }
 
-// Exists checks if object is presented in DB.
-//
-// See DB.Exists docs.
-func Exists(db *DB, addr oid.Address) (bool, error) {
-	var existsPrm ExistsPrm
-	existsPrm.WithAddress(addr)
-
-	r, err := db.Exists(existsPrm)
-	if err != nil {
-		return false, err
-	}
-
-	return r.Exists(), nil
-}
-
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
 //

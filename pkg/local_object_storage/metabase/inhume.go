@@ -78,19 +78,6 @@ func (p *InhumePrm) WithForceGCMark() {
 	}
 }
 
-// Inhume inhumes the object by specified address.
-//
-// tomb should not be nil.
-func Inhume(db *DB, target, tomb oid.Address) error {
-	var inhumePrm InhumePrm
-	inhumePrm.WithAddresses(target)
-	inhumePrm.WithTombstoneAddress(tomb)
-
-	_, err := db.Inhume(inhumePrm)
-
-	return err
-}
-
 var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // ErrLockObjectRemoval is returned when inhume operation is being

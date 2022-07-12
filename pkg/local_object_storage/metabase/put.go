@@ -53,19 +53,6 @@ var (
 	ErrIncorrectRootObject      = errors.New("invalid root object")
 )
 
-// Put saves the object in DB.
-//
-// See DB.Put docs.
-func Put(db *DB, obj *objectSDK.Object, id *blobovnicza.ID) error {
-	var putPrm PutPrm
-	putPrm.WithObject(obj)
-	putPrm.WithBlobovniczaID(id)
-
-	_, err := db.Put(putPrm)
-
-	return err
-}
-
 // Put saves object header in metabase. Object payload expected to be cut.
 // Big objects have nil blobovniczaID.
 //

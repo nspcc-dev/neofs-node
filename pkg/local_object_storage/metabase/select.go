@@ -58,20 +58,6 @@ func (r SelectRes) AddressList() []oid.Address {
 	return r.addrList
 }
 
-// Select selects the objects from DB with filtering.
-func Select(db *DB, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
-	var selectPrm SelectPrm
-	selectPrm.WithFilters(fs)
-	selectPrm.WithContainerID(cnr)
-
-	r, err := db.Select(selectPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.AddressList(), nil
-}
-
 // Select returns list of addresses of objects that match search filters.
 func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
 	if blindlyProcess(prm.filters) {

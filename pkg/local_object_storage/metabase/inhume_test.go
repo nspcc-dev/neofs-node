@@ -22,13 +22,13 @@ func TestDB_Inhume(t *testing.T) {
 	err := putBig(db, raw)
 	require.NoError(t, err)
 
-	err = meta.Inhume(db, object.AddressOf(raw), tombstoneID)
+	err = metaInhume(db, object.AddressOf(raw), tombstoneID)
 	require.NoError(t, err)
 
-	_, err = meta.Exists(db, object.AddressOf(raw))
+	_, err = metaExists(db, object.AddressOf(raw))
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	_, err = meta.Get(db, object.AddressOf(raw))
+	_, err = metaGet(db, object.AddressOf(raw), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 }
 
@@ -109,4 +109,13 @@ func TestInhumeLocked(t *testing.T) {
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)
+}
+
+func metaInhume(db *meta.DB, target, tomb oid.Address) error {
+	var inhumePrm meta.InhumePrm
+	inhumePrm.WithAddresses(target)
+	inhumePrm.WithTombstoneAddress(tomb)
+
+	_, err := db.Inhume(inhumePrm)
+	return err
 }
