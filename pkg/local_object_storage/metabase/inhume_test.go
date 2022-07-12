@@ -45,21 +45,21 @@ func TestInhumeTombOnTomb(t *testing.T) {
 		existsPrm meta.ExistsPrm
 	)
 
-	inhumePrm.WithAddresses(addr1)
-	inhumePrm.WithTombstoneAddress(addr2)
+	inhumePrm.SetAddresses(addr1)
+	inhumePrm.SetTombstoneAddress(addr2)
 
 	// inhume addr1 via addr2
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	existsPrm.WithAddress(addr1)
+	existsPrm.SetAddress(addr1)
 
 	// addr1 should become inhumed {addr1:addr2}
 	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	inhumePrm.WithAddresses(addr3)
-	inhumePrm.WithTombstoneAddress(addr1)
+	inhumePrm.SetAddresses(addr3)
+	inhumePrm.SetTombstoneAddress(addr1)
 
 	// try to inhume addr3 via addr1
 	_, err = db.Inhume(inhumePrm)
@@ -72,20 +72,20 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
-	existsPrm.WithAddress(addr3)
+	existsPrm.SetAddress(addr3)
 
 	// addr3 should be inhumed {addr3: addr1}
 	_, err = db.Exists(existsPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	inhumePrm.WithAddresses(addr1)
-	inhumePrm.WithTombstoneAddress(oidtest.Address())
+	inhumePrm.SetAddresses(addr1)
+	inhumePrm.SetTombstoneAddress(oidtest.Address())
 
 	// try to inhume addr1 (which is already a tombstone in graveyard)
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	existsPrm.WithAddress(addr1)
+	existsPrm.SetAddress(addr1)
 
 	// record with addr1 key should not appear in graveyard
 	// (tomb can not be inhumed) but should be kept as object
@@ -103,7 +103,7 @@ func TestInhumeLocked(t *testing.T) {
 	require.NoError(t, err)
 
 	var prm meta.InhumePrm
-	prm.WithAddresses(locked)
+	prm.SetAddresses(locked)
 
 	_, err = db.Inhume(prm)
 
@@ -113,8 +113,8 @@ func TestInhumeLocked(t *testing.T) {
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {
 	var inhumePrm meta.InhumePrm
-	inhumePrm.WithAddresses(target)
-	inhumePrm.WithTombstoneAddress(tomb)
+	inhumePrm.SetAddresses(target)
+	inhumePrm.SetTombstoneAddress(tomb)
 
 	_, err := db.Inhume(inhumePrm)
 	return err

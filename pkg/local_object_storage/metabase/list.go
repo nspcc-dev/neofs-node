@@ -26,15 +26,15 @@ type ListPrm struct {
 	cursor *Cursor
 }
 
-// WithCount sets maximum amount of addresses that ListWithCursor should return.
-func (l *ListPrm) WithCount(count uint32) {
+// SetCount sets maximum amount of addresses that ListWithCursor should return.
+func (l *ListPrm) SetCount(count uint32) {
 	l.count = int(count)
 }
 
-// WithCursor sets cursor for ListWithCursor operation. For initial request
+// SetCursor sets cursor for ListWithCursor operation. For initial request
 // ignore this param or use nil value. For consecutive requests, use value
 // from ListRes.
-func (l *ListPrm) WithCursor(cursor *Cursor) {
+func (l *ListPrm) SetCursor(cursor *Cursor) {
 	l.cursor = cursor
 }
 

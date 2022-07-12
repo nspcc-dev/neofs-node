@@ -21,13 +21,11 @@ type DeletePrm struct {
 // DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct{}
 
-// WithAddresses is a Delete option to set the addresses of the objects to delete.
+// SetAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addrs ...oid.Address) {
-	if p != nil {
-		p.addrs = addrs
-	}
+func (p *DeletePrm) SetAddresses(addrs ...oid.Address) {
+	p.addrs = addrs
 }
 
 type referenceNumber struct {

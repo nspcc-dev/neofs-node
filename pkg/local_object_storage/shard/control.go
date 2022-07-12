@@ -121,8 +121,8 @@ func (s *Shard) refillMetabase() error {
 
 			var inhumePrm meta.InhumePrm
 
-			inhumePrm.WithTombstoneAddress(tombAddr)
-			inhumePrm.WithAddresses(tombMembers...)
+			inhumePrm.SetTombstoneAddress(tombAddr)
+			inhumePrm.SetAddresses(tombMembers...)
 
 			_, err = s.metaBase.Inhume(inhumePrm)
 			if err != nil {
@@ -146,8 +146,8 @@ func (s *Shard) refillMetabase() error {
 		}
 
 		var mPrm meta.PutPrm
-		mPrm.WithObject(obj)
-		mPrm.WithBlobovniczaID(blzID)
+		mPrm.SetObject(obj)
+		mPrm.SetBlobovniczaID(blzID)
 
 		_, err := s.metaBase.Put(mPrm)
 		if err != nil && !meta.IsErrRemoved(err) {

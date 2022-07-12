@@ -239,8 +239,8 @@ func (c *cache) writeObject(obj *object.Object, metaOnly bool) error {
 	}
 
 	var pPrm meta.PutPrm
-	pPrm.WithObject(obj)
-	pPrm.WithBlobovniczaID(id)
+	pPrm.SetObject(obj)
+	pPrm.SetBlobovniczaID(id)
 
 	_, err := c.metabase.Put(pPrm)
 	return err

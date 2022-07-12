@@ -128,7 +128,7 @@ func TestDB_Get(t *testing.T) {
 		obj = oidtest.Address()
 
 		var prm meta.InhumePrm
-		prm.WithAddresses(obj)
+		prm.SetAddresses(obj)
 
 		_, err = db.Inhume(prm)
 		require.NoError(t, err)
@@ -189,11 +189,11 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 	b.ResetTimer()
 
 	var getPrm meta.GetPrm
-	getPrm.WithAddress(addrs[len(addrs)/2])
+	getPrm.SetAddress(addrs[len(addrs)/2])
 
 	for i := 0; i < b.N; i++ {
 		for _, addr := range addrs {
-			getPrm.WithAddress(addr)
+			getPrm.SetAddress(addr)
 
 			res, err := db.Get(getPrm)
 			require.NoError(b, err)
@@ -206,8 +206,8 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	var prm meta.GetPrm
-	prm.WithAddress(addr)
-	prm.WithRaw(raw)
+	prm.SetAddress(addr)
+	prm.SetRaw(raw)
 
 	res, err := db.Get(prm)
 	return res.Header(), err

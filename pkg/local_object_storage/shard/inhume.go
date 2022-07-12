@@ -74,17 +74,17 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 	}
 
 	var metaPrm meta.InhumePrm
-	metaPrm.WithAddresses(prm.target...)
-	metaPrm.WithLockObjectHandling()
+	metaPrm.SetAddresses(prm.target...)
+	metaPrm.SetLockObjectHandling()
 
 	if prm.tombstone != nil {
-		metaPrm.WithTombstoneAddress(*prm.tombstone)
+		metaPrm.SetTombstoneAddress(*prm.tombstone)
 	} else {
-		metaPrm.WithGCMark()
+		metaPrm.SetGCMark()
 	}
 
 	if prm.forceRemoval {
-		metaPrm.WithForceGCMark()
+		metaPrm.SetForceGCMark()
 	}
 
 	res, err := s.metaBase.Inhume(metaPrm)

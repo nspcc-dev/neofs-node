@@ -65,7 +65,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 	}
 
 	var delPrm meta.DeletePrm
-	delPrm.WithAddresses(prm.addr...)
+	delPrm.SetAddresses(prm.addr...)
 
 	_, err := s.metaBase.Delete(delPrm)
 	if err != nil {

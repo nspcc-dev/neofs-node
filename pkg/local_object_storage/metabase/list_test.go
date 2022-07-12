@@ -46,7 +46,7 @@ func listWithCursorPrepareDB(b *testing.B) *meta.DB {
 
 func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 	var prm meta.ListPrm
-	prm.WithCount(uint32(batchSize))
+	prm.SetCount(uint32(batchSize))
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -56,11 +56,11 @@ func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 			if err != meta.ErrEndOfListing {
 				b.Fatalf("error: %v", err)
 			}
-			prm.WithCursor(nil)
+			prm.SetCursor(nil)
 		} else if ln := len(res.AddressList()); ln != batchSize {
 			b.Fatalf("invalid batch size: %d", ln)
 		} else {
-			prm.WithCursor(res.Cursor())
+			prm.SetCursor(res.Cursor())
 		}
 	}
 }
@@ -225,8 +225,8 @@ func sortAddresses(addr []oid.Address) []oid.Address {
 
 func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]oid.Address, *meta.Cursor, error) {
 	var listPrm meta.ListPrm
-	listPrm.WithCount(count)
-	listPrm.WithCursor(cursor)
+	listPrm.SetCount(count)
+	listPrm.SetCursor(cursor)
 
 	r, err := db.ListWithCursor(listPrm)
 	return r.AddressList(), r.Cursor(), err

@@ -236,8 +236,8 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 
 	var inhumePrm meta.InhumePrm
 
-	inhumePrm.WithAddresses(expired...)
-	inhumePrm.WithGCMark()
+	inhumePrm.SetAddresses(expired...)
+	inhumePrm.SetGCMark()
 
 	// inhume the collected objects
 	_, err = s.metaBase.Inhume(inhumePrm)
@@ -349,8 +349,8 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 		tsAddrs = append(tsAddrs, ts.Tombstone())
 	}
 
-	pInhume.WithGCMark()
-	pInhume.WithAddresses(tsAddrs...)
+	pInhume.SetGCMark()
+	pInhume.SetAddresses(tsAddrs...)
 
 	// inhume tombstones
 	_, err := s.metaBase.Inhume(pInhume)
@@ -383,8 +383,8 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	}
 
 	var pInhume meta.InhumePrm
-	pInhume.WithAddresses(lockers...)
-	pInhume.WithGCMark()
+	pInhume.SetAddresses(lockers...)
+	pInhume.SetGCMark()
 
 	_, err = s.metaBase.Inhume(pInhume)
 	if err != nil {

@@ -64,8 +64,8 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	var inhumePrm meta.InhumePrm
-	inhumePrm.WithAddresses(object.AddressOf(obj1))
-	inhumePrm.WithGCMark()
+	inhumePrm.SetAddresses(object.AddressOf(obj1))
+	inhumePrm.SetGCMark()
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -134,14 +134,14 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	// inhume with tombstone
 	addrTombstone := oidtest.Address()
 
-	inhumePrm.WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
-	inhumePrm.WithTombstoneAddress(addrTombstone)
+	inhumePrm.SetAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
+	inhumePrm.SetTombstoneAddress(addrTombstone)
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	inhumePrm.WithAddresses(object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.WithGCMark()
+	inhumePrm.SetAddresses(object.AddressOf(obj3), object.AddressOf(obj4))
+	inhumePrm.SetGCMark()
 
 	// inhume with GC mark
 	_, err = db.Inhume(inhumePrm)
@@ -219,10 +219,10 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	addrTombstone := oidtest.Address()
 
 	var inhumePrm meta.InhumePrm
-	inhumePrm.WithAddresses(
+	inhumePrm.SetAddresses(
 		object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.WithTombstoneAddress(addrTombstone)
+	inhumePrm.SetTombstoneAddress(addrTombstone)
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -314,10 +314,10 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	require.NoError(t, err)
 
 	var inhumePrm meta.InhumePrm
-	inhumePrm.WithAddresses(
+	inhumePrm.SetAddresses(
 		object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.WithGCMark()
+	inhumePrm.SetGCMark()
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -400,8 +400,8 @@ func TestDB_DropGraves(t *testing.T) {
 	addrTombstone := oidtest.Address()
 
 	var inhumePrm meta.InhumePrm
-	inhumePrm.WithAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
-	inhumePrm.WithTombstoneAddress(addrTombstone)
+	inhumePrm.SetAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
+	inhumePrm.SetTombstoneAddress(addrTombstone)
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)

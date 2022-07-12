@@ -15,11 +15,9 @@ type ToMoveItPrm struct {
 // ToMoveItRes groups the resulting values of ToMoveIt operation.
 type ToMoveItRes struct{}
 
-// WithAddress sets address of the object to move into another shard.
-func (p *ToMoveItPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+// SetAddress sets address of the object to move into another shard.
+func (p *ToMoveItPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
 // DoNotMovePrm groups the parameters of DoNotMove operation.
@@ -30,11 +28,9 @@ type DoNotMovePrm struct {
 // DoNotMoveRes groups the resulting values of DoNotMove operation.
 type DoNotMoveRes struct{}
 
-// WithAddress sets address of the object to prevent moving into another shard.
-func (p *DoNotMovePrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+// SetAddress sets address of the object to prevent moving into another shard.
+func (p *DoNotMovePrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
 // MovablePrm groups the parameters of Movable operation.

@@ -77,14 +77,14 @@ func TestDB_IterateCoveredByTombstones(t *testing.T) {
 	var prm meta.InhumePrm
 	var err error
 
-	prm.WithAddresses(protected1, protected2, protectedLocked)
-	prm.WithTombstoneAddress(ts)
+	prm.SetAddresses(protected1, protected2, protectedLocked)
+	prm.SetTombstoneAddress(ts)
 
 	_, err = db.Inhume(prm)
 	require.NoError(t, err)
 
-	prm.WithAddresses(garbage)
-	prm.WithGCMark()
+	prm.SetAddresses(garbage)
+	prm.SetGCMark()
 
 	_, err = db.Inhume(prm)
 	require.NoError(t, err)
