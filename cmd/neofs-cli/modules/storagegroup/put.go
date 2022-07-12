@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"strconv"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -16,7 +17,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -61,11 +61,18 @@ func putSG(cmd *cobra.Command, _ []string) {
 	lifetime, err := strconv.ParseUint(lifetimeStr, 10, 64)
 	common.ExitOnErr(cmd, "could not parse lifetime: %w", err)
 
-	members := make([]oidSDK.ID, len(sgMembers))
+	members := make([]oid.ID, len(sgMembers))
+	uniqueFilter := make(map[oid.ID]struct{}, len(sgMembers))
 
 	for i := range sgMembers {
-		err := members[i].DecodeString(sgMembers[i])
+		err = members[i].DecodeString(sgMembers[i])
 		common.ExitOnErr(cmd, "could not parse object ID: %w", err)
+
+		if _, alreadyExists := uniqueFilter[members[i]]; alreadyExists {
+			common.ExitOnErr(cmd, "", fmt.Errorf("%s member in not unique", members[i]))
+		}
+
+		uniqueFilter[members[i]] = struct{}{}
 	}
 
 	var (
