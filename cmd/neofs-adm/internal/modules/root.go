@@ -50,8 +50,8 @@ func Execute() error {
 }
 
 func entryPoint(cmd *cobra.Command, args []string) error {
-	printVersion, err := cmd.Flags().GetBool("version")
-	if err == nil && printVersion {
+	printVersion, _ := cmd.Flags().GetBool("version")
+	if printVersion {
 		cmd.Print(misc.BuildInfo("NeoFS Adm"))
 		return nil
 	}
