@@ -124,10 +124,12 @@ contracts:
     zhivete: f584699bc2ff457d339fb09f16217042c1a42101 # Optional: override address of zhivete contract in sidechain
 
 profiler:
+  enabled: true
   address: localhost:6060  # Endpoint for application pprof profiling; disabled by default
   shutdown_timeout: 30s    # Timeout for profiling HTTP server graceful shutdown
 
 metrics:
+  enabled: true
   address: localhost:9090  # Endpoint for application prometheus metrics; disabled by default
   shutdown_timeout: 30s    # Timeout for metrics HTTP server graceful shutdown
 

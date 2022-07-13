@@ -17,6 +17,7 @@ func TestMetricsSection(t *testing.T) {
 
 		require.Equal(t, metricsconfig.ShutdownTimeoutDefault, to)
 		require.Equal(t, metricsconfig.AddressDefault, addr)
+		require.False(t, metricsconfig.Enabled(configtest.EmptyConfig()))
 	})
 
 	const path = "../../../../config/example/node"
@@ -27,6 +28,7 @@ func TestMetricsSection(t *testing.T) {
 
 		require.Equal(t, 15*time.Second, to)
 		require.Equal(t, "localhost:9090", addr)
+		require.True(t, metricsconfig.Enabled(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
