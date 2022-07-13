@@ -37,10 +37,10 @@ func newConfig(path string) (*viper.Viper, error) {
 func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("logger.level", "info")
 
-	cfg.SetDefault("profiler.address", "localhost:9090")
+	cfg.SetDefault("profiler.address", "localhost:6060")
 	cfg.SetDefault("profiler.shutdown_timeout", "30s")
 
-	cfg.SetDefault("metrics.address", "localhost:6060")
+	cfg.SetDefault("metrics.address", "localhost:9090")
 	cfg.SetDefault("metrics.shutdown_timeout", "30s")
 
 	cfg.SetDefault("without_mainnet", false)
