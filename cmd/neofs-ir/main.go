@@ -109,8 +109,8 @@ func main() {
 
 func initHTTPServers(cfg *viper.Viper, log *logger.Logger) []*httputil.Server {
 	items := []struct {
-		msg       string
 		cfgPrefix string
+		oldPrefix string
 		handler   func() http.Handler
 	}{
 		{"pprof", "profiler", httputil.Handler},
@@ -120,22 +120,41 @@ func initHTTPServers(cfg *viper.Viper, log *logger.Logger) []*httputil.Server {
 	httpServers := make([]*httputil.Server, 0, len(items))
 
 	for _, item := range items {
+		var printDeprecatedMsg bool
 		if !cfg.GetBool(item.cfgPrefix + ".enabled") {
-			log.Info(item.msg + " is disabled, skip")
-			continue
+			if !cfg.GetBool(item.oldPrefix + ".enabled") {
+				log.Info(item.cfgPrefix + " is disabled, skip")
+				continue
+			}
+			printDeprecatedMsg = true
 		}
 
+		// The default value is set only for the deprecated prefix, so empty string can be returned.
 		addr := cfg.GetString(item.cfgPrefix + ".address")
+		if addr == "" {
+			addr = cfg.GetString(item.oldPrefix + ".address")
+			printDeprecatedMsg = true
+		}
 
 		var prm httputil.Prm
 
 		prm.Address = addr
 		prm.Handler = item.handler()
 
+		timeout := cfg.GetDuration(item.cfgPrefix + ".shutdown_timeout")
+		if timeout == 0 {
+			timeout = cfg.GetDuration(item.oldPrefix + ".shutdown_timeout")
+			printDeprecatedMsg = true
+		}
+
+		if printDeprecatedMsg {
+			log.Info(item.oldPrefix + " config section is deprecated, use " + item.cfgPrefix)
+		}
+
 		httpServers = append(httpServers,
 			httputil.New(prm,
 				httputil.WithShutdownTimeout(
-					cfg.GetDuration(item.cfgPrefix+".shutdown_timeout"),
+					timeout,
 				),
 			),
 		)

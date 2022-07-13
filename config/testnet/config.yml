@@ -23,7 +23,7 @@ node:
   attribute_0: Deployed:SelfHosted
   attribute_1: User-Agent:NeoFS\/0.27
 
-metrics:
+prometheus:
   enabled: true
   address: localhost:9090
   shutdown_timeout: 15s

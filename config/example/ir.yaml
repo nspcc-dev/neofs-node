@@ -123,12 +123,12 @@ contracts:
     yest: cdbca5cb5d48a4472923844d0e3ee6328cf86d38    # Optional: override address of yest contract in sidechain
     zhivete: f584699bc2ff457d339fb09f16217042c1a42101 # Optional: override address of zhivete contract in sidechain
 
-profiler:
+pprof:
   enabled: true
   address: localhost:6060  # Endpoint for application pprof profiling; disabled by default
   shutdown_timeout: 30s    # Timeout for profiling HTTP server graceful shutdown
 
-metrics:
+prometheus:
   enabled: true
   address: localhost:9090  # Endpoint for application prometheus metrics; disabled by default
   shutdown_timeout: 30s    # Timeout for metrics HTTP server graceful shutdown

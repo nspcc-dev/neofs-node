@@ -39,7 +39,7 @@ storage:
 logger:
   level: info
 
-metrics:
+prometheus:
   enabled: true
   address: localhost:9090
   shutdown_timeout: 15s
