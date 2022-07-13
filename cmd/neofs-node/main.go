@@ -110,9 +110,7 @@ func bootUp(c *cfg) {
 
 func wait(c *cfg) {
 	c.log.Info("application started",
-		zap.String("version", misc.Version),
-		zap.String("debug", misc.Debug),
-	)
+		zap.String("version", misc.Version))
 
 	select {
 	case <-c.ctx.Done(): // graceful shutdown
