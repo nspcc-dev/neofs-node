@@ -2,11 +2,11 @@ logger:
   level: debug  # logger level: one of "debug", "info" (default), "warn", "error", "dpanic", "panic", "fatal"
 
 profiler:
-  address: 127.0.0.1:6060  # endpoint for Node profiling
+  address: localhost:6060  # endpoint for Node profiling
   shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
 
 metrics:
-  address: 127.0.0.1:9090  # endpoint for Node metrics
+  address: localhost:9090  # endpoint for Node metrics
   shutdown_timeout: 15s  # timeout for metrics HTTP server graceful shutdown
 
 node:
@@ -65,7 +65,7 @@ control:
     - 035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11
     - 028f42cfcb74499d7b15b35d9bff260a1c8d27de4f446a627406a382d8961486d6
   grpc:
-    endpoint: 127.0.0.1:8090  # endpoint that is listened by the Control Service
+    endpoint: localhost:8090  # endpoint that is listened by the Control Service
 
 contracts:  # side chain NEOFS contract script hashes; optional, override values retrieved from NNS contract
   balance: 5263abba1abedbf79bb57f3e40b50b4425d2d6cd

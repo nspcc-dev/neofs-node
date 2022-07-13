@@ -24,7 +24,7 @@ node:
   attribute_1: User-Agent:NeoFS\/0.27
 
 metrics:
-  address: 127.0.0.1:9090
+  address: localhost:9090
   shutdown_timeout: 15s
 
 storage:

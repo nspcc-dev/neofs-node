@@ -3,11 +3,11 @@
     "level": "debug"
   },
   "profiler": {
-    "address": "127.0.0.1:6060",
+    "address": "localhost:6060",
     "shutdown_timeout": "15s"
   },
   "metrics": {
-    "address": "127.0.0.1:9090",
+    "address": "localhost:9090",
     "shutdown_timeout": "15s"
   },
   "node": {
@@ -79,7 +79,7 @@
       "028f42cfcb74499d7b15b35d9bff260a1c8d27de4f446a627406a382d8961486d6"
     ],
     "grpc": {
-      "endpoint": "127.0.0.1:8090"
+      "endpoint": "localhost:8090"
     }
   },
   "contracts": {

@@ -26,7 +26,7 @@ func TestProfilerSection(t *testing.T) {
 		addr := profilerconfig.Address(c)
 
 		require.Equal(t, 15*time.Second, to)
-		require.Equal(t, "127.0.0.1:6060", addr)
+		require.Equal(t, "localhost:6060", addr)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

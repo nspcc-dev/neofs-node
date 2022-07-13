@@ -40,7 +40,7 @@ logger:
   level: info
 
 metrics:
-  address: 127.0.0.1:9090
+  address: localhost:9090
   shutdown_timeout: 15s
 
 object:
