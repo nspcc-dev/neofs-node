@@ -34,12 +34,3 @@ func (s *Shard) ContainerSize(prm ContainerSizePrm) (ContainerSizeRes, error) {
 		size: size,
 	}, nil
 }
-
-func ContainerSize(s *Shard, cnr cid.ID) (uint64, error) {
-	res, err := s.ContainerSize(ContainerSizePrm{cnr: cnr})
-	if err != nil {
-		return 0, err
-	}
-
-	return res.Size(), nil
-}

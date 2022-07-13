@@ -103,15 +103,6 @@ func (s *Shard) ListContainers(_ ListContainersPrm) (ListContainersRes, error) {
 	}, nil
 }
 
-func ListContainers(s *Shard) ([]cid.ID, error) {
-	res, err := s.ListContainers(ListContainersPrm{})
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Containers(), nil
-}
-
 // ListWithCursor lists physical objects available in shard starting from
 // cursor. Includes regular, tombstone and storage group objects. Does not
 // include inhumed objects. Use cursor value from response for consecutive requests.
@@ -131,22 +122,4 @@ func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error)
 		addrList: res.AddressList(),
 		cursor:   res.Cursor(),
 	}, nil
-}
-
-// ListWithCursor lists physical objects available in shard starting from
-// cursor. Includes regular, tombstone and storage group objects. Does not
-// include inhumed objects. Use cursor value from response for consecutive requests.
-//
-// Returns ErrEndOfListing if there are no more objects to return or count
-// parameter set to zero.
-func ListWithCursor(s *Shard, count uint32, cursor *Cursor) ([]oid.Address, *Cursor, error) {
-	var prm ListWithCursorPrm
-	prm.WithCount(count)
-	prm.WithCursor(cursor)
-	res, err := s.ListWithCursor(prm)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return res.AddressList(), res.Cursor(), nil
 }
