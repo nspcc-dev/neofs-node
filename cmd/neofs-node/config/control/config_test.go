@@ -26,7 +26,7 @@ func TestControlSection(t *testing.T) {
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, pubs, controlconfig.AuthorizedKeys(c))
-		require.Equal(t, "127.0.0.1:8090", controlconfig.GRPC(c).Endpoint())
+		require.Equal(t, "localhost:8090", controlconfig.GRPC(c).Endpoint())
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

@@ -31,7 +31,7 @@ control:
     - 035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11
     - 028f42cfcb74499d7b15b35d9bff260a1c8d27de4f446a627406a382d8961486d6
   grpc:
-    endpoint: 127.0.0.1:8090  # Endpoint that is listened by the control service; disabled by default
+    endpoint: localhost:8090  # Endpoint that is listened by the control service; disabled by default
 
 governance:
   disable: false # Disable synchronization of sidechain committee and mainchain role management contract; ignore if mainchain is disabled
@@ -124,11 +124,11 @@ contracts:
     zhivete: f584699bc2ff457d339fb09f16217042c1a42101 # Optional: override address of zhivete contract in sidechain
 
 profiler:
-  address: 127.0.0.1:6060  # Endpoint for application pprof profiling; disabled by default
+  address: localhost:6060  # Endpoint for application pprof profiling; disabled by default
   shutdown_timeout: 30s    # Timeout for profiling HTTP server graceful shutdown
 
 metrics:
-  address: 127.0.0.1:9090  # Endpoint for application prometheus metrics; disabled by default
+  address: localhost:9090  # Endpoint for application prometheus metrics; disabled by default
   shutdown_timeout: 30s    # Timeout for metrics HTTP server graceful shutdown
 
 settlement:

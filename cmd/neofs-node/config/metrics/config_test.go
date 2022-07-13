@@ -26,7 +26,7 @@ func TestMetricsSection(t *testing.T) {
 		addr := metricsconfig.Address(c)
 
 		require.Equal(t, 15*time.Second, to)
-		require.Equal(t, "127.0.0.1:9090", addr)
+		require.Equal(t, "localhost:9090", addr)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

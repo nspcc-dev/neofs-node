@@ -41,8 +41,8 @@ const (
 )
 
 const (
-	defaultControlEndpoint = "127.0.0.1:8090"
-	defaultDataEndpoint    = "127.0.0.1"
+	defaultControlEndpoint = "localhost:8090"
+	defaultDataEndpoint    = "localhost"
 )
 
 // RootCmd is a root command of config section.
