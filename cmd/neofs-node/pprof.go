@@ -9,14 +9,14 @@ import (
 )
 
 func initProfiler(c *cfg) {
-	addr := profilerconfig.Address(c.appCfg)
-	if addr == "" {
+	if !profilerconfig.Enabled(c.appCfg) {
+		c.log.Info("pprof is disabled")
 		return
 	}
 
 	var prm httputil.Prm
 
-	prm.Address = addr
+	prm.Address = profilerconfig.Address(c.appCfg)
 	prm.Handler = httputil.Handler()
 
 	srv := httputil.New(prm,

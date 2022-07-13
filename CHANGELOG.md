@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Added
 
+- Profiler and metrics services now should be enabled with a separate flag
+
 ### Changed
 
 - Require SG members to be unique (#1490)

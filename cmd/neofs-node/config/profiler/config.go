@@ -13,8 +13,16 @@ const (
 	ShutdownTimeoutDefault = 30 * time.Second
 
 	// AddressDefault is a default value for profiler HTTP service endpoint.
-	AddressDefault = ""
+	AddressDefault = "localhost:6060"
 )
+
+// Enabled returns the  value of "enabled" config parameter
+// from "profiler" section.
+//
+// Returns false if the value is missing or invalid.
+func Enabled(c *config.Config) bool {
+	return config.BoolSafe(c.Sub(subsection), "enabled")
+}
 
 // ShutdownTimeout returns the value of "shutdown_timeout" config parameter
 // from "profiler" section.

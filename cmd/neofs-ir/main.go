@@ -62,7 +62,7 @@ func main() {
 
 	intErr := make(chan error) // internal inner ring errors
 
-	httpServers := initHTTPServers(cfg)
+	httpServers := initHTTPServers(cfg, log)
 
 	innerRing, err := innerring.New(ctx, log, cfg, intErr)
 	exitErr(err)
@@ -107,22 +107,25 @@ func main() {
 	log.Info("application stopped")
 }
 
-func initHTTPServers(cfg *viper.Viper) []*httputil.Server {
+func initHTTPServers(cfg *viper.Viper, log *logger.Logger) []*httputil.Server {
 	items := []struct {
+		msg       string
 		cfgPrefix string
 		handler   func() http.Handler
 	}{
-		{"profiler", httputil.Handler},
-		{"metrics", promhttp.Handler},
+		{"pprof", "profiler", httputil.Handler},
+		{"prometheus", "metrics", promhttp.Handler},
 	}
 
 	httpServers := make([]*httputil.Server, 0, len(items))
 
 	for _, item := range items {
-		addr := cfg.GetString(item.cfgPrefix + ".address")
-		if addr == "" {
+		if !cfg.GetBool(item.cfgPrefix + ".enabled") {
+			log.Info(item.msg + " is disabled, skip")
 			continue
 		}
+
+		addr := cfg.GetString(item.cfgPrefix + ".address")
 
 		var prm httputil.Prm
 

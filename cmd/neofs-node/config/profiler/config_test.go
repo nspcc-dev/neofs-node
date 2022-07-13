@@ -17,6 +17,7 @@ func TestProfilerSection(t *testing.T) {
 
 		require.Equal(t, profilerconfig.ShutdownTimeoutDefault, to)
 		require.Equal(t, profilerconfig.AddressDefault, addr)
+		require.False(t, profilerconfig.Enabled(configtest.EmptyConfig()))
 	})
 
 	const path = "../../../../config/example/node"
@@ -27,6 +28,7 @@ func TestProfilerSection(t *testing.T) {
 
 		require.Equal(t, 15*time.Second, to)
 		require.Equal(t, "localhost:6060", addr)
+		require.True(t, profilerconfig.Enabled(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

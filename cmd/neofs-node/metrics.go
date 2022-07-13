@@ -10,14 +10,13 @@ import (
 )
 
 func initMetrics(c *cfg) {
-	addr := metricsconfig.Address(c.appCfg)
-	if addr == "" {
+	if !metricsconfig.Enabled(c.appCfg) {
 		return
 	}
 
 	var prm httputil.Prm
 
-	prm.Address = addr
+	prm.Address = metricsconfig.Address(c.appCfg)
 	prm.Handler = promhttp.Handler()
 
 	srv := httputil.New(prm,
