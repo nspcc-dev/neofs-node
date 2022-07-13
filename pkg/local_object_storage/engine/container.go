@@ -71,7 +71,10 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRe
 	}
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
-		size, err := shard.ContainerSize(sh.Shard, prm.cnr)
+		var csPrm shard.ContainerSizePrm
+		csPrm.WithContainerID(prm.cnr)
+
+		csRes, err := sh.Shard.ContainerSize(csPrm)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", prm.cnr),
@@ -79,7 +82,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRe
 			return false
 		}
 
-		res.size += size
+		res.size += csRes.Size()
 
 		return false
 	})
@@ -119,16 +122,16 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 	uniqueIDs := make(map[string]cid.ID)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
-		cnrs, err := shard.ListContainers(sh.Shard)
+		res, err := sh.Shard.ListContainers(shard.ListContainersPrm{})
 		if err != nil {
 			e.reportShardError(sh, "can't get list of containers", err)
 			return false
 		}
 
-		for i := range cnrs {
-			id := cnrs[i].EncodeToString()
+		for _, cnr := range res.Containers() {
+			id := cnr.EncodeToString()
 			if _, ok := uniqueIDs[id]; !ok {
-				uniqueIDs[id] = cnrs[i]
+				uniqueIDs[id] = cnr
 			}
 		}
 
