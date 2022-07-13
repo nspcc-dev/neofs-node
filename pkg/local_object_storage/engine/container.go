@@ -72,7 +72,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRe
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		var csPrm shard.ContainerSizePrm
-		csPrm.WithContainerID(prm.cnr)
+		csPrm.SetContainerID(prm.cnr)
 
 		csRes, err := sh.Shard.ContainerSize(csPrm)
 		if err != nil {

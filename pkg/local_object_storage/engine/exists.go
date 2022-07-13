@@ -8,7 +8,7 @@ import (
 
 func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 	var shPrm shard.ExistsPrm
-	shPrm.WithAddress(addr)
+	shPrm.SetAddress(addr)
 	alreadyRemoved := false
 	exists := false
 

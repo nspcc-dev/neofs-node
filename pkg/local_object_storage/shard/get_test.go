@@ -36,12 +36,12 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
-		putPrm.WithObject(obj)
+		putPrm.SetObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.WithAddress(object.AddressOf(obj))
+		getPrm.SetAddress(object.AddressOf(obj))
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
@@ -54,12 +54,12 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		obj.SetID(oidtest.ID())
 		addPayload(obj, 1<<20) // big obj
 
-		putPrm.WithObject(obj)
+		putPrm.SetObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.WithAddress(object.AddressOf(obj))
+		getPrm.SetAddress(object.AddressOf(obj))
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
@@ -82,18 +82,18 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
 
-		putPrm.WithObject(child)
+		putPrm.SetObject(child)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.WithAddress(object.AddressOf(child))
+		getPrm.SetAddress(object.AddressOf(child))
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.True(t, binaryEqual(child, res.Object()))
 
-		getPrm.WithAddress(object.AddressOf(parent))
+		getPrm.SetAddress(object.AddressOf(parent))
 
 		_, err = testGet(t, sh, getPrm, hasWriteCache)
 

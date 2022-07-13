@@ -47,10 +47,10 @@ func TestHeadRaw(t *testing.T) {
 		defer e.Close()
 
 		var putPrmLeft shard.PutPrm
-		putPrmLeft.WithObject(child)
+		putPrmLeft.SetObject(child)
 
 		var putPrmLink shard.PutPrm
-		putPrmLink.WithObject(link)
+		putPrmLink.SetObject(link)
 
 		// put most left object in one shard
 		_, err := s1.Put(putPrmLeft)

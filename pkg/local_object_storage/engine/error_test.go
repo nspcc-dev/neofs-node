@@ -70,7 +70,7 @@ func TestErrorReporting(t *testing.T) {
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		var prm shard.PutPrm
-		prm.WithObject(obj)
+		prm.SetObject(obj)
 		e.mtx.RLock()
 		_, err := e.shards[id[0].String()].Shard.Put(prm)
 		e.mtx.RUnlock()
@@ -100,7 +100,7 @@ func TestErrorReporting(t *testing.T) {
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		var prm shard.PutPrm
-		prm.WithObject(obj)
+		prm.SetObject(obj)
 		e.mtx.RLock()
 		_, err := e.shards[id[0].String()].Put(prm)
 		e.mtx.RUnlock()
@@ -150,7 +150,7 @@ func TestBlobstorFailback(t *testing.T) {
 		obj.SetPayload(make([]byte, size))
 
 		var prm shard.PutPrm
-		prm.WithObject(obj)
+		prm.SetObject(obj)
 		e.mtx.RLock()
 		_, err = e.shards[id[0].String()].Shard.Put(prm)
 		e.mtx.RUnlock()

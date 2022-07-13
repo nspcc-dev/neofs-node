@@ -33,12 +33,12 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 
-		putPrm.WithObject(obj)
+		putPrm.SetObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		headPrm.WithAddress(object.AddressOf(obj))
+		headPrm.SetAddress(object.AddressOf(obj))
 
 		res, err := testHead(t, sh, headPrm, hasWriteCache)
 		require.NoError(t, err)
@@ -58,21 +58,21 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 
-		putPrm.WithObject(child)
+		putPrm.SetObject(child)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		headPrm.WithAddress(object.AddressOf(parent))
-		headPrm.WithRaw(true)
+		headPrm.SetAddress(object.AddressOf(parent))
+		headPrm.SetRaw(true)
 
 		var siErr *objectSDK.SplitInfoError
 
 		_, err = testHead(t, sh, headPrm, hasWriteCache)
 		require.True(t, errors.As(err, &siErr))
 
-		headPrm.WithAddress(object.AddressOf(parent))
-		headPrm.WithRaw(false)
+		headPrm.SetAddress(object.AddressOf(parent))
+		headPrm.SetRaw(false)
 
 		head, err := sh.Head(headPrm)
 		require.NoError(t, err)

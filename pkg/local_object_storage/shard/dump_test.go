@@ -95,7 +95,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		objects[i] = obj
 
 		var prm shard.PutPrm
-		prm.WithObject(objects[i])
+		prm.SetObject(objects[i])
 		_, err := sh.Put(prm)
 		require.NoError(t, err)
 	}
@@ -225,7 +225,7 @@ func TestStream(t *testing.T) {
 		objects[i] = obj
 
 		var prm shard.PutPrm
-		prm.WithObject(objects[i])
+		prm.SetObject(objects[i])
 		_, err := sh1.Put(prm)
 		require.NoError(t, err)
 	}
@@ -268,7 +268,7 @@ func checkRestore(t *testing.T, sh *shard.Shard, prm shard.RestorePrm, objects [
 	var getPrm shard.GetPrm
 
 	for i := range objects {
-		getPrm.WithAddress(object.AddressOf(objects[i]))
+		getPrm.SetAddress(object.AddressOf(objects[i]))
 		res, err := sh.Get(getPrm)
 		require.NoError(t, err)
 		require.Equal(t, objects[i], res.Object())
@@ -311,7 +311,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		objects[i] = obj
 
 		var prm shard.PutPrm
-		prm.WithObject(objects[i])
+		prm.SetObject(objects[i])
 		_, err := sh.Put(prm)
 		require.NoError(t, err)
 	}

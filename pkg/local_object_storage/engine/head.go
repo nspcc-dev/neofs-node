@@ -80,8 +80,8 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 	)
 
 	var shPrm shard.HeadPrm
-	shPrm.WithAddress(prm.addr)
-	shPrm.WithRaw(prm.raw)
+	shPrm.SetAddress(prm.addr)
+	shPrm.SetRaw(prm.raw)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.Head(shPrm)

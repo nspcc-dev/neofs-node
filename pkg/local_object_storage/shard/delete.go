@@ -17,13 +17,11 @@ type DeletePrm struct {
 // DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct{}
 
-// WithAddresses is a Delete option to set the addresses of the objects to delete.
+// SetAddresses is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addr ...oid.Address) {
-	if p != nil {
-		p.addr = append(p.addr, addr...)
-	}
+func (p *DeletePrm) SetAddresses(addr ...oid.Address) {
+	p.addr = append(p.addr, addr...)
 }
 
 // Delete removes data from the shard's writeCache, metaBase and

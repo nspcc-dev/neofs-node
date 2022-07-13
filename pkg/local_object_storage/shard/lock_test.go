@@ -57,7 +57,7 @@ func TestShard_Lock(t *testing.T) {
 	// put the object
 
 	var putPrm shard.PutPrm
-	putPrm.WithObject(obj)
+	putPrm.SetObject(obj)
 
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestShard_Lock(t *testing.T) {
 	err = sh.Lock(cnr, lockID, []oid.ID{objID})
 	require.NoError(t, err)
 
-	putPrm.WithObject(lock)
+	putPrm.SetObject(lock)
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
 
@@ -75,7 +75,7 @@ func TestShard_Lock(t *testing.T) {
 		ts := generateObjectWithCID(t, cnr)
 
 		var inhumePrm shard.InhumePrm
-		inhumePrm.WithTarget(objectcore.AddressOf(ts), objectcore.AddressOf(obj))
+		inhumePrm.SetTarget(objectcore.AddressOf(ts), objectcore.AddressOf(obj))
 
 		_, err = sh.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -89,7 +89,7 @@ func TestShard_Lock(t *testing.T) {
 		ts := generateObjectWithCID(t, cnr)
 
 		var inhumePrm shard.InhumePrm
-		inhumePrm.WithTarget(objectcore.AddressOf(ts), objectcore.AddressOf(lock))
+		inhumePrm.SetTarget(objectcore.AddressOf(ts), objectcore.AddressOf(lock))
 
 		_, err = sh.Inhume(inhumePrm)
 		require.Error(t, err)
@@ -119,7 +119,7 @@ func TestShard_Lock(t *testing.T) {
 		// check that object has been removed
 
 		var getPrm shard.GetPrm
-		getPrm.WithAddress(objectcore.AddressOf(obj))
+		getPrm.SetAddress(objectcore.AddressOf(obj))
 
 		_, err = sh.Get(getPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))

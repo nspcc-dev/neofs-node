@@ -68,7 +68,7 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 	for i := range prm.addr {
 		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh hashedShard) (stop bool) {
 			var existsPrm shard.ExistsPrm
-			existsPrm.WithAddress(prm.addr[i])
+			existsPrm.SetAddress(prm.addr[i])
 
 			resExists, err := sh.Exists(existsPrm)
 			if err != nil {

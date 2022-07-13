@@ -86,7 +86,7 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 
 	for i := range prm.addrs {
 		if prm.tombstone != nil {
-			shPrm.WithTarget(*prm.tombstone, prm.addrs[i])
+			shPrm.SetTarget(*prm.tombstone, prm.addrs[i])
 		} else {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}
@@ -129,7 +129,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 		}()
 
 		if checkExists {
-			existPrm.WithAddress(addr)
+			existPrm.SetAddress(addr)
 			exRes, err := sh.Exists(existPrm)
 			if err != nil {
 				if shard.IsErrRemoved(err) {

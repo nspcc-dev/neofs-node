@@ -14,10 +14,8 @@ type ContainerSizeRes struct {
 	size uint64
 }
 
-func (p *ContainerSizePrm) WithContainerID(cnr cid.ID) {
-	if p != nil {
-		p.cnr = cnr
-	}
+func (p *ContainerSizePrm) SetContainerID(cnr cid.ID) {
+	p.cnr = cnr
 }
 
 func (r ContainerSizeRes) Size() uint64 {

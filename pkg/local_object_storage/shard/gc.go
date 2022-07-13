@@ -210,7 +210,7 @@ func (s *Shard) removeGarbage() {
 	}
 
 	var deletePrm DeletePrm
-	deletePrm.WithAddresses(buf...)
+	deletePrm.SetAddresses(buf...)
 
 	// delete accumulated objects
 	_, err = s.Delete(deletePrm)

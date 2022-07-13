@@ -20,22 +20,18 @@ type HeadRes struct {
 	obj *objectSDK.Object
 }
 
-// WithAddress is a Head option to set the address of the requested object.
+// SetAddress is a Head option to set the address of the requested object.
 //
 // Option is required.
-func (p *HeadPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+func (p *HeadPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
-// WithRaw is a Head option to set raw flag value. If flag is unset, then Head
+// SetRaw is a Head option to set raw flag value. If flag is unset, then Head
 // returns header of virtual object, otherwise it returns SplitInfo of virtual
 // object.
-func (p *HeadPrm) WithRaw(raw bool) {
-	if p != nil {
-		p.raw = raw
-	}
+func (p *HeadPrm) SetRaw(raw bool) {
+	p.raw = raw
 }
 
 // Object returns the requested object header.
