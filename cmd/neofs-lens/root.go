@@ -19,8 +19,8 @@ var command = &cobra.Command{
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) error {
-	printVersion, err := cmd.Flags().GetBool("version")
-	if err == nil && printVersion {
+	printVersion, _ := cmd.Flags().GetBool("version")
+	if printVersion {
 		cmd.Print(misc.BuildInfo("NeoFS Lens"))
 
 		return nil
