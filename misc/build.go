@@ -9,17 +9,13 @@ import (
 var (
 	// Version is an application version.
 	Version = "dev"
-
-	// Debug is an application debug mode flag.
-	Debug = "false"
 )
 
 // BuildInfo returns human-readable information about this binary.
 func BuildInfo(component string) string {
-	return fmt.Sprintf("%s\nVersion: %s \nGoVersion: %s\nDebug: %s\n",
+	return fmt.Sprintf("%s\nVersion: %s \nGoVersion: %s\n",
 		component,
 		Version,
 		runtime.Version(),
-		Debug,
 	)
 }

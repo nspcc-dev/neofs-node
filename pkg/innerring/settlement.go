@@ -18,6 +18,7 @@ import (
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -29,26 +30,19 @@ import (
 	"go.uber.org/zap"
 )
 
-type globalConfig interface {
-	BasicIncomeRate() (uint64, error)
-	AuditFee() (uint64, error)
-}
-
 const (
 	auditSettlementContext       = "audit"
 	basicIncomeSettlementContext = "basic income"
 )
 
 type settlementDeps struct {
-	globalConfig
-
 	log *logger.Logger
 
 	cnrSrc container.Source
 
 	auditClient *auditClient.Client
 
-	nmSrc netmap.Source
+	nmClient *netmapClient.Client
 
 	clientCache *ClientCache
 
@@ -132,9 +126,9 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.Node
 	)
 
 	if e > 0 {
-		nm, err = s.nmSrc.GetNetMapByEpoch(e)
+		nm, err = s.nmClient.GetNetMapByEpoch(e)
 	} else {
-		nm, err = netmap.GetLatestNetworkMap(s.nmSrc)
+		nm, err = netmap.GetLatestNetworkMap(s.nmClient)
 	}
 
 	if err != nil {
@@ -254,7 +248,7 @@ func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, det
 }
 
 func (b basicIncomeSettlementDeps) BasicRate() (uint64, error) {
-	return b.BasicIncomeRate()
+	return b.nmClient.BasicIncomeRate()
 }
 
 func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*containerClient.Estimations, error) {

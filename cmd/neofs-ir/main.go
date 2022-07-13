@@ -80,9 +80,7 @@ func main() {
 	exitErr(err)
 
 	log.Info("application started",
-		zap.String("version", misc.Version),
-		zap.String("debug", misc.Debug),
-	)
+		zap.String("version", misc.Version))
 
 	select {
 	case <-ctx.Done():

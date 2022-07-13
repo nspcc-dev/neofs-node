@@ -550,9 +550,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		cfg.GetDuration("indexer.cache_timeout"),
 	)
 
-	// create global runtime config reader
-	globalConfig := config.NewGlobalConfigReader(cfg, server.netmapClient)
-
 	clientCache := newClientCache(&clientCacheParams{
 		Log:          log,
 		Key:          &server.key.PrivateKey,
@@ -602,11 +599,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 	// create settlement processor dependencies
 	settlementDeps := settlementDeps{
-		globalConfig:  globalConfig,
 		log:           server.log,
 		cnrSrc:        cntClient.AsContainerSource(cnrClient),
 		auditClient:   server.auditClient,
-		nmSrc:         server.netmapClient,
+		nmClient:      server.netmapClient,
 		clientCache:   clientCache,
 		balanceClient: server.balanceClient,
 	}
@@ -630,7 +626,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			SGStorage:           auditCalcDeps,
 			AccountStorage:      auditCalcDeps,
 			Exchanger:           auditCalcDeps,
-			AuditFeeFetcher:     auditCalcDeps,
+			AuditFeeFetcher:     server.netmapClient,
 		},
 		auditSettlement.WithLogger(server.log),
 	)
