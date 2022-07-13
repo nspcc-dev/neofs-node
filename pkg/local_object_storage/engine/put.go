@@ -60,7 +60,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 	}
 
 	var existPrm shard.ExistsPrm
-	existPrm.WithAddress(addr)
+	existPrm.SetAddress(addr)
 
 	finished := false
 
@@ -82,7 +82,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 			if exists.Exists() {
 				if ind != 0 {
 					var toMoveItPrm shard.ToMoveItPrm
-					toMoveItPrm.WithAddress(addr)
+					toMoveItPrm.SetAddress(addr)
 
 					_, err = sh.ToMoveIt(toMoveItPrm)
 					if err != nil {
@@ -99,7 +99,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 			}
 
 			var putPrm shard.PutPrm
-			putPrm.WithObject(prm.obj)
+			putPrm.SetObject(prm.obj)
 
 			_, err = sh.Put(putPrm)
 			if err != nil {

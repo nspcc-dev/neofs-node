@@ -49,7 +49,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 
 			objs[object.AddressOf(obj).EncodeToString()] = 0
 
-			putPrm.WithObject(obj)
+			putPrm.SetObject(obj)
 
 			_, err := sh.Put(putPrm)
 			require.NoError(t, err)

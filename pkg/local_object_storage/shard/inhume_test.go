@@ -32,13 +32,13 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	ts := generateObjectWithCID(t, cnr)
 
 	var putPrm shard.PutPrm
-	putPrm.WithObject(obj)
+	putPrm.SetObject(obj)
 
 	var inhPrm shard.InhumePrm
-	inhPrm.WithTarget(object.AddressOf(ts), object.AddressOf(obj))
+	inhPrm.SetTarget(object.AddressOf(ts), object.AddressOf(obj))
 
 	var getPrm shard.GetPrm
-	getPrm.WithAddress(object.AddressOf(obj))
+	getPrm.SetAddress(object.AddressOf(obj))
 
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)

@@ -40,7 +40,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	var putPrm shard.PutPrm
 
 	for i := range objects {
-		putPrm.WithObject(objects[i])
+		putPrm.SetObject(objects[i])
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 	}
@@ -52,7 +52,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	var getPrm shard.GetPrm
 
 	for i := range objects {
-		getPrm.WithAddress(object.AddressOf(objects[i]))
+		getPrm.SetAddress(object.AddressOf(objects[i]))
 
 		_, err := sh.Get(getPrm)
 		require.NoError(t, err, i)

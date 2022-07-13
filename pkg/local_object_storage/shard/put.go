@@ -17,11 +17,9 @@ type PutPrm struct {
 // PutRes groups the resulting values of Put operation.
 type PutRes struct{}
 
-// WithObject is a Put option to set object to save.
-func (p *PutPrm) WithObject(obj *object.Object) {
-	if p != nil {
-		p.obj = obj
-	}
+// SetObject is a Put option to set object to save.
+func (p *PutPrm) SetObject(obj *object.Object) {
+	p.obj = obj
 }
 
 // Put saves the object in shard.

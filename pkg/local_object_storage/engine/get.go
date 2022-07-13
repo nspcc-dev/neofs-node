@@ -72,7 +72,7 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 	)
 
 	var shPrm shard.GetPrm
-	shPrm.WithAddress(prm.addr)
+	shPrm.SetAddress(prm.addr)
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.Get(shPrm)
@@ -129,7 +129,7 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 		// If the object is not found but is present in metabase,
 		// try to fetch it from blobstor directly. If it is found in any
 		// blobstor, increase the error counter for the shard which contains the meta.
-		shPrm.WithIgnoreMeta(true)
+		shPrm.SetIgnoreMeta(true)
 
 		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 			res, err := sh.Get(shPrm)

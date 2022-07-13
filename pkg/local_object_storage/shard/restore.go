@@ -120,7 +120,7 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 			return RestoreRes{}, err
 		}
 
-		putPrm.WithObject(obj)
+		putPrm.SetObject(obj)
 		_, err = s.Put(putPrm)
 		if err != nil {
 			return RestoreRes{}, err

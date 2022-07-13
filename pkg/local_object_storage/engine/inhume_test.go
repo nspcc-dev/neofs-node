@@ -62,12 +62,12 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		defer e.Close()
 
 		var putChild shard.PutPrm
-		putChild.WithObject(child)
+		putChild.SetObject(child)
 		_, err := s1.Put(putChild)
 		require.NoError(t, err)
 
 		var putLink shard.PutPrm
-		putLink.WithObject(link)
+		putLink.SetObject(link)
 		_, err = s2.Put(putLink)
 		require.NoError(t, err)
 

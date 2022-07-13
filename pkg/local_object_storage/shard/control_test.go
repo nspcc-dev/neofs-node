@@ -42,7 +42,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
 	var putPrm PutPrm
-	putPrm.WithObject(obj)
+	putPrm.SetObject(obj)
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
@@ -64,7 +64,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Init())
 
 	var getPrm GetPrm
-	getPrm.WithAddress(addr)
+	getPrm.SetAddress(addr)
 	_, err = sh.Get(getPrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	require.NoError(t, sh.Close())
@@ -150,13 +150,13 @@ func TestRefillMetabase(t *testing.T) {
 	var putPrm PutPrm
 
 	for _, v := range mObjs {
-		putPrm.WithObject(v.obj)
+		putPrm.SetObject(v.obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 	}
 
-	putPrm.WithObject(tombObj)
+	putPrm.SetObject(tombObj)
 
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestRefillMetabase(t *testing.T) {
 	lockObj.SetContainerID(cnrLocked)
 	objectSDK.WriteLock(lockObj, lock)
 
-	putPrm.WithObject(lockObj)
+	putPrm.SetObject(lockObj)
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
 
@@ -177,7 +177,7 @@ func TestRefillMetabase(t *testing.T) {
 	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
 
 	var inhumePrm InhumePrm
-	inhumePrm.WithTarget(object.AddressOf(tombObj), tombMembers...)
+	inhumePrm.SetTarget(object.AddressOf(tombObj), tombMembers...)
 
 	_, err = sh.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestRefillMetabase(t *testing.T) {
 	var headPrm HeadPrm
 
 	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
-		headPrm.WithAddress(addr)
+		headPrm.SetAddress(addr)
 
 		res, err := sh.Head(headPrm)
 
@@ -210,7 +210,7 @@ func TestRefillMetabase(t *testing.T) {
 
 	checkTombMembers := func(exists bool) {
 		for _, member := range tombMembers {
-			headPrm.WithAddress(member)
+			headPrm.SetAddress(member)
 
 			_, err := sh.Head(headPrm)
 

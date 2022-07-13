@@ -24,25 +24,21 @@ type RngRes struct {
 	hasMeta bool
 }
 
-// WithAddress is a Rng option to set the address of the requested object.
+// SetAddress is a Rng option to set the address of the requested object.
 //
 // Option is required.
-func (p *RngPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+func (p *RngPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
-// WithRange is a GetRange option to set range of requested payload data.
-func (p *RngPrm) WithRange(off uint64, ln uint64) {
-	if p != nil {
-		p.off, p.ln = off, ln
-	}
+// SetRange is a GetRange option to set range of requested payload data.
+func (p *RngPrm) SetRange(off uint64, ln uint64) {
+	p.off, p.ln = off, ln
 }
 
-// WithIgnoreMeta is a Get option try to fetch object from blobstor directly,
+// SetIgnoreMeta is a Get option try to fetch object from blobstor directly,
 // without accessing metabase.
-func (p *RngPrm) WithIgnoreMeta(ignore bool) {
+func (p *RngPrm) SetIgnoreMeta(ignore bool) {
 	p.skipMeta = ignore
 }
 

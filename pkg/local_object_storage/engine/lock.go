@@ -66,7 +66,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 
 		if checkExists {
 			var existsPrm shard.ExistsPrm
-			existsPrm.WithAddress(addrLocked)
+			existsPrm.SetAddress(addrLocked)
 
 			exRes, err := sh.Exists(existsPrm)
 			if err != nil {

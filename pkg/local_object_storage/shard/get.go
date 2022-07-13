@@ -29,18 +29,16 @@ type GetRes struct {
 	hasMeta bool
 }
 
-// WithAddress is a Get option to set the address of the requested object.
+// SetAddress is a Get option to set the address of the requested object.
 //
 // Option is required.
-func (p *GetPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+func (p *GetPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
-// WithIgnoreMeta is a Get option try to fetch object from blobstor directly,
+// SetIgnoreMeta is a Get option try to fetch object from blobstor directly,
 // without accessing metabase.
-func (p *GetPrm) WithIgnoreMeta(ignore bool) {
+func (p *GetPrm) SetIgnoreMeta(ignore bool) {
 	p.skipMeta = ignore
 }
 

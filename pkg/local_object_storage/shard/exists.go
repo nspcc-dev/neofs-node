@@ -17,13 +17,9 @@ type ExistsRes struct {
 	ex bool
 }
 
-// WithAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) WithAddress(addr oid.Address) *ExistsPrm {
-	if p != nil {
-		p.addr = addr
-	}
-
-	return p
+// SetAddress is an Exists option to set object checked for existence.
+func (p *ExistsPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
 }
 
 // Exists returns the fact that the object is in the shard.
