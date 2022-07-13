@@ -24,8 +24,8 @@ const (
 func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config)) {
 	c = c.Sub(subsection)
 
-	def := c.Sub("default")
 	c = c.Sub("shard")
+	def := c.Sub("default")
 
 	i := uint64(0)
 	for ; ; i++ {
