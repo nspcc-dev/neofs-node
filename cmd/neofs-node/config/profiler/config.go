@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	subsection = "profiler"
+	subsection    = "pprof"
+	subsectionOld = "profiler"
 
 	// ShutdownTimeoutDefault is a default value for profiler HTTP service timeout.
 	ShutdownTimeoutDefault = 30 * time.Second
@@ -21,7 +22,10 @@ const (
 //
 // Returns false if the value is missing or invalid.
 func Enabled(c *config.Config) bool {
-	return config.BoolSafe(c.Sub(subsection), "enabled")
+	s := c.Sub(subsection)
+	s.SetDefault(c.Sub(subsectionOld))
+
+	return config.BoolSafe(s, "enabled")
 }
 
 // ShutdownTimeout returns the value of "shutdown_timeout" config parameter
@@ -29,7 +33,10 @@ func Enabled(c *config.Config) bool {
 //
 // Returns ShutdownTimeoutDefault if the value is not positive duration.
 func ShutdownTimeout(c *config.Config) time.Duration {
-	v := config.DurationSafe(c.Sub(subsection), "shutdown_timeout")
+	s := c.Sub(subsection)
+	s.SetDefault(c.Sub(subsectionOld))
+
+	v := config.DurationSafe(s, "shutdown_timeout")
 	if v > 0 {
 		return v
 	}
@@ -42,7 +49,10 @@ func ShutdownTimeout(c *config.Config) time.Duration {
 //
 // Returns AddressDefault if the value is not set.
 func Address(c *config.Config) string {
-	v := config.StringSafe(c.Sub(subsection), "address")
+	s := c.Sub(subsection)
+	s.SetDefault(c.Sub(subsectionOld))
+
+	v := config.StringSafe(s, "address")
 	if v != "" {
 		return v
 	}

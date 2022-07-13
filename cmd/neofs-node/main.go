@@ -83,8 +83,8 @@ func initApp(c *cfg) {
 	initAndLog(c, "reputation", initReputationService)
 	initAndLog(c, "notification", initNotifications)
 	initAndLog(c, "object", initObjectService)
-	initAndLog(c, "profiler", initProfiler)
-	initAndLog(c, "metrics", initMetrics)
+	initAndLog(c, "pprof", initProfiler)
+	initAndLog(c, "prometheus", initMetrics)
 	initAndLog(c, "control", initControlService)
 
 	initAndLog(c, "storage engine", func(c *cfg) {

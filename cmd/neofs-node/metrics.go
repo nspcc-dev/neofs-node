@@ -11,6 +11,7 @@ import (
 
 func initMetrics(c *cfg) {
 	if !metricsconfig.Enabled(c.appCfg) {
+		c.log.Info("prometheus is disabled")
 		return
 	}
 

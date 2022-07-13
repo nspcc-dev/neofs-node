@@ -324,8 +324,6 @@ func initCfg(path string) *cfg {
 	if metricsconfig.Enabled(c.appCfg) {
 		c.metricsCollector = metrics.NewStorageMetrics()
 		netState.metrics = c.metricsCollector
-	} else {
-		c.log.Info("prometheus metrics are disabled")
 	}
 
 	c.onShutdown(c.clientCache.CloseAll) // clean up connections

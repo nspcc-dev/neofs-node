@@ -1,12 +1,12 @@
 logger:
   level: debug  # logger level: one of "debug", "info" (default), "warn", "error", "dpanic", "panic", "fatal"
 
-profiler:
+pprof:
   enabled: true
   address: localhost:6060  # endpoint for Node profiling
   shutdown_timeout: 15s  # timeout for profiling HTTP server graceful shutdown
 
-metrics:
+prometheus:
   enabled: true
   address: localhost:9090  # endpoint for Node metrics
   shutdown_timeout: 15s  # timeout for metrics HTTP server graceful shutdown
