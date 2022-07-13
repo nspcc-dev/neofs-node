@@ -30,6 +30,7 @@ func entryPoint(cmd *cobra.Command, _ []string) error {
 }
 
 func init() {
+	command.Flags().Bool("version", false, "application version")
 	command.AddCommand(
 		cmdlist.Command,
 		inspect.Command,
