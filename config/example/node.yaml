@@ -43,19 +43,16 @@ node:
     ca: "/ca/path"  # path to optional CA certificate
 
 grpc:
-  0:
-    endpoint: s01.neofs.devenv:8080  # endpoint for gRPC server
+  - endpoint: s01.neofs.devenv:8080  # endpoint for gRPC server
     tls:
       enabled: true  # use TLS for a gRPC connection (min version is TLS 1.2)
       certificate: /path/to/cert  # path to TLS certificate
       key: /path/to/key  # path to TLS key
 
-  1:
-    endpoint: s02.neofs.devenv:8080  # endpoint for gRPC server
+  - endpoint: s02.neofs.devenv:8080  # endpoint for gRPC server
     tls:
       enabled: false  # use TLS for a gRPC connection
-  2:
-    endpoint: s03.neofs.devenv:8080
+  - endpoint: s03.neofs.devenv:8080
     tls:
       enabled: true
       use_insecure_crypto: true # allow using insecure ciphers with TLS 1.2
@@ -112,7 +109,7 @@ storage:
       writecache:
         enabled: true
         memcache_capacity: 2147483648  # approximate RAM usage limit for "small" objects, bytes
-        small_object_size: 16384  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+        small_object_size: 16k  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
         max_object_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
         workers_number: 30  # number of write-cache flusher threads
 
@@ -125,10 +122,10 @@ storage:
         compress: false  # turn on/off zstd(level 3) compression of stored objects
         perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
         depth: 5  # max depth of object tree storage in FS
-        small_object_size: 102400  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+        small_object_size: 100 kb  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
 
         blobovnicza:
-          size: 4194304  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
+          size: 4m  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
           depth: 1  # max depth of object tree storage in key-value DB
           width: 4   # max width of object tree storage in key-value DB
           opened_cache_capacity: 50  # maximum number of opened database files
@@ -165,7 +162,7 @@ storage:
     1:
       writecache:
         path: tmp/1/cache  # write-cache root directory
-        capacity: 4294967296  # approximate write-cache total size, bytes
+        capacity: 4 G  # approximate write-cache total size, bytes
 
       metabase:
         path: tmp/1/meta  # metabase path
