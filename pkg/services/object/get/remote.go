@@ -36,8 +36,14 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool
 	case err == nil:
 		exec.status = statusOK
 		exec.err = nil
-		exec.collectedObject = obj
-		exec.writeCollectedObject()
+
+		// both object and err are nil only if the original
+		// request was forwarded to another node and the object
+		// has already been streamed to the requesting party
+		if obj != nil {
+			exec.collectedObject = obj
+			exec.writeCollectedObject()
+		}
 	case errors.As(err, &errRemoved):
 		exec.status = statusINHUMED
 		exec.err = errRemoved
