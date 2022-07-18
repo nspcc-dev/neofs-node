@@ -16,8 +16,6 @@ func LoadAccount(path, addr, password string) (*wallet.Account, error) {
 		return nil, err
 	}
 
-	defer w.Close()
-
 	var h util.Uint160
 	if addr == "" {
 		h = w.GetChangeAddress()

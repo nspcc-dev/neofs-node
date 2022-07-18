@@ -44,11 +44,10 @@ func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	w, err := initializeContractWallet(v, walletDir)
+	_, err = initializeContractWallet(v, walletDir)
 	if err != nil {
 		return err
 	}
-	w.Close()
 
 	cmd.Println("size:", size)
 	cmd.Println("alphabet-wallets:", walletDir)
@@ -111,7 +110,6 @@ func initializeWallets(v *viper.Viper, walletDir string, size int) ([]string, er
 		if err := w.SavePretty(); err != nil {
 			return nil, fmt.Errorf("can't save wallet: %w", err)
 		}
-		w.Close()
 	}
 
 	return passwords, nil
