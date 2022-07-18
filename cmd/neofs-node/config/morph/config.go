@@ -2,9 +2,11 @@ package morphconfig
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 const (
@@ -28,13 +30,27 @@ const (
 // from "morph" section.
 //
 // Throws panic if list is empty.
-func RPCEndpoint(c *config.Config) []string {
-	v := config.StringSliceSafe(c.Sub(subsection), "rpc_endpoint")
-	if len(v) == 0 {
-		panic(fmt.Errorf("no morph chain RPC endpoints, see `morph.rpc_endpoint` section"))
+func RPCEndpoint(c *config.Config) []client.Endpoint {
+	var es []client.Endpoint
+
+	sub := c.Sub(subsection).Sub("rpc_endpoint")
+	for i := 0; ; i++ {
+		s := sub.Sub(strconv.FormatInt(int64(i), 10))
+		addr := config.StringSafe(s, "address")
+		if addr == "" {
+			break
+		}
+
+		es = append(es, client.Endpoint{
+			Address:  addr,
+			Priority: int(config.IntSafe(s, "priority")),
+		})
 	}
 
-	return v
+	if len(es) == 0 {
+		panic(fmt.Errorf("no morph chain RPC endpoints, see `morph.rpc_endpoint` section"))
+	}
+	return es
 }
 
 // DialTimeout returns the value of "dial_timeout" config parameter

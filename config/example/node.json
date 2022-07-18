@@ -95,8 +95,14 @@
     "dial_timeout": "30s",
     "disable_cache": true,
     "rpc_endpoint": [
-      "wss://rpc1.morph.fs.neo.org:40341/ws",
-      "wss://rpc2.morph.fs.neo.org:40341/ws"
+      {
+        "address": "wss://rpc1.morph.fs.neo.org:40341/ws",
+        "priority": 2
+      },
+      {
+        "address": "wss://rpc2.morph.fs.neo.org:40341/ws",
+        "priority": 1
+      }
     ]
   },
   "apiclient": {

@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ type cfg struct {
 
 	signer *transaction.Signer
 
-	extraEndpoints []string
+	endpoints []Endpoint
 
 	singleCli *client.WSClient // neo-go client for single client mode
 
@@ -76,7 +77,7 @@ func defaultConfig() *cfg {
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
 // the option with the highest index in the arguments will be used.
-func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error) {
+func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	if key == nil {
 		panic("empty private key")
 	}
@@ -87,6 +88,10 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 	// apply options
 	for _, opt := range opts {
 		opt(cfg)
+	}
+
+	if len(cfg.endpoints) == 0 {
+		return nil, errors.New("no endpoints were provided")
 	}
 
 	cli := &Client{
@@ -111,9 +116,8 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		// they will be used in switch process, otherwise
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
-		cli.endpoints.init(cfg.extraEndpoints)
 	} else {
-		ws, err := newWSClient(*cfg, endpoint)
+		ws, err := newWSClient(*cfg, cfg.endpoints[0].Address)
 		if err != nil {
 			return nil, fmt.Errorf("could not create morph client: %w", err)
 		}
@@ -124,8 +128,8 @@ func New(key *keys.PrivateKey, endpoint string, opts ...Option) (*Client, error)
 		}
 
 		cli.client = ws
-		cli.endpoints.init(append([]string{endpoint}, cfg.extraEndpoints...))
 	}
+	cli.endpoints.init(cfg.endpoints)
 
 	go cli.notificationLoop()
 
@@ -206,11 +210,11 @@ func WithSigner(signer *transaction.Signer) Option {
 	}
 }
 
-// WithExtraEndpoints returns a client constructor option
+// WithEndpoints returns a client constructor option
 // that specifies additional Neo rpc endpoints.
-func WithExtraEndpoints(endpoints []string) Option {
+func WithEndpoints(endpoints ...Endpoint) Option {
 	return func(c *cfg) {
-		c.extraEndpoints = append(c.extraEndpoints, endpoints...)
+		c.endpoints = append(c.endpoints, endpoints...)
 	}
 }
 

@@ -133,15 +133,23 @@ morph:
   dial_timeout: 30s 
   disable_cache: true
   rpc_endpoint:
-    - wss://rpc1.morph.fs.neo.org:40341/ws
-    - wss://rpc2.morph.fs.neo.org:40341/ws
+    - address: wss://rpc1.morph.fs.neo.org:40341/ws
+      priority: 2
+    - address: wss://rpc2.morph.fs.neo.org:40341/ws
+      priority: 1
  ```
 
-| Parameter       | Type       | Default value | Description                                                                                                                     |
-|-----------------|------------|---------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout`  | `duration` | `5s`          | Timeout for dialing connections to N3 RPCs.                                                                                     |
-| `disable_cache` | `bool`     | `false`       | Flag to disable TTL cache for some side-chain operations.<br/>NOTE: Setting this to `true` can slow down the node considerably. |
-| `rpc_endpoint`  | `[]string` |               | Array of _websocket_ N3 endpoints.                                                                                              | 
+| Parameter       | Type                                                      | Default value | Description                                                                                                                     |
+|-----------------|-----------------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `dial_timeout`  | `duration`                                                | `5s`          | Timeout for dialing connections to N3 RPCs.                                                                                     |
+| `disable_cache` | `bool`                                                    | `false`       | Flag to disable TTL cache for some side-chain operations.<br/>NOTE: Setting this to `true` can slow down the node considerably. |
+| `rpc_endpoint`  | list of [endpoint descriptions](#rpc_endpoint-subsection) |               | Array of endpoint descriptions.                                                                                                 |
+
+## `rpc_endpoint` subsection
+| Parameter  | Type     | Default value | Description                                                                                                                                       |
+|------------|----------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| `address`  | `string` |               | _WebSocket_ N3 endpoint.                                                                                                                          |
+| `priority` | `int`    | `0`           | Priority of an endpoint. Endpoint with a higher priority has more chance of being used. Endpoints with equal priority are iterated over randomly. |
 
 # `storage` section
 

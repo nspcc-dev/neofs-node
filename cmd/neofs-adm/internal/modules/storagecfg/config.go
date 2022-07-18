@@ -40,7 +40,7 @@ morph:
   disable_cache: false  # use TTL cache for side chain GET operations
   rpc_endpoint:  # side chain N3 RPC endpoints
     {{- range .MorphRPC }}
-    - wss://{{.}}/ws{{end}}
+    - address: wss://{{.}}/ws{{end}}
 {{if not .Relay }}
 storage:
   shard_pool_size: 15  # size of per-shard worker pools used for PUT operations
