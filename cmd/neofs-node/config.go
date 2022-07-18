@@ -422,18 +422,22 @@ func initShardOptions(c *cfg) {
 		metabaseCfg := sc.Metabase()
 		gcCfg := sc.GC()
 
-		piloramaCfg := sc.Pilorama()
-		piloramaPath := piloramaCfg.Path()
-		if piloramaPath == "" {
-			piloramaPath = filepath.Join(blobStorCfg.Path(), "pilorama.db")
-		}
+		var piloramaOpts []pilorama.Option
 
-		piloramaOpts := []pilorama.Option{
-			pilorama.WithPath(piloramaPath),
-			pilorama.WithPerm(piloramaCfg.Perm()),
-			pilorama.WithNoSync(piloramaCfg.NoSync()),
-			pilorama.WithMaxBatchSize(piloramaCfg.MaxBatchSize()),
-			pilorama.WithMaxBatchDelay(piloramaCfg.MaxBatchDelay())}
+		piloramaCfg := sc.Pilorama()
+		if config.BoolSafe(c.appCfg.Sub("tree"), "enabled") {
+			piloramaPath := piloramaCfg.Path()
+			if piloramaPath == "" {
+				piloramaPath = filepath.Join(blobStorCfg.Path(), "pilorama.db")
+			}
+
+			piloramaOpts = []pilorama.Option{
+				pilorama.WithPath(piloramaPath),
+				pilorama.WithPerm(piloramaCfg.Perm()),
+				pilorama.WithNoSync(piloramaCfg.NoSync()),
+				pilorama.WithMaxBatchSize(piloramaCfg.MaxBatchSize()),
+				pilorama.WithMaxBatchDelay(piloramaCfg.MaxBatchDelay())}
+		}
 
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.BoltDB().Perm()

@@ -3,10 +3,16 @@ package main
 import (
 	"context"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 )
 
 func initTreeService(c *cfg) {
+	if !config.BoolSafe(c.appCfg.Sub("tree"), "enabled") {
+		c.log.Info("tree service is not enabled, skip initialization")
+		return
+	}
+
 	c.treeService = tree.New(
 		tree.WithContainerSource(c.cfgObject.cnrSource),
 		tree.WithNetmapSource(c.netMapSource),

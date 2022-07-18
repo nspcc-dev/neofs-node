@@ -109,7 +109,10 @@ func New(opts ...Option) *Shard {
 		metaBase:   mb,
 		writeCache: writeCache,
 		tsSource:   c.tsSource,
-		pilorama:   pilorama.NewBoltForest(c.piloramaOpts...),
+	}
+
+	if s.piloramaOpts != nil {
+		s.pilorama = pilorama.NewBoltForest(c.piloramaOpts...)
 	}
 
 	s.fillInfo()
@@ -263,5 +266,7 @@ func (s *Shard) fillInfo() {
 	if s.cfg.useWriteCache {
 		s.cfg.info.WriteCacheInfo = s.writeCache.DumpInfo()
 	}
-	s.cfg.info.PiloramaInfo = s.pilorama.DumpInfo()
+	if s.pilorama != nil {
+		s.cfg.info.PiloramaInfo = s.pilorama.DumpInfo()
+	}
 }
