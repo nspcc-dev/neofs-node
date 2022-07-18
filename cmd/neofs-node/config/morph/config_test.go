@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,9 +23,9 @@ func TestMorphSection(t *testing.T) {
 	const path = "../../../../config/example/node"
 
 	var (
-		rpcs = []string{
-			"wss://rpc1.morph.fs.neo.org:40341/ws",
-			"wss://rpc2.morph.fs.neo.org:40341/ws",
+		rpcs = []client.Endpoint{
+			{"wss://rpc1.morph.fs.neo.org:40341/ws", 2},
+			{"wss://rpc2.morph.fs.neo.org:40341/ws", 1},
 		}
 	)
 

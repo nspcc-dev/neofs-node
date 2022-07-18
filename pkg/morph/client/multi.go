@@ -1,46 +1,29 @@
 package client
 
 import (
+	"sort"
+
 	"go.uber.org/zap"
 )
 
+// Endpoint represents morph endpoint together with its priority.
+type Endpoint struct {
+	Address  string
+	Priority int
+}
+
 type endpoints struct {
 	curr int
-	list []string
+	list []Endpoint
 }
 
-func (e *endpoints) init(ee []string) {
+func (e *endpoints) init(ee []Endpoint) {
+	sort.SliceStable(ee, func(i, j int) bool {
+		return ee[i].Priority > ee[j].Priority
+	})
+
 	e.curr = 0
 	e.list = ee
-}
-
-// next returns the next endpoint and its index
-// to try to connect to.
-// Returns -1 index if there is no known RPC endpoints.
-func (e *endpoints) next() (string, int) {
-	if len(e.list) == 0 {
-		return "", -1
-	}
-
-	next := e.curr + 1
-	if next == len(e.list) {
-		next = 0
-	}
-
-	e.curr = next
-
-	return e.list[next], next
-}
-
-// current returns an endpoint and its index the Client
-// is connected to.
-// Returns -1 index if there is no known RPC endpoints
-func (e *endpoints) current() (string, int) {
-	if len(e.list) == 0 {
-		return "", -1
-	}
-
-	return e.list[e.curr], e.curr
 }
 
 func (c *Client) switchRPC() bool {
@@ -49,21 +32,15 @@ func (c *Client) switchRPC() bool {
 
 	c.client.Close()
 
-	_, currEndpointIndex := c.endpoints.current()
-	if currEndpointIndex == -1 {
-		// there are no known RPC endpoints to try
-		// to connect to => do not switch
-		return false
-	}
-
-	for {
-		newEndpoint, index := c.endpoints.next()
-		if index == currEndpointIndex {
-			// all the endpoint have been tried
-			// for connection unsuccessfully
-			return false
+	// Iterate endpoints in the order of decreasing priority.
+	// Skip the current endpoint.
+	last := c.endpoints.curr
+	for c.endpoints.curr = range c.endpoints.list {
+		if c.endpoints.curr == last {
+			continue
 		}
 
+		newEndpoint := c.endpoints.list[c.endpoints.curr].Address
 		cli, err := newWSClient(c.cfg, newEndpoint)
 		if err != nil {
 			c.logger.Warn("could not establish connection to the switched RPC node",
@@ -103,6 +80,8 @@ func (c *Client) switchRPC() bool {
 
 		return true
 	}
+
+	return false
 }
 
 func (c *Client) notificationLoop() {

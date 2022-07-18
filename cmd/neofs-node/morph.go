@@ -35,18 +35,17 @@ func initMorphComponents(c *cfg) {
 	var err error
 
 	addresses := morphconfig.RPCEndpoint(c.appCfg)
-	if len(addresses) == 0 {
-		fatalOnErr(errors.New("missing Neo RPC endpoints"))
-	}
 
+	// Morph client stable-sorts endpoints by priority. Shuffle here to randomize
+	// order of endpoints with the same priority.
 	rand.Shuffle(len(addresses), func(i, j int) {
 		addresses[i], addresses[j] = addresses[j], addresses[i]
 	})
 
-	cli, err := client.New(c.key, addresses[0],
+	cli, err := client.New(c.key,
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
 		client.WithLogger(c.log),
-		client.WithExtraEndpoints(addresses[1:]),
+		client.WithEndpoints(addresses...),
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
 		}),

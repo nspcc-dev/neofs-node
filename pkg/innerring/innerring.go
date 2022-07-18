@@ -956,19 +956,32 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 
 func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
 	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
-	endpoints := p.cfg.GetStringSlice(p.name + ".endpoint.client")
+	var endpoints []client.Endpoint
+
+	section := p.name + ".endpoint.client"
+	for i := 0; ; i++ {
+		addr := p.cfg.GetString(section + ".address")
+		if addr == "" {
+			break
+		}
+
+		endpoints = append(endpoints, client.Endpoint{
+			Address:  addr,
+			Priority: p.cfg.GetInt(section + ".priority"),
+		})
+	}
+
 	if len(endpoints) == 0 {
 		return nil, fmt.Errorf("%s chain client endpoints not provided", p.name)
 	}
 
 	return client.New(
 		p.key,
-		endpoints[0],
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
 		client.WithSigner(p.sgn),
-		client.WithExtraEndpoints(endpoints[1:]),
+		client.WithEndpoints(endpoints...),
 		client.WithConnLostCallback(func() {
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),

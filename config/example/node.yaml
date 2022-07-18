@@ -77,8 +77,10 @@ morph:
   dial_timeout: 30s  # timeout for side chain NEO RPC client connection
   disable_cache: true  # do not use TTL cache for side chain GET operations
   rpc_endpoint:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
-    - wss://rpc1.morph.fs.neo.org:40341/ws
-    - wss://rpc2.morph.fs.neo.org:40341/ws
+    - address: wss://rpc1.morph.fs.neo.org:40341/ws
+      priority: 2
+    - address: wss://rpc2.morph.fs.neo.org:40341/ws
+      priority: 1
 
 apiclient:
   dial_timeout: 15s  # timeout for NEOFS API client connection

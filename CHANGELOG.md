@@ -11,12 +11,18 @@ Changelog for NeoFS Node
 
 - Require SG members to be unique (#1490)
 - `neofs-cli` now doesn't remove container with LOCK objects without `--force` flag (#1500)
+- `morph` sections in IR and storage node configuration now accept an address and a priority of an endpoint (#1609)
 
 ### Fixed
 
 ### Removed
 
 ### Updated
+
+### Updating from v0.29.0
+Change morph endpoints from simple string to a pair of `address` and `priority`. The second can be omitted.
+For inner ring node this resides in `morph.endpoint.client` section,
+for storage node -- in `morph.rpc_endpoint` section. See `config/example` for an example. 
 
 ## [0.29.0] - 2022-07-07
 
