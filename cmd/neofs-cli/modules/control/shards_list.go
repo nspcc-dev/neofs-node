@@ -109,6 +109,8 @@ func shardModeToString(m control.ShardMode) string {
 		return "read-only"
 	case control.ShardMode_DEGRADED:
 		return "degraded"
+	case control.ShardMode_DEGRADED_READ_ONLY:
+		return "degraded-read-only"
 	default:
 		return "unknown"
 	}

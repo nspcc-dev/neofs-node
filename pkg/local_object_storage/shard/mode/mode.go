@@ -3,19 +3,25 @@ package mode
 // Mode represents enumeration of Shard work modes.
 type Mode uint32
 
-// ReadWrite is a Mode value for shard that is available
-// for read and write operations. Default shard mode.
-const ReadWrite Mode = 0
+const (
+	// ReadWrite is a Mode value for shard that is available
+	// for read and write operations. Default shard mode.
+	ReadWrite Mode = 0
+
+	// DegradedReadOnly is a Mode value for shard that is set automatically
+	// after a certain number of errors is encountered. It is the same as
+	// `mode.ReadOnly` but also enables fallback algorithms for getting object
+	// in case metabase is corrupted.
+	DegradedReadOnly = Degraded | ReadOnly
+)
 
 const (
 	// ReadOnly is a Mode value for shard that does not
 	// accept write operation but is readable.
 	ReadOnly Mode = 1 << iota
 
-	// Degraded is a Mode value for shard that is set automatically
-	// after a certain number of errors is encountered. It is the same as
-	// `mode.ReadOnly` but also enables fallback algorithms for getting object
-	// in case metabase is corrupted.
+	// Degraded is a Mode value for shard when the metabase is unavailable.
+	// It is hard to perform some modifying operations in this mode, thus it can only be set by an administrator.
 	Degraded
 )
 
@@ -29,6 +35,8 @@ func (m Mode) String() string {
 		return "READ_ONLY"
 	case Degraded:
 		return "DEGRADED"
+	case DegradedReadOnly:
+		return "DEGRADED_READ_ONLY"
 	}
 }
 

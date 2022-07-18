@@ -23,12 +23,12 @@ func (db *DB) SetMode(m mode.Mode) error {
 	}
 
 	var err error
-	switch m {
-	case mode.Degraded:
+	switch {
+	case m.NoMetabase():
 		db.boltDB = nil
-	case mode.ReadOnly:
+	case m.ReadOnly():
 		err = db.Open(true)
-	case mode.ReadWrite:
+	default:
 		err = db.Open(false)
 	}
 	if err == nil && !m.NoMetabase() && !m.ReadOnly() {
