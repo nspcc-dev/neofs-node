@@ -2,6 +2,7 @@ package blobovniczatree
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"go.uber.org/zap"
@@ -69,4 +70,47 @@ func (b *Blobovniczas) Close() error {
 	b.activeMtx.Unlock()
 
 	return nil
+}
+
+// opens and returns blobovnicza with path p.
+//
+// If blobovnicza is already opened and cached, instance from cache is returned w/o changes.
+func (b *Blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, error) {
+	b.lruMtx.Lock()
+	v, ok := b.opened.Get(p)
+	b.lruMtx.Unlock()
+	if ok {
+		// blobovnicza should be opened in cache
+		return v.(*blobovnicza.Blobovnicza), nil
+	}
+
+	b.openMtx.Lock()
+	defer b.openMtx.Unlock()
+
+	b.lruMtx.Lock()
+	v, ok = b.opened.Get(p)
+	b.lruMtx.Unlock()
+	if ok {
+		// blobovnicza should be opened in cache
+		return v.(*blobovnicza.Blobovnicza), nil
+	}
+
+	blz := blobovnicza.New(append(b.blzOpts,
+		blobovnicza.WithReadOnly(b.readOnly),
+		blobovnicza.WithPath(filepath.Join(b.rootPath, p)),
+	)...)
+
+	if err := blz.Open(); err != nil {
+		return nil, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
+	}
+
+	b.activeMtx.Lock()
+	b.lruMtx.Lock()
+
+	b.opened.Add(p, blz)
+
+	b.lruMtx.Unlock()
+	b.activeMtx.Unlock()
+
+	return blz, nil
 }
