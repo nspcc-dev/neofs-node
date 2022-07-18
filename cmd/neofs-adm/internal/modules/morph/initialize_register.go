@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
@@ -40,18 +41,48 @@ func (c *initializeContext) registerCandidates() error {
 		return fmt.Errorf("can't fetch registration price: %w", err)
 	}
 
-	sysGas := regPrice + native.GASFactor // + 1 GAS
+	w := io.NewBufBinWriter()
+	emit.AppCall(w.BinWriter, neoHash, "setRegisterPrice", callflag.States, 1)
 	for _, acc := range c.Accounts {
-		w := io.NewBufBinWriter()
 		emit.AppCall(w.BinWriter, neoHash, "registerCandidate", callflag.States, acc.PrivateKey().PublicKey().Bytes())
 		emit.Opcodes(w.BinWriter, opcode.ASSERT)
+	}
+	emit.AppCall(w.BinWriter, neoHash, "setRegisterPrice", callflag.States, regPrice)
+	if w.Err != nil {
+		panic(fmt.Sprintf("BUG: %v", w.Err))
+	}
 
-		if err := c.sendSingleTx(w.Bytes(), sysGas, acc); err != nil {
-			return err
+	signers := []client.SignerAccount{{
+		Signer:  c.getSigner(false),
+		Account: c.CommitteeAcc,
+	}}
+	for i := range c.Accounts {
+		signers = append(signers, client.SignerAccount{
+			Signer: transaction.Signer{
+				Account:          c.Accounts[i].Contract.ScriptHash(),
+				Scopes:           transaction.CustomContracts,
+				AllowedContracts: []util.Uint160{neoHash},
+			},
+			Account: c.Accounts[i],
+		})
+	}
+
+	tx, err := c.Client.CreateTxFromScript(w.Bytes(), c.CommitteeAcc, -1, 0, signers)
+	if err != nil {
+		return fmt.Errorf("can't create tx: %w", err)
+	}
+	if err := c.multiSign(tx, committeeAccountName); err != nil {
+		return fmt.Errorf("can't sign a transaction: %w", err)
+	}
+
+	network, _ := c.Client.GetNetwork()
+	for i := range c.Accounts {
+		if err := c.Accounts[i].SignTx(network, tx); err != nil {
+			return fmt.Errorf("can't sign a transaction: %w", err)
 		}
 	}
 
-	return c.awaitTx()
+	return c.sendTx(tx, c.Command, true)
 }
 
 func (c *initializeContext) transferNEOToAlphabetContracts() error {
