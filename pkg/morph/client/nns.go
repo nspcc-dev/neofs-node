@@ -11,8 +11,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/nns"
 )
 
@@ -121,7 +121,7 @@ func nnsResolveItem(c *client.WSClient, nnsHash util.Uint160, domain string) (st
 	if err != nil {
 		return nil, err
 	}
-	if result.State != vm.HaltState.String() {
+	if result.State != vmstate.Halt.String() {
 		return nil, fmt.Errorf("invocation failed: %s", result.FaultException)
 	}
 	if len(result.Stack) == 0 {

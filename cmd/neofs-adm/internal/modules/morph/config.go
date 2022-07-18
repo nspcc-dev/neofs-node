@@ -13,9 +13,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -112,7 +112,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't fetch info from NNS: %w", err)
 	}
 
-	if res.State == vm.HaltState.String() {
+	if res.State == vmstate.Halt.String() {
 		for i := range res.Stack {
 			infos[i].version = parseContractVersion(res.Stack[i])
 		}
@@ -163,7 +163,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 	}
 
 	res, err := invokeFunction(c, nmHash, "listConfig", nil, nil)
-	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
+	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
 		return errors.New("can't fetch list of network config keys from the netmap contract")
 	}
 

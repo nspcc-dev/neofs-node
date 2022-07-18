@@ -15,9 +15,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/nns"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
@@ -94,7 +94,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 
 	if dumpStorage {
 		res, err := invokeFunction(c, nmHash, "netmap", []interface{}{}, nil)
-		if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
+		if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
 			return errors.New("can't fetch the list of storage nodes")
 		}
 		arr, ok := res.Stack[0].Value().([]stackitem.Item)
@@ -197,7 +197,7 @@ func fetchIRNodes(c Client, nmHash, desigHash util.Uint160) ([]accBalancePair, e
 		}
 	} else {
 		res, err := invokeFunction(c, nmHash, "innerRingList", []interface{}{}, nil)
-		if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
+		if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
 			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
 		}
 
@@ -251,7 +251,7 @@ func fetchBalances(c Client, gasHash util.Uint160, accounts []accBalancePair) er
 	}
 
 	res, err := c.InvokeScript(w.Bytes(), nil)
-	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) != len(accounts) {
+	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) != len(accounts) {
 		return errors.New("can't fetch account balances")
 	}
 

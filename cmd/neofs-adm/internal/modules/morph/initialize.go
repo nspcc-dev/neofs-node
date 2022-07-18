@@ -14,7 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -333,7 +333,7 @@ loop:
 	for i := range c.Hashes {
 		res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
 		if err == nil {
-			if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vm.HaltState {
+			if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
 				retErr = fmt.Errorf("tx %d persisted in %s state: %s",
 					i, res.Executions[0].VMState, res.Executions[0].FaultException)
 			}
@@ -344,7 +344,7 @@ loop:
 			case <-tick.C:
 				res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
 				if err == nil {
-					if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vm.HaltState {
+					if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
 						retErr = fmt.Errorf("tx %d persisted in %s state: %s",
 							i, res.Executions[0].VMState, res.Executions[0].FaultException)
 					}

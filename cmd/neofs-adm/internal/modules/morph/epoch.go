@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -43,7 +43,7 @@ func forceNewEpochCmd(cmd *cobra.Command, args []string) error {
 
 func emitNewEpochCall(bw *io.BufBinWriter, wCtx *initializeContext, nmHash util.Uint160) error {
 	res, err := invokeFunction(wCtx.Client, nmHash, "epoch", nil, nil)
-	if err != nil || res.State != vm.HaltState.String() || len(res.Stack) == 0 {
+	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
 		return errors.New("can't fetch current epoch from the netmap contract")
 	}
 

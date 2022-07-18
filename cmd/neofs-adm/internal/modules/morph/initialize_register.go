@@ -11,10 +11,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 )
 
 // initialAlphabetNEOAmount represents the total amount of GAS distributed between alphabet nodes.
@@ -27,7 +27,7 @@ func (c *initializeContext) registerCandidates() error {
 	if err != nil {
 		return err
 	}
-	if res.State == vm.HaltState.String() && len(res.Stack) > 0 {
+	if res.State == vmstate.Halt.String() && len(res.Stack) > 0 {
 		arr, ok := res.Stack[0].Value().([]stackitem.Item)
 		if ok && len(arr) > 0 {
 			return nil
