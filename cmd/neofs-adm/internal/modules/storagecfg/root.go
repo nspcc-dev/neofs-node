@@ -28,7 +28,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	netutil "github.com/nspcc-dev/neofs-node/pkg/network"
 
@@ -328,7 +328,7 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 	}}, nil)
 	fatalOnErr(err)
 
-	if res.State != vm.HaltState.String() {
+	if res.State != vmstate.Halt.String() {
 		fatalOnErr(fmt.Errorf("invalid response from balance contract: %s", res.FaultException))
 	}
 

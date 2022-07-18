@@ -28,10 +28,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -233,7 +233,7 @@ func (l *localClient) NEP17BalanceOf(h util.Uint160, acc util.Uint160) (int64, e
 	if err != nil {
 		return 0, err
 	}
-	if res.State != vm.HaltState.String() || len(res.Stack) == 0 {
+	if res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
 		return 0, fmt.Errorf("`balance`: invalid response (empty: %t): %s",
 			len(res.Stack) == 0, res.FaultException)
 	}
@@ -341,7 +341,7 @@ func getDesignatedByRole(c Client, h util.Uint160, role noderoles.Role, u uint32
 	if err != nil {
 		return nil, err
 	}
-	if res.State != vm.HaltState.String() || len(res.Stack) == 0 {
+	if res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
 		return nil, errGetDesignatedByRoleResponse
 	}
 	arr, ok := res.Stack[0].Value().([]stackitem.Item)

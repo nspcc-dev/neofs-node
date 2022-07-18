@@ -18,8 +18,8 @@ import (
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -385,7 +385,7 @@ func (c *Client) TxHalt(h util.Uint256) (res bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	return len(aer.Executions) > 0 && aer.Executions[0].VMState.HasFlag(vm.HaltState), nil
+	return len(aer.Executions) > 0 && aer.Executions[0].VMState.HasFlag(vmstate.Halt), nil
 }
 
 // TxHeight returns true if transaction has been successfully executed and persisted.
@@ -562,7 +562,7 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 		return false, fmt.Errorf("invokeScript: %w", err)
 	}
 
-	return result.State == vm.HaltState.String(), nil
+	return result.State == vmstate.Halt.String(), nil
 }
 
 // NotificationChannel returns channel than receives subscribed

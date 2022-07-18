@@ -14,10 +14,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/nns"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
@@ -169,7 +169,7 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error
 	if err != nil {
 		return false, err
 	}
-	return res.State == vm.HaltState.String(), nil
+	return res.State == vmstate.Halt.String(), nil
 }
 
 var errMissingNNSRecord = errors.New("missing NNS record")
@@ -188,7 +188,7 @@ func nnsResolve(c Client, nnsHash util.Uint160, domain string) (stackitem.Item, 
 	if err != nil {
 		return nil, fmt.Errorf("`resolve`: %w", err)
 	}
-	if result.State != vm.HaltState.String() {
+	if result.State != vmstate.Halt.String() {
 		if strings.Contains(result.FaultException, "token not found") {
 			return nil, errMissingNNSRecord
 		}

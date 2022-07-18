@@ -23,9 +23,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
@@ -129,7 +129,7 @@ func (c *initializeContext) deployNNS(method string) error {
 	if err != nil {
 		return fmt.Errorf("can't deploy NNS contract: %w", err)
 	}
-	if res.State != vm.HaltState.String() {
+	if res.State != vmstate.Halt.String() {
 		return fmt.Errorf("can't deploy NNS contract: %s", res.FaultException)
 	}
 
@@ -201,7 +201,7 @@ func (c *initializeContext) updateContracts() error {
 	if err != nil {
 		return fmt.Errorf("can't update alphabet contracts: %w", err)
 	}
-	if res.State != vm.HaltState.String() {
+	if res.State != vmstate.Halt.String() {
 		return fmt.Errorf("can't update alphabet contracts: %s", res.FaultException)
 	}
 
@@ -243,7 +243,7 @@ func (c *initializeContext) updateContracts() error {
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
-		if res.State != vm.HaltState.String() {
+		if res.State != vmstate.Halt.String() {
 			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
@@ -311,7 +311,7 @@ func (c *initializeContext) deployContracts() error {
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
-		if res.State != vm.HaltState.String() {
+		if res.State != vmstate.Halt.String() {
 			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
 		}
 
@@ -344,7 +344,7 @@ func (c *initializeContext) deployContracts() error {
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
-		if res.State != vm.HaltState.String() {
+		if res.State != vmstate.Halt.String() {
 			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
