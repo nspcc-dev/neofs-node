@@ -30,6 +30,7 @@ func (c *initializeContext) registerCandidates() error {
 	if res.State == vmstate.Halt.String() && len(res.Stack) > 0 {
 		arr, ok := res.Stack[0].Value().([]stackitem.Item)
 		if ok && len(arr) > 0 {
+			c.Command.Println("Candidates are already registered.")
 			return nil
 		}
 	}
