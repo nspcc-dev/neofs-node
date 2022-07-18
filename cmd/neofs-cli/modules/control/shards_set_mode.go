@@ -17,9 +17,10 @@ const (
 	shardIDFlag          = "id"
 	shardClearErrorsFlag = "clear-errors"
 
-	shardModeReadOnly  = "read-only"
-	shardModeReadWrite = "read-write"
-	shardModeDegraded  = "degraded"
+	shardModeReadOnly         = "read-only"
+	shardModeReadWrite        = "read-write"
+	shardModeDegraded         = "degraded"
+	shardModeDegradedReadOnly = "degraded-read-only"
 )
 
 var setShardModeCmd = &cobra.Command{
@@ -60,6 +61,8 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 		mode = control.ShardMode_READ_ONLY
 	case shardModeDegraded:
 		mode = control.ShardMode_DEGRADED
+	case shardModeDegradedReadOnly:
+		mode = control.ShardMode_DEGRADED_READ_ONLY
 	}
 
 	req := new(control.SetShardModeRequest)

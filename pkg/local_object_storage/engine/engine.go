@@ -51,7 +51,7 @@ func (e *StorageEngine) reportShardError(
 		return
 	}
 
-	err = sh.SetMode(mode.Degraded)
+	err = sh.SetMode(mode.DegradedReadOnly)
 	if err != nil {
 		e.log.Error("failed to move shard in degraded mode",
 			zap.Uint32("error count", errCount),
