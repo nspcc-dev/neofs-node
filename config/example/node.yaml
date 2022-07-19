@@ -59,6 +59,11 @@ grpc:
       enabled: true
       use_insecure_crypto: true # allow using insecure ciphers with TLS 1.2
 
+tree:
+  cache_size: 10
+  replication_worker_count: 64
+  replication_channel_capacity: 64
+
 control:
   authorized_keys:  # list of hex-encoded public keys that have rights to use the Control Service
     - 035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11

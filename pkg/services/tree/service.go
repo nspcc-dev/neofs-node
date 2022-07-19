@@ -33,6 +33,10 @@ var _ TreeServiceServer = (*Service)(nil)
 // New creates new tree service instance.
 func New(opts ...Option) *Service {
 	var s Service
+	s.containerCacheSize = defaultContainerCacheSize
+	s.replicatorChannelCapacity = defaultReplicatorCapacity
+	s.replicatorWorkerCount = defaultReplicatorWorkerCount
+
 	for i := range opts {
 		opts[i](&s.cfg)
 	}
@@ -43,9 +47,9 @@ func New(opts ...Option) *Service {
 
 	s.cache.init()
 	s.closeCh = make(chan struct{})
-	s.replicateCh = make(chan movePair, defaultReplicatorCapacity)
-	s.replicationTasks = make(chan replicationTask, defaultReplicatorWorkerCount)
-	s.containerCache.init()
+	s.replicateCh = make(chan movePair, s.replicatorChannelCapacity)
+	s.replicationTasks = make(chan replicationTask, s.replicatorWorkerCount)
+	s.containerCache.init(s.containerCacheSize)
 
 	return &s
 }

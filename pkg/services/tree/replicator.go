@@ -66,7 +66,7 @@ func (s *Service) replicationWorker() {
 }
 
 func (s *Service) replicateLoop(ctx context.Context) {
-	for i := 0; i < defaultReplicatorWorkerCount; i++ {
+	for i := 0; i < s.replicatorWorkerCount; i++ {
 		go s.replicationWorker()
 	}
 	defer func() {
