@@ -69,6 +69,10 @@ func (c *cfg) NetmapStatus() control.NetmapStatus {
 
 func (c *cfg) setHealthStatus(st control.HealthStatus) {
 	c.healthStatus.Store(int32(st))
+
+	if c.metricsCollector != nil {
+		c.metricsCollector.SetHealth(int32(st))
+	}
 }
 
 func (c *cfg) HealthStatus() control.HealthStatus {
