@@ -2,6 +2,7 @@ package shard
 
 import (
 	"github.com/mr-tron/base58"
+	"go.uber.org/zap"
 )
 
 // ID represents Shard identifier.
@@ -41,6 +42,16 @@ func (s *Shard) UpdateID() (err error) {
 	}
 	if len(id) != 0 {
 		s.info.ID = NewIDFromBytes(id)
+	}
+
+	s.log = s.log.With(zap.String("shard_id", s.info.ID.String()))
+	s.metaBase.SetLogger(s.log)
+	s.blobStor.SetLogger(s.log)
+	if s.hasWriteCache() {
+		s.writeCache.SetLogger(s.log)
+	}
+
+	if len(id) != 0 {
 		return nil
 	}
 	return s.metaBase.WriteShardID(*s.info.ID)

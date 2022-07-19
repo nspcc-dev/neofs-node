@@ -24,6 +24,7 @@ type Cache interface {
 	Iterate(IterationPrm) error
 	Put(*object.Object) error
 	SetMode(Mode)
+	SetLogger(*zap.Logger)
 	DumpInfo() Info
 
 	Init() error
@@ -109,6 +110,11 @@ func New(opts ...Option) Cache {
 	}
 
 	return c
+}
+
+// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
+func (c *cache) SetLogger(l *zap.Logger) {
+	c.log = l
 }
 
 func (c *cache) DumpInfo() Info {

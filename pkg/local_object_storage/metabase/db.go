@@ -251,6 +251,11 @@ func bucketKeyHelper(hdr string, val string) []byte {
 	}
 }
 
+// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
+func (db *DB) SetLogger(l *zap.Logger) {
+	db.log = l
+}
+
 // WithLogger returns option to set logger of DB.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {

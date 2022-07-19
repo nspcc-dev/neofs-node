@@ -91,6 +91,11 @@ func New(opts ...Option) *BlobStor {
 	}
 }
 
+// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
+func (b *BlobStor) SetLogger(l *zap.Logger) {
+	b.log = l
+}
+
 // WithShallowDepth returns option to set the
 // depth of the object file subdirectory tree.
 //
