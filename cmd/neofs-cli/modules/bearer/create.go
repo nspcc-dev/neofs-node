@@ -20,7 +20,6 @@ const (
 	eaclFlag           = "eacl"
 	issuedAtFlag       = "issued-at"
 	notValidBeforeFlag = "not-valid-before"
-	expireAtFlag       = "expire-at"
 	ownerFlag          = "owner"
 	outFlag            = "out"
 	jsonFlag           = commonflags.JSON
@@ -42,7 +41,7 @@ func init() {
 	createCmd.Flags().StringP(eaclFlag, "e", "", "path to the extended ACL table")
 	createCmd.Flags().StringP(issuedAtFlag, "i", "", "epoch to issue token at")
 	createCmd.Flags().StringP(notValidBeforeFlag, "n", "", "not valid before epoch")
-	createCmd.Flags().StringP(expireAtFlag, "x", "", "expiration epoch")
+	createCmd.Flags().StringP(commonflags.ExpireAt, "x", "", "expiration epoch")
 	createCmd.Flags().StringP(ownerFlag, "o", "", "token owner")
 	createCmd.Flags().String(outFlag, "", "file to write token to")
 	createCmd.Flags().Bool(jsonFlag, false, "output token in JSON")
@@ -52,7 +51,7 @@ func init() {
 
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), issuedAtFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), notValidBeforeFlag)
-	_ = cobra.MarkFlagRequired(createCmd.Flags(), expireAtFlag)
+	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.ExpireAt)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), ownerFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
 }
@@ -62,7 +61,7 @@ func createToken(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	exp, expRelative, err := common.ParseEpoch(cmd, expireAtFlag)
+	exp, expRelative, err := common.ParseEpoch(cmd, commonflags.ExpireAt)
 	if err != nil {
 		return err
 	}
