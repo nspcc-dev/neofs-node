@@ -8,7 +8,8 @@ import (
 )
 
 func initTreeService(c *cfg) {
-	if !config.BoolSafe(c.appCfg.Sub("tree"), "enabled") {
+	sub := c.appCfg.Sub("tree")
+	if !config.BoolSafe(sub, "enabled") {
 		c.log.Info("tree service is not enabled, skip initialization")
 		return
 	}
@@ -18,7 +19,10 @@ func initTreeService(c *cfg) {
 		tree.WithNetmapSource(c.netMapSource),
 		tree.WithPrivateKey(&c.key.PrivateKey),
 		tree.WithLogger(c.log),
-		tree.WithStorage(c.cfgObject.cfgLocalStorage.localStorage))
+		tree.WithStorage(c.cfgObject.cfgLocalStorage.localStorage),
+		tree.WithContainerCacheSize(int(config.IntSafe(sub, "cache_size"))),
+		tree.WithReplicationChannelCapacity(int(config.IntSafe(sub, "replication_channel_capacity"))),
+		tree.WithReplicationWorkerCount(int(config.IntSafe(sub, "replication_worker_count"))))
 
 	for _, srv := range c.cfgGRPC.servers {
 		tree.RegisterTreeServiceServer(srv, c.treeService)

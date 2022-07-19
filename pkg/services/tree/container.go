@@ -19,8 +19,8 @@ type containerCache struct {
 	lru *simplelru.LRU
 }
 
-func (c *containerCache) init() {
-	c.lru, _ = simplelru.NewLRU(defaultContainerCacheSize, nil) // no error, size is positive
+func (c *containerCache) init(size int) {
+	c.lru, _ = simplelru.NewLRU(size, nil) // no error, size is positive
 }
 
 type containerCacheItem struct {

@@ -17,6 +17,10 @@ type cfg struct {
 	nmSource  netmap.Source
 	cnrSource container.Source
 	forest    pilorama.Forest
+	// replication-related parameters
+	replicatorChannelCapacity int
+	replicatorWorkerCount     int
+	containerCacheSize        int
 }
 
 // Option represents configuration option for a tree service.
@@ -58,5 +62,29 @@ func WithLogger(log *zap.Logger) Option {
 func WithStorage(s pilorama.Forest) Option {
 	return func(c *cfg) {
 		c.forest = s
+	}
+}
+
+func WithReplicationChannelCapacity(n int) Option {
+	return func(c *cfg) {
+		if n > 0 {
+			c.replicatorChannelCapacity = n
+		}
+	}
+}
+
+func WithReplicationWorkerCount(n int) Option {
+	return func(c *cfg) {
+		if n > 0 {
+			c.replicatorWorkerCount = n
+		}
+	}
+}
+
+func WithContainerCacheSize(n int) Option {
+	return func(c *cfg) {
+		if n > 0 {
+			c.containerCacheSize = n
+		}
 	}
 }
