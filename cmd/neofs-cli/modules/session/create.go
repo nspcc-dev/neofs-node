@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	lifetimeFlag = "lifetime"
-	outFlag      = "out"
-	jsonFlag     = commonflags.JSON
+	outFlag  = "out"
+	jsonFlag = commonflags.JSON
 )
 
 const defaultLifetime = 10
@@ -35,14 +34,14 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.Flags().Uint64P(lifetimeFlag, "l", defaultLifetime, "number of epochs for token to stay valid")
+	createCmd.Flags().Uint64P(commonflags.Lifetime, "l", defaultLifetime, "number of epochs for token to stay valid")
 	createCmd.Flags().StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
 	createCmd.Flags().StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
 	createCmd.Flags().String(outFlag, "", "file to write session token to")
 	createCmd.Flags().Bool(jsonFlag, false, "output token in JSON")
 	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
-	_ = cobra.MarkFlagRequired(createCmd.Flags(), lifetimeFlag)
+	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.Lifetime)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.WalletPath)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.RPC)
@@ -63,7 +62,7 @@ func createSession(cmd *cobra.Command, _ []string) error {
 	}
 
 	lifetime := uint64(defaultLifetime)
-	if lfArg, _ := cmd.Flags().GetUint64(lifetimeFlag); lfArg != 0 {
+	if lfArg, _ := cmd.Flags().GetUint64(commonflags.Lifetime); lfArg != 0 {
 		lifetime = lfArg
 	}
 

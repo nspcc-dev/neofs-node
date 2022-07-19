@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"strconv"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -45,8 +44,8 @@ func initSGPutCmd() {
 	flags.StringSliceVarP(&sgMembers, sgMembersFlag, "m", nil, "ID list of storage group members")
 	_ = sgPutCmd.MarkFlagRequired(sgMembersFlag)
 
-	flags.Uint64(sgLifetimeFlag, 0, "Storage group lifetime in epochs")
-	_ = sgPutCmd.MarkFlagRequired(sgLifetimeFlag)
+	flags.Uint64(commonflags.Lifetime, 0, "Storage group lifetime in epochs")
+	_ = sgPutCmd.MarkFlagRequired(commonflags.Lifetime)
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
@@ -58,15 +57,11 @@ func putSG(cmd *cobra.Command, _ []string) {
 	var cnr cid.ID
 	readCID(cmd, &cnr)
 
-	lifetimeStr := cmd.Flag(sgLifetimeFlag).Value.String()
-	lifetime, err := strconv.ParseUint(lifetimeStr, 10, 64)
-	common.ExitOnErr(cmd, "could not parse lifetime: %w", err)
-
 	members := make([]oid.ID, len(sgMembers))
 	uniqueFilter := make(map[oid.ID]struct{}, len(sgMembers))
 
 	for i := range sgMembers {
-		err = members[i].DecodeString(sgMembers[i])
+		err := members[i].DecodeString(sgMembers[i])
 		common.ExitOnErr(cmd, "could not parse object ID: %w", err)
 
 		if _, alreadyExists := uniqueFilter[members[i]]; alreadyExists {
@@ -108,6 +103,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 	ni, err := internalclient.NetworkInfo(netInfoPrm)
 	common.ExitOnErr(cmd, "can't fetch network info: %w", err)
 
+	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	sg.SetExpirationEpoch(ni.NetworkInfo().CurrentEpoch() + lifetime)
 
 	obj := object.New()

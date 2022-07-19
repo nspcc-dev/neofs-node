@@ -2,6 +2,7 @@ package object
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -18,8 +19,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
-
-const lockExpiresOnFlag = "expires-on"
 
 // object lock command.
 var objectLockCmd = &cobra.Command{
@@ -50,10 +49,13 @@ var objectLockCmd = &cobra.Command{
 		var lock objectSDK.Lock
 		lock.WriteMembers(lockList)
 
-		exp, relative, err := common.ParseEpoch(cmd, lockExpiresOnFlag)
-		common.ExitOnErr(cmd, "Parsing expiration epoch: %w", err)
+		exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
+		lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
+		if exp == 0 && lifetime == 0 { // mutual exclusion is ensured by cobra
+			common.ExitOnErr(cmd, "", errors.New("either expiration epoch of a lifetime is required"))
+		}
 
-		if relative {
+		if lifetime != 0 {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 			defer cancel()
 
@@ -93,6 +95,7 @@ func initCommandObjectLock() {
 	commonflags.Init(objectLockCmd)
 	commonflags.InitSession(objectLockCmd)
 
-	objectLockCmd.Flags().StringP(lockExpiresOnFlag, "e", "", "Lock expiration epoch")
-	_ = objectLockCmd.MarkFlagRequired(lockExpiresOnFlag)
+	objectLockCmd.Flags().Uint64P(commonflags.ExpireAt, "e", 0, "Lock expiration epoch")
+	objectLockCmd.Flags().Uint64(commonflags.Lifetime, 0, "Lock lifetime")
+	objectLockCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
