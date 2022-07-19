@@ -4,18 +4,22 @@ import "github.com/prometheus/client_golang/prometheus"
 
 const namespace = "neofs_node"
 
-type StorageMetrics struct {
+type NodeMetrics struct {
 	objectServiceMetrics
 	engineMetrics
+	stateMetrics
 	epoch prometheus.Gauge
 }
 
-func NewStorageMetrics() *StorageMetrics {
+func NewNodeMetrics() *NodeMetrics {
 	objectService := newObjectServiceMetrics()
 	objectService.register()
 
 	engine := newEngineMetrics()
 	engine.register()
+
+	state := newStateMetrics()
+	state.register()
 
 	epoch := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -25,14 +29,15 @@ func NewStorageMetrics() *StorageMetrics {
 	})
 	prometheus.MustRegister(epoch)
 
-	return &StorageMetrics{
+	return &NodeMetrics{
 		objectServiceMetrics: objectService,
 		engineMetrics:        engine,
+		stateMetrics:         state,
 		epoch:                epoch,
 	}
 }
 
 // SetEpoch updates epoch metric.
-func (m *StorageMetrics) SetEpoch(epoch uint64) {
+func (m *NodeMetrics) SetEpoch(epoch uint64) {
 	m.epoch.Set(float64(epoch))
 }

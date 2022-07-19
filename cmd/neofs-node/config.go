@@ -103,7 +103,7 @@ type cfg struct {
 
 	cfgNotifications cfgNotifications
 
-	metricsCollector *metrics.StorageMetrics
+	metricsCollector *metrics.NodeMetrics
 
 	workers []worker
 
@@ -322,7 +322,7 @@ func initCfg(path string) *cfg {
 	user.IDFromKey(&c.ownerIDFromKey, key.PrivateKey.PublicKey)
 
 	if metricsconfig.Enabled(c.appCfg) {
-		c.metricsCollector = metrics.NewStorageMetrics()
+		c.metricsCollector = metrics.NewNodeMetrics()
 		netState.metrics = c.metricsCollector
 	}
 
