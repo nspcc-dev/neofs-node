@@ -19,7 +19,7 @@ const (
 
 	shardModeReadOnly         = "read-only"
 	shardModeReadWrite        = "read-write"
-	shardModeDegraded         = "degraded"
+	shardModeDegraded         = "degraded-read-write"
 	shardModeDegradedReadOnly = "degraded-read-only"
 )
 

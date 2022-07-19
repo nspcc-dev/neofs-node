@@ -10,8 +10,7 @@ const (
 
 	// DegradedReadOnly is a Mode value for shard that is set automatically
 	// after a certain number of errors is encountered. It is the same as
-	// `mode.ReadOnly` but also enables fallback algorithms for getting object
-	// in case metabase is corrupted.
+	// `mode.Degraded` but also is read-only.
 	DegradedReadOnly = Degraded | ReadOnly
 )
 
@@ -34,7 +33,7 @@ func (m Mode) String() string {
 	case ReadOnly:
 		return "READ_ONLY"
 	case Degraded:
-		return "DEGRADED"
+		return "DEGRADED_READ_WRITE"
 	case DegradedReadOnly:
 		return "DEGRADED_READ_ONLY"
 	}
