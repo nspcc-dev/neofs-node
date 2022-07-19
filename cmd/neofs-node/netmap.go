@@ -31,7 +31,7 @@ type networkState struct {
 
 	nodeInfo atomic.Value // *netmapSDK.NodeInfo
 
-	metrics *metrics.StorageMetrics
+	metrics *metrics.NodeMetrics
 }
 
 func newNetworkState() *networkState {
