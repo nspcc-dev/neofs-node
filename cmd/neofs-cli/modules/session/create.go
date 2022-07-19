@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -26,7 +27,7 @@ const defaultLifetime = 10
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create session token",
-	RunE:  createSession,
+	Run:   createSession,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		_ = viper.BindPFlag(commonflags.WalletPath, cmd.Flags().Lookup(commonflags.WalletPath))
 		_ = viper.BindPFlag(commonflags.Account, cmd.Flags().Lookup(commonflags.Account))
@@ -47,19 +48,15 @@ func init() {
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.RPC)
 }
 
-func createSession(cmd *cobra.Command, _ []string) error {
+func createSession(cmd *cobra.Command, _ []string) {
 	privKey := key.Get(cmd)
 
 	var netAddr network.Address
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
-	if err := netAddr.FromString(addrStr); err != nil {
-		return err
-	}
+	common.ExitOnErr(cmd, "can't parse endpoint: %w", netAddr.FromString(addrStr))
 
 	c, err := internalclient.GetSDKClient(privKey, netAddr)
-	if err != nil {
-		return err
-	}
+	common.ExitOnErr(cmd, "can't create client: %w", err)
 
 	lifetime := uint64(defaultLifetime)
 	if lfArg, _ := cmd.Flags().GetUint64(commonflags.Lifetime); lfArg != 0 {
@@ -69,26 +66,20 @@ func createSession(cmd *cobra.Command, _ []string) error {
 	var tok session.Object
 
 	err = CreateSession(&tok, c, lifetime)
-	if err != nil {
-		return err
-	}
+	common.ExitOnErr(cmd, "can't create session: %w", err)
 
 	var data []byte
 
 	if toJSON, _ := cmd.Flags().GetBool(jsonFlag); toJSON {
 		data, err = tok.MarshalJSON()
-		if err != nil {
-			return fmt.Errorf("decode session token JSON: %w", err)
-		}
+		common.ExitOnErr(cmd, "can't decode session token JSON: %w", err)
 	} else {
 		data = tok.Marshal()
 	}
 
 	filename, _ := cmd.Flags().GetString(outFlag)
-	if err := ioutil.WriteFile(filename, data, 0644); err != nil {
-		return fmt.Errorf("can't write token to file: %w", err)
-	}
-	return nil
+	err = ioutil.WriteFile(filename, data, 0644)
+	common.ExitOnErr(cmd, "can't write token to file: %w", err)
 }
 
 // CreateSession opens a new communication with NeoFS storage node using client connection.
