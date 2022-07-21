@@ -40,6 +40,9 @@ type referenceCounter map[string]*referenceNumber
 
 // Delete removed object records from metabase indexes.
 func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return db.deleteGroup(tx, prm.addrs)
 	})

@@ -82,6 +82,9 @@ var ErrLockObjectRemoval = errors.New("lock object removal")
 // NOTE: Marks any object with GC mark (despite any prohibitions on operations
 // with that object) if WithForceGCMark option has been provided.
 func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)
 

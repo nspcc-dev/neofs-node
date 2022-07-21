@@ -29,6 +29,9 @@ func bucketNameLockers(idCnr cid.ID) []byte {
 //
 // Locked list should be unique. Panics if it is empty.
 func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	if len(locked) == 0 {
 		panic("empty locked list")
 	}

@@ -60,7 +60,11 @@ func (c *cache) openStore(readOnly bool) error {
 		DirNameLen: 1,
 	}
 
-	c.flushed, _ = lru.New(lruKeysCount)
+	// Write-cache can be opened multiple times during `SetMode`.
+	// flushed map must not be re-created in this case.
+	if c.flushed == nil {
+		c.flushed, _ = lru.New(lruKeysCount)
+	}
 	return nil
 }
 

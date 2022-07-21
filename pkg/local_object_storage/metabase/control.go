@@ -19,7 +19,8 @@ func (db *DB) Open(readOnly bool) error {
 	db.log.Debug("created directory for Metabase", zap.String("path", db.info.Path))
 
 	if db.boltOptions == nil {
-		db.boltOptions = bbolt.DefaultOptions
+		opts := *bbolt.DefaultOptions
+		db.boltOptions = &opts
 	}
 	db.boltOptions.ReadOnly = readOnly
 
