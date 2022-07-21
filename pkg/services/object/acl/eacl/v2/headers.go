@@ -114,16 +114,10 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 				return errMissingOID
 			}
 
-			var addr oid.Address
-			addr.SetContainer(h.cnr)
-			addr.SetObject(*h.obj)
+			objHeaders, completed := h.localObjectHeaders(h.cnr, h.obj)
 
-			obj, err := h.storage.Head(addr)
-			if err == nil {
-				dst.objectHeaders = headersFromObject(obj, h.cnr, h.obj)
-			} else {
-				dst.incompleteObjectHeaders = true
-			}
+			dst.objectHeaders = objHeaders
+			dst.incompleteObjectHeaders = !completed
 		case
 			*objectV2.GetRangeRequest,
 			*objectV2.GetRangeHashRequest,
@@ -155,6 +149,11 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 		}
 	case responseXHeaderSource:
 		switch resp := m.resp.(type) {
+		default:
+			objectHeaders, completed := h.localObjectHeaders(h.cnr, h.obj)
+
+			dst.objectHeaders = objectHeaders
+			dst.incompleteObjectHeaders = !completed
 		case *objectV2.GetResponse:
 			if v, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
 				oV2 := new(objectV2.Object)
@@ -192,6 +191,21 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	}
 
 	return nil
+}
+
+func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, bool) {
+	if idObj != nil {
+		var addr oid.Address
+		addr.SetContainer(cnr)
+		addr.SetObject(*idObj)
+
+		obj, err := h.storage.Head(addr)
+		if err == nil {
+			return headersFromObject(obj, cnr, idObj), true
+		}
+	}
+
+	return addressHeaders(cnr, idObj), false
 }
 
 func cidHeader(idCnr cid.ID) sysObjHdr {

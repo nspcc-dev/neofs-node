@@ -17,6 +17,8 @@ Changelog for NeoFS Node
 
 ### Fixed
 
+- Losing request context in eACL response checks (#1595)
+
 ### Removed
 
 ### Updated
