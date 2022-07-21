@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 - Profiler and metrics services now should be enabled with a separate flag
+- Experimental support for the tree-service, disabled by default (#1607)
 
 ### Changed
 
