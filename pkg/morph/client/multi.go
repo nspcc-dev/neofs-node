@@ -34,12 +34,7 @@ func (c *Client) switchRPC() bool {
 
 	// Iterate endpoints in the order of decreasing priority.
 	// Skip the current endpoint.
-	last := c.endpoints.curr
 	for c.endpoints.curr = range c.endpoints.list {
-		if c.endpoints.curr == last {
-			continue
-		}
-
 		newEndpoint := c.endpoints.list[c.endpoints.curr].Address
 		cli, err := newWSClient(c.cfg, newEndpoint)
 		if err != nil {

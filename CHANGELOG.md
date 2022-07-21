@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Require SG members to be unique (#1490)
 - `neofs-cli` now doesn't remove container with LOCK objects without `--force` flag (#1500)
 - `morph` sections in IR and storage node configuration now accept an address and a priority of an endpoint (#1609)
+- Morph client now retries connecting to the failed endpoint too (#1609)
 
 ### Fixed
 
