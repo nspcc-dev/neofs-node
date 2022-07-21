@@ -45,6 +45,9 @@ func (r GetRes) Header() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
+	db.modeMtx.Lock()
+	defer db.modeMtx.Unlock()
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.hdr, err = db.get(tx, prm.addr, true, prm.raw)
 

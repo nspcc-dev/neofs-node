@@ -49,6 +49,9 @@ func (p MovableRes) AddressList() []oid.Address {
 // ToMoveIt marks objects to move it into another shard. This useful for
 // faster HRW fetching.
 func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt, err := tx.CreateBucketIfNotExists(toMoveItBucketName)
 		if err != nil {
@@ -63,6 +66,9 @@ func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
 
 // DoNotMove removes `MoveIt` mark from the object.
 func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		if toMoveIt == nil {
@@ -77,6 +83,9 @@ func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
 
 // Movable returns list of marked objects to move into other shard.
 func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	var strAddrs []string
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {

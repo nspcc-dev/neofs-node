@@ -34,6 +34,9 @@ func (r IsSmallRes) BlobovniczaID() *blobovnicza.ID {
 // shallow path which is calculated from address and therefore it is not
 // indexed in metabase.
 func (db *DB) IsSmall(prm IsSmallPrm) (res IsSmallRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.id, err = db.isSmall(tx, prm.addr)
 

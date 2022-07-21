@@ -61,6 +61,9 @@ func (l ListRes) Cursor() *Cursor {
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	result := make([]oid.Address, 0, prm.count)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

@@ -10,6 +10,9 @@ import (
 )
 
 func (db *DB) Containers() (list []cid.ID, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		list, err = db.containers(tx)
 

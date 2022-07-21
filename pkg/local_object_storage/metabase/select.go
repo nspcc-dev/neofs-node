@@ -56,6 +56,9 @@ func (r SelectRes) AddressList() []oid.Address {
 
 // Select returns list of addresses of objects that match search filters.
 func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	if blindlyProcess(prm.filters) {
 		return res, nil
 	}

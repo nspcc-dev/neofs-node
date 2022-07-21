@@ -38,6 +38,9 @@ func (p ExistsRes) Exists() bool {
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.exists, err = db.exists(tx, prm.addr)
 

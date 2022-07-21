@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,7 +55,8 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("small object", func(t *testing.T) {
-		obj.SetID(oidtest.ID())
+		obj := generateObjectWithCID(t, cnr)
+		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
 		putPrm.SetObject(obj)
