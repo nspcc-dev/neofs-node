@@ -60,6 +60,7 @@ grpc:
       use_insecure_crypto: true # allow using insecure ciphers with TLS 1.2
 
 tree:
+  enabled: false
   cache_size: 10
   replication_worker_count: 64
   replication_channel_capacity: 64
@@ -99,9 +100,6 @@ replicator:
 object:
   put:
     pool_size_remote: 100  # number of async workers for remote PUT operations
-
-tree:
-  enable: false
 
 storage:
   # note: shard configuration can be omitted for relay node (see `node.relay`)
