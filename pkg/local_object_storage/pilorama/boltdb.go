@@ -24,6 +24,11 @@ type boltForest struct {
 
 	modeMtx sync.RWMutex
 	mode    mode.Mode
+
+	// mtx protects batches field.
+	mtx     sync.Mutex
+	batches []*batch
+
 	cfg
 }
 
@@ -318,15 +323,64 @@ func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move, backgrou
 		}
 	}
 
-	return t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
-		if err != nil {
-			return err
+	if t.db.MaxBatchSize == 1 {
+		return t.db.Update(func(tx *bbolt.Tx) error {
+			bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
+			if err != nil {
+				return err
+			}
+
+			var lm LogMove
+			return t.applyOperation(bLog, bTree, []*Move{m}, &lm)
+		})
+	}
+
+	ch := make(chan error, 1)
+	t.addBatch(d, treeID, m, ch)
+	return <-ch
+}
+
+func (t *boltForest) addBatch(d CIDDescriptor, treeID string, m *Move, ch chan error) {
+	t.mtx.Lock()
+	for i := 0; i < len(t.batches); i++ {
+		t.batches[i].mtx.Lock()
+		if t.batches[i].timer == nil {
+			t.batches[i].mtx.Unlock()
+			copy(t.batches[i:], t.batches[i+1:])
+			t.batches = t.batches[:len(t.batches)-1]
+			i--
+			continue
 		}
 
-		lm := &LogMove{Move: *m}
-		return t.applyOperation(bLog, bTree, lm)
-	})
+		found := t.batches[i].cid.Equals(d.CID) && t.batches[i].treeID == treeID
+		if found {
+			t.batches[i].results = append(t.batches[i].results, ch)
+			t.batches[i].operations = append(t.batches[i].operations, m)
+			if len(t.batches[i].operations) == t.db.MaxBatchSize {
+				t.batches[i].timer.Stop()
+				t.batches[i].timer = nil
+				t.batches[i].mtx.Unlock()
+				b := t.batches[i]
+				t.mtx.Unlock()
+				b.trigger()
+				return
+			}
+			t.batches[i].mtx.Unlock()
+			t.mtx.Unlock()
+			return
+		}
+		t.batches[i].mtx.Unlock()
+	}
+	b := &batch{
+		forest:     t,
+		cid:        d.CID,
+		treeID:     treeID,
+		results:    []chan<- error{ch},
+		operations: []*Move{m},
+	}
+	b.timer = time.AfterFunc(t.db.MaxBatchDelay, b.trigger)
+	t.batches = append(t.batches, b)
+	t.mtx.Unlock()
 }
 
 func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) (*bbolt.Bucket, *bbolt.Bucket, error) {
@@ -351,15 +405,10 @@ func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) 
 	return bLog, bData, nil
 }
 
-func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *LogMove) error {
+// applyOperations applies log operations. Assumes lm are sorted by timestamp.
+func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, ms []*Move, lm *LogMove) error {
 	var tmp LogMove
 	var cKey [17]byte
-
-	var logKey [8]byte
-	binary.BigEndian.PutUint64(logKey[:], lm.Time)
-	if logBucket.Get(logKey[:]) != nil {
-		return nil
-	}
 
 	c := logBucket.Cursor()
 
@@ -369,43 +418,42 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 	r := io.NewBinReaderFromIO(b)
 
 	// 1. Undo up until the desired timestamp is here.
-	for len(key) == 8 && binary.BigEndian.Uint64(key) > lm.Time {
+	for len(key) == 8 && ms[0].Time < binary.BigEndian.Uint64(key) {
 		b.Reset(value)
 		if err := t.logFromBytes(&tmp, r); err != nil {
 			return err
 		}
-		if err := t.undo(&tmp.Move, &tmp, treeBucket, cKey[:]); err != nil {
+		if err := t.undo(&tmp, treeBucket, cKey[:]); err != nil {
 			return err
 		}
 		key, value = c.Prev()
 	}
 
-	key, _ = c.Next()
+	for i := 0; i < len(ms); i++ {
+		// Loop invariant: key represents the next stored timestamp after ms[i].Time.
 
-	// 2. Insert the operation.
-	if len(key) != 8 || binary.BigEndian.Uint64(key) != lm.Time {
+		// 2. Insert the operation.
+		lm.Move = *ms[i]
 		if err := t.do(logBucket, treeBucket, cKey[:], lm); err != nil {
 			return err
 		}
-	}
 
-	if key == nil {
-		// The operation is inserted in the beginning, reposition the cursor.
-		// Otherwise, `Next` call will return currently inserted operation.
-		c.First()
-	}
-	key, value = c.Seek(key)
-
-	// 3. Re-apply all other operations.
-	for len(key) == 8 {
-		b.Reset(value)
-		if err := t.logFromBytes(&tmp, r); err != nil {
-			return err
-		}
-		if err := t.do(logBucket, treeBucket, cKey[:], &tmp); err != nil {
-			return err
-		}
+		// Cursor can be invalid, seek again.
+		binary.BigEndian.PutUint64(cKey[:], lm.Time)
+		_, _ = c.Seek(cKey[:8])
 		key, value = c.Next()
+
+		// 3. Re-apply all other operations.
+		for len(key) == 8 && (i == len(ms)-1 || binary.BigEndian.Uint64(key) < ms[i+1].Time) {
+			b.Reset(value)
+			if err := t.logFromBytes(&tmp, r); err != nil {
+				return err
+			}
+			if err := t.do(logBucket, treeBucket, cKey[:], &tmp); err != nil {
+				return err
+			}
+			key, value = c.Next()
+		}
 	}
 
 	return nil
@@ -511,15 +559,15 @@ func (t *boltForest) addNode(b *bbolt.Bucket, key []byte, child, parent Node, me
 	return nil
 }
 
-func (t *boltForest) undo(m *Move, lm *LogMove, b *bbolt.Bucket, key []byte) error {
+func (t *boltForest) undo(m *LogMove, b *bbolt.Bucket, key []byte) error {
 	if err := b.Delete(childrenKey(key, m.Child, m.Parent)); err != nil {
 		return err
 	}
 
-	if !lm.HasOld {
+	if !m.HasOld {
 		return t.removeNode(b, key, m.Child, m.Parent)
 	}
-	return t.addNode(b, key, m.Child, lm.Old.Parent, lm.Old.Meta)
+	return t.addNode(b, key, m.Child, m.Old.Parent, m.Old.Meta)
 }
 
 func (t *boltForest) isAncestor(b *bbolt.Bucket, parent, child Node) bool {
