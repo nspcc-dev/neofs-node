@@ -34,7 +34,6 @@ func ReadNodeAttributes(dst *netmap.NodeInfo, attrs []string) error {
 		// replace non-printable symbols with escaped symbols without escape character
 		words[0] = replaceEscaping(words[0], true)
 		words[1] = replaceEscaping(words[1], true)
-		fmt.Println(words[0], words[1])
 
 		if words[0] == "" {
 			return errors.New("empty key")
