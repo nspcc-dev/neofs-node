@@ -371,7 +371,7 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 		return err
 	}
 
-	if t.isAncestor(b, key, op.Child, op.Parent) || op.Child == op.Parent {
+	if op.Child == op.Parent || t.isAncestor(b, op.Child, op.Parent) {
 		return nil
 	}
 
@@ -384,15 +384,12 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 		if err := b.Delete(childrenKey(key, op.Child, parent)); err != nil {
 			return err
 		}
-		var meta Meta
-		var k = metaKey(key, op.Child)
-		if err := meta.FromBytes(b.Get(k)); err == nil {
-			for i := range meta.Items {
-				if isAttributeInternal(meta.Items[i].Key) {
-					err := b.Delete(internalKey(nil, meta.Items[i].Key, string(meta.Items[i].Value), parent, op.Child))
-					if err != nil {
-						return err
-					}
+		for i := range op.Old.Meta.Items {
+			if isAttributeInternal(op.Old.Meta.Items[i].Key) {
+				key = internalKey(key, op.Old.Meta.Items[i].Key, string(op.Old.Meta.Items[i].Value), parent, op.Child)
+				err := b.Delete(key)
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -467,15 +464,16 @@ func (t *boltForest) undo(m *Move, lm *LogMove, b *bbolt.Bucket, key []byte) err
 	return t.addNode(b, key, m.Child, lm.Old.Parent, lm.Old.Meta)
 }
 
-func (t *boltForest) isAncestor(b *bbolt.Bucket, key []byte, parent, child Node) bool {
+func (t *boltForest) isAncestor(b *bbolt.Bucket, parent, child Node) bool {
+	key := make([]byte, 9)
 	key[0] = 'p'
-	for c := child; c != parent; {
-		binary.LittleEndian.PutUint64(key[1:], c)
-		rawParent := b.Get(key[:9])
+	for node := child; node != parent; {
+		binary.LittleEndian.PutUint64(key[1:], node)
+		rawParent := b.Get(key)
 		if len(rawParent) != 8 {
 			return false
 		}
-		c = binary.LittleEndian.Uint64(rawParent)
+		node = binary.LittleEndian.Uint64(rawParent)
 	}
 	return true
 }
