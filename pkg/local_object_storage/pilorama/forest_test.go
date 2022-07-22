@@ -859,7 +859,7 @@ func testTreeGetByPath(t *testing.T, s Forest) {
 		single := mf.treeMap[cid.String()+"/"+treeID]
 		t.Run("test meta", func(t *testing.T) {
 			for i := 0; i < 6; i++ {
-				require.Equal(t, uint64(i), single.infoMap[Node(i+1)].Timestamp)
+				require.Equal(t, uint64(i), single.infoMap[Node(i+1)].Meta.Time)
 			}
 		})
 	}
