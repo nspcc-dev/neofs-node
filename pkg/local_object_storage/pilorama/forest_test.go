@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
 
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -16,9 +17,9 @@ import (
 
 var providers = []struct {
 	name      string
-	construct func(t testing.TB) Forest
+	construct func(t testing.TB, opts ...Option) Forest
 }{
-	{"inmemory", func(t testing.TB) Forest {
+	{"inmemory", func(t testing.TB, _ ...Option) Forest {
 		f := NewMemoryForest()
 		require.NoError(t, f.Open(false))
 		require.NoError(t, f.Init())
@@ -28,14 +29,15 @@ var providers = []struct {
 
 		return f
 	}},
-	{"bbolt", func(t testing.TB) Forest {
+	{"bbolt", func(t testing.TB, opts ...Option) Forest {
 		// Use `os.TempDir` because we construct multiple times in the same test.
 		tmpDir, err := os.MkdirTemp(os.TempDir(), "*")
 		require.NoError(t, err)
 
 		f := NewBoltForest(
-			WithPath(filepath.Join(tmpDir, "test.db")),
-			WithMaxBatchSize(1))
+			append([]Option{
+				WithPath(filepath.Join(tmpDir, "test.db")),
+				WithMaxBatchSize(1)}, opts...)...)
 		require.NoError(t, f.Open(false))
 		require.NoError(t, f.Init())
 		t.Cleanup(func() {
@@ -407,7 +409,7 @@ func TestForest_Apply(t *testing.T) {
 	}
 }
 
-func testForestTreeApply(t *testing.T, constructor func(t testing.TB) Forest) {
+func testForestTreeApply(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest) {
 	cid := cidtest.ID()
 	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
@@ -461,7 +463,7 @@ func TestForest_GetOpLog(t *testing.T) {
 	}
 }
 
-func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB) Forest) {
+func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest) {
 	cid := cidtest.ID()
 	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
@@ -520,7 +522,7 @@ func TestForest_TreeExists(t *testing.T) {
 	}
 }
 
-func testForestTreeExists(t *testing.T, constructor func(t testing.TB) Forest) {
+func testForestTreeExists(t *testing.T, constructor func(t testing.TB, opts ...Option) Forest) {
 	s := constructor(t)
 
 	checkExists := func(t *testing.T, expected bool, cid cidSDK.ID, treeID string) {
@@ -654,20 +656,20 @@ func TestForest_ApplyRandom(t *testing.T) {
 	}
 }
 
-func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Forest) {
-	rand.Seed(42)
+func TestForest_ParallelApply(t *testing.T) {
+	for i := range providers {
+		if providers[i].name == "inmemory" {
+			continue
+		}
+		t.Run(providers[i].name, func(t *testing.T) {
+			testForestTreeParallelApply(t, providers[i].construct, 8, 128, 10)
+		})
+	}
+}
 
-	const (
-		nodeCount = 5
-		opCount   = 20
-		iterCount = 200
-	)
-
-	cid := cidtest.ID()
-	d := CIDDescriptor{cid, 0, 1}
-	treeID := "version"
-	expected := constructor(t)
-
+// prepareRandomTree creates a random sequence of operation and applies them to tree.
+// The operations are guaranteed to be applied and returned sorted by `Time`.
+func prepareRandomTree(nodeCount, opCount int) []Move {
 	ops := make([]Move, nodeCount+opCount)
 	for i := 0; i < nodeCount; i++ {
 		ops[i] = Move{
@@ -686,7 +688,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 
 	for i := nodeCount; i < len(ops); i++ {
 		ops[i] = Move{
-			Parent: rand.Uint64() % (nodeCount + 12),
+			Parent: rand.Uint64() % uint64(nodeCount+12),
 			Meta: Meta{
 				Time: Timestamp(i + nodeCount),
 				Items: []KeyValue{
@@ -694,13 +696,60 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 					{Value: make([]byte, 10)},
 				},
 			},
-			Child: rand.Uint64() % (nodeCount + 10),
+			Child: rand.Uint64() % uint64(nodeCount+10),
 		}
 		if rand.Uint32()%5 == 0 {
 			ops[i].Parent = TrashID
 		}
 		rand.Read(ops[i].Meta.Items[1].Value)
 	}
+
+	return ops
+}
+
+func compareForests(t *testing.T, expected, actual Forest, cid cidSDK.ID, treeID string, nodeCount int) {
+	for i := uint64(0); i < uint64(nodeCount); i++ {
+		expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
+		require.NoError(t, err)
+		actualMeta, actualParent, err := actual.TreeGetMeta(cid, treeID, i)
+		require.NoError(t, err)
+		require.Equal(t, expectedParent, actualParent, "node id: %d", i)
+		require.Equal(t, expectedMeta, actualMeta, "node id: %d", i)
+
+		if ma, ok := actual.(*memoryForest); ok {
+			me := expected.(*memoryForest)
+			require.Equal(t, len(me.treeMap), len(ma.treeMap))
+
+			for k, sa := range ma.treeMap {
+				se, ok := me.treeMap[k]
+				require.True(t, ok)
+				require.Equal(t, se.operations, sa.operations)
+				require.Equal(t, se.infoMap, sa.infoMap)
+
+				require.Equal(t, len(se.childMap), len(sa.childMap))
+				for ck, la := range sa.childMap {
+					le, ok := se.childMap[ck]
+					require.True(t, ok)
+					require.ElementsMatch(t, le, la)
+				}
+			}
+			require.Equal(t, expected, actual, i)
+		}
+	}
+}
+
+func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest, batchSize, opCount, iterCount int) {
+	rand.Seed(42)
+
+	const nodeCount = 5
+
+	ops := prepareRandomTree(nodeCount, opCount)
+
+	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
+	treeID := "version"
+
+	expected := constructor(t)
 	for i := range ops {
 		require.NoError(t, expected.TreeApply(d, treeID, &ops[i], false))
 	}
@@ -709,42 +758,64 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 		// Shuffle random operations, leave initialization in place.
 		rand.Shuffle(len(ops), func(i, j int) { ops[i], ops[j] = ops[j], ops[i] })
 
+		actual := constructor(t, WithMaxBatchSize(batchSize))
+		wg := new(sync.WaitGroup)
+		ch := make(chan *Move, 0)
+		for i := 0; i < batchSize; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for op := range ch {
+					require.NoError(t, actual.TreeApply(d, treeID, op, false))
+				}
+			}()
+		}
+
+		for i := range ops {
+			ch <- &ops[i]
+		}
+		close(ch)
+		wg.Wait()
+
+		compareForests(t, expected, actual, cid, treeID, nodeCount)
+	}
+}
+
+func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest) {
+	rand.Seed(42)
+
+	const (
+		nodeCount = 5
+		opCount   = 20
+	)
+
+	ops := prepareRandomTree(nodeCount, opCount)
+
+	cid := cidtest.ID()
+	d := CIDDescriptor{cid, 0, 1}
+	treeID := "version"
+
+	expected := constructor(t)
+	for i := range ops {
+		require.NoError(t, expected.TreeApply(d, treeID, &ops[i], false))
+	}
+
+	const iterCount = 200
+	for i := 0; i < iterCount; i++ {
+		// Shuffle random operations, leave initialization in place.
+		rand.Shuffle(len(ops), func(i, j int) { ops[i], ops[j] = ops[j], ops[i] })
+
 		actual := constructor(t)
 		for i := range ops {
 			require.NoError(t, actual.TreeApply(d, treeID, &ops[i], false))
 		}
-		for i := uint64(0); i < nodeCount; i++ {
-			expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
-			require.NoError(t, err)
-			actualMeta, actualParent, err := actual.TreeGetMeta(cid, treeID, i)
-			require.NoError(t, err)
-			require.Equal(t, expectedParent, actualParent, "node id: %d", i)
-			require.Equal(t, expectedMeta, actualMeta, "node id: %d", i)
-
-			if ma, ok := actual.(*memoryForest); ok {
-				me := expected.(*memoryForest)
-				require.Equal(t, len(me.treeMap), len(ma.treeMap))
-
-				for k, sa := range ma.treeMap {
-					se, ok := me.treeMap[k]
-					require.True(t, ok)
-					require.Equal(t, se.operations, sa.operations)
-					require.Equal(t, se.infoMap, sa.infoMap)
-
-					require.Equal(t, len(se.childMap), len(sa.childMap))
-					for ck, la := range sa.childMap {
-						le, ok := se.childMap[ck]
-						require.True(t, ok)
-						require.ElementsMatch(t, le, la)
-					}
-				}
-				require.Equal(t, expected, actual, i)
-			}
-		}
+		compareForests(t, expected, actual, cid, treeID, nodeCount)
 	}
 }
 
 const benchNodeCount = 1000
+
+var batchSizes = []int{1, 2, 4, 8, 16, 32}
 
 func BenchmarkApplySequential(b *testing.B) {
 	for i := range providers {
@@ -752,20 +823,25 @@ func BenchmarkApplySequential(b *testing.B) {
 			continue
 		}
 		b.Run(providers[i].name, func(b *testing.B) {
-			benchmarkApply(b, providers[i].construct(b), func(opCount int) []Move {
-				ops := make([]Move, opCount)
-				for i := range ops {
-					ops[i] = Move{
-						Parent: uint64(rand.Intn(benchNodeCount)),
-						Meta: Meta{
-							Time:  Timestamp(i),
-							Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
-						},
-						Child: uint64(rand.Intn(benchNodeCount)),
-					}
-				}
-				return ops
-			})
+			for _, bs := range batchSizes {
+				b.Run("batchsize="+strconv.Itoa(bs), func(b *testing.B) {
+					s := providers[i].construct(b, WithMaxBatchSize(bs))
+					benchmarkApply(b, s, func(opCount int) []Move {
+						ops := make([]Move, opCount)
+						for i := range ops {
+							ops[i] = Move{
+								Parent: uint64(rand.Intn(benchNodeCount)),
+								Meta: Meta{
+									Time:  Timestamp(i),
+									Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
+								},
+								Child: uint64(rand.Intn(benchNodeCount)),
+							}
+						}
+						return ops
+					})
+				})
+			}
 		})
 	}
 }
@@ -780,25 +856,30 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 			continue
 		}
 		b.Run(providers[i].name, func(b *testing.B) {
-			benchmarkApply(b, providers[i].construct(b), func(opCount int) []Move {
-				ops := make([]Move, opCount)
-				for i := range ops {
-					ops[i] = Move{
-						Parent: uint64(rand.Intn(benchNodeCount)),
-						Meta: Meta{
-							Time:  Timestamp(i),
-							Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
-						},
-						Child: uint64(rand.Intn(benchNodeCount)),
-					}
-					if i != 0 && i%blockSize == 0 {
-						for j := 0; j < blockSize/2; j++ {
-							ops[i-j], ops[i+j-blockSize] = ops[i+j-blockSize], ops[i-j]
+			for _, bs := range batchSizes {
+				b.Run("batchsize="+strconv.Itoa(bs), func(b *testing.B) {
+					s := providers[i].construct(b, WithMaxBatchSize(bs))
+					benchmarkApply(b, s, func(opCount int) []Move {
+						ops := make([]Move, opCount)
+						for i := range ops {
+							ops[i] = Move{
+								Parent: uint64(rand.Intn(benchNodeCount)),
+								Meta: Meta{
+									Time:  Timestamp(i),
+									Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
+								},
+								Child: uint64(rand.Intn(benchNodeCount)),
+							}
+							if i != 0 && i%blockSize == 0 {
+								for j := 0; j < blockSize/2; j++ {
+									ops[i-j], ops[i+j-blockSize] = ops[i+j-blockSize], ops[i-j]
+								}
+							}
 						}
-					}
-				}
-				return ops
-			})
+						return ops
+					})
+				})
+			}
 		})
 	}
 }
@@ -810,18 +891,17 @@ func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 	cid := cidtest.ID()
 	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
-	ch := make(chan *Move, b.N)
-	for i := range ops {
-		ch <- &ops[i]
+	ch := make(chan int, b.N)
+	for i := 0; i < b.N; i++ {
+		ch <- i
 	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	b.SetParallelism(50)
+	b.SetParallelism(10)
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			op := <-ch
-			if err := s.TreeApply(d, treeID, op, false); err != nil {
+			if err := s.TreeApply(d, treeID, &ops[<-ch], false); err != nil {
 				b.Fatalf("error in `Apply`: %v", err)
 			}
 		}
