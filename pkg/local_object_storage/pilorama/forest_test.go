@@ -707,7 +707,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 
 	for i := 0; i < iterCount; i++ {
 		// Shuffle random operations, leave initialization in place.
-		rand.Shuffle(len(ops)-nodeCount, func(i, j int) { ops[i+nodeCount], ops[j+nodeCount] = ops[j+nodeCount], ops[i+nodeCount] })
+		rand.Shuffle(len(ops), func(i, j int) { ops[i], ops[j] = ops[j], ops[i] })
 
 		actual := constructor(t)
 		for i := range ops {
