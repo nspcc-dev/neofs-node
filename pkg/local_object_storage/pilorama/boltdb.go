@@ -322,6 +322,8 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 		key, value = c.Prev()
 	}
 
+	key, _ = c.Next()
+
 	// 2. Insert the operation.
 	if len(key) != 8 || binary.BigEndian.Uint64(key) != lm.Time {
 		if err := t.do(logBucket, treeBucket, cKey[:], lm); err != nil {
@@ -334,7 +336,7 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 		// Otherwise, `Next` call will return currently inserted operation.
 		c.First()
 	}
-	key, value = c.Next()
+	key, value = c.Seek(key)
 
 	// 3. Re-apply all other operations.
 	for len(key) == 8 {
@@ -352,8 +354,6 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 }
 
 func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMove) error {
-	shouldPut := !t.isAncestor(b, key, op.Child, op.Parent)
-
 	currParent := b.Get(parentKey(key, op.Child))
 	op.HasOld = currParent != nil
 	if currParent != nil { // node is already in tree
@@ -361,6 +361,9 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 		if err := op.Old.Meta.FromBytes(b.Get(metaKey(key, op.Child))); err != nil {
 			return err
 		}
+	} else {
+		op.HasOld = false
+		op.Old = nodeInfo{}
 	}
 
 	binary.BigEndian.PutUint64(key, op.Time)
@@ -368,7 +371,7 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 		return err
 	}
 
-	if !shouldPut {
+	if t.isAncestor(b, key, op.Child, op.Parent) || op.Child == op.Parent {
 		return nil
 	}
 
