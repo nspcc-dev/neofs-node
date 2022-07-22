@@ -2,9 +2,8 @@ package pilorama
 
 // nodeInfo couples parent and metadata.
 type nodeInfo struct {
-	Parent    Node
-	Meta      Meta
-	Timestamp Timestamp
+	Parent Node
+	Meta   Meta
 }
 
 // state represents state being replicated.
@@ -98,7 +97,7 @@ func (s *state) do(op *Move) LogMove {
 	}
 
 	if !ok {
-		p.Timestamp = op.Time
+		p.Meta.Time = op.Time
 	} else {
 		s.removeChild(op.Child, p.Parent)
 	}
@@ -206,7 +205,7 @@ func (t tree) get(attr string, path []string, latest bool) []Node {
 		fileName := string(info.Meta.GetAttr(attr))
 		if fileName == path[len(path)-1] {
 			if latest {
-				if info.Timestamp >= lastTs {
+				if info.Meta.Time >= lastTs {
 					nodes = append(nodes[:0], children[i])
 				}
 			} else {
