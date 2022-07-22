@@ -50,7 +50,7 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 		user.IDFromKey(&actualID, (ecdsa.PublicKey)(*pub))
 
 		if !actualID.Equals(ownerID) {
-			return errors.New("`Move` request must be signed by a container owner")
+			return errors.New("request must be signed by a container owner")
 		}
 		return nil
 	}
