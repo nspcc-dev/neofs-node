@@ -5,15 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 
-- Profiler and metrics services now should be enabled with a separate flag
-- Experimental support for the tree-service, disabled by default (#1607)
-
 ### Changed
-
-- Require SG members to be unique (#1490)
-- `neofs-cli` now doesn't remove container with LOCK objects without `--force` flag (#1500)
-- `morph` sections in IR and storage node configuration now accept an address and a priority of an endpoint (#1609)
-- Morph client now retries connecting to the failed endpoint too (#1609)
 
 ### Fixed
 
@@ -23,10 +15,47 @@ Changelog for NeoFS Node
 
 ### Updated
 
+### Updating from v0.30.0
+
+## [0.30.0] - 2022-07-22 - Saengildo (생일도, 生日島)
+
+### Added
+
+- Profiler and metrics services now should be enabled with a separate flag
+- Experimental support for the tree-service, disabled by default (#1607)
+- Homomorphic hashes calculation can be disabled across the whole network (#1365)
+- Improve `neofs-adm` auto-completion (#1594)
+
+### Changed
+
+- Require SG members to be unique (#1490)
+- `neofs-cli` now doesn't remove container with LOCK objects without `--force` flag (#1500)
+- LOCK objects are now required to have an expiration epoch (#1461)
+- `morph` sections in IR and storage node configuration now accept an address and a priority of an endpoint (#1609)
+- Morph client now retries connecting to the failed endpoint too (#1609)
+- Redirecting `GET` and `GETRANGE` requests now does not store full object copy in memory (#1605)
+- `neofs-adm` now registers candidates during initialization in a single transaction (#1608)
+
+### Fixed
+
+- Shard now can start in degraded mode if the metabase is unavailable (#1559)
+- Shard can now be disabled completely on init failure (#1559)
+- Storage group members are now required to be unique (#1490)
+- Print shard ID in component logs (#1611)
+
+### Updated
+- `neofs-contract` to `v0.15.3`
+- `neo-go` to the pre-release version
+- `github.com/spf13/cobra` to v1.5.0
+
 ### Updating from v0.29.0
-Change morph endpoints from simple string to a pair of `address` and `priority`. The second can be omitted.
+1. Change morph endpoints from simple string to a pair of `address` and `priority`. The second can be omitted.
 For inner ring node this resides in `morph.endpoint.client` section,
-for storage node -- in `morph.rpc_endpoint` section. See `config/example` for an example. 
+for storage node -- in `morph.rpc_endpoint` section. See `config/example` for an example.
+
+2. Move `storage.default` section to `storage.shard.default`.
+3. Rename `metrics` and `profiler` sections to `prometheus` and `pprof` respectively, though old versions are supported.
+In addition, these sections must now be explicitly enabled with `enabled: true` flag.
 
 ## [0.29.0] - 2022-07-07 - Yeonpyeongdo (연평도, 延坪島)
 
@@ -1154,7 +1183,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.29.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.0...master
+[0.30.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.1...v0.28.2
