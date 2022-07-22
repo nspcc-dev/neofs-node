@@ -686,7 +686,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 
 	for i := nodeCount; i < len(ops); i++ {
 		ops[i] = Move{
-			Parent: rand.Uint64() % (nodeCount + 1),
+			Parent: rand.Uint64() % (nodeCount + 12),
 			Meta: Meta{
 				Time: Timestamp(i + nodeCount),
 				Items: []KeyValue{
@@ -694,7 +694,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 					{Value: make([]byte, 10)},
 				},
 			},
-			Child: rand.Uint64() % (nodeCount + 1),
+			Child: rand.Uint64() % (nodeCount + 10),
 		}
 		if rand.Uint32()%5 == 0 {
 			ops[i].Parent = TrashID
@@ -721,7 +721,23 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 			require.Equal(t, expectedParent, actualParent, "node id: %d", i)
 			require.Equal(t, expectedMeta, actualMeta, "node id: %d", i)
 
-			if _, ok := actual.(*memoryForest); ok {
+			if ma, ok := actual.(*memoryForest); ok {
+				me := expected.(*memoryForest)
+				require.Equal(t, len(me.treeMap), len(ma.treeMap))
+
+				for k, sa := range ma.treeMap {
+					se, ok := me.treeMap[k]
+					require.True(t, ok)
+					require.Equal(t, se.operations, sa.operations)
+					require.Equal(t, se.infoMap, sa.infoMap)
+
+					require.Equal(t, len(se.childMap), len(sa.childMap))
+					for ck, la := range sa.childMap {
+						le, ok := se.childMap[ck]
+						require.True(t, ok)
+						require.ElementsMatch(t, le, la)
+					}
+				}
 				require.Equal(t, expected, actual, i)
 			}
 		}
