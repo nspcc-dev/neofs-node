@@ -23,8 +23,8 @@ mainnet:
   dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
   endpoint:
     client: # List of websocket RPC endpoints in mainchain; ignore if mainchain is disabled
-      - wss://mainchain1.fs.neo.org:30333/ws
-      - wss://mainchain.fs.neo.org:30333/ws
+      - address: wss://mainchain1.fs.neo.org:30333/ws
+      - address: wss://mainchain.fs.neo.org:30333/ws
 
 control:
   authorized_keys:  # List of hex-encoded 33-byte public keys that have rights to use the control service
