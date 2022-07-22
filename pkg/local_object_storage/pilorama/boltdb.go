@@ -273,25 +273,23 @@ func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move) error {
 
 func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) (*bbolt.Bucket, *bbolt.Bucket, error) {
 	treeRoot := bucketName(cid, treeID)
+	child := tx.Bucket(treeRoot)
+	if child != nil {
+		return child.Bucket(logBucket), child.Bucket(dataBucket), nil
+	}
+
 	child, err := tx.CreateBucket(treeRoot)
-	if err != nil && err != bbolt.ErrBucketExists {
+	if err != nil {
 		return nil, nil, err
 	}
-
-	var bLog, bData *bbolt.Bucket
-	if err == nil {
-		if bLog, err = child.CreateBucket(logBucket); err != nil {
-			return nil, nil, err
-		}
-		if bData, err = child.CreateBucket(dataBucket); err != nil {
-			return nil, nil, err
-		}
-	} else {
-		child = tx.Bucket(treeRoot)
-		bLog = child.Bucket(logBucket)
-		bData = child.Bucket(dataBucket)
+	bLog, err := child.CreateBucket(logBucket)
+	if err != nil {
+		return nil, nil, err
 	}
-
+	bData, err := child.CreateBucket(dataBucket)
+	if err != nil {
+		return nil, nil, err
+	}
 	return bLog, bData, nil
 }
 
