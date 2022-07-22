@@ -87,7 +87,6 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	sigV2.SetSign(sig)
 	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
 
-	res.Signature.ReadFromV2(sigV2)
-
-	return &res, nil
+	err = res.Signature.ReadFromV2(sigV2)
+	return &res, err
 }

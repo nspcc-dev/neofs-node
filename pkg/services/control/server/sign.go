@@ -57,7 +57,9 @@ func (s *Server) isValidRequest(req SignedMessage) error {
 	sigV2.SetScheme(refs.ECDSA_SHA512)
 
 	var sig neofscrypto.Signature
-	sig.ReadFromV2(sigV2)
+	if err := sig.ReadFromV2(sigV2); err != nil {
+		return fmt.Errorf("can't read signature: %w", err)
+	}
 
 	if !sig.Verify(binBody) {
 		// TODO(@cthulhu-rider): #1387 use "const" error

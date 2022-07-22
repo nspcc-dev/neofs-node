@@ -3,6 +3,7 @@ package netmap
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -61,7 +62,9 @@ func (s *executorSvc) LocalNodeInfo(
 	}
 
 	var ver versionsdk.Version
-	ver.ReadFromV2(*verV2)
+	if err := ver.ReadFromV2(*verV2); err != nil {
+		return nil, fmt.Errorf("can't read version: %w", err)
+	}
 
 	ni, err := s.state.LocalNodeInfo()
 	if err != nil {
@@ -100,7 +103,9 @@ func (s *executorSvc) NetworkInfo(
 	}
 
 	var ver versionsdk.Version
-	ver.ReadFromV2(*verV2)
+	if err := ver.ReadFromV2(*verV2); err != nil {
+		return nil, fmt.Errorf("can't read version: %w", err)
+	}
 
 	ni, err := s.netInfo.Dump(ver)
 	if err != nil {
