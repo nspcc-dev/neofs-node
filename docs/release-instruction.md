@@ -12,14 +12,14 @@ These should run successfully:
 
 ## Writing changelog
 
-Add an entry to the `CHANGELOG.md` following the style established there. Add an 
+Add an entry to the `CHANGELOG.md` following the style established there. Add an
 optional codename, version and release date in the heading. Write a paragraph
 describing the most significant changes done in this release. Add
 `Fixed`, `Added`, `Removed` and `Updated` sections with fixed bug descriptions
 and changes. Describe each change in detail with a reference to GitHub issues if
-possible. 
+possible.
 
-Update the supported version of neofs-contract in `README.md` if there were 
+Update the supported version of neofs-contract in `README.md` if there were
 changes in releases.
 
 ## Tag the release
@@ -66,7 +66,7 @@ Close corresponding vX.Y.Z GitHub milestone.
 
 ## Post-release
 
-Prepare pull-request for 
+Prepare pull-request for
 [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv).
 
 Rebuild NeoFS LOCODE database via CLI `util locode generate` command (if needed).

@@ -507,7 +507,9 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 				}
 
 				var sig neofscrypto.Signature
-				sig.ReadFromV2(*idSig)
+				if err := sig.ReadFromV2(*idSig); err != nil {
+					return nil, fmt.Errorf("can't read signature: %w", err)
+				}
 
 				if !sig.Verify(binID) {
 					return nil, errors.New("invalid object ID signature")

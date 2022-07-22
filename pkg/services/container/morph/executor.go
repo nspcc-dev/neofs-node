@@ -69,7 +69,10 @@ func (s *morphExecutor) Put(_ context.Context, tokV2 *sessionV2.Token, body *con
 		return nil, fmt.Errorf("invalid container: %w", err)
 	}
 
-	cnr.Signature.ReadFromV2(*sigV2)
+	err = cnr.Signature.ReadFromV2(*sigV2)
+	if err != nil {
+		return nil, fmt.Errorf("can't read signature: %w", err)
+	}
 
 	if tokV2 != nil {
 		cnr.Session = new(session.Container)
@@ -214,7 +217,10 @@ func (s *morphExecutor) SetExtendedACL(ctx context.Context, tokV2 *sessionV2.Tok
 		Value: eaclSDK.NewTableFromV2(body.GetEACL()),
 	}
 
-	eaclInfo.Signature.ReadFromV2(*sigV2)
+	err := eaclInfo.Signature.ReadFromV2(*sigV2)
+	if err != nil {
+		return nil, fmt.Errorf("can't read signature: %w", err)
+	}
 
 	if tokV2 != nil {
 		eaclInfo.Session = new(session.Container)
@@ -225,7 +231,7 @@ func (s *morphExecutor) SetExtendedACL(ctx context.Context, tokV2 *sessionV2.Tok
 		}
 	}
 
-	err := s.wrt.PutEACL(eaclInfo)
+	err = s.wrt.PutEACL(eaclInfo)
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -109,8 +108,6 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 	sigV2.SetSign(sigBytes)
 	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
 
-	var sig neofscrypto.Signature
-	sig.ReadFromV2(sigV2)
-
-	return &cnr, nil
+	err = cnr.Signature.ReadFromV2(sigV2)
+	return &cnr, err
 }

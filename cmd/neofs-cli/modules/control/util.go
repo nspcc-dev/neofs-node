@@ -38,7 +38,7 @@ func verifyResponse(cmd *cobra.Command,
 	sigV2.SetSign(sigControl.GetSign())
 
 	var sig neofscrypto.Signature
-	sig.ReadFromV2(sigV2)
+	common.ExitOnErr(cmd, "can't read signature: %w", sig.ReadFromV2(sigV2))
 
 	if !sig.Verify(body.StableMarshal(nil)) {
 		common.ExitOnErr(cmd, "", errors.New("invalid response signature"))

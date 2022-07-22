@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -13,6 +14,8 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
 )
@@ -42,6 +45,22 @@ func TestInvalidToken(t *testing.T) {
 	var cnrV2 refs.ContainerID
 	cnr.WriteToV2(&cnrV2)
 
+	priv, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+
+	sign := func(reqBody interface {
+		StableMarshal([]byte) []byte
+		SetSignature(signature *refs.Signature)
+	}) {
+		signer := neofsecdsa.Signer(priv.PrivateKey)
+		var sig neofscrypto.Signature
+		require.NoError(t, sig.Calculate(signer, reqBody.StableMarshal(nil)))
+
+		var sigV2 refs.Signature
+		sig.WriteToV2(&sigV2)
+		reqBody.SetSignature(&sigV2)
+	}
+
 	var tokV2 session.Token
 	sessiontest.ContainerSigned().WriteToV2(&tokV2)
 
@@ -53,7 +72,6 @@ func TestInvalidToken(t *testing.T) {
 			name: "put",
 			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.PutRequestBody
-				reqBody.SetSignature(new(refs.Signature))
 
 				cnr := containertest.Container()
 
@@ -61,6 +79,7 @@ func TestInvalidToken(t *testing.T) {
 				cnr.WriteToV2(&cnrV2)
 
 				reqBody.SetContainer(&cnrV2)
+				sign(&reqBody)
 
 				_, err = e.Put(context.TODO(), tokV2, &reqBody)
 				return
@@ -81,6 +100,7 @@ func TestInvalidToken(t *testing.T) {
 			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.SetExtendedACLRequestBody
 				reqBody.SetSignature(new(refs.Signature))
+				sign(&reqBody)
 
 				_, err = e.SetExtendedACL(context.TODO(), tokV2, &reqBody)
 				return

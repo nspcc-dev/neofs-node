@@ -101,7 +101,9 @@ func verifyMessage(m message) error {
 	sigV2.SetScheme(refs.ECDSA_SHA512)
 
 	var sigSDK neofscrypto.Signature
-	sigSDK.ReadFromV2(sigV2)
+	if err := sigSDK.ReadFromV2(sigV2); err != nil {
+		return fmt.Errorf("can't read signature: %w", err)
+	}
 
 	if !sigSDK.Verify(binBody) {
 		return errors.New("invalid signature")
