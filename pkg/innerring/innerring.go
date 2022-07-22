@@ -960,7 +960,7 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 
 	section := p.name + ".endpoint.client"
 	for i := 0; ; i++ {
-		addr := p.cfg.GetString(section + ".address")
+		addr := p.cfg.GetString(fmt.Sprintf("%s.%d.%s", section, i, "address"))
 		if addr == "" {
 			break
 		}
