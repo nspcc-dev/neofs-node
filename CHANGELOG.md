@@ -15,6 +15,15 @@ Changelog for NeoFS Node
 
 ### Updated
 
+- `chzyer/realine` to `v1.5.1`
+- `google/uuid` to `v1.3.0`
+- `nats-io/nats.go` to `v1.16.0`
+- `prometheus/client_golang` to `v1.12.2`
+- `spf13/cast` to `v1.5.0`
+- `spf13/viper` to `v1.12.0`
+- `go.uber.org/zap` to `v1.21.0`
+- `google.golang.org/grpc` to `v1.48.0`
+
 ### Updating from v0.30.0
 
 ## [0.30.0] - 2022-07-22 - Saengildo (생일도, 生日島)
