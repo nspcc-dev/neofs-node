@@ -28,7 +28,7 @@ Change morph endpoints from simple string to a pair of `address` and `priority`.
 For inner ring node this resides in `morph.endpoint.client` section,
 for storage node -- in `morph.rpc_endpoint` section. See `config/example` for an example. 
 
-## [0.29.0] - 2022-07-07
+## [0.29.0] - 2022-07-07 - Yeonpyeongdo (연평도, 延坪島)
 
 Support WalletConnect signature scheme.
 
