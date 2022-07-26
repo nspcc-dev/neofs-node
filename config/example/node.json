@@ -75,6 +75,12 @@
       }
     }
   },
+  "tree": {
+    "enabled": true,
+    "cache_size": 15,
+    "replication_channel_capacity": 32,
+    "replication_worker_count": 32
+  },
   "control": {
     "authorized_keys": [
       "035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11",
