@@ -23,6 +23,7 @@ type Service struct {
 
 	cache            clientCache
 	replicateCh      chan movePair
+	replicateLocalCh chan applyOp
 	replicationTasks chan replicationTask
 	closeCh          chan struct{}
 	containerCache   containerCache
@@ -59,6 +60,7 @@ func New(opts ...Option) *Service {
 	s.cache.init()
 	s.closeCh = make(chan struct{})
 	s.replicateCh = make(chan movePair, s.replicatorChannelCapacity)
+	s.replicateLocalCh = make(chan applyOp)
 	s.replicationTasks = make(chan replicationTask, s.replicatorWorkerCount)
 	s.containerCache.init(s.containerCacheSize)
 	s.cnrMap = make(map[cidSDK.ID]map[string]uint64)
@@ -483,13 +485,16 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 		return nil, fmt.Errorf("can't parse meta-information: %w", err)
 	}
 
-	d := pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size}
-	resp := &ApplyResponse{Body: &ApplyResponse_Body{}, Signature: &Signature{}}
-	return resp, s.forest.TreeApply(d, req.GetBody().GetTreeId(), &pilorama.Move{
-		Parent: op.GetParentId(),
-		Child:  op.GetChildId(),
-		Meta:   meta,
-	}, false)
+	s.replicateLocalCh <- applyOp{
+		treeID:        req.GetBody().GetTreeId(),
+		CIDDescriptor: pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size},
+		Move: pilorama.Move{
+			Parent: op.GetParentId(),
+			Child:  op.GetChildId(),
+			Meta:   meta,
+		},
+	}
+	return &ApplyResponse{Body: &ApplyResponse_Body{}, Signature: &Signature{}}, nil
 }
 
 func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer) error {
