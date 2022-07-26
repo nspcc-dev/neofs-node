@@ -25,11 +25,32 @@ type replicationTask struct {
 	req *ApplyRequest
 }
 
+type applyOp struct {
+	treeID string
+	pilorama.CIDDescriptor
+	pilorama.Move
+}
+
 const (
 	defaultReplicatorCapacity    = 64
 	defaultReplicatorWorkerCount = 64
 	defaultReplicatorSendTimeout = time.Second * 5
 )
+
+func (s *Service) localReplicationWorker() {
+	for {
+		select {
+		case <-s.closeCh:
+			return
+		case op := <-s.replicateLocalCh:
+			err := s.forest.TreeApply(op.CIDDescriptor, op.treeID, &op.Move, false)
+			if err != nil {
+				s.log.Error("failed to apply replicated operation",
+					zap.String("err", err.Error()))
+			}
+		}
+	}
+}
 
 func (s *Service) replicationWorker() {
 	for {
@@ -74,6 +95,7 @@ func (s *Service) replicationWorker() {
 func (s *Service) replicateLoop(ctx context.Context) {
 	for i := 0; i < s.replicatorWorkerCount; i++ {
 		go s.replicationWorker()
+		go s.localReplicationWorker()
 	}
 	defer func() {
 		for len(s.replicationTasks) != 0 {
