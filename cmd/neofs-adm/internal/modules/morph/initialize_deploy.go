@@ -379,14 +379,9 @@ func (c *initializeContext) readContracts(names []string) error {
 
 	if c.ContractPath != "" && fi.IsDir() {
 		for _, ctrName := range names {
-			cs := new(contractState)
-			cs.RawNEF, err = os.ReadFile(filepath.Join(c.ContractPath, ctrName, ctrName+"_contract.nef"))
+			cs, err := readContract(filepath.Join(c.ContractPath, ctrName), ctrName)
 			if err != nil {
-				return fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
-			}
-			cs.RawManifest, err = os.ReadFile(filepath.Join(c.ContractPath, ctrName, "config.json"))
-			if err != nil {
-				return fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+				return err
 			}
 			c.Contracts[ctrName] = cs
 		}
@@ -408,22 +403,39 @@ func (c *initializeContext) readContracts(names []string) error {
 			return err
 		}
 		for _, name := range names {
+			if err := m[name].parse(); err != nil {
+				return err
+			}
 			c.Contracts[name] = m[name]
 		}
 	}
 
 	for _, ctrName := range names {
-		cs := c.Contracts[ctrName]
-		if err := cs.parse(); err != nil {
-			return err
-		}
-
 		if ctrName != alphabetContract {
+			cs := c.Contracts[ctrName]
 			cs.Hash = state.CreateContractHash(c.CommitteeAcc.Contract.ScriptHash(),
 				cs.NEF.Checksum, cs.Manifest.Name)
 		}
 	}
 	return nil
+}
+
+func readContract(ctrPath, ctrName string) (*contractState, error) {
+	rawNef, err := os.ReadFile(filepath.Join(ctrPath, ctrName+"_contract.nef"))
+	if err != nil {
+		return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+	}
+	rawManif, err := os.ReadFile(filepath.Join(ctrPath, "config.json"))
+	if err != nil {
+		return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+	}
+
+	cs := &contractState{
+		RawNEF:      rawNef,
+		RawManifest: rawManif,
+	}
+
+	return cs, cs.parse()
 }
 
 func (cs *contractState) parse() error {
