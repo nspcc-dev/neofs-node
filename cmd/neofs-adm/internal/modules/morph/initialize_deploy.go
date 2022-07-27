@@ -223,7 +223,7 @@ func (c *initializeContext) updateContracts() error {
 			}
 		}
 
-		err = c.addManifestGroup(ctrHash, alphaCs)
+		err = c.addManifestGroup(ctrHash, cs)
 		if err != nil {
 			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
