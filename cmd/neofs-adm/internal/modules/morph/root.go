@@ -235,6 +235,8 @@ func init() {
 	initCmd.Flags().String(protoConfigPath, "", "path to the consensus node configuration")
 	initCmd.Flags().String(localDumpFlag, "", "path to the blocks dump file")
 
+	RootCmd.AddCommand(deployCmd)
+
 	RootCmd.AddCommand(generateStorageCmd)
 	generateStorageCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	generateStorageCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
