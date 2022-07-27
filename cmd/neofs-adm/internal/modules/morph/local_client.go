@@ -54,7 +54,6 @@ func newLocalClient(v *viper.Viper, wallets []*wallet.Wallet) (*localClient, err
 	if err != nil {
 		return nil, err
 	}
-	defer func() { go bc.Run() }()
 
 	m := smartcontract.GetDefaultHonestNodeCount(cfg.ProtocolConfiguration.ValidatorsCount)
 	accounts := make([]*wallet.Account, len(wallets))
@@ -80,6 +79,8 @@ func newLocalClient(v *viper.Viper, wallets []*wallet.Wallet) (*localClient, err
 		pj := accounts[j].PrivateKey().PublicKey().Bytes()
 		return bytes.Compare(pi, pj) == -1
 	})
+
+	go bc.Run()
 
 	return &localClient{
 		bc:       bc,
