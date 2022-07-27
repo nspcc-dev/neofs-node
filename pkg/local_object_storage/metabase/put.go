@@ -53,12 +53,15 @@ var (
 // Big objects have nil blobovniczaID.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
+// Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	currEpoch := db.epochState.CurrentEpoch()
+
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, prm.obj, prm.id, nil)
+		return db.put(tx, prm.obj, prm.id, nil, currEpoch)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -69,7 +72,9 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 	return
 }
 
-func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID, si *objectSDK.SplitInfo) error {
+func (db *DB) put(
+	tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID,
+	si *objectSDK.SplitInfo, currEpoch uint64) error {
 	cnr, ok := obj.ContainerID()
 	if !ok {
 		return errors.New("missing container in object")
@@ -77,7 +82,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID, si *o
 
 	isParent := si != nil
 
-	exists, err := db.exists(tx, object.AddressOf(obj))
+	exists, err := db.exists(tx, object.AddressOf(obj), currEpoch)
 
 	if errors.As(err, &splitInfoError) {
 		exists = true // object exists, however it is virtual
@@ -111,7 +116,7 @@ func (db *DB) put(tx *bbolt.Tx, obj *objectSDK.Object, id *blobovnicza.ID, si *o
 			return err
 		}
 
-		err = db.put(tx, par, id, parentSI)
+		err = db.put(tx, par, id, parentSI, currEpoch)
 		if err != nil {
 			return err
 		}

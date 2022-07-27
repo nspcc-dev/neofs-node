@@ -17,7 +17,7 @@ import (
 )
 
 func TestDB_Get(t *testing.T) {
-	db := newDB(t)
+	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
 
 	raw := generateObject(t)
 
@@ -134,6 +134,18 @@ func TestDB_Get(t *testing.T) {
 		require.NoError(t, err)
 		_, err = metaGet(db, obj, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+	})
+
+	t.Run("expired object", func(t *testing.T) {
+		checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
+			gotExp, err := metaGet(db, object.AddressOf(exp), false)
+			require.Nil(t, gotExp)
+			require.ErrorIs(t, err, object.ErrObjectIsExpired)
+
+			gotNonExp, err := metaGet(db, object.AddressOf(nonExp), false)
+			require.NoError(t, err)
+			require.True(t, binaryEqual(gotNonExp, nonExp.CutPayload()))
+		})
 	})
 }
 

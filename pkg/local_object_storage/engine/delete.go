@@ -74,7 +74,7 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 			resExists, err := sh.Exists(existsPrm)
 			if err != nil {
 				_, ok := err.(*objectSDK.SplitInfoError)
-				if ok || shard.IsErrRemoved(err) {
+				if ok || shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
 					return true
 				}
 				if !shard.IsErrNotFound(err) {

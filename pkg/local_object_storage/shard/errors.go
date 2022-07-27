@@ -3,6 +3,7 @@ package shard
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
@@ -22,4 +23,10 @@ func IsErrRemoved(err error) bool {
 // corresponds to exceeding the object bounds.
 func IsErrOutOfRange(err error) bool {
 	return errors.As(err, new(apistatus.ObjectOutOfRange))
+}
+
+// IsErrObjectExpired checks if an error returned by Shard corresponds to
+// expired object.
+func IsErrObjectExpired(err error) bool {
+	return errors.Is(err, object.ErrObjectIsExpired)
 }

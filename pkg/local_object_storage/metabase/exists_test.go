@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -12,8 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const currEpoch = 1000
+
 func TestDB_Exists(t *testing.T) {
-	db := newDB(t)
+	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
 
 	t.Run("no object", func(t *testing.T) {
 		nonExist := generateObject(t)
@@ -170,5 +173,16 @@ func TestDB_Exists(t *testing.T) {
 		exists, err := metaExists(db, addr)
 		require.NoError(t, err)
 		require.False(t, exists)
+	})
+
+	t.Run("expired object", func(t *testing.T) {
+		checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
+			gotObj, err := metaExists(db, object.AddressOf(exp))
+			require.False(t, gotObj)
+			require.ErrorIs(t, err, object.ErrObjectIsExpired)
+
+			gotObj, err = metaExists(db, object.AddressOf(nonExp))
+			require.True(t, gotObj)
+		})
 	})
 }

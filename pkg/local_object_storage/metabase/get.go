@@ -3,6 +3,7 @@ package meta
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -44,12 +45,15 @@ func (r GetRes) Header() *objectSDK.Object {
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
+// Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
 	db.modeMtx.Lock()
 	defer db.modeMtx.Unlock()
 
+	currEpoch := db.epochState.CurrentEpoch()
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.hdr, err = db.get(tx, prm.addr, true, prm.raw)
+		res.hdr, err = db.get(tx, prm.addr, true, prm.raw, currEpoch)
 
 		return err
 	})
@@ -57,11 +61,11 @@ func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
 	return
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr oid.Address, checkGraveyard, raw bool) (*objectSDK.Object, error) {
+func (db *DB) get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	key := objectKey(addr.Object())
 
-	if checkGraveyard {
-		switch inGraveyard(tx, addr) {
+	if checkStatus {
+		switch objectStatus(tx, addr, currEpoch) {
 		case 1:
 			var errNotFound apistatus.ObjectNotFound
 
@@ -70,6 +74,8 @@ func (db *DB) get(tx *bbolt.Tx, addr oid.Address, checkGraveyard, raw bool) (*ob
 			var errRemoved apistatus.ObjectAlreadyRemoved
 
 			return nil, errRemoved
+		case 3:
+			return nil, object.ErrObjectIsExpired
 		}
 	}
 

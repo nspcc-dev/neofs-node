@@ -118,6 +118,17 @@ func TestGraveOnlyDelete(t *testing.T) {
 	require.NoError(t, metaDelete(db, addr))
 }
 
+func TestExpiredObject(t *testing.T) {
+	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
+
+	checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
+		// removing expired object should be error-free
+		require.NoError(t, metaDelete(db, object.AddressOf(exp)))
+
+		require.NoError(t, metaDelete(db, object.AddressOf(nonExp)))
+	})
+}
+
 func metaDelete(db *meta.DB, addrs ...oid.Address) error {
 	var deletePrm meta.DeletePrm
 	deletePrm.SetAddresses(addrs...)

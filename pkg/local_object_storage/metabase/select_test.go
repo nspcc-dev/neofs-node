@@ -805,6 +805,23 @@ func BenchmarkSelect(b *testing.B) {
 	})
 }
 
+func TestExpiredObjects(t *testing.T) {
+	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
+
+	checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
+		cidExp, _ := exp.ContainerID()
+		cidNonExp, _ := nonExp.ContainerID()
+
+		objs, err := metaSelect(db, cidExp, objectSDK.SearchFilters{})
+		require.NoError(t, err)
+		require.Empty(t, objs) // expired object should not be returned
+
+		objs, err = metaSelect(db, cidNonExp, objectSDK.SearchFilters{})
+		require.NoError(t, err)
+		require.NotEmpty(t, objs)
+	})
+}
+
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
 	var prm meta.SelectPrm
 	prm.SetContainerID(cid)

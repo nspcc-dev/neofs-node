@@ -32,6 +32,7 @@ func (p ExistsRes) Exists() bool {
 // unambiguously determine the presence of an object.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been marked as removed.
+// Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 	var exists bool
 	var err error

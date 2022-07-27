@@ -45,6 +45,7 @@ func (r HeadRes) Object() *objectSDK.Object {
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in Shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
+// Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 	// object can be saved in write-cache (if enabled) or in metabase
 

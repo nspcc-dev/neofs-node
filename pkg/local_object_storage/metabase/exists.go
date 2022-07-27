@@ -3,7 +3,10 @@ package meta
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -37,12 +40,15 @@ func (p ExistsRes) Exists() bool {
 // returns true if addr is in primary index or false if it is not.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
+// Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	currEpoch := db.epochState.CurrentEpoch()
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.exists, err = db.exists(tx, prm.addr)
+		res.exists, err = db.exists(tx, prm.addr, currEpoch)
 
 		return err
 	})
@@ -50,9 +56,9 @@ func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
 	return
 }
 
-func (db *DB) exists(tx *bbolt.Tx, addr oid.Address) (exists bool, err error) {
-	// check graveyard first
-	switch inGraveyard(tx, addr) {
+func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists bool, err error) {
+	// check graveyard and object expiration first
+	switch objectStatus(tx, addr, currEpoch) {
 	case 1:
 		var errNotFound apistatus.ObjectNotFound
 
@@ -61,6 +67,8 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address) (exists bool, err error) {
 		var errRemoved apistatus.ObjectAlreadyRemoved
 
 		return false, errRemoved
+	case 3:
+		return false, object.ErrObjectIsExpired
 	}
 
 	objKey := objectKey(addr.Object())
@@ -86,11 +94,36 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address) (exists bool, err error) {
 	return firstIrregularObjectType(tx, cnr, objKey) != objectSDK.TypeRegular, nil
 }
 
-// inGraveyard returns:
-//  * 0 if object is not marked for deletion;
+// objectStatus returns:
+//  * 0 if object is available;
 //  * 1 if object with GC mark;
-//  * 2 if object is covered with tombstone.
-func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
+//  * 2 if object is covered with tombstone;
+//  * 3 if object is expired.
+func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
+	// we check only if the object is expired in the current
+	// epoch since it is considered the only corner case: the
+	// GC is expected to collect all the objects that have
+	// expired previously for less than the one epoch duration
+
+	rawOID := []byte(addr.Object().EncodeToString())
+	var expired bool
+
+	// bucket with objects that have expiration attr
+	expirationBucket := tx.Bucket(attributeBucketName(addr.Container(), objectV2.SysAttributeExpEpoch))
+	if expirationBucket != nil {
+		// bucket that contains objects that expire in the current epoch
+		currEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch, 10)))
+		if currEpochBkt != nil {
+			if currEpochBkt.Get(rawOID) != nil {
+				expired = true
+			}
+		}
+	}
+
+	if expired {
+		return 3
+	}
+
 	graveyardBkt := tx.Bucket(graveyardBucketName)
 	garbageBkt := tx.Bucket(garbageBucketName)
 	addrKey := addressKey(addr)

@@ -72,6 +72,12 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 			if err != nil {
 				var siErr *objectSDK.SplitInfoError
 				if !errors.As(err, &siErr) {
+					if shard.IsErrObjectExpired(err) {
+						// object is already expired =>
+						// do not lock it
+						return true
+					}
+
 					e.reportShardError(sh, "could not check locked object for presence in shard", err)
 					return
 				}

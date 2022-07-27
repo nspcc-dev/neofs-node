@@ -3,14 +3,17 @@ package meta_test
 import (
 	"math"
 	"os"
+	"strconv"
 	"testing"
 
+	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -19,9 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type epochState struct{}
+type epochState struct{ e uint64 }
 
 func (s epochState) CurrentEpoch() uint64 {
+	if s.e != 0 {
+		return s.e
+	}
+
 	return math.MaxUint64
 }
 
@@ -96,4 +103,27 @@ func addAttribute(obj *object.Object, key, val string) {
 	attrs := obj.Attributes()
 	attrs = append(attrs, attr)
 	obj.SetAttributes(attrs...)
+}
+
+func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *objectSDK.Object)) {
+	expObj := generateObject(t)
+	setExpiration(expObj, currEpoch)
+
+	require.NoError(t, metaPut(db, expObj, nil))
+
+	nonExpObj := generateObject(t)
+	setExpiration(nonExpObj, currEpoch+1)
+
+	require.NoError(t, metaPut(db, nonExpObj, nil))
+
+	f(expObj, nonExpObj)
+}
+
+func setExpiration(o *objectSDK.Object, epoch uint64) {
+	var attr objectSDK.Attribute
+
+	attr.SetKey(objectV2.SysAttributeExpEpoch)
+	attr.SetValue(strconv.FormatUint(epoch, 10))
+
+	o.SetAttributes(append(o.Attributes(), attr)...)
 }
