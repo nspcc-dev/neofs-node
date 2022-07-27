@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"math"
 	"os"
 	"testing"
 
@@ -17,6 +18,12 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
+
+type epochState struct{}
+
+func (s epochState) CurrentEpoch() uint64 {
+	return math.MaxUint64
+}
 
 // saves "big" object in DB.
 func putBig(db *meta.DB, obj *object.Object) error {
@@ -36,8 +43,13 @@ func testSelect(t *testing.T, db *meta.DB, cnr cid.ID, fs object.SearchFilters, 
 func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	path := t.Name()
 
-	bdb := meta.New(append([]meta.Option{meta.WithPath(path), meta.WithPermissions(0600)},
-		opts...)...)
+	bdb := meta.New(
+		append([]meta.Option{
+			meta.WithPath(path),
+			meta.WithPermissions(0600),
+			meta.WithEpochState(epochState{}),
+		}, opts...)...,
+	)
 
 	require.NoError(t, bdb.Open(false))
 	require.NoError(t, bdb.Init())

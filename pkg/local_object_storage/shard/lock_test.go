@@ -32,6 +32,7 @@ func TestShard_Lock(t *testing.T) {
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
+			meta.WithEpochState(epochState{}),
 		),
 		shard.WithDeletedLockCallback(func(_ context.Context, addresses []oid.Address) {
 			sh.HandleDeletedLocks(addresses)

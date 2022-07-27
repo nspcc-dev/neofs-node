@@ -24,6 +24,13 @@ type matcher struct {
 	matchBucket func(*bbolt.Bucket, string, string, func([]byte, []byte) error) error
 }
 
+// EpochState is an interface that provides access to the
+// current epoch number.
+type EpochState interface {
+	// CurrentEpoch must return current epoch height.
+	CurrentEpoch() uint64
+}
+
 // DB represents local metabase of storage node.
 type DB struct {
 	*cfg
@@ -50,6 +57,8 @@ type cfg struct {
 	info Info
 
 	log *logger.Logger
+
+	epochState EpochState
 }
 
 func defaultCfg() *cfg {
@@ -69,6 +78,10 @@ func New(opts ...Option) *DB {
 
 	for i := range opts {
 		opts[i](c)
+	}
+
+	if c.epochState == nil {
+		panic("metabase: epoch state is not specified")
 	}
 
 	return &DB{
@@ -309,5 +322,12 @@ func WithMaxBatchDelay(d time.Duration) Option {
 		if d != 0 {
 			c.boltBatchDelay = d
 		}
+	}
+}
+
+// WithEpochState return option to specify a source of current epoch height.
+func WithEpochState(s EpochState) Option {
+	return func(c *cfg) {
+		c.epochState = s
 	}
 }

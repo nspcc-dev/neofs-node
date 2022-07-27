@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,12 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+type epochState struct{}
+
+func (s epochState) CurrentEpoch() uint64 {
+	return math.MaxUint64
+}
+
 func TestShardOpen(t *testing.T) {
 	dir := t.TempDir()
 	metaPath := filepath.Join(dir, "meta")
@@ -36,7 +43,7 @@ func TestShardOpen(t *testing.T) {
 				blobstor.WithSmallSizeLimit(1),
 				blobstor.WithBlobovniczaShallowWidth(1),
 				blobstor.WithBlobovniczaShallowDepth(1)),
-			WithMetaBaseOptions(meta.WithPath(metaPath)),
+			WithMetaBaseOptions(meta.WithPath(metaPath), meta.WithEpochState(epochState{})),
 			WithPiloramaOptions(
 				pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 			WithWriteCache(true),
@@ -82,7 +89,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	sh := New(
 		WithBlobStorOptions(blobOpts...),
 		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
-		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta"))))
+		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta")), meta.WithEpochState(epochState{})))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -107,7 +114,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	sh = New(
 		WithBlobStorOptions(blobOpts...),
 		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
-		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new"))),
+		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
 		WithRefillMetabase(true))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
@@ -134,6 +141,7 @@ func TestRefillMetabase(t *testing.T) {
 		WithBlobStorOptions(blobOpts...),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
+			meta.WithEpochState(epochState{}),
 		),
 		WithPiloramaOptions(
 			pilorama.WithPath(filepath.Join(p, "pilorama"))),
@@ -299,6 +307,7 @@ func TestRefillMetabase(t *testing.T) {
 		WithBlobStorOptions(blobOpts...),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
+			meta.WithEpochState(epochState{}),
 		),
 		WithPiloramaOptions(
 			pilorama.WithPath(filepath.Join(p, "pilorama_another"))),

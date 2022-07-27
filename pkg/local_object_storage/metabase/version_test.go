@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"testing"
 
@@ -11,12 +12,18 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+type epochStateImpl struct{}
+
+func (s epochStateImpl) CurrentEpoch() uint64 {
+	return math.MaxUint64
+}
+
 func TestVersion(t *testing.T) {
 	dir := t.TempDir()
 
 	newDB := func(t *testing.T) *DB {
 		return New(WithPath(filepath.Join(dir, t.Name())),
-			WithPermissions(0600))
+			WithPermissions(0600), WithEpochState(epochStateImpl{}))
 	}
 	check := func(t *testing.T, db *DB) {
 		require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
