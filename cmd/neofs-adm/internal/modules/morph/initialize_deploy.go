@@ -166,16 +166,17 @@ func (c *initializeContext) updateContracts() error {
 	// Update script size for a single-node committee is close to the maximum allowed size of 65535.
 	// Because of this we want to reuse alphabet contract NEF and manifest for different updates.
 	// The generated script is as following.
-	// 1. Initialize static slots for alphabet NEF and manifest.
-	// 2. Store NEF and manifest into static slots.
+	// 1. Initialize static slot for alphabet NEF.
+	// 2. Store NEF into the static slot.
 	// 3. Push parameters for each alphabet contract on stack.
-	// 4. For each alphabet contract, invoke `update` using parameters on stack and
-	//    NEF and manifest from step 2.
-	// 5. Update other contracts as usual.
-	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{2})
-	emit.Bytes(w.BinWriter, alphaCs.RawManifest)
+	// 4. Add contract group to the manifest.
+	// 5. For each alphabet contract, invoke `update` using parameters on stack and
+	//    NEF from step 2 and manifest from step 4.
+	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
 	emit.Bytes(w.BinWriter, alphaCs.RawNEF)
-	emit.Opcodes(w.BinWriter, opcode.STSFLD0, opcode.STSFLD1)
+	emit.Opcodes(w.BinWriter, opcode.STSFLD0)
+
+	baseGroups := alphaCs.Manifest.Groups
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
@@ -188,7 +189,15 @@ func (c *initializeContext) updateContracts() error {
 
 		params := c.getAlphabetDeployItems(i, len(c.Wallets))
 		emit.Array(w.BinWriter, params...)
-		emit.Opcodes(w.BinWriter, opcode.LDSFLD1, opcode.LDSFLD0)
+
+		alphaCs.Manifest.Groups = baseGroups
+		err = c.addManifestGroup(ctrHash, alphaCs)
+		if err != nil {
+			return fmt.Errorf("can't sign manifest group: %v", err)
+		}
+
+		emit.Bytes(w.BinWriter, alphaCs.RawManifest)
+		emit.Opcodes(w.BinWriter, opcode.LDSFLD0)
 		emit.Int(w.BinWriter, 3)
 		emit.Opcodes(w.BinWriter, opcode.PACK)
 		emit.AppCallNoArgs(w.BinWriter, ctrHash, updateMethodName, callflag.All)
@@ -205,10 +214,11 @@ func (c *initializeContext) updateContracts() error {
 		return fmt.Errorf("can't update alphabet contracts: %s", res.FaultException)
 	}
 
-	w.Reset()
-	totalGasCost += res.GasConsumed
-	w.WriteBytes(res.Script)
+	if err := c.sendCommitteeTx(res.Script, res.GasConsumed, false); err != nil {
+		return err
+	}
 
+	w.Reset()
 	for _, ctrName := range contractList {
 		cs := c.getContract(ctrName)
 
