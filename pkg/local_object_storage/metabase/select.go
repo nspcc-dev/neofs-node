@@ -63,14 +63,16 @@ func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
 		return res, nil
 	}
 
+	currEpoch := db.epochState.CurrentEpoch()
+
 	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, err = db.selectObjects(tx, prm.cnr, prm.filters)
+		res.addrList, err = db.selectObjects(tx, prm.cnr, prm.filters, currEpoch)
 
 		return err
 	})
 }
 
-func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
+func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, currEpoch uint64) ([]oid.Address, error) {
 	group, err := groupFilters(fs)
 	if err != nil {
 		return nil, err
@@ -112,11 +114,11 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters) (
 			return nil, err
 		}
 
-		if inGraveyard(tx, addr) > 0 {
+		if objectStatus(tx, addr, currEpoch) > 0 {
 			continue // ignore removed objects
 		}
 
-		if !db.matchSlowFilters(tx, addr, group.slowFilters) {
+		if !db.matchSlowFilters(tx, addr, group.slowFilters, currEpoch) {
 			continue // ignore objects with unmatched slow filters
 		}
 
@@ -163,10 +165,11 @@ func (db *DB) selectFastFilter(
 	fNum int, // index of filter
 ) {
 	prefix := cnr.EncodeToString() + "/"
+	currEpoch := db.epochState.CurrentEpoch()
 
 	switch f.Header() {
 	case v2object.FilterHeaderObjectID:
-		db.selectObjectID(tx, f, cnr, to, fNum)
+		db.selectObjectID(tx, f, cnr, to, fNum, currEpoch)
 	case v2object.FilterHeaderOwnerID:
 		bucketName := ownerBucketName(cnr)
 		db.selectFromFKBT(tx, bucketName, f, prefix, to, fNum)
@@ -407,6 +410,7 @@ func (db *DB) selectObjectID(
 	cnr cid.ID,
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
+	currEpoch uint64,
 ) {
 	prefix := cnr.EncodeToString() + "/"
 
@@ -423,7 +427,7 @@ func (db *DB) selectObjectID(
 			return
 		}
 
-		ok, err := db.exists(tx, addr)
+		ok, err := db.exists(tx, addr, currEpoch)
 		if (err == nil && ok) || errors.As(err, &splitInfoError) {
 			markAddressInCache(to, fNum, addrStr)
 		}
@@ -463,12 +467,12 @@ func (db *DB) selectObjectID(
 }
 
 // matchSlowFilters return true if object header is matched by all slow filters.
-func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFilters) bool {
+func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFilters, currEpoch uint64) bool {
 	if len(f) == 0 {
 		return true
 	}
 
-	obj, err := db.get(tx, addr, true, false)
+	obj, err := db.get(tx, addr, true, false, currEpoch)
 	if err != nil {
 		return false
 	}

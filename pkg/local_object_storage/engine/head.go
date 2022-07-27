@@ -111,6 +111,14 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 				outError = err
 
 				return true // stop, return it back
+			case shard.IsErrObjectExpired(err):
+				var notFoundErr apistatus.ObjectNotFound
+
+				// object is found but should not
+				// be returned
+				outError = notFoundErr
+
+				return true
 			default:
 				e.reportShardError(sh, "could not head object from shard", err)
 				return false

@@ -59,6 +59,7 @@ func (r GetRes) HasMeta() bool {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
+// Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	var big, small storFetcher
 

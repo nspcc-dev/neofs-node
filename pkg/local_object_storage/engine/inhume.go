@@ -132,7 +132,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 			existPrm.SetAddress(addr)
 			exRes, err := sh.Exists(existPrm)
 			if err != nil {
-				if shard.IsErrRemoved(err) {
+				if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
 					// inhumed once - no need to be inhumed again
 					status = 3
 					return true

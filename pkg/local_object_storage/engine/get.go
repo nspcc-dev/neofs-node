@@ -113,6 +113,11 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 				outError = err
 
 				return true // stop, return it back
+			case shard.IsErrObjectExpired(err):
+				// object is found but should not
+				// be returned
+				outError = errNotFound
+				return true
 			default:
 				e.reportShardError(sh, "could not get object from shard", err)
 				return false

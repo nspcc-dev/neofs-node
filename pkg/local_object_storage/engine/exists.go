@@ -26,6 +26,11 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 			if ok {
 				return true
 			}
+
+			if shard.IsErrObjectExpired(err) {
+				return true
+			}
+
 			if !shard.IsErrNotFound(err) {
 				e.reportShardError(sh, "could not check existence of object in shard", err)
 			}

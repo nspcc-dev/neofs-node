@@ -1,9 +1,13 @@
 package writecache
 
 import (
+	"errors"
+
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -63,7 +67,11 @@ func (c *cache) isFlushed(addr oid.Address) bool {
 	existsPrm.SetAddress(addr)
 
 	mRes, err := c.metabase.Exists(existsPrm)
-	if err != nil || !mRes.Exists() {
+	if err != nil {
+		return errors.Is(err, object.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved))
+	}
+
+	if !mRes.Exists() {
 		return false
 	}
 

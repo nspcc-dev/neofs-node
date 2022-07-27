@@ -58,9 +58,10 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 
 func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
 	refCounter := make(referenceCounter, len(addrs))
+	currEpoch := db.epochState.CurrentEpoch()
 
 	for i := range addrs {
-		err := db.delete(tx, addrs[i], refCounter)
+		err := db.delete(tx, addrs[i], refCounter, currEpoch)
 		if err != nil {
 			return err // maybe log and continue?
 		}
@@ -78,7 +79,7 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
 	return nil
 }
 
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter) error {
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) error {
 	// remove record from the garbage bucket
 	garbageBKT := tx.Bucket(garbageBucketName)
 	if garbageBKT != nil {
@@ -89,7 +90,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	}
 
 	// unmarshal object, work only with physically stored (raw == true) objects
-	obj, err := db.get(tx, addr, false, true)
+	obj, err := db.get(tx, addr, false, true, currEpoch)
 	if err != nil {
 		if errors.As(err, new(apistatus.ObjectNotFound)) {
 			return nil

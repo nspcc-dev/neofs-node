@@ -122,7 +122,7 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 
 		putPrm.SetObject(obj)
 		_, err = s.Put(putPrm)
-		if err != nil {
+		if err != nil && !IsErrObjectExpired(err) && !IsErrRemoved(err) {
 			return RestoreRes{}, err
 		}
 

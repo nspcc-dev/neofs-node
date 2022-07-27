@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -208,7 +209,7 @@ func (s *Shard) refillMetabase() error {
 		mPrm.SetBlobovniczaID(blzID)
 
 		_, err := s.metaBase.Put(mPrm)
-		if err != nil && !meta.IsErrRemoved(err) {
+		if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, object.ErrObjectIsExpired) {
 			return err
 		}
 

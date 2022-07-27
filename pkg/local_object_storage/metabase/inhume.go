@@ -85,6 +85,8 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	currEpoch := db.epochState.CurrentEpoch()
+
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)
 
@@ -142,7 +144,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				lockWasChecked = true
 			}
 
-			obj, err := db.get(tx, prm.target[i], false, true)
+			obj, err := db.get(tx, prm.target[i], false, true, currEpoch)
 
 			// if object is stored and it is regular object then update bucket
 			// with container size estimations

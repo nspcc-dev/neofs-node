@@ -76,6 +76,12 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 
 			exists, err := sh.Exists(existPrm)
 			if err != nil {
+				if shard.IsErrObjectExpired(err) {
+					// object is already found but
+					// expired => do nothing with it
+					finished = true
+				}
+
 				return // this is not ErrAlreadyRemoved error so we can go to the next shard
 			}
 
