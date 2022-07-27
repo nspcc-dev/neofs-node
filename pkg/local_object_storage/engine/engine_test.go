@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,6 +25,12 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
+
+type epochState struct{}
+
+func (s epochState) CurrentEpoch() uint64 {
+	return math.MaxUint64
+}
 
 func BenchmarkExists(b *testing.B) {
 	b.Run("2 shards", func(b *testing.B) {
@@ -104,6 +111,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
+			meta.WithEpochState(epochState{}),
 		))
 
 	require.NoError(t, s.Open())
@@ -125,6 +133,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),
 				meta.WithPermissions(0700),
+				meta.WithEpochState(epochState{}),
 			),
 			shard.WithPiloramaOptions(
 				pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("pilorama%d", i)))),

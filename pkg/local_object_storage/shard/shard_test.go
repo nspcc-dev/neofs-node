@@ -2,6 +2,7 @@ package shard_test
 
 import (
 	"crypto/sha256"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -24,6 +25,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
+
+type epochState struct{}
+
+func (s epochState) CurrentEpoch() uint64 {
+	return math.MaxUint64
+}
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 	return newCustomShard(t, t.TempDir(), enableWriteCache,
@@ -49,6 +56,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
+			meta.WithEpochState(epochState{}),
 		),
 		shard.WithPiloramaOptions(pilorama.WithPath(filepath.Join(rootPath, "pilorama"))),
 		shard.WithWriteCache(enableWriteCache),

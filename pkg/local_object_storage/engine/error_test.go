@@ -51,7 +51,9 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 				blobstor.WithRootPerm(0700)),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
-				meta.WithPermissions(0700)),
+				meta.WithPermissions(0700),
+				meta.WithEpochState(epochState{}),
+			),
 			shard.WithPiloramaOptions(
 				pilorama.WithPath(filepath.Join(dir, fmt.Sprintf("%d.pilorama", i))),
 				pilorama.WithPerm(0700)))

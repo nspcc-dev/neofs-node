@@ -473,6 +473,7 @@ func initShardOptions(c *cfg) {
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: 100 * time.Millisecond,
 				}),
+				meta.WithEpochState(c.cfgNetmap.state),
 			),
 			shard.WithPiloramaOptions(piloramaOpts...),
 			shard.WithWriteCache(writeCacheCfg.Enabled()),
