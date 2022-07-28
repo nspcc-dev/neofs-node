@@ -17,6 +17,7 @@ import (
 
 const (
 	contractPathFlag = "contract"
+	updateFlag       = "update"
 )
 
 var deployCmd = &cobra.Command{
@@ -40,6 +41,8 @@ func init() {
 	ff.StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	ff.String(contractPathFlag, "", "Path to the contract directory")
 	_ = deployCmd.MarkFlagFilename(contractPathFlag)
+
+	ff.Bool(updateFlag, false, "Update an existing contract")
 }
 
 func deployContractCmd(cmd *cobra.Command, _ []string) error {
@@ -61,10 +64,28 @@ func deployContractCmd(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cs.Hash = state.CreateContractHash(
-		c.CommitteeAcc.Contract.ScriptHash(),
-		cs.NEF.Checksum,
-		cs.Manifest.Name)
+	nnsCs, err := c.Client.GetContractStateByID(1)
+	if err != nil {
+		return fmt.Errorf("can't fetch NNS contract state: %w", err)
+	}
+
+	callHash := c.nativeHash(nativenames.Management)
+	method := deployMethodName
+	domain := ctrName + ".neofs"
+	isUpdate, _ := cmd.Flags().GetBool(updateFlag)
+	if isUpdate {
+		cs.Hash, err = nnsResolveHash(c.Client, nnsCs.Hash, domain)
+		if err != nil {
+			return fmt.Errorf("can't fetch contract hash from NNS: %w", err)
+		}
+		callHash = cs.Hash
+		method = updateMethodName
+	} else {
+		cs.Hash = state.CreateContractHash(
+			c.CommitteeAcc.Contract.ScriptHash(),
+			cs.NEF.Checksum,
+			cs.Manifest.Name)
+	}
 
 	err = c.addManifestGroup(cs.Hash, cs)
 	if err != nil {
@@ -72,28 +93,25 @@ func deployContractCmd(cmd *cobra.Command, _ []string) error {
 	}
 
 	params := getContractDeployParameters(cs, nil)
-	callHash := c.nativeHash(nativenames.Management)
-
-	nnsCs, err := c.Client.GetContractStateByID(1)
-	if err != nil {
-		return fmt.Errorf("can't fetch NNS contract state: %w", err)
-	}
-
-	domain := ctrName + ".neofs"
-	s, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain)
-	if err != nil {
-		return err
-	}
 
 	w := io.NewBufBinWriter()
-	emit.AppCall(w.BinWriter, callHash, deployMethodName, callflag.All, params...)
+	emit.AppCall(w.BinWriter, callHash, method, callflag.All, params...)
 	emit.Opcodes(w.BinWriter, opcode.DROP) // contract state on stack
-	w.WriteBytes(s)
+	if !isUpdate {
+		s, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain)
+		if err != nil {
+			return err
+		}
+		if len(s) != 0 {
+			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
+			w.WriteBytes(s)
+		}
+	}
+
 	if w.Err != nil {
 		panic(fmt.Errorf("BUG: can't create deployment script: %w", w.Err))
 	}
 
-	c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 	if err := c.sendCommitteeTx(w.Bytes(), -1, false); err != nil {
 		return err
 	}
