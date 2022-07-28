@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
@@ -27,6 +28,7 @@ type (
 		log           *zap.Logger
 		pool          *ants.Pool
 		neofsClient   *neofscontract.Client
+		balanceSC     util.Uint160
 		alphabetState AlphabetState
 		converter     PrecisionConverter
 	}
@@ -36,6 +38,7 @@ type (
 		Log           *zap.Logger
 		PoolSize      int
 		NeoFSClient   *neofscontract.Client
+		BalanceSC     util.Uint160
 		AlphabetState AlphabetState
 		Converter     PrecisionConverter
 	}
@@ -67,6 +70,7 @@ func New(p *Params) (*Processor, error) {
 		log:           p.Log,
 		pool:          pool,
 		neofsClient:   p.NeoFSClient,
+		balanceSC:     p.BalanceSC,
 		alphabetState: p.AlphabetState,
 		converter:     p.Converter,
 	}, nil
@@ -79,7 +83,7 @@ func (bp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	// new lock event
 	lock := event.NotificationParserInfo{}
 	lock.SetType(lockNotification)
-	lock.SetScriptHash(bp.neofsClient.ContractAddress())
+	lock.SetScriptHash(bp.balanceSC)
 	lock.SetParser(balanceEvent.ParseLock)
 	parsers = append(parsers, lock)
 
@@ -93,7 +97,7 @@ func (bp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	// lock handler
 	lock := event.NotificationHandlerInfo{}
 	lock.SetType(lockNotification)
-	lock.SetScriptHash(bp.neofsClient.ContractAddress())
+	lock.SetScriptHash(bp.balanceSC)
 	lock.SetHandler(bp.handleLock)
 	handlers = append(handlers, lock)
 
