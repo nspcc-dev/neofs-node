@@ -3,7 +3,7 @@ package subnetevents
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -34,7 +34,7 @@ func (x Delete) TxHash() util.Uint256 {
 // by the appropriate method of the Subnet contract.
 //
 // Resulting event is of Delete type.
-func ParseDelete(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseDelete(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  Delete
 		err error

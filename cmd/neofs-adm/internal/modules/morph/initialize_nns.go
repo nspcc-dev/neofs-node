@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -238,7 +238,7 @@ var errNNSIsAvailableInvalid = errors.New("`isAvailable`: invalid response")
 
 func nnsIsAvailable(c Client, nnsHash util.Uint160, name string) (bool, error) {
 	switch ct := c.(type) {
-	case *client.Client:
+	case *rpcclient.Client:
 		return ct.NNSIsAvailable(nnsHash, name)
 	default:
 		res, err := invokeFunction(c, nnsHash, "isAvailable", []interface{}{name}, nil)

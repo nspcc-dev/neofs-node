@@ -3,7 +3,7 @@ package netmap
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -36,7 +36,7 @@ func (s NewEpoch) TxHash() util.Uint256 {
 // ParseNewEpoch is a parser of new epoch notification event.
 //
 // Result is type of NewEpoch.
-func ParseNewEpoch(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseNewEpoch(e *state.ContainedNotificationEvent) (event.Event, error) {
 	params, err := event.ParseStackArray(e)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)

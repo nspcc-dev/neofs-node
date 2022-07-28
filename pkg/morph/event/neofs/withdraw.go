@@ -3,7 +3,7 @@ package neofs
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -29,7 +29,7 @@ func (w Withdraw) User() util.Uint160 { return w.user }
 func (w Withdraw) Amount() int64 { return w.amount }
 
 // ParseWithdraw notification into withdraw structure.
-func ParseWithdraw(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseWithdraw(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var ev Withdraw
 
 	params, err := event.ParseStackArray(e)

@@ -21,9 +21,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
@@ -125,7 +125,7 @@ func (l *localClient) GetApplicationLog(h util.Uint256, t *trigger.Type) (*resul
 	return &a, nil
 }
 
-func (l *localClient) CreateTxFromScript(script []byte, acc *wallet.Account, sysFee int64, netFee int64, cosigners []client.SignerAccount) (*transaction.Transaction, error) {
+func (l *localClient) CreateTxFromScript(script []byte, acc *wallet.Account, sysFee int64, netFee int64, cosigners []rpcclient.SignerAccount) (*transaction.Transaction, error) {
 	signers, accounts, err := getSigners(acc, cosigners)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct tx signers: %w", err)
@@ -173,7 +173,7 @@ func (l *localClient) SignAndPushP2PNotaryRequest(_ *transaction.Transaction, _ 
 	panic("unexpected call")
 }
 
-func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int64, _ fixedn.Fixed8, _ []client.SignerAccount) (util.Uint256, error) {
+func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int64, _ fixedn.Fixed8, _ []rpcclient.SignerAccount) (util.Uint256, error) {
 	// not used by `morph init` command
 	panic("unexpected call")
 }
@@ -204,7 +204,7 @@ func (l *localClient) AddNetworkFee(tx *transaction.Transaction, extraFee int64,
 // will be placed at the start of the list.
 // Copied from neo-go with minor corrections:
 // https://github.com/nspcc-dev/neo-go/blob/6ff11baa1b9e4c71ef0d1de43b92a8c541ca732c/pkg/rpc/client/rpc.go#L735
-func getSigners(sender *wallet.Account, cosigners []client.SignerAccount) ([]transaction.Signer, []*wallet.Account, error) {
+func getSigners(sender *wallet.Account, cosigners []rpcclient.SignerAccount) ([]transaction.Signer, []*wallet.Account, error) {
 	var (
 		signers  []transaction.Signer
 		accounts []*wallet.Account

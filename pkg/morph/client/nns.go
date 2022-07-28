@@ -8,7 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -98,7 +98,7 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 	return *nnsHash, nil
 }
 
-func nnsResolveItem(c *client.WSClient, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
+func nnsResolveItem(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
 	found, err := exists(c, nnsHash, domain)
 	if err != nil {
 		return nil, fmt.Errorf("could not check presence in NNS contract for %s: %w", domain, err)
@@ -130,7 +130,7 @@ func nnsResolveItem(c *client.WSClient, nnsHash util.Uint160, domain string) (st
 	return result.Stack[0], nil
 }
 
-func nnsResolve(c *client.WSClient, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+func nnsResolve(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (util.Uint160, error) {
 	res, err := nnsResolveItem(c, nnsHash, domain)
 	if err != nil {
 		return util.Uint160{}, err
@@ -152,7 +152,7 @@ func nnsResolve(c *client.WSClient, nnsHash util.Uint160, domain string) (util.U
 	return util.Uint160DecodeStringLE(string(bs))
 }
 
-func exists(c *client.WSClient, nnsHash util.Uint160, domain string) (bool, error) {
+func exists(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (bool, error) {
 	result, err := c.InvokeFunction(nnsHash, "isAvailable", []smartcontract.Parameter{
 		{
 			Type:  smartcontract.StringType,

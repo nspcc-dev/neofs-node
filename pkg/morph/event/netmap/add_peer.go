@@ -3,8 +3,8 @@ package netmap
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -32,7 +32,7 @@ func (s AddPeer) NotaryRequest() *payload.P2PNotaryRequest {
 
 const expectedItemNumAddPeer = 1
 
-func ParseAddPeer(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseAddPeer(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  AddPeer
 		err error

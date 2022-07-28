@@ -3,7 +3,7 @@ package neofs
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -37,7 +37,7 @@ func (b bindCommon) Keys() [][]byte { return b.keys }
 
 func (b bindCommon) User() []byte { return b.user }
 
-func ParseBind(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseBind(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  Bind
 		err error
