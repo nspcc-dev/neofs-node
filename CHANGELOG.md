@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Morph client now retries connecting to the failed endpoint too (#1609)
 
 ### Fixed
+- Invalid smart contract address in balance contract listener (#1636)
 
 ### Removed
 
