@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -52,12 +52,12 @@ func (c *initializeContext) registerCandidates() error {
 		panic(fmt.Sprintf("BUG: %v", w.Err))
 	}
 
-	signers := []client.SignerAccount{{
+	signers := []rpcclient.SignerAccount{{
 		Signer:  c.getSigner(false),
 		Account: c.CommitteeAcc,
 	}}
 	for i := range c.Accounts {
-		signers = append(signers, client.SignerAccount{
+		signers = append(signers, rpcclient.SignerAccount{
 			Signer: transaction.Signer{
 				Account:          c.Accounts[i].Contract.ScriptHash(),
 				Scopes:           transaction.CustomContracts,
@@ -120,7 +120,7 @@ var errGetPriceInvalid = errors.New("`getRegisterPrice`: invalid response")
 
 func (c *initializeContext) getCandidateRegisterPrice() (int64, error) {
 	switch ct := c.Client.(type) {
-	case *client.Client:
+	case *rpcclient.Client:
 		return ct.GetCandidateRegisterPrice()
 	default:
 		neoHash := c.nativeHash(nativenames.Neo)

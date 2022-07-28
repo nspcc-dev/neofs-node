@@ -3,7 +3,7 @@ package neofs
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -11,7 +11,7 @@ type Unbind struct {
 	bindCommon
 }
 
-func ParseUnbind(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseUnbind(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  Unbind
 		err error

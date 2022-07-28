@@ -10,7 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
@@ -113,7 +113,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
 	}
 
-	tx, err := c.CreateTxFromScript(bw.Bytes(), acc, -1, 0, []client.SignerAccount{{
+	tx, err := c.CreateTxFromScript(bw.Bytes(), acc, -1, 0, []rpcclient.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.Global,

@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -35,11 +35,11 @@ func (c *initializeContext) transferFunds() error {
 	gasHash := c.nativeHash(nativenames.Gas)
 	neoHash := c.nativeHash(nativenames.Neo)
 
-	var transfers []client.TransferTarget
+	var transfers []rpcclient.TransferTarget
 	for _, acc := range c.Accounts {
 		to := acc.Contract.ScriptHash()
 		transfers = append(transfers,
-			client.TransferTarget{
+			rpcclient.TransferTarget{
 				Token:   gasHash,
 				Address: to,
 				Amount:  initialAlphabetGASAmount,
@@ -49,19 +49,19 @@ func (c *initializeContext) transferFunds() error {
 
 	// It is convenient to have all funds at the committee account.
 	transfers = append(transfers,
-		client.TransferTarget{
+		rpcclient.TransferTarget{
 			Token:   gasHash,
 			Address: c.CommitteeAcc.Contract.ScriptHash(),
 			Amount:  (gasInitialTotalSupply - initialAlphabetGASAmount*int64(len(c.Wallets))) / 2,
 		},
-		client.TransferTarget{
+		rpcclient.TransferTarget{
 			Token:   neoHash,
 			Address: c.CommitteeAcc.Contract.ScriptHash(),
 			Amount:  native.NEOTotalSupply,
 		},
 	)
 
-	tx, err := createNEP17MultiTransferTx(c.Client, c.ConsensusAcc, 0, transfers, []client.SignerAccount{{
+	tx, err := createNEP17MultiTransferTx(c.Client, c.ConsensusAcc, 0, transfers, []rpcclient.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: c.ConsensusAcc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
@@ -143,7 +143,7 @@ func (c *initializeContext) transferGASToProxy() error {
 		return err
 	}
 
-	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, 0, []client.TransferTarget{{
+	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, 0, []rpcclient.TransferTarget{{
 		Token:   gasHash,
 		Address: proxyCs.Hash,
 		Amount:  initialProxyGASAmount,
@@ -160,7 +160,7 @@ func (c *initializeContext) transferGASToProxy() error {
 }
 
 func createNEP17MultiTransferTx(c Client, acc *wallet.Account, netFee int64,
-	recipients []client.TransferTarget, cosigners []client.SignerAccount) (*transaction.Transaction, error) {
+	recipients []rpcclient.TransferTarget, cosigners []rpcclient.SignerAccount) (*transaction.Transaction, error) {
 	from := acc.Contract.ScriptHash()
 
 	w := io.NewBufBinWriter()
@@ -172,7 +172,7 @@ func createNEP17MultiTransferTx(c Client, acc *wallet.Account, netFee int64,
 	if w.Err != nil {
 		return nil, fmt.Errorf("failed to create transfer script: %w", w.Err)
 	}
-	return c.CreateTxFromScript(w.Bytes(), acc, -1, netFee, append([]client.SignerAccount{{
+	return c.CreateTxFromScript(w.Bytes(), acc, -1, netFee, append([]rpcclient.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: from,
 			Scopes:  transaction.CalledByEntry,

@@ -3,9 +3,9 @@ package subnetevents
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -65,7 +65,7 @@ const itemNumPut = 3
 // by the appropriate method of the subnet contract.
 //
 // Resulting event is of Put type.
-func ParsePut(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParsePut(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		put Put
 		err error

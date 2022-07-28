@@ -7,7 +7,8 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
@@ -189,11 +190,11 @@ func (l *listener) listen(ctx context.Context, intError chan<- error) error {
 	return nil
 }
 
-func (l *listener) listenLoop(ctx context.Context, chEvent <-chan *subscriptions.NotificationEvent, intErr chan<- error) {
+func (l *listener) listenLoop(ctx context.Context, chEvent <-chan *state.ContainedNotificationEvent, intErr chan<- error) {
 	var (
 		blockChan <-chan *block.Block
 
-		notaryChan <-chan *subscriptions.NotaryRequestEvent
+		notaryChan <-chan *result.NotaryRequestEvent
 
 		err error
 	)
@@ -294,7 +295,7 @@ loop:
 	}
 }
 
-func (l *listener) parseAndHandleNotification(notifyEvent *subscriptions.NotificationEvent) {
+func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotificationEvent) {
 	log := l.log.With(
 		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
@@ -349,7 +350,7 @@ func (l *listener) parseAndHandleNotification(notifyEvent *subscriptions.Notific
 	}
 }
 
-func (l *listener) parseAndHandleNotary(nr *subscriptions.NotaryRequestEvent) {
+func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	// prepare the notary event
 	notaryEvent, err := l.notaryEventsPreparator.Prepare(nr.NotaryRequest)
 	if err != nil {

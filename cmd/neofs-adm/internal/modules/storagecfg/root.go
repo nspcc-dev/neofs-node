@@ -24,7 +24,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -394,8 +394,8 @@ loop:
 	}
 }
 
-func initClient(rpc []string) *client.Client {
-	var c *client.Client
+func initClient(rpc []string) *rpcclient.Client {
+	var c *rpcclient.Client
 	var err error
 
 	shuffled := make([]string, len(rpc))
@@ -403,7 +403,7 @@ func initClient(rpc []string) *client.Client {
 	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
 
 	for _, endpoint := range shuffled {
-		c, err = client.New(context.Background(), "https://"+endpoint, client.Options{
+		c, err = rpcclient.New(context.Background(), "https://"+endpoint, rpcclient.Options{
 			DialTimeout:    time.Second * 2,
 			RequestTimeout: time.Second * 5,
 		})
