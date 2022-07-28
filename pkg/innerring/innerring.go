@@ -749,6 +749,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		Log:           log,
 		PoolSize:      cfg.GetInt("workers.balance"),
 		NeoFSClient:   neofsCli,
+		BalanceSC:     server.contracts.balance,
 		AlphabetState: server,
 		Converter:     &server.precision,
 	})

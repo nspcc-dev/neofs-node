@@ -37,6 +37,7 @@ Changelog for NeoFS Node
 - `neofs-adm` now registers candidates during initialization in a single transaction (#1608)
 
 ### Fixed
+- Invalid smart contract address in balance contract listener (#1636)
 
 - Shard now can start in degraded mode if the metabase is unavailable (#1559)
 - Shard can now be disabled completely on init failure (#1559)
