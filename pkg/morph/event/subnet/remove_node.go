@@ -3,7 +3,7 @@ package subnetevents
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -38,7 +38,7 @@ const expectedItemNumRemoveNode = 2
 // ParseRemoveNode parses notification into subnet event structure.
 //
 // Expects 2 stack items.
-func ParseRemoveNode(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseRemoveNode(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  RemoveNode
 		err error

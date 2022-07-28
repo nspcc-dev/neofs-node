@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +27,8 @@ func TestParseRoleUpdate(t *testing.T) {
 	})
 }
 
-func createNotifyEventFromItems(items []stackitem.Item) *subscriptions.NotificationEvent {
-	return &subscriptions.NotificationEvent{
+func createNotifyEventFromItems(items []stackitem.Item) *state.ContainedNotificationEvent {
+	return &state.ContainedNotificationEvent{
 		NotificationEvent: state.NotificationEvent{
 			Item: stackitem.NewArray(items),
 		},

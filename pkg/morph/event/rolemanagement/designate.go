@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -23,7 +23,7 @@ type Designate struct {
 func (Designate) MorphEvent() {}
 
 // ParseDesignate from notification into container event structure.
-func ParseDesignate(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseDesignate(e *state.ContainedNotificationEvent) (event.Event, error) {
 	params, err := event.ParseStackArray(e)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)

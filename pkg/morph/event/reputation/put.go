@@ -3,8 +3,8 @@ package reputation
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -49,7 +49,7 @@ func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
 }
 
 // ParsePut from notification into reputation event structure.
-func ParsePut(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParsePut(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  Put
 		err error

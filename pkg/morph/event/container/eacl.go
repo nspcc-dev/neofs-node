@@ -3,8 +3,8 @@ package container
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
@@ -58,7 +58,7 @@ const expectedItemNumEACL = 4
 // ParseSetEACL parses SetEACL notification event from list of stack items.
 //
 // Expects 4 stack items.
-func ParseSetEACL(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseSetEACL(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  SetEACL
 		err error

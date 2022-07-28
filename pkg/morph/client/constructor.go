@@ -10,7 +10,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -38,7 +38,7 @@ type cfg struct {
 
 	endpoints []Endpoint
 
-	singleCli *client.WSClient // neo-go client for single client mode
+	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
 	inactiveModeCb Callback
 }
@@ -101,7 +101,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		signer:                 cfg.signer,
 		cfg:                    *cfg,
 		switchLock:             &sync.RWMutex{},
-		notifications:          make(chan client.Notification),
+		notifications:          make(chan rpcclient.Notification),
 		subscribedEvents:       make(map[util.Uint160]string),
 		subscribedNotaryEvents: make(map[util.Uint160]string),
 		closeChan:              make(chan struct{}),
@@ -136,11 +136,11 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	return cli, nil
 }
 
-func newWSClient(cfg cfg, endpoint string) (*client.WSClient, error) {
-	return client.NewWS(
+func newWSClient(cfg cfg, endpoint string) (*rpcclient.WSClient, error) {
+	return rpcclient.NewWS(
 		cfg.ctx,
 		endpoint,
-		client.Options{DialTimeout: cfg.dialTimeout},
+		rpcclient.Options{DialTimeout: cfg.dialTimeout},
 	)
 }
 
@@ -223,7 +223,7 @@ func WithEndpoints(endpoints ...Endpoint) Option {
 // to use it for requests.
 //
 // Passed client must already be initialized.
-func WithSingleClient(cli *client.WSClient) Option {
+func WithSingleClient(cli *rpcclient.WSClient) Option {
 	return func(c *cfg) {
 		c.singleCli = cli
 	}

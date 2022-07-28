@@ -14,7 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -44,7 +44,7 @@ type Client struct {
 
 	logger *logger.Logger // logging component
 
-	client *client.WSClient // neo-go websocket client
+	client *rpcclient.WSClient // neo-go websocket client
 
 	acc *wallet.Account // neo account
 
@@ -62,7 +62,7 @@ type Client struct {
 	switchLock *sync.RWMutex
 
 	// channel for ws notifications
-	notifications chan client.Notification
+	notifications chan rpcclient.Notification
 
 	// channel for internal stop
 	closeChan chan struct{}
@@ -194,7 +194,7 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 		},
 	}
 
-	cosignerAcc := []client.SignerAccount{
+	cosignerAcc := []rpcclient.SignerAccount{
 		{
 			Signer:  cosigner[0],
 			Account: c.acc,
@@ -569,7 +569,7 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 // notification from the connected RPC node.
 // Channel is closed when connection to the RPC node has been
 // lost without the possibility of recovery.
-func (c *Client) NotificationChannel() <-chan client.Notification {
+func (c *Client) NotificationChannel() <-chan rpcclient.Notification {
 	return c.notifications
 }
 

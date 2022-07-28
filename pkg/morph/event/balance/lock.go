@@ -3,7 +3,7 @@ package balance
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -46,7 +46,7 @@ func (l Lock) Until() int64 { return l.until }
 func (l Lock) TxHash() util.Uint256 { return l.txHash }
 
 // ParseLock from notification into lock structure.
-func ParseLock(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseLock(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  Lock
 		err error

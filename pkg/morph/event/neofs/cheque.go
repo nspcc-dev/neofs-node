@@ -3,7 +3,7 @@ package neofs
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -33,7 +33,7 @@ func (c Cheque) Amount() int64 { return c.amount }
 func (c Cheque) LockAccount() util.Uint160 { return c.lock }
 
 // ParseCheque from notification into cheque structure.
-func ParseCheque(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseCheque(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  Cheque
 		err error

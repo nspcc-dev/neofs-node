@@ -4,9 +4,9 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/response/result/subscriptions"
 	"github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -41,7 +41,7 @@ func (s UpdatePeer) NotaryRequest() *payload.P2PNotaryRequest {
 
 const expectedItemNumUpdatePeer = 2
 
-func ParseUpdatePeer(e *subscriptions.NotificationEvent) (event.Event, error) {
+func ParseUpdatePeer(e *state.ContainedNotificationEvent) (event.Event, error) {
 	var (
 		ev  UpdatePeer
 		err error

@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/rpc/client"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
@@ -363,7 +363,7 @@ loop:
 // If sysFee is -1, it is calculated automatically. If tryGroup is false,
 // global scope is used for the signer (useful when working with native contracts).
 func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64, tryGroup bool) error {
-	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []client.SignerAccount{{
+	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []rpcclient.SignerAccount{{
 		Signer:  c.getSigner(tryGroup),
 		Account: c.CommitteeAcc,
 	}})
@@ -377,7 +377,7 @@ func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64, tryGrou
 // sendSingleTx creates transaction signed by a simple account and pushes in onto the chain.
 // It neither waits until tx persists nor checks the execution result.
 func (c *initializeContext) sendSingleTx(script []byte, sysFee int64, acc *wallet.Account) error {
-	tx, err := c.Client.CreateTxFromScript(script, acc, sysFee, 0, []client.SignerAccount{{
+	tx, err := c.Client.CreateTxFromScript(script, acc, sysFee, 0, []rpcclient.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
