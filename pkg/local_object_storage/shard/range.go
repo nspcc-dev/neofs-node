@@ -113,7 +113,7 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		payload := res.Payload()
 		from := rng.GetOffset()
 		to := from + rng.GetLength()
-		if uint64(len(payload)) < to {
+		if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
 			return nil, apistatus.ObjectOutOfRange{}
 		}
 

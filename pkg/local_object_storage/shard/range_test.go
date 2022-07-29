@@ -1,6 +1,7 @@
 package shard_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
@@ -45,15 +46,18 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 
 	testCases := []testCase{
 		{false, "small object, good", 1024, newRange(11, 123)},
-		{true, "small object, out of range", 1024, newRange(10, 1020)},
+		{true, "small object, out of range, big len", 1024, newRange(10, 1020)},
+		{true, "small object, out of range, big offset", 1024, newRange(1025, math.MaxUint64-10)},
 		{false, "big object, good", 2048, newRange(11, 123)},
-		{true, "big object, out of range", 2048, newRange(100, 2000)},
+		{true, "big object, out of range, big len", 2048, newRange(100, 2000)},
+		{true, "big object, out of range, big offset", 2048, newRange(2048, math.MaxUint64-10)},
 	}
 
 	if hasWriteCache {
 		testCases = append(testCases,
 			testCase{false, "object in write-cache, good", 100, newRange(2, 18)},
-			testCase{true, "object in write-cache, out of range", 100, newRange(4, 99)})
+			testCase{true, "object in write-cache, out of range, big len", 100, newRange(4, 99)},
+			testCase{true, "object in write-cache, out of range, big offset", 100, newRange(101, math.MaxUint64-10)})
 	}
 
 	sh := newCustomShard(t, t.TempDir(), hasWriteCache,

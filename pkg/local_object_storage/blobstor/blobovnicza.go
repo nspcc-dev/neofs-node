@@ -628,7 +628,7 @@ func (b *blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm GetRange
 	to := from + prm.rng.GetLength()
 	payload := obj.Payload()
 
-	if uint64(len(payload)) < to {
+	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
 		var errOutOfRange apistatus.ObjectOutOfRange
 
 		return GetRangeSmallRes{}, errOutOfRange

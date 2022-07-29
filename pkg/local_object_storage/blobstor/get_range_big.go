@@ -54,7 +54,7 @@ func (b *BlobStor) GetRangeBig(prm GetRangeBigPrm) (GetRangeBigRes, error) {
 	payload := obj.Payload()
 	ln, off := prm.rng.GetLength(), prm.rng.GetOffset()
 
-	if pLen := uint64(len(payload)); pLen < ln+off {
+	if pLen := uint64(len(payload)); ln+off < off || pLen < off || pLen < ln+off {
 		var errOutOfRange apistatus.ObjectOutOfRange
 
 		return GetRangeBigRes{}, errOutOfRange
