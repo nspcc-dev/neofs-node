@@ -87,8 +87,12 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 		return res.Object(), nil
 	}
 
+	wc := func(c writecache.Cache) (*objectSDK.Object, error) {
+		return c.Get(prm.addr)
+	}
+
 	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small)
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small, wc)
 
 	return GetRes{
 		obj:     obj,
@@ -97,16 +101,16 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 }
 
 // fetchObjectData looks through writeCache and blobStor to find object.
-func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small storFetcher) (*objectSDK.Object, bool, error) {
+func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, big, small storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
 	var (
 		err error
 		res *objectSDK.Object
 	)
 
 	if s.hasWriteCache() {
-		res, err = s.writeCache.Get(addr)
-		if err == nil {
-			return res, false, nil
+		res, err := wc(s.writeCache)
+		if err == nil || IsErrOutOfRange(err) {
+			return res, false, err
 		}
 
 		if writecache.IsErrNotFound(err) {
