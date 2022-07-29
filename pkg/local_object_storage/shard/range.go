@@ -3,6 +3,8 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -102,8 +104,26 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		return obj, nil
 	}
 
+	wc := func(c writecache.Cache) (*object.Object, error) {
+		res, err := c.Get(prm.addr)
+		if err != nil {
+			return nil, err
+		}
+
+		payload := res.Payload()
+		from := rng.GetOffset()
+		to := from + rng.GetLength()
+		if uint64(len(payload)) < to {
+			return nil, apistatus.ObjectOutOfRange{}
+		}
+
+		obj := object.New()
+		obj.SetPayload(payload[from:to])
+		return obj, nil
+	}
+
 	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small)
+	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, big, small, wc)
 
 	return RngRes{
 		obj:     obj,
