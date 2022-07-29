@@ -1,21 +1,19 @@
 # Changelog
 Changelog for NeoFS Node
 
-## [Unreleased]
-
-### Added
-
-### Changed
+## [0.30.1] - 2022-07-29
 
 ### Fixed
 
+- `GetRange` operation now works correctly with objects stored in write-cache (#1638)
 - Losing request context in eACL response checks (#1595)
-
-### Removed
+- Wrong balance contract in innerring processor (#1636)
+- `neofs-adm` now sets groups in manifest for all contracts properly (#1631)
 
 ### Updated
 
-### Updating from v0.30.0
+- `neo-go` to `v0.99.1`
+- `neofs-sdk-go` to `v1.0.0-rc.6`
 
 ## [0.30.0] - 2022-07-22 - Saengildo (생일도, 生日島)
 
@@ -1184,7 +1182,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.1...support/v0.30
+[0.30.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.2...v0.28.3
