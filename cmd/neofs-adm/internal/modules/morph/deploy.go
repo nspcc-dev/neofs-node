@@ -21,6 +21,7 @@ import (
 const (
 	contractPathFlag = "contract"
 	updateFlag       = "update"
+	customZoneFlag   = "domain"
 )
 
 var deployCmd = &cobra.Command{
@@ -48,6 +49,7 @@ func init() {
 	_ = deployCmd.MarkFlagFilename(contractPathFlag)
 
 	ff.Bool(updateFlag, false, "Update an existing contract")
+	ff.String(customZoneFlag, "neofs", "Custom zone for NNS (default: 'neofs')")
 }
 
 func deployContractCmd(cmd *cobra.Command, args []string) error {
@@ -76,7 +78,8 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 
 	callHash := c.nativeHash(nativenames.Management)
 	method := deployMethodName
-	domain := ctrName + ".neofs"
+	zone, _ := cmd.Flags().GetString(customZoneFlag)
+	domain := ctrName + "." + zone
 	isUpdate, _ := cmd.Flags().GetBool(updateFlag)
 	if isUpdate {
 		cs.Hash, err = nnsResolveHash(c.Client, nnsCs.Hash, domain)
