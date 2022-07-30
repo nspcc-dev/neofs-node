@@ -20,7 +20,7 @@ func AddressField(addr interface{}) zap.Field {
 	return zap.Any("address", addr)
 }
 
-// AddressField returns logger's field for operation type.
+// OpField returns logger's field for operation type.
 func OpField(op string) zap.Field {
 	return zap.String("op", op)
 }
