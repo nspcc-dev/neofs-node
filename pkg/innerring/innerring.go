@@ -121,7 +121,7 @@ type (
 		// Set of component runners which
 		// should report start errors
 		// to the application.
-		runners []func(chan<- error)
+		runners []func(chan<- error) error
 
 		subnetHandler
 	}
@@ -256,7 +256,9 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	}
 
 	for _, runner := range s.runners {
-		runner(intError)
+		if err := runner(intError); err != nil {
+			return err
+		}
 	}
 
 	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
@@ -891,16 +893,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		grpcControlSrv := grpc.NewServer()
 		control.RegisterControlServiceServer(grpcControlSrv, controlSvc)
 
-		server.runners = append(server.runners, func(ch chan<- error) {
+		server.runners = append(server.runners, func(ch chan<- error) error {
 			lis, err := net.Listen("tcp", controlSvcEndpoint)
 			if err != nil {
-				ch <- err
-				return
+				return err
 			}
 
 			go func() {
 				ch <- grpcControlSrv.Serve(lis)
 			}()
+			return nil
 		})
 
 		server.registerNoErrCloser(grpcControlSrv.GracefulStop)
