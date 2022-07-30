@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type clientCache struct {
@@ -85,7 +86,7 @@ func dialTreeService(ctx context.Context, netmapAddr string) (*grpc.ClientConn, 
 
 	// FIXME(@fyrchik): ugly hack #1322
 	if !strings.HasPrefix(netAddr.URIAddr(), "grpcs:") {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaultClientConnectTimeout)

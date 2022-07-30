@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Synchronize tries to synchronize log starting from the last stored height.
@@ -33,7 +34,7 @@ func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) er
 				return false
 			}
 
-			cc, err := grpc.DialContext(ctx, a.URIAddr(), grpc.WithInsecure())
+			cc, err := grpc.DialContext(ctx, a.URIAddr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				// Failed to connect, try the next address.
 				return false
