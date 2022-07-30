@@ -18,7 +18,7 @@ func (e *StorageEngine) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pil
 	for _, sh := range e.sortShardsByWeight(d.CID) {
 		lm, err = sh.TreeMove(d, treeID, m)
 		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) {
+			if errors.Is(err, shard.ErrReadOnlyMode) || err == shard.ErrPiloramaDisabled {
 				return nil, err
 			}
 			e.reportShardError(sh, "can't perform `TreeMove`", err,
@@ -38,7 +38,7 @@ func (e *StorageEngine) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, a
 	for _, sh := range e.sortShardsByWeight(d.CID) {
 		lm, err = sh.TreeAddByPath(d, treeID, attr, path, m)
 		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) {
+			if errors.Is(err, shard.ErrReadOnlyMode) || err == shard.ErrPiloramaDisabled {
 				return nil, err
 			}
 			e.reportShardError(sh, "can't perform `TreeAddByPath`", err,
@@ -57,7 +57,7 @@ func (e *StorageEngine) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pi
 	for _, sh := range e.sortShardsByWeight(d.CID) {
 		err = sh.TreeApply(d, treeID, m)
 		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) {
+			if errors.Is(err, shard.ErrReadOnlyMode) || err == shard.ErrPiloramaDisabled {
 				return err
 			}
 			e.reportShardError(sh, "can't perform `TreeApply`", err,
@@ -78,6 +78,9 @@ func (e *StorageEngine) TreeGetByPath(cid cidSDK.ID, treeID string, attr string,
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetByPath(cid, treeID, attr, path, latest)
 		if err != nil {
+			if err == shard.ErrPiloramaDisabled {
+				break
+			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
 				e.reportShardError(sh, "can't perform `TreeGetByPath`", err,
 					zap.Stringer("cid", cid),
@@ -98,6 +101,9 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 	for _, sh := range e.sortShardsByWeight(cid) {
 		m, p, err = sh.TreeGetMeta(cid, treeID, nodeID)
 		if err != nil {
+			if err == shard.ErrPiloramaDisabled {
+				break
+			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
 				e.reportShardError(sh, "can't perform `TreeGetMeta`", err,
 					zap.Stringer("cid", cid),
@@ -117,6 +123,9 @@ func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pil
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetChildren(cid, treeID, nodeID)
 		if err != nil {
+			if err == shard.ErrPiloramaDisabled {
+				break
+			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
 				e.reportShardError(sh, "can't perform `TreeGetChildren`", err,
 					zap.Stringer("cid", cid),
@@ -136,6 +145,9 @@ func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64
 	for _, sh := range e.sortShardsByWeight(cid) {
 		lm, err = sh.TreeGetOpLog(cid, treeID, height)
 		if err != nil {
+			if err == shard.ErrPiloramaDisabled {
+				break
+			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
 				e.reportShardError(sh, "can't perform `TreeGetOpLog`", err,
 					zap.Stringer("cid", cid),
