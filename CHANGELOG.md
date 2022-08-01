@@ -35,6 +35,11 @@ Change `morph.endpoint.client` priority values using the following rule:
 the higher the priority the lower the value (non-specified or `0` values are
 interpreted as the highest priority -- `1`).
 
+## [0.30.2] - 2022-08-01
+
+### Added
+- `EACL_NOT_FOUND` status code support (#1645).
+
 ## [0.30.1] - 2022-07-29
 
 ### Fixed
@@ -1216,7 +1221,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.1...support/v0.30
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.2...support/v0.30
+[0.30.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.28.3...v0.29.0
