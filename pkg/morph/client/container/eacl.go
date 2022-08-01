@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -14,6 +15,8 @@ import (
 
 // GetEACL reads the extended ACL table from NeoFS system
 // through Container contract call.
+//
+// Returns apistatus.EACLNotFound if eACL table is missing in the contract.
 func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	binCnr := make([]byte, sha256.Size)
 	cnr.Encode(binCnr)
@@ -52,7 +55,9 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	// The absence of a signature in the response can be taken as an eACL absence criterion,
 	// since unsigned table cannot be approved in the storage by design.
 	if len(sig) == 0 {
-		return nil, container.ErrEACLNotFound
+		var errEACLNotFound apistatus.EACLNotFound
+
+		return nil, errEACLNotFound
 	}
 
 	pub, err := client.BytesFromStackItem(arr[2])
