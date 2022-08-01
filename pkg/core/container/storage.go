@@ -43,10 +43,6 @@ func IsErrNotFound(err error) bool {
 	return errors.As(err, new(apistatus.ContainerNotFound))
 }
 
-// ErrEACLNotFound is returned by eACL storage implementations when
-// the requested eACL table is not in the storage.
-var ErrEACLNotFound = errors.New("extended ACL table is not set for this container")
-
 // EACL groups information about the NeoFS container's extended ACL stored in
 // the NeoFS network.
 type EACL struct {

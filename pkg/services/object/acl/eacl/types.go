@@ -13,7 +13,7 @@ type Source interface {
 	//
 	// GetEACL must return exactly one non-nil value.
 	//
-	// Must return pkg/core/container.ErrEACLNotFound if requested
+	// Must return apistatus.ErrEACLNotFound if requested
 	// eACL table is not in source.
 	GetEACL(cid.ID) (*containercore.EACL, error)
 }
