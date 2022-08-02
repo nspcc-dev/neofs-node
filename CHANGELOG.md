@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 
 ### Changed
 
+- Priority order in the Morph client (#1648)
+
 ### Fixed
 
 - Losing request context in eACL response checks (#1595)
@@ -25,6 +27,9 @@ Changelog for NeoFS Node
 - `google.golang.org/grpc` to `v1.48.0`
 
 ### Updating from v0.30.0
+Change `morph.endpoint.client` priority values using the following rule:
+the higher the priority the lower the value (non-specified or `0` values are
+interpreted as the highest priority -- `1`).
 
 ## [0.30.0] - 2022-07-22 - Saengildo (생일도, 生日島)
 

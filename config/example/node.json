@@ -103,11 +103,11 @@
     "rpc_endpoint": [
       {
         "address": "wss://rpc1.morph.fs.neo.org:40341/ws",
-        "priority": 2
+        "priority": 0
       },
       {
         "address": "wss://rpc2.morph.fs.neo.org:40341/ws",
-        "priority": 1
+        "priority": 2
       }
     ]
   },

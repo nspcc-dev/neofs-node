@@ -19,7 +19,7 @@ type endpoints struct {
 
 func (e *endpoints) init(ee []Endpoint) {
 	sort.SliceStable(ee, func(i, j int) bool {
-		return ee[i].Priority > ee[j].Priority
+		return ee[i].Priority < ee[j].Priority
 	})
 
 	e.curr = 0

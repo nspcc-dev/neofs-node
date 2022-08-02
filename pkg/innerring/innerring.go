@@ -959,6 +959,9 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
 	var endpoints []client.Endpoint
 
+	// defaultPriority is a default endpoint priority
+	const defaultPriority = 1
+
 	section := p.name + ".endpoint.client"
 	for i := 0; ; i++ {
 		addr := p.cfg.GetString(fmt.Sprintf("%s.%d.%s", section, i, "address"))
@@ -966,9 +969,14 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 			break
 		}
 
+		priority := p.cfg.GetInt(section + ".priority")
+		if priority <= 0 {
+			priority = defaultPriority
+		}
+
 		endpoints = append(endpoints, client.Endpoint{
 			Address:  addr,
-			Priority: p.cfg.GetInt(section + ".priority"),
+			Priority: priority,
 		})
 	}
 
