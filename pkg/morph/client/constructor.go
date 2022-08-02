@@ -107,6 +107,8 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		closeChan:              make(chan struct{}),
 	}
 
+	cli.endpoints.init(cfg.endpoints)
+
 	if cfg.singleCli != nil {
 		// return client in single RPC node mode that uses
 		// predefined WS client
@@ -117,7 +119,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
 	} else {
-		ws, err := newWSClient(*cfg, cfg.endpoints[0].Address)
+		ws, err := newWSClient(*cfg, cli.endpoints.list[0].Address)
 		if err != nil {
 			return nil, fmt.Errorf("could not create morph client: %w", err)
 		}
@@ -129,7 +131,6 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 
 		cli.client = ws
 	}
-	cli.endpoints.init(cfg.endpoints)
 
 	go cli.notificationLoop()
 
