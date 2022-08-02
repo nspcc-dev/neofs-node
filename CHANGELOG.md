@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 - Losing request context in eACL response checks (#1595)
+- Setting CID field in `neofs-cli acl extended create` (#1650)
 - `neofs-ir` no longer hangs if it cannot bind to the control endpoint (#1643)
 - Do not require `lifetime` flag in `session create` CLI command (#1655)
 

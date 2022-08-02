@@ -67,7 +67,6 @@ func createEACL(cmd *cobra.Command, _ []string) {
 
 	var containerID cid.ID
 	if cidArg != "" {
-		var containerID cid.ID
 		if err := containerID.DecodeString(cidArg); err != nil {
 			cmd.PrintErrf("invalid container ID: %v\n", err)
 			os.Exit(1)
