@@ -24,8 +24,8 @@ func TestMorphSection(t *testing.T) {
 
 	var (
 		rpcs = []client.Endpoint{
-			{"wss://rpc1.morph.fs.neo.org:40341/ws", 2},
-			{"wss://rpc2.morph.fs.neo.org:40341/ws", 1},
+			{"wss://rpc1.morph.fs.neo.org:40341/ws", 1},
+			{"wss://rpc2.morph.fs.neo.org:40341/ws", 2},
 		}
 	)
 

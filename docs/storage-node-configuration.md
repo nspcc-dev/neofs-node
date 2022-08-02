@@ -134,9 +134,9 @@ morph:
   disable_cache: true
   rpc_endpoint:
     - address: wss://rpc1.morph.fs.neo.org:40341/ws
-      priority: 2
-    - address: wss://rpc2.morph.fs.neo.org:40341/ws
       priority: 1
+    - address: wss://rpc2.morph.fs.neo.org:40341/ws
+      priority: 2
  ```
 
 | Parameter       | Type                                                      | Default value | Description                                                                                                                     |
@@ -146,10 +146,10 @@ morph:
 | `rpc_endpoint`  | list of [endpoint descriptions](#rpc_endpoint-subsection) |               | Array of endpoint descriptions.                                                                                                 |
 
 ## `rpc_endpoint` subsection
-| Parameter  | Type     | Default value | Description                                                                                                                                       |
-|------------|----------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| `address`  | `string` |               | _WebSocket_ N3 endpoint.                                                                                                                          |
-| `priority` | `int`    | `0`           | Priority of an endpoint. Endpoint with a higher priority has more chance of being used. Endpoints with equal priority are iterated over randomly. |
+| Parameter  | Type     | Default value | Description                                                                                                                                                                                                              |
+|------------|----------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `address`  | `string` |               | _WebSocket_ N3 endpoint.                                                                                                                                                                                                 |
+| `priority` | `int`    | `1`           | Priority of an endpoint. Endpoint with a higher priority (lower configuration value) has more chance of being used. Endpoints with equal priority are iterated over randomly; a negative priority is interpreted as `1`. |
 
 # `storage` section
 

@@ -24,6 +24,9 @@ const (
 
 	// MaxConnPerHostDefault is a default maximum of connections per host of the morph client.
 	MaxConnPerHostDefault = 10
+
+	// PriorityDefault is a default endpoint priority for the morph client.
+	PriorityDefault = 1
 )
 
 // RPCEndpoint returns list of the values of "rpc_endpoint" config parameter
@@ -41,9 +44,14 @@ func RPCEndpoint(c *config.Config) []client.Endpoint {
 			break
 		}
 
+		priority := int(config.IntSafe(s, "priority"))
+		if priority <= 0 {
+			priority = PriorityDefault
+		}
+
 		es = append(es, client.Endpoint{
 			Address:  addr,
-			Priority: int(config.IntSafe(s, "priority")),
+			Priority: priority,
 		})
 	}
 
