@@ -2,12 +2,12 @@
   "logger": {
     "level": "debug"
   },
-  "profiler": {
+  "pprof": {
     "enabled": true,
     "address": "localhost:6060",
     "shutdown_timeout": "15s"
   },
-  "metrics": {
+  "prometheus": {
     "enabled": true,
     "address": "localhost:9090",
     "shutdown_timeout": "15s"
