@@ -250,7 +250,12 @@ loop:
 				continue loop
 			}
 
-			l.parseAndHandleNotification(notifyEvent)
+			if err = l.pool.Submit(func() {
+				l.parseAndHandleNotification(notifyEvent)
+			}); err != nil {
+				l.log.Warn("listener worker pool drained",
+					zap.Int("capacity", l.pool.Cap()))
+			}
 		case notaryEvent, ok := <-notaryChan:
 			if !ok {
 				l.log.Warn("stop event listener by notary channel")
