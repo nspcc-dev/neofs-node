@@ -222,6 +222,12 @@ func stringCommonPrefixMatcherBucket(b *bbolt.Bucket, fKey string, fVal string, 
 		prefix = val[:len(val)-1]
 	}
 
+	if len(val) == 0 {
+		// empty common prefix, all the objects
+		// satisfy that filter
+		return b.ForEach(f)
+	}
+
 	c := b.Cursor()
 	for k, v := c.Seek(val); bytes.HasPrefix(k, prefix); k, v = c.Next() {
 		if checkLast && (len(k) == len(prefix) || k[len(prefix)]>>4 != val[len(val)-1]) {
