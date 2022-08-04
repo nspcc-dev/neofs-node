@@ -7,6 +7,22 @@ Changelog for NeoFS Node
 
 ### Changed
 
+### Fixed
+
+### Removed
+
+### Updated
+
+### Updating from v0.31.0
+
+## [0.31.0] - 2022-08-04 - Baengnyeongdo (백령도, 白翎島)
+
+### Added
+
+- `neofs-adm` allows deploying arbitrary contracts (#1629)
+
+### Changed
+
 - Priority order in the Morph client (#1648)
 
 ### Fixed
@@ -16,8 +32,14 @@ Changelog for NeoFS Node
 - Setting CID field in `neofs-cli acl extended create` (#1650)
 - `neofs-ir` no longer hangs if it cannot bind to the control endpoint (#1643)
 - Do not require `lifetime` flag in `session create` CLI command (#1655)
+- Using deprecated gRPC options (#1644)
+- Increasing metabase error counter on disabled pilorama (#1642)
+- Deadlock in the morph client related to synchronous notification handling (#1653)
+- Slow metabase `COMMON_PREFIX` search for empty prefix (#1656)
 
 ### Removed
+
+- Deprecated `profiler` and `metrics` configuration sections (#1654)
 
 ### Updated
 
@@ -31,9 +53,11 @@ Changelog for NeoFS Node
 - `google.golang.org/grpc` to `v1.48.0`
 
 ### Updating from v0.30.0
-Change `morph.endpoint.client` priority values using the following rule:
+1. Change `morph.endpoint.client` priority values using the following rule:
 the higher the priority the lower the value (non-specified or `0` values are
 interpreted as the highest priority -- `1`).
+2. Deprecated `profiler` and `metrics` configuration sections are dropped,
+use `pprof` and `prometheus` instead.
 
 ## [0.30.2] - 2022-08-01
 
@@ -1221,7 +1245,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.2...support/v0.30
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.31.0...master
+[0.31.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.29.0...v0.30.0
