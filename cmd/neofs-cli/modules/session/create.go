@@ -42,7 +42,6 @@ func init() {
 	createCmd.Flags().Bool(jsonFlag, false, "output token in JSON")
 	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
-	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.Lifetime)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.WalletPath)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.RPC)
