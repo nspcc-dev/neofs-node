@@ -26,9 +26,9 @@ func (c *cache) Delete(addr oid.Address) error {
 	c.mtx.Lock()
 	for i := range c.mem {
 		if saddr == c.mem[i].addr {
+			c.curMemSize -= uint64(len(c.mem[i].data))
 			copy(c.mem[i:], c.mem[i+1:])
 			c.mem = c.mem[:len(c.mem)-1]
-			c.curMemSize -= uint64(len(c.mem[i].data))
 			c.mtx.Unlock()
 			storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("in-mem DELETE"))
 			return nil
