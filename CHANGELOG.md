@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Fixed
+- Panic on write-cache's `Delete` operation (#1664)
 
 ### Removed
 
