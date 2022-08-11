@@ -14,15 +14,15 @@ import (
 
 // flags of list command
 const (
-	flagListPrintAttr = "with-attr"
+	flagListPrintAttr      = "with-attr"
+	flagListContainerOwner = "owner"
 )
 
 // flag vars of list command
 var (
-	flagVarListPrintAttr bool
+	flagVarListPrintAttr      bool
+	flagVarListContainerOwner string
 )
-
-var containerOwner string
 
 var listContainersCmd = &cobra.Command{
 	Use:   "list",
@@ -33,10 +33,10 @@ var listContainersCmd = &cobra.Command{
 
 		key := key.GetOrGenerate(cmd)
 
-		if containerOwner == "" {
+		if flagVarListContainerOwner == "" {
 			user.IDFromKey(&idUser, key.PublicKey)
 		} else {
-			err := idUser.DecodeString(containerOwner)
+			err := idUser.DecodeString(flagVarListContainerOwner)
 			common.ExitOnErr(cmd, "invalid user ID: %w", err)
 		}
 
@@ -80,7 +80,9 @@ func initContainerListContainersCmd() {
 
 	flags := listContainersCmd.Flags()
 
-	flags.StringVar(&containerOwner, "owner", "", "owner of containers (omit to use owner from private key)")
+	flags.StringVar(&flagVarListContainerOwner, flagListContainerOwner, "",
+		"owner of containers (omit to use owner from private key)",
+	)
 	flags.BoolVar(&flagVarListPrintAttr, flagListPrintAttr, false,
 		"request and print attributes of each container",
 	)
