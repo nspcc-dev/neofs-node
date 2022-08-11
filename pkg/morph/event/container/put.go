@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
 // Put structure of container.Put notification from morph chain.
@@ -105,4 +106,48 @@ func ParsePut(e *state.ContainedNotificationEvent) (event.Event, error) {
 	}
 
 	return ev, nil
+}
+
+// PutSuccess structures notification event of successful container creation
+// thrown by Container contract.
+type PutSuccess struct {
+	// Identifier of the newly created container.
+	ID cid.ID
+}
+
+// MorphEvent implements Neo:Morph Event interface.
+func (PutSuccess) MorphEvent() {}
+
+// ParsePutSuccess decodes notification event thrown by Container contract into
+// PutSuccess and returns it as event.Event.
+func ParsePutSuccess(e *state.ContainedNotificationEvent) (event.Event, error) {
+	items, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("parse stack array from raw notification event: %w", err)
+	}
+
+	const expectedItemNumPutSuccess = 2
+
+	if ln := len(items); ln != expectedItemNumPutSuccess {
+		return nil, event.WrongNumberOfParameters(expectedItemNumPutSuccess, ln)
+	}
+
+	binID, err := client.BytesFromStackItem(items[0])
+	if err != nil {
+		return nil, fmt.Errorf("parse container ID item: %w", err)
+	}
+
+	_, err = client.BytesFromStackItem(items[1])
+	if err != nil {
+		return nil, fmt.Errorf("parse public key item: %w", err)
+	}
+
+	var res PutSuccess
+
+	err = res.ID.Decode(binID)
+	if err != nil {
+		return nil, fmt.Errorf("decode container ID: %w", err)
+	}
+
+	return res, nil
 }
