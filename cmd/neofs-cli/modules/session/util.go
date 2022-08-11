@@ -41,6 +41,7 @@ func Prepare(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, key *ecdsa.PrivateKey,
 	}
 
 	for i := range prms {
+		tok := tok
 		switch prms[i].(type) {
 		case *internalclient.GetObjectPrm:
 			tok.ForVerb(session.VerbObjectGet)
