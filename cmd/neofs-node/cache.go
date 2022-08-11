@@ -20,6 +20,8 @@ type netValueReader func(interface{}) (interface{}, error)
 type valueWithTime struct {
 	v interface{}
 	t time.Time
+	// cached error in order to not repeat failed request for some time
+	e error
 }
 
 // entity that provides TTL cache interface.
@@ -57,23 +59,25 @@ func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
 		valWithTime := val.(*valueWithTime)
 
 		if time.Since(valWithTime.t) < c.ttl {
-			return valWithTime.v, nil
+			return valWithTime.v, valWithTime.e
 		}
 
 		c.cache.Remove(key)
 	}
 
 	val, err := c.netRdr(key)
-	if err != nil {
-		return nil, err
-	}
 
-	c.cache.Add(key, &valueWithTime{
-		v: val,
+	c.set(key, val, err)
+
+	return val, err
+}
+
+func (c *ttlNetCache) set(k, v interface{}, e error) {
+	c.cache.Add(k, &valueWithTime{
+		v: v,
 		t: time.Now(),
+		e: e,
 	})
-
-	return val, nil
 }
 
 func (c *ttlNetCache) remove(key interface{}) {
