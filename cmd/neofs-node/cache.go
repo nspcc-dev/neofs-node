@@ -10,6 +10,7 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -145,6 +146,10 @@ func newCachedContainerStorage(v container.Source) *ttlContainerStorage {
 	})
 
 	return (*ttlContainerStorage)(lruCnrCache)
+}
+
+func (s *ttlContainerStorage) handleRemoval(cnr cid.ID) {
+	(*ttlNetCache)(s).set(cnr.EncodeToString(), nil, apistatus.ContainerNotFound{})
 }
 
 // Get returns container value from the cache. If value is missing in the cache
