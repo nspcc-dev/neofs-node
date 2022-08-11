@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
 // Delete structure of container.Delete notification from morph chain.
@@ -80,4 +81,43 @@ func ParseDelete(e *state.ContainedNotificationEvent) (event.Event, error) {
 	}
 
 	return ev, nil
+}
+
+// DeleteSuccess structures notification event of successful container removal
+// thrown by Container contract.
+type DeleteSuccess struct {
+	// Identifier of the removed container.
+	ID cid.ID
+}
+
+// MorphEvent implements Neo:Morph Event interface.
+func (DeleteSuccess) MorphEvent() {}
+
+// ParseDeleteSuccess decodes notification event thrown by Container contract into
+// DeleteSuccess and returns it as event.Event.
+func ParseDeleteSuccess(e *state.ContainedNotificationEvent) (event.Event, error) {
+	items, err := event.ParseStackArray(e)
+	if err != nil {
+		return nil, fmt.Errorf("parse stack array from raw notification event: %w", err)
+	}
+
+	const expectedItemNumDeleteSuccess = 1
+
+	if ln := len(items); ln != expectedItemNumDeleteSuccess {
+		return nil, event.WrongNumberOfParameters(expectedItemNumDeleteSuccess, ln)
+	}
+
+	binID, err := client.BytesFromStackItem(items[0])
+	if err != nil {
+		return nil, fmt.Errorf("parse container ID item: %w", err)
+	}
+
+	var res DeleteSuccess
+
+	err = res.ID.Decode(binID)
+	if err != nil {
+		return nil, fmt.Errorf("decode container ID: %w", err)
+	}
+
+	return res, nil
 }

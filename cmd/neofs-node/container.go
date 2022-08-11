@@ -63,6 +63,18 @@ func initContainerService(c *cfg) {
 		neoClient: wrap,
 	}
 
+	subscribeToContainerCreation(c, func(e event.Event) {
+		c.log.Debug("container creation event's receipt",
+			zap.Stringer("id", e.(containerEvent.PutSuccess).ID),
+		)
+	})
+
+	subscribeToContainerRemoval(c, func(e event.Event) {
+		c.log.Debug("container removal event's receipt",
+			zap.Stringer("id", e.(containerEvent.DeleteSuccess).ID),
+		)
+	})
+
 	if c.cfgMorph.disableCache {
 		c.cfgObject.eaclSource = eACLFetcher
 		cnrRdr.eacl = eACLFetcher
@@ -193,6 +205,34 @@ func addContainerAsyncNotificationHandler(c *cfg, sTyp string, h event.Handler) 
 			c.log,
 		),
 	)
+}
+
+// stores already registered parsers of the notification events thrown by Container contract.
+// MUST NOT be used concurrently.
+var mRegisteredParsersContainer = make(map[string]struct{})
+
+// registers event parser by name once. MUST NOT be called concurrently.
+func registerEventParserOnceContainer(c *cfg, name string, p event.NotificationParser) {
+	if _, ok := mRegisteredParsersContainer[name]; !ok {
+		setContainerNotificationParser(c, name, p)
+		mRegisteredParsersContainer[name] = struct{}{}
+	}
+}
+
+// subscribes to successful container creation. Provided handler is called asynchronously
+// on corresponding routine pool. MUST NOT be called concurrently with itself and other
+// similar functions.
+func subscribeToContainerCreation(c *cfg, h event.Handler) {
+	const eventNameContainerCreated = "PutSuccess"
+	registerEventParserOnceContainer(c, eventNameContainerCreated, containerEvent.ParsePutSuccess)
+	addContainerAsyncNotificationHandler(c, eventNameContainerCreated, h)
+}
+
+// like subscribeToContainerCreation but for removal.
+func subscribeToContainerRemoval(c *cfg, h event.Handler) {
+	const eventNameContainerRemoved = "DeleteSuccess"
+	registerEventParserOnceContainer(c, eventNameContainerRemoved, containerEvent.ParseDeleteSuccess)
+	addContainerAsyncNotificationHandler(c, eventNameContainerRemoved, h)
 }
 
 func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationParser) {
