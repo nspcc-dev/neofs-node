@@ -69,12 +69,6 @@ func initContainerService(c *cfg) {
 		)
 	})
 
-	subscribeToContainerRemoval(c, func(e event.Event) {
-		c.log.Debug("container removal event's receipt",
-			zap.Stringer("id", e.(containerEvent.DeleteSuccess).ID),
-		)
-	})
-
 	if c.cfgMorph.disableCache {
 		c.cfgObject.eaclSource = eACLFetcher
 		cnrRdr.eacl = eACLFetcher
@@ -86,6 +80,16 @@ func initContainerService(c *cfg) {
 		cachedContainerStorage := newCachedContainerStorage(cnrSrc)
 		cachedEACLStorage := newCachedEACLStorage(eACLFetcher)
 		cachedContainerLister := newCachedContainerLister(wrap)
+
+		subscribeToContainerRemoval(c, func(e event.Event) {
+			ev := e.(containerEvent.DeleteSuccess)
+
+			cachedContainerStorage.handleRemoval(ev.ID)
+
+			c.log.Debug("container removal event's receipt",
+				zap.Stringer("id", ev.ID),
+			)
+		})
 
 		c.cfgObject.eaclSource = cachedEACLStorage
 		c.cfgObject.cnrSource = cachedContainerStorage
