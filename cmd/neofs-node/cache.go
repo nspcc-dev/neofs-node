@@ -245,6 +245,14 @@ func (s *lruNetmapSource) Epoch() (uint64, error) {
 // that implements container lister.
 type ttlContainerLister ttlNetCache
 
+// value type for ttlNetCache used by ttlContainerLister.
+type cacheItemContainerList struct {
+	// protects list from concurrent add/remove ops
+	mtx sync.RWMutex
+	// actual list of containers owner by the particular user
+	list []cid.ID
+}
+
 func newCachedContainerLister(c *cntClient.Client) *ttlContainerLister {
 	const (
 		containerListerCacheSize = 100
@@ -266,7 +274,14 @@ func newCachedContainerLister(c *cntClient.Client) *ttlContainerLister {
 			}
 		}
 
-		return c.List(id)
+		list, err := c.List(id)
+		if err != nil {
+			return nil, err
+		}
+
+		return &cacheItemContainerList{
+			list: list,
+		}, nil
 	})
 
 	return (*ttlContainerLister)(lruCnrListerCache)
@@ -287,12 +302,68 @@ func (s *ttlContainerLister) List(id *user.ID) ([]cid.ID, error) {
 		return nil, err
 	}
 
-	return val.([]cid.ID), nil
+	// panic on typecast below is OK since developer must be careful,
+	// runtime can do nothing with wrong type occurrence
+	item := val.(*cacheItemContainerList)
+
+	item.mtx.RLock()
+	res := make([]cid.ID, len(item.list))
+	copy(res, item.list)
+	item.mtx.RUnlock()
+
+	return res, nil
 }
 
-// InvalidateContainerList removes cached list of container IDs.
-func (s *ttlContainerLister) InvalidateContainerList(id user.ID) {
-	(*ttlNetCache)(s).remove(id.EncodeToString())
+// updates cached list of owner's containers: cnr is added if flag is true, otherwise it's removed.
+// Concurrent calls can lead to some races:
+//   - two parallel additions to missing owner's cache can lead to only one container to be cached
+//   - async cache value eviction can lead to idle addition
+//
+// All described race cases aren't critical since cache values expire anyway, we just try
+// to increase cache actuality w/o huge overhead on synchronization.
+func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
+	strOwner := owner.EncodeToString()
+
+	val, ok := (*ttlNetCache)(s).cache.Get(strOwner)
+	if !ok {
+		if add {
+			// first cached owner's container
+			(*ttlNetCache)(s).set(strOwner, &cacheItemContainerList{
+				list: []cid.ID{cnr},
+			}, nil)
+		}
+
+		// no-op on removal when no owner's containers are cached
+
+		return
+	}
+
+	// panic on typecast below is OK since developer must be careful,
+	// runtime can do nothing with wrong type occurrence
+	item := val.(*valueWithTime).v.(*cacheItemContainerList)
+
+	item.mtx.Lock()
+	{
+		found := false
+
+		for i := range item.list {
+			if found = item.list[i].Equals(cnr); found {
+				if !add {
+					item.list = append(item.list[:i], item.list[i+1:]...)
+					// if list became empty we don't remove the value from the cache
+					// since empty list is a correct value, and we don't want to insta
+					// re-request it from the Sidechain
+				}
+
+				break
+			}
+		}
+
+		if add && !found {
+			item.list = append(item.list, cnr)
+		}
+	}
+	item.mtx.Unlock()
 }
 
 type cachedIRFetcher ttlNetCache
