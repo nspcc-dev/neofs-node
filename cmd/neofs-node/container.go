@@ -63,12 +63,6 @@ func initContainerService(c *cfg) {
 		neoClient: wrap,
 	}
 
-	subscribeToContainerCreation(c, func(e event.Event) {
-		c.log.Debug("container creation event's receipt",
-			zap.Stringer("id", e.(containerEvent.PutSuccess).ID),
-		)
-	})
-
 	if c.cfgMorph.disableCache {
 		c.cfgObject.eaclSource = eACLFetcher
 		cnrRdr.eacl = eACLFetcher
@@ -81,8 +75,41 @@ func initContainerService(c *cfg) {
 		cachedEACLStorage := newCachedEACLStorage(eACLFetcher)
 		cachedContainerLister := newCachedContainerLister(wrap)
 
+		subscribeToContainerCreation(c, func(e event.Event) {
+			ev := e.(containerEvent.PutSuccess)
+
+			// read owner of the created container in order to update the reading cache.
+			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
+			//  but don't forget about the profit of reading the new container and caching it:
+			//  creation success are most commonly tracked by polling GET op.
+			cnr, err := cachedContainerStorage.Get(ev.ID)
+			if err == nil {
+				cachedContainerLister.update(cnr.Value.Owner(), ev.ID, true)
+			} else {
+				// unlike removal, we expect successful receive of the container
+				// after successful creation, so logging can be useful
+				c.log.Error("read newly created container after the notification",
+					zap.Stringer("id", ev.ID),
+					zap.Error(err),
+				)
+			}
+
+			c.log.Debug("container creation event's receipt",
+				zap.Stringer("id", ev.ID),
+			)
+		})
+
 		subscribeToContainerRemoval(c, func(e event.Event) {
 			ev := e.(containerEvent.DeleteSuccess)
+
+			// read owner of the removed container in order to update the listing cache.
+			// It's strange to read already removed container, but we can successfully hit
+			// the cache.
+			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
+			cnr, err := cachedContainerStorage.Get(ev.ID)
+			if err == nil {
+				cachedContainerLister.update(cnr.Value.Owner(), ev.ID, false)
+			}
 
 			cachedContainerStorage.handleRemoval(ev.ID)
 
@@ -622,16 +649,7 @@ type morphContainerWriter struct {
 }
 
 func (m morphContainerWriter) Put(cnr containerCore.Container) (*cid.ID, error) {
-	containerID, err := cntClient.Put(m.neoClient, cnr)
-	if err != nil {
-		return nil, err
-	}
-
-	if m.cacheEnabled {
-		m.lists.InvalidateContainerList(cnr.Value.Owner())
-	}
-
-	return containerID, nil
+	return cntClient.Put(m.neoClient, cnr)
 }
 
 func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error {
