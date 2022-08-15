@@ -2,7 +2,6 @@ package morph
 
 import (
 	"encoding/hex"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -56,7 +55,7 @@ func TestInitialize(t *testing.T) {
 	require.NoError(t, err)
 
 	protoPath := filepath.Join(walletDir, "proto.yml")
-	require.NoError(t, ioutil.WriteFile(protoPath, data, os.ModePerm))
+	require.NoError(t, os.WriteFile(protoPath, data, os.ModePerm))
 
 	v.Set(protoConfigPath, protoPath)
 	// Set to the path or remove the next statement to download from the network.
