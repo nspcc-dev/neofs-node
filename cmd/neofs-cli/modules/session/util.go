@@ -2,7 +2,7 @@ package session
 
 import (
 	"crypto/ecdsa"
-	"io/ioutil"
+	"os"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -28,7 +28,7 @@ func Prepare(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, key *ecdsa.PrivateKey,
 
 	var tok session.Object
 	if tokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken); len(tokenPath) != 0 {
-		data, err := ioutil.ReadFile(tokenPath)
+		data, err := os.ReadFile(tokenPath)
 		common.ExitOnErr(cmd, "can't read session token: %w", err)
 
 		if err := tok.Unmarshal(data); err != nil {

@@ -3,7 +3,6 @@ package gendoc
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +52,7 @@ In this case there is a number of helper functions which can be used:
 			}
 
 			if len(args) == 2 {
-				data, err := ioutil.ReadFile(args[1])
+				data, err := os.ReadFile(args[1])
 				if err != nil {
 					return fmt.Errorf("can't read the template '%s': %w", args[1], err)
 				}

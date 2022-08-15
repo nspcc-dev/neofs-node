@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -103,7 +103,7 @@ func createToken(cmd *cobra.Command, _ []string) {
 	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
 	if eaclPath != "" {
 		table := eaclSDK.NewTable()
-		raw, err := ioutil.ReadFile(eaclPath)
+		raw, err := os.ReadFile(eaclPath)
 		common.ExitOnErr(cmd, "can't read extended ACL file: %w", err)
 		common.ExitOnErr(cmd, "can't parse extended ACL: %w", json.Unmarshal(raw, table))
 		b.SetEACLTable(*table)
@@ -120,6 +120,6 @@ func createToken(cmd *cobra.Command, _ []string) {
 	}
 
 	out, _ := cmd.Flags().GetString(outFlag)
-	err = ioutil.WriteFile(out, data, 0644)
+	err = os.WriteFile(out, data, 0644)
 	common.ExitOnErr(cmd, "can't write token to file: %w", err)
 }

@@ -2,7 +2,7 @@ package session
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/google/uuid"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -77,7 +77,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 	}
 
 	filename, _ := cmd.Flags().GetString(outFlag)
-	err = ioutil.WriteFile(filename, data, 0644)
+	err = os.WriteFile(filename, data, 0644)
 	common.ExitOnErr(cmd, "can't write token to file: %w", err)
 }
 
