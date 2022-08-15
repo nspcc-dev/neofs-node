@@ -129,12 +129,29 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 		return nil, err
 	}
 
+	res, err := invokeFunction(c.Client, nnsHash, "getPrice", nil, nil)
+	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
+		return nil, errors.New("could not get NNS's price")
+	}
+
+	price, err := res.Stack[0].TryInteger()
+	if err != nil {
+		return nil, fmt.Errorf("unexpected `GetPrice` stack returned: %w", err)
+	}
+
 	bw := io.NewBufBinWriter()
 	if ok {
+		// set minimal registration price
+		emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, 1)
+
+		// register domain
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 			domain, c.CommitteeAcc.Contract.ScriptHash(),
 			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+
+		// set registration price back
+		emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, price)
 	} else {
 		s, err := nnsResolveHash(c.Client, nnsHash, domain)
 		if err != nil {
