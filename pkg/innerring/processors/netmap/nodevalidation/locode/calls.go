@@ -21,12 +21,12 @@ var errMissingRequiredAttr = errors.New("missing required attribute in DB record
 //
 // New attributes are formed from the record of DB instance (Prm).
 // If DB entry R was found w/o errors, new attributes are:
-//  * CountryCode: R.CountryCode().String();
-//  * Country: R.CountryName();
-//  * Location: Record.LocationName();
-//  * SubDivCode: R.SubDivCode();
-//  * SubDiv: R.SubDivName();
-//  * Continent: R.Continent().String().
+//   - CountryCode: R.CountryCode().String();
+//   - Country: R.CountryName();
+//   - Location: Record.LocationName();
+//   - SubDivCode: R.SubDivCode();
+//   - SubDiv: R.SubDivName();
+//   - Continent: R.Continent().String().
 //
 // UN-LOCODE attribute remains untouched.
 func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {

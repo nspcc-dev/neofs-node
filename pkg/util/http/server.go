@@ -54,7 +54,7 @@ func panicOnValue(t, n string, v interface{}) {
 // Panics if at least one value of the parameters is invalid.
 //
 // Panics if at least one of next optional parameters is invalid:
-//  * shutdown timeout is non-positive.
+//   - shutdown timeout is non-positive.
 //
 // The created Server does not require additional
 // initialization and is completely ready for work.

@@ -504,31 +504,31 @@ func (x *ShardInfo) GetPiloramaPath() string {
 // Storage Nodes in the network and used implicitly with default values if not
 // explicitly set:
 //
-// * Capacity \
-//   Total available disk space in Gigabytes.
-// * Price \
-//   Price in GAS tokens for storing one GB of data during one Epoch. In node
-//   attributes it's a string presenting floating point number with comma or
-//   point delimiter for decimal part. In the Network Map it will be saved as
-//   64-bit unsigned integer representing number of minimal token fractions.
-// * Subnet \
-//   String ID of Node's storage subnet. There can be only one subnet served
-//   by the Storage Node.
-// * Locode \
-//   Node's geographic location in
-//   [UN/LOCODE](https://www.unece.org/cefact/codesfortrade/codes_index.html)
-//   format approximated to the nearest point defined in standard.
-// * Country \
-//   Country code in
-//   [ISO 3166-1_alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
-//   format. Calculated automatically from `Locode` attribute
-// * Region \
-//   Country's administative subdivision where node is located. Calculated
-//   automatically from `Locode` attribute based on `SubDiv` field. Presented
-//   in [ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2) format.
-// * City \
-//   City, town, village or rural area name where node is located written
-//   without diacritics . Calculated automatically from `Locode` attribute.
+//   - Capacity \
+//     Total available disk space in Gigabytes.
+//   - Price \
+//     Price in GAS tokens for storing one GB of data during one Epoch. In node
+//     attributes it's a string presenting floating point number with comma or
+//     point delimiter for decimal part. In the Network Map it will be saved as
+//     64-bit unsigned integer representing number of minimal token fractions.
+//   - Subnet \
+//     String ID of Node's storage subnet. There can be only one subnet served
+//     by the Storage Node.
+//   - Locode \
+//     Node's geographic location in
+//     [UN/LOCODE](https://www.unece.org/cefact/codesfortrade/codes_index.html)
+//     format approximated to the nearest point defined in standard.
+//   - Country \
+//     Country code in
+//     [ISO 3166-1_alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
+//     format. Calculated automatically from `Locode` attribute
+//   - Region \
+//     Country's administative subdivision where node is located. Calculated
+//     automatically from `Locode` attribute based on `SubDiv` field. Presented
+//     in [ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2) format.
+//   - City \
+//     City, town, village or rural area name where node is located written
+//     without diacritics . Calculated automatically from `Locode` attribute.
 //
 // For detailed description of each well-known attribute please see the
 // corresponding section in NeoFS Technical specification.

@@ -33,8 +33,8 @@ func forEachFile(paths []string, f func(*config.Config)) {
 }
 
 // ForEachFileType passes configs read from next files:
-//  - `<pref>.yaml`;
-//  - `<pref>.json`.
+//   - `<pref>.yaml`;
+//   - `<pref>.json`.
 func ForEachFileType(pref string, f func(*config.Config)) {
 	forEachFile([]string{
 		pref + ".yaml",

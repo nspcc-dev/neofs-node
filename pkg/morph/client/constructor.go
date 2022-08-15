@@ -67,12 +67,12 @@ func defaultConfig() *cfg {
 // If private key is nil, it panics.
 //
 // Other values are set according to provided options, or by default:
-//  * client context: Background;
-//  * dial timeout: 5s;
-//  * blockchain network type: netmode.PrivNet;
-//  * signer with the global scope;
-//  * wait interval: 500ms;
-//  * logger: zap.L().
+//   - client context: Background;
+//   - dial timeout: 5s;
+//   - blockchain network type: netmode.PrivNet;
+//   - signer with the global scope;
+//   - wait interval: 500ms;
+//   - logger: zap.L().
 //
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,

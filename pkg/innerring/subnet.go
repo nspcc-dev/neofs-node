@@ -101,12 +101,12 @@ const (
 // All handlers are executed only if the local node is an alphabet one.
 //
 // Events (notary):
-//   * put (parser: subnetevents.ParseNotaryPut, handler: catchSubnetCreation);
-//   * Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
+//   - put (parser: subnetevents.ParseNotaryPut, handler: catchSubnetCreation);
+//   - Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
 //
 // Events (non-notary):
-//   * Put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
-//   * Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
+//   - Put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
+//   - Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
 func (s *Server) listenSubnet() {
 	if s.sideNotaryConfig.disabled {
 		s.listenSubnetWithoutNotary()

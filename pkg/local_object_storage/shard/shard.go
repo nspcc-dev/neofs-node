@@ -236,8 +236,8 @@ func WithRefillMetabase(v bool) Option {
 }
 
 // WithMode returns option to set shard's mode. Mode must be one of the predefined:
-//	- mode.ReadWrite;
-//	- mode.ReadOnly.
+//   - mode.ReadWrite;
+//   - mode.ReadOnly.
 func WithMode(v mode.Mode) Option {
 	return func(c *cfg) {
 		c.info.Mode = v

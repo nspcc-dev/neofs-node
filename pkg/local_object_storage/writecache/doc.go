@@ -8,11 +8,11 @@
 // 3. Main storage (blobstor).
 //
 // There are 2 types of background jobs:
-// 1. Persisting objects from in-memory cache to database.
-// 2. Flushing objects from database to blobstor.
-//	  On flushing object address is put in in-memory LRU cache.
-//	  The actual deletion from the DB is done when object
-//	  is evicted from this cache.
+//  1. Persisting objects from in-memory cache to database.
+//  2. Flushing objects from database to blobstor.
+//     On flushing object address is put in in-memory LRU cache.
+//     The actual deletion from the DB is done when object
+//     is evicted from this cache.
 //
 // Putting objects to the main storage is done by multiple workers.
 // Some of them prioritize flushing items, others prioritize putting new objects.

@@ -5,8 +5,8 @@
 // the NeoFS CLI application does not fully use the client's flexible interface.
 //
 // In this regard, this package provides functions over base API client necessary for the application.
-//  This allows you to concentrate the entire spectrum of the client's use in one place (this will be convenient
-//  both when updating the base client and for evaluating the UX of SDK library). So it is expected that all
-//  application packages will be limited to this package for the development of functionality requiring
-//  NeoFS API communication.
+// This allows you to concentrate the entire spectrum of the client's use in one place (this will be convenient
+// both when updating the base client and for evaluating the UX of SDK library). So it is expected that all
+// application packages will be limited to this package for the development of functionality requiring
+// NeoFS API communication.
 package internal

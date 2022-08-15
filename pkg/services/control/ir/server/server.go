@@ -23,8 +23,8 @@ func panicOnPrmValue(n string, v interface{}) {
 // New creates a new instance of the Server.
 //
 // Panics if:
-//  - parameterized private key is nil;
-//  - parameterized HealthChecker is nil.
+//   - parameterized private key is nil;
+//   - parameterized HealthChecker is nil.
 //
 // Forms white list from all keys specified via
 // WithAllowedKeys option and a public key of

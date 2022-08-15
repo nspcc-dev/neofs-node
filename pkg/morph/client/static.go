@@ -108,8 +108,8 @@ func (i *InvokePrmOptional) SetHash(hash util.Uint256) {
 // Supported args types are the same as in Client.
 //
 // If TryNotary is provided:
-//     - if AsAlphabet is provided, calls NotaryInvoke;
-//     - otherwise, calls NotaryInvokeNotAlpha.
+//   - if AsAlphabet is provided, calls NotaryInvoke;
+//   - otherwise, calls NotaryInvokeNotAlpha.
 //
 // If fee for the operation executed using specified method is customized, then StaticClient uses it.
 // Otherwise, default fee is used.

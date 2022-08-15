@@ -37,9 +37,9 @@ var errDiffID = errors.New("diff subnet IDs")
 // All read errors of Put are forwarded.
 //
 // It returns an error on:
-//   * zero subnet creation;
-//   * empty ID or different from the one wired into info;
-//   * empty owner ID or different from the one wired into info.
+//   - zero subnet creation;
+//   - empty ID or different from the one wired into info;
+//   - empty owner ID or different from the one wired into info.
 func (x PutValidator) Assert(event Put) error {
 	var err error
 

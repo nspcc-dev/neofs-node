@@ -70,9 +70,9 @@ func (c *cleanupTable) update(snapshot netmap.NetMap, now uint64) {
 // updates last access time of the netmap node by string public key.
 //
 // Returns true if at least one condition is met:
-//  * node hasn't been accessed yet;
-//  * remove flag is set;
-//  * binary node info has changed.
+//   - node hasn't been accessed yet;
+//   - remove flag is set;
+//   - binary node info has changed.
 func (c *cleanupTable) touch(keyString string, now uint64, binNodeInfo []byte) bool {
 	c.Lock()
 	defer c.Unlock()
