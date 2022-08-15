@@ -95,11 +95,6 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 			cs.Manifest.Name)
 	}
 
-	err = c.addManifestGroup(cs.Hash, cs)
-	if err != nil {
-		return fmt.Errorf("can't sign manifest group: %v", err)
-	}
-
 	w := io.NewBufBinWriter()
 	if err := emitDeploymentArguments(w.BinWriter, args); err != nil {
 		return err

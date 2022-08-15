@@ -116,9 +116,12 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
-	w, err := openContractWallet(v, cmd, walletDir)
-	if err != nil {
-		return nil, err
+	var w *wallet.Wallet
+	if cmd.Name() != "deploy" {
+		w, err = openContractWallet(v, cmd, walletDir)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var c Client
