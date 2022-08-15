@@ -14,11 +14,10 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        go: [ 'X.Y.x', 'X.Y.x' ]
+        go: [ 'X.Y.x', 'X.Y.x', 'X.Y.x' ]
 ```
 
-That section should contain two latest Golang minor versions
-that are currently supported by Golang authors.
+That section should contain three latest Golang minor versions.
 
 ## Update docker images
 
