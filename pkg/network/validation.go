@@ -52,11 +52,9 @@ func (x NodeEndpointsIterator) NumberOfAddresses() int {
 //
 // Correct composition(and order from low to high level)
 // of protocols:
-//
-//    1. dns4/ip4/ip6
-//    2. tcp
-//    3. tls(optional, may be absent)
-//
+//  1. dns4/ip4/ip6
+//  2. tcp
+//  3. tls(optional, may be absent)
 func VerifyMultiAddress(ni netmap.NodeInfo) error {
 	return iterateParsedAddresses(NodeEndpointsIterator(ni), checkProtocols)
 }

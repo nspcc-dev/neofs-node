@@ -141,9 +141,9 @@ func (e *StorageEngine) execIfNotBlocked(op func() error) error {
 }
 
 // sets the flag of blocking execution of all data operations according to err:
-//   * err != nil, then blocks the execution. If exec wasn't blocked, calls close method
+//   - err != nil, then blocks the execution. If exec wasn't blocked, calls close method
 //     (if err == errClosed => additionally releases pools and does not allow to resume executions).
-//   * otherwise, resumes execution. If exec was blocked, calls open method.
+//   - otherwise, resumes execution. If exec was blocked, calls open method.
 //
 // Can be called concurrently with exec. In this case it waits for all executions to complete.
 func (e *StorageEngine) setBlockExecErr(err error) error {

@@ -95,10 +95,10 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 }
 
 // objectStatus returns:
-//  * 0 if object is available;
-//  * 1 if object with GC mark;
-//  * 2 if object is covered with tombstone;
-//  * 3 if object is expired.
+//   - 0 if object is available;
+//   - 1 if object with GC mark;
+//   - 2 if object is covered with tombstone;
+//   - 3 if object is expired.
 func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	// we check only if the object is expired in the current
 	// epoch since it is considered the only corner case: the

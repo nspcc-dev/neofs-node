@@ -231,8 +231,8 @@ func setStatusV2(resp ResponseMessage, err error) {
 
 // signs response with private key via signature.SignServiceMessage.
 // The signature error affects the result depending on the protocol version:
-//  * if status return is supported, panics since we cannot return the failed status, because it will not be signed;
-//  * otherwise, returns error in order to transport it directly.
+//   - if status return is supported, panics since we cannot return the failed status, because it will not be signed;
+//   - otherwise, returns error in order to transport it directly.
 func signResponse(key *ecdsa.PrivateKey, resp interface{}, statusSupported bool) error {
 	err := signature.SignServiceMessage(key, resp)
 	if err != nil {

@@ -43,9 +43,9 @@ func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 }
 
 // Returns:
-//   0 - fail
-//   1 - locking irregular object
-//   2 - ok
+//   - 0: fail
+//   - 1: locking irregular object
+//   - 2: ok
 func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) (status uint8) {
 	// code is pretty similar to inhumeAddr, maybe unify?
 	root := false

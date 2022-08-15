@@ -110,10 +110,10 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 }
 
 // Returns:
-//   0 - fail
-//   1 - object locked
-//   2 - lock object removal
-//   3 - ok
+//   - 0: fail
+//   - 1: object locked
+//   - 2: lock object removal
+//   - 3: ok
 func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (status uint8) {
 	root := false
 	var errLocked apistatus.ObjectLocked

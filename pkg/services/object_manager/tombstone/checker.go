@@ -39,8 +39,8 @@ type ExpirationChecker struct {
 
 // IsTombstoneAvailable checks the tombstone presence in the system in the
 // following order:
-//  * 1. Local LRU cache;
-//  * 2. Tombstone source.
+//   - 1. Local LRU cache;
+//   - 2. Tombstone source.
 //
 // If a tombstone was successfully fetched (regardless of its expiration)
 // it is cached in the LRU cache.

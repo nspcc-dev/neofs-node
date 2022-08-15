@@ -129,8 +129,8 @@ func (x GetObjectRes) Object() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
-//  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//  error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
+//   - error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	if prm.tokenSession != nil {
 		prm.cliPrm.WithinSession(*prm.tokenSession)
@@ -219,8 +219,9 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
-//  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//  error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//
+//	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
+//	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
@@ -305,8 +306,9 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
-//  error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//  error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//
+//	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
+//	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()

@@ -34,9 +34,9 @@ func (p *Prm) SetLevelString(s string) error {
 // NewLogger constructs a new zap logger instance.
 //
 // Logger is built from production logging configuration with:
-//  * parameterized level;
-//  * console encoding;
-//  * ISO8601 time encoding.
+//   - parameterized level;
+//   - console encoding;
+//   - ISO8601 time encoding.
 //
 // Logger records a stack trace for all messages at or above fatal level.
 func NewLogger(prm Prm) (*Logger, error) {

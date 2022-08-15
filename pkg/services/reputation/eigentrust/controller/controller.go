@@ -30,8 +30,8 @@ type Prm struct {
 //
 // Controller's main goal is to separate the two main stages of
 // the calculation:
-//  1.reporting local values to manager nodes
-//  2.calculating global trusts of child nodes
+//  1. reporting local values to manager nodes
+//  2. calculating global trusts of child nodes
 //
 // Calculation stages are controlled based on external signals
 // that come from the application through the Controller's API.

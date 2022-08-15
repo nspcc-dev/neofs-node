@@ -820,11 +820,13 @@ func alreadyOnChainError(err error) bool {
 
 // CalculateNotaryDepositAmount calculates notary deposit amount
 // using the rule:
-//      IF notaryBalance < gasBalance * gasMul {
-//          DEPOSIT gasBalance / gasDiv
-//      } ELSE {
-//          DEPOSIT 1
-//      }
+//
+//	IF notaryBalance < gasBalance * gasMul {
+//	    DEPOSIT gasBalance / gasDiv
+//	} ELSE {
+//	    DEPOSIT 1
+//	}
+//
 // gasMul and gasDiv must be positive.
 func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed8, error) {
 	notaryBalance, err := c.GetNotaryDeposit()
