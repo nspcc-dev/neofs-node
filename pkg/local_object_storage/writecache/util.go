@@ -12,7 +12,6 @@ import (
 func OpenDB(p string, ro bool) (*bbolt.DB, error) {
 	return bbolt.Open(filepath.Join(p, dbName), os.ModePerm, &bbolt.Options{
 		NoFreelistSync: true,
-		NoSync:         true,
 		ReadOnly:       ro,
 		Timeout:        100 * time.Millisecond,
 	})
