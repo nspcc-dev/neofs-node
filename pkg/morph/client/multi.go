@@ -33,7 +33,6 @@ func (c *Client) switchRPC() bool {
 	c.client.Close()
 
 	// Iterate endpoints in the order of decreasing priority.
-	// Skip the current endpoint.
 	for c.endpoints.curr = range c.endpoints.list {
 		newEndpoint := c.endpoints.list[c.endpoints.curr].Address
 		cli, act, gas, err := c.newCli(newEndpoint)
