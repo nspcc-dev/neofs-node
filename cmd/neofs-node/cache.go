@@ -317,15 +317,8 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 
 	val, ok := (*ttlNetCache)(s).cache.Get(strOwner)
 	if !ok {
-		if add {
-			// first cached owner's container
-			(*ttlNetCache)(s).set(strOwner, &cacheItemContainerList{
-				list: []cid.ID{cnr},
-			}, nil)
-		}
-
-		// no-op on removal when no owner's containers are cached
-
+		// we could cache the single cnr but in this case we will disperse
+		// with the Sidechain a lot
 		return
 	}
 
