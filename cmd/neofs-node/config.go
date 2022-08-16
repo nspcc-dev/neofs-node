@@ -143,7 +143,8 @@ type cfgMorph struct {
 
 	notaryEnabled bool
 
-	disableCache bool
+	// TTL of Sidechain cached values. Non-positive value disables caching.
+	cacheTTL time.Duration
 
 	eigenTrustTicker *eigenTrustTickers // timers for EigenTrust iterations
 

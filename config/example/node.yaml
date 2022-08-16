@@ -81,7 +81,8 @@ contracts:  # side chain NEOFS contract script hashes; optional, override values
 
 morph:
   dial_timeout: 30s  # timeout for side chain NEO RPC client connection
-  disable_cache: true  # do not use TTL cache for side chain GET operations
+  cache_ttl: 15s  # Sidechain cache TTL value (min interval between similar calls). Negative value disables caching.
+               # Cached entities: containers, container lists, eACL tables.
   rpc_endpoint:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
     - address: wss://rpc1.morph.fs.neo.org:40341/ws
       priority: 0
