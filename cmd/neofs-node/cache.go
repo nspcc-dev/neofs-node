@@ -128,13 +128,10 @@ func (c *lruNetCache) get(key interface{}) (interface{}, error) {
 // that implements container storage.
 type ttlContainerStorage ttlNetCache
 
-func newCachedContainerStorage(v container.Source) *ttlContainerStorage {
-	const (
-		containerCacheSize = 100
-		containerCacheTTL  = 30 * time.Second
-	)
+func newCachedContainerStorage(v container.Source, ttl time.Duration) *ttlContainerStorage {
+	const containerCacheSize = 100
 
-	lruCnrCache := newNetworkTTLCache(containerCacheSize, containerCacheTTL, func(key interface{}) (interface{}, error) {
+	lruCnrCache := newNetworkTTLCache(containerCacheSize, ttl, func(key interface{}) (interface{}, error) {
 		var id cid.ID
 
 		err := id.DecodeString(key.(string))
@@ -165,13 +162,10 @@ func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
 
 type ttlEACLStorage ttlNetCache
 
-func newCachedEACLStorage(v eacl.Source) *ttlEACLStorage {
-	const (
-		eaclCacheSize = 100
-		eaclCacheTTL  = 30 * time.Second
-	)
+func newCachedEACLStorage(v eacl.Source, ttl time.Duration) *ttlEACLStorage {
+	const eaclCacheSize = 100
 
-	lruCnrCache := newNetworkTTLCache(eaclCacheSize, eaclCacheTTL, func(key interface{}) (interface{}, error) {
+	lruCnrCache := newNetworkTTLCache(eaclCacheSize, ttl, func(key interface{}) (interface{}, error) {
 		var id cid.ID
 
 		err := id.DecodeString(key.(string))
@@ -253,13 +247,10 @@ type cacheItemContainerList struct {
 	list []cid.ID
 }
 
-func newCachedContainerLister(c *cntClient.Client) *ttlContainerLister {
-	const (
-		containerListerCacheSize = 100
-		containerListerCacheTTL  = 30 * time.Second
-	)
+func newCachedContainerLister(c *cntClient.Client, ttl time.Duration) *ttlContainerLister {
+	const containerListerCacheSize = 100
 
-	lruCnrListerCache := newNetworkTTLCache(containerListerCacheSize, containerListerCacheTTL, func(key interface{}) (interface{}, error) {
+	lruCnrListerCache := newNetworkTTLCache(containerListerCacheSize, ttl, func(key interface{}) (interface{}, error) {
 		var (
 			id    *user.ID
 			strID = key.(string)

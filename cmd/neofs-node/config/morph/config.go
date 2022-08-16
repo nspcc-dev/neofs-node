@@ -27,6 +27,8 @@ const (
 
 	// PriorityDefault is a default endpoint priority for the morph client.
 	PriorityDefault = 1
+
+	CacheTTLDefault = 30 * time.Second
 )
 
 // RPCEndpoint returns list of the values of "rpc_endpoint" config parameter
@@ -74,8 +76,15 @@ func DialTimeout(c *config.Config) time.Duration {
 	return DialTimeoutDefault
 }
 
-// DisableCache returns the value of "disable_cache" config parameter
+// CacheTTL returns the value of "cache_ttl" config parameter
 // from "morph" section.
-func DisableCache(c *config.Config) bool {
-	return config.BoolSafe(c.Sub(subsection), "disable_cache")
+//
+// Returns CacheTTLDefault if value is zero or invalid. Supports negative durations.
+func CacheTTL(c *config.Config) time.Duration {
+	res := config.DurationSafe(c.Sub(subsection), "cache_ttl")
+	if res != 0 {
+		return res
+	}
+
+	return CacheTTLDefault
 }

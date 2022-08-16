@@ -63,7 +63,7 @@ func initContainerService(c *cfg) {
 		neoClient: wrap,
 	}
 
-	if c.cfgMorph.disableCache {
+	if c.cfgMorph.cacheTTL <= 0 {
 		c.cfgObject.eaclSource = eACLFetcher
 		cnrRdr.eacl = eACLFetcher
 		c.cfgObject.cnrSource = cnrSrc
@@ -71,9 +71,9 @@ func initContainerService(c *cfg) {
 		cnrRdr.lister = wrap
 	} else {
 		// use RPC node as source of Container contract items (with caching)
-		cachedContainerStorage := newCachedContainerStorage(cnrSrc)
-		cachedEACLStorage := newCachedEACLStorage(eACLFetcher)
-		cachedContainerLister := newCachedContainerLister(wrap)
+		cachedContainerStorage := newCachedContainerStorage(cnrSrc, c.cfgMorph.cacheTTL)
+		cachedEACLStorage := newCachedEACLStorage(eACLFetcher, c.cfgMorph.cacheTTL)
+		cachedContainerLister := newCachedContainerLister(wrap, c.cfgMorph.cacheTTL)
 
 		subscribeToContainerCreation(c, func(e event.Event) {
 			ev := e.(containerEvent.PutSuccess)

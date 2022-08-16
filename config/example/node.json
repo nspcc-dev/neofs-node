@@ -99,7 +99,7 @@
   },
   "morph": {
     "dial_timeout": "30s",
-    "disable_cache": true,
+    "cache_ttl": "15s",
     "rpc_endpoint": [
       {
         "address": "wss://rpc1.morph.fs.neo.org:40341/ws",
