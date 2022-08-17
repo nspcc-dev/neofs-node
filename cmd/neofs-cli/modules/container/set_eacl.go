@@ -13,10 +13,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var eaclPathFrom string
-
 var flagVarsSetEACL struct {
 	preCheck bool
+
+	srcPath string
 }
 
 var setExtendedACLCmd = &cobra.Command{
@@ -26,7 +26,7 @@ var setExtendedACLCmd = &cobra.Command{
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := parseContainerID(cmd)
-		eaclTable := common.ReadEACL(cmd, eaclPathFrom)
+		eaclTable := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
 
 		var tok *session.Container
 
@@ -104,7 +104,7 @@ func initContainerSetEACLCmd() {
 
 	flags := setExtendedACLCmd.Flags()
 	flags.StringVar(&containerID, "cid", "", "container ID")
-	flags.StringVar(&eaclPathFrom, "table", "", "path to file with JSON or binary encoded EACL table")
+	flags.StringVar(&flagVarsSetEACL.srcPath, "table", "", "path to file with JSON or binary encoded EACL table")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
 	flags.BoolVar(&flagVarsSetEACL.preCheck, "precheck", false, "pre-check the extensibility of the container ACL")
 }
