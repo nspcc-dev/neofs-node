@@ -131,6 +131,21 @@ func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
 	return
 }
 
+// IsACLExtendable checks if ACL of the container referenced by the given identifier
+// can be extended. Client connection MUST BE correctly established in advance.
+func IsACLExtendable(c *client.Client, cnr cid.ID) (bool, error) {
+	var prm GetContainerPrm
+	prm.SetClient(c)
+	prm.SetContainer(cnr)
+
+	res, err := GetContainer(prm)
+	if err != nil {
+		return false, fmt.Errorf("get container from the NeoFS: %w", err)
+	}
+
+	return res.Container().BasicACL().Extendable(), nil
+}
+
 // DeleteContainerPrm groups parameters of DeleteContainerPrm operation.
 type DeleteContainerPrm struct {
 	commonPrm

@@ -2,6 +2,7 @@ package container
 
 import (
 	"bytes"
+	"errors"
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -13,6 +14,10 @@ import (
 )
 
 var eaclPathFrom string
+
+var flagVarsSetEACL struct {
+	preCheck bool
+}
 
 var setExtendedACLCmd = &cobra.Command{
 	Use:   "set-eacl",
@@ -35,6 +40,19 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		pk := key.GetOrGenerate(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
+		if flagVarsSetEACL.preCheck {
+			cmd.Println("Checking the ability to modify access rights in the container...")
+
+			extendable, err := internalclient.IsACLExtendable(cli, id)
+			common.ExitOnErr(cmd, "Extensibility check failure: %w", err)
+
+			if !extendable {
+				common.ExitOnErr(cmd, "", errors.New("container ACL is immutable"))
+			}
+
+			cmd.Println("ACL extension is enabled in the container, continue processing.")
+		}
 
 		var setEACLPrm internalclient.SetEACLPrm
 		setEACLPrm.SetClient(cli)
@@ -88,4 +106,5 @@ func initContainerSetEACLCmd() {
 	flags.StringVar(&containerID, "cid", "", "container ID")
 	flags.StringVar(&eaclPathFrom, "table", "", "path to file with JSON or binary encoded EACL table")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
+	flags.BoolVar(&flagVarsSetEACL.preCheck, "precheck", false, "pre-check the extensibility of the container ACL")
 }
