@@ -363,14 +363,28 @@ loop:
 // If sysFee is -1, it is calculated automatically. If tryGroup is false,
 // global scope is used for the signer (useful when working with native contracts).
 func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64, tryGroup bool) error {
-	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, []rpcclient.SignerAccount{{
+	cosigners := []rpcclient.SignerAccount{{
 		Signer:  c.getSigner(tryGroup),
 		Account: c.CommitteeAcc,
-	}})
+	}}
+	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, cosigners)
 	if err != nil {
 		return fmt.Errorf("can't create tx: %w", err)
 	}
 
+	tx.Attributes = append(tx.Attributes, transaction.Attribute{Type: transaction.HighPriority})
+
+	// Calculate network fee again, because tx size has changed.
+	_, accounts, err := getSigners(c.CommitteeAcc, cosigners)
+	if err != nil {
+		panic(fmt.Errorf("BUG: can't calculate network fee: %w", err))
+	}
+
+	tx.NetworkFee = 0
+	err = c.Client.AddNetworkFee(tx, 0, accounts...)
+	if err != nil {
+		return fmt.Errorf("failed to add network fee: %w", err)
+	}
 	return c.multiSignAndSend(tx, committeeAccountName)
 }
 
