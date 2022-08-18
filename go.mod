@@ -17,7 +17,7 @@ require (
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.99.1
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220727202624-6c7a401f776a // indirect
-	github.com/nspcc-dev/neofs-api-go/v2 v2.13.1
+	github.com/nspcc-dev/neofs-api-go/v2 v2.13.2-0.20220818094951-98db3fa28419
 	github.com/nspcc-dev/neofs-contract v0.15.3
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.6.0.20220801165707-7a99cc916c8e
 	github.com/nspcc-dev/tzhash v1.6.1
@@ -71,11 +71,10 @@ require (
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 // indirect
-	github.com/nspcc-dev/neofs-crypto v0.3.0 // indirect
+	github.com/nspcc-dev/neofs-crypto v0.4.0 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
