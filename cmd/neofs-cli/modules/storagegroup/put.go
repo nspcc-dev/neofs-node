@@ -1,7 +1,6 @@
 package storagegroup
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -113,7 +112,6 @@ func putSG(cmd *cobra.Command, _ []string) {
 	storagegroupSDK.WriteToObject(*sg, obj)
 
 	putPrm.SetHeader(obj)
-	putPrm.SetPayloadReader(bytes.NewReader(obj.Payload()))
 
 	res, err := internalclient.PutObject(putPrm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)

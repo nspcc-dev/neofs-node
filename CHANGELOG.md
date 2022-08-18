@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Panic on write-cache's `Delete` operation (#1664)
+- Payload duplication in `neofs-cli storagegroup put` (#1706)
 
 ### Removed
 
