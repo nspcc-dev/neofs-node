@@ -17,6 +17,23 @@ var errShardNotFound = errors.New("shard not found")
 
 type hashedShard shardWrapper
 
+type metricsWithID struct {
+	id string
+	mw MetricRegister
+}
+
+func (m metricsWithID) AddToObjectCounter(delta int) {
+	m.mw.AddToObjectCounter(m.id, delta)
+}
+
+func (m metricsWithID) IncObjectCounter() {
+	m.mw.AddToObjectCounter(m.id, +1)
+}
+
+func (m metricsWithID) DecObjectCounter() {
+	m.mw.AddToObjectCounter(m.id, -1)
+}
+
 // AddShard adds a new shard to the storage engine.
 //
 // Returns any error encountered that did not allow adding a shard.
@@ -33,6 +50,15 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	id, err := generateShardID()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate shard ID: %w", err)
+	}
+
+	if e.metrics != nil {
+		opts = append(opts, shard.WithMetricsWriter(
+			metricsWithID{
+				id: id.String(),
+				mw: e.metrics,
+			},
+		))
 	}
 
 	sh := shard.New(append(opts,

@@ -16,6 +16,8 @@ type MetricRegister interface {
 	AddRangeDuration(d time.Duration)
 	AddSearchDuration(d time.Duration)
 	AddListObjectsDuration(d time.Duration)
+
+	AddToObjectCounter(shardID string, delta int)
 }
 
 func elapsed(addFunc func(d time.Duration)) func() {

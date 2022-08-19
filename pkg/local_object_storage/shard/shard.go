@@ -45,6 +45,17 @@ type ExpiredObjectsCallback func(context.Context, []oid.Address)
 // DeletedLockCallback is a callback handling list of deleted LOCK objects.
 type DeletedLockCallback func(context.Context, []oid.Address)
 
+// MetricsWriter is an interface that must store shard's metrics.
+type MetricsWriter interface {
+	// AddToObjectCounter must update object counter. Negative
+	// parameter must decrease the counter.
+	AddToObjectCounter(delta int)
+	// IncObjectCounter must increment shard's object counter.
+	IncObjectCounter()
+	// DecObjectCounter must decrement shard's object counter.
+	DecObjectCounter()
+}
+
 type cfg struct {
 	m sync.RWMutex
 
@@ -75,6 +86,8 @@ type cfg struct {
 	deletedLockCallBack DeletedLockCallback
 
 	tsSource TombstoneSource
+
+	metricsWriter MetricsWriter
 }
 
 func defaultCfg() *cfg {
@@ -259,6 +272,14 @@ func WithDeletedLockCallback(v DeletedLockCallback) Option {
 	}
 }
 
+// WithMetricsWriter returns option to specify storage of the
+// shard's metrics.
+func WithMetricsWriter(v MetricsWriter) Option {
+	return func(c *cfg) {
+		c.metricsWriter = v
+	}
+}
+
 func (s *Shard) fillInfo() {
 	s.cfg.info.MetaBaseInfo = s.metaBase.DumpInfo()
 	s.cfg.info.BlobStorInfo = s.blobStor.DumpInfo()
@@ -269,5 +290,17 @@ func (s *Shard) fillInfo() {
 	}
 	if s.pilorama != nil {
 		s.cfg.info.PiloramaInfo = s.pilorama.DumpInfo()
+	}
+}
+
+func (s *Shard) incObjectCounter() {
+	if s.cfg.metricsWriter != nil {
+		s.cfg.metricsWriter.IncObjectCounter()
+	}
+}
+
+func (s *Shard) decObjectCounterBy(v uint64) {
+	if s.cfg.metricsWriter != nil {
+		s.cfg.metricsWriter.AddToObjectCounter(-int(v))
 	}
 }

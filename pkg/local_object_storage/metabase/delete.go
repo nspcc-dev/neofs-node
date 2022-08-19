@@ -11,7 +11,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -20,7 +19,14 @@ type DeletePrm struct {
 }
 
 // DeleteRes groups the resulting values of Delete operation.
-type DeleteRes struct{}
+type DeleteRes struct {
+	removed uint64
+}
+
+// RemovedObjects returns number of removed raw objects.
+func (d DeleteRes) RemovedObjects() uint64 {
+	return d.removed
+}
 
 // SetAddresses is a Delete option to set the addresses of the objects to delete.
 //
@@ -44,8 +50,12 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
-	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
-		return db.deleteGroup(tx, prm.addrs)
+	var rawRemoved uint64
+	var err error
+
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		rawRemoved, err = db.deleteGroup(tx, prm.addrs)
+		return err
 	})
 	if err == nil {
 		for i := range prm.addrs {
@@ -54,10 +64,10 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 				storagelog.OpField("metabase DELETE"))
 		}
 	}
-	return DeleteRes{}, err
+	return DeleteRes{removed: rawRemoved}, err
 }
 
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, error) {
 	refCounter := make(referenceCounter, len(addrs))
 	currEpoch := db.epochState.CurrentEpoch()
 
@@ -65,7 +75,7 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
 	for i := range addrs {
 		removed, err := db.delete(tx, addrs[i], refCounter, currEpoch)
 		if err != nil {
-			return err // maybe log and continue?
+			return 0, err // maybe log and continue?
 		}
 
 		if removed {
@@ -75,20 +85,19 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
 
 	err := db.updateCounter(tx, rawDeleted, false)
 	if err != nil {
-		db.log.Error("could not decrease object counter",
-			zap.Error(err))
+		return 0, fmt.Errorf("could not decrease object counter: %w", err)
 	}
 
 	for _, refNum := range refCounter {
 		if refNum.cur == refNum.all {
 			err := db.deleteObject(tx, refNum.obj, true)
 			if err != nil {
-				return err // maybe log and continue?
+				return rawDeleted, err // maybe log and continue?
 			}
 		}
 	}
 
-	return nil
+	return rawDeleted, nil
 }
 
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, error) {

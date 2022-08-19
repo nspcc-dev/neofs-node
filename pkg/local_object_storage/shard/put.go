@@ -73,6 +73,8 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 			// since the object has been successfully written to BlobStor
 			return PutRes{}, fmt.Errorf("could not put object to metabase: %w", err)
 		}
+
+		s.incObjectCounter()
 	}
 
 	return PutRes{}, nil

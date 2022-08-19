@@ -14,7 +14,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 type (
@@ -146,8 +145,7 @@ func (db *DB) put(
 	if !isParent {
 		err = db.updateCounter(tx, 1, true)
 		if err != nil {
-			db.log.Error("could not increase object counter: %w",
-				zap.Error(err))
+			return fmt.Errorf("could not increase object counter: %w", err)
 		}
 	}
 
