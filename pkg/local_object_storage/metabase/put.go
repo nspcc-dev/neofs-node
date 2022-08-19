@@ -14,6 +14,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 type (
@@ -139,6 +140,14 @@ func (db *DB) put(
 		err = changeContainerSize(tx, cnr, obj.PayloadSize(), true)
 		if err != nil {
 			return err
+		}
+	}
+
+	if !isParent {
+		err = db.updateCounter(tx, 1, true)
+		if err != nil {
+			db.log.Error("could not increase object counter: %w",
+				zap.Error(err))
 		}
 	}
 
