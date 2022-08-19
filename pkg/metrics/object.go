@@ -274,3 +274,7 @@ func (m objectServiceMetrics) AddGetPayload(ln int) {
 func (m objectServiceMetrics) AddToObjectCounter(shardID string, delta int) {
 	m.shardMetrics.With(prometheus.Labels{shardIDLabelKey: shardID}).Add(float64(delta))
 }
+
+func (m objectServiceMetrics) SetObjectCounter(shardID string, v uint64) {
+	m.shardMetrics.With(prometheus.Labels{shardIDLabelKey: shardID}).Set(float64(v))
+}

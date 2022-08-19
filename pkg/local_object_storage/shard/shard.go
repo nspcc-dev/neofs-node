@@ -47,6 +47,8 @@ type DeletedLockCallback func(context.Context, []oid.Address)
 
 // MetricsWriter is an interface that must store shard's metrics.
 type MetricsWriter interface {
+	// SetObjectCounter must set object counter.
+	SetObjectCounter(v uint64)
 	// AddToObjectCounter must update object counter. Negative
 	// parameter must decrease the counter.
 	AddToObjectCounter(delta int)
@@ -290,6 +292,21 @@ func (s *Shard) fillInfo() {
 	}
 	if s.pilorama != nil {
 		s.cfg.info.PiloramaInfo = s.pilorama.DumpInfo()
+	}
+}
+
+func (s *Shard) updateObjectCounter() {
+	if s.cfg.metricsWriter != nil && !s.GetMode().NoMetabase() {
+		c, err := s.metaBase.ObjectCounter()
+		if err != nil {
+			s.log.Warn("meta: object counter read",
+				zap.Error(err),
+			)
+
+			return
+		}
+
+		s.cfg.metricsWriter.SetObjectCounter(c)
 	}
 }
 

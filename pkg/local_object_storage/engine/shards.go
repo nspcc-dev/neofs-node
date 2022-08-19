@@ -22,6 +22,10 @@ type metricsWithID struct {
 	mw MetricRegister
 }
 
+func (m metricsWithID) SetObjectCounter(v uint64) {
+	m.mw.SetObjectCounter(m.id, v)
+}
+
 func (m metricsWithID) AddToObjectCounter(delta int) {
 	m.mw.AddToObjectCounter(m.id, delta)
 }

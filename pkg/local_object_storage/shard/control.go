@@ -120,6 +120,8 @@ func (s *Shard) Init() error {
 		}
 	}
 
+	s.updateObjectCounter()
+
 	s.gc = &gc{
 		gcCfg:       s.gcCfg,
 		remover:     s.removeGarbage,
