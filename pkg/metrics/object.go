@@ -28,8 +28,12 @@ type (
 
 		putPayload prometheus.Counter
 		getPayload prometheus.Counter
+
+		shardMetrics *prometheus.GaugeVec
 	}
 )
+
+const shardIDLabelKey = "shard"
 
 func newObjectServiceMetrics() objectServiceMetrics {
 	var ( // Request counter metrics.
@@ -148,6 +152,15 @@ func newObjectServiceMetrics() objectServiceMetrics {
 			Name:      "get_payload",
 			Help:      "Accumulated payload size at object get method",
 		})
+
+		shardsMetrics = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: objectSubsystem,
+			Name:      "counter",
+			Help:      "Objects counters per shards",
+		},
+			[]string{shardIDLabelKey},
+		)
 	)
 
 	return objectServiceMetrics{
@@ -167,6 +180,7 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		rangeHashDuration: rangeHashDuration,
 		putPayload:        putPayload,
 		getPayload:        getPayload,
+		shardMetrics:      shardsMetrics,
 	}
 }
 
@@ -189,6 +203,8 @@ func (m objectServiceMetrics) register() {
 
 	prometheus.MustRegister(m.putPayload)
 	prometheus.MustRegister(m.getPayload)
+
+	prometheus.MustRegister(m.shardMetrics)
 }
 
 func (m objectServiceMetrics) IncGetReqCounter() {
@@ -253,4 +269,8 @@ func (m objectServiceMetrics) AddPutPayload(ln int) {
 
 func (m objectServiceMetrics) AddGetPayload(ln int) {
 	m.getPayload.Add(float64(ln))
+}
+
+func (m objectServiceMetrics) AddToObjectCounter(shardID string, delta int) {
+	m.shardMetrics.With(prometheus.Labels{shardIDLabelKey: shardID}).Add(float64(delta))
 }
