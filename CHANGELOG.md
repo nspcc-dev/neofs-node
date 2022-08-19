@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Objects counter metric (#1712)
 
 ### Changed
 - `neofs-cli object put`'s object ID output has changed from "ID" to "OID" (#1296)
@@ -17,6 +18,7 @@ Changelog for NeoFS Node
 ### Updated
 
 ### Updating from v0.31.0
+Storage Node now collects object count prometheus metrics: `neofs_node_object_counter`. 
 
 ## [0.31.0] - 2022-08-04 - Baengnyeongdo (백령도, 白翎島)
 
