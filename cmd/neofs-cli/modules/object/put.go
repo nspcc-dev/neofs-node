@@ -140,7 +140,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
-	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cnr)
+	cmd.Printf("  OID: %s\n  CID: %s\n", res.ID(), cnr)
 }
 
 func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {

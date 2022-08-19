@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Changed
+- `neofs-cli object put`'s object ID output has changed from "ID" to "OID" (#1296)
 
 ### Fixed
 - Panic on write-cache's `Delete` operation (#1664)
