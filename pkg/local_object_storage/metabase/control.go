@@ -80,6 +80,7 @@ func (db *DB) init(reset bool) error {
 		string(graveyardBucketName):       {},
 		string(toMoveItBucketName):        {},
 		string(garbageBucketName):         {},
+		string(shardInfoBucket):           {},
 	}
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

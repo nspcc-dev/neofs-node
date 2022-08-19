@@ -11,6 +11,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -60,11 +61,22 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
 	refCounter := make(referenceCounter, len(addrs))
 	currEpoch := db.epochState.CurrentEpoch()
 
+	var rawDeleted uint64
 	for i := range addrs {
-		err := db.delete(tx, addrs[i], refCounter, currEpoch)
+		removed, err := db.delete(tx, addrs[i], refCounter, currEpoch)
 		if err != nil {
 			return err // maybe log and continue?
 		}
+
+		if removed {
+			rawDeleted++
+		}
+	}
+
+	err := db.updateCounter(tx, rawDeleted, false)
+	if err != nil {
+		db.log.Error("could not decrease object counter",
+			zap.Error(err))
 	}
 
 	for _, refNum := range refCounter {
@@ -79,13 +91,13 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) error {
 	return nil
 }
 
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) error {
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, error) {
 	// remove record from the garbage bucket
 	garbageBKT := tx.Bucket(garbageBucketName)
 	if garbageBKT != nil {
 		err := garbageBKT.Delete(addressKey(addr))
 		if err != nil {
-			return fmt.Errorf("could not remove from garbage bucket: %w", err)
+			return false, fmt.Errorf("could not remove from garbage bucket: %w", err)
 		}
 	}
 
@@ -93,10 +105,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	obj, err := db.get(tx, addr, false, true, currEpoch)
 	if err != nil {
 		if errors.As(err, new(apistatus.ObjectNotFound)) {
-			return nil
+			return false, nil
 		}
 
-		return err
+		return false, err
 	}
 
 	// if object is an only link to a parent, then remove parent
@@ -119,7 +131,12 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	}
 
 	// remove object
-	return db.deleteObject(tx, obj, false)
+	err = db.deleteObject(tx, obj, false)
+	if err != nil {
+		return false, fmt.Errorf("could not remove object: %w", err)
+	}
+
+	return true, nil
 }
 
 func (db *DB) deleteObject(

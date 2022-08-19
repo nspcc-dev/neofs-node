@@ -31,6 +31,7 @@ This file describes changes between the metabase versions.
   - Keys and values
     - `id` -> shard id as bytes
     - `version` -> metabase version as little-endian uint64
+    - `counter` -> shard's object counter as little-endian uint64
 
 ### Unique index buckets
 - Buckets containing objects of REGULAR type
@@ -83,7 +84,9 @@ This file describes changes between the metabase versions.
   - Value: list of object IDs
 
 
-# History
+## Version 2
+
+- Added shard's object counter to the info bucket 
 
 ## Version 1
 
