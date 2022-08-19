@@ -14,7 +14,7 @@ import (
 // returns error if could not save object in any blobovnicza.
 func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 	if !prm.DontCompress {
-		prm.RawData = b.CConfig.Compress(prm.RawData)
+		prm.RawData = b.compression.Compress(prm.RawData)
 	}
 
 	var putPrm blobovnicza.PutPrm

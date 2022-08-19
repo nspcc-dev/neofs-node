@@ -8,8 +8,8 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
-// CConfig represents common compression-related configuration.
-type CConfig struct {
+// Config represents common compression-related configuration.
+type Config struct {
 	Enabled                    bool
 	UncompressableContentTypes []string
 
@@ -22,7 +22,7 @@ type CConfig struct {
 var zstdFrameMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
 
 // Init initializes compression routines.
-func (c *CConfig) Init() error {
+func (c *Config) Init() error {
 	var err error
 
 	if c.Enabled {
@@ -44,7 +44,7 @@ func (c *CConfig) Init() error {
 // For an object to be compressed 2 conditions must hold:
 // 1. Compression is enabled in settings.
 // 2. Object MIME Content-Type is allowed for compression.
-func (c *CConfig) NeedsCompression(obj *objectSDK.Object) bool {
+func (c *Config) NeedsCompression(obj *objectSDK.Object) bool {
 	if !c.Enabled || len(c.UncompressableContentTypes) == 0 {
 		return c.Enabled
 	}
@@ -73,7 +73,7 @@ func (c *CConfig) NeedsCompression(obj *objectSDK.Object) bool {
 
 // Decompress decompresses data if it starts with the magic
 // and returns data untouched otherwise.
-func (c *CConfig) Decompress(data []byte) ([]byte, error) {
+func (c *Config) Decompress(data []byte) ([]byte, error) {
 	if len(data) < 4 || !bytes.Equal(data[:4], zstdFrameMagic) {
 		return data, nil
 	}
@@ -82,7 +82,7 @@ func (c *CConfig) Decompress(data []byte) ([]byte, error) {
 
 // Compress compresses data if compression is enabled
 // and returns data untouched otherwise.
-func (c *CConfig) Compress(data []byte) []byte {
+func (c *Config) Compress(data []byte) []byte {
 	if c == nil || !c.Enabled {
 		return data
 	}
@@ -90,7 +90,7 @@ func (c *CConfig) Compress(data []byte) []byte {
 }
 
 // Close closes encoder and decoder, returns any error occured.
-func (c *CConfig) Close() error {
+func (c *Config) Close() error {
 	var err error
 	if c.encoder != nil {
 		err = c.encoder.Close()
