@@ -17,6 +17,7 @@ type MetricRegister interface {
 	AddSearchDuration(d time.Duration)
 	AddListObjectsDuration(d time.Duration)
 
+	SetObjectCounter(shardID string, v uint64)
 	AddToObjectCounter(shardID string, delta int)
 }
 
