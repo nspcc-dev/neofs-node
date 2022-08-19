@@ -22,7 +22,7 @@ import (
 type FSTree struct {
 	Info
 
-	*compression.CConfig
+	*compression.Config
 	Depth      int
 	DirNameLen int
 }
@@ -51,7 +51,7 @@ func New(opts ...Option) *FSTree {
 			Permissions: 0700,
 			RootPath:    "./",
 		},
-		CConfig:    nil,
+		Config:     nil,
 		Depth:      4,
 		DirNameLen: DirNameLen,
 	}
@@ -318,6 +318,6 @@ func (*FSTree) Type() string {
 }
 
 // SetCompressor implements common.Storage.
-func (t *FSTree) SetCompressor(cc *compression.CConfig) {
-	t.CConfig = cc
+func (t *FSTree) SetCompressor(cc *compression.Config) {
+	t.Config = cc
 }

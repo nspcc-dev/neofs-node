@@ -14,7 +14,7 @@ import (
 func (b *Blobovniczas) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 	return common.IterateRes{}, b.iterateBlobovniczas(prm.IgnoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
 		return blobovnicza.IterateObjects(blz, func(addr oid.Address, data []byte) error {
-			data, err := b.Decompress(data)
+			data, err := b.compression.Decompress(data)
 			if err != nil {
 				if prm.IgnoreErrors {
 					if prm.ErrorHandler != nil {

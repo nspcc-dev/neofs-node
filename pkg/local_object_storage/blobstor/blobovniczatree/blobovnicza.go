@@ -48,11 +48,11 @@ import (
 // B-s are intitialized and opened.
 //
 // Object is saved as follows:
-// 1. at each level, according to HRW, the next one is selected and
-//   dives into it until we reach the deepest;
-// 2. at the B-s level object is saved to the active B. If active B
-//   is full, next B is opened, initialized and cached. If there
-//   is no more X candidates, goto 1 and process next level.
+//  1. at each level, according to HRW, the next one is selected and
+//     dives into it until we reach the deepest;
+//  2. at the B-s level object is saved to the active B. If active B
+//     is full, next B is opened, initialized and cached. If there
+//     is no more X candidates, goto 1 and process next level.
 //
 // After the object is saved in B, path concatenation is returned
 // in system path format as B identifier (ex. "0/1/1" or "3/2/1").
@@ -228,6 +228,6 @@ func (b *Blobovniczas) Type() string {
 }
 
 // SetCompressor implements common.Storage.
-func (b *Blobovniczas) SetCompressor(cc *compression.CConfig) {
-	b.CConfig = cc
+func (b *Blobovniczas) SetCompressor(cc *compression.Config) {
+	b.compression = cc
 }

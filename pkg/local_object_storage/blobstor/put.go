@@ -54,5 +54,5 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 // 1. Compression is enabled in settings.
 // 2. Object MIME Content-Type is allowed for compression.
 func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
-	return b.cfg.CConfig.NeedsCompression(obj)
+	return b.cfg.compression.NeedsCompression(obj)
 }

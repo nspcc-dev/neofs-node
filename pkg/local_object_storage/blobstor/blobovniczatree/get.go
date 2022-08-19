@@ -132,7 +132,7 @@ func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.G
 	}
 
 	// decompress the data
-	data, err := b.Decompress(res.Object())
+	data, err := b.compression.Decompress(res.Object())
 	if err != nil {
 		return common.GetRes{}, fmt.Errorf("could not decompress object data: %w", err)
 	}

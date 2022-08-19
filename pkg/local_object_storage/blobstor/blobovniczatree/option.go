@@ -16,8 +16,8 @@ type cfg struct {
 	openedCacheSize int
 	blzShallowDepth uint64
 	blzShallowWidth uint64
-	*compression.CConfig
-	blzOpts []blobovnicza.Option
+	compression     *compression.Config
+	blzOpts         []blobovnicza.Option
 }
 
 type Option func(*cfg)

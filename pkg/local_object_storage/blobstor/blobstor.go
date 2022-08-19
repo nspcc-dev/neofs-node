@@ -32,9 +32,9 @@ type Info = fstree.Info
 type Option func(*cfg)
 
 type cfg struct {
-	compression.CConfig
-	log     *logger.Logger
-	storage []SubStorage
+	compression compression.Config
+	log         *logger.Logger
+	storage     []SubStorage
 }
 
 func initConfig(c *cfg) {
@@ -51,7 +51,7 @@ func New(opts ...Option) *BlobStor {
 	}
 
 	for i := range bs.storage {
-		bs.storage[i].Storage.SetCompressor(&bs.CConfig)
+		bs.storage[i].Storage.SetCompressor(&bs.compression)
 	}
 
 	return bs
@@ -86,7 +86,7 @@ func WithLogger(l *logger.Logger) Option {
 // is recorded in the provided log.
 func WithCompressObjects(comp bool) Option {
 	return func(c *cfg) {
-		c.Enabled = comp
+		c.compression.Enabled = comp
 	}
 }
 
@@ -94,6 +94,6 @@ func WithCompressObjects(comp bool) Option {
 // for specific content types as seen by object.AttributeContentType attribute.
 func WithUncompressableContentTypes(values []string) Option {
 	return func(c *cfg) {
-		c.UncompressableContentTypes = values
+		c.compression.UncompressableContentTypes = values
 	}
 }

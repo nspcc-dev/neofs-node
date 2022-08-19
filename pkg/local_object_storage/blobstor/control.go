@@ -31,7 +31,7 @@ var ErrInitBlobovniczas = errors.New("failure on blobovnicza initialization stag
 func (b *BlobStor) Init() error {
 	b.log.Debug("initializing...")
 
-	if err := b.CConfig.Init(); err != nil {
+	if err := b.compression.Init(); err != nil {
 		return err
 	}
 
@@ -60,7 +60,7 @@ func (b *BlobStor) Close() error {
 		}
 	}
 
-	err := b.CConfig.Close()
+	err := b.compression.Close()
 	if firstErr == nil {
 		firstErr = err
 	}
