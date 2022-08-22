@@ -63,7 +63,8 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				res, err := internalclient.EACL(getEACLPrm)
 				if err == nil {
 					// compare binary values because EACL could have been set already
-					got, err := res.EACL().Marshal()
+					table := res.EACL()
+					got, err := table.Marshal()
 					if err != nil {
 						continue
 					}
