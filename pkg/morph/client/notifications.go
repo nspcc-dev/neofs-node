@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"go.uber.org/zap"
 )
@@ -204,7 +205,7 @@ func (c *Client) UnsubscribeAll() error {
 
 // restoreSubscriptions restores subscriptions according to
 // cached information about them.
-func (c *Client) restoreSubscriptions(endpoint string) bool {
+func (c *Client) restoreSubscriptions(cli *rpcclient.WSClient, endpoint string) bool {
 	var (
 		err error
 		id  string
@@ -212,7 +213,7 @@ func (c *Client) restoreSubscriptions(endpoint string) bool {
 
 	// new block events restoration
 	if c.subscribedToNewBlocks {
-		_, err = c.client.SubscribeForNewBlocks(nil)
+		_, err = cli.SubscribeForNewBlocks(nil)
 		if err != nil {
 			c.logger.Error("could not restore block subscription after RPC switch",
 				zap.String("endpoint", endpoint),
@@ -225,7 +226,7 @@ func (c *Client) restoreSubscriptions(endpoint string) bool {
 
 	// notification events restoration
 	for contract := range c.subscribedEvents {
-		id, err = c.client.SubscribeForExecutionNotifications(&contract, nil)
+		id, err = cli.SubscribeForExecutionNotifications(&contract, nil)
 		if err != nil {
 			c.logger.Error("could not restore notification subscription after RPC switch",
 				zap.String("endpoint", endpoint),
@@ -241,7 +242,7 @@ func (c *Client) restoreSubscriptions(endpoint string) bool {
 	// notary notification events restoration
 	if c.notary != nil {
 		for signer := range c.subscribedNotaryEvents {
-			id, err = c.client.SubscribeForNotaryRequests(nil, &signer)
+			id, err = cli.SubscribeForNotaryRequests(nil, &signer)
 			if err != nil {
 				c.logger.Error("could not restore notary notification subscription after RPC switch",
 					zap.String("endpoint", endpoint),
