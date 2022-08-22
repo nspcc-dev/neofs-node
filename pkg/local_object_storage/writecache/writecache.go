@@ -80,7 +80,6 @@ var (
 func New(opts ...Option) Cache {
 	c := &cache{
 		flushCh: make(chan *object.Object),
-		closeCh: make(chan struct{}),
 		mode:    mode.ReadWrite,
 
 		compressFlags: make(map[string]struct{}),
@@ -121,11 +120,13 @@ func (c *cache) Open(readOnly bool) error {
 		return err
 	}
 
-	if c.objCounters == nil {
-		c.objCounters = &counters{
-			db: c.db,
-			fs: c.fsTree,
-		}
+	// Opening after Close is done during maintenance mode,
+	// thus we need to create a channel here.
+	c.closeCh = make(chan struct{})
+
+	c.objCounters = &counters{
+		db: c.db,
+		fs: c.fsTree,
 	}
 
 	return c.objCounters.Read()
@@ -145,14 +146,25 @@ func (c *cache) Close() error {
 		return err
 	}
 
-	close(c.closeCh)
+	if c.closeCh != nil {
+		close(c.closeCh)
+	}
 	c.wg.Wait()
+	if c.closeCh != nil {
+		c.closeCh = nil
+	}
 
 	if c.objCounters != nil {
 		c.objCounters.FlushAndClose()
+		c.objCounters = nil
 	}
+
+	var err error
 	if c.db != nil {
-		return c.db.Close()
+		err = c.db.Close()
+		if err != nil {
+			c.db = nil
+		}
 	}
 	return nil
 }
