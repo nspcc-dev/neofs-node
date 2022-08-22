@@ -2,6 +2,7 @@ package client
 
 import (
 	"sort"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -46,14 +47,11 @@ func (c *Client) switchRPC() bool {
 		}
 
 		c.cache.invalidate()
-		c.client = cli
-		c.rpcActor = act
-		c.gasToken = gas
 
 		c.logger.Info("connection to the new RPC node has been established",
 			zap.String("endpoint", newEndpoint))
 
-		if !c.restoreSubscriptions(newEndpoint) {
+		if !c.restoreSubscriptions(cli, newEndpoint) {
 			// new WS client does not allow
 			// restoring subscription, client
 			// could not work correctly =>
@@ -61,6 +59,16 @@ func (c *Client) switchRPC() bool {
 			// to switch to another one
 			cli.Close()
 			continue
+		}
+
+		c.client = cli
+		c.rpcActor = act
+		c.gasToken = gas
+
+		if !c.switchIsActive.Load() &&
+			c.endpoints.list[c.endpoints.curr].Priority != c.endpoints.list[0].Priority {
+			c.switchIsActive.Store(true)
+			go c.switchToMostPrioritized()
 		}
 
 		return true
@@ -71,6 +79,10 @@ func (c *Client) switchRPC() bool {
 
 func (c *Client) notificationLoop() {
 	for {
+		c.switchLock.RLock()
+		nChan := c.client.Notifications
+		c.switchLock.RUnlock()
+
 		select {
 		case <-c.cfg.ctx.Done():
 			_ = c.UnsubscribeAll()
@@ -82,21 +94,21 @@ func (c *Client) notificationLoop() {
 			c.close()
 
 			return
-		case n, ok := <-c.client.Notifications:
+		case n, ok := <-nChan:
 			// notification channel is used as a connection
 			// state: if it is closed, the connection is
 			// considered to be lost
 			if !ok {
-				var closeReason string
 				if closeErr := c.client.GetError(); closeErr != nil {
-					closeReason = closeErr.Error()
+					c.logger.Warn("switching to the next RPC node",
+						zap.String("reason", closeErr.Error()),
+					)
 				} else {
-					closeReason = "unknown"
+					// neo-go client was closed by calling `Close`
+					// method that happens only when the client has
+					// switched to the more prioritized RPC
+					continue
 				}
-
-				c.logger.Warn("switching to the next RPC node",
-					zap.String("reason", closeReason),
-				)
 
 				if !c.switchRPC() {
 					c.logger.Error("could not establish connection to any RPC node")
@@ -116,6 +128,85 @@ func (c *Client) notificationLoop() {
 			}
 
 			c.notifications <- n
+		}
+	}
+}
+
+func (c *Client) switchToMostPrioritized() {
+	const period = 2 * time.Minute
+
+	t := time.NewTicker(period)
+	defer t.Stop()
+	defer c.switchIsActive.Store(false)
+
+mainLoop:
+	for {
+		select {
+		case <-c.cfg.ctx.Done():
+			return
+		case <-t.C:
+			c.switchLock.RLock()
+			endpointsCopy := make([]Endpoint, len(c.endpoints.list))
+			copy(endpointsCopy, c.endpoints.list)
+
+			currPriority := c.endpoints.list[c.endpoints.curr].Priority
+			highestPriority := c.endpoints.list[0].Priority
+			c.switchLock.RUnlock()
+
+			if currPriority == highestPriority {
+				// already connected to
+				// the most prioritized
+				return
+			}
+
+			for i, e := range endpointsCopy {
+				if currPriority == e.Priority {
+					// a switch will not increase the priority
+					continue mainLoop
+				}
+
+				tryE := e.Address
+
+				cli, act, gas, err := c.newCli(tryE)
+				if err != nil {
+					c.logger.Warn("could not create client to the higher priority node",
+						zap.String("endpoint", tryE),
+						zap.Error(err),
+					)
+					continue
+				}
+
+				if c.restoreSubscriptions(cli, tryE) {
+					c.switchLock.Lock()
+
+					// higher priority node could have been
+					// connected in the other goroutine
+					if e.Priority >= c.endpoints.list[c.endpoints.curr].Priority {
+						cli.Close()
+						c.switchLock.Unlock()
+						return
+					}
+
+					c.client.Close()
+					c.cache.invalidate()
+					c.client = cli
+					c.rpcActor = act
+					c.gasToken = gas
+					c.endpoints.curr = i
+
+					c.switchLock.Unlock()
+
+					c.logger.Info("switched to the higher priority RPC",
+						zap.String("endpoint", tryE))
+
+					return
+				}
+
+				c.logger.Warn("could not restore side chain subscriptions using node",
+					zap.String("endpoint", tryE),
+					zap.Error(err),
+				)
+			}
 		}
 	}
 }

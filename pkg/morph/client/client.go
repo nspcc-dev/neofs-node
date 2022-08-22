@@ -24,6 +24,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -81,6 +82,11 @@ type Client struct {
 	// establish connection to any of the
 	// provided RPC endpoints
 	inactive bool
+
+	// indicates that Client has already started
+	// goroutine that tries to switch to the higher
+	// priority RPC node
+	switchIsActive atomic.Bool
 }
 
 type cache struct {
