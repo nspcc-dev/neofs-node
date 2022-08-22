@@ -26,10 +26,15 @@ func (b *Blobovniczas) Iterate(prm common.IteratePrm) (common.IterateRes, error)
 				return fmt.Errorf("could not decompress object data: %w", err)
 			}
 
-			return prm.Handler(common.IterationElement{
-				Address:    elem.Address(),
-				ObjectData: data,
-				StorageID:  []byte(p),
+			if prm.Handler != nil {
+				return prm.Handler(common.IterationElement{
+					Address:    elem.Address(),
+					ObjectData: data,
+					StorageID:  []byte(p),
+				})
+			}
+			return prm.LazyHandler(elem.Address(), func() ([]byte, error) {
+				return data, err
 			})
 		})
 		subPrm.DecodeAddresses()
