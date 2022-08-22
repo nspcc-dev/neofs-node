@@ -408,13 +408,9 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		return nil, fmt.Errorf("write object via client: %w", err)
 	}
 
-	var res PutObjectRes
-
-	if !cliRes.ReadStoredObjectID(&res.id) {
-		return nil, errors.New("missing identifier in the response")
-	}
-
-	return &res, nil
+	return &PutObjectRes{
+		id: cliRes.StoredObjectID(),
+	}, nil
 }
 
 // SearchObjectsPrm groups parameters of SearchObjects operation.

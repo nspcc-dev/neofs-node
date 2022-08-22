@@ -30,7 +30,7 @@ type BalanceOfRes struct {
 }
 
 // Balance returns the current balance.
-func (x BalanceOfRes) Balance() *accounting.Decimal {
+func (x BalanceOfRes) Balance() accounting.Decimal {
 	return x.cliRes.Amount()
 }
 
@@ -95,12 +95,7 @@ func (x PutContainerRes) ID() cid.ID {
 func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
 	cliRes, err := prm.cli.ContainerPut(context.Background(), prm.PrmContainerPut)
 	if err == nil {
-		cnr := cliRes.ID()
-		if cnr == nil {
-			err = errors.New("missing container ID in response")
-		} else {
-			res.cnr = *cnr
-		}
+		res.cnr = cliRes.ID()
 	}
 
 	return
@@ -171,7 +166,7 @@ type EACLRes struct {
 }
 
 // EACL returns requested eACL table.
-func (x EACLRes) EACL() *eacl.Table {
+func (x EACLRes) EACL() eacl.Table {
 	return x.cliRes.Table()
 }
 
@@ -219,7 +214,7 @@ type NetworkInfoRes struct {
 }
 
 // NetworkInfo returns structured information about the NeoFS network.
-func (x NetworkInfoRes) NetworkInfo() *netmap.NetworkInfo {
+func (x NetworkInfoRes) NetworkInfo() netmap.NetworkInfo {
 	return x.cliRes.Info()
 }
 
@@ -245,11 +240,11 @@ type NodeInfoRes struct {
 
 // NodeInfo returns information about the node from netmap.
 func (x NodeInfoRes) NodeInfo() netmap.NodeInfo {
-	return *x.cliRes.NodeInfo()
+	return x.cliRes.NodeInfo()
 }
 
 // LatestVersion returns the latest NeoFS API version in use.
-func (x NodeInfoRes) LatestVersion() *version.Version {
+func (x NodeInfoRes) LatestVersion() version.Version {
 	return x.cliRes.LatestVersion()
 }
 
@@ -406,13 +401,9 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		return nil, fmt.Errorf("client failure: %w", err)
 	}
 
-	var res PutObjectRes
-
-	if !cliRes.ReadStoredObjectID(&res.id) {
-		return nil, errors.New("missing ID of the stored object")
-	}
-
-	return &res, nil
+	return &PutObjectRes{
+		id: cliRes.StoredObjectID(),
+	}, nil
 }
 
 // DeleteObjectPrm groups parameters of DeleteObject operation.
@@ -454,14 +445,8 @@ func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 		return nil, fmt.Errorf("remove object via client: %w", err)
 	}
 
-	var id oid.ID
-
-	if !cliRes.ReadTombstoneID(&id) {
-		return nil, errors.New("object removed but tombstone ID is missing")
-	}
-
 	return &DeleteObjectRes{
-		tomb: id,
+		tomb: cliRes.Tombstone(),
 	}, nil
 }
 

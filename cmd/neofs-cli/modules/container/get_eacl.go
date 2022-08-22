@@ -30,7 +30,7 @@ var getExtendedACLCmd = &cobra.Command{
 
 		if containerPathTo == "" {
 			cmd.Println("eACL: ")
-			common.PrettyPrintJSON(cmd, eaclTable, "eACL")
+			common.PrettyPrintJSON(cmd, &eaclTable, "eACL")
 
 			return
 		}

@@ -58,11 +58,7 @@ func initAccountingBalanceCmd() {
 	ff.String(ownerFlag, "", "owner of balance account (omit to use owner from private key)")
 }
 
-func prettyPrintDecimal(cmd *cobra.Command, decimal *accounting.Decimal) {
-	if decimal == nil {
-		return
-	}
-
+func prettyPrintDecimal(cmd *cobra.Command, decimal accounting.Decimal) {
 	if viper.GetBool(commonflags.Verbose) {
 		cmd.Println("value:", decimal.Value())
 		cmd.Println("precision:", decimal.Precision())
