@@ -222,7 +222,7 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 	if !prm.DontCompress {
 		prm.RawData = t.Compress(prm.RawData)
 	}
-	return common.PutRes{}, os.WriteFile(p, prm.RawData, t.Permissions)
+	return common.PutRes{StorageID: []byte{}}, os.WriteFile(p, prm.RawData, t.Permissions)
 }
 
 // PutStream puts executes handler on a file opened for write.

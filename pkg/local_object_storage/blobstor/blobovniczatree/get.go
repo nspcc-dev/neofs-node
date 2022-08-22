@@ -143,5 +143,5 @@ func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.G
 		return common.GetRes{}, fmt.Errorf("could not unmarshal the object: %w", err)
 	}
 
-	return common.GetRes{Object: obj}, nil
+	return common.GetRes{Object: obj, RawData: data}, nil
 }
