@@ -50,9 +50,17 @@ func (s *Shard) Open() error {
 		components = append(components, s.pilorama)
 	}
 
-	for _, component := range components {
+	for i, component := range components {
 		if err := component.Open(false); err != nil {
 			if component == s.metaBase {
+				// We must first open all other components to avoid
+				// opening non-existent DB in read-only mode.
+				for j := i + 1; j < len(components); j++ {
+					if err := components[j].Open(false); err != nil {
+						// Other components must be opened, fail.
+						return fmt.Errorf("could not open %T: %w", components[j], err)
+					}
+				}
 				err = s.handleMetabaseFailure("open", err)
 				if err != nil {
 					return err
