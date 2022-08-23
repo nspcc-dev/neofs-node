@@ -24,3 +24,18 @@ func TestGeneric(t *testing.T) {
 
 	blobstortest.TestAll(t, newTree, 2048, 16*1024)
 }
+
+func TestControl(t *testing.T) {
+	defer func() { _ = os.RemoveAll(t.Name()) }()
+
+	var n int
+	newTree := func(t *testing.T) common.Storage {
+		dir := filepath.Join(t.Name(), strconv.Itoa(n))
+		return New(
+			WithPath(dir),
+			WithDepth(2),
+			WithDirNameLen(2))
+	}
+
+	blobstortest.TestControl(t, newTree, 2048, 2048)
+}

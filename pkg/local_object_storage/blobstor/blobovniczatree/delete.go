@@ -14,6 +14,10 @@ import (
 // If blobocvnicza ID is specified, only this blobovnicza is processed.
 // Otherwise, all Blobovniczas are processed descending weight.
 func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err error) {
+	if b.readOnly {
+		return common.DeleteRes{}, common.ErrReadOnly
+	}
+
 	var bPrm blobovnicza.DeletePrm
 	bPrm.SetAddress(prm.Address)
 
