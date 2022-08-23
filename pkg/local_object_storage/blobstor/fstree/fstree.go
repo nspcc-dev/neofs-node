@@ -191,7 +191,11 @@ func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 		return common.DeleteRes{}, err
 	}
 
-	return common.DeleteRes{}, os.Remove(p)
+	err = os.Remove(p)
+	if err != nil && os.IsNotExist(err) {
+		err = apistatus.ObjectNotFound{}
+	}
+	return common.DeleteRes{}, err
 }
 
 // Exists returns the path to the file with object contents if it exists in the storage
