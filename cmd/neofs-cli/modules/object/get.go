@@ -53,7 +53,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 	if filename == "" {
 		out = os.Stdout
 	} else {
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			common.ExitOnErr(cmd, "", fmt.Errorf("can't open file '%s': %w", filename, err))
 		}
