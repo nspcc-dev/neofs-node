@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/commands/inspect"
-	cmdlist "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/commands/list"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/writecache"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
 	"github.com/spf13/cobra"
@@ -34,8 +34,8 @@ func init() {
 	command.SetOut(os.Stdout)
 	command.Flags().Bool("version", false, "application version")
 	command.AddCommand(
-		cmdlist.Command,
-		inspect.Command,
+		blobovnicza.Root,
+		writecache.Root,
 		gendoc.Command(command),
 	)
 }
