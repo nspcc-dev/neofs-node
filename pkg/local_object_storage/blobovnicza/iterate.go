@@ -146,19 +146,6 @@ func (b *Blobovnicza) Iterate(prm IteratePrm) (IterateRes, error) {
 	return IterateRes{}, nil
 }
 
-// IterateObjects is a helper function which iterates over Blobovnicza and passes binary objects to f.
-func IterateObjects(blz *Blobovnicza, f func(addr oid.Address, data []byte) error) error {
-	var prm IteratePrm
-
-	prm.SetHandler(func(elem IterationElement) error {
-		return f(elem.Address(), elem.ObjectData())
-	})
-
-	_, err := blz.Iterate(prm)
-
-	return err
-}
-
 // IterateAddresses is a helper function which iterates over Blobovnicza and passes addresses of the objects to f.
 func IterateAddresses(blz *Blobovnicza, f func(oid.Address) error) error {
 	var prm IteratePrm

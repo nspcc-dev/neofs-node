@@ -1,7 +1,6 @@
 package blobovnicza
 
 import (
-	"encoding/binary"
 	"errors"
 	"math/rand"
 	"os"
@@ -105,58 +104,4 @@ func TestBlobovnicza(t *testing.T) {
 	}, nil)
 
 	require.NoError(t, blz.Close())
-}
-
-func TestIterateObjects(t *testing.T) {
-	p := t.Name()
-
-	// create Blobovnicza instance
-	blz := New(
-		WithPath(p),
-		WithObjectSizeLimit(1<<10),
-		WithFullSizeLimit(100<<10),
-	)
-
-	defer os.Remove(p)
-
-	// open Blobovnicza
-	require.NoError(t, blz.Open())
-
-	// initialize Blobovnicza
-	require.NoError(t, blz.Init())
-
-	const objNum = 5
-
-	mObjs := make(map[string][]byte)
-
-	for i := uint64(0); i < objNum; i++ {
-		data := make([]byte, 8) // actual data doesn't really matter for test
-
-		binary.BigEndian.PutUint64(data, i)
-
-		mObjs[string(data)] = data
-	}
-
-	var putPrm PutPrm
-
-	for _, v := range mObjs {
-		putPrm.SetAddress(oidtest.Address())
-		putPrm.SetMarshaledObject(v)
-
-		_, err := blz.Put(putPrm)
-		require.NoError(t, err)
-	}
-
-	err := IterateObjects(blz, func(_ oid.Address, data []byte) error {
-		v, ok := mObjs[string(data)]
-		require.True(t, ok)
-
-		require.Equal(t, v, data)
-
-		delete(mObjs, string(data))
-
-		return nil
-	})
-	require.NoError(t, err)
-	require.Empty(t, mObjs)
 }
