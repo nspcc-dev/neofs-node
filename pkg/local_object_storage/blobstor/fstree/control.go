@@ -5,7 +5,10 @@ import (
 )
 
 // Open implements common.Storage.
-func (*FSTree) Open(bool) error { return nil }
+func (t *FSTree) Open(ro bool) error {
+	t.readOnly = ro
+	return nil
+}
 
 // Init implements common.Storage.
 func (t *FSTree) Init() error {

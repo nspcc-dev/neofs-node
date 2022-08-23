@@ -25,6 +25,8 @@ type FSTree struct {
 	*compression.Config
 	Depth      int
 	DirNameLen int
+
+	readOnly bool
 }
 
 // Info groups the information about file storage.
@@ -182,6 +184,10 @@ func (t *FSTree) treePath(addr oid.Address) string {
 
 // Delete removes the object with the specified address from the storage.
 func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+	if t.readOnly {
+		return common.DeleteRes{}, common.ErrReadOnly
+	}
+
 	p, err := t.getPath(prm.Address)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -218,6 +224,10 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 
 // Put puts an object in the storage.
 func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
+	if t.readOnly {
+		return common.PutRes{}, common.ErrReadOnly
+	}
+
 	p := t.treePath(prm.Address)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
@@ -231,6 +241,10 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 
 // PutStream puts executes handler on a file opened for write.
 func (t *FSTree) PutStream(addr oid.Address, handler func(*os.File) error) error {
+	if t.readOnly {
+		return common.ErrReadOnly
+	}
+
 	p := t.treePath(addr)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {

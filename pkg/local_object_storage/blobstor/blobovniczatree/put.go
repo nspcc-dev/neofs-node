@@ -13,6 +13,10 @@ import (
 //
 // returns error if could not save object in any blobovnicza.
 func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
+	if b.readOnly {
+		return common.PutRes{}, common.ErrReadOnly
+	}
+
 	if !prm.DontCompress {
 		prm.RawData = b.compression.Compress(prm.RawData)
 	}
