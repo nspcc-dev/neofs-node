@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Objects counter metric (#1712)
+- `meta` subcommand to `neofs-lens` (#1714)
 
 ### Changed
 - `neofs-cli object put`'s object ID output has changed from "ID" to "OID" (#1296)
