@@ -13,12 +13,13 @@ import (
 // Iterate iterates over all objects in b.
 func (b *Blobovniczas) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 	return common.IterateRes{}, b.iterateBlobovniczas(prm.IgnoreErrors, func(p string, blz *blobovnicza.Blobovnicza) error {
-		return blobovnicza.IterateObjects(blz, func(addr oid.Address, data []byte) error {
-			data, err := b.compression.Decompress(data)
+		var subPrm blobovnicza.IteratePrm
+		subPrm.SetHandler(func(elem blobovnicza.IterationElement) error {
+			data, err := b.compression.Decompress(elem.ObjectData())
 			if err != nil {
 				if prm.IgnoreErrors {
 					if prm.ErrorHandler != nil {
-						return prm.ErrorHandler(addr, err)
+						return prm.ErrorHandler(elem.Address(), err)
 					}
 					return nil
 				}
@@ -26,11 +27,15 @@ func (b *Blobovniczas) Iterate(prm common.IteratePrm) (common.IterateRes, error)
 			}
 
 			return prm.Handler(common.IterationElement{
-				Address:    addr,
+				Address:    elem.Address(),
 				ObjectData: data,
 				StorageID:  []byte(p),
 			})
 		})
+		subPrm.DecodeAddresses()
+
+		_, err := blz.Iterate(subPrm)
+		return err
 	})
 }
 
