@@ -30,7 +30,10 @@ var deployCmd = &cobra.Command{
 	Long: `Deploy additional smart-contract which are not related to core.
 All contracts are deployed by the committee, so access to the alphabet wallets is required.
 Optionally, arguments can be provided to be passed to a contract's _deploy function.
-The syntax is the same as for 'neo-go contract testinvokefunction' command.`,
+The syntax is the same as for 'neo-go contract testinvokefunction' command.
+Compiled contract file name must contain '_contract.nef' suffix.
+Contract's manifest file name must be 'config.json'.
+NNS name is taken by stripping '_contract.nef' from the NEF file (similar to neofs contracts).`,
 	PreRun: func(cmd *cobra.Command, _ []string) {
 		_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 		_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
