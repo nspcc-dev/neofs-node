@@ -52,7 +52,7 @@ func init() {
 	_ = deployCmd.MarkFlagFilename(contractPathFlag)
 
 	ff.Bool(updateFlag, false, "Update an existing contract")
-	ff.String(customZoneFlag, "neofs", "Custom zone for NNS (default: 'neofs')")
+	ff.String(customZoneFlag, "neofs", "Custom zone for NNS")
 }
 
 func deployContractCmd(cmd *cobra.Command, args []string) error {
