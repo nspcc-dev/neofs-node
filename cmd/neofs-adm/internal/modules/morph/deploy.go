@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neofs-contract/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -109,13 +110,53 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 	emit.AppCallNoArgs(w.BinWriter, callHash, method, callflag.All)
 	emit.Opcodes(w.BinWriter, opcode.DROP) // contract state on stack
 	if !isUpdate {
-		s, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain)
+		bw := io.NewBufBinWriter()
+		emit.Instruction(bw.BinWriter, opcode.INITSSLOT, []byte{1})
+		emit.AppCall(bw.BinWriter, nnsCs.Hash, "getPrice", callflag.All)
+		emit.Opcodes(bw.BinWriter, opcode.STSFLD0)
+		emit.AppCall(bw.BinWriter, nnsCs.Hash, "setPrice", callflag.All, 1)
+
+		start := bw.Len()
+		newRecord := false
+
+		ok, err := c.nnsRootRegistered(nnsCs.Hash, zone)
 		if err != nil {
 			return err
+		} else if !ok {
+			newRecord = true
+
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
+				zone, c.CommitteeAcc.Contract.ScriptHash(),
+				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+			emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
+				domain, c.CommitteeAcc.Contract.ScriptHash(),
+				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+			emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
+				domain, int64(nns.TXT), cs.Hash.StringLE())
+		} else {
+			s, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain, false)
+			if err != nil {
+				return err
+			}
+			if len(s) != 0 {
+				newRecord = true
+				bw.WriteBytes(s)
+			}
 		}
-		if len(s) != 0 {
-			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
-			w.WriteBytes(s)
+		if bw.Err != nil {
+			panic(fmt.Errorf("BUG: can't create deployment script: %w", w.Err))
+		} else if bw.Len() != start {
+			w.WriteBytes(bw.Bytes())
+			emit.Opcodes(w.BinWriter, opcode.LDSFLD0, opcode.PUSH1, opcode.PACK)
+			emit.AppCallNoArgs(w.BinWriter, nnsCs.Hash, "setPrice", callflag.All)
+
+			if newRecord {
+				c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
+			}
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +34,7 @@ func (c *initializeContext) setNNS() error {
 		return err
 	}
 
-	ok, err := c.nnsRootRegistered(nnsCs.Hash)
+	ok, err := c.nnsRootRegistered(nnsCs.Hash, "neofs")
 	if err != nil {
 		return err
 	} else if !ok {
@@ -125,26 +126,29 @@ func getAlphabetNNSDomain(i int) string {
 	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
 }
 
-func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string) ([]byte, error) {
+func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string, setPrice bool) ([]byte, error) {
 	ok, err := nnsIsAvailable(c.Client, nnsHash, domain)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := invokeFunction(c.Client, nnsHash, "getPrice", nil, nil)
-	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
-		return nil, errors.New("could not get NNS's price")
-	}
-
-	price, err := res.Stack[0].TryInteger()
-	if err != nil {
-		return nil, fmt.Errorf("unexpected `GetPrice` stack returned: %w", err)
-	}
-
 	bw := io.NewBufBinWriter()
 	if ok {
-		// set minimal registration price
-		emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, 1)
+		var price *big.Int
+		if setPrice {
+			res, err := invokeFunction(c.Client, nnsHash, "getPrice", nil, nil)
+			if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
+				return nil, errors.New("could not get NNS's price")
+			}
+
+			price, err = res.Stack[0].TryInteger()
+			if err != nil {
+				return nil, fmt.Errorf("unexpected `GetPrice` stack returned: %w", err)
+			}
+
+			// set minimal registration price
+			emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, 1)
+		}
 
 		// register domain
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
@@ -152,8 +156,10 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 
-		// set registration price back
-		emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, price)
+		if setPrice {
+			// set registration price back
+			emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, price)
+		}
 	} else {
 		s, err := nnsResolveHash(c.Client, nnsHash, domain)
 		if err != nil {
@@ -174,7 +180,7 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 }
 
 func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160, domain string) error {
-	script, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain)
+	script, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain, true)
 	if script == nil {
 		return err
 	}
@@ -182,8 +188,8 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	return c.sendCommitteeTx(script, sysFee, true)
 }
 
-func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160) (bool, error) {
-	params := []interface{}{"name.neofs"}
+func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string) (bool, error) {
+	params := []interface{}{"name." + zone}
 	res, err := invokeFunction(c.Client, nnsHash, "isAvailable", params, nil)
 	if err != nil {
 		return false, err

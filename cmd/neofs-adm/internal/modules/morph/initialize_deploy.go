@@ -263,7 +263,7 @@ func (c *initializeContext) updateContracts() error {
 		if method == deployMethodName {
 			// same actions are done in initializeContext.setNNS, can be unified
 			domain := ctrName + ".neofs"
-			script, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain)
+			script, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain, true)
 			if err != nil {
 				return err
 			}
