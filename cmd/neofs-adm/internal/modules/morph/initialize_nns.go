@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -24,6 +25,7 @@ import (
 
 const defaultNameServiceDomainPrice = 10_0000_0000
 const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
+const defaultExpirationTime = 10 * 365 * 24 * time.Hour / time.Second
 
 func (c *initializeContext) setNNS() error {
 	nnsCs, err := c.Client.GetContractStateByID(1)
@@ -38,7 +40,7 @@ func (c *initializeContext) setNNS() error {
 		bw := io.NewBufBinWriter()
 		emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
 			"neofs", c.CommitteeAcc.Contract.ScriptHash(),
-			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
+			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 		if err := c.sendCommitteeTx(bw.Bytes(), -1, true); err != nil {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
@@ -109,7 +111,7 @@ func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHas
 	if isAvail {
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 			morphClient.NNSGroupKeyName, c.CommitteeAcc.Contract.ScriptHash(),
-			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
+			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 		sysFee += defaultRegisterSysfee
 	}
@@ -147,7 +149,7 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 		// register domain
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 			domain, c.CommitteeAcc.Contract.ScriptHash(),
-			"ops@nspcc.ru", int64(3600), int64(600), int64(604800), int64(3600))
+			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 
 		// set registration price back
