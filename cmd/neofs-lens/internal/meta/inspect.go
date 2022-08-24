@@ -3,7 +3,6 @@ package meta
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
@@ -11,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
 )
 
 var inspectCMD = &cobra.Command{
@@ -32,16 +30,8 @@ func inspectFunc(cmd *cobra.Command, _ []string) {
 	err := addr.DecodeString(vAddress)
 	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
 
-	db := meta.New(
-		meta.WithPath(vPath),
-		meta.WithBoltDBOptions(&bbolt.Options{
-			ReadOnly: true,
-			Timeout:  100 * time.Millisecond,
-		}),
-		meta.WithEpochState(epochState{}),
-	)
-
-	common.ExitOnErr(cmd, common.Errf("could not open metabase: %w", db.Open(true)))
+	db := openMeta(cmd)
+	defer db.Close()
 
 	storageID := meta.StorageIDPrm{}
 	storageID.SetAddress(addr)

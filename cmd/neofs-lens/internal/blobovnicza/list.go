@@ -30,13 +30,7 @@ func listFunc(cmd *cobra.Command, _ []string) {
 		return err
 	}
 
-	blz := blobovnicza.New(
-		blobovnicza.WithPath(vPath),
-		blobovnicza.WithReadOnly(true),
-	)
-
-	common.ExitOnErr(cmd, blz.Open())
-
+	blz := openBlobovnicza(cmd)
 	defer blz.Close()
 
 	err := blobovnicza.IterateAddresses(blz, wAddr)

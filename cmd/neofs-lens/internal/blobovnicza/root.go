@@ -1,6 +1,10 @@
 package blobovnicza
 
-import "github.com/spf13/cobra"
+import (
+	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/spf13/cobra"
+)
 
 var (
 	vAddress string
@@ -16,4 +20,14 @@ var Root = &cobra.Command{
 
 func init() {
 	Root.AddCommand(listCMD, inspectCMD)
+}
+
+func openBlobovnicza(cmd *cobra.Command) *blobovnicza.Blobovnicza {
+	blz := blobovnicza.New(
+		blobovnicza.WithPath(vPath),
+		blobovnicza.WithReadOnly(true),
+	)
+	common.ExitOnErr(cmd, blz.Open())
+
+	return blz
 }

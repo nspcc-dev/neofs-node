@@ -1,6 +1,11 @@
 package writecache
 
-import "github.com/spf13/cobra"
+import (
+	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/spf13/cobra"
+	"go.etcd.io/bbolt"
+)
 
 var (
 	vAddress string
@@ -16,4 +21,11 @@ var Root = &cobra.Command{
 
 func init() {
 	Root.AddCommand(listCMD, inspectCMD)
+}
+
+func openWC(cmd *cobra.Command) *bbolt.DB {
+	db, err := writecache.OpenDB(vPath, true)
+	common.ExitOnErr(cmd, common.Errf("could not open write-cache db: %w", err))
+
+	return db
 }

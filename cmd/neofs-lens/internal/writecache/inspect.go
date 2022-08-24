@@ -21,9 +21,7 @@ func init() {
 }
 
 func inspectFunc(cmd *cobra.Command, _ []string) {
-	db, err := writecache.OpenDB(vPath, true)
-	common.ExitOnErr(cmd, common.Errf("could not open write-cache db: %w", err))
-
+	db := openWC(cmd)
 	defer db.Close()
 
 	data, err := writecache.Get(db, []byte(vAddress))

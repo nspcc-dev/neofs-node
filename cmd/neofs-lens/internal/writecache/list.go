@@ -30,11 +30,9 @@ func listFunc(cmd *cobra.Command, _ []string) {
 		return err
 	}
 
-	db, err := writecache.OpenDB(vPath, true)
-	common.ExitOnErr(cmd, common.Errf("could not open write-cache db: %w", err))
-
+	db := openWC(cmd)
 	defer db.Close()
 
-	err = writecache.IterateDB(db, wAddr)
+	err := writecache.IterateDB(db, wAddr)
 	common.ExitOnErr(cmd, common.Errf("write-cache iterator failure: %w", err))
 }
