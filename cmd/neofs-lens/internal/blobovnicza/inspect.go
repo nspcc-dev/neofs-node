@@ -27,12 +27,7 @@ func inspectFunc(cmd *cobra.Command, _ []string) {
 	err := addr.DecodeString(vAddress)
 	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
 
-	blz := blobovnicza.New(
-		blobovnicza.WithPath(vPath),
-		blobovnicza.WithReadOnly(true),
-	)
-	common.ExitOnErr(cmd, blz.Open())
-
+	blz := openBlobovnicza(cmd)
 	defer blz.Close()
 
 	var prm blobovnicza.GetPrm

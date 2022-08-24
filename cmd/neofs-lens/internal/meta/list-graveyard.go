@@ -1,12 +1,9 @@
 package meta
 
 import (
-	"time"
-
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
 )
 
 var listGraveyardCMD = &cobra.Command{
@@ -21,16 +18,8 @@ func init() {
 }
 
 func listGraveyardFunc(cmd *cobra.Command, _ []string) {
-	db := meta.New(
-		meta.WithPath(vPath),
-		meta.WithBoltDBOptions(&bbolt.Options{
-			ReadOnly: true,
-			Timeout:  100 * time.Millisecond,
-		}),
-		meta.WithEpochState(epochState{}),
-	)
-
-	common.ExitOnErr(cmd, common.Errf("could not open metabase: %w", db.Open(true)))
+	db := openMeta(cmd)
+	defer db.Close()
 
 	var gravePrm meta.GraveyardIterationPrm
 	gravePrm.SetHandler(
