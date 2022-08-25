@@ -106,6 +106,11 @@ func (db *DB) init(reset bool) error {
 		}
 
 		if !reset {
+			err = syncCounter(tx)
+			if err != nil {
+				return fmt.Errorf("could not sync object counter: %w", err)
+			}
+
 			return nil
 		}
 
