@@ -15,6 +15,20 @@ func TestMeta_Bytes(t *testing.T) {
 		require.Equal(t, uint64(0), m.Time)
 		require.Equal(t, []byte{0, 0}, m.Bytes())
 	})
+	t.Run("empty attribute value", func(t *testing.T) {
+		expected := Meta{
+			Time: 123,
+			Items: []KeyValue{
+				{"abc", []byte{1, 2, 3}},
+				{AttributeFilename, []byte{}},
+			}}
+
+		data := expected.Bytes()
+
+		var actual Meta
+		require.NoError(t, actual.FromBytes(data))
+		require.Equal(t, expected, actual)
+	})
 	t.Run("filled", func(t *testing.T) {
 		expected := Meta{
 			Time: 123,
