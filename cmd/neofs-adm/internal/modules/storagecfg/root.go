@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"net"
 	"net/url"
@@ -25,10 +24,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	netutil "github.com/nspcc-dev/neofs-node/pkg/network"
 
@@ -322,23 +321,17 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 	sideClient := initClient(n3config[network].MorphRPC)
 	balanceHash, _ := util.Uint160DecodeStringLE(n3config[network].BalanceContract)
 
-	res, err := sideClient.InvokeFunction(balanceHash, "balanceOf", []smartcontract.Parameter{{
-		Type:  smartcontract.Hash160Type,
-		Value: acc.Contract.ScriptHash(),
-	}}, nil)
-	fatalOnErr(err)
-
-	if res.State != vmstate.Halt.String() {
-		fatalOnErr(fmt.Errorf("invalid response from balance contract: %s", res.FaultException))
+	sideActor, err := actor.NewSimple(sideClient, acc)
+	if err != nil {
+		fatalOnErr(fmt.Errorf("creating actor over side chain client: %w", err))
 	}
 
-	var balance *big.Int
-	if len(res.Stack) != 0 {
-		balance, _ = res.Stack[0].TryInteger()
-	}
+	sideGas := nep17.NewReader(sideActor, balanceHash)
+	accSH := acc.Contract.ScriptHash()
 
-	if balance == nil {
-		fatalOnErr(errors.New("invalid response from balance contract"))
+	balance, err := sideGas.BalanceOf(accSH)
+	if err != nil {
+		fatalOnErr(fmt.Errorf("side chain balance: %w", err))
 	}
 
 	ok := getConfirmation(false, fmt.Sprintf("Current NeoFS balance is %s, make a deposit? y/[n]: ",
@@ -359,11 +352,17 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 	gasHash, err := mainClient.GetNativeContractHash(nativenames.Gas)
 	fatalOnErr(err)
 
-	tx, err := mainClient.CreateNEP17TransferTx(acc, neofsHash, gasHash, amount.Int64(), 0, nil, nil)
-	fatalOnErr(err)
+	mainActor, err := actor.NewSimple(mainClient, acc)
+	if err != nil {
+		fatalOnErr(fmt.Errorf("creating actor over main chain client: %w", err))
+	}
 
-	txHash, err := mainClient.SignAndPushTx(tx, acc, nil)
-	fatalOnErr(err)
+	mainGas := nep17.New(mainActor, gasHash)
+
+	txHash, _, err := mainGas.Transfer(accSH, neofsHash, amount, nil)
+	if err != nil {
+		fatalOnErr(fmt.Errorf("sending TX to the NeoFS contract: %w", err))
+	}
 
 	cmd.Print("Waiting for transactions to persist.")
 	tick := time.NewTicker(time.Second / 2)
