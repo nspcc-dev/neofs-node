@@ -312,6 +312,20 @@ func testForestTreeAddByPath(t *testing.T, s Forest) {
 			require.Equal(t, lm[1].Child, nodes[0])
 		})
 	})
+
+	t.Run("empty component", func(t *testing.T) {
+		meta := []KeyValue{
+			{Key: AttributeVersion, Value: []byte("XXX")},
+			{Key: AttributeFilename, Value: []byte{}}}
+		lm, err := s.TreeAddByPath(d, treeID, AttributeFilename, []string{"path", "to"}, meta)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(lm))
+
+		nodes, err := s.TreeGetByPath(d.CID, treeID, AttributeFilename, []string{"path", "to", ""}, false)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(nodes))
+		require.Equal(t, lm[0].Child, nodes[0])
+	})
 }
 
 func TestForest_Apply(t *testing.T) {
