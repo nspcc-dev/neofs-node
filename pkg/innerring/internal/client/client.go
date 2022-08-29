@@ -64,13 +64,12 @@ func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	var cliPrm client.PrmObjectSearch
 	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(sgFilter)
+	cliPrm.UseKey(*x.key)
 
 	rdr, err := x.c.ObjectSearchInit(prm.ctx, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
-
-	rdr.UseKey(*x.key)
 
 	buf := make([]oid.ID, 10)
 	var list []oid.ID
@@ -124,13 +123,12 @@ func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
+	cliPrm.UseKey(*x.key)
 
 	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
-
-	rdr.UseKey(*x.key)
 
 	var obj object.Object
 

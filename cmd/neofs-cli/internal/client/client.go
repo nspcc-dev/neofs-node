@@ -330,24 +330,24 @@ func (x PutObjectRes) ID() oid.ID {
 func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	var putPrm client.PrmObjectPutInit
 
+	if prm.sessionToken != nil {
+		putPrm.WithinSession(*prm.sessionToken)
+	}
+
+	if prm.bearerToken != nil {
+		putPrm.WithBearerToken(*prm.bearerToken)
+	}
+
+	if prm.local {
+		putPrm.MarkLocal()
+	}
+
+	putPrm.WithXHeaders(prm.xHeaders...)
+
 	wrt, err := prm.cli.ObjectPutInit(context.Background(), putPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object writing: %w", err)
 	}
-
-	if prm.sessionToken != nil {
-		wrt.WithinSession(*prm.sessionToken)
-	}
-
-	if prm.bearerToken != nil {
-		wrt.WithBearerToken(*prm.bearerToken)
-	}
-
-	if prm.local {
-		wrt.MarkLocal()
-	}
-
-	wrt.WithXHeaders(prm.xHeaders...)
 
 	if wrt.WriteHeader(*prm.hdr) {
 		if prm.headerCallback != nil {
