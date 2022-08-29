@@ -25,14 +25,19 @@ func (b *Blobovniczas) Init() error {
 		return nil
 	}
 
-	return b.iterateBlobovniczas(false, func(p string, blz *blobovnicza.Blobovnicza) error {
+	return b.iterateLeaves(func(p string) (bool, error) {
+		blz, err := b.openBlobovniczaNoCache(p, false)
+		if err != nil {
+			return true, err
+		}
+		defer blz.Close()
+
 		if err := blz.Init(); err != nil {
-			return fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
+			return true, fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
 		}
 
 		b.log.Debug("blobovnicza successfully initialized, closing...", zap.String("id", p))
-
-		return nil
+		return false, nil
 	})
 }
 
@@ -84,24 +89,9 @@ func (b *Blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 		return v.(*blobovnicza.Blobovnicza), nil
 	}
 
-	b.openMtx.Lock()
-	defer b.openMtx.Unlock()
-
-	b.lruMtx.Lock()
-	v, ok = b.opened.Get(p)
-	b.lruMtx.Unlock()
-	if ok {
-		// blobovnicza should be opened in cache
-		return v.(*blobovnicza.Blobovnicza), nil
-	}
-
-	blz := blobovnicza.New(append(b.blzOpts,
-		blobovnicza.WithReadOnly(b.readOnly),
-		blobovnicza.WithPath(filepath.Join(b.rootPath, p)),
-	)...)
-
-	if err := blz.Open(); err != nil {
-		return nil, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
+	blz, err := b.openBlobovniczaNoCache(p, true)
+	if err != nil {
+		return nil, err
 	}
 
 	b.activeMtx.Lock()
@@ -112,5 +102,30 @@ func (b *Blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 	b.lruMtx.Unlock()
 	b.activeMtx.Unlock()
 
+	return blz, nil
+}
+
+func (b *Blobovniczas) openBlobovniczaNoCache(p string, tryCache bool) (*blobovnicza.Blobovnicza, error) {
+	b.openMtx.Lock()
+	defer b.openMtx.Unlock()
+
+	if tryCache {
+		b.lruMtx.Lock()
+		v, ok := b.opened.Get(p)
+		b.lruMtx.Unlock()
+		if ok {
+			// blobovnicza should be opened in cache
+			return v.(*blobovnicza.Blobovnicza), nil
+		}
+	}
+
+	blz := blobovnicza.New(append(b.blzOpts,
+		blobovnicza.WithReadOnly(b.readOnly),
+		blobovnicza.WithPath(filepath.Join(b.rootPath, p)),
+	)...)
+
+	if err := blz.Open(); err != nil {
+		return nil, fmt.Errorf("could not open blobovnicza %s: %w", p, err)
+	}
 	return blz, nil
 }
