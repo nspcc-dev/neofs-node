@@ -15,6 +15,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -44,9 +46,12 @@ type Client struct {
 
 	logger *logger.Logger // logging component
 
-	client *rpcclient.WSClient // neo-go websocket client
+	client   *rpcclient.WSClient // neo-go websocket client
+	rpcActor *actor.Actor        // neo-go RPC actor
+	gasToken *nep17.Token        // neo-go GAS token wrapper
 
-	acc *wallet.Account // neo account
+	acc     *wallet.Account // neo account
+	accAddr util.Uint160    // account's address
 
 	signer *transaction.Signer
 
@@ -185,46 +190,14 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 		params = append(params, param)
 	}
 
-	cosigner := []transaction.Signer{
-		{
-			Account:          c.acc.PrivateKey().PublicKey().GetScriptHash(),
-			Scopes:           c.signer.Scopes,
-			AllowedContracts: c.signer.AllowedContracts,
-			AllowedGroups:    c.signer.AllowedGroups,
-		},
-	}
-
-	cosignerAcc := []rpcclient.SignerAccount{
-		{
-			Signer:  cosigner[0],
-			Account: c.acc,
-		},
-	}
-
-	resp, err := c.client.InvokeFunction(contract, method, params, cosigner)
+	txHash, vub, err := c.rpcActor.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), params)
 	if err != nil {
-		return err
-	}
-
-	if resp.State != HaltState {
-		return wrapNeoFSError(&notHaltStateError{state: resp.State, exception: resp.FaultException})
-	}
-
-	if len(resp.Script) == 0 {
-		return wrapNeoFSError(errEmptyInvocationScript)
-	}
-
-	script := resp.Script
-
-	sysFee := resp.GasConsumed + int64(fee) // consumed gas + extra fee
-
-	txHash, err := c.client.SignAndPushInvocationTx(script, c.acc, sysFee, 0, cosignerAcc)
-	if err != nil {
-		return err
+		return fmt.Errorf("could not invoke %s: %w", method, err)
 	}
 
 	c.logger.Debug("neo client invoke",
 		zap.String("method", method),
+		zap.Uint32("vub", vub),
 		zap.Stringer("tx_hash", txHash.Reverse()))
 
 	return nil
@@ -284,14 +257,16 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 		return err
 	}
 
-	txHash, err := c.client.TransferNEP17(c.acc, receiver, gas, int64(amount), 0, nil, nil)
+	gasToken := nep17.New(c.rpcActor, gas)
+	txHash, vub, err := gasToken.Transfer(c.accAddr, receiver, big.NewInt(int64(amount)), nil)
 	if err != nil {
 		return err
 	}
 
 	c.logger.Debug("native gas transfer invoke",
 		zap.String("to", receiver.StringLE()),
-		zap.Stringer("tx_hash", txHash.Reverse()))
+		zap.Stringer("tx_hash", txHash.Reverse()),
+		zap.Uint32("vub", vub))
 
 	return nil
 }
@@ -356,7 +331,13 @@ func (c *Client) GasBalance() (res int64, err error) {
 		return 0, err
 	}
 
-	return c.client.NEP17BalanceOf(gas, c.acc.PrivateKey().GetScriptHash())
+	gasToken := nep17.New(c.rpcActor, gas)
+	bal, err := gasToken.BalanceOf(c.accAddr)
+	if err != nil {
+		return 0, err
+	}
+
+	return bal.Int64(), nil
 }
 
 // Committee returns keys of chain committee from neo native contract.
