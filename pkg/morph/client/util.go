@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 )
 
@@ -91,4 +93,16 @@ func StringFromStackItem(param stackitem.Item) (string, error) {
 	}
 
 	return stackitem.ToString(param)
+}
+
+func addFeeCheckerModifier(add int64) func(r *result.Invoke, t *transaction.Transaction) error {
+	return func(r *result.Invoke, t *transaction.Transaction) error {
+		if r.State != HaltState {
+			return wrapNeoFSError(&notHaltStateError{state: r.State, exception: r.FaultException})
+		}
+
+		t.SystemFee += add
+
+		return nil
+	}
 }

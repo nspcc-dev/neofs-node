@@ -8,9 +8,12 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -82,6 +85,9 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		panic("empty private key")
 	}
 
+	acc := wallet.NewAccountFromPrivateKey(key)
+	accAddr := key.GetScriptHash()
+
 	// build default configuration
 	cfg := defaultConfig()
 
@@ -97,7 +103,8 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	cli := &Client{
 		cache:                  newClientCache(),
 		logger:                 cfg.logger,
-		acc:                    wallet.NewAccountFromPrivateKey(key),
+		acc:                    acc,
+		accAddr:                accAddr,
 		signer:                 cfg.signer,
 		cfg:                    *cfg,
 		switchLock:             &sync.RWMutex{},
@@ -109,6 +116,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 
 	cli.endpoints.init(cfg.endpoints)
 
+	var err error
 	if cfg.singleCli != nil {
 		// return client in single RPC node mode that uses
 		// predefined WS client
@@ -118,18 +126,21 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		// they will be used in switch process, otherwise
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
+
+		cli.rpcActor, err = newActor(cfg.singleCli, acc, *cfg)
+		if err != nil {
+			return nil, fmt.Errorf("could not create RPC actor: %w", err)
+		}
+
+		cli.gasToken, err = newGasToken(cli.client, cli.rpcActor)
+		if err != nil {
+			return nil, fmt.Errorf("could not create gas token actor: %w", err)
+		}
 	} else {
-		ws, err := newWSClient(*cfg, cli.endpoints.list[0].Address)
+		cli.client, cli.rpcActor, cli.gasToken, err = cli.newCli(cli.endpoints.list[0].Address)
 		if err != nil {
-			return nil, fmt.Errorf("could not create morph client: %w", err)
+			return nil, fmt.Errorf("could not create RPC client: %w", err)
 		}
-
-		err = ws.Init()
-		if err != nil {
-			return nil, fmt.Errorf("could not init morph client: %w", err)
-		}
-
-		cli.client = ws
 	}
 
 	go cli.notificationLoop()
@@ -137,12 +148,51 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	return cli, nil
 }
 
-func newWSClient(cfg cfg, endpoint string) (*rpcclient.WSClient, error) {
-	return rpcclient.NewWS(
-		cfg.ctx,
-		endpoint,
-		rpcclient.Options{DialTimeout: cfg.dialTimeout},
-	)
+func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, *nep17.Token, error) {
+	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.Options{
+		DialTimeout: c.cfg.dialTimeout,
+	})
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("WS client creation: %w", err)
+	}
+
+	err = cli.Init()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("WS client initialization: %w", err)
+	}
+
+	act, err := newActor(cli, c.acc, c.cfg)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("RPC actor creation: %w", err)
+	}
+
+	gas, err := newGasToken(cli, act)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("gas token actor: %w", err)
+	}
+
+	return cli, act, gas, nil
+}
+
+func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Actor, error) {
+	return actor.New(ws, []actor.SignerAccount{{
+		Signer: transaction.Signer{
+			Account:          acc.PrivateKey().PublicKey().GetScriptHash(),
+			Scopes:           cfg.signer.Scopes,
+			AllowedContracts: cfg.signer.AllowedContracts,
+			AllowedGroups:    cfg.signer.AllowedGroups,
+		},
+		Account: acc,
+	}})
+}
+
+func newGasToken(cli *rpcclient.WSClient, a *actor.Actor) (*nep17.Token, error) {
+	gasHash, err := cli.GetNativeContractHash(nativenames.Gas)
+	if err != nil {
+		return nil, fmt.Errorf("gas contract hash: %w", err)
+	}
+
+	return nep17.New(a, gasHash), nil
 }
 
 func newClientCache() cache {

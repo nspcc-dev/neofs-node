@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
@@ -12,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -167,15 +169,12 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		return util.Uint256{}, fmt.Errorf("can't get GAS script hash: %w", err)
 	}
 
-	txHash, err := c.client.TransferNEP17(
-		c.acc,
+	gasToken := nep17.New(c.rpcActor, gas)
+	txHash, vub, err := gasToken.Transfer(
+		c.accAddr,
 		c.notary.notary,
-		gas,
-		int64(amount),
-		0,
-		[]interface{}{c.acc.PrivateKey().GetScriptHash(), till},
-		nil,
-	)
+		big.NewInt(int64(amount)),
+		[]interface{}{c.acc.PrivateKey().GetScriptHash(), till})
 	if err != nil {
 		return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
 	}
@@ -183,6 +182,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 	c.logger.Debug("notary deposit invoke",
 		zap.Int64("amount", int64(amount)),
 		zap.Int64("expire_at", till),
+		zap.Uint32("vub", vub),
 		zap.Stringer("tx_hash", txHash.Reverse()))
 
 	return txHash, nil

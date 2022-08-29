@@ -36,7 +36,7 @@ func (c *Client) switchRPC() bool {
 	// Skip the current endpoint.
 	for c.endpoints.curr = range c.endpoints.list {
 		newEndpoint := c.endpoints.list[c.endpoints.curr].Address
-		cli, err := newWSClient(c.cfg, newEndpoint)
+		cli, act, gas, err := c.newCli(newEndpoint)
 		if err != nil {
 			c.logger.Warn("could not establish connection to the switched RPC node",
 				zap.String("endpoint", newEndpoint),
@@ -46,19 +46,10 @@ func (c *Client) switchRPC() bool {
 			continue
 		}
 
-		err = cli.Init()
-		if err != nil {
-			cli.Close()
-			c.logger.Warn("could not init the switched RPC node",
-				zap.String("endpoint", newEndpoint),
-				zap.Error(err),
-			)
-
-			continue
-		}
-
 		c.cache.invalidate()
 		c.client = cli
+		c.rpcActor = act
+		c.gasToken = gas
 
 		c.logger.Info("connection to the new RPC node has been established",
 			zap.String("endpoint", newEndpoint))
