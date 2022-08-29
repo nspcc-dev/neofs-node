@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -30,12 +31,16 @@ type Client interface {
 	GetNativeContracts() ([]state.NativeContract, error)
 	GetNetwork() (netmode.Magic, error)
 	GetApplicationLog(util.Uint256, *trigger.Type) (*result.ApplicationLog, error)
+	GetVersion() (*result.Version, error)
 	CreateTxFromScript([]byte, *wallet.Account, int64, int64, []rpcclient.SignerAccount) (*transaction.Transaction, error)
 	NEP17BalanceOf(util.Uint160, util.Uint160) (int64, error)
+	InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error)
+	InvokeFunction(contract util.Uint160, operation string, params []smartcontract.Parameter, signers []transaction.Signer) (*result.Invoke, error)
 	InvokeScript([]byte, []transaction.Signer) (*result.Invoke, error)
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
 	GetCommittee() (keys.PublicKeys, error)
 	CalculateNotaryFee(uint8) (int64, error)
+	CalculateNetworkFee(tx *transaction.Transaction) (int64, error)
 	AddNetworkFee(*transaction.Transaction, int64, ...*wallet.Account) error
 	SignAndPushInvocationTx([]byte, *wallet.Account, int64, fixedn.Fixed8, []rpcclient.SignerAccount) (util.Uint256, error)
 	SignAndPushP2PNotaryRequest(*transaction.Transaction, []byte, int64, int64, uint32, *wallet.Account) (*payload.P2PNotaryRequest, error)

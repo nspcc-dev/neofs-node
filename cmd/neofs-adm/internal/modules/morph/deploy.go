@@ -168,7 +168,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 		panic(fmt.Errorf("BUG: can't create deployment script: %w", w.Err))
 	}
 
-	if err := c.sendCommitteeTx(w.Bytes(), -1, false); err != nil {
+	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
 		return err
 	}
 	return c.awaitTx()

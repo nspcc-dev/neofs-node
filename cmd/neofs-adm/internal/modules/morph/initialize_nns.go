@@ -40,7 +40,7 @@ func (c *initializeContext) setNNS() error {
 			"neofs", c.CommitteeAcc.Contract.ScriptHash(),
 			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-		if err := c.sendCommitteeTx(bw.Bytes(), -1, true); err != nil {
+		if err := c.sendCommitteeTx(bw.Bytes(), true); err != nil {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
 		}
 		if err := c.awaitTx(); err != nil {
@@ -94,7 +94,7 @@ func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.Publi
 		script = w.Bytes()
 	}
 
-	return c.sendCommitteeTx(script, -1, true)
+	return c.sendCommitteeTx(script, true)
 }
 
 // emitUpdateNNSGroupScript emits script for updating group key stored in NNS.
@@ -199,7 +199,7 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 		domain, int64(nns.TXT), expectedHash.StringLE())
 	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 		domain, int64(nns.TXT), address.Uint160ToString(expectedHash))
-	return c.sendCommitteeTx(w.Bytes(), -1, true)
+	return c.sendCommitteeTx(w.Bytes(), true)
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string) (bool, error) {

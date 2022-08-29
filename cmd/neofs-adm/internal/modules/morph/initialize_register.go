@@ -104,7 +104,7 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	}
 
-	if err := c.sendCommitteeTx(bw.Bytes(), -1, false); err != nil {
+	if err := c.sendCommitteeTx(bw.Bytes(), false); err != nil {
 		return err
 	}
 
