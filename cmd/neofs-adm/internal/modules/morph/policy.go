@@ -48,7 +48,7 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 		emit.AppCall(bw.BinWriter, policyHash, "set"+kv[0], callflag.All, int64(value))
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1, false); err != nil {
+	if err := wCtx.sendCommitteeTx(bw.Bytes(), false); err != nil {
 		return err
 	}
 

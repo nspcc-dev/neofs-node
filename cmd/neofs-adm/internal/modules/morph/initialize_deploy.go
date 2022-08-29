@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
@@ -203,18 +204,7 @@ func (c *initializeContext) updateContracts() error {
 		emit.AppCallNoArgs(w.BinWriter, ctrHash, updateMethodName, callflag.All)
 	}
 
-	res, err := c.Client.InvokeScript(w.Bytes(), []transaction.Signer{{
-		Account: c.CommitteeAcc.Contract.ScriptHash(),
-		Scopes:  transaction.Global,
-	}})
-	if err != nil {
-		return fmt.Errorf("can't update alphabet contracts: %w", err)
-	}
-	if res.State != vmstate.Halt.String() {
-		return fmt.Errorf("can't update alphabet contracts: %s", res.FaultException)
-	}
-
-	if err := c.sendCommitteeTx(res.Script, res.GasConsumed, false); err != nil {
+	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
 		return err
 	}
 
@@ -294,7 +284,7 @@ func (c *initializeContext) updateContracts() error {
 	emit.Opcodes(w.BinWriter, opcode.LDSFLD0)
 	emit.AppCallNoArgs(w.BinWriter, nnsHash, "setPrice", callflag.All)
 
-	if err := c.sendCommitteeTx(w.Bytes(), -1, false); err != nil {
+	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
 		return err
 	}
 	return c.awaitTx()
@@ -325,20 +315,17 @@ func (c *initializeContext) deployContracts() error {
 		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
 		params := getContractDeployParameters(alphaCs, c.getAlphabetDeployItems(i, len(c.Wallets)))
 
-		res, err := invokeFunction(c.Client, mgmtHash, deployMethodName, params, []transaction.Signer{{
-			Account: acc.Contract.ScriptHash(),
-			Scopes:  transaction.CalledByEntry,
-		}})
+		act, err := actor.NewSimple(c.Client, acc)
+		if err != nil {
+			return fmt.Errorf("could not create actor: %w", err)
+		}
+
+		txHash, _, err := act.SendCall(mgmtHash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
-		if res.State != vmstate.Halt.String() {
-			return fmt.Errorf("can't deploy alpabet #%d contract: %s", i, res.FaultException)
-		}
 
-		if err := c.sendSingleTx(res.Script, res.GasConsumed, acc); err != nil {
-			return err
-		}
+		c.Hashes = append(c.Hashes, txHash)
 	}
 
 	for _, ctrName := range contractList {
@@ -369,7 +356,7 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
-		if err := c.sendCommitteeTx(res.Script, res.GasConsumed, false); err != nil {
+		if err := c.sendCommitteeTx(res.Script, false); err != nil {
 			return err
 		}
 	}

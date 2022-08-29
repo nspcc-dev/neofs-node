@@ -29,7 +29,7 @@ func (c *initializeContext) setNotaryAndAlphabetNodes() error {
 	emit.AppCall(w.BinWriter, designateHash, "designateAsRole",
 		callflag.States|callflag.AllowNotify, int64(noderoles.NeoFSAlphabet), pubs)
 
-	if err := c.sendCommitteeTx(w.Bytes(), -1, false); err != nil {
+	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
 		return err
 	}
 

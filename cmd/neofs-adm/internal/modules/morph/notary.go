@@ -2,6 +2,7 @@ package morph
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
@@ -9,11 +10,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
-	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -105,15 +103,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't get current height: %v", err)
 	}
 
-	bw := io.NewBufBinWriter()
-	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,
-		accHash, notaryHash.BytesBE(), int64(gasAmount), []interface{}{nil, int64(height) + till})
-	emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-	if bw.Err != nil {
-		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
-	}
-
-	tx, err := c.CreateTxFromScript(bw.Bytes(), acc, -1, 0, []rpcclient.SignerAccount{{
+	act, err := actor.New(c, []actor.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: acc.Contract.ScriptHash(),
 			Scopes:  transaction.Global,
@@ -121,21 +111,23 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		Account: acc,
 	}})
 	if err != nil {
-		return fmt.Errorf("can't create tx: %w", err)
+		return fmt.Errorf("could not create actor: %w", err)
 	}
 
-	mn, err := c.GetNetwork()
-	if err != nil {
-		// error appears only if client
-		// has not been initialized
-		panic(err)
-	}
+	gas := nep17.New(act, gasHash)
 
-	err = acc.SignTx(mn, tx)
+	txHash, _, err := gas.Transfer(
+		accHash,
+		notaryHash,
+		big.NewInt(int64(gasAmount)),
+		[]interface{}{nil, int64(height) + till},
+	)
 	if err != nil {
-		return fmt.Errorf("can't sign tx: %w", err)
+		return fmt.Errorf("could not send tx: %w", err)
 	}
 
 	cc := defaultClientContext(c)
-	return cc.sendTx(tx, cmd, true)
+	cc.Hashes = append(cc.Hashes, txHash)
+
+	return cc.awaitTx(cmd)
 }

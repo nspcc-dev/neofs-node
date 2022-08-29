@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
@@ -364,57 +364,45 @@ loop:
 }
 
 // sendCommitteeTx creates transaction from script and sends it to RPC.
-// If sysFee is -1, it is calculated automatically. If tryGroup is false,
-// global scope is used for the signer (useful when working with native contracts).
-func (c *initializeContext) sendCommitteeTx(script []byte, sysFee int64, tryGroup bool) error {
-	cosigners := []rpcclient.SignerAccount{{
-		Signer:  c.getSigner(tryGroup),
-		Account: c.CommitteeAcc,
-	}}
-	tx, err := c.Client.CreateTxFromScript(script, c.CommitteeAcc, sysFee, 0, cosigners)
+// Test invocation will be performed and the result will be checked. If tryGroup
+// is false, global scope is used for the signer (useful when working with native
+// contracts).
+func (c *initializeContext) sendCommitteeTx(script []byte, tryGroup bool) error {
+	sigCount := len(c.CommitteeAcc.Contract.Parameters)
+
+	signers := make([]actor.SignerAccount, 0, sigCount)
+	signer := c.getSigner(tryGroup)
+
+	for i, w := range c.Wallets {
+		if i == sigCount {
+			break
+		}
+
+		acc, err := getWalletAccount(w, committeeAccountName)
+		if err != nil {
+			return fmt.Errorf("could not get %s account for %d wallet: %w",
+				committeeAccountName, i, err)
+		}
+
+		signers = append(signers, actor.SignerAccount{
+			Signer:  signer,
+			Account: acc,
+		})
+	}
+
+	act, err := actor.New(c.Client, signers)
 	if err != nil {
-		return fmt.Errorf("can't create tx: %w", err)
+		return fmt.Errorf("could not create actor: %w", err)
 	}
 
-	tx.Attributes = append(tx.Attributes, transaction.Attribute{Type: transaction.HighPriority})
-
-	// Calculate network fee again, because tx size has changed.
-	_, accounts, err := getSigners(c.CommitteeAcc, cosigners)
+	txHash, _, err := act.SendTunedRun(script, []transaction.Attribute{{Type: transaction.HighPriority}}, nil)
 	if err != nil {
-		panic(fmt.Errorf("BUG: can't calculate network fee: %w", err))
+		return fmt.Errorf("cound not send transaction: %w", err)
 	}
 
-	tx.NetworkFee = 0
-	err = c.Client.AddNetworkFee(tx, 0, accounts...)
-	if err != nil {
-		return fmt.Errorf("failed to add network fee: %w", err)
-	}
-	return c.multiSignAndSend(tx, committeeAccountName)
-}
+	c.Hashes = append(c.Hashes, txHash)
 
-// sendSingleTx creates transaction signed by a simple account and pushes in onto the chain.
-// It neither waits until tx persists nor checks the execution result.
-func (c *initializeContext) sendSingleTx(script []byte, sysFee int64, acc *wallet.Account) error {
-	tx, err := c.Client.CreateTxFromScript(script, acc, sysFee, 0, []rpcclient.SignerAccount{{
-		Signer: transaction.Signer{
-			Account: acc.Contract.ScriptHash(),
-			Scopes:  transaction.CalledByEntry,
-		},
-		Account: acc,
-	}})
-	if err != nil {
-		return err
-	}
-
-	magic, err := c.Client.GetNetwork()
-	if err != nil {
-		return fmt.Errorf("can't fetch network magic: %w", err)
-	}
-	if err := acc.SignTx(magic, tx); err != nil {
-		return fmt.Errorf("can't sign tx: %w", err)
-	}
-
-	return c.sendTx(tx, c.Command, false)
+	return nil
 }
 
 func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {

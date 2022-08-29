@@ -52,7 +52,7 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1, true); err != nil {
+	if err := wCtx.sendCommitteeTx(bw.Bytes(), true); err != nil {
 		return err
 	}
 

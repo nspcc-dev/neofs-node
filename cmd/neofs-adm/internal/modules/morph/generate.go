@@ -195,7 +195,7 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), -1, false); err != nil {
+	if err := wCtx.sendCommitteeTx(bw.Bytes(), false); err != nil {
 		return err
 	}
 

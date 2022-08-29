@@ -134,7 +134,7 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	err = wCtx.sendCommitteeTx(bw.Bytes(), -1, true)
+	err = wCtx.sendCommitteeTx(bw.Bytes(), true)
 	if err != nil {
 		return err
 	}

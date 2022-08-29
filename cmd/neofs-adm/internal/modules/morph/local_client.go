@@ -179,6 +179,21 @@ func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int
 	panic("unexpected call")
 }
 
+func (l *localClient) GetVersion() (*result.Version, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) CalculateNetworkFee(tx *transaction.Transaction) (int64, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
 // AddNetworkFee adds network fee for each witness script and optional extra
 // network fee to transaction. `accs` is an array signer's accounts.
 // Copied from neo-go with minor corrections (no need to support contract signers):
