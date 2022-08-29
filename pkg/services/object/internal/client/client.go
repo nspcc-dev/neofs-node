@@ -145,14 +145,13 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	}
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
+	if prm.key != nil {
+		prm.cliPrm.UseKey(*prm.key)
+	}
 
 	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object reading: %w", err)
-	}
-
-	if prm.key != nil {
-		rdr.UseKey(*prm.key)
 	}
 
 	var obj object.Object
@@ -374,26 +373,26 @@ func (x PutObjectRes) ID() oid.ID {
 func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	var prmCli client.PrmObjectPutInit
 
+	prmCli.MarkLocal()
+
+	if prm.key != nil {
+		prmCli.UseKey(*prm.key)
+	}
+
+	if prm.tokenSession != nil {
+		prmCli.WithinSession(*prm.tokenSession)
+	}
+
+	if prm.tokenBearer != nil {
+		prmCli.WithBearerToken(*prm.tokenBearer)
+	}
+
+	prmCli.WithXHeaders(prm.xHeaders...)
+
 	w, err := prm.cli.ObjectPutInit(prm.ctx, prmCli)
 	if err != nil {
 		return nil, fmt.Errorf("init object writing on client: %w", err)
 	}
-
-	w.MarkLocal()
-
-	if prm.key != nil {
-		w.UseKey(*prm.key)
-	}
-
-	if prm.tokenSession != nil {
-		w.WithinSession(*prm.tokenSession)
-	}
-
-	if prm.tokenBearer != nil {
-		w.WithBearerToken(*prm.tokenBearer)
-	}
-
-	w.WithXHeaders(prm.xHeaders...)
 
 	if w.WriteHeader(*prm.obj) {
 		w.WritePayloadChunk(prm.obj.Payload())
@@ -460,13 +459,13 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
+	if prm.key != nil {
+		prm.cliPrm.UseKey(*prm.key)
+	}
+
 	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object searching in client: %w", err)
-	}
-
-	if prm.key != nil {
-		rdr.UseKey(*prm.key)
 	}
 
 	buf := make([]oid.ID, 10)
