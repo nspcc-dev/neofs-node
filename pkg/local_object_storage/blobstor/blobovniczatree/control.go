@@ -26,7 +26,7 @@ func (b *Blobovniczas) Init() error {
 	}
 
 	return b.iterateLeaves(func(p string) (bool, error) {
-		blz, err := b.openBlobovniczaNoCache(p, false)
+		blz, err := b.openBlobovniczaNoCache(p)
 		if err != nil {
 			return true, err
 		}
@@ -89,35 +89,38 @@ func (b *Blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 		return v.(*blobovnicza.Blobovnicza), nil
 	}
 
-	blz, err := b.openBlobovniczaNoCache(p, true)
+	lvlPath := filepath.Dir(p)
+	curIndex := u64FromHexString(filepath.Base(p))
+
+	b.activeMtx.RLock()
+	defer b.activeMtx.RUnlock()
+
+	active, ok := b.active[lvlPath]
+	if ok && active.ind == curIndex {
+		return active.blz, nil
+	}
+
+	b.lruMtx.Lock()
+	defer b.lruMtx.Unlock()
+
+	v, ok = b.opened.Get(p)
+	if ok {
+		return v.(*blobovnicza.Blobovnicza), nil
+	}
+
+	blz, err := b.openBlobovniczaNoCache(p)
 	if err != nil {
 		return nil, err
 	}
 
-	b.activeMtx.Lock()
-	b.lruMtx.Lock()
-
 	b.opened.Add(p, blz)
-
-	b.lruMtx.Unlock()
-	b.activeMtx.Unlock()
 
 	return blz, nil
 }
 
-func (b *Blobovniczas) openBlobovniczaNoCache(p string, tryCache bool) (*blobovnicza.Blobovnicza, error) {
+func (b *Blobovniczas) openBlobovniczaNoCache(p string) (*blobovnicza.Blobovnicza, error) {
 	b.openMtx.Lock()
 	defer b.openMtx.Unlock()
-
-	if tryCache {
-		b.lruMtx.Lock()
-		v, ok := b.opened.Get(p)
-		b.lruMtx.Unlock()
-		if ok {
-			// blobovnicza should be opened in cache
-			return v.(*blobovnicza.Blobovnicza), nil
-		}
-	}
 
 	blz := blobovnicza.New(append(b.blzOpts,
 		blobovnicza.WithReadOnly(b.readOnly),
