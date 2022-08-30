@@ -350,7 +350,9 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 	neofsHash, _ := util.Uint160DecodeStringLE(n3config[network].NeoFSContract)
 
 	gasHash, err := mainClient.GetNativeContractHash(nativenames.Gas)
-	fatalOnErr(err)
+	if err != nil {
+		fatalOnErr(fmt.Errorf("gas contract hash: %w", err))
+	}
 
 	mainActor, err := actor.NewSimple(mainClient, acc)
 	if err != nil {
