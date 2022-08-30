@@ -359,6 +359,7 @@ loop:
 		}
 	}
 
+	c.Hashes = c.Hashes[:0]
 	return retErr
 }
 
