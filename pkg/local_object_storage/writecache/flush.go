@@ -5,6 +5,7 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -110,13 +111,9 @@ func (c *cache) flush() {
 			break
 		}
 
-		c.evictObjects(len(m))
-		for i := range m {
-			c.flushed.Add(m[i].addr, true)
-		}
 		c.modeMtx.RUnlock()
 
-		c.log.Debug("flushed items from write-cache",
+		c.log.Debug("tried to flush items from write-cache",
 			zap.Int("count", len(m)),
 			zap.String("start", base58.Encode(lastKey)))
 	}
@@ -172,7 +169,7 @@ func (c *cache) flushBigObjects() {
 				}
 
 				// mark object as flushed
-				c.store.flushed.Add(sAddr, false)
+				c.flushed.Add(sAddr, false)
 
 				evictNum++
 
@@ -181,8 +178,6 @@ func (c *cache) flushBigObjects() {
 
 			_, _ = c.fsTree.Iterate(prm)
 
-			// evict objects which were successfully written to BlobStor
-			c.evictObjects(evictNum)
 			c.modeMtx.RUnlock()
 		case <-c.closeCh:
 			return
@@ -208,6 +203,8 @@ func (c *cache) flushWorker(_ int) {
 		err := c.flushObject(obj)
 		if err != nil {
 			c.log.Error("can't flush object to the main storage", zap.Error(err))
+		} else {
+			c.flushed.Add(objectCore.AddressOf(obj).EncodeToString(), true)
 		}
 	}
 }
