@@ -115,6 +115,12 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 	return nil
 }
 
+// IsNotaryEnabled returns true if EnableNotarySupport has been successfully
+// called before.
+func (c *Client) IsNotaryEnabled() bool {
+	return c.notary != nil
+}
+
 // ProbeNotary checks if native `Notary` contract is presented on chain.
 func (c *Client) ProbeNotary() (res bool) {
 	c.switchLock.RLock()

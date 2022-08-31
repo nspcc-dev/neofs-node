@@ -34,7 +34,7 @@ type staticOpts struct {
 //
 // See also TryNotary.
 func (s *StaticClient) WithNotary() bool {
-	return s.tryNotary
+	return s.client.IsNotaryEnabled()
 }
 
 // IsAlpha returns Alphabet status of the client.
