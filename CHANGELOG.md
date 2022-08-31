@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Panic on write-cache's `Delete` operation (#1664)
 - Payload duplication in `neofs-cli storagegroup put` (#1706)
+- Contract calls in notary disabled environments (#1743)
 
 ### Removed
 
