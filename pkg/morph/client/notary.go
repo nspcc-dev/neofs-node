@@ -490,6 +490,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	}
 
 	// add network fee for cosigners
+	//nolint:staticcheck // waits for neo-go v0.99.3 with notary actors
 	err = c.client.AddNetworkFee(
 		mainTx,
 		notaryFee,
