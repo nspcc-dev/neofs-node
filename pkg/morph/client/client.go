@@ -179,18 +179,7 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 		return ErrConnectionLost
 	}
 
-	params := make([]sc.Parameter, 0, len(args))
-
-	for i := range args {
-		param, err := toStackParameter(args[i])
-		if err != nil {
-			return err
-		}
-
-		params = append(params, param)
-	}
-
-	txHash, vub, err := c.rpcActor.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), params)
+	txHash, vub, err := c.rpcActor.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), args...)
 	if err != nil {
 		return fmt.Errorf("could not invoke %s: %w", method, err)
 	}
@@ -213,25 +202,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 		return nil, ErrConnectionLost
 	}
 
-	var params = make([]sc.Parameter, 0, len(args))
-
-	for i := range args {
-		p, err := toStackParameter(args[i])
-		if err != nil {
-			return nil, err
-		}
-
-		params = append(params, p)
-	}
-
-	cosigner := []transaction.Signer{
-		{
-			Account: c.acc.PrivateKey().PublicKey().GetScriptHash(),
-			Scopes:  transaction.Global,
-		},
-	}
-
-	val, err := c.client.InvokeFunction(contract, method, params, cosigner)
+	val, err := c.rpcActor.Call(contract, method, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -252,13 +223,7 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 		return ErrConnectionLost
 	}
 
-	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return err
-	}
-
-	gasToken := nep17.New(c.rpcActor, gas)
-	txHash, vub, err := gasToken.Transfer(c.accAddr, receiver, big.NewInt(int64(amount)), nil)
+	txHash, vub, err := c.gasToken.Transfer(c.accAddr, receiver, big.NewInt(int64(amount)), nil)
 	if err != nil {
 		return err
 	}
@@ -288,7 +253,7 @@ func (c *Client) Wait(ctx context.Context, n uint32) error {
 		height, newHeight uint32
 	)
 
-	height, err = c.client.GetBlockCount()
+	height, err = c.rpcActor.GetBlockCount()
 	if err != nil {
 		c.logger.Error("can't get blockchain height",
 			zap.String("error", err.Error()))
@@ -302,7 +267,7 @@ func (c *Client) Wait(ctx context.Context, n uint32) error {
 		default:
 		}
 
-		newHeight, err = c.client.GetBlockCount()
+		newHeight, err = c.rpcActor.GetBlockCount()
 		if err != nil {
 			c.logger.Error("can't get blockchain height",
 				zap.String("error", err.Error()))
@@ -326,13 +291,7 @@ func (c *Client) GasBalance() (res int64, err error) {
 		return 0, ErrConnectionLost
 	}
 
-	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return 0, err
-	}
-
-	gasToken := nep17.New(c.rpcActor, gas)
-	bal, err := gasToken.BalanceOf(c.accAddr)
+	bal, err := c.gasToken.BalanceOf(c.accAddr)
 	if err != nil {
 		return 0, err
 	}
@@ -413,7 +372,7 @@ func (c *Client) GetDesignateHash() (res util.Uint160, err error) {
 }
 
 func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
-	height, err := c.client.GetBlockCount()
+	height, err := c.rpcActor.GetBlockCount()
 	if err != nil {
 		return nil, fmt.Errorf("can't get chain height: %w", err)
 	}
@@ -489,14 +448,7 @@ func (c *Client) MagicNumber() (uint64, error) {
 		return 0, ErrConnectionLost
 	}
 
-	mNum, err := c.client.GetNetwork()
-	if err != nil {
-		// error appears only if client
-		// has not been initialized
-		panic(err)
-	}
-
-	return uint64(mNum), nil
+	return uint64(c.rpcActor.GetNetwork()), nil
 }
 
 // BlockCount returns block count of the network
@@ -509,7 +461,7 @@ func (c *Client) BlockCount() (res uint32, err error) {
 		return 0, ErrConnectionLost
 	}
 
-	return c.client.GetBlockCount()
+	return c.rpcActor.GetBlockCount()
 }
 
 // MsPerBlock returns MillisecondsPerBlock network parameter.
@@ -521,10 +473,7 @@ func (c *Client) MsPerBlock() (res int64, err error) {
 		return 0, ErrConnectionLost
 	}
 
-	v, err := c.client.GetVersion()
-	if err != nil {
-		return 0, fmt.Errorf("getVersion: %w", err)
-	}
+	v := c.rpcActor.GetVersion()
 
 	return int64(v.Protocol.MillisecondsPerBlock), nil
 }

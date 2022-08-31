@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -149,7 +148,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	bc, err := c.client.GetBlockCount()
+	bc, err := c.rpcActor.GetBlockCount()
 	if err != nil {
 		return util.Uint256{}, fmt.Errorf("can't get blockchain height: %w", err)
 	}
@@ -164,13 +163,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		till = currentTill
 	}
 
-	gas, err := c.client.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return util.Uint256{}, fmt.Errorf("can't get GAS script hash: %w", err)
-	}
-
-	gasToken := nep17.New(c.rpcActor, gas)
-	txHash, vub, err := gasToken.Transfer(
+	txHash, vub, err := c.gasToken.Transfer(
 		c.accAddr,
 		c.notary.notary,
 		big.NewInt(int64(amount)),
@@ -704,7 +697,7 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedB
 }
 
 func (c *Client) notaryTxValidationLimit() (uint32, error) {
-	bc, err := c.client.GetBlockCount()
+	bc, err := c.rpcActor.GetBlockCount()
 	if err != nil {
 		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
 	}
