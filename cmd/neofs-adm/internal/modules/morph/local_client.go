@@ -26,8 +26,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -42,6 +44,7 @@ type localClient struct {
 	transactions []*transaction.Transaction
 	dumpPath     string
 	accounts     []*wallet.Account
+	maxGasInvoke int64
 }
 
 func newLocalClient(v *viper.Viper, wallets []*wallet.Wallet) (*localClient, error) {
@@ -83,9 +86,10 @@ func newLocalClient(v *viper.Viper, wallets []*wallet.Wallet) (*localClient, err
 	go bc.Run()
 
 	return &localClient{
-		bc:       bc,
-		dumpPath: v.GetString(localDumpFlag),
-		accounts: accounts[:m],
+		bc:           bc,
+		dumpPath:     v.GetString(localDumpFlag),
+		accounts:     accounts[:m],
+		maxGasInvoke: 15_0000_0000,
 	}, nil
 }
 
@@ -159,9 +163,19 @@ func (l *localClient) GetCommittee() (keys.PublicKeys, error) {
 	panic("unexpected call")
 }
 
-func (l *localClient) InvokeFunction(_ util.Uint160, _ string, _ []smartcontract.Parameter, _ []transaction.Signer) (*result.Invoke, error) {
-	// not used by `morph init` command
-	panic("unexpected call")
+// InvokeFunction is implemented via `InvokeScript`.
+func (l *localClient) InvokeFunction(h util.Uint160, method string, sPrm []smartcontract.Parameter, ss []transaction.Signer) (*result.Invoke, error) {
+	var err error
+
+	pp := make([]interface{}, len(sPrm))
+	for i, p := range sPrm {
+		pp[i], err = smartcontract.ExpandParameterToEmitable(p)
+		if err != nil {
+			return nil, fmt.Errorf("incorrect parameter type %s: %w", p.Type, err)
+		}
+	}
+
+	return invokeFunction(l, h, method, pp, ss)
 }
 
 func (l *localClient) CalculateNotaryFee(_ uint8) (int64, error) {
@@ -179,9 +193,9 @@ func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int
 	panic("unexpected call")
 }
 
+// GetVersion return default version.
 func (l *localClient) GetVersion() (*result.Version, error) {
-	// not used by `morph init` command
-	panic("unexpected call")
+	return &result.Version{}, nil
 }
 
 func (l *localClient) InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error) {
@@ -189,9 +203,57 @@ func (l *localClient) InvokeContractVerify(contract util.Uint160, params []smart
 	panic("unexpected call")
 }
 
+// CalculateNetworkFee calculates network fee for the given transaction.
+// Copied from neo-go with minor corrections (no need to support non-notary mode):
+// https://github.com/nspcc-dev/neo-go/blob/v0.99.2/pkg/services/rpcsrv/server.go#L744
 func (l *localClient) CalculateNetworkFee(tx *transaction.Transaction) (int64, error) {
-	// not used by `morph init` command
-	panic("unexpected call")
+	hashablePart, err := tx.EncodeHashableFields()
+	if err != nil {
+		return 0, fmt.Errorf("failed to compute tx size: %w", err)
+	}
+
+	size := len(hashablePart) + io.GetVarSize(len(tx.Signers))
+
+	var netFee int64
+	for i, signer := range tx.Signers {
+		w := tx.Scripts[i]
+		if len(w.InvocationScript) == 0 { // No invocation provided, try to infer one.
+			var paramz []manifest.Parameter
+
+			if vm.IsSignatureContract(w.VerificationScript) {
+				paramz = []manifest.Parameter{{Type: smartcontract.SignatureType}}
+			} else if nSigs, _, ok := vm.ParseMultiSigContract(w.VerificationScript); ok {
+				paramz = make([]manifest.Parameter, nSigs)
+				for j := 0; j < nSigs; j++ {
+					paramz[j] = manifest.Parameter{Type: smartcontract.SignatureType}
+				}
+			}
+
+			inv := io.NewBufBinWriter()
+			for _, p := range paramz {
+				p.Type.EncodeBinary(inv.BinWriter)
+			}
+			if inv.Err != nil {
+				return 0, fmt.Errorf("failed to create dummy invocation script (signer %d): %w", i, inv.Err)
+			}
+			w.InvocationScript = inv.Bytes()
+		}
+		gasConsumed, _ := l.bc.VerifyWitness(signer.Account, tx, &w, l.maxGasInvoke)
+		netFee += gasConsumed
+		size += io.GetVarSize(w.VerificationScript) + io.GetVarSize(w.InvocationScript)
+	}
+
+	// notary service is expected to be enabled
+	attrs := tx.GetAttributes(transaction.NotaryAssistedT)
+	if len(attrs) != 0 {
+		na := attrs[0].Value.(*transaction.NotaryAssisted)
+		netFee += (int64(na.NKeys) + 1) * l.bc.GetNotaryServiceFeePerKey()
+	}
+
+	fee := l.bc.FeePerByte()
+	netFee += int64(size) * fee
+
+	return netFee, nil
 }
 
 // AddNetworkFee adds network fee for each witness script and optional extra
