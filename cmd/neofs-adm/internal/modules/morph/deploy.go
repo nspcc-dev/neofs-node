@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/cli/cmdargs"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/services/rpcsrv/params"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
@@ -117,13 +118,13 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 		emit.AppCall(bw.BinWriter, nnsCs.Hash, "setPrice", callflag.All, 1)
 
 		start := bw.Len()
-		newRecord := false
+		needRecord := false
 
 		ok, err := c.nnsRootRegistered(nnsCs.Hash, zone)
 		if err != nil {
 			return err
 		} else if !ok {
-			newRecord = true
+			needRecord = true
 
 			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
 				zone, c.CommitteeAcc.Contract.ScriptHash(),
@@ -134,23 +135,21 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 				domain, c.CommitteeAcc.Contract.ScriptHash(),
 				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 			emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
-				domain, int64(nns.TXT), cs.Hash.StringLE())
 		} else {
 			s, ok, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain)
 			if err != nil {
 				return err
 			}
-			if !ok {
-				newRecord = true
-				if len(s) != 0 {
-					bw.WriteBytes(s)
-				}
-				emit.AppCall(w.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
-					domain, int64(nns.TXT), cs.Hash.StringLE())
+			needRecord = !ok
+			if len(s) != 0 {
+				bw.WriteBytes(s)
 			}
 		}
+		if needRecord {
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
+				domain, int64(nns.TXT), address.Uint160ToString(cs.Hash))
+		}
+
 		if bw.Err != nil {
 			panic(fmt.Errorf("BUG: can't create deployment script: %w", w.Err))
 		} else if bw.Len() != start {
@@ -158,7 +157,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 			emit.Opcodes(w.BinWriter, opcode.LDSFLD0, opcode.PUSH1, opcode.PACK)
 			emit.AppCallNoArgs(w.BinWriter, nnsCs.Hash, "setPrice", callflag.All)
 
-			if newRecord {
+			if needRecord {
 				c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 			}
 		}
