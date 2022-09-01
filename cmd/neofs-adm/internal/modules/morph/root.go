@@ -258,6 +258,7 @@ func init() {
 
 	RootCmd.AddCommand(dumpContractHashesCmd)
 	dumpContractHashesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	dumpContractHashesCmd.Flags().String(customZoneFlag, "", "Custom zone to search.")
 
 	RootCmd.AddCommand(dumpNetworkConfigCmd)
 	dumpNetworkConfigCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
