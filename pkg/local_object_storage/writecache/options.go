@@ -31,8 +31,8 @@ type options struct {
 	// maxCacheSize is the maximum total size of all objects saved in cache (DB + FS).
 	// 1 GiB by default.
 	maxCacheSize uint64
-	// objCounters is an ObjectCounters instance needed for cache size estimation.
-	objCounters ObjectCounters
+	// objCounters contains atomic counters for the number of objects stored in cache.
+	objCounters counters
 	// maxBatchSize is the maximum batch size for the small object database.
 	maxBatchSize int
 	// maxBatchDelay is the maximum batch wait time for the small object database.
@@ -97,13 +97,6 @@ func WithFlushWorkersCount(c int) Option {
 		if c > 0 {
 			o.workersCount = c
 		}
-	}
-}
-
-// WithObjectCounters sets ObjectCounters instance needed for cache write-cache size estimation.
-func WithObjectCounters(v ObjectCounters) Option {
-	return func(o *options) {
-		o.objCounters = v
 	}
 }
 
