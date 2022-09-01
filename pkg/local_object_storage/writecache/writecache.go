@@ -66,9 +66,9 @@ type objectInfo struct {
 }
 
 const (
-	maxObjectSize     = 64 * 1024 * 1024 // 64 MiB
-	smallObjectSize   = 32 * 1024        // 32 KiB
-	maxCacheSizeBytes = 1 << 30          // 1 GiB
+	defaultMaxObjectSize   = 64 * 1024 * 1024 // 64 MiB
+	defaultSmallObjectSize = 32 * 1024        // 32 KiB
+	defaultMaxCacheSize    = 1 << 30          // 1 GiB
 )
 
 var (
@@ -84,10 +84,10 @@ func New(opts ...Option) Cache {
 		compressFlags: make(map[string]struct{}),
 		options: options{
 			log:             zap.NewNop(),
-			maxObjectSize:   maxObjectSize,
-			smallObjectSize: smallObjectSize,
+			maxObjectSize:   defaultMaxObjectSize,
+			smallObjectSize: defaultSmallObjectSize,
 			workersCount:    defaultFlushWorkersCount,
-			maxCacheSize:    maxCacheSizeBytes,
+			maxCacheSize:    defaultMaxCacheSize,
 			maxBatchSize:    bbolt.DefaultMaxBatchSize,
 			maxBatchDelay:   bbolt.DefaultMaxBatchDelay,
 		},
