@@ -3,7 +3,6 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -40,7 +39,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 	for i := range prm.addr {
 		if s.hasWriteCache() {
 			err := s.writeCache.Delete(prm.addr[i])
-			if err != nil && !writecache.IsErrNotFound(err) {
+			if err != nil && !IsErrNotFound(err) {
 				s.log.Error("can't delete object from write cache", zap.String("error", err.Error()))
 			}
 		}
