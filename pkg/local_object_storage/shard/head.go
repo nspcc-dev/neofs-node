@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -56,7 +55,7 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 			return HeadRes{
 				obj: header,
 			}, nil
-		} else if !writecache.IsErrNotFound(err) {
+		} else if !IsErrNotFound(err) {
 			// in this case we think that object is presented in write-cache, but corrupted
 			return HeadRes{}, fmt.Errorf("could not read header from write-cache: %w", err)
 		}
