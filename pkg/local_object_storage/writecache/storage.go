@@ -20,17 +20,15 @@ import (
 // store represents persistent storage with in-memory LRU cache
 // for flushed items on top of it.
 type store struct {
+	maxFlushedMarksCount int
+	maxRemoveBatchSize   int
+
 	flushed simplelru.LRUCache
 	db      *bbolt.DB
 
 	dbKeysToRemove []string
 	fsKeysToRemove []string
 }
-
-const (
-	maxFlushedMarksCount = 256 * 1024 * 8
-	maxRemoveBatchSize   = maxFlushedMarksCount / 4
-)
 
 const dbName = "small.bolt"
 
@@ -70,7 +68,7 @@ func (c *cache) openStore(readOnly bool) error {
 	// Write-cache can be opened multiple times during `SetMode`.
 	// flushed map must not be re-created in this case.
 	if c.flushed == nil {
-		c.flushed, _ = lru.NewWithEvict(maxFlushedMarksCount, c.removeFlushed)
+		c.flushed, _ = lru.NewWithEvict(c.maxFlushedMarksCount, c.removeFlushed)
 	}
 	return nil
 }
@@ -87,7 +85,7 @@ func (c *cache) removeFlushed(key, value interface{}) {
 		c.fsKeysToRemove = append(c.fsKeysToRemove, key.(string))
 	}
 
-	if len(c.dbKeysToRemove)+len(c.fsKeysToRemove) >= maxRemoveBatchSize {
+	if len(c.dbKeysToRemove)+len(c.fsKeysToRemove) >= c.maxRemoveBatchSize {
 		c.dbKeysToRemove = c.deleteFromDB(c.dbKeysToRemove)
 		c.fsKeysToRemove = c.deleteFromDisk(c.fsKeysToRemove)
 	}
