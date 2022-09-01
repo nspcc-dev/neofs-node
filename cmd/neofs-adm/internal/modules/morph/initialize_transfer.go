@@ -129,7 +129,12 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 	if err != nil {
 		return fmt.Errorf("incomplete signature: %w", err)
 	}
-	tx.Scripts = append(tx.Scripts, *w)
+
+	if len(tx.Scripts) == 0 {
+		tx.Scripts = append(tx.Scripts, *w)
+	} else {
+		tx.Scripts[0] = *w
+	}
 
 	return nil
 }
