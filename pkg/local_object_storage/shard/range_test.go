@@ -65,7 +65,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 	}
 
 	sh := newCustomShard(t, t.TempDir(), hasWriteCache,
-		[]writecache.Option{writecache.WithMaxMemSize(0), writecache.WithMaxObjectSize(writeCacheMaxSize)},
+		[]writecache.Option{writecache.WithMaxObjectSize(writeCacheMaxSize)},
 		[]blobstor.Option{blobstor.WithStorages([]blobstor.SubStorage{
 			{
 				Storage: blobovniczatree.NewBlobovniczaTree(
