@@ -97,6 +97,12 @@ func New(opts ...Option) Cache {
 		opts[i](&c.options)
 	}
 
+	// Make the LRU cache contain which take approximately 3/4 of the maximum space.
+	// Assume small and big objects are stored in 50-50 proportion.
+	c.maxFlushedMarksCount = int(c.maxCacheSize/c.maxObjectSize+c.maxCacheSize/c.smallObjectSize) / 2 * 3 / 4
+	// Trigger the removal when the cache is 7/8 full, so that new items can still arrive.
+	c.maxRemoveBatchSize = c.maxFlushedMarksCount / 8
+
 	return c
 }
 
