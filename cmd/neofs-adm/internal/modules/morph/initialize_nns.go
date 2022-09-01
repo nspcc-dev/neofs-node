@@ -10,6 +10,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
@@ -256,17 +257,30 @@ func nnsResolveKey(c Client, nnsHash util.Uint160, domain string) (*keys.PublicK
 // It works with multiple formats (corresponding to multiple NNS versions).
 // If array of hashes is provided, it returns only the first one.
 func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
-	if arr, ok := res.Value().([]stackitem.Item); ok {
-		if len(arr) == 0 {
-			return util.Uint160{}, errors.New("NNS record is missing")
+	arr, ok := res.Value().([]stackitem.Item)
+	if !ok {
+		arr = []stackitem.Item{res}
+	}
+	if _, ok := res.Value().(stackitem.Null); ok || len(arr) == 0 {
+		return util.Uint160{}, errors.New("NNS record is missing")
+	}
+	for i := range arr {
+		bs, err := arr[i].TryBytes()
+		if err != nil {
+			continue
 		}
-		res = arr[0]
+
+		h, err := util.Uint160DecodeStringLE(string(bs))
+		if err == nil {
+			return h, nil
+		}
+
+		h, err = address.StringToUint160(string(bs))
+		if err == nil {
+			return h, nil
+		}
 	}
-	bs, err := res.TryBytes()
-	if err != nil {
-		return util.Uint160{}, errors.New("malformed response")
-	}
-	return util.Uint160DecodeStringLE(string(bs))
+	return util.Uint160{}, errors.New("no valid hashes are found")
 }
 
 var errNNSIsAvailableInvalid = errors.New("`isAvailable`: invalid response")
