@@ -124,12 +124,7 @@ func (c *cache) Open(readOnly bool) error {
 	// thus we need to create a channel here.
 	c.closeCh = make(chan struct{})
 
-	c.objCounters = &counters{
-		db: c.db,
-		fs: c.fsTree,
-	}
-
-	return c.objCounters.Read()
+	return c.initCounters()
 }
 
 // Init runs necessary services.
@@ -152,11 +147,6 @@ func (c *cache) Close() error {
 	c.wg.Wait()
 	if c.closeCh != nil {
 		c.closeCh = nil
-	}
-
-	if c.objCounters != nil {
-		c.objCounters.FlushAndClose()
-		c.objCounters = nil
 	}
 
 	var err error
