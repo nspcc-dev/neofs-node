@@ -414,7 +414,6 @@ func initShardOptions(c *cfg) {
 				writecache.WithLogger(c.log),
 				writecache.WithMaxBatchSize(writeCacheCfg.BoltDB().MaxBatchSize()),
 				writecache.WithMaxBatchDelay(writeCacheCfg.BoltDB().MaxBatchDelay()),
-				writecache.WithMaxMemSize(writeCacheCfg.MemSize()),
 				writecache.WithMaxObjectSize(writeCacheCfg.MaxObjectSize()),
 				writecache.WithSmallObjectSize(writeCacheCfg.SmallObjectSize()),
 				writecache.WithFlushWorkersCount(writeCacheCfg.WorkersNumber()),

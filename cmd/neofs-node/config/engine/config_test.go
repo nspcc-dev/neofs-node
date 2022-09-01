@@ -70,7 +70,6 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, false, wc.Enabled())
 
 				require.Equal(t, "tmp/0/cache", wc.Path())
-				require.EqualValues(t, 2147483648, wc.MemSize())
 				require.EqualValues(t, 16384, wc.SmallObjectSize())
 				require.EqualValues(t, 134217728, wc.MaxObjectSize())
 				require.EqualValues(t, 30, wc.WorkersNumber())
@@ -113,7 +112,6 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, true, wc.Enabled())
 
 				require.Equal(t, "tmp/1/cache", wc.Path())
-				require.EqualValues(t, 2147483648, wc.MemSize())
 				require.EqualValues(t, 16384, wc.SmallObjectSize())
 				require.EqualValues(t, 134217728, wc.MaxObjectSize())
 				require.EqualValues(t, 30, wc.WorkersNumber())

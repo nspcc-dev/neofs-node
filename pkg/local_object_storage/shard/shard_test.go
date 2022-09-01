@@ -35,7 +35,7 @@ func (s epochState) CurrentEpoch() uint64 {
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 	return newCustomShard(t, t.TempDir(), enableWriteCache,
-		[]writecache.Option{writecache.WithMaxMemSize(0)},
+		nil,
 		nil)
 }
 

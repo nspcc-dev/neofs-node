@@ -11,9 +11,6 @@ type Config config.Config
 
 // config defaults
 const (
-	// MemSizeDefault is a default memory size.
-	MemSizeDefault = 1 << 30
-
 	// SmallSizeDefault is a default size of small objects.
 	SmallSizeDefault = 32 << 10
 
@@ -53,22 +50,6 @@ func (x *Config) Path() string {
 	}
 
 	return p
-}
-
-// MemSize returns the value of "memcache_capacity" config parameter.
-//
-// Returns MemSizeDefault if the value is not a positive number.
-func (x *Config) MemSize() uint64 {
-	s := config.SizeInBytesSafe(
-		(*config.Config)(x),
-		"memcache_capacity",
-	)
-
-	if s > 0 {
-		return s
-	}
-
-	return MemSizeDefault
 }
 
 // SmallObjectSize returns the value of "small_object_size" config parameter.

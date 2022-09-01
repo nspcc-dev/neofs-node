@@ -19,9 +19,6 @@ type options struct {
 	blobstor *blobstor.BlobStor
 	// metabase is the metabase instance.
 	metabase *meta.DB
-	// maxMemSize is the maximum total size of all objects cached in memory.
-	// 1 GiB by default.
-	maxMemSize uint64
 	// maxObjectSize is the maximum size of the object stored in the write-cache.
 	maxObjectSize uint64
 	// smallObjectSize is the maximum size of the object stored in the database.
@@ -64,13 +61,6 @@ func WithBlobstor(bs *blobstor.BlobStor) Option {
 func WithMetabase(db *meta.DB) Option {
 	return func(o *options) {
 		o.metabase = db
-	}
-}
-
-// WithMaxMemSize sets maximum size for in-memory DB.
-func WithMaxMemSize(sz uint64) Option {
-	return func(o *options) {
-		o.maxMemSize = sz
 	}
 }
 

@@ -66,10 +66,9 @@ type objectInfo struct {
 }
 
 const (
-	maxInMemorySizeBytes = 1024 * 1024 * 1024 // 1 GiB
-	maxObjectSize        = 64 * 1024 * 1024   // 64 MiB
-	smallObjectSize      = 32 * 1024          // 32 KiB
-	maxCacheSizeBytes    = 1 << 30            // 1 GiB
+	maxObjectSize     = 64 * 1024 * 1024 // 64 MiB
+	smallObjectSize   = 32 * 1024        // 32 KiB
+	maxCacheSizeBytes = 1 << 30          // 1 GiB
 )
 
 var (
@@ -85,7 +84,6 @@ func New(opts ...Option) Cache {
 		compressFlags: make(map[string]struct{}),
 		options: options{
 			log:             zap.NewNop(),
-			maxMemSize:      maxInMemorySizeBytes,
 			maxObjectSize:   maxObjectSize,
 			smallObjectSize: smallObjectSize,
 			workersCount:    defaultFlushWorkersCount,
