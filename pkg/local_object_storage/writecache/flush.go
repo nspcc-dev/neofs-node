@@ -185,9 +185,7 @@ func (c *cache) flushBigObjects() {
 	}
 }
 
-// flushWorker runs in a separate goroutine and write objects to the main storage.
-// If flushFirst is true, flushing objects from cache database takes priority over
-// putting new objects.
+// flushWorker writes objects to the main storage.
 func (c *cache) flushWorker(_ int) {
 	defer c.wg.Done()
 
