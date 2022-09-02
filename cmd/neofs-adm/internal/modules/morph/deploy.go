@@ -138,13 +138,17 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 			emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
 				domain, int64(nns.TXT), cs.Hash.StringLE())
 		} else {
-			s, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain, false)
+			s, ok, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain, false)
 			if err != nil {
 				return err
 			}
-			if len(s) != 0 {
+			if !ok {
 				newRecord = true
-				bw.WriteBytes(s)
+				if len(s) != 0 {
+					bw.WriteBytes(s)
+				}
+				emit.AppCall(w.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
+					domain, int64(nns.TXT), cs.Hash.StringLE())
 			}
 		}
 		if bw.Err != nil {
