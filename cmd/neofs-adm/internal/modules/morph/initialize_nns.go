@@ -4,12 +4,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -84,49 +82,82 @@ func (c *initializeContext) setNNS() error {
 
 func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.PublicKey) error {
 	bw := io.NewBufBinWriter()
-	sysFee, err := c.emitUpdateNNSGroupScript(bw, nnsHash, pub)
-	if err != nil || sysFee == 0 {
+	needUpdate, needRegister, err := c.emitUpdateNNSGroupScript(bw, nnsHash, pub)
+	if !needUpdate || err != nil {
 		return err
 	}
-	return c.sendCommitteeTx(bw.Bytes(), sysFee, true)
+
+	script := bw.Bytes()
+	if needRegister {
+		w := io.NewBufBinWriter()
+		emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
+		wrapRegisterScriptWithPrice(w, nnsHash, script)
+		script = w.Bytes()
+	}
+
+	return c.sendCommitteeTx(script, -1, true)
 }
 
-func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (int64, error) {
+// emitUpdateNNSGroupScript emits script for updating group key stored in NNS.
+// First return value is true iff the key is already there and nothing should be done.
+// Second return value is true iff a domain registration code was emitted.
+func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (bool, bool, error) {
 	isAvail, err := nnsIsAvailable(c.Client, nnsHash, morphClient.NNSGroupKeyName)
 	if err != nil {
-		return 0, err
+		return false, false, err
 	}
 
 	if !isAvail {
 		currentPub, err := nnsResolveKey(c.Client, nnsHash, morphClient.NNSGroupKeyName)
 		if err != nil {
-			return 0, err
+			return false, false, err
 		}
 
 		if pub.Equal(currentPub) {
-			return 0, nil
+			return true, false, nil
 		}
 	}
 
-	sysFee := int64(native.GASFactor)
 	if isAvail {
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 			morphClient.NNSGroupKeyName, c.CommitteeAcc.Contract.ScriptHash(),
 			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-		sysFee += defaultRegisterSysfee
 	}
 	emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
 		"group.neofs", int64(nns.TXT), hex.EncodeToString(pub.Bytes()))
 
-	return sysFee, bw.Err
+	return false, isAvail, nil
 }
 
 func getAlphabetNNSDomain(i int) string {
 	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
 }
 
-func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string, setPrice bool) ([]byte, bool, error) {
+// wrapRegisterScriptWithPrice wraps a given script with `getPrice`/`setPrice` calls for NNS.
+// It is intended to be used for a single transaction, and not as a part of other scripts.
+// It is assumed that script already contains static slot initialization code, the first one
+// (with index 0) is used to store the price.
+func wrapRegisterScriptWithPrice(w *io.BufBinWriter, nnsHash util.Uint160, s []byte) {
+	if len(s) == 0 {
+		return
+	}
+
+	emit.AppCall(w.BinWriter, nnsHash, "getPrice", callflag.All)
+	emit.Opcodes(w.BinWriter, opcode.STSFLD0)
+	emit.AppCall(w.BinWriter, nnsHash, "setPrice", callflag.All, 1)
+
+	w.WriteBytes(s)
+
+	emit.Opcodes(w.BinWriter, opcode.LDSFLD0, opcode.PUSH1, opcode.PACK)
+	emit.AppCallNoArgs(w.BinWriter, nnsHash, "setPrice", callflag.All)
+
+	if w.Err != nil {
+		panic(fmt.Errorf("BUG: can't wrap register script: %w", w.Err))
+	}
+}
+
+func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string) ([]byte, bool, error) {
 	ok, err := nnsIsAvailable(c.Client, nnsHash, domain)
 	if err != nil {
 		return nil, false, err
@@ -134,32 +165,10 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 
 	if ok {
 		bw := io.NewBufBinWriter()
-		var price *big.Int
-		if setPrice {
-			res, err := invokeFunction(c.Client, nnsHash, "getPrice", nil, nil)
-			if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
-				return nil, false, errors.New("could not get NNS's price")
-			}
-
-			price, err = res.Stack[0].TryInteger()
-			if err != nil {
-				return nil, false, fmt.Errorf("unexpected `GetPrice` stack returned: %w", err)
-			}
-
-			// set minimal registration price
-			emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, 1)
-		}
-
-		// register domain
 		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 			domain, c.CommitteeAcc.Contract.ScriptHash(),
 			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-
-		if setPrice {
-			// set registration price back
-			emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, price)
-		}
 
 		if bw.Err != nil {
 			panic(bw.Err)
@@ -175,17 +184,18 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 }
 
 func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160, domain string) error {
-	script, ok, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain, true)
+	script, ok, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain)
 	if ok || err != nil {
 		return err
 	}
 
 	w := io.NewBufBinWriter()
-	w.WriteBytes(script)
+	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
+	wrapRegisterScriptWithPrice(w, nnsHash, script)
+
 	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 		domain, int64(nns.TXT), expectedHash.StringLE())
-	sysFee := int64(defaultRegisterSysfee + native.GASFactor)
-	return c.sendCommitteeTx(w.Bytes(), sysFee, true)
+	return c.sendCommitteeTx(w.Bytes(), -1, true)
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string) (bool, error) {

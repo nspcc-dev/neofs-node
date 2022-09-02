@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -159,7 +158,6 @@ func (c *initializeContext) updateContracts() error {
 	}
 	nnsHash := nnsCs.Hash
 
-	totalGasCost := int64(0)
 	w := io2.NewBufBinWriter()
 
 	var keysParam []interface{}
@@ -220,6 +218,12 @@ func (c *initializeContext) updateContracts() error {
 	}
 
 	w.Reset()
+
+	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
+	emit.AppCall(w.BinWriter, nnsHash, "getPrice", callflag.All)
+	emit.Opcodes(w.BinWriter, opcode.STSFLD0)
+	emit.AppCall(w.BinWriter, nnsHash, "setPrice", callflag.All, 1)
+
 	for _, ctrName := range contractList {
 		cs := c.getContract(ctrName)
 
@@ -258,21 +262,17 @@ func (c *initializeContext) updateContracts() error {
 			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
-		totalGasCost += res.GasConsumed
 		w.WriteBytes(res.Script)
 
 		if method == deployMethodName {
 			// same actions are done in initializeContext.setNNS, can be unified
 			domain := ctrName + ".neofs"
-			script, ok, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain, true)
+			script, ok, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain)
 			if err != nil {
 				return err
 			}
 			if !ok {
-				if script != nil {
-					totalGasCost += defaultRegisterSysfee + native.GASFactor
-					w.WriteBytes(script)
-				}
+				w.WriteBytes(script)
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 					domain, int64(nns.TXT), cs.Hash.StringLE())
 			}
@@ -281,14 +281,16 @@ func (c *initializeContext) updateContracts() error {
 	}
 
 	groupKey := c.ContractWallet.Accounts[0].PrivateKey().PublicKey()
-	sysFee, err := c.emitUpdateNNSGroupScript(w, nnsHash, groupKey)
+	_, _, err = c.emitUpdateNNSGroupScript(w, nnsHash, groupKey)
 	if err != nil {
 		return err
 	}
 	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
 
-	totalGasCost += sysFee
-	if err := c.sendCommitteeTx(w.Bytes(), totalGasCost, false); err != nil {
+	emit.Opcodes(w.BinWriter, opcode.LDSFLD0)
+	emit.AppCallNoArgs(w.BinWriter, nnsHash, "setPrice", callflag.All)
+
+	if err := c.sendCommitteeTx(w.Bytes(), -1, false); err != nil {
 		return err
 	}
 	return c.awaitTx()
