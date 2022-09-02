@@ -14,7 +14,7 @@ import (
 )
 
 var flagVarsSetEACL struct {
-	preCheck bool
+	noPreCheck bool
 
 	srcPath string
 }
@@ -41,7 +41,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		pk := key.GetOrGenerate(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
-		if flagVarsSetEACL.preCheck {
+		if !flagVarsSetEACL.noPreCheck {
 			cmd.Println("Checking the ability to modify access rights in the container...")
 
 			extendable, err := internalclient.IsACLExtendable(cli, id)
@@ -106,5 +106,5 @@ func initContainerSetEACLCmd() {
 	flags.StringVar(&containerID, "cid", "", "container ID")
 	flags.StringVar(&flagVarsSetEACL.srcPath, "table", "", "path to file with JSON or binary encoded EACL table")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
-	flags.BoolVar(&flagVarsSetEACL.preCheck, "precheck", false, "pre-check the extensibility of the container ACL")
+	flags.BoolVar(&flagVarsSetEACL.noPreCheck, "no-precheck", false, "do not pre-check the extensibility of the container ACL")
 }
