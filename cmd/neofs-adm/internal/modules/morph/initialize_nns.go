@@ -126,24 +126,24 @@ func getAlphabetNNSDomain(i int) string {
 	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
 }
 
-func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string, setPrice bool) ([]byte, error) {
+func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string, setPrice bool) ([]byte, bool, error) {
 	ok, err := nnsIsAvailable(c.Client, nnsHash, domain)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	bw := io.NewBufBinWriter()
 	if ok {
+		bw := io.NewBufBinWriter()
 		var price *big.Int
 		if setPrice {
 			res, err := invokeFunction(c.Client, nnsHash, "getPrice", nil, nil)
 			if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
-				return nil, errors.New("could not get NNS's price")
+				return nil, false, errors.New("could not get NNS's price")
 			}
 
 			price, err = res.Stack[0].TryInteger()
 			if err != nil {
-				return nil, fmt.Errorf("unexpected `GetPrice` stack returned: %w", err)
+				return nil, false, fmt.Errorf("unexpected `GetPrice` stack returned: %w", err)
 			}
 
 			// set minimal registration price
@@ -160,32 +160,32 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 			// set registration price back
 			emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, price)
 		}
-	} else {
-		s, err := nnsResolveHash(c.Client, nnsHash, domain)
-		if err != nil {
-			return nil, err
+
+		if bw.Err != nil {
+			panic(bw.Err)
 		}
-		if s == expectedHash {
-			return nil, nil
-		}
+		return bw.Bytes(), false, nil
 	}
 
-	emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
-		domain, int64(nns.TXT), expectedHash.StringLE())
-
-	if bw.Err != nil {
-		panic(bw.Err)
+	s, err := nnsResolveHash(c.Client, nnsHash, domain)
+	if err != nil {
+		return nil, false, err
 	}
-	return bw.Bytes(), nil
+	return nil, s == expectedHash, nil
 }
 
 func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160, domain string) error {
-	script, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain, true)
-	if script == nil {
+	script, ok, err := c.nnsRegisterDomainScript(nnsHash, expectedHash, domain, true)
+	if ok || err != nil {
 		return err
 	}
+
+	w := io.NewBufBinWriter()
+	w.WriteBytes(script)
+	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
+		domain, int64(nns.TXT), expectedHash.StringLE())
 	sysFee := int64(defaultRegisterSysfee + native.GASFactor)
-	return c.sendCommitteeTx(script, sysFee, true)
+	return c.sendCommitteeTx(w.Bytes(), sysFee, true)
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string) (bool, error) {

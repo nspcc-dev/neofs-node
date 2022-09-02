@@ -26,6 +26,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-contract/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
@@ -263,13 +264,17 @@ func (c *initializeContext) updateContracts() error {
 		if method == deployMethodName {
 			// same actions are done in initializeContext.setNNS, can be unified
 			domain := ctrName + ".neofs"
-			script, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain, true)
+			script, ok, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain, true)
 			if err != nil {
 				return err
 			}
-			if script != nil {
-				totalGasCost += defaultRegisterSysfee + native.GASFactor
-				w.WriteBytes(script)
+			if !ok {
+				if script != nil {
+					totalGasCost += defaultRegisterSysfee + native.GASFactor
+					w.WriteBytes(script)
+				}
+				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
+					domain, int64(nns.TXT), cs.Hash.StringLE())
 			}
 			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 		}
