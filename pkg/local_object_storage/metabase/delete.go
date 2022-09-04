@@ -157,7 +157,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	// unmarshal object, work only with physically stored (raw == true) objects
 	obj, err := db.get(tx, addr, key, false, true, currEpoch)
 	if err != nil {
-		if errors.As(err, new(apistatus.ObjectNotFound)) {
+		var siErr *objectSDK.SplitInfoError
+		var notFoundErr apistatus.ObjectNotFound
+
+		if errors.As(err, &notFoundErr) || errors.As(err, &siErr) {
 			return false, false, nil
 		}
 
