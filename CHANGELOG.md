@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - `neofs-cli container nodes`'s output (#1991)
 - Do not panic with bad inputs for `GET_RANGE` (#2007)
 - Correctly select the shard for applying tree service operations (#1996)
+- Physical child object removal by GC (#1699)
 
 ### Removed
 ### Updated
