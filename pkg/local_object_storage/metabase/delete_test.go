@@ -39,9 +39,9 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, l, 1)
 
-	// try to remove parent unsuccessfully
+	// try to remove parent, should be no-op, error-free
 	err = metaDelete(db, object.AddressOf(parent))
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	// inhume parent and child so they will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
