@@ -266,7 +266,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) error {
 			return fmt.Errorf("lock object expiration epoch: %w", err)
 		}
 
-		if currEpoch := v.netState.CurrentEpoch(); lockExp <= currEpoch {
+		if currEpoch := v.netState.CurrentEpoch(); lockExp < currEpoch {
 			return fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
 		}
 

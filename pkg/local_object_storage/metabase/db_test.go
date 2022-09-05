@@ -107,12 +107,12 @@ func addAttribute(obj *object.Object, key, val string) {
 
 func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *objectSDK.Object)) {
 	expObj := generateObject(t)
-	setExpiration(expObj, currEpoch)
+	setExpiration(expObj, currEpoch-1)
 
 	require.NoError(t, metaPut(db, expObj, nil))
 
 	nonExpObj := generateObject(t)
-	setExpiration(nonExpObj, currEpoch+1)
+	setExpiration(nonExpObj, currEpoch)
 
 	require.NoError(t, metaPut(db, nonExpObj, nil))
 

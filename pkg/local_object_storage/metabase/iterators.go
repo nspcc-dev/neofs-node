@@ -61,10 +61,10 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 				return nil
 			}
 
-			expiresAt, err := strconv.ParseUint(string(expKey), 10, 64)
+			expiresAfter, err := strconv.ParseUint(string(expKey), 10, 64)
 			if err != nil {
 				return fmt.Errorf("could not parse expiration epoch: %w", err)
-			} else if expiresAt >= epoch {
+			} else if expiresAfter >= epoch {
 				return nil
 			}
 

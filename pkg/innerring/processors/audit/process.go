@@ -201,7 +201,7 @@ func (ap *Processor) filterExpiredSG(cid cid.ID, sgIDs []oid.ID,
 		}
 
 		// filter expired epochs
-		if sg.ExpirationEpoch() > ap.epochSrc.EpochCounter() {
+		if sg.ExpirationEpoch() >= ap.epochSrc.EpochCounter() {
 			coreSG.SetID(sgID)
 			coreSG.SetStorageGroup(*sg)
 
