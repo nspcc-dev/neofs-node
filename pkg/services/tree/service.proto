@@ -202,6 +202,8 @@ message GetNodeByPathResponse {
     uint64 timestamp = 2;
     // Node meta-information.
     repeated KeyValue meta = 3;
+    // Parent ID.
+    uint64 parent_id = 4;
   }
   message Body {
     // List of nodes stored by path.
