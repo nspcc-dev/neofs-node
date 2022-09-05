@@ -84,7 +84,7 @@ func (g *ExpirationChecker) handleTS(addr string, ts *object.Object, reqEpoch ui
 			}
 
 			g.cache.Add(addr, epoch)
-			return epoch > reqEpoch
+			return epoch >= reqEpoch
 		}
 	}
 

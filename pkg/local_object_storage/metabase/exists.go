@@ -112,9 +112,9 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	expirationBucket := tx.Bucket(attributeBucketName(addr.Container(), objectV2.SysAttributeExpEpoch))
 	if expirationBucket != nil {
 		// bucket that contains objects that expire in the current epoch
-		currEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch, 10)))
-		if currEpochBkt != nil {
-			if currEpochBkt.Get(rawOID) != nil {
+		prevEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch-1, 10)))
+		if prevEpochBkt != nil {
+			if prevEpochBkt.Get(rawOID) != nil {
 				expired = true
 			}
 		}
