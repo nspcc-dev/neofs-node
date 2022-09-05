@@ -41,3 +41,10 @@ assignees: ''
 * Version used:
 * Server setup and configuration:
 * Operating System and version (`uname -a`):
+
+## Don't forget to add labels!
+- component label (`neofs-adm`, `neofs-storage`, ...)
+- `goodfirstissue`, `helpwanted` if needed
+- does this issue belong to an epic?
+- priority (`P0`-`P4`) if already triaged
+- quarter label (`202XQY`) if possible
