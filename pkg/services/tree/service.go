@@ -344,16 +344,8 @@ func (s *Service) GetNodeByPath(ctx context.Context, req *GetNodeByPathRequest) 
 	}, nil
 }
 
-type nodeDepthPair struct {
-	nodes []uint64
-	depth uint32
-}
-
 func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeServer) error {
 	b := req.GetBody()
-	if b.GetDepth() > MaxGetSubTreeDepth {
-		return fmt.Errorf("too big depth: max=%d, got=%d", MaxGetSubTreeDepth, b.GetDepth())
-	}
 
 	var cid cidSDK.ID
 	if err := cid.Decode(b.GetContainerId()); err != nil {
@@ -389,38 +381,50 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 		return nil
 	}
 
-	queue := []nodeDepthPair{{[]uint64{b.GetRootId()}, 0}}
+	return getSubTree(srv, cid, b, s.forest)
+}
 
-	for len(queue) != 0 {
-		for _, nodeID := range queue[0].nodes {
-			m, p, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), nodeID)
+func getSubTree(srv TreeService_GetSubTreeServer, cid cidSDK.ID, b *GetSubTreeRequest_Body, forest pilorama.Forest) error {
+	// Traverse the tree in a DFS manner. Because we need to support arbitrary depth,
+	// recursive implementation is not suitable here, so we maintain explicit stack.
+	stack := [][]uint64{{b.GetRootId()}}
+
+	for {
+		if len(stack) == 0 {
+			break
+		} else if len(stack[len(stack)-1]) == 0 {
+			stack = stack[:len(stack)-1]
+			continue
+		}
+
+		nodeID := stack[len(stack)-1][0]
+		stack[len(stack)-1] = stack[len(stack)-1][1:]
+
+		m, p, err := forest.TreeGetMeta(cid, b.GetTreeId(), nodeID)
+		if err != nil {
+			return err
+		}
+		err = srv.Send(&GetSubTreeResponse{
+			Body: &GetSubTreeResponse_Body{
+				NodeId:    nodeID,
+				ParentId:  p,
+				Timestamp: m.Time,
+				Meta:      metaToProto(m.Items),
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		if b.GetDepth() == 0 || uint32(len(stack)) < b.GetDepth() {
+			children, err := forest.TreeGetChildren(cid, b.GetTreeId(), nodeID)
 			if err != nil {
 				return err
 			}
-			err = srv.Send(&GetSubTreeResponse{
-				Body: &GetSubTreeResponse_Body{
-					NodeId:    nodeID,
-					ParentId:  p,
-					Timestamp: m.Time,
-					Meta:      metaToProto(m.Items),
-				},
-			})
-			if err != nil {
-				return err
+			if len(children) != 0 {
+				stack = append(stack, children)
 			}
 		}
-
-		if queue[0].depth < b.GetDepth() {
-			for _, nodeID := range queue[0].nodes {
-				children, err := s.forest.TreeGetChildren(cid, b.GetTreeId(), nodeID)
-				if err != nil {
-					return err
-				}
-				queue = append(queue, nodeDepthPair{children, queue[0].depth + 1})
-			}
-		}
-
-		queue = queue[1:]
 	}
 	return nil
 }
