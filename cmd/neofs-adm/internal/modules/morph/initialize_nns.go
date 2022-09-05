@@ -197,6 +197,8 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
 	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 		domain, int64(nns.TXT), expectedHash.StringLE())
+	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
+		domain, int64(nns.TXT), address.Uint160ToString(expectedHash))
 	return c.sendCommitteeTx(w.Bytes(), -1, true)
 }
 

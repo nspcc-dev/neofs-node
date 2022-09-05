@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -276,6 +277,8 @@ func (c *initializeContext) updateContracts() error {
 				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 					domain, int64(nns.TXT), cs.Hash.StringLE())
+				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
+					domain, int64(nns.TXT), address.Uint160ToString(cs.Hash))
 			}
 			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 		}
