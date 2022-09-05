@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
@@ -765,11 +766,6 @@ func testInvokeMethod(key keys.PrivateKey, method string, args ...interface{}) (
 		return nil, fmt.Errorf("NNS contract resolving: %w", err)
 	}
 
-	subnetHash, err := nnsResolveHash(c, nnsCs.Hash, subnetContract+".neofs")
-	if err != nil {
-		return nil, fmt.Errorf("subnet hash resolving: %w", err)
-	}
-
 	cosigner := []transaction.Signer{
 		{
 			Account: key.PublicKey().GetScriptHash(),
@@ -777,7 +773,14 @@ func testInvokeMethod(key keys.PrivateKey, method string, args ...interface{}) (
 		},
 	}
 
-	res, err := invokeFunction(c, subnetHash, method, args, cosigner)
+	inv := invoker.New(c, cosigner)
+
+	subnetHash, err := nnsResolveHash(inv, nnsCs.Hash, subnetContract+".neofs")
+	if err != nil {
+		return nil, fmt.Errorf("subnet hash resolving: %w", err)
+	}
+
+	res, err := inv.Call(subnetHash, method, args...)
 	if err != nil {
 		return nil, fmt.Errorf("invocation parameters prepararion: %w", err)
 	}
@@ -837,11 +840,6 @@ func invokeNonNotary(c Client, key keys.PrivateKey, method string, args ...inter
 		return fmt.Errorf("NNS contract resolving: %w", err)
 	}
 
-	subnetHash, err := nnsResolveHash(c, nnsCs.Hash, subnetContract+".neofs")
-	if err != nil {
-		return fmt.Errorf("subnet hash resolving: %w", err)
-	}
-
 	acc := wallet.NewAccountFromPrivateKey(&key)
 
 	cosigner := []transaction.Signer{
@@ -858,7 +856,14 @@ func invokeNonNotary(c Client, key keys.PrivateKey, method string, args ...inter
 		},
 	}
 
-	test, err := invokeFunction(c, subnetHash, method, args, cosigner)
+	inv := invoker.New(c, cosigner)
+
+	subnetHash, err := nnsResolveHash(inv, nnsCs.Hash, subnetContract+".neofs")
+	if err != nil {
+		return fmt.Errorf("subnet hash resolving: %w", err)
+	}
+
+	test, err := inv.Call(subnetHash, method, args...)
 	if err != nil {
 		return fmt.Errorf("test invocation: %w", err)
 	}
@@ -882,11 +887,6 @@ func invokeNotary(c Client, key keys.PrivateKey, method string, notaryHash util.
 		return fmt.Errorf("NNS contract resolving: %w", err)
 	}
 
-	subnetHash, err := nnsResolveHash(c, nnsCs.Hash, subnetContract+".neofs")
-	if err != nil {
-		return fmt.Errorf("subnet hash resolving: %w", err)
-	}
-
 	alphabet, err := c.GetCommittee()
 	if err != nil {
 		return fmt.Errorf("alphabet list: %w", err)
@@ -902,8 +902,15 @@ func invokeNotary(c Client, key keys.PrivateKey, method string, notaryHash util.
 		return fmt.Errorf("cosigners collecting: %w", err)
 	}
 
+	inv := invoker.New(c, cosigners)
+
+	subnetHash, err := nnsResolveHash(inv, nnsCs.Hash, subnetContract+".neofs")
+	if err != nil {
+		return fmt.Errorf("subnet hash resolving: %w", err)
+	}
+
 	// make test invocation of the method
-	test, err := invokeFunction(c, subnetHash, method, args, cosigners)
+	test, err := inv.Call(subnetHash, method, args...)
 	if err != nil {
 		return fmt.Errorf("test invocation: %w", err)
 	}
@@ -974,7 +981,7 @@ func invokeNotary(c Client, key keys.PrivateKey, method string, notaryHash util.
 
 func notaryCosigners(c Client, notaryHash util.Uint160, nnsCs *state.Contract,
 	key keys.PrivateKey, alphabetAccount util.Uint160) ([]transaction.Signer, error) {
-	proxyHash, err := nnsResolveHash(c, nnsCs.Hash, proxyContract+".neofs")
+	proxyHash, err := nnsResolveHash(invoker.New(c, nil), nnsCs.Hash, proxyContract+".neofs")
 	if err != nil {
 		return nil, fmt.Errorf("proxy hash resolving: %w", err)
 	}

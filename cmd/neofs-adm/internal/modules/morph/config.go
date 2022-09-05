@@ -11,10 +11,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,24 +28,21 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
 
+	inv := invoker.New(c, nil)
+
 	cs, err := c.GetContractStateByID(1)
 	if err != nil {
 		return fmt.Errorf("can't get NNS contract info: %w", err)
 	}
 
-	nmHash, err := nnsResolveHash(c, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsResolveHash(inv, cs.Hash, netmapContract+".neofs")
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}
 
-	res, err := invokeFunction(c, nmHash, "listConfig", nil, nil)
-	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
+	arr, err := unwrap.Array(inv.Call(nmHash, "listConfig"))
+	if err != nil {
 		return errors.New("can't fetch list of network config keys from the netmap contract")
-	}
-
-	arr, ok := res.Stack[0].Value().([]stackitem.Item)
-	if !ok {
-		return errors.New("invalid ListConfig response from netmap contract")
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -111,7 +109,7 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't get NNS contract info: %w", err)
 	}
 
-	nmHash, err := nnsResolveHash(wCtx.Client, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsResolveHash(wCtx.ReadOnlyInvoker, cs.Hash, netmapContract+".neofs")
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}

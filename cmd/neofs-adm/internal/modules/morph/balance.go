@@ -13,6 +13,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -55,6 +57,8 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	inv := invoker.New(c, nil)
+
 	ns, err := getNativeHashes(c)
 	if err != nil {
 		return fmt.Errorf("can't fetch the list of native contracts: %w", err)
@@ -76,7 +80,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("can't get NNS contract info: %w", err)
 		}
 
-		nmHash, err = nnsResolveHash(c, nnsCs.Hash, netmapContract+".neofs")
+		nmHash, err = nnsResolveHash(inv, nnsCs.Hash, netmapContract+".neofs")
 		if err != nil {
 			return fmt.Errorf("can't get netmap contract hash: %w", err)
 		}
@@ -87,18 +91,14 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if err := fetchBalances(c, gasHash, irList); err != nil {
+	if err := fetchBalances(inv, gasHash, irList); err != nil {
 		return err
 	}
 	printBalances(cmd, "Inner ring nodes balances:", irList)
 
 	if dumpStorage {
-		res, err := invokeFunction(c, nmHash, "netmap", []interface{}{}, nil)
-		if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
-			return errors.New("can't fetch the list of storage nodes")
-		}
-		arr, ok := res.Stack[0].Value().([]stackitem.Item)
-		if !ok {
+		arr, err := unwrap.Array(inv.Call(nmHash, "netmap"))
+		if err != nil {
 			return errors.New("can't fetch the list of storage nodes")
 		}
 
@@ -123,20 +123,20 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 			snList[i].scriptHash = pub.GetScriptHash()
 		}
 
-		if err := fetchBalances(c, gasHash, snList); err != nil {
+		if err := fetchBalances(inv, gasHash, snList); err != nil {
 			return err
 		}
 		printBalances(cmd, "\nStorage node balances:", snList)
 	}
 
 	if dumpProxy {
-		h, err := nnsResolveHash(c, nnsCs.Hash, proxyContract+".neofs")
+		h, err := nnsResolveHash(inv, nnsCs.Hash, proxyContract+".neofs")
 		if err != nil {
 			return fmt.Errorf("can't get hash of the proxy contract: %w", err)
 		}
 
 		proxyList := []accBalancePair{{scriptHash: h}}
-		if err := fetchBalances(c, gasHash, proxyList); err != nil {
+		if err := fetchBalances(inv, gasHash, proxyList); err != nil {
 			return err
 		}
 		printBalances(cmd, "\nProxy contract balance:", proxyList)
@@ -168,7 +168,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 			alphaList[i].scriptHash = h
 		}
 
-		if err := fetchBalances(c, gasHash, alphaList); err != nil {
+		if err := fetchBalances(inv, gasHash, alphaList); err != nil {
 			return err
 		}
 		printBalances(cmd, "\nAlphabet contracts balances:", alphaList)
@@ -180,13 +180,15 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 func fetchIRNodes(c Client, nmHash, desigHash util.Uint160) ([]accBalancePair, error) {
 	var irList []accBalancePair
 
+	inv := invoker.New(c, nil)
+
 	if notaryEnabled {
 		height, err := c.GetBlockCount()
 		if err != nil {
 			return nil, fmt.Errorf("can't get block height: %w", err)
 		}
 
-		arr, err := getDesignatedByRole(c, desigHash, noderoles.NeoFSAlphabet, height)
+		arr, err := getDesignatedByRole(inv, desigHash, noderoles.NeoFSAlphabet, height)
 		if err != nil {
 			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
 		}
@@ -196,27 +198,14 @@ func fetchIRNodes(c Client, nmHash, desigHash util.Uint160) ([]accBalancePair, e
 			irList[i].scriptHash = arr[i].GetScriptHash()
 		}
 	} else {
-		res, err := invokeFunction(c, nmHash, "innerRingList", []interface{}{}, nil)
-		if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
+		arr, err := unwrap.ArrayOfBytes(inv.Call(nmHash, "innerRingList"))
+		if err != nil {
 			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
-		}
-
-		arr, ok := res.Stack[0].Value().([]stackitem.Item)
-		if !ok || len(arr) == 0 {
-			return nil, errors.New("can't fetch list of IR nodes: invalid response")
 		}
 
 		irList = make([]accBalancePair, len(arr))
 		for i := range arr {
-			node, ok := arr[i].Value().([]stackitem.Item)
-			if !ok || len(arr) == 0 {
-				return nil, errors.New("can't fetch list of IR nodes: invalid response")
-			}
-			bs, err := node[0].TryBytes()
-			if err != nil {
-				return nil, fmt.Errorf("can't fetch list of IR nodes: %w", err)
-			}
-			pub, err := keys.NewPublicKeyFromBytes(bs, elliptic.P256())
+			pub, err := keys.NewPublicKeyFromBytes(arr[i], elliptic.P256())
 			if err != nil {
 				return nil, fmt.Errorf("can't parse IR node public key: %w", err)
 			}
@@ -241,7 +230,7 @@ func printBalances(cmd *cobra.Command, prefix string, accounts []accBalancePair)
 	}
 }
 
-func fetchBalances(c Client, gasHash util.Uint160, accounts []accBalancePair) error {
+func fetchBalances(c *invoker.Invoker, gasHash util.Uint160, accounts []accBalancePair) error {
 	w := io.NewBufBinWriter()
 	for i := range accounts {
 		emit.AppCall(w.BinWriter, gasHash, "balanceOf", callflag.ReadStates, accounts[i].scriptHash)
@@ -250,7 +239,7 @@ func fetchBalances(c Client, gasHash util.Uint160, accounts []accBalancePair) er
 		panic(w.Err)
 	}
 
-	res, err := c.InvokeScript(w.Bytes(), nil)
+	res, err := c.Run(w.Bytes())
 	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) != len(accounts) {
 		return errors.New("can't fetch account balances")
 	}

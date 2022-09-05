@@ -37,7 +37,7 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't get NNS contract info: %w", err)
 	}
 
-	nmHash, err := nnsResolveHash(wCtx.Client, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsResolveHash(wCtx.ReadOnlyInvoker, cs.Hash, netmapContract+".neofs")
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}

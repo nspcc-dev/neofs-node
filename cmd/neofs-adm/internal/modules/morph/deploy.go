@@ -87,7 +87,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 	domain := ctrName + "." + zone
 	isUpdate, _ := cmd.Flags().GetBool(updateFlag)
 	if isUpdate {
-		cs.Hash, err = nnsResolveHash(c.Client, nnsCs.Hash, domain)
+		cs.Hash, err = nnsResolveHash(c.ReadOnlyInvoker, nnsCs.Hash, domain)
 		if err != nil {
 			return fmt.Errorf("can't fetch contract hash from NNS: %w", err)
 		}

@@ -181,7 +181,7 @@ func (c *initializeContext) updateContracts() error {
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
-		ctrHash, err := nnsResolveHash(c.Client, nnsHash, getAlphabetNNSDomain(i))
+		ctrHash, err := nnsResolveHash(c.ReadOnlyInvoker, nnsHash, getAlphabetNNSDomain(i))
 		if err != nil {
 			return fmt.Errorf("can't resolve hash for contract update: %w", err)
 		}
@@ -219,7 +219,7 @@ func (c *initializeContext) updateContracts() error {
 		cs := c.getContract(ctrName)
 
 		method := updateMethodName
-		ctrHash, err := nnsResolveHash(c.Client, nnsHash, ctrName+".neofs")
+		ctrHash, err := nnsResolveHash(c.ReadOnlyInvoker, nnsHash, ctrName+".neofs")
 		if err != nil {
 			if errors.Is(err, errMissingNNSRecord) {
 				// if contract not found we deploy it instead of update
@@ -240,17 +240,9 @@ func (c *initializeContext) updateContracts() error {
 		}
 
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
-		signer := transaction.Signer{
-			Account: c.CommitteeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.Global,
-		}
-
-		res, err := invokeFunction(c.Client, invokeHash, method, params, []transaction.Signer{signer})
+		res, err := c.CommitteeAct.MakeCall(invokeHash, method, params)
 		if err != nil {
-			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
-		}
-		if res.State != vmstate.Halt.String() {
-			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
+			return fmt.Errorf("deploy contract: %w", err)
 		}
 
 		w.WriteBytes(res.Script)
@@ -343,17 +335,9 @@ func (c *initializeContext) deployContracts() error {
 		}
 
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
-		signer := transaction.Signer{
-			Account: c.CommitteeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.Global,
-		}
-
-		res, err := invokeFunction(c.Client, mgmtHash, deployMethodName, params, []transaction.Signer{signer})
+		res, err := c.CommitteeAct.MakeCall(mgmtHash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
-		}
-		if res.State != vmstate.Halt.String() {
-			return fmt.Errorf("can't deploy %s contract: %s", ctrName, res.FaultException)
 		}
 
 		if err := c.sendCommitteeTx(res.Script, false); err != nil {

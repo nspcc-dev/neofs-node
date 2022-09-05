@@ -10,12 +10,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 )
 
 // initialAlphabetNEOAmount represents the total amount of GAS distributed between alphabet nodes.
@@ -24,16 +23,14 @@ const initialAlphabetNEOAmount = native.NEOTotalSupply
 func (c *initializeContext) registerCandidates() error {
 	neoHash := c.nativeHash(nativenames.Neo)
 
-	res, err := invokeFunction(c.Client, neoHash, "getCandidates", nil, nil)
+	cc, err := unwrap.Array(c.ReadOnlyInvoker.Call(neoHash, "getCandidates"))
 	if err != nil {
-		return err
+		return fmt.Errorf("`getCandidates`: %w", err)
 	}
-	if res.State == vmstate.Halt.String() && len(res.Stack) > 0 {
-		arr, ok := res.Stack[0].Value().([]stackitem.Item)
-		if ok && len(arr) > 0 {
-			c.Command.Println("Candidates are already registered.")
-			return nil
-		}
+
+	if len(cc) > 0 {
+		c.Command.Println("Candidates are already registered.")
+		return nil
 	}
 
 	regPrice, err := c.getCandidateRegisterPrice()
@@ -75,7 +72,7 @@ func (c *initializeContext) registerCandidates() error {
 		return fmt.Errorf("can't sign a transaction: %w", err)
 	}
 
-	network, _ := c.Client.GetNetwork()
+	network := c.CommitteeAct.GetNetwork()
 	for i := range c.Accounts {
 		if err := c.Accounts[i].SignTx(network, tx); err != nil {
 			return fmt.Errorf("can't sign a transaction: %w", err)

@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -126,8 +127,5 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not send tx: %w", err)
 	}
 
-	cc := defaultClientContext(c)
-	cc.Hashes = append(cc.Hashes, txHash)
-
-	return cc.awaitTx(cmd)
+	return awaitTx(cmd, c, []util.Uint256{txHash})
 }

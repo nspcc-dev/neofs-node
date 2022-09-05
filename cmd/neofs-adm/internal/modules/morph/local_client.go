@@ -24,6 +24,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
@@ -32,7 +34,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/viper"
@@ -414,16 +415,9 @@ func invokeFunction(c Client, h util.Uint160, method string, parameters []interf
 
 var errGetDesignatedByRoleResponse = errors.New("`getDesignatedByRole`: invalid response")
 
-func getDesignatedByRole(c Client, h util.Uint160, role noderoles.Role, u uint32) (keys.PublicKeys, error) {
-	res, err := invokeFunction(c, h, "getDesignatedByRole", []interface{}{int64(role), int64(u)}, nil)
+func getDesignatedByRole(inv *invoker.Invoker, h util.Uint160, role noderoles.Role, u uint32) (keys.PublicKeys, error) {
+	arr, err := unwrap.Array(inv.Call(h, "getDesignatedByRole", int64(role), int64(u)))
 	if err != nil {
-		return nil, err
-	}
-	if res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
-		return nil, errGetDesignatedByRoleResponse
-	}
-	arr, ok := res.Stack[0].Value().([]stackitem.Item)
-	if !ok {
 		return nil, errGetDesignatedByRoleResponse
 	}
 

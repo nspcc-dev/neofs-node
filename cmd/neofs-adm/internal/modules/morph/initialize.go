@@ -183,8 +183,13 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		accounts[i] = acc
 	}
 
+	cliCtx, err := defaultClientContext(c, committeeAcc)
+	if err != nil {
+		return nil, fmt.Errorf("client context: %w", err)
+	}
+
 	initCtx := &initializeContext{
-		clientContext:  *defaultClientContext(c),
+		clientContext:  *cliCtx,
 		ConsensusAcc:   consensusAcc,
 		CommitteeAcc:   committeeAcc,
 		ContractWallet: w,
@@ -299,7 +304,7 @@ func (c *initializeContext) getSigner(tryGroup bool) transaction.Signer {
 		return signer
 	}
 
-	groupKey, err := nnsResolveKey(c.Client, nnsCs.Hash, morphClient.NNSGroupKeyName)
+	groupKey, err := nnsResolveKey(c.ReadOnlyInvoker, nnsCs.Hash, morphClient.NNSGroupKeyName)
 	if err == nil {
 		c.groupKey = groupKey
 
@@ -320,12 +325,24 @@ func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 		}
 	}
 
+	err := awaitTx(cmd, c.Client, c.Hashes)
+	c.Hashes = c.Hashes[:0]
+
+	return err
+}
+
+func awaitTx(cmd *cobra.Command, c Client, hashes []util.Uint256) error {
 	cmd.Println("Waiting for transactions to persist...")
 
-	tick := time.NewTicker(c.PollInterval)
+	// improve TX awaiting process:
+	// https://github.com/nspcc-dev/neofs-node/issues/1741
+	const pollInterval = time.Second
+	const waitDuration = 30 * time.Second
+
+	tick := time.NewTicker(pollInterval)
 	defer tick.Stop()
 
-	timer := time.NewTimer(c.WaitDuration)
+	timer := time.NewTimer(waitDuration)
 	defer timer.Stop()
 
 	at := trigger.Application
@@ -333,8 +350,8 @@ func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 	var retErr error
 
 loop:
-	for i := range c.Hashes {
-		res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
+	for i := range hashes {
+		res, err := c.GetApplicationLog(hashes[i], &at)
 		if err == nil {
 			if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
 				retErr = fmt.Errorf("tx %d persisted in %s state: %s",
@@ -345,7 +362,7 @@ loop:
 		for {
 			select {
 			case <-tick.C:
-				res, err := c.Client.GetApplicationLog(c.Hashes[i], &at)
+				res, err := c.GetApplicationLog(hashes[i], &at)
 				if err == nil {
 					if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
 						retErr = fmt.Errorf("tx %d persisted in %s state: %s",
@@ -359,50 +376,34 @@ loop:
 		}
 	}
 
-	c.Hashes = c.Hashes[:0]
 	return retErr
 }
 
 // sendCommitteeTx creates transaction from script and sends it to RPC.
-// Test invocation will be performed and the result will be checked. If tryGroup
-// is false, global scope is used for the signer (useful when working with native
-// contracts).
+// If tryGroup is false, global scope is used for the signer (useful when
+// working with native contracts).
 func (c *initializeContext) sendCommitteeTx(script []byte, tryGroup bool) error {
-	sigCount := len(c.CommitteeAcc.Contract.Parameters)
+	var act *actor.Actor
+	var err error
 
-	signers := make([]actor.SignerAccount, 0, sigCount)
-	signer := c.getSigner(tryGroup)
-
-	for i, w := range c.Wallets {
-		if i == sigCount {
-			break
-		}
-
-		acc, err := getWalletAccount(w, committeeAccountName)
-		if err != nil {
-			return fmt.Errorf("could not get %s account for %d wallet: %w",
-				committeeAccountName, i, err)
-		}
-
-		signers = append(signers, actor.SignerAccount{
-			Signer:  signer,
-			Account: acc,
-		})
+	if tryGroup {
+		act, err = actor.New(c.Client, []actor.SignerAccount{{
+			Signer:  c.getSigner(tryGroup),
+			Account: c.CommitteeAcc,
+		}})
+	} else {
+		act, err = c.CommitteeAct, nil
 	}
-
-	act, err := actor.New(c.Client, signers)
 	if err != nil {
 		return fmt.Errorf("could not create actor: %w", err)
 	}
 
-	txHash, _, err := act.SendTunedRun(script, []transaction.Attribute{{Type: transaction.HighPriority}}, nil)
+	tx, err := act.MakeUnsignedRun(script, []transaction.Attribute{{Type: transaction.HighPriority}})
 	if err != nil {
-		return fmt.Errorf("cound not send transaction: %w", err)
+		return fmt.Errorf("could not perform test invocation: %w", err)
 	}
 
-	c.Hashes = append(c.Hashes, txHash)
-
-	return nil
+	return c.multiSignAndSend(tx, committeeAccountName)
 }
 
 func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
