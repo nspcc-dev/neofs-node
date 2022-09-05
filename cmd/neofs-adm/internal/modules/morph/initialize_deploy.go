@@ -273,6 +273,7 @@ func (c *initializeContext) updateContracts() error {
 			}
 			if !ok {
 				w.WriteBytes(script)
+				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 					domain, int64(nns.TXT), cs.Hash.StringLE())
 			}

@@ -146,6 +146,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if needRecord {
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
 			emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
 				domain, int64(nns.TXT), address.Uint160ToString(cs.Hash))
 		}

@@ -23,8 +23,6 @@ import (
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-const defaultNameServiceDomainPrice = 10_0000_0000
-const defaultRegisterSysfee = 10_0000_0000 + defaultNameServiceDomainPrice
 const defaultExpirationTime = 10 * 365 * 24 * time.Hour / time.Second
 
 func (c *initializeContext) setNNS() error {
@@ -125,6 +123,8 @@ func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHas
 			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	}
+
+	emit.AppCall(bw.BinWriter, nnsHash, "deleteRecords", callflag.All, "group.neofs", int64(nns.TXT))
 	emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
 		"group.neofs", int64(nns.TXT), hex.EncodeToString(pub.Bytes()))
 
@@ -194,6 +194,7 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
 	wrapRegisterScriptWithPrice(w, nnsHash, script)
 
+	emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
 	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
 		domain, int64(nns.TXT), expectedHash.StringLE())
 	return c.sendCommitteeTx(w.Bytes(), -1, true)
