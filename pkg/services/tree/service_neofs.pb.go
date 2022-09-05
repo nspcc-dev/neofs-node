@@ -779,6 +779,7 @@ func (x *GetNodeByPathResponse_Info) StableSize() (size int) {
 	for i := range x.Meta {
 		size += proto.NestedStructureSize(3, x.Meta[i])
 	}
+	size += proto.UInt64Size(4, x.ParentId)
 	return size
 }
 
@@ -803,6 +804,7 @@ func (x *GetNodeByPathResponse_Info) StableMarshal(buf []byte) []byte {
 	for i := range x.Meta {
 		offset += proto.NestedStructureMarshal(3, buf[offset:], x.Meta[i])
 	}
+	offset += proto.UInt64Marshal(4, buf[offset:], x.ParentId)
 	return buf
 }
 

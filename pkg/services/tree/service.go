@@ -308,12 +308,13 @@ func (s *Service) GetNodeByPath(ctx context.Context, req *GetNodeByPathRequest) 
 
 	info := make([]*GetNodeByPathResponse_Info, 0, len(nodes))
 	for _, node := range nodes {
-		m, _, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), node)
+		m, parent, err := s.forest.TreeGetMeta(cid, b.GetTreeId(), node)
 		if err != nil {
 			return nil, err
 		}
 
 		var x GetNodeByPathResponse_Info
+		x.ParentId = parent
 		x.NodeId = node
 		x.Timestamp = m.Time
 		if b.AllAttributes {
