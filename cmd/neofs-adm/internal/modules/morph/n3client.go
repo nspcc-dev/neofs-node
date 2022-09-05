@@ -14,6 +14,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -47,10 +49,10 @@ type Client interface {
 }
 
 type clientContext struct {
-	Client       Client
-	Hashes       []util.Uint256
-	WaitDuration time.Duration
-	PollInterval time.Duration
+	Client          Client           // a raw neo-go client OR a local chain implementation
+	CommitteeAct    *actor.Actor     // committee actor with the Global witness scope
+	ReadOnlyInvoker *invoker.Invoker // R/O contract invoker, does not contain any signer
+	Hashes          []util.Uint256
 }
 
 func getN3Client(v *viper.Viper) (Client, error) {
@@ -79,12 +81,23 @@ func getN3Client(v *viper.Viper) (Client, error) {
 	return c, nil
 }
 
-func defaultClientContext(c Client) *clientContext {
-	return &clientContext{
-		Client:       c,
-		WaitDuration: time.Second * 30,
-		PollInterval: time.Second,
+func defaultClientContext(c Client, committeeAcc *wallet.Account) (*clientContext, error) {
+	commAct, err := actor.New(c, []actor.SignerAccount{{
+		Signer: transaction.Signer{
+			Account: committeeAcc.Contract.ScriptHash(),
+			Scopes:  transaction.Global,
+		},
+		Account: committeeAcc,
+	}})
+	if err != nil {
+		return nil, err
 	}
+
+	return &clientContext{
+		Client:          c,
+		CommitteeAct:    commAct,
+		ReadOnlyInvoker: invoker.New(c, nil),
+	}, nil
 }
 
 func (c *clientContext) sendTx(tx *transaction.Transaction, cmd *cobra.Command, await bool) error {

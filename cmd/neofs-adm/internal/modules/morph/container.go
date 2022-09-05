@@ -9,6 +9,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -31,6 +33,8 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
 
+	inv := invoker.New(c, nil)
+
 	nnsCs, err := c.GetContractStateByID(1)
 	if err != nil {
 		return fmt.Errorf("can't get NNS contract state: %w", err)
@@ -42,28 +46,15 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		ch, err = util.Uint160DecodeStringLE(s)
 	}
 	if err != nil {
-		ch, err = nnsResolveHash(c, nnsCs.Hash, containerContract+".neofs")
+		ch, err = nnsResolveHash(inv, nnsCs.Hash, containerContract+".neofs")
 		if err != nil {
 			return err
 		}
 	}
 
-	res, err := invokeFunction(c, ch, "list", []interface{}{""}, nil)
+	cids, err := unwrap.ArrayOfBytes(inv.Call(ch, "list", ""))
 	if err != nil {
 		return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
-	}
-
-	var cids [][]byte
-	arr, ok := res.Stack[0].Value().([]stackitem.Item)
-	if !ok {
-		return fmt.Errorf("%w: not a struct", errInvalidContainerResponse)
-	}
-	for _, item := range arr {
-		id, err := item.TryBytes()
-		if err != nil {
-			return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
-		}
-		cids = append(cids, id)
 	}
 
 	isOK, err := getCIDFilterFunc(cmd)
@@ -80,7 +71,7 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		bw.Reset()
 		emit.AppCall(bw.BinWriter, ch, "get", callflag.All, id)
 		emit.AppCall(bw.BinWriter, ch, "eACL", callflag.All, id)
-		res, err := c.InvokeScript(bw.Bytes(), nil)
+		res, err := inv.Run(bw.Bytes())
 		if err != nil {
 			return fmt.Errorf("can't get container info: %w", err)
 		}
@@ -129,7 +120,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't get NNS contract state: %w", err)
 	}
 
-	ch, err := nnsResolveHash(wCtx.Client, nnsCs.Hash, containerContract+".neofs")
+	ch, err := nnsResolveHash(wCtx.ReadOnlyInvoker, nnsCs.Hash, containerContract+".neofs")
 	if err != nil {
 		return fmt.Errorf("can't fetch container contract hash: %w", err)
 	}

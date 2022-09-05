@@ -43,6 +43,6 @@ func (c *initializeContext) setRolesFinished() (bool, error) {
 	}
 
 	h := c.nativeHash(nativenames.Designation)
-	pubs, err := getDesignatedByRole(c.Client, h, noderoles.NeoFSAlphabet, height)
+	pubs, err := getDesignatedByRole(c.ReadOnlyInvoker, h, noderoles.NeoFSAlphabet, height)
 	return len(pubs) == len(c.Wallets), err
 }

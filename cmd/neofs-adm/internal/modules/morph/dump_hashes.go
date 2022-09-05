@@ -6,10 +6,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -17,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -110,25 +107,9 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string, c Client) error {
 	const nnsMaxTokens = 100
+	inv := invoker.New(c, nil)
 
-	// The actual signer is not important here.
-	account, err := wallet.NewAccount()
-	if err != nil {
-		return fmt.Errorf("can't create a temporary account: %w", err)
-	}
-
-	signers := []actor.SignerAccount{{
-		Signer: transaction.Signer{
-			Account: account.PrivateKey().GetScriptHash(),
-		},
-		Account: account,
-	}}
-	a, err := actor.New(c.(*rpcclient.Client), signers)
-	if err != nil {
-		return fmt.Errorf("can't get a list of NNS domains: %w", err)
-	}
-
-	arr, err := unwrap.Array(a.CallAndExpandIterator(nnsHash, "tokens", nnsMaxTokens))
+	arr, err := unwrap.Array(inv.CallAndExpandIterator(nnsHash, "tokens", nnsMaxTokens))
 	if err != nil {
 		return fmt.Errorf("can't get a list of NNS domains: %w", err)
 	}
@@ -148,7 +129,7 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 			continue
 		}
 
-		h, err := nnsResolveHash(c, nnsHash, string(bs))
+		h, err := nnsResolveHash(inv, nnsHash, string(bs))
 		if err != nil {
 			continue
 		}

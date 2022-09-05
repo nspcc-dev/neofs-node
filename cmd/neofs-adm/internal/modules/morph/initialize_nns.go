@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -13,6 +12,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -107,7 +108,7 @@ func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHas
 	}
 
 	if !isAvail {
-		currentPub, err := nnsResolveKey(c.Client, nnsHash, morphClient.NNSGroupKeyName)
+		currentPub, err := nnsResolveKey(c.ReadOnlyInvoker, nnsHash, morphClient.NNSGroupKeyName)
 		if err != nil {
 			return false, false, err
 		}
@@ -177,7 +178,7 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 		return bw.Bytes(), false, nil
 	}
 
-	s, err := nnsResolveHash(c.Client, nnsHash, domain)
+	s, err := nnsResolveHash(c.ReadOnlyInvoker, nnsHash, domain)
 	if err != nil {
 		return nil, false, err
 	}
@@ -203,52 +204,39 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 }
 
 func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string) (bool, error) {
-	params := []interface{}{"name." + zone}
-	res, err := invokeFunction(c.Client, nnsHash, "isAvailable", params, nil)
+	res, err := c.CommitteeAct.Call(nnsHash, "isAvailable", "name."+zone)
 	if err != nil {
 		return false, err
 	}
+
 	return res.State == vmstate.Halt.String(), nil
 }
 
 var errMissingNNSRecord = errors.New("missing NNS record")
 
 // Returns errMissingNNSRecord if invocation fault exception contains "token not found".
-func nnsResolveHash(c Client, nnsHash util.Uint160, domain string) (util.Uint160, error) {
-	item, err := nnsResolve(c, nnsHash, domain)
+func nnsResolveHash(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (util.Uint160, error) {
+	item, err := nnsResolve(inv, nnsHash, domain)
 	if err != nil {
 		return util.Uint160{}, err
 	}
 	return parseNNSResolveResult(item)
 }
 
-func nnsResolve(c Client, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
-	result, err := invokeFunction(c, nnsHash, "resolve", []interface{}{domain, int64(nns.TXT)}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("`resolve`: %w", err)
-	}
-	if result.State != vmstate.Halt.String() {
-		if strings.Contains(result.FaultException, "token not found") {
-			return nil, errMissingNNSRecord
-		}
-		return nil, fmt.Errorf("invocation failed: %s", result.FaultException)
-	}
-	if len(result.Stack) == 0 {
-		return nil, errors.New("result stack is empty")
-	}
-	return result.Stack[len(result.Stack)-1], nil
+func nnsResolve(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
+	return unwrap.Item(inv.Call(nnsHash, "resolve", domain, int64(nns.TXT)))
 }
 
-func nnsResolveKey(c Client, nnsHash util.Uint160, domain string) (*keys.PublicKey, error) {
-	item, err := nnsResolve(c, nnsHash, domain)
+func nnsResolveKey(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (*keys.PublicKey, error) {
+	item, err := nnsResolve(inv, nnsHash, domain)
 	if err != nil {
 		return nil, err
 	}
-	arr, ok := item.Value().([]stackitem.Item)
-	if !ok || len(arr) == 0 {
+	v, ok := item.Value().(stackitem.Null)
+	if ok {
 		return nil, errors.New("NNS record is missing")
 	}
-	bs, err := arr[0].TryBytes()
+	bs, err := v.TryBytes()
 	if err != nil {
 		return nil, errors.New("malformed response")
 	}
@@ -286,24 +274,16 @@ func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
 	return util.Uint160{}, errors.New("no valid hashes are found")
 }
 
-var errNNSIsAvailableInvalid = errors.New("`isAvailable`: invalid response")
-
 func nnsIsAvailable(c Client, nnsHash util.Uint160, name string) (bool, error) {
 	switch ct := c.(type) {
 	case *rpcclient.Client:
 		return ct.NNSIsAvailable(nnsHash, name)
 	default:
-		res, err := invokeFunction(c, nnsHash, "isAvailable", []interface{}{name}, nil)
+		b, err := unwrap.Bool(invokeFunction(c, nnsHash, "isAvailable", []interface{}{name}, nil))
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("`isAvailable`: invalid response: %w", err)
 		}
-		if len(res.Stack) == 0 {
-			return false, errNNSIsAvailableInvalid
-		}
-		b, err := res.Stack[0].TryBool()
-		if err != nil {
-			return b, errNNSIsAvailableInvalid
-		}
+
 		return b, nil
 	}
 }
