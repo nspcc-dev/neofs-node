@@ -37,7 +37,7 @@ control:
 
 morph:
   dial_timeout: 20s  # timeout for side chain NEO RPC client connection
-  disable_cache: false  # use TTL cache for side chain GET operations
+  cache_ttl: 15s  # use TTL cache for side chain GET operations
   rpc_endpoint:  # side chain N3 RPC endpoints
     {{- range .MorphRPC }}
     - address: wss://{{.}}/ws{{end}}
