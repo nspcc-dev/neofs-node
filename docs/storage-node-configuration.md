@@ -130,8 +130,8 @@ contracts:
 
 ```yaml
 morph:
-  dial_timeout: 30s 
-  disable_cache: true
+  dial_timeout: 30s
+  cache_ttl: 15s
   rpc_endpoint:
     - address: wss://rpc1.morph.fs.neo.org:40341/ws
       priority: 1
@@ -139,11 +139,11 @@ morph:
       priority: 2
  ```
 
-| Parameter       | Type                                                      | Default value | Description                                                                                                                     |
-|-----------------|-----------------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout`  | `duration`                                                | `5s`          | Timeout for dialing connections to N3 RPCs.                                                                                     |
-| `disable_cache` | `bool`                                                    | `false`       | Flag to disable TTL cache for some side-chain operations.<br/>NOTE: Setting this to `true` can slow down the node considerably. |
-| `rpc_endpoint`  | list of [endpoint descriptions](#rpc_endpoint-subsection) |               | Array of endpoint descriptions.                                                                                                 |
+| Parameter      | Type                                                      | Default value | Description                                                                                                                                                         |
+|----------------|-----------------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dial_timeout` | `duration`                                                | `5s`          | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
+| `cache_ttl`    | `duration`                                                | `30s`         | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
+| `rpc_endpoint` | list of [endpoint descriptions](#rpc_endpoint-subsection) |               | Array of endpoint descriptions.                                                                                                                                     |
 
 ## `rpc_endpoint` subsection
 | Parameter  | Type     | Default value | Description                                                                                                                                                                                                              |
