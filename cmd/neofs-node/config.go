@@ -323,8 +323,9 @@ func initCfg(path string) *cfg {
 			workerPool: reputationWorkerPool,
 		},
 		clientCache: cache.NewSDKClientCache(cache.ClientCacheOpts{
-			DialTimeout: apiclientconfig.DialTimeout(appCfg),
-			Key:         &key.PrivateKey,
+			DialTimeout:   apiclientconfig.DialTimeout(appCfg),
+			StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
+			Key:           &key.PrivateKey,
 		}),
 		persistate: persistate,
 	}

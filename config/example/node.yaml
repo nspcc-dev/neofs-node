@@ -91,6 +91,7 @@ morph:
 
 apiclient:
   dial_timeout: 15s  # timeout for NEOFS API client connection
+  stream_timeout: 20s # timeout for individual operations in a streaming RPC
 
 policer:
   head_timeout: 15s  # timeout for the Policer HEAD remote operation

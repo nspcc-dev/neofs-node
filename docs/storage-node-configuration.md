@@ -366,10 +366,12 @@ Configuration for the NeoFS API client used for communication with other NeoFS n
 ```yaml
 apiclient:
   dial_timeout: 15s
+  stream_timeout: 20s
 ```
-| Parameter    | Type     | Default value | Description                                                           |
-|--------------|----------|---------------|-----------------------------------------------------------------------|
-| dial_timeout | duration | `5s`          | Timeout for dialing connections to other storage or inner ring nodes. |
+| Parameter      | Type     | Default value | Description                                                           |
+|----------------|----------|---------------|-----------------------------------------------------------------------|
+| dial_timeout   | duration | `5s`          | Timeout for dialing connections to other storage or inner ring nodes. |
+| stream_timeout | duration | `15s`         | Timeout for individual operations in a streaming RPC.                 |
 
 # `policer` section
 

@@ -47,6 +47,10 @@ func (x *multiClient) createForAddress(addr network.Address) clientcore.Client {
 		prmDial.SetTimeout(x.opts.DialTimeout)
 	}
 
+	if x.opts.StreamTimeout > 0 {
+		prmDial.SetStreamTimeout(x.opts.StreamTimeout)
+	}
+
 	if x.opts.ResponseCallback != nil {
 		prmInit.SetResponseInfoCallback(x.opts.ResponseCallback)
 	}
