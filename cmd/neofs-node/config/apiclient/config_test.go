@@ -15,12 +15,14 @@ func TestApiclientSection(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
 		require.Equal(t, apiclientconfig.DialTimeoutDefault, apiclientconfig.DialTimeout(empty))
+		require.Equal(t, apiclientconfig.StreamTimeoutDefault, apiclientconfig.StreamTimeout(empty))
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, 15*time.Second, apiclientconfig.DialTimeout(c))
+		require.Equal(t, 20*time.Second, apiclientconfig.StreamTimeout(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

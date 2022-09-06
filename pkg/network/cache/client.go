@@ -20,6 +20,7 @@ type (
 
 	ClientCacheOpts struct {
 		DialTimeout      time.Duration
+		StreamTimeout    time.Duration
 		Key              *ecdsa.PrivateKey
 		ResponseCallback func(client.ResponseMetaInfo) error
 	}

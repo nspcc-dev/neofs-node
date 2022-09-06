@@ -112,7 +112,8 @@
     ]
   },
   "apiclient": {
-    "dial_timeout": "15s"
+    "dial_timeout": "15s",
+    "stream_timeout": "20s"
   },
   "policer": {
     "head_timeout": "15s"
