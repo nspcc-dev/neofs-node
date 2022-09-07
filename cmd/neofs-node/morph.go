@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -211,7 +212,16 @@ func listenMorphNotifications(c *cfg) {
 		})
 	}))
 
-	setNetmapNotificationParser(c, newEpochNotification, netmapEvent.ParseNewEpoch)
+	setNetmapNotificationParser(c, newEpochNotification, func(src *state.ContainedNotificationEvent) (event.Event, error) {
+		res, err := netmapEvent.ParseNewEpoch(src)
+		if err == nil {
+			c.log.Info("new epoch event from sidechain",
+				zap.Uint64("number", res.(netmapEvent.NewEpoch).EpochNumber()),
+			)
+		}
+
+		return res, err
+	})
 	registerNotificationHandlers(c.cfgNetmap.scriptHash, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
 	registerNotificationHandlers(c.cfgContainer.scriptHash, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
 
