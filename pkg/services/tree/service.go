@@ -25,9 +25,6 @@ type Service struct {
 	containerCache   containerCache
 }
 
-// MaxGetSubTreeDepth represents maximum allowed traversal depth in GetSubTree RPC.
-const MaxGetSubTreeDepth = 10
-
 var _ TreeServiceServer = (*Service)(nil)
 
 // New creates new tree service instance.
