@@ -179,3 +179,15 @@ func (f *memoryForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64)
 	}
 	return s.operations[n].Move, nil
 }
+
+// TreeDrop implements the pilorama.Forest interface.
+func (f *memoryForest) TreeDrop(cid cidSDK.ID, treeID string) error {
+	fullID := cid.String() + "/" + treeID
+	_, ok := f.treeMap[fullID]
+	if !ok {
+		return ErrTreeNotFound
+	}
+
+	delete(f.treeMap, fullID)
+	return nil
+}

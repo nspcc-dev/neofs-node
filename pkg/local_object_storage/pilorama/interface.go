@@ -34,6 +34,9 @@ type Forest interface {
 	// TreeGetOpLog returns first log operation stored at or above the height.
 	// In case no such operation is found, empty Move and nil error should be returned.
 	TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error)
+	// TreeDrop drops a tree from the database.
+	// If the tree is not found, ErrTreeNotFound should be returned.
+	TreeDrop(cid cidSDK.ID, treeID string) error
 }
 
 type ForestStorage interface {

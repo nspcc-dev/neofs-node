@@ -3,6 +3,7 @@ package pilorama
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -577,6 +578,17 @@ func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (
 	})
 
 	return lm, err
+}
+
+// TreeDrop implements the pilorama.Forest interface.
+func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
+	return t.db.Batch(func(tx *bbolt.Tx) error {
+		err := tx.DeleteBucket(bucketName(cid, treeID))
+		if errors.Is(err, bbolt.ErrBucketNotFound) {
+			return ErrTreeNotFound
+		}
+		return err
+	})
 }
 
 func (t *boltForest) getPathPrefix(bTree *bbolt.Bucket, attr string, path []string) (int, Node, error) {
