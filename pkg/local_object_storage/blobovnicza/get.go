@@ -1,11 +1,12 @@
 package blobovnicza
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // GetPrm groups the parameters of Get operation.
@@ -28,6 +29,9 @@ func (p GetRes) Object() []byte {
 	return p.obj
 }
 
+// special error for normal bbolt.Tx.ForEach interruption.
+var errInterruptForEach = errors.New("interrupt for-each")
+
 // Get reads an object from Blobovnicza by address.
 //
 // Returns any error encountered that
@@ -42,22 +46,17 @@ func (b *Blobovnicza) Get(prm GetPrm) (GetRes, error) {
 	)
 
 	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
-		return b.iterateBuckets(tx, func(lower, upper uint64, buck *bbolt.Bucket) (bool, error) {
+		return tx.ForEach(func(_ []byte, buck *bbolt.Bucket) error {
 			data = buck.Get(addrKey)
-
-			stop := data != nil
-
-			if stop {
-				b.log.Debug("object is found in bucket",
-					zap.String("binary size", stringifyByteSize(uint64(len(data)))),
-					zap.String("range", stringifyBounds(lower, upper)),
-				)
-				data = slice.Copy(data)
+			if data == nil {
+				return nil
 			}
 
-			return stop, nil
+			data = slice.Copy(data)
+
+			return errInterruptForEach
 		})
-	}); err != nil {
+	}); err != nil && err != errInterruptForEach {
 		return GetRes{}, err
 	}
 
