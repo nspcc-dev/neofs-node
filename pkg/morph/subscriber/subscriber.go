@@ -133,6 +133,10 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 					continue
 				}
 
+				s.log.Debug("new notification event from sidechain",
+					zap.String("name", notifyEvent.Name),
+				)
+
 				s.notifyChan <- notifyEvent
 			case neorpc.BlockEventID:
 				b, ok := notification.Value.(*block.Block)
