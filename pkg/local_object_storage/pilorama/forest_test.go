@@ -31,7 +31,9 @@ var providers = []struct {
 		tmpDir, err := os.MkdirTemp(os.TempDir(), "*")
 		require.NoError(t, err)
 
-		f := NewBoltForest(WithPath(filepath.Join(tmpDir, "test.db")))
+		f := NewBoltForest(
+			WithPath(filepath.Join(tmpDir, "test.db")),
+			WithMaxBatchSize(1))
 		require.NoError(t, f.Open(false))
 		require.NoError(t, f.Init())
 		t.Cleanup(func() {
@@ -486,9 +488,9 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 	rand.Seed(42)
 
 	const (
-		nodeCount = 4
-		opCount   = 10
-		iterCount = 100
+		nodeCount = 5
+		opCount   = 20
+		iterCount = 200
 	)
 
 	cid := cidtest.ID()
