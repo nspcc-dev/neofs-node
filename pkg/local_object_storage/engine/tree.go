@@ -159,3 +159,24 @@ func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64
 	}
 	return lm, err
 }
+
+// TreeDrop implements the pilorama.Forest interface.
+func (e *StorageEngine) TreeDrop(cid cidSDK.ID, treeID string) error {
+	var err error
+	for _, sh := range e.sortShardsByWeight(cid) {
+		err = sh.TreeDrop(cid, treeID)
+		if err != nil {
+			if err == shard.ErrPiloramaDisabled {
+				break
+			}
+			if !errors.Is(err, pilorama.ErrTreeNotFound) && !errors.Is(err, shard.ErrReadOnlyMode) {
+				e.reportShardError(sh, "can't perform `TreeDrop`", err,
+					zap.Stringer("cid", cid),
+					zap.String("tree", treeID))
+			}
+			continue
+		}
+		return nil
+	}
+	return err
+}

@@ -76,3 +76,11 @@ func (s *Shard) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (pilor
 	}
 	return s.pilorama.TreeGetOpLog(cid, treeID, height)
 }
+
+// TreeDrop implements the pilorama.Forest interface.
+func (s *Shard) TreeDrop(cid cidSDK.ID, treeID string) error {
+	if s.pilorama == nil {
+		return ErrPiloramaDisabled
+	}
+	return s.pilorama.TreeDrop(cid, treeID)
+}

@@ -167,6 +167,39 @@ func testForestTreeGetChildren(t *testing.T, s Forest) {
 	})
 }
 
+func TestForest_TreeDrop(t *testing.T) {
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			testForestTreeDrop(t, providers[i].construct(t))
+		})
+	}
+}
+
+func testForestTreeDrop(t *testing.T, s Forest) {
+	cid := cidtest.ID()
+
+	t.Run("return nil if not found", func(t *testing.T) {
+		require.ErrorIs(t, s.TreeDrop(cid, "123"), ErrTreeNotFound)
+	})
+
+	trees := []string{"tree1", "tree2"}
+	d := CIDDescriptor{cid, 0, 1}
+	for i := range trees {
+		_, err := s.TreeAddByPath(d, trees[i], AttributeFilename, []string{"path"},
+			[]KeyValue{{Key: "TreeName", Value: []byte(trees[i])}})
+		require.NoError(t, err)
+	}
+
+	err := s.TreeDrop(cid, trees[0])
+	require.NoError(t, err)
+
+	_, err = s.TreeGetByPath(cid, trees[0], AttributeFilename, []string{"path"}, true)
+	require.ErrorIs(t, err, ErrTreeNotFound)
+
+	_, err = s.TreeGetByPath(cid, trees[1], AttributeFilename, []string{"path"}, true)
+	require.NoError(t, err)
+}
+
 func TestForest_TreeAdd(t *testing.T) {
 	for i := range providers {
 		t.Run(providers[i].name, func(t *testing.T) {
