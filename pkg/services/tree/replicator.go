@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -56,10 +57,15 @@ func (s *Service) replicationWorker() {
 			})
 
 			if lastErr != nil {
-				s.log.Warn("failed to sent update to the node",
-					zap.String("last_error", lastErr.Error()),
-					zap.String("address", lastAddr),
-					zap.String("key", hex.EncodeToString(task.n.PublicKey())))
+				if errors.Is(lastErr, errRecentlyFailed) {
+					s.log.Debug("do not send update to the node",
+						zap.String("last_error", lastErr.Error()))
+				} else {
+					s.log.Warn("failed to sent update to the node",
+						zap.String("last_error", lastErr.Error()),
+						zap.String("address", lastAddr),
+						zap.String("key", hex.EncodeToString(task.n.PublicKey())))
+				}
 			}
 		}
 	}

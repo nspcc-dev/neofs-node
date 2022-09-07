@@ -2,6 +2,7 @@ package tree
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -30,6 +31,8 @@ const (
 	defaultReconnectInterval    = time.Second * 15
 )
 
+var errRecentlyFailed = errors.New("client has recently failed")
+
 func (c *clientCache) init() {
 	l, _ := simplelru.NewLRU(defaultClientCacheSize, func(key, value interface{}) {
 		_ = value.(*grpc.ClientConn).Close()
@@ -46,8 +49,8 @@ func (c *clientCache) get(ctx context.Context, netmapAddr string) (TreeServiceCl
 		item := ccInt.(cacheItem)
 		if item.cc == nil {
 			if d := time.Since(item.lastTry); d < defaultReconnectInterval {
-				return nil, fmt.Errorf("skip connecting to %s (time since last error %s)",
-					netmapAddr, d)
+				return nil, fmt.Errorf("%w: %s till the next reconnection to %s",
+					errRecentlyFailed, d, netmapAddr)
 			}
 		} else {
 			if s := item.cc.GetState(); s == connectivity.Idle || s == connectivity.Ready {
