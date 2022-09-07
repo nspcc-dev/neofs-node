@@ -67,7 +67,6 @@ func (s *Service) synchronizeSingle(ctx context.Context, cid cid.ID, treeID stri
 				ContainerId: rawCID,
 				TreeId:      treeID,
 				Height:      newHeight,
-				Count:       MaxGetSubTreeDepth,
 			},
 		}
 		if err := signMessage(req, s.key); err != nil {
