@@ -1,0 +1,15 @@
+Source: neofs-node
+Section: neofs
+Priority: optional
+Maintainer: Dmitriy Zabolotskiy <pkuutn@gmail.com>
+Build-Depends: debhelper-compat (= 13), dh-sysuser, git, devscripts, bash-completion, dh-sequence-bash-completion
+Standards-Version: 4.5.1
+Homepage: https://github.com/nspcc-dev/neofs-node
+
+Package: neofs-node
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: NeoFS is a decentralized distributed object storage integrated with the NEO Blockchain.
+ NeoFS Nodes are organized in a peer-to-peer network that takes care of storing and distributing user's data. 
+ Any Neo user may participate in the network and get paid for providing storage resources to other users or 
+ store their data in NeoFS and pay a competitive price for it.

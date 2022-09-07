@@ -1,0 +1,5 @@
+docs/*
+*.md
+LICENSE
+VERSION
+cmd/*/docs

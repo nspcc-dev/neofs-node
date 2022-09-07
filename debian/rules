@@ -1,0 +1,50 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+SERVICE = neofs-node
+#PACKAGEVERSION=$(shell git describe --tags --match "v*" 2>/dev/null | sed 's/^v//' | sed 's/-/~/' | sed 's/-/_/g')
+VERSION = $(shell make --no-print-directory version | sed "s/^v//" | sed -r "s/(.*)-(g[a-fA-F0-9]{6,8})(.*)/\1\3~\2/" | sed "s/-/~/")
+#BRANCH = $(shell ([ "$$BRANCH_NAME" != "master" ] && echo ~$$BRANCH_NAME || "") )
+DISTRIBUTION = $(shell sed -n "s/^VERSION_CODENAME=//p" /etc/os-release)
+#PACKAGEVERSION = $(VERSION)-$(DISTRIBUTION)
+PACKAGEVERSION = $(VERSION)-$(DISTRIBUTION)
+
+%:
+	dh $@ --with sysuser,bash-completion
+
+override_dh_auto_test:
+
+override_dh_auto_configure:
+		dch -M -v $(PACKAGEVERSION) -D $(DISTRIBUTION) "This package was built automatically. See upstream changelog for changes."
+		dh_auto_configure
+
+override_dh_auto_install:
+		dh_auto_install
+		install -D -m 0750 -t debian/$(SERVICE)/bin bin/*
+		bin/neofs-adm gendoc -t man man/
+		bin/neofs-adm completion bash > debian/neofs-adm.bash-completion
+		bin/neofs-cli gendoc -t man man/
+		bin/neofs-cli completion bash > debian/neofs-cli.bash-completion
+		install -m 0755 -d debian/$(SERVICE)/usr/share/fish/completions
+		bin/neofs-cli completion fish > debian/$(SERVICE)/usr/share/fish/completions/neofs-node.fish
+		install -m 0755 -d debian/$(SERVICE)/usr/share/zsh/vendor-completions
+		bin/neofs-cli completion zsh > debian/$(SERVICE)/usr/share/zsh/vendor-completions/_neofs-node
+		wget https://github.com/nspcc-dev/neofs-locode-db/releases/download/v0.2.1/locode_db.tar.gz
+		install -d debian/$(SERVICE)/var/lib/neofs/ir
+		tar xvf locode_db.tar.gz -C debian/$(SERVICE)/var/lib/neofs/ir/
+
+
+override_dh_installsystemd:
+		dh_installsystemd --no-enable --no-start --name=neofs-ir
+		dh_installsystemd --no-enable --no-start --name=neofs-storage
+
+override_dh_installchangelogs:
+		dh_installchangelogs -k CHANGELOG.md
+
+override_dh_auto_clean:
+		dh_auto_clean		
+		rm -rf man
+		rm -f debian/neofs-adm.bash-completion
+		rm -f debian/neofs-cli.bash-completion		
+		rm -f locode_db.tar.gz
+

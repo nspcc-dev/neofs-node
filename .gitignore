@@ -28,3 +28,6 @@ testfile
 
 # misc
 .neofs-cli.yml
+
+# debhelpers
+**/.debhelper

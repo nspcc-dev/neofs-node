@@ -1,0 +1,2 @@
+neofs-ir    home=/var/lib/neofs/ir
+neofs-storage    home=/srv/neofs
