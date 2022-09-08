@@ -106,7 +106,7 @@ func (db *DB) init(reset bool) error {
 		}
 
 		if !reset {
-			err = syncCounter(tx)
+			err = syncCounter(tx, false)
 			if err != nil {
 				return fmt.Errorf("could not sync object counter: %w", err)
 			}
@@ -125,6 +125,13 @@ func (db *DB) init(reset bool) error {
 			return err
 		}
 		return updateVersion(tx, version)
+	})
+}
+
+// SyncCounters forces to synchronize the object counters.
+func (db *DB) SyncCounters() error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		return syncCounter(tx, true)
 	})
 }
 

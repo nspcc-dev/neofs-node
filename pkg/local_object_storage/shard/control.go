@@ -159,7 +159,7 @@ func (s *Shard) refillMetabase() error {
 
 	obj := objectSDK.New()
 
-	return blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, descriptor []byte) error {
+	err = blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, descriptor []byte) error {
 		if err := obj.Unmarshal(data); err != nil {
 			s.log.Warn("could not unmarshal object",
 				zap.Stringer("address", addr),
@@ -224,6 +224,16 @@ func (s *Shard) refillMetabase() error {
 
 		return nil
 	})
+	if err != nil {
+		return fmt.Errorf("could not put objects to the meta: %w", err)
+	}
+
+	err = s.metaBase.SyncCounters()
+	if err != nil {
+		return fmt.Errorf("could not sync object counters: %w", err)
+	}
+
+	return nil
 }
 
 // Close releases all Shard's components.
