@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
@@ -69,7 +69,7 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
+	err := s.verifyClient(req, cid, b.GetBearerToken(), acl.OpObjectPut)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (s *Service) AddByPath(ctx context.Context, req *AddByPathRequest) (*AddByP
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
+	err := s.verifyClient(req, cid, b.GetBearerToken(), acl.OpObjectPut)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (s *Service) Remove(ctx context.Context, req *RemoveRequest) (*RemoveRespon
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
+	err := s.verifyClient(req, cid, b.GetBearerToken(), acl.OpObjectPut)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (s *Service) Move(ctx context.Context, req *MoveRequest) (*MoveResponse, er
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationPut)
+	err := s.verifyClient(req, cid, b.GetBearerToken(), acl.OpObjectPut)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (s *Service) GetNodeByPath(ctx context.Context, req *GetNodeByPathRequest) 
 		return nil, err
 	}
 
-	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationGet)
+	err := s.verifyClient(req, cid, b.GetBearerToken(), acl.OpObjectGet)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (s *Service) GetSubTree(req *GetSubTreeRequest, srv TreeService_GetSubTreeS
 		return err
 	}
 
-	err := s.verifyClient(req, cid, b.GetBearerToken(), eacl.OperationGet)
+	err := s.verifyClient(req, cid, b.GetBearerToken(), acl.OpObjectGet)
 	if err != nil {
 		return err
 	}

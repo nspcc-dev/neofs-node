@@ -16,6 +16,7 @@ func initTreeService(c *cfg) {
 
 	c.treeService = tree.New(
 		tree.WithContainerSource(c.cfgObject.cnrSource),
+		tree.WithEACLSource(c.cfgObject.eaclSource),
 		tree.WithNetmapSource(c.netMapSource),
 		tree.WithPrivateKey(&c.key.PrivateKey),
 		tree.WithLogger(c.log),

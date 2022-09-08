@@ -11,12 +11,13 @@ import (
 )
 
 type cfg struct {
-	log       *zap.Logger
-	key       *ecdsa.PrivateKey
-	rawPub    []byte
-	nmSource  netmap.Source
-	cnrSource container.Source
-	forest    pilorama.Forest
+	log        *zap.Logger
+	key        *ecdsa.PrivateKey
+	rawPub     []byte
+	nmSource   netmap.Source
+	cnrSource  container.Source
+	eaclSource container.EACLSource
+	forest     pilorama.Forest
 	// replication-related parameters
 	replicatorChannelCapacity int
 	replicatorWorkerCount     int
@@ -31,6 +32,14 @@ type Option func(*cfg)
 func WithContainerSource(src container.Source) Option {
 	return func(c *cfg) {
 		c.cnrSource = src
+	}
+}
+
+// WithEACLSource sets a eACL table source for a tree service.
+// This option is required.
+func WithEACLSource(src container.EACLSource) Option {
+	return func(c *cfg) {
+		c.eaclSource = src
 	}
 }
 
