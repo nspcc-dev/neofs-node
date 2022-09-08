@@ -66,7 +66,7 @@ func (db *DB) updateCounter(tx *bbolt.Tx, delta uint64, inc bool) error {
 // Tx MUST be writable.
 //
 // Does nothing if counter not empty.
-func syncCounter(tx *bbolt.Tx) error {
+func syncCounter(tx *bbolt.Tx, force bool) error {
 	var counter uint64
 
 	b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
@@ -75,7 +75,7 @@ func syncCounter(tx *bbolt.Tx) error {
 	}
 
 	data := b.Get(objectCounterKey)
-	if len(data) == 8 {
+	if len(data) == 8 && !force {
 		return nil
 	}
 
