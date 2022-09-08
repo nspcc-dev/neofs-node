@@ -55,6 +55,12 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 			return nil
 		}
 
+		var cnrID cid.ID
+		err := cnrID.Decode(cidBytes)
+		if err != nil {
+			return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
+		}
+
 		return b.ForEach(func(expKey, _ []byte) error {
 			bktExpired := b.Bucket(expKey)
 			if bktExpired == nil {
@@ -71,16 +77,9 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 			return bktExpired.ForEach(func(idKey, _ []byte) error {
 				var id oid.ID
 
-				err = id.DecodeString(string(idKey))
+				err = id.Decode(idKey)
 				if err != nil {
 					return fmt.Errorf("could not parse ID of expired object: %w", err)
-				}
-
-				var cnrID cid.ID
-
-				err = cnrID.DecodeString(string(cidBytes))
-				if err != nil {
-					return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
 				}
 
 				// Ignore locked objects.
@@ -131,7 +130,11 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Addres
 	}
 
 	err := bktGraveyard.ForEach(func(k, v []byte) error {
-		if _, ok := tss[string(v)]; ok {
+		var addr oid.Address
+		if err := decodeAddressFromKey(&addr, v); err != nil {
+			return err
+		}
+		if _, ok := tss[addr.EncodeToString()]; ok {
 			var addr oid.Address
 
 			err := decodeAddressFromKey(&addr, k)
@@ -161,22 +164,22 @@ func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
 	var oid oid.ID
 
 	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		b58CID, postfix := parseContainerIDWithPostfix(&cid, name)
+		b58CID, postfix := parseContainerIDWithPrefix(&cid, name)
 		if len(b58CID) == 0 {
 			return nil
 		}
 
 		switch postfix {
-		case "",
-			storageGroupPostfix,
-			bucketNameSuffixLockers,
-			tombstonePostfix:
+		case primaryPrefix,
+			storageGroupPrefix,
+			lockersPrefix,
+			tombstonePrefix:
 		default:
 			return nil
 		}
 
 		return b.ForEach(func(k, v []byte) error {
-			if oid.DecodeString(string(k)) == nil {
+			if oid.Decode(k) == nil {
 				return f(cid, oid)
 			}
 

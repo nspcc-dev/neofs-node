@@ -139,7 +139,8 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, er
 // object was available before the removal (for calculating the logical object
 // counter).
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, bool, error) {
-	addrKey := addressKey(addr)
+	key := make([]byte, addressKeySize)
+	addrKey := addressKey(addr, key)
 	garbageBKT := tx.Bucket(garbageBucketName)
 	graveyardBKT := tx.Bucket(graveyardBucketName)
 
@@ -154,7 +155,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	}
 
 	// unmarshal object, work only with physically stored (raw == true) objects
-	obj, err := db.get(tx, addr, false, true, currEpoch)
+	obj, err := db.get(tx, addr, key, false, true, currEpoch)
 	if err != nil {
 		if errors.As(err, new(apistatus.ObjectNotFound)) {
 			return false, false, nil
@@ -166,9 +167,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	// if object is an only link to a parent, then remove parent
 	if parent := obj.Parent(); parent != nil {
 		parAddr := object.AddressOf(parent)
-		sParAddr := parAddr.EncodeToString()
+		sParAddr := addressKey(parAddr, key)
+		k := string(sParAddr)
 
-		nRef, ok := refCounter[sParAddr]
+		nRef, ok := refCounter[k]
 		if !ok {
 			nRef = &referenceNumber{
 				all:  parentLength(tx, parAddr),
@@ -176,7 +178,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 				obj:  parent,
 			}
 
-			refCounter[sParAddr] = nRef
+			refCounter[k] = nRef
 		}
 
 		nRef.cur++
@@ -216,12 +218,14 @@ func (db *DB) deleteObject(
 
 // parentLength returns amount of available children from parentid index.
 func parentLength(tx *bbolt.Tx, addr oid.Address) int {
-	bkt := tx.Bucket(parentBucketName(addr.Container()))
+	bucketName := make([]byte, bucketKeySize)
+
+	bkt := tx.Bucket(parentBucketName(addr.Container(), bucketName[:]))
 	if bkt == nil {
 		return 0
 	}
 
-	lst, err := decodeList(bkt.Get(objectKey(addr.Object())))
+	lst, err := decodeList(bkt.Get(objectKey(addr.Object(), bucketName[:])))
 	if err != nil {
 		return 0
 	}
@@ -291,23 +295,22 @@ func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error {
 	addr := object.AddressOf(obj)
 
-	objKey := objectKey(addr.Object())
-	addrKey := addressKey(addr)
+	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
+	addrKey := addressKey(addr, make([]byte, addressKeySize))
 	cnr := addr.Container()
+	bucketName := make([]byte, bucketKeySize)
 
 	// add value to primary unique bucket
 	if !isParent {
-		var bucketName []byte
-
 		switch obj.Type() {
 		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(cnr)
+			bucketName = primaryBucketName(cnr, bucketName)
 		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(cnr)
+			bucketName = tombstoneBucketName(cnr, bucketName)
 		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(cnr)
+			bucketName = storageGroupBucketName(cnr, bucketName)
 		case objectSDK.TypeLock:
-			bucketName = bucketNameLockers(cnr)
+			bucketName = bucketNameLockers(cnr, bucketName)
 		default:
 			return ErrUnknownObjectType
 		}
@@ -318,17 +321,17 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 		})
 	} else {
 		delUniqueIndexItem(tx, namedBucketItem{
-			name: parentBucketName(cnr),
+			name: parentBucketName(cnr, bucketName),
 			key:  objKey,
 		})
 	}
 
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from storage id index
-		name: smallBucketName(cnr),
+		name: smallBucketName(cnr, bucketName),
 		key:  objKey,
 	})
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from root index
-		name: rootBucketName(cnr),
+		name: rootBucketName(cnr, bucketName),
 		key:  objKey,
 	})
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from ToMoveIt index

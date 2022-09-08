@@ -174,7 +174,7 @@ func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *oid.Address) 
 	if offset == nil {
 		k, v = c.First()
 	} else {
-		rawAddr := addressKey(*offset)
+		rawAddr := addressKey(*offset, make([]byte, addressKeySize))
 
 		k, v = c.Seek(rawAddr)
 		if bytes.Equal(k, rawAddr) {
@@ -222,6 +222,8 @@ func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
 //
 // Returns any error appeared during deletion process.
 func (db *DB) DropGraves(tss []TombstonedObject) error {
+	buf := make([]byte, addressKeySize)
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket(graveyardBucketName)
 		if bkt == nil {
@@ -229,7 +231,7 @@ func (db *DB) DropGraves(tss []TombstonedObject) error {
 		}
 
 		for _, ts := range tss {
-			err := bkt.Delete(addressKey(ts.Address()))
+			err := bkt.Delete(addressKey(ts.Address(), buf))
 			if err != nil {
 				return err
 			}

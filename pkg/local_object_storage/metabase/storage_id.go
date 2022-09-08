@@ -39,12 +39,13 @@ func (db *DB) StorageID(prm StorageIDPrm) (res StorageIDRes, err error) {
 }
 
 func (db *DB) storageID(tx *bbolt.Tx, addr oid.Address) ([]byte, error) {
-	smallBucket := tx.Bucket(smallBucketName(addr.Container()))
+	key := make([]byte, bucketKeySize)
+	smallBucket := tx.Bucket(smallBucketName(addr.Container(), key))
 	if smallBucket == nil {
 		return nil, nil
 	}
 
-	storageID := smallBucket.Get(objectKey(addr.Object()))
+	storageID := smallBucket.Get(objectKey(addr.Object(), key))
 	if storageID == nil {
 		return nil, nil
 	}

@@ -168,21 +168,20 @@ func putUniqueIndexes(
 	isParent := si != nil
 	addr := object.AddressOf(obj)
 	cnr := addr.Container()
-	objKey := objectKey(addr.Object())
+	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
 
+	bucketName := make([]byte, bucketKeySize)
 	// add value to primary unique bucket
 	if !isParent {
-		var bucketName []byte
-
 		switch obj.Type() {
 		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(cnr)
+			bucketName = primaryBucketName(cnr, bucketName)
 		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(cnr)
+			bucketName = tombstoneBucketName(cnr, bucketName)
 		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(cnr)
+			bucketName = storageGroupBucketName(cnr, bucketName)
 		case objectSDK.TypeLock:
-			bucketName = bucketNameLockers(cnr)
+			bucketName = bucketNameLockers(cnr, bucketName)
 		default:
 			return ErrUnknownObjectType
 		}
@@ -204,7 +203,7 @@ func putUniqueIndexes(
 		// index storageID if it is present
 		if id != nil {
 			err = putUniqueIndexItem(tx, namedBucketItem{
-				name: smallBucketName(cnr),
+				name: smallBucketName(cnr, bucketName),
 				key:  objKey,
 				val:  id,
 			})
@@ -229,7 +228,7 @@ func putUniqueIndexes(
 		}
 
 		err = putUniqueIndexItem(tx, namedBucketItem{
-			name: rootBucketName(cnr),
+			name: rootBucketName(cnr, bucketName),
 			key:  objKey,
 			val:  splitInfo,
 		})
@@ -246,13 +245,14 @@ type updateIndexItemFunc = func(tx *bbolt.Tx, item namedBucketItem) error
 func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
 	idObj, _ := obj.ID()
 	cnr, _ := obj.ContainerID()
-	objKey := objectKey(idObj)
+	objKey := objectKey(idObj, make([]byte, objectKeySize))
+	bucketName := make([]byte, bucketKeySize)
 
 	cs, _ := obj.PayloadChecksum()
 
 	// index payload hashes
 	err := f(tx, namedBucketItem{
-		name: payloadHashBucketName(cnr),
+		name: payloadHashBucketName(cnr, bucketName),
 		key:  cs.Value(),
 		val:  objKey,
 	})
@@ -265,8 +265,8 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 	// index parent ids
 	if ok {
 		err := f(tx, namedBucketItem{
-			name: parentBucketName(cnr),
-			key:  objectKey(idParent),
+			name: parentBucketName(cnr, bucketName),
+			key:  objectKey(idParent, make([]byte, objectKeySize)),
 			val:  objKey,
 		})
 		if err != nil {
@@ -277,7 +277,7 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 	// index split ids
 	if obj.SplitID() != nil {
 		err := f(tx, namedBucketItem{
-			name: splitBucketName(cnr),
+			name: splitBucketName(cnr, bucketName),
 			key:  obj.SplitID().ToV2(),
 			val:  objKey,
 		})
@@ -292,12 +292,13 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 func updateFKBTIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
 	id, _ := obj.ID()
 	cnr, _ := obj.ContainerID()
-	objKey := []byte(id.EncodeToString())
+	objKey := objectKey(id, make([]byte, objectKeySize))
 
 	attrs := obj.Attributes()
 
+	key := make([]byte, bucketKeySize)
 	err := f(tx, namedBucketItem{
-		name: ownerBucketName(cnr),
+		name: ownerBucketName(cnr, key),
 		key:  []byte(obj.OwnerID().EncodeToString()),
 		val:  objKey,
 	})
@@ -307,8 +308,9 @@ func updateFKBTIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 
 	// user specified attributes
 	for i := range attrs {
+		key = attributeBucketName(cnr, attrs[i].Key(), key)
 		err := f(tx, namedBucketItem{
-			name: attributeBucketName(cnr, attrs[i].Key()),
+			name: key,
 			key:  []byte(attrs[i].Value()),
 			val:  objKey,
 		})
@@ -437,25 +439,27 @@ func getVarUint(data []byte) (uint64, int, error) {
 // updateStorageID for existing objects if they were moved from one
 // storage location to another.
 func updateStorageID(tx *bbolt.Tx, addr oid.Address, id []byte) error {
-	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.Container()))
+	key := make([]byte, bucketKeySize)
+	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.Container(), key))
 	if err != nil {
 		return err
 	}
 
-	return bkt.Put(objectKey(addr.Object()), id)
+	return bkt.Put(objectKey(addr.Object(), key), id)
 }
 
 // updateSpliInfo for existing objects if storage filled with extra information
 // about last object in split hierarchy or linking object.
 func updateSplitInfo(tx *bbolt.Tx, addr oid.Address, from *objectSDK.SplitInfo) error {
-	bkt := tx.Bucket(rootBucketName(addr.Container()))
+	key := make([]byte, bucketKeySize)
+	bkt := tx.Bucket(rootBucketName(addr.Container(), key))
 	if bkt == nil {
 		// if object doesn't exists and we want to update split info on it
 		// then ignore, this should never happen
 		return ErrIncorrectSplitInfoUpdate
 	}
 
-	objectKey := objectKey(addr.Object())
+	objectKey := objectKey(addr.Object(), key)
 
 	rawSplitInfo := bkt.Get(objectKey)
 	if len(rawSplitInfo) == 0 {

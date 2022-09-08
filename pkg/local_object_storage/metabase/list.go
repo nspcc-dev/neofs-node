@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"errors"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -90,30 +89,28 @@ func (db *DB) listWithCursor(tx *bbolt.Tx, result []oid.Address, count int, curs
 	graveyardBkt := tx.Bucket(graveyardBucketName)
 	garbageBkt := tx.Bucket(garbageBucketName)
 
-	const idSize = 44 // size of the stringified object and container ids
-	var rawAddr = make([]byte, idSize*2+1)
+	var rawAddr = make([]byte, cidSize, addressKeySize)
 
 loop:
 	for ; name != nil; name, _ = c.Next() {
-		b58CID, postfix := parseContainerIDWithPostfix(&containerID, name)
-		if b58CID == nil {
+		cidRaw, prefix := parseContainerIDWithPrefix(&containerID, name)
+		if cidRaw == nil {
 			continue
 		}
 
-		switch postfix {
+		switch prefix {
 		case
-			"",
-			storageGroupPostfix,
-			bucketNameSuffixLockers,
-			tombstonePostfix:
+			primaryPrefix,
+			storageGroupPrefix,
+			lockersPrefix,
+			tombstonePrefix:
 		default:
 			continue
 		}
 
 		bkt := tx.Bucket(name)
 		if bkt != nil {
-			rawAddr = append(rawAddr[:0], b58CID...)
-			rawAddr = append(rawAddr, '/')
+			copy(rawAddr, cidRaw)
 			result, offset, cursor = selectNFromBucket(bkt, graveyardBkt, garbageBkt, rawAddr, containerID,
 				result, count, cursor, threshold)
 		}
@@ -150,7 +147,7 @@ loop:
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 	graveyardBkt, garbageBkt *bbolt.Bucket, // cached graveyard buckets
-	addrRaw []byte, // container ID prefix, optimization
+	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
 	to []oid.Address, // listing result
 	limit int, // stop listing at `limit` items in result
@@ -178,12 +175,12 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		}
 
 		var obj oid.ID
-		if err := obj.DecodeString(string(k)); err != nil {
+		if err := obj.Decode(k); err != nil {
 			break
 		}
 
 		offset = k
-		if inGraveyardWithKey(append(addrRaw, k...), graveyardBkt, garbageBkt) > 0 {
+		if inGraveyardWithKey(append(cidRaw, k...), graveyardBkt, garbageBkt) > 0 {
 			continue
 		}
 
@@ -197,21 +194,16 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 	return to, offset, cursor
 }
 
-func parseContainerIDWithPostfix(containerID *cid.ID, name []byte) ([]byte, string) {
-	var (
-		containerIDStr = name
-		postfix        []byte
-	)
-
-	ind := bytes.IndexByte(name, invalidBase58String[0])
-	if ind > 0 {
-		postfix = containerIDStr[ind:]
-		containerIDStr = containerIDStr[:ind]
+func parseContainerIDWithPrefix(containerID *cid.ID, name []byte) ([]byte, byte) {
+	if len(name) < bucketKeySize {
+		return nil, 0
 	}
 
-	if err := containerID.DecodeString(string(containerIDStr)); err != nil {
-		return nil, ""
+	rawID := name[1:bucketKeySize]
+
+	if err := containerID.Decode(rawID); err != nil {
+		return nil, 0
 	}
 
-	return containerIDStr, string(postfix)
+	return rawID, name[0]
 }

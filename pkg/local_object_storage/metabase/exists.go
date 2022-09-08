@@ -71,17 +71,18 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, object.ErrObjectIsExpired
 	}
 
-	objKey := objectKey(addr.Object())
+	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
 
 	cnr := addr.Container()
+	key := make([]byte, bucketKeySize)
 
 	// if graveyard is empty, then check if object exists in primary bucket
-	if inBucket(tx, primaryBucketName(cnr), objKey) {
+	if inBucket(tx, primaryBucketName(cnr, key), objKey) {
 		return true, nil
 	}
 
 	// if primary bucket is empty, then check if object exists in parent bucket
-	if inBucket(tx, parentBucketName(cnr), objKey) {
+	if inBucket(tx, parentBucketName(cnr, key), objKey) {
 		splitInfo, err := getSplitInfo(tx, cnr, objKey)
 		if err != nil {
 			return false, err
@@ -105,15 +106,16 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	// GC is expected to collect all the objects that have
 	// expired previously for less than the one epoch duration
 
-	rawOID := []byte(addr.Object().EncodeToString())
 	var expired bool
 
 	// bucket with objects that have expiration attr
-	expirationBucket := tx.Bucket(attributeBucketName(addr.Container(), objectV2.SysAttributeExpEpoch))
+	attrKey := make([]byte, bucketKeySize+len(objectV2.SysAttributeExpEpoch))
+	expirationBucket := tx.Bucket(attributeBucketName(addr.Container(), objectV2.SysAttributeExpEpoch, attrKey))
 	if expirationBucket != nil {
 		// bucket that contains objects that expire in the current epoch
 		prevEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch-1, 10)))
 		if prevEpochBkt != nil {
+			rawOID := objectKey(addr.Object(), make([]byte, objectKeySize))
 			if prevEpochBkt.Get(rawOID) != nil {
 				expired = true
 			}
@@ -126,7 +128,7 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 
 	graveyardBkt := tx.Bucket(graveyardBucketName)
 	garbageBkt := tx.Bucket(garbageBucketName)
-	addrKey := addressKey(addr)
+	addrKey := addressKey(addr, make([]byte, addressKeySize))
 	return inGraveyardWithKey(addrKey, graveyardBkt, garbageBkt)
 }
 
@@ -175,7 +177,8 @@ func inBucket(tx *bbolt.Tx, name, key []byte) bool {
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
 func getSplitInfo(tx *bbolt.Tx, cnr cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
-	rawSplitInfo := getFromBucket(tx, rootBucketName(cnr), key)
+	bucketName := rootBucketName(cnr, make([]byte, bucketKeySize))
+	rawSplitInfo := getFromBucket(tx, bucketName, key)
 	if len(rawSplitInfo) == 0 {
 		return nil, ErrLackSplitInfo
 	}

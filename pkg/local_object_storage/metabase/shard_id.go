@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	shardInfoBucket = []byte(invalidBase58String + "i")
+	shardInfoBucket = []byte{shardInfoPrefix}
 	shardIDKey      = []byte("id")
 )
 

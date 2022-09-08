@@ -1,9 +1,7 @@
 package meta
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
-	"strings"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
@@ -30,7 +28,7 @@ func (db *DB) containers(tx *bbolt.Tx) ([]cid.ID, error) {
 	err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
 		if parseContainerID(&cnr, name, unique) {
 			result = append(result, cnr)
-			unique[cnr.EncodeToString()] = struct{}{}
+			unique[string(name[1:bucketKeySize])] = struct{}{}
 		}
 
 		return nil
@@ -55,24 +53,20 @@ func (db *DB) containerSize(tx *bbolt.Tx, id cid.ID) (uint64, error) {
 		return 0, err
 	}
 
-	key := make([]byte, sha256.Size)
+	key := make([]byte, cidSize)
 	id.Encode(key)
 
 	return parseContainerSize(containerVolume.Get(key)), nil
 }
 
 func parseContainerID(dst *cid.ID, name []byte, ignore map[string]struct{}) bool {
-	strContainerID := strings.Split(string(name), invalidBase58String)[0]
-
-	if _, ok := ignore[strContainerID]; ok {
+	if len(name) != bucketKeySize {
 		return false
 	}
-
-	if err := dst.DecodeString(strContainerID); err != nil {
+	if _, ok := ignore[string(name[1:bucketKeySize])]; ok {
 		return false
 	}
-
-	return true
+	return dst.Decode(name[1:bucketKeySize]) == nil
 }
 
 func parseContainerSize(v []byte) uint64 {
@@ -89,7 +83,7 @@ func changeContainerSize(tx *bbolt.Tx, id cid.ID, delta uint64, increase bool) e
 		return err
 	}
 
-	key := make([]byte, sha256.Size)
+	key := make([]byte, cidSize)
 	id.Encode(key)
 
 	size := parseContainerSize(containerVolume.Get(key))

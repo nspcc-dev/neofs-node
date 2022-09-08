@@ -84,6 +84,15 @@ This file describes changes between the metabase versions.
   - Key: split ID
   - Value: list of object IDs
 
+# History
+
+## Version 2
+
+- Container ID is encoded as 32-byte slice
+- Object ID is encoded as 32-byte slice
+- Object ID is encoded as 64-byte slice, container ID + object ID
+- Bucket naming scheme is changed:
+  - container ID + suffix -> 1-byte prefix + container ID
 
 ## Version 1
 

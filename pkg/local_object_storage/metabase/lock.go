@@ -11,15 +11,11 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// bucket name for locked objects.
-var bucketNameLocked = []byte(invalidBase58String + "Locked")
-
-// suffix for container buckets with objects of type LOCK.
-const bucketNameSuffixLockers = invalidBase58String + "LOCKER"
+var bucketNameLocked = []byte{lockedPrefix}
 
 // returns name of the bucket with objects of type LOCK for specified container.
-func bucketNameLockers(idCnr cid.ID) []byte {
-	return []byte(idCnr.EncodeToString() + bucketNameSuffixLockers)
+func bucketNameLockers(idCnr cid.ID, key []byte) []byte {
+	return bucketName(idCnr, lockersPrefix, key)
 }
 
 // Lock marks objects as locked with another object. All objects are from the
@@ -36,14 +32,14 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		panic("empty locked list")
 	}
 
+	// check if all objects are regular
+	bucketKeysLocked := make([][]byte, len(locked))
+	for i := range locked {
+		bucketKeysLocked[i] = objectKey(locked[i], make([]byte, objectKeySize))
+	}
+	key := make([]byte, cidSize)
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		// check if all objects are regular
-		bucketKeysLocked := make([][]byte, len(locked))
-
-		for i := range locked {
-			bucketKeysLocked[i] = objectKey(locked[i])
-		}
-
 		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
 			return apistatus.LockNonRegularObject{}
 		}
@@ -53,12 +49,13 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 			return fmt.Errorf("create global bucket for locked objects: %w", err)
 		}
 
-		bucketLockedContainer, err := bucketLocked.CreateBucketIfNotExists([]byte(cnr.EncodeToString()))
+		cnr.Encode(key)
+		bucketLockedContainer, err := bucketLocked.CreateBucketIfNotExists(key)
 		if err != nil {
 			return fmt.Errorf("create container bucket for locked objects %v: %w", cnr, err)
 		}
 
-		keyLocker := objectKey(locker)
+		keyLocker := objectKey(locker, key)
 		var exLockers [][]byte
 		var updLockers []byte
 
@@ -114,9 +111,11 @@ func (db *DB) FreeLockedBy(lockers []oid.Address) error {
 func objectLocked(tx *bbolt.Tx, idCnr cid.ID, idObj oid.ID) bool {
 	bucketLocked := tx.Bucket(bucketNameLocked)
 	if bucketLocked != nil {
-		bucketLockedContainer := bucketLocked.Bucket([]byte(idCnr.EncodeToString()))
+		key := make([]byte, cidSize)
+		idCnr.Encode(key)
+		bucketLockedContainer := bucketLocked.Bucket(key)
 		if bucketLockedContainer != nil {
-			return bucketLockedContainer.Get(objectKey(idObj)) != nil
+			return bucketLockedContainer.Get(objectKey(idObj, key)) != nil
 		}
 	}
 
@@ -131,9 +130,12 @@ func objectLocked(tx *bbolt.Tx, idCnr cid.ID, idObj oid.ID) bool {
 func freePotentialLocks(tx *bbolt.Tx, idCnr cid.ID, locker oid.ID) error {
 	bucketLocked := tx.Bucket(bucketNameLocked)
 	if bucketLocked != nil {
-		bucketLockedContainer := bucketLocked.Bucket([]byte(idCnr.EncodeToString()))
+		key := make([]byte, cidSize)
+		idCnr.Encode(key)
+
+		bucketLockedContainer := bucketLocked.Bucket(key)
 		if bucketLockedContainer != nil {
-			keyLocker := objectKey(locker)
+			keyLocker := objectKey(locker, key)
 			return bucketLockedContainer.ForEach(func(k, v []byte) error {
 				keyLockers, err := decodeList(v)
 				if err != nil {
