@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -23,13 +23,13 @@ import (
 // CheckerPrm groups parameters for Checker
 // constructor.
 type CheckerPrm struct {
-	eaclSrc      eacl.Source
+	eaclSrc      container.EACLSource
 	validator    *eaclSDK.Validator
 	localStorage *engine.StorageEngine
 	state        netmap.State
 }
 
-func (c *CheckerPrm) SetEACLSource(v eacl.Source) *CheckerPrm {
+func (c *CheckerPrm) SetEACLSource(v container.EACLSource) *CheckerPrm {
 	c.eaclSrc = v
 	return c
 }
@@ -52,7 +52,7 @@ func (c *CheckerPrm) SetNetmapState(v netmap.State) *CheckerPrm {
 // Checker implements v2.ACLChecker interfaces and provides
 // ACL/eACL validation functionality.
 type Checker struct {
-	eaclSrc      eacl.Source
+	eaclSrc      container.EACLSource
 	validator    *eaclSDK.Validator
 	localStorage *engine.StorageEngine
 	state        netmap.State

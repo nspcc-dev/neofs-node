@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -162,7 +161,7 @@ func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
 
 type ttlEACLStorage ttlNetCache
 
-func newCachedEACLStorage(v eacl.Source, ttl time.Duration) *ttlEACLStorage {
+func newCachedEACLStorage(v container.EACLSource, ttl time.Duration) *ttlEACLStorage {
 	const eaclCacheSize = 100
 
 	lruCnrCache := newNetworkTTLCache(eaclCacheSize, ttl, func(key interface{}) (interface{}, error) {

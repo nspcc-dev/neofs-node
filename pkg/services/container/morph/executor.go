@@ -10,7 +10,6 @@ import (
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -25,7 +24,7 @@ type morphExecutor struct {
 // Reader is an interface of read-only container storage.
 type Reader interface {
 	containercore.Source
-	eacl.Source
+	containercore.EACLSource
 
 	// List returns a list of container identifiers belonging
 	// to the specified user of NeoFS system. Returns the identifiers
