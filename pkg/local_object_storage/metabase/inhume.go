@@ -113,7 +113,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 
 		if prm.tomb != nil {
 			bkt = graveyardBKT
-			tombKey := addressKey(*prm.tomb)
+			tombKey := addressKey(*prm.tomb, make([]byte, addressKeySize))
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
@@ -131,6 +131,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			value = zeroValue
 		}
 
+		buf := make([]byte, addressKeySize)
 		for i := range prm.target {
 			id := prm.target[i].Object()
 			cnr := prm.target[i].Container()
@@ -153,9 +154,8 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				lockWasChecked = true
 			}
 
-			targetKey := addressKey(prm.target[i])
-
-			obj, err := db.get(tx, prm.target[i], false, true, currEpoch)
+			obj, err := db.get(tx, prm.target[i], buf, false, true, currEpoch)
+			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
 				if inGraveyardWithKey(targetKey, graveyardBKT, garbageBKT) == 0 {
 					// object is available, decrement the

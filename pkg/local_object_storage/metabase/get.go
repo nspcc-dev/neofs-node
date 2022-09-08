@@ -53,7 +53,8 @@ func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.hdr, err = db.get(tx, prm.addr, true, prm.raw, currEpoch)
+		key := make([]byte, addressKeySize)
+		res.hdr, err = db.get(tx, prm.addr, key, true, prm.raw, currEpoch)
 
 		return err
 	})
@@ -61,9 +62,7 @@ func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
 	return
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
-	key := objectKey(addr.Object())
-
+func (db *DB) get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	if checkStatus {
 		switch objectStatus(tx, addr, currEpoch) {
 		case 1:
@@ -79,29 +78,31 @@ func (db *DB) get(tx *bbolt.Tx, addr oid.Address, checkStatus, raw bool, currEpo
 		}
 	}
 
+	key = objectKey(addr.Object(), key)
 	cnr := addr.Container()
 	obj := objectSDK.New()
+	bucketName := make([]byte, bucketKeySize)
 
 	// check in primary index
-	data := getFromBucket(tx, primaryBucketName(cnr), key)
+	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in tombstone index
-	data = getFromBucket(tx, tombstoneBucketName(cnr), key)
+	data = getFromBucket(tx, tombstoneBucketName(cnr, bucketName), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in storage group index
-	data = getFromBucket(tx, storageGroupBucketName(cnr), key)
+	data = getFromBucket(tx, storageGroupBucketName(cnr, bucketName), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
 
 	// if not found then check in locker index
-	data = getFromBucket(tx, bucketNameLockers(cnr), key)
+	data = getFromBucket(tx, bucketNameLockers(cnr, bucketName), key)
 	if len(data) != 0 {
 		return obj, obj.Unmarshal(data)
 	}
@@ -124,7 +125,8 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 		return nil, getSplitInfoError(tx, cnr, key)
 	}
 
-	parentBucket := tx.Bucket(parentBucketName(cnr))
+	bucketName := make([]byte, bucketKeySize)
+	parentBucket := tx.Bucket(parentBucketName(cnr, bucketName))
 	if parentBucket == nil {
 		var errNotFound apistatus.ObjectNotFound
 
@@ -146,7 +148,7 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 	// but later list might be sorted so first or last value can be more
 	// prioritized to choose
 	virtualOID := relativeLst[len(relativeLst)-1]
-	data := getFromBucket(tx, primaryBucketName(cnr), virtualOID)
+	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), virtualOID)
 
 	child := objectSDK.New()
 
