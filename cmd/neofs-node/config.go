@@ -40,7 +40,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
 	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
@@ -195,7 +194,7 @@ type cfgObject struct {
 
 	cnrSource container.Source
 
-	eaclSource eacl.Source
+	eaclSource container.EACLSource
 
 	pool cfgObjectRoutines
 

@@ -25,7 +25,6 @@ import (
 	placementrouter "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route/placement"
 	loadstorage "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/storage"
 	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -619,7 +618,7 @@ func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.Si
 
 // implements interface required by container service provided by morph executor.
 type morphContainerReader struct {
-	eacl eacl.Source
+	eacl containerCore.EACLSource
 
 	get containerCore.Source
 
