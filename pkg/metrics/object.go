@@ -33,7 +33,10 @@ type (
 	}
 )
 
-const shardIDLabelKey = "shard"
+const (
+	shardIDLabelKey     = "shard"
+	counterTypeLabelKey = "type"
+)
 
 func newObjectServiceMetrics() objectServiceMetrics {
 	var ( // Request counter metrics.
@@ -159,7 +162,7 @@ func newObjectServiceMetrics() objectServiceMetrics {
 			Name:      "counter",
 			Help:      "Objects counters per shards",
 		},
-			[]string{shardIDLabelKey},
+			[]string{shardIDLabelKey, counterTypeLabelKey},
 		)
 	)
 
@@ -271,10 +274,20 @@ func (m objectServiceMetrics) AddGetPayload(ln int) {
 	m.getPayload.Add(float64(ln))
 }
 
-func (m objectServiceMetrics) AddToObjectCounter(shardID string, delta int) {
-	m.shardMetrics.With(prometheus.Labels{shardIDLabelKey: shardID}).Add(float64(delta))
+func (m objectServiceMetrics) AddToObjectCounter(shardID, objectType string, delta int) {
+	m.shardMetrics.With(
+		prometheus.Labels{
+			shardIDLabelKey:     shardID,
+			counterTypeLabelKey: objectType,
+		},
+	).Add(float64(delta))
 }
 
-func (m objectServiceMetrics) SetObjectCounter(shardID string, v uint64) {
-	m.shardMetrics.With(prometheus.Labels{shardIDLabelKey: shardID}).Set(float64(v))
+func (m objectServiceMetrics) SetObjectCounter(shardID, objectType string, v uint64) {
+	m.shardMetrics.With(
+		prometheus.Labels{
+			shardIDLabelKey:     shardID,
+			counterTypeLabelKey: objectType,
+		},
+	).Set(float64(v))
 }
