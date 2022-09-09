@@ -312,6 +312,12 @@ func TestRefillMetabase(t *testing.T) {
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 
+	c, err := sh.metaBase.ObjectCounters()
+	require.NoError(t, err)
+
+	phyBefore := c.Phy()
+	logicalBefore := c.Logic()
+
 	err = sh.Close()
 	require.NoError(t, err)
 
@@ -339,6 +345,12 @@ func TestRefillMetabase(t *testing.T) {
 
 	err = sh.refillMetabase()
 	require.NoError(t, err)
+
+	c, err = sh.metaBase.ObjectCounters()
+	require.NoError(t, err)
+
+	require.Equal(t, phyBefore, c.Phy())
+	require.Equal(t, logicalBefore, c.Logic())
 
 	checkAllObjs(true)
 	checkObj(object.AddressOf(tombObj), tombObj)
