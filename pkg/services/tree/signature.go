@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"errors"
@@ -97,20 +98,7 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 		tb = *tbCore.Value
 	}
 
-	// The default action should be DENY.
-	action, found := eacl.NewValidator().CalculateAction(new(eacl.ValidationUnit).
-		WithEACLTable(&tb).
-		WithContainerID(&cid).
-		WithRole(eACLRole(role)).
-		WithSenderKey(req.GetSignature().GetKey()).
-		WithOperation(eaclOp))
-	if !found {
-		return eACLErr(eaclOp, errors.New("not found allowing rules for the request"))
-	} else if action != eacl.ActionAllow {
-		return eACLErr(eaclOp, errors.New("DENY eACL rule"))
-	}
-
-	return nil
+	return checkEACL(tb, req.GetSignature().GetKey(), eACLRole(role), eaclOp)
 }
 
 func verifyMessage(m message) error {
@@ -199,4 +187,58 @@ func eACLRole(role acl.Role) eacl.Role {
 	default:
 		panic(fmt.Sprintf("unexpected tree service ACL role: %s", role))
 	}
+}
+
+// checkEACL searches for the eACL rules that could be applied to the request
+// (a tuple of a signer key, his NeoFS role and a request operation).
+// It does not filter the request by the filters of the eACL table since tree
+// requests do not contain any "object" information that could be filtered and,
+// therefore, filtering leads to unexpected results.
+// The code was copied with the minor updates from the SDK repo:
+// https://github.com/nspcc-dev/neofs-sdk-go/blob/43a57d42dd50dc60465bfd3482f7f12bcfcf3411/eacl/validator.go#L28.
+func checkEACL(tb eacl.Table, signer []byte, role eacl.Role, op eacl.Operation) error {
+	for _, record := range tb.Records() {
+		// check type of operation
+		if record.Operation() != op {
+			continue
+		}
+
+		// check target
+		if !targetMatches(record, role, signer) {
+			continue
+		}
+
+		switch a := record.Action(); a {
+		case eacl.ActionAllow:
+			return nil
+		case eacl.ActionDeny:
+			return eACLErr(op, errors.New("DENY eACL rule"))
+		default:
+			return eACLErr(op, fmt.Errorf("unexpected action: %s", a))
+		}
+	}
+
+	return eACLErr(op, errors.New("not found allowing rules for the request"))
+}
+
+func targetMatches(rec eacl.Record, role eacl.Role, signer []byte) bool {
+	for _, target := range rec.Targets() {
+		// check public key match
+		if pubs := target.BinaryKeys(); len(pubs) != 0 {
+			for _, key := range pubs {
+				if bytes.Equal(key, signer) {
+					return true
+				}
+			}
+
+			continue
+		}
+
+		// check target group match
+		if role == target.Role() {
+			return true
+		}
+	}
+
+	return false
 }
