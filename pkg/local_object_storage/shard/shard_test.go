@@ -2,7 +2,6 @@ package shard_test
 
 import (
 	"crypto/sha256"
-	"math"
 	"math/rand"
 	"path/filepath"
 	"testing"
@@ -30,7 +29,7 @@ import (
 type epochState struct{}
 
 func (s epochState) CurrentEpoch() uint64 {
-	return math.MaxUint64
+	return 0
 }
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
