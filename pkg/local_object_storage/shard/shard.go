@@ -47,15 +47,18 @@ type DeletedLockCallback func(context.Context, []oid.Address)
 
 // MetricsWriter is an interface that must store shard's metrics.
 type MetricsWriter interface {
-	// SetObjectCounter must set object counter.
-	SetObjectCounter(v uint64)
-	// AddToObjectCounter must update object counter. Negative
-	// parameter must decrease the counter.
-	AddToObjectCounter(delta int)
-	// IncObjectCounter must increment shard's object counter.
-	IncObjectCounter()
-	// DecObjectCounter must decrement shard's object counter.
-	DecObjectCounter()
+	// SetObjectCounter must set object counter taking into account object type.
+	SetObjectCounter(objectType string, v uint64)
+	// AddToObjectCounter must update object counter taking into account object
+	// type.
+	// Negative parameter must decrease the counter.
+	AddToObjectCounter(objectType string, delta int)
+	// IncObjectCounter must increment shard's object counter taking into account
+	// object type.
+	IncObjectCounter(objectType string)
+	// DecObjectCounter must decrement shard's object counter taking into account
+	// object type.
+	DecObjectCounter(objectType string)
 }
 
 type cfg struct {
@@ -295,9 +298,20 @@ func (s *Shard) fillInfo() {
 	}
 }
 
+const (
+	// physical is a physically stored object
+	// counter type
+	physical = "phy"
+
+	// logical is a logically stored object
+	// counter type (excludes objects that are
+	// stored but unavailable)
+	logical = "logic"
+)
+
 func (s *Shard) updateObjectCounter() {
 	if s.cfg.metricsWriter != nil && !s.GetMode().NoMetabase() {
-		c, err := s.metaBase.ObjectCounter()
+		cc, err := s.metaBase.ObjectCounters()
 		if err != nil {
 			s.log.Warn("meta: object counter read",
 				zap.Error(err),
@@ -306,18 +320,22 @@ func (s *Shard) updateObjectCounter() {
 			return
 		}
 
-		s.cfg.metricsWriter.SetObjectCounter(c)
+		s.cfg.metricsWriter.SetObjectCounter(physical, cc.Phy())
+		s.cfg.metricsWriter.SetObjectCounter(logical, cc.Logic())
 	}
 }
 
+// incObjectCounter increment both physical and logical object
+// counters.
 func (s *Shard) incObjectCounter() {
 	if s.cfg.metricsWriter != nil {
-		s.cfg.metricsWriter.IncObjectCounter()
+		s.cfg.metricsWriter.IncObjectCounter(physical)
+		s.cfg.metricsWriter.IncObjectCounter(logical)
 	}
 }
 
-func (s *Shard) decObjectCounterBy(v uint64) {
+func (s *Shard) decObjectCounterBy(typ string, v uint64) {
 	if s.cfg.metricsWriter != nil {
-		s.cfg.metricsWriter.AddToObjectCounter(-int(v))
+		s.cfg.metricsWriter.AddToObjectCounter(typ, -int(v))
 	}
 }

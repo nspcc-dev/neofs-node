@@ -241,7 +241,7 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	inhumePrm.SetGCMark()
 
 	// inhume the collected objects
-	_, err = s.metaBase.Inhume(inhumePrm)
+	res, err := s.metaBase.Inhume(inhumePrm)
 	if err != nil {
 		s.log.Warn("could not inhume the objects",
 			zap.String("error", err.Error()),
@@ -249,6 +249,8 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 
 		return
 	}
+
+	s.decObjectCounterBy(logical, res.AvailableInhumed())
 }
 
 func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
@@ -354,7 +356,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 	pInhume.SetAddresses(tsAddrs...)
 
 	// inhume tombstones
-	_, err := s.metaBase.Inhume(pInhume)
+	res, err := s.metaBase.Inhume(pInhume)
 	if err != nil {
 		s.log.Warn("could not mark tombstones as garbage",
 			zap.String("error", err.Error()),
@@ -362,6 +364,8 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 
 		return
 	}
+
+	s.decObjectCounterBy(logical, res.AvailableInhumed())
 
 	// drop just processed expired tombstones
 	// from graveyard
@@ -387,7 +391,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	pInhume.SetAddresses(lockers...)
 	pInhume.SetGCMark()
 
-	_, err = s.metaBase.Inhume(pInhume)
+	res, err := s.metaBase.Inhume(pInhume)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
 			zap.String("error", err.Error()),
@@ -395,6 +399,8 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 
 		return
 	}
+
+	s.decObjectCounterBy(logical, res.AvailableInhumed())
 }
 
 // HandleDeletedLocks unlocks all objects which were locked by lockers.

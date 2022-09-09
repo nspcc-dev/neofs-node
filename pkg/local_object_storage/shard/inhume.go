@@ -101,6 +101,8 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 		return InhumeRes{}, fmt.Errorf("metabase inhume: %w", err)
 	}
 
+	s.decObjectCounterBy(logical, res.AvailableInhumed())
+
 	if deletedLockObjs := res.DeletedLockObjects(); len(deletedLockObjs) != 0 {
 		s.deletedLockCallBack(context.Background(), deletedLockObjs)
 	}

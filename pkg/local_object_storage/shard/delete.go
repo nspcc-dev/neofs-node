@@ -69,7 +69,8 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 		return DeleteRes{}, err // stop on metabase error ?
 	}
 
-	s.decObjectCounterBy(res.RemovedObjects())
+	s.decObjectCounterBy(physical, res.RawObjectsRemoved())
+	s.decObjectCounterBy(logical, res.AvailableObjectsRemoved())
 
 	for i := range prm.addr { // delete small object
 		var delPrm common.DeletePrm
