@@ -32,6 +32,7 @@ This file describes changes between the metabase versions.
     - `id` -> shard id as bytes
     - `version` -> metabase version as little-endian uint64
     - `phy_counter` -> shard's physical object counter as little-endian uint64
+    - `logic_counter` -> shard's logical object counter as little-endian uint64
 
 ### Unique index buckets
 - Buckets containing objects of REGULAR type

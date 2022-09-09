@@ -24,7 +24,14 @@ type InhumePrm struct {
 
 // InhumeRes encapsulates results of Inhume operation.
 type InhumeRes struct {
-	deletedLockObj []oid.Address
+	deletedLockObj   []oid.Address
+	availableImhumed uint64
+}
+
+// AvailableInhumed return number of available object
+// that have been inhumed.
+func (i InhumeRes) AvailableInhumed() uint64 {
+	return i.availableImhumed
 }
 
 // DeletedLockObjects returns deleted object of LOCK
@@ -86,9 +93,11 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	defer db.modeMtx.RUnlock()
 
 	currEpoch := db.epochState.CurrentEpoch()
+	var inhumed uint64
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageBKT := tx.Bucket(garbageBucketName)
+		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		var (
 			// target bucket of the operation, one of the:
@@ -103,7 +112,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 		)
 
 		if prm.tomb != nil {
-			bkt = tx.Bucket(graveyardBucketName)
+			bkt = graveyardBKT
 			tombKey := addressKey(*prm.tomb)
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
@@ -144,18 +153,25 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				lockWasChecked = true
 			}
 
-			obj, err := db.get(tx, prm.target[i], false, true, currEpoch)
+			targetKey := addressKey(prm.target[i])
 
-			// if object is stored and it is regular object then update bucket
-			// with container size estimations
-			if err == nil && obj.Type() == object.TypeRegular {
-				err := changeContainerSize(tx, cnr, obj.PayloadSize(), false)
-				if err != nil {
-					return err
+			obj, err := db.get(tx, prm.target[i], false, true, currEpoch)
+			if err == nil {
+				if inGraveyardWithKey(targetKey, graveyardBKT, garbageBKT) == 0 {
+					// object is available, decrement the
+					// logical counter
+					inhumed++
+				}
+
+				// if object is stored, and it is regular object then update bucket
+				// with container size estimations
+				if obj.Type() == object.TypeRegular {
+					err := changeContainerSize(tx, cnr, obj.PayloadSize(), false)
+					if err != nil {
+						return err
+					}
 				}
 			}
-
-			targetKey := addressKey(prm.target[i])
 
 			if prm.tomb != nil {
 				targetIsTomb := false
@@ -212,8 +228,10 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			}
 		}
 
-		return nil
+		return db.updateCounter(tx, logical, inhumed, false)
 	})
+
+	res.availableImhumed = inhumed
 
 	return
 }
