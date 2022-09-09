@@ -20,12 +20,19 @@ type DeletePrm struct {
 
 // DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct {
-	removed uint64
+	rawRemoved       uint64
+	availableRemoved uint64
 }
 
-// RemovedObjects returns number of removed raw objects.
-func (d DeleteRes) RemovedObjects() uint64 {
-	return d.removed
+// AvailableObjectsRemoved returns the number of removed available
+// objects.
+func (d DeleteRes) AvailableObjectsRemoved() uint64 {
+	return d.availableRemoved
+}
+
+// RawObjectsRemoved returns the number of removed raw objects.
+func (d DeleteRes) RawObjectsRemoved() uint64 {
+	return d.rawRemoved
 }
 
 // SetAddresses is a Delete option to set the addresses of the objects to delete.
@@ -51,10 +58,11 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	defer db.modeMtx.RUnlock()
 
 	var rawRemoved uint64
+	var availableRemoved uint64
 	var err error
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		rawRemoved, err = db.deleteGroup(tx, prm.addrs)
+		rawRemoved, availableRemoved, err = db.deleteGroup(tx, prm.addrs)
 		return err
 	})
 	if err == nil {
@@ -64,49 +72,84 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 				storagelog.OpField("metabase DELETE"))
 		}
 	}
-	return DeleteRes{removed: rawRemoved}, err
+	return DeleteRes{
+		rawRemoved:       rawRemoved,
+		availableRemoved: availableRemoved,
+	}, err
 }
 
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, error) {
+// deleteGroup deletes object from the metabase. Handles removal of the
+// references of the split objects.
+// The first return value is a physical objects removed number: physical
+// objects that were stored. The second return value is a logical objects
+// removed number: objects that were available (without Tombstones, GCMarks
+// non-expired, etc.)
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, error) {
 	refCounter := make(referenceCounter, len(addrs))
 	currEpoch := db.epochState.CurrentEpoch()
 
 	var rawDeleted uint64
+	var availableDeleted uint64
+
 	for i := range addrs {
-		removed, err := db.delete(tx, addrs[i], refCounter, currEpoch)
+		removed, available, err := db.delete(tx, addrs[i], refCounter, currEpoch)
 		if err != nil {
-			return 0, err // maybe log and continue?
+			return 0, 0, err // maybe log and continue?
 		}
 
 		if removed {
 			rawDeleted++
 		}
+
+		if available {
+			availableDeleted++
+		}
 	}
 
-	err := db.updateCounter(tx, rawDeleted, false)
-	if err != nil {
-		return 0, fmt.Errorf("could not decrease object counter: %w", err)
+	if rawDeleted > 0 {
+		err := db.updateCounter(tx, phy, rawDeleted, false)
+		if err != nil {
+			return 0, 0, fmt.Errorf("could not decrease phy object counter: %w", err)
+		}
+	}
+
+	if availableDeleted > 0 {
+		err := db.updateCounter(tx, logical, availableDeleted, false)
+		if err != nil {
+			return 0, 0, fmt.Errorf("could not decrease logical object counter: %w", err)
+		}
 	}
 
 	for _, refNum := range refCounter {
 		if refNum.cur == refNum.all {
 			err := db.deleteObject(tx, refNum.obj, true)
 			if err != nil {
-				return rawDeleted, err // maybe log and continue?
+				return rawDeleted, availableDeleted, err // maybe log and continue?
 			}
 		}
 	}
 
-	return rawDeleted, nil
+	return rawDeleted, availableDeleted, nil
 }
 
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, error) {
-	// remove record from the garbage bucket
+// delete removes object indexes from the metabase. Counts the references
+// of the object that is being removed.
+// The first return value indicates if an object has been removed. (removing a
+// non-exist object is error-free). The second return value indicates if an
+// object was available before the removal (for calculating the logical object
+// counter).
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, bool, error) {
+	addrKey := addressKey(addr)
 	garbageBKT := tx.Bucket(garbageBucketName)
+	graveyardBKT := tx.Bucket(graveyardBucketName)
+
+	removeAvailableObject := inGraveyardWithKey(addrKey, graveyardBKT, garbageBKT) == 0
+
+	// remove record from the garbage bucket
 	if garbageBKT != nil {
-		err := garbageBKT.Delete(addressKey(addr))
+		err := garbageBKT.Delete(addrKey)
 		if err != nil {
-			return false, fmt.Errorf("could not remove from garbage bucket: %w", err)
+			return false, false, fmt.Errorf("could not remove from garbage bucket: %w", err)
 		}
 	}
 
@@ -114,10 +157,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	obj, err := db.get(tx, addr, false, true, currEpoch)
 	if err != nil {
 		if errors.As(err, new(apistatus.ObjectNotFound)) {
-			return false, nil
+			return false, false, nil
 		}
 
-		return false, err
+		return false, false, err
 	}
 
 	// if object is an only link to a parent, then remove parent
@@ -142,10 +185,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	// remove object
 	err = db.deleteObject(tx, obj, false)
 	if err != nil {
-		return false, fmt.Errorf("could not remove object: %w", err)
+		return false, false, fmt.Errorf("could not remove object: %w", err)
 	}
 
-	return true, nil
+	return true, removeAvailableObject, nil
 }
 
 func (db *DB) deleteObject(

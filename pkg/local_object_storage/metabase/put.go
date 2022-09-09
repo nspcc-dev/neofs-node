@@ -143,9 +143,16 @@ func (db *DB) put(
 	}
 
 	if !isParent {
-		err = db.updateCounter(tx, 1, true)
+		err = db.updateCounter(tx, phy, 1, true)
 		if err != nil {
-			return fmt.Errorf("could not increase object counter: %w", err)
+			return fmt.Errorf("could not increase phy object counter: %w", err)
+		}
+
+		// it is expected that putting an unavailable object is
+		// impossible and should be handled on the higher levels
+		err = db.updateCounter(tx, logical, 1, true)
+		if err != nil {
+			return fmt.Errorf("could not increase logical object counter: %w", err)
 		}
 	}
 
