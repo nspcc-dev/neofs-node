@@ -1,7 +1,6 @@
 package meta_test
 
 import (
-	"math"
 	"os"
 	"strconv"
 	"testing"
@@ -29,7 +28,7 @@ func (s epochState) CurrentEpoch() uint64 {
 		return s.e
 	}
 
-	return math.MaxUint64
+	return 0
 }
 
 // saves "big" object in DB.

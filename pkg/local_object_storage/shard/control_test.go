@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +27,7 @@ import (
 type epochState struct{}
 
 func (s epochState) CurrentEpoch() uint64 {
-	return math.MaxUint64
+	return 0
 }
 
 func TestShardOpen(t *testing.T) {

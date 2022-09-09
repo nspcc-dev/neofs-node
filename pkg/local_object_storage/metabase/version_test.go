@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"path/filepath"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 type epochStateImpl struct{}
 
 func (s epochStateImpl) CurrentEpoch() uint64 {
-	return math.MaxUint64
+	return 0
 }
 
 func TestVersion(t *testing.T) {
