@@ -22,20 +22,20 @@ type metricsWithID struct {
 	mw MetricRegister
 }
 
-func (m metricsWithID) SetObjectCounter(v uint64) {
-	m.mw.SetObjectCounter(m.id, v)
+func (m metricsWithID) SetObjectCounter(objectType string, v uint64) {
+	m.mw.SetObjectCounter(m.id, objectType, v)
 }
 
-func (m metricsWithID) AddToObjectCounter(delta int) {
-	m.mw.AddToObjectCounter(m.id, delta)
+func (m metricsWithID) AddToObjectCounter(objectType string, delta int) {
+	m.mw.AddToObjectCounter(m.id, objectType, delta)
 }
 
-func (m metricsWithID) IncObjectCounter() {
-	m.mw.AddToObjectCounter(m.id, +1)
+func (m metricsWithID) IncObjectCounter(objectType string) {
+	m.mw.AddToObjectCounter(m.id, objectType, +1)
 }
 
-func (m metricsWithID) DecObjectCounter() {
-	m.mw.AddToObjectCounter(m.id, -1)
+func (m metricsWithID) DecObjectCounter(objectType string) {
+	m.mw.AddToObjectCounter(m.id, objectType, -1)
 }
 
 // AddShard adds a new shard to the storage engine.
