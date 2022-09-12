@@ -19,7 +19,7 @@ require (
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220809123759-3094d3e0c14b // indirect
 	github.com/nspcc-dev/neofs-api-go/v2 v2.13.2-0.20220827080658-9e17cdfc7647
 	github.com/nspcc-dev/neofs-contract v0.15.5
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.6.0.20220907075128-43a57d42dd50
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.6.0.20220912074537-1929b634a1f7
 	github.com/nspcc-dev/tzhash v1.6.1
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
@@ -39,7 +39,7 @@ require (
 )
 
 require (
-	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521073959-f0d4d129b7f1 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
