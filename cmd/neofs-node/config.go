@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"path/filepath"
 	"sync"
@@ -470,6 +471,8 @@ func initShardOptions(c *cfg) {
 						return true
 					},
 				})
+			default:
+				panic(fmt.Errorf("invalid storage type: %s", storages[i].Type()))
 			}
 		}
 
