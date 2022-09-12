@@ -36,6 +36,10 @@ func eACLErr(op eacl.Operation, err error) error {
 	return fmt.Errorf("access to operation %s is denied by extended ACL check: %w", op, err)
 }
 
+var errBearerWrongOwner = errors.New("bearer token must be signed by the container owner")
+var errBearerWrongContainer = errors.New("bearer token is created for another container")
+var errBearerSignature = errors.New("invalid bearer token signature")
+
 // verifyClient verifies if the request for a client operation
 // was signed by a key allowed by (e)ACL rules.
 // Operation must be one of:
@@ -88,13 +92,13 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 			return eACLErr(eaclOp, fmt.Errorf("invalid bearer token: %w", err))
 		}
 		if !bearer.ResolveIssuer(bt).Equals(cnr.Value.Owner()) {
-			return eACLErr(eaclOp, errors.New("bearer token must be signed by the container owner"))
+			return eACLErr(eaclOp, errBearerWrongOwner)
 		}
 		if !bt.AssertContainer(cid) {
-			return eACLErr(eaclOp, errors.New("bearer token is created for another container"))
+			return eACLErr(eaclOp, errBearerWrongContainer)
 		}
 		if !bt.VerifySignature() {
-			return eACLErr(eaclOp, errors.New("invalid bearer token signature"))
+			return eACLErr(eaclOp, errBearerSignature)
 		}
 
 		tb = bt.EACLTable()
@@ -202,6 +206,9 @@ func eACLRole(role acl.Role) eacl.Role {
 	}
 }
 
+var errDENY = errors.New("DENY eACL rule")
+var errNoAllowRules = errors.New("not found allowing rules for the request")
+
 // checkEACL searches for the eACL rules that could be applied to the request
 // (a tuple of a signer key, his NeoFS role and a request operation).
 // It does not filter the request by the filters of the eACL table since tree
@@ -225,13 +232,13 @@ func checkEACL(tb eacl.Table, signer []byte, role eacl.Role, op eacl.Operation) 
 		case eacl.ActionAllow:
 			return nil
 		case eacl.ActionDeny:
-			return eACLErr(op, errors.New("DENY eACL rule"))
+			return eACLErr(op, errDENY)
 		default:
 			return eACLErr(op, fmt.Errorf("unexpected action: %s", a))
 		}
 	}
 
-	return eACLErr(op, errors.New("not found allowing rules for the request"))
+	return eACLErr(op, errNoAllowRules)
 }
 
 func targetMatches(rec eacl.Record, role eacl.Role, signer []byte) bool {
