@@ -231,7 +231,7 @@ func u64FromHexString(str string) uint64 {
 
 // Type implements common.Storage.
 func (b *Blobovniczas) Type() string {
-	return "blobovniczas"
+	return "blobovnicza"
 }
 
 // SetCompressor implements common.Storage.

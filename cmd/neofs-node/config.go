@@ -443,7 +443,7 @@ func initShardOptions(c *cfg) {
 		var st []blobstor.SubStorage
 		for i := range storages {
 			switch storages[i].Type() {
-			case "blobovniczas":
+			case "blobovnicza":
 				sub := blobovniczaconfig.From((*config.Config)(storages[i]))
 				lim := sc.SmallSizeLimit()
 				st = append(st, blobstor.SubStorage{
