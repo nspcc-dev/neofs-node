@@ -12,6 +12,21 @@ option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/tree";
 service TreeService {
   /* Client API */
 
+  // Client methods are mapped to the object RPC:
+  //  [ Add, AddByPath, Remove, Move ] -> PUT;
+  //  [ GetNodeByPath, GetSubTree ] -> GET.
+  //  One of the following must be true:
+  //  - a signer passes non-extended basic ACL;
+  //  - a signer passes extended basic ACL AND bearer token is
+  //    attached AND the basic ACL allows attaching bearer token
+  //    to the GET/PUT operation AND eACL table in the bearer contains
+  //    an explicit allowing the signer's key (or its role) rule
+  //    for the GET/PUT operation;
+  //  - a signer passes extended basic ACL AND the extension
+  //    contains an explicit allowing the signer's key (or its role)
+  //    rule for GET/PUT operation.
+  //  Otherwise, a request is denied.
+
   // Add adds new node to the tree. Invoked by a client.
   rpc Add (AddRequest) returns (AddResponse);
   // AddByPath adds new node to the tree by path. Invoked by a client.
