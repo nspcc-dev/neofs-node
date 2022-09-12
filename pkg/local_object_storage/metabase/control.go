@@ -83,8 +83,6 @@ func (db *DB) init(reset bool) error {
 		string(shardInfoBucket):           {},
 	}
 
-	epoch := db.epochState.CurrentEpoch()
-
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var err error
 		if !reset {
@@ -108,7 +106,7 @@ func (db *DB) init(reset bool) error {
 		}
 
 		if !reset {
-			err = syncCounter(tx, epoch, false)
+			err = syncCounter(tx, false)
 			if err != nil {
 				return fmt.Errorf("could not sync object counter: %w", err)
 			}
@@ -132,10 +130,8 @@ func (db *DB) init(reset bool) error {
 
 // SyncCounters forces to synchronize the object counters.
 func (db *DB) SyncCounters() error {
-	epoch := db.epochState.CurrentEpoch()
-
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		return syncCounter(tx, epoch, true)
+		return syncCounter(tx, true)
 	})
 }
 

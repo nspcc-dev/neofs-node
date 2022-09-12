@@ -108,7 +108,7 @@ func (db *DB) updateCounter(tx *bbolt.Tx, typ objectType, delta uint64, inc bool
 //
 // Does nothing if counters are not empty and force is false. If force is
 // true, updates the counters anyway.
-func syncCounter(tx *bbolt.Tx, epoch uint64, force bool) error {
+func syncCounter(tx *bbolt.Tx, force bool) error {
 	b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 	if err != nil {
 		return fmt.Errorf("could not get shard info bucket: %w", err)
@@ -123,13 +123,18 @@ func syncCounter(tx *bbolt.Tx, epoch uint64, force bool) error {
 	var phyCounter uint64
 	var logicCounter uint64
 
+	graveyardBKT := tx.Bucket(graveyardBucketName)
+	garbageBKT := tx.Bucket(garbageBucketName)
+
 	err = iteratePhyObjects(tx, func(cnr cid.ID, obj oid.ID) error {
 		phyCounter++
 
 		addr.SetContainer(cnr)
 		addr.SetObject(obj)
 
-		if st := objectStatus(tx, addr, epoch); st == 0 || st == 3 {
+		// check if an object is available: not with GCMark
+		// and not covered with a tombstone
+		if inGraveyardWithKey(addressKey(addr), graveyardBKT, garbageBKT) == 0 {
 			logicCounter++
 		}
 
