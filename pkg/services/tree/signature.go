@@ -18,6 +18,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"go.uber.org/zap"
 )
 
 type message interface {
@@ -68,8 +69,20 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 
 	eaclOp := eACLOp(op)
 
+	var tableFromBearer bool
+	if len(rawBearer) != 0 {
+		if !basicACL.AllowedBearerRules(op) {
+			s.log.Debug("bearer presented but not allowed by ACL",
+				zap.String("cid", cid.EncodeToString()),
+				zap.String("op", op.String()),
+			)
+		} else {
+			tableFromBearer = true
+		}
+	}
+
 	var tb eacl.Table
-	if len(rawBearer) != 0 && basicACL.AllowedBearerRules(op) {
+	if tableFromBearer {
 		var bt bearer.Token
 		if err = bt.Unmarshal(rawBearer); err != nil {
 			return eACLErr(eaclOp, fmt.Errorf("invalid bearer token: %w", err))
