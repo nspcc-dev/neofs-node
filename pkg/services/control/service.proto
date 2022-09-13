@@ -34,6 +34,9 @@ service ControlService {
 
     // Synchronizes all log operations for the specified tree.
     rpc SynchronizeTree (SynchronizeTreeRequest) returns (SynchronizeTreeResponse);
+
+    // EvacuateShard moves all data from one shard to the others.
+    rpc EvacuateShard (EvacuateShardRequest) returns (EvacuateShardResponse);
 }
 
 // Health check request.
@@ -310,5 +313,32 @@ message SynchronizeTreeResponse {
     Body body = 1;
 
     // Body signature.
+    Signature signature = 2;
+}
+
+
+// EvacuateShard request.
+message EvacuateShardRequest {
+    // Request body structure.
+    message Body {
+        // ID of the shard.
+        bytes shard_ID = 1;
+
+        // Flag indicating whether object read errors should be ignored.
+        bool ignore_errors = 2;
+    }
+
+    Body body = 1;
+    Signature signature = 2;
+}
+
+// EvacuateShard response.
+message EvacuateShardResponse {
+    // Response body structure.
+    message Body {
+        uint32 count = 1;
+    }
+
+    Body body = 1;
     Signature signature = 2;
 }
