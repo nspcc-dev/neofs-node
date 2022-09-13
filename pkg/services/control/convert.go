@@ -184,3 +184,21 @@ func (w *synchronizeTreeResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	w.SynchronizeTreeResponse = r
 	return nil
 }
+
+type evacuateShardResponseWrapper struct {
+	*EvacuateShardResponse
+}
+
+func (w *evacuateShardResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.EvacuateShardResponse
+}
+
+func (w *evacuateShardResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	r, ok := m.(*EvacuateShardResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, (*EvacuateShardResponse)(nil))
+	}
+
+	w.EvacuateShardResponse = r
+	return nil
+}
