@@ -15,9 +15,11 @@ func initControlShardsCmd() {
 	shardsCmd.AddCommand(setShardModeCmd)
 	shardsCmd.AddCommand(dumpShardCmd)
 	shardsCmd.AddCommand(restoreShardCmd)
+	shardsCmd.AddCommand(evacuateShardCmd)
 
 	initControlShardsListCmd()
 	initControlSetShardModeCmd()
 	initControlDumpShardCmd()
 	initControlRestoreShardCmd()
+	initControlEvacuateShardCmd()
 }
