@@ -153,8 +153,6 @@ func PersistentSessions(c *config.Config) PersistentSessionsConfig {
 }
 
 // Path returns the value of "path" config parameter.
-//
-// Returns PersistentStatePathDefault if the value is not a non-empty string.
 func (p PersistentSessionsConfig) Path() string {
 	return config.String(p.cfg, "path")
 }
