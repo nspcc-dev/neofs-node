@@ -26,7 +26,7 @@ node:
   attribute_1: UN-LOCODE:RU MSK
   relay: true  # start Storage node in relay mode without bootstrapping into the Network map
   persistent_sessions:
-    path: /sessions  # path to persistent session tokens file of Storage node
+    path: /sessions  # path to persistent session tokens file of Storage node (default: in-memory sessions)
   persistent_state:
     path: /state  # path to persistent state file of Storage node
   subnet:
