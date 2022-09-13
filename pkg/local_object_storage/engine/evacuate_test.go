@@ -106,6 +106,13 @@ func TestEvacuateShard(t *testing.T) {
 	// Second case ensures that all objects are indeed moved and available.
 	checkHasObjects(t)
 
+	// Calling it again is OK, but all objects are already moved, so no new PUTs should be done.
+	res, err = e.Evacuate(prm)
+	require.NoError(t, err)
+	require.Equal(t, 0, res.count)
+
+	checkHasObjects(t)
+
 	e.mtx.Lock()
 	delete(e.shards, evacuateShardID)
 	delete(e.shardPools, evacuateShardID)

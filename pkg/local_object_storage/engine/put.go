@@ -66,7 +66,8 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 		pool := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
 
-		finished = e.putToShard(sh.Shard, ind, pool, addr, prm.obj)
+		putDone, exists := e.putToShard(sh.Shard, ind, pool, addr, prm.obj)
+		finished = putDone || exists
 		return finished
 	})
 
@@ -77,8 +78,11 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 	return PutRes{}, err
 }
 
-func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object) bool {
-	var finished bool
+// putToShard puts object to sh.
+// First return value is true iff put has been successfully done.
+// Second return value is true iff object already exists.
+func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object) (bool, bool) {
+	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})
 
@@ -93,13 +97,14 @@ func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPoo
 			if shard.IsErrObjectExpired(err) {
 				// object is already found but
 				// expired => do nothing with it
-				finished = true
+				alreadyExists = true
 			}
 
 			return // this is not ErrAlreadyRemoved error so we can go to the next shard
 		}
 
-		if exists.Exists() {
+		alreadyExists = exists.Exists()
+		if alreadyExists {
 			if ind != 0 {
 				var toMoveItPrm shard.ToMoveItPrm
 				toMoveItPrm.SetAddress(addr)
@@ -112,8 +117,6 @@ func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPoo
 					)
 				}
 			}
-
-			finished = true
 
 			return
 		}
@@ -130,14 +133,14 @@ func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPoo
 			return
 		}
 
-		finished = true
+		putSuccess = true
 	}); err != nil {
 		close(exitCh)
 	}
 
 	<-exitCh
 
-	return finished
+	return putSuccess, alreadyExists
 }
 
 // Put writes provided object to local storage.

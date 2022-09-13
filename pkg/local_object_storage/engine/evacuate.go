@@ -124,14 +124,16 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 				if shards[j].ID().String() == sid {
 					continue
 				}
-				ok := e.putToShard(shards[j].Shard, j, shards[j].pool, lst[i], getRes.Object())
-				if ok {
-					e.log.Debug("object is moved to another shard",
-						zap.String("from", sid),
-						zap.Stringer("to", shards[j].ID()),
-						zap.Stringer("addr", lst[i]))
+				putDone, exists := e.putToShard(shards[j].Shard, j, shards[j].pool, lst[i], getRes.Object())
+				if putDone || exists {
+					if putDone {
+						e.log.Debug("object is moved to another shard",
+							zap.String("from", sid),
+							zap.Stringer("to", shards[j].ID()),
+							zap.Stringer("addr", lst[i]))
 
-					res.count++
+						res.count++
+					}
 					continue loop
 				}
 			}
