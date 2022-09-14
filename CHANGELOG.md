@@ -1,26 +1,70 @@
 # Changelog
 Changelog for NeoFS Node
 
-## [Unreleased]
+## [Unreleased] - Anmado (안마도, 鞍馬島)
 
 ### Added
-- Objects counter metric (#1712)
-- `meta` subcommand to `neofs-lens` (#1714)
 
-### Changed
-- `neofs-cli object put`'s object ID output has changed from "ID" to "OID" (#1296)
-- `neofs-cli container set-eacl` command now pre-checks container ACL's extensibility (#1652) 
+### Changed 
 
 ### Fixed
-- Panic on write-cache's `Delete` operation (#1664)
-- Payload duplication in `neofs-cli storagegroup put` (#1706)
-- Contract calls in notary disabled environments (#1743)
 
 ### Removed
 
 ### Updated
 
+### Updating from v0.32.0
+
+## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
+
+### Added
+
+- Objects counter metric (#1712)
+- `meta` subcommand to `neofs-lens` (#1714)
+- Storage node metrics with global and per-shard object counters (#1658)
+- Removal of trees on container removal (#1630)
+- Logging new epoch events on storage node (#1763)
+- Timeout for streaming RPC (#1746)
+- `neofs-adm` is now able to dump hashes from a custom zone (#1748)
+- Empty filename support in the Tree Service (#1698)
+- Flag to `neofs-cli container list-objects` command for attribute printing (#1649)
+
+### Changed
+
+- `neofs-cli object put`'s object ID output has changed from "ID" to "OID" (#1296)
+- `neofs-cli container set-eacl` command now pre-checks container ACL's extensibility (#1652)
+- Access control in Tree service (#1628)
+- Tree service doesn't restrict depth in `rpc GetSubTree` (#1753)
+- `neofs-adm` registers contract hashes in both hex and string address formats (#1749)
+- Container list cache synchronization with the Sidechain (#1632)
+- Blobstor components are unified (#1584, #1686, #1523)
+
+### Fixed
+
+- Panic on write-cache's `Delete` operation (#1664)
+- Payload duplication in `neofs-cli storagegroup put` (#1706)
+- Contract calls in notary disabled environments (#1743)
+- `Blobovnicza.Get` op now iterates over all size buckets (#1707)
+- Object expiration time (#1670)
+- Parser of the placement policy (#1775)
+- Tree service timeout logs (#1759)
+- Object flushing on writecache side (#1745)
+- Active blobovniczas caching (#1691)
+- `neofs-adm` TX waiting (#1738)
+- `neofs-adm` registers contracts with a minimal GAS payment (#1683)
+- Permissions of the file created by `neofs-cli` (#1719)
+- `neofs-adm` creates TX with a high priority attribute (#1702)
+- Storage node's restart after a hard reboot (#1647)
+
+### Updated
+
+- `neo-go` to `v0.99.2`
+- `nspcc-dev/neofs-contract` to `v0.15.5`
+- `prometheus/client_golang` to `v1.13.0`
+- `google.golang.org/protobuf` to `v1.28.1`
+
 ### Updating from v0.31.0
+
 Storage Node now collects object count prometheus metrics: `neofs_node_object_counter`.
 
 Provide `--no-precheck` flag to `neofs-cli container set-eacl` for unconditional sending of a request
@@ -1256,7 +1300,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.31.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.32.0...master
+[0.32.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.0...v0.30.1
