@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-// DeletedObjectHandler is a handler of objects to be removed.
-type DeletedObjectHandler func([]oid.Address) error
 
 // DropObjects marks objects to be removed from the local node.
 //
@@ -37,7 +35,11 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 		}
 	}
 
-	err := s.delObjHandler(addrList)
+	var prm engine.DeletePrm
+	prm.WithAddresses(addrList...)
+	prm.WithForceRemoval()
+
+	_, err := s.s.Delete(prm)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
