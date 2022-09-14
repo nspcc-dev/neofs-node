@@ -44,7 +44,7 @@ Now, we only support GNU/Linux on amd64 CPUs with AVX/AVX2 instructions. More
 platforms will be officially supported after release `1.0`.
 
 The latest version of neofs-node works with neofs-contract
-[v0.15.3](https://github.com/nspcc-dev/neofs-contract/releases/tag/v0.15.3).
+[v0.15.5](https://github.com/nspcc-dev/neofs-contract/releases/tag/v0.15.5).
 
 # Building
 
