@@ -315,7 +315,7 @@ func (c *initializeContext) getSigner(tryGroup bool) transaction.Signer {
 }
 
 func (c *clientContext) awaitTx(cmd *cobra.Command) error {
-	if len(c.Hashes) == 0 {
+	if len(c.SentTxs) == 0 {
 		return nil
 	}
 
@@ -325,33 +325,32 @@ func (c *clientContext) awaitTx(cmd *cobra.Command) error {
 		}
 	}
 
-	err := awaitTx(cmd, c.Client, c.Hashes)
-	c.Hashes = c.Hashes[:0]
+	err := awaitTx(cmd, c.Client, c.SentTxs)
+	c.SentTxs = c.SentTxs[:0]
 
 	return err
 }
 
-func awaitTx(cmd *cobra.Command, c Client, hashes []util.Uint256) error {
+func awaitTx(cmd *cobra.Command, c Client, txs []hashVUBPair) error {
 	cmd.Println("Waiting for transactions to persist...")
 
-	// improve TX awaiting process:
-	// https://github.com/nspcc-dev/neofs-node/issues/1741
 	const pollInterval = time.Second
-	const waitDuration = 30 * time.Second
 
 	tick := time.NewTicker(pollInterval)
 	defer tick.Stop()
-
-	timer := time.NewTimer(waitDuration)
-	defer timer.Stop()
 
 	at := trigger.Application
 
 	var retErr error
 
+	currBlock, err := c.GetBlockCount()
+	if err != nil {
+		return fmt.Errorf("can't fetch current block height: %w", err)
+	}
+
 loop:
-	for i := range hashes {
-		res, err := c.GetApplicationLog(hashes[i], &at)
+	for i := range txs {
+		res, err := c.GetApplicationLog(txs[i].hash, &at)
 		if err == nil {
 			if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
 				retErr = fmt.Errorf("tx %d persisted in %s state: %s",
@@ -359,19 +358,25 @@ loop:
 			}
 			continue loop
 		}
-		for {
-			select {
-			case <-tick.C:
-				res, err := c.GetApplicationLog(hashes[i], &at)
-				if err == nil {
-					if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
-						retErr = fmt.Errorf("tx %d persisted in %s state: %s",
-							i, res.Executions[0].VMState, res.Executions[0].FaultException)
-					}
-					continue loop
+		if txs[i].vub < currBlock {
+			return fmt.Errorf("tx was not persisted: vub=%d, height=%d", txs[i].vub, currBlock)
+		}
+		for range tick.C {
+			// We must fetch current height before application log, to avoid race condition.
+			currBlock, err = c.GetBlockCount()
+			if err != nil {
+				return fmt.Errorf("can't fetch current block height: %w", err)
+			}
+			res, err := c.GetApplicationLog(txs[i].hash, &at)
+			if err == nil {
+				if retErr == nil && len(res.Executions) > 0 && res.Executions[0].VMState != vmstate.Halt {
+					retErr = fmt.Errorf("tx %d persisted in %s state: %s",
+						i, res.Executions[0].VMState, res.Executions[0].FaultException)
 				}
-			case <-timer.C:
-				return errors.New("timeout while waiting for transaction to persist")
+				continue loop
+			}
+			if txs[i].vub < currBlock {
+				return fmt.Errorf("tx was not persisted: vub=%d, height=%d", txs[i].vub, currBlock)
 			}
 		}
 	}
