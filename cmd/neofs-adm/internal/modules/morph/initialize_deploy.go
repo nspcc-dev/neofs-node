@@ -312,12 +312,12 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("could not create actor: %w", err)
 		}
 
-		txHash, _, err := act.SendCall(mgmtHash, deployMethodName, params...)
+		txHash, vub, err := act.SendCall(mgmtHash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
 
-		c.Hashes = append(c.Hashes, txHash)
+		c.SentTxs = append(c.SentTxs, hashVUBPair{hash: txHash, vub: vub})
 	}
 
 	for _, ctrName := range contractList {

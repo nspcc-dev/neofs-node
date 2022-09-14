@@ -48,11 +48,16 @@ type Client interface {
 	SignAndPushP2PNotaryRequest(*transaction.Transaction, []byte, int64, int64, uint32, *wallet.Account) (*payload.P2PNotaryRequest, error)
 }
 
+type hashVUBPair struct {
+	hash util.Uint256
+	vub  uint32
+}
+
 type clientContext struct {
 	Client          Client           // a raw neo-go client OR a local chain implementation
 	CommitteeAct    *actor.Actor     // committee actor with the Global witness scope
 	ReadOnlyInvoker *invoker.Invoker // R/O contract invoker, does not contain any signer
-	Hashes          []util.Uint256
+	SentTxs         []hashVUBPair
 }
 
 func getN3Client(v *viper.Viper) (Client, error) {
@@ -110,7 +115,7 @@ func (c *clientContext) sendTx(tx *transaction.Transaction, cmd *cobra.Command, 
 		return fmt.Errorf("sent and actual tx hashes mismatch:\n\tsent: %v\n\tactual: %v", tx.Hash().StringLE(), h.StringLE())
 	}
 
-	c.Hashes = append(c.Hashes, h)
+	c.SentTxs = append(c.SentTxs, hashVUBPair{hash: h, vub: tx.ValidUntilBlock})
 
 	if await {
 		return c.awaitTx(cmd)

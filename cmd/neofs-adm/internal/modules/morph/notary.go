@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -117,7 +116,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 
 	gas := nep17.New(act, gasHash)
 
-	txHash, _, err := gas.Transfer(
+	txHash, vub, err := gas.Transfer(
 		accHash,
 		notaryHash,
 		big.NewInt(int64(gasAmount)),
@@ -127,5 +126,5 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not send tx: %w", err)
 	}
 
-	return awaitTx(cmd, c, []util.Uint256{txHash})
+	return awaitTx(cmd, c, []hashVUBPair{{hash: txHash, vub: vub}})
 }
