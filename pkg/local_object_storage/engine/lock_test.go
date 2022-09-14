@@ -299,7 +299,7 @@ func TestLockForceRemoval(t *testing.T) {
 
 	// 4.
 	var deletePrm DeletePrm
-	deletePrm.WithAddresses(objectcore.AddressOf(lock))
+	deletePrm.WithAddress(objectcore.AddressOf(lock))
 	deletePrm.WithForceRemoval()
 
 	_, err = e.Delete(deletePrm)

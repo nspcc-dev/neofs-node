@@ -11,7 +11,7 @@ import (
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addr []oid.Address
+	addr oid.Address
 
 	forceRemoval bool
 }
@@ -19,12 +19,12 @@ type DeletePrm struct {
 // DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct{}
 
-// WithAddresses is a Delete option to set the addresses of the objects to delete.
+// WithAddress is a Delete option to set the addresses of the objects to delete.
 //
 // Option is required.
-func (p *DeletePrm) WithAddresses(addr ...oid.Address) {
+func (p *DeletePrm) WithAddress(addr oid.Address) {
 	if p != nil {
-		p.addr = append(p.addr, addr...)
+		p.addr = addr
 	}
 }
 
@@ -66,43 +66,41 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 		err apistatus.ObjectLocked
 	}
 
-	for i := range prm.addr {
-		e.iterateOverSortedShards(prm.addr[i], func(_ int, sh hashedShard) (stop bool) {
-			var existsPrm shard.ExistsPrm
-			existsPrm.SetAddress(prm.addr[i])
+	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+		var existsPrm shard.ExistsPrm
+		existsPrm.SetAddress(prm.addr)
 
-			resExists, err := sh.Exists(existsPrm)
-			if err != nil {
-				_, ok := err.(*objectSDK.SplitInfoError)
-				if ok || shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
-					return true
-				}
-				if !shard.IsErrNotFound(err) {
-					e.reportShardError(sh, "could not check object existence", err)
-				}
-				return false
-			} else if !resExists.Exists() {
-				return false
+		resExists, err := sh.Exists(existsPrm)
+		if err != nil {
+			_, ok := err.(*objectSDK.SplitInfoError)
+			if ok || shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
+				return true
 			}
-
-			var shPrm shard.InhumePrm
-			shPrm.MarkAsGarbage(prm.addr[i])
-			if prm.forceRemoval {
-				shPrm.ForceRemoval()
+			if !shard.IsErrNotFound(err) {
+				e.reportShardError(sh, "could not check object existence", err)
 			}
+			return false
+		} else if !resExists.Exists() {
+			return false
+		}
 
-			_, err = sh.Inhume(shPrm)
-			if err != nil {
-				e.reportShardError(sh, "could not inhume object in shard", err)
+		var shPrm shard.InhumePrm
+		shPrm.MarkAsGarbage(prm.addr)
+		if prm.forceRemoval {
+			shPrm.ForceRemoval()
+		}
 
-				locked.is = errors.As(err, &locked.err)
+		_, err = sh.Inhume(shPrm)
+		if err != nil {
+			e.reportShardError(sh, "could not inhume object in shard", err)
 
-				return locked.is
-			}
+			locked.is = errors.As(err, &locked.err)
 
-			return true
-		})
-	}
+			return locked.is
+		}
+
+		return true
+	})
 
 	if locked.is {
 		return DeleteRes{}, locked.err

@@ -35,13 +35,20 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 		}
 	}
 
-	var prm engine.DeletePrm
-	prm.WithAddresses(addrList...)
-	prm.WithForceRemoval()
+	var firstErr error
+	for i := range addrList {
+		var prm engine.DeletePrm
+		prm.WithForceRemoval()
+		prm.WithAddress(addrList[i])
 
-	_, err := s.s.Delete(prm)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		_, err := s.s.Delete(prm)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	if firstErr != nil {
+		return nil, status.Error(codes.Internal, firstErr.Error())
 	}
 
 	// create and fill response
