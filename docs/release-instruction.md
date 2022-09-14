@@ -3,70 +3,132 @@
 ## Pre-release checks
 
 These should run successfully:
- * `make all`;
- * `make test`;
- * `make lint` (should not change any files);
- * `make fmts` (should not change any files);
- * `go mod tidy` (should not change any files);
- * integration tests in [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv).
 
-## Writing changelog
+* `make all`;
+* `make test`;
+* `make lint` (should not change any files);
+* `make fmts` (should not change any files);
+* `go mod tidy` (should not change any files);
+* integration tests in [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv).
 
-Add an entry to the `CHANGELOG.md` following the style established there. Add an
-optional codename, version and release date in the heading. Write a paragraph
-describing the most significant changes done in this release. Add
-`Fixed`, `Added`, `Removed` and `Updated` sections with fixed bug descriptions
-and changes. Describe each change in detail with a reference to GitHub issues if
-possible.
+## Make release commit
 
-Update the supported version of neofs-contract in `README.md` if there were
-changes in releases.
+Use `vX.Y.Z` tag for releases and `vX.Y.Z-rc.N` for release candidates
+following the [semantic versioning](https://semver.org/) standard.
+
+Determine the revision number for the release:
+
+```shell
+$ export NEOFS_REVISION=X.Y.Z[-rc.N]
+$ export NEOFS_TAG_PREFIX=v
+```
+
+Double-check the number:
+
+```shell
+$ echo ${NEOFS_REVISION}
+```
+
+Create release branch from the main branch of the origin repository:
+
+```shell
+$ git checkout -b release/${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
+```
+
+### Update versions
+
+Write new revision number into the root `VERSION` file:
+
+```shell
+$ echo ${NEOFS_TAG_PREFIX}${NEOFS_REVISION} > VERSION
+```
+
+Update the supported version of `nspcc-dev/neofs-contract` module in root
+`README.md` if needed.
+
+### Writing changelog
+
+Add an entry to the `CHANGELOG.md` following the style established there.
+
+* copy `Unreleased` section (next steps relate to section below `Unreleased`)
+* replace `Unreleased` link with the new revision number
+* update `Unreleased...new` and `new...old` diff-links at the bottom of the file
+* add optional codename and release date in the heading
+* remove all empty sections such as `Added`, `Removed`, etc.
+* make sure all changes have references to GitHub issues in `#123` format (if possible)
+* clean up all `Unreleased` sections and leave them empty
+
+### Make release commit
+
+Stage changed files for commit using `git add`. Commit the changes:
+
+```shell
+$ git commit -s -m 'Release '${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
+```
+
+### Open pull request
+
+Push release branch:
+
+```shell
+$ git push <remote> release/${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
+```
+
+Open pull request to the main branch of the origin repository so that the
+maintainers check the changes. Remove release branch after the merge.
 
 ## Tag the release
 
-Use `vX.Y.Z` tag for releases and `vX.Y.Z-rc.N` for release candidates
-following the [semantic versioning](https://semver.org/) standard. Tag must be
-created from the latest commit of the master branch.
+Pull the main branch with release commit created in previous step. Tag the commit
+with PGP signature.
 
-## Update VERSION files
+```shell
+$ git checkout master && git pull
+$ git tag -s ${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
+```
 
-Make sure the VERSION file contains correct release version. It must be the tag
-you have just created.
+## Push the release tag
 
-## Push changes and release tag to GitHub
-
-This step should bypass the default PR mechanism to get a correct result (so
-that releasing requires admin privileges for the project), both the `master`
-branch update and tag must be pushed simultaneously like this:
-
-    $ git push origin master v0.12.0
-
-## Prepare and push images to a Docker Hub
-
-Create images for `neofs-storage`, `neofs-ir` and `neofs-cli`, `neofs-adm` applications
-and push them into Docker Hub (so that releasing requires privileges in nspccdev
-organization in Docker Hub)
-
-    $ make images
-    $ docker push nspccdev/neofs-storage:0.24.0
-    $ docker push nspccdev/neofs-storage-testnet:0.24.0
-    $ docker push nspccdev/neofs-ir:0.24.0
-    $ docker push nspccdev/neofs-cli:0.24.0
-    $ docker push nspccdev/neofs-adm:0.24.0
-
-## Make a proper GitHub release
-
-Edit an automatically-created release on GitHub, copy things from changelog.
-Build and tar release binaries with `make prepare-release`, attach them to
-the release. Publish the release.
-
-## Close GitHub milestone
-
-Close corresponding vX.Y.Z GitHub milestone.
+```shell
+$ git push origin ${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
+```
 
 ## Post-release
 
-Prepare pull-request for
-[neofs-devenv](https://github.com/nspcc-dev/neofs-devenv).
+### Prepare and push images to a Docker Hub (if not automated)
 
-Rebuild NeoFS LOCODE database via CLI `util locode generate` command (if needed).
+Create Docker images for all applications and push them into Docker Hub
+(requires [organization](https://hub.docker.com/u/nspccdev) privileges)
+
+```shell
+$ git checkout ${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
+$ make images
+$ docker push nspccdev/neofs-storage:${NEOFS_REVISION}
+$ docker push nspccdev/neofs-storage-testnet:${NEOFS_REVISION}
+$ docker push nspccdev/neofs-ir:${NEOFS_REVISION}
+$ docker push nspccdev/neofs-cli:${NEOFS_REVISION}
+$ docker push nspccdev/neofs-adm:${NEOFS_REVISION}
+```
+
+### Make a proper GitHub release (if not automated)
+
+Edit an automatically-created release on GitHub, copy things from `CHANGELOG.md`.
+Build and tar release binaries with `make prepare-release`, attach them to
+the release. Publish the release.
+
+### Update NeoFS Developer Environment
+
+Prepare pull-request in [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv)
+with new versions.
+
+### Close GitHub milestone
+
+Look up GitHub [milestones](https://github.com/nspcc-dev/neofs-node/milestones) and close the release one if exists.
+
+### Rebuild NeoFS LOCODE database
+
+If new release contains LOCODE-related changes, rebuild NeoFS LOCODE database via NeoFS CLI
+
+```shell
+$ neofs-cli util locode generate ...
+```
