@@ -23,18 +23,14 @@ type DeleteRes struct{}
 //
 // Option is required.
 func (p *DeletePrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+	p.addr = addr
 }
 
 // WithForceRemoval is a Delete option to remove an object despite any
 // restrictions imposed on deleting that object. Expected to be used
 // only in control service.
 func (p *DeletePrm) WithForceRemoval() {
-	if p != nil {
-		p.forceRemoval = true
-	}
+	p.forceRemoval = true
 }
 
 // Delete marks the objects to be removed.

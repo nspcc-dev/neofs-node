@@ -27,9 +27,7 @@ type RngRes struct {
 //
 // Option is required.
 func (p *RngPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+	p.addr = addr
 }
 
 // WithPayloadRange is a GetRange option to set range of requested payload data.
@@ -37,9 +35,7 @@ func (p *RngPrm) WithAddress(addr oid.Address) {
 // Missing an option or calling with zero length is equivalent
 // to getting the full payload range.
 func (p *RngPrm) WithPayloadRange(rng *objectSDK.Range) {
-	if p != nil {
-		p.off, p.ln = rng.GetOffset(), rng.GetLength()
-	}
+	p.off, p.ln = rng.GetOffset(), rng.GetLength()
 }
 
 // Object returns the requested object part.

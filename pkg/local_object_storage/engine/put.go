@@ -23,9 +23,7 @@ var errPutShard = errors.New("could not put object to any shard")
 //
 // Option is required.
 func (p *PutPrm) WithObject(obj *objectSDK.Object) {
-	if p != nil {
-		p.obj = obj
-	}
+	p.obj = obj
 }
 
 // Put saves the object to local storage.

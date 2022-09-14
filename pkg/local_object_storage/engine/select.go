@@ -20,16 +20,12 @@ type SelectRes struct {
 
 // WithContainerID is a Select option to set the container id to search in.
 func (p *SelectPrm) WithContainerID(cnr cid.ID) {
-	if p != nil {
-		p.cnr = cnr
-	}
+	p.cnr = cnr
 }
 
 // WithFilters is a Select option to set the object filters.
 func (p *SelectPrm) WithFilters(fs object.SearchFilters) {
-	if p != nil {
-		p.filters = fs
-	}
+	p.filters = fs
 }
 
 // AddressList returns list of addresses of the selected objects.

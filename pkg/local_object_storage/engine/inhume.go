@@ -28,29 +28,23 @@ type InhumeRes struct{}
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
 func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) {
-	if p != nil {
-		p.addrs = addrs
-		p.tombstone = &tombstone
-	}
+	p.addrs = addrs
+	p.tombstone = &tombstone
 }
 
 // MarkAsGarbage marks an object to be physically removed from local storage.
 //
 // Should not be called along with WithTarget.
 func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) {
-	if p != nil {
-		p.addrs = addrs
-		p.tombstone = nil
-	}
+	p.addrs = addrs
+	p.tombstone = nil
 }
 
 // WithForceRemoval inhumes objects specified via MarkAsGarbage with GC mark
 // without any object restrictions checks.
 func (p *InhumePrm) WithForceRemoval() {
-	if p != nil {
-		p.forceRemoval = true
-		p.tombstone = nil
-	}
+	p.forceRemoval = true
+	p.tombstone = nil
 }
 
 var errInhumeFailure = errors.New("inhume operation failed")

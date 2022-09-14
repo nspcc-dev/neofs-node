@@ -25,9 +25,7 @@ type GetRes struct {
 //
 // Option is required.
 func (p *GetPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+	p.addr = addr
 }
 
 // Object returns the requested object.

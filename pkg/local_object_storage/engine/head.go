@@ -25,18 +25,14 @@ type HeadRes struct {
 //
 // Option is required.
 func (p *HeadPrm) WithAddress(addr oid.Address) {
-	if p != nil {
-		p.addr = addr
-	}
+	p.addr = addr
 }
 
 // WithRaw is a Head option to set raw flag value. If flag is unset, then Head
 // returns the header of the virtual object, otherwise it returns SplitInfo of the virtual
 // object.
 func (p *HeadPrm) WithRaw(raw bool) {
-	if p != nil {
-		p.raw = raw
-	}
+	p.raw = raw
 }
 
 // Header returns the requested object header.
