@@ -5,10 +5,8 @@ import (
 	"net"
 
 	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"google.golang.org/grpc"
 )
 
@@ -33,15 +31,6 @@ func initControlService(c *cfg) {
 		controlSvc.WithHealthChecker(c),
 		controlSvc.WithNetMapSource(c.netMapSource),
 		controlSvc.WithNodeState(c),
-		controlSvc.WithDeletedObjectHandler(func(addrList []oid.Address) error {
-			var prm engine.DeletePrm
-			prm.WithAddresses(addrList...)
-			prm.WithForceRemoval()
-
-			_, err := c.cfgObject.cfgLocalStorage.localStorage.Delete(prm)
-
-			return err
-		}),
 		controlSvc.WithLocalStorage(c.cfgObject.cfgLocalStorage.localStorage),
 		controlSvc.WithTreeService(c.treeService),
 	)
