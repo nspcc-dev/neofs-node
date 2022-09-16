@@ -16,13 +16,8 @@ import (
 
 var errCantGenerateKey = errors.New("can't generate new private key")
 
-// Get returns private key from the following sources:
-// 1. WIF
-// 2. Raw binary key
-// 3. Wallet file
-// 4. NEP-2 encrypted WIF.
+// Get returns private key from wallet or binary file.
 // Ideally we want to touch file-system on the last step.
-// However, asking for NEP-2 password seems to be confusing if we provide a wallet.
 // This function assumes that all flags were bind to viper in a `PersistentPreRun`.
 func Get(cmd *cobra.Command) *ecdsa.PrivateKey {
 	pk, err := get()
@@ -32,26 +27,20 @@ func Get(cmd *cobra.Command) *ecdsa.PrivateKey {
 
 func get() (*ecdsa.PrivateKey, error) {
 	keyDesc := viper.GetString(commonflags.WalletPath)
-	priv, err := keys.NewPrivateKeyFromWIF(keyDesc)
-	if err == nil {
-		return &priv.PrivateKey, nil
+	data, err := os.ReadFile(keyDesc)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrFs, err)
 	}
 
-	p, err := getKeyFromFile(keyDesc)
-	if err == nil {
-		return p, nil
+	priv, err := keys.NewPrivateKeyFromBytes(data)
+	if err != nil {
+		w, err := wallet.NewWalletFromFile(keyDesc)
+		if err == nil {
+			return FromWallet(w, viper.GetString(commonflags.Account))
+		}
+		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
 	}
-
-	w, err := wallet.NewWalletFromFile(keyDesc)
-	if err == nil {
-		return FromWallet(w, viper.GetString(commonflags.Account))
-	}
-
-	if len(keyDesc) == nep2Base58Length {
-		return FromNEP2(keyDesc)
-	}
-
-	return nil, ErrInvalidKey
+	return &priv.PrivateKey, nil
 }
 
 // GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
@@ -70,18 +59,4 @@ func getOrGenerate() (*ecdsa.PrivateKey, error) {
 		return &priv.PrivateKey, nil
 	}
 	return get()
-}
-
-func getKeyFromFile(keyPath string) (*ecdsa.PrivateKey, error) {
-	data, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
-	}
-
-	priv, err := keys.NewPrivateKeyFromBytes(data)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
-	}
-
-	return &priv.PrivateKey, nil
 }

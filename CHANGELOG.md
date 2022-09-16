@@ -10,7 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Removed
-
+- Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
 ### Updated
 
 ### Updating from v0.32.0

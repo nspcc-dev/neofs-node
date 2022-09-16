@@ -23,6 +23,9 @@ func Test_getOrGenerate(t *testing.T) {
 	w, err := wallet.NewWallet(wallPath)
 	require.NoError(t, err)
 
+	badWallPath := filepath.Join(dir, "bad_wallet.json")
+	require.NoError(t, os.WriteFile(badWallPath, []byte("bad content"), os.ModePerm))
+
 	acc1, err := wallet.NewAccount()
 	require.NoError(t, err)
 	require.NoError(t, acc1.Encrypt("pass", keys.NEP2ScryptParams()))
@@ -55,7 +58,8 @@ func Test_getOrGenerate(t *testing.T) {
 		Writer: io.Discard,
 	}, "")
 
-	checkKeyError(t, filepath.Join(dir, "badfile"), ErrInvalidKey)
+	checkKeyError(t, filepath.Join(dir, "badfile"), ErrFs)
+	checkKeyError(t, badWallPath, ErrInvalidKey)
 
 	t.Run("wallet", func(t *testing.T) {
 		checkKeyError(t, wallPath, ErrInvalidPassword)
@@ -80,27 +84,11 @@ func Test_getOrGenerate(t *testing.T) {
 	})
 
 	t.Run("WIF", func(t *testing.T) {
-		checkKey(t, wifKey.WIF(), wifKey)
+		checkKeyError(t, wifKey.WIF(), ErrFs)
 	})
 
 	t.Run("NEP-2", func(t *testing.T) {
-		checkKeyError(t, nep2, ErrInvalidPassword)
-
-		in.WriteString("invalid\r")
-		checkKeyError(t, nep2, ErrInvalidPassword)
-
-		in.WriteString("pass\r")
-		checkKey(t, nep2, nep2Key)
-
-		t.Run("password from config", func(t *testing.T) {
-			viper.Set("password", "invalid")
-			in.WriteString("pass\r")
-			checkKeyError(t, nep2, ErrInvalidPassword)
-
-			viper.Set("password", "pass")
-			in.WriteString("invalid\r")
-			checkKey(t, nep2, nep2Key)
-		})
+		checkKeyError(t, nep2, ErrFs)
 	})
 
 	t.Run("raw key", func(t *testing.T) {
