@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Fail startup if metabase has an old version (#1809)
 - Storage nodes could enter the network with any state (#1796)
 - Missing check of new state value in `ControlService.SetNetmapStatus` (#1797)
+- Correlation of object session to request (#1420)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
@@ -45,6 +46,10 @@ If network allows maintenance state (*), it will be reflected in the network map
 Storage nodes under maintenance are not excluded from the network map, but don't
 serve object operations. (*) can be fetched from network configuration via
 `neofs-cli netmap netinfo` command.    
+
+When issuing an object session token for root (virtual, "big") objects,
+additionally include all members of the split-chain. If session context
+includes root object only, it is not spread to physical ("small") objects.
 
 ## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
 

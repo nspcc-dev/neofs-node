@@ -93,24 +93,12 @@ func originalSessionToken(header *sessionV2.RequestMetaHeader) (*sessionSDK.Obje
 	return &tok, nil
 }
 
-func getObjectIDFromRequestBody(body interface{}) (*oid.ID, error) {
-	var idV2 *refsV2.ObjectID
-
-	switch v := body.(type) {
-	default:
-		return nil, nil
-	case interface {
-		GetObjectID() *refsV2.ObjectID
-	}:
-		idV2 = v.GetObjectID()
-	case interface {
-		GetAddress() *refsV2.Address
-	}:
-		idV2 = v.GetAddress().GetObjectID()
-	}
-
+// getObjectIDFromRequestBody decodes oid.ID from the common interface of the
+// object reference's holders. Returns an error if object ID is missing in the request.
+func getObjectIDFromRequestBody(body interface{ GetAddress() *refsV2.Address }) (*oid.ID, error) {
+	idV2 := body.GetAddress().GetObjectID()
 	if idV2 == nil {
-		return nil, nil
+		return nil, errors.New("missing object ID")
 	}
 
 	var id oid.ID
@@ -121,34 +109,6 @@ func getObjectIDFromRequestBody(body interface{}) (*oid.ID, error) {
 	}
 
 	return &id, nil
-}
-
-func useObjectIDFromSession(req *RequestInfo, token *sessionSDK.Object) {
-	if token == nil {
-		return
-	}
-
-	// TODO(@cthulhu-rider): It'd be nice to not pull object identifiers from
-	//  the token, but assert them. Track #1420
-	var tokV2 sessionV2.Token
-	token.WriteToV2(&tokV2)
-
-	ctx, ok := tokV2.GetBody().GetContext().(*sessionV2.ObjectSessionContext)
-	if !ok {
-		panic(fmt.Sprintf("wrong object session context %T, is it verified?", tokV2.GetBody().GetContext()))
-	}
-
-	idV2 := ctx.GetAddress().GetObjectID()
-	if idV2 == nil {
-		return
-	}
-
-	req.obj = new(oid.ID)
-
-	err := req.obj.ReadFromV2(*idV2)
-	if err != nil {
-		panic(fmt.Sprintf("unexpected protocol violation error after correct session token decoding: %v", err))
-	}
 }
 
 func ownerFromToken(token *sessionSDK.Object) (*user.ID, *keys.PublicKey, error) {
@@ -230,4 +190,25 @@ func assertVerb(tok sessionSDK.Object, op acl.Op) bool {
 	}
 
 	return false
+}
+
+// assertSessionRelation checks if given token describing the NeoFS session
+// relates to the given container and optional object. Missing object
+// means that the context isn't bound to any NeoFS object in the container.
+// Returns no error iff relation is correct. Criteria:
+//
+//	session is bound to the given container
+//	object is not specified or session is bound to this object
+//
+// Session MUST be bound to the particular container, otherwise behavior is undefined.
+func assertSessionRelation(tok sessionSDK.Object, cnr cid.ID, obj *oid.ID) error {
+	if !tok.AssertContainer(cnr) {
+		return errors.New("requested container is not related to the session")
+	}
+
+	if obj != nil && !tok.AssertObject(*obj) {
+		return errors.New("requested object is not related to the session")
+	}
+
+	return nil
 }

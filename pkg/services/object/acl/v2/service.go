@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -113,9 +114,21 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		return err
 	}
 
+	obj, err := getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return err
+	}
+
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
 		return err
+	}
+
+	if sTok != nil {
+		err = assertSessionRelation(*sTok, cnr, obj)
+		if err != nil {
+			return err
+		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -135,12 +148,7 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 		return err
 	}
 
-	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return err
-	}
-
-	useObjectIDFromSession(&reqInfo, sTok)
+	reqInfo.obj = obj
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return basicACLErr(reqInfo)
@@ -172,9 +180,21 @@ func (b Service) Head(
 		return nil, err
 	}
 
+	obj, err := getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return nil, err
+	}
+
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
 		return nil, err
+	}
+
+	if sTok != nil {
+		err = assertSessionRelation(*sTok, cnr, obj)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -194,12 +214,7 @@ func (b Service) Head(
 		return nil, err
 	}
 
-	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return nil, err
-	}
-
-	useObjectIDFromSession(&reqInfo, sTok)
+	reqInfo.obj = obj
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -228,6 +243,13 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 		return err
 	}
 
+	if sTok != nil {
+		err = assertSessionRelation(*sTok, id, nil)
+		if err != nil {
+			return err
+		}
+	}
+
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
 		return err
@@ -241,11 +263,6 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 	}
 
 	reqInfo, err := b.findRequestInfo(req, id, acl.OpObjectSearch)
-	if err != nil {
-		return err
-	}
-
-	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
 		return err
 	}
@@ -271,9 +288,21 @@ func (b Service) Delete(
 		return nil, err
 	}
 
+	obj, err := getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return nil, err
+	}
+
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
 		return nil, err
+	}
+
+	if sTok != nil {
+		err = assertSessionRelation(*sTok, cnr, obj)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -293,12 +322,7 @@ func (b Service) Delete(
 		return nil, err
 	}
 
-	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return nil, err
-	}
-
-	useObjectIDFromSession(&reqInfo, sTok)
+	reqInfo.obj = obj
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -315,9 +339,21 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		return err
 	}
 
+	obj, err := getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return err
+	}
+
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
 		return err
+	}
+
+	if sTok != nil {
+		err = assertSessionRelation(*sTok, cnr, obj)
+		if err != nil {
+			return err
+		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -337,11 +373,7 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 		return err
 	}
 
-	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return err
-	}
-	useObjectIDFromSession(&reqInfo, sTok)
+	reqInfo.obj = obj
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return basicACLErr(reqInfo)
@@ -364,9 +396,21 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
+	obj, err := getObjectIDFromRequestBody(request.GetBody())
+	if err != nil {
+		return nil, err
+	}
+
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
 		return nil, err
+	}
+
+	if sTok != nil {
+		err = assertSessionRelation(*sTok, cnr, obj)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -386,12 +430,7 @@ func (b Service) GetRangeHash(
 		return nil, err
 	}
 
-	reqInfo.obj, err = getObjectIDFromRequestBody(request.GetBody())
-	if err != nil {
-		return nil, err
-	}
-
-	useObjectIDFromSession(&reqInfo, sTok)
+	reqInfo.obj = obj
 
 	if !b.checker.CheckBasicACL(reqInfo) {
 		return nil, basicACLErr(reqInfo)
@@ -427,6 +466,18 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			return fmt.Errorf("invalid object owner: %w", err)
 		}
 
+		objV2 := part.GetObjectID()
+		var obj *oid.ID
+
+		if objV2 != nil {
+			obj = new(oid.ID)
+
+			err = obj.ReadFromV2(*objV2)
+			if err != nil {
+				return err
+			}
+		}
+
 		var sTok *sessionSDK.Object
 
 		if tokV2 := request.GetMetaHeader().GetSessionToken(); tokV2 != nil {
@@ -435,6 +486,11 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			err = sTok.ReadFromV2(*tokV2)
 			if err != nil {
 				return fmt.Errorf("invalid session token: %w", err)
+			}
+
+			err = assertSessionRelation(*sTok, cnr, obj)
+			if err != nil {
+				return err
 			}
 		}
 
@@ -455,12 +511,7 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			return err
 		}
 
-		reqInfo.obj, err = getObjectIDFromRequestBody(part)
-		if err != nil {
-			return err
-		}
-
-		useObjectIDFromSession(&reqInfo, sTok)
+		reqInfo.obj = obj
 
 		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, idOwner) {
 			return basicACLErr(reqInfo)
