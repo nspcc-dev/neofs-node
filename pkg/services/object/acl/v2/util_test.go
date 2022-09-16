@@ -10,6 +10,8 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
 	aclsdk "github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/stretchr/testify/require"
@@ -103,4 +105,32 @@ func TestIsVerbCompatible(t *testing.T) {
 				"%v in token, %s executing", verb, op)
 		}
 	}
+}
+
+func TestAssertSessionRelation(t *testing.T) {
+	var tok sessionSDK.Object
+	cnr := cidtest.ID()
+	cnrOther := cidtest.ID()
+	obj := oidtest.ID()
+	objOther := oidtest.ID()
+
+	// make sure ids differ, otherwise test won't work correctly
+	require.False(t, cnrOther.Equals(cnr))
+	require.False(t, objOther.Equals(obj))
+
+	// bind session to the container (required)
+	tok.BindContainer(cnr)
+
+	// test container-global session
+	require.NoError(t, assertSessionRelation(tok, cnr, nil))
+	require.NoError(t, assertSessionRelation(tok, cnr, &obj))
+	require.Error(t, assertSessionRelation(tok, cnrOther, nil))
+	require.Error(t, assertSessionRelation(tok, cnrOther, &obj))
+
+	// limit the session to the particular object
+	tok.LimitByObjects(obj)
+
+	// test fixed object session (here obj arg must be non-nil everywhere)
+	require.NoError(t, assertSessionRelation(tok, cnr, &obj))
+	require.Error(t, assertSessionRelation(tok, cnr, &objOther))
 }

@@ -63,7 +63,7 @@ func Prepare(cmd *cobra.Command, cnr cid.ID, obj *oid.ID, key *ecdsa.PrivateKey,
 
 		tok.BindContainer(cnr)
 		if obj != nil {
-			tok.LimitByObject(*obj)
+			tok.LimitByObjects(*obj)
 		}
 
 		err := tok.Sign(*key)
