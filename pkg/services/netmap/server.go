@@ -10,4 +10,5 @@ import (
 type Server interface {
 	LocalNodeInfo(context.Context, *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error)
 	NetworkInfo(context.Context, *netmap.NetworkInfoRequest) (*netmap.NetworkInfoResponse, error)
+	Snapshot(context.Context, *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error)
 }

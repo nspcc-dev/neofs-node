@@ -52,3 +52,18 @@ func (s *Server) NetworkInfo(ctx context.Context, req *netmapGRPC.NetworkInfoReq
 
 	return resp.ToGRPCMessage().(*netmapGRPC.NetworkInfoResponse), nil
 }
+
+// NetmapSnapshot converts gRPC request message and passes it to internal netmap service.
+func (s *Server) NetmapSnapshot(ctx context.Context, req *netmapGRPC.NetmapSnapshotRequest) (*netmapGRPC.NetmapSnapshotResponse, error) {
+	snapshotReq := new(netmap.SnapshotRequest)
+	if err := snapshotReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.srv.Snapshot(ctx, snapshotReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.ToGRPCMessage().(*netmapGRPC.NetmapSnapshotResponse), nil
+}

@@ -6,6 +6,7 @@ import (
 	"net"
 	"path/filepath"
 	"sync"
+	atomicstd "sync/atomic"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -134,6 +135,13 @@ type cfg struct {
 	persistate *state.PersistentStorage
 
 	netMapSource netmapCore.Source
+
+	// current network map
+	netMap atomicstd.Value // type netmap.NetMap
+}
+
+func (c *cfg) ProcessCurrentNetMap(f func(netmap.NetMap)) {
+	f(c.netMap.Load().(netmap.NetMap))
 }
 
 type cfgGRPC struct {

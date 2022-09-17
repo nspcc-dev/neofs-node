@@ -286,6 +286,8 @@ func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
 		return nil, err
 	}
 
+	c.netMap.Store(*nm)
+
 	nmNodes := nm.Nodes()
 	for i := range nmNodes {
 		if bytes.Equal(nmNodes[i].PublicKey(), c.binPublicKey) {

@@ -272,6 +272,29 @@ func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
 	return
 }
 
+// NetMapSnapshotPrm groups parameters of NetMapSnapshot operation.
+type NetMapSnapshotPrm struct {
+	commonPrm
+}
+
+// NetMapSnapshotRes groups the resulting values of NetMapSnapshot operation.
+type NetMapSnapshotRes struct {
+	cliRes *client.ResNetMapSnapshot
+}
+
+// NetMap returns current local snapshot of the NeoFS network map.
+func (x NetMapSnapshotRes) NetMap() netmap.NetMap {
+	return x.cliRes.NetMap()
+}
+
+// NetMapSnapshot requests current network view of the remote server.
+//
+// Returns any error which prevented the operation from completing correctly in error return.
+func NetMapSnapshot(prm NetMapSnapshotPrm) (res NetMapSnapshotRes, err error) {
+	res.cliRes, err = prm.cli.NetMapSnapshot(context.Background(), client.PrmNetMapSnapshot{})
+	return
+}
+
 // CreateSessionPrm groups parameters of CreateSession operation.
 type CreateSessionPrm struct {
 	commonPrm

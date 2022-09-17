@@ -33,26 +33,6 @@ func (w *healthCheckResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	return nil
 }
 
-type netmapSnapshotResponseWrapper struct {
-	message.Message
-	m *NetmapSnapshotResponse
-}
-
-func (w *netmapSnapshotResponseWrapper) ToGRPCMessage() grpc.Message {
-	return w.m
-}
-
-func (w *netmapSnapshotResponseWrapper) FromGRPCMessage(m grpc.Message) error {
-	var ok bool
-
-	w.m, ok = m.(*NetmapSnapshotResponse)
-	if !ok {
-		return message.NewUnexpectedMessageType(m, w.m)
-	}
-
-	return nil
-}
-
 type setNetmapStatusResponseWrapper struct {
 	message.Message
 	m *SetNetmapStatusResponse

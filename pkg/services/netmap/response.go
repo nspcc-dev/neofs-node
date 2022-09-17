@@ -48,3 +48,16 @@ func (s *responseService) NetworkInfo(ctx context.Context, req *netmap.NetworkIn
 
 	return resp.(*netmap.NetworkInfoResponse), nil
 }
+
+func (s *responseService) Snapshot(ctx context.Context, req *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error) {
+	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+			return s.svc.Snapshot(ctx, req.(*netmap.SnapshotRequest))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*netmap.SnapshotResponse), nil
+}

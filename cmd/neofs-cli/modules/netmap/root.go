@@ -22,9 +22,11 @@ func init() {
 		getEpochCmd,
 		nodeInfoCmd,
 		netInfoCmd,
+		snapshotCmd,
 	)
 
 	initGetEpochCmd()
 	initNetInfoCmd()
 	initNodeInfoCmd()
+	initSnapshotCmd()
 }

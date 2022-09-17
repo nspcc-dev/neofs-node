@@ -33,30 +33,6 @@ func equalHealthCheckResponseBodies(b1, b2 *control.HealthCheckResponse_Body) bo
 		b1.GetHealthStatus() == b2.GetHealthStatus()
 }
 
-func TestNetmapSnapshotResponse_Body_StableMarshal(t *testing.T) {
-	testStableMarshal(t,
-		generateNetmapSnapshotResponseBody(),
-		new(control.NetmapSnapshotResponse_Body),
-		func(m1, m2 protoMessage) bool {
-			return equalNetmapSnapshotResponseBodies(
-				m1.(*control.NetmapSnapshotResponse_Body),
-				m2.(*control.NetmapSnapshotResponse_Body),
-			)
-		},
-	)
-}
-
-func generateNetmapSnapshotResponseBody() *control.NetmapSnapshotResponse_Body {
-	body := new(control.NetmapSnapshotResponse_Body)
-	body.SetNetmap(generateNetmap())
-
-	return body
-}
-
-func equalNetmapSnapshotResponseBodies(b1, b2 *control.NetmapSnapshotResponse_Body) bool {
-	return equalNetmaps(b1.GetNetmap(), b2.GetNetmap())
-}
-
 func TestSetNetmapStatusRequest_Body_StableMarshal(t *testing.T) {
 	testStableMarshal(t,
 		generateSetNetmapStatusRequestBody(),

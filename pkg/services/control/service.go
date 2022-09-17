@@ -28,27 +28,6 @@ func (x *HealthCheckResponse) SetBody(v *HealthCheckResponse_Body) {
 	}
 }
 
-// SetBody sets get netmap snapshot request body.
-func (x *NetmapSnapshotRequest) SetBody(v *NetmapSnapshotRequest_Body) {
-	if x != nil {
-		x.Body = v
-	}
-}
-
-// SetNetmap sets structure of the current network map.
-func (x *NetmapSnapshotResponse_Body) SetNetmap(v *Netmap) {
-	if x != nil {
-		x.Netmap = v
-	}
-}
-
-// SetBody sets get netmap snapshot response body.
-func (x *NetmapSnapshotResponse) SetBody(v *NetmapSnapshotResponse_Body) {
-	if x != nil {
-		x.Body = v
-	}
-}
-
 // SetStatus sets new storage node status in NeoFS network map.
 func (x *SetNetmapStatusRequest_Body) SetStatus(v NetmapStatus) {
 	if x != nil {

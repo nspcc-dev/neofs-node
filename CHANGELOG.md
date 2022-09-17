@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased] - Anmado (안마도, 鞍馬島)
 
 ### Added
+- Serving `NetmapService.NetmapSnapshot` RPC (#1793)
+- `netmap snapshot` command of NeoFS CLI (#1793)
 
 - Changelog updates CI step (#1808)
 - Validate storage node configuration before node startup (#1805)
@@ -18,10 +20,13 @@ Changelog for NeoFS Node
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
 - Remove --generate-key option in `neofs-cli container delete` (#1692)
+- Serving `ControlService.NetmapSnapshot` RPC (#1793)
+- `control netmap-snapshot` command of NeoFS CLI (#1793)
 
 ### Updated
 
 ### Updating from v0.32.0
+Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
 
 ## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
 
