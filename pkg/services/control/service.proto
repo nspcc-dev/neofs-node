@@ -11,9 +11,6 @@ service ControlService {
     // Performs health check of the storage node.
     rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
 
-    // Returns network map snapshot of the current NeoFS epoch.
-    rpc NetmapSnapshot (NetmapSnapshotRequest) returns (NetmapSnapshotResponse);
-
     // Sets status of the storage node in NeoFS network map.
     rpc SetNetmapStatus (SetNetmapStatusRequest) returns (SetNetmapStatusResponse);
 
@@ -64,34 +61,6 @@ message HealthCheckResponse {
     }
 
     // Body of health check response message.
-    Body body = 1;
-
-    // Body signature.
-    Signature signature = 2;
-}
-
-// Get netmap snapshot request.
-message NetmapSnapshotRequest {
-    // Get netmap snapshot request body.
-    message Body {
-    }
-
-    // Body of get netmap snapshot request message.
-    Body body = 1;
-
-    // Body signature.
-    Signature signature = 2;
-}
-
-// Get netmap snapshot request.
-message NetmapSnapshotResponse {
-    // Get netmap snapshot response body
-    message Body {
-        // Structure of the requested network map.
-        Netmap netmap = 1 [json_name = "netmap"];
-    }
-
-    // Body of get netmap snapshot response message.
     Body body = 1;
 
     // Body signature.

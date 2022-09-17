@@ -30,7 +30,6 @@ func init() {
 		healthCheckCmd,
 		setNetmapStatusCmd,
 		dropObjectsCmd,
-		snapshotCmd,
 		shardsCmd,
 		synchronizeTreeCmd,
 	)
@@ -38,7 +37,6 @@ func init() {
 	initControlHealthCheckCmd()
 	initControlSetNetmapStatusCmd()
 	initControlDropObjectsCmd()
-	initControlSnapshotCmd()
 	initControlShardsCmd()
 	initControlSynchronizeTreeCmd()
 }

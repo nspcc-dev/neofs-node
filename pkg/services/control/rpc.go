@@ -9,7 +9,6 @@ const serviceName = "control.ControlService"
 
 const (
 	rpcHealthCheck     = "HealthCheck"
-	rpcNetmapSnapshot  = "NetmapSnapshot"
 	rpcSetNetmapStatus = "SetNetmapStatus"
 	rpcDropObjects     = "DropObjects"
 	rpcListShards      = "ListShards"
@@ -35,28 +34,6 @@ func HealthCheck(
 	}
 
 	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcHealthCheck), wReq, wResp, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return wResp.m, nil
-}
-
-// NetmapSnapshot executes ControlService.NetmapSnapshot RPC.
-func NetmapSnapshot(
-	cli *client.Client,
-	req *NetmapSnapshotRequest,
-	opts ...client.CallOption,
-) (*NetmapSnapshotResponse, error) {
-	wResp := &netmapSnapshotResponseWrapper{
-		m: new(NetmapSnapshotResponse),
-	}
-
-	wReq := &requestWrapper{
-		m: req,
-	}
-
-	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcNetmapSnapshot), wReq, wResp, opts...)
 	if err != nil {
 		return nil, err
 	}

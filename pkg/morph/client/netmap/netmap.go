@@ -28,7 +28,12 @@ func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 			epochSnapshotMethod, err)
 	}
 
-	return unmarshalNetmap(res, epochSnapshotMethod)
+	nm, err := unmarshalNetmap(res, epochSnapshotMethod)
+	if err == nil {
+		nm.SetEpoch(epoch)
+	}
+
+	return nm, err
 }
 
 // GetCandidates receives information list about candidates

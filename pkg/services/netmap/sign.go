@@ -54,3 +54,19 @@ func (s *signService) NetworkInfo(ctx context.Context, req *netmap.NetworkInfoRe
 
 	return resp.(*netmap.NetworkInfoResponse), nil
 }
+
+func (s *signService) Snapshot(ctx context.Context, req *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error) {
+	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
+		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+			return s.svc.Snapshot(ctx, req.(*netmap.SnapshotRequest))
+		},
+		func() util.ResponseMessage {
+			return new(netmap.SnapshotResponse)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.(*netmap.SnapshotResponse), nil
+}
