@@ -11,6 +11,8 @@ Changelog for NeoFS Node
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
+- Remove --generate-key option in `neofs-cli container delete` (#1692)
+
 ### Updated
 
 ### Updating from v0.32.0
