@@ -17,38 +17,22 @@ type Task struct {
 	nodes []netmap.NodeInfo
 }
 
-// WithCopiesNumber sets number of copies to replicate.
-func (t *Task) WithCopiesNumber(v uint32) *Task {
-	if t != nil {
-		t.quantity = v
-	}
-
-	return t
+// SetCopiesNumber sets number of copies to replicate.
+func (t *Task) SetCopiesNumber(v uint32) {
+	t.quantity = v
 }
 
-// WithObjectAddress sets address of local object.
-func (t *Task) WithObjectAddress(v oid.Address) *Task {
-	if t != nil {
-		t.addr = v
-	}
-
-	return t
+// SetObjectAddress sets address of local object.
+func (t *Task) SetObjectAddress(v oid.Address) {
+	t.addr = v
 }
 
-// WithObject sets object to avoid fetching it from the local storage.
-func (t *Task) WithObject(obj *objectSDK.Object) *Task {
-	if t != nil {
-		t.obj = obj
-	}
-
-	return t
+// SetObject sets object to avoid fetching it from the local storage.
+func (t *Task) SetObject(obj *objectSDK.Object) {
+	t.obj = obj
 }
 
-// WithNodes sets a list of potential object holders.
-func (t *Task) WithNodes(v []netmap.NodeInfo) *Task {
-	if t != nil {
-		t.nodes = v
-	}
-
-	return t
+// SetNodes sets a list of potential object holders.
+func (t *Task) SetNodes(v []netmap.NodeInfo) {
+	t.nodes = v
 }

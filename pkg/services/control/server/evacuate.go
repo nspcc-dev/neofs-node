@@ -86,11 +86,11 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 	}
 
 	var res replicatorResult
-	task := new(replicator.Task).
-		WithObject(obj).
-		WithObjectAddress(addr).
-		WithCopiesNumber(1).
-		WithNodes(nodes)
+	var task replicator.Task
+	task.SetObject(obj)
+	task.SetObjectAddress(addr)
+	task.SetCopiesNumber(1)
+	task.SetNodes(nodes)
 	s.replicator.HandleTask(context.TODO(), task, &res)
 
 	if res.count == 0 {

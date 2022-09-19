@@ -19,7 +19,7 @@ type TaskResult interface {
 
 // HandleTask executes replication task inside invoking goroutine.
 // Passes all the nodes that accepted the replication to the TaskResult.
-func (p *Replicator) HandleTask(ctx context.Context, task *Task, res TaskResult) {
+func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) {
 	defer func() {
 		p.log.Debug("finish work",
 			zap.Uint32("amount of unfinished replicas", task.quantity),
