@@ -244,6 +244,8 @@ type NetworkConfiguration struct {
 
 	WithdrawalFee uint64
 
+	HomomorphicHashingDisabled bool
+
 	Raw []RawNetworkParameter
 }
 
@@ -308,6 +310,8 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 			res.IRCandidateFee = bytesToUint64(value)
 		case withdrawFeeConfig:
 			res.WithdrawalFee = bytesToUint64(value)
+		case homomorphicHashingDisabledKey:
+			res.HomomorphicHashingDisabled = bytesToBool(value)
 		}
 
 		return nil
@@ -321,6 +325,16 @@ func bytesToUint64(val []byte) uint64 {
 		return 0
 	}
 	return bigint.FromBytes(val).Uint64()
+}
+
+func bytesToBool(val []byte) bool {
+	for i := range val {
+		if val[i] != 0 {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ErrConfigNotFound is returned when the requested key was not found
