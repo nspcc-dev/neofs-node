@@ -30,6 +30,8 @@ func initControlService(c *cfg) {
 		controlSvc.WithAuthorizedKeys(rawPubs),
 		controlSvc.WithHealthChecker(c),
 		controlSvc.WithNetMapSource(c.netMapSource),
+		controlSvc.WithContainerSource(c.cfgObject.cnrSource),
+		controlSvc.WithReplicator(c.replicator),
 		controlSvc.WithNodeState(c),
 		controlSvc.WithLocalStorage(c.cfgObject.cfgLocalStorage.localStorage),
 		controlSvc.WithTreeService(c.treeService),

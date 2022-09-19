@@ -3,9 +3,11 @@ package control
 import (
 	"crypto/ecdsa"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 )
 
 // Server is an entity that serves
@@ -46,6 +48,10 @@ type cfg struct {
 	healthChecker HealthChecker
 
 	netMapSrc netmap.Source
+
+	cnrSrc container.Source
+
+	replicator *replicator.Replicator
 
 	nodeState NodeState
 
@@ -99,6 +105,20 @@ func WithHealthChecker(hc HealthChecker) Option {
 func WithNetMapSource(netMapSrc netmap.Source) Option {
 	return func(c *cfg) {
 		c.netMapSrc = netMapSrc
+	}
+}
+
+// WithContainerSource returns option to set container storage.
+func WithContainerSource(cnrSrc container.Source) Option {
+	return func(c *cfg) {
+		c.cnrSrc = cnrSrc
+	}
+}
+
+// WithReplicator returns option to set network map storage.
+func WithReplicator(r *replicator.Replicator) Option {
+	return func(c *cfg) {
+		c.replicator = r
 	}
 }
 
