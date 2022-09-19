@@ -690,8 +690,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
+	netSettings := (*networkSettings)(server.netmapClient)
+
 	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
-	netMapCandidateStateValidator.SetNetworkSettings((*networkSettings)(server.netmapClient))
+	netMapCandidateStateValidator.SetNetworkSettings(netSettings)
 
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
@@ -722,6 +724,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		),
 		NotaryDisabled: server.sideNotaryConfig.disabled,
 		SubnetContract: &server.contracts.subnet,
+
+		NodeStateSettings: netSettings,
 	})
 	if err != nil {
 		return nil, err
