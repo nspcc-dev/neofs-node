@@ -8,12 +8,15 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // EvacuateShardPrm represents parameters for the EvacuateShard operation.
 type EvacuateShardPrm struct {
 	shardID      *shard.ID
+	handler      func(oid.Address, *objectSDK.Object) error
 	ignoreErrors bool
 }
 
@@ -32,7 +35,13 @@ func (p *EvacuateShardPrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
 }
 
+// WithFaultHandler sets handler to call for objects which cannot be saved on other shards.
+func (p *EvacuateShardPrm) WithFaultHandler(f func(oid.Address, *objectSDK.Object) error) {
+	p.handler = f
+}
+
 // Count returns amount of evacuated objects.
+// Objects for which handler returned no error are also assumed evacuated.
 func (p EvacuateShardRes) Count() int {
 	return p.count
 }
@@ -58,7 +67,7 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 		return EvacuateShardRes{}, errShardNotFound
 	}
 
-	if len(e.shards) < 2 {
+	if len(e.shards) < 2 && prm.handler == nil {
 		e.mtx.RUnlock()
 		return EvacuateShardRes{}, errMustHaveTwoShards
 	}
@@ -138,13 +147,17 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 				}
 			}
 
-			// TODO (@fyrchik): #1731 try replicating to another node.
-			//  The suggestion is to have prm.handler which is called
-			//  if a Put has failed.
+			if prm.handler == nil {
+				// Do not check ignoreErrors flag here because
+				// ignoring errors on put make this command kinda useless.
+				return res, fmt.Errorf("%w: %s", errPutShard, lst[i])
+			}
 
-			// Do not check ignoreErrors flag here because
-			// ignoring errors on put make this command kinda useless.
-			return res, fmt.Errorf("%w: %s", errPutShard, lst[i])
+			err = prm.handler(lst[i], getRes.Object())
+			if err != nil {
+				return res, err
+			}
+			res.count++
 		}
 
 		c = listRes.Cursor()

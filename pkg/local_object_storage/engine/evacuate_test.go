@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,11 +16,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func TestEvacuateShard(t *testing.T) {
+func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*objectSDK.Object) {
 	dir, err := os.MkdirTemp("", "*")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
@@ -28,19 +30,16 @@ func TestEvacuateShard(t *testing.T) {
 		WithLogger(zaptest.NewLogger(t)),
 		WithShardPoolSize(1))
 
-	var ids [3]*shard.ID
-	var fsTree *fstree.FSTree
+	ids := make([]*shard.ID, shardNum)
 
 	for i := range ids {
-		fsTree = fstree.New(
-			fstree.WithPath(filepath.Join(dir, strconv.Itoa(i))),
-			fstree.WithDepth(1))
-
 		ids[i], err = e.AddShard(
 			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages([]blobstor.SubStorage{{
-					Storage: fsTree,
+					Storage: fstree.New(
+						fstree.WithPath(filepath.Join(dir, strconv.Itoa(i))),
+						fstree.WithDepth(1)),
 				}})),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
@@ -52,10 +51,6 @@ func TestEvacuateShard(t *testing.T) {
 	require.NoError(t, e.Open())
 	require.NoError(t, e.Init())
 
-	const objPerShard = 3
-
-	evacuateShardID := ids[2].String()
-
 	objects := make([]*objectSDK.Object, 0, objPerShard*len(ids))
 	for i := 0; ; i++ {
 		objects = append(objects, generateObjectWithCID(t, cidtest.ID()))
@@ -66,12 +61,21 @@ func TestEvacuateShard(t *testing.T) {
 		_, err := e.Put(putPrm)
 		require.NoError(t, err)
 
-		res, err := e.shards[evacuateShardID].List()
+		res, err := e.shards[ids[len(ids)-1].String()].List()
 		require.NoError(t, err)
 		if len(res.AddressList()) == objPerShard {
 			break
 		}
 	}
+	return e, ids, objects
+}
+
+func TestEvacuateShard(t *testing.T) {
+	const objPerShard = 3
+
+	e, ids, objects := newEngineEvacuate(t, 3, objPerShard)
+
+	evacuateShardID := ids[2].String()
 
 	checkHasObjects := func(t *testing.T) {
 		for i := range objects {
@@ -119,4 +123,69 @@ func TestEvacuateShard(t *testing.T) {
 	e.mtx.Unlock()
 
 	checkHasObjects(t)
+}
+
+func TestEvacuateNetwork(t *testing.T) {
+	var errReplication = errors.New("handler error")
+
+	acceptOneOf := func(objects []*objectSDK.Object, max int) func(oid.Address, *objectSDK.Object) error {
+		var n int
+		return func(addr oid.Address, obj *objectSDK.Object) error {
+			if n == max {
+				return errReplication
+			}
+
+			n++
+			for i := range objects {
+				if addr == objectCore.AddressOf(objects[i]) {
+					require.Equal(t, objects[i], obj)
+					return nil
+				}
+			}
+			require.FailNow(t, "handler was called with an unexpected object: %s", addr)
+			panic("unreachable")
+		}
+	}
+
+	t.Run("single shard", func(t *testing.T) {
+		e, ids, objects := newEngineEvacuate(t, 1, 3)
+		evacuateShardID := ids[0].String()
+
+		require.NoError(t, e.shards[evacuateShardID].SetMode(mode.ReadOnly))
+
+		var prm EvacuateShardPrm
+		prm.shardID = ids[0]
+
+		res, err := e.Evacuate(prm)
+		require.ErrorIs(t, err, errMustHaveTwoShards)
+		require.Equal(t, 0, res.Count())
+
+		prm.handler = acceptOneOf(objects, 2)
+
+		res, err = e.Evacuate(prm)
+		require.ErrorIs(t, err, errReplication)
+		require.Equal(t, 2, res.Count())
+	})
+	t.Run("multiple shards", func(t *testing.T) {
+		e, ids, objects := newEngineEvacuate(t, 2, 3)
+
+		require.NoError(t, e.shards[ids[0].String()].SetMode(mode.ReadOnly))
+		require.NoError(t, e.shards[ids[1].String()].SetMode(mode.ReadOnly))
+
+		var prm EvacuateShardPrm
+		prm.shardID = ids[1]
+		prm.handler = acceptOneOf(objects, 2)
+
+		res, err := e.Evacuate(prm)
+		require.ErrorIs(t, err, errReplication)
+		require.Equal(t, 2, res.Count())
+
+		t.Run("no errors", func(t *testing.T) {
+			prm.handler = acceptOneOf(objects, 3)
+
+			res, err := e.Evacuate(prm)
+			require.NoError(t, err)
+			require.Equal(t, 3, res.Count())
+		})
+	})
 }
