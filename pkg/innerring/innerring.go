@@ -691,6 +691,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
+	netMapCandidateStateValidator.SetNetworkSettings((*networkSettings)(server.netmapClient))
 
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
