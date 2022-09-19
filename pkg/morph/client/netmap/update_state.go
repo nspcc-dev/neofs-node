@@ -7,11 +7,17 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
+// TODO: enum can become redundant after neofs-contract#270
+const (
+	stateOffline int8 = iota
+	stateOnline
+)
+
 // UpdatePeerPrm groups parameters of UpdatePeerState operation.
 type UpdatePeerPrm struct {
 	key []byte
 
-	online bool
+	state int8 // state enum value
 
 	client.InvokePrmOptional
 }
@@ -21,9 +27,11 @@ func (u *UpdatePeerPrm) SetKey(key []byte) {
 	u.key = key
 }
 
-// SetState sets node state.
+// SetOnline marks node to be switched into "online" state.
+//
+// Zero UpdatePeerPrm marks node as "offline".
 func (u *UpdatePeerPrm) SetOnline() {
-	u.online = true
+	u.state = stateOnline
 }
 
 // UpdatePeerState changes peer status through Netmap contract call.
@@ -37,8 +45,14 @@ func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 		method += "IR"
 	}
 
-	state := netmap.OfflineState
-	if p.online {
+	state := netmap.OfflineState // pre-assign since type of value is unexported
+
+	switch p.state {
+	default:
+		panic(fmt.Sprintf("unexpected node's state value %v", p.state))
+	case stateOffline:
+		// already set above
+	case stateOnline:
 		state = netmap.OnlineState
 	}
 
