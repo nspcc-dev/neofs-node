@@ -1,0 +1,2 @@
+docs/examples/neofs-ir/*.yml    etc/neofs/ir
+docs/examples/neofs-storage/*.yml    etc/neofs/storage

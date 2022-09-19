@@ -1,0 +1,80 @@
+# Contfig file example
+
+control:
+  grpc:
+    endpoint: localhost:8091
+grpc:
+  0:
+    endpoint: node1.neofs:8080
+logger:
+  level: info
+morph:
+  rpc_endpoint:
+  - address: ws://localhost:40332/ws
+    priority: '2'
+node:
+  addresses:
+  - localhost:8080
+  persistent_sessions:
+    path: /srv/neofs/sessions
+  persistent_state:
+    path: /srv/neofs/state
+  relay: false
+  subnet:
+    exit_zero: false
+  wallet:
+    address: ''
+    password: ''
+    path: /etc/neofs/storage/wallet.json
+object:
+  put:
+    pool_size_local: 101
+    pool_size_remote: 300
+pprof:
+  address: localhost:6671
+  enabled: true
+prometheus:
+  address: localhost:6672
+  enabled: true
+storage:
+  shard:
+    default:
+      blobstor:
+      - depth: 1
+        opened_cache_capacity: 32
+        perm: '0644'
+        size: 512mb
+        width: 4
+      - depth: 4
+        perm: '0644'
+      compression_exclude_content_types:
+      - audio/*
+      - video/*
+      gc:
+        remover_batch_size: 1000
+        remover_sleep_interval: 10s
+      metabase:
+        max_batch_delay: 20ms
+        max_batch_size: 1000
+        perm: '0644'
+      pilorama:
+        max_batch_delay: 5ms
+        max_batch_size: 500
+        no_sync: false
+      resync_metabase: false
+      small_object_size: 128 kb
+      writecache:
+        capacity: 3gb
+        enabled: true
+        max_object_size: 8mb
+        memcache_capacity: 1gb
+        small_object_size: 128kb
+        workers_number: 30
+      сompress: true
+  shard_pool_size: 50
+  shard_ro_error_threshold: 30
+tree:
+  cache_size: 100
+  enabled: true
+  replication_channel_capacity: 800
+  replication_worker_count: 800

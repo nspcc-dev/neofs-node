@@ -1,0 +1,55 @@
+# Contfig file example
+
+audit:
+  pdp:
+    max_sleep_interval: 500ms
+control:
+  grpc:
+    endpoint: localhost:8090
+emit:
+  gas:
+    balance_threshold: 100000000000
+  storage:
+    amount: 400000000
+fee:
+  main_chain: 25000000
+  named_container_register: 2500000000
+  side_chain: 500000000
+locode:
+  db:
+    path: /var/lib/neofs/ir/locode_db
+logger:
+  level: info
+mainnet: null
+morph:
+  endpoint:
+    client:
+    - address: ws://localhost:40332/ws
+  validators:
+netmap_cleaner:
+  enabled: true
+  threshold: 3
+node:
+  persistent_state:
+    path: /var/lib/neofs/ir/state
+pprof:
+  address: localhost:6661
+  enabled: true
+prometheus:
+  address: localhost:6662
+  enabled: true
+timers:
+  collect_basic_income:
+    div: 2
+    mul: 1
+  distribute_basic_income:
+    div: 4
+    mul: 3
+  emit: 240
+  stop_estimation:
+    div: 4
+    mul: 1
+wallet:
+  address: ''
+  password: ''
+  path: /etc/neofs/ir/wallet.json

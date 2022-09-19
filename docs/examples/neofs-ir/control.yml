@@ -1,0 +1,6 @@
+---
+
+endpoint: 'localhost:8090'
+wallet: '/etc/neofs/ir/wallet.json'
+password: ''
+#ir: true

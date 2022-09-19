@@ -1,0 +1,5 @@
+---
+
+endpoint: 'localhost:8091'
+wallet: '/etc/neofs/storage/wallet.json'
+password: ''
