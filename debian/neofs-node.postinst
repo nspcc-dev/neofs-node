@@ -18,15 +18,15 @@ set -e
 
 case "$1" in
     configure)
-        id -u neofs-ir || useradd -s /usr/sbin/nologin -d /var/lib/neofs/ir --system -M -U -c "NeoFS InnerRing node" neofs-ir
-        id -u neofs-storage || useradd -s /usr/sbin/nologin -d /srv/neofs --system -M -U -c "NeoFS Storage node" neofs-storage
+        id -u neofs-ir >/dev/null 2>&1 || useradd -s /usr/sbin/nologin -d /var/lib/neofs/ir --system -M -U -c "NeoFS InnerRing node" neofs-ir
+        id -u neofs-storage >/dev/null 2>&1 || useradd -s /usr/sbin/nologin -d /srv/neofs --system -M -U -c "NeoFS Storage node" neofs-storage
 
         for USERNAME in ir storage
         do
             if ! dpkg-statoverride --list /etc/neofs/$USERNAME >/dev/null; then
-                chown neofs-$USERNAME /etc/neofs/$USERNAME
-                chmod 0750 /etc/neofs/$USERNAME
-                chmod u=rwX,g=rX,o= /etc/neofs/$USERNAME/* || true
+                chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME
+                chmod -f 0750 /etc/neofs/$USERNAME
+                chmod -f u=rwX,g=rX,o= /etc/neofs/$USERNAME/* || true
             fi
         done
 
@@ -34,7 +34,7 @@ case "$1" in
         do
             USERDIR=$(getent passwd "$USERNAME" | cut -d: -f6)
             if ! dpkg-statoverride --list $USERDIR >/dev/null; then
-                chown -R $USERNAME: $USERDIR
+                chown -f -R $USERNAME: $USERDIR
             fi
         done
     ;;
