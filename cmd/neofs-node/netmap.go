@@ -400,6 +400,10 @@ func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
 		ni.SetIRCandidateFee(netInfoMorph.IRCandidateFee)
 		ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
 
+		if netInfoMorph.HomomorphicHashingDisabled {
+			ni.DisableHomomorphicHashing()
+		}
+
 		for i := range netInfoMorph.Raw {
 			ni.SetRawNetworkParameter(netInfoMorph.Raw[i].Name, netInfoMorph.Raw[i].Value)
 		}
