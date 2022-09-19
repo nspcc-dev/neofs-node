@@ -43,6 +43,7 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
 	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
+	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
@@ -115,6 +116,8 @@ type cfg struct {
 	workers []worker
 
 	respSvc *response.Service
+
+	replicator *replicator.Replicator
 
 	cfgControlService cfgControlService
 

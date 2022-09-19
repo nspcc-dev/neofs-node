@@ -2,6 +2,7 @@ package replicator
 
 import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -10,6 +11,8 @@ type Task struct {
 	quantity uint32
 
 	addr oid.Address
+
+	obj *objectSDK.Object
 
 	nodes []netmap.NodeInfo
 }
@@ -27,6 +30,15 @@ func (t *Task) WithCopiesNumber(v uint32) *Task {
 func (t *Task) WithObjectAddress(v oid.Address) *Task {
 	if t != nil {
 		t.addr = v
+	}
+
+	return t
+}
+
+// WithObject sets object to avoid fetching it from the local storage.
+func (t *Task) WithObject(obj *objectSDK.Object) *Task {
+	if t != nil {
+		t.obj = obj
 	}
 
 	return t

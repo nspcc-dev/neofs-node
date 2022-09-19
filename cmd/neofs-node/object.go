@@ -207,7 +207,7 @@ func initObjectService(c *cfg) {
 		log:     c.log,
 	}
 
-	repl := replicator.New(
+	c.replicator = replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
 			replicatorconfig.PutTimeout(c.appCfg),
@@ -232,7 +232,7 @@ func initObjectService(c *cfg) {
 		policer.WithHeadTimeout(
 			policerconfig.HeadTimeout(c.appCfg),
 		),
-		policer.WithReplicator(repl),
+		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			var inhumePrm engine.InhumePrm
 			inhumePrm.MarkAsGarbage(addr)

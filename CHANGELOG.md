@@ -7,7 +7,9 @@ Changelog for NeoFS Node
 
 - Changelog updates CI step (#1808)
 
-### Changed 
+### Changed
+
+- Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
 
 ### Fixed
 

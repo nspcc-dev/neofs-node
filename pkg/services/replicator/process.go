@@ -26,17 +26,20 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task, res TaskResult)
 		)
 	}()
 
-	obj, err := engine.Get(p.localStorage, task.addr)
-	if err != nil {
-		p.log.Error("could not get object from local storage",
-			zap.Stringer("object", task.addr),
-			zap.Error(err))
+	if task.obj == nil {
+		var err error
+		task.obj, err = engine.Get(p.localStorage, task.addr)
+		if err != nil {
+			p.log.Error("could not get object from local storage",
+				zap.Stringer("object", task.addr),
+				zap.Error(err))
 
-		return
+			return
+		}
 	}
 
 	prm := new(putsvc.RemotePutPrm).
-		WithObject(obj)
+		WithObject(task.obj)
 
 	for i := 0; task.quantity > 0 && i < len(task.nodes); i++ {
 		select {
@@ -52,7 +55,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task *Task, res TaskResult)
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
-		err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+		err := p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
 
 		cancel()
 
