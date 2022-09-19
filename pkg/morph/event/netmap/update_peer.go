@@ -16,6 +16,7 @@ import (
 const (
 	_ int8 = iota
 	stateOnline
+	stateMaintenance
 )
 
 type UpdatePeer struct {
@@ -31,8 +32,16 @@ type UpdatePeer struct {
 // MorphEvent implements Neo:Morph Event interface.
 func (UpdatePeer) MorphEvent() {}
 
+// Online returns true if node's state is requested to be switched
+// to "online".
 func (s UpdatePeer) Online() bool {
 	return s.state == stateOnline
+}
+
+// Maintenance returns true if node's state is requested to be switched
+// to "maintenance".
+func (s UpdatePeer) Maintenance() bool {
+	return s.state == stateMaintenance
 }
 
 func (s UpdatePeer) PublicKey() *keys.PublicKey {
@@ -85,6 +94,8 @@ func ParseUpdatePeer(e *state.ContainedNotificationEvent) (event.Event, error) {
 	case int64(netmap.OfflineState):
 	case int64(netmap.OnlineState):
 		ev.state = stateOnline
+	case int64(netmap.OfflineState) + 1: // FIXME: use named constant after neofs-contract#269
+		ev.state = stateMaintenance
 	}
 
 	return ev, nil
