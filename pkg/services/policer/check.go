@@ -154,11 +154,11 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 			zap.Uint32("shortage", shortage),
 		)
 
-		p.replicator.HandleTask(ctx, new(replicator.Task).
-			WithObjectAddress(addr).
-			WithNodes(nodes).
-			WithCopiesNumber(shortage),
-			checkedNodes,
-		)
+		var task replicator.Task
+		task.SetObjectAddress(addr)
+		task.SetNodes(nodes)
+		task.SetCopiesNumber(shortage)
+
+		p.replicator.HandleTask(ctx, task, checkedNodes)
 	}
 }
