@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/maddress"
+	statevalidation "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	subnetvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
@@ -689,6 +690,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
+	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
+
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
@@ -711,6 +714,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		),
 		AlphabetSyncHandler: alphaSync,
 		NodeValidator: nodevalidator.New(
+			&netMapCandidateStateValidator,
 			addrvalidator.New(),
 			locodeValidator,
 			subnetValidator,
