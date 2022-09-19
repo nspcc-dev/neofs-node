@@ -16,6 +16,7 @@ import (
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -318,7 +319,7 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 
 var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
 
-var errNodeMaintenance = errors.New("node is in maintenance mode")
+var errNodeMaintenance apistatus.NodeUnderMaintenance
 
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	switch st {
