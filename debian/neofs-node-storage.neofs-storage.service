@@ -1,0 +1,16 @@
+[Unit]
+Description=NeoFS Storage node
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/neofs-node --config /etc/neofs/storage/config.yml
+User=neofs-storage
+Group=neofs-storage
+WorkingDirectory=/srv/neofs
+Restart=always
+RestartSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

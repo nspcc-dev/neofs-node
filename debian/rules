@@ -1,0 +1,41 @@
+#!/usr/bin/make -f
+
+# Do not try to strip Go binaries
+export DEB_BUILD_OPTIONS := nostrip
+
+%:
+	dh $@ --with bash-completion
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+		echo $(DEB_BUILD_OPTIONS)
+		dh_auto_install
+
+		bin/neofs-adm gendoc -t man man/
+		bin/neofs-cli gendoc -t man man/		
+
+		bin/neofs-adm completion bash > debian/neofs-adm.bash-completion
+		bin/neofs-cli completion bash > debian/neofs-cli.bash-completion
+		install -m 0755 -d debian/neofs-node-cli/usr/share/fish/completions
+		install -m 0755 -d debian/neofs-node-cli/usr/share/zsh/vendor-completions/
+		bin/neofs-adm completion fish > debian/neofs-node-cli/usr/share/fish/completions/neofs-adm.fish
+		bin/neofs-adm completion zsh > debian/neofs-node-cli/usr/share/zsh/vendor-completions/_neofs-adm
+		bin/neofs-cli completion fish > debian/neofs-node-cli/usr/share/fish/completions/neofs-cli.fish
+		bin/neofs-cli completion zsh > debian/neofs-node-cli/usr/share/zsh/vendor-completions/_neofs-cli		
+
+		install -T config/example/ir.yaml debian/neofs-node-ir/etc/neofs/ir/config.yml
+		install -T config/example/ir-control.yaml debian/neofs-node-ir/etc/neofs/ir/control.yml
+		install -T config/example/node.yaml debian/neofs-node-storage/etc/neofs/storage/config.yml
+		install -T config/example/node-control.yaml debian/neofs-node-storage/etc/neofs/storage/control.yml
+
+override_dh_installsystemd:
+		dh_installsystemd --no-enable --no-start --name=neofs-ir
+		dh_installsystemd --no-enable --no-start --name=neofs-storage
+
+override_dh_installchangelogs:
+		dh_installchangelogs -k CHANGELOG.md
+
+override_dh_installdocs:
+		dh_installdocs
+

@@ -1,0 +1,16 @@
+[Unit]
+Description=NeoFS InnerRing node
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/neofs-ir --config /etc/neofs/ir/config.yml
+User=neofs-ir
+Group=neofs-ir
+WorkingDirectory=/var/lib/neofs/ir
+Restart=always
+RestartSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
