@@ -404,6 +404,10 @@ func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
 			ni.DisableHomomorphicHashing()
 		}
 
+		if netInfoMorph.MaintenanceModeAllowed {
+			ni.AllowMaintenanceMode()
+		}
+
 		for i := range netInfoMorph.Raw {
 			ni.SetRawNetworkParameter(netInfoMorph.Raw[i].Name, netInfoMorph.Raw[i].Value)
 		}
