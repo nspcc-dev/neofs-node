@@ -325,7 +325,14 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	default:
 		return fmt.Errorf("unsupported status %v", st)
 	case control.NetmapStatus_MAINTENANCE:
-		return c.cfgObject.cfgLocalStorage.localStorage.BlockExecution(errNodeMaintenance)
+		err := c.cfgObject.cfgLocalStorage.localStorage.BlockExecution(errNodeMaintenance)
+		if err != nil {
+			return fmt.Errorf("block execution of local object storage: %w", err)
+		}
+
+		// TODO: #1691 think how to process two different actions which can fail both
+
+		return c.updateNetMapState((*nmClient.UpdatePeerPrm).SetMaintenance)
 	case control.NetmapStatus_ONLINE, control.NetmapStatus_OFFLINE:
 	}
 
@@ -347,9 +354,15 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
-	prm := nmClient.UpdatePeerPrm{}
+	return c.updateNetMapState(func(*nmClient.UpdatePeerPrm) {})
+}
 
+// calls UpdatePeerState operation of Netmap contract's client for the local node.
+// State setter is used to specify node state to switch to.
+func (c *cfg) updateNetMapState(stateSetter func(*nmClient.UpdatePeerPrm)) error {
+	var prm nmClient.UpdatePeerPrm
 	prm.SetKey(c.key.PublicKey().Bytes())
+	stateSetter(&prm)
 
 	return c.cfgNetmap.wrapper.UpdatePeerState(prm)
 }
