@@ -31,7 +31,7 @@ Only owner of the container has a permission to remove container.`,
 			common.ReadSessionToken(cmd, tok, sessionTokenPath)
 		}
 
-		pk := key.GetOrGenerate(cmd)
+		pk := key.Get(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 		if force, _ := cmd.Flags().GetBool(forceFlag); !force {
@@ -92,9 +92,11 @@ Only owner of the container has a permission to remove container.`,
 }
 
 func initContainerDeleteCmd() {
-	commonflags.Init(deleteContainerCmd)
-
 	flags := deleteContainerCmd.Flags()
+
+	flags.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
+	flags.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
+	flags.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	flags.StringVar(&containerID, "cid", "", "container ID")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until container is removed")
