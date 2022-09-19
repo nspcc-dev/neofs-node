@@ -23,11 +23,13 @@ case "$1" in
         for USERPART in ir storage
         do
             for DIRPART in /var/lib/neofs /etc/neofs
+            do
                 if ! dpkg-statoverride --list $DIRPART/$NAMEPART >/dev/null; then
                     chown neofs-$USERPART: $DIRPART/$NAMEPART
                     chmod 0750 $DIRPART/$NAMEPART
                     chmod u=rwX,g=rX,o= $DIRPART/$NAMEPART/*
                 fi
+            done
         done    
     ;;
 
