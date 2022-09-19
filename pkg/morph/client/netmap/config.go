@@ -116,18 +116,7 @@ func (c *Client) EigenTrustAlpha() (float64, error) {
 //
 // Returns (false, nil) if config key is not found in the contract.
 func (c *Client) HomomorphicHashDisabled() (bool, error) {
-	const defaultValue = false
-
-	hashingDisabled, err := c.readBoolConfig(homomorphicHashingDisabledKey)
-	if err != nil {
-		if errors.Is(err, ErrConfigNotFound) {
-			return defaultValue, nil
-		}
-
-		return false, fmt.Errorf("(%T) could not get homomorphic hash state: %w", c, err)
-	}
-
-	return hashingDisabled, nil
+	return c.readBoolConfig(homomorphicHashingDisabledKey)
 }
 
 // InnerRingCandidateFee returns global configuration value of fee paid by
@@ -172,10 +161,16 @@ func (c *Client) readStringConfig(key string) (string, error) {
 	return v.(string), nil
 }
 
+// reads boolean value by the given key from the NeoFS network configuration
+// stored in the Sidechain. Returns false if key is not presented.
 func (c *Client) readBoolConfig(key string) (bool, error) {
 	v, err := c.config([]byte(key), BoolAssert)
 	if err != nil {
-		return false, err
+		if errors.Is(err, ErrConfigNotFound) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("read boolean configuration value %s from the Sidechain: %w", key, err)
 	}
 
 	// BoolAssert is guaranteed to return bool if the error is nil.
