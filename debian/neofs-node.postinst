@@ -20,7 +20,7 @@ case "$1" in
     configure)
         id -u neofs-ir &>/dev/null || useradd -s /usr/sbin/nologin --system -M -U -c "NeoFS InnerRing node" neofs-ir
         id -u neofs-storage &>/dev/null || useradd -s /usr/sbin/nologin --system -M -U -c "NeoFS Storage node" neofs-storage
-        for USERPART in ir storage
+        for NAMEPART in ir storage
         do
             for DIRPART in /var/lib/neofs /etc/neofs
             do
