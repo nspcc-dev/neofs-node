@@ -12,10 +12,16 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
+// TODO: enum can become redundant after neofs-contract#270
+const (
+	_ int8 = iota
+	stateOnline
+)
+
 type UpdatePeer struct {
 	publicKey *keys.PublicKey
 
-	online bool
+	state int8 // state enum value
 
 	// For notary notifications only.
 	// Contains raw transactions of notary request.
@@ -26,7 +32,7 @@ type UpdatePeer struct {
 func (UpdatePeer) MorphEvent() {}
 
 func (s UpdatePeer) Online() bool {
-	return s.online
+	return s.state == stateOnline
 }
 
 func (s UpdatePeer) PublicKey() *keys.PublicKey {
@@ -78,7 +84,7 @@ func ParseUpdatePeer(e *state.ContainedNotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("unsupported node state %d", st)
 	case int64(netmap.OfflineState):
 	case int64(netmap.OnlineState):
-		ev.online = true
+		ev.state = stateOnline
 	}
 
 	return ev, nil

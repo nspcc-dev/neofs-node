@@ -51,7 +51,7 @@ func TestParseUpdatePeer(t *testing.T) {
 
 		require.Equal(t, UpdatePeer{
 			publicKey: publicKey,
-			online:    true,
+			state:     stateOnline,
 		}, ev)
 	})
 }

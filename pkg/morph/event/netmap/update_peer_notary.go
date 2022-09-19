@@ -66,7 +66,7 @@ func ParseUpdatePeerNotary(ne event.NotaryEvent) (event.Event, error) {
 				return nil, fmt.Errorf("unsupported node state %d", err)
 			case v2netmap.Offline:
 			case v2netmap.Online:
-				ev.online = true
+				ev.state = stateOnline
 			}
 
 			fieldNum++
