@@ -11,6 +11,7 @@ import (
 const (
 	stateOffline int8 = iota
 	stateOnline
+	stateMaintenance
 )
 
 // UpdatePeerPrm groups parameters of UpdatePeerState operation.
@@ -34,6 +35,13 @@ func (u *UpdatePeerPrm) SetOnline() {
 	u.state = stateOnline
 }
 
+// SetMaintenance marks node to be switched into "maintenance" state.
+//
+// Zero UpdatePeerPrm marks node as "offline".
+func (u *UpdatePeerPrm) SetMaintenance() {
+	u.state = stateMaintenance
+}
+
 // UpdatePeerState changes peer status through Netmap contract call.
 func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 	method := updateStateMethod
@@ -54,6 +62,8 @@ func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 		// already set above
 	case stateOnline:
 		state = netmap.OnlineState
+	case stateMaintenance:
+		state = netmap.OfflineState + 1 // FIXME: use named constant after neofs-contract#269
 	}
 
 	prm := client.InvokePrm{}
